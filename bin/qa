@@ -12,6 +12,9 @@
 # phpUnitQuickTests=0 ./bin/qa
 
 bashSource="${BASH_SOURCE[0]}"
+
+binDir="$(dirname $bashSource)"
+
 while [ -h "$bashSource" ]; do # resolve $bashSource until the file is no longer a symlink
   qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
   bashSource="$(readlink "$bashSource")"

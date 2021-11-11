@@ -9,7 +9,7 @@ function runInfection(){
     if [[ "0" == "${phpunitFailedOnlyFiltered:-0}" ]]
     then
         # Don't run infection with xdebug
-         phpNoXdebug -f ./bin/infection \
+         phpNoXdebug -f "$binDir"/infection \
             "${extraArgs[@]}" \
             --coverage=$varDir/phpunit_logs \
             --threads=${infectionThreads} \
@@ -18,7 +18,7 @@ function runInfection(){
             --min-covered-msi=${infectionCoveredCodeMSI} \
             --log-verbosity=all
     else
-        ${phpBinPath} -f ./bin/infection \
+        ${phpBinPath} -f "$binDir"/infection \
             "${extraArgs[@]}" \
             --threads=${infectionThreads} \
             --configuration=${infectionConfig} \

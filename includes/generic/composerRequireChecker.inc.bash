@@ -4,7 +4,7 @@ composerRequireCheckExitCode=99
 while (( composerRequireCheckExitCode > 0 ))
 do
     set +e
-    phpNoXdebug ./bin/composer-require-checker check --config-file="${composerRequireCheckerConfig}" -- "${projectRoot}/composer.json";
+    phpNoXdebug "$binDir"/composer-require-checker check --config-file="${composerRequireCheckerConfig}" -- "${projectRoot}/composer.json";
     composerRequireCheckExitCode=$?
     set -e
     if (( $composerRequireCheckExitCode > 0 ))
