@@ -183,7 +183,7 @@ final class LinksChecker
         $context = stream_context_create(
             [
                 'http' => [
-                    'method' => 'HEAD',
+                    'method' => 'GET',
                     'protocol_version' => 1.1,
                     'header' => [
                         'Connection: close',
