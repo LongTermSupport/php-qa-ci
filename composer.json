@@ -1,8 +1,48 @@
 {
   "name": "lts/php-qa-ci",
-  "license": "MIT",
   "type": "project",
   "description": "Simple PHP QA pipeline and scripts. Largely just a collection of dependencies with configuration and scripts to run them together",
+  "license": "MIT",
+  "require": {
+    "php": "^8.0",
+    "ext-json": "*",
+    "ext-tokenizer": "*",
+    "ergebnis/composer-normalize": "^2.15",
+    "friendsofphp/php-cs-fixer": "@stable",
+    "funkyproject/reflection-file": "@stable",
+    "infection/infection": "@stable",
+    "maglnet/composer-require-checker": "@stable",
+    "php-parallel-lint/php-console-color": "@stable",
+    "php-parallel-lint/php-parallel-lint": "@stable",
+    "phploc/phploc": "@stable",
+    "phpstan/extension-installer": "@stable",
+    "phpstan/phpstan": "@stable",
+    "phpstan/phpstan-strict-rules": "@stable",
+    "phpunit/phpunit": "@stable",
+    "squizlabs/php_codesniffer": "@stable",
+    "thecodingmachine/safe": "@stable"
+  },
+  "require-dev": {
+    "phpstan/phpstan-phpunit": "@stable",
+    "rector/rector": "^0.12.3",
+    "roave/security-advisories": "dev-master"
+  },
+  "suggest": {
+    "nunomaduro/larastan": "Laravel specific checks (PHPStan Wrapper)",
+    "phpstan/phpstan-deprecation-rules": "Checks for deprecated functions and methods",
+    "phpstan/phpstan-doctrine": "Adds checks for Doctrine",
+    "phpstan/phpstan-mockery": "Prevents Mockery from failing on Stan",
+    "phpstan/phpstan-phpunit": "Adds checks for PHPUnit tests",
+    "phpstan/phpstan-symfony": "Symfony specific checks",
+    "sllh/composer-versions-check": "To be brought back in when there is a PHP8 version..."
+  },
+  "config": {
+    "bin-dir": "bin",
+    "optimize-autoloader": true,
+    "preferred-install": {
+      "*": "dist"
+    }
+  },
   "autoload": {
     "psr-4": {
       "LTS\\PHPQA\\": [
@@ -17,50 +57,11 @@
       ]
     }
   },
-  "require": {
-    "php": "^8.0",
-    "ext-json": "*",
-    "ext-tokenizer": "*",
-    "phpunit/phpunit": "@stable",
-    "php-parallel-lint/php-console-color": "@stable",
-    "php-parallel-lint/php-parallel-lint": "@stable",
-    "phploc/phploc": "@stable",
-    "phpstan/phpstan": "@stable",
-    "squizlabs/php_codesniffer": "@stable",
-    "phpstan/phpstan-strict-rules": "@stable",
-    "infection/infection": "@stable",
-    "funkyproject/reflection-file": "@stable",
-    "maglnet/composer-require-checker": "@stable",
-    "phpstan/extension-installer": "@stable",
-    "friendsofphp/php-cs-fixer": "@stable",
-    "thecodingmachine/safe": "@stable"
-  },
-  "require-dev": {
-    "roave/security-advisories": "dev-master",
-    "phpstan/phpstan-phpunit": "@stable",
-    "rector/rector": "^0.12.3"
-  },
-  "suggest": {
-    "phpstan/phpstan-phpunit": "Adds checks for PHPUnit tests",
-    "phpstan/phpstan-mockery": "Prevents Mockery from failing on Stan",
-    "phpstan/phpstan-doctrine": "Adds checks for Doctrine",
-    "phpstan/phpstan-deprecation-rules": "Checks for deprecated functions and methods",
-    "phpstan/phpstan-symfony": "Symfony specific checks",
-    "nunomaduro/larastan": "Laravel specific checks (PHPStan Wrapper)",
-    "sllh/composer-versions-check": "To be brought back in when there is a PHP8 version..."
-  },
+  "minimum-stability": "stable",
   "bin": [
-    "bin/qa",
     "bin/mdlinks",
+    "bin/phpunit-check-annotation",
     "bin/psr4-validate",
-    "bin/phpunit-check-annotation"
-  ],
-  "config": {
-    "bin-dir": "bin",
-    "preferred-install": {
-      "*": "dist"
-    },
-    "optimize-autoloader": true
-  },
-  "minimum-stability": "stable"
+    "bin/qa"
+  ]
 }
