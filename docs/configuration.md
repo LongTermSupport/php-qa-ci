@@ -62,7 +62,6 @@ Each platform folder contains the configuration files for that platform. Where i
 
 PHPQA's [configDefaults/generic](./../configDefaults/generic) folder contains a config file for each tool run by phpqa. At the moment this is
 
-- [phpmd/ruleset.xml](./../configDefaults/generic/phpmd/ruleset.xml)
 - [infection.json](./../configDefaults/generic/infection.json)
 - [phpstan.neon](./../configDefaults/generic/phpstan.neon)
 - [phpunit.xml](./../configDefaults/generic/phpunit.xml)
@@ -99,22 +98,6 @@ cp vendor/edmondscommerce/phpqa/configDefaults/${platform}/phpstan.neon qaConfig
 
 #Edit the config
 vim qaConfig/phpstan.neon
-```
-
-For PHP Mess Detector, we would do this:
-
-```bash
-#Enter your project root
-cd /my/project/root
-
-#Make your config override directory
-mkdir -p qaConfig
-
-#Copy the phpmd folder as a whole
-platform="generic" # See vendor/edmondscommerce/phpqa/configDefaults/ for options
-cp vendor/edmondscommerce/phpqa/configDefaults/${platform}/phpmd/ qaConfig/ -r
-
-
 ```
 
 ### Global Configuration Override

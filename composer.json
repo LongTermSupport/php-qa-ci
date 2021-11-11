@@ -25,7 +25,6 @@
     "php-parallel-lint/php-console-color": "@stable",
     "php-parallel-lint/php-parallel-lint": "@stable",
     "phploc/phploc": "@stable",
-    "phpmd/phpmd": "dev-master@dev",
     "phpstan/phpstan": "@stable",
     "squizlabs/php_codesniffer": "@stable",
     "phpstan/phpstan-strict-rules": "@stable",

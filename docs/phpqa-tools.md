@@ -36,7 +36,7 @@ For each tool we describe:
 - the link to the generic tool
 - tool specific configuration and other notes
 
-### 1. PSR4 Validation
+### PSR4 Validation
 [PSR-4 validation Tool](../includes/generic/psr4Validate.inc.bash)
 
 Checks for code whose namespaces don't comply with the PSR-4 standard
@@ -51,20 +51,20 @@ list of valid regex including a valid regex delimiter. For example:
 #tests/assets/.*?asset#
 ```
 
-### 2. Composer Check For Issues
+### Composer Check For Issues
 
 [Composer Checks Tool](../includes/generic/composerChecks.inc.bash)
 
 - Runs a diagnose on composer to make sure it's all good
 - Dumps the autoloader to ensure any recent code changes will not cause any autoloading issues
 
-### 3. Strict Types Enforcing
+### Strict Types Enforcing
 
 [PHP7 Strict Types Tool](../includes/generic/phpStrictTypes.inc.bash)
 
 Checks for files that do not have strict types defined and allows you to fix them
 
-### 4. PHP Parallel Lint
+### PHP Parallel Lint
 
 [PHP Lint Tool](../includes/generic/phpLint.inc.bash)
 
@@ -72,7 +72,7 @@ Very fast PHP linting process. Checks for syntax errors in your PHP files
 
 See the [PHP Parallel Lint project page](https://github.com/JakubOnderka/PHP-Parallel-Lint) for more information.
 
-### 5. PHPStan
+### PHPStan
 
 [PHPStan Tool](../includes/generic/phpstan.inc.bash)
 
@@ -82,7 +82,7 @@ Please see the [PHPQA PHPStan docs](./tools/phpstan.md) for full details on how 
 
 See the [PHPStan project page](https://github.com/phpstan/phpstan) for more information about PHPStan in general
 
-### 6. PHPUnit
+### PHPUnit
 
 [PHPUnit Tool](../includes/generic/phpunit.inc.bash)
 
@@ -92,7 +92,7 @@ Please see the [PHPQA PHPUnit docs](./tools/phpunit.md) for full details on how 
 
 See the [PHPUnit docs](https://phpunit.readthedocs.io/) for full documentation about writing PHPUnit tests and using the PHPUnit tool.
 
-### 7. Infection
+### Infection
 
 [Infection Tool](./../includes/generic/infection.inc.bash)
 
@@ -104,17 +104,7 @@ Please see the [PHPQA Infection docs](./tools/infection.md) for full details on 
 
 Please see the main [Infection docs](https://infection.github.io/guide/) for full details on Infection.
 
-### 8. PHP Mess Detector (PHPMD)
-
-[PHP Mess Detector Tool](../includes/generic/messDetector.inc.bash)
- 
-PHPMD Looks for messy, complex and otherwise problematic code.
-
-Please see the [PHPQA PHPMD docs](./tools/phpmd.md) for full details on how to work with PHPMD in your PHPQA project
-
-[PHPMD homepage](https://phpmd.org/)
-
-### 9. Markdown Links Checker
+### Markdown Links Checker
 
 [Markdown Links Checker Tool](../includes/generic/markdownLinks.inc.bash)
 
@@ -126,7 +116,7 @@ For each link that it finds, it will ensure that the link target is valid. It ha
 
 If any broken links are found, it will then report on these and fail the tool. You can fix the links and retry to the tool until it passes.
 
-### 10. Uncommited Changes Check
+### Uncommited Changes Check
 
 [Uncommited Changes Check](./../includes/functions.inc.bash#L92)
 
@@ -136,7 +126,7 @@ The reason for this is that tools run after this step will actively update the p
 
 There are two ways for this check to be bypassed:
 
-#### 1. CI Mode
+#### CI Mode
 ```bash
 export CI=true
 ./bin/qa
@@ -145,7 +135,7 @@ export CI=true
 If this is a CI pipeline, then it does not check for uncommitted changes.
 
 
-#### 2. skipUncommittedChangesCheck Environment Variable
+#### skipUncommittedChangesCheck Environment Variable
 
 If you never want this check, you can export the `skipUncommittedChangesCheck` environment variable
 
@@ -159,7 +149,7 @@ export skipUncommittedChangesCheck=1
 " >> qaConfig/qaConfig.inc.bash
 ```
 
-### 11. Beautifier and Fixer
+### Beautifier and Fixer
 
 [PHP Code Beautifier and Fixer Tool](../includes/generic/beautifierFixer.inc.bash)
 
@@ -169,7 +159,7 @@ Please see the [PHPQA Coding Standards docs](./coding-standards.md) for more inf
 
 Please see the [PHPCS Docs](https://github.com/squizlabs/PHP_CodeSniffer/wiki) for more information about PHP Code Sniffer in general
 
-### 12. PHP Code Sniffer
+### PHP Code Sniffer
 
 [PHP CodeSniffer Tool](../includes/generic/codeSniffer.inc.bash)
 

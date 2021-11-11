@@ -10,12 +10,5 @@ else
     runTool phpstan
 fi
 
-echo "
-
-Running PHP Mess Detector
--------------------------
-"
-echo " --- MESS DETECTOR SKIPPED - CURRENTLY BROKEN IN PHP8 ---"
-#runTool messDetector
 
 
