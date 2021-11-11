@@ -90,7 +90,7 @@ This step runs your [PHPUnit](https://github.com/sebastianbergmann/phpunit) test
 
 Please see the [PHPQA PHPUnit docs](./tools/phpunit.md) for full details on how to work with PHPUnit in your project.
 
-See the [PHPUnit docs](https://phpunit.readthedocs.io/en/7.1/) for full documentation about writing PHPUnit tests and using the PHPUnit tool.
+See the [PHPUnit docs](https://phpunit.readthedocs.io/) for full documentation about writing PHPUnit tests and using the PHPUnit tool.
 
 ### 7. Infection
 

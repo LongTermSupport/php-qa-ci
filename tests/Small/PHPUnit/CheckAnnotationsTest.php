@@ -48,8 +48,8 @@ final class CheckAnnotationsTest extends TestCase
     public function itReturnsNoErrorsIfItsAllGood(): void
     {
         $pathToTestsDirectory = __DIR__ . '/../../assets/phpunitAnnotations/projectAllGood/tests';
-        $expected             = [];
-        $actual               = $this->checker->main($pathToTestsDirectory);
+        $expected = [];
+        $actual = $this->checker->main($pathToTestsDirectory);
         self::assertSame($expected, $actual);
     }
 
@@ -62,18 +62,18 @@ final class CheckAnnotationsTest extends TestCase
     {
         $pathToTestsDirectory = __DIR__ . '/../../assets/phpunitAnnotations/projectMissingSmall/tests';
         /* CS Fixer will add the tag automatically if the file is run through QA */
-        $testFile      = $this->getSmallTestWithNoAnnotation();
+        $testFile = $this->getSmallTestWithNoAnnotation();
         $smallTestName = $pathToTestsDirectory . '/Small/SomethingTest.php';
-        \file_put_contents($smallTestName, $testFile);
+        file_put_contents($smallTestName, $testFile);
 
         $expected = [
             'SomethingTest.php' => [
                 'Failed finding @small for method: itDoesSomething',
             ],
         ];
-        $actual   = $this->checker->main($pathToTestsDirectory);
+        $actual = $this->checker->main($pathToTestsDirectory);
         /* Clean up the file once we are finished with it */
-        \unlink($smallTestName);
+        unlink($smallTestName);
         self::assertSame($expected, $actual);
     }
 
@@ -85,12 +85,12 @@ final class CheckAnnotationsTest extends TestCase
     public function itFindsMissingMediumAnnotations(): void
     {
         $pathToTestsDirectory = __DIR__ . '/../../assets/phpunitAnnotations/projectMissingMedium/tests';
-        $expected             = [
+        $expected = [
             'SomethingTest.php' => [
                 'Failed finding @medium for method: itDoesSomething',
             ],
         ];
-        $actual               = $this->checker->main($pathToTestsDirectory);
+        $actual = $this->checker->main($pathToTestsDirectory);
         self::assertSame($expected, $actual);
     }
 
@@ -102,13 +102,13 @@ final class CheckAnnotationsTest extends TestCase
     public function itFindsMissingLargeAnnotations(): void
     {
         $pathToTestsDirectory = __DIR__ . '/../../assets/phpunitAnnotations/projectMissingLarge/tests';
-        $expected             = [
+        $expected = [
             'SomethingTest.php' => [
                 'Failed finding @large for method: itDoesSomething',
                 'Failed finding @large for method: testSomethingHappens',
             ],
         ];
-        $actual               = $this->checker->main($pathToTestsDirectory);
+        $actual = $this->checker->main($pathToTestsDirectory);
         self::assertSame($expected, $actual);
     }
 
@@ -120,8 +120,8 @@ final class CheckAnnotationsTest extends TestCase
     public function itReturnsNoErrorsIfNotApplicableToProject(): void
     {
         $pathToTestsDirectory = __DIR__ . '/../../assets/phpunitAnnotations/projectNotApplicable/tests';
-        $expected             = [];
-        $actual               = $this->checker->main($pathToTestsDirectory);
+        $expected = [];
+        $actual = $this->checker->main($pathToTestsDirectory);
         self::assertSame($expected, $actual);
     }
 

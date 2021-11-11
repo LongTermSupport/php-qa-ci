@@ -19,41 +19,29 @@ use SplFileInfo;
  */
 final class CheckAnnotations
 {
-    /**
-     * @var string
-     */
-    private $largePath;
-    /**
-     * @var string
-     */
-    private $mediumPath;
+    private string $largePath;
+    private string $mediumPath;
+    private string $smallPath;
 
-    /**
-     * @var string
-     */
-    private $smallPath;
-
-    /**
-     * @var array[]
-     */
-    private $errors = [];
+    /** @var array<string,array<int,string>> */
+    private array $errors = [];
 
     /**
      * Check the Large and Medium directories, if they exist,
      * and then assert that all tests have the correct annotation.
      *
-     * @return array[] of errors
+     * @return array<string,array<int,string>> of errors
      */
     public function main(string $pathToTestsDirectory): array
     {
-        if (!\is_dir($pathToTestsDirectory)) {
+        if (!is_dir($pathToTestsDirectory)) {
             throw new InvalidArgumentException(
                 '$pathToTestsDirectory "' . $pathToTestsDirectory . '" does not exist"'
             );
         }
-        $this->largePath  = $pathToTestsDirectory . '/Large';
+        $this->largePath = $pathToTestsDirectory . '/Large';
         $this->mediumPath = $pathToTestsDirectory . '/Medium';
-        $this->smallPath  = $pathToTestsDirectory . '/Small';
+        $this->smallPath = $pathToTestsDirectory . '/Small';
         $this->checkLarge();
         $this->checkMedium();
         $this->checkSmall();
@@ -63,7 +51,7 @@ final class CheckAnnotations
 
     private function checkLarge(): void
     {
-        if (!\is_dir($this->largePath)) {
+        if (!is_dir($this->largePath)) {
             return;
         }
         $this->checkDirectory($this->largePath, 'large');
@@ -72,7 +60,7 @@ final class CheckAnnotations
     private function checkDirectory(string $path, string $annotation): void
     {
         foreach ($this->yieldTestFilesInPath($path) as $fileInfo) {
-            if (\strpos($fileInfo->getFilename(), 'Test.php') === false) {
+            if (false === strpos($fileInfo->getFilename(), 'Test.php')) {
                 continue;
             }
             $this->checkFile($fileInfo, $annotation);
@@ -85,7 +73,7 @@ final class CheckAnnotations
     private function yieldTestFilesInPath(string $path): Generator
     {
         $recursiveDirectoryIterator = new RecursiveDirectoryIterator($path);
-        $iterator                   = new RecursiveIteratorIterator($recursiveDirectoryIterator);
+        $iterator = new RecursiveIteratorIterator($recursiveDirectoryIterator);
         foreach ($iterator as $fileInfo) {
             yield $fileInfo;
         }
@@ -93,13 +81,13 @@ final class CheckAnnotations
 
     private function checkFile(SplFileInfo $fileInfo, string $annotation): void
     {
-        $contents = (string)\file_get_contents($fileInfo->getPathname());
-        if ($this->isAnnotationInClassDocBlock($contents, $annotation) === true) {
+        $contents = (string)file_get_contents($fileInfo->getPathname());
+        if (true === $this->isAnnotationInClassDocBlock($contents, $annotation)) {
             return;
         }
 
         $matches = [];
-        \preg_match_all(
+        preg_match_all(
             <<<REGEXP
                 %(?<docblock>/\\*(?:[^*]|\n|(?:\\*(?:[^/]|\n)))*\\*/|\n)\\s+?public\\s+?function\\s+?(?<method>.+?)\\(%
                 REGEXP
@@ -107,7 +95,7 @@ final class CheckAnnotations
             $contents,
             $matches
         );
-        if ($matches[0] === '') {
+        if ('' === $matches[0]) {
             $this->errors[$fileInfo->getFilename()][] = 'Failed finding any doc blocks';
 
             return;
@@ -115,11 +103,11 @@ final class CheckAnnotations
         foreach ($matches['method'] as $key => $method) {
             $docblock = $matches['docblock'][$key];
             /* Found the annotation - continue */
-            if (\strpos($docblock, '@' . $annotation) !== false) {
+            if (false !== strpos($docblock, '@' . $annotation)) {
                 continue;
             }
             /* No @test annotation found & method not beginning test =  not a test, so continue */
-            if (\strpos($docblock, '@test') === false && \strpos($method, 'test') === false) {
+            if (false === strpos($docblock, '@test') && false === strpos($method, 'test')) {
                 continue;
             }
             $this->errors[$fileInfo->getFilename()][] =
@@ -135,7 +123,7 @@ final class CheckAnnotations
     private function isAnnotationInClassDocBlock(string $fileContent, string $annotation): bool
     {
         $matches = [];
-        \preg_match_all(
+        preg_match_all(
             <<<REGEXP
                 %(?<docblock>/\\*(?:[^*]|\n|(?:\\*(?:[^/]|\n)))*\\*/)\\s+?(final |)class\\s+?(?<classname>.+?)\\s+?extends%
                 REGEXP
@@ -143,17 +131,17 @@ final class CheckAnnotations
             $fileContent,
             $matches
         );
-        if (\count($matches['docblock']) !== 1) {
+        if (1 !== \count($matches['docblock'])) {
             return false;
         }
-        $docBlock = \array_shift($matches['docblock']);
+        $docBlock = array_shift($matches['docblock']);
 
-        return \strpos($docBlock, '@' . $annotation) !== false;
+        return false !== strpos($docBlock, '@' . $annotation);
     }
 
     private function checkMedium(): void
     {
-        if (!\is_dir($this->mediumPath)) {
+        if (!is_dir($this->mediumPath)) {
             return;
         }
         $this->checkDirectory($this->mediumPath, 'medium');
@@ -161,7 +149,7 @@ final class CheckAnnotations
 
     private function checkSmall(): void
     {
-        if (!\is_dir($this->smallPath)) {
+        if (!is_dir($this->smallPath)) {
             return;
         }
         $this->checkDirectory($this->smallPath, 'small');

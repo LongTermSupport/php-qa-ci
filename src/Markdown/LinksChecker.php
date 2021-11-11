@@ -21,19 +21,19 @@ final class LinksChecker
      */
     public static function main(string $projectRootDirectory = null): int
     {
-        $return               = 0;
-        $projectRootDirectory = $projectRootDirectory ?? Helper::getProjectRootDirectory();
-        $files                = static::getFiles($projectRootDirectory);
+        $return = 0;
+        $projectRootDirectory ??= Helper::getProjectRootDirectory();
+        $files = static::getFiles($projectRootDirectory);
         foreach ($files as $file) {
-            $relativeFile = \str_replace($projectRootDirectory, '', $file);
-            $title        = "\n{$relativeFile}\n" . \str_repeat('-', \strlen($relativeFile)) . "\n";
-            $errors       = [];
-            $links        = static::getLinks($file);
+            $relativeFile = str_replace($projectRootDirectory, '', $file);
+            $title = "\n{$relativeFile}\n" . str_repeat('-', \strlen($relativeFile)) . "\n";
+            $errors = [];
+            $links = static::getLinks($file);
             foreach ($links as $link) {
                 static::checkLink($projectRootDirectory, $link, $file, $errors, $return);
             }
-            if ($errors !== []) {
-                echo $title . \implode('', $errors);
+            if ([] !== $errors) {
+                echo $title . implode('', $errors);
             }
         }
 
@@ -46,7 +46,7 @@ final class LinksChecker
      */
     private static function getFiles(string $projectRootDirectory): array
     {
-        $files   = self::getDocsFiles($projectRootDirectory);
+        $files = self::getDocsFiles($projectRootDirectory);
         $files[] = self::getMainReadme($projectRootDirectory);
 
         return $files;
@@ -60,19 +60,20 @@ final class LinksChecker
     private static function getDocsFiles(string $projectRootDirectory): array
     {
         $files = [];
-        $dir   = $projectRootDirectory . '/docs';
-        if (!\is_dir($dir)) {
+        $dir = $projectRootDirectory . '/docs';
+        if (!is_dir($dir)) {
             return $files;
         }
         $directory = new RecursiveDirectoryIterator($dir);
         $recursive = new RecursiveIteratorIterator($directory);
-        $regex     = new RegexIterator(
+        /** @var string[] $regex */
+        $regex = new RegexIterator(
             $recursive,
             '/^.+\.md/i',
             RecursiveRegexIterator::GET_MATCH
         );
         foreach ($regex as $file) {
-            if ($file[0] !== '') {
+            if ('' !== $file[0]) {
                 $files[] = $file[0];
             }
         }
@@ -86,7 +87,7 @@ final class LinksChecker
     private static function getMainReadme(string $projectRootDirectory): string
     {
         $path = $projectRootDirectory . '/README.md';
-        if (!\is_file($path)) {
+        if (!is_file($path)) {
             throw new RuntimeException(
                 "\n\nYou have no README.md file in your project"
                 . "\n\nAs the bear minimum you need to have this file to pass QA"
@@ -103,18 +104,18 @@ final class LinksChecker
      */
     private static function getLinks(string $file): array
     {
-        $links    = [];
-        $contents = (string)\file_get_contents($file);
-        $matches  = null;
+        $links = [];
+        $contents = (string)file_get_contents($file);
+        $matches = null;
         if (
-            \preg_match_all(
+            false !== preg_match_all(
                 '/\[(.+?)\].*?\((.+?)\)/',
                 $contents,
                 $matches,
                 PREG_SET_ORDER
-            ) !== false
+            )
         ) {
-            $links = \array_merge($links, $matches);
+            $links = array_merge($links, $matches);
         }
 
         return $links;
@@ -133,32 +134,32 @@ final class LinksChecker
         array &$errors,
         int &$return
     ): void {
-        $path = \trim($link[2]);
-        if (\strpos($path, '#') === 0) {
+        $path = trim($link[2]);
+        if (0 === strpos($path, '#')) {
             return;
         }
-        if (\preg_match('%^(http|//)%', $path) === 1) {
+        if (1 === preg_match('%^(http|//)%', $path)) {
             self::validateHttpLink($link, $errors, $return);
 
             return;
         }
 
-        $path  = \current(\explode('#', $path, 2));
-        $start = \rtrim($projectRootDirectory, '/');
-        if ($path[0] !== '/' || \strpos($path, './') === 0) {
-            $relativeSubdirs = \preg_replace(
+        $path = current(explode('#', $path, 2));
+        $start = rtrim($projectRootDirectory, '/');
+        if ('/' !== $path[0] || 0 === strpos($path, './')) {
+            $relativeSubdirs = preg_replace(
                 '%^' . $projectRootDirectory . '%',
                 '',
                 \dirname($file)
             );
-            if ($relativeSubdirs !== null) {
-                $start .= '/' . \rtrim($relativeSubdirs, '/');
+            if (null !== $relativeSubdirs) {
+                $start .= '/' . rtrim($relativeSubdirs, '/');
             }
         }
-        $realpath = \realpath($start . '/' . $path);
-        if ($realpath === false) {
-            $errors[] = \sprintf("\nBad link for \"%s\" to \"%s\"\n", $link[1], $link[2]);
-            $return   = 1;
+        $realpath = realpath($start . '/' . $path);
+        if (false === $realpath) {
+            $errors[] = sprintf("\nBad link for \"%s\" to \"%s\"\n", $link[1], $link[2]);
+            $return = 1;
         }
     }
 
@@ -169,35 +170,35 @@ final class LinksChecker
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {
-        static $checked        = [];
-        [, $anchor, $href]     = $link;
-        $hashPos               = (int)\strpos($href, '#');
+        static $checked = [];
+        [, $anchor, $href] = $link;
+        $hashPos = (int)strpos($href, '#');
         if ($hashPos > 0) {
-            $href = \substr($href, 0, $hashPos);
+            $href = substr($href, 0, $hashPos);
         }
         if (isset($checked[$href])) {
             return;
         }
         $checked[$href] = true;
-        $context        = \stream_context_create(
+        $context = stream_context_create(
             [
                 'http' => [
-                    'method'           => 'HEAD',
+                    'method' => 'HEAD',
                     'protocol_version' => 1.1,
-                    'header'           => [
+                    'header' => [
                         'Connection: close',
                     ],
                 ],
             ]
         );
-        $result         = null;
+        $result = null;
         try {
-            $headers = \get_headers($href, false, $context);
-            if ($headers === false) {
+            $headers = get_headers($href, false, $context);
+            if (false === $headers) {
                 throw new RuntimeException('Failed getting headers for href ' . $href);
             }
             foreach ($headers as $header) {
-                if (\strpos($header, ' 200 ') !== false) {
+                if (false !== strpos($header, ' 200 ')) {
                     //$time = round(microtime(true) - $start, 2);
                     //fwrite(STDERR, "\n".'OK ('.$time.' seconds): '.$href);
 
@@ -205,16 +206,20 @@ final class LinksChecker
                 }
             }
         } catch (Throwable $e) {
-            throw new RuntimeException('Unexpected error ' . $e->getMessage(), $e->getCode(), $e);
+            throw new RuntimeException(
+                'Unexpected error ' . $e->getMessage(),
+                (\is_int($e->getCode()) ? $e->getCode() : 0),
+                $e
+            );
         }
 
-        $errors[] = \sprintf(
+        $errors[] = sprintf(
             "\nBad link for \"%s\" to \"%s\"\nresult: %s\n",
             $anchor,
             $href,
-            \var_export($result, true)
+            var_export($result, true)
         );
-        $return   = 1;
+        $return = 1;
         //$time     = round(microtime(true) - $start, 2);
         //fwrite(STDERR, "\n".'Failed ('.$time.' seconds): '.$href);
     }

@@ -3,7 +3,7 @@ while ((csFixerExitCode > 1)); do
   set +e
   phpNoXdebug -f ./bin/php-cs-fixer -- \
     --config="$phpCsConfigPath" \
-    --cache-file="$phpCsCacheFile.$(echo $phpCsPathToCheck | md5sum -)" \
+    --cache-file="$phpCsCacheFile" \
     --allow-risky=yes \
     --show-progress=dots \
     -vvv \

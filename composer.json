@@ -18,8 +18,9 @@
     }
   },
   "require": {
-    "php": "^7.2|^8.0",
+    "php": "^8.0",
     "ext-json": "*",
+    "ext-tokenizer": "*",
     "phpunit/phpunit": "@stable",
     "php-parallel-lint/php-console-color": "@stable",
     "php-parallel-lint/php-parallel-lint": "@stable",
@@ -32,11 +33,13 @@
     "funkyproject/reflection-file": "@stable",
     "maglnet/composer-require-checker": "@stable",
     "phpstan/extension-installer": "@stable",
-    "friendsofphp/php-cs-fixer": "@stable"
+    "friendsofphp/php-cs-fixer": "@stable",
+    "thecodingmachine/safe": "@stable"
   },
   "require-dev": {
     "roave/security-advisories": "dev-master",
-    "phpstan/phpstan-phpunit": "^0.12"
+    "phpstan/phpstan-phpunit": "@stable",
+    "rector/rector": "^0.12.3"
   },
   "suggest": {
     "phpstan/phpstan-phpunit": "Adds checks for PHPUnit tests",

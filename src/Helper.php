@@ -19,22 +19,18 @@ final class Helper
     /**
      * @throws Exception
      *
-     * @return array[]
+     * @return array<int|string,mixed>
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
     public static function getComposerJsonDecoded(string $path = null): array
     {
-        $path     = $path ?? self::getProjectRootDirectory() . '/composer.json';
-        $contents = (string)\file_get_contents($path);
-        if ($contents === '') {
+        $path ??= self::getProjectRootDirectory() . '/composer.json';
+        $contents = \Safe\file_get_contents($path);
+        if ('' === $contents) {
             throw new RuntimeException('composer.json is empty');
         }
-        $decoded = \json_decode($contents, true);
-        if (\json_last_error() !== JSON_ERROR_NONE) {
-            throw new RuntimeException('Failed loading composer.json: ' . \json_last_error_msg());
-        }
-
-        return $decoded;
+        // @phpstan-ignore-next-line
+        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -46,8 +42,8 @@ final class Helper
      */
     public static function getProjectRootDirectory(): string
     {
-        if (self::$projectRootDirectory === null) {
-            $reflection                 = new ReflectionClass(ClassLoader::class);
+        if (null === self::$projectRootDirectory) {
+            $reflection = new ReflectionClass(ClassLoader::class);
             self::$projectRootDirectory = \dirname((string)$reflection->getFileName(), 3);
         }
 

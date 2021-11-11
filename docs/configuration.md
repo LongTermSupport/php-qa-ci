@@ -57,8 +57,6 @@ The bulk of the configuration is handled with configuration files which are sepa
 
 - [configDefaults/](./../configDefaults) contains subfolders specific to each platform
     - [generic/](./../configDefaults/generic) for config files not specific to any platform
-    - [magento2/](./../configDefaults/magento2) for config files specific to Magento 2
-    - [laravellumen/](./../configDefaults/laravellumen) for config files specific to Laravel or Lumen project
         
 Each platform folder contains the configuration files for that platform. Where if a file does not exist in the platform folder, the generic configuration file is used.
 

@@ -11,14 +11,14 @@
 # Run all PHPUnit tests:
 # phpUnitQuickTests=0 ./bin/qa
 
-SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
-  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-  SOURCE="$(readlink "$SOURCE")"
-  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+bashSource="${BASH_SOURCE[0]}"
+while [ -h "$bashSource" ]; do # resolve $bashSource until the file is no longer a symlink
+  qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
+  bashSource="$(readlink "$bashSource")"
+  [[ $bashSource != /* ]] && bashSource="$qaDir/$bashSource" # if $bashSource was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
-DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-cd $DIR;
+qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
+cd $qaDir;
 set -e
 set -u
 set -o pipefail
@@ -50,11 +50,11 @@ source ./../includes/functions.inc.bash
 CI=${CI:-'false'}
 
 # project root directory
-if [[ -d $DIR/../vendor ]]
+if [[ -d $qaDir/../vendor ]]
 then
-    projectRoot="$(readlink -f $DIR/../)"
+    projectRoot="$(readlink -f $qaDir/../)"
 else
-    projectRoot="$(readlink -f $DIR/../../../../)"
+    projectRoot="$(readlink -f $qaDir/../../../../)"
 fi
 
 # the path in the project to check for config

@@ -6,8 +6,8 @@ namespace EdmondsCommerce\PHPQA\Tests\Small;
 
 use EdmondsCommerce\PHPQA\Helper;
 use Exception;
+use JsonException;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 /**
  * Class HelperTest.
@@ -40,7 +40,7 @@ final class HelperTest extends TestCase
      */
     public function testItWillThrowExceptionForInvalidComposerJson(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(JsonException::class);
         Helper::getComposerJsonDecoded(__DIR__ . '/../assets/helper/invalid.composer.json');
     }
 
@@ -51,8 +51,8 @@ final class HelperTest extends TestCase
      */
     public function testGetProjectRoot(): void
     {
-        $expected = \realpath(__DIR__ . '/../../../phpqa/');
-        $actual   = Helper::getProjectRootDirectory();
+        $expected = realpath(__DIR__ . '/../../../phpqa/');
+        $actual = Helper::getProjectRootDirectory();
         self::assertSame($expected, $actual);
     }
 }

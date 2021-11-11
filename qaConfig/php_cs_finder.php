@@ -7,5 +7,10 @@ if (isset($GLOBALS['projectRoot'])) {
 
 return (new PhpCsFixer\Finder())
     ->in($projectRoot)
-    ->exclude('var')
+    ->exclude(
+        [
+            'var',
+            'tests/assets/psr4',
+        ]
+    )
 ;

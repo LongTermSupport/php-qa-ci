@@ -12,16 +12,6 @@ function detectPlatform() {
     return 0
   fi
 
-  if [[ -f $projectRoot/bin/magento ]]; then
-    echo $platformMagento2
-    return 0
-  fi
-
-  if [[ -f $projectRoot/artisan ]]; then
-    echo $platformLaravel
-    return 0
-  fi
-
   if [[ -f $projectRoot/symfony.lock ]]; then
     echo $platformSymfony
     return 0
