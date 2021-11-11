@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Markdown;
+namespace LTS\PHPQA\Markdown;
 
-use EdmondsCommerce\PHPQA\Helper;
 use Exception;
+use LTS\PHPQA\Helper;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RecursiveRegexIterator;

@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Tests\Small\PHPUnit;
+namespace LTS\PHPQA\Tests\Small\PHPUnit;
 
-use EdmondsCommerce\PHPQA\PHPUnit\CheckAnnotations;
 use InvalidArgumentException;
+use LTS\PHPQA\PHPUnit\CheckAnnotations;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Class CheckForLargeAndMediumAnnotationsTest.
  *
- * @coversDefaultClass \EdmondsCommerce\PHPQA\PHPUnit\CheckAnnotations
+ * @coversDefaultClass \LTS\PHPQA\PHPUnit\CheckAnnotations
  *
  * @internal
  *
@@ -42,7 +42,7 @@ final class CheckAnnotationsTest extends TestCase
 
     /**
      * @test
-     * @covers \EdmondsCommerce\PHPQA\PHPUnit\CheckAnnotations
+     * @covers \LTS\PHPQA\PHPUnit\CheckAnnotations
      * @small
      */
     public function itReturnsNoErrorsIfItsAllGood(): void
@@ -55,7 +55,7 @@ final class CheckAnnotationsTest extends TestCase
 
     /**
      * @test
-     * @covers \EdmondsCommerce\PHPQA\PHPUnit\CheckAnnotations
+     * @covers \LTS\PHPQA\PHPUnit\CheckAnnotations
      * @small
      */
     public function itFindsMissingSmallAnnotations(): void
@@ -79,7 +79,7 @@ final class CheckAnnotationsTest extends TestCase
 
     /**
      * @test
-     * @covers \EdmondsCommerce\PHPQA\PHPUnit\CheckAnnotations
+     * @covers \LTS\PHPQA\PHPUnit\CheckAnnotations
      * @small
      */
     public function itFindsMissingMediumAnnotations(): void
@@ -96,7 +96,7 @@ final class CheckAnnotationsTest extends TestCase
 
     /**
      * @test
-     * @covers \EdmondsCommerce\PHPQA\PHPUnit\CheckAnnotations
+     * @covers \LTS\PHPQA\PHPUnit\CheckAnnotations
      * @small
      */
     public function itFindsMissingLargeAnnotations(): void
@@ -114,7 +114,7 @@ final class CheckAnnotationsTest extends TestCase
 
     /**
      * @test
-     * @covers \EdmondsCommerce\PHPQA\PHPUnit\CheckAnnotations
+     * @covers \LTS\PHPQA\PHPUnit\CheckAnnotations
      * @small
      */
     public function itReturnsNoErrorsIfNotApplicableToProject(): void
@@ -141,7 +141,7 @@ final class CheckAnnotationsTest extends TestCase
 
             declare(strict_types=1);
 
-            namespace EdmondsCommerce\\PHPQA\\Tests\\assets\\phpunitAnnotations\\projectMissingSmall\tests\\Small;
+            namespace LTS\\PHPQA\\Tests\\assets\\phpunitAnnotations\\projectMissingSmall\tests\\Small;
 
             use PHPUnit\\Framework\\TestCase;
 

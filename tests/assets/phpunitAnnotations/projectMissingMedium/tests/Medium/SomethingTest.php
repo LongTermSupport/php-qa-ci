@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Tests\assets\phpunitAnnotations\projectMissingMedium\tests\Medium;
+namespace LTS\PHPQA\Tests\assets\phpunitAnnotations\projectMissingMedium\tests\Medium;
 
 use PHPUnit\Framework\TestCase;
 

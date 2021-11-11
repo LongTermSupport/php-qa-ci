@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Tests\assets\phpunitAnnotations\projectNotApplicable\tests;
+namespace LTS\PHPQA\Tests\assets\phpunitAnnotations\projectNotApplicable\tests;
 
 /**
  * @internal

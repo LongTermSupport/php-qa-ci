@@ -21,4 +21,4 @@ if (!$autoloadFileFound) {
     die(1);
 }
 
-die(\EdmondsCommerce\PHPQA\Markdown\LinksChecker::main());
+die(\LTS\PHPQA\Markdown\LinksChecker::main());

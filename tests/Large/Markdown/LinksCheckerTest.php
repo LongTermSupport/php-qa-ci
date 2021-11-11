@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Tests\Large\Markdown;
+namespace LTS\PHPQA\Tests\Large\Markdown;
 
-use EdmondsCommerce\PHPQA\Markdown\LinksChecker;
 use Exception;
+use LTS\PHPQA\Markdown\LinksChecker;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -13,7 +13,7 @@ use RuntimeException;
  * Class LinksCheckerTest.
  *
  * @SuppressWarnings(PHPMD.StaticAccess)
- * @coversDefaultClass \EdmondsCommerce\PHPQA\Markdown\LinksChecker
+ * @coversDefaultClass \LTS\PHPQA\Markdown\LinksChecker
  *
  * @internal
  *
@@ -24,7 +24,7 @@ final class LinksCheckerTest extends TestCase
     /**
      * @throws Exception
      * @SuppressWarnings(PHPMD.StaticAccess)
-     * @covers \EdmondsCommerce\PHPQA\Markdown\LinksChecker
+     * @covers \LTS\PHPQA\Markdown\LinksChecker
      */
     public function testInvalidProject(): void
     {
@@ -47,7 +47,7 @@ Bad link for "incorrect link" to "./foo.md"
     /**
      * @throws Exception
      * @SuppressWarnings(PHPMD.StaticAccess)
-     * @covers \EdmondsCommerce\PHPQA\Markdown\LinksChecker
+     * @covers \LTS\PHPQA\Markdown\LinksChecker
      */
     public function testMainNoReadmeFile(): void
     {
@@ -57,7 +57,7 @@ Bad link for "incorrect link" to "./foo.md"
 
     /**
      * @throws Exception
-     * @covers \EdmondsCommerce\PHPQA\Markdown\LinksChecker
+     * @covers \LTS\PHPQA\Markdown\LinksChecker
      */
     public function testValidNoDocsFolder(): void
     {
@@ -68,7 +68,7 @@ Bad link for "incorrect link" to "./foo.md"
     }
 
     /**
-     * @covers \EdmondsCommerce\PHPQA\Markdown\LinksChecker
+     * @covers \LTS\PHPQA\Markdown\LinksChecker
      */
     public function testItHandlesNonFileLinks(): void
     {

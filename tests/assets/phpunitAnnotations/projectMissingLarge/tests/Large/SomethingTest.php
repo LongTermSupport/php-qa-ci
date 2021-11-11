@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Tests\assets\phpunitAnnotations\projectMissingSmall\tests\Small;
+namespace LTS\PHPQA\Tests\assets\phpunitAnnotations\projectMissingSmall\tests\Small;
 
 use PHPUnit\Framework\TestCase;
 

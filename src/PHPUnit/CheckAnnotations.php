@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\PHPUnit;
+namespace LTS\PHPQA\PHPUnit;
 
 use Generator;
 use InvalidArgumentException;

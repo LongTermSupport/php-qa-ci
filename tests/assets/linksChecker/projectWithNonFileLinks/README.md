@@ -1,6 +1,6 @@
 contains links to external resource and in page links
 
-[valid link](https://www.edmondscommerce.co.uk)
+[valid link](https://httpstat.us/200)
 
 [invalid link](https://httpstat.us/404);
 

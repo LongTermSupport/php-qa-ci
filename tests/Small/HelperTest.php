@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Tests\Small;
+namespace LTS\PHPQA\Tests\Small;
 
-use EdmondsCommerce\PHPQA\Helper;
 use Exception;
 use JsonException;
+use LTS\PHPQA\Helper;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Class HelperTest.
  *
  * @SuppressWarnings(PHPMD.StaticAccess)
- * @coversDefaultClass \EdmondsCommerce\PHPQA\Helper
+ * @coversDefaultClass \LTS\PHPQA\Helper
  *
  * @internal
  *

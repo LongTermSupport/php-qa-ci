@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA;
+namespace LTS\PHPQA;
 
 final class Constants
 {

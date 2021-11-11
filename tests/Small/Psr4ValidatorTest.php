@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace EdmondsCommerce\PHPQA\Tests\Small;
+namespace LTS\PHPQA\Tests\Small;
 
-use EdmondsCommerce\PHPQA\Helper;
-use EdmondsCommerce\PHPQA\Psr4Validator;
 use Exception;
+use LTS\PHPQA\Helper;
+use LTS\PHPQA\Psr4Validator;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Class Psr4ValidatorTest.
  *
  * @SuppressWarnings(PHPMD.StaticAccess)
- * @coversDefaultClass \EdmondsCommerce\PHPQA\Psr4Validator
+ * @coversDefaultClass \LTS\PHPQA\Psr4Validator
  *
  * @internal
  *
@@ -23,8 +23,8 @@ final class Psr4ValidatorTest extends TestCase
 {
     /**
      * @throws Exception
-     * @covers \EdmondsCommerce\PHPQA\Helper::getComposerJsonDecoded
-     * @covers \EdmondsCommerce\PHPQA\Psr4Validator
+     * @covers \LTS\PHPQA\Helper::getComposerJsonDecoded
+     * @covers \LTS\PHPQA\Psr4Validator
      * @small
      */
     public function testItFindsNoErrorsOnAValidProject(): void
@@ -46,8 +46,8 @@ final class Psr4ValidatorTest extends TestCase
 
     /**
      * @throws Exception
-     * @covers \EdmondsCommerce\PHPQA\Helper::getComposerJsonDecoded
-     * @covers \EdmondsCommerce\PHPQA\Psr4Validator
+     * @covers \LTS\PHPQA\Helper::getComposerJsonDecoded
+     * @covers \LTS\PHPQA\Psr4Validator
      * @small
      */
     public function testItCanHandleOddComposerConfigs(): void
@@ -69,8 +69,8 @@ final class Psr4ValidatorTest extends TestCase
 
     /**
      * @throws Exception
-     * @covers \EdmondsCommerce\PHPQA\Helper::getComposerJsonDecoded
-     * @covers \EdmondsCommerce\PHPQA\Psr4Validator
+     * @covers \LTS\PHPQA\Helper::getComposerJsonDecoded
+     * @covers \LTS\PHPQA\Psr4Validator
      * @small
      */
     public function testItFindsErrorsAndThrowsAnExceptionOnAnInvalidProject(): void

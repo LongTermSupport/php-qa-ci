@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
-use EdmondsCommerce\PHPQA\Helper;
+use LTS\PHPQA\Helper;
 
 $files = [
     __DIR__.'/../../../autoload.php',
@@ -27,7 +27,7 @@ if (!$autoloadFileFound) {
 $ignoredRegexPatterns = array_slice($argv, 1);
 
 try {
-    $errors = (new \EdmondsCommerce\PHPQA\Psr4Validator(
+    $errors = (new \LTS\PHPQA\Psr4Validator(
         $ignoredRegexPatterns,
         Helper::getProjectRootDirectory(),
         Helper::getComposerJsonDecoded()

@@ -1,18 +1,18 @@
 {
-  "name": "edmondscommerce/phpqa",
+  "name": "lts/phpqa",
   "license": "MIT",
   "type": "project",
   "description": "Simple PHP QA pipeline and scripts. Largely just a collection of dependencies with configuration and scripts to run them together",
   "autoload": {
     "psr-4": {
-      "EdmondsCommerce\\PHPQA\\": [
+      "LTS\\PHPQA\\": [
         "src/"
       ]
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "EdmondsCommerce\\PHPQA\\Tests\\": [
+      "LTS\\PHPQA\\Tests\\": [
         "tests/"
       ]
     }
