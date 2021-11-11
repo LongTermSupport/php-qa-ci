@@ -2,10 +2,10 @@ mkdir -p "$varDir";
 echo '
 *
 !.gitignore
-' > "$varDir"
+' > "$varDir/.gitignore"
 
 mkdir -p "$cacheDir";
 echo '
 *
 !.gitignore
-' > "$cacheDir"
+' > "$cacheDir/.gitignore"
