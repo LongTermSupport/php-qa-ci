@@ -1,5 +1,5 @@
 {
-  "name": "lts/phpqa",
+  "name": "lts/php-qa-ci",
   "license": "MIT",
   "type": "project",
   "description": "Simple PHP QA pipeline and scripts. Largely just a collection of dependencies with configuration and scripts to run them together",
