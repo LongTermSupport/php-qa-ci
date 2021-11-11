@@ -2,11 +2,20 @@
 
 ## Introduction
 
-PHP-QA-CI is a quality assurance and contiuous integration pipeline written in BASH that can be run both on the desktop
+PHP-QA-CI is a quality assurance and continuous integration pipeline written in BASH that can be run both on the desktop
 as part of your development process and then also as part of a continuous integration (CI) pipeline.
 
 It runs tools in a logical order and will fail as quickly as possible.
 
 This package is written for and has only been tested on Linux.
+
+## Long Term Support
+
+This package was brought to you by Long Term Support LTD, a company run and founded by Joseph Edmonds
+
+You can get in touch with Joseph at https://joseph.edmonds.contact/
+
+Check out Joseph's recent book [The Art of Modern PHP 8](https://joseph.edmonds.contact/#book)
+
 
 
