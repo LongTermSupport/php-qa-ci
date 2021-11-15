@@ -39,9 +39,9 @@ final class CheckAnnotations
                 '$pathToTestsDirectory "' . $pathToTestsDirectory . '" does not exist"'
             );
         }
-        $this->largePath = $pathToTestsDirectory . '/Large';
+        $this->largePath  = $pathToTestsDirectory . '/Large';
         $this->mediumPath = $pathToTestsDirectory . '/Medium';
-        $this->smallPath = $pathToTestsDirectory . '/Small';
+        $this->smallPath  = $pathToTestsDirectory . '/Small';
         $this->checkLarge();
         $this->checkMedium();
         $this->checkSmall();
@@ -73,7 +73,7 @@ final class CheckAnnotations
     private function yieldTestFilesInPath(string $path): Generator
     {
         $recursiveDirectoryIterator = new RecursiveDirectoryIterator($path);
-        $iterator = new RecursiveIteratorIterator($recursiveDirectoryIterator);
+        $iterator                   = new RecursiveIteratorIterator($recursiveDirectoryIterator);
         foreach ($iterator as $fileInfo) {
             yield $fileInfo;
         }

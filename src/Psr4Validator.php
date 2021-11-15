@@ -45,7 +45,7 @@ final class Psr4Validator
     public function __construct(array $ignoreRegexPatterns, string $pathToProjectRoot, array $decodedComposerJson)
     {
         $this->ignoreRegexPatterns = $ignoreRegexPatterns;
-        $this->pathToProjectRoot = $pathToProjectRoot;
+        $this->pathToProjectRoot   = $pathToProjectRoot;
         $this->decodedComposerJson = $decodedComposerJson;
     }
 
@@ -109,7 +109,7 @@ final class Psr4Validator
                     $paths = [$paths];
                 }
                 foreach ($paths as $path) {
-                    $absPathRoot = $this->pathToProjectRoot . '/' . $path;
+                    $absPathRoot     = $this->pathToProjectRoot . '/' . $path;
                     $realAbsPathRoot = realpath($absPathRoot);
                     if (false === $realAbsPathRoot) {
                         $this->addMissingPathError($path, $namespaceRoot, $absPathRoot);
@@ -197,9 +197,9 @@ final class Psr4Validator
         if ($actualNamespace !== $expectedNamespace) {
             $this->psr4Errors[$namespaceRoot][] =
                 [
-                    'fileInfo' => $fileInfo->getRealPath(),
+                    'fileInfo'          => $fileInfo->getRealPath(),
                     'expectedNamespace' => $expectedNamespace,
-                    'actualNamespace' => $actualNamespace,
+                    'actualNamespace'   => $actualNamespace,
                 ];
         }
     }
@@ -224,8 +224,8 @@ final class Psr4Validator
     private function expectedFileNamespace(string $absPathRoot, string $namespaceRoot, SplFileInfo $fileInfo): string
     {
         $relativePath = substr($fileInfo->getPathname(), \strlen($absPathRoot));
-        $relativeDir = \dirname($relativePath);
-        $relativeNs = '';
+        $relativeDir  = \dirname($relativePath);
+        $relativeNs   = '';
         if ('.' !== $relativeDir) {
             $relativeNs = str_replace(
                 '/',
