@@ -1,14 +1,14 @@
 pathsString=$(IFS=" " eval 'echo "${pathsToCheck[*]}"')
 ignoreString=$(IFS="," eval 'echo "${pathsToIgnore[*]}"')
 
-phpNoXdebug -f "$qaDir"/phpcs -- \
+phpNoXdebug -f "$binDir"/phpcs -- \
     --config-set ignore_warnings_on_exit "$phpcsFailOnWarning"
 
 set +e
 phpcsExitCode=99
 while (( phpcsExitCode > 0 ))
 do
-    phpNoXdebug -f "$qaDir"/phpcs -- \
+    phpNoXdebug -f "$binDir"/phpcs -- \
         --standard="$phpcsCodingStandardsNameOrPath" \
         --colors \
         --cache="$cacheDir"/phpcs.cache \

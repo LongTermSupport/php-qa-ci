@@ -11,7 +11,7 @@ fi
 phpunitPath=bin/phpunit
 paratestConfig=
 echo "Checking for paratest"
-if [[ -f "$qaDir"/paratest ]]
+if [[ -f "$binDir"/paratest ]]
 then
     echo "Found paratest, using this instead of standard bin/phpunit"
     phpunitPath=bin/paratest
@@ -83,7 +83,7 @@ do
         if (( $phpunitExitCode > 2 ))
         then
             printf "\n\n\nPHPUnit Crashed\n\nRunning again with Debug mode...\n\n\n"
-            qaQuickTests="$phpUnitQuickTests" phpNoXdebug -f "$qaDir"/phpunit -- "$testsDir" --debug
+            qaQuickTests="$phpUnitQuickTests" phpNoXdebug -f "$binDir"/phpunit -- "$testsDir" --debug
 
         fi
         tryAgainOrAbort "PHPUnit Tests"

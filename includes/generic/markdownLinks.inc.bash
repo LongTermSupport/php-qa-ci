@@ -5,7 +5,7 @@ then
     do
         set +e
 
-        phpNoXdebug -f "$qaDir"/mdlinks
+        phpNoXdebug -f "$binDir"/mdlinks
         linksExitCode=$?
 
         set -e
