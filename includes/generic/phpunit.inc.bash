@@ -8,14 +8,14 @@ if [[ "1" == "$phpUnitCoverage" ]]
 then
     phpCmd=\php
 fi
-phpunitPath=bin/phpunit
+phpunitPath="$binDir"/phpunit
 paratestConfig=
 echo "Checking for paratest"
 if [[ -f "$binDir"/paratest ]]
 then
-    echo "Found paratest, using this instead of standard bin/phpunit"
-    phpunitPath=bin/paratest
-    paratestConfig=(--phpunit bin/phpunit)
+    echo "Found paratest, using this instead of standard $binDir/phpunit"
+    phpunitPath="$binDir"/paratest
+    paratestConfig=(--phpunit "$binDir"/phpunit)
 fi
 phpunitFailedOnlyFiltered=0
 phpunitExitCode=99

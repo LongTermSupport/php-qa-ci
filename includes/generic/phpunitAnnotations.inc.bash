@@ -3,7 +3,7 @@ while (( annotationsExitCode > 0 ))
 do
     set +e
 
-    phpNoXdebug bin/phpunit-check-annotation \
+    phpNoXdebug "$binDir"/phpunit-check-annotation \
         "$testsDir"
 
     annotationsExitCode=$?

@@ -12,7 +12,7 @@ specifiedPath=
 
 function usage {
     echo "Usage:"
-    echo "bin/qa [-t tool to run ] [ -p path to scan ]"
+    echo "$binDir/qa [-t tool to run ] [ -p path to scan ]"
     echo ""
     echo "Defaults to using all tools and scanning whole project based on platform"
     echo ""
