@@ -28,9 +28,9 @@ final class LinksCheckerTest extends TestCase
      */
     public function testInvalidProject(): void
     {
-        $pathToProject = __DIR__ . '/../../assets/linksChecker/projectWithBrokenLinks';
+        $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithBrokenLinks';
         $expectedExitCode = 1;
-        $expectedOutput = '
+        $expectedOutput   = '
 /docs/linksCheckerTest.md
 -------------------------
 
@@ -61,9 +61,9 @@ Bad link for "incorrect link" to "./foo.md"
      */
     public function testValidNoDocsFolder(): void
     {
-        $pathToProject = __DIR__ . '/../../assets/linksChecker/projectWithReadmeNoDocsFolder';
+        $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithReadmeNoDocsFolder';
         $expectedExitCode = 0;
-        $expectedOutput = '';
+        $expectedOutput   = '';
         $this->assertResult($pathToProject, $expectedExitCode, $expectedOutput);
     }
 
@@ -72,9 +72,9 @@ Bad link for "incorrect link" to "./foo.md"
      */
     public function testItHandlesNonFileLinks(): void
     {
-        $pathToProject = __DIR__ . '/../../assets/linksChecker/projectWithNonFileLinks';
+        $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithNonFileLinks';
         $expectedExitCode = 1;
-        $expectedOutput = '
+        $expectedOutput   = '
 /README.md
 ----------
 
@@ -91,7 +91,7 @@ result: NULL
     {
         ob_start();
         $actualExitCode = LinksChecker::main($pathToProject);
-        $actualOutput = ob_get_clean();
+        $actualOutput   = ob_get_clean();
         echo $actualOutput;
         self::assertSame($expectedOutput, $actualOutput);
         self::assertSame($expectedExitCode, $actualExitCode);

@@ -43,7 +43,7 @@ final class Helper
     public static function getProjectRootDirectory(): string
     {
         if (null === self::$projectRootDirectory) {
-            $reflection = new ReflectionClass(ClassLoader::class);
+            $reflection                 = new ReflectionClass(ClassLoader::class);
             self::$projectRootDirectory = \dirname((string)$reflection->getFileName(), 3);
         }
 

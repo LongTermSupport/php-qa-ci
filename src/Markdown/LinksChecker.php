@@ -26,9 +26,9 @@ final class LinksChecker
         $files = static::getFiles($projectRootDirectory);
         foreach ($files as $file) {
             $relativeFile = str_replace($projectRootDirectory, '', $file);
-            $title = "\n{$relativeFile}\n" . str_repeat('-', \strlen($relativeFile)) . "\n";
-            $errors = [];
-            $links = static::getLinks($file);
+            $title        = "\n{$relativeFile}\n" . str_repeat('-', \strlen($relativeFile)) . "\n";
+            $errors       = [];
+            $links        = static::getLinks($file);
             foreach ($links as $link) {
                 static::checkLink($projectRootDirectory, $link, $file, $errors, $return);
             }
@@ -46,7 +46,7 @@ final class LinksChecker
      */
     private static function getFiles(string $projectRootDirectory): array
     {
-        $files = self::getDocsFiles($projectRootDirectory);
+        $files   = self::getDocsFiles($projectRootDirectory);
         $files[] = self::getMainReadme($projectRootDirectory);
 
         return $files;
@@ -60,7 +60,7 @@ final class LinksChecker
     private static function getDocsFiles(string $projectRootDirectory): array
     {
         $files = [];
-        $dir = $projectRootDirectory . '/docs';
+        $dir   = $projectRootDirectory . '/docs';
         if (!is_dir($dir)) {
             return $files;
         }
@@ -104,9 +104,9 @@ final class LinksChecker
      */
     private static function getLinks(string $file): array
     {
-        $links = [];
+        $links    = [];
         $contents = (string)file_get_contents($file);
-        $matches = null;
+        $matches  = null;
         if (
             false !== preg_match_all(
                 '/\[(.+?)\].*?\((.+?)\)/',
@@ -144,7 +144,7 @@ final class LinksChecker
             return;
         }
 
-        $path = current(explode('#', $path, 2));
+        $path  = current(explode('#', $path, 2));
         $start = rtrim($projectRootDirectory, '/');
         if ('/' !== $path[0] || 0 === strpos($path, './')) {
             $relativeSubdirs = preg_replace(
@@ -159,7 +159,7 @@ final class LinksChecker
         $realpath = realpath($start . '/' . $path);
         if (false === $realpath) {
             $errors[] = sprintf("\nBad link for \"%s\" to \"%s\"\n", $link[1], $link[2]);
-            $return = 1;
+            $return   = 1;
         }
     }
 
@@ -170,9 +170,9 @@ final class LinksChecker
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {
-        static $checked = [];
+        static $checked    = [];
         [, $anchor, $href] = $link;
-        $hashPos = (int)strpos($href, '#');
+        $hashPos           = (int)strpos($href, '#');
         if ($hashPos > 0) {
             $href = substr($href, 0, $hashPos);
         }
@@ -180,12 +180,12 @@ final class LinksChecker
             return;
         }
         $checked[$href] = true;
-        $context = stream_context_create(
+        $context        = stream_context_create(
             [
                 'http' => [
-                    'method' => 'GET',
+                    'method'           => 'GET',
                     'protocol_version' => 1.1,
-                    'header' => [
+                    'header'           => [
                         'Connection: close',
                     ],
                 ],

@@ -107,4 +107,5 @@ $finder = require $finderPath;
 
 return (new PhpCsFixer\Config())
     ->setRules($rules)
-    ->setFinder($finder);
+    ->setFinder($finder)
+;

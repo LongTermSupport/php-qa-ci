@@ -1,6 +1,6 @@
 set +e
 
-phpNoXdebug -f bin/phpcbf -- \
+phpNoXdebug -f "$qaDir"/phpcbf -- \
     --standard="$phpcsCodingStandardsNameOrPath" \
     --colors \
     --cache="$cacheDir"/phpcbf.cache \

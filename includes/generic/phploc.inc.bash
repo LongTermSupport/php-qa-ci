@@ -1,2 +1,2 @@
 
-phpNoXdebug -f bin/phploc ${pathsToCheck[@]}
+phpNoXdebug -f "$qaDir"/phploc ${pathsToCheck[@]}

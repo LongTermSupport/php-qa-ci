@@ -12,7 +12,7 @@ set +e
 while (( phpLintExitCode > 0 ))
 do
 
-    phpNoXdebug -f bin/parallel-lint -- \
+    phpNoXdebug -f "$qaDir"/parallel-lint -- \
     "${pathsToIgnorePrefixed[@]}" \
     "${pathsToCheck[@]}"
     phpLintExitCode=$?

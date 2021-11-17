@@ -29,7 +29,7 @@ final class Psr4ValidatorTest extends TestCase
      */
     public function testItFindsNoErrorsOnAValidProject(): void
     {
-        $assetsPath = __DIR__ . '/../assets/psr4/projectAllValid/';
+        $assetsPath  = __DIR__ . '/../assets/psr4/projectAllValid/';
         $projectRoot = realpath($assetsPath);
         if (false === $projectRoot) {
             self::fail('failed getting realpath to ' . $assetsPath);
@@ -39,7 +39,7 @@ final class Psr4ValidatorTest extends TestCase
             $projectRoot,
             Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
         );
-        $actual = $validator->main();
+        $actual   = $validator->main();
         $expected = [];
         self::assertSame($expected, $actual);
     }
@@ -52,7 +52,7 @@ final class Psr4ValidatorTest extends TestCase
      */
     public function testItCanHandleOddComposerConfigs(): void
     {
-        $assetsPath = __DIR__ . '/../assets/psr4/projectOddComposer/';
+        $assetsPath  = __DIR__ . '/../assets/psr4/projectOddComposer/';
         $projectRoot = realpath($assetsPath);
         if (false === $projectRoot) {
             self::fail('failed getting realpath to ' . $assetsPath);
@@ -62,7 +62,7 @@ final class Psr4ValidatorTest extends TestCase
             $projectRoot,
             Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
         );
-        $actual = $validator->main();
+        $actual   = $validator->main();
         $expected = [];
         self::assertSame($expected, $actual);
     }
@@ -75,7 +75,7 @@ final class Psr4ValidatorTest extends TestCase
      */
     public function testItFindsErrorsAndThrowsAnExceptionOnAnInvalidProject(): void
     {
-        $assetsPath = __DIR__ . '/../assets/psr4/projectInValid/';
+        $assetsPath  = __DIR__ . '/../assets/psr4/projectInValid/';
         $projectRoot = realpath($assetsPath);
         if (false === $projectRoot) {
             self::fail('failed getting realpath to ' . $assetsPath);
@@ -85,19 +85,19 @@ final class Psr4ValidatorTest extends TestCase
             $projectRoot,
             Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
         );
-        $actual = $validator->main();
+        $actual   = $validator->main();
         $expected = [
             'PSR-4 Errors:' => [
                 'In\\Valid\\' => [
                     0 => [
-                        'fileInfo' => $projectRoot . '/src/Nested/Deep/Bad.php',
+                        'fileInfo'          => $projectRoot . '/src/Nested/Deep/Bad.php',
                         'expectedNamespace' => 'In\\Valid\\Nested\\Deep',
-                        'actualNamespace' => 'So',
+                        'actualNamespace'   => 'So',
                     ],
                     1 => [
-                        'fileInfo' => $projectRoot . '/src/Wrong.php',
+                        'fileInfo'          => $projectRoot . '/src/Wrong.php',
                         'expectedNamespace' => 'In\\Valid',
-                        'actualNamespace' => 'Totally',
+                        'actualNamespace'   => 'Totally',
                     ],
                 ],
             ],
