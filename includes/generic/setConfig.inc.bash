@@ -12,7 +12,7 @@ varDir="$projectRoot/var/qa";
 
 cacheDir="$varDir/cache";
 
-phpVersion="$(php -v | grep ^PHP | cut -d' ' -f2)"
+phpVersion="$($phpBinPath -v | grep ^PHP | cut -d' ' -f2)"
 noXdebugConfigPath="$varDir/phpqa-no-xdebug.$phpVersion.ini"
 
 # the path in this library for default config

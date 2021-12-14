@@ -41,7 +41,7 @@ source ./../includes/options.inc.bash
 
 #### FUNCTIONS #################################################
 
-phpBinPath=$(which php)
+phpBinPath=${PHP_QA_CI_PHP_EXECUTABLE:-$(which php)}
 source ./../includes/functions.inc.bash
 
 
