@@ -9,6 +9,29 @@ It runs tools in a logical order and will fail as quickly as possible.
 
 This package is written for and has only been tested on Linux.
 
+## Docs
+
+Documentation is something of a work in progress, however you can find various docs in the [./docs](./docs) folder
+
+## Other notes
+
+### Specify PHP Binary Path
+
+if you are running multiple PHP versions, you can specify which one to use like so:
+
+```bash
+export PHP_QA_CI_PHP_EXECUTABLE=/bin/php81
+
+./bin/qa
+```
+
+or 
+
+```
+PHP_QA_CI_PHP_EXECUTABLE=/bin/php81 ./bin/qa
+```
+
+
 ## Long Term Support
 
 This package was brought to you by Long Term Support LTD, a company run and founded by Joseph Edmonds
