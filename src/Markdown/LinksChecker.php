@@ -21,9 +21,9 @@ final class LinksChecker
      */
     public static function main(string $projectRootDirectory = null): int
     {
-        $return = 0;
+        $return               = 0;
         $projectRootDirectory ??= Helper::getProjectRootDirectory();
-        $files = static::getFiles($projectRootDirectory);
+        $files                = static::getFiles($projectRootDirectory);
         foreach ($files as $file) {
             $relativeFile = str_replace($projectRootDirectory, '', $file);
             $title        = "\n{$relativeFile}\n" . str_repeat('-', \strlen($relativeFile)) . "\n";
@@ -129,10 +129,10 @@ final class LinksChecker
      */
     private static function checkLink(
         string $projectRootDirectory,
-        array $link,
+        array  $link,
         string $file,
-        array &$errors,
-        int &$return
+        array  &$errors,
+        int    &$return
     ): void {
         $path = trim($link[2]);
         if (0 === strpos($path, '#')) {
@@ -170,9 +170,9 @@ final class LinksChecker
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {
-        static $checked    = [];
+        static $checked = [];
         [, $anchor, $href] = $link;
-        $hashPos           = (int)strpos($href, '#');
+        $hashPos = (int)strpos($href, '#');
         if ($hashPos > 0) {
             $href = substr($href, 0, $hashPos);
         }
@@ -188,10 +188,11 @@ final class LinksChecker
                     'header'           => [
                         'Connection: close',
                     ],
+                    'user_agent'       => 'Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36',
                 ],
             ]
         );
-        $result = null;
+        $result         = null;
         try {
             $headers = get_headers($href, false, $context);
             if (false === $headers) {
@@ -219,7 +220,7 @@ final class LinksChecker
             $href,
             var_export($result, true)
         );
-        $return = 1;
+        $return   = 1;
         //$time     = round(microtime(true) - $start, 2);
         //fwrite(STDERR, "\n".'Failed ('.$time.' seconds): '.$href);
     }
