@@ -129,10 +129,10 @@ final class LinksChecker
      */
     private static function checkLink(
         string $projectRootDirectory,
-        array  $link,
+        array $link,
         string $file,
-        array  &$errors,
-        int    &$return
+        array &$errors,
+        int &$return
     ): void {
         $path = trim($link[2]);
         if (0 === strpos($path, '#')) {
@@ -170,9 +170,9 @@ final class LinksChecker
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {
-        static $checked = [];
+        static $checked    = [];
         [, $anchor, $href] = $link;
-        $hashPos = (int)strpos($href, '#');
+        $hashPos           = (int)strpos($href, '#');
         if ($hashPos > 0) {
             $href = substr($href, 0, $hashPos);
         }
