@@ -38,12 +38,12 @@ $(hostname) $0 $@
 
 source ./../includes/options.inc.bash
 
+phpBinPath=$(which php)
+phpMajorVersion="$(php -v | awk 'NR<=1{ print $2 }' | cut -d . -f 1)"
 
 #### FUNCTIONS #################################################
 
-phpBinPath=$(which php)
 source ./../includes/functions.inc.bash
-
 
 #### CONFIG ##################################################
 

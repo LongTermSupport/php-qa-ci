@@ -1,0 +1,40 @@
+inputs:
+  setDev: false
+  setLanguages:
+    - php
+  setFrameworks:
+    - suitecrm
+    - codeigniter
+    - wordpress
+    - prestashop
+    - symfony
+  setSources: ~
+  setSinks: ~
+  setValidators: ~
+  setSanitizers: ~
+  setCustomRules: ~
+  setIncludes: ~
+  setExcludes:
+    exclude_files: []
+    exclude_folders: []
+  setFolder: ~
+  setFile: ~
+  setCode: ~
+  setResolvedIncludes: ~
+  setFalsePositives: ~
+
+outputs:
+  taintedFlow: false
+  resolveIncludes: false
+  resolveIncludesFile: ~
+
+options:
+  setAnalyzeIncludes: true
+  setAnalyzeFunctions: true
+  setAnalyzeHardRules: true
+  setPrintFile: true
+  setPrintWarning: true
+  setPrettyPrint: true
+  setLimitTime: 100
+  setLimitDefs: 3000
+  setLimitSize: 500000

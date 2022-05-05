@@ -89,3 +89,8 @@ phpCsCacheFile="$varDir/cache/php_cs.cache"
 # Travis-CI sets a CI variable. You can easily set this in any other CI system
 # The value should the the string 'true' if this is CI
 CI=${CI:-'false'}
+
+progpilotConfigPath="$(configPath progpilot.yml)"
+
+# Which directory are QA tool phar files stored in
+pharDir="$qaDir/../phar/"
