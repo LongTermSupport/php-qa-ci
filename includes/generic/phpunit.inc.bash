@@ -6,7 +6,7 @@
 phpCmd=phpNoXdebug
 if [[ "1" == "$phpUnitCoverage" ]]
 then
-    phpCmd=\php
+    phpCmd="$phpBinPath"
 fi
 phpunitPath="$binDir"/phpunit
 paratestConfig=
