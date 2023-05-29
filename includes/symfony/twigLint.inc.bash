@@ -2,7 +2,7 @@ if [[ -d $projectRoot/vendor/symfony/twig-bundle ]]; then
   twigLintExitCode=99
   set +e
   while ((twigLintExitCode > 0)); do
-    phpNoXdebug -f "./$binDir"/console -- lint:twig ${twigDirectories[@]}
+    phpNoXdebug -f "$binDir"/console -- lint:twig ${twigDirectories[@]}
     twigLintExitCode=$?
     if ((twigLintExitCode > 0)); then
       tryAgainOrAbort "Twig Lint"
