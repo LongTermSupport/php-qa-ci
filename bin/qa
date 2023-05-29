@@ -11,16 +11,21 @@
 # Run all PHPUnit tests:
 # phpUnitQuickTests=0 ./bin/qa
 
-bashSource="${BASH_SOURCE[0]}"
-
-binDir="$(dirname $bashSource)"
-
-while [ -h "$bashSource" ]; do # resolve $bashSource until the file is no longer a symlink
+if [[ "$COMPOSER_RUNTIME_BIN_DIR" != "" ]]; then
+  echo "new composer detected, no longer a symlink, instead its a parent script"
+  binDir="$COMPOSER_RUNTIME_BIN_DIR"
+  bashSource="$binDir/qa"
+  qaDir="$(cd $binDir/$(grep -Po "[^']+php-qa-ci[^']+" $binDir/qa ) && pwd)"
+else
+  bashSource="${BASH_SOURCE[0]}"
+  binDir="$(dirname $bashSource)"
+  while [ -h "$bashSource" ]; do # resolve $bashSource until the file is no longer a symlink
+    qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
+    bashSource="$(readlink "$bashSource")"
+    [[ $bashSource != /* ]] && bashSource="$qaDir/$bashSource" # if $bashSource was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  done
   qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
-  bashSource="$(readlink "$bashSource")"
-  [[ $bashSource != /* ]] && bashSource="$qaDir/$bashSource" # if $bashSource was a relative symlink, we need to resolve it relative to the path where the symlink file was located
-done
-qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
+fi
 cd $qaDir;
 set -e
 set -u
