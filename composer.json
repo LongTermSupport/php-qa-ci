@@ -14,7 +14,6 @@
     "maglnet/composer-require-checker": "@stable",
     "php-parallel-lint/php-console-color": "@stable",
     "php-parallel-lint/php-parallel-lint": "@stable",
-    "phploc/phploc": "@stable",
     "phpstan/extension-installer": "@stable",
     "phpstan/phpstan": "@stable",
     "phpstan/phpstan-strict-rules": "@stable",
@@ -34,7 +33,8 @@
     "phpstan/phpstan-mockery": "Prevents Mockery from failing on Stan",
     "phpstan/phpstan-phpunit": "Adds checks for PHPUnit tests",
     "phpstan/phpstan-symfony": "Symfony specific checks",
-    "sllh/composer-versions-check": "To be brought back in when there is a PHP8 version..."
+    "sllh/composer-versions-check": "To be brought back in when there is a PHP8 version...",
+    "phploc/phploc": "get some stats, not currently compatible with latest symfony"
   },
   "config": {
     "bin-dir": "bin",
