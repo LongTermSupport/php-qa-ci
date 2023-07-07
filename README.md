@@ -2,11 +2,32 @@
 
 ## Install
 
-To install the current bleeding edge, run
+First, ensure your bin dir config is set in your composer.json like this
+
+```
+  "config": {
+    "bin-dir": "bin",
+```
+
+Then install the current bleeding edge, run
 
 ```
 composer require --dev lts/php-qa-ci:dev-master@dev
 ```
+
+For Symfony - you can accept the prompts to run recipes, but you will then need to decide to either stick with Symfony defaults or the php-qa-ci default which are more extensive
+
+If you decide to stick with the lts defaults, then you should remove the config files that the symfony recipe created. If you want to keep config files in your root directory, you can choose to symlink them to the php-qa-ci files, eg
+
+Note that you should properly compare the files before doing this.
+
+```
+# revert to php-qa-ci PHPUnit configs
+rm phpunit.xml.dist
+ln -s vendor/lts/php-qa-ci/configDefaults/generic/phpunit.xml 
+```
+
+
 
 ## Introduction
 
