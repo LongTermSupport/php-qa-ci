@@ -1,5 +1,13 @@
 # PHP-QA-CI
 
+## Install
+
+To install the current bleeding edge, run
+
+```
+composer require --dev lts/php-qa-ci:dev-master@dev
+```
+
 ## Introduction
 
 PHP-QA-CI is a quality assurance and continuous integration pipeline written in BASH that can be run both on the desktop
