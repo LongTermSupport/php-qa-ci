@@ -55,7 +55,6 @@ do
         ${extraConfigs[@]} \
         --fail-on-risky \
         --fail-on-warning \
-        --disallow-todo-tests \
         --log-junit "$phpunitLogFilePath"
 
     phpunitExitCode=$?

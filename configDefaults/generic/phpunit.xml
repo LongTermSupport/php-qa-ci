@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.2/phpunit.xsd" colors="true" timeoutForLargeTests="300" timeoutForMediumTests="5" timeoutForSmallTests="1" failOnRisky="true" cacheResult="true" executionOrder="depends,random" cacheDirectory=".phpunit.cache">
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.2/phpunit.xsd" colors="true" timeoutForLargeTests="300" timeoutForMediumTests="5" timeoutForSmallTests="1" failOnRisky="true" cacheResult="true" executionOrder="depends,random" cacheDirectory="../../../../../var/qa/phpunit.cache">
   <php>
     <ini name="display_errors" value="1"/>
     <ini name="error_reporting" value="-1"/>
