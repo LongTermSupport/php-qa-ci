@@ -15,18 +15,25 @@ if [[ "$COMPOSER_RUNTIME_BIN_DIR" != "" ]]; then
   echo "new composer detected, no longer a symlink, instead its a parent script"
   binDir="$COMPOSER_RUNTIME_BIN_DIR"
   bashSource="$binDir/qa"
-  qaDir="$(cd $binDir/$(grep -Po "[^']+php-qa-ci[^']+" $binDir/qa ) && pwd)"
+  qaDir="$(cd $binDir/$(grep -Po "[^']+php-qa-ci[^']+" $binDir/qa) && pwd)"
+  # project root directory
+  projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
+  while [[ ! -f $projectRoot/composer.json ]]; do
+    projectRoot="$(realpath $projectRoot/../)"
+  done
 else
+  echo "no COMPOSER_RUNTIME_BIN_DIR detected - ASSUMING THIS IS BECAUSE WE ARE RUNNING A SELF TEST ON THE QA LIBRARY"
   bashSource="${BASH_SOURCE[0]}"
   binDir="$(dirname $bashSource)"
   while [ -h "$bashSource" ]; do # resolve $bashSource until the file is no longer a symlink
-    qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
+    qaDir="$(cd -P "$(dirname "$bashSource")" && pwd)"
     bashSource="$(readlink "$bashSource")"
     [[ $bashSource != /* ]] && bashSource="$qaDir/$bashSource" # if $bashSource was a relative symlink, we need to resolve it relative to the path where the symlink file was located
   done
-  qaDir="$( cd -P "$( dirname "$bashSource" )" && pwd )"
+  qaDir="$(cd -P "$(dirname "$bashSource")" && pwd)"
+  projectRoot="$(realpath $qaDir/../)"
 fi
-cd $qaDir;
+cd $qaDir
 set -e
 set -u
 set -o pipefail
@@ -38,17 +45,14 @@ $(hostname) $0 $@
 ===========================================
 "
 
-
 #### OPTIONS ###################################################
 
 source ./../includes/options.inc.bash
-
 
 #### FUNCTIONS #################################################
 
 phpBinPath=${PHP_QA_CI_PHP_EXECUTABLE:-$(which php)}
 source ./../includes/functions.inc.bash
-
 
 #### CONFIG ##################################################
 
@@ -56,14 +60,6 @@ source ./../includes/functions.inc.bash
 # Travis-CI sets a CI variable. You can eaisly set this in any other CI system
 # The value should the the string 'true' if this is CI
 CI=${CI:-'false'}
-
-# project root directory
-if [[ -d $qaDir/../vendor ]]
-then
-    projectRoot="$(readlink -f $qaDir/../)"
-else
-    projectRoot="$(readlink -f $qaDir/../../../../)"
-fi
 
 # the path in the project to check for config
 projectConfigPath="$projectRoot/qaConfig/"
@@ -77,17 +73,15 @@ echo "
 Checking for Xdebug
 -------------------
 "
-if [[ "" == "$($phpBinPath -i | grep xdebug)" ]]
-then
-    xdebugEnabled=0
-    echo "Xdebug is not enabled - infection and coverage not available"
+if [[ "" == "$($phpBinPath -i | grep xdebug)" ]]; then
+  xdebugEnabled=0
+  echo "Xdebug is not enabled - infection and coverage not available"
 else
-    xdebugEnabled=1
-    # @see https://xdebug.org/docs/all_settings#mode
-    export XDEBUG_MODE=coverage
-    echo "Xdebug is enabled in coverage mode"
+  xdebugEnabled=1
+  # @see https://xdebug.org/docs/all_settings#mode
+  export XDEBUG_MODE=coverage
+  echo "Xdebug is enabled in coverage mode"
 fi
-
 
 echo "
 
@@ -103,11 +97,10 @@ Setting phpqa Config
 "
 runTool setConfig
 
-if [[ "$specifiedPath" != "" ]]
-then
-    echo "Only scanning the specified path $specifiedPath"
-    pathsToCheck=()
-    pathsToCheck+=($projectRoot/$specifiedPath)
+if [[ "$specifiedPath" != "" ]]; then
+  echo "Only scanning the specified path $specifiedPath"
+  pathsToCheck=()
+  pathsToCheck+=($projectRoot/$specifiedPath)
 fi
 
 #### PRE PROCESS #############################################
@@ -117,39 +110,43 @@ hasBeenRestarted="false"
 # override configs with project configs
 overridePath="$projectConfigPath/qaConfig.inc.bash"
 
-if [[ -f "$overridePath" ]]
-then
-    echo "Found override config at $overridePath"
-    source $overridePath
+if [[ -f "$overridePath" ]]; then
+  echo "Found override config at $overridePath"
+  source $overridePath
 fi
 
-cd "$projectRoot";
+cd "$projectRoot"
 
 runTool prepareDirectories
 
-
-if [[ -f $projectConfigPath/hookPre.bash ]]
-then
-    echo "
+if [[ -f $projectConfigPath/hookPre.bash ]]; then
+  echo "
 
 Running Pre Hook $projectConfigPath/hookPre.bash
 ------------------------------------------------
 "
-    source $projectConfigPath/hookPre.bash
+  source $projectConfigPath/hookPre.bash
 fi
 
 #### PROCESS #################################################
 
-if [[ "" != "$singleToolToRun" ]]
-then
-    echo "
+if [[ "" != "$singleToolToRun" ]]; then
+  echo "
 
 Running Single Tool: $singleToolToRun
 ------------------------
 "
-    runTool "$singleToolToRun"
-    exit $?
+  runTool "$singleToolToRun"
+  exit $?
 fi
+
+echo "
+
+Running All Coding Standards Tools (That Might Make Code Changes)
+=================================
+
+"
+runTool allCodingStandardsTools
 
 echo "
 
@@ -168,23 +165,6 @@ Running All Static Analysis Tools
 "
 runTool allStaticAnalysisTools
 
-
-echo "
-
-Checking if Uncommitted Changes
-------------------------------
-"
-checkForUncommittedChanges $specifiedPath
-
-echo "
-
-Running All Coding Standards Tools (That Might Make Code Changes)
-=================================
-
-"
-runTool allCodingStandardsTools
-
-
 echo "
 
 Running All Testing Tools
@@ -192,7 +172,6 @@ Running All Testing Tools
 
 "
 runTool allTestingTools
-
 
 echo '
 
@@ -221,19 +200,17 @@ Statistics:
 runTool phploc
 set +x
 
-if [[ -f $projectConfigPath/hookPost.bash ]]
-then
-    echo "
+if [[ -f $projectConfigPath/hookPost.bash ]]; then
+  echo "
 
 Running Post Hook $projectConfigPath/hookPost.bash
 ------------------------------------------------
 "
-    source $projectConfigPath/hookPost.bash
+  source $projectConfigPath/hookPost.bash
 fi
 
-if [[ "false" != "$hasBeenRestarted" ]]
-then
-    echo "
+if [[ "false" != "$hasBeenRestarted" ]]; then
+  echo "
 
 ####################################################################
 

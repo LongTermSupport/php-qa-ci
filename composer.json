@@ -1,8 +1,8 @@
 {
   "name": "lts/php-qa-ci",
-  "type": "project",
   "description": "Simple PHP QA pipeline and scripts. Largely just a collection of dependencies with configuration and scripts to run them together",
   "license": "MIT",
+  "type": "project",
   "require": {
     "php": "^8.0",
     "ext-json": "*",
@@ -18,31 +18,25 @@
     "phpstan/phpstan": "@stable",
     "phpstan/phpstan-strict-rules": "@stable",
     "phpunit/phpunit": "@stable",
+    "rector/rector": "^0.17.7",
     "squizlabs/php_codesniffer": "@stable",
-    "thecodingmachine/safe": "@stable"
+    "thecodingmachine/safe": "^2.5"
   },
   "require-dev": {
     "phpstan/phpstan-phpunit": "@stable",
-    "rector/rector": "^0.12.3",
     "roave/security-advisories": "dev-master"
   },
   "suggest": {
     "nunomaduro/larastan": "Laravel specific checks (PHPStan Wrapper)",
+    "phploc/phploc": "get some stats, not currently compatible with latest symfony",
     "phpstan/phpstan-deprecation-rules": "Checks for deprecated functions and methods",
     "phpstan/phpstan-doctrine": "Adds checks for Doctrine",
     "phpstan/phpstan-mockery": "Prevents Mockery from failing on Stan",
     "phpstan/phpstan-phpunit": "Adds checks for PHPUnit tests",
     "phpstan/phpstan-symfony": "Symfony specific checks",
-    "sllh/composer-versions-check": "To be brought back in when there is a PHP8 version...",
-    "phploc/phploc": "get some stats, not currently compatible with latest symfony"
+    "sllh/composer-versions-check": "To be brought back in when there is a PHP8 version..."
   },
-  "config": {
-    "bin-dir": "bin",
-    "optimize-autoloader": true,
-    "preferred-install": {
-      "*": "dist"
-    }
-  },
+  "minimum-stability": "stable",
   "autoload": {
     "psr-4": {
       "LTS\\PHPQA\\": [
@@ -57,11 +51,22 @@
       ]
     }
   },
-  "minimum-stability": "stable",
   "bin": [
     "bin/mdlinks",
     "bin/phpunit-check-annotation",
     "bin/psr4-validate",
     "bin/qa"
-  ]
+  ],
+  "config": {
+    "allow-plugins": {
+      "infection/extension-installer": true,
+      "ergebnis/composer-normalize": true,
+      "phpstan/extension-installer": true
+    },
+    "bin-dir": "bin",
+    "optimize-autoloader": true,
+    "preferred-install": {
+      "*": "dist"
+    }
+  }
 }
