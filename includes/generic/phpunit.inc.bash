@@ -9,6 +9,9 @@ then
     phpCmd="$phpBinPath"
 fi
 phpunitPath="$binDir"/phpunit
+phpunitVersion="$("$phpCmd" -f "$phpunitPath" -- --version | grep -Po '\d+.\d+.\d+')"
+phpunitVersionMajor="$(echo "$phpunitVersion" | cut -d . -f1)"
+echo "PHPUnit Major Version: $phpunitVersionMajor"
 paratestConfig=
 echo "Checking for paratest"
 if [[ -f "$binDir"/paratest ]]
@@ -23,14 +26,18 @@ phpunitLogFilePath="$varDir/phpunit_logs/phpunit.junit.xml"
 while (( phpunitExitCode > 0 ))
 do
     extraConfigs=(" ")
-    extraConfigs+=( --strict-global-state )
-    extraConfigs+=( --colors=always )
-    extraConfigs+=( --display-incomplete )
-    extraConfigs+=( --display-skipped )
-    extraConfigs+=( --display-deprecations )
-    extraConfigs+=( --display-errors )
-    extraConfigs+=( --display-notices )
-    extraConfigs+=( --display-warnings )
+      extraConfigs+=( --strict-global-state )
+      extraConfigs+=( --testdox )
+    if(( $phpunitVersionMajor >= 10 ))
+    then
+      extraConfigs+=( --colors=always )
+      extraConfigs+=( --display-incomplete )
+      extraConfigs+=( --display-skipped )
+      extraConfigs+=( --display-deprecations )
+      extraConfigs+=( --display-errors )
+      extraConfigs+=( --display-notices )
+      extraConfigs+=( --display-warnings )
+    fi
     if [[ "1" == "$phpUnitIterativeMode" ]]
     then
         # Uniterate mode - order by defects, stop on first error, no coverage and enforce time limits
@@ -42,7 +49,6 @@ do
         extraConfigs+=( --stop-on-failure --stop-on-error --stop-on-defect --stop-on-warning )
         extraConfigs+=( --no-coverage )
         extraConfigs+=( --enforce-time-limit )
-        extraConfigs+=( --strict-global-state )
 
     elif [[ "1" != "$phpUnitCoverage" ]]
     then
