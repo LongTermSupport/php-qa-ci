@@ -1,14 +1,31 @@
 # First we run the Safe Rectors to implement safe versions of functions.
+
+rectorVerbosity="-vv"
+
 rectorSafeExitCode=99
 while ((rectorSafeExitCode > 1)); do
   set +e
   echo "Running 'Safe' Rector to convert to safe versions of functions"
-  phpNoXdebug -f "$binDir"/rector process ${pathsToCheck[@]} \
+  phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
     --config "$projectRoot/vendor/thecodingmachine/safe/rector-migrate.php"
   rectorSafeExitCode=$?
   set -e
   if ((rectorSafeExitCode > 0)); then
     tryAgainOrAbort "Rector 'Safe'"
+  fi
+done
+
+
+rectorPhpUnitExitCode=99
+while ((rectorPhpUnitExitCode > 1)); do
+  set +e
+  echo "Running PHPUnit Rector on $testsDir"
+  phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process $testsDir \
+    --config "$(configPath rector-phpunit.php)"
+  rectorPhpUnitExitCode=$?
+  set -e
+  if ((rectorPhpUnitExitCode > 0)); then
+    tryAgainOrAbort "Rector 'PHPUnit'"
   fi
 done
 
@@ -22,7 +39,7 @@ if [[ -f $projectRoot/rector.php ]]; then
   while ((rectorExitCode > 1)); do
     set +e
     echo "Running Project Specific Rector"
-    phpNoXdebug -f "$binDir"/rector process ${pathsToCheck[@]} \
+    phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
       --config "$projectRoot/rector.php"
     rectorExitCode=$?
     set -e
