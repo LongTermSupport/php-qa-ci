@@ -85,8 +85,9 @@ final class CheckAnnotations
         if (true === $this->isAnnotationInClassDocBlock($contents, $annotation)) {
             return;
         }
-
-        $matches = [];
+        if (false !== stripos(haystack: $contents, needle: "#[\PHPUnit\Framework\Attributes\\$annotation]")) {
+            return;
+        }
         preg_match_all(
             <<<REGEXP
                 %(?<docblock>/\\*(?:[^*]|\n|(?:\\*(?:[^/]|\n)))*\\*/|\n)\\s+?public\\s+?function\\s+?(?<method>.+?)\\(%
