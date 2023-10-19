@@ -26,8 +26,12 @@ phpunitLogFilePath="$varDir/phpunit_logs/phpunit.junit.xml"
 while (( phpunitExitCode > 0 ))
 do
     extraConfigs=(" ")
-      extraConfigs+=( --strict-global-state )
-      extraConfigs+=( --testdox )
+    extraConfigs+=( --strict-global-state )
+# Enabling testdox seems to prevent displaying of warnings
+#    extraConfigs+=( --testdox )
+    extraConfigs+=( --fail-on-risky )
+    extraConfigs+=( --fail-on-warning )
+    extraConfigs+=( --log-junit "$phpunitLogFilePath" )
     if(( $phpunitVersionMajor >= 10 ))
     then
       extraConfigs+=( --colors=always )
@@ -38,6 +42,8 @@ do
       extraConfigs+=( --display-notices )
       extraConfigs+=( --display-warnings )
     fi
+
+    ## MODES
     if [[ "1" == "$phpUnitIterativeMode" ]]
     then
         # Uniterate mode - order by defects, stop on first error, no coverage and enforce time limits
@@ -49,16 +55,19 @@ do
         extraConfigs+=( --stop-on-failure --stop-on-error --stop-on-defect --stop-on-warning )
         extraConfigs+=( --no-coverage )
         extraConfigs+=( --enforce-time-limit )
-
     elif [[ "1" != "$phpUnitCoverage" ]]
     then
-        # No Coverage mode - do not generate coverage, do enforce time limits
+        # No Coverage mode - do not generate coverage
+        export XDEBUG_MODE=off
         extraConfigs+=( --no-coverage )
         extraConfigs+=( --enforce-time-limit )
     elif [[ "false" != "${CI:-'false'}" ]]
     then
         # When in CI and generating coverage - stop on first error, do not enforce time limits
         extraConfigs+=( --stop-on-failure --stop-on-error --stop-on-defect --stop-on-warning )
+    else
+      # Default, do enforce timelimits
+      extraConfigs+=( --enforce-time-limit )
     fi
 
     set +e
@@ -69,9 +78,7 @@ do
         ${paratestConfig[@]} \
         -c ${phpUnitConfigPath} \
         ${extraConfigs[@]} \
-        --fail-on-risky \
-        --fail-on-warning \
-        --log-junit "$phpunitLogFilePath"
+
 
     phpunitExitCode=$?
     set +x

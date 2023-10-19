@@ -15,20 +15,20 @@ declare(strict_types=1);
 use Composer\Autoload\ClassLoader;
 
 $rules = [
-    '@PhpCsFixer'                  => true,
-    '@Symfony'                     => true,
-    '@DoctrineAnnotation'          => true,
-    '@PHP80Migration'              => true,
-    'align_multiline_comment'      => true,
-    'array_indentation'            => true,
-    'array_syntax'                 => ['syntax' => 'short'],
-    'blank_line_after_opening_tag' => true,
-    'binary_operator_spaces'       => ['default' => 'align'],
-    'cast_spaces'                  => ['space' => 'none'],
-    'concat_space'                 => ['spacing' => 'one'],
-    'declare_strict_types'         => true,
-    'final_class'                  => true,
-    'ordered_class_elements'       => [
+    '@PhpCsFixer'                         => true,
+    '@Symfony'                            => true,
+    '@DoctrineAnnotation'                 => true,
+    '@PHP82Migration'                     => true,
+    'align_multiline_comment'             => true,
+    'array_indentation'                   => true,
+    'array_syntax'                        => ['syntax' => 'short'],
+    'blank_line_after_opening_tag'        => true,
+    'binary_operator_spaces'              => ['default' => 'align'],
+    'cast_spaces'                         => ['space' => 'none'],
+    'concat_space'                        => ['spacing' => 'one'],
+    'declare_strict_types'                => true,
+    'final_class'                         => true,
+    'ordered_class_elements'              => [
         'order' => [
             'use_trait',
             'constant_public',
@@ -47,7 +47,7 @@ $rules = [
         ],
     ],
     // fights with PSR-12 in phpcs/phpcbf
-    'ordered_imports'              => [
+    'ordered_imports'                     => [
         'sort_algorithm' => 'alpha',
         // this is the PSR12 order, do not change
         'imports_order'  => [
@@ -56,7 +56,7 @@ $rules = [
             'const',
         ],
     ],
-    'modernize_types_casting'      => true,
+    'modernize_types_casting'             => true,
     //    'php_unit_strict'              => [
     //        'assertions' => [
     //            'assertAttribuassertionsteEquals',
@@ -65,30 +65,33 @@ $rules = [
     //            'assertNotEquals',
     //        ],
     //    ],
-    'php_unit_size_class'          => ['group' => 'small'],
-    'psr_autoloading'              => true,
-    'return_assignment'            => true,
-    'self_accessor'                => true,
-    'static_lambda'                => true,
-    'strict_comparison'            => true,
-    'strict_param'                 => true,
-    'ternary_to_null_coalescing'   => true,
-    'void_return'                  => true,
-    'yoda_style'                   => [
+    # this one is not compatible with attributes
+    //'php_unit_size_class'          => ['group' => 'small'],
+    # this one is not compatible with attributes
+    'php_unit_test_class_requires_covers' => false,
+    'psr_autoloading'                     => true,
+    'return_assignment'                   => true,
+    'self_accessor'                       => true,
+    'static_lambda'                       => true,
+    'strict_comparison'                   => true,
+    'strict_param'                        => true,
+    'ternary_to_null_coalescing'          => true,
+    'void_return'                         => true,
+    'yoda_style'                          => [
         'equal'     => true,
         'identical' => true,
     ],
-    'fully_qualified_strict_types' => true,
-    'native_function_invocation'   => true,
-    'method_argument_space'        => [
+    'fully_qualified_strict_types'        => true,
+    'native_function_invocation'          => true,
+    'method_argument_space'               => [
         'after_heredoc'                    => true,
         'keep_multiple_spaces_after_comma' => true,
         'on_multiline'                     => 'ensure_fully_multiline',
     ],
-    'single_line_throw'            => false,
-    'global_namespace_import'      => true,
-    'phpdoc_to_return_type'        => false,
-    'no_superfluous_phpdoc_tags'   => true,
+    'single_line_throw'                   => false,
+    'global_namespace_import'             => true,
+    'phpdoc_to_return_type'               => false,
+    'no_superfluous_phpdoc_tags'          => true,
 ];
 
 $projectRoot = (static function () {
