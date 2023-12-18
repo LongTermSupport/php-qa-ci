@@ -7,7 +7,7 @@ while ((rectorSafeExitCode > 1)); do
   set +e
   echo "Running 'Safe' Rector to convert to safe versions of functions"
   phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
-    --config "$projectRoot/vendor/thecodingmachine/safe/rector-migrate.php" \
+    --config "$(configPath rector-safe.php)" \
     --clear-cache
   rectorSafeExitCode=$?
   set -e

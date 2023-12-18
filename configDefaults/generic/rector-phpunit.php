@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 use Rector\Config\RectorConfig;
 
@@ -13,4 +14,5 @@ return static function (RectorConfig $rectorConfig): void {
                             PHPUnitSetList::PHPUNIT_CODE_QUALITY,
                             PHPUnitSetList::ANNOTATIONS_TO_ATTRIBUTES,
                         ]);
+    $rectorConfig->cacheClass(MemoryCacheStorage::class);
 };
