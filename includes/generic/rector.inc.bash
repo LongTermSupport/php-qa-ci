@@ -7,7 +7,8 @@ while ((rectorSafeExitCode > 1)); do
   set +e
   echo "Running 'Safe' Rector to convert to safe versions of functions"
   phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
-    --config "$projectRoot/vendor/thecodingmachine/safe/rector-migrate.php"
+    --config "$projectRoot/vendor/thecodingmachine/safe/rector-migrate.php" \
+    --clear-cache
   rectorSafeExitCode=$?
   set -e
   if ((rectorSafeExitCode > 0)); then
@@ -21,7 +22,8 @@ while ((rectorPhpUnitExitCode > 1)); do
   set +e
   echo "Running PHPUnit Rector on $testsDir"
   phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process $testsDir \
-    --config "$(configPath rector-phpunit.php)"
+    --config "$(configPath rector-phpunit.php)" \
+    --clear-cache
   rectorPhpUnitExitCode=$?
   set -e
   if ((rectorPhpUnitExitCode > 0)); then
@@ -40,7 +42,8 @@ if [[ -f $projectRoot/rector.php ]]; then
     set +e
     echo "Running Project Specific Rector"
     phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
-      --config "$projectRoot/rector.php"
+      --config "$projectRoot/rector.php" \
+      --clear-cache
     rectorExitCode=$?
     set -e
     if ((rectorExitCode > 0)); then
