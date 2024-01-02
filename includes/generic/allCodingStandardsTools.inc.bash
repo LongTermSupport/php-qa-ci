@@ -1,19 +1,18 @@
 echo "
 
-Running PHP-CS-Fixer
-----------------------------
-"
-
-runTool phpCsFixer
-
-echo "
-
 Running Rector
 ----------------------------
 "
 
 runTool rector
 
+echo "
+
+Running PHP-CS-Fixer
+----------------------------
+"
+
+runTool phpCsFixer
 
 # Code Sniffer does not currently support PHP8, for example
 # https://github.com/squizlabs/PHP_CodeSniffer/issues/3167
