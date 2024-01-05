@@ -32,23 +32,40 @@ while ((rectorPhpUnitExitCode > 1)); do
 done
 
 # Then we check for project specific Rectors.
-if [[ -f $projectRoot/rector.php ]]; then
-  echo "Running Project Specific Rector as configured in $projectRoot/rector.php"
-  if [[ -f $projectRoot/bin/console ]]; then
-    (cd $projectRoot && APP_ENV=dev phpNoXdebug -f ./bin/console -- cache:clear)
+for rectorConfig in "$projectRoot/rector.php" "$projectRoot/qaConfig/rector.php";  do
+  if [[ -f $rectorConfig ]]; then
+    rectorExitCode=99
+    while ((rectorExitCode > 1)); do
+      set +e
+      echo "Running Project Specific Rector as configured in $rectorConfig"
+      phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
+        --config "$rectorConfig" \
+        --clear-cache
+      rectorExitCode=$?
+      set -e
+      if ((rectorExitCode > 0)); then
+        tryAgainOrAbort "Rector Project Specific"
+      fi
+    done
   fi
-  rectorExitCode=99
-  while ((rectorExitCode > 1)); do
-    set +e
-    echo "Running Project Specific Rector"
-    phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
-      --config "$projectRoot/rector.php" \
-      --clear-cache
-    rectorExitCode=$?
-    set -e
-    if ((rectorExitCode > 0)); then
-      tryAgainOrAbort "Rector Project Specific"
-    fi
-  done
-fi
+done
+#if [[ -f $projectRoot/rector.php ]]; then
+#  echo "Running Project Specific Rector as configured in $projectRoot/rector.php"
+#  if [[ -f $projectRoot/bin/console ]]; then
+#    (cd $projectRoot && APP_ENV=dev phpNoXdebug -f ./bin/console -- cache:clear)
+#  fi
+#  rectorExitCode=99
+#  while ((rectorExitCode > 1)); do
+#    set +e
+#    echo "Running Project Specific Rector"
+#    phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
+#      --config "$projectRoot/rector.php" \
+#      --clear-cache
+#    rectorExitCode=$?
+#    set -e
+#    if ((rectorExitCode > 0)); then
+#      tryAgainOrAbort "Rector Project Specific"
+#    fi
+#  done
+#fi
 
