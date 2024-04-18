@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
-use Exception;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\Psr4Validator;
 use PHPUnit\Framework\TestCase;
@@ -13,28 +12,20 @@ use PHPUnit\Framework\TestCase;
  * Class Psr4ValidatorTest.
  *
  * @SuppressWarnings(PHPMD.StaticAccess)
- * @coversDefaultClass \LTS\PHPQA\Psr4Validator
  *
  * @internal
- *
- * @small
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(Psr4Validator::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(Helper::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(Psr4Validator::class)]
+#[\PHPUnit\Framework\Attributes\Small]
 final class Psr4ValidatorTest extends TestCase
 {
-    /**
-     * @throws Exception
-     * @covers \LTS\PHPQA\Helper::getComposerJsonDecoded
-     * @covers \LTS\PHPQA\Psr4Validator
-     * @small
-     */
     public function testItFindsNoErrorsOnAValidProject(): void
     {
         $assetsPath  = __DIR__ . '/../assets/psr4/projectAllValid/';
-        $projectRoot = realpath($assetsPath);
-        if (false === $projectRoot) {
-            self::fail('failed getting realpath to ' . $assetsPath);
-        }
-        $validator = new Psr4Validator(
+        $projectRoot = \Safe\realpath($assetsPath);
+        $validator   = new Psr4Validator(
             [],
             $projectRoot,
             Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
@@ -44,20 +35,11 @@ final class Psr4ValidatorTest extends TestCase
         self::assertSame($expected, $actual);
     }
 
-    /**
-     * @throws Exception
-     * @covers \LTS\PHPQA\Helper::getComposerJsonDecoded
-     * @covers \LTS\PHPQA\Psr4Validator
-     * @small
-     */
     public function testItCanHandleOddComposerConfigs(): void
     {
         $assetsPath  = __DIR__ . '/../assets/psr4/projectOddComposer/';
-        $projectRoot = realpath($assetsPath);
-        if (false === $projectRoot) {
-            self::fail('failed getting realpath to ' . $assetsPath);
-        }
-        $validator = new Psr4Validator(
+        $projectRoot = \Safe\realpath($assetsPath);
+        $validator   = new Psr4Validator(
             [],
             $projectRoot,
             Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
@@ -67,20 +49,11 @@ final class Psr4ValidatorTest extends TestCase
         self::assertSame($expected, $actual);
     }
 
-    /**
-     * @throws Exception
-     * @covers \LTS\PHPQA\Helper::getComposerJsonDecoded
-     * @covers \LTS\PHPQA\Psr4Validator
-     * @small
-     */
     public function testItFindsErrorsAndThrowsAnExceptionOnAnInvalidProject(): void
     {
         $assetsPath  = __DIR__ . '/../assets/psr4/projectInValid/';
-        $projectRoot = realpath($assetsPath);
-        if (false === $projectRoot) {
-            self::fail('failed getting realpath to ' . $assetsPath);
-        }
-        $validator = new Psr4Validator(
+        $projectRoot = \Safe\realpath($assetsPath);
+        $validator   = new Psr4Validator(
             ['%IgnoredStuff%'],
             $projectRoot,
             Helper::getComposerJsonDecoded($projectRoot . '/composer.json')

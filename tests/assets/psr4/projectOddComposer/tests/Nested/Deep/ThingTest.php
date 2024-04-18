@@ -6,10 +6,10 @@ namespace Odd\Composer\Nested\Deep;
 
 /**
  * @internal
- * @coversNothing
  *
- * @small
  */
+#[\PHPUnit\Framework\Attributes\CoversNothing]
+#[\PHPUnit\Framework\Attributes\Small]
 final class ThingTest
 {
 }

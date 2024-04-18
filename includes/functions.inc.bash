@@ -78,6 +78,7 @@ function configPath() {
 }
 
 ###############################################################
+# @TODO - this does not seem to be working
 # Function to run PHP without Xdebug enabled, much faster
 # Usage:
 # `phpNoXdebug path/to/php/file.php -- -arg1 -arg2`

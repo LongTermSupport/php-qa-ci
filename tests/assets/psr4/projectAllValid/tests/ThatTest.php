@@ -6,10 +6,10 @@ namespace All\Valid;
 
 /**
  * @internal
- * @coversNothing
  *
- * @small
  */
+#[\PHPUnit\Framework\Attributes\CoversNothing]
+#[\PHPUnit\Framework\Attributes\Small]
 final class ThatTest
 {
 }

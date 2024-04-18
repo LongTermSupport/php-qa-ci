@@ -1,12 +1,17 @@
 # First we run the Safe Rectors to implement safe versions of functions.
 
 rectorVerbosity="-vv"
+rectorIgnorePaths="";
+if [[ "placeholder-ignore-item" != "${pathsToIgnore[*]}" ]]; then
+  rectorIgnorePaths="${pathsToIgnore[*]}"
+fi
+
 
 rectorSafeExitCode=99
 while ((rectorSafeExitCode > 1)); do
   set +e
   echo "Running 'Safe' Rector to convert to safe versions of functions"
-  phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
+  rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
     --config "$(configPath rector-safe.php)" \
     --clear-cache
   rectorSafeExitCode=$?
@@ -17,11 +22,12 @@ while ((rectorSafeExitCode > 1)); do
 done
 
 
+
 rectorPhpUnitExitCode=99
 while ((rectorPhpUnitExitCode > 1)); do
   set +e
   echo "Running PHPUnit Rector on $testsDir"
-  phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process $testsDir \
+  rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process $testsDir \
     --config "$(configPath rector-phpunit.php)" \
     --clear-cache
   rectorPhpUnitExitCode=$?

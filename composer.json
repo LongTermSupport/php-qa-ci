@@ -4,10 +4,10 @@
   "license": "MIT",
   "type": "project",
   "require": {
-    "php": "^8.0",
+    "php": "^8.3",
     "ext-json": "*",
     "ext-tokenizer": "*",
-    "ergebnis/composer-normalize": "^2.15",
+    "ergebnis/composer-normalize": "^2.42",
     "friendsofphp/php-cs-fixer": "@stable",
     "funkyproject/reflection-file": "@stable",
     "infection/infection": "@stable",
@@ -18,7 +18,7 @@
     "phpstan/phpstan": "@stable",
     "phpstan/phpstan-strict-rules": "@stable",
     "phpunit/phpunit": "@stable",
-    "rector/rector": "^0.17.7",
+    "rector/rector": "^1.0.4",
     "squizlabs/php_codesniffer": "@stable",
     "thecodingmachine/safe": "^2.5"
   },
@@ -59,8 +59,8 @@
   ],
   "config": {
     "allow-plugins": {
-      "infection/extension-installer": true,
       "ergebnis/composer-normalize": true,
+      "infection/extension-installer": true,
       "phpstan/extension-installer": true
     },
     "bin-dir": "bin",

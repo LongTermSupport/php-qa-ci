@@ -79,8 +79,11 @@ if [[ "" == "$($phpBinPath -i | grep xdebug)" ]]; then
 else
   xdebugEnabled=1
   # @see https://xdebug.org/docs/all_settings#mode
-  export XDEBUG_MODE=coverage
-  echo "Xdebug is enabled in coverage mode"
+  if [[ $XDEBUG_MODE != "debug" ]]; then
+    XDEBUG_MODE=coverage
+  fi
+  export XDEBUG_MODE
+  echo "Xdebug is enabled in $XDEBUG_MODE mode"
 fi
 
 echo "
@@ -111,9 +114,19 @@ hasBeenRestarted="false"
 overridePath="$projectConfigPath/qaConfig.inc.bash"
 
 if [[ -f "$overridePath" ]]; then
-  echo "Found override config at $overridePath"
+  echo "
+
+Found override config at $overridePath
+"
   source $overridePath
+  echo "
+Override config applied
+
+"
 fi
+
+export pathsToCheck
+export pathsToIgnore
 
 cd "$projectRoot"
 

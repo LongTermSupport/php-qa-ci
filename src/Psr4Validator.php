@@ -9,9 +9,9 @@ use Generator;
 use InvalidArgumentException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RuntimeException;
 use SplFileInfo;
 use SplHeap;
+use Throwable;
 
 final class Psr4Validator
 {
@@ -23,7 +23,7 @@ final class Psr4Validator
     /** @var string[] */
     private array $parseErrors = [];
 
-    /** @var array<string,array<string,string>> */
+    /** @var array<string,array<int, array<string,string>>> */
     private array $psr4Errors = [];
 
     /** @var string[] */
@@ -50,15 +50,15 @@ final class Psr4Validator
     }
 
     /**
-     * @throws Exception
-     *
      * @return array<string,array<int|string,mixed>>
+     *
+     * @throws Exception
      */
     public function main(): array
     {
         $this->loop();
         $errors = [];
-        //Actual Errors
+        // Actual Errors
         if ([] !== $this->psr4Errors) {
             $errors['PSR-4 Errors:'] = $this->psr4Errors;
         }
@@ -71,7 +71,7 @@ final class Psr4Validator
         if ([] === $errors) {
             return $errors;
         }
-        //Debug Info
+        // Debug Info
         if ([] !== $this->ignoredFiles) {
             $errors['Ignored Files:'] = $this->ignoredFiles;
         }
@@ -90,9 +90,10 @@ final class Psr4Validator
     }
 
     /**
+     * @return Generator<array{string, string, SplFileInfo}>
+     *
      * @throws Exception
      *
-     * @return Generator<array{string, string, SplFileInfo}>
      * @SuppressWarnings(PHPMD.StaticAccess)
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
@@ -109,9 +110,10 @@ final class Psr4Validator
                     $paths = [$paths];
                 }
                 foreach ($paths as $path) {
-                    $absPathRoot     = $this->pathToProjectRoot . '/' . $path;
-                    $realAbsPathRoot = realpath($absPathRoot);
-                    if (false === $realAbsPathRoot) {
+                    $absPathRoot = $this->pathToProjectRoot . '/' . $path;
+                    try {
+                        $realAbsPathRoot = \Safe\realpath($absPathRoot);
+                    } catch (Throwable) {
                         $this->addMissingPathError($path, $namespaceRoot, $absPathRoot);
                         continue;
                     }
@@ -149,7 +151,8 @@ final class Psr4Validator
     }
 
     /**
-     * @return SplHeap|SplFileInfo[]
+     * @return SplHeap<SplFileInfo>
+     *
      * @SuppressWarnings(PHPMD.UndefinedVariable) - phpmd cant handle the anon class
      */
     private function getDirectoryIterator(string $realPath): SplHeap
@@ -158,7 +161,7 @@ final class Psr4Validator
             $realPath,
             RecursiveDirectoryIterator::SKIP_DOTS
         );
-        $iterator = new RecursiveIteratorIterator(
+        $iterator          = new RecursiveIteratorIterator(
             $directoryIterator,
             RecursiveIteratorIterator::SELF_FIRST
         );
@@ -197,7 +200,7 @@ final class Psr4Validator
         if ($actualNamespace !== $expectedNamespace) {
             $this->psr4Errors[$namespaceRoot][] =
                 [
-                    'fileInfo'          => $fileInfo->getRealPath(),
+                    'fileInfo'          => (string)$fileInfo->getRealPath(),
                     'expectedNamespace' => $expectedNamespace,
                     'actualNamespace'   => $actualNamespace,
                 ];
@@ -206,12 +209,9 @@ final class Psr4Validator
 
     private function getActualNamespace(SplFileInfo $fileInfo): string
     {
-        $contents = file_get_contents($fileInfo->getPathname());
-        if (false === $contents) {
-            throw new RuntimeException('Failed getting file contents for ' . $fileInfo->getPathname());
-        }
-        $matches = null;
-        preg_match('%namespace\s+?([^;]+)%', $contents, $matches);
+        $contents = \Safe\file_get_contents($fileInfo->getPathname());
+        $matches  = null;
+        \Safe\preg_match('%namespace\s+?([^;]+)%', $contents, $matches);
         if ([] === $matches) {
             $this->parseErrors[] = (string)$fileInfo->getRealPath();
 

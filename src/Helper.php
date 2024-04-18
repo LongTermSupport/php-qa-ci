@@ -17,20 +17,22 @@ final class Helper
     private static $projectRootDirectory;
 
     /**
+     * @return array<int|string,mixed>
+     *
      * @throws Exception
      *
-     * @return array<int|string,mixed>
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public static function getComposerJsonDecoded(string $path = null): array
+    public static function getComposerJsonDecoded(?string $path = null): array
     {
         $path ??= self::getProjectRootDirectory() . '/composer.json';
         $contents = \Safe\file_get_contents($path);
         if ('' === $contents) {
             throw new RuntimeException('composer.json is empty');
         }
+
         // @phpstan-ignore-next-line
-        return json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        return \Safe\json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
     }
 
     /**

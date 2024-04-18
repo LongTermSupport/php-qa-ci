@@ -13,18 +13,18 @@ use RuntimeException;
  * Class LinksCheckerTest.
  *
  * @SuppressWarnings(PHPMD.StaticAccess)
- * @coversDefaultClass \LTS\PHPQA\Markdown\LinksChecker
  *
  * @internal
- *
- * @large
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(LinksChecker::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(LinksChecker::class)]
+#[\PHPUnit\Framework\Attributes\Large]
 final class LinksCheckerTest extends TestCase
 {
     /**
      * @throws Exception
+     *
      * @SuppressWarnings(PHPMD.StaticAccess)
-     * @covers \LTS\PHPQA\Markdown\LinksChecker
      */
     public function testInvalidProject(): void
     {
@@ -41,13 +41,13 @@ Bad link for "incorrect link" to "./../nothere.md"
 
 Bad link for "incorrect link" to "./foo.md"
 ';
-        $this->assertResult($pathToProject, $expectedExitCode, $expectedOutput);
+        self::assertResult($pathToProject, $expectedExitCode, $expectedOutput);
     }
 
     /**
      * @throws Exception
+     *
      * @SuppressWarnings(PHPMD.StaticAccess)
-     * @covers \LTS\PHPQA\Markdown\LinksChecker
      */
     public function testMainNoReadmeFile(): void
     {
@@ -57,19 +57,15 @@ Bad link for "incorrect link" to "./foo.md"
 
     /**
      * @throws Exception
-     * @covers \LTS\PHPQA\Markdown\LinksChecker
      */
     public function testValidNoDocsFolder(): void
     {
         $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithReadmeNoDocsFolder';
         $expectedExitCode = 0;
         $expectedOutput   = '';
-        $this->assertResult($pathToProject, $expectedExitCode, $expectedOutput);
+        self::assertResult($pathToProject, $expectedExitCode, $expectedOutput);
     }
 
-    /**
-     * @covers \LTS\PHPQA\Markdown\LinksChecker
-     */
     public function testItHandlesNonFileLinks(): void
     {
         $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithNonFileLinks';
@@ -81,7 +77,7 @@ Bad link for "incorrect link" to "./foo.md"
 Bad link for "invalid link" to "https://httpstat.us/404"
 result: NULL
 ';
-        $this->assertResult($pathToProject, $expectedExitCode, $expectedOutput);
+        self::assertResult($pathToProject, $expectedExitCode, $expectedOutput);
     }
 
     /**
@@ -89,7 +85,7 @@ result: NULL
      */
     protected function assertResult(string $pathToProject, int $expectedExitCode, string $expectedOutput): void
     {
-        ob_start();
+        \Safe\ob_start();
         $actualExitCode = LinksChecker::main($pathToProject);
         $actualOutput   = ob_get_clean();
         echo $actualOutput;

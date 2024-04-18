@@ -9,17 +9,10 @@ use PHPUnit\Framework\TestCase;
 /**
  * Class ClassDocsTest.
  *
- * @small
- *
  * @internal
- * @coversNothing
  */
+#[\PHPUnit\Framework\Attributes\Small]
+#[\PHPUnit\Framework\Attributes\CoversNothing]
 final class ClassDocsTest extends TestCase
 {
-    /**
-     * @test
-     */
-    public function testWithNoAnnotation(): void
-    {
-    }
 }

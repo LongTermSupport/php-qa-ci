@@ -8,16 +8,13 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
- * @coversNothing
- *
- * @small
  */
+#[\PHPUnit\Framework\Attributes\CoversNothing]
+#[\PHPUnit\Framework\Attributes\Small]
 final class SomethingTest extends TestCase
 {
-    /**
-     * @small
-     * @test
-     */
+    #[\PHPUnit\Framework\Attributes\Small]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function itDoesSomething(): void
     {
     }

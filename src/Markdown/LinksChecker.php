@@ -17,20 +17,21 @@ final class LinksChecker
 {
     /**
      * @throws Exception
+     *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public static function main(string $projectRootDirectory = null): int
+    public static function main(?string $projectRootDirectory = null): int
     {
         $return               = 0;
         $projectRootDirectory ??= Helper::getProjectRootDirectory();
-        $files                = static::getFiles($projectRootDirectory);
+        $files                = self::getFiles($projectRootDirectory);
         foreach ($files as $file) {
             $relativeFile = str_replace($projectRootDirectory, '', $file);
             $title        = "\n{$relativeFile}\n" . str_repeat('-', \strlen($relativeFile)) . "\n";
             $errors       = [];
-            $links        = static::getLinks($file);
+            $links        = self::getLinks($file);
             foreach ($links as $link) {
-                static::checkLink($projectRootDirectory, $link, $file, $errors, $return);
+                self::checkLink($projectRootDirectory, $link, $file, $errors, $return);
             }
             if ([] !== $errors) {
                 echo $title . implode('', $errors);
@@ -42,6 +43,7 @@ final class LinksChecker
 
     /**
      * @return string[]
+     *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
     private static function getFiles(string $projectRootDirectory): array
@@ -105,10 +107,10 @@ final class LinksChecker
     private static function getLinks(string $file): array
     {
         $links    = [];
-        $contents = (string)file_get_contents($file);
+        $contents = \Safe\file_get_contents($file);
         $matches  = null;
         if (
-            false !== preg_match_all(
+            0 !== \Safe\preg_match_all(
                 '/\[(.+?)\].*?\((.+?)\)/',
                 $contents,
                 $matches,
@@ -138,7 +140,7 @@ final class LinksChecker
         if (0 === strpos($path, '#')) {
             return;
         }
-        if (1 === preg_match('%^(http|//)%', $path)) {
+        if (1 === \Safe\preg_match('%^(http|//)%', $path)) {
             self::validateHttpLink($link, $errors, $return);
 
             return;
@@ -147,17 +149,18 @@ final class LinksChecker
         $path  = current(explode('#', $path, 2));
         $start = rtrim($projectRootDirectory, '/');
         if ('/' !== $path[0] || 0 === strpos($path, './')) {
-            $relativeSubdirs = preg_replace(
+            $relativeSubdirs = \Safe\preg_replace(
                 '%^' . $projectRootDirectory . '%',
                 '',
                 \dirname($file)
             );
-            if (null !== $relativeSubdirs) {
+            if (\is_string($relativeSubdirs)) {
                 $start .= '/' . rtrim($relativeSubdirs, '/');
             }
         }
-        $realpath = realpath($start . '/' . $path);
-        if (false === $realpath) {
+        try {
+            $realpath = \Safe\realpath($start . '/' . $path);
+        } catch (Throwable) {
             $errors[] = sprintf("\nBad link for \"%s\" to \"%s\"\n", $link[1], $link[2]);
             $return   = 1;
         }
@@ -166,6 +169,7 @@ final class LinksChecker
     /**
      * @param string[] $link
      * @param string[] $errors
+     *
      * @SuppressWarnings(PHPMD.UndefinedVariable) - seems to not understand the static variable
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
@@ -194,14 +198,11 @@ final class LinksChecker
         );
         $result         = null;
         try {
-            $headers = get_headers($href, false, $context);
-            if (false === $headers) {
-                throw new RuntimeException('Failed getting headers for href ' . $href);
-            }
+            $headers = \Safe\get_headers($href, false, $context);
             foreach ($headers as $header) {
                 if (false !== strpos($header, ' 200 ')) {
-                    //$time = round(microtime(true) - $start, 2);
-                    //fwrite(STDERR, "\n".'OK ('.$time.' seconds): '.$href);
+                    // $time = round(microtime(true) - $start, 2);
+                    // fwrite(STDERR, "\n".'OK ('.$time.' seconds): '.$href);
 
                     return;
                 }
@@ -209,7 +210,7 @@ final class LinksChecker
         } catch (Throwable $e) {
             throw new RuntimeException(
                 'Unexpected error ' . $e->getMessage(),
-                (\is_int($e->getCode()) ? $e->getCode() : 0),
+                \is_int($e->getCode()) ? $e->getCode() : 0,
                 $e
             );
         }
@@ -221,7 +222,7 @@ final class LinksChecker
             var_export($result, true)
         );
         $return   = 1;
-        //$time     = round(microtime(true) - $start, 2);
-        //fwrite(STDERR, "\n".'Failed ('.$time.' seconds): '.$href);
+        // $time     = round(microtime(true) - $start, 2);
+        // fwrite(STDERR, "\n".'Failed ('.$time.' seconds): '.$href);
     }
 }

@@ -9,28 +9,18 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
- * @coversNothing
- *
- * @small
  */
+#[\PHPUnit\Framework\Attributes\CoversFunction('somethingThings')]
+#[\PHPUnit\Framework\Attributes\CoversNothing]
+#[\PHPUnit\Framework\Attributes\Small]
 final class SomethingTest extends TestCase
 {
     /**
      * @throws Exception
-     * @covers ::somethingThings()
-     * @large
-     * @test
      */
+    #[\PHPUnit\Framework\Attributes\Large]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function itDoesSomething(): void
-    {
-    }
-
-    /**
-     * @throws Exception
-     * @covers ::somethingThings()
-     * @large
-     */
-    public function testItDoesSomething(): void
     {
     }
 }

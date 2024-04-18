@@ -18,4 +18,4 @@ pathsToCheck+=($srcDir)
 
 # An array of paths that are to be ignored
 pathsToIgnore=()
-pathsToIgnore+=("placeholder-ignore-item")
+pathsToIgnore+=( "placeholder-ignore-item" )

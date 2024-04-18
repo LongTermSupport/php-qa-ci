@@ -65,9 +65,9 @@ $rules = [
     //            'assertNotEquals',
     //        ],
     //    ],
-    # this one is not compatible with attributes
-    //'php_unit_size_class'          => ['group' => 'small'],
-    # this one is not compatible with attributes
+    // this one is not compatible with attributes
+    // 'php_unit_size_class'          => ['group' => 'small'],
+    // this one is not compatible with attributes
     'php_unit_test_class_requires_covers' => false,
     'psr_autoloading'                     => true,
     'return_assignment'                   => true,
