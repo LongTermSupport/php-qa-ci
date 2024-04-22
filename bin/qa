@@ -79,7 +79,7 @@ if [[ "" == "$($phpBinPath -i | grep xdebug)" ]]; then
 else
   xdebugEnabled=1
   # @see https://xdebug.org/docs/all_settings#mode
-  if [[ $XDEBUG_MODE != "debug" ]]; then
+  if [[ ${XDEBUG_MODE:-} != "debug" ]]; then
     XDEBUG_MODE=coverage
   fi
   export XDEBUG_MODE
