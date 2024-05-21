@@ -13,6 +13,7 @@ declare(strict_types=1);
  */
 
 use Composer\Autoload\ClassLoader;
+use PhpCsFixer\Runner\Parallel\ParallelConfigFactory;
 
 $rules = [
     '@PhpCsFixer'                         => true,
@@ -111,4 +112,5 @@ $finder = require $finderPath;
 return (new PhpCsFixer\Config())
     ->setRules($rules)
     ->setFinder($finder)
+    ->setParallelConfig(ParallelConfigFactory::detect())
 ;

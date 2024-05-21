@@ -8,4 +8,5 @@ if (isset($GLOBALS['projectRoot'])) {
 return (new PhpCsFixer\Finder())
     ->in($projectRoot)
     ->exclude('var')
+    ->ignoreVCSIgnored(true)
 ;
