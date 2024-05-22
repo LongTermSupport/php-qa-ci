@@ -19,7 +19,7 @@ $rules = [
     '@PhpCsFixer'                         => true,
     '@Symfony'                            => true,
     '@DoctrineAnnotation'                 => true,
-    '@PHP82Migration'                     => true,
+    '@PHP83Migration'                     => true,
     'align_multiline_comment'             => true,
     'array_indentation'                   => true,
     'array_syntax'                        => ['syntax' => 'short'],
@@ -93,6 +93,7 @@ $rules = [
     'global_namespace_import'             => true,
     'phpdoc_to_return_type'               => false,
     'no_superfluous_phpdoc_tags'          => true,
+    'phpdoc_to_comment'                   => false,    // otherwise we cant use @var comments to help stan understand things
 ];
 
 $projectRoot = (static function () {
