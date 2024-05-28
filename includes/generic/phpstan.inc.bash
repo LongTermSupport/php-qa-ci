@@ -12,7 +12,7 @@ while ((phpStanExitCode > 0)); do
   #exit code 0 = fine, 1 = ran fine but found errors, else it means it crashed
   if ((phpStanExitCode > 1)); then
     printf "\n\n\nPHPStan Crashed!!....\n\nrunning again with debug mode:\nWhere ever it stops is probably a fatal PHP error\n\n"
-    eval phpNoXdebug -f "$binDir"/phpstan.phar -- analyse $pathsStringArray -c "$phpstanConfigPath" --debug
+    eval phpNoXdebug -f "$binDir"/phpstan.phar -- analyse $pathsStringArray -c "$phpstanConfigPath" --debug -v
     exit 1
   fi
   if ((phpStanExitCode > 0)); then
