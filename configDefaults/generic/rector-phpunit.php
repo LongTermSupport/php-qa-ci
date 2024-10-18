@@ -18,7 +18,7 @@ return static function (RectorConfig $rectorConfig): void {
     ]);
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitThisCallRector::class]);
     $rectorConfig->rules([
-        Rector\PHPUnit\Rector\Class_\PreferPHPUnitSelfCallRector::class,
+        Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
     ]);
     $rectorConfig->cacheClass(MemoryCacheStorage::class);
