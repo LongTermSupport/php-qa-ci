@@ -101,7 +101,10 @@ $projectRoot = (static function () {
 
     return \dirname($reflection->getFileName(), 3);
 })();
-
+if (str_starts_with($projectRoot, 'phar')) {
+    echo "\nforcing relative project root due to phar shim cs fixer\n";
+    $projectRoot = __DIR__ . '/../../../../../';
+}
 $finderPath   = __DIR__ . '/php_cs_finder.php';
 $overridePath = "{$projectRoot}/qaConfig/php_cs_finder.php";
 if (file_exists($overridePath)) {
