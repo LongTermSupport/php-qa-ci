@@ -24,7 +24,12 @@ $rules = [
     'array_indentation'                   => true,
     'array_syntax'                        => ['syntax' => 'short'],
     'blank_line_after_opening_tag'        => true,
-    'binary_operator_spaces'              => ['default' => 'align'],
+    'binary_operator_spaces'              => [
+        'default' => 'align',
+        'operators' => [
+            '=>' => 'align_single_space_by_scope'
+        ]
+    ],
     'cast_spaces'                         => ['space' => 'none'],
     'concat_space'                        => ['spacing' => 'one'],
     'declare_strict_types'                => true,
