@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c4d7395e018da237ec569c5795e83aec",
+    "content-hash": "ee0fd901e2955013b9b933e6870db037",
     "packages": [
         {
             "name": "colinodell/json5",
@@ -314,6 +314,71 @@
                 }
             ],
             "time": "2024-03-26T18:29:49+00:00"
+        },
+        {
+            "name": "dogma/dogma",
+            "version": "v0.2.22",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/paranoiq/dogma.git",
+                "reference": "5ed8a35420ce4fc80b2952e5b4e377d834409141"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/paranoiq/dogma/zipball/5ed8a35420ce4fc80b2952e5b4e377d834409141",
+                "reference": "5ed8a35420ce4fc80b2952e5b4e377d834409141",
+                "shasum": ""
+            },
+            "require": {
+                "ext-calendar": "*",
+                "nette/http": "~2.4|~3.0",
+                "nette/utils": "~2.4|~3.0|~4.0",
+                "php": "^7.4|^8.0"
+            },
+            "require-dev": {
+                "dogma/dogma-dev": "0.1.29",
+                "phpstan/phpstan": "1.10.2",
+                "phpstan/phpstan-strict-rules": "^1.0"
+            },
+            "suggest": {
+                "ext-dom": "for Dom (basic functionality)",
+                "ext-fileinfo": "for Io (content type and encoding detection)",
+                "ext-iconv": "for Str (converting encoding when ext-mbstring is not available)",
+                "ext-intl": "for Str and Language (advanced unicode manipulation)",
+                "ext-mbstring": "for Str (basic functionality)",
+                "ext-recode": "for Str (converting encoding when ext-mbstring and ext-iconv are not available)",
+                "symfony/polyfill-intl-icu": "for Str and Language",
+                "symfony/polyfill-intl-normalizer": "for Str",
+                "symfony/polyfill-mbstring": "for Str"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "0.2-dev"
+                }
+            },
+            "autoload": {
+                "classmap": [
+                    "src"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause"
+            ],
+            "authors": [
+                {
+                    "name": "Vlasta Neubauer",
+                    "homepage": "https://paranoiq.cz"
+                }
+            ],
+            "description": "The incomplete standard library",
+            "homepage": "http://github.com/paranoiq/dogma",
+            "support": {
+                "issues": "https://github.com/paranoiq/dogma/issues",
+                "source": "https://github.com/paranoiq/dogma/tree/v0.2.22"
+            },
+            "time": "2023-06-22T08:25:35+00:00"
         },
         {
             "name": "ergebnis/composer-normalize",
@@ -1486,6 +1551,173 @@
                 }
             ],
             "time": "2023-03-08T13:26:56+00:00"
+        },
+        {
+            "name": "nette/http",
+            "version": "v3.3.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nette/http.git",
+                "reference": "3e2587b34beb66f238f119b12fbb4f0b9ab2d6d1"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nette/http/zipball/3e2587b34beb66f238f119b12fbb4f0b9ab2d6d1",
+                "reference": "3e2587b34beb66f238f119b12fbb4f0b9ab2d6d1",
+                "shasum": ""
+            },
+            "require": {
+                "nette/utils": "^4.0.4",
+                "php": "8.1 - 8.4"
+            },
+            "conflict": {
+                "nette/di": "<3.0.3",
+                "nette/schema": "<1.2"
+            },
+            "require-dev": {
+                "nette/di": "^3.0",
+                "nette/security": "^3.0",
+                "nette/tester": "^2.4",
+                "phpstan/phpstan": "^1.0",
+                "tracy/tracy": "^2.8"
+            },
+            "suggest": {
+                "ext-fileinfo": "to detect MIME type of uploaded files by Nette\\Http\\FileUpload",
+                "ext-gd": "to use image function in Nette\\Http\\FileUpload",
+                "ext-intl": "to support punycode by Nette\\Http\\Url",
+                "ext-session": "to use Nette\\Http\\Session"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "3.3-dev"
+                }
+            },
+            "autoload": {
+                "classmap": [
+                    "src/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause",
+                "GPL-2.0-only",
+                "GPL-3.0-only"
+            ],
+            "authors": [
+                {
+                    "name": "David Grudl",
+                    "homepage": "https://davidgrudl.com"
+                },
+                {
+                    "name": "Nette Community",
+                    "homepage": "https://nette.org/contributors"
+                }
+            ],
+            "description": "🌐 Nette Http: abstraction for HTTP request, response and session. Provides careful data sanitization and utility for URL and cookies manipulation.",
+            "homepage": "https://nette.org",
+            "keywords": [
+                "cookies",
+                "http",
+                "nette",
+                "proxy",
+                "request",
+                "response",
+                "security",
+                "session",
+                "url"
+            ],
+            "support": {
+                "issues": "https://github.com/nette/http/issues",
+                "source": "https://github.com/nette/http/tree/v3.3.2"
+            },
+            "time": "2025-01-12T16:27:57+00:00"
+        },
+        {
+            "name": "nette/utils",
+            "version": "v4.0.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nette/utils.git",
+                "reference": "736c567e257dbe0fcf6ce81b4d6dbe05c6899f96"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nette/utils/zipball/736c567e257dbe0fcf6ce81b4d6dbe05c6899f96",
+                "reference": "736c567e257dbe0fcf6ce81b4d6dbe05c6899f96",
+                "shasum": ""
+            },
+            "require": {
+                "php": "8.0 - 8.4"
+            },
+            "conflict": {
+                "nette/finder": "<3",
+                "nette/schema": "<1.2.2"
+            },
+            "require-dev": {
+                "jetbrains/phpstorm-attributes": "dev-master",
+                "nette/tester": "^2.5",
+                "phpstan/phpstan": "^1.0",
+                "tracy/tracy": "^2.9"
+            },
+            "suggest": {
+                "ext-gd": "to use Image",
+                "ext-iconv": "to use Strings::webalize(), toAscii(), chr() and reverse()",
+                "ext-intl": "to use Strings::webalize(), toAscii(), normalize() and compare()",
+                "ext-json": "to use Nette\\Utils\\Json",
+                "ext-mbstring": "to use Strings::lower() etc...",
+                "ext-tokenizer": "to use Nette\\Utils\\Reflection::getUseStatements()"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "4.0-dev"
+                }
+            },
+            "autoload": {
+                "classmap": [
+                    "src/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause",
+                "GPL-2.0-only",
+                "GPL-3.0-only"
+            ],
+            "authors": [
+                {
+                    "name": "David Grudl",
+                    "homepage": "https://davidgrudl.com"
+                },
+                {
+                    "name": "Nette Community",
+                    "homepage": "https://nette.org/contributors"
+                }
+            ],
+            "description": "🛠  Nette Utils: lightweight utilities for string & array manipulation, image handling, safe JSON encoding/decoding, validation, slug or strong password generating etc.",
+            "homepage": "https://nette.org",
+            "keywords": [
+                "array",
+                "core",
+                "datetime",
+                "images",
+                "json",
+                "nette",
+                "paginator",
+                "password",
+                "slugify",
+                "string",
+                "unicode",
+                "utf-8",
+                "utility",
+                "validation"
+            ],
+            "support": {
+                "issues": "https://github.com/nette/utils/issues",
+                "source": "https://github.com/nette/utils/tree/v4.0.5"
+            },
+            "time": "2024-08-07T15:39:19+00:00"
         },
         {
             "name": "nikic/php-parser",
@@ -3678,6 +3910,56 @@
                 }
             ],
             "time": "2023-02-07T11:34:05+00:00"
+        },
+        {
+            "name": "sqlftw/sqlftw",
+            "version": "v0.1.17",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/SQLFTW/sqlftw.git",
+                "reference": "75ad341c9687922c2f08df019781d9508ceb29a4"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/SQLFTW/sqlftw/zipball/75ad341c9687922c2f08df019781d9508ceb29a4",
+                "reference": "75ad341c9687922c2f08df019781d9508ceb29a4",
+                "shasum": ""
+            },
+            "require": {
+                "dogma/dogma": "^0.2.17",
+                "php": "^7.4|^8.0"
+            },
+            "require-dev": {
+                "amphp/parallel-functions": "1.1.0",
+                "dogma/dogma-debug": "0.1",
+                "dogma/dogma-dev": "0.1.29",
+                "phpstan/phpstan": "1.9.15",
+                "phpstan/phpstan-strict-rules": "^1.0",
+                "rector/rector": "0.14.8"
+            },
+            "type": "library",
+            "autoload": {
+                "classmap": [
+                    "sources"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "Vlasta Neubauer",
+                    "homepage": "https://paranoiq.cz"
+                }
+            ],
+            "description": "Complete MySQL SQL dialect lexer, parser, AST and SQL serialisation",
+            "homepage": "https://github.com/sqlftw/sqlftw",
+            "support": {
+                "issues": "https://github.com/SQLFTW/sqlftw/issues",
+                "source": "https://github.com/SQLFTW/sqlftw/tree/v0.1.17"
+            },
+            "time": "2025-02-04T15:11:42+00:00"
         },
         {
             "name": "squizlabs/php_codesniffer",
@@ -6158,5 +6440,5 @@
         "ext-tokenizer": "*"
     },
     "platform-dev": [],
-    "plugin-api-version": "2.3.0"
+    "plugin-api-version": "2.6.0"
 }

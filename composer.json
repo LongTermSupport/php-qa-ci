@@ -20,7 +20,8 @@
     "phpunit/phpunit": "@stable",
     "rector/rector": "^1.0.4",
     "squizlabs/php_codesniffer": "@stable",
-    "thecodingmachine/safe": "^2.5"
+    "thecodingmachine/safe": "^2.5",
+    "sqlftw/sqlftw": "^0.1.17"
   },
   "require-dev": {
     "phpstan/phpstan-phpunit": "@stable",
