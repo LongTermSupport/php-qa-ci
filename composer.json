@@ -21,10 +21,10 @@
     "rector/rector": "@stable",
     "squizlabs/php_codesniffer": "@stable",
     "thecodingmachine/safe": "^2.5",
-    "sqlftw/sqlftw": "^0.1.17"
+    "sqlftw/sqlftw": "^0.1.17",
+    "phpstan/phpstan-phpunit": "^2.0"
   },
   "require-dev": {
-    "phpstan/phpstan-phpunit": "@stable",
     "roave/security-advisories": "dev-master"
   },
   "suggest": {
