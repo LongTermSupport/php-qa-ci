@@ -17,6 +17,7 @@ return static function (RectorConfig $rectorConfig): void {
         PHPUnitSetList::ANNOTATIONS_TO_ATTRIBUTES,
     ]);
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitThisCallRector::class]);
+    $rectorConfig->skip([Rector\PHPUnit\PHPUnit100\Rector\Class_\ParentTestClassConstructorRector::class]);
     $rectorConfig->rules([
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
