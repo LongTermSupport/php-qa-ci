@@ -12,6 +12,8 @@ return static function (RectorConfig $rectorConfig): void {
     $paths = [
         __DIR__ . '/../../../../thecodingmachine/safe/rector-migrate.php',
         __DIR__ . '/../../../vendor/thecodingmachine/safe/rector-migrate.php',
+        __DIR__ . '/../../../../shish/safe/rector-migrate.php',
+        __DIR__ . '/../../../vendor/shish/safe/rector-migrate.php',
     ];
     foreach ($paths as $path) {
         if (file_exists($path)) {
