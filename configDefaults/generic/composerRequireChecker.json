@@ -27,5 +27,26 @@
     "SPL",
     "standard"
   ],
-  "scan-files": []
+  "scan-files": [
+      "vendor/thecodingmachine/safe/generated/8.4/filesystem.php",
+      "vendor/thecodingmachine/safe/generated/8.4/json.php",
+      "vendor/thecodingmachine/safe/generated/8.4/strings.php",
+      "vendor/thecodingmachine/safe/generated/8.4/array.php",
+      "vendor/thecodingmachine/safe/generated/8.4/pcre.php",
+      "vendor/thecodingmachine/safe/generated/8.4/stream.php",
+      "vendor/thecodingmachine/safe/generated/8.4/curl.php",
+      "vendor/thecodingmachine/safe/generated/8.4/mbstring.php",
+      "vendor/thecodingmachine/safe/generated/8.4/exec.php",
+      "vendor/thecodingmachine/safe/generated/8.4/dir.php",
+      "vendor/thecodingmachine/safe/generated/8.4/spl.php",
+      "vendor/thecodingmachine/safe/generated/8.4/datetime.php",
+      "vendor/thecodingmachine/safe/generated/8.4/fileinfo.php",
+      "vendor/thecodingmachine/safe/generated/8.4/hash.php",
+      "vendor/thecodingmachine/safe/generated/8.4/openssl.php",
+      "vendor/thecodingmachine/safe/generated/8.4/zip.php",
+      "vendor/thecodingmachine/safe/generated/8.4/xml.php",
+      "vendor/thecodingmachine/safe/generated/8.4/session.php",
+      "vendor/thecodingmachine/safe/generated/8.4/network.php",
+      "vendor/thecodingmachine/safe/generated/8.4/url.php"
+  ]
 }
