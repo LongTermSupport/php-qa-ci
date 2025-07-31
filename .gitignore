@@ -8,3 +8,4 @@
 !/bin/phpunit-runfailed-filter
 !/bin/phpunit-check-annotation
 /cache/
+/vendor-phar/

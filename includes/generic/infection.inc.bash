@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 function runInfection(){
+    # Use PHAR from vendor-phar directory instead of composer binary
+    local infectionPath="$pharDir/infection.phar"
+    
     local extraArgs=( -- )
     if [[ "1" == "$infectionOnlyCovered" && "0" ]]
     then
@@ -9,7 +12,7 @@ function runInfection(){
     if [[ "0" == "${phpunitFailedOnlyFiltered:-0}" ]]
     then
         # Don't run infection with xdebug
-         phpNoXdebug -f "$binDir"/infection \
+         phpNoXdebug -f "$infectionPath" \
             "${extraArgs[@]}" \
             --coverage=$varDir/phpunit_logs \
             --threads=${infectionThreads} \
@@ -18,7 +21,7 @@ function runInfection(){
             --min-covered-msi=${infectionCoveredCodeMSI} \
             --log-verbosity=all
     else
-        ${phpBinPath} -f "$binDir"/infection \
+        ${phpBinPath} -f "$infectionPath" \
             "${extraArgs[@]}" \
             --threads=${infectionThreads} \
             --configuration=${infectionConfig} \

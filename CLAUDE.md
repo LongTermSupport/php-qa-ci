@@ -30,21 +30,39 @@ When you run the qa script in your project:
 
 Before running any QA tools, the pipeline executes these preflight steps:
 
-1. **Platform Detection** (`detectPlatform`) - Identifies if project is Symfony/Laravel/generic
-2. **Xdebug Check** - Determines if coverage/infection testing is available
-3. **Set Paths** (`setPaths`) - Auto-detects and configures paths:
+1. **Variable Initialization** (in `bin/qa`) - Core variables set before anything else:
+   - `$qaDir` - The php-qa-ci library directory (where bin/qa lives)
+   - `$projectRoot` - The project being tested
+   - `$binDir` - The project's bin directory (usually vendor/bin)
+
+2. **Platform Detection** (`detectPlatform`) - Identifies if project is Symfony/Laravel/generic
+
+3. **Xdebug Check** - Determines if coverage/infection testing is available
+
+4. **Set Paths** (`setPaths`) - Auto-detects and configures paths:
    - `testsDir` - Finds test directory
    - `srcDir` - Finds source directory  
    - `binDir` - Finds bin directory (vendor/bin)
    - `pathsToCheck` - Array of paths to scan (defaults to tests + src)
    - `pathsToIgnore` - Array of paths to ignore
-4. **Set Config** (`setConfig`) - Loads all configuration files in cascade order
-5. **Project Config Override** - Sources `qaConfig/qaConfig.inc.bash` if it exists
-6. **Prepare Directories** (`prepareDirectories`) - Creates necessary directories:
+
+5. **Set Config** (`setConfig`) - Loads all configuration files in cascade order and defines:
+   - `$projectConfigPath` - Project's qaConfig directory
+   - `$varDir` - Project's var/qa directory
+   - `$cacheDir` - Project's var/qa/cache directory
+   - `$pharDir` - QA library's vendor-phar directory (for PHIVE-installed tools)
+   - Various tool configuration paths
+
+6. **Project Config Override** - Sources `qaConfig/qaConfig.inc.bash` if it exists
+
+7. **Prepare Directories** (`prepareDirectories`) - Creates necessary directories:
    - `var/qa/` - Main QA output directory
    - `var/qa/cache/` - Tool cache directory
    - Adds .gitignore files to exclude generated content
-7. **Pre-Hook** (`hookPre.bash`) - Runs project-specific pre-pipeline script if exists
+
+8. **PHIVE Install** - If `phive.xml` exists, runs `scripts/phive-install.bash` to install PHAR dependencies
+
+9. **Pre-Hook** (`hookPre.bash`) - Runs project-specific pre-pipeline script if exists
 
 Only after all preflight steps complete does the actual tool execution begin.
 

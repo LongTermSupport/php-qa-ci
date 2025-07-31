@@ -10,7 +10,6 @@
     "ergebnis/composer-normalize": "^2.42",
     "friendsofphp/php-cs-fixer": "@stable",
     "funkyproject/reflection-file": "@stable",
-    "infection/infection": "@stable",
     "maglnet/composer-require-checker": "@stable",
     "php-parallel-lint/php-console-color": "@stable",
     "php-parallel-lint/php-parallel-lint": "@stable",
