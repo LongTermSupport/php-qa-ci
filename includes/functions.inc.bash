@@ -299,7 +299,7 @@ function findSrcDir() {
 }
 
 function findBinDir() {
-  binDir="$(find $projectRoot -maxdepth 2 -type d -name bin | head -n1)"
+  binDir="$(cd $projectRoot && composer config bin-dir)"
   if [[ "" == "$binDir" ]]; then
     echo "
 
