@@ -87,7 +87,7 @@ result: NULL
     {
         \Safe\ob_start();
         $actualExitCode = LinksChecker::main($pathToProject);
-        $actualOutput   = ob_get_clean();
+        $actualOutput   = \Safe\ob_get_clean();
         echo $actualOutput;
         self::assertSame($expectedOutput, $actualOutput);
         self::assertSame($expectedExitCode, $actualExitCode);

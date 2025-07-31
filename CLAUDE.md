@@ -367,13 +367,21 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **How it works**: Parses test files to ensure proper @test, @group annotations
 
 ### Composer Require Checker  
-- **Purpose**: Finds missing composer dependencies
+- **Purpose**: Ensures all code dependencies are explicitly declared in composer.json
 - **Tool**: [@includes/generic/composerRequireChecker.inc.bash](includes/generic/composerRequireChecker.inc.bash)
 - **Default**: [@configDefaults/generic/composerRequireChecker.json](configDefaults/generic/composerRequireChecker.json)
-- **How it works**: Analyzes use statements and function calls, compares against composer.json
-- **Key features**:
-  - Finds dependencies used but not declared
-  - Helps maintain accurate composer.json
+- **How it works**: 
+  - Scans all PHP files for symbols (classes, functions, constants)
+  - Checks if each symbol's package is explicitly required in composer.json
+  - Fails if using transitive dependencies without declaring them
+- **Key principles**:
+  - **Explicit is better than implicit** - If you use it, declare it
+  - **Don't rely on transitive dependencies** - They might be removed
+  - Example: If you use `Symfony\Component\HttpKernel\Kernel`, you must require `symfony/http-kernel` even if it's installed via `symfony/framework-bundle`
+- **Common issues**:
+  - Using Symfony components without explicit require
+  - Safe functions from `thecodingmachine/safe` after Rector conversion
+  - PSR interfaces without requiring the PSR package
 
 ### Markdown Links Checker
 - **Purpose**: Validates links in markdown documentation
