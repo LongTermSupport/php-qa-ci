@@ -111,7 +111,7 @@ final class LinksChecker
         $matches  = null;
         if (
             0 !== \Safe\preg_match_all(
-                '/\[(.+?)\].*?\((.+?)\)/',
+                '/\[([^\]]+)\]\(([^)]+)\)/',
                 $contents,
                 $matches,
                 PREG_SET_ORDER
