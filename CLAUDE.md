@@ -214,6 +214,16 @@ echo "PHPStan complete, checking results..."
 - Linux/Unix environment (uses bash)
 - PHP 7.4 or higher (PHP 8.4 supported on php8.4 branch)
 - Composer-installed project with php-qa-ci as a dependency
+- Your project's composer.json must allow the `ergebnis/composer-normalize` plugin:
+  ```json
+  {
+      "config": {
+          "allow-plugins": {
+              "ergebnis/composer-normalize": true
+          }
+      }
+  }
+  ```
 
 ### Custom PHP Executable
 
@@ -317,9 +327,24 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 ### Composer Checks
 - **Purpose**: Validates composer configuration and dependencies
 - **Tool**: [@includes/generic/composerChecks.inc.bash](includes/generic/composerChecks.inc.bash)
+- **Requirements**: 
+  - `ergebnis/composer-normalize` plugin must be allowed in YOUR PROJECT's composer.json
 - **How it works**: 
+  - Checks if `ergebnis/composer-normalize` plugin is allowed
   - Runs `composer diagnose` to check for issues
+  - Runs `composer normalize` to normalize composer.json
   - Runs `composer dump-autoload` to ensure autoloading works
+- **Required in your project's composer.json**:
+  ```json
+  {
+      "config": {
+          "allow-plugins": {
+              "ergebnis/composer-normalize": true
+          }
+      }
+  }
+  ```
+  After adding, run: `composer update nothing`
 
 ### PHP Strict Types
 - **Purpose**: Ensures all PHP files have `declare(strict_types=1)`

@@ -9,7 +9,7 @@ phpNoXdebug -f $(which composer) -- diagnose
 set -e
 
 # Check if ergebnis/composer-normalize plugin is allowed
-if ! phpNoXdebug -f $(which composer) -- config --json | grep -q '"ergebnis/composer-normalize": true'; then
+if [ "$(phpNoXdebug -f $(which composer) -- config allow-plugins.ergebnis/composer-normalize)" != "true" ]; then
     echo "
 ERROR: The ergebnis/composer-normalize plugin is not allowed in your composer.json
 
