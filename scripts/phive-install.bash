@@ -58,7 +58,7 @@ fi
 # For install mode, check if all PHARs are already installed (unless -f flag is used)
 if [[ "$MODE" == "install" ]] && [[ $FORCE_INSTALL -eq 0 ]]; then
     ALL_INSTALLED=1
-    
+
     # Extract PHAR locations from phive.xml
     while IFS= read -r location; do
         PHAR_PATH="$PROJECT_ROOT/$location"
@@ -67,7 +67,7 @@ if [[ "$MODE" == "install" ]] && [[ $FORCE_INSTALL -eq 0 ]]; then
             break
         fi
     done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
-    
+
     if [[ $ALL_INSTALLED -eq 1 ]]; then
         # Quick exit - all PHARs already installed
         exit 0
@@ -91,6 +91,8 @@ TRUST_KEYS_ARG=""
 if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
     TRUST_KEYS_ARG="--trust-gpg-keys $(IFS=','; echo "${TRUSTED_KEYS[*]}")"
 fi
+
+export XDEBUG_MODE=off
 
 # Run PHIVE command
 cd "$PROJECT_ROOT"
