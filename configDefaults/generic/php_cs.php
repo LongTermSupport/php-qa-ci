@@ -10,6 +10,11 @@ declare(strict_types=1);
  * For rules, suggest you have a look at
  *
  * @see https://mlocati.github.io/php-cs-fixer-configurator/
+ *
+ * PHP 8.4 Compatibility Note:
+ * - This config includes PHP 8.4 migration rules
+ * - Property hooks are not yet fully supported by PHP CS Fixer (as of 2025)
+ * - PHP CS Fixer v3.84.0+ supports PHP 8.4 natively (no PHP_CS_FIXER_IGNORE_ENV needed)
  */
 
 use Composer\Autoload\ClassLoader;
@@ -19,7 +24,7 @@ $rules = [
     '@PhpCsFixer'                         => true,
     '@Symfony'                            => true,
     '@DoctrineAnnotation'                 => true,
-    '@PHP83Migration'                     => true,
+    '@PHP84Migration'                     => true,
     'align_multiline_comment'             => true,
     'array_indentation'                   => true,
     'array_syntax'                        => ['syntax' => 'short'],
@@ -99,6 +104,9 @@ $rules = [
     'phpdoc_to_return_type'               => false,
     'no_superfluous_phpdoc_tags'          => true,
     'phpdoc_to_comment'                   => false,    // otherwise we cant use @var comments to help stan understand things
+    // PHP 8.4 specific rules
+    'nullable_type_declaration_for_default_null_value' => true, // Critical for PHP 8.4 compatibility
+    'nullable_type_declaration'           => ['syntax' => 'question_mark'], // Use ? syntax for nullable types
 ];
 
 $projectRoot = (static function () {

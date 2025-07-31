@@ -149,22 +149,18 @@ export skipUncommittedChangesCheck=1
 " >> qaConfig/qaConfig.inc.bash
 ```
 
-### Beautifier and Fixer
+### Rector
 
-[PHP Code Beautifier and Fixer Tool](../includes/generic/beautifierFixer.inc.bash)
+[Rector Tool](../includes/generic/rector.inc.bash)
 
-Automatically reformats PHP code according to defined coding standards
+Rector is a tool that performs automated refactoring and upgrades of PHP code. It can help upgrade code to newer PHP versions and apply best practices.
 
-Please see the [PHPQA Coding Standards docs](./coding-standards.md) for more information on how to manage coding standards in your project.
+### PHP CS Fixer
 
-Please see the [PHPCS Docs](https://github.com/squizlabs/PHP_CodeSniffer/wiki) for more information about PHP Code Sniffer in general
+[PHP CS Fixer Tool](../includes/generic/phpCsFixer.inc.bash)
 
-### PHP Code Sniffer
-
-[PHP CodeSniffer Tool](../includes/generic/codeSniffer.inc.bash)
-
-Now we run the code sniffer to check for any remaining coding standards issues that have not been automatically fixed.
+PHP CS Fixer automatically fixes code style issues according to modern PHP standards. It's highly configurable and supports PHP 8.4 features.
 
 Please see the [PHPQA Coding Standards docs](./coding-standards.md) for more information on how to manage coding standards in your project.
 
-Please see the [PHPCS Docs](https://github.com/squizlabs/PHP_CodeSniffer/wiki) for more information about PHP Code Sniffer in general 
+Please see the [PHP CS Fixer Docs](https://github.com/PHP-CS-Fixer/PHP-CS-Fixer) for more information about PHP CS Fixer in general 

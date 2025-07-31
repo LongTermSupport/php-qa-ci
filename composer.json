@@ -19,7 +19,6 @@
     "phpstan/phpstan-strict-rules": "@stable",
     "phpunit/phpunit": "@stable",
     "rector/rector": "@stable",
-    "squizlabs/php_codesniffer": "@stable",
     "thecodingmachine/safe": "^2.5",
     "sqlftw/sqlftw": "^0.1.17",
     "phpstan/phpstan-phpunit": "^2.0"
