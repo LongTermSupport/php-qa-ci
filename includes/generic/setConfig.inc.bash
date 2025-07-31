@@ -85,4 +85,9 @@ phpCsCacheFile="$varDir/cache/php_cs.cache"
 # If a CI variable is set, we use that, otherwise default to false.
 # Travis-CI sets a CI variable. You can easily set this in any other CI system
 # The value should the the string 'true' if this is CI
-CI=${CI:-'false'}
+# Also detect Claude Code (CLAUDECODE=1) as CI environment
+if [[ "${CLAUDECODE:-}" == "1" ]]; then
+    CI='true'
+else
+    CI=${CI:-'false'}
+fi
