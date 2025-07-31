@@ -2,11 +2,11 @@
 
 ## Install
 
-First, ensure your bin dir config is set in your composer.json like this
+The qa script will be installed in your project's bin directory. By default, Composer uses `vendor/bin`, but you can configure a custom location in your composer.json:
 
 ```
   "config": {
-    "bin-dir": "bin",
+    "bin-dir": "bin",  // Optional: changes from vendor/bin to bin
 ```
 
 Then install the current bleeding edge, run
@@ -49,15 +49,15 @@ Documentation is something of a work in progress, however you can find various d
 if you are running multiple PHP versions, you can specify which one to use like so:
 
 ```bash
+# If using default vendor/bin location:
 export PHP_QA_CI_PHP_EXECUTABLE=/bin/php81
+vendor/bin/qa
 
-./bin/qa
-```
+# Or inline:
+PHP_QA_CI_PHP_EXECUTABLE=/bin/php81 vendor/bin/qa
 
-or 
-
-```
-PHP_QA_CI_PHP_EXECUTABLE=/bin/php81 ./bin/qa
+# If you configured "bin-dir": "bin" in composer.json:
+PHP_QA_CI_PHP_EXECUTABLE=/bin/php81 bin/qa
 ```
 
 

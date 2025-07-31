@@ -15,12 +15,14 @@ PHP-QA-CI is a comprehensive quality assurance pipeline for PHP projects written
 
 ### How It Works
 
-When you run `./bin/qa` in your project:
+When you run the qa script in your project:
 
 1. The script detects your project root and platform type
 2. Loads configuration from multiple sources (defaults → platform-specific → project overrides)
-3. Runs tools from your project's `vendor/bin` directory (NOT from php-qa-ci's own vendor)
+3. Runs tools from your project's bin directory (NOT from php-qa-ci's own vendor)
 4. Executes tools in 4 phases in a specific order designed to modify code first, then validate
+
+**Note on bin directory location**: The qa script is installed in the directory specified by the `bin-dir` config in your composer.json. By default this is `vendor/bin`, but it can be configured to any directory (e.g., `bin`). All examples in this documentation assume the default `vendor/bin` location.
 
 ## Pipeline Execution Order
 
@@ -218,12 +220,12 @@ echo "PHPStan complete, checking results..."
 You can specify which PHP binary to use via the `PHP_QA_CI_PHP_EXECUTABLE` environment variable:
 
 ```bash
-# Use specific PHP version
-PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.4 ./bin/qa
+# Use specific PHP version (assuming default vendor/bin location)
+PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.4 vendor/bin/qa
 
 # Or export for the session
 export PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.4
-./bin/qa
+vendor/bin/qa
 ```
 
 This is useful when:
