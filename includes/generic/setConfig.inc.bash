@@ -13,7 +13,7 @@ varDir="$projectRoot/var/qa";
 cacheDir="$varDir/cache";
 
 # PHAR directory for tools installed via PHIVE
-pharDir="$qaDir/vendor-phar";
+pharDir="$qaDir/../vendor-phar";
 
 phpVersion="$($phpBinPath -v | grep ^PHP | cut -d' ' -f2)"
 noXdebugConfigPath="$varDir/phpqa-no-xdebug.$phpVersion.ini"

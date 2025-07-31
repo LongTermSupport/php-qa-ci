@@ -8,13 +8,10 @@
     "ext-json": "*",
     "ext-tokenizer": "*",
     "ergebnis/composer-normalize": "^2.42",
-    "friendsofphp/php-cs-fixer": "@stable",
     "funkyproject/reflection-file": "@stable",
-    "maglnet/composer-require-checker": "@stable",
     "php-parallel-lint/php-console-color": "@stable",
     "php-parallel-lint/php-parallel-lint": "@stable",
     "phpstan/extension-installer": "@stable",
-    "phpstan/phpstan": "@stable",
     "phpstan/phpstan-strict-rules": "@stable",
     "phpunit/phpunit": "@stable",
     "rector/rector": "@stable",
@@ -67,5 +64,13 @@
     "preferred-install": {
       "*": "dist"
     }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "./scripts/phive-install.bash"
+    ],
+    "post-update-cmd": [
+      "./scripts/phive-install.bash update"
+    ]
   }
 }

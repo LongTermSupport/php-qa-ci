@@ -1,7 +1,7 @@
 csFixerExitCode=99
 while ((csFixerExitCode > 1)); do
   set +e
-  phpNoXdebug -f "$binDir"/php-cs-fixer -- \
+  phpNoXdebug -f "$pharDir"/php-cs-fixer.phar -- \
     --config="$phpCsConfigPath" \
     --cache-file="$phpCsCacheFile" \
     --allow-risky=yes \
