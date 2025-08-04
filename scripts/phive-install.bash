@@ -51,8 +51,8 @@ fi
 
 # Check if phive.xml exists
 if [[ ! -f "$PHIVE_XML" ]]; then
-    echo -e "${YELLOW}No phive.xml found at $PHIVE_XML${NC}"
-    exit 0
+    echo -e "${RED}No phive.xml found at $PHIVE_XML${NC}"
+    exit 1
 fi
 
 # For install mode, check if all PHARs are already installed (unless -f flag is used)
