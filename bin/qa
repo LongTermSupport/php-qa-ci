@@ -138,7 +138,7 @@ cd "$projectRoot"
 runTool prepareDirectories
 
 # Install PHAR dependencies via PHIVE
-$qaDir/scripts/phive-install.bash
+$qaDir/../scripts/phive-install.bash
 
 if [[ -f $projectConfigPath/hookPre.bash ]]; then
   echo "
