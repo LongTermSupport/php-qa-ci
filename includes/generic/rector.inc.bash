@@ -37,24 +37,12 @@ while ((rectorPhpUnitExitCode > 1)); do
   fi
 done
 
-# Run PHP 8.4 specific rectors
-rectorPhp84ExitCode=99
-while ((rectorPhp84ExitCode > 1)); do
-  set +e
-  echo "Running PHP 8.4 Rector"
-  rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
-    --config "$(configPath rector-php84.php)" \
-    --clear-cache
-  rectorPhp84ExitCode=$?
-  set -e
-  if ((rectorPhp84ExitCode > 0)); then
-    tryAgainOrAbort "Rector 'PHP 8.4'"
-  fi
-done
 
+projectRectorFound=false
 # Then we check for project specific Rectors.
 for rectorConfig in "$projectRoot/rector.php" "$projectRoot/qaConfig/rector.php";  do
   if [[ -f $rectorConfig ]]; then
+    projectRectorFound=true
     rectorExitCode=99
     while ((rectorExitCode > 1)); do
       set +e
@@ -70,23 +58,22 @@ for rectorConfig in "$projectRoot/rector.php" "$projectRoot/qaConfig/rector.php"
     done
   fi
 done
-#if [[ -f $projectRoot/rector.php ]]; then
-#  echo "Running Project Specific Rector as configured in $projectRoot/rector.php"
-#  if [[ -f $projectRoot/bin/console ]]; then
-#    (cd $projectRoot && APP_ENV=dev phpNoXdebug -f ./bin/console -- cache:clear)
-#  fi
-#  rectorExitCode=99
-#  while ((rectorExitCode > 1)); do
-#    set +e
-#    echo "Running Project Specific Rector"
-#    phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
-#      --config "$projectRoot/rector.php" \
-#      --clear-cache
-#    rectorExitCode=$?
-#    set -e
-#    if ((rectorExitCode > 0)); then
-#      tryAgainOrAbort "Rector Project Specific"
-#    fi
-#  done
-#fi
 
+if [[ $projectRectorFound == false ]]; then
+  # Run PHP 8.4 specific rectors
+  rectorPhp84ExitCode=99
+  while ((rectorPhp84ExitCode > 1)); do
+    set +e
+    echo "Running PHP 8.4 Rector"
+    rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$binDir"/rector -- $rectorVerbosity process ${pathsToCheck[@]} \
+      --config "$(configPath rector-php84.php)" \
+      --clear-cache
+    rectorPhp84ExitCode=$?
+    set -e
+    if ((rectorPhp84ExitCode > 0)); then
+      tryAgainOrAbort "Rector 'PHP 8.4'"
+    fi
+  done
+else
+  echo "Skipping standard PHP 8.4 Rector as we assuem its handled in project rector"
+fi
