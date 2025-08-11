@@ -45,6 +45,7 @@ function usage {
     exit 1
 }
 
+# Parse options first
 while getopts ":t:p:h" opt; do
     case "$opt" in
         t) singleToolToRun=$OPTARG ;;
@@ -60,6 +61,89 @@ while getopts ":t:p:h" opt; do
         ;;
     esac
 done
+
+# Shift processed options
+shift $((OPTIND-1))
+
+# Define tools that support path-specific execution
+# These tools use ${pathsToCheck[@]} or similar path variables in their implementation
+# VERIFIED by reading tool implementation files
+PATH_SUPPORTING_TOOLS=(
+    "phpstan" "stan"                    # ✓ Uses ${pathsToCheck[@]}
+    "phpCsFixer" "fixer" "f" "csfixer"  # ✓ Uses ${pathsToCheck[@]}  
+    "rector" "r"                        # ✓ Uses ${pathsToCheck[@]}
+    "phpLint" "lint" "phplint"          # ✓ Uses ${pathsToCheck[@]}
+    "psr4Validate" "psr" "psr4"         # ✓ Uses ${pathsToCheck[@]}
+    "phpStrictTypes" "stricttypes" "st" # ✓ Uses ${pathsToCheck[@]}
+    "phploc" "loc" "l"                  # ✓ Uses ${pathsToCheck[@]}
+)
+
+# Define tools that do NOT support path-specific execution
+# These tools operate on the entire project regardless of path specification
+# VERIFIED by reading tool implementation files
+NON_PATH_SUPPORTING_TOOLS=(
+    "composerChecks" "composer" "com"            # ❌ Project-wide operations only
+    "infection" "infect"                         # ❌ Ignores pathsToCheck completely
+    "composerRequireChecker" "cr"                # ❌ Analyzes entire project
+    "markdownLinks" "markdown" "ml"              # ❌ Hardcoded to specific files
+    "messDetector" "md"                          # ❌ Need to verify implementation
+    "beautifierFixer" "bf" "phpbf"               # ❌ Need to verify implementation  
+    "codeSniffer" "cs" "phpcs"                   # ❌ Need to verify implementation
+    "phpunitAnnotations" "ann"                   # ❌ Need to verify implementation
+    "phpunit" "unit" "uniterate"                 # ❌ Uses config file, not pathsToCheck
+    "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
+    "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
+    "allTestingTools" "allTests"                 # ❌ Aggregate - runs multiple tools
+    "allCodingStandardsTools" "allCS"            # ❌ Aggregate - runs multiple tools
+)
+
+# Function to check if a tool supports path specification
+tool_supports_paths() {
+    local tool="$1"
+    for supported_tool in "${PATH_SUPPORTING_TOOLS[@]}"; do
+        if [[ "$tool" == "$supported_tool" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Smart path handling: if we have remaining arguments and no -p specified
+if [[ -z "$specifiedPath" && $# -gt 0 ]]; then
+    # Check for unsupported flags
+    for arg in "$@"; do
+        if [[ "$arg" == --* ]] || [[ "$arg" == -* ]]; then
+            printf "\nERROR:\nUnsupported argument: $arg\n\n" >&2
+            printf "The QA pipeline only supports path specification.\n" >&2
+            printf "Use: $binDir/qa -t toolname -p path/to/check\n" >&2
+            printf "Or:  $binDir/qa -t toolname path/to/check (automatic -p)\n\n" >&2
+            exit 1
+        fi
+    done
+    
+    # Assume remaining arguments are paths
+    if [[ $# -eq 1 ]]; then
+        specifiedPath="$1"
+        printf "\nAuto-detected path: $specifiedPath\n"
+    elif [[ $# -gt 1 ]]; then
+        printf "\nERROR:\nMultiple paths not supported: $*\n\n" >&2
+        printf "Specify a single path: $binDir/qa -t toolname path/to/check\n\n" >&2
+        exit 1
+    fi
+fi
+
+# Check if a tool that doesn't support paths is being run with a path
+if [[ -n "$specifiedPath" && -n "$singleToolToRun" ]]; then
+    if ! tool_supports_paths "$singleToolToRun"; then
+        printf "\nERROR:\nTool '$singleToolToRun' does not support path-specific execution.\n\n" >&2
+        printf "This tool operates on the entire project regardless of path specification.\n" >&2
+        printf "If you expected a quick test run, this would trigger a full project scan.\n\n" >&2
+        printf "Tools that support path specification:\n" >&2
+        printf "  %s\n" "${PATH_SUPPORTING_TOOLS[@]}" >&2
+        printf "\nTo run this tool on the entire project: $binDir/qa -t $singleToolToRun\n\n" >&2
+        exit 1
+    fi
+fi
 
 if [[ "" != "$singleToolToRun" ]]
 then

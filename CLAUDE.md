@@ -451,3 +451,64 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 3. **Configuration is highly flexible** - Almost every aspect can be overridden
 4. **Platform detection is automatic** - But can be overridden if needed
 5. **Fail-fast design** - Pipeline stops on first tool failure (except in retry mode)
+
+## Design Philosophy: Standardized Configuration
+
+### The QA Pipeline is NOT a Tool Proxy
+
+**CRITICAL UNDERSTANDING**: The PHP-QA-CI pipeline is designed to enforce consistent, standardized tool configurations across projects. It is **NOT** intended to be a flexible proxy that passes arbitrary arguments to underlying tools.
+
+#### What the QA Pipeline IS For:
+- ✅ **Enforcing consistent configurations** - Same PHPStan level, same CS Fixer rules across projects
+- ✅ **Orchestrating tool execution** - Running tools in the correct order with proper dependencies
+- ✅ **Managing tool dependencies** - Handling PHIVE installs, cache directories, etc.
+- ✅ **Path specification** - Running tools against specific directories: `vendor/bin/qa -t stan -p src/Domain`
+- ✅ **Standardized environments** - Consistent Xdebug settings, memory limits, etc.
+
+#### What the QA Pipeline is NOT For:
+- ❌ **Arbitrary tool flags** - Don't expect `vendor/bin/qa -t stan --help` to work
+- ❌ **Custom tool arguments** - The pipeline controls all tool arguments for consistency
+- ❌ **Tool-specific customization per run** - Use project config files instead
+- ❌ **Direct tool replacement** - Not a substitute for running tools directly when needed
+
+### Why This Design?
+
+1. **Consistency** - Every project using the QA pipeline runs tools with the same standards
+2. **Maintainability** - Tool configurations are managed centrally, not scattered across command invocations
+3. **Reliability** - No chance of accidentally running with wrong flags or missing dependencies
+4. **Standardization** - Teams can depend on consistent tool behavior across projects
+
+### When You Need Flexibility
+
+If you need to run a tool with custom arguments that the QA pipeline doesn't support:
+
+1. **For configuration changes**: Create/modify project config files in `qaConfig/`
+2. **For one-off runs**: Call the tool binary directly: `vendor/bin/phpstan analyse --help`
+3. **For custom workflows**: Create your own wrapper scripts that call tools directly
+
+### Path Specification Examples
+
+The QA pipeline DOES support specifying which paths to scan:
+
+```bash
+# Run PHPStan only on src directory
+vendor/bin/qa -t stan -p src
+
+# Run PHP CS Fixer only on Domain namespace
+vendor/bin/qa -t fixer -p src/Domain
+
+# Run full pipeline on specific path
+vendor/bin/qa -p tests/Unit
+```
+
+This maintains consistency while allowing targeted execution.
+
+### Integration with Development Tools
+
+Development scripts (like docker.bash) should:
+- ✅ Use `vendor/bin/qa -t toolname` for standardized runs
+- ✅ Support path specification: `-p src/specific/path`
+- ❌ Try to pass arbitrary tool flags through the QA pipeline
+- ✅ Fall back to direct tool execution when custom flags are actually needed
+
+**Remember**: The QA pipeline's strength is its consistency, not its flexibility. Use it for what it's designed for.
