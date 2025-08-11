@@ -56,14 +56,26 @@ source ./../includes/functions.inc.bash
 
 #### CONFIG ##################################################
 
-# If a CI variable is set, we use that, otherwise default to false.
-# Travis-CI sets a CI variable. You can easily set this in any other CI system
-# The value should the the string 'true' if this is CI
-# Also detect Claude Code (CLAUDECODE=1) as CI environment
-if [[ "${CLAUDECODE:-}" == "1" ]]; then
+# Auto-detect CI environment based on multiple factors
+# 1. If CI variable already set, use that
+# 2. If CLAUDECODE=1, set CI mode 
+# 3. If no TTY available (stdin/stdout), set CI mode
+# 4. Otherwise, default to false (interactive)
+
+if [[ "${CI:-}" == "true" ]]; then
+    # CI already explicitly set to true, keep it
     CI='true'
+elif [[ "${CLAUDECODE:-}" == "1" ]]; then
+    # Claude Code environment detected
+    CI='true'
+    echo "Claude Code environment detected - enabling CI mode"
+elif [[ ! -t 0 || ! -t 1 ]]; then
+    # No TTY available (non-interactive environment)
+    CI='true'
+    echo "Non-interactive environment detected - enabling CI mode"
 else
-    CI=${CI:-'false'}
+    # Interactive environment with TTY
+    CI='false'
 fi
 
 # the path in the project to check for config
