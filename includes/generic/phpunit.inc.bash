@@ -73,12 +73,19 @@ do
     set +e
     set -x
 
+    # If specific paths are provided, append them after the config options
+    pathArgs=()
+    if [[ -n "$specifiedPath" ]]; then
+        pathArgs+=("${pathsToCheck[@]}")
+        echo "Running PHPUnit on specified paths: ${pathsToCheck[*]}"
+    fi
+
     phpUnitQuickTests="$phpUnitQuickTests" $phpCmd -f $phpunitPath \
         -- \
         ${paratestConfig[@]} \
         -c ${phpUnitConfigPath} \
         ${extraConfigs[@]} \
-
+        ${pathArgs[@]}
 
     phpunitExitCode=$?
     set +x

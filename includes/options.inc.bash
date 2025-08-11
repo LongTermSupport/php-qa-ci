@@ -76,6 +76,7 @@ PATH_SUPPORTING_TOOLS=(
     "psr4Validate" "psr" "psr4"         # ✓ Uses ${pathsToCheck[@]}
     "phpStrictTypes" "stricttypes" "st" # ✓ Uses ${pathsToCheck[@]}
     "phploc" "loc" "l"                  # ✓ Uses ${pathsToCheck[@]}
+    "phpunit" "unit"                    # ✓ Uses path arguments after config
 )
 
 # Define tools that do NOT support path-specific execution
@@ -90,7 +91,7 @@ NON_PATH_SUPPORTING_TOOLS=(
     "beautifierFixer" "bf" "phpbf"               # ❌ Need to verify implementation  
     "codeSniffer" "cs" "phpcs"                   # ❌ Need to verify implementation
     "phpunitAnnotations" "ann"                   # ❌ Need to verify implementation
-    "phpunit" "unit" "uniterate"                 # ❌ Uses config file, not pathsToCheck
+    "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
     "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
     "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
     "allTestingTools" "allTests"                 # ❌ Aggregate - runs multiple tools
