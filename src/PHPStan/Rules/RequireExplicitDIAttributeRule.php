@@ -12,13 +12,79 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
 /**
- * Enforces explicit dependency injection declaration for all classes.
+ * Symfony-specific rule enforcing explicit dependency injection declaration for all classes.
  * 
- * Every concrete class must have either:
- * - #[Autoconfigure] to be registered as a service
- * - #[Exclude] to be excluded from DI container
+ * THE PROBLEM THIS SOLVES:
+ * ========================
+ * In Symfony projects using the common configuration pattern:
  * 
- * This prevents accidental service registration of DTOs, value objects, etc.
+ *     services:
+ *         App\:
+ *             resource: '../src/'
+ * 
+ * EVERY class in src/ is automatically registered as a service in the DI container.
+ * This causes several serious issues:
+ * 
+ * 1. MEMORY BLOAT: DTOs, value objects, exceptions, and entities are unnecessarily 
+ *    instantiated and stored in the container, wasting memory.
+ * 
+ * 2. PERFORMANCE DEGRADATION: The container must process and manage hundreds of 
+ *    classes that should never be services, slowing down compilation and runtime.
+ * 
+ * 3. ARCHITECTURAL VIOLATIONS: Domain objects (DTOs, entities, value objects) should 
+ *    be created with specific data, not injected as services. Having them in the 
+ *    container violates Domain-Driven Design principles.
+ * 
+ * 4. CONFUSION AND BUGS: Developers may accidentally inject DTOs or exceptions as 
+ *    dependencies, leading to subtle bugs and architectural decay.
+ * 
+ * 5. HIDDEN DEPENDENCIES: Without explicit declaration, it's unclear which classes 
+ *    are meant to be services vs domain objects, making the codebase harder to understand.
+ * 
+ * THE SOLUTION:
+ * =============
+ * This rule REQUIRES every concrete class to explicitly declare its DI status:
+ * 
+ * - #[Autoconfigure] - "YES, this is a service, register it in the container"
+ * - #[Exclude] - "NO, this is NOT a service, keep it OUT of the container"
+ * 
+ * Benefits:
+ * - Self-documenting code: DI intent is visible at the class level
+ * - Prevents accidental service registration of domain objects
+ * - Enforces architectural boundaries between services and domain objects
+ * - Reduces container size and improves performance
+ * - Makes dependency injection errors visible at compile time via PHPStan
+ * 
+ * USAGE:
+ * ======
+ * Services (use #[Autoconfigure]):
+ * - Controllers, Commands, Event Listeners
+ * - Repositories, Factories, Builders
+ * - Services, Managers, Handlers
+ * - Adapters, Transformers, Normalizers
+ * 
+ * Non-Services (use #[Exclude]):
+ * - DTOs (Data Transfer Objects)
+ * - Entities, Models, Domain Objects
+ * - Value Objects, Collections
+ * - Exceptions, Events, Messages
+ * - Enums, Constants classes
+ * 
+ * Example:
+ *     #[Exclude]
+ *     final readonly class UserDTO { }  // DTO should NOT be in container
+ * 
+ *     #[Autoconfigure]
+ *     final class UserService { }       // Service SHOULD be in container
+ * 
+ * This rule works in conjunction with excluding patterns in services.yaml:
+ *     services:
+ *         App\:
+ *             resource: '../src/'
+ *             exclude:
+ *                 - '../src/*/DTO/'
+ *                 - '../src/*/Entity/'
+ *                 - '../src/*/Exception/'
  * 
  * @implements Rule<Node\Stmt\Class_>
  */
@@ -127,17 +193,34 @@ final class RequireExplicitDIAttributeRule implements Rule
         return [];
     }
 
+    /**
+     * Provides contextual hints based on class naming patterns to help developers
+     * choose the correct attribute.
+     * 
+     * This method analyzes the class name and suggests whether it should be a service
+     * (use #[Autoconfigure]) or excluded from DI (use #[Exclude]).
+     * 
+     * The suggestions are based on common Symfony naming conventions:
+     * - Classes ending in 'Service', 'Controller', 'Factory' etc. are typically services
+     * - Classes ending in 'DTO', 'Exception', or containing 'Entity' are typically NOT services
+     * - Value objects, domain models, and data containers should be excluded
+     * 
+     * @param string $className The short name of the class being analyzed
+     * @return string A helpful hint message suggesting which attribute to use
+     */
     private function getHintForClass(string $className): string
     {
-        // DTOs and Value Objects
+        // DTOs and Value Objects - These hold data and should NOT be services
+        // They are instantiated with specific data, not injected
         if (str_ends_with($className, 'DTO') || 
             str_ends_with($className, 'Message') ||
             str_contains($className, 'Validated') ||
             str_ends_with($className, 'Collection')) {
-            return 'This appears to be a DTO/value object - use #[Exclude].';
+            return 'This appears to be a DTO/value object - use #[Exclude]. DTOs should not be in the DI container.';
         }
 
-        // Services
+        // Services - These perform actions and SHOULD be in the container
+        // They are stateless and can be injected as dependencies
         if (str_ends_with($className, 'Service') ||
             str_ends_with($className, 'Factory') ||
             str_ends_with($className, 'Repository') ||
@@ -145,19 +228,23 @@ final class RequireExplicitDIAttributeRule implements Rule
             str_ends_with($className, 'Handler') ||
             str_ends_with($className, 'Listener') ||
             str_ends_with($className, 'Subscriber')) {
-            return 'This appears to be a service - use #[Autoconfigure].';
+            return 'This appears to be a service - use #[Autoconfigure] to register it in the DI container.';
         }
 
-        // Exceptions
+        // Exceptions - These represent error states and should NEVER be services
+        // They are thrown, not injected
         if (str_ends_with($className, 'Exception')) {
-            return 'Exceptions should use #[Exclude].';
+            return 'Exceptions should use #[Exclude]. Exceptions are thrown, not injected as services.';
         }
 
-        // Commands (console commands)
+        // Commands (console commands) - Special case
+        // If they have #[AsCommand], they're automatically services
         if (str_ends_with($className, 'Command')) {
-            return 'Console commands with #[AsCommand] are automatically services.';
+            return 'Console commands with #[AsCommand] are automatically services. Otherwise, use #[Autoconfigure].';
         }
 
-        return 'Determine if this should be a service (#[Autoconfigure]) or not (#[Exclude]).';
+        // Default message when pattern doesn't match known conventions
+        return 'Determine if this should be a service (#[Autoconfigure]) or not (#[Exclude]). ' .
+               'Services are injected, domain objects are instantiated with data.';
     }
 }
