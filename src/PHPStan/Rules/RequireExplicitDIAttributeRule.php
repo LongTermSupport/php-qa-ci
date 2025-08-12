@@ -13,48 +13,48 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
 /**
  * Symfony-specific rule enforcing explicit dependency injection declaration for all classes.
- * 
+ *
  * THE PROBLEM THIS SOLVES:
  * ========================
  * In Symfony projects using the common configuration pattern:
- * 
+ *
  *     services:
  *         App\:
  *             resource: '../src/'
- * 
+ *
  * EVERY class in src/ is automatically registered as a service in the DI container.
  * This causes several serious issues:
- * 
- * 1. MEMORY BLOAT: DTOs, value objects, exceptions, and entities are unnecessarily 
+ *
+ * 1. MEMORY BLOAT: DTOs, value objects, exceptions, and entities are unnecessarily
  *    instantiated and stored in the container, wasting memory.
- * 
- * 2. PERFORMANCE DEGRADATION: The container must process and manage hundreds of 
+ *
+ * 2. PERFORMANCE DEGRADATION: The container must process and manage hundreds of
  *    classes that should never be services, slowing down compilation and runtime.
- * 
- * 3. ARCHITECTURAL VIOLATIONS: Domain objects (DTOs, entities, value objects) should 
- *    be created with specific data, not injected as services. Having them in the 
+ *
+ * 3. ARCHITECTURAL VIOLATIONS: Domain objects (DTOs, entities, value objects) should
+ *    be created with specific data, not injected as services. Having them in the
  *    container violates Domain-Driven Design principles.
- * 
- * 4. CONFUSION AND BUGS: Developers may accidentally inject DTOs or exceptions as 
+ *
+ * 4. CONFUSION AND BUGS: Developers may accidentally inject DTOs or exceptions as
  *    dependencies, leading to subtle bugs and architectural decay.
- * 
- * 5. HIDDEN DEPENDENCIES: Without explicit declaration, it's unclear which classes 
+ *
+ * 5. HIDDEN DEPENDENCIES: Without explicit declaration, it's unclear which classes
  *    are meant to be services vs domain objects, making the codebase harder to understand.
- * 
+ *
  * THE SOLUTION:
  * =============
  * This rule REQUIRES every concrete class to explicitly declare its DI status:
- * 
+ *
  * - #[Autoconfigure] - "YES, this is a service, register it in the container"
  * - #[Exclude] - "NO, this is NOT a service, keep it OUT of the container"
- * 
+ *
  * Benefits:
  * - Self-documenting code: DI intent is visible at the class level
  * - Prevents accidental service registration of domain objects
  * - Enforces architectural boundaries between services and domain objects
  * - Reduces container size and improves performance
  * - Makes dependency injection errors visible at compile time via PHPStan
- * 
+ *
  * USAGE:
  * ======
  * Services (use #[Autoconfigure]):
@@ -62,32 +62,30 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
  * - Repositories, Factories, Builders
  * - Services, Managers, Handlers
  * - Adapters, Transformers, Normalizers
- * 
+ *
  * Non-Services (use #[Exclude]):
  * - DTOs (Data Transfer Objects)
  * - Entities, Models, Domain Objects
  * - Value Objects, Collections
  * - Exceptions, Events, Messages
  * - Enums, Constants classes
- * 
+ *
  * Example:
  *     #[Exclude]
  *     final readonly class UserDTO { }  // DTO should NOT be in container
- * 
+ *
  *     #[Autoconfigure]
  *     final class UserService { }       // Service SHOULD be in container
- * 
+ *
  * This rule works in conjunction with excluding patterns in services.yaml:
  *     services:
  *         App\:
  *             resource: '../src/'
  *             exclude:
- *                 - '../src/*/DTO/'
- *                 - '../src/*/Entity/'
- *                 - '../src/*/Exception/'
- * 
+ *                 - '../DTO/'
+ *
  * @implements Rule<Node\Stmt\Class_>
- */
+ **/
 final class RequireExplicitDIAttributeRule implements Rule
 {
     private const ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
@@ -112,7 +110,7 @@ final class RequireExplicitDIAttributeRule implements Rule
         }
 
         $className = $scope->getNamespace() . '\\' . $node->name->toString();
-        
+
         // Skip test classes and PHPStan rules
         foreach (self::ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE as $namespace) {
             if (str_contains($className, $namespace)) {
@@ -133,25 +131,25 @@ final class RequireExplicitDIAttributeRule implements Rule
         foreach ($node->attrGroups as $attrGroup) {
             foreach ($attrGroup->attrs as $attr) {
                 $name = $attr->name->toString();
-                
+
                 // Check for full namespace or just class name
-                if ($name === 'Autoconfigure' || 
+                if ($name === 'Autoconfigure' ||
                     $name === Autoconfigure::class ||
                     str_ends_with($name, '\\Autoconfigure')) {
                     $hasAutoconfigure = true;
                 }
-                
-                if ($name === 'Exclude' || 
+
+                if ($name === 'Exclude' ||
                     $name === Exclude::class ||
                     str_ends_with($name, '\\Exclude')) {
                     $hasExclude = true;
                 }
-                
+
                 // AsCommand implies it's a service
                 if (str_ends_with($name, '\\AsCommand')) {
                     $hasAsCommand = true;
                 }
-                
+
                 // AutoconfigureTag implies it's a service
                 if (str_ends_with($name, '\\AutoconfigureTag')) {
                     $hasAutoConfigureTag = true;
@@ -164,10 +162,10 @@ final class RequireExplicitDIAttributeRule implements Rule
 
         if (!$hasServiceDeclaration && !$hasExclude) {
             $shortName = $node->name->toString();
-            
+
             // Provide helpful hints based on class name patterns
             $hint = $this->getHintForClass($shortName);
-            
+
             return [
                 RuleErrorBuilder::message(
                     sprintf(
@@ -196,15 +194,15 @@ final class RequireExplicitDIAttributeRule implements Rule
     /**
      * Provides contextual hints based on class naming patterns to help developers
      * choose the correct attribute.
-     * 
+     *
      * This method analyzes the class name and suggests whether it should be a service
      * (use #[Autoconfigure]) or excluded from DI (use #[Exclude]).
-     * 
+     *
      * The suggestions are based on common Symfony naming conventions:
      * - Classes ending in 'Service', 'Controller', 'Factory' etc. are typically services
      * - Classes ending in 'DTO', 'Exception', or containing 'Entity' are typically NOT services
      * - Value objects, domain models, and data containers should be excluded
-     * 
+     *
      * @param string $className The short name of the class being analyzed
      * @return string A helpful hint message suggesting which attribute to use
      */
@@ -212,7 +210,7 @@ final class RequireExplicitDIAttributeRule implements Rule
     {
         // DTOs and Value Objects - These hold data and should NOT be services
         // They are instantiated with specific data, not injected
-        if (str_ends_with($className, 'DTO') || 
+        if (str_ends_with($className, 'DTO') ||
             str_ends_with($className, 'Message') ||
             str_contains($className, 'Validated') ||
             str_ends_with($className, 'Collection')) {
