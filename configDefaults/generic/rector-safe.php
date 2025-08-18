@@ -10,6 +10,18 @@ use Rector\Config\RectorConfig;
  * The configuration for Rector to run on PHPUnit 10 is also good for PHPUnit 9.1 upwards
  */
 return static function (RectorConfig $rectorConfig): void {
+    // Limit parallel processing to use only half of available CPU threads
+    // to avoid overwhelming the system
+    $cpuThreads = (int) shell_exec('nproc') ?: 4;  // Default to 4 if nproc fails
+    $maxProcesses = max(1, (int) floor($cpuThreads / 2));  // Use half the threads, minimum 1
+    
+    // Parameters: timeout (seconds), max processes, job size (files per job)
+    $rectorConfig->parallel(
+        120,  // Default timeout
+        $maxProcesses,  // Use only half of available CPU threads
+        16    // Default job size
+    );
+    
     // Preflight check: Ensure thecodingmachine/safe is in production dependencies
     $composerData = Helper::getComposerJsonDecoded();
     $require = $composerData['require'] ?? [];
