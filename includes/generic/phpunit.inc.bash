@@ -116,8 +116,9 @@ do
         extraConfigs+=( --enforce-time-limit )
     elif [[ "false" != "${CI:-'false'}" ]]
     then
-        # When in CI and generating coverage - stop on first error, do not enforce time limits
-        extraConfigs+=( --stop-on-failure --stop-on-error --stop-on-defect --stop-on-warning )
+        # When in CI and generating coverage - do not enforce time limits
+        # Note: Removed stop-on-failure flags to allow full test runs in CI
+        : # No-op to keep the block valid
     else
       # Default, do enforce timelimits
       extraConfigs+=( --enforce-time-limit )
