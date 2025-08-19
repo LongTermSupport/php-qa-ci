@@ -1,0 +1,351 @@
+# ============================================================================
+# PHP QA CI - GitHub Actions Workflow Template
+# ============================================================================
+#
+# INSTALLATION INSTRUCTIONS:
+# --------------------------
+# 1. Copy this file to your project's .github/workflows/qa.yml
+# 2. Commit and push to your repository
+# 3. The workflow will run automatically on push and pull requests
+#
+# GITHUB CONFIGURATION:
+# ---------------------
+# Required Repository Settings:
+# - Go to Settings → Actions → General
+# - Under "Workflow permissions", select "Read and write permissions"
+# - Check "Allow GitHub Actions to create and approve pull requests"
+#
+# Branch Protection (optional but recommended):
+# - Go to Settings → Branches
+# - Add rule for main/master branch
+# - Check "Require status checks to pass before merging"
+# - Select "PHP QA Pipeline" as required check
+#
+# CUSTOMIZATION:
+# --------------
+# Project-specific QA configuration:
+# - qaConfig/qaConfig.inc.bash    - Override QA pipeline settings
+# - qaConfig/phpstan.neon         - PHPStan configuration
+# - qaConfig/phpunit.xml          - PHPUnit configuration  
+# - qaConfig/php_cs.php           - PHP CS Fixer rules
+# - qaConfig/rector.php           - Rector rules
+# - qaConfig/infection.json       - Infection configuration
+#
+# To skip specific tools in CI, add to env section:
+#   useInfection: 0              - Skip mutation testing
+#   phpUnitCoverage: 0            - Skip coverage generation
+#   phpqaQuickTests: 1            - Run in quick test mode
+#
+# WORKFLOW DISPATCH:
+# ------------------
+# You can manually trigger this workflow from GitHub UI:
+# 1. Go to Actions tab
+# 2. Select "PHP QA Pipeline"
+# 3. Click "Run workflow"
+# 4. Optionally select a specific tool to run
+#
+# ARTIFACTS:
+# ----------
+# The workflow saves test results and coverage reports as artifacts.
+# You can download them from the workflow run page for 7 days.
+#
+# ============================================================================
+
+name: PHP QA Pipeline
+
+on:
+  # Trigger on push to these branches
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - 'feature/**'
+      - 'fix/**'
+  
+  # Trigger on pull requests to these branches
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+  
+  # Allow manual triggering with optional tool selection
+  workflow_dispatch:
+    inputs:
+      qa_tools:
+        description: 'Specific QA tool to run (leave empty for full pipeline)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''           # Run full pipeline
+          - 'phpstan'    # Static analysis only
+          - 'phpunit'    # Unit tests only
+          - 'rector'     # Code refactoring only
+          - 'fixer'      # Code style fixing only
+          - 'infection'  # Mutation testing only
+
+env:
+  # REQUIRED: Tell QA tools we're in CI mode
+  CI: true
+  
+  # REQUIRED: Skip uncommitted changes check (not applicable in CI)
+  skipUncommittedChangesCheck: 1
+  
+  # AUTO-FIX CONFIGURATION:
+  # Set to 'true' to automatically commit and push fixes from Rector/CS Fixer
+  # SAFETY: Auto-commits are NEVER allowed on main/master branches
+  # Only works on feature/fix/develop branches to prevent accidental production changes
+  AUTO_COMMIT_FIXES: 'false'
+  
+  # OPTIONAL: Customize QA behavior
+  # phpUnitCoverage: 1           # Enable coverage (default: 1 if xdebug available)
+  # phpqaQuickTests: 1           # Quick test mode (default: 0)
+  # useInfection: 0              # Disable infection (default: 1 if xdebug available)
+
+jobs:
+  # Job to detect PHP version from composer.json
+  detect-php-version:
+    name: Detect PHP Version
+    runs-on: ubuntu-latest
+    outputs:
+      php-version: ${{ steps.get-version.outputs.version }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            composer.json
+      
+      - name: Extract PHP version from composer.json
+        id: get-version
+        run: |
+          # Try to extract PHP version requirement from composer.json
+          if [ -f composer.json ]; then
+            # Extract version using jq (available in GitHub runners)
+            PHP_CONSTRAINT=$(jq -r '.require.php // "^8.1"' composer.json)
+            echo "Found PHP constraint: $PHP_CONSTRAINT"
+            
+            # Convert constraint to specific version
+            # Handle different constraint formats
+            if [[ "$PHP_CONSTRAINT" == *"8.4"* ]]; then
+              PHP_VERSION="8.4"
+            elif [[ "$PHP_CONSTRAINT" == *"8.3"* ]]; then
+              PHP_VERSION="8.3"
+            elif [[ "$PHP_CONSTRAINT" == *"8.2"* ]]; then
+              PHP_VERSION="8.2"
+            elif [[ "$PHP_CONSTRAINT" == *"8.1"* ]]; then
+              PHP_VERSION="8.1"
+            elif [[ "$PHP_CONSTRAINT" == *"8.0"* ]]; then
+              PHP_VERSION="8.0"
+            else
+              # Default to latest stable
+              PHP_VERSION="8.4"
+              echo "Could not determine version from constraint, using $PHP_VERSION"
+            fi
+            
+            echo "Using PHP version: $PHP_VERSION"
+            echo "version=$PHP_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "No composer.json found, using PHP 8.4"
+            echo "version=8.4" >> $GITHUB_OUTPUT
+          fi
+  
+  qa:
+    name: PHP QA (${{ needs.detect-php-version.outputs.php-version }})
+    needs: detect-php-version
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout code (with full history for auto-fixes)
+        if: env.AUTO_COMMIT_FIXES == 'true'
+        uses: actions/checkout@v4
+        with:
+          # Need full history to create proper commits
+          fetch-depth: 0
+      
+      - name: Checkout code (shallow clone)
+        if: env.AUTO_COMMIT_FIXES != 'true'
+        uses: actions/checkout@v4
+        # Default depth of 1 is fine when not auto-committing
+      
+      # Step 2: Setup PHP with the detected version
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ needs.detect-php-version.outputs.php-version }}
+          tools: composer:v2
+          coverage: xdebug
+          # Add all common PHP extensions needed by most projects
+          # Add more if your project needs them
+          extensions: mbstring, intl, json, zip, dom, curl, libxml, xmlwriter, xmlreader, xml, simplexml, iconv, pdo, pdo_sqlite, calendar
+          ini-values: |
+            memory_limit=512M
+            xdebug.mode=coverage
+      
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+      
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+      
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+          
+      - name: Verify php-qa-ci installation
+        run: |
+          if [ ! -f "vendor/bin/qa" ]; then
+            echo "Error: php-qa-ci not installed. Add 'lts/php-qa-ci' to your composer.json"
+            exit 1
+          fi
+          
+      - name: Cache QA tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            var/qa/cache
+            vendor/lts/php-qa-ci/vendor-phar
+          key: ${{ runner.os }}-qa-tools-${{ matrix.php-version }}-${{ hashFiles('**/phive.xml', '**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-qa-tools-${{ matrix.php-version }}-
+            ${{ runner.os }}-qa-tools-
+      
+      # Step 7: Install PHIVE tools if needed (PHARs for QA tools)
+      # Most projects won't need this as php-qa-ci includes the PHARs
+      - name: Run PHIVE install (if applicable)
+        run: |
+          if [ -f "vendor/lts/php-qa-ci/phive.xml" ] || [ -f "phive.xml" ]; then
+            # Install PHIVE if not present
+            if ! command -v phive &> /dev/null; then
+              wget -O phive.phar https://phar.io/releases/phive.phar
+              chmod +x phive.phar
+              sudo mv phive.phar /usr/local/bin/phive
+            fi
+            
+            # Run PHIVE install with forced acceptance (these tools are trusted)
+            cd vendor/lts/php-qa-ci && phive install --trust-gpg-keys --force-accept-unsigned || true
+            cd -
+          fi
+          
+      - name: Run QA Pipeline
+        id: qa
+        run: |
+          set +e  # Don't exit on error
+          
+          # Determine which command to run
+          if [ -n "${{ github.event.inputs.qa_tools }}" ]; then
+            echo "Running specific tool: ${{ github.event.inputs.qa_tools }}"
+            vendor/bin/qa -t ${{ github.event.inputs.qa_tools }}
+            QA_EXIT_CODE=$?
+          else
+            echo "Running full QA pipeline"
+            vendor/bin/qa
+            QA_EXIT_CODE=$?
+          fi
+          
+          echo "qa_exit_code=$QA_EXIT_CODE" >> $GITHUB_OUTPUT
+          exit $QA_EXIT_CODE
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.php-version }}
+          path: |
+            var/qa/phpunit_logs/
+            var/qa/infection/
+          retention-days: 7
+      
+      - name: Upload coverage reports
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.php-version }}
+          path: |
+            var/qa/phpunit_coverage/
+            var/qa/phpunit_logs/coverage.clover
+          retention-days: 7
+      
+      # Step 10: Commit and push fixes (if enabled and not on protected branch)
+      - name: Commit code changes (CS Fixer, Rector)
+        if: |
+          env.AUTO_COMMIT_FIXES == 'true' &&
+          github.event_name == 'push' &&
+          github.ref != 'refs/heads/main' &&
+          github.ref != 'refs/heads/master' &&
+          !contains(github.event.repository.default_branch, github.ref)
+        run: |
+          # Safety check: Never auto-commit to default branch
+          CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          
+          if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ] || [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+            echo "⚠️  Skipping auto-commit: Protected branch detected ($CURRENT_BRANCH)"
+            exit 0
+          fi
+          
+          echo "✅ Auto-committing fixes to branch: $CURRENT_BRANCH"
+          
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          
+          if ! git diff --cached --quiet; then
+            git commit -m "Apply automatic fixes from PHP QA tools
+
+            - PHP CS Fixer formatting
+            - Rector refactoring  
+            - Strict types declarations
+            
+            Branch: $CURRENT_BRANCH
+            Workflow: ${{ github.workflow }}
+            Run: ${{ github.run_number }}
+            
+            [skip ci]"
+            
+            git push
+            echo "✅ Changes committed and pushed"
+          else
+            echo "ℹ️  No changes to commit"
+          fi
+
+  coverage-report:
+    name: Coverage Report
+    needs: qa
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-8.4
+          path: coverage
+      
+      - name: Code Coverage Summary
+        if: fileExists('coverage/phpunit_logs/coverage.clover')
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage/phpunit_logs/coverage.clover
+          badge: true
+          format: markdown
+          output: both
+      
+      - name: Add Coverage PR Comment
+        if: github.event_name == 'pull_request' && fileExists('code-coverage-results.md')
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: code-coverage-results.md
