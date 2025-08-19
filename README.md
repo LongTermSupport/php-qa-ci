@@ -38,9 +38,57 @@ It runs tools in a logical order and will fail as quickly as possible.
 
 This package is written for and has only been tested on Linux.
 
+## Quick Setup Scripts
+
+PHP-QA-CI includes convenient scripts for setting up continuous integration and branch protection:
+
+### GitHub Actions Setup
+
+Automatically install GitHub Actions workflow for continuous integration:
+
+```bash
+# Run from your project root
+vendor/lts/php-qa-ci/scripts/install-github-actions.bash
+```
+
+This script will:
+- Create `.github/workflows/qa.yml` with optimized QA pipeline
+- Auto-detect your PHP version from `composer.json`
+- Configure smart caching for faster builds
+- Set up artifact storage for test results
+
+After installation, the QA pipeline will run automatically on all pushes and pull requests.
+
+### Branch Protection Setup
+
+Configure GitHub branch protection rules with sensible defaults:
+
+```bash
+# Standard protection (admins can bypass)
+vendor/lts/php-qa-ci/scripts/setup-branch-protection.bash
+
+# Hardened protection (CI enforced for everyone)
+vendor/lts/php-qa-ci/scripts/setup-branch-protection.bash --harden
+```
+
+The script configures:
+- Required CI checks (PHP QA Pipeline must pass)
+- PR review requirements
+- Protection against force pushes and deletions
+- Auto-delete merged branches
+- Conversation resolution requirements
+
+**Prerequisites**: Requires [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated.
+
 ## Docs
 
-Documentation is something of a work in progress, however you can find various docs in the [./docs](./docs) folder
+Comprehensive documentation is available in the [./docs](./docs) folder:
+
+- **[GitHub Actions Integration](./docs/github-actions.md)** - Complete CI/CD setup guide with customization options
+- **[Pipeline Architecture](./docs/pipeline.md)** - Detailed tool execution order and phases
+- **[Configuration](./docs/configuration.md)** - Customizing tool settings and overrides
+- **[Coding Standards](./docs/coding-standards.md)** - PHP CS Fixer and Rector configuration
+- **[Platform Detection](./docs/platform-detection.md)** - Symfony/Laravel specific settings
 
 ## Other notes
 
