@@ -13,6 +13,18 @@ use Rector\Set\ValueObject\SetList;
  * This runs after rector-safe.php and rector-phpunit.php
  */
 return static function (RectorConfig $rectorConfig): void {
+    // Limit parallel processing to use only half of available CPU threads
+    // to avoid overwhelming the system
+    $cpuThreads = (int) shell_exec('nproc') ?: 4;  // Default to 4 if nproc fails
+    $maxProcesses = max(1, (int) floor($cpuThreads / 2));  // Use half the threads, minimum 1
+    
+    // Parameters: timeout (seconds), max processes, job size (files per job)
+    $rectorConfig->parallel(
+        120,  // Default timeout
+        $maxProcesses,  // Use only half of available CPU threads
+        16    // Default job size
+    );
+    
     // PHP 8.4 upgrade sets
     $rectorConfig->sets([
         LevelSetList::UP_TO_PHP_84,
