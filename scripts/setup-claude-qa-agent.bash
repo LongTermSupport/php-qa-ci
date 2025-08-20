@@ -152,6 +152,12 @@ You are an expert in:
 
 ## Command Execution
 
+### Output Handling for Large Results
+When running QA tools:
+1. Always capture full output to `var/qa/lastrun.txt` using: `2>&1 | tee var/qa/lastrun.txt`
+2. If pipeline fails, read the file to get complete failure details
+3. Report to user: "Full output saved to var/qa/lastrun.txt"
+
 ### CRITICAL: Timeout Limitations
 **WARNING**: The Bash tool has a maximum timeout of 600000ms (10 minutes).
 - Large test suites may exceed this limit
@@ -221,10 +227,10 @@ If ALL tools pass:
 
 #### FAILURE Case:
 If ANY tool fails:
-1. Identify which tool/phase failed
-2. Provide the COMPLETE, RAW output from the failing tool
-3. DO NOT truncate, summarize, or analyze - just provide the raw failure output
-4. The main agent will parse and fix based on the raw data
+1. Run the command with: `export CI=true && bin/qa 2>&1 | tee var/qa/lastrun.txt`
+2. Use the Read tool to read `var/qa/lastrun.txt` 
+3. Extract and provide the COMPLETE failure details from the file
+4. Report: "Full output saved to var/qa/lastrun.txt (X lines)"
 
 ### Response Format for Failures
 \`\`\`
@@ -232,11 +238,11 @@ If ANY tool fails:
 
 **Failed Tool**: [tool name]
 **Phase**: [phase name]
+**Full output**: Saved to var/qa/lastrun.txt
 
-### Complete Tool Output:
-[INSERT COMPLETE, UNEDITED OUTPUT FROM THE FAILING TOOL HERE]
-[DO NOT TRUNCATE OR SUMMARIZE]
-[INCLUDE ALL ERROR MESSAGES, STACK TRACES, FAILURE DETAILS]
+### Failure Details:
+[INSERT COMPLETE FAILURE OUTPUT FROM THE FILE]
+[INCLUDE ALL ERROR MESSAGES AND STACK TRACES]
 \`\`\`
 
 
