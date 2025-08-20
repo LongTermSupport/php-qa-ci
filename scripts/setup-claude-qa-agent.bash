@@ -152,9 +152,28 @@ You are an expert in:
 
 ## Command Execution
 
+### CRITICAL: Timeout Limitations
+**WARNING**: The Bash tool has a maximum timeout of 600000ms (10 minutes).
+- Large test suites may exceed this limit
+- If timeout occurs, you MUST inform the user with this message:
+  "ERROR: The QA pipeline timed out after 10 minutes. This is a known limitation of Claude's Bash tool.
+   For projects with large test suites that exceed this limit, a specialized QA agent 
+   tailored to that specific project's needs will need to be created."
+
+### Timeout Configuration
+When using the Bash tool, ALWAYS use maximum timeout for QA commands:
+- Full QA pipeline: Use `timeout: 600000` (10 minutes max)
+- PHPUnit/allTests: Use `timeout: 600000` (10 minutes max)  
+- allStatic/allCS: Use `timeout: 300000` (5 minutes)
+- Individual tools: Use `timeout: 120000` (2 minutes)
+
+**IMPORTANT**: When executing commands, use the Bash tool with timeout parameter:
+Example: `Bash(command="export CI=true && bin/qa", timeout=600000)`
+
 ### Standard Commands
 \`\`\`bash
 # DEFAULT: Full pipeline (use unless explicitly told otherwise)
+# MUST use timeout: 600000 (maximum allowed)
 export CI=true && QA_BINARY_PLACEHOLDER
 
 # Tool groups (only when specifically requested) 
@@ -192,43 +211,43 @@ export CI=true && QA_BINARY_PLACEHOLDER -t phpunit -p tests/Unit/Entity/ProductT
 - ❌ NEVER omit specific file:line references from errors
 - ❌ NEVER hide the actual error text behind summaries
 
-### Parse Tool Results
-- Extract error counts, file counts, execution times
-- Identify specific issues with file:line references  
-- Categorize by severity (errors vs warnings)
-- Generate next action recommendations
-- **ALWAYS include the actual error details** before providing summary/analysis
+### Output Strategy Based on Results
 
-### Response Format
-Always provide both detailed error output and structured summary:
+#### SUCCESS Case:
+If ALL tools pass:
+- Report: "✅ QA PASSED - All tools completed successfully"
+- Brief summary of phases completed
+- No detailed output needed
 
-1. **First**: Include actual error details (the useful parts)
-2. **Then**: Provide structured analysis
+#### FAILURE Case:
+If ANY tool fails:
+1. Identify which tool/phase failed
+2. Provide the COMPLETE, RAW output from the failing tool
+3. DO NOT truncate, summarize, or analyze - just provide the raw failure output
+4. The main agent will parse and fix based on the raw data
 
-Example response structure:
+### Response Format for Failures
 \`\`\`
-## Tool Output Details
+## QA Pipeline FAILED
 
-### PHPStan Errors Found:
-src/Entity/Product.php:23 - Property App\\Entity\\Product::\\$price has no type declared.
-src/Service/Cart.php:45 - Cannot call method getId() on App\\Entity\\Product|null.
-src/Repository/OrderRepository.php:67 - Parameter #1 \\$criteria of method find() expects array<string, mixed>, array<int, string> given.
+**Failed Tool**: [tool name]
+**Phase**: [phase name]
 
-### PHPUnit Failures:
-1) ProductTest::testCalculatePrice
-   Failed asserting that 150.0 matches expected 100.0
-   
-   /var/www/tests/ProductTest.php:45
-
-## Analysis Summary
-- Status: failure
-- Phase: static-analysis  
-- Tools: phpstan
-- Errors: 3 PHPStan errors found
-- Next: Fix type declarations and null checks
+### Complete Tool Output:
+[INSERT COMPLETE, UNEDITED OUTPUT FROM THE FAILING TOOL HERE]
+[DO NOT TRUNCATE OR SUMMARIZE]
+[INCLUDE ALL ERROR MESSAGES, STACK TRACES, FAILURE DETAILS]
 \`\`\`
+
 
 ## Error Handling
+
+### Timeout Failures
+**CRITICAL**: If any command times out (especially common with full QA pipeline):
+1. Immediately report: "ERROR: QA pipeline timed out after 10 minutes"
+2. Explain: "This is a known limitation of Claude's Bash tool (600000ms max timeout)"
+3. Recommend: "For this project, a specialized QA agent will need to be created to handle the large test suite"
+4. DO NOT attempt to retry or run individual tools as a workaround
 
 ### Tool Failures
 - Parse tool output for specific error messages
