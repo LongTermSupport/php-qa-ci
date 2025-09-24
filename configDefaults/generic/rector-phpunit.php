@@ -15,14 +15,14 @@ return static function (RectorConfig $rectorConfig): void {
     // to avoid overwhelming the system
     $cpuThreads = (int) shell_exec('nproc') ?: 4;  // Default to 4 if nproc fails
     $maxProcesses = max(1, (int) floor($cpuThreads / 2));  // Use half the threads, minimum 1
-    
+
     // Parameters: timeout (seconds), max processes, job size (files per job)
     $rectorConfig->parallel(
         120,  // Default timeout
         $maxProcesses,  // Use only half of available CPU threads
         16    // Default job size
     );
-    
+
     $rectorConfig->sets([
         PHPUnitSetList::PHPUNIT_100,
         PHPUnitSetList::PHPUNIT_CODE_QUALITY,
@@ -30,6 +30,10 @@ return static function (RectorConfig $rectorConfig): void {
     ]);
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitThisCallRector::class]);
     $rectorConfig->skip([Rector\PHPUnit\PHPUnit100\Rector\Class_\ParentTestClassConstructorRector::class]);
+    // ScalarArgumentToExpectedParamTypeRector incorrectly converts test values that have semantic meaning
+    // e.g., it changes name: '' to name: 0 when the parameter accepts int|string
+    // but in tests, '' and 0 have very different meanings and test different code paths
+    $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\ScalarArgumentToExpectedParamTypeRector::class]);
     $rectorConfig->rules([
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
