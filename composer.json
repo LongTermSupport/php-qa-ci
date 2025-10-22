@@ -2,11 +2,12 @@
   "name": "lts/php-qa-ci",
   "description": "Simple PHP QA pipeline and scripts. Largely just a collection of dependencies with configuration and scripts to run them together",
   "license": "MIT",
-  "type": "project",
+  "type": "composer-plugin",
   "require": {
     "php": "^8.3",
     "ext-json": "*",
     "ext-tokenizer": "*",
+    "composer-plugin-api": "^2.0",
     "ergebnis/composer-normalize": "^2.42",
     "funkyproject/reflection-file": "@stable",
     "php-parallel-lint/php-console-color": "@stable",
@@ -72,5 +73,8 @@
     "post-update-cmd": [
       "./scripts/phive-install.bash update"
     ]
+  },
+  "extra": {
+    "class": "LTS\\PHPQA\\ComposerPlugin\\PhiveUpdatePlugin"
   }
 }
