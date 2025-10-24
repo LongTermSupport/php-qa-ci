@@ -10,6 +10,7 @@
   </coverage>
   <logging>
     <junit outputFile="../var/qa/phpunit_logs/phpunit.junit.xml"/>
+    <teamcity outputFile="../var/qa/phpunit_logs/phpunit.teamcity.txt"/>
   </logging>
   <testsuites>
     <testsuite name="tests">
