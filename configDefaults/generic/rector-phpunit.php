@@ -34,6 +34,10 @@ return static function (RectorConfig $rectorConfig): void {
     // e.g., it changes name: '' to name: 0 when the parameter accepts int|string
     // but in tests, '' and 0 have very different meanings and test different code paths
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\ScalarArgumentToExpectedParamTypeRector::class]);
+    // RemoveDataProviderParamKeysRector removes named array keys from data providers
+    // but named keys provide better documentation, type safety, and PHPStan validation
+    // e.g., ['sql' => 'SELECT...'] is clearer than ['SELECT...'] and enables proper type checking
+    $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\Class_\RemoveDataProviderParamKeysRector::class]);
     $rectorConfig->rules([
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
