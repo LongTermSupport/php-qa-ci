@@ -12,7 +12,7 @@ declare(strict_types=1);
  * @see https://mlocati.github.io/php-cs-fixer-configurator/
  *
  * PHP 8.4 Compatibility Note:
- * - This config includes PHP 8.4 migration rules
+ * - This config includes PHP 8.4 migration rules via @PHP8x4Migration
  * - Property hooks are not yet fully supported by PHP CS Fixer (as of 2025)
  * - PHP CS Fixer v3.84.0+ supports PHP 8.4 natively (no PHP_CS_FIXER_IGNORE_ENV needed)
  */
@@ -24,7 +24,7 @@ $rules = [
     '@PhpCsFixer'                         => true,
     '@Symfony'                            => true,
     '@DoctrineAnnotation'                 => true,
-    '@PHP84Migration'                     => true,
+    '@PHP8x4Migration'                    => true,
     'align_multiline_comment'             => true,
     'array_indentation'                   => true,
     'array_syntax'                        => ['syntax' => 'short'],
