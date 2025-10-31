@@ -76,26 +76,7 @@ fi
 phpunitFailedOnlyFiltered=0
 phpunitExitCode=99
 phpunitLogFilePath="$varDir/phpunit_logs/phpunit.junit.xml"
-
-# Rotate PHPUnit logs - keep last 10 runs
 phpunitLogDir="$varDir/phpunit_logs"
-if [[ -f "$phpunitLogFilePath" ]]; then
-    timestamp=$(date +"%Y%m%d-%H%M%S")
-    archivedLog="$phpunitLogDir/phpunit.junit.${timestamp}.xml"
-    mv "$phpunitLogFilePath" "$archivedLog"
-    echo "Rotated PHPUnit log: $(basename "$archivedLog")"
-
-    # Keep only last 10 archived logs
-    archivedLogs=($(ls -1 "$phpunitLogDir"/phpunit.junit.*.xml 2>/dev/null | sort -r))
-    numLogs=${#archivedLogs[@]}
-    if (( numLogs > 10 )); then
-        for ((i=10; i<numLogs; i++)); do
-            rm -f "${archivedLogs[$i]}"
-            echo "Deleted old log: $(basename "${archivedLogs[$i]}")"
-        done
-    fi
-    echo ""
-fi
 
 while (( phpunitExitCode > 0 ))
 do
@@ -190,4 +171,27 @@ do
         tryAgainOrAbort "PHPUnit Tests"
     fi
 done
+
+# Archive PHPUnit log with timestamp - keep last 10 runs
+# Only timestamped files remain (immutable logs for each run)
+if [[ -f "$phpunitLogFilePath" ]]; then
+    timestamp=$(date +"%Y%m%d-%H%M%S")
+    archivedLog="$phpunitLogDir/phpunit.junit.${timestamp}.xml"
+    mv "$phpunitLogFilePath" "$archivedLog"
+    echo ""
+    echo "Archived PHPUnit log: $(basename "$archivedLog")"
+
+    # Keep only last 10 archived logs
+    archivedLogs=($(ls -1 "$phpunitLogDir"/phpunit.junit.*.xml 2>/dev/null | sort -r))
+    numLogs=${#archivedLogs[@]}
+    if (( numLogs > 10 )); then
+        echo "Keeping last 10 of $numLogs archived logs"
+        for ((i=10; i<numLogs; i++)); do
+            rm -f "${archivedLogs[$i]}"
+            echo "  Deleted: $(basename "${archivedLogs[$i]}")"
+        done
+    fi
+    echo ""
+fi
+
 set -e
