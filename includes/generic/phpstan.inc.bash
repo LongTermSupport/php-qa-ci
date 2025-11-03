@@ -1,13 +1,29 @@
 set +e
 phpStanExitCode=99
 phpStanMemoryLimit=${phpStanMemoryLimit:-256M}
+phpStanLogDir="$varDir/phpstan_logs"
+phpStanLogFile="phpstan.log"
+mkdir -p "$phpStanLogDir"
+
 phpstanNoProgress=()
 if [[ "true" == "$CI" ]]; then
   phpstanNoProgress+=(--no-progress)
 fi
+
 while ((phpStanExitCode > 0)); do
-  phpNoXdebug -d memory_limit=${phpStanMemoryLimit} -f "$pharDir"/phpstan.phar -- analyse ${pathsToCheck[@]} -c "$phpstanConfigPath" ${phpstanNoProgress[@]:-}
-  phpStanExitCode=$?
+  # Run PHPStan with tee to capture output to both file and stdout
+  phpNoXdebug -d memory_limit=${phpStanMemoryLimit} -f "$pharDir"/phpstan.phar -- \
+    analyse ${pathsToCheck[@]} \
+    -c "$phpstanConfigPath" \
+    ${phpstanNoProgress[@]:-} \
+    2>&1 | tee "$phpStanLogDir/$phpStanLogFile"
+
+  phpStanExitCode=${PIPESTATUS[0]}
+
+  # Archive PHPStan log with timestamp - keep last 10 per pattern
+  # Do this BEFORE tryAgainOrAbort so log is archived even on failure (in CI mode)
+  # Uses shared archiveToolLog function from functions.inc.bash
+  archiveToolLog "PHPStan" "$phpStanLogDir" "$phpStanLogFile" "$specifiedPath" "${pathsToCheck[@]}"
 
   #exit code 0 = fine, 1 = ran fine but found errors, else it means it crashed
   if ((phpStanExitCode > 1)); then
@@ -19,4 +35,5 @@ while ((phpStanExitCode > 0)); do
     tryAgainOrAbort "PHPStan"
   fi
 done
+
 set -e

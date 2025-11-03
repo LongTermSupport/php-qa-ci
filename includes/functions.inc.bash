@@ -323,3 +323,108 @@ function findBinDir() {
   fi
   echo "$binDir"
 }
+
+###############################################################
+# Archive and rotate QA tool log files with retention policy
+#
+# This function provides standardized log rotation for QA tools:
+# - Archives current log with timestamp
+# - Separates full suite runs from path-specific runs
+# - Keeps last 10 logs per pattern (full suite + each unique path)
+# - Warns when total logs exceed 100 files
+#
+# Usage:
+#   archiveToolLog "toolname" "$logDir" "logfile.ext" "$specifiedPath" "${pathsToCheck[@]}"
+#
+# Parameters:
+#   $1 - toolName: Name of the tool (e.g., "phpunit", "phpstan")
+#   $2 - logDir: Directory where logs are stored
+#   $3 - logFileName: Base name of the log file (e.g., "phpunit.junit.xml")
+#   $4 - specifiedPath: Non-empty if -p flag was used
+#   $5+ - pathsToCheck: Array of paths that were checked
+#
+# Examples:
+#   # Full suite run
+#   archiveToolLog "phpunit" "$varDir/phpunit_logs" "phpunit.junit.xml" "" "${pathsToCheck[@]}"
+#   # Creates: phpunit.junit.YYYYMMDD-HHMMSS.xml
+#
+#   # Path-specific run
+#   archiveToolLog "phpstan" "$varDir/phpstan_logs" "phpstan.json" "1" "src/Entity tests/Unit"
+#   # Creates: phpstan.json.src_Entity_tests_Unit.YYYYMMDD-HHMMSS.xml
+function archiveToolLog() {
+    local toolName="$1"
+    local logDir="$2"
+    local logFileName="$3"
+    local specifiedPath="$4"
+    shift 4
+    local pathsToCheck=("$@")
+
+    local logFilePath="$logDir/$logFileName"
+
+    # Only archive if log file exists
+    if [[ ! -f "$logFilePath" ]]; then
+        return 0
+    fi
+
+    local timestamp=$(date +"%Y%m%d-%H%M%S")
+    local baseFileName="${logFileName%.*}"  # Remove extension
+    local extension="${logFileName##*.}"    # Get extension
+
+    # Determine log file naming based on whether specific paths were specified
+    if [[ -n "$specifiedPath" ]]; then
+        # Path-specific run - generate suffix from paths
+        local pathSuffix=$(echo "${pathsToCheck[*]}" | tr -cs '[:alnum:]' '_' | sed 's/^_//; s/_$//')
+        local archivedLog="$logDir/${baseFileName}.${pathSuffix}.${timestamp}.${extension}"
+        echo ""
+        echo "Path-specific run: ${pathsToCheck[*]}"
+
+        # Match only logs for this specific path suffix
+        local archivedLogs=($(ls -1t "$logDir"/${baseFileName}.*.${extension} 2>/dev/null | grep "${baseFileName}\\.${pathSuffix}\\."))
+    else
+        # Full suite run
+        local archivedLog="$logDir/${baseFileName}.${timestamp}.${extension}"
+        echo ""
+        echo "Full test suite run"
+
+        # Match only full suite logs (timestamp directly after base name)
+        local archivedLogs=($(ls -1t "$logDir"/${baseFileName}.*.${extension} 2>/dev/null | grep -E "${baseFileName}\\.[0-9]{8}-[0-9]{6}\\.${extension}$"))
+    fi
+
+    mv "$logFilePath" "$archivedLog"
+    echo "Archived ${toolName} log: $(basename "$archivedLog")"
+
+    # Keep only last 10 logs matching this pattern
+    local numLogs=${#archivedLogs[@]}
+    if (( numLogs > 10 )); then
+        echo "Keeping last 10 of $numLogs archived logs for this pattern"
+        for ((i=10; i<numLogs; i++)); do
+            rm -f "${archivedLogs[$i]}"
+            echo "  Deleted: $(basename "${archivedLogs[$i]}")"
+        done
+    fi
+
+    # Check total log count across all patterns and warn if > 100
+    local totalLogs=$(find "$logDir" -name "${baseFileName}.*.${extension}" -type f 2>/dev/null | wc -l)
+    if (( totalLogs > 100 )); then
+        echo ""
+        echo "=========================================="
+        echo "WARNING: HIGH LOG FILE COUNT"
+        echo "=========================================="
+        echo "Total ${toolName} log files: $totalLogs"
+        echo ""
+        echo "You have more than 100 ${toolName} log files."
+        echo "Consider manual cleanup of old logs in:"
+        echo "  $logDir"
+        echo ""
+        echo "To review logs by date:"
+        echo "  ls -lht $logDir | less"
+        echo ""
+        echo "To remove logs for specific paths:"
+        echo "  rm $logDir/${baseFileName}.PATH_PATTERN.*.${extension}"
+        echo ""
+        echo "Log retention: 10 per pattern (full suite + each -p path)"
+        echo "=========================================="
+        echo ""
+    fi
+    echo ""
+}
