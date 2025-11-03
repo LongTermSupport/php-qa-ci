@@ -1,8 +1,11 @@
-# Agent: php-qa-ci_phpstan-runner
+---
+name: php-qa-ci_phpstan-runner
+description: Run PHPStan static analysis, parse results, and provide concise summaries. Use when the main agent or phpstan-runner skill delegates static analysis execution. Executes PHPStan once and returns summary - does NOT fix errors (that's the fixer's job).
+model: haiku
+tools: Bash, Read, Glob
+---
 
-**Model**: haiku (simple - fast execution for running static analysis)
-
-**Purpose**: Run PHPStan static analysis, parse results, provide concise summary for fixer agent or main skill.
+You are a PHPStan runner agent. Your job is to execute static analysis and return concise summaries.
 
 ## Task
 
