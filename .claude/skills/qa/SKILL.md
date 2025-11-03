@@ -24,7 +24,7 @@ description: |
   - allStatic/allCs/allTests - meta groups
 
   Automatically detects which tools have fixers and invokes them.
-allowed-tools: Task, Bash, Read, Glob
+allowed-tools: Skill
 ---
 
 # PHP-QA-CI Tool Orchestrator Skill
@@ -66,12 +66,20 @@ This skill runs php-qa-ci tools and automatically fixes issues until clean.
 - ❌ Running once, fixing once, then asking "Should I run again?"
 - ❌ Stopping to report status between iterations
 - ❌ Waiting for user permission between cycles
+- ❌ **CRITICAL**: Using Bash tool to run commands (burns main context tokens!)
 
 **Required Actions**:
 - ✅ Detect which tool user wants from their request
-- ✅ Run tool → Parse results → Fix if possible → Run again
-- ✅ Keep cycling until clean OR escalation needed
+- ✅ **Invoke runner SKILLS** (phpstan-runner, phpunit-runner) NOT Bash
+- ✅ Runner skills launch cheap agents to execute tools
+- ✅ Keep cycling: run skill → fixer skill → run skill...
 - ✅ Report final summary only when done
+
+**TOKEN EFFICIENCY - CRITICAL**:
+- This skill ONLY invokes other skills via Skill tool
+- Runner skills (phpstan-runner, phpunit-runner) launch cheap haiku agents
+- Agents run Bash commands in cheap agent context
+- This keeps expensive tool output OUT of main context
 
 ## Tool Detection
 
@@ -98,43 +106,55 @@ INITIALIZE:
   - tool = detect_tool_from_user_request()
 
 LOOP:
-  1. Run tool via php-qa-ci pipeline:
-     [Bash] export CI=true && ./bin/qa -t {tool} [-p {path}]
-  2. Parse output/logs in var/qa/{tool}_logs/
-  3. Check result:
+  1. Run tool via appropriate runner SKILL (NOT Bash!):
+     [Skill] Invoke phpstan-runner OR phpunit-runner skill
+     - Runner skill launches cheap haiku agent
+     - Agent runs: export CI=true && ./bin/qa -t {tool} [-p {path}]
+     - Agent parses logs and returns summary
+  2. Parse runner skill output:
      - CLEAN? → Report success, EXIT
      - CRASH? → Escalate, EXIT
-     - ERRORS/FAILURES? → Continue to step 4
-  4. Check escalation:
+     - ERRORS/FAILURES? → Continue to step 3
+  3. Check escalation:
      - iteration >= max_iterations? → Escalate, EXIT
      - errors == previous_errors? → Escalate, EXIT
-  5. Apply fix:
-     - If tool has dedicated fixer → Invoke fixer skill
-     - If tool is self-fixing → Continue (next run will fix)
+  4. Apply fix:
+     - If tool has dedicated fixer → Invoke fixer SKILL
+     - Fixer skill launches cheap sonnet agent to implement fixes
      - If no fixer available → Report and ask user
-  6. iteration++, previous_errors = current_errors
-  7. IMMEDIATELY goto LOOP (no pause, no questions)
+  5. iteration++, previous_errors = current_errors
+  6. IMMEDIATELY goto LOOP (no pause, no questions)
 END
+
+**KEY**: NEVER use Bash tool in this skill - ALWAYS invoke runner skills
 ```
 
 ## Tool-Specific Strategies
 
 ### PHPStan (Static Analysis)
 ```
-Run: export CI=true && ./bin/qa -t stan [-p path]
-Log: var/qa/phpstan_logs/phpstan.log
-Parse: python3 .claude/skills/phpstan-runner/scripts/parse-phpstan.py
-Fixer: Launch phpstan-fixer agent via phpstan-fixer skill
+[Skill] Invoke phpstan-runner skill
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && ./bin/qa -t stan [-p path]
+  → Agent parses: var/qa/phpstan_logs/phpstan.log
+  → Returns summary to main context
+[Skill] If errors → Invoke phpstan-fixer skill
+  → Fixer skill launches sonnet agent
+  → Agent implements fixes
 Clean: "No errors" in output
 ```
 
 ### PHPUnit (Tests)
 ```
-Run: export CI=true && ./bin/qa -t unit [-p path]
-Log: var/qa/phpunit_logs/phpunit.junit.xml
-Parse: python3 .claude/skills/phpunit-runner/scripts/parse-junit.py
-Fixer: Launch phpunit-fixer agent via phpunit-fixer skill
-Clean: "OK (X tests, Y assertions)" or "Tests: X, Assertions: Y, Failures: 0, Errors: 0"
+[Skill] Invoke phpunit-runner skill
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && ./bin/qa -t unit [-p path]
+  → Agent parses: var/qa/phpunit_logs/phpunit.junit.xml
+  → Returns summary to main context
+[Skill] If failures → Invoke phpunit-fixer skill
+  → Fixer skill launches sonnet agent
+  → Agent implements fixes
+Clean: "OK (X tests, Y assertions)" or "Tests: X, Failures: 0, Errors: 0"
 ```
 
 ### Rector (Refactoring)
@@ -184,22 +204,25 @@ Strategy: Keep re-running until no changes
    - Extract tool name (phpstan, phpunit, etc.)
    - Extract optional path (-p flag)
 
-2. Run tool via Bash:
-   export CI=true && ./bin/qa -t {tool} [-p {path}]
+2. Invoke appropriate runner SKILL (NOT Bash!):
+   [Skill] phpstan-runner OR phpunit-runner
+   - Pass context about path if specified
+   - Runner skill launches cheap haiku agent
+   - Agent executes tool and parses results
+   - Returns summary to main context
 
-3. Capture exit code and output
-
-4. Parse results based on tool type:
+3. Parse runner skill output:
    - Check for clean completion
    - Count errors/failures
    - Extract error patterns
 
-5. If not clean:
+4. If not clean:
    - Check if fixer available
-   - Invoke fixer OR re-run if self-fixing
+   - [Skill] Invoke fixer skill (phpstan-fixer, phpunit-fixer)
+   - Fixer skill launches cheap sonnet agent
    - IMMEDIATELY goto step 2
 
-6. If clean:
+5. If clean:
    - Report success with summary
    - EXIT
 ```
@@ -210,42 +233,46 @@ Strategy: Keep re-running until no changes
 User: "run phpstan"
 
 Iteration 1:
-  [Bash] export CI=true && ./bin/qa -t stan
-  [Exit code 1 = errors found]
-  [Parse] python3 .claude/skills/phpstan-runner/scripts/parse-phpstan.py
+  [Skill] Invoke phpstan-runner skill
+    → Runner launches haiku agent (cheap!)
+    → Agent runs: export CI=true && ./bin/qa -t stan
+    → Agent parses log, returns summary
   [Result] 45 errors across 12 files
-  [Action] Invoke phpstan-fixer skill
-  [Fixer] Fixed 40 errors
+  [Skill] Invoke phpstan-fixer skill
+    → Fixer launches sonnet agent (cheap!)
+    → Agent implements fixes
+  [Result] Fixed 40 errors
   [AUTO-CONTINUE - NO PAUSE]
 
 Iteration 2:
-  [Bash] export CI=true && ./bin/qa -t stan
-  [Exit code 1 = errors found]
-  [Parse] python3 .claude/skills/phpstan-runner/scripts/parse-phpstan.py
+  [Skill] Invoke phpstan-runner skill
+    → Agent runs analysis again
   [Result] 5 errors across 3 files
-  [Action] Invoke phpstan-fixer skill
-  [Fixer] Fixed 3 errors
+  [Skill] Invoke phpstan-fixer skill
+    → Agent implements fixes
+  [Result] Fixed 3 errors
   [AUTO-CONTINUE - NO PAUSE]
 
 Iteration 3:
-  [Bash] export CI=true && ./bin/qa -t stan
-  [Exit code 1 = errors found]
-  [Parse] python3 .claude/skills/phpstan-runner/scripts/parse-phpstan.py
+  [Skill] Invoke phpstan-runner skill
+    → Agent runs analysis again
   [Result] 2 errors in 1 file
-  [Action] Invoke phpstan-fixer skill
-  [Fixer] Fixed 2 errors
+  [Skill] Invoke phpstan-fixer skill
+    → Agent implements fixes
+  [Result] Fixed 2 errors
   [AUTO-CONTINUE - NO PAUSE]
 
 Iteration 4:
-  [Bash] export CI=true && ./bin/qa -t stan
-  [Exit code 0 = clean]
-  [Result] No errors
+  [Skill] Invoke phpstan-runner skill
+    → Agent runs analysis again
+  [Result] No errors - CLEAN
   [DONE]
 
 Report:
 "✅ PHPStan analysis CLEAN after 4 iterations
   - Total errors fixed: 45
   - Final status: No errors
+  - All tool execution in cheap agent context (saved main context tokens!)
   - Log: var/qa/phpstan_logs/phpstan.TIMESTAMP.log"
 ```
 
