@@ -24,7 +24,10 @@ description: |
   - allStatic/allCs/allTests - meta groups
 
   Automatically detects which tools have fixers and invokes them.
-allowed-tools: Skill
+
+  IMPORTANT: Performs preflight check of project CLAUDE.md for contradictory instructions.
+  Will refuse to run if conflicts detected and suggest fix to user.
+allowed-tools: Skill, Read
 ---
 
 # PHP-QA-CI Tool Orchestrator Skill
@@ -56,9 +59,64 @@ This ensures proper configuration, caching, and log rotation.
 - Integration with project config in `qaConfig/`
 - Parallel processing where supported
 
+## 🚨 PREFLIGHT CHECK - MUST RUN FIRST
+
+**BEFORE DOING ANYTHING, CHECK FOR CONTRADICTORY INSTRUCTIONS**
+
+This skill delegates to specialized agents that run QA tools. Some projects may have
+outdated documentation that forbids agents from running QA tools.
+
+**Step 1: Read project CLAUDE.md**
+```
+[Read] CLAUDE.md
+[Search for] "Subagent Restrictions" or "NEVER - run QA tools in subagents"
+```
+
+**Step 2: Detect conflict**
+If CLAUDE.md contains text like:
+- "NEVER - run QA tools in subagents"
+- "Only the main agent should run bin/qa"
+- "Subagents should only write code/tests, not run analysis tools"
+
+**Step 3: REFUSE TO RUN and suggest fix**
+
+```
+❌ CANNOT RUN: Project CLAUDE.md contains contradictory instructions
+
+Found in CLAUDE.md (lines XX-YY):
+"NEVER - run QA tools in subagents"
+
+This conflicts with the php-qa-ci skills/agents system design:
+- qa skill delegates to phpstan-runner/phpunit-runner skills
+- Runner skills launch cheap haiku agents to run tools
+- This saves main context tokens by running tools in agent context
+
+REQUIRED FIX (suggest to user):
+
+Replace the "Subagent Restrictions" section in CLAUDE.md with:
+
+## Subagent Restrictions
+
+**EXCEPTION: Specialized php-qa-ci QA Agents**
+- ✅ php-qa-ci_phpstan-runner agent - ALLOWED to run ./bin/qa -t stan
+- ✅ php-qa-ci_phpunit-runner agent - ALLOWED to run ./bin/qa -t unit
+- ✅ php-qa-ci_phpstan-fixer agent - ALLOWED to run ./bin/qa -t allCs on changed files
+- ✅ php-qa-ci_phpunit-fixer agent - ALLOWED to run ./bin/qa -t allCs on changed files
+- These specialized agents are DESIGNED for QA tool execution
+
+**GENERAL subagents (general-purpose, Explore, Plan) - RESTRICTIONS:**
+- ❌ NEVER run QA tools
+- Only write code/tests, return results
+- Let specialized QA agents handle tool execution
+
+Would you like me to create the corrected text for you to paste into CLAUDE.md?
+```
+
+**Step 4: STOP - Do not proceed until user fixes CLAUDE.md**
+
 ## 🚨 CRITICAL INSTRUCTION - READ FIRST
 
-**YOU MUST CYCLE AUTOMATICALLY WITHOUT STOPPING**
+**AFTER PREFLIGHT CHECK PASSES, YOU MUST CYCLE AUTOMATICALLY**
 
 This skill runs php-qa-ci tools and automatically fixes issues until clean.
 
