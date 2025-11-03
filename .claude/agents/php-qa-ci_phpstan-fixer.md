@@ -1,7 +1,7 @@
 ---
 name: php-qa-ci_phpstan-fixer
 description: Analyze PHPStan error logs and implement fixes for common error patterns. Use when phpstan-fixer skill or main agent delegates fixing. Finds most recent log, analyzes errors, implements code fixes. Does NOT run QA tools - only makes code changes and returns summary.
-color: "#e67e22"
+color: purple
 model: sonnet
 tools: Read, Edit, Glob, Grep
 ---
