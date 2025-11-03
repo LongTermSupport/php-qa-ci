@@ -172,24 +172,67 @@ do
     fi
 done
 
-# Archive PHPUnit log with timestamp - keep last 10 runs
-# Only timestamped files remain (immutable logs for each run)
+# Archive PHPUnit log with timestamp - keep last 10 per pattern
+# - Full suite runs: phpunit.junit.YYYYMMDD-HHMMSS.xml (keep last 10)
+# - Path-specific runs: phpunit.junit.PATH_SUFFIX.YYYYMMDD-HHMMSS.xml (keep last 10 per path)
 if [[ -f "$phpunitLogFilePath" ]]; then
     timestamp=$(date +"%Y%m%d-%H%M%S")
-    archivedLog="$phpunitLogDir/phpunit.junit.${timestamp}.xml"
+
+    # Determine log file naming based on whether specific paths were specified
+    if [[ -n "$specifiedPath" ]]; then
+        # Path-specific run - generate suffix from paths
+        pathSuffix=$(echo "${pathsToCheck[*]}" | tr -cs '[:alnum:]' '_' | sed 's/^_//; s/_$//')
+        archivedLog="$phpunitLogDir/phpunit.junit.${pathSuffix}.${timestamp}.xml"
+        echo ""
+        echo "Path-specific run: ${pathsToCheck[*]}"
+
+        # Match only logs for this specific path suffix
+        archivedLogs=($(ls -1t "$phpunitLogDir"/phpunit.junit.*.xml 2>/dev/null | grep "phpunit\\.junit\\.${pathSuffix}\\."))
+    else
+        # Full suite run
+        archivedLog="$phpunitLogDir/phpunit.junit.${timestamp}.xml"
+        echo ""
+        echo "Full test suite run"
+
+        # Match only full suite logs (timestamp directly after phpunit.junit.)
+        archivedLogs=($(ls -1t "$phpunitLogDir"/phpunit.junit.*.xml 2>/dev/null | grep -E "phpunit\\.junit\\.[0-9]{8}-[0-9]{6}\\.xml$"))
+    fi
+
     mv "$phpunitLogFilePath" "$archivedLog"
-    echo ""
     echo "Archived PHPUnit log: $(basename "$archivedLog")"
 
-    # Keep only last 10 archived logs
-    archivedLogs=($(ls -1 "$phpunitLogDir"/phpunit.junit.*.xml 2>/dev/null | sort -r))
+    # Keep only last 10 logs matching this pattern
     numLogs=${#archivedLogs[@]}
     if (( numLogs > 10 )); then
-        echo "Keeping last 10 of $numLogs archived logs"
+        echo "Keeping last 10 of $numLogs archived logs for this pattern"
         for ((i=10; i<numLogs; i++)); do
             rm -f "${archivedLogs[$i]}"
             echo "  Deleted: $(basename "${archivedLogs[$i]}")"
         done
+    fi
+
+    # Check total log count across all patterns and warn if > 100
+    totalLogs=$(find "$phpunitLogDir" -name "phpunit.junit.*.xml" -type f 2>/dev/null | wc -l)
+    if (( totalLogs > 100 )); then
+        echo ""
+        echo "=========================================="
+        echo "WARNING: HIGH LOG FILE COUNT"
+        echo "=========================================="
+        echo "Total PHPUnit log files: $totalLogs"
+        echo ""
+        echo "You have more than 100 PHPUnit log files."
+        echo "Consider manual cleanup of old logs in:"
+        echo "  $phpunitLogDir"
+        echo ""
+        echo "To review logs by date:"
+        echo "  ls -lht $phpunitLogDir | less"
+        echo ""
+        echo "To remove logs for specific paths:"
+        echo "  rm $phpunitLogDir/phpunit.junit.PATH_PATTERN.*.xml"
+        echo ""
+        echo "Log retention: 10 per pattern (full suite + each -p path)"
+        echo "=========================================="
+        echo ""
     fi
     echo ""
 fi
