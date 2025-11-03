@@ -30,9 +30,9 @@ This skill delegates to specialized agents via the Task tool:
 1. Launch runner agent:
    ```
    Use Task tool:
-     subagent_type: "general-purpose"
-     model: "haiku"
-     prompt: "You are the php-qa-ci_phpunit-runner agent. Read .claude/agents/php-qa-ci_phpunit-runner.md for instructions. Run tests and return summary."
+     description: "Run PHPUnit test suite"
+     subagent_type: "php-qa-ci_phpunit-runner"
+     prompt: "Run PHPUnit tests and provide summary"
    ```
 
 2. Receive runner output with log location
@@ -41,9 +41,9 @@ This skill delegates to specialized agents via the Task tool:
    - Launch fixer agent:
      ```
      Use Task tool:
-       subagent_type: "general-purpose"
-       model: "sonnet"
-       prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Fix errors in log: {log_path}"
+       description: "Fix PHPUnit test failures"
+       subagent_type: "php-qa-ci_phpunit-fixer"
+       prompt: "Fix test failures in log: {log_path}"
      ```
 
 4. After fixes applied, re-run via runner agent

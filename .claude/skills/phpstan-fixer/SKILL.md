@@ -23,12 +23,12 @@ This skill delegates to the php-qa-ci_phpstan-fixer agent (sonnet model).
 
 ### When User Says: "Fix the PHPStan errors"
 
-1. Launch fixer agent to find and analyze most recent log:
+1. Launch fixer agent:
    ```
    Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Find most recent PHPStan log and fix errors."
+     description: "Fix PHPStan errors"
+     subagent_type: "php-qa-ci_phpstan-fixer"
+     prompt: "Find and fix errors in most recent PHPStan log"
    ```
 
 2. Receive fixer output with:
@@ -44,9 +44,9 @@ This skill delegates to the php-qa-ci_phpstan-fixer agent (sonnet model).
 1. Launch fixer agent with explicit log path:
    ```
    Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Fix errors in log: {user_provided_path}"
+     description: "Fix PHPStan errors from log"
+     subagent_type: "php-qa-ci_phpstan-fixer"
+     prompt: "Fix errors in log: {user_provided_path}"
    ```
 
 ### Escalation Triggers

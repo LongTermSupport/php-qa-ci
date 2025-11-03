@@ -23,12 +23,12 @@ This skill delegates to the php-qa-ci_phpunit-fixer agent (sonnet model).
 
 ### When User Says: "Fix the test failures"
 
-1. Launch fixer agent to find and analyze most recent log:
+1. Launch fixer agent:
    ```
    Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Find most recent test log and fix failures."
+     description: "Fix PHPUnit test failures"
+     subagent_type: "php-qa-ci_phpunit-fixer"
+     prompt: "Find and fix failures in most recent test log"
    ```
 
 2. Receive fixer output with:
@@ -44,9 +44,9 @@ This skill delegates to the php-qa-ci_phpunit-fixer agent (sonnet model).
 1. Launch fixer agent with explicit log path:
    ```
    Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Fix failures in log: {user_provided_path}"
+     description: "Fix test failures from log"
+     subagent_type: "php-qa-ci_phpunit-fixer"
+     prompt: "Fix failures in log: {user_provided_path}"
    ```
 
 ### Escalation Triggers

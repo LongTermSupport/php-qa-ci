@@ -45,9 +45,9 @@ Launch the docs-conflict-checker agent:
 
 ```
 [Task tool]
-  subagent_type: "general-purpose"
-  model: "haiku"
-  prompt: "You are the php-qa-ci_docs-conflict-checker agent. Read .claude/agents/php-qa-ci_docs-conflict-checker.md and follow its instructions. Check project documentation for conflicts with php-qa-ci skills/agents system."
+  description: "Check docs for conflicts"
+  subagent_type: "php-qa-ci_docs-conflict-checker"
+  prompt: "Check project documentation for php-qa-ci agent restrictions"
 ```
 
 **Parse checker output:**
