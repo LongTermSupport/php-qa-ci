@@ -156,6 +156,69 @@ END
 **KEY**: NEVER use Bash tool in this skill - ALWAYS invoke runner skills
 ```
 
+## 📊 Step Summaries - CRITICAL
+
+**After EVERY step, provide a clear summary to the user:**
+
+### After Runner Execution
+```markdown
+## 🔄 Iteration X - Runner Results
+
+**Tool**: PHPStan/PHPUnit/etc
+**Exit Code**: X
+**Status**: ✅ Clean | ⚠️ Errors Found | ❌ Crashed
+
+**Quick Stats**:
+- Total Errors/Failures: XX
+- Files Affected: YY
+- Most Common Pattern: [pattern name] (ZZ occurrences)
+
+**Next Action**: Launching fixer | Re-running | Complete
+```
+
+### After Fixer Execution
+```markdown
+## 🔧 Iteration X - Fixer Results
+
+**Fixes Applied**: XX
+**Files Modified**: YY
+**Patterns Fixed**:
+- Pattern A: X fixes
+- Pattern B: Y fixes
+
+**Next Action**: Re-running tool to verify fixes
+```
+
+### Final Summary (When Clean)
+```markdown
+## ✅ QA Pipeline Complete
+
+**Tool**: [toolname]
+**Total Iterations**: X
+**Total Fixes Applied**: YY
+**Final Status**: All checks passing
+
+**Log File**: `var/qa/{tool}_logs/{tool}.TIMESTAMP.log`
+
+Pipeline succeeded! 🎉
+```
+
+### Escalation Summary (When Stuck)
+```markdown
+## ⚠️ Escalation Needed
+
+**Tool**: [toolname]
+**Iterations Attempted**: X
+**Remaining Errors**: YY
+**Issue**: Same errors persisting | Max iterations reached | Manual intervention required
+
+**Remaining Error Patterns**:
+- Pattern A: X occurrences (requires architecture changes)
+- Pattern B: Y occurrences (business logic questions)
+
+**Recommendation**: Human review required for remaining issues
+```
+
 ## Tool-Specific Strategies
 
 ### PHPStan (Static Analysis)
