@@ -1,6 +1,7 @@
 ---
 name: php-qa-ci_docs-conflict-checker
 description: Checks project documentation for instructions that conflict with php-qa-ci skills/agents system. Reads and understands CLAUDE.md and related docs, identifies contradictions, reports findings with specific suggestions. Use before running QA workflows.
+color: "#e74c3c"
 model: haiku
 tools: Read, Glob
 ---

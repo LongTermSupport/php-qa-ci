@@ -1,6 +1,7 @@
 ---
 name: php-qa-ci_phpstan-runner
 description: Run PHPStan static analysis, parse results, and provide concise summaries. Use when the main agent or phpstan-runner skill delegates static analysis execution. Executes PHPStan once and returns summary - does NOT fix errors (that's the fixer's job).
+color: "#3498db"
 model: haiku
 tools: Bash, Read, Glob
 ---

@@ -1,6 +1,7 @@
 ---
 name: php-qa-ci_phpunit-runner
 description: Run PHPUnit tests with intelligent runtime estimation, parse JUnit XML logs, and provide concise summaries. Use when the main agent or phpunit-runner skill delegates test execution. Executes tests once and returns summary - does NOT fix errors (that's the fixer's job).
+color: "#2ecc71"
 model: haiku
 tools: Bash, Read, Glob
 ---

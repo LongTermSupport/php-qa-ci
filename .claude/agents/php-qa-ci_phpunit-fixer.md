@@ -1,6 +1,7 @@
 ---
 name: php-qa-ci_phpunit-fixer
 description: Analyze PHPUnit test failure logs and implement fixes for common error patterns. Use when phpunit-fixer skill or main agent delegates fixing. Finds most recent log, analyzes errors, implements code fixes. Does NOT run QA tools - only makes code changes and returns summary.
+color: "#f39c12"
 model: sonnet
 tools: Read, Edit, Glob, Grep
 ---
