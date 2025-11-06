@@ -183,7 +183,12 @@ Running Single Tool: $singleToolToRun
 ------------------------
 "
   runTool "$singleToolToRun"
-  exit $?
+  exitCode=$?
+
+  # Release lock with correct exit code before exiting
+  trap - EXIT ERR INT TERM
+  releaseLock $exitCode
+  exit $exitCode
 fi
 
 echo "
@@ -271,7 +276,8 @@ fi
 
 #### LOCKING SYSTEM - RELEASE ################################
 
-# Release lock on successful completion
+# Clear the trap to prevent double-release, then explicitly release with success code
+trap - EXIT ERR INT TERM
 releaseLock 0
 
 ################################################################
