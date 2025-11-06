@@ -161,6 +161,19 @@ Running Pre Hook $projectConfigPath/hookPre.bash
   source $projectConfigPath/hookPre.bash
 fi
 
+#### LOCKING SYSTEM ##########################################
+
+# Source lock and timing modules
+source "${qaDir}/includes/generic/timing.inc.bash"
+source "${qaDir}/includes/generic/lock.inc.bash"
+
+# Initialize lock system and acquire lock
+initLockSystem "$projectRoot"
+acquireLock "$singleToolToRun" "$specifiedPath" || exit 1
+
+# Set up cleanup trap
+setupLockCleanup
+
 #### PROCESS #################################################
 
 if [[ "" != "$singleToolToRun" ]]; then
@@ -255,6 +268,13 @@ you should run the whole process again to be sure everything is fine
 ####################################################################
 "
 fi
+
+#### LOCKING SYSTEM - RELEASE ################################
+
+# Release lock on successful completion
+releaseLock 0
+
+################################################################
 
 echo "
 ===========================================

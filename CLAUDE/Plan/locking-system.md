@@ -2,19 +2,19 @@
 
 ## Progress
 
-[ ] Add Linux/GNU date check (fail fast if not Linux)
-[ ] Create lock management module (`includes/generic/lock.inc.bash`)
-[ ] Create command timing tracker module (`includes/generic/timing.inc.bash`)
-[ ] Implement path normalization function
-[ ] Create lock file schema (JSON format)
-[ ] Create timing data schema (JSON format)
-[ ] Implement lock acquisition logic
-[ ] Implement lock release logic
-[ ] Implement stale lock detection (time-based, container-agnostic)
-[ ] Implement ETA calculation with normalization
-[ ] Implement command timing recording
-[ ] Implement heartbeat mechanism
-[ ] Integrate into `bin/qa` main script (AFTER preflight)
+[✓] Add Linux/GNU date check (fail fast if not Linux)
+[✓] Create lock management module (`includes/generic/lock.inc.bash`)
+[✓] Create command timing tracker module (`includes/generic/timing.inc.bash`)
+[✓] Implement path normalization function
+[✓] Create lock file schema (JSON format)
+[✓] Create timing data schema (JSON format)
+[✓] Implement lock acquisition logic
+[✓] Implement lock release logic
+[✓] Implement stale lock detection (time-based, container-agnostic)
+[✓] Implement ETA calculation with normalization
+[✓] Implement command timing recording
+[✓] Implement heartbeat mechanism
+[✓] Integrate into `bin/qa` main script (AFTER preflight)
 [ ] Test lock acquisition/release
 [ ] Test stale lock detection
 [ ] Test concurrent execution prevention
