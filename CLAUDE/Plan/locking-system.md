@@ -15,12 +15,12 @@
 [✓] Implement command timing recording
 [✓] Implement heartbeat mechanism
 [✓] Integrate into `bin/qa` main script (AFTER preflight)
-[ ] Test lock acquisition/release
-[ ] Test stale lock detection
-[ ] Test concurrent execution prevention
-[ ] Test timing data collection with path normalization
-[ ] Test ETA display
-[ ] Test cross-container behavior (desktop/yolo)
+[✓] Test lock acquisition/release
+[✓] Test stale lock detection
+[✓] Test concurrent execution prevention
+[✓] Test timing data collection with path normalization
+[✓] Test ETA display
+[ ] Test cross-container behavior (desktop/yolo) - requires multi-container environment
 [ ] Update README.md with lock system documentation
 [ ] Add troubleshooting guide
 
