@@ -2,25 +2,134 @@
 
 ## Progress
 
+[ ] Add Linux/GNU date check (fail fast if not Linux)
 [ ] Create lock management module (`includes/generic/lock.inc.bash`)
 [ ] Create command timing tracker module (`includes/generic/timing.inc.bash`)
+[ ] Implement path normalization function
 [ ] Create lock file schema (JSON format)
 [ ] Create timing data schema (JSON format)
 [ ] Implement lock acquisition logic
 [ ] Implement lock release logic
 [ ] Implement stale lock detection (time-based, container-agnostic)
-[ ] Implement ETA calculation
+[ ] Implement ETA calculation with normalization
 [ ] Implement command timing recording
 [ ] Implement heartbeat mechanism
-[ ] Integrate into `bin/qa` main script
+[ ] Integrate into `bin/qa` main script (AFTER preflight)
 [ ] Test lock acquisition/release
 [ ] Test stale lock detection
 [ ] Test concurrent execution prevention
-[ ] Test timing data collection
+[ ] Test timing data collection with path normalization
 [ ] Test ETA display
-[ ] Test cross-container behavior
+[ ] Test cross-container behavior (desktop/yolo)
 [ ] Update README.md with lock system documentation
 [ ] Add troubleshooting guide
+
+## Critical Implementation Notes
+
+### Linux-Only Requirement
+
+**Decision**: This system targets Linux with GNU coreutils only.
+
+**Rationale**:
+- Primary use case is Linux development environments (desktop, containers)
+- GNU `date -d` is required for ISO 8601 timestamp parsing
+- BSD/macOS systems have incompatible date command syntax
+- All target containers run on same Linux host (shared system clock)
+
+**Implementation**:
+```bash
+# In initLockSystem() - fail fast if not GNU date
+if ! date -d "2025-01-01" +%s >/dev/null 2>&1; then
+    echo "ERROR: QA locking system requires GNU date (Linux only)"
+    echo "This system appears to have BSD date. Aborting."
+    exit 1
+fi
+```
+
+### Path Normalization (CRITICAL)
+
+**Problem**: Without normalization, paths like `tests/Db`, `tests/Db/`, `./tests/Db` create separate timing data entries.
+
+**Solution**: Explicit normalization function:
+```bash
+normalizePathForKey() {
+    local path="$1"
+
+    # Remove leading ./
+    path="${path#./}"
+
+    # Remove trailing slashes
+    path="${path%/}"
+
+    # Collapse multiple slashes
+    path="$(echo "$path" | sed 's|//*|/|g')"
+
+    echo "$path"
+}
+```
+
+**Usage in calculateEta()**:
+```bash
+calculateEta() {
+    local tool="$1"
+    local path="$2"
+
+    # Normalize path BEFORE building command key
+    if [[ -n "$path" ]]; then
+        path="$(normalizePathForKey "$path")"
+    fi
+
+    # ... rest of function
+}
+```
+
+### Master Logging DOES Work
+
+**Agent Review Finding**: Concern that global `exec > >(tee ...)` breaks `${PIPESTATUS[0]}`
+
+**Testing Result**: ✅ **VERIFIED TO WORK CORRECTLY**
+
+The global exec redirect operates at file descriptor level, NOT pipe level. Individual tool scripts using `tool 2>&1 | tee log` still capture correct exit codes via `${PIPESTATUS[0]}`.
+
+**Test confirmed**:
+```bash
+exec > >(tee -a master.log) 2>&1
+false 2>&1 | tee tool.log
+exitCode=${PIPESTATUS[0]}  # Correctly captures 1
+```
+
+### Clock Synchronization (Not a Concern)
+
+**Agent Review Finding**: Concern about clock skew between containers
+
+**Reality**: All containers (desktop, yolo, lxc) run on **same Linux host** and share **host's system clock** via kernel.
+
+**Result**: ✅ **Clock skew is impossible** - no NTP sync requirements needed.
+
+### Lock Acquisition Timing (CRITICAL FIX)
+
+**Original Plan**: Acquire lock after `prepareDirectories` (line 150)
+
+**Problem**: This is BEFORE preflight steps:
+- PHIVE install (line 156)
+- Pre-hook execution (line 161)
+
+**If these fail, lock is held but QA never actually ran.**
+
+**Corrected Integration Point**: Acquire lock AFTER line 162 (after pre-hook completes)
+
+```bash
+# After all preflight steps complete
+if [[ -f "$qaConfigPath/hookPre.bash" ]]; then
+    source "$qaConfigPath/hookPre.bash"
+fi
+
+# NOW acquire lock (corrected location)
+source "${qaDir}/includes/generic/lock.inc.bash"
+source "${qaDir}/includes/generic/timing.inc.bash"
+initLockSystem "$projectRoot"
+acquireLock "$singleToolToRun" "$specifiedPath" || exit 1
+```
 
 ## Summary
 
