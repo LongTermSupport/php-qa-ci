@@ -163,9 +163,9 @@ fi
 
 #### LOCKING SYSTEM ##########################################
 
-# Source lock and timing modules
-source ./../includes/generic/timing.inc.bash
-source ./../includes/generic/lock.inc.bash
+# Source lock and timing modules (use absolute paths based on qaDir)
+source "$qaDir/../includes/generic/timing.inc.bash"
+source "$qaDir/../includes/generic/lock.inc.bash"
 
 # Initialize lock system and acquire lock
 initLockSystem "$projectRoot"
