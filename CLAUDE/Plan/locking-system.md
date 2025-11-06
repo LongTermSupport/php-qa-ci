@@ -68,7 +68,30 @@ $projectRoot/
   "pathType": "folder",
   "eta_seconds": 120,
   "eta_completion": "2025-11-06T14:32:00Z",
-  "user": "developer"
+  "user": "developer",
+  "master_log_file": "var/qa/qa-run.20251106-143000.log",
+  "current_tool": "phpstan",
+  "tools": [
+    {
+      "name": "rector",
+      "started": "2025-11-06T14:30:05Z",
+      "completed": "2025-11-06T14:30:45Z",
+      "duration_seconds": 40,
+      "status": "completed"
+    },
+    {
+      "name": "phpCsFixer",
+      "started": "2025-11-06T14:30:46Z",
+      "completed": "2025-11-06T14:31:10Z",
+      "duration_seconds": 24,
+      "status": "completed"
+    },
+    {
+      "name": "phpstan",
+      "started": "2025-11-06T14:31:15Z",
+      "status": "running"
+    }
+  ]
 }
 ```
 
@@ -84,6 +107,82 @@ $projectRoot/
 - `eta_seconds`: Estimated duration in seconds
 - `eta_completion`: Calculated completion time (ISO 8601)
 - `user`: User executing command
+- `master_log_file`: Path to master log file capturing entire QA run
+- `current_tool`: Name of tool currently executing (updated as pipeline progresses)
+- `tools`: Array of tool execution records
+
+**Tool Record Fields**:
+- `name`: Tool name (e.g., "rector", "phpstan", "phpunit")
+- `started`: When tool started (ISO 8601)
+- `completed`: When tool finished (ISO 8601, omitted if still running)
+- `duration_seconds`: How long tool took (omitted if still running)
+- `status`: "running", "completed", or "failed"
+
+### Master Log File
+
+**Purpose**: Capture complete output of entire QA run including all tools
+
+**Location**: `$varDir/qa-run.YYYYMMDD-HHMMSS.log`
+
+**Why Master Logging**:
+- Provides complete audit trail of QA execution
+- Useful for debugging when tools fail
+- Referenced in lock file for easy access
+- Complements individual tool logs
+
+**Implementation Using `exec` and Process Substitution**:
+
+```bash
+# In bin/qa, after variable initialization but before tool execution
+
+# Create master log file
+QA_MASTER_LOG="$varDir/qa-run.$(date +%Y%m%d-%H%M%S).log"
+mkdir -p "$varDir"
+
+# Redirect ALL subsequent stdout/stderr through tee
+# This captures everything while still displaying to console
+exec > >(tee -a "$QA_MASTER_LOG") 2>&1
+
+# Store log path globally for lock file
+export QA_MASTER_LOG
+```
+
+**How It Works**:
+1. `exec >` redirects file descriptor 1 (stdout) for entire process
+2. `>(tee -a "$QA_MASTER_LOG")` is process substitution creating a pipe to `tee`
+3. `tee -a` appends to log file AND outputs to stdout (so user still sees everything)
+4. `2>&1` redirects stderr to stdout (so errors are captured too)
+5. All subsequent output from ANY command goes through this redirection
+6. Individual tools can still use their own `tee` commands (they just add another layer)
+
+**Benefits**:
+- ✅ Zero code changes needed in individual tool scripts
+- ✅ Captures EVERYTHING (tool output, debug messages, errors)
+- ✅ User still sees all output in real-time
+- ✅ Works with existing tool-specific log files
+- ✅ Master log is timestamped (won't overwrite previous runs)
+
+**Example Flow**:
+```
+bin/qa runs:
+  ├─ exec > >(tee qa-run.log) 2>&1  # Master logging starts
+  ├─ Rector runs
+  │   └─ Output goes to: console + qa-run.log
+  ├─ PHP CS Fixer runs
+  │   └─ Output goes to: console + qa-run.log
+  ├─ PHPStan runs
+  │   ├─ Uses: tee phpstan.log  # Tool-specific logging
+  │   └─ Output goes to: console + qa-run.log + phpstan.log
+  └─ PHPUnit runs
+      ├─ Uses: tee phpunit.log
+      └─ Output goes to: console + qa-run.log + phpunit.log
+```
+
+**Archive Policy**:
+- Master logs accumulate in `$varDir/` with timestamps
+- Can be cleaned up manually or via cron
+- Consider keeping last 10-20 runs
+- NOT tracked in git (in `var/` directory)
 
 ### Timing Data Schema (JSON)
 
@@ -383,6 +482,7 @@ qaConfig/.qa-lock/*.lock           # Active lock files
   - Creates `$projectRoot/qaConfig/.qa-lock/` directory if needed
   - Creates `.gitignore` inside directory (if not exists)
   - Creates bootstrap `timing-data.json` (if not exists)
+  - Sets up master log file redirection
 - `acquireLock()` - Acquire lock before QA execution
 - `releaseLock()` - Release lock after QA execution
 - `checkExistingLock()` - Check if lock exists and valid
@@ -392,6 +492,18 @@ qaConfig/.qa-lock/*.lock           # Active lock files
 - `setupLockCleanup()` - Set up trap for cleanup
 - `startHeartbeat()` - Start background process to update last_activity
 - `stopHeartbeat()` - Stop background heartbeat process
+- `toolStart()` - Record tool start in lock file
+  - Adds tool entry to `tools` array with status "running"
+  - Updates `current_tool` field
+  - Records start timestamp
+- `toolComplete()` - Record tool completion in lock file
+  - Updates tool record with completion time and duration
+  - Sets status to "completed"
+  - Clears `current_tool` if this was the current tool
+- `toolFailed()` - Record tool failure in lock file
+  - Updates tool record with failure time
+  - Sets status to "failed"
+  - Keeps tool record for debugging
 
 **Global Variables**:
 - `QA_LOCK_DIR` - Lock directory path
@@ -456,6 +568,61 @@ releaseLock "$?"  # Pass exit code
 # Set up cleanup trap
 trap 'stopHeartbeat; releaseLock 1' EXIT ERR INT TERM
 ```
+
+**Modify `runTool` function in `includes/functions.inc.bash`**:
+
+Wrap the existing `runTool` function to track per-tool execution:
+
+```bash
+# Original runTool function (keep existing logic)
+_originalRunTool() {
+    local toolName="$1"
+    # ... existing tool execution logic ...
+}
+
+# Wrapper that adds tool tracking
+runTool() {
+    local toolName="$1"
+
+    # Record tool start in lock file
+    if [[ -n "${QA_LOCK_ACQUIRED:-}" ]]; then
+        toolStart "$toolName"
+    fi
+
+    # Run the actual tool
+    local exitCode=0
+    _originalRunTool "$toolName" || exitCode=$?
+
+    # Record tool completion/failure in lock file
+    if [[ -n "${QA_LOCK_ACQUIRED:-}" ]]; then
+        if [[ $exitCode -eq 0 ]]; then
+            toolComplete "$toolName"
+        else
+            toolFailed "$toolName"
+        fi
+    fi
+
+    return $exitCode
+}
+```
+
+**Alternative: Hook Points for Tool Tracking** (if wrapping runTool is too invasive):
+
+Add explicit calls at each tool execution point in `bin/qa`:
+
+```bash
+# Example for PHPStan
+toolStart "phpstan"
+runTool phpstan
+toolComplete "phpstan"
+
+# Example for PHPUnit
+toolStart "phpunit"
+runTool phpunit
+toolComplete "phpunit"
+```
+
+This approach is more explicit but requires changes at each tool call site.
 
 ## Path-Specific Behavior
 
