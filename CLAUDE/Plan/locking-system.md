@@ -123,6 +123,8 @@ $projectRoot/
 **Purpose**: Capture complete output of entire QA run including all tools
 
 **Location**: `$varDir/qa-run.YYYYMMDD-HHMMSS.log`
+- Where `$varDir` = `$projectRoot/var/qa/` (already set by QA pipeline)
+- Results in: `./var/qa/qa-run.YYYYMMDD-HHMMSS.log`
 
 **Why Master Logging**:
 - Provides complete audit trail of QA execution
@@ -134,6 +136,7 @@ $projectRoot/
 
 ```bash
 # In bin/qa, after variable initialization but before tool execution
+# Note: $varDir is already set to $projectRoot/var/qa/ by the pipeline
 
 # Create master log file
 QA_MASTER_LOG="$varDir/qa-run.$(date +%Y%m%d-%H%M%S).log"
@@ -143,7 +146,7 @@ mkdir -p "$varDir"
 # This captures everything while still displaying to console
 exec > >(tee -a "$QA_MASTER_LOG") 2>&1
 
-# Store log path globally for lock file
+# Export for use in lock file
 export QA_MASTER_LOG
 ```
 
