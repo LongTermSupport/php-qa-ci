@@ -179,10 +179,35 @@ bin/qa runs:
 ```
 
 **Archive Policy**:
-- Master logs accumulate in `$varDir/` with timestamps
-- Can be cleaned up manually or via cron
-- Consider keeping last 10-20 runs
+- Keep last 10 master logs only (consistent with tool logs)
+- Automatically prune old logs when creating new master log
+- Uses same rotation logic as `archiveToolLog` function
 - NOT tracked in git (in `var/` directory)
+
+**Automatic Rotation Implementation**:
+```bash
+# In initLockSystem() or when creating master log
+
+# Create master log file
+QA_MASTER_LOG="$varDir/qa-run.$(date +%Y%m%d-%H%M%S).log"
+mkdir -p "$varDir"
+
+# Prune old master logs - keep last 10
+mapfile -t oldLogs < <(ls -1t "$varDir"/qa-run.*.log 2>/dev/null || true)
+if [[ ${#oldLogs[@]} -ge 10 ]]; then
+    # Remove logs beyond the 10 most recent (indices 10+)
+    for ((i=10; i<${#oldLogs[@]}; i++)); do
+        rm -f "$varDir/${oldLogs[$i]}"
+        echo "Pruned old master log: ${oldLogs[$i]}"
+    done
+fi
+
+# Set up master log redirection
+exec > >(tee -a "$QA_MASTER_LOG") 2>&1
+export QA_MASTER_LOG
+```
+
+This ensures disk usage stays bounded and mirrors the behavior of individual tool log rotation.
 
 ### Timing Data Schema (JSON)
 
