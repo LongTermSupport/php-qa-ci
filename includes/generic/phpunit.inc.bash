@@ -164,8 +164,12 @@ do
 
     # Archive both log files BEFORE tryAgainOrAbort so logs are saved even on failure (in CI mode)
     # But AFTER PHPUnit has finished writing files
+    echo ""
+    echo "Log Archival"
+    echo "============"
     # Archive JUnit XML for parse-junit-logs.py
     archiveToolLog "PHPUnit JUnit XML" "$phpunitLogDir" "phpunit.junit.xml" "$specifiedPath" "${pathsToCheck[@]}"
+    echo ""
     # Archive human-readable stdout log
     archiveToolLog "PHPUnit stdout" "$phpunitLogDir" "phpunit.log" "$specifiedPath" "${pathsToCheck[@]}"
 

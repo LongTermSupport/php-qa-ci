@@ -375,56 +375,57 @@ function archiveToolLog() {
         # Path-specific run - generate suffix from paths
         local pathSuffix=$(echo "${pathsToCheck[*]}" | tr -cs '[:alnum:]' '_' | sed 's/^_//; s/_$//')
         local archivedLog="$logDir/${baseFileName}.${pathSuffix}.${timestamp}.${extension}"
-        echo ""
-        echo "Path-specific run: ${pathsToCheck[*]}"
+        local runType="Path-specific run: ${pathsToCheck[*]}"
 
         # Match only logs for this specific path suffix
         local archivedLogs=($(ls -1t "$logDir"/${baseFileName}.*.${extension} 2>/dev/null | grep "${baseFileName}\\.${pathSuffix}\\."))
     else
         # Full suite run
         local archivedLog="$logDir/${baseFileName}.${timestamp}.${extension}"
-        echo ""
-        echo "Full test suite run"
+        local runType="Full test suite run"
 
         # Match only full suite logs (timestamp directly after base name)
         local archivedLogs=($(ls -1t "$logDir"/${baseFileName}.*.${extension} 2>/dev/null | grep -E "${baseFileName}\\.[0-9]{8}-[0-9]{6}\\.${extension}$"))
     fi
 
+    # Archive with clear messaging
     mv "$logFilePath" "$archivedLog"
-    echo "Archived ${toolName} log: $(basename "$archivedLog")"
+    echo "${runType}"
+    echo "  Latest run  -> $(basename "$archivedLog")"
+    echo "  Next run at -> $logFilePath"
 
     # Keep only last 10 logs matching this pattern
     local numLogs=${#archivedLogs[@]}
     if (( numLogs > 10 )); then
-        echo "Keeping last 10 of $numLogs archived logs for this pattern"
+        echo "  Retention: Keeping last 10 of $numLogs archived logs for this pattern"
         for ((i=10; i<numLogs; i++)); do
             rm -f "${archivedLogs[$i]}"
-            echo "  Deleted: $(basename "${archivedLogs[$i]}")"
+            echo "    Deleted: $(basename "${archivedLogs[$i]}")"
         done
     fi
 
     # Check total log count across all patterns and warn if > 100
-    local totalLogs=$(find "$logDir" -name "${baseFileName}.*.${extension}" -type f 2>/dev/null | wc -l)
-    if (( totalLogs > 100 )); then
+    # Use a marker file to track if we've already warned for this logDir in this run
+    local warnMarkerFile="$logDir/.warned_high_count_$$"
+    local totalLogs=$(find "$logDir" -name "*.${extension}" -type f 2>/dev/null | wc -l)
+
+    if (( totalLogs > 100 )) && [[ ! -f "$warnMarkerFile" ]]; then
+        # Create marker to prevent duplicate warnings
+        touch "$warnMarkerFile"
+
         echo ""
         echo "=========================================="
         echo "WARNING: HIGH LOG FILE COUNT"
         echo "=========================================="
-        echo "Total ${toolName} log files: $totalLogs"
+        echo "Total log files in $logDir: $totalLogs"
         echo ""
-        echo "You have more than 100 ${toolName} log files."
-        echo "Consider manual cleanup of old logs in:"
-        echo "  $logDir"
-        echo ""
-        echo "To review logs by date:"
+        echo "Consider manual cleanup of old logs:"
         echo "  ls -lht $logDir | less"
         echo ""
         echo "To remove logs for specific paths:"
         echo "  rm $logDir/${baseFileName}.PATH_PATTERN.*.${extension}"
         echo ""
-        echo "Log retention: 10 per pattern (full suite + each -p path)"
+        echo "Retention: 10 per pattern (full suite + each -p path)"
         echo "=========================================="
-        echo ""
     fi
-    echo ""
 }
