@@ -391,17 +391,15 @@ function archiveToolLog() {
     # Archive with clear messaging
     mv "$logFilePath" "$archivedLog"
     echo "${runType}"
-    echo "  Archived: $(basename "$logFilePath") -> $(basename "$archivedLog")"
-    echo "  ($(basename "$logFilePath") always contains the current run)"
+    echo "Log: $(basename "$archivedLog")"
 
     # Keep only last 10 logs matching this pattern
     local numLogs=${#archivedLogs[@]}
     if (( numLogs > 10 )); then
-        echo "  Retention: Keeping last 10 of $numLogs archived logs for this pattern"
         for ((i=10; i<numLogs; i++)); do
             rm -f "${archivedLogs[$i]}"
-            echo "    Deleted: $(basename "${archivedLogs[$i]}")"
         done
+        echo "Cleaned up $((numLogs - 10)) old log(s)"
     fi
 
     # Check total log count across all patterns and warn if > 100
