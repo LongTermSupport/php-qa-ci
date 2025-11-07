@@ -391,8 +391,8 @@ function archiveToolLog() {
     # Archive with clear messaging
     mv "$logFilePath" "$archivedLog"
     echo "${runType}"
-    echo "  Latest run  -> $(basename "$archivedLog")"
-    echo "  Next run at -> $logFilePath"
+    echo "  Archived: $(basename "$logFilePath") -> $(basename "$archivedLog")"
+    echo "  ($(basename "$logFilePath") always contains the current run)"
 
     # Keep only last 10 logs matching this pattern
     local numLogs=${#archivedLogs[@]}
