@@ -103,7 +103,7 @@ setupMasterLog() {
     mapfile -t oldLogs < <(ls -1t "$varDir"/qa-run.*.log 2>/dev/null || true)
     if [[ ${#oldLogs[@]} -ge 10 ]]; then
         for ((i=10; i<${#oldLogs[@]}; i++)); do
-            rm -f "$varDir/${oldLogs[$i]}" 2>/dev/null || true
+            rm -f "${oldLogs[$i]}" 2>/dev/null || true
             echo "[QA Lock] Pruned old master log: ${oldLogs[$i]}"
         done
     fi
