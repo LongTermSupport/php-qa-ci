@@ -173,6 +173,14 @@ do
     # Archive human-readable stdout log
     archiveToolLog "PHPUnit stdout" "$phpunitLogDir" "phpunit.log" "$specifiedPath" "${pathsToCheck[@]}"
 
+    # Extract and display test result summary
+    if [[ -f "$phpunitLogDir/phpunit.log" ]]; then
+        testSummary=$(grep -E '^Tests:.*Assertions:' "$phpunitLogDir/phpunit.log" | tail -n1)
+        if [[ -n "$testSummary" ]]; then
+            echo "Result: $testSummary"
+        fi
+    fi
+
     if (( $phpunitExitCode > 0 ))
     then
         if (( $phpunitExitCode > 2 ))
