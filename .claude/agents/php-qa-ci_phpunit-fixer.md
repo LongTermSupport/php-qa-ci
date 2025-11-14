@@ -53,7 +53,7 @@ ls -1t var/qa/phpunit_logs/phpunit.junit.*.xml 2>/dev/null | head -1
 ### Parse Log
 
 ```bash
-python3 .claude/skills/phpunit-runner/scripts/parse-junit.py [log-path]
+python3 vendor/lts/php-qa-ci/scripts/parse-junit-logs.py [log-path]
 ```
 
 ## Common Error Patterns & Fixes

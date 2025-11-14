@@ -56,7 +56,7 @@ export CI=true && ./bin/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php
 After test execution, parse the JUnit XML log:
 
 ```bash
-python3 .claude/skills/phpunit-runner/scripts/parse-junit.py
+python3 vendor/lts/php-qa-ci/scripts/parse-junit-logs.py
 ```
 
 This script:
@@ -64,6 +64,7 @@ This script:
 - Parses failures, errors, and risky tests
 - Groups errors by type
 - Provides detailed breakdown
+- Archives non-timestamped logs automatically
 
 ## 📝 Output Format
 
