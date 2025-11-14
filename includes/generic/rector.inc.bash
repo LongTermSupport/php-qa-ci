@@ -1,6 +1,8 @@
 # First we run the Safe Rectors to implement safe versions of functions.
 
-rectorVerbosity="-vv"
+# Note: Rector does not support -v or -vv verbosity flags
+# Using empty string for default verbosity level
+rectorVerbosity=""
 rectorIgnorePaths="";
 if [[ "placeholder-ignore-item" != "${pathsToIgnore[*]}" ]]; then
   rectorIgnorePaths="${pathsToIgnore[*]}"
