@@ -199,7 +199,7 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
         $io->write('<info>Running Phive ' . $mode . ' for PHAR dependencies...</info>');
 
         $command = \sprintf(
-            'cd %s/lts/php-qa-ci && ./scripts/phive-install.bash %s 2>&1',
+            'cd %s/lts/php-qa-ci && bash ./scripts/phive-install.bash %s 2>&1',
             \escapeshellarg($vendorDir),
             \escapeshellarg($mode)
         );

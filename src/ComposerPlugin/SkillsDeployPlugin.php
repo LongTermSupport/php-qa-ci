@@ -85,7 +85,7 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
         $io->write('<info>Deploying Claude Code Skills and Agents...</info>');
 
         $command = \sprintf(
-            '%s %s %s 2>&1',
+            'bash %s %s %s 2>&1',
             \escapeshellarg($scriptPath),
             \escapeshellarg($qaciPath),
             \escapeshellarg($projectRoot)
