@@ -26,6 +26,9 @@ return static function (RectorConfig $rectorConfig): void {
     );
     
     // PHP 8.4 upgrade sets
+    // IMPORTANT: SetList::NAMING is EXCLUDED because it includes RenameParamToMatchTypeRector
+    // which renames constructor parameters like $productsRow → $productsRowDto
+    // This is a BREAKING CHANGE for any code calling constructors with named parameters
     $rectorConfig->sets([
         LevelSetList::UP_TO_PHP_84,
         SetList::PHP_84,
@@ -35,7 +38,7 @@ return static function (RectorConfig $rectorConfig): void {
         SetList::TYPE_DECLARATION,
         SetList::PRIVATIZATION,
         SetList::EARLY_RETURN,
-        SetList::NAMING,
+        // SetList::NAMING, // EXCLUDED - causes constructor parameter renaming
     ]);
     
     // PHP 8.4 specific rules
