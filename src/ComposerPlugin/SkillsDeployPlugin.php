@@ -69,9 +69,9 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
         $qaciPath = $vendorDir . '/lts/php-qa-ci';
         $scriptPath = $qaciPath . '/scripts/deploy-skills.bash';
 
-        // Check if skills/agents exist in php-qa-ci
-        if (!\is_dir($qaciPath . '/.claude/skills') && !\is_dir($qaciPath . '/.claude/agents')) {
-            $io->write('<comment>No Claude Code Skills/Agents found in php-qa-ci, skipping deployment...</comment>');
+        // Check if skills/agents/hooks exist in php-qa-ci
+        if (!\is_dir($qaciPath . '/.claude/skills') && !\is_dir($qaciPath . '/.claude/agents') && !\is_dir($qaciPath . '/.claude/hooks')) {
+            $io->write('<comment>No Claude Code Skills/Agents/Hooks found in php-qa-ci, skipping deployment...</comment>');
 
             return;
         }
@@ -82,7 +82,7 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
             return;
         }
 
-        $io->write('<info>Deploying Claude Code Skills and Agents...</info>');
+        $io->write('<info>Deploying Claude Code Skills, Agents and Hooks...</info>');
 
         $command = \sprintf(
             'bash %s %s %s 2>&1',
@@ -101,9 +101,9 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
         }
 
         if (0 === $exitCode) {
-            $io->write('<info>✓ Claude Code Skills & Agents deployed successfully</info>');
+            $io->write('<info>✓ Claude Code Skills, Agents & Hooks deployed successfully</info>');
         } else {
-            $io->writeError('<error>✗ Skills deployment failed</error>');
+            $io->writeError('<error>✗ Skills/Agents/Hooks deployment failed</error>');
         }
     }
 }
