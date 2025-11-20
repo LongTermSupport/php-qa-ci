@@ -40,21 +40,34 @@ Find the most recent PHPUnit test log, analyze failures/errors, and implement fi
 
 ## Log Discovery
 
-### Find Most Recent Log
+### Find Most Recent Log (using Glob tool)
 
-```bash
-# Full suite runs (timestamp only):
-ls -1t var/qa/phpunit_logs/phpunit.junit.[0-9]*.xml 2>/dev/null | head -1
+Use the Glob tool to find log files - it returns results sorted by modification time (most recent first):
 
-# Path-specific runs (path suffix + timestamp):
-ls -1t var/qa/phpunit_logs/phpunit.junit.*.xml 2>/dev/null | head -1
+**For full suite runs** (timestamp only format):
+```
+Use Glob tool with pattern: var/qa/phpunit_logs/phpunit.junit.[0-9]*.xml
+The first result is the most recent log.
 ```
 
-### Parse Log
-
-```bash
-python3 vendor/lts/php-qa-ci/scripts/parse-junit-logs.py [log-path]
+**For all logs** (including path-specific runs):
 ```
+Use Glob tool with pattern: var/qa/phpunit_logs/phpunit.junit.*.xml
+The first result is the most recent log.
+```
+
+### Parse Log (using Read tool)
+
+Once you have the log path from Glob results:
+
+1. Use Read tool to read the JUnit XML log file contents
+2. Parse the XML structure directly to extract test failures and errors
+3. JUnit XML structure:
+   - `<testsuites>` → `<testsuite>` → `<testcase>`
+   - Failures: `<failure>` elements within `<testcase>`
+   - Errors: `<error>` elements within `<testcase>`
+   - Each contains file path, test name, and error message
+4. Extract test:file:line:message for each failure/error
 
 ## Common Error Patterns & Fixes
 

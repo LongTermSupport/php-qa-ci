@@ -40,21 +40,33 @@ Find the most recent PHPStan log, analyze errors, and implement fixes.
 
 ## Log Discovery
 
-### Find Most Recent Log
+### Find Most Recent Log (using Glob tool)
 
-```bash
-# Full codebase runs (timestamp only):
-ls -1t var/qa/phpstan_logs/phpstan.[0-9]*.log 2>/dev/null | head -1
+Use the Glob tool to find log files - it returns results sorted by modification time (most recent first):
 
-# Path-specific runs (path suffix + timestamp):
-ls -1t var/qa/phpstan_logs/phpstan.*.log 2>/dev/null | head -1
+**For full codebase runs** (timestamp only format):
+```
+Use Glob tool with pattern: var/qa/phpstan_logs/phpstan.[0-9]*.log
+The first result is the most recent log.
 ```
 
-### Parse Log
-
-```bash
-python3 .claude/skills/phpstan-runner/scripts/parse-phpstan.py [log-path]
+**For all logs** (including path-specific runs):
 ```
+Use Glob tool with pattern: var/qa/phpstan_logs/phpstan.*.log
+The first result is the most recent log.
+```
+
+### Parse Log (using Read tool)
+
+Once you have the log path from Glob results:
+
+1. Use Read tool to read the log file contents
+2. Parse the PHPStan table format directly (no Python script needed)
+3. PHPStan table format structure:
+   - File paths appear as lines starting with single space
+   - Error lines appear as lines starting with double space
+   - Format: `  {line_number}    {error_message}`
+4. Extract file:line:message for each error
 
 ## Common Error Patterns & Fixes
 
