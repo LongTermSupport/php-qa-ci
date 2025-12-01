@@ -143,15 +143,6 @@ with open(settings_file, 'w') as f:
 PYTHON_SCRIPT
 fi
 
-# Ensure .gitignore excludes .claude/
-GITIGNORE="$PROJECT_ROOT/.gitignore"
-if [[ -f "$GITIGNORE" ]] && ! grep -q "^\.claude/$" "$GITIGNORE"; then
-    echo "" >> "$GITIGNORE"
-    echo "# Claude Code personal configuration" >> "$GITIGNORE"
-    echo ".claude/" >> "$GITIGNORE"
-    echo "  Added .claude/ to .gitignore"
-fi
-
 echo "✓ Skills, Agents & Hooks deployment complete"
 echo ""
 echo "Installed skills:"
