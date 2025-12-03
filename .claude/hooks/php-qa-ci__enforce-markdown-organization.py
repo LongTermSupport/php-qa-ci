@@ -152,13 +152,14 @@ def validate_markdown_location(file_path: str, project_root: Path) -> tuple:
     if normalized.startswith('workspace/'):
         normalized = normalized[10:]  # Remove 'workspace/'
 
-    # Make path relative to project root if it's absolute
-    file_path_obj = Path(file_path).resolve()
-    try:
-        normalized = str(file_path_obj.relative_to(project_root))
-    except ValueError:
-        # File is outside project root, use as-is
-        pass
+    # Only resolve and make relative if path is absolute
+    if Path(file_path).is_absolute():
+        file_path_obj = Path(file_path).resolve()
+        try:
+            normalized = str(file_path_obj.relative_to(project_root))
+        except ValueError:
+            # File is outside project root, use as-is
+            pass
 
     # Check special cases that are always allowed
 

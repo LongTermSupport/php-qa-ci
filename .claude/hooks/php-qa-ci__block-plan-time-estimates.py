@@ -76,7 +76,7 @@ TIME_ESTIMATE_PATTERNS = [
     (r'Estimated\s+Effort:\s*[^\n]*(?:hours?|minutes?|days?|weeks?)', 'Estimated Effort with duration'),
 
     # Time estimated/Estimated time patterns
-    (r'(?:Time\s+)?[Ee]stimated\s+(?:time)?:\s*[^\n]*(?:hours?|minutes?|days?|weeks?)', 'Time estimate field'),
+    (r'(?:Time\s+)?[Ee]stimated\s*(?:time)?:\s*[^\n]*(?:hours?|minutes?|days?|weeks?)', 'Time estimate field'),
 
     # Total Estimated Time
     (r'\*\*Total\s+Estimated\s+Time\*\*:\s*[^\n]*(?:hours?|minutes?|days?|weeks?)', 'Total Estimated Time'),
@@ -517,7 +517,7 @@ def self_test():
         "Escape hatch - false positive comment",
         {"tool_name": "Write", "tool_input": {
             "file_path": "CLAUDE/plan/task.md",
-            "content": "<!-- Estimated Effort: .*?hours? match is a false positive for time estimate blocking hook -->\nEstimated Effort: 2 hours (this is actually a quote from the user)"
+            "content": "<!-- Estimated\\s+Effort:\\s*[^\\n]*(?:hours?|minutes?|days?|weeks?) match is a false positive for time estimate blocking hook -->\nEstimated Effort: 2 hours (this is actually a quote from the user)"
         }},
         expect_allow=True
     )
