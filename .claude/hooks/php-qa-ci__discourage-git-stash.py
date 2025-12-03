@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+PHP-QA-CI Deployed Hook
+
+This hook is automatically deployed from vendor/lts/php-qa-ci/.claude/hooks/
+by the Composer plugin during `composer install/update`.
+
+Changes to this file will be overwritten on next composer operation.
+
+Full documentation: vendor/lts/php-qa-ci/.claude/hooks/README.md
+Package documentation: vendor/lts/php-qa-ci/CLAUDE.md
+
+================================================================================
+
 Hook: discourage-git-stash.py
 
 Purpose: BLOCKS git stash usage with escape hatch for confirmed cases
@@ -16,6 +28,8 @@ Why git stash is dangerous:
 - Generally a bodge to avoid solving real git issues
 
 This hook BLOCKS git stash by default. Use the escape hatch phrase only when truly necessary.
+
+================================================================================
 """
 
 import json
@@ -27,8 +41,15 @@ ESCAPE_HATCH = "I HAVE ABSOLUTELY CONFIRMED THAT STASH IS THE ONLY OPTION"
 
 
 def allow_and_exit():
-    """Output empty JSON and exit - prevents 'hook error' messages."""
-    print('{}')
+    """Allow the tool to execute with proper JSON format."""
+    result = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": "Hook allows this operation"
+        }
+    }
+    print(json.dumps(result))
     sys.exit(0)
 
 

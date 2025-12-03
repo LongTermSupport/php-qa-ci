@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+PHP-QA-CI Deployed Hook
+
+This hook is automatically deployed from vendor/lts/php-qa-ci/.claude/hooks/
+by the Composer plugin during `composer install/update`.
+
+Changes to this file will be overwritten on next composer operation.
+
+Full documentation: vendor/lts/php-qa-ci/.claude/hooks/README.md
+Package documentation: vendor/lts/php-qa-ci/CLAUDE.md
+
+================================================================================
+
 Claude Code Hook: Block Time Estimates in Plan Documents
 
 Prevents time estimates and completion dates from being written to plan markdown files.
@@ -32,6 +44,9 @@ Configuration:
   - CLAUDE/plan/
   - .claude/plans/
   - docs/plans/
+
+================================================================================
+"""
 
 Escape hatch:
   If a pattern match is a false positive (genuinely not a time estimate), add this comment:
@@ -175,8 +190,15 @@ def check_for_time_estimates(content: str, file_path: str) -> list:
 
 
 def allow_and_exit():
-    """Output empty JSON and exit - required to prevent 'hook error' messages in Claude Code."""
-    print('{}')
+    """Allow the tool to execute with proper JSON format."""
+    result = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": "Hook allows this operation"
+        }
+    }
+    print(json.dumps(result))
     sys.exit(0)
 
 

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+PHP-QA-CI Deployed Hook
+
+This hook is automatically deployed from vendor/lts/php-qa-ci/.claude/hooks/
+by the Composer plugin during `composer install/update`.
+
+Changes to this file will be overwritten on next composer operation.
+
+Full documentation: vendor/lts/php-qa-ci/.claude/hooks/README.md
+Package documentation: vendor/lts/php-qa-ci/CLAUDE.md
+
+================================================================================
+
 Claude Code Hook: Validate CLAUDE.md and README.md Content
 
 Ensures CLAUDE.md and README.md files contain only useful instructions,
@@ -26,6 +38,8 @@ Exceptions:
   - Code examples containing blocked patterns
   - Markdown code blocks with ``` delimiters
   - Quoted examples explaining what NOT to do
+
+================================================================================
 """
 
 import json
@@ -36,8 +50,11 @@ from pathlib import Path
 
 # Blocked patterns that indicate logs/research instead of instructions
 BLOCKED_PATTERNS = [
-    # Implementation logs - present tense action verbs with objects
-    (r'\b(?:created|added|modified|updated|implemented|built|generated)\s+[a-z0-9_\-./]+', 'Implementation log'),
+    # Implementation logs - require file path patterns or "the" article
+    (r'\b(?:created|added|modified|updated|implemented|built|generated)\s+(?:the\s+)?(?:file|directory|class|function|method|component|service|module|package)\s+[a-z0-9_\-./]+', 'Implementation log with artifact type'),
+    (r'\b(?:created|added|modified|updated)\s+[a-z0-9_\-./]*\.(?:py|js|ts|php|java|rb|go|rs|cpp|h)\b', 'Implementation log with file extension'),
+    (r'\b(?:created|added|modified|updated)\s+src/[a-z0-9_\-./]+', 'Implementation log with src/ path'),
+    (r'\b(?:created|added|modified|updated)\s+tests?/[a-z0-9_\-./]+', 'Implementation log with test path'),
     (r'^\s*[-•*]\s*(?:step|phase|task)\s+\d+', 'Numbered procedure format', re.MULTILINE),
 
     # Status indicators - emojis with status words
@@ -120,8 +137,15 @@ def find_blocked_content(content: str, file_path: str) -> list:
 
 
 def allow_and_exit():
-    """Output empty JSON and exit - prevents 'hook error' messages."""
-    print('{}')
+    """Allow the tool to execute with proper JSON format."""
+    result = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": "Hook allows this operation"
+        }
+    }
+    print(json.dumps(result))
     sys.exit(0)
 
 

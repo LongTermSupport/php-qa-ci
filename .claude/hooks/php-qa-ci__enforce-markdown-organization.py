@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+PHP-QA-CI Deployed Hook
+
+This hook is automatically deployed from vendor/lts/php-qa-ci/.claude/hooks/
+by the Composer plugin during `composer install/update`.
+
+Changes to this file will be overwritten on next composer operation.
+
+Full documentation: vendor/lts/php-qa-ci/.claude/hooks/README.md
+Package documentation: vendor/lts/php-qa-ci/CLAUDE.md
+
+================================================================================
+
 Claude Code Hook: Enforce Markdown File Organization
 
 Prevents markdown documentation from littering the filesystem.
@@ -26,6 +38,8 @@ please raise this with a human to review the project's documentation structure.
 Configuration:
   Set PROJECT_ROOT_INDICATORS environment variable to customize detection:
   export PROJECT_ROOT_INDICATORS="composer.json,package.json,.git"
+
+================================================================================
 """
 
 import json
@@ -236,8 +250,15 @@ def get_suggestion_detail(file_path: str, suggestion: str, project_root: Path) -
 
 
 def allow_and_exit():
-    """Output empty JSON and exit - required to prevent 'hook error' messages."""
-    print('{}')
+    """Allow the tool to execute with proper JSON format."""
+    result = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": "Hook allows this operation"
+        }
+    }
+    print(json.dumps(result))
     sys.exit(0)
 
 
