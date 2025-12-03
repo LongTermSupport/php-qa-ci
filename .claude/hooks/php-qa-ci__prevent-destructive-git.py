@@ -184,5 +184,261 @@ def main():
     sys.exit(0)
 
 
+def self_test():
+    """Run comprehensive self-tests."""
+    import io
+
+    print("Running self-tests for php-qa-ci__prevent-destructive-git...")
+    print("=" * 60)
+
+    passed = 0
+    failed = 0
+
+    def run_test(name, hook_input, expect_allow):
+        nonlocal passed, failed
+        old_stdout = sys.stdout
+        old_stdin = sys.stdin
+        sys.stdout = io.StringIO()
+        sys.stdin = io.StringIO(json.dumps(hook_input))
+
+        try:
+            main()
+        except SystemExit:
+            pass
+
+        output = sys.stdout.getvalue()
+        sys.stdout = old_stdout
+        sys.stdin = old_stdin
+
+        # Validate JSON
+        try:
+            result = json.loads(output)
+        except json.JSONDecodeError:
+            print(f"❌ FAIL: {name}")
+            print(f"   Invalid JSON output: {output[:100]}")
+            failed += 1
+            return
+
+        # Validate structure
+        if "hookSpecificOutput" not in result:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing hookSpecificOutput in response")
+            failed += 1
+            return
+
+        hook_output = result["hookSpecificOutput"]
+        if "permissionDecision" not in hook_output:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing permissionDecision in response")
+            failed += 1
+            return
+
+        decision = hook_output["permissionDecision"]
+        expected_decision = "allow" if expect_allow else "deny"
+
+        if decision == expected_decision:
+            print(f"✓ PASS: {name}")
+            passed += 1
+        else:
+            print(f"❌ FAIL: {name}")
+            print(f"   Expected {expected_decision}, got {decision}")
+            if not expect_allow:
+                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:100]}")
+            failed += 1
+
+    # Test 1: Invalid JSON (fail open)
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO("not json")
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    sys.stdin = old_stdin
+
+    try:
+        result = json.loads(output)
+        if result["hookSpecificOutput"]["permissionDecision"] == "allow":
+            print(f"✓ PASS: Invalid JSON (fail open)")
+            passed += 1
+        else:
+            print(f"❌ FAIL: Invalid JSON (fail open)")
+            failed += 1
+    except:
+        print(f"❌ FAIL: Invalid JSON (fail open)")
+        failed += 1
+
+    # Test 2: Non-Bash tool (should allow)
+    run_test(
+        "Non-Bash tool (Write)",
+        {"tool_name": "Write", "tool_input": {"file_path": "test.txt", "content": "git reset --hard"}},
+        expect_allow=True
+    )
+
+    # Test 3: Empty command (should allow)
+    run_test(
+        "Empty command",
+        {"tool_name": "Bash", "tool_input": {"command": ""}},
+        expect_allow=True
+    )
+
+    # Test 4: Non-git command (should allow)
+    run_test(
+        "Non-git command",
+        {"tool_name": "Bash", "tool_input": {"command": "ls -la"}},
+        expect_allow=True
+    )
+
+    # Test 5: Safe git reset (no --hard)
+    run_test(
+        "git reset (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git reset HEAD~1"}},
+        expect_allow=True
+    )
+
+    # Test 6: Safe git reset --soft
+    run_test(
+        "git reset --soft (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git reset --soft HEAD~1"}},
+        expect_allow=True
+    )
+
+    # Test 7: Safe git checkout (branch)
+    run_test(
+        "git checkout branch (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git checkout main"}},
+        expect_allow=True
+    )
+
+    # Test 8: Safe git restore --staged
+    run_test(
+        "git restore --staged (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git restore --staged file.php"}},
+        expect_allow=True
+    )
+
+    # Test 9: Safe git stash (without drop/clear)
+    run_test(
+        "git stash (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash"}},
+        expect_allow=True
+    )
+
+    # Test 10: BLOCK - git reset --hard
+    run_test(
+        "BLOCK: git reset --hard",
+        {"tool_name": "Bash", "tool_input": {"command": "git reset --hard"}},
+        expect_allow=False
+    )
+
+    # Test 11: BLOCK - git reset --hard HEAD
+    run_test(
+        "BLOCK: git reset --hard HEAD",
+        {"tool_name": "Bash", "tool_input": {"command": "git reset --hard HEAD"}},
+        expect_allow=False
+    )
+
+    # Test 12: BLOCK - git checkout .
+    run_test(
+        "BLOCK: git checkout .",
+        {"tool_name": "Bash", "tool_input": {"command": "git checkout ."}},
+        expect_allow=False
+    )
+
+    # Test 13: BLOCK - git checkout -- file
+    run_test(
+        "BLOCK: git checkout -- file",
+        {"tool_name": "Bash", "tool_input": {"command": "git checkout -- src/file.php"}},
+        expect_allow=False
+    )
+
+    # Test 14: BLOCK - git checkout file.php
+    run_test(
+        "BLOCK: git checkout file.php",
+        {"tool_name": "Bash", "tool_input": {"command": "git checkout src/file.php"}},
+        expect_allow=False
+    )
+
+    # Test 15: BLOCK - git restore --worktree
+    run_test(
+        "BLOCK: git restore --worktree",
+        {"tool_name": "Bash", "tool_input": {"command": "git restore --worktree file.php"}},
+        expect_allow=False
+    )
+
+    # Test 16: BLOCK - git restore file (without --staged)
+    run_test(
+        "BLOCK: git restore file",
+        {"tool_name": "Bash", "tool_input": {"command": "git restore file.php"}},
+        expect_allow=False
+    )
+
+    # Test 17: BLOCK - git clean -f
+    run_test(
+        "BLOCK: git clean -f",
+        {"tool_name": "Bash", "tool_input": {"command": "git clean -f"}},
+        expect_allow=False
+    )
+
+    # Test 18: BLOCK - git clean -fd
+    run_test(
+        "BLOCK: git clean -fd",
+        {"tool_name": "Bash", "tool_input": {"command": "git clean -fd"}},
+        expect_allow=False
+    )
+
+    # Test 19: BLOCK - git stash drop
+    run_test(
+        "BLOCK: git stash drop",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash drop"}},
+        expect_allow=False
+    )
+
+    # Test 20: BLOCK - git stash clear
+    run_test(
+        "BLOCK: git stash clear",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash clear"}},
+        expect_allow=False
+    )
+
+    # Test 21: BLOCK - git checkout HEAD -- file
+    run_test(
+        "BLOCK: git checkout HEAD -- file",
+        {"tool_name": "Bash", "tool_input": {"command": "git checkout HEAD -- file.php"}},
+        expect_allow=False
+    )
+
+    # Test 22: Case insensitive
+    run_test(
+        "BLOCK: GIT RESET --HARD (uppercase)",
+        {"tool_name": "Bash", "tool_input": {"command": "GIT RESET --HARD"}},
+        expect_allow=False
+    )
+
+    # Test 23: Multiple commands (with destructive)
+    run_test(
+        "BLOCK: Multiple commands with reset --hard",
+        {"tool_name": "Bash", "tool_input": {"command": "git status && git reset --hard"}},
+        expect_allow=False
+    )
+
+    # Test 24: git checkout with wildcard
+    run_test(
+        "BLOCK: git checkout *.php",
+        {"tool_name": "Bash", "tool_input": {"command": "git checkout *.php"}},
+        expect_allow=False
+    )
+
+    print("=" * 60)
+    print(f"Results: {passed} passed, {failed} failed")
+    sys.exit(0 if failed == 0 else 1)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        self_test()
+    else:
+        main()

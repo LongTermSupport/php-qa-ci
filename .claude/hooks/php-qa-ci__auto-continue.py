@@ -141,5 +141,266 @@ def main():
     allow_and_exit()
 
 
+def self_test():
+    """Run comprehensive self-tests."""
+    import io
+    import tempfile
+    import os
+
+    print("Running self-tests for php-qa-ci__auto-continue...")
+    print("=" * 60)
+
+    passed = 0
+    failed = 0
+
+    def run_test(name, hook_input, expect_allow):
+        nonlocal passed, failed
+        old_stdout = sys.stdout
+        old_stdin = sys.stdin
+        sys.stdout = io.StringIO()
+        sys.stdin = io.StringIO(json.dumps(hook_input))
+
+        try:
+            main()
+        except SystemExit:
+            pass
+
+        output = sys.stdout.getvalue()
+        sys.stdout = old_stdout
+        sys.stdin = old_stdin
+
+        # Validate JSON
+        try:
+            result = json.loads(output)
+        except json.JSONDecodeError:
+            print(f"❌ FAIL: {name}")
+            print(f"   Invalid JSON output: {output[:100]}")
+            failed += 1
+            return
+
+        # Validate structure
+        if "hookSpecificOutput" not in result:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing hookSpecificOutput in response")
+            failed += 1
+            return
+
+        hook_output = result["hookSpecificOutput"]
+        if "permissionDecision" not in hook_output:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing permissionDecision in response")
+            failed += 1
+            return
+
+        decision = hook_output["permissionDecision"]
+        expected_decision = "allow" if expect_allow else "deny"
+
+        if decision == expected_decision:
+            print(f"✓ PASS: {name}")
+            passed += 1
+        else:
+            print(f"❌ FAIL: {name}")
+            print(f"   Expected {expected_decision}, got {decision}")
+            if not expect_allow:
+                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:80]}")
+            failed += 1
+
+    # Test 1: Invalid JSON input (should allow - fail open)
+    # This test requires special handling since None won't work
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO("not json")
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    sys.stdin = old_stdin
+
+    try:
+        result = json.loads(output)
+        if result["hookSpecificOutput"]["permissionDecision"] == "allow":
+            print(f"✓ PASS: Invalid JSON input (fail open)")
+            passed += 1
+        else:
+            print(f"❌ FAIL: Invalid JSON input (fail open)")
+            failed += 1
+    except:
+        print(f"❌ FAIL: Invalid JSON input (fail open)")
+        failed += 1
+
+    # Test 2: Empty input (should allow)
+    run_test(
+        "Empty input",
+        {},
+        expect_allow=True
+    )
+
+    # Test 3: Missing transcript_path (should allow)
+    run_test(
+        "Missing transcript_path",
+        {"stop_hook_active": False},
+        expect_allow=True
+    )
+
+    # Test 4: stop_hook_active is True (prevent infinite loop)
+    run_test(
+        "stop_hook_active=True (prevent loop)",
+        {"stop_hook_active": True, "transcript_path": "/tmp/transcript.json"},
+        expect_allow=True
+    )
+
+    # Test 5: No assistant message in transcript
+    # Create temporary transcript file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        transcript = {
+            "messages": [
+                {"role": "user", "content": "Hello"}
+            ]
+        }
+        json.dump(transcript, f)
+        transcript_path = f.name
+
+    try:
+        run_test(
+            "No assistant message in transcript",
+            {"transcript_path": transcript_path, "stop_hook_active": False},
+            expect_allow=True
+        )
+    finally:
+        os.unlink(transcript_path)
+
+    # Test 6: Assistant message without continue prompt
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        transcript = {
+            "messages": [
+                {"role": "user", "content": "What's the weather?"},
+                {"role": "assistant", "content": "I don't know the weather."}
+            ]
+        }
+        json.dump(transcript, f)
+        transcript_path = f.name
+
+    try:
+        run_test(
+            "No continue prompt detected",
+            {"transcript_path": transcript_path, "stop_hook_active": False},
+            expect_allow=True
+        )
+    finally:
+        os.unlink(transcript_path)
+
+    # Test 7: "Would you like to continue" - should DENY (auto-continue)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        transcript = {
+            "messages": [
+                {"role": "user", "content": "Please do the task"},
+                {"role": "assistant", "content": "I've completed part 1. Would you like to continue?"}
+            ]
+        }
+        json.dump(transcript, f)
+        transcript_path = f.name
+
+    try:
+        run_test(
+            "Detect 'would you like to continue'",
+            {"transcript_path": transcript_path, "stop_hook_active": False},
+            expect_allow=False  # Should DENY to auto-continue
+        )
+    finally:
+        os.unlink(transcript_path)
+
+    # Test 8: "Shall I proceed" - should DENY
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        transcript = {
+            "messages": [
+                {"role": "assistant", "content": "Setup complete. Shall I proceed with the implementation?"}
+            ]
+        }
+        json.dump(transcript, f)
+        transcript_path = f.name
+
+    try:
+        run_test(
+            "Detect 'shall I proceed'",
+            {"transcript_path": transcript_path, "stop_hook_active": False},
+            expect_allow=False
+        )
+    finally:
+        os.unlink(transcript_path)
+
+    # Test 9: "Ready to continue" - should DENY
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        transcript = {
+            "messages": [
+                {"role": "assistant", "content": "All tests passing. Ready to continue with deployment?"}
+            ]
+        }
+        json.dump(transcript, f)
+        transcript_path = f.name
+
+    try:
+        run_test(
+            "Detect 'ready to continue'",
+            {"transcript_path": transcript_path, "stop_hook_active": False},
+            expect_allow=False
+        )
+    finally:
+        os.unlink(transcript_path)
+
+    # Test 10: Structured content (list of dicts with text blocks)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        transcript = {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": "First part complete."},
+                        {"type": "text", "text": "Should I continue with next step?"}
+                    ]
+                }
+            ]
+        }
+        json.dump(transcript, f)
+        transcript_path = f.name
+
+    try:
+        run_test(
+            "Detect continue prompt in structured content",
+            {"transcript_path": transcript_path, "stop_hook_active": False},
+            expect_allow=False
+        )
+    finally:
+        os.unlink(transcript_path)
+
+    # Test 11: Case insensitive matching
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        transcript = {
+            "messages": [
+                {"role": "assistant", "content": "Done! WOULD YOU LIKE ME TO CONTINUE?"}
+            ]
+        }
+        json.dump(transcript, f)
+        transcript_path = f.name
+
+    try:
+        run_test(
+            "Case insensitive pattern matching",
+            {"transcript_path": transcript_path, "stop_hook_active": False},
+            expect_allow=False
+        )
+    finally:
+        os.unlink(transcript_path)
+
+    print("=" * 60)
+    print(f"Results: {passed} passed, {failed} failed")
+    sys.exit(0 if failed == 0 else 1)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        self_test()
+    else:
+        main()

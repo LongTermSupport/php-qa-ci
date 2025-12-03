@@ -45,15 +45,11 @@ Configuration:
   - .claude/plans/
   - docs/plans/
 
-================================================================================
-"""
-
 Escape hatch:
   If a pattern match is a false positive (genuinely not a time estimate), add this comment:
-  <!-- {regex-pattern} match is a false positive for time estimate blocking hook -->
+  <!-- pattern-match is a false positive for time estimate blocking hook -->
 
-  Example:
-  <!-- \*\*Estimated [^:]*\*\*: .*?(?:hours?|minutes?|days?|weeks?) match is a false positive for time estimate blocking hook -->
+================================================================================
 """
 
 import json
@@ -317,5 +313,232 @@ def main():
     sys.exit(0)
 
 
+def self_test():
+    """Run comprehensive self-tests."""
+    import io
+
+    print("Running self-tests for php-qa-ci__block-plan-time-estimates...")
+    print("=" * 60)
+
+    passed = 0
+    failed = 0
+
+    def run_test(name, hook_input, expect_allow):
+        nonlocal passed, failed
+        old_stdout = sys.stdout
+        old_stdin = sys.stdin
+        sys.stdout = io.StringIO()
+        sys.stdin = io.StringIO(json.dumps(hook_input))
+
+        try:
+            main()
+        except SystemExit:
+            pass
+
+        output = sys.stdout.getvalue()
+        sys.stdout = old_stdout
+        sys.stdin = old_stdin
+
+        # Validate JSON
+        try:
+            result = json.loads(output)
+        except json.JSONDecodeError:
+            print(f"❌ FAIL: {name}")
+            print(f"   Invalid JSON output: {output[:100]}")
+            failed += 1
+            return
+
+        # Validate structure
+        if "hookSpecificOutput" not in result:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing hookSpecificOutput in response")
+            failed += 1
+            return
+
+        hook_output = result["hookSpecificOutput"]
+        if "permissionDecision" not in hook_output:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing permissionDecision in response")
+            failed += 1
+            return
+
+        decision = hook_output["permissionDecision"]
+        expected_decision = "allow" if expect_allow else "deny"
+
+        if decision == expected_decision:
+            print(f"✓ PASS: {name}")
+            passed += 1
+        else:
+            print(f"❌ FAIL: {name}")
+            print(f"   Expected {expected_decision}, got {decision}")
+            if not expect_allow:
+                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:120]}")
+            failed += 1
+
+    # Test 1: Invalid JSON (fail open)
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO("not json")
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    sys.stdin = old_stdin
+
+    try:
+        result = json.loads(output)
+        if result["hookSpecificOutput"]["permissionDecision"] == "allow":
+            print(f"✓ PASS: Invalid JSON (fail open)")
+            passed += 1
+        else:
+            print(f"❌ FAIL: Invalid JSON (fail open)")
+            failed += 1
+    except:
+        print(f"❌ FAIL: Invalid JSON (fail open)")
+        failed += 1
+
+    # Test 2: Non-Write/Edit tool (should allow)
+    run_test(
+        "Non-Write/Edit tool (Bash)",
+        {"tool_name": "Bash", "tool_input": {"command": "ls"}},
+        expect_allow=True
+    )
+
+    # Test 3: Non-plan file (should allow)
+    run_test(
+        "Non-plan file (src/file.php)",
+        {"tool_name": "Write", "tool_input": {"file_path": "src/Controller.php", "content": "Estimated Effort: 2 hours"}},
+        expect_allow=True
+    )
+
+    # Test 4: Non-markdown file (should allow)
+    run_test(
+        "Non-markdown file (CLAUDE/Plan/task.txt)",
+        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/Plan/task.txt", "content": "Estimated Effort: 2 hours"}},
+        expect_allow=True
+    )
+
+    # Test 5: Plan file without time estimates (should allow)
+    run_test(
+        "Plan file without time estimates",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/Plan/001-feature.md",
+            "content": "## Task\n\nImplement feature X\n\n## Details\n\nWe need to add functionality Y"
+        }},
+        expect_allow=True
+    )
+
+    # Test 6: Block "Estimated Effort: X hours"
+    run_test(
+        "Block 'Estimated Effort: X hours'",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/plan/task.md",
+            "content": "## Task\n\nEstimated Effort: 2 hours\n\nImplement feature"
+        }},
+        expect_allow=False
+    )
+
+    # Test 7: Block "**Estimated Effort**: X days"
+    run_test(
+        "Block '**Estimated Effort**: X days'",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": ".claude/plans/feature.md",
+            "content": "**Estimated Effort**: 3 days\n\nImplementation plan"
+        }},
+        expect_allow=False
+    )
+
+    # Test 8: Block "Time estimated:"
+    run_test(
+        "Block 'Time estimated:'",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "docs/plans/roadmap.md",
+            "content": "Time estimated: 5 hours for completion"
+        }},
+        expect_allow=False
+    )
+
+    # Test 9: Block "Target Completion: YYYY-MM-DD"
+    run_test(
+        "Block 'Target Completion: date'",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/Plan/sprint.md",
+            "content": "Target Completion: 2024-12-31\n\nProject goals"
+        }},
+        expect_allow=False
+    )
+
+    # Test 10: Block "Phase 1: X hours"
+    run_test(
+        "Block 'Phase 1: X hours'",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/plan/phases.md",
+            "content": "- **Phase 1: 2 hours** - Setup\n- **Phase 2: 3 hours** - Implementation"
+        }},
+        expect_allow=False
+    )
+
+    # Test 11: Block Timeline section with durations
+    run_test(
+        "Block Timeline section with durations",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/Plan/timeline.md",
+            "content": "## Timeline\n\n- Week 1: 10 hours\n- Week 2: 15 hours"
+        }},
+        expect_allow=False
+    )
+
+    # Test 12: Case insensitive matching
+    run_test(
+        "Case insensitive 'ESTIMATED EFFORT'",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/plan/task.md",
+            "content": "ESTIMATED EFFORT: 4 HOURS"
+        }},
+        expect_allow=False
+    )
+
+    # Test 13: Edit operation (simulate edit)
+    run_test(
+        "Edit operation adding time estimate",
+        {"tool_name": "Edit", "tool_input": {
+            "file_path": "CLAUDE/Plan/feature.md",
+            "old_string": "## Details",
+            "new_string": "## Details\n\nEstimated Effort: 3 hours"
+        }},
+        expect_allow=False
+    )
+
+    # Test 14: Escape hatch - false positive
+    run_test(
+        "Escape hatch - false positive comment",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/plan/task.md",
+            "content": "<!-- Estimated Effort: .*?hours? match is a false positive for time estimate blocking hook -->\nEstimated Effort: 2 hours (this is actually a quote from the user)"
+        }},
+        expect_allow=True
+    )
+
+    # Test 15: Multiple time estimates in same file
+    run_test(
+        "Multiple time estimates",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE/Plan/multi.md",
+            "content": "Estimated Effort: 2 hours\n\nTarget Completion: 2024-12-15\n\nPhase 1: 3 days"
+        }},
+        expect_allow=False
+    )
+
+    print("=" * 60)
+    print(f"Results: {passed} passed, {failed} failed")
+    sys.exit(0 if failed == 0 else 1)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        self_test()
+    else:
+        main()

@@ -271,5 +271,285 @@ def main():
     sys.exit(0)
 
 
+def self_test():
+    """Run comprehensive self-tests."""
+    import io
+
+    print("Running self-tests for php-qa-ci__validate-claude-readme-content...")
+    print("=" * 60)
+
+    passed = 0
+    failed = 0
+
+    def run_test(name, hook_input, expect_allow):
+        nonlocal passed, failed
+        old_stdout = sys.stdout
+        old_stdin = sys.stdin
+        sys.stdout = io.StringIO()
+        sys.stdin = io.StringIO(json.dumps(hook_input))
+
+        try:
+            main()
+        except SystemExit:
+            pass
+
+        output = sys.stdout.getvalue()
+        sys.stdout = old_stdout
+        sys.stdin = old_stdin
+
+        # Validate JSON
+        try:
+            result = json.loads(output)
+        except json.JSONDecodeError:
+            print(f"❌ FAIL: {name}")
+            print(f"   Invalid JSON output: {output[:100]}")
+            failed += 1
+            return
+
+        # Validate structure
+        if "hookSpecificOutput" not in result:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing hookSpecificOutput in response")
+            failed += 1
+            return
+
+        hook_output = result["hookSpecificOutput"]
+        if "permissionDecision" not in hook_output:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing permissionDecision in response")
+            failed += 1
+            return
+
+        decision = hook_output["permissionDecision"]
+        expected_decision = "allow" if expect_allow else "deny"
+
+        if decision == expected_decision:
+            print(f"✓ PASS: {name}")
+            passed += 1
+        else:
+            print(f"❌ FAIL: {name}")
+            print(f"   Expected {expected_decision}, got {decision}")
+            if not expect_allow:
+                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:120]}")
+            failed += 1
+
+    # Test 1: Invalid JSON (fail open)
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO("not json")
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    sys.stdin = old_stdin
+
+    try:
+        result = json.loads(output)
+        if result["hookSpecificOutput"]["permissionDecision"] == "allow":
+            print(f"✓ PASS: Invalid JSON (fail open)")
+            passed += 1
+        else:
+            print(f"❌ FAIL: Invalid JSON (fail open)")
+            failed += 1
+    except:
+        print(f"❌ FAIL: Invalid JSON (fail open)")
+        failed += 1
+
+    # Test 2: Non-Write/Edit tool (should allow)
+    run_test(
+        "Non-Write/Edit tool (Bash)",
+        {"tool_name": "Bash", "tool_input": {"command": "ls"}},
+        expect_allow=True
+    )
+
+    # Test 3: Non-CLAUDE.md/README.md file (should allow)
+    run_test(
+        "Non-CLAUDE.md file (plan.md)",
+        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/plan.md", "content": "Created file X"}},
+        expect_allow=True
+    )
+
+    # Test 4: CLAUDE.md with valid instructions (should allow)
+    run_test(
+        "CLAUDE.md with instructions (allowed)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "# Instructions\n\nThis directory contains tools for testing.\n\nGuidelines:\n- Use PHPStan level max\n- Follow PSR-12"
+        }},
+        expect_allow=True
+    )
+
+    # Test 5: README.md with valid content (should allow)
+    run_test(
+        "README.md with instructions (allowed)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "README.md",
+            "content": "# My Project\n\nHow to use:\n1. Install dependencies\n2. Run tests\n\nConfiguration notes here."
+        }},
+        expect_allow=True
+    )
+
+    # Test 6: BLOCK - Implementation log "Created the file"
+    run_test(
+        "BLOCK: Implementation log (created the file)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "Created the file src/Controller.php to handle requests"
+        }},
+        expect_allow=False
+    )
+
+    # Test 7: BLOCK - Implementation log "Modified src/"
+    run_test(
+        "BLOCK: Implementation log (modified src/)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "README.md",
+            "content": "Modified src/Service.php to add validation"
+        }},
+        expect_allow=False
+    )
+
+    # Test 8: BLOCK - Implementation log "added function"
+    run_test(
+        "BLOCK: Implementation log (added function)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "Added function calculateTotal() to process payments"
+        }},
+        expect_allow=False
+    )
+
+    # Test 9: BLOCK - Implementation log with file extension
+    run_test(
+        "BLOCK: Implementation log (created .php)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "Created Helper.php with utility methods"
+        }},
+        expect_allow=False
+    )
+
+    # Test 10: BLOCK - Status indicator "✅ Complete"
+    run_test(
+        "BLOCK: Status indicator (✅ Complete)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "README.md",
+            "content": "✅ Complete - All tests passing"
+        }},
+        expect_allow=False
+    )
+
+    # Test 11: BLOCK - Status indicator "🟢 Working"
+    run_test(
+        "BLOCK: Status indicator (🟢 Working)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "🟢 Working on new feature"
+        }},
+        expect_allow=False
+    )
+
+    # Test 12: BLOCK - Timestamp YYYY-MM-DD
+    run_test(
+        "BLOCK: Timestamp (2024-12-15)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "README.md",
+            "content": "Updated: 2024-12-15\n\nImplementation notes"
+        }},
+        expect_allow=False
+    )
+
+    # Test 13: BLOCK - LLM summary heading
+    run_test(
+        "BLOCK: LLM summary heading",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "## Summary\n\nI have completed the implementation of feature X"
+        }},
+        expect_allow=False
+    )
+
+    # Test 14: BLOCK - Test results
+    run_test(
+        "BLOCK: Test results",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "README.md",
+            "content": "15 tests passed, 2 failed"
+        }},
+        expect_allow=False
+    )
+
+    # Test 15: BLOCK - Change summary
+    run_test(
+        "BLOCK: Change summary",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "Changes made:\n- Updated controller\n- Fixed bug"
+        }},
+        expect_allow=False
+    )
+
+    # Test 16: Code block exemption - should allow "created" in code block
+    run_test(
+        "Code block exemption (allowed)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "README.md",
+            "content": "Example:\n```bash\n# Created the file manually\ntouch file.php\n```"
+        }},
+        expect_allow=True
+    )
+
+    # Test 17: Case insensitive matching
+    run_test(
+        "BLOCK: Case insensitive (CREATED)",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "CREATED THE FILE src/test.php"
+        }},
+        expect_allow=False
+    )
+
+    # Test 18: Edit operation
+    run_test(
+        "Edit operation adding log",
+        {"tool_name": "Edit", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "old_string": "Instructions",
+            "new_string": "Instructions\n\nCreated the file Helper.php"
+        }},
+        expect_allow=False
+    )
+
+    # Test 19: Multiple issues in same file
+    run_test(
+        "BLOCK: Multiple issues",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "README.md",
+            "content": "Created file.php\n\n✅ Complete\n\n2024-12-15"
+        }},
+        expect_allow=False
+    )
+
+    # Test 20: Edge case - numbered procedure (Step 1)
+    run_test(
+        "BLOCK: Numbered procedure",
+        {"tool_name": "Write", "tool_input": {
+            "file_path": "CLAUDE.md",
+            "content": "- step 1: Create database\n- step 2: Run migrations"
+        }},
+        expect_allow=False
+    )
+
+    print("=" * 60)
+    print(f"Results: {passed} passed, {failed} failed")
+    sys.exit(0 if failed == 0 else 1)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        self_test()
+    else:
+        main()

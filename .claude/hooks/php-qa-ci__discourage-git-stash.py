@@ -170,5 +170,225 @@ Ask the user to run git stash manually if they insist it's necessary.
     allow_and_exit()
 
 
+def self_test():
+    """Run comprehensive self-tests."""
+    import io
+
+    print("Running self-tests for php-qa-ci__discourage-git-stash...")
+    print("=" * 60)
+
+    passed = 0
+    failed = 0
+
+    def run_test(name, hook_input, expect_allow):
+        nonlocal passed, failed
+        old_stdout = sys.stdout
+        old_stdin = sys.stdin
+        sys.stdout = io.StringIO()
+        sys.stdin = io.StringIO(json.dumps(hook_input))
+
+        try:
+            main()
+        except SystemExit:
+            pass
+
+        output = sys.stdout.getvalue()
+        sys.stdout = old_stdout
+        sys.stdin = old_stdin
+
+        # Validate JSON
+        try:
+            result = json.loads(output)
+        except json.JSONDecodeError:
+            print(f"❌ FAIL: {name}")
+            print(f"   Invalid JSON output: {output[:100]}")
+            failed += 1
+            return
+
+        # Validate structure
+        if "hookSpecificOutput" not in result:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing hookSpecificOutput in response")
+            failed += 1
+            return
+
+        hook_output = result["hookSpecificOutput"]
+        if "permissionDecision" not in hook_output:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing permissionDecision in response")
+            failed += 1
+            return
+
+        decision = hook_output["permissionDecision"]
+        expected_decision = "allow" if expect_allow else "deny"
+
+        if decision == expected_decision:
+            print(f"✓ PASS: {name}")
+            passed += 1
+        else:
+            print(f"❌ FAIL: {name}")
+            print(f"   Expected {expected_decision}, got {decision}")
+            if not expect_allow:
+                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:100]}")
+            failed += 1
+
+    # Test 1: Invalid JSON (fail open)
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO("not json")
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    sys.stdin = old_stdin
+
+    try:
+        result = json.loads(output)
+        if result["hookSpecificOutput"]["permissionDecision"] == "allow":
+            print(f"✓ PASS: Invalid JSON (fail open)")
+            passed += 1
+        else:
+            print(f"❌ FAIL: Invalid JSON (fail open)")
+            failed += 1
+    except:
+        print(f"❌ FAIL: Invalid JSON (fail open)")
+        failed += 1
+
+    # Test 2: Non-Bash tool (should allow)
+    run_test(
+        "Non-Bash tool (Write)",
+        {"tool_name": "Write", "tool_input": {"file_path": "test.txt", "content": "git stash"}},
+        expect_allow=True
+    )
+
+    # Test 3: Empty command (should allow)
+    run_test(
+        "Empty command",
+        {"tool_name": "Bash", "tool_input": {"command": ""}},
+        expect_allow=True
+    )
+
+    # Test 4: Non-git command (should allow)
+    run_test(
+        "Non-git command",
+        {"tool_name": "Bash", "tool_input": {"command": "ls -la"}},
+        expect_allow=True
+    )
+
+    # Test 5: Safe stash operation - list (should allow)
+    run_test(
+        "git stash list (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash list"}},
+        expect_allow=True
+    )
+
+    # Test 6: Safe stash operation - show (should allow)
+    run_test(
+        "git stash show (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash show stash@{0}"}},
+        expect_allow=True
+    )
+
+    # Test 7: Safe stash operation - apply (should allow)
+    run_test(
+        "git stash apply (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash apply"}},
+        expect_allow=True
+    )
+
+    # Test 8: Safe stash operation - branch (should allow)
+    run_test(
+        "git stash branch (safe)",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash branch recovery-branch"}},
+        expect_allow=True
+    )
+
+    # Test 9: BLOCK - git stash (no subcommand)
+    run_test(
+        "BLOCK: git stash (dangerous)",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash"}},
+        expect_allow=False
+    )
+
+    # Test 10: BLOCK - git stash push
+    run_test(
+        "BLOCK: git stash push",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash push -m 'WIP'"}},
+        expect_allow=False
+    )
+
+    # Test 11: BLOCK - git stash save
+    run_test(
+        "BLOCK: git stash save",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash save 'work in progress'"}},
+        expect_allow=False
+    )
+
+    # Test 12: BLOCK - git stash with flags
+    run_test(
+        "BLOCK: git stash -u (with flags)",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash -u"}},
+        expect_allow=False
+    )
+
+    # Test 13: BLOCK - git stash create
+    run_test(
+        "BLOCK: git stash create",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash create"}},
+        expect_allow=False
+    )
+
+    # Test 14: BLOCK - git stash store
+    run_test(
+        "BLOCK: git stash store",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash store abc123"}},
+        expect_allow=False
+    )
+
+    # Test 15: Escape hatch - allow with magic phrase
+    run_test(
+        "Escape hatch: git stash with confirmation",
+        {"tool_name": "Bash", "tool_input": {
+            "command": "git stash  # I HAVE ABSOLUTELY CONFIRMED THAT STASH IS THE ONLY OPTION"
+        }},
+        expect_allow=True
+    )
+
+    # Test 16: Case insensitive matching
+    run_test(
+        "Case insensitive: GIT STASH",
+        {"tool_name": "Bash", "tool_input": {"command": "GIT STASH"}},
+        expect_allow=False
+    )
+
+    # Test 17: Escape hatch in middle of command
+    run_test(
+        "Escape hatch in middle",
+        {"tool_name": "Bash", "tool_input": {
+            "command": "# I HAVE ABSOLUTELY CONFIRMED THAT STASH IS THE ONLY OPTION\ngit stash push"
+        }},
+        expect_allow=True
+    )
+
+    # Test 18: Multiple commands (with stash) - note: This should block since escape hatch isn't present
+    # However the current regex doesn't block if && is present, so this might not work as expected
+    # Updating test to expect current behavior
+    run_test(
+        "Multiple commands with stash",
+        {"tool_name": "Bash", "tool_input": {"command": "git stash push && git pull"}},
+        expect_allow=False  # Will block on "git stash push"
+    )
+
+    print("=" * 60)
+    print(f"Results: {passed} passed, {failed} failed")
+    sys.exit(0 if failed == 0 else 1)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        self_test()
+    else:
+        main()

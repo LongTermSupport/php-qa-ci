@@ -342,7 +342,6 @@ def main():
     if is_allowed:
         # Print warning for skills documentation that isn't SKILL.md
         if location_type == "SKILL_DOCS_WARNING":
-            import sys
             warning = (
                 f"\n⚠️  WARNING: Creating documentation in .claude/skills/ directory\n"
                 f"   File: {file_path}\n"
@@ -356,5 +355,244 @@ def main():
     block_and_exit(reason, file_path, suggestion or "untracked/", project_root)
 
 
+def self_test():
+    """Run comprehensive self-tests."""
+    import io
+    import tempfile
+    global sys  # Explicitly declare sys as global
+
+    print("Running self-tests for php-qa-ci__enforce-markdown-organization...")
+    print("=" * 60)
+
+    passed = 0
+    failed = 0
+
+    def run_test(name, hook_input, expect_allow):
+        nonlocal passed, failed
+        global sys  # Also declare in nested function
+        old_stdout = sys.stdout
+        old_stdin = sys.stdin
+        sys.stdout = io.StringIO()
+        sys.stdin = io.StringIO(json.dumps(hook_input))
+
+        try:
+            main()
+        except SystemExit:
+            pass
+
+        output = sys.stdout.getvalue()
+        sys.stdout = old_stdout
+        sys.stdin = old_stdin
+
+        # Validate JSON
+        try:
+            result = json.loads(output)
+        except json.JSONDecodeError:
+            print(f"❌ FAIL: {name}")
+            print(f"   Invalid JSON output: {output[:100]}")
+            failed += 1
+            return
+
+        # Validate structure
+        if "hookSpecificOutput" not in result:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing hookSpecificOutput in response")
+            failed += 1
+            return
+
+        hook_output = result["hookSpecificOutput"]
+        if "permissionDecision" not in hook_output:
+            print(f"❌ FAIL: {name}")
+            print(f"   Missing permissionDecision in response")
+            failed += 1
+            return
+
+        decision = hook_output["permissionDecision"]
+        expected_decision = "allow" if expect_allow else "deny"
+
+        if decision == expected_decision:
+            print(f"✓ PASS: {name}")
+            passed += 1
+        else:
+            print(f"❌ FAIL: {name}")
+            print(f"   Expected {expected_decision}, got {decision}")
+            if not expect_allow:
+                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:120]}")
+            failed += 1
+
+    # Test 1: Invalid JSON (fail open)
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO("not json")
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    sys.stdin = old_stdin
+
+    try:
+        result = json.loads(output)
+        if result["hookSpecificOutput"]["permissionDecision"] == "allow":
+            print(f"✓ PASS: Invalid JSON (fail open)")
+            passed += 1
+        else:
+            print(f"❌ FAIL: Invalid JSON (fail open)")
+            failed += 1
+    except:
+        print(f"❌ FAIL: Invalid JSON (fail open)")
+        failed += 1
+
+    # Test 2: Non-Write/Edit tool (should allow)
+    run_test(
+        "Non-Write/Edit tool (Bash)",
+        {"tool_name": "Bash", "tool_input": {"command": "ls"}},
+        expect_allow=True
+    )
+
+    # Test 3: Non-markdown file (should allow)
+    run_test(
+        "Non-markdown file (.php)",
+        {"tool_name": "Write", "tool_input": {"file_path": "/tmp/test.php", "content": "<?php"}},
+        expect_allow=True
+    )
+
+    # Test 4: CLAUDE.md - always allowed anywhere
+    run_test(
+        "CLAUDE.md in hooks dir (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": ".claude/hooks/CLAUDE.md", "content": "Instructions"}},
+        expect_allow=True
+    )
+
+    # Test 5: README.md - always allowed anywhere
+    run_test(
+        "README.md in root (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": "/tmp/README.md", "content": "Documentation"}},
+        expect_allow=True
+    )
+
+    # Test 6: SKILL.md in skills directory (allowed)
+    run_test(
+        "SKILL.md in skills dir (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": ".claude/skills/myskill/SKILL.md", "content": "Skill definition"}},
+        expect_allow=True
+    )
+
+    # Test 7: Other .md file in skills directory (allowed with warning)
+    run_test(
+        "Other .md in skills dir (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": ".claude/skills/myskill/NOTES.md", "content": "Notes"}},
+        expect_allow=True
+    )
+
+    # Test 8: Agent definition file (allowed)
+    run_test(
+        "Agent definition (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": ".claude/agents/myagent.md", "content": "Agent definition"}},
+        expect_allow=True
+    )
+
+    # Test 9: ALLOWED - CLAUDE/Plan/NNN-name/*.md
+    run_test(
+        "Plan-specific docs (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/Plan/001-feature/notes.md", "content": "Plan notes"}},
+        expect_allow=True
+    )
+
+    # Test 10: ALLOWED - CLAUDE/plan/ (lowercase)
+    run_test(
+        "Plan docs lowercase (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/plan/002-bugfix/research.md", "content": "Research"}},
+        expect_allow=True
+    )
+
+    # Test 11: ALLOWED - CLAUDE/ root level
+    run_test(
+        "CLAUDE root level (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/CodeStandards.md", "content": "Standards"}},
+        expect_allow=True
+    )
+
+    # Test 12: ALLOWED - docs/
+    run_test(
+        "Human docs (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": "docs/api/endpoints.md", "content": "API docs"}},
+        expect_allow=True
+    )
+
+    # Test 13: ALLOWED - untracked/
+    run_test(
+        "Temporary docs (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": "untracked/scratch.md", "content": "Scratch notes"}},
+        expect_allow=True
+    )
+
+    # Test 14: BLOCKED - .claude/hooks/*.md (except CLAUDE.md/README.md)
+    run_test(
+        "BLOCK: .claude/hooks/notes.md",
+        {"tool_name": "Write", "tool_input": {"file_path": ".claude/hooks/notes.md", "content": "Notes"}},
+        expect_allow=False
+    )
+
+    # Test 15: BLOCKED - root directory *.md (except README.md)
+    run_test(
+        "BLOCK: root/NOTES.md",
+        {"tool_name": "Write", "tool_input": {"file_path": "/tmp/NOTES.md", "content": "Notes"}},
+        expect_allow=False
+    )
+
+    # Test 16: BLOCKED - unknown location
+    run_test(
+        "BLOCK: src/documentation.md",
+        {"tool_name": "Write", "tool_input": {"file_path": "/tmp/src/documentation.md", "content": "Docs"}},
+        expect_allow=False
+    )
+
+    # Test 17: Case insensitive CLAUDE.md
+    run_test(
+        "claude.md (lowercase) allowed",
+        {"tool_name": "Write", "tool_input": {"file_path": "/tmp/src/claude.md", "content": "Instructions"}},
+        expect_allow=True
+    )
+
+    # Test 18: Case insensitive README.md
+    run_test(
+        "readme.md (lowercase) allowed",
+        {"tool_name": "Write", "tool_input": {"file_path": "/tmp/src/readme.md", "content": "Instructions"}},
+        expect_allow=True
+    )
+
+    # Test 19: Edit operation
+    run_test(
+        "Edit operation in allowed location",
+        {"tool_name": "Edit", "tool_input": {
+            "file_path": "CLAUDE/Plan/001-feature/plan.md",
+            "old_string": "old",
+            "new_string": "new"
+        }},
+        expect_allow=True
+    )
+
+    # Test 20: Edit operation in blocked location
+    run_test(
+        "BLOCK: Edit in blocked location",
+        {"tool_name": "Edit", "tool_input": {
+            "file_path": ".claude/hooks/notes.md",
+            "old_string": "old",
+            "new_string": "new"
+        }},
+        expect_allow=False
+    )
+
+    print("=" * 60)
+    print(f"Results: {passed} passed, {failed} failed")
+    sys.exit(0 if failed == 0 else 1)
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        self_test()
+    else:
+        main()
