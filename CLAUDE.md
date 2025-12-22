@@ -246,6 +246,40 @@ phpNoXdebug -f "$binDir"/phpstan -- \
 echo "PHPStan complete, checking results..."
 ```
 
+### Claude Code Hooks
+
+PHP-QA-CI includes Claude Code hooks that provide guardrails and automation when using Claude Code for development:
+
+**Included Hooks**:
+- `php-qa-ci__auto-continue.py` - Reduces confirmation prompts (✅ recommended for all projects)
+- `php-qa-ci__prevent-destructive-git.py` - Blocks commands that destroy uncommitted changes (✅ critical safety)
+- `php-qa-ci__discourage-git-stash.py` - Discourages git stash with escape hatch (⚠️ optional)
+- `php-qa-ci__block-plan-time-estimates.py` - Prevents time estimates in plan documents (⚠️ optional)
+- `php-qa-ci__validate-claude-readme-content.py` - Ensures docs contain instructions, not logs (⚠️ optional)
+- `php-qa-ci__enforce-markdown-organization.py` - Enforces doc organization (⚠️ optional, opinionated)
+
+**Deployment**:
+```bash
+# Deploy all hooks, agents, and skills to your project
+vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
+```
+
+This will:
+- Copy hooks to `.claude/hooks/`
+- Make them executable
+- Register them in `.claude/settings.json`
+
+**Documentation**: See `.claude/hooks/README.md` for detailed hook documentation including:
+- What each hook does
+- When to use each hook
+- Configuration options
+- Testing and troubleshooting
+- Hook architecture and format
+
+**Recommendation**: Always deploy `php-qa-ci__auto-continue.py` and `php-qa-ci__prevent-destructive-git.py` by default. Evaluate others based on team standards.
+
+**Migration**: Projects with old hook names (without `php-qa-ci__` prefix) will be automatically migrated during `composer install/update`. The deployment script updates `.claude/settings.json` to reference the new hook names.
+
 ## Environment Requirements
 
 - Linux/Unix environment (uses bash)

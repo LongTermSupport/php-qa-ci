@@ -73,6 +73,70 @@ if [[ -d "$HOOKS_SOURCE" ]]; then
     done
 fi
 
+# Migrate old hook names to new php-qa-ci__ prefix
+if [[ -f "$PROJECT_ROOT/.claude/settings.json" ]]; then
+    echo "  Migrating hook registrations..."
+    python3 << 'PYTHON_MIGRATION'
+import json
+import sys
+from pathlib import Path
+
+settings_file = Path(".claude/settings.json")
+if not settings_file.exists():
+    sys.exit(0)
+
+# Old name -> New name mapping
+HOOK_MIGRATIONS = {
+    ".claude/hooks/auto-continue.py": ".claude/hooks/php-qa-ci__auto-continue.py",
+    ".claude/hooks/prevent-destructive-git.py": ".claude/hooks/php-qa-ci__prevent-destructive-git.py",
+    ".claude/hooks/discourage-git-stash.py": ".claude/hooks/php-qa-ci__discourage-git-stash.py",
+    ".claude/hooks/block-plan-time-estimates.py": ".claude/hooks/php-qa-ci__block-plan-time-estimates.py",
+    ".claude/hooks/validate-claude-readme-content.py": ".claude/hooks/php-qa-ci__validate-claude-readme-content.py",
+    ".claude/hooks/enforce-markdown-organization.py": ".claude/hooks/php-qa-ci__enforce-markdown-organization.py",
+}
+
+try:
+    with open(settings_file, 'r') as f:
+        settings = json.load(f)
+
+    hooks_section = settings.get("hooks", {}).get("PreToolUse", [])
+    if hooks_section:
+        hooks_list = hooks_section[0].get("hooks", [])
+
+        # Migrate old names to new names
+        migrated = False
+        for hook in hooks_list:
+            if hook.get("command") in HOOK_MIGRATIONS:
+                old_cmd = hook["command"]
+                hook["command"] = HOOK_MIGRATIONS[old_cmd]
+                print(f"    Migrated: {old_cmd} -> {hook['command']}")
+                migrated = True
+
+        # Write back if any migrations occurred
+        if migrated:
+            with open(settings_file, 'w') as f:
+                json.dump(settings, f, indent=2)
+            print("  Hook migration complete!")
+
+            # Delete old hook files after successful migration
+            print("  Cleaning up old hook files...")
+            import os
+            for old_hook_path in HOOK_MIGRATIONS.keys():
+                old_file = Path(old_hook_path)
+                if old_file.exists():
+                    try:
+                        old_file.unlink()
+                        print(f"    Removed: {old_hook_path}")
+                    except Exception as e:
+                        print(f"    Warning: Could not remove {old_hook_path}: {e}", file=sys.stderr)
+        else:
+            print("  No hook migrations needed")
+except Exception as e:
+    print(f"  Warning: Could not migrate hooks: {e}", file=sys.stderr)
+
+PYTHON_MIGRATION
+fi
+
 # Register hooks in settings.json
 SETTINGS_FILE="$PROJECT_ROOT/.claude/settings.json"
 if [[ -d "$HOOKS_SOURCE" ]] && ls "$HOOKS_SOURCE"/*.py 1>/dev/null 2>&1; then
@@ -143,15 +207,6 @@ with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 
 PYTHON_SCRIPT
-fi
-
-# Ensure .gitignore excludes .claude/
-GITIGNORE="$PROJECT_ROOT/.gitignore"
-if [[ -f "$GITIGNORE" ]] && ! grep -q "^\.claude/$" "$GITIGNORE"; then
-    echo "" >> "$GITIGNORE"
-    echo "# Claude Code personal configuration" >> "$GITIGNORE"
-    echo ".claude/" >> "$GITIGNORE"
-    echo "  Added .claude/ to .gitignore"
 fi
 
 echo "✓ Skills, Agents & Hooks deployment complete"
