@@ -36,6 +36,8 @@ if [[ -d "$SKILLS_SOURCE" ]]; then
             skill_name=$(basename "$skill_dir")
             echo "  Installing skill: $skill_name"
 
+            # Remove existing skill directory to prevent nested copying
+            rm -rf "$SKILLS_TARGET/$skill_name"
             # Copy skill directory
             cp -r "$skill_dir" "$SKILLS_TARGET/$skill_name"
 
