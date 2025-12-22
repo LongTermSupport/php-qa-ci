@@ -1,7 +1,5 @@
 set +e
 phpStanExitCode=99
-# PHPStan memory limit: use tool-specific override, or fall back to global, or default 4G
-phpStanMemoryLimit=${phpStanMemoryLimit:-${phpqaMemoryLimit:-4G}}
 phpStanLogDir="$varDir/phpstan_logs"
 phpStanLogFile="phpstan.log"
 mkdir -p "$phpStanLogDir"
@@ -13,7 +11,7 @@ fi
 
 while ((phpStanExitCode > 0)); do
   # Run PHPStan with tee to capture output to both file and stdout
-  phpNoXdebug -d memory_limit=${phpStanMemoryLimit} -f "$pharDir"/phpstan.phar -- \
+  phpNoXdebug -f "$pharDir"/phpstan.phar -- \
     analyse ${pathsToCheck[@]} \
     -c "$phpstanConfigPath" \
     ${phpstanNoProgress[@]:-} \

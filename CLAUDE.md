@@ -145,30 +145,21 @@ skipUncommittedChangesCheck=${skipUncommittedChangesCheck:-0}
 
 ### Memory Configuration
 
-The pipeline provides a global memory limit that applies to all QA tools:
+The pipeline provides a global memory limit that applies to all QA tools (default: 4G):
 
 ```bash
-# Global memory limit for all QA tools (default: 4G)
+# Global memory limit for all QA tools
 phpqaMemoryLimit=${phpqaMemoryLimit:-4G}
-
-# Tool-specific override for PHPStan (falls back to phpqaMemoryLimit)
-phpStanMemoryLimit=${phpStanMemoryLimit:-${phpqaMemoryLimit:-4G}}
 ```
-
-**Configuration Hierarchy** (highest priority first):
-1. **Tool-specific variable**: `phpStanMemoryLimit=6G` - only affects PHPStan
-2. **Global variable**: `phpqaMemoryLimit=8G` - affects all tools
-3. **Default**: `4G` - built into the library
 
 **How to Override**:
 
 ```bash
 # In qaConfig/qaConfig.inc.bash (project-level):
-export phpqaMemoryLimit=8G          # All tools get 8G
-export phpStanMemoryLimit=6G        # PHPStan gets 6G, others get global
+export phpqaMemoryLimit=8G
 
 # Or via environment variable:
-phpqaMemoryLimit=2G vendor/bin/qa   # Lower limit for resource-constrained environments
+phpqaMemoryLimit=2G vendor/bin/qa
 ```
 
 ## Platform Detection
