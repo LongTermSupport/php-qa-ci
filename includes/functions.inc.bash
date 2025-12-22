@@ -78,17 +78,20 @@ function configPath() {
 }
 
 ###############################################################
-# @TODO - this does not seem to be working
 # Function to run PHP without Xdebug enabled, much faster
+# Applies global memory limit (phpqaMemoryLimit) by default
 # Usage:
 # `phpNoXdebug path/to/php/file.php -- -arg1 -arg2`
+# Note: Tool-specific memory limits can override by passing -d memory_limit=X
+#       (last -d wins in PHP)
 function phpNoXdebug() {
   if [[ ! -f ${noXdebugConfigPath} ]]; then
     # Using awk to ensure that files ending without newlines do not lead to configuration error
     ${phpBinPath} -i | grep "\.ini" | grep -o -e '\(/[a-z0-9._-]\+\)\+\.ini' | grep -v xdebug | xargs awk 'FNR==1{print ""}1' >"$noXdebugConfigPath"
   fi
   set -x
-  ${phpBinPath} -n -c "$noXdebugConfigPath" "$@"
+  # Apply global memory limit (can be overridden with explicit -d memory_limit=X after this)
+  ${phpBinPath} -n -c "$noXdebugConfigPath" -d memory_limit=${phpqaMemoryLimit:-4G} "$@"
   local exitCode=$?
   set +x
   echo

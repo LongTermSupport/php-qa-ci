@@ -1,6 +1,7 @@
 set +e
 phpStanExitCode=99
-phpStanMemoryLimit=${phpStanMemoryLimit:-256M}
+# PHPStan memory limit: use tool-specific override, or fall back to global, or default 4G
+phpStanMemoryLimit=${phpStanMemoryLimit:-${phpqaMemoryLimit:-4G}}
 phpStanLogDir="$varDir/phpstan_logs"
 phpStanLogFile="phpstan.log"
 mkdir -p "$phpStanLogDir"

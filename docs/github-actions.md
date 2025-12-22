@@ -154,10 +154,12 @@ composer require --dev lts/php-qa-ci:dev-php8.4
 - Check repository Settings → Actions → Workflow permissions
 - Ensure "Read and write permissions" is selected
 
-**PHPStan out of memory**
+**PHPStan out of memory** (default is now 4G)
 ```yaml
 env:
-  phpStanMemoryLimit: 1G  # Increase memory limit
+  phpqaMemoryLimit: 8G     # Increase memory for ALL QA tools
+  # OR
+  phpStanMemoryLimit: 8G   # Increase memory for PHPStan only
 ```
 
 **Infection timeout**
