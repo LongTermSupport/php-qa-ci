@@ -216,6 +216,76 @@ If hooks fail with Python errors:
 2. Check for syntax errors: `python3 -m py_compile .claude/hooks/<hook>.py`
 3. Review hook output in Claude Code for error messages
 
+### hookEventName Mismatch Error
+
+**Error message**:
+```
+Stop hook error: Failed to run: Hook returned incorrect event name:
+expected 'Stop' but got 'PreToolUse'
+```
+
+**Cause**: Claude Code validates that `hookEventName` in the hook's JSON output matches the event that triggered the hook. If a hook is registered for multiple events but always returns the same `hookEventName`, this error occurs.
+
+**Solution**: Each hook event type MUST have its own dedicated entry point that returns the correct event name. See "Dedicated Entry Points Pattern" section below.
+
+## Dedicated Entry Points Pattern (CRITICAL)
+
+When a hook may be called from multiple event types (Stop, PreToolUse, PostToolUse), it MUST have dedicated entry points for each. DO NOT try to infer the event type from input - it's unreliable.
+
+### Pattern
+
+```python
+def process_hook_logic(event_name: str) -> None:
+    """Core logic - event_name passed explicitly, NOT inferred."""
+    # ... your logic here ...
+    output_and_exit(make_response(event_name, "allow", "Reason"))
+
+# DEDICATED ENTRY POINTS - one per event type
+def main_stop() -> None:
+    process_hook_logic("Stop")
+
+def main_pre_tool_use() -> None:
+    process_hook_logic("PreToolUse")
+
+def main() -> None:
+    """Default entry - uses CLAUDE_HOOK_EVENT env var or script name."""
+    event = os.environ.get("CLAUDE_HOOK_EVENT")
+    if event:
+        process_hook_logic(event)
+        return
+    # Fall back to primary purpose of hook
+    main_stop()
+```
+
+### Registering for Multiple Events
+
+Use `CLAUDE_HOOK_EVENT` environment variable in settings.json:
+
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "hooks": [{
+        "type": "command",
+        "command": "CLAUDE_HOOK_EVENT=Stop .claude/hooks/my-hook.py"
+      }]
+    }],
+    "PreToolUse": [{
+      "hooks": [{
+        "type": "command",
+        "command": "CLAUDE_HOOK_EVENT=PreToolUse .claude/hooks/my-hook.py"
+      }]
+    }]
+  }
+}
+```
+
+### Why This Pattern?
+
+1. **Reliable** - Event name explicit, not inferred
+2. **Testable** - Each entry point tested independently
+3. **DRY** - Shared logic in `process_hook_logic()`, only event name differs
+
 ## Related Documentation
 
 - **README.md** - Comprehensive hook documentation and usage guide
