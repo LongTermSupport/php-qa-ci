@@ -216,17 +216,41 @@ If hooks fail with Python errors:
 2. Check for syntax errors: `python3 -m py_compile .claude/hooks/<hook>.py`
 3. Review hook output in Claude Code for error messages
 
-### hookEventName Mismatch Error
+### Hook Response Schema Errors
 
-**Error message**:
+**CRITICAL**: Different hook event types require DIFFERENT response schemas!
+
+#### Stop Hook Schema
+
+```json
+{
+  "continue": true,
+  "stopReason": "Why stopping/continuing",
+  "decision": "approve" | "block"
+}
 ```
-Stop hook error: Failed to run: Hook returned incorrect event name:
-expected 'Stop' but got 'PreToolUse'
+
+- `continue: true` = block the stop, keep running
+- `continue: false` = approve the stop, let Claude stop
+- `decision: "block"` = block the stop
+- `decision: "approve"` = approve the stop
+
+#### PreToolUse/PostToolUse Schema
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow" | "deny",
+    "permissionDecisionReason": "Why"
+  }
+}
 ```
 
-**Cause**: Claude Code validates that `hookEventName` in the hook's JSON output matches the event that triggered the hook. If a hook is registered for multiple events but always returns the same `hookEventName`, this error occurs.
-
-**Solution**: Each hook event type MUST have its own dedicated entry point that returns the correct event name. See "Dedicated Entry Points Pattern" section below.
+**Common Error**: Using `hookSpecificOutput` for Stop events causes:
+```
+Stop hook error: JSON validation failed: Hook JSON output validation failed
+```
 
 ## Dedicated Entry Points Pattern (CRITICAL)
 
@@ -235,6 +259,25 @@ When a hook may be called from multiple event types (Stop, PreToolUse, PostToolU
 ### Pattern
 
 ```python
+def make_response(event_name: str, decision: str, reason: str) -> dict:
+    """Create response with correct schema for event type."""
+    if event_name == "Stop":
+        # Stop uses completely different schema!
+        return {
+            "continue": decision == "deny",  # deny stop = continue
+            "stopReason": reason,
+            "decision": "block" if decision == "deny" else "approve"
+        }
+    else:
+        # PreToolUse/PostToolUse use hookSpecificOutput
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": event_name,
+                "permissionDecision": decision,
+                "permissionDecisionReason": reason
+            }
+        }
+
 def process_hook_logic(event_name: str) -> None:
     """Core logic - event_name passed explicitly, NOT inferred."""
     # ... your logic here ...
@@ -248,13 +291,12 @@ def main_pre_tool_use() -> None:
     process_hook_logic("PreToolUse")
 
 def main() -> None:
-    """Default entry - uses CLAUDE_HOOK_EVENT env var or script name."""
+    """Default entry - uses CLAUDE_HOOK_EVENT env var."""
     event = os.environ.get("CLAUDE_HOOK_EVENT")
     if event:
         process_hook_logic(event)
         return
-    # Fall back to primary purpose of hook
-    main_stop()
+    main_stop()  # Default to this hook's primary purpose
 ```
 
 ### Registering for Multiple Events
@@ -282,9 +324,10 @@ Use `CLAUDE_HOOK_EVENT` environment variable in settings.json:
 
 ### Why This Pattern?
 
-1. **Reliable** - Event name explicit, not inferred
-2. **Testable** - Each entry point tested independently
-3. **DRY** - Shared logic in `process_hook_logic()`, only event name differs
+1. **Correct Schema** - Each event type gets proper response format
+2. **Reliable** - Event name explicit, not inferred
+3. **Testable** - Each entry point tested independently
+4. **DRY** - Shared logic with event-specific response formatting
 
 ## Related Documentation
 

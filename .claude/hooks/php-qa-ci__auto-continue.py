@@ -94,14 +94,34 @@ def should_auto_continue(transcript_path: str) -> tuple[bool, str]:
 
 
 def make_response(event_name: str, decision: str, reason: str) -> dict:
-    """Create a properly formatted hook response."""
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": event_name,
-            "permissionDecision": decision,
-            "permissionDecisionReason": reason
+    """
+    Create a properly formatted hook response for the given event type.
+
+    CRITICAL: Different event types have different response schemas!
+
+    Stop events use top-level fields:
+        {"continue": bool, "stopReason": str, "decision": "approve"|"block"}
+
+    PreToolUse/PostToolUse use hookSpecificOutput:
+        {"hookSpecificOutput": {"hookEventName": str, "permissionDecision": str, ...}}
+    """
+    if event_name == "Stop":
+        # Stop hooks use completely different schema - no hookSpecificOutput!
+        # decision: "allow" -> continue=True, "deny" -> continue=False (block stop)
+        return {
+            "continue": decision == "deny",  # deny = don't stop = continue
+            "stopReason": reason,
+            "decision": "block" if decision == "deny" else "approve"
         }
-    }
+    else:
+        # PreToolUse, PostToolUse use hookSpecificOutput
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": event_name,
+                "permissionDecision": decision,
+                "permissionDecisionReason": reason
+            }
+        }
 
 
 def output_and_exit(response: dict) -> None:
@@ -226,7 +246,7 @@ def self_test():
             hook_input: Dict to pass as JSON stdin
             entry_point: Function to call (main_stop, main_pre_tool_use, etc.)
             expect_allow: True if expecting "allow", False for "deny"
-            expect_event_name: Expected hookEventName in output
+            expect_event_name: Expected event type (Stop uses different schema!)
         """
         nonlocal passed, failed
         old_stdout = sys.stdout
@@ -252,39 +272,61 @@ def self_test():
             failed += 1
             return
 
-        # Validate structure
-        if "hookSpecificOutput" not in result:
-            print(f"❌ FAIL: {name}")
-            print(f"   Missing hookSpecificOutput in response")
-            failed += 1
-            return
+        # Stop events have different schema than PreToolUse/PostToolUse
+        if expect_event_name == "Stop":
+            # Stop schema: {"continue": bool, "stopReason": str, "decision": str}
+            if "continue" not in result:
+                print(f"❌ FAIL: {name}")
+                print(f"   Missing 'continue' field in Stop response")
+                failed += 1
+                return
 
-        hook_output = result["hookSpecificOutput"]
-        if "permissionDecision" not in hook_output:
-            print(f"❌ FAIL: {name}")
-            print(f"   Missing permissionDecision in response")
-            failed += 1
-            return
+            # For Stop: allow=approve (don't continue), deny=block (do continue)
+            # expect_allow=True means we want to allow stopping (continue=False)
+            # expect_allow=False means we want to block stopping (continue=True)
+            expected_continue = not expect_allow
+            if result["continue"] != expected_continue:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected continue={expected_continue}, got {result['continue']}")
+                failed += 1
+                return
 
-        decision = hook_output["permissionDecision"]
-        expected_decision = "allow" if expect_allow else "deny"
+            expected_decision = "approve" if expect_allow else "block"
+            if result.get("decision") != expected_decision:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected decision='{expected_decision}', got '{result.get('decision')}'")
+                failed += 1
+                return
+        else:
+            # PreToolUse/PostToolUse schema: {"hookSpecificOutput": {...}}
+            if "hookSpecificOutput" not in result:
+                print(f"❌ FAIL: {name}")
+                print(f"   Missing hookSpecificOutput in response")
+                failed += 1
+                return
 
-        # Check permission decision
-        if decision != expected_decision:
-            print(f"❌ FAIL: {name}")
-            print(f"   Expected decision {expected_decision}, got {decision}")
-            if not expect_allow:
-                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:80]}")
-            failed += 1
-            return
+            hook_output = result["hookSpecificOutput"]
+            if "permissionDecision" not in hook_output:
+                print(f"❌ FAIL: {name}")
+                print(f"   Missing permissionDecision in response")
+                failed += 1
+                return
 
-        # Check event name (ALWAYS required now - dedicated entry points)
-        actual_event_name = hook_output.get("hookEventName")
-        if actual_event_name != expect_event_name:
-            print(f"❌ FAIL: {name}")
-            print(f"   Expected hookEventName '{expect_event_name}', got '{actual_event_name}'")
-            failed += 1
-            return
+            decision = hook_output["permissionDecision"]
+            expected_decision = "allow" if expect_allow else "deny"
+
+            if decision != expected_decision:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected decision {expected_decision}, got {decision}")
+                failed += 1
+                return
+
+            actual_event_name = hook_output.get("hookEventName")
+            if actual_event_name != expect_event_name:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected hookEventName '{expect_event_name}', got '{actual_event_name}'")
+                failed += 1
+                return
 
         print(f"✓ PASS: {name}")
         passed += 1
