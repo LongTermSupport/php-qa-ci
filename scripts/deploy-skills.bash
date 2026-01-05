@@ -169,6 +169,11 @@ import sys
 settings_file = sys.argv[1]
 hooks_to_add = sys.argv[2:]
 
+# Hooks that should ONLY be registered in Stop event (not PreToolUse)
+STOP_ONLY_HOOKS = {
+    ".claude/hooks/php-qa-ci__auto-continue.py",
+}
+
 # Load existing settings
 try:
     with open(settings_file, 'r') as f:
@@ -181,31 +186,58 @@ if 'hooks' not in settings:
     settings['hooks'] = {}
 if 'PreToolUse' not in settings['hooks']:
     settings['hooks']['PreToolUse'] = [{'hooks': []}]
+if 'Stop' not in settings['hooks']:
+    settings['hooks']['Stop'] = [{'hooks': []}]
 
-# Get existing hooks list
+# Get existing PreToolUse hooks list
 pre_tool_use = settings['hooks']['PreToolUse']
 if not pre_tool_use:
     pre_tool_use = [{'hooks': []}]
     settings['hooks']['PreToolUse'] = pre_tool_use
+pre_hooks_list = pre_tool_use[0].get('hooks', [])
 
-hooks_list = pre_tool_use[0].get('hooks', [])
+# Get existing Stop hooks list
+stop_hooks = settings['hooks']['Stop']
+if not stop_hooks:
+    stop_hooks = [{'hooks': []}]
+    settings['hooks']['Stop'] = stop_hooks
+stop_hooks_list = stop_hooks[0].get('hooks', [])
 
-# Get existing hook commands
-existing_commands = {h.get('command') for h in hooks_list if isinstance(h, dict)}
+# Get existing hook commands (check both raw command and with env prefix)
+pre_existing_commands = {h.get('command') for h in pre_hooks_list if isinstance(h, dict)}
+stop_existing_commands = {h.get('command') for h in stop_hooks_list if isinstance(h, dict)}
 
-# Add new hooks if not already present
+# Remove any Stop-only hooks that were incorrectly added to PreToolUse
+pre_hooks_list = [h for h in pre_hooks_list if h.get('command') not in STOP_ONLY_HOOKS]
+
+# Add new hooks to appropriate sections
 for hook_path in hooks_to_add:
-    if hook_path not in existing_commands:
-        hooks_list.append({
-            'type': 'command',
-            'command': hook_path,
-            'timeout': 5
-        })
-        print(f"    Registered: {hook_path}")
+    if hook_path in STOP_ONLY_HOOKS:
+        # Stop-only hooks get CLAUDE_HOOK_EVENT=Stop prefix
+        stop_command = f"CLAUDE_HOOK_EVENT=Stop {hook_path}"
+        if stop_command not in stop_existing_commands and hook_path not in stop_existing_commands:
+            stop_hooks_list.append({
+                'type': 'command',
+                'command': stop_command,
+                'timeout': 5
+            })
+            print(f"    Registered (Stop): {stop_command}")
+        else:
+            print(f"    Already registered (Stop): {hook_path}")
     else:
-        print(f"    Already registered: {hook_path}")
+        # Regular hooks go to PreToolUse
+        if hook_path not in pre_existing_commands:
+            pre_hooks_list.append({
+                'type': 'command',
+                'command': hook_path,
+                'timeout': 5
+            })
+            print(f"    Registered (PreToolUse): {hook_path}")
+        else:
+            print(f"    Already registered (PreToolUse): {hook_path}")
 
-pre_tool_use[0]['hooks'] = hooks_list
+pre_tool_use[0]['hooks'] = pre_hooks_list
+stop_hooks[0]['hooks'] = stop_hooks_list
 
 # Write back
 with open(settings_file, 'w') as f:

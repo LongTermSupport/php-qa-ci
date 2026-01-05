@@ -202,6 +202,9 @@ def main() -> None:
     """
     Default entry point - determines event from script name or env var.
 
+    IMPORTANT: This hook is ONLY designed for Stop events (auto-continue).
+    For PreToolUse/PostToolUse, it silently no-ops to avoid confusing messages.
+
     Event detection order:
     1. CLAUDE_HOOK_EVENT environment variable (explicit)
     2. Script name suffix (e.g., script--stop.py -> Stop)
@@ -210,6 +213,11 @@ def main() -> None:
     # Check environment variable first
     event_from_env = os.environ.get("CLAUDE_HOOK_EVENT")
     if event_from_env:
+        # This hook only makes sense for Stop events
+        # For other events, silently allow without any message
+        if event_from_env != "Stop":
+            print("{}")
+            sys.exit(0)
         process_hook_logic(event_from_env)
         return
 
@@ -217,10 +225,10 @@ def main() -> None:
     script_name = os.path.basename(sys.argv[0]) if sys.argv else ""
     if "--stop" in script_name.lower():
         main_stop()
-    elif "--pretooluse" in script_name.lower():
-        main_pre_tool_use()
-    elif "--posttooluse" in script_name.lower():
-        main_post_tool_use()
+    elif "--pretooluse" in script_name.lower() or "--posttooluse" in script_name.lower():
+        # Silently no-op for PreToolUse/PostToolUse - this hook is Stop-only
+        print("{}")
+        sys.exit(0)
     else:
         # This hook's primary purpose is Stop event - use that as default
         main_stop()
