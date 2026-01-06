@@ -26,6 +26,7 @@ ALLOWED markdown locations:
   6. .claude/skills/*/*.md - Skills documentation (with warning for non-SKILL.md files)
   7. CLAUDE.md (any path)  - Ad-hoc LLM instructions for any directory
   8. README.md (any path)  - Ad-hoc human instructions for any directory
+  9. .github/wiki/         - GitHub wiki documentation (git-ignored, local storage)
 
 BLOCKED locations (except CLAUDE.md/README.md which are always allowed):
   ✗ .claude/hooks/         - Scripts only, no docs
@@ -199,6 +200,10 @@ def validate_markdown_location(file_path: str, project_root: Path) -> tuple:
     if normalized.lower().startswith('untracked/'):
         return True, "TEMP_DOCS", "Temporary documentation in untracked/ is allowed", None
 
+    # 6. .github/wiki/ - GitHub wiki documentation (git-ignored, local storage)
+    if normalized.lower().startswith('.github/wiki/'):
+        return True, "GITHUB_WIKI", "GitHub wiki documentation is allowed", None
+
     # Check blocked locations
 
     # .claude/hooks/ - NO documentation
@@ -245,6 +250,10 @@ def get_suggestion_detail(file_path: str, suggestion: str, project_root: Path) -
 
     lines.append("6. .claude/skills/*/ - Skills documentation")
     lines.append("   SKILL.md and related docs")
+
+    lines.append("7. .github/wiki/ - GitHub wiki documentation")
+    lines.append("   Git-ignored local wiki storage")
+    lines.append(f"   Suggested: .github/wiki/{Path(file_path).name}")
 
     return "\n".join(lines)
 
@@ -294,6 +303,7 @@ def block_and_exit(reason: str, file_path: str, suggestion: str, project_root: P
         "  ✓ CLAUDE/research/ - Structured research (NO work logs)",
         "  ✓ docs/ - Human-facing documentation",
         "  ✓ untracked/ - Temporary ad-hoc docs",
+        "  ✓ .github/wiki/ - GitHub wiki documentation",
         "",
         "BLOCKED LOCATIONS:",
         "  X .claude/hooks/ - Only scripts, no docs",
@@ -526,6 +536,13 @@ def self_test():
     run_test(
         "Temporary docs (allowed)",
         {"tool_name": "Write", "tool_input": {"file_path": "untracked/scratch.md", "content": "Scratch notes"}},
+        expect_allow=True
+    )
+
+    # Test 13b: ALLOWED - .github/wiki/
+    run_test(
+        "GitHub wiki docs (allowed)",
+        {"tool_name": "Write", "tool_input": {"file_path": ".github/wiki/Issue-Triage-Summary.md", "content": "Wiki content"}},
         expect_allow=True
     )
 
