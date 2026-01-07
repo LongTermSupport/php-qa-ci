@@ -26,6 +26,7 @@ just keep working on the task.
 import json
 import sys
 import re
+import os
 
 
 # Patterns that indicate Claude is asking to continue
@@ -92,60 +93,151 @@ def should_auto_continue(transcript_path: str) -> tuple[bool, str]:
     return False, "No continue prompt detected"
 
 
-def allow_and_exit():
-    """Allow the tool to execute with proper JSON format."""
-    result = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "allow",
-            "permissionDecisionReason": "Hook allows this operation"
+def make_response(event_name: str, decision: str, reason: str) -> dict:
+    """
+    Create a properly formatted hook response for the given event type.
+
+    CRITICAL: Different event types have different response schemas!
+
+    Stop events use top-level fields:
+        {"continue": bool, "stopReason": str, "decision": "approve"|"block"}
+
+    PreToolUse/PostToolUse use hookSpecificOutput:
+        {"hookSpecificOutput": {"hookEventName": str, "permissionDecision": str, ...}}
+    """
+    if event_name == "Stop":
+        # Stop hooks use completely different schema - no hookSpecificOutput!
+        # decision: "allow" -> continue=True, "deny" -> continue=False (block stop)
+        return {
+            "continue": decision == "deny",  # deny = don't stop = continue
+            "stopReason": reason,
+            "decision": "block" if decision == "deny" else "approve"
         }
-    }
-    print(json.dumps(result))
+    else:
+        # PreToolUse, PostToolUse use hookSpecificOutput
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": event_name,
+                "permissionDecision": decision,
+                "permissionDecisionReason": reason
+            }
+        }
+
+
+def output_and_exit(response: dict) -> None:
+    """Output JSON response and exit."""
+    print(json.dumps(response))
     sys.exit(0)
 
 
-def main():
+def process_hook_logic(event_name: str) -> None:
+    """
+    Core hook logic shared by all event entry points.
+
+    Args:
+        event_name: The event type (Stop, PreToolUse, etc.) - passed explicitly
+                   by the entry point, NOT inferred.
+    """
     # Read hook input from stdin
     try:
         hook_input = json.load(sys.stdin)
     except json.JSONDecodeError:
-        # If we can't parse input, allow stop (fail safe)
-        allow_and_exit()
+        # If we can't parse input, allow operation (fail safe)
+        output_and_exit(make_response(event_name, "allow", "Hook allows (invalid input)"))
+        return
 
     # Check if we're already in a continuation loop (prevent infinite loops)
     if hook_input.get("stop_hook_active", False):
-        allow_and_exit()
+        output_and_exit(make_response(event_name, "allow", "Hook allows (loop prevention)"))
+        return
 
     # Get transcript path
     transcript_path = hook_input.get("transcript_path")
     if not transcript_path:
-        allow_and_exit()
+        output_and_exit(make_response(event_name, "allow", "Hook allows (no transcript)"))
+        return
 
     # Check if we should auto-continue
     should_continue, reason = should_auto_continue(transcript_path)
 
     if should_continue:
         # Block the stop and instruct to continue
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": f"Auto-continuing: {reason}. Please continue with the task."
-            }
-        }
-        print(json.dumps(result))
-        sys.exit(0)
+        output_and_exit(make_response(
+            event_name,
+            "deny",
+            f"Auto-continuing: {reason}. Please continue with the task."
+        ))
+        return
 
-    # Allow stop
-    allow_and_exit()
+    # Allow operation
+    output_and_exit(make_response(event_name, "allow", "Hook allows this operation"))
+
+
+# =============================================================================
+# DEDICATED ENTRY POINTS FOR EACH HOOK EVENT
+#
+# Each event type MUST have its own entry point. This ensures the correct
+# hookEventName is always returned, matching the event that triggered the hook.
+#
+# DO NOT try to infer the event type from input - it's unreliable.
+# Instead, use symlinks or wrapper scripts to call the correct entry point.
+# =============================================================================
+
+def main_stop() -> None:
+    """Entry point for Stop event hooks."""
+    process_hook_logic("Stop")
+
+
+def main_pre_tool_use() -> None:
+    """Entry point for PreToolUse event hooks."""
+    process_hook_logic("PreToolUse")
+
+
+def main_post_tool_use() -> None:
+    """Entry point for PostToolUse event hooks."""
+    process_hook_logic("PostToolUse")
+
+
+def main() -> None:
+    """
+    Default entry point - determines event from script name or env var.
+
+    IMPORTANT: This hook is ONLY designed for Stop events (auto-continue).
+    For PreToolUse/PostToolUse, it silently no-ops to avoid confusing messages.
+
+    Event detection order:
+    1. CLAUDE_HOOK_EVENT environment variable (explicit)
+    2. Script name suffix (e.g., script--stop.py -> Stop)
+    3. Falls back to Stop (this hook's primary purpose)
+    """
+    # Check environment variable first
+    event_from_env = os.environ.get("CLAUDE_HOOK_EVENT")
+    if event_from_env:
+        # This hook only makes sense for Stop events
+        # For other events, silently allow without any message
+        if event_from_env != "Stop":
+            print("{}")
+            sys.exit(0)
+        process_hook_logic(event_from_env)
+        return
+
+    # Check script name for event suffix
+    script_name = os.path.basename(sys.argv[0]) if sys.argv else ""
+    if "--stop" in script_name.lower():
+        main_stop()
+    elif "--pretooluse" in script_name.lower() or "--posttooluse" in script_name.lower():
+        # Silently no-op for PreToolUse/PostToolUse - this hook is Stop-only
+        print("{}")
+        sys.exit(0)
+    else:
+        # This hook's primary purpose is Stop event - use that as default
+        main_stop()
 
 
 def self_test():
     """Run comprehensive self-tests."""
     import io
     import tempfile
-    import os
 
     print("Running self-tests for php-qa-ci__auto-continue...")
     print("=" * 60)
@@ -153,7 +245,17 @@ def self_test():
     passed = 0
     failed = 0
 
-    def run_test(name, hook_input, expect_allow):
+    def run_test(name, hook_input, entry_point, expect_allow, expect_event_name):
+        """
+        Test a specific entry point with given input.
+
+        Args:
+            name: Test name
+            hook_input: Dict to pass as JSON stdin
+            entry_point: Function to call (main_stop, main_pre_tool_use, etc.)
+            expect_allow: True if expecting "allow", False for "deny"
+            expect_event_name: Expected event type (Stop uses different schema!)
+        """
         nonlocal passed, failed
         old_stdout = sys.stdout
         old_stdin = sys.stdin
@@ -161,7 +263,7 @@ def self_test():
         sys.stdin = io.StringIO(json.dumps(hook_input))
 
         try:
-            main()
+            entry_point()
         except SystemExit:
             pass
 
@@ -178,218 +280,251 @@ def self_test():
             failed += 1
             return
 
-        # Validate structure
-        if "hookSpecificOutput" not in result:
-            print(f"❌ FAIL: {name}")
-            print(f"   Missing hookSpecificOutput in response")
-            failed += 1
-            return
+        # Stop events have different schema than PreToolUse/PostToolUse
+        if expect_event_name == "Stop":
+            # Stop schema: {"continue": bool, "stopReason": str, "decision": str}
+            if "continue" not in result:
+                print(f"❌ FAIL: {name}")
+                print(f"   Missing 'continue' field in Stop response")
+                failed += 1
+                return
 
-        hook_output = result["hookSpecificOutput"]
-        if "permissionDecision" not in hook_output:
-            print(f"❌ FAIL: {name}")
-            print(f"   Missing permissionDecision in response")
-            failed += 1
-            return
+            # For Stop: allow=approve (don't continue), deny=block (do continue)
+            # expect_allow=True means we want to allow stopping (continue=False)
+            # expect_allow=False means we want to block stopping (continue=True)
+            expected_continue = not expect_allow
+            if result["continue"] != expected_continue:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected continue={expected_continue}, got {result['continue']}")
+                failed += 1
+                return
 
-        decision = hook_output["permissionDecision"]
-        expected_decision = "allow" if expect_allow else "deny"
-
-        if decision == expected_decision:
-            print(f"✓ PASS: {name}")
-            passed += 1
+            expected_decision = "approve" if expect_allow else "block"
+            if result.get("decision") != expected_decision:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected decision='{expected_decision}', got '{result.get('decision')}'")
+                failed += 1
+                return
         else:
-            print(f"❌ FAIL: {name}")
-            print(f"   Expected {expected_decision}, got {decision}")
-            if not expect_allow:
-                print(f"   Reason: {hook_output.get('permissionDecisionReason', 'N/A')[:80]}")
-            failed += 1
+            # PreToolUse/PostToolUse schema: {"hookSpecificOutput": {...}}
+            if "hookSpecificOutput" not in result:
+                print(f"❌ FAIL: {name}")
+                print(f"   Missing hookSpecificOutput in response")
+                failed += 1
+                return
 
-    # Test 1: Invalid JSON input (should allow - fail open)
-    # This test requires special handling since None won't work
-    old_stdin = sys.stdin
-    sys.stdin = io.StringIO("not json")
-    old_stdout = sys.stdout
-    sys.stdout = io.StringIO()
-    try:
-        main()
-    except SystemExit:
-        pass
-    output = sys.stdout.getvalue()
-    sys.stdout = old_stdout
-    sys.stdin = old_stdin
+            hook_output = result["hookSpecificOutput"]
+            if "permissionDecision" not in hook_output:
+                print(f"❌ FAIL: {name}")
+                print(f"   Missing permissionDecision in response")
+                failed += 1
+                return
 
-    try:
-        result = json.loads(output)
-        if result["hookSpecificOutput"]["permissionDecision"] == "allow":
-            print(f"✓ PASS: Invalid JSON input (fail open)")
-            passed += 1
-        else:
-            print(f"❌ FAIL: Invalid JSON input (fail open)")
-            failed += 1
-    except:
-        print(f"❌ FAIL: Invalid JSON input (fail open)")
-        failed += 1
+            decision = hook_output["permissionDecision"]
+            expected_decision = "allow" if expect_allow else "deny"
 
-    # Test 2: Empty input (should allow)
+            if decision != expected_decision:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected decision {expected_decision}, got {decision}")
+                failed += 1
+                return
+
+            actual_event_name = hook_output.get("hookEventName")
+            if actual_event_name != expect_event_name:
+                print(f"❌ FAIL: {name}")
+                print(f"   Expected hookEventName '{expect_event_name}', got '{actual_event_name}'")
+                failed += 1
+                return
+
+        print(f"✓ PASS: {name}")
+        passed += 1
+
+    # =========================================================================
+    # DEDICATED ENTRY POINT TESTS
+    # Each entry point must return the correct hookEventName
+    # =========================================================================
+
+    # Test 1: main_stop() returns Stop event name
     run_test(
-        "Empty input",
+        "main_stop() returns hookEventName='Stop'",
         {},
-        expect_allow=True
+        main_stop,
+        expect_allow=True,
+        expect_event_name="Stop"
     )
 
-    # Test 3: Missing transcript_path (should allow)
+    # Test 2: main_pre_tool_use() returns PreToolUse event name
     run_test(
-        "Missing transcript_path",
+        "main_pre_tool_use() returns hookEventName='PreToolUse'",
+        {},
+        main_pre_tool_use,
+        expect_allow=True,
+        expect_event_name="PreToolUse"
+    )
+
+    # Test 3: main_post_tool_use() returns PostToolUse event name
+    run_test(
+        "main_post_tool_use() returns hookEventName='PostToolUse'",
+        {},
+        main_post_tool_use,
+        expect_allow=True,
+        expect_event_name="PostToolUse"
+    )
+
+    # =========================================================================
+    # STOP EVENT LOGIC TESTS (using main_stop entry point)
+    # =========================================================================
+
+    # Test 4: Empty input (should allow)
+    run_test(
+        "Stop: Empty input allows",
+        {},
+        main_stop,
+        expect_allow=True,
+        expect_event_name="Stop"
+    )
+
+    # Test 5: Missing transcript_path (should allow)
+    run_test(
+        "Stop: Missing transcript_path allows",
         {"stop_hook_active": False},
-        expect_allow=True
+        main_stop,
+        expect_allow=True,
+        expect_event_name="Stop"
     )
 
-    # Test 4: stop_hook_active is True (prevent infinite loop)
+    # Test 6: stop_hook_active is True (prevent infinite loop)
     run_test(
-        "stop_hook_active=True (prevent loop)",
+        "Stop: stop_hook_active=True prevents loop",
         {"stop_hook_active": True, "transcript_path": "/tmp/transcript.json"},
-        expect_allow=True
+        main_stop,
+        expect_allow=True,
+        expect_event_name="Stop"
     )
 
-    # Test 5: No assistant message in transcript
-    # Create temporary transcript file
+    # Test 7: No assistant message in transcript
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        transcript = {
-            "messages": [
-                {"role": "user", "content": "Hello"}
-            ]
-        }
-        json.dump(transcript, f)
+        json.dump({"messages": [{"role": "user", "content": "Hello"}]}, f)
         transcript_path = f.name
-
     try:
         run_test(
-            "No assistant message in transcript",
+            "Stop: No assistant message allows",
             {"transcript_path": transcript_path, "stop_hook_active": False},
-            expect_allow=True
+            main_stop,
+            expect_allow=True,
+            expect_event_name="Stop"
         )
     finally:
         os.unlink(transcript_path)
 
-    # Test 6: Assistant message without continue prompt
+    # Test 8: Assistant message without continue prompt
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        transcript = {
-            "messages": [
-                {"role": "user", "content": "What's the weather?"},
-                {"role": "assistant", "content": "I don't know the weather."}
-            ]
-        }
-        json.dump(transcript, f)
+        json.dump({"messages": [
+            {"role": "user", "content": "What's the weather?"},
+            {"role": "assistant", "content": "I don't know the weather."}
+        ]}, f)
         transcript_path = f.name
-
     try:
         run_test(
-            "No continue prompt detected",
+            "Stop: No continue prompt allows",
             {"transcript_path": transcript_path, "stop_hook_active": False},
-            expect_allow=True
+            main_stop,
+            expect_allow=True,
+            expect_event_name="Stop"
         )
     finally:
         os.unlink(transcript_path)
 
-    # Test 7: "Would you like to continue" - should DENY (auto-continue)
+    # Test 9: "Would you like to continue" - should DENY (auto-continue)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        transcript = {
-            "messages": [
-                {"role": "user", "content": "Please do the task"},
-                {"role": "assistant", "content": "I've completed part 1. Would you like to continue?"}
-            ]
-        }
-        json.dump(transcript, f)
+        json.dump({"messages": [
+            {"role": "user", "content": "Please do the task"},
+            {"role": "assistant", "content": "I've completed part 1. Would you like to continue?"}
+        ]}, f)
         transcript_path = f.name
-
     try:
         run_test(
-            "Detect 'would you like to continue'",
+            "Stop: 'would you like to continue' denies",
             {"transcript_path": transcript_path, "stop_hook_active": False},
-            expect_allow=False  # Should DENY to auto-continue
+            main_stop,
+            expect_allow=False,
+            expect_event_name="Stop"
         )
     finally:
         os.unlink(transcript_path)
 
-    # Test 8: "Shall I proceed" - should DENY
+    # Test 10: "Shall I proceed" - should DENY
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        transcript = {
-            "messages": [
-                {"role": "assistant", "content": "Setup complete. Shall I proceed with the implementation?"}
-            ]
-        }
-        json.dump(transcript, f)
+        json.dump({"messages": [
+            {"role": "assistant", "content": "Setup complete. Shall I proceed with the implementation?"}
+        ]}, f)
         transcript_path = f.name
-
     try:
         run_test(
-            "Detect 'shall I proceed'",
+            "Stop: 'shall I proceed' denies",
             {"transcript_path": transcript_path, "stop_hook_active": False},
-            expect_allow=False
+            main_stop,
+            expect_allow=False,
+            expect_event_name="Stop"
         )
     finally:
         os.unlink(transcript_path)
 
-    # Test 9: "Ready to continue" - should DENY
+    # Test 11: Structured content with continue prompt
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        transcript = {
-            "messages": [
-                {"role": "assistant", "content": "All tests passing. Ready to continue with deployment?"}
+        json.dump({"messages": [{
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "First part complete."},
+                {"type": "text", "text": "Should I continue with next step?"}
             ]
-        }
-        json.dump(transcript, f)
+        }]}, f)
         transcript_path = f.name
-
     try:
         run_test(
-            "Detect 'ready to continue'",
+            "Stop: Structured content continue prompt denies",
             {"transcript_path": transcript_path, "stop_hook_active": False},
-            expect_allow=False
+            main_stop,
+            expect_allow=False,
+            expect_event_name="Stop"
         )
     finally:
         os.unlink(transcript_path)
 
-    # Test 10: Structured content (list of dicts with text blocks)
+    # Test 12: Case insensitive matching
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        transcript = {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": [
-                        {"type": "text", "text": "First part complete."},
-                        {"type": "text", "text": "Should I continue with next step?"}
-                    ]
-                }
-            ]
-        }
-        json.dump(transcript, f)
+        json.dump({"messages": [
+            {"role": "assistant", "content": "Done! WOULD YOU LIKE ME TO CONTINUE?"}
+        ]}, f)
         transcript_path = f.name
-
     try:
         run_test(
-            "Detect continue prompt in structured content",
+            "Stop: Case insensitive pattern denies",
             {"transcript_path": transcript_path, "stop_hook_active": False},
-            expect_allow=False
+            main_stop,
+            expect_allow=False,
+            expect_event_name="Stop"
         )
     finally:
         os.unlink(transcript_path)
 
-    # Test 11: Case insensitive matching
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        transcript = {
-            "messages": [
-                {"role": "assistant", "content": "Done! WOULD YOU LIKE ME TO CONTINUE?"}
-            ]
-        }
-        json.dump(transcript, f)
-        transcript_path = f.name
+    # =========================================================================
+    # PRETOOLUSE ENTRY POINT TESTS (verifies same logic, different event name)
+    # =========================================================================
 
+    # Test 13: PreToolUse with continue prompt still returns PreToolUse event
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump({"messages": [
+            {"role": "assistant", "content": "Would you like me to continue?"}
+        ]}, f)
+        transcript_path = f.name
     try:
         run_test(
-            "Case insensitive pattern matching",
+            "PreToolUse: Continue prompt returns PreToolUse event",
             {"transcript_path": transcript_path, "stop_hook_active": False},
-            expect_allow=False
+            main_pre_tool_use,
+            expect_allow=False,
+            expect_event_name="PreToolUse"
         )
     finally:
         os.unlink(transcript_path)

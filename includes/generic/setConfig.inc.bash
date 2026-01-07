@@ -1,3 +1,8 @@
+# Global PHP memory limit for all QA tools
+# Override with: export phpqaMemoryLimit=8G
+# Default is 4G which should handle most projects
+phpqaMemoryLimit=${phpqaMemoryLimit:-4G}
+
 # Skip long running tests if globally set to 1
 phpqaQuickTests=${phpqaQuickTests:-0}
 

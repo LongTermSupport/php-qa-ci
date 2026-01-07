@@ -183,7 +183,7 @@ jobs:
           # Add more if your project needs them
           extensions: mbstring, intl, json, zip, dom, curl, libxml, xmlwriter, xmlreader, xml, simplexml, iconv, pdo, pdo_sqlite, calendar
           ini-values: |
-            memory_limit=512M
+            memory_limit=4G
             xdebug.mode=coverage
       
       - name: Get composer cache directory

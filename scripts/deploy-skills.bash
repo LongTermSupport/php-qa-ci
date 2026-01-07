@@ -36,6 +36,8 @@ if [[ -d "$SKILLS_SOURCE" ]]; then
             skill_name=$(basename "$skill_dir")
             echo "  Installing skill: $skill_name"
 
+            # Remove existing skill directory to prevent nested copying
+            rm -rf "$SKILLS_TARGET/$skill_name"
             # Copy skill directory
             cp -r "$skill_dir" "$SKILLS_TARGET/$skill_name"
 
@@ -97,38 +99,43 @@ try:
     with open(settings_file, 'r') as f:
         settings = json.load(f)
 
-    hooks_section = settings.get("hooks", {}).get("PreToolUse", [])
-    if hooks_section:
-        hooks_list = hooks_section[0].get("hooks", [])
+    # Migrate old names to new names across ALL hook sections
+    migrated = False
+    hooks_config = settings.get("hooks", {})
 
-        # Migrate old names to new names
-        migrated = False
+    # Check all hook types: PreToolUse, PostToolUse, Stop
+    for hook_type in ["PreToolUse", "PostToolUse", "Stop"]:
+        hooks_section = hooks_config.get(hook_type, [])
+        if not hooks_section:
+            continue
+
+        hooks_list = hooks_section[0].get("hooks", [])
         for hook in hooks_list:
             if hook.get("command") in HOOK_MIGRATIONS:
                 old_cmd = hook["command"]
                 hook["command"] = HOOK_MIGRATIONS[old_cmd]
-                print(f"    Migrated: {old_cmd} -> {hook['command']}")
+                print(f"    Migrated ({hook_type}): {old_cmd} -> {hook['command']}")
                 migrated = True
 
-        # Write back if any migrations occurred
-        if migrated:
-            with open(settings_file, 'w') as f:
-                json.dump(settings, f, indent=2)
-            print("  Hook migration complete!")
+    # Write back if any migrations occurred
+    if migrated:
+        with open(settings_file, 'w') as f:
+            json.dump(settings, f, indent=2)
+        print("  Hook migration complete!")
 
-            # Delete old hook files after successful migration
-            print("  Cleaning up old hook files...")
-            import os
-            for old_hook_path in HOOK_MIGRATIONS.keys():
-                old_file = Path(old_hook_path)
-                if old_file.exists():
-                    try:
-                        old_file.unlink()
-                        print(f"    Removed: {old_hook_path}")
-                    except Exception as e:
-                        print(f"    Warning: Could not remove {old_hook_path}: {e}", file=sys.stderr)
-        else:
-            print("  No hook migrations needed")
+        # Delete old hook files after successful migration
+        print("  Cleaning up old hook files...")
+        import os
+        for old_hook_path in HOOK_MIGRATIONS.keys():
+            old_file = Path(old_hook_path)
+            if old_file.exists():
+                try:
+                    old_file.unlink()
+                    print(f"    Removed: {old_hook_path}")
+                except Exception as e:
+                    print(f"    Warning: Could not remove {old_hook_path}: {e}", file=sys.stderr)
+    else:
+        print("  No hook migrations needed")
 except Exception as e:
     print(f"  Warning: Could not migrate hooks: {e}", file=sys.stderr)
 
@@ -162,6 +169,11 @@ import sys
 settings_file = sys.argv[1]
 hooks_to_add = sys.argv[2:]
 
+# Hooks that should ONLY be registered in Stop event (not PreToolUse)
+STOP_ONLY_HOOKS = {
+    ".claude/hooks/php-qa-ci__auto-continue.py",
+}
+
 # Load existing settings
 try:
     with open(settings_file, 'r') as f:
@@ -174,31 +186,58 @@ if 'hooks' not in settings:
     settings['hooks'] = {}
 if 'PreToolUse' not in settings['hooks']:
     settings['hooks']['PreToolUse'] = [{'hooks': []}]
+if 'Stop' not in settings['hooks']:
+    settings['hooks']['Stop'] = [{'hooks': []}]
 
-# Get existing hooks list
+# Get existing PreToolUse hooks list
 pre_tool_use = settings['hooks']['PreToolUse']
 if not pre_tool_use:
     pre_tool_use = [{'hooks': []}]
     settings['hooks']['PreToolUse'] = pre_tool_use
+pre_hooks_list = pre_tool_use[0].get('hooks', [])
 
-hooks_list = pre_tool_use[0].get('hooks', [])
+# Get existing Stop hooks list
+stop_hooks = settings['hooks']['Stop']
+if not stop_hooks:
+    stop_hooks = [{'hooks': []}]
+    settings['hooks']['Stop'] = stop_hooks
+stop_hooks_list = stop_hooks[0].get('hooks', [])
 
-# Get existing hook commands
-existing_commands = {h.get('command') for h in hooks_list if isinstance(h, dict)}
+# Get existing hook commands (check both raw command and with env prefix)
+pre_existing_commands = {h.get('command') for h in pre_hooks_list if isinstance(h, dict)}
+stop_existing_commands = {h.get('command') for h in stop_hooks_list if isinstance(h, dict)}
 
-# Add new hooks if not already present
+# Remove any Stop-only hooks that were incorrectly added to PreToolUse
+pre_hooks_list = [h for h in pre_hooks_list if h.get('command') not in STOP_ONLY_HOOKS]
+
+# Add new hooks to appropriate sections
 for hook_path in hooks_to_add:
-    if hook_path not in existing_commands:
-        hooks_list.append({
-            'type': 'command',
-            'command': hook_path,
-            'timeout': 5
-        })
-        print(f"    Registered: {hook_path}")
+    if hook_path in STOP_ONLY_HOOKS:
+        # Stop-only hooks get CLAUDE_HOOK_EVENT=Stop prefix
+        stop_command = f"CLAUDE_HOOK_EVENT=Stop {hook_path}"
+        if stop_command not in stop_existing_commands and hook_path not in stop_existing_commands:
+            stop_hooks_list.append({
+                'type': 'command',
+                'command': stop_command,
+                'timeout': 5
+            })
+            print(f"    Registered (Stop): {stop_command}")
+        else:
+            print(f"    Already registered (Stop): {hook_path}")
     else:
-        print(f"    Already registered: {hook_path}")
+        # Regular hooks go to PreToolUse
+        if hook_path not in pre_existing_commands:
+            pre_hooks_list.append({
+                'type': 'command',
+                'command': hook_path,
+                'timeout': 5
+            })
+            print(f"    Registered (PreToolUse): {hook_path}")
+        else:
+            print(f"    Already registered (PreToolUse): {hook_path}")
 
-pre_tool_use[0]['hooks'] = hooks_list
+pre_tool_use[0]['hooks'] = pre_hooks_list
+stop_hooks[0]['hooks'] = stop_hooks_list
 
 # Write back
 with open(settings_file, 'w') as f:
