@@ -87,16 +87,16 @@ def find_current_plan(project_root: Path):
     if not plan_dir.exists():
         return None, None, None
 
-    # Find all plan folders matching pattern: NNN-kebab-case
+    # Find all plan folders matching pattern: NNNNNN-kebab-case (6 digits)
     plan_folders = sorted([
         d for d in plan_dir.iterdir()
-        if d.is_dir() and re.match(r'^\d{3}-', d.name)
+        if d.is_dir() and re.match(r'^\d{6}-', d.name)
     ], reverse=True)
 
     if plan_folders:
         latest = plan_folders[0]
-        # Extract plan number
-        match = re.match(r'^(\d{3})-', latest.name)
+        # Extract plan number (6 digits)
+        match = re.match(r'^(\d{6})-', latest.name)
         if match:
             plan_num = match.group(1)
             return plan_num, latest.name, latest
@@ -182,8 +182,9 @@ def validate_markdown_location(file_path: str, project_root: Path) -> tuple:
 
     # Check allowed locations
 
-    # 1. CLAUDE/Plan/NNN-*/ or CLAUDE/plan/NNN-*/ - Plan-specific documentation
-    if re.match(r'^CLAUDE/(P|p)lan/\d{3}-[^/]+/[^/]+\.md$', normalized, re.IGNORECASE):
+    # 1. CLAUDE/Plan/NNNNNN-*/ or CLAUDE/plan/NNNNNN-*/ - Plan-specific documentation (6 digits)
+    #    Allows any subdirectory structure within plan folders (e.g., research/, data/, diagrams/)
+    if re.match(r'^CLAUDE/(P|p)lan/\d{6}-[^/]+/.+\.md$', normalized, re.IGNORECASE):
         return True, "PLAN_DOCS", "Plan-specific documentation is allowed", None
 
     # 2. CLAUDE/ root level only (no subdirs)
@@ -505,17 +506,17 @@ def self_test():
         expect_allow=True
     )
 
-    # Test 9: ALLOWED - CLAUDE/Plan/NNN-name/*.md
+    # Test 9: ALLOWED - CLAUDE/Plan/NNNNNN-name/*.md (6 digits)
     run_test(
         "Plan-specific docs (allowed)",
-        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/Plan/001-feature/notes.md", "content": "Plan notes"}},
+        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/Plan/000001-feature/notes.md", "content": "Plan notes"}},
         expect_allow=True
     )
 
     # Test 10: ALLOWED - CLAUDE/plan/ (lowercase)
     run_test(
         "Plan docs lowercase (allowed)",
-        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/plan/002-bugfix/research.md", "content": "Research"}},
+        {"tool_name": "Write", "tool_input": {"file_path": "CLAUDE/plan/000002-bugfix/research.md", "content": "Research"}},
         expect_allow=True
     )
 
@@ -586,7 +587,7 @@ def self_test():
     run_test(
         "Edit operation in allowed location",
         {"tool_name": "Edit", "tool_input": {
-            "file_path": "CLAUDE/Plan/001-feature/plan.md",
+            "file_path": "CLAUDE/Plan/000001-feature/plan.md",
             "old_string": "old",
             "new_string": "new"
         }},
