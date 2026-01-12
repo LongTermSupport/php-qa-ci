@@ -87,16 +87,16 @@ def find_current_plan(project_root: Path):
     if not plan_dir.exists():
         return None, None, None
 
-    # Find all plan folders matching pattern: NNNNNN-kebab-case (6 digits)
+    # Find all plan folders matching pattern: N+-kebab-case (one or more digits)
     plan_folders = sorted([
         d for d in plan_dir.iterdir()
-        if d.is_dir() and re.match(r'^\d{6}-', d.name)
+        if d.is_dir() and re.match(r'^\d+-', d.name)
     ], reverse=True)
 
     if plan_folders:
         latest = plan_folders[0]
-        # Extract plan number (6 digits)
-        match = re.match(r'^(\d{6})-', latest.name)
+        # Extract plan number (one or more digits)
+        match = re.match(r'^(\d+)-', latest.name)
         if match:
             plan_num = match.group(1)
             return plan_num, latest.name, latest
@@ -182,9 +182,9 @@ def validate_markdown_location(file_path: str, project_root: Path) -> tuple:
 
     # Check allowed locations
 
-    # 1. CLAUDE/Plan/NNNNNN-*/ or CLAUDE/plan/NNNNNN-*/ - Plan-specific documentation (6 digits)
+    # 1. CLAUDE/Plan/N+-*/ or CLAUDE/plan/N+-*/ - Plan-specific documentation (one or more digits)
     #    Allows any subdirectory structure within plan folders (e.g., research/, data/, diagrams/)
-    if re.match(r'^CLAUDE/(P|p)lan/\d{6}-[^/]+/.+\.md$', normalized, re.IGNORECASE):
+    if re.match(r'^CLAUDE/(P|p)lan/\d+-[^/]+/.+\.md$', normalized, re.IGNORECASE):
         return True, "PLAN_DOCS", "Plan-specific documentation is allowed", None
 
     # 2. CLAUDE/ root level only (no subdirs)
