@@ -98,9 +98,8 @@ export XDEBUG_MODE=off
 cd "$PROJECT_ROOT"
 if [[ "$MODE" == "update" ]]; then
     echo -e "${GREEN}Updating PHAR dependencies...${NC}"
-    echo -e "${BLUE}[DEBUG] Running: phive update${NC}" >&2
-    # Note: phive update does not accept --trust-gpg-keys parameter
-    phive update
+    echo -e "${BLUE}[DEBUG] Running: phive update $TRUST_KEYS_ARG${NC}" >&2
+    eval "phive update $TRUST_KEYS_ARG"
     echo -e "${GREEN}PHAR dependencies updated successfully${NC}"
 else
     echo -e "${GREEN}Installing PHAR dependencies from phive.xml...${NC}"
