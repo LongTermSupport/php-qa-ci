@@ -17,6 +17,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 PHIVE_XML="$PROJECT_ROOT/phive.xml"
 VENDOR_PHAR_DIR="$PROJECT_ROOT/vendor-phar"
+PHIVE_HOME="$PROJECT_ROOT/.phive-home"
 
 # Default mode is install
 MODE="install"
@@ -74,8 +75,9 @@ if [[ "$MODE" == "install" ]] && [[ $FORCE_INSTALL -eq 0 ]]; then
     fi
 fi
 
-# Create vendor-phar directory if it doesn't exist
+# Create vendor-phar and phive-home directories if they don't exist
 mkdir -p "$VENDOR_PHAR_DIR"
+mkdir -p "$PHIVE_HOME"
 
 # PHAR GPG keys configuration
 # Add trusted keys here as we add more tools
@@ -98,12 +100,16 @@ export XDEBUG_MODE=off
 cd "$PROJECT_ROOT"
 if [[ "$MODE" == "update" ]]; then
     echo -e "${GREEN}Updating PHAR dependencies...${NC}"
-    echo -e "${BLUE}[DEBUG] Running: phive update $TRUST_KEYS_ARG${NC}" >&2
-    eval "phive update $TRUST_KEYS_ARG"
+    echo -e "${BLUE}[DEBUG] Running: phive --home $PHIVE_HOME update${NC}" >&2
+    # phive update doesn't support --trust-gpg-keys, but with project-local home
+    # the keys are already trusted from initial install
+    phive --home "$PHIVE_HOME" update
     echo -e "${GREEN}PHAR dependencies updated successfully${NC}"
 else
     echo -e "${GREEN}Installing PHAR dependencies from phive.xml...${NC}"
-    echo -e "${BLUE}[DEBUG] Running: phive install $TRUST_KEYS_ARG${NC}" >&2
-    eval "phive install $TRUST_KEYS_ARG"
+    echo -e "${BLUE}[DEBUG] Running: phive --home $PHIVE_HOME install --copy $TRUST_KEYS_ARG${NC}" >&2
+    # Use --copy to copy PHARs instead of symlinking (works better cross-platform)
+    # Use --home to isolate GPG keys and cache to this library
+    eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
     echo -e "${GREEN}PHAR dependencies installed successfully${NC}"
 fi

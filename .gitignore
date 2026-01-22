@@ -10,4 +10,5 @@
 !/bin/phpunit-check-annotation
 /cache/
 /vendor-phar/
+/.phive-home/
 /phive.xml
