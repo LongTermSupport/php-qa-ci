@@ -213,7 +213,8 @@ def validate_markdown_location(file_path: str, project_root: Path) -> tuple:
         plan_num, plan_name, _ = find_current_plan(project_root)
         suggestion = ""
         if plan_num:
-            suggestion = f"CLAUDE/Plan/{plan_num}-{plan_name}/"
+            # plan_name already includes the number prefix (e.g., "0017-feature-name")
+            suggestion = f"CLAUDE/Plan/{plan_name}/"
         else:
             suggestion = "untracked/"
         return False, "HOOKS_DIR", "No documentation allowed in .claude/hooks/", suggestion
@@ -233,8 +234,9 @@ def get_suggestion_detail(file_path: str, suggestion: str, project_root: Path) -
     lines = []
 
     if 'Plan' in suggestion or plan_num:
-        lines.append(f"1. CLAUDE/Plan/{plan_num}-{plan_name}/ - Docs for current plan")
-        lines.append(f"   Suggested: CLAUDE/Plan/{plan_num}-{plan_name}/{Path(file_path).name}")
+        # plan_name already includes the number prefix (e.g., "0017-feature-name")
+        lines.append(f"1. CLAUDE/Plan/{plan_name}/ - Docs for current plan")
+        lines.append(f"   Suggested: CLAUDE/Plan/{plan_name}/{Path(file_path).name}")
 
     lines.append("2. CLAUDE/ (root only) - Generic LLM docs")
     lines.append("   Only for truly project-wide, persistent documentation")
