@@ -184,45 +184,81 @@ final class LinksChecker
             return;
         }
         $checked[$href] = true;
-        $context        = stream_context_create(
-            [
-                'http' => [
-                    'method'           => 'GET',
-                    'protocol_version' => 1.1,
-                    'header'           => [
-                        'Connection: close',
-                    ],
-                    'user_agent'       => 'Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36',
-                ],
-            ]
-        );
-        $result         = null;
-        try {
-            $headers = \Safe\get_headers($href, false, $context);
-            foreach ($headers as $header) {
-                if (false !== strpos($header, ' 200 ')) {
-                    // $time = round(microtime(true) - $start, 2);
-                    // fwrite(STDERR, "\n".'OK ('.$time.' seconds): '.$href);
 
-                    return;
-                }
-            }
-        } catch (Throwable $e) {
-            throw new RuntimeException(
-                'Unexpected error ' . $e->getMessage(),
-                \is_int($e->getCode()) ? $e->getCode() : 0,
-                $e
-            );
+        $result = self::fetchLinkStatus($href);
+        if (null === $result) {
+            return;
         }
 
         $errors[] = sprintf(
             "\nBad link for \"%s\" to \"%s\"\nresult: %s\n",
             $anchor,
             $href,
-            var_export($result, true)
+            $result
         );
         $return   = 1;
-        // $time     = round(microtime(true) - $start, 2);
-        // fwrite(STDERR, "\n".'Failed ('.$time.' seconds): '.$href);
+    }
+
+    private static function fetchLinkStatus(string $href): ?string
+    {
+        $userAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+                     . ' (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+        $httpOpts  = [
+            'method'           => 'HEAD',
+            'protocol_version' => 1.1,
+            'follow_location'  => true,
+            'max_redirects'    => 5,
+            'timeout'          => 15,
+            'header'           => [
+                'Connection: close',
+                'Accept: text/html,application/xhtml+xml,*/*',
+                'Accept-Language: en-US,en;q=0.9',
+            ],
+            'user_agent'       => $userAgent,
+        ];
+
+        foreach (['HEAD', 'GET'] as $method) {
+            $httpOpts['method'] = $method;
+            $context            = stream_context_create([
+                'http'  => $httpOpts,
+                'https' => $httpOpts,
+                'ssl'   => [
+                    'verify_peer'      => false,
+                    'verify_peer_name' => false,
+                ],
+            ]);
+            try {
+                $headers = @get_headers($href, false, $context);
+                if (false === $headers) {
+                    continue;
+                }
+                $lastStatus = self::getLastStatusCode($headers);
+                if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
+                    return null;
+                }
+                if ('HEAD' === $method && null !== $lastStatus && $lastStatus >= 400) {
+                    continue;
+                }
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return 'HTTP status: ' . ($lastStatus ?? 'connection failed');
+    }
+
+    /**
+     * @param array<string> $headers
+     */
+    private static function getLastStatusCode(array $headers): ?int
+    {
+        $lastStatus = null;
+        foreach ($headers as $header) {
+            if (1 === \Safe\preg_match('/^HTTP\/[\d.]+ (\d{3})/', $header, $matches)) {
+                $lastStatus = (int)$matches[1];
+            }
+        }
+
+        return $lastStatus;
     }
 }
