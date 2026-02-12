@@ -16,12 +16,18 @@ AGENTS_SOURCE="$QACI_PATH/.claude/agents"
 AGENTS_TARGET="$PROJECT_ROOT/.claude/agents"
 HOOKS_SOURCE="$QACI_PATH/.claude/hooks"
 HOOKS_TARGET="$PROJECT_ROOT/.claude/hooks"
+# Check if hooks-daemon is present
+# Support monorepo: check both project root and parent directory
+DAEMON_DETECTED=false
 DAEMON_CONFIG="$PROJECT_ROOT/.claude/hooks-daemon.yaml"
 
-# Check if hooks-daemon is present
-DAEMON_DETECTED=false
 if [[ -f "$DAEMON_CONFIG" ]]; then
     DAEMON_DETECTED=true
+    echo "  📋 Detected hooks-daemon at: $DAEMON_CONFIG"
+elif [[ -f "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml" ]]; then
+    DAEMON_DETECTED=true
+    DAEMON_CONFIG="$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml"
+    echo "  📋 Detected hooks-daemon at parent: $DAEMON_CONFIG (monorepo)"
 fi
 
 echo "Deploying Skills from: $SKILLS_SOURCE"
@@ -264,7 +270,7 @@ fi
 # ============================================================================
 # Ensure projects using php-qa-ci have required daemon handlers configured
 
-DAEMON_CONFIG="$PROJECT_ROOT/.claude/hooks-daemon.yaml"
+# Note: DAEMON_CONFIG already set earlier with monorepo detection
 
 if [[ -f "$DAEMON_CONFIG" ]]; then
     echo ""
