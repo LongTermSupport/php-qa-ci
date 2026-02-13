@@ -268,7 +268,7 @@ fi
 # ============================================================================
 # Phase 3: Git Hooks Deployment
 # ============================================================================
-# Deploy git hooks (if not already present)
+# Deploy git hooks (if not already present, or update if it's our hook)
 GIT_HOOKS_SOURCE="$QACI_PATH/git-hooks"
 GIT_HOOKS_TARGET="$PROJECT_ROOT/.git/hooks"
 
@@ -282,9 +282,17 @@ if [[ -d "$GIT_HOOKS_SOURCE" ]] && [[ -d "$GIT_HOOKS_TARGET" ]]; then
 
     if [[ -f "$PRE_COMMIT_SOURCE" ]]; then
         if [[ -f "$PRE_COMMIT_TARGET" ]]; then
-            echo "  ⚠️  Git pre-commit hook already exists - skipping deployment"
-            echo "      Existing: $PRE_COMMIT_TARGET"
-            echo "      To use php-qa-ci hook, backup existing and re-run deployment"
+            # Check if existing hook is our hook (by signature)
+            if grep -q "PHP-QA-CI-HOOK-SIGNATURE: pre-commit-check-vendor-uncommitted" "$PRE_COMMIT_TARGET" 2>/dev/null; then
+                echo "  Updating git pre-commit hook (php-qa-ci managed)..."
+                cp "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET"
+                chmod +x "$PRE_COMMIT_TARGET"
+                echo "  ✓ Git pre-commit hook updated: $PRE_COMMIT_TARGET"
+            else
+                echo "  ⚠️  Git pre-commit hook already exists (custom) - skipping deployment"
+                echo "      Existing: $PRE_COMMIT_TARGET"
+                echo "      To use php-qa-ci hook, backup existing and re-run deployment"
+            fi
         else
             echo "  Installing git pre-commit hook..."
             cp "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET"

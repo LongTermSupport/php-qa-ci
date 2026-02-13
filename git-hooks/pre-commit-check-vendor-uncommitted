@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# PHP-QA-CI-HOOK-SIGNATURE: pre-commit-check-vendor-uncommitted
+# DO NOT EDIT: This hook is managed by php-qa-ci and will be automatically updated
 #
 # Git Pre-Commit Hook: Check Vendor Libraries for Uncommitted Changes
 #
