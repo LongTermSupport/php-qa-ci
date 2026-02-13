@@ -413,28 +413,31 @@ PYTHON_DAEMON_CONFIG
     echo ""
     echo "🧹 Removing classic hooks (daemon provides functionality)..."
 
-    # Remove hook files
-    HOOKS_REMOVED=()
+    # Remove hook files (if they exist)
+    FILES_REMOVED=0
     for hook_file in "$HOOKS_TARGET"/php-qa-ci__*.py; do
         if [[ -f "$hook_file" ]]; then
             hook_name=$(basename "$hook_file")
             rm -f "$hook_file"
-            HOOKS_REMOVED+=("$hook_name")
-            echo "  ✓ Removed: $hook_name"
+            echo "  ✓ Removed file: $hook_name"
+            ((FILES_REMOVED++))
         fi
     done
 
-    # Update settings.json to remove hook registrations
-    if [[ -f "$SETTINGS_FILE" ]] && [[ ${#HOOKS_REMOVED[@]} -gt 0 ]]; then
-        echo ""
-        echo "  Updating settings.json to remove hook registrations..."
+    if [[ $FILES_REMOVED -eq 0 ]]; then
+        echo "  ℹ️  No php-qa-ci hook files found to remove (already clean)"
+    fi
 
-        python3 - "$SETTINGS_FILE" "${HOOKS_REMOVED[@]}" << 'PYTHON_CLEANUP'
+    # ALWAYS clean up settings.json - registrations may exist even if files are gone
+    if [[ -f "$SETTINGS_FILE" ]]; then
+        echo ""
+        echo "  Checking settings.json for php-qa-ci hook registrations..."
+
+        python3 - "$SETTINGS_FILE" << 'PYTHON_CLEANUP'
 import json
 import sys
 
 settings_file = sys.argv[1]
-hooks_removed = sys.argv[2:]
 
 try:
     with open(settings_file, 'r') as f:
@@ -443,9 +446,11 @@ try:
     # Get hooks config
     hooks_config = settings.get('hooks', {})
     changes_made = False
+    total_removed = 0
 
-    # Check all hook sections
-    for hook_type in ['PreToolUse', 'PostToolUse', 'Stop']:
+    # Check all hook sections for any php-qa-ci__ hooks
+    for hook_type in ['PreToolUse', 'PostToolUse', 'Stop', 'SessionStart', 'SessionEnd',
+                      'SubagentStop', 'UserPromptSubmit', 'Notification', 'PermissionRequest', 'PreCompact']:
         hooks_section = hooks_config.get(hook_type, [])
         if not hooks_section:
             continue
@@ -453,16 +458,18 @@ try:
         hooks_list = hooks_section[0].get('hooks', [])
         original_count = len(hooks_list)
 
-        # Remove hooks that match removed files
+        # Remove ANY hook with php-qa-ci__ in the command
+        # These are classic hooks that should be removed when daemon is active
         hooks_list[:] = [
             h for h in hooks_list
-            if not any(removed in h.get('command', '') for removed in hooks_removed)
+            if 'php-qa-ci__' not in h.get('command', '')
         ]
 
         new_count = len(hooks_list)
         if new_count < original_count:
             removed_count = original_count - new_count
-            print(f"    Removed {removed_count} hook(s) from {hook_type}")
+            total_removed += removed_count
+            print(f"    ✓ Removed {removed_count} php-qa-ci hook(s) from {hook_type}")
             changes_made = True
 
         hooks_section[0]['hooks'] = hooks_list
@@ -471,14 +478,19 @@ try:
     if changes_made:
         with open(settings_file, 'w') as f:
             json.dump(settings, f, indent=2)
-        print("  ✓ settings.json updated")
+        print(f"  ✅ settings.json cleaned up ({total_removed} registration(s) removed)")
     else:
-        print("  ✓ No hook registrations to remove")
+        print("  ✅ settings.json already clean (no php-qa-ci hook registrations found)")
 
 except Exception as e:
-    print(f"  ⚠️  Warning: Could not update settings.json: {e}", file=sys.stderr)
+    print(f"  ⚠️  ERROR: Could not update settings.json: {e}", file=sys.stderr)
+    print(f"  ⚠️  ACTION REQUIRED: Manually remove php-qa-ci__ hooks from {settings_file}", file=sys.stderr)
+    sys.exit(1)
 
 PYTHON_CLEANUP
+    else
+        echo "  ⚠️  WARNING: settings.json not found at $SETTINGS_FILE"
+        echo "  If you have php-qa-ci hook registrations, they should be removed manually"
     fi
 
     echo ""
