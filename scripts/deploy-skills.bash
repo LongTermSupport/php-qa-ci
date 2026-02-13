@@ -246,6 +246,31 @@ with open(settings_file, 'w') as f:
 PYTHON_SCRIPT
 fi
 
+# Deploy git hooks (if not already present)
+GIT_HOOKS_SOURCE="$QACI_PATH/git-hooks"
+GIT_HOOKS_TARGET="$PROJECT_ROOT/.git/hooks"
+
+if [[ -d "$GIT_HOOKS_SOURCE" ]] && [[ -d "$GIT_HOOKS_TARGET" ]]; then
+    echo "  Checking git hooks..."
+
+    # Deploy pre-commit hook for checking vendor uncommitted changes
+    PRE_COMMIT_SOURCE="$GIT_HOOKS_SOURCE/pre-commit-check-vendor-uncommitted"
+    PRE_COMMIT_TARGET="$GIT_HOOKS_TARGET/pre-commit"
+
+    if [[ -f "$PRE_COMMIT_SOURCE" ]]; then
+        if [[ -f "$PRE_COMMIT_TARGET" ]]; then
+            echo "  ⚠️  Git pre-commit hook already exists - skipping deployment"
+            echo "      Existing: $PRE_COMMIT_TARGET"
+            echo "      To use php-qa-ci hook, backup existing and re-run deployment"
+        else
+            echo "  Installing git pre-commit hook..."
+            cp "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET"
+            chmod +x "$PRE_COMMIT_TARGET"
+            echo "  ✓ Git pre-commit hook installed: $PRE_COMMIT_TARGET"
+        fi
+    fi
+fi
+
 echo "✓ Skills, Agents & Hooks deployment complete"
 echo ""
 echo "Installed skills:"
