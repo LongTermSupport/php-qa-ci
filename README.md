@@ -80,6 +80,56 @@ The script configures:
 
 **Prerequisites**: Requires [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated.
 
+## Claude Code Integration
+
+PHP-QA-CI now integrates seamlessly with [Claude Code Hooks Daemon](https://github.com/anthropics/claude-code-hooks-daemon) to provide enhanced development guardrails and automation when using Claude Code.
+
+### What is hooks-daemon?
+
+hooks-daemon is a high-performance daemon for Claude Code hooks that provides 20x faster execution than classic hooks after warmup. It enables intelligent workflow enforcement, destructive command prevention, and automated quality checks.
+
+### Integration Features
+
+When you deploy php-qa-ci skills and hooks to your project, the deployment script automatically:
+
+- **Detects hooks-daemon** - Checks if `.claude/hooks-daemon.yaml` exists
+- **Configures required handlers** - Ensures the daemon has the necessary handlers enabled with correct settings
+- **Migrates from classic hooks** - Removes legacy `.claude/hooks/*.py` files and settings.json registrations
+- **Provides clear instructions** - If daemon not detected, displays installation guide
+
+### Benefits
+
+✅ **No double execution overhead** - Single handler execution instead of running both classic hooks and daemon handlers
+✅ **Superior performance** - 20x faster after warmup via Unix socket IPC
+✅ **Better implementations** - Daemon handlers include enhancements and bug fixes
+✅ **Single source of truth** - Daemon provides all hook functionality
+✅ **Automatic configuration** - php-qa-ci enforces required daemon settings
+
+### Required Daemon Handlers
+
+When hooks-daemon is detected, php-qa-ci configures these handlers:
+
+- `git_stash` (mode: deny) - Strict blocking of git stash operations
+- `plan_time_estimates` - Prevents time estimates in plan documents
+- `validate_instruction_content` - Ensures docs contain instructions, not logs
+- `markdown_organization` - Enforces documentation organization
+
+### Installation
+
+**Deploy skills and hooks** (will configure daemon if present):
+```bash
+vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
+```
+
+**Install hooks-daemon** (if not already installed):
+```bash
+git clone -b v2.2.0 https://github.com/anthropics/claude-code-hooks-daemon.git .claude/hooks-daemon
+cd .claude/hooks-daemon
+./scripts/install/install.bash
+```
+
+**Documentation**: See `.claude/hooks/README.md` for detailed hook documentation and [hooks-daemon repository](https://github.com/anthropics/claude-code-hooks-daemon) for daemon documentation.
+
 ## Docs
 
 Comprehensive documentation is available in the [./docs](./docs) folder:

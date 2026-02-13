@@ -16,13 +16,32 @@ AGENTS_SOURCE="$QACI_PATH/.claude/agents"
 AGENTS_TARGET="$PROJECT_ROOT/.claude/agents"
 HOOKS_SOURCE="$QACI_PATH/.claude/hooks"
 HOOKS_TARGET="$PROJECT_ROOT/.claude/hooks"
+# Check if hooks-daemon is present
+# Support monorepo: check both project root and parent directory
+DAEMON_DETECTED=false
+DAEMON_CONFIG="$PROJECT_ROOT/.claude/hooks-daemon.yaml"
+
+if [[ -f "$DAEMON_CONFIG" ]]; then
+    DAEMON_DETECTED=true
+    echo "  📋 Detected hooks-daemon at: $DAEMON_CONFIG"
+elif [[ -f "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml" ]]; then
+    DAEMON_DETECTED=true
+    DAEMON_CONFIG="$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml"
+    echo "  📋 Detected hooks-daemon at parent: $DAEMON_CONFIG (monorepo)"
+fi
 
 echo "Deploying Skills from: $SKILLS_SOURCE"
 echo "                   to: $SKILLS_TARGET"
 echo "Deploying Agents from: $AGENTS_SOURCE"
 echo "                   to: $AGENTS_TARGET"
-echo "Deploying Hooks from:  $HOOKS_SOURCE"
-echo "                   to: $HOOKS_TARGET"
+
+if [[ "$DAEMON_DETECTED" == "true" ]]; then
+    echo ""
+    echo "📋 hooks-daemon detected - will configure daemon instead of deploying classic hooks"
+else
+    echo "Deploying Hooks from:  $HOOKS_SOURCE"
+    echo "                   to: $HOOKS_TARGET"
+fi
 
 # Create .claude directories
 mkdir -p "$SKILLS_TARGET"
@@ -61,8 +80,8 @@ if [[ -d "$AGENTS_SOURCE" ]]; then
     done
 fi
 
-# Copy each hook (Python scripts)
-if [[ -d "$HOOKS_SOURCE" ]]; then
+# Copy each hook (Python scripts) - ONLY if daemon not detected
+if [[ "$DAEMON_DETECTED" == "false" ]] && [[ -d "$HOOKS_SOURCE" ]]; then
     for hook_file in "$HOOKS_SOURCE"/*.py; do
         if [[ -f "$hook_file" ]]; then
             hook_name=$(basename "$hook_file")
@@ -246,11 +265,15 @@ with open(settings_file, 'w') as f:
 PYTHON_SCRIPT
 fi
 
+# ============================================================================
+# Phase 3: Git Hooks Deployment
+# ============================================================================
 # Deploy git hooks (if not already present)
 GIT_HOOKS_SOURCE="$QACI_PATH/git-hooks"
 GIT_HOOKS_TARGET="$PROJECT_ROOT/.git/hooks"
 
 if [[ -d "$GIT_HOOKS_SOURCE" ]] && [[ -d "$GIT_HOOKS_TARGET" ]]; then
+    echo ""
     echo "  Checking git hooks..."
 
     # Deploy pre-commit hook for checking vendor uncommitted changes
@@ -269,6 +292,203 @@ if [[ -d "$GIT_HOOKS_SOURCE" ]] && [[ -d "$GIT_HOOKS_TARGET" ]]; then
             echo "  ✓ Git pre-commit hook installed: $PRE_COMMIT_TARGET"
         fi
     fi
+fi
+
+# ============================================================================
+# Phase 4: hooks-daemon Config Enforcement
+# ============================================================================
+# Ensure projects using php-qa-ci have required daemon handlers configured
+
+# Note: DAEMON_CONFIG already set earlier with monorepo detection
+
+if [[ -f "$DAEMON_CONFIG" ]]; then
+    echo ""
+    echo "📋 hooks-daemon detected - enforcing required handler configuration..."
+
+    # Use Python with PyYAML to validate and update config
+    python3 - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
+import sys
+from pathlib import Path
+
+# Try to import yaml - gracefully handle if not available
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+
+config_file = Path(sys.argv[1])
+
+if not HAS_YAML:
+    print("  ⚠️  Warning: PyYAML not installed - cannot validate daemon config", file=sys.stderr)
+    print("  Install with: pip install pyyaml", file=sys.stderr)
+    print("  Continuing deployment without config validation...", file=sys.stderr)
+    sys.exit(0)
+
+# Required handlers for php-qa-ci projects
+REQUIRED_HANDLERS = {
+    "git_stash": {
+        "enabled": True,
+        "mode": "deny"  # Strict for php-qa-ci projects
+    },
+    "plan_time_estimates": {
+        "enabled": True
+    },
+    "validate_instruction_content": {
+        "enabled": True
+    },
+    "markdown_organization": {
+        "enabled": True
+    }
+}
+
+try:
+    # Load existing config
+    with open(config_file, 'r') as f:
+        config = yaml.safe_load(f) or {}
+
+    # Ensure structure exists
+    if 'handlers' not in config:
+        config['handlers'] = {}
+    if 'pre_tool_use' not in config['handlers']:
+        config['handlers']['pre_tool_use'] = {}
+
+    pre_tool_use = config['handlers']['pre_tool_use']
+    changes_made = []
+
+    # Enforce each required handler
+    for handler_name, required_config in REQUIRED_HANDLERS.items():
+        if handler_name not in pre_tool_use:
+            # Handler not configured at all - add it
+            pre_tool_use[handler_name] = required_config
+            changes_made.append(f"  ✓ Added handler: {handler_name}")
+        else:
+            # Handler exists - verify configuration
+            existing = pre_tool_use[handler_name]
+            if not isinstance(existing, dict):
+                # Handler is not a dict (maybe just enabled: true) - fix it
+                pre_tool_use[handler_name] = required_config
+                changes_made.append(f"  ✓ Updated handler: {handler_name}")
+            else:
+                # Check each required key
+                for key, value in required_config.items():
+                    if key not in existing:
+                        existing[key] = value
+                        changes_made.append(f"  ✓ Added {handler_name}.{key}: {value}")
+                    elif existing[key] != value:
+                        old_value = existing[key]
+                        existing[key] = value
+                        changes_made.append(f"  ✓ Updated {handler_name}.{key}: {old_value} → {value}")
+
+    if changes_made:
+        # Write back updated config
+        with open(config_file, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        print("  Configuration updated:")
+        for change in changes_made:
+            print(change)
+    else:
+        print("  ✓ All required handlers already configured correctly")
+
+except Exception as e:
+    print(f"  ⚠️  Warning: Could not validate daemon config: {e}", file=sys.stderr)
+    print("  Continuing deployment...", file=sys.stderr)
+
+PYTHON_DAEMON_CONFIG
+
+    echo "  ✓ hooks-daemon configuration enforced"
+
+    # ========================================================================
+    # Remove classic hooks - daemon provides all functionality now
+    # ========================================================================
+    echo ""
+    echo "🧹 Removing classic hooks (daemon provides functionality)..."
+
+    # Remove hook files
+    HOOKS_REMOVED=()
+    for hook_file in "$HOOKS_TARGET"/php-qa-ci__*.py; do
+        if [[ -f "$hook_file" ]]; then
+            hook_name=$(basename "$hook_file")
+            rm -f "$hook_file"
+            HOOKS_REMOVED+=("$hook_name")
+            echo "  ✓ Removed: $hook_name"
+        fi
+    done
+
+    # Update settings.json to remove hook registrations
+    if [[ -f "$SETTINGS_FILE" ]] && [[ ${#HOOKS_REMOVED[@]} -gt 0 ]]; then
+        echo ""
+        echo "  Updating settings.json to remove hook registrations..."
+
+        python3 - "$SETTINGS_FILE" "${HOOKS_REMOVED[@]}" << 'PYTHON_CLEANUP'
+import json
+import sys
+
+settings_file = sys.argv[1]
+hooks_removed = sys.argv[2:]
+
+try:
+    with open(settings_file, 'r') as f:
+        settings = json.load(f)
+
+    # Get hooks config
+    hooks_config = settings.get('hooks', {})
+    changes_made = False
+
+    # Check all hook sections
+    for hook_type in ['PreToolUse', 'PostToolUse', 'Stop']:
+        hooks_section = hooks_config.get(hook_type, [])
+        if not hooks_section:
+            continue
+
+        hooks_list = hooks_section[0].get('hooks', [])
+        original_count = len(hooks_list)
+
+        # Remove hooks that match removed files
+        hooks_list[:] = [
+            h for h in hooks_list
+            if not any(removed in h.get('command', '') for removed in hooks_removed)
+        ]
+
+        new_count = len(hooks_list)
+        if new_count < original_count:
+            removed_count = original_count - new_count
+            print(f"    Removed {removed_count} hook(s) from {hook_type}")
+            changes_made = True
+
+        hooks_section[0]['hooks'] = hooks_list
+
+    # Write back if changes made
+    if changes_made:
+        with open(settings_file, 'w') as f:
+            json.dump(settings, f, indent=2)
+        print("  ✓ settings.json updated")
+    else:
+        print("  ✓ No hook registrations to remove")
+
+except Exception as e:
+    print(f"  ⚠️  Warning: Could not update settings.json: {e}", file=sys.stderr)
+
+PYTHON_CLEANUP
+    fi
+
+    echo ""
+    echo "✅ Classic hooks removed - hooks-daemon now provides all functionality"
+else
+    echo ""
+    echo "ℹ️  hooks-daemon not detected"
+    echo ""
+    echo "  php-qa-ci hooks require hooks-daemon to function."
+    echo "  Classic .claude/hooks/*.py files have been deployed but won't run without daemon."
+    echo ""
+    echo "  To install hooks-daemon:"
+    echo "    git clone -b v2.2.0 https://github.com/anthropics/claude-code-hooks-daemon.git .claude/hooks-daemon"
+    echo "    cd .claude/hooks-daemon"
+    echo "    ./scripts/install/install.bash"
+    echo ""
+    echo "  Or see: https://github.com/anthropics/claude-code-hooks-daemon"
+    echo ""
 fi
 
 echo "✓ Skills, Agents & Hooks deployment complete"
