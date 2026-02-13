@@ -50,6 +50,26 @@ fi
 
 # Array to store vendor repos with uncommitted changes
 DIRTY_REPOS=()
+# Array to store vendor repos where composer.lock is out of sync
+COMPOSER_OUT_OF_SYNC=()
+
+# Parse composer.lock ONCE to build package -> commit map (fast!)
+declare -A COMPOSER_COMMITS
+if [[ -f "$PROJECT_ROOT/composer.lock" ]]; then
+    while IFS='|' read -r package_name commit_ref; do
+        COMPOSER_COMMITS["$package_name"]="$commit_ref"
+    done < <(php -r '
+        $json = json_decode(file_get_contents($argv[1]), true);
+        foreach (["packages", "packages-dev"] as $section) {
+            if (!isset($json[$section])) continue;
+            foreach ($json[$section] as $pkg) {
+                if (isset($pkg["source"]["reference"]) && $pkg["source"]["type"] === "git") {
+                    echo $pkg["name"] . "|" . $pkg["source"]["reference"] . "\n";
+                }
+            }
+        }
+    ' "$PROJECT_ROOT/composer.lock" 2>/dev/null)
+fi
 
 # Find all vendor/*/* directories that contain .git directories
 while IFS= read -r -d '' git_dir; do
@@ -59,50 +79,86 @@ while IFS= read -r -d '' git_dir; do
     # Get path relative to project root for display
     relative_path="${repo_dir#$PROJECT_ROOT/}"
 
-    # Check for uncommitted changes using git status --porcelain
-    # This detects:
-    # - Staged changes
-    # - Unstaged changes (modifications)
-    # - Untracked files
+    # Extract package name from path (vendor/org/package -> org/package)
+    package_name="${relative_path#vendor/}"
+
     cd "$repo_dir"
+
+    # Check 1: Uncommitted changes
     if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
         # Get readable status for error message
         status_output="$(git status --short 2>/dev/null)"
-
         # Store repo path and status
         DIRTY_REPOS+=("${relative_path}|||${status_output}")
+        # Skip composer.lock check - pointless if dirty
+        continue
+    fi
+
+    # Check 2: composer.lock tracking current HEAD (only if repo is clean)
+    current_commit="$(git rev-parse HEAD 2>/dev/null)"
+    if [[ -n "$current_commit" ]]; then
+        locked_commit="${COMPOSER_COMMITS[$package_name]}"
+
+        # Check if composer.lock commit matches current HEAD
+        if [[ -n "$locked_commit" ]] && [[ "$locked_commit" != "$current_commit" ]]; then
+            COMPOSER_OUT_OF_SYNC+=("${relative_path}|||${locked_commit}|||${current_commit}")
+        fi
     fi
 done < <(find "$VENDOR_DIR" -mindepth 3 -maxdepth 3 -type d -name ".git" -print0 2>/dev/null)
 
 # Return to project root
 cd "$PROJECT_ROOT"
 
-# If no dirty repos found, allow commit
-if [[ ${#DIRTY_REPOS[@]} -eq 0 ]]; then
+# If no issues found, allow commit
+if [[ ${#DIRTY_REPOS[@]} -eq 0 ]] && [[ ${#COMPOSER_OUT_OF_SYNC[@]} -eq 0 ]]; then
     exit 0
 fi
 
 # Block commit - display error message
 echo -e "${RED}┌─────────────────────────────────────────────────────────────────────────────┐${NC}"
 echo -e "${RED}│                                                                             │${NC}"
-echo -e "${RED}│  ⚠️  COMMIT BLOCKED: Vendor Libraries Have Uncommitted Changes              │${NC}"
+echo -e "${RED}│  ⚠️  COMMIT BLOCKED: Vendor Library Issues Detected                         │${NC}"
 echo -e "${RED}│                                                                             │${NC}"
 echo -e "${RED}└─────────────────────────────────────────────────────────────────────────────┘${NC}"
 echo ""
-echo -e "${YELLOW}The following vendor libraries (first-party dependencies) have uncommitted changes:${NC}"
-echo ""
 
-# Display each dirty repo with its status
-for entry in "${DIRTY_REPOS[@]}"; do
-    # Split on ||| delimiter
-    repo_path="${entry%%|||*}"
-    status="${entry#*|||}"
-
-    echo -e "${YELLOW}  • ${repo_path}${NC}"
-    # Indent status lines
-    echo "$status" | sed 's/^/    /'
+# Display uncommitted changes
+if [[ ${#DIRTY_REPOS[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}ISSUE 1: Uncommitted changes in vendor libraries${NC}"
     echo ""
-done
+    for entry in "${DIRTY_REPOS[@]}"; do
+        # Split on ||| delimiter
+        repo_path="${entry%%|||*}"
+        status="${entry#*|||}"
+
+        echo -e "${YELLOW}  • ${repo_path}${NC}"
+        # Indent status lines
+        echo "$status" | sed 's/^/    /'
+        echo ""
+    done
+fi
+
+# Display composer.lock sync issues
+if [[ ${#COMPOSER_OUT_OF_SYNC[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}ISSUE 2: composer.lock not tracking current vendor commits${NC}"
+    echo ""
+    for entry in "${COMPOSER_OUT_OF_SYNC[@]}"; do
+        # Split on ||| delimiter - save IFS first
+        OLD_IFS="$IFS"
+        IFS='|||'
+        read -r repo_path locked_commit current_commit <<< "$entry"
+        IFS="$OLD_IFS"
+
+        echo -e "${YELLOW}  • ${repo_path}${NC}"
+        if [[ -z "$locked_commit" ]]; then
+            echo "    composer.lock: (not found - package may not be installed via source)"
+        else
+            echo "    composer.lock: ${locked_commit:0:8}"
+        fi
+        echo "    current HEAD:  ${current_commit:0:8}"
+        echo ""
+    done
+fi
 
 echo -e "${RED}═══════════════════════════════════════════════════════════════════════════════${NC}"
 echo -e "${RED}WHY THIS IS BLOCKED:${NC}"
@@ -120,19 +176,26 @@ echo "  • Production failed: 'Unknown named parameter \$duplicateSkus'"
 echo ""
 echo -e "${GREEN}HOW TO FIX:${NC}"
 echo ""
-echo -e "${GREEN}1. Commit changes in vendor libraries FIRST:${NC}"
-echo "   cd vendor/org/package"
-echo "   git add ."
-echo "   git commit -m \"feat: Add missing feature\""
-echo "   git push"
-echo ""
-echo -e "${GREEN}2. Update composer to track the new commit:${NC}"
-echo "   cd ${PROJECT_ROOT}"
-echo "   composer update vendor/org/package"
-echo ""
-echo -e "${GREEN}3. THEN commit your main project:${NC}"
-echo "   git add ."
-echo "   git commit -m \"feat: Use new vendor feature\""
+
+if [[ ${#DIRTY_REPOS[@]} -gt 0 ]]; then
+    echo -e "${GREEN}For uncommitted changes:${NC}"
+    echo "   1. cd vendor/org/package"
+    echo "   2. git add ."
+    echo "   3. git commit -m \"feat: Add feature\""
+    echo "   4. git push"
+    echo "   5. cd ${PROJECT_ROOT}"
+    echo "   6. composer update vendor/org/package"
+    echo ""
+fi
+
+if [[ ${#COMPOSER_OUT_OF_SYNC[@]} -gt 0 ]]; then
+    echo -e "${GREEN}For composer.lock out of sync:${NC}"
+    echo "   composer update vendor/org/package"
+    echo ""
+fi
+
+echo -e "${GREEN}After fixing vendor issues, retry your commit:${NC}"
+echo "   git commit"
 echo ""
 echo -e "${YELLOW}WORKFLOW:${NC}"
 echo "  Vendor changes → Vendor commit → Composer update → Main commit"
