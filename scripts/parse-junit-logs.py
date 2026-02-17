@@ -557,15 +557,13 @@ def main():
         if stdout_data['warning_count'] > 0:
             print_warnings_breakdown(stdout_data)
 
-        # Exit with error code if there were failures or errors
-        # Risky tests and warnings are informational, not failures
-        if failures or errors:
+        # Exit with error code if there were failures, errors, or risky tests
+        # Risky tests indicate problems (no assertions, useless tests) and should fail the build
+        if failures or errors or stdout_data['risky_count'] > 0:
             sys.exit(1)
         else:
             print("\n✓ All tests passed!")
-            if stdout_data['risky_count'] > 0:
-                print(f"  (but {stdout_data['risky_count']} risky tests detected - see above)")
-            elif stdout_data['incomplete_count'] > 0 or stdout_data['skipped_count'] > 0:
+            if stdout_data['incomplete_count'] > 0 or stdout_data['skipped_count'] > 0:
                 print(f"  ({stdout_data['incomplete_count']} incomplete, {stdout_data['skipped_count']} skipped)")
             sys.exit(0)
 
