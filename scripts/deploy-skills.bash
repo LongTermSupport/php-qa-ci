@@ -346,6 +346,7 @@ if not HAS_YAML:
 REQUIRED_HANDLERS = {
     "git_stash": {
         "enabled": True,
+        "options": {"mode": "deny"},
     },
     "plan_time_estimates": {
         "enabled": True
