@@ -346,7 +346,6 @@ if not HAS_YAML:
 REQUIRED_HANDLERS = {
     "git_stash": {
         "enabled": True,
-        "mode": "deny"  # Strict for php-qa-ci projects
     },
     "plan_time_estimates": {
         "enabled": True
