@@ -30,6 +30,14 @@ elif [[ -f "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml" ]]; then
     echo "  📋 Detected hooks-daemon at parent: $DAEMON_CONFIG (monorepo)"
 fi
 
+# Detect daemon venv python3 for yaml operations (has pyyaml installed)
+# Fall back to system python3 if venv not found
+PYTHON3_YAML="python3"
+DAEMON_VENV_PYTHON="$PROJECT_ROOT/.claude/hooks-daemon/untracked/venv/bin/python3"
+if [[ -f "$DAEMON_VENV_PYTHON" ]]; then
+    PYTHON3_YAML="$DAEMON_VENV_PYTHON"
+fi
+
 echo "Deploying Skills from: $SKILLS_SOURCE"
 echo "                   to: $SKILLS_TARGET"
 echo "Deploying Agents from: $AGENTS_SOURCE"
@@ -314,7 +322,8 @@ if [[ -f "$DAEMON_CONFIG" ]]; then
     echo "📋 hooks-daemon detected - enforcing required handler configuration..."
 
     # Use Python with PyYAML to validate and update config
-    python3 - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
+    # Uses daemon venv python3 if available (has pyyaml), else falls back to system python3
+    $PYTHON3_YAML - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
 import sys
 from pathlib import Path
 
@@ -420,7 +429,7 @@ PYTHON_DAEMON_CONFIG
             hook_name=$(basename "$hook_file")
             rm -f "$hook_file"
             echo "  ✓ Removed file: $hook_name"
-            ((FILES_REMOVED++))
+            FILES_REMOVED=$((FILES_REMOVED + 1))
         fi
     done
 
