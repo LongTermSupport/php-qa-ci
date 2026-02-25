@@ -14,12 +14,14 @@ use Composer\Script\ScriptEvents;
 /**
  * Composer plugin that guards against PHPStan version mismatches and duplicate installs.
  *
- * php-qa-ci provides PHPStan via a PHIVE-managed phar and declares "replace": {"phpstan/phpstan": "*"}
- * to prevent composer from installing it as a package. Projects can still install PHPStan extensions
- * (phpstan-doctrine, phpstan-symfony, etc.) - their dependency on phpstan/phpstan is satisfied by the replace.
+ * php-qa-ci provides PHPStan via a PHIVE-managed phar for static analysis.
+ * phpstan/phpstan also exists as a transitive composer dependency (required by rector/rector
+ * at runtime) - this is expected and unavoidable.
+ *
+ * Projects must NOT add phpstan/phpstan directly to their own require or require-dev.
  *
  * This plugin:
- * 1. Errors if a project has phpstan/phpstan in its own require or require-dev
+ * 1. Warns if a project has phpstan/phpstan in its own require or require-dev
  * 2. Validates the phar version satisfies the extension-installer's version constraint
  * 3. Provides clear instructions when issues are found
  */
