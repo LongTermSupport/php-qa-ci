@@ -100,10 +100,17 @@ export XDEBUG_MODE=off
 cd "$PROJECT_ROOT"
 if [[ "$MODE" == "update" ]]; then
     echo -e "${GREEN}Updating PHAR dependencies...${NC}"
-    echo -e "${BLUE}[DEBUG] Running: phive --home $PHIVE_HOME update${NC}" >&2
-    # phive update doesn't support --trust-gpg-keys, but with project-local home
-    # the keys are already trusted from initial install
-    phive --home "$PHIVE_HOME" update
+    # phive update doesn't support --trust-gpg-keys, causing TTY prompts in CI
+    # Workaround: remove existing PHARs and re-install to get latest versions
+    echo -e "${BLUE}[DEBUG] Removing existing PHARs to force fresh install${NC}" >&2
+    for phar_file in "$VENDOR_PHAR_DIR"/*.phar; do
+        if [[ -f "$phar_file" ]]; then
+            echo -e "${BLUE}[DEBUG] Removing $phar_file${NC}" >&2
+            rm "$phar_file"
+        fi
+    done
+    echo -e "${BLUE}[DEBUG] Running: phive --home $PHIVE_HOME install --copy $TRUST_KEYS_ARG${NC}" >&2
+    eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
     echo -e "${GREEN}PHAR dependencies updated successfully${NC}"
 else
     echo -e "${GREEN}Installing PHAR dependencies from phive.xml...${NC}"
