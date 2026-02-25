@@ -11,7 +11,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Debug output to show script is running
-echo -e "${BLUE}[DEBUG] phive-install.bash script started with args: $*${NC}" >&2
+echo -e "${BLUE}[DEBUG] tool-install.bash script started with args: $*${NC}" >&2
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
@@ -69,8 +69,13 @@ if [[ "$MODE" == "install" ]] && [[ $FORCE_INSTALL -eq 0 ]]; then
         fi
     done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
 
+    # Also check isolated composer tools
+    if [[ ! -f "$PROJECT_ROOT/tools/rector/vendor/bin/rector" ]]; then
+        ALL_INSTALLED=0
+    fi
+
     if [[ $ALL_INSTALLED -eq 1 ]]; then
-        # Quick exit - all PHARs already installed
+        # Quick exit - all tools already installed
         exit 0
     fi
 fi
@@ -119,4 +124,24 @@ else
     # Use --home to isolate GPG keys and cache to this library
     eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
     echo -e "${GREEN}PHAR dependencies installed successfully${NC}"
+fi
+
+# ============================================================================
+# Isolated Composer Tools
+# These tools are installed in their own sub-composer projects to prevent
+# their dependencies from leaking into the project's vendor directory.
+# ============================================================================
+
+RECTOR_DIR="$PROJECT_ROOT/tools/rector"
+
+if [[ "$MODE" == "update" ]]; then
+    echo -e "${GREEN}Updating isolated Rector installation...${NC}"
+    composer update --working-dir="$RECTOR_DIR" --no-interaction --no-dev 2>&1
+    echo -e "${GREEN}Rector updated successfully${NC}"
+elif [[ ! -f "$RECTOR_DIR/vendor/bin/rector" ]]; then
+    echo -e "${GREEN}Installing isolated Rector...${NC}"
+    composer install --working-dir="$RECTOR_DIR" --no-interaction --no-dev 2>&1
+    echo -e "${GREEN}Rector installed successfully${NC}"
+else
+    echo -e "${BLUE}[DEBUG] Rector already installed, skipping${NC}" >&2
 fi

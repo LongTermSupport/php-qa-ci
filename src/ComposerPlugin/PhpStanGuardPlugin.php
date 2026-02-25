@@ -14,9 +14,10 @@ use Composer\Script\ScriptEvents;
 /**
  * Composer plugin that guards against PHPStan version mismatches and duplicate installs.
  *
- * php-qa-ci provides PHPStan via a PHIVE-managed phar for static analysis.
- * phpstan/phpstan also exists as a transitive composer dependency (required by rector/rector
- * at runtime) - this is expected and unavoidable.
+ * php-qa-ci provides PHPStan via a PHIVE-managed phar and declares
+ * "replace": {"phpstan/phpstan": "*"} to prevent it being installed as a composer package.
+ * Rector is installed in an isolated sub-composer project (tools/rector/) so its
+ * phpstan/phpstan dependency doesn't leak into the project.
  *
  * Projects must NOT add phpstan/phpstan directly to their own require or require-dev.
  *
@@ -157,7 +158,7 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
             $io->writeError('  installed PHPStan extensions.');
             $io->writeError('');
             $io->writeError('  Fix: Update the phar by running:');
-            $io->writeError('    <comment>cd vendor/lts/php-qa-ci && bash scripts/phive-install.bash update</comment>');
+            $io->writeError('    <comment>cd vendor/lts/php-qa-ci && bash scripts/tool-install.bash update</comment>');
             $io->writeError('');
         } else {
             $io->write('<info>✓ PHPStan phar v' . $pharVersion . ' satisfies extension constraint ' . $constraint . '</info>');

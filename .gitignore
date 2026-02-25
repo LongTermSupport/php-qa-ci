@@ -12,3 +12,4 @@
 /vendor-phar/
 /.phive-home/
 /phive.xml
+/tools/rector/vendor/

@@ -188,7 +188,7 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
             return;
         }
 
-        $scriptPath = $vendorDir . '/lts/php-qa-ci/scripts/phive-install.bash';
+        $scriptPath = $vendorDir . '/lts/php-qa-ci/scripts/tool-install.bash';
 
         if (!file_exists($scriptPath)) {
             $io->writeError('<comment>Phive install script not found at ' . $scriptPath . ', skipping...</comment>');
@@ -199,7 +199,7 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
         $io->write('<info>Running Phive ' . $mode . ' for PHAR dependencies...</info>');
 
         $command = \sprintf(
-            'cd %s/lts/php-qa-ci && bash ./scripts/phive-install.bash %s 2>&1',
+            'cd %s/lts/php-qa-ci && bash ./scripts/tool-install.bash %s 2>&1',
             \escapeshellarg($vendorDir),
             \escapeshellarg($mode)
         );
