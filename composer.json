@@ -23,6 +23,9 @@
   "require-dev": {
     "roave/security-advisories": "dev-master"
   },
+  "replace": {
+    "phpstan/phpstan": "*"
+  },
   "suggest": {
     "nunomaduro/larastan": "Laravel specific checks (PHPStan Wrapper)",
     "phploc/phploc": "get some stats, not currently compatible with latest symfony",
@@ -77,7 +80,8 @@
   "extra": {
     "class": [
       "LTS\\PHPQA\\ComposerPlugin\\PhiveUpdatePlugin",
-      "LTS\\PHPQA\\ComposerPlugin\\SkillsDeployPlugin"
+      "LTS\\PHPQA\\ComposerPlugin\\SkillsDeployPlugin",
+      "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin"
     ]
   }
 }
