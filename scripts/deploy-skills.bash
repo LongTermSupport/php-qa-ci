@@ -146,8 +146,9 @@ try:
 
     # Write back if any migrations occurred
     if migrated:
+        new_content = json.dumps(settings, indent=2) + '\n'
         with open(settings_file, 'w') as f:
-            json.dump(settings, f, indent=2)
+            f.write(new_content)
         print("  Hook migration complete!")
 
         # Delete old hook files after successful migration
@@ -266,9 +267,20 @@ for hook_path in hooks_to_add:
 pre_tool_use[0]['hooks'] = pre_hooks_list
 stop_hooks[0]['hooks'] = stop_hooks_list
 
-# Write back
-with open(settings_file, 'w') as f:
-    json.dump(settings, f, indent=2)
+# Only write back if content actually changed
+new_content = json.dumps(settings, indent=2) + '\n'
+try:
+    with open(settings_file, 'r') as f:
+        existing_content = f.read()
+except FileNotFoundError:
+    existing_content = ''
+
+if new_content != existing_content:
+    with open(settings_file, 'w') as f:
+        f.write(new_content)
+    print("  settings.json updated")
+else:
+    print("  settings.json unchanged - skipping write")
 
 PYTHON_SCRIPT
 fi
@@ -485,8 +497,9 @@ try:
 
     # Write back if changes made
     if changes_made:
+        new_content = json.dumps(settings, indent=2) + '\n'
         with open(settings_file, 'w') as f:
-            json.dump(settings, f, indent=2)
+            f.write(new_content)
         print(f"  ✅ settings.json cleaned up ({total_removed} registration(s) removed)")
     else:
         print("  ✅ settings.json already clean (no php-qa-ci hook registrations found)")
@@ -577,8 +590,9 @@ try:
 
     if 'QaConfig\\' not in psr4:
         psr4['QaConfig\\'] = ['qaConfig/']
+        new_content = json.dumps(composer, indent=4) + '\n'
         with open(composer_file, 'w') as f:
-            json.dump(composer, f, indent=4)
+            f.write(new_content)
         print("  ✓ Added QaConfig\\ autoload-dev PSR-4 entry")
         print("  ⚠ Run 'composer dump-autoload' to regenerate autoloader")
     else:
