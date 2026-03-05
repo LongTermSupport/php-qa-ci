@@ -47,5 +47,5 @@ If you would like to disable infection, simply export the enviroment variable `u
 
 ```bash
 export useInfection=0
-./bin/qa
+vendor/bin/qa
 ```

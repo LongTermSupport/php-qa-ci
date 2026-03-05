@@ -19,7 +19,7 @@ There are three ways you can generally set these environment variables:
 ```bash
 export environmentVariable="value"
 
-./bin/qa
+vendor/bin/qa
 ```
 
 2. Set them inline when running phpqa

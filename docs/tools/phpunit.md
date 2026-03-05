@@ -9,7 +9,7 @@ When you have tests that are failing and you are working towards getting everyth
 The easiest way to do this is:
 
 ```bash
-./bin/qa -t uniterate
+vendor/bin/qa -t uniterate
 ```
 
 This will run PHPunit in isolation
@@ -119,7 +119,7 @@ To do this you can simply
 export phpUnitQuickTests=1
 ```
 
-and then every time you run `./bin/qa` it will be as if you ran it like `phpUnitCoverage=0 ./bin/qa`
+and then every time you run `vendor/bin/qa` it will be as if you ran it like `phpUnitCoverage=0 vendor/bin/qa`
 
 #### For Most Comprehensive Checking
 
@@ -130,7 +130,7 @@ export phpUnitQuickTests=0
 export phpUnitCoverage=1
 ```
 
-and then every time you run `./bin/qa` it will be as if you ran it like `phpUnitQuickTests=0 ./bin/qa`
+and then every time you run `vendor/bin/qa` it will be as if you ran it like `phpUnitQuickTests=0 vendor/bin/qa`
 
 ## Paratest
 

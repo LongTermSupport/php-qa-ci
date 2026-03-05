@@ -16,17 +16,17 @@ Execute PHPStan static analysis and return a concise summary.
 
 ### Full Codebase
 ```bash
-export CI=true && ./bin/qa -t stan
+export CI=true && vendor/bin/qa -t stan
 ```
 
 ### Specific Path (Directory)
 ```bash
-export CI=true && ./bin/qa -t stan -p src/Services
+export CI=true && vendor/bin/qa -t stan -p src/Services
 ```
 
 ### Single File
 ```bash
-export CI=true && ./bin/qa -t stan -p src/Services/PaymentService.php
+export CI=true && vendor/bin/qa -t stan -p src/Services/PaymentService.php
 ```
 
 ## 📁 Log Location
@@ -117,7 +117,7 @@ Do NOT attempt to fix errors yourself.
 
 ### Scenario: User says "check PaymentService for errors"
 1. Find the file: `src/Services/PaymentService.php`
-2. Run: `export CI=true && ./bin/qa -t stan -p src/Services/PaymentService.php`
+2. Run: `export CI=true && vendor/bin/qa -t stan -p src/Services/PaymentService.php`
 3. Parse results
 4. Return summary
 

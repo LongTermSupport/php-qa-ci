@@ -129,7 +129,7 @@ There are two ways for this check to be bypassed:
 #### CI Mode
 ```bash
 export CI=true
-./bin/qa
+vendor/bin/qa
 ```
 
 If this is a CI pipeline, then it does not check for uncommitted changes.

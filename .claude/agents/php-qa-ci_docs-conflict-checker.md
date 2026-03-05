@@ -18,15 +18,15 @@ Read and understand the project's documentation (CLAUDE.md, related .md files) a
 - Main context invokes `qa` skill
 - `qa` skill invokes `phpstan-runner` or `phpunit-runner` skills
 - Runner skills launch cheap haiku AGENTS (php-qa-ci_phpstan-runner, php-qa-ci_phpunit-runner)
-- Agents run `./bin/qa -t toolname` commands in agent context (saves main context tokens!)
+- Agents run `vendor/bin/qa -t toolname` commands in agent context (saves main context tokens!)
 - If errors found, runner reports to qa skill
 - `qa` skill invokes `phpstan-fixer` or `phpunit-fixer` skills
 - Fixer skills launch cheap sonnet AGENTS (php-qa-ci_phpstan-fixer, php-qa-ci_phpunit-fixer)
-- Fixer agents implement fixes and run `./bin/qa -t allCs` on changed files
+- Fixer agents implement fixes and run `vendor/bin/qa -t allCs` on changed files
 - Cycle repeats: run → fix → run → fix until clean
 
 **Key Requirement:**
-The specialized php-qa-ci agents MUST be able to run `./bin/qa` commands. They are not "general purpose" agents - they are specialized QA agents designed for this specific purpose.
+The specialized php-qa-ci agents MUST be able to run `vendor/bin/qa` commands. They are not "general purpose" agents - they are specialized QA agents designed for this specific purpose.
 
 ## What You're Looking For
 
@@ -74,7 +74,7 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
 
    Why this conflicts:
    This is a blanket restriction that would prevent the specialized
-   php-qa-ci agents from running ./bin/qa commands, which is their
+   php-qa-ci agents from running vendor/bin/qa commands, which is their
    core purpose. The php-qa-ci agents are not general-purpose - they
    are designed specifically to run QA tools in isolated context for
    token efficiency.
@@ -86,10 +86,10 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
    ## Subagent Restrictions
 
    **EXCEPTION: Specialized php-qa-ci QA Agents**
-   - ✅ php-qa-ci_phpstan-runner - ALLOWED to run ./bin/qa -t stan
-   - ✅ php-qa-ci_phpunit-runner - ALLOWED to run ./bin/qa -t unit
-   - ✅ php-qa-ci_phpstan-fixer - ALLOWED to run ./bin/qa -t allCs
-   - ✅ php-qa-ci_phpunit-fixer - ALLOWED to run ./bin/qa -t allCs
+   - ✅ php-qa-ci_phpstan-runner - ALLOWED to run vendor/bin/qa -t stan
+   - ✅ php-qa-ci_phpunit-runner - ALLOWED to run vendor/bin/qa -t unit
+   - ✅ php-qa-ci_phpstan-fixer - ALLOWED to run vendor/bin/qa -t allCs
+   - ✅ php-qa-ci_phpunit-fixer - ALLOWED to run vendor/bin/qa -t allCs
    - These agents exist specifically for QA tool execution
 
    **GENERAL subagents (general-purpose, Explore, Plan):**

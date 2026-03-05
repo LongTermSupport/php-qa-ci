@@ -465,7 +465,7 @@ def main():
     # Check if log directory exists
     if not log_dir.exists():
         print(f"Error: PHPUnit log directory not found: {log_dir}", file=sys.stderr)
-        print(f"\nNo test runs found. Run tests first with: ./bin/qa -t unit", file=sys.stderr)
+        print(f"\nNo test runs found. Run tests first with: vendor/bin/qa -t unit", file=sys.stderr)
         sys.exit(1)
 
     # Determine XML file path
@@ -507,7 +507,7 @@ def main():
 
             if not log_files:
                 print(f"Error: No PHPUnit log files found in {log_dir}", file=sys.stderr)
-                print(f"\nNo test runs found. Run tests first with: ./bin/qa -t unit", file=sys.stderr)
+                print(f"\nNo test runs found. Run tests first with: vendor/bin/qa -t unit", file=sys.stderr)
                 sys.exit(1)
 
             # Use the most recent (first after reverse sort)

@@ -38,17 +38,17 @@ Execute PHPUnit tests with intelligent runtime estimation and return a concise s
 
 ### Full Suite
 ```bash
-export CI=true && ./bin/qa -t unit
+export CI=true && vendor/bin/qa -t unit
 ```
 
 ### Specific Path (Directory)
 ```bash
-export CI=true && ./bin/qa -t unit -p tests/Unit/Services
+export CI=true && vendor/bin/qa -t unit -p tests/Unit/Services
 ```
 
 ### Single File
 ```bash
-export CI=true && ./bin/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php
+export CI=true && vendor/bin/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php
 ```
 
 ## 📊 Parse Results
@@ -138,7 +138,7 @@ Do NOT attempt to fix errors yourself.
 
 ### Scenario: User says "run tests in PaymentService"
 1. Find the test file: `tests/Unit/Services/PaymentServiceTest.php`
-2. Run: `export CI=true && ./bin/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php`
+2. Run: `export CI=true && vendor/bin/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php`
 3. Parse results
 4. Return summary
 
