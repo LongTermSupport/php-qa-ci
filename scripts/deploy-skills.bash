@@ -10,6 +10,10 @@ if [[ -z "$QACI_PATH" || -z "$PROJECT_ROOT" ]]; then
     exit 1
 fi
 
+# Resolve to absolute paths so dirname works correctly (dirname "." = "." not parent)
+QACI_PATH="$(realpath "$QACI_PATH")"
+PROJECT_ROOT="$(realpath "$PROJECT_ROOT")"
+
 SKILLS_SOURCE="$QACI_PATH/.claude/skills"
 SKILLS_TARGET="$PROJECT_ROOT/.claude/skills"
 AGENTS_SOURCE="$QACI_PATH/.claude/agents"
@@ -32,10 +36,14 @@ fi
 
 # Detect daemon venv python3 for yaml operations (has pyyaml installed)
 # Fall back to system python3 if venv not found
+# Support monorepo: check both project root and parent directory for venv
 PYTHON3_YAML="python3"
 DAEMON_VENV_PYTHON="$PROJECT_ROOT/.claude/hooks-daemon/untracked/venv/bin/python3"
+DAEMON_VENV_PYTHON_PARENT="$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon/untracked/venv/bin/python3"
 if [[ -f "$DAEMON_VENV_PYTHON" ]]; then
     PYTHON3_YAML="$DAEMON_VENV_PYTHON"
+elif [[ -f "$DAEMON_VENV_PYTHON_PARENT" ]]; then
+    PYTHON3_YAML="$DAEMON_VENV_PYTHON_PARENT"
 fi
 
 echo "Deploying Skills from: $SKILLS_SOURCE"
