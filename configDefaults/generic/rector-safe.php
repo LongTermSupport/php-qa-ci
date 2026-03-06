@@ -68,10 +68,12 @@ return static function (RectorConfig $rectorConfig): void {
         throw new \RuntimeException($errorMessage);
     }
     $paths = [
+        // When php-qa-ci is installed as a dependency: vendor/lts/php-qa-ci/configDefaults/generic/ -> up 4 -> vendor/
         __DIR__ . '/../../../../thecodingmachine/safe/rector-migrate.php',
-        __DIR__ . '/../../../vendor/thecodingmachine/safe/rector-migrate.php',
         __DIR__ . '/../../../../shish/safe/rector-migrate.php',
-        __DIR__ . '/../../../vendor/shish/safe/rector-migrate.php',
+        // When php-qa-ci IS the root project: configDefaults/generic/ -> up 2 -> vendor/
+        __DIR__ . '/../../vendor/thecodingmachine/safe/rector-migrate.php',
+        __DIR__ . '/../../vendor/shish/safe/rector-migrate.php',
     ];
     foreach ($paths as $path) {
         if (file_exists($path)) {
