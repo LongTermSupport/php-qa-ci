@@ -17,7 +17,6 @@ use RuntimeException;
  * @internal
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(LinksChecker::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(LinksChecker::class)]
 #[\PHPUnit\Framework\Attributes\Large]
 final class LinksCheckerTest extends TestCase
 {
@@ -68,6 +67,10 @@ Bad link for "incorrect link" to "./foo.md"
 
     public function testItHandlesNonFileLinks(): void
     {
+        if (false === @get_headers('https://httpstat.us/200')) {
+            self::markTestSkipped('httpstat.us is not reachable (e.g. CI environment)');
+        }
+
         $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithNonFileLinks';
         $expectedExitCode = 1;
         $expectedOutput   = '
@@ -75,7 +78,7 @@ Bad link for "incorrect link" to "./foo.md"
 ----------
 
 Bad link for "invalid link" to "https://httpstat.us/404"
-result: NULL
+result: HTTP status: 404
 ';
         self::assertResult($pathToProject, $expectedExitCode, $expectedOutput);
     }
