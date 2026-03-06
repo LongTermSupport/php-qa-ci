@@ -1,7 +1,7 @@
 <?php
 
 declare(strict_types=1);
-if (isset($GLOBALS['projectRoot'])) {
+if (!isset($projectRoot) || !is_dir($projectRoot)) {
     throw new RuntimeException('$projectRoot must be defined and must be a valid path to the project root');
 }
 

@@ -61,51 +61,57 @@ done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
 if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
     # Maintainer workflow: use phive to update/reinstall PHARs
     if ! which phive 1>&2; then
-        echo -e "${RED}Error: phive is not installed${NC}"
-        echo ""
-        echo "Phive is required for updating PHAR dependencies."
-        echo "PHARs are committed to the repo, so phive is only needed by maintainers."
-        echo ""
-        echo "Install phive: https://phar.io/#Install"
-        echo ""
-        exit 1
-    fi
-
-    mkdir -p "$VENDOR_PHAR_DIR"
-    mkdir -p "$PHIVE_HOME"
-
-    # PHAR GPG keys configuration
-    TRUSTED_KEYS=(
-        "C6D76C329EBADE2FB9C458CFC5095986493B4AA0"  # Infection
-        "51C67305FFC2E5C0"                          # PHPStan
-        "E82B2FB314E9906E"                          # PHP CS Fixer
-        "033E5F8D801A2F8D"                          # Composer Require Checker
-    )
-
-    TRUST_KEYS_ARG=""
-    if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
-        TRUST_KEYS_ARG="--trust-gpg-keys $(IFS=','; echo "${TRUSTED_KEYS[*]}")"
-    fi
-
-    export XDEBUG_MODE=off
-    cd "$PROJECT_ROOT"
-
-    if [[ "$MODE" == "update" ]]; then
-        echo -e "${GREEN}Updating PHAR dependencies via phive...${NC}"
-        # Remove existing PHARs and re-install to get latest versions
-        for phar_file in "$VENDOR_PHAR_DIR"/*.phar; do
-            if [[ -f "$phar_file" ]]; then
-                rm "$phar_file"
-            fi
-        done
-        eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+        if [[ $PHARS_INSTALLED -eq 1 ]]; then
+            # PHARs are already present (committed to repo) — skip silently.
+            # This happens when composer normalize or other commands trigger post-update-cmd.
+            echo -e "${GREEN}PHARs already present — skipping phive update (phive not installed)${NC}"
+        else
+            echo -e "${RED}Error: phive is not installed${NC}"
+            echo ""
+            echo "Phive is required for updating PHAR dependencies."
+            echo "PHARs are committed to the repo, so phive is only needed by maintainers."
+            echo ""
+            echo "Install phive: https://phar.io/#Install"
+            echo ""
+            exit 1
+        fi
     else
-        echo -e "${GREEN}Force-installing PHAR dependencies via phive...${NC}"
-        eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+        mkdir -p "$VENDOR_PHAR_DIR"
+        mkdir -p "$PHIVE_HOME"
+
+        # PHAR GPG keys configuration
+        TRUSTED_KEYS=(
+            "C6D76C329EBADE2FB9C458CFC5095986493B4AA0"  # Infection
+            "51C67305FFC2E5C0"                          # PHPStan
+            "E82B2FB314E9906E"                          # PHP CS Fixer
+            "033E5F8D801A2F8D"                          # Composer Require Checker
+        )
+
+        TRUST_KEYS_ARG=""
+        if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
+            TRUST_KEYS_ARG="--trust-gpg-keys $(IFS=','; echo "${TRUSTED_KEYS[*]}")"
+        fi
+
+        export XDEBUG_MODE=off
+        cd "$PROJECT_ROOT"
+
+        if [[ "$MODE" == "update" ]]; then
+            echo -e "${GREEN}Updating PHAR dependencies via phive...${NC}"
+            # Remove existing PHARs and re-install to get latest versions
+            for phar_file in "$VENDOR_PHAR_DIR"/*.phar; do
+                if [[ -f "$phar_file" ]]; then
+                    rm "$phar_file"
+                fi
+            done
+            eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+        else
+            echo -e "${GREEN}Force-installing PHAR dependencies via phive...${NC}"
+            eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+        fi
+        echo -e "${GREEN}PHAR dependencies installed successfully${NC}"
+        echo ""
+        echo "IMPORTANT: PHARs are tracked in git. Commit the updated vendor-phar/ and phive.xml."
     fi
-    echo -e "${GREEN}PHAR dependencies installed successfully${NC}"
-    echo ""
-    echo "IMPORTANT: PHARs are tracked in git. Commit the updated vendor-phar/ and phive.xml."
 
 elif [[ $PHARS_INSTALLED -eq 0 ]]; then
     echo -e "${RED}ERROR: PHAR dependencies are missing but should be committed to the repo.${NC}"
