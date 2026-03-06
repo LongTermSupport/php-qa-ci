@@ -231,10 +231,11 @@ final class LinksChecker
             ]);
             try {
                 $headers = @get_headers($href, false, $context);
+                /** @phpstan-ignore function.alreadyNarrowedType */
                 if (!\is_array($headers)) {
                     continue;
                 }
-                /** @var array<string> $headers */
+                /** @var list<string> $headers */
                 $lastStatus = self::getLastStatusCode($headers);
                 if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
                     return null;
