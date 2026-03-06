@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use LTS\PHPQA\Helper;
 use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;
 use Rector\Config\RectorConfig;
 
@@ -14,16 +13,22 @@ return static function (RectorConfig $rectorConfig): void {
     // to avoid overwhelming the system
     $cpuThreads = (int) shell_exec('nproc') ?: 4;  // Default to 4 if nproc fails
     $maxProcesses = max(1, (int) floor($cpuThreads / 2));  // Use half the threads, minimum 1
-    
+
     // Parameters: timeout (seconds), max processes, job size (files per job)
     $rectorConfig->parallel(
         120,  // Default timeout
         $maxProcesses,  // Use only half of available CPU threads
         16    // Default job size
     );
-    
+
     // Preflight check: Ensure thecodingmachine/safe is in production dependencies
-    $composerData = Helper::getComposerJsonDecoded();
+    // Read composer.json directly — cannot use Helper class here because Rector
+    // loads config before --autoload-file is processed
+    $composerJsonPath = ($_SERVER['PWD'] ?? getcwd()) . '/composer.json';
+    if (!file_exists($composerJsonPath)) {
+        throw new \RuntimeException('Cannot find composer.json at ' . $composerJsonPath);
+    }
+    $composerData = json_decode(file_get_contents($composerJsonPath), true, 512, JSON_THROW_ON_ERROR);
     $require = $composerData['require'] ?? [];
     $requireDev = $composerData['require-dev'] ?? [];
     
