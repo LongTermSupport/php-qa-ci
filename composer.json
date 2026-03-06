@@ -6,7 +6,9 @@
   "require": {
     "php": "^8.3",
     "ext-json": "*",
+    "ext-openssl": "*",
     "ext-tokenizer": "*",
+    "ext-xml": "*",
     "composer-plugin-api": "^2.0",
     "ergebnis/composer-normalize": "^2.42",
     "funkyproject/reflection-file": "@stable",
