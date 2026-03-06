@@ -9,7 +9,5 @@
 !/bin/phpunit-runfailed-filter
 !/bin/phpunit-check-annotation
 /cache/
-/vendor-phar/
 /.phive-home/
-/phive.xml
 /tools/rector/vendor/

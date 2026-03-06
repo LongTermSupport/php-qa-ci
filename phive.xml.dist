@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<phive xmlns="https://phar.io/phive">
-  <phar name="infection" version="^0.30" location="./vendor-phar/infection.phar" copy="false" installed="0.30.3"/>
-  <phar name="phpstan" version="^2.1" location="./vendor-phar/phpstan.phar" copy="false" installed="2.1.31"/>
-  <phar name="php-cs-fixer" version="^3.85" location="./vendor-phar/php-cs-fixer.phar" copy="false" installed="3.89.1"/>
-  <phar name="composer-require-checker" version="^4.15" location="./vendor-phar/composer-require-checker.phar" copy="false" installed="4.17.0"/>
-</phive>

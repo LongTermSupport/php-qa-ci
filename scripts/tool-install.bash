@@ -6,7 +6,6 @@ set -o pipefail
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -30,102 +29,99 @@ for arg in "$@"; do
             ;;
         *)
             echo "Usage: $0 [update] [-f|--force]" >&2
-            echo "  update     Run phive update instead of install" >&2
-            echo "  -f|--force Force reinstall even if PHARs exist" >&2
+            echo "  update     Run phive update instead of install (requires phive)" >&2
+            echo "  -f|--force Force reinstall even if PHARs exist (requires phive)" >&2
             exit 1
             ;;
     esac
 done
 
-# Check if phive.xml exists
+# ============================================================================
+# Phase 1: Check PHAR dependencies
+# PHARs are committed to the repo, so they should always be present.
+# Phive is only needed for 'update' mode (maintainer workflow) or --force.
+# ============================================================================
+
+PHARS_INSTALLED=1
 if [[ ! -f "$PHIVE_XML" ]]; then
     echo -e "${RED}No phive.xml found at $PHIVE_XML${NC}"
     exit 1
 fi
 
-# For install mode, check if all PHARs are already installed (unless -f flag is used)
-# Do this BEFORE checking for phive — if everything is present, phive is not needed
-if [[ "$MODE" == "install" ]] && [[ $FORCE_INSTALL -eq 0 ]]; then
-    ALL_INSTALLED=1
+# Check if all PHARs are present
+while IFS= read -r location; do
+    PHAR_PATH="$PROJECT_ROOT/$location"
+    if [[ ! -e "$PHAR_PATH" ]]; then
+        PHARS_INSTALLED=0
+        echo -e "${RED}Missing PHAR: $PHAR_PATH${NC}"
+        break
+    fi
+done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
 
-    # Extract PHAR locations from phive.xml
-    while IFS= read -r location; do
-        PHAR_PATH="$PROJECT_ROOT/$location"
-        if [[ ! -e "$PHAR_PATH" ]]; then
-            ALL_INSTALLED=0
-            break
-        fi
-    done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
-
-    # Also check isolated composer tools
-    if [[ ! -f "$PROJECT_ROOT/tools/rector/vendor/bin/rector" ]]; then
-        ALL_INSTALLED=0
+if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
+    # Maintainer workflow: use phive to update/reinstall PHARs
+    if ! which phive 1>&2; then
+        echo -e "${RED}Error: phive is not installed${NC}"
+        echo ""
+        echo "Phive is required for updating PHAR dependencies."
+        echo "PHARs are committed to the repo, so phive is only needed by maintainers."
+        echo ""
+        echo "Install phive: https://phar.io/#Install"
+        echo ""
+        exit 1
     fi
 
-    if [[ $ALL_INSTALLED -eq 1 ]]; then
-        # Quick exit — all tools already installed
-        exit 0
+    mkdir -p "$VENDOR_PHAR_DIR"
+    mkdir -p "$PHIVE_HOME"
+
+    # PHAR GPG keys configuration
+    TRUSTED_KEYS=(
+        "C6D76C329EBADE2FB9C458CFC5095986493B4AA0"  # Infection
+        "51C67305FFC2E5C0"                          # PHPStan
+        "E82B2FB314E9906E"                          # PHP CS Fixer
+        "033E5F8D801A2F8D"                          # Composer Require Checker
+    )
+
+    TRUST_KEYS_ARG=""
+    if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
+        TRUST_KEYS_ARG="--trust-gpg-keys $(IFS=','; echo "${TRUSTED_KEYS[*]}")"
     fi
-fi
 
-# ============================================================================
-# PHAR Installation via PHIVE
-# ============================================================================
+    export XDEBUG_MODE=off
+    cd "$PROJECT_ROOT"
 
-if ! which phive 1>&2; then
-    echo -e "${RED}Error: phive is not installed${NC}"
+    if [[ "$MODE" == "update" ]]; then
+        echo -e "${GREEN}Updating PHAR dependencies via phive...${NC}"
+        # Remove existing PHARs and re-install to get latest versions
+        for phar_file in "$VENDOR_PHAR_DIR"/*.phar; do
+            if [[ -f "$phar_file" ]]; then
+                rm "$phar_file"
+            fi
+        done
+        eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+    else
+        echo -e "${GREEN}Force-installing PHAR dependencies via phive...${NC}"
+        eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+    fi
+    echo -e "${GREEN}PHAR dependencies installed successfully${NC}"
     echo ""
-    echo "PHIVE (PHAR Installation and Verification Environment) is required"
-    echo "to install QA tool PHARs with version tracking and GPG verification."
+    echo "IMPORTANT: PHARs are tracked in git. Commit the updated vendor-phar/ and phive.xml."
+
+elif [[ $PHARS_INSTALLED -eq 0 ]]; then
+    echo -e "${RED}ERROR: PHAR dependencies are missing but should be committed to the repo.${NC}"
     echo ""
-    echo "Install phive: https://phar.io/#Install"
+    echo "This indicates a corrupted or incomplete checkout."
+    echo "PHARs should be present in vendor-phar/ as they are tracked in version control."
     echo ""
-    echo "  wget -O phive.phar https://phar.io/releases/phive.phar"
-    echo "  chmod +x phive.phar"
-    echo "  sudo mv phive.phar /usr/local/bin/phive"
-    echo ""
+    echo "To fix: re-clone the repository, or run with --force flag (requires phive)."
     exit 1
 fi
 
-mkdir -p "$VENDOR_PHAR_DIR"
-mkdir -p "$PHIVE_HOME"
-
-# PHAR GPG keys configuration
-TRUSTED_KEYS=(
-    "C6D76C329EBADE2FB9C458CFC5095986493B4AA0"  # Infection
-    "51C67305FFC2E5C0"                          # PHPStan
-    "E82B2FB314E9906E"                          # PHP CS Fixer
-    "033E5F8D801A2F8D"                          # Composer Require Checker
-)
-
-TRUST_KEYS_ARG=""
-if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
-    TRUST_KEYS_ARG="--trust-gpg-keys $(IFS=','; echo "${TRUSTED_KEYS[*]}")"
-fi
-
-export XDEBUG_MODE=off
-cd "$PROJECT_ROOT"
-
-if [[ "$MODE" == "update" ]]; then
-    echo -e "${GREEN}Updating PHAR dependencies via phive...${NC}"
-    # phive update doesn't support --trust-gpg-keys, causing TTY prompts in CI
-    # Workaround: remove existing PHARs and re-install to get latest versions
-    for phar_file in "$VENDOR_PHAR_DIR"/*.phar; do
-        if [[ -f "$phar_file" ]]; then
-            rm "$phar_file"
-        fi
-    done
-    eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
-else
-    echo -e "${GREEN}Installing PHAR dependencies via phive...${NC}"
-    eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
-fi
-echo -e "${GREEN}PHAR dependencies installed successfully${NC}"
-
 # ============================================================================
-# Isolated Composer Tools
-# These tools are installed in their own sub-composer projects to prevent
-# their dependencies from leaking into the project's vendor directory.
+# Phase 2: Isolated Composer Tools (Rector)
+# These are installed via composer in their own sub-projects to prevent
+# dependency conflicts. composer.json and composer.lock are tracked,
+# but vendor/ is not (too large). Installed on first use.
 # ============================================================================
 
 RECTOR_DIR="$PROJECT_ROOT/tools/rector"
