@@ -3,12 +3,13 @@ while ((csFixerExitCode > 1)); do
   set +e
 
   # Capture output to detect linting errors
-  # Pass pathsToCheck directly - when paths are specified, Finder in config is ignored
+  # Use --path-mode=intersection so Finder exclusions are respected even with explicit paths
   csFixerOutput=$(phpNoXdebug -f "$pharDir"/php-cs-fixer.phar -- \
     --config="$phpCsConfigPath" \
     --cache-file="$phpCsCacheFile" \
     --allow-risky=yes \
     --show-progress=dots \
+    --path-mode=intersection \
     -vvv \
     fix \
     ${pathsToCheck[@]} 2>&1)
