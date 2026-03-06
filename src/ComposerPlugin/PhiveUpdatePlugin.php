@@ -210,13 +210,20 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
 
         if (0 === $exitCode) {
             $io->write('<info>✓ PHAR dependencies ' . $mode . ' completed successfully</info>');
-        } else {
-            $io->writeError('<warning>⚠ Phive ' . $mode . ' encountered issues (non-fatal)</warning>');
-            if ([] !== $output) {
-                foreach ($output as $line) {
-                    $io->writeError('  ' . $line);
-                }
+
+            return;
+        }
+
+        $io->writeError('<error>Phive ' . $mode . ' failed (exit code ' . $exitCode . ')</error>');
+        if ([] !== $output) {
+            foreach ($output as $line) {
+                $io->writeError('  ' . $line);
             }
         }
+
+        throw new \RuntimeException(
+            'Phive ' . $mode . ' failed. QA tools (PHPStan, PHP-CS-Fixer, etc.) will not work. '
+            . 'Install phive: https://phar.io/#Install'
+        );
     }
 }

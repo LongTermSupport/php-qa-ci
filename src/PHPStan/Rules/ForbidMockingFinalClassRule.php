@@ -17,6 +17,10 @@ use PHPStan\Rules\RuleErrorBuilder;
  * PHPUnit 13 throws ClassIsFinalException when you try to stub or mock a final class.
  * Even in older PHPUnit versions, mocking final classes is fragile and violates SOLID.
  *
+ * Only flags classes whose source file lives within the project (not in vendor/).
+ * Third-party final classes (e.g. Symfony's Security) are outside your control and
+ * cannot have interfaces added — those are silently skipped.
+ *
  * THE FIX: Create an interface for the class and stub/mock the interface instead.
  * The concrete (final) class implements the interface. Services type-hint the interface.
  * Tests stub/mock the interface. This is proper dependency inversion (SOLID D).
@@ -89,6 +93,13 @@ final class ForbidMockingFinalClassRule implements Rule
         }
 
         if (!$classReflection->isFinal()) {
+            return [];
+        }
+
+        // Skip third-party (vendor) final classes — we can't add interfaces to those.
+        // Only flag classes whose source file is within the project, not in vendor/.
+        $fileName = $classReflection->getFileName();
+        if (false === $fileName || str_contains($fileName, '/vendor/')) {
             return [];
         }
 
