@@ -1,159 +1,143 @@
 # PHPQA PHPUnit
 
-Here is the full documentation about how you can use and configure PHPUnit in your PHPQA project.
+Full documentation about how you can use and configure PHPUnit in your PHPQA project.
+
+PHPUnit is installed as a Composer dependency (not a PHAR).
 
 ## Iterative Mode
 
-When you have tests that are failing and you are working towards getting everything green, then you might want to try iterative mode.
-
-The easiest way to do this is:
+When you have tests that are failing and you are working towards getting everything green, try iterative mode:
 
 ```bash
 vendor/bin/qa -t uniterate
 ```
 
-This will run PHPunit in isolation
-
-The first run will be a full run (unless you have done one previously)
-
-Subsequent runs will then run your failed tests first and will stop on the first error.
+This will run PHPUnit in isolation. The first run will be a full run (unless you have done one previously). Subsequent runs will run your failed tests first and will stop on the first error.
 
 This allows you to quickly iterate on your test suite and push it towards getting everything passing.
 
 ## Quick Tests
 
-There is an environment variable for PHPUnit set called `phpUnitQuickTests`
+There is an environment variable for PHPUnit called `phpUnitQuickTests`.
 
-Using this, you can allow your tests to take a different path, skip tests etc if they are long running. 
+Using this, you can allow your tests to take a different path, skip tests etc if they are long running.
 
 ```php
-<?php declare(strict_types=1);
+<?php
 
-use EdmondsCommerce\PHPQA\Constants;
+declare(strict_types=1);
+
+use LTS\PHPQA\Constants;
 use PHPUnit\Framework\TestCase;
 
-class MyTest extends TestCase {
-    
-    /**
-     * @SuppressWarnings(PHPMD.Superglobals)
-     */
-    public function setup(){
-        if (isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
-            && (int)$_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
+final class MyTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        if (
+            isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
+            && (int) $_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
         ) {
             return;
         }
-        //unnecessary setup stuff if not doing long running tests
+        // unnecessary setup stuff if not doing long running tests
     }
-    
-    /**
-     * @SuppressWarnings(PHPMD.Superglobals)
-     */    
-    public function testLongRunningThing(){
-         if (isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
-            && (int)$_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
+
+    public function testLongRunningThing(): void
+    {
+        if (
+            isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
+            && (int) $_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
         ) {
-            $this->markTestSkipped('Quick tests is enabled');
+            self::markTestSkipped('Quick tests is enabled');
         }
-        //long running stuff
+        // long running stuff
     }
 }
 ```
 
-That isn't to say you should not run them!
+This allows you to easily skip certain tests as part of the QA pipeline, enabling faster iteration.
 
-But it allows you to easily skip certain tests as part of this QA pipeline allowing faster iteration.
-
-Generally in CI you would always run your full suite of tests, but in local development you might decide to enable the quick tests mode.
+Generally in CI you would always run your full suite of tests, but in local development you might decide to enable quick tests mode.
 
 ### Running With Full Tests
 
-If you are using the Quicktests approach but would like to run the full pipeline with full tests, then you just need to do:
+If you are using the quick tests approach but would like to run the full pipeline with full tests:
 
 ```bash
-phpUnitQuickTests=0 bin/qa
+phpUnitQuickTests=0 vendor/bin/qa
 ```
-
-And this will then run with full tests
 
 ## Coverage
 
 If enabled, the PHPUnit command will generate both textual output and HTML coverage.
 
-The coverage report will go into the project root /var directory as configured in [./configDefaults/phpunit.xml](./../../configDefaults/generic/phpunit.xml)
+The coverage report will go into the project root `/var` directory as configured in [configDefaults/generic/phpunit.xml](./../../configDefaults/generic/phpunit.xml).
 
 If you want to override the coverage report location, you will need to override this config file as normal.
 
-You can enable the coverage report on the fly by doing:
+You can enable the coverage report on the fly:
 
 ```bash
-phpUnitCoverage=1 bin/qa 
+phpUnitCoverage=1 vendor/bin/qa
 ```
 
-You might decide to do this if you are running these tests in CI, as you can see in [ci.bash](./../../ci.bash)
+You might decide to do this if you are running these tests in CI, as you can see in [ci.bash](./../../ci.bash).
 
-#### Config Changes When Generating Coverage
+### Config Changes When Generating Coverage
 
-Generating coverage can cause a dramatic speed degradation. For this reason
+Generating coverage can cause a dramatic speed degradation. For this reason:
 
 * PHPUnit will fail on the first error rather than run the full suite
 * We will not enforce any time limits for `@small` `@medium` `@large`
 
 ### Speed Impact of Enabling Coverage
 
-If coverage is enabled, then the tests have to be run with Xdebug enabled. This on it's own has a dramatic impact on the speed of PHP execution.
+If coverage is enabled, the tests have to be run with Xdebug enabled. This on its own has a dramatic impact on the speed of PHP execution.
 
 This is in addition to the time required to actually generate and write the coverage reports. For a large test suite the time impact can be significant.
 
-### Persitantly Setting Coverage or Quick Tests
+### Persistently Setting Coverage or Quick Tests
 
-If in your development session you want to, for example, configure PHPUnit to run as quickly as possible, you might want to disable coverage persistently in your shell session.
+If in your development session you want to configure PHPUnit to run as quickly as possible, you can disable coverage persistently:
 
 #### For Fastest Iterations
-
-To have qa run as quickly as possible, you need to disable coverage
-
-To do this you can simply 
 
 ```bash
 export phpUnitQuickTests=1
 ```
 
-and then every time you run `vendor/bin/qa` it will be as if you ran it like `phpUnitCoverage=0 vendor/bin/qa`
+Then every time you run `vendor/bin/qa` it will be as if you ran it like `phpUnitQuickTests=1 vendor/bin/qa`.
 
 #### For Most Comprehensive Checking
 
-For the most comprehensive checking, you need coverage enabled and also quick tests
+For the most comprehensive checking, you need coverage enabled and quick tests disabled:
 
 ```bash
 export phpUnitQuickTests=0
 export phpUnitCoverage=1
 ```
 
-and then every time you run `vendor/bin/qa` it will be as if you ran it like `phpUnitQuickTests=0 vendor/bin/qa`
-
 ## Paratest
 
-You can run multiple sets of PHPUnit tests in parallel using [paratest](https://github.com/paratestphp/paratest)
+You can run multiple sets of PHPUnit tests in parallel using [paratest](https://github.com/paratestphp/paratest).
 
-Currently this is experimental and will certainly not work in a variety of situations.
+Currently this is experimental and will not work in all situations.
 
-To enable paratest, simply install it. If it is found, this QA process will use it.
+To enable paratest, simply install it. If it is found, the QA process will use it:
 
 ```bash
 composer require --dev brianium/paratest
 ```
 
-### Further Reading
-
-* https://github.com/brianium/paratest-selenium
-
 ## PHPUnit and PHPStan
 
-We suggest that you install [https://github.com/phpstan/phpstan-phpunit](https://github.com/phpstan/phpstan-phpunit) which allows you to properly use mocks with PHPUnit tests and keep PHPStan happy.
+The `phpstan-phpunit` extension is bundled with php-qa-ci and auto-loaded via the extension installer. This allows you to properly use mocks with PHPUnit tests and keep PHPStan happy.
 
-Read the [PHPQA PHPStan docs](./phpstan.md) for more information on this.
+Read the [PHPQA PHPStan docs](./phpstan.md) for more information.
 
 ## Infection
 
-Another tool that runs your PHPUnit tests is Infection. This will only run if Xdebug is enabled and you have configured PHPUnit to generate coverage.
+Another tool that runs your PHPUnit tests is Infection. This will only run if Xdebug is enabled and you have configured PHPUnit to generate coverage. Infection runs as a PHAR.
+
+See the [PHPQA Infection docs](./infection.md) for more information.

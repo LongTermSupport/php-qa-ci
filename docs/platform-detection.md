@@ -6,11 +6,16 @@ By default there's a generic set of tools and configuration, but these can be su
 
 ## The `detectPlatform` function
 
-The [functions include file](../includes/functions.inc.bash)'s `detectPlatform` function isrun at the start of the `bin/qa` script
+The [functions include file](../includes/functions.inc.bash)'s `detectPlatform` function is run at the start of the `bin/qa` script.
 
-Running this inspects the project that PHPQA is being run against, whether the project root, or a specified folder.
+It inspects the project that PHPQA is being run against, whether the project root or a specified folder.
 
-The function performs some checks, probably checking for key folders you'd expect to find in that platform, and then returns a string representing that platform. If none of these checks pass, it returns the `platformGeneric` value. 
+The function checks for platform-specific markers:
+- **Symfony**: presence of `symfony.lock`
+- **Laravel**: presence of `artisan`
+- **Generic**: default for all other PHP projects
+
+If none of the platform checks pass, it returns the `platformGeneric` value.
 
 Once the `bin/qa` script captures this, it's then made available for global use.
 

@@ -1,198 +1,148 @@
 # PHPQA PHPStan
 
-Here are the full details of how PHPStan is used with PHPQA and how you can configure it for your projects
+Full details of how PHPStan is used with PHPQA and how you can configure it for your projects.
 
-#### Configuration 
+PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan` Composer package is in the `replace` section of `php-qa-ci`'s `composer.json`, so the PHAR is used instead of a Composer-installed binary.
 
-Default configuration is in [./configDefaults/generic/phpstan.neon](./../../configDefaults/generic/phpstan.neon)
+## Configuration
 
-To override the configuration you need to copy it to `{project-root}/qaConfig/phpstan.neon`
+Default configuration is in [configDefaults/generic/phpstan.neon](./../../configDefaults/generic/phpstan.neon).
 
-Specifying paths can be a little bit tricky, you can have a look at the [qaConfig/phpstan.neon](./../../qaConfig/phpstan.neon) override file for the PHPQA project itself for an example.
+The default level is `max`.
 
-##### Extending Default Config
+To override the configuration, copy it to `{project-root}/qaConfig/phpstan.neon`.
 
-You can use the standard config as a base by using a template like:
+Specifying paths can be a little bit tricky. You can have a look at the [qaConfig/phpstan.neon](./../../qaConfig/phpstan.neon) override file for the PHPQA project itself for an example.
+
+### Extending Default Config
+
+You can use the standard config as a base:
 
 ```neon
 includes:
-    - ../vendor/edmondscommerce/phpqa/configDefault/phpstan.neon
+    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
 ```
 
-##### Boostrap
+### Bootstrap
 
-In the configuration you might want to specify a [php bootstrap file](https://github.com/phpstan/phpstan#bootstrap-file) to initialise your code
+In the configuration you might want to specify a [PHP bootstrap file](https://github.com/phpstan/phpstan#bootstrap-file) to initialise your code.
 
-If you place you `phpstan-bootstrap.php` in `{project-root}/tests/phpstan-bootstrap.php`
+If you place your `phpstan-bootstrap.php` in `{project-root}/tests/phpstan-bootstrap.php`, the neon file should look like:
 
-Then neon file should look like:
-
-```
+```neon
 parameters:
-	bootstrap: ../tests/phpstan-bootstrap.php
-
+    bootstrap: ../tests/phpstan-bootstrap.php
 ```
 
-#### Strict Rules
+## Bundled Extensions
 
-The strict rules are brought in as a dependency and configured by default
+PHP-QA-CI bundles these PHPStan extensions as Composer dependencies (auto-loaded via the PHPStan extension installer):
 
-PHPQA now uses the PHPStan extension loader - at the time of writing it is not clear how to disable auto loaded extensions.
-Instead (for now) you will need to ignore specific rule failures instead of trying to disable the strict rule set.
+- **[phpstan-strict-rules](https://github.com/phpstan/phpstan-strict-rules)** -- Additional strict type-checking rules
+- **[phpstan-phpunit](https://github.com/phpstan/phpstan-phpunit)** -- PHPUnit-aware analysis, including proper mock object support
 
-See [the main PHPSTan docs](https://github.com/phpstan/phpstan-strict-rules) for more information
+These are configured and loaded automatically. You do not need to install or configure them separately.
 
-#### Supressing Errors
+## Custom PHPStan Rules
 
-[Here](https://github.com/phpstan/phpstan#ignore-error-messages-with-regular-expressions) you can read more about, how to
-ignore errors by modifying `phpstan.neon` file.
+PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension installer (defined in `rules-default.neon`):
 
-#### Mock Objects in Tests
+- **ForbidMockingFinalClassRule** -- Prevents mocking of final classes in tests
+- **ForbidAllowMockWithoutExpectationsRule** -- Bans `#[AllowMockObjectsWithoutExpectations]` attribute
+- **ForbidDangerousFunctionsRule** -- Bans exec/eval/unserialize and similar unsafe functions
+- **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
+- **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
 
-Default PHPStan gets confused by mock objects:
+Projects can add their own custom rules in addition to these defaults.
+
+## Strict Rules
+
+The strict rules are brought in as a dependency and configured by default.
+
+PHPQA uses the PHPStan extension loader. If you need to disable specific strict rules, you will need to ignore specific rule failures rather than trying to disable the strict rule set.
+
+See [the main PHPStan strict rules docs](https://github.com/phpstan/phpstan-strict-rules) for more information.
+
+## Suppressing Errors
+
+[Here](https://github.com/phpstan/phpstan#ignore-error-messages-with-regular-expressions) you can read more about how to ignore errors by modifying `phpstan.neon`.
+
+## Mock Objects in Tests
+
+The bundled `phpstan-phpunit` extension handles PHPUnit mock objects automatically. Without it, PHPStan gets confused by mock objects:
 
 ```text
- ------ ------------------------------------------------------------------------------------------ 
-  Line   Path/To/Class.php                                          
- ------ ------------------------------------------------------------------------------------------ 
-  20     Parameter #1 $logger of class Path\To\AnotherClass constructor expects  
-         Psr\Log\LoggerInterface, PHPUnit\Framework\MockObject\MockObject given.                   
- ------ ------------------------------------------------------------------------------------------ 
+ ------ ------------------------------------------------------------------------------------------
+  Line   Path/To/Class.php
+ ------ ------------------------------------------------------------------------------------------
+  20     Parameter #1 $logger of class Path\To\AnotherClass constructor expects
+         Psr\Log\LoggerInterface, PHPUnit\Framework\MockObject\MockObject given.
+ ------ ------------------------------------------------------------------------------------------
 ```
 
-To solve this for PHPUnit mock objects you can use PHPStan's official PHPUnit extension
-[phpstan-phpunit](https://github.com/phpstan/phpstan-phpunit).
+Since `phpstan-phpunit` is bundled, this is handled out of the box. See the [phpstan-phpunit documentation](https://github.com/phpstan/phpstan-phpunit#how-to-document-mock-objects-in-phpdocs) for how to document mock objects in your tests.
 
-You can find clear instructions on how to use this here [projects Github page](https://github.com/phpstan/phpstan-phpunit#usage).
+## Tips for Resolving Issues
 
-Also read: [https://github.com/phpstan/phpstan-phpunit#how-to-document-mock-objects-in-phpdocs](https://github.com/phpstan/phpstan-phpunit#how-to-document-mock-objects-in-phpdocs) for full instructions on how to document mock objects in your tests.
+### Can't use `empty()`
 
-##### Installing
-
-**_NOTE: phpstan-phpunit will only work with PHP 7.1 and above._** which is why we don't bundle it by default.
-
-First you'll need to require phpstan-phpunit:
-
-```bash
-composer require --dev phpstan/phpstan-phpunit
-```
-
-Then you need to copy the default PHPStan config from
-`vendor/edmondscommerce/phpqa/configDefaults/generic/phpstan.neon`
-to `qaConfig/phpstan.neon` and uncomment the 2 PHPUnit specific lines:
-
-```bash
-    - ../vendor/phpstan/phpstan-phpunit/extension.neon
-    - ../vendor/phpstan/phpstan-phpunit/rules.neon
-```
-
-### Tips for Resolving Issues
-
-#### Can't use `empty()`
-
-You should not use empty, instead you should do more typesafe comparisons.
-
-For example:
+You should not use `empty()`. Instead, use more type-safe comparisons:
 
 ```php
 <?php
-$maybeEmptyArray=getMaybeEmptyArray();
-if([]===$maybeEmptyArray){
+$maybeEmptyArray = getMaybeEmptyArray();
+if ([] === $maybeEmptyArray) {
     throw new \RuntimeException('the array is empty');
 }
 ```
 
-#### Type Can Be False or Otherwise not certain
+### Type Can Be False or Otherwise Uncertain
 
-You need to be more explicit about the type you are dealing with. For example, you can safely cast false to empty string if that is suitable in your situation. If not, then you should check for false and handle that as an Exception.
-
-For example:
+You need to be more explicit about the type you are dealing with. Check for false and handle it as an exception:
 
 ```php
 <?php
-$contents=\file_get_contents('/path/to/file');
-if(false === $contents){
+$contents = \file_get_contents('/path/to/file');
+if (false === $contents) {
     throw new \RuntimeException('Failed getting file contents');
 }
-#now work with $contents as a string
+// now work with $contents as a string
 ```
 
-See [\EdmondsCommerce\PHPQA\Psr4Validator::getActualNamespace](./../../src/Psr4Validator.php)
+Note: if you are using `thecodingmachine/safe` (which the Rector safe-functions stage will convert you to), these functions throw exceptions instead of returning false, eliminating this class of issue.
 
-#### Only Booleans allowed in `if` Conditions
+### Only Booleans Allowed in `if` Conditions
 
-This means you need to do something explicitly boolean, generally involving a `===`
-
-For example
+This means you need to do something explicitly boolean, generally involving `===`:
 
 ```php
 <?php
-$subject='string containing pattern';
-if(1===\preg_match('%pa[t]{2}ern%', $subject)){
+$subject = 'string containing pattern';
+if (1 === \preg_match('%pa[t]{2}ern%', $subject)) {
     echo 'it matches';
 }
 ```
 
-#### PHPUnit Dynamic Call to Static Method
+### PHPUnit Dynamic Call to Static Method
 
-The convention is often to use `$this->assertSame`
+The convention is often to use `$this->assertSame`, but `assertSame` is a static method. You should use `self::assertSame`.
 
-Actually, the `assertSame` method is static, so you should really be doing `self::assertSame`
+Generally you can fix this in bulk by finding `$this->assert` and replacing with `self::assert`.
 
-Generally you should be able to fix this in bulk by doing a "Replace in path" finding `$this->assert` and replacing with `self::assert`
+### Missing Type Hints
 
-#### Missing Type Hints
-
-To resolve this, you should first try to declare a real PHP type hint
-
-If you can't, for example the type is mixed, or you are extending or overriding a third party or core class, then you can still declare type hints but just using the legacy docblock method
-
-For example:
-
-Have a look at [\EdmondsCommerce\PHPQA\Psr4Validator::getDirectoryIterator](./../../src/Psr4Validator.php)
+First try to declare a real PHP type hint. If you cannot (e.g., the type is mixed, or you are extending a third-party class), use PHPDoc annotations:
 
 ```php
 <?php
 
-#....
-
-    /**
-     * @param string $realPath
-     *
-     * @return \SplHeap|\SplFileInfo[]
-     */
-    private function getDirectoryIterator(string $realPath)
-    {
-        $directoryIterator = new \RecursiveDirectoryIterator(
-            $realPath,
-            \RecursiveDirectoryIterator::SKIP_DOTS
-        );
-        $iterator          = new \RecursiveIteratorIterator(
-            $directoryIterator,
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-
-        return new class($iterator) extends \SplHeap
-        {
-            public function __construct(\RecursiveIteratorIterator $iterator)
-            {
-                foreach ($iterator as $item) {
-                    $this->insert($item);
-                }
-            }
-
-            /**
-             * @param \SplFileInfo $item1
-             * @param \SplFileInfo $item2
-             *
-             * @return int
-             */
-            protected function compare($item1, $item2): int
-            {
-                return strcmp($item2->getRealPath(), $item1->getRealPath());
-            }
-        };
-    }
-
-
+/**
+ * @param string $realPath
+ *
+ * @return \SplHeap<\SplFileInfo>
+ */
+private function getDirectoryIterator(string $realPath): \SplHeap
+{
+    // ...
+}
 ```

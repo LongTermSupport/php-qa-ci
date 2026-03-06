@@ -1,7 +1,8 @@
 # PHPQA Infection
 
-[Infection](https://infection.github.io/) is a Mutation Testing Framework, that runs PHPUnit tests and then makes small 
-modifications to the code and sees if these cause the unit tests to fail.
+[Infection](https://infection.github.io/) is a Mutation Testing Framework that runs PHPUnit tests and then makes small modifications to the code and sees if these cause the unit tests to fail.
+
+Infection runs as a **PHAR** from `vendor-phar/infection.phar` (not as a Composer dependency). It requires Xdebug to be available for code coverage.
 
 In PHPQA we run this after the normal PHPUnit run and pass in the coverage generated with PHPUnit. This means that it will only run this tool if you have the `phpUnitCoverage` environment variable set to 1.
 
@@ -26,8 +27,8 @@ Here are the environment variables that you might decide to override:
 
 Infection has been configured to require both a minimum MSI and covered MSI to be achieved for the test to pass.
 
-Be default these are set to 60% for MSI, and 90% for covered MSI. These values can be overwritten by using environment 
-variables. To do this simply export the following before running qa
+By default these are set to 60% for MSI, and 90% for covered MSI. These values can be overwritten by using environment
+variables. To do this, simply export the following before running qa:
 
  * `mutationScoreIndicator` to set the MSI level
  * `coveredCodeMSI` to set the covered MSI level
@@ -43,7 +44,7 @@ You can see that this is being done in the phpqa project itself in its own [qaCo
 #### Disabling Infection
 
 
-If you would like to disable infection, simply export the enviroment variable `useInfection` with the value `0`
+If you would like to disable infection, simply export the environment variable `useInfection` with the value `0`:
 
 ```bash
 export useInfection=0

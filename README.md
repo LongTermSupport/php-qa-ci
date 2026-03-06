@@ -1,63 +1,111 @@
 # PHP-QA-CI
 
+A comprehensive quality assurance and continuous integration pipeline for PHP 8.3+ projects, written in Bash. Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
+
+This package is written for and tested on Linux.
+
 ## Install
 
-The qa script will be installed in your project's bin directory. By default, Composer uses `vendor/bin`, but you can configure a custom location in your composer.json:
-
-```
-  "config": {
-    "bin-dir": "bin",  // Optional: changes from vendor/bin to bin
+```bash
+composer require --dev lts/php-qa-ci:dev-php8.4@dev
 ```
 
-Then install the current bleeding edge, run
+The `qa` script will be installed in your project's bin directory. By default, Composer uses `vendor/bin`, but you can configure a custom location in your `composer.json`:
 
+```json
+"config": {
+    "bin-dir": "bin"
+}
 ```
-composer require --dev lts/php-qa-ci:dev-master@dev
-```
 
-For Symfony - you can accept the prompts to run recipes, but you will then need to decide to either stick with Symfony defaults or the php-qa-ci default which are more extensive
+For Symfony projects, you can accept the prompts to run recipes, but you will then need to decide whether to stick with Symfony defaults or the php-qa-ci defaults (which are more extensive). If you decide to keep the php-qa-ci defaults, remove the config files created by the Symfony recipe:
 
-If you decide to stick with the lts defaults, then you should remove the config files that the symfony recipe created. If you want to keep config files in your root directory, you can choose to symlink them to the php-qa-ci files, eg
-
-Note that you should properly compare the files before doing this.
-
-```
-# revert to php-qa-ci PHPUnit configs
+```bash
+# Revert to php-qa-ci PHPUnit configs (compare files first)
 rm phpunit.xml.dist
-ln -s vendor/lts/php-qa-ci/configDefaults/generic/phpunit.xml 
+ln -s vendor/lts/php-qa-ci/configDefaults/generic/phpunit.xml
 ```
 
+### Required Composer Configuration
 
+Your project's `composer.json` must allow the required plugins:
 
-## Introduction
+```json
+{
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true,
+            "lts/php-qa-ci": true,
+            "phpstan/extension-installer": true
+        }
+    }
+}
+```
 
-PHP-QA-CI is a quality assurance and continuous integration pipeline written in BASH that can be run both on the desktop
-as part of your development process and then also as part of a continuous integration (CI) pipeline.
+## What It Does
 
-It runs tools in a logical order and will fail as quickly as possible.
+PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 
-This package is written for and has only been tested on Linux.
+**Phase 1 -- Code Modification:**
+1. Rector (safe functions, PHPUnit, PHP 8.4 upgrades)
+2. PHP CS Fixer
+
+**Phase 2 -- Linting and Validation:**
+3. PSR-4 Validation
+4. Composer Checks
+5. Strict Types Enforcement
+6. PHP Lint
+7. Composer Require Checker
+8. Markdown Links Checker
+
+**Phase 3 -- Static Analysis:**
+9. PHPStan (level max)
+
+**Phase 4 -- Testing:**
+10. PHPUnit
+11. Infection (mutation testing, optional, requires Xdebug)
+
+**Post-Success:** PHPLoc (stats only, cannot fail)
+
+See [Pipeline Architecture](./docs/pipeline.md) for full details.
+
+## Tool Delivery
+
+PHP-QA-CI uses a hybrid approach to tool delivery:
+
+- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker -- delivered in `vendor-phar/`
+- **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit, parallel-lint
+- **Isolated Composer project**: Rector -- in `tools/rector/` with its own `composer.json` to prevent dependency conflicts
+
+The `phpstan/phpstan` package is in the `replace` section of `composer.json` since PHPStan is provided via PHAR. This prevents version conflicts when consuming projects also require PHPStan extensions.
+
+## Custom PHPStan Rules
+
+PHP-QA-CI ships with custom PHPStan rules that are auto-loaded via the PHPStan extension installer:
+
+- **ForbidMockingFinalClassRule** -- Prevents mocking of final classes
+- **ForbidAllowMockWithoutExpectationsRule** -- Bans `#[AllowMockObjectsWithoutExpectations]`
+- **ForbidDangerousFunctionsRule** -- Bans exec/eval/unserialize and similar
+- **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
+- **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
+
+Projects can add their own rules alongside these defaults.
 
 ## Quick Setup Scripts
 
-PHP-QA-CI includes convenient scripts for setting up continuous integration and branch protection:
-
 ### GitHub Actions Setup
 
-Automatically install GitHub Actions workflow for continuous integration:
+Automatically install the GitHub Actions workflow for continuous integration:
 
 ```bash
-# Run from your project root
 vendor/lts/php-qa-ci/scripts/install-github-actions.bash
 ```
 
-This script will:
-- Create `.github/workflows/qa.yml` with optimized QA pipeline
+This will:
+- Create `.github/workflows/qa.yml` with an optimized QA pipeline
 - Auto-detect your PHP version from `composer.json`
 - Configure smart caching for faster builds
 - Set up artifact storage for test results
-
-After installation, the QA pipeline will run automatically on all pushes and pull requests.
 
 ### Branch Protection Setup
 
@@ -71,101 +119,109 @@ vendor/lts/php-qa-ci/scripts/setup-branch-protection.bash
 vendor/lts/php-qa-ci/scripts/setup-branch-protection.bash --harden
 ```
 
-The script configures:
-- Required CI checks (PHP QA Pipeline must pass)
-- PR review requirements
-- Protection against force pushes and deletions
-- Auto-delete merged branches
-- Conversation resolution requirements
-
 **Prerequisites**: Requires [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated.
+
+## CI/CD Workflows
+
+PHP-QA-CI includes three GitHub Actions workflows in `.github/workflows/`:
+
+- **`ci.yml`** -- Runs on push/PR to `php8.4`, executes `bash ci.bash`
+- **`qa.yml`** -- Template workflow for consuming projects (copy to your project)
+- **`update-deps.yml`** -- Weekly scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, isolated Rector), runs the full QA pipeline, and creates an auto-merge PR if green
+
+See [GitHub Actions Integration](./docs/github-actions.md) for setup details.
 
 ## Claude Code Integration
 
-PHP-QA-CI now integrates seamlessly with [Claude Code Hooks Daemon](https://docs.anthropic.com/en/docs/claude-code/hooks) to provide enhanced development guardrails and automation when using Claude Code.
+PHP-QA-CI integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) to provide development guardrails and automation.
 
-### What is hooks-daemon?
+### Deployment
 
-hooks-daemon is a high-performance daemon for Claude Code hooks that provides 20x faster execution than classic hooks after warmup. It enables intelligent workflow enforcement, destructive command prevention, and automated quality checks.
+Deploy skills and hooks to your project:
 
-### Integration Features
-
-When you deploy php-qa-ci skills and hooks to your project, the deployment script automatically:
-
-- **Detects hooks-daemon** - Checks if `.claude/hooks-daemon.yaml` exists
-- **Configures required handlers** - Ensures the daemon has the necessary handlers enabled with correct settings
-- **Migrates from classic hooks** - Removes legacy `.claude/hooks/*.py` files and settings.json registrations
-- **Provides clear instructions** - If daemon not detected, displays installation guide
-
-### Benefits
-
-✅ **No double execution overhead** - Single handler execution instead of running both classic hooks and daemon handlers
-✅ **Superior performance** - 20x faster after warmup via Unix socket IPC
-✅ **Better implementations** - Daemon handlers include enhancements and bug fixes
-✅ **Single source of truth** - Daemon provides all hook functionality
-✅ **Automatic configuration** - php-qa-ci enforces required daemon settings
-
-### Required Daemon Handlers
-
-When hooks-daemon is detected, php-qa-ci configures these handlers:
-
-- `git_stash` (mode: deny) - Strict blocking of git stash operations
-- `plan_time_estimates` - Prevents time estimates in plan documents
-- `validate_instruction_content` - Ensures docs contain instructions, not logs
-- `markdown_organization` - Enforces documentation organization
-
-### Installation
-
-**Deploy skills and hooks** (will configure daemon if present):
 ```bash
 vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 ```
 
-**Install hooks-daemon** (if not already installed):
-```bash
-git clone -b v2.2.0 https://docs.anthropic.com/en/docs/claude-code/hooks.git .claude/hooks-daemon
-cd .claude/hooks-daemon
-./scripts/install/install.bash
-```
+This will:
+- Copy hooks to `.claude/hooks/`
+- Register them in `.claude/settings.json`
+- Detect and configure hooks-daemon if present (see hooks-daemon documentation for installation)
+- Migrate from legacy classic hooks if found
 
-**Documentation**: See `.claude/hooks/README.md` for detailed hook documentation and [hooks-daemon repository](https://docs.anthropic.com/en/docs/claude-code/hooks) for daemon documentation.
+### Included Hooks
+
+- `php-qa-ci__auto-continue.py` -- Reduces confirmation prompts
+- `php-qa-ci__prevent-destructive-git.py` -- Blocks commands that destroy uncommitted changes
+- `php-qa-ci__discourage-git-stash.py` -- Discourages git stash with escape hatch
+- `php-qa-ci__block-plan-time-estimates.py` -- Prevents time estimates in plan documents
+- `php-qa-ci__validate-claude-readme-content.py` -- Ensures docs contain instructions, not logs
+- `php-qa-ci__enforce-markdown-organization.py` -- Enforces doc organization
+
+See `.claude/hooks/README.md` for detailed hook documentation after deployment.
+
+### Composer Plugins
+
+PHP-QA-CI registers three Composer plugins:
+
+- **PhiveUpdatePlugin** -- Manages PHAR installation via PHIVE
+- **SkillsDeployPlugin** -- Deploys Claude Code skills and hooks
+- **PhpStanGuardPlugin** -- Prevents `phpstan/phpstan` from being installed alongside the PHAR
 
 ## Docs
 
 Comprehensive documentation is available in the [./docs](./docs) folder:
 
-- **[GitHub Actions Integration](./docs/github-actions.md)** - Complete CI/CD setup guide with customization options
-- **[Pipeline Architecture](./docs/pipeline.md)** - Detailed tool execution order and phases
-- **[Configuration](./docs/configuration.md)** - Customizing tool settings and overrides
-- **[Coding Standards](./docs/coding-standards.md)** - PHP CS Fixer and Rector configuration
-- **[Platform Detection](./docs/platform-detection.md)** - Symfony/Laravel specific settings
+- **[Pipeline Architecture](./docs/pipeline.md)** -- Tool execution order and phases
+- **[Tools Overview](./docs/phpqa-tools.md)** -- All tools with configuration details
+- **[Configuration](./docs/configuration.md)** -- Customizing tool settings and overrides
+- **[Coding Standards](./docs/coding-standards.md)** -- PHP CS Fixer and Rector configuration
+- **[GitHub Actions Integration](./docs/github-actions.md)** -- CI/CD setup guide
+- **[Continuous Integration](./docs/ci.md)** -- General CI usage and workflows
+- **[Platform Detection](./docs/platform-detection.md)** -- Symfony/Laravel specific settings
 
-## Other notes
+Tool-specific documentation:
+
+- **[PHPStan](./docs/tools/phpstan.md)** -- Static analysis configuration and custom rules
+- **[PHPUnit](./docs/tools/phpunit.md)** -- Test runner configuration and modes
+- **[Infection](./docs/tools/infection.md)** -- Mutation testing setup
+
+## Other Notes
 
 ### Specify PHP Binary Path
 
-if you are running multiple PHP versions, you can specify which one to use like so:
+If you are running multiple PHP versions, you can specify which one to use:
 
 ```bash
-# If using default vendor/bin location:
-export PHP_QA_CI_PHP_EXECUTABLE=/bin/php81
+export PHP_QA_CI_PHP_EXECUTABLE=/bin/php84
 vendor/bin/qa
 
 # Or inline:
-PHP_QA_CI_PHP_EXECUTABLE=/bin/php81 vendor/bin/qa
-
-# If you configured "bin-dir": "bin" in composer.json:
-PHP_QA_CI_PHP_EXECUTABLE=/bin/php81 bin/qa
+PHP_QA_CI_PHP_EXECUTABLE=/bin/php84 vendor/bin/qa
 ```
 
+### Running Specific Tools
+
+```bash
+# Run only PHPStan
+vendor/bin/qa -t stan
+
+# Run only PHP CS Fixer
+vendor/bin/qa -t fixer
+
+# Run on specific path
+vendor/bin/qa -t stan -p src/Domain
+```
+
+### Branches
+
+- `php8.4` -- Default branch, targets PHP 8.4
+- `php8.3` -- PHP 8.3 support
 
 ## Long Term Support
 
-This package was brought to you by Long Term Support LTD, a company run and founded by Joseph Edmonds
+This package was brought to you by Long Term Support LTD, a company run and founded by Joseph Edmonds.
 
 You can get in touch with Joseph at https://ltscommerce.dev/
 
 Check out Joseph's recent book [The Art of Modern PHP 8](https://ltscommerce.dev/#book)
-
-
-

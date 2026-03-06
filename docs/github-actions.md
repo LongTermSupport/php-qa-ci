@@ -40,7 +40,7 @@ The workflow automatically detects the PHP version from your `composer.json` fil
 ### Tool-Specific Runs
 
 Manually trigger specific tools from GitHub UI:
-- Actions → PHP QA Pipeline → Run workflow → Select tool
+- Actions -> PHP QA Pipeline -> Run workflow -> Select tool
 
 ### Artifact Storage
 
@@ -62,6 +62,7 @@ env:
   phpUnitCoverage: 0                # Disable coverage
   phpqaQuickTests: 1                # Quick test mode
   useInfection: 0                   # Skip mutation testing
+  phpqaMemoryLimit: 4G              # Memory limit for all QA tools
 ```
 
 ### Auto-Commit Fixes
@@ -82,16 +83,34 @@ env:
 ### GitHub Repository Settings
 
 #### Required Permissions
-1. Go to Settings → Actions → General
+1. Go to Settings -> Actions -> General
 2. Under "Workflow permissions":
    - Select "Read and write permissions"
    - Check "Allow GitHub Actions to create and approve pull requests" (if using auto-commits)
 
 #### Branch Protection (Recommended)
-1. Go to Settings → Branches
+1. Go to Settings -> Branches
 2. Add rule for main/master branch
 3. Check "Require status checks to pass before merging"
 4. Select "PHP QA Pipeline" as required check
+
+## Automated Dependency Updates
+
+PHP-QA-CI includes an `update-deps.yml` workflow that runs weekly to automatically update all dependencies:
+
+- Composer dependencies (`composer update`)
+- PHARs via PHIVE (`phive update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker
+- Isolated Rector installation (`composer update --working-dir=tools/rector`)
+
+If changes are detected, it runs the full QA pipeline. If QA passes, it creates a pull request with auto-merge enabled.
+
+To add this to your project:
+
+```bash
+cp vendor/lts/php-qa-ci/.github/workflows/update-deps.yml .github/workflows/update-deps.yml
+```
+
+See [Continuous Integration](./ci.md) for more details on the available workflows.
 
 ## Customization
 
@@ -147,11 +166,11 @@ The workflow includes:
 
 **"php-qa-ci not installed" error**
 ```bash
-composer require --dev lts/php-qa-ci:dev-php8.4
+composer require --dev lts/php-qa-ci:dev-php8.4@dev
 ```
 
 **Permission denied for auto-commits**
-- Check repository Settings → Actions → Workflow permissions
+- Check repository Settings -> Actions -> Workflow permissions
 - Ensure "Read and write permissions" is selected
 
 **Out of memory** (default is now 4G for all tools)
@@ -178,10 +197,11 @@ CI=true vendor/bin/qa
 ## Best Practices
 
 1. **Use branch protection** - Require QA checks to pass
-2. **Cache aggressively** - Speeds up builds significantly  
+2. **Cache aggressively** - Speeds up builds significantly
 3. **Skip infection in CI** - Run locally for faster feedback
 4. **Auto-commit carefully** - Only on feature branches, never on main
 5. **Review workflow documentation** - The template has extensive inline comments
+6. **Enable update-deps.yml** - Keep dependencies current automatically
 
 ## Migration from Travis/Jenkins
 
