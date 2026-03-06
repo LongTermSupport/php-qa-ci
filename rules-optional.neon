@@ -1,0 +1,24 @@
+# PHP-QA-CI Optional Rules
+#
+# These rules are NOT enabled by default. They are either opinionated or
+# framework-specific. To enable them, copy the relevant lines into your
+# project's phpstan.neon (e.g. qaConfig/phpstan.neon).
+#
+# OPINIONATED (any PHP project):
+#
+#    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
+#    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
+#
+# SYMFONY / DOCTRINE (framework-specific):
+#
+#    - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
+#    - LTS\PHPQA\PHPStan\Rules\ForbidRawSqlRule
+#
+# SYMFONY CONSOLE (convention enforcement):
+#
+#    - LTS\PHPQA\PHPStan\Rules\RequireCronIntervalInDescriptionRule
+#
+# SYMFONY DI (explicit service declaration):
+#    Note: RequireExplicitDIAttributeRule has no constructor params.
+#
+#    - LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule

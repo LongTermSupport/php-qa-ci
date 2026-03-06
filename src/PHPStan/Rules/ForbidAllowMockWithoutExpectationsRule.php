@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace LTS\PHPQA\PHPStan\Rules;
+
+use PhpParser\Node;
+use PhpParser\Node\Attribute;
+use PHPStan\Analyser\Scope;
+use PHPStan\Rules\Rule;
+use PHPStan\Rules\RuleErrorBuilder;
+
+/**
+ * Bans #[AllowMockObjectsWithoutExpectations] attribute.
+ *
+ * Use createStub() for dependencies without expectations instead.
+ *
+ * @implements Rule<Attribute>
+ */
+final class ForbidAllowMockWithoutExpectationsRule implements Rule
+{
+    public function getNodeType(): string
+    {
+        return Attribute::class;
+    }
+
+    /**
+     * @return list<\PHPStan\Rules\IdentifierRuleError>
+     */
+    public function processNode(Node $node, Scope $scope): array
+    {
+        $name = $node->name->toString();
+
+        if ($name === 'PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations'
+            || $name === 'AllowMockObjectsWithoutExpectations'
+        ) {
+            return [
+                RuleErrorBuilder::message(
+                    '#[AllowMockObjectsWithoutExpectations] is banned. Use createStub() for dependencies that have no expectations.',
+                )->identifier('counselbook.forbiddenAttribute')->build(),
+            ];
+        }
+
+        return [];
+    }
+}

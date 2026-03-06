@@ -81,6 +81,11 @@
       "LTS\\PHPQA\\ComposerPlugin\\PhiveUpdatePlugin",
       "LTS\\PHPQA\\ComposerPlugin\\SkillsDeployPlugin",
       "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin"
-    ]
+    ],
+    "phpstan": {
+      "includes": [
+        "rules-default.neon"
+      ]
+    }
   }
 }

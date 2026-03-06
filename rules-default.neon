@@ -1,0 +1,11 @@
+rules:
+    - LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidEmptyCatchBlockRule
+    - LTS\PHPQA\PHPStan\Rules\RequireDeclareStrictTypesRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidAllowMockWithoutExpectationsRule
+
+services:
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidMockingFinalClassRule
+        tags:
+            - phpstan.rules.rule
