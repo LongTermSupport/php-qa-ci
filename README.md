@@ -82,7 +82,7 @@ The script configures:
 
 ## Claude Code Integration
 
-PHP-QA-CI now integrates seamlessly with [Claude Code Hooks Daemon](https://github.com/anthropics/claude-code-hooks-daemon) to provide enhanced development guardrails and automation when using Claude Code.
+PHP-QA-CI now integrates seamlessly with [Claude Code Hooks Daemon](https://docs.anthropic.com/en/docs/claude-code/hooks) to provide enhanced development guardrails and automation when using Claude Code.
 
 ### What is hooks-daemon?
 
@@ -123,12 +123,12 @@ vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 
 **Install hooks-daemon** (if not already installed):
 ```bash
-git clone -b v2.2.0 https://github.com/anthropics/claude-code-hooks-daemon.git .claude/hooks-daemon
+git clone -b v2.2.0 https://docs.anthropic.com/en/docs/claude-code/hooks.git .claude/hooks-daemon
 cd .claude/hooks-daemon
 ./scripts/install/install.bash
 ```
 
-**Documentation**: See `.claude/hooks/README.md` for detailed hook documentation and [hooks-daemon repository](https://github.com/anthropics/claude-code-hooks-daemon) for daemon documentation.
+**Documentation**: See `.claude/hooks/README.md` for detailed hook documentation and [hooks-daemon repository](https://docs.anthropic.com/en/docs/claude-code/hooks) for daemon documentation.
 
 ## Docs
 
@@ -163,9 +163,9 @@ PHP_QA_CI_PHP_EXECUTABLE=/bin/php81 bin/qa
 
 This package was brought to you by Long Term Support LTD, a company run and founded by Joseph Edmonds
 
-You can get in touch with Joseph at https://joseph.edmonds.contact/
+You can get in touch with Joseph at https://ltscommerce.dev/
 
-Check out Joseph's recent book [The Art of Modern PHP 8](https://joseph.edmonds.contact/#book)
+Check out Joseph's recent book [The Art of Modern PHP 8](https://ltscommerce.dev/#book)
 
 
 

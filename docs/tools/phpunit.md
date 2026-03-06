@@ -90,7 +90,7 @@ You can enable the coverage report on the fly by doing:
 phpUnitCoverage=1 bin/qa 
 ```
 
-You might decide to do this if you are running these tests on travis, as you can see in [./travis.yml](./../../.travis.yml)
+You might decide to do this if you are running these tests in CI, as you can see in [ci.bash](./../../ci.bash)
 
 #### Config Changes When Generating Coverage
 
