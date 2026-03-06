@@ -23,5 +23,8 @@ jobs:
           coverage: xdebug
           extensions: json, tokenizer, mbstring
 
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
       - name: Run QA Pipeline
         run: bash ci.bash

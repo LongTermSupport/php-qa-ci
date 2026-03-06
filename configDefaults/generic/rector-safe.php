@@ -82,8 +82,7 @@ return static function (RectorConfig $rectorConfig): void {
         }
     }
     if (!isset($safeFunction)) {
-        $tried = implode("\n  ", array_map(static fn(string $p): string => $p . ' [' . (file_exists($p) ? 'EXISTS' : 'MISSING') . '] realpath=' . (realpath($p) ?: 'false'), $paths));
-        throw new \RuntimeException("Could not find safe function rector-migrate.php\n\n__DIR__: " . __DIR__ . "\n\nPaths tried:\n  " . $tried);
+        throw new \RuntimeException('Could not find safe function rector-migrate.php. Ensure thecodingmachine/safe or shish/safe is installed via composer.');
     }
     $safeFunction($rectorConfig);
     $rectorConfig->cacheClass(MemoryCacheStorage::class);
