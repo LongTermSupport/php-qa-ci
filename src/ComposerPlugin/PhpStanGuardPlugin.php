@@ -10,6 +10,7 @@ use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
+use Composer\Semver\Semver;
 
 /**
  * Composer plugin that guards against PHPStan version mismatches and duplicate installs.
@@ -144,8 +145,8 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
             return;
         }
 
-        // Parse and validate
-        if (!$this->versionSatisfiesConstraint($pharVersion, $constraint)) {
+        // Use Composer's Semver library for correct version comparison
+        if (!Semver::satisfies($pharVersion, $constraint)) {
             $io->writeError('');
             $io->writeError('<error>╔══════════════════════════════════════════════════════════════════╗</error>');
             $io->writeError('<error>║  PHPStan phar version does not satisfy extension constraints   ║</error>');
@@ -157,8 +158,11 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
             $io->writeError('  The PHPStan phar bundled with php-qa-ci is too old for the');
             $io->writeError('  installed PHPStan extensions.');
             $io->writeError('');
-            $io->writeError('  Fix: Update the phar by running:');
-            $io->writeError('    <comment>cd vendor/lts/php-qa-ci && bash scripts/tool-install.bash update</comment>');
+            $io->writeError('  Fix: Update lts/php-qa-ci to a newer version:');
+            $io->writeError('    <comment>composer update lts/php-qa-ci</comment>');
+            $io->writeError('');
+            $io->writeError('  If already on the latest version, ask the php-qa-ci maintainer');
+            $io->writeError('  to update the bundled PHPStan phar.');
             $io->writeError('');
         } else {
             $io->write('<info>✓ PHPStan phar v' . $pharVersion . ' satisfies extension constraint ' . $constraint . '</info>');
@@ -206,28 +210,4 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
         return null;
     }
 
-    /**
-     * Checks if a version satisfies a simple >=X, <Y constraint.
-     */
-    private function versionSatisfiesConstraint(string $version, string $constraint): bool
-    {
-        // Parse constraint like ">=2.1.39.0-dev, <3.0.0.0-dev"
-        $parts = \array_map('trim', \explode(',', $constraint));
-
-        foreach ($parts as $part) {
-            if (\str_starts_with($part, '>=')) {
-                $minVersion = \str_replace(['-dev', '-stable'], '', \substr($part, 2));
-                if (\version_compare($version, $minVersion, '<')) {
-                    return false;
-                }
-            } elseif (\str_starts_with($part, '<')) {
-                $maxVersion = \str_replace(['-dev', '-stable'], '', \substr($part, 1));
-                if (\version_compare($version, $maxVersion, '>=')) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
 }
