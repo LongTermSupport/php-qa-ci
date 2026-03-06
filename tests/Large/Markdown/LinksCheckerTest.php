@@ -67,6 +67,7 @@ Bad link for "incorrect link" to "./foo.md"
 
     public function testItHandlesNonFileLinks(): void
     {
+        /** @phpstan-ignore identical.alwaysFalse */
         if (false === @get_headers('https://httpstat.us/200')) {
             self::markTestSkipped('httpstat.us is not reachable (e.g. CI environment)');
         }
