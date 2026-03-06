@@ -1,0 +1,152 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    # Weekly on Sunday at 03:00 UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-and-verify:
+    name: Update Dependencies & Verify QA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: php8.4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2, phive
+          coverage: xdebug
+          extensions: json, tokenizer, mbstring
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-update-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-update-
+            ${{ runner.os }}-composer-
+
+      # Step 1: Update composer dependencies
+      - name: Update composer dependencies
+        run: composer update --no-interaction --no-progress --prefer-dist
+
+      # Step 2: Update PHARs via phive
+      - name: Import GPG keys for PHAR verification
+        run: |
+          gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \
+            C6D76C329EBADE2FB9C458CFC5095986493B4AA0 \
+            033E5F8D801A2F8D || true
+          gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys \
+            51C67305FFC2E5C0 \
+            E82B2FB314E9906E || true
+
+      - name: Update PHARs via phive
+        run: |
+          phive update --copy \
+            --trust-gpg-keys C6D76C329EBADE2FB9C458CFC5095986493B4AA0,51C67305FFC2E5C0,E82B2FB314E9906E,033E5F8D801A2F8D \
+            || echo "::warning::phive update failed (GPG key server issue?) - continuing with existing PHARs"
+
+      # Step 3: Update isolated Rector
+      - name: Update isolated Rector
+        run: composer update --working-dir=tools/rector --no-interaction --no-dev
+
+      # Step 4: Check for changes
+      - name: Detect changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No dependency changes detected"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected:"
+            git diff --stat
+          fi
+
+      # Step 5: Run full QA pipeline (only if changes detected)
+      - name: Run QA Pipeline
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          CI: true
+          skipUncommittedChangesCheck: 1
+          phpUnitQuickTests: 0
+          phpUnitCoverage: 0
+        run: bash ci.bash
+
+      # Step 6: Generate PR summary
+      - name: Generate update summary
+        if: steps.changes.outputs.changed == 'true'
+        id: summary
+        run: |
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "## Composer Changes" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo '```diff' >> "$GITHUB_OUTPUT"
+          git diff composer.lock | head -100 >> "$GITHUB_OUTPUT"
+          echo '```' >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+
+          # Check for PHAR changes
+          if ! git diff --quiet phive.xml vendor-phar/; then
+            echo "## PHAR Changes" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            for phar in vendor-phar/*.phar; do
+              name=$(basename "$phar" .phar)
+              echo "- **$name**: $(php "$phar" --version 2>/dev/null | head -1 || echo 'version unknown')" >> "$GITHUB_OUTPUT"
+            done
+            echo "" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check for Rector changes
+          if ! git diff --quiet tools/rector/composer.lock; then
+            echo "## Rector Changes" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo '```diff' >> "$GITHUB_OUTPUT"
+            git diff tools/rector/composer.lock | head -50 >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "---" >> "$GITHUB_OUTPUT"
+          echo "QA pipeline passed with these changes." >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      # Step 7: Create PR (only if QA passed — this step is skipped if ci.bash failed)
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: chore/update-deps
+          delete-branch: true
+          title: 'chore(deps): update dependencies'
+          body: |
+            Automated weekly dependency update.
+
+            ${{ steps.summary.outputs.body }}
+
+            This PR was created automatically by the [update-deps](${{ github.server_url }}/${{ github.repository }}/actions/workflows/update-deps.yml) workflow.
+          labels: dependencies,automated
+          commit-message: 'chore(deps): update all dependencies'
+
+      - name: Enable auto-merge
+        if: steps.create-pr.outputs.pull-request-number
+        run: gh pr merge --auto --squash "${{ steps.create-pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
