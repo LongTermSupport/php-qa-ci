@@ -99,7 +99,7 @@ final class ForbidMockingFinalClassRule implements Rule
         // Skip third-party (vendor) final classes — we can't add interfaces to those.
         // Only flag classes whose source file is within the project, not in vendor/.
         $fileName = $classReflection->getFileName();
-        if (false === $fileName || str_contains($fileName, '/vendor/')) {
+        if (null === $fileName || str_contains($fileName, '/vendor/')) {
             return [];
         }
 

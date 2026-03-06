@@ -68,14 +68,14 @@ final class LinksChecker
         }
         $directory = new RecursiveDirectoryIterator($dir);
         $recursive = new RecursiveIteratorIterator($directory);
-        /** @var string[] $regex */
         $regex = new RegexIterator(
             $recursive,
             '/^.+\.md/i',
             RecursiveRegexIterator::GET_MATCH
         );
         foreach ($regex as $file) {
-            if ('' !== $file[0]) {
+            /** @var array<int, string> $file */
+            if (isset($file[0]) && '' !== $file[0]) {
                 $files[] = $file[0];
             }
         }
@@ -108,7 +108,7 @@ final class LinksChecker
     {
         $links    = [];
         $contents = \Safe\file_get_contents($file);
-        $matches  = null;
+        $matches  = [];
         if (
             0 !== \Safe\preg_match_all(
                 '/\[([^\]]+)\]\(([^)]+)\)/',
@@ -117,6 +117,7 @@ final class LinksChecker
                 PREG_SET_ORDER
             )
         ) {
+            /** @var array<array<string>> $matches */
             $links = array_merge($links, $matches);
         }
 
@@ -174,9 +175,10 @@ final class LinksChecker
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {
+        /** @var array<string, true> $checked */
         static $checked    = [];
         [, $anchor, $href] = $link;
-        $hashPos           = (int)strpos($href, '#');
+        $hashPos           = (int) strpos($href, '#');
         if ($hashPos > 0) {
             $href = substr($href, 0, $hashPos);
         }
@@ -229,9 +231,10 @@ final class LinksChecker
             ]);
             try {
                 $headers = @get_headers($href, false, $context);
-                if (false === $headers) {
+                if (!\is_array($headers)) {
                     continue;
                 }
+                /** @var array<string> $headers */
                 $lastStatus = self::getLastStatusCode($headers);
                 if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
                     return null;
@@ -254,8 +257,9 @@ final class LinksChecker
     {
         $lastStatus = null;
         foreach ($headers as $header) {
-            if (1 === \Safe\preg_match('/^HTTP\/[\d.]+ (\d{3})/', $header, $matches)) {
-                $lastStatus = (int)$matches[1];
+            $matches = [];
+            if (1 === \Safe\preg_match('/^HTTP\/[\d.]+ (\d{3})/', $header, $matches) && isset($matches[1])) {
+                $lastStatus = (int) $matches[1];
             }
         }
 

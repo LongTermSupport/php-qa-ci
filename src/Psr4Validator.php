@@ -101,10 +101,12 @@ final class Psr4Validator
     {
         $json = $this->decodedComposerJson;
         foreach (['autoload', 'autoload-dev'] as $autoload) {
-            if (!isset($json[$autoload]['psr-4'])) {
+            $autoloadSection = $json[$autoload] ?? null;
+            if (!\is_array($autoloadSection) || !isset($autoloadSection['psr-4']) || !\is_array($autoloadSection['psr-4'])) {
                 continue;
             }
-            $psr4 = $json[$autoload]['psr-4'];
+            /** @var array<string, string|list<string>> $psr4 */
+            $psr4 = $autoloadSection['psr-4'];
             foreach ($psr4 as $namespaceRoot => $paths) {
                 if (!\is_array($paths)) {
                     $paths = [$paths];
@@ -210,9 +212,9 @@ final class Psr4Validator
     private function getActualNamespace(SplFileInfo $fileInfo): string
     {
         $contents = \Safe\file_get_contents($fileInfo->getPathname());
-        $matches  = null;
+        $matches  = [];
         \Safe\preg_match('%namespace\s+?([^;]+)%', $contents, $matches);
-        if ([] === $matches) {
+        if (!isset($matches[1])) {
             $this->parseErrors[] = (string)$fileInfo->getRealPath();
 
             return '';

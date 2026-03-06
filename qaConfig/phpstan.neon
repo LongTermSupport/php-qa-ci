@@ -1,6 +1,16 @@
 parameters:
     excludePaths:
         - ./../tests/assets/*
+        - ./../src/ComposerPlugin/*
     level: max
     inferPrivatePropertyTypeFromConstructor: true
+    ignoreErrors:
+        # PHPMD @SuppressWarnings annotations are valid for PHPMD but not parseable by PHPStan
+        -
+            identifier: phpDoc.parseError
+        # Symfony DI attributes referenced for string comparison in PHPStan rule - not a runtime dependency
+        -
+            identifier: class.notFound
+            path: ../src/PHPStan/Rules/RequireExplicitDIAttributeRule.php
+            reportUnmatched: false
 

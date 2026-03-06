@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA;
 
-use Composer\Autoload\ClassLoader;
 use Exception;
-use ReflectionClass;
 use RuntimeException;
 
 final class Helper
@@ -45,15 +43,12 @@ final class Helper
     public static function getProjectRootDirectory(): string
     {
         if (null === self::$projectRootDirectory) {
-            // rector is including a vendor directory in itself which is messing with composer
-//            $reflection                 = new ReflectionClass(ClassLoader::class);
-//            self::$projectRootDirectory = \dirname((string)$reflection->getFileName(), 3);
-            if (!isset($_SERVER['PWD'],)) {
+            if (!isset($_SERVER['PWD']) || !\is_string($_SERVER['PWD'])) {
                 die('no PWD in _SERVER');
             }
             $pwd = $_SERVER['PWD'];
-            if (!file_exists("$pwd/composer.json",)) {
-                die('PWD is '.$pwd.' but does not contain composer.json');
+            if (!file_exists($pwd . '/composer.json')) {
+                die('PWD is ' . $pwd . ' but does not contain composer.json');
             }
 
             return self::$projectRootDirectory = $pwd;

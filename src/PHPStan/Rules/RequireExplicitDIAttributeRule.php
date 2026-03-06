@@ -173,7 +173,7 @@ final class RequireExplicitDIAttributeRule implements Rule
                         $shortName,
                         $hint
                     )
-                )->build(),
+                )->identifier('lts.requireExplicitDIAttribute')->build(),
             ];
         }
 
@@ -184,7 +184,7 @@ final class RequireExplicitDIAttributeRule implements Rule
                         'Class %s cannot have both service registration (#[Autoconfigure]/#[AutoconfigureTag]) and #[Exclude] attributes',
                         $node->name->toString()
                     )
-                )->build(),
+                )->identifier('lts.conflictingDIAttributes')->build(),
             ];
         }
 
