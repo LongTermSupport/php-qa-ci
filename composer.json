@@ -53,7 +53,11 @@
     }
   },
   "bin": [
+    "bin/composer-require-checker",
+    "bin/infection",
     "bin/mdlinks",
+    "bin/php-cs-fixer",
+    "bin/phpstan",
     "bin/phpunit-check-annotation",
     "bin/psr4-validate",
     "bin/qa"

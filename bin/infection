@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+echo "ERROR: infection is not installed as a standalone binary."
+echo ""
+echo "php-qa-ci manages Infection as a PHAR in vendor-phar/infection.phar"
+echo ""
+echo "To run via the QA pipeline (recommended):"
+echo "  vendor/bin/qa -t infection"
+echo ""
+echo "To run directly with custom arguments:"
+echo "  php vendor/lts/php-qa-ci/vendor-phar/infection.phar [args]"
+exit 1

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+echo "ERROR: phpstan is not installed as a standalone binary."
+echo ""
+echo "php-qa-ci manages PHPStan as a PHAR in vendor-phar/phpstan.phar"
+echo ""
+echo "To run via the QA pipeline (recommended):"
+echo "  vendor/bin/qa -t phpstan"
+echo ""
+echo "To run directly with custom arguments:"
+echo "  php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar analyse [args]"
+exit 1

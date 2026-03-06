@@ -231,7 +231,6 @@ final class LinksChecker
             ]);
             try {
                 $headers = @get_headers($href, false, $context);
-                /** @phpstan-ignore function.alreadyNarrowedType */
                 if (!\is_array($headers)) {
                     continue;
                 }
