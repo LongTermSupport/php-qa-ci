@@ -23,32 +23,5 @@ jobs:
           coverage: xdebug
           extensions: json, tokenizer, mbstring
 
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Install isolated Rector
-        run: composer install --working-dir=tools/rector --no-interaction --no-dev
-
-      - name: Verify PHARs are functional
-        run: |
-          echo "=== Verifying PHAR binaries ==="
-          php vendor-phar/phpstan.phar --version
-          php vendor-phar/php-cs-fixer.phar --version
-          php vendor-phar/infection.phar --version
-          php vendor-phar/composer-require-checker.phar --version
-          tools/rector/vendor/bin/rector --version
-          echo "=== All PHARs OK ==="
-
-      - name: Run PHPStan
-        run: |
-          php vendor-phar/phpstan.phar analyse \
-            src \
-            -c qaConfig/phpstan.neon \
-            --no-progress \
-            --error-format=github
-
-      - name: Run PHPUnit
-        run: |
-          php vendor/bin/phpunit \
-            --no-coverage \
-            --colors=always
+      - name: Run QA Pipeline
+        run: bash ci.bash
