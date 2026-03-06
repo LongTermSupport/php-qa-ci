@@ -1,0 +1,101 @@
+name: Update PHARs
+
+on:
+  schedule:
+    # Weekly on Sunday at 03:00 UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-phars:
+    name: Update PHAR Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: php8.4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2, phive
+          coverage: none
+
+      - name: Import GPG keys for PHAR verification
+        run: |
+          gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \
+            C6D76C329EBADE2FB9C458CFC5095986493B4AA0 \
+            033E5F8D801A2F8D
+          gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys \
+            51C67305FFC2E5C0 \
+            E82B2FB314E9906E
+
+      - name: Record current PHAR versions
+        id: before
+        run: |
+          echo "phive_xml_before<<EOF" >> "$GITHUB_OUTPUT"
+          cat phive.xml >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Update PHARs via phive
+        run: |
+          phive update --copy \
+            --trust-gpg-keys C6D76C329EBADE2FB9C458CFC5095986493B4AA0,51C67305FFC2E5C0,E82B2FB314E9906E,033E5F8D801A2F8D
+
+      - name: Update isolated Rector
+        run: composer update --working-dir=tools/rector --no-interaction --no-dev
+
+      - name: Generate version diff summary
+        id: diff
+        run: |
+          if git diff --quiet phive.xml vendor-phar/ tools/rector/composer.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+            echo '```diff' >> "$GITHUB_OUTPUT"
+            git diff phive.xml >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            # Extract human-readable version changes
+            echo "### PHAR Versions" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            for phar in vendor-phar/*.phar; do
+              name=$(basename "$phar" .phar)
+              echo "- **$name**: $(php "$phar" --version 2>/dev/null | head -1 || echo 'version unknown')" >> "$GITHUB_OUTPUT"
+            done
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.diff.outputs.changed == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: chore/update-phars
+          delete-branch: true
+          title: 'chore(deps): update PHAR dependencies'
+          body: |
+            Automated weekly update of PHAR dependencies via phive.
+
+            ## Changes
+
+            ${{ steps.diff.outputs.summary }}
+
+            ---
+            This PR was created automatically by the [update-phars](${{ github.server_url }}/${{ github.repository }}/actions/workflows/update-phars.yml) workflow.
+          labels: dependencies,automated
+          commit-message: 'chore(deps): update PHAR dependencies'
+
+      - name: Enable auto-merge
+        if: steps.create-pr.outputs.pull-request-number
+        run: gh pr merge --auto --squash "${{ steps.create-pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
