@@ -43,13 +43,6 @@ done
 
 echo -e "${BLUE}[DEBUG] MODE=$MODE, FORCE_INSTALL=$FORCE_INSTALL${NC}" >&2
 
-# Check if PHIVE is installed
-if ! command -v phive &> /dev/null; then
-    echo -e "${RED}Error: PHIVE is not installed${NC}"
-    echo "Please install PHIVE from https://phar.io/"
-    exit 1
-fi
-
 # Check if phive.xml exists
 if [[ ! -f "$PHIVE_XML" ]]; then
     echo -e "${RED}No phive.xml found at $PHIVE_XML${NC}"
@@ -57,6 +50,7 @@ if [[ ! -f "$PHIVE_XML" ]]; then
 fi
 
 # For install mode, check if all PHARs are already installed (unless -f flag is used)
+# Do this BEFORE checking for phive - if everything is present, phive is not needed
 if [[ "$MODE" == "install" ]] && [[ $FORCE_INSTALL -eq 0 ]]; then
     ALL_INSTALLED=1
 
@@ -78,6 +72,13 @@ if [[ "$MODE" == "install" ]] && [[ $FORCE_INSTALL -eq 0 ]]; then
         # Quick exit - all tools already installed
         exit 0
     fi
+fi
+
+# Check if PHIVE is installed (only needed when we actually need to install/update)
+if ! which phive 1>&2; then
+    echo -e "${RED}Error: PHIVE is not installed${NC}"
+    echo "Please install PHIVE from https://phar.io/"
+    exit 1
 fi
 
 # Create vendor-phar and phive-home directories if they don't exist
