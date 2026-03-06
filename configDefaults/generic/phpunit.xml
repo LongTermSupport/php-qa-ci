@@ -27,13 +27,6 @@
       <directory suffix="Test.php">../../../../../tests/</directory>
     </testsuite>
   </testsuites>
-  <extensions>
-    <!-- bypass-finals strips the `final` keyword at runtime so PHPUnit 13+
-         can create test doubles for final classes (enforced by CS Fixer). -->
-    <bootstrap class="DG\BypassFinals\PHPUnitExtension">
-      <parameter name="bypassReadOnly" value="false"/>
-    </bootstrap>
-  </extensions>
   <source>
     <include>
       <directory suffix=".php">../../../../../src</directory>
