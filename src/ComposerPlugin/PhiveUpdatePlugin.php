@@ -198,10 +198,12 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
 
         $io->write('<info>Running Phive ' . $mode . ' for PHAR dependencies...</info>');
 
+        // tool-install.bash accepts 'update' or no argument (default = install)
+        $modeArg = 'update' === $mode ? 'update' : '';
         $command = \sprintf(
             'cd %s/lts/php-qa-ci && bash ./scripts/tool-install.bash %s 2>&1',
             \escapeshellarg($vendorDir),
-            \escapeshellarg($mode)
+            $modeArg,
         );
 
         $output = [];
