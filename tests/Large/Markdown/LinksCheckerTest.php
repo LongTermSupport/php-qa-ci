@@ -68,10 +68,7 @@ Bad link for "incorrect link" to "./foo.md"
     public function testItHandlesNonFileLinks(): void
     {
         try {
-            $result = @\get_headers('https://httpstat.us/200');
-            if (false === $result) {
-                self::markTestSkipped('httpstat.us is not reachable (e.g. CI environment)');
-            }
+            \Safe\get_headers('https://httpstat.us/200');
         } catch (\Throwable) {
             self::markTestSkipped('httpstat.us is not reachable (e.g. CI environment)');
         }

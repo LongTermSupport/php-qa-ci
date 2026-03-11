@@ -230,10 +230,7 @@ final class LinksChecker
                 ],
             ]);
             try {
-                $headers = @get_headers($href, false, $context);
-                if (!\is_array($headers)) {
-                    continue;
-                }
+                $headers = \Safe\get_headers($href, false, $context);
                 /** @var list<string> $headers */
                 $lastStatus = self::getLastStatusCode($headers);
                 if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
