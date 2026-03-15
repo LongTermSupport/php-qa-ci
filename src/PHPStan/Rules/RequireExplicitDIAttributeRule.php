@@ -85,10 +85,10 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
  *                 - '../DTO/'
  *
  * @implements Rule<Node\Stmt\Class_>
- **/
+ */
 final class RequireExplicitDIAttributeRule implements Rule
 {
-    private const ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
+    private const array ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
         'PHPStan',
         'Tests',
         'Migrations',
@@ -105,7 +105,7 @@ final class RequireExplicitDIAttributeRule implements Rule
     public function processNode(Node $node, Scope $scope): array
     {
         // Skip abstract classes and anonymous classes
-        if ($node->isAbstract() || $node->name === null) {
+        if ($node->isAbstract() || null === $node->name) {
             return [];
         }
 
@@ -123,9 +123,9 @@ final class RequireExplicitDIAttributeRule implements Rule
             return [];
         }
 
-        $hasAutoconfigure = false;
-        $hasExclude = false;
-        $hasAsCommand = false;
+        $hasAutoconfigure    = false;
+        $hasExclude          = false;
+        $hasAsCommand        = false;
         $hasAutoConfigureTag = false;
 
         foreach ($node->attrGroups as $attrGroup) {
@@ -133,25 +133,25 @@ final class RequireExplicitDIAttributeRule implements Rule
                 $name = $attr->name->toString();
 
                 // Check for full namespace or just class name
-                if ($name === 'Autoconfigure' ||
-                    $name === Autoconfigure::class ||
-                    str_ends_with($name, '\\Autoconfigure')) {
+                if ('Autoconfigure'         === $name
+                    || Autoconfigure::class === $name
+                    || str_ends_with($name, '\Autoconfigure')) {
                     $hasAutoconfigure = true;
                 }
 
-                if ($name === 'Exclude' ||
-                    $name === Exclude::class ||
-                    str_ends_with($name, '\\Exclude')) {
+                if ('Exclude'         === $name
+                    || Exclude::class === $name
+                    || str_ends_with($name, '\Exclude')) {
                     $hasExclude = true;
                 }
 
                 // AsCommand implies it's a service
-                if (str_ends_with($name, '\\AsCommand')) {
+                if (str_ends_with($name, '\AsCommand')) {
                     $hasAsCommand = true;
                 }
 
                 // AutoconfigureTag implies it's a service
-                if (str_ends_with($name, '\\AutoconfigureTag')) {
+                if (str_ends_with($name, '\AutoconfigureTag')) {
                     $hasAutoConfigureTag = true;
                 }
             }
@@ -168,7 +168,7 @@ final class RequireExplicitDIAttributeRule implements Rule
 
             return [
                 RuleErrorBuilder::message(
-                    sprintf(
+                    \sprintf(
                         'Class %s must explicitly declare DI status with either #[Autoconfigure] (for services) or #[Exclude] (for DTOs, entities, value objects). %s',
                         $shortName,
                         $hint
@@ -180,7 +180,7 @@ final class RequireExplicitDIAttributeRule implements Rule
         if (($hasAutoconfigure || $hasAutoConfigureTag) && $hasExclude) {
             return [
                 RuleErrorBuilder::message(
-                    sprintf(
+                    \sprintf(
                         'Class %s cannot have both service registration (#[Autoconfigure]/#[AutoconfigureTag]) and #[Exclude] attributes',
                         $node->name->toString()
                     )
@@ -204,28 +204,29 @@ final class RequireExplicitDIAttributeRule implements Rule
      * - Value objects, domain models, and data containers should be excluded
      *
      * @param string $className The short name of the class being analyzed
+     *
      * @return string A helpful hint message suggesting which attribute to use
      */
     private function getHintForClass(string $className): string
     {
         // DTOs and Value Objects - These hold data and should NOT be services
         // They are instantiated with specific data, not injected
-        if (str_ends_with($className, 'DTO') ||
-            str_ends_with($className, 'Message') ||
-            str_contains($className, 'Validated') ||
-            str_ends_with($className, 'Collection')) {
+        if (str_ends_with($className, 'DTO')
+            || str_ends_with($className, 'Message')
+            || str_contains($className, 'Validated')
+            || str_ends_with($className, 'Collection')) {
             return 'This appears to be a DTO/value object - use #[Exclude]. DTOs should not be in the DI container.';
         }
 
         // Services - These perform actions and SHOULD be in the container
         // They are stateless and can be injected as dependencies
-        if (str_ends_with($className, 'Service') ||
-            str_ends_with($className, 'Factory') ||
-            str_ends_with($className, 'Repository') ||
-            str_ends_with($className, 'Controller') ||
-            str_ends_with($className, 'Handler') ||
-            str_ends_with($className, 'Listener') ||
-            str_ends_with($className, 'Subscriber')) {
+        if (str_ends_with($className, 'Service')
+            || str_ends_with($className, 'Factory')
+            || str_ends_with($className, 'Repository')
+            || str_ends_with($className, 'Controller')
+            || str_ends_with($className, 'Handler')
+            || str_ends_with($className, 'Listener')
+            || str_ends_with($className, 'Subscriber')) {
             return 'This appears to be a service - use #[Autoconfigure] to register it in the DI container.';
         }
 

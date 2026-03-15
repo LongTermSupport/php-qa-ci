@@ -44,7 +44,7 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
     {
         return [
             ScriptEvents::POST_INSTALL_CMD => 'deploySkills',
-            ScriptEvents::POST_UPDATE_CMD => 'deploySkills',
+            ScriptEvents::POST_UPDATE_CMD  => 'deploySkills',
         ];
     }
 
@@ -53,12 +53,12 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
      */
     public function deploySkills(Event $event): void
     {
-        $io = $event->getIO();
+        $io       = $event->getIO();
         $composer = $event->getComposer();
-        $config = $composer->getConfig();
+        $config   = $composer->getConfig();
 
         $vendorDir = $config->get('vendor-dir');
-        if (!is_string($vendorDir)) {
+        if (!\is_string($vendorDir)) {
             $io->writeError('<error>Failed to determine vendor directory</error>');
 
             return;
@@ -66,11 +66,11 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
 
         // Determine paths
         $projectRoot = \dirname($vendorDir);
-        $qaciPath = $vendorDir . '/lts/php-qa-ci';
-        $scriptPath = $qaciPath . '/scripts/deploy-skills.bash';
+        $qaciPath    = $vendorDir . '/lts/php-qa-ci';
+        $scriptPath  = $qaciPath . '/scripts/deploy-skills.bash';
 
         // Check if skills/agents/hooks exist in php-qa-ci
-        if (!\is_dir($qaciPath . '/.claude/skills') && !\is_dir($qaciPath . '/.claude/agents') && !\is_dir($qaciPath . '/.claude/hooks')) {
+        if (!is_dir($qaciPath . '/.claude/skills') && !is_dir($qaciPath . '/.claude/agents') && !is_dir($qaciPath . '/.claude/hooks')) {
             $io->write('<comment>No Claude Code Skills/Agents/Hooks found in php-qa-ci, skipping deployment...</comment>');
 
             return;
@@ -86,14 +86,14 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
 
         $command = \sprintf(
             'bash %s %s %s 2>&1',
-            \escapeshellarg($scriptPath),
-            \escapeshellarg($qaciPath),
-            \escapeshellarg($projectRoot)
+            escapeshellarg($scriptPath),
+            escapeshellarg($qaciPath),
+            escapeshellarg($projectRoot)
         );
 
-        $output = [];
+        $output   = [];
         $exitCode = 0;
-        \exec($command, $output, $exitCode);
+        \Safe\exec($command, $output, $exitCode);
 
         // Display output
         foreach ($output as $line) {

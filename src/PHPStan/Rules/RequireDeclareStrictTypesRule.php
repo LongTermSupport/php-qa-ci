@@ -38,7 +38,7 @@ final class RequireDeclareStrictTypesRule implements Rule
         foreach ($nodes as $stmt) {
             if ($stmt instanceof Declare_) {
                 foreach ($stmt->declares as $declare) {
-                    if ($declare->key->toString() === 'strict_types') {
+                    if ('strict_types' === $declare->key->toString()) {
                         return [];
                     }
                 }

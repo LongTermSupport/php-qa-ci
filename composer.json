@@ -15,11 +15,11 @@
     "php-parallel-lint/php-console-color": "@stable",
     "php-parallel-lint/php-parallel-lint": "@stable",
     "phpstan/extension-installer": "@stable",
+    "phpstan/phpstan-phpunit": "^2.0",
     "phpstan/phpstan-strict-rules": "@stable",
     "phpunit/phpunit": "@stable",
-    "thecodingmachine/safe": "^v3.3.0",
     "sqlftw/sqlftw": "^0.1.17",
-    "phpstan/phpstan-phpunit": "^2.0"
+    "thecodingmachine/safe": "^3.3.0"
   },
   "require-dev": {
     "roave/security-advisories": "dev-master"
@@ -74,14 +74,6 @@
       "*": "dist"
     }
   },
-  "scripts": {
-    "post-install-cmd": [
-      "./scripts/tool-install.bash"
-    ],
-    "post-update-cmd": [
-      "./scripts/tool-install.bash update"
-    ]
-  },
   "extra": {
     "class": [
       "LTS\\PHPQA\\ComposerPlugin\\PhiveUpdatePlugin",
@@ -93,5 +85,13 @@
         "rules-default.neon"
       ]
     }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "./scripts/tool-install.bash"
+    ],
+    "post-update-cmd": [
+      "./scripts/tool-install.bash update"
+    ]
   }
 }

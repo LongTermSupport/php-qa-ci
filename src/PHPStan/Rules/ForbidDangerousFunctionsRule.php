@@ -26,7 +26,7 @@ final class ForbidDangerousFunctionsRule implements Rule
     /**
      * @var list<string>
      */
-    private const BANNED_FUNCTIONS = [
+    private const array BANNED_FUNCTIONS = [
         'exec',
         'shell_exec',
         'system',
@@ -55,18 +55,18 @@ final class ForbidDangerousFunctionsRule implements Rule
 
         $functionName = $node->name->toLowerString();
 
-        if (!in_array($functionName, self::BANNED_FUNCTIONS, true)) {
+        if (!\in_array($functionName, self::BANNED_FUNCTIONS, true)) {
             return [];
         }
 
         // parse_str is only dangerous without the second argument (output variable)
-        if ($functionName === 'parse_str' && count($node->args) >= 2) {
+        if ('parse_str' === $functionName && \count($node->args) >= 2) {
             return [];
         }
 
         return [
             RuleErrorBuilder::message(
-                sprintf(
+                \sprintf(
                     'Dangerous function %s() is banned (OWASP A03 Injection). '
                     . 'See docs/phpstan-rules/forbid-dangerous-functions.md for safe alternatives.',
                     $functionName,

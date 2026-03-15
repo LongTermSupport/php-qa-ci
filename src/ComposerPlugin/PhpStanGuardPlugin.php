@@ -51,7 +51,7 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
     {
         return [
             ScriptEvents::POST_INSTALL_CMD => ['validatePhpStan', -10],
-            ScriptEvents::POST_UPDATE_CMD => ['validatePhpStan', -10],
+            ScriptEvents::POST_UPDATE_CMD  => ['validatePhpStan', -10],
         ];
     }
 
@@ -62,7 +62,7 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
      */
     public function validatePhpStan(Event $event): void
     {
-        $io = $event->getIO();
+        $io       = $event->getIO();
         $composer = $event->getComposer();
 
         $this->checkForDirectPhpStanRequirement($io, $composer);
@@ -75,7 +75,7 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
     private function checkForDirectPhpStanRequirement(IOInterface $io, Composer $composer): void
     {
         $rootPackage = $composer->getPackage();
-        $requires = $rootPackage->getRequires();
+        $requires    = $rootPackage->getRequires();
         $devRequires = $rootPackage->getDevRequires();
 
         if (isset($requires['phpstan/phpstan'])) {
@@ -110,21 +110,21 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
      */
     private function validatePharVersionConstraint(IOInterface $io, Composer $composer): void
     {
-        $config = $composer->getConfig();
+        $config    = $composer->getConfig();
         $vendorDir = $config->get('vendor-dir');
 
-        if (!is_string($vendorDir)) {
+        if (!\is_string($vendorDir)) {
             return;
         }
 
         $generatedConfigPath = $vendorDir . '/phpstan/extension-installer/src/GeneratedConfig.php';
-        if (!\file_exists($generatedConfigPath)) {
+        if (!file_exists($generatedConfigPath)) {
             // No extensions installed, nothing to validate
             return;
         }
 
         $pharPath = $vendorDir . '/lts/php-qa-ci/vendor-phar/phpstan.phar';
-        if (!\file_exists($pharPath)) {
+        if (!file_exists($pharPath)) {
             $io->writeError('<warning>PHPStan phar not found at ' . $pharPath . '. Run: composer update</warning>');
 
             return;
@@ -174,9 +174,9 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
      */
     private function getPharVersion(string $pharPath): ?string
     {
-        $output = [];
+        $output   = [];
         $exitCode = 0;
-        \exec('php ' . \escapeshellarg($pharPath) . ' --version 2>/dev/null', $output, $exitCode);
+        \Safe\exec('php ' . escapeshellarg($pharPath) . ' --version 2>/dev/null', $output, $exitCode);
 
         if (0 !== $exitCode || [] === $output) {
             return null;
@@ -184,7 +184,7 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
 
         // Output: "PHPStan - PHP Static Analysis Tool 2.1.40"
         foreach ($output as $line) {
-            if (\preg_match('/(\d+\.\d+\.\d+)/', $line, $matches) === 1) {
+            if (1 === \Safe\preg_match('/(\d+\.\d+\.\d+)/', $line, $matches)) {
                 return $matches[1];
             }
         }
@@ -197,17 +197,16 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
      */
     private function getExtensionConstraint(string $generatedConfigPath): ?string
     {
-        $contents = \file_get_contents($generatedConfigPath);
+        $contents = \Safe\file_get_contents($generatedConfigPath);
         if (false === $contents) {
             return null;
         }
 
         // Match: public const PHPSTAN_VERSION_CONSTRAINT = '>=2.1.39.0-dev, <3.0.0.0-dev';
-        if (\preg_match("/PHPSTAN_VERSION_CONSTRAINT\s*=\s*'([^']+)'/", $contents, $matches) === 1) {
+        if (1 === \Safe\preg_match("/PHPSTAN_VERSION_CONSTRAINT\\s*=\\s*'([^']+)'/", $contents, $matches)) {
             return $matches[1];
         }
 
         return null;
     }
-
 }

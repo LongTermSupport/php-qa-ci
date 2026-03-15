@@ -27,12 +27,13 @@ final class LinksChecker
         $files                = self::getFiles($projectRootDirectory);
         foreach ($files as $file) {
             $relativeFile = str_replace($projectRootDirectory, '', $file);
-            $title        = "\n{$relativeFile}\n" . str_repeat('-', \strlen($relativeFile)) . "\n";
+            $title        = PHP_EOL . $relativeFile . PHP_EOL . str_repeat('-', \strlen($relativeFile)) . "\n";
             $errors       = [];
             $links        = self::getLinks($file);
             foreach ($links as $link) {
                 self::checkLink($projectRootDirectory, $link, $file, $errors, $return);
             }
+
             if ([] !== $errors) {
                 echo $title . implode('', $errors);
             }
@@ -66,9 +67,10 @@ final class LinksChecker
         if (!is_dir($dir)) {
             return $files;
         }
+
         $directory = new RecursiveDirectoryIterator($dir);
         $recursive = new RecursiveIteratorIterator($directory);
-        $regex = new RegexIterator(
+        $regex     = new RegexIterator(
             $recursive,
             '/^.+\.md/i',
             RecursiveRegexIterator::GET_MATCH
@@ -138,9 +140,10 @@ final class LinksChecker
         int &$return
     ): void {
         $path = trim($link[2]);
-        if (0 === strpos($path, '#')) {
+        if (str_starts_with($path, '#')) {
             return;
         }
+
         if (1 === \Safe\preg_match('%^(http|//)%', $path)) {
             self::validateHttpLink($link, $errors, $return);
 
@@ -149,7 +152,7 @@ final class LinksChecker
 
         $path  = current(explode('#', $path, 2));
         $start = rtrim($projectRootDirectory, '/');
-        if ('/' !== $path[0] || 0 === strpos($path, './')) {
+        if ('/' !== $path[0] || str_starts_with($path, './')) {
             $relativeSubdirs = \Safe\preg_replace(
                 '%^' . $projectRootDirectory . '%',
                 '',
@@ -159,10 +162,11 @@ final class LinksChecker
                 $start .= '/' . rtrim($relativeSubdirs, '/');
             }
         }
+
         try {
             $realpath = \Safe\realpath($start . '/' . $path);
         } catch (Throwable) {
-            $errors[] = sprintf("\nBad link for \"%s\" to \"%s\"\n", $link[1], $link[2]);
+            $errors[] = \sprintf("\nBad link for \"%s\" to \"%s\"\n", $link[1], $link[2]);
             $return   = 1;
         }
     }
@@ -178,13 +182,15 @@ final class LinksChecker
         /** @var array<string, true> $checked */
         static $checked    = [];
         [, $anchor, $href] = $link;
-        $hashPos           = (int) strpos($href, '#');
+        $hashPos           = (int)strpos($href, '#');
         if ($hashPos > 0) {
             $href = substr($href, 0, $hashPos);
         }
+
         if (isset($checked[$href])) {
             return;
         }
+
         $checked[$href] = true;
 
         $result = self::fetchLinkStatus($href);
@@ -192,7 +198,7 @@ final class LinksChecker
             return;
         }
 
-        $errors[] = sprintf(
+        $errors[] = \sprintf(
             "\nBad link for \"%s\" to \"%s\"\nresult: %s\n",
             $anchor,
             $href,
@@ -236,6 +242,7 @@ final class LinksChecker
                 if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
                     return null;
                 }
+
                 if ('HEAD' === $method && null !== $lastStatus && $lastStatus >= 400) {
                     continue;
                 }
@@ -256,7 +263,7 @@ final class LinksChecker
         foreach ($headers as $header) {
             $matches = [];
             if (1 === \Safe\preg_match('/^HTTP\/[\d.]+ (\d{3})/', $header, $matches) && isset($matches[1])) {
-                $lastStatus = (int) $matches[1];
+                $lastStatus = (int)$matches[1];
             }
         }
 
