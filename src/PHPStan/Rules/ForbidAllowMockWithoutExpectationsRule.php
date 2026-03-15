@@ -31,8 +31,8 @@ final class ForbidAllowMockWithoutExpectationsRule implements Rule
     {
         $name = $node->name->toString();
 
-        if ($name === 'PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations'
-            || $name === 'AllowMockObjectsWithoutExpectations'
+        if (\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations::class === $name
+            || 'AllowMockObjectsWithoutExpectations'                                 === $name
         ) {
             return [
                 RuleErrorBuilder::message(

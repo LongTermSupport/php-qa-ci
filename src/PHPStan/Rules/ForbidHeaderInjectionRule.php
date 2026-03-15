@@ -26,7 +26,7 @@ final class ForbidHeaderInjectionRule implements Rule
     /**
      * @var list<string>
      */
-    private const BANNED_FUNCTIONS = [
+    private const array BANNED_FUNCTIONS = [
         'header',
         'setcookie',
         'setrawcookie',
@@ -48,13 +48,13 @@ final class ForbidHeaderInjectionRule implements Rule
 
         $functionName = $node->name->toLowerString();
 
-        if (!in_array($functionName, self::BANNED_FUNCTIONS, true)) {
+        if (!\in_array($functionName, self::BANNED_FUNCTIONS, true)) {
             return [];
         }
 
         return [
             RuleErrorBuilder::message(
-                sprintf(
+                \sprintf(
                     'Raw %s() call is banned (OWASP A03 Injection). '
                     . 'Use Symfony Response/Cookie methods instead. '
                     . 'See docs/phpstan-rules/forbid-header-injection.md for safe alternatives.',

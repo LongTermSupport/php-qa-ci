@@ -23,7 +23,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class RequireCronIntervalInDescriptionRule implements Rule
 {
-    private const INTERVAL_PATTERN = '/\[every\s+\d+[mhd]\]$/';
+    private const string INTERVAL_PATTERN = '/\[every\s+\d+[mhd]\]$/';
 
     public function getNodeType(): string
     {
@@ -36,22 +36,22 @@ final class RequireCronIntervalInDescriptionRule implements Rule
     public function processNode(Node $node, Scope $scope): array
     {
         $className = $node->name?->toString();
-        if ($className === null) {
+        if (null === $className) {
             return [];
         }
 
         $asCommandAttr = $this->findAsCommandAttribute($node);
-        if ($asCommandAttr === null) {
+        if (!$asCommandAttr instanceof Node\Attribute) {
             return [];
         }
 
         $name = $this->getNamedArgString($asCommandAttr, 'name', 0);
-        if ($name === null || !str_starts_with($name, 'app:cron:')) {
+        if (null === $name || !str_starts_with($name, 'app:cron:')) {
             return [];
         }
 
         $description = $this->getNamedArgString($asCommandAttr, 'description', 1);
-        if ($description === null) {
+        if (null === $description) {
             return [
                 RuleErrorBuilder::message(
                     \sprintf(
@@ -63,7 +63,7 @@ final class RequireCronIntervalInDescriptionRule implements Rule
             ];
         }
 
-        if (preg_match(self::INTERVAL_PATTERN, $description) !== 1) {
+        if (1 !== \Safe\preg_match(self::INTERVAL_PATTERN, $description)) {
             return [
                 RuleErrorBuilder::message(
                     \sprintf(
@@ -84,8 +84,8 @@ final class RequireCronIntervalInDescriptionRule implements Rule
         foreach ($node->attrGroups as $attrGroup) {
             foreach ($attrGroup->attrs as $attr) {
                 $attrName = $attr->name->toString();
-                if ($attrName === 'Symfony\Component\Console\Attribute\AsCommand'
-                    || $attrName === 'AsCommand'
+                if ('Symfony\Component\Console\Attribute\AsCommand' === $attrName
+                    || 'AsCommand'                                  === $attrName
                 ) {
                     return $attr;
                 }
@@ -100,10 +100,8 @@ final class RequireCronIntervalInDescriptionRule implements Rule
         foreach ($attr->args as $i => $arg) {
             $argName = $arg->name?->toString();
 
-            if ($argName === $name || ($argName === null && $i === $positionalIndex)) {
-                if ($arg->value instanceof Node\Scalar\String_) {
-                    return $arg->value->value;
-                }
+            if (($argName === $name || null === $argName && $i === $positionalIndex) && $arg->value instanceof Node\Scalar\String_) {
+                return $arg->value->value;
             }
         }
 

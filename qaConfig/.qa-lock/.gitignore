@@ -1,0 +1,7 @@
+# QA Lock System - Auto-generated, do not edit manually
+# Lock files should never be tracked
+*.lock
+.lock.*
+
+# Timing data SHOULD be tracked (negation)
+!timing-data.json

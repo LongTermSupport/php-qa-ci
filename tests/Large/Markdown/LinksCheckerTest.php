@@ -8,6 +8,7 @@ use Exception;
 use LTS\PHPQA\Markdown\LinksChecker;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Throwable;
 
 /**
  * Class LinksCheckerTest.
@@ -69,7 +70,7 @@ Bad link for "incorrect link" to "./foo.md"
     {
         try {
             @\Safe\get_headers('https://httpstat.us/200');
-        } catch (\Throwable) {
+        } catch (Throwable) {
             self::markTestSkipped('httpstat.us is not reachable (e.g. CI environment)');
         }
 

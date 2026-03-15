@@ -40,7 +40,7 @@ final class ForbidNullCoalescingEmptyStringRule implements Rule
             return [];
         }
 
-        if ($node->right->value !== '') {
+        if ('' !== $node->right->value) {
             return [];
         }
 

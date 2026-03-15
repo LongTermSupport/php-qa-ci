@@ -28,7 +28,7 @@ final class ForbidRawSqlRule implements Rule
     /**
      * @var list<string>
      */
-    private const BANNED_METHODS = [
+    private const array BANNED_METHODS = [
         'executequery',
         'executestatement',
         'prepare',
@@ -50,7 +50,7 @@ final class ForbidRawSqlRule implements Rule
 
         $methodName = strtolower($node->name->toString());
 
-        if (!in_array($methodName, self::BANNED_METHODS, true)) {
+        if (!\in_array($methodName, self::BANNED_METHODS, true)) {
             return [];
         }
 
@@ -62,7 +62,7 @@ final class ForbidRawSqlRule implements Rule
             if ($this->containsConcat($arg->value)) {
                 return [
                     RuleErrorBuilder::message(
-                        sprintf(
+                        \sprintf(
                             'String concatenation in %s() argument is banned (OWASP A03 SQL Injection). '
                             . 'Use parameterised queries with placeholders instead. '
                             . 'See docs/phpstan-rules/forbid-raw-sql.md for safe alternatives.',
@@ -84,6 +84,6 @@ final class ForbidRawSqlRule implements Rule
 
         $finder = new NodeFinder();
 
-        return $finder->findFirst($node, static fn (Node $n): bool => $n instanceof Concat) !== null;
+        return $finder->findFirst($node, static fn (Node $n): bool => $n instanceof Concat) instanceof Node;
     }
 }

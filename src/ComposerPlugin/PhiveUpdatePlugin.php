@@ -10,6 +10,7 @@ use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
+use RuntimeException;
 
 /**
  * Composer plugin that ensures isolated tool dependencies are installed.
@@ -44,7 +45,7 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
     public static function getSubscribedEvents(): array
     {
         return [
-            ScriptEvents::POST_UPDATE_CMD => 'onPostUpdate',
+            ScriptEvents::POST_UPDATE_CMD  => 'onPostUpdate',
             ScriptEvents::POST_INSTALL_CMD => 'onPostInstall',
         ];
     }
@@ -75,9 +76,9 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
      */
     private function ensureIsolatedTools(string $mode, Event $event): void
     {
-        $io = $event->getIO();
+        $io       = $event->getIO();
         $composer = $event->getComposer();
-        $config = $composer->getConfig();
+        $config   = $composer->getConfig();
 
         $vendorDir = $config->get('vendor-dir');
         if (!\is_string($vendorDir)) {
@@ -93,7 +94,7 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
             // During update, refresh rector dependencies
             $io->write('<info>Updating isolated Rector installation...</info>');
             $this->runComposerInDirectory($rectorDir, 'update', $io);
-        } elseif (!\file_exists($rectorBin)) {
+        } elseif (!file_exists($rectorBin)) {
             // During install, only install if rector binary is missing
             $io->write('<info>Installing isolated Rector...</info>');
             $this->runComposerInDirectory($rectorDir, 'install', $io);
@@ -105,14 +106,14 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
      */
     private function runComposerInDirectory(string $directory, string $command, IOInterface $io): void
     {
-        if (!\is_dir($directory)) {
+        if (!is_dir($directory)) {
             $io->writeError('<error>Directory not found: ' . $directory . '</error>');
 
             return;
         }
 
         $composerJson = $directory . '/composer.json';
-        if (!\file_exists($composerJson)) {
+        if (!file_exists($composerJson)) {
             $io->writeError('<error>No composer.json found in ' . $directory . '</error>');
 
             return;
@@ -121,12 +122,12 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
         $shellCommand = \sprintf(
             'composer %s --working-dir=%s --no-interaction --no-dev 2>&1',
             $command,
-            \escapeshellarg($directory),
+            escapeshellarg($directory),
         );
 
-        $output = [];
+        $output   = [];
         $exitCode = 0;
-        \exec($shellCommand, $output, $exitCode);
+        \Safe\exec($shellCommand, $output, $exitCode);
 
         if (0 === $exitCode) {
             $io->write('<info>✓ Rector ' . $command . ' completed successfully</info>');
@@ -141,7 +142,7 @@ final class PhiveUpdatePlugin implements PluginInterface, EventSubscriberInterfa
             }
         }
 
-        throw new \RuntimeException(
+        throw new RuntimeException(
             'Rector ' . $command . ' failed in ' . $directory . '. '
             . 'The QA pipeline requires Rector for automated refactoring.'
         );

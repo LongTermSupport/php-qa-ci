@@ -37,7 +37,7 @@ final class ForbidNullCoalescingFalseRule implements Rule
             return [];
         }
 
-        if ($node->right->name->toLowerString() !== 'false') {
+        if ('false' !== $node->right->name->toLowerString()) {
             return [];
         }
 

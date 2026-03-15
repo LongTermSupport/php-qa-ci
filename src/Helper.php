@@ -9,10 +9,7 @@ use RuntimeException;
 
 final class Helper
 {
-    /**
-     * @var string
-     */
-    private static $projectRootDirectory;
+    private static ?string $projectRootDirectory = null;
 
     /**
      * @return array<int|string,mixed>
@@ -21,16 +18,16 @@ final class Helper
      *
      * @SuppressWarnings(PHPMD.StaticAccess)
      */
-    public static function getComposerJsonDecoded(?string $path = null,): array
+    public static function getComposerJsonDecoded(?string $path = null): array
     {
-        $path     ??= self::getProjectRootDirectory().'/composer.json';
-        $contents = \Safe\file_get_contents($path,);
+        $path     ??= self::getProjectRootDirectory() . '/composer.json';
+        $contents = \Safe\file_get_contents($path);
         if ('' === $contents) {
-            throw new RuntimeException('composer.json is empty',);
+            throw new RuntimeException('composer.json is empty');
         }
 
         // @phpstan-ignore-next-line
-        return \Safe\json_decode($contents, true, 512, JSON_THROW_ON_ERROR,);
+        return \Safe\json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -44,11 +41,12 @@ final class Helper
     {
         if (null === self::$projectRootDirectory) {
             if (!isset($_SERVER['PWD']) || !\is_string($_SERVER['PWD'])) {
-                die('no PWD in _SERVER');
+                exit('no PWD in _SERVER');
             }
+
             $pwd = $_SERVER['PWD'];
             if (!file_exists($pwd . '/composer.json')) {
-                die('PWD is ' . $pwd . ' but does not contain composer.json');
+                exit('PWD is ' . $pwd . ' but does not contain composer.json');
             }
 
             return self::$projectRootDirectory = $pwd;

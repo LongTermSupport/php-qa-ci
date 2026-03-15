@@ -27,13 +27,13 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<MethodCall>
  */
-final class ForbidMockingFinalClassRule implements Rule
+final readonly class ForbidMockingFinalClassRule implements Rule
 {
     /** @var list<string> */
-    private const MOCK_METHODS = ['createStub', 'createMock'];
+    private const array MOCK_METHODS = ['createStub', 'createMock'];
 
     public function __construct(
-        private readonly ReflectionProvider $reflectionProvider,
+        private ReflectionProvider $reflectionProvider,
     ) {
     }
 

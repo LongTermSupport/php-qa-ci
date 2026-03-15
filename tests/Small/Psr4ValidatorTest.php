@@ -59,29 +59,29 @@ final class Psr4ValidatorTest extends TestCase
         );
         $actual   = $validator->main();
         $expected = [
-            'PSR-4 Errors:' => [
-                'In\\Valid\\' => [
+            'PSR-4 Errors:'  => [
+                'In\Valid\\' => [
                     0 => [
                         'fileInfo'          => $projectRoot . '/src/Nested/Deep/Bad.php',
-                        'expectedNamespace' => 'In\\Valid\\Nested\\Deep',
+                        'expectedNamespace' => 'In\Valid\Nested\Deep',
                         'actualNamespace'   => 'So',
                     ],
                     1 => [
                         'fileInfo'          => $projectRoot . '/src/Wrong.php',
-                        'expectedNamespace' => 'In\\Valid',
+                        'expectedNamespace' => 'In\Valid',
                         'actualNamespace'   => 'Totally',
                     ],
                 ],
             ],
-            'Parse Errors:' => [
+            'Parse Errors:'  => [
                 0 => $projectRoot . '/tests/ParseError.php',
             ],
             'Missing Paths:' => [
-                'missing/path' => 'Namespace root \'In\\Valid\\\'
+                'missing/path'         => 'Namespace root \'In\Valid\\\'
 contains a path \'missing/path\'
 which doesn\'t exist
 ',
-                'missing/magento/path' => 'Namespace root \'In\\Valid\\\'
+                'missing/magento/path' => 'Namespace root \'In\Valid\\\'
 contains a path \'missing/magento/path\'
 which doesn\'t exist
 Magento\'s composer includes this by default, it should be removed from the psr-4 section',
