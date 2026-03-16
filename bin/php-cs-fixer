@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-echo "ERROR: php-cs-fixer is not installed as a standalone binary."
+# Find project root by walking up to composer.json
+projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
+while [[ ! -f "$projectRoot/composer.json" && "$projectRoot" != "/" ]]; do
+    projectRoot="$(dirname "$projectRoot")"
+done
+# Make bin dir relative to project root
+qaCmd="${COMPOSER_RUNTIME_BIN_DIR#"$projectRoot/"}/qa"
+echo "PHP CS Fixer is managed by php-qa-ci. Run it via the QA pipeline:"
 echo ""
-echo "php-qa-ci manages PHP CS Fixer as a PHAR in vendor-phar/php-cs-fixer.phar"
-echo ""
-echo "To run via the QA pipeline (recommended):"
-echo "  vendor/bin/qa -t phpCsFixer"
-echo ""
-echo "To run directly with custom arguments:"
-echo "  php vendor/lts/php-qa-ci/vendor-phar/php-cs-fixer.phar fix [args]"
+echo "  $qaCmd -t fixer                    # fix full codebase"
+echo "  $qaCmd -t fixer -p src/Controller  # fix specific path"
 exit 1

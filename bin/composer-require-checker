@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-echo "ERROR: composer-require-checker is not installed as a standalone binary."
+# Find project root by walking up to composer.json
+projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
+while [[ ! -f "$projectRoot/composer.json" && "$projectRoot" != "/" ]]; do
+    projectRoot="$(dirname "$projectRoot")"
+done
+# Make bin dir relative to project root
+qaCmd="${COMPOSER_RUNTIME_BIN_DIR#"$projectRoot/"}/qa"
+echo "Composer Require Checker is managed by php-qa-ci. Run it via the QA pipeline:"
 echo ""
-echo "php-qa-ci manages Composer Require Checker as a PHAR in vendor-phar/composer-require-checker.phar"
-echo ""
-echo "To run via the QA pipeline (recommended):"
-echo "  vendor/bin/qa -t composerRequireChecker"
-echo ""
-echo "To run directly with custom arguments:"
-echo "  php vendor/lts/php-qa-ci/vendor-phar/composer-require-checker.phar check [args]"
+echo "  $qaCmd -t cr                       # check all dependencies"
 exit 1

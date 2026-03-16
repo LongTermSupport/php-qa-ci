@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-echo "ERROR: infection is not installed as a standalone binary."
+# Find project root by walking up to composer.json
+projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
+while [[ ! -f "$projectRoot/composer.json" && "$projectRoot" != "/" ]]; do
+    projectRoot="$(dirname "$projectRoot")"
+done
+# Make bin dir relative to project root
+qaCmd="${COMPOSER_RUNTIME_BIN_DIR#"$projectRoot/"}/qa"
+echo "Infection is managed by php-qa-ci. Run it via the QA pipeline:"
 echo ""
-echo "php-qa-ci manages Infection as a PHAR in vendor-phar/infection.phar"
-echo ""
-echo "To run via the QA pipeline (recommended):"
-echo "  vendor/bin/qa -t infection"
-echo ""
-echo "To run directly with custom arguments:"
-echo "  php vendor/lts/php-qa-ci/vendor-phar/infection.phar [args]"
+echo "  $qaCmd -t infection                # run mutation testing"
 exit 1

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-echo "ERROR: phpstan is not installed as a standalone binary."
+# Find project root by walking up to composer.json
+projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
+while [[ ! -f "$projectRoot/composer.json" && "$projectRoot" != "/" ]]; do
+    projectRoot="$(dirname "$projectRoot")"
+done
+# Make bin dir relative to project root
+qaCmd="${COMPOSER_RUNTIME_BIN_DIR#"$projectRoot/"}/qa"
+echo "PHPStan is managed by php-qa-ci. Run it via the QA pipeline:"
 echo ""
-echo "php-qa-ci manages PHPStan as a PHAR in vendor-phar/phpstan.phar"
-echo ""
-echo "To run via the QA pipeline (recommended):"
-echo "  vendor/bin/qa -t phpstan"
-echo ""
-echo "To run directly with custom arguments:"
-echo "  php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar analyse [args]"
+echo "  $qaCmd -t phpstan                  # analyse full codebase"
+echo "  $qaCmd -t phpstan -p src/Service   # analyse specific path"
+echo "  $qaCmd -t phpstan -p src/Entity    # analyse specific folder"
 exit 1
