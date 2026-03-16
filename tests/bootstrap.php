@@ -36,9 +36,3 @@ declare(strict_types=1);
 
 // Load composer autoloader
 require dirname(__DIR__) . '/vendor/autoload.php';
-
-// Placeholder bootstrap function - replace with your project's initialization
-(function() {
-    // This is a no-op placeholder function
-    // Add your project-specific bootstrap logic here
-})();
