@@ -36,3 +36,8 @@ declare(strict_types=1);
 
 // Load composer autoloader
 require dirname(__DIR__) . '/vendor/autoload.php';
+
+// Uncomment and add your project-specific bootstrap logic here:
+// (static function (): void {
+//     // e.g. set environment variables, initialise framework, configure test database
+// })();
