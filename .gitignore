@@ -15,3 +15,4 @@
 /cache/
 /.phive-home/
 /tools/rector/vendor/
+/tools/rector/composer.lock
