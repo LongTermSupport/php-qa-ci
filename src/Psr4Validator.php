@@ -98,9 +98,11 @@ final class Psr4Validator
             if (!\is_array($autoloadSection)) {
                 continue;
             }
+
             if (!isset($autoloadSection['psr-4'])) {
                 continue;
             }
+
             if (!\is_array($autoloadSection['psr-4'])) {
                 continue;
             }
