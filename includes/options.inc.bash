@@ -9,16 +9,29 @@ IFS=$'\n\t'
 
 singleToolToRun=
 specifiedPath=
+useJsonOutput=0
+
+# Pre-process long options (getopts only handles short options)
+processedArgs=()
+for arg in "$@"; do
+    case "$arg" in
+        --json) useJsonOutput=1 ;;
+        *) processedArgs+=("$arg") ;;
+    esac
+done
+set -- "${processedArgs[@]}"
 
 function usage {
     echo "Usage:"
-    echo "$binDir/qa [-t tool to run ] [ -p path to scan ]"
+    echo "$binDir/qa [-t tool to run ] [ -p path to scan ] [ --json ]"
     echo ""
     echo "Defaults to using all tools and scanning whole project based on platform"
     echo ""
     echo " - use -h to see this help"
     echo ""
     echo " - use -p to specify a specific path to scan"
+    echo ""
+    echo " - use --json to get structured JSON output (supported tools only)"
     echo ""
     echo " - use -t to specify a single tool:"
     echo "     allLints                   all linting tools"
@@ -176,6 +189,26 @@ then
         ;;
     esac
     echo "Running Single Tool: $singleToolToRun"
+fi
+
+# Validate JSON output compatibility
+if [[ "1" == "$useJsonOutput" ]]; then
+    if [[ -z "$singleToolToRun" ]]; then
+        printf "\nERROR: --json requires a single tool (-t)\n" >&2
+        printf "  Example: vendor/bin/qa -t phpstan --json\n\n" >&2
+        exit 1
+    fi
+
+    case "$singleToolToRun" in
+        phpstan) ;; # Native --error-format=json
+        *)
+            printf "\nERROR: --json is not yet supported for '%s'\n\n" "$singleToolToRun" >&2
+            printf "Tools with --json support:\n" >&2
+            printf "  phpstan    (native --error-format=json)\n\n" >&2
+            printf "Run without --json, or use a supported tool.\n\n" >&2
+            exit 1
+            ;;
+    esac
 fi
 
 if [[ "" != "$specifiedPath" ]]
