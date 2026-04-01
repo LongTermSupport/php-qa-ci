@@ -3,6 +3,10 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidEmptyCatchBlockRule
     - LTS\PHPQA\PHPStan\Rules\RequireDeclareStrictTypesRule
     - LTS\PHPQA\PHPStan\Rules\ForbidAllowMockWithoutExpectationsRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidNewDateTimeRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidEmptyLanguageConstructRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidLooseComparisonRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedSerializableRule
 
 services:
     -

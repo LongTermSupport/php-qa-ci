@@ -22,3 +22,21 @@
 #    Note: RequireExplicitDIAttributeRule has no constructor params.
 #
 #    - LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule
+#
+# STRICT EXCEPTION HANDLING (catch blocks must use the exception):
+#    ForbidSilentCatchRule is stricter than ForbidEmptyCatchBlockRule (default).
+#    It flags catch blocks that have statements but ignore the caught exception.
+#
+#    - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
+#
+# INLINE PHPSTAN SUPPRESSION BAN (enforce fixing over suppressing):
+#    Bans @phpstan-ignore annotations. Forces type issues to be fixed properly
+#    instead of suppressed inline. Irreducible cases go in phpstan.neon ignoreErrors.
+#
+#    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
+#
+# READONLY SERVICES (enforce immutable services):
+#    Requires service classes to be "final readonly class". Skips entities,
+#    controllers, commands, and framework classes that need mutability.
+#
+#    - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
