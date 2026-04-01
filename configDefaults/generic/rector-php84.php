@@ -17,14 +17,14 @@ return static function (RectorConfig $rectorConfig): void {
     // to avoid overwhelming the system
     $cpuThreads = (int) shell_exec('nproc') ?: 4;  // Default to 4 if nproc fails
     $maxProcesses = max(1, (int) floor($cpuThreads / 2));  // Use half the threads, minimum 1
-    
+
     // Parameters: timeout (seconds), max processes, job size (files per job)
     $rectorConfig->parallel(
         120,  // Default timeout
         $maxProcesses,  // Use only half of available CPU threads
         16    // Default job size
     );
-    
+
     // PHP 8.4 upgrade sets
     // IMPORTANT: SetList::NAMING is EXCLUDED because it includes RenameParamToMatchTypeRector
     // which renames constructor parameters like $productsRow → $productsRowDto
@@ -40,15 +40,15 @@ return static function (RectorConfig $rectorConfig): void {
         SetList::EARLY_RETURN,
         // SetList::NAMING, // EXCLUDED - causes constructor parameter renaming
     ]);
-    
+
     // PHP 8.4 specific rules
     $rectorConfig->rules([
         ExplicitNullableParamTypeRector::class,
     ]);
-    
+
     // Use memory cache for performance
     $rectorConfig->cacheClass(MemoryCacheStorage::class);
-    
+
     // Support for ignoring paths via environment variable
     if (isset($_SERVER['rectorIgnorePaths'])) {
         $ignorePaths = array_filter(array_map('trim', explode("\n", $_SERVER['rectorIgnorePaths'])));
