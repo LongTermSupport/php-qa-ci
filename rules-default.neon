@@ -7,6 +7,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidEmptyLanguageConstructRule
     - LTS\PHPQA\PHPStan\Rules\ForbidLooseComparisonRule
     - LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedSerializableRule
+    - LTS\PHPQA\PHPStan\Rules\RequireTypeSuffixRule
 
 services:
     -
