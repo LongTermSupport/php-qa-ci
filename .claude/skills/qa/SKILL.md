@@ -3,7 +3,7 @@ name: qa
 description: |
   🔄 PHP-QA-CI TOOL ORCHESTRATOR - Automatic run→fix→run cycling for php-qa-ci tools.
 
-  **ONLY for php-qa-ci pipeline tools** (vendor/bin/qa -t toolname)
+  **ONLY for php-qa-ci pipeline tools** ({bin}/qa -t toolname)
   NOT for ad-hoc tool execution outside php-qa-ci.
 
   Use when user requests QA tools via php-qa-ci:
@@ -15,7 +15,7 @@ description: |
   **CRITICAL**: MUST cycle automatically until tool reports clean OR escalation needed.
   DO NOT stop after one fix to ask "what next?" - KEEP CYCLING.
 
-  Supports all php-qa-ci tools via vendor/bin/qa -t {toolname}:
+  Supports all php-qa-ci tools via {bin}/qa -t {toolname}:
   - phpstan (static analysis) - has fixer agent
   - phpunit (tests) - has fixer agent
   - rector (refactoring) - self-fixing, re-run until clean
@@ -34,8 +34,14 @@ allowed-tools: Skill, Task
 
 **THIS SKILL IS EXCLUSIVELY FOR PHP-QA-CI PIPELINE TOOLS**
 
-All tool execution MUST use: `vendor/bin/qa -t {toolname}`
+All tool execution MUST use the `qa` binary via the project's composer bin directory.
 This ensures proper configuration, caching, and log rotation.
+
+## Bin Directory
+
+`{bin}` throughout this document refers to the project's composer bin directory.
+Runner agents detect this automatically via `composer config bin-dir` (default: `vendor/bin`).
+All command examples below use `{bin}/qa` — agents substitute the real path at runtime.
 
 ## ⚠️ STEP 0: PREFLIGHT CHECK - MUST RUN FIRST
 
@@ -66,13 +72,13 @@ If checker reports `✅ NO CONFLICTS DETECTED`:
 **What is php-qa-ci?**
 - A comprehensive QA pipeline for PHP projects
 - Installed as vendor package: `lts/php-qa-ci`
-- Provides unified command: `vendor/bin/qa`
+- Provides unified command: `{bin}/qa`
 - Orchestrates multiple tools with proper config/caching/logging
 
 **All commands in this skill use php-qa-ci:**
-- ✅ `export CI=true && vendor/bin/qa -t phpstan`
-- ✅ `export CI=true && vendor/bin/qa -t unit`
-- ✅ `export CI=true && vendor/bin/qa -t allStatic`
+- ✅ `export CI=true && {bin}/qa -t phpstan`
+- ✅ `export CI=true && {bin}/qa -t unit`
+- ✅ `export CI=true && {bin}/qa -t allStatic`
 - ❌ `vendor/bin/phpstan analyse` (bypasses pipeline)
 - ❌ `vendor/bin/phpunit` (bypasses pipeline)
 
@@ -112,16 +118,24 @@ This skill runs php-qa-ci tools and automatically fixes issues until clean.
 
 Parse user request to identify tool:
 
-| User Says | Tool Name | Has Fixer? | Fixer Skill/Agent |
-|-----------|-----------|------------|-------------------|
-| "run phpstan", "use stan skills" | `phpstan` | ✅ | phpstan-fixer |
-| "run tests", "run phpunit" | `phpunit` | ✅ | phpunit-fixer |
-| "run rector" | `rector` | ✅ Self-fixing | N/A - just re-run |
-| "run cs fixer", "run fixer" | `fixer` | ✅ Self-fixing | N/A - just re-run |
-| "run infection" | `infection` | ❌ | N/A - report only |
-| "run allStatic" | `allStatic` | ✅ Mixed | Use component fixers |
-| "run allCS" | `allCs` | ✅ Self-fixing | N/A - just re-run |
-| "run allTests" | `allTests` | ✅ | phpunit-fixer |
+| User Says | Tool Name | Runner | Has Fixer? | Fixer Skill/Agent |
+|-----------|-----------|--------|------------|-------------------|
+| "run phpstan", "use stan skills" | `phpstan` | phpstan-runner skill | ✅ | phpstan-fixer |
+| "run tests", "run phpunit" | `phpunit` | phpunit-runner skill | ✅ | phpunit-fixer |
+| "run rector" | `rector` | qa-tool-runner skill | ✅ Self-fixing | N/A - just re-run |
+| "run cs fixer", "run fixer" | `fixer` | qa-tool-runner skill | ✅ Self-fixing | N/A - just re-run |
+| "run infection" | `infection` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run phpcs", "run code sniffer" | `phpcs` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run phplint", "run lint" | `phplint` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run mess detector" | `messdetector` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run strict types" | `stricttypes` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run psr4" | `psr4` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run composer check" | `composer` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run allStatic" | `allStatic` | qa-tool-runner skill | ✅ Mixed | Use component fixers |
+| "run allCS" | `allCs` | qa-tool-runner skill | ✅ Self-fixing | N/A - just re-run |
+| "run allTests" | `allTests` | phpunit-runner skill | ✅ | phpunit-fixer |
+| "run allLints" | `allLints` | qa-tool-runner skill | ❌ | N/A - report only |
+| "run full qa", "run all", "run qa" | (full pipeline) | qa-tool-runner skill | ✅ Mixed | Per-tool fixers |
 
 ## Universal Iteration Loop
 
@@ -134,9 +148,12 @@ INITIALIZE:
 
 LOOP:
   1. Run tool via appropriate runner SKILL (NOT Bash!):
-     [Skill] Invoke phpstan-runner OR phpunit-runner skill
+     - phpstan → [Skill] Invoke phpstan-runner skill
+     - phpunit/allTests → [Skill] Invoke phpunit-runner skill
+     - All other tools → [Skill] Invoke qa-tool-runner skill
+     - Full pipeline (no -t) → [Skill] Invoke qa-tool-runner skill (full pipeline mode)
      - Runner skill launches cheap haiku agent
-     - Agent runs: export CI=true && vendor/bin/qa -t {tool} [-p {path}]
+     - Agent runs: export CI=true && {bin}/qa [-t {tool}] [-p {path}]
      - Agent parses logs and returns summary
   2. Parse runner skill output:
      - CLEAN? → Report success, EXIT
@@ -146,8 +163,8 @@ LOOP:
      - iteration >= max_iterations? → Escalate, EXIT
      - errors == previous_errors? → Escalate, EXIT
   4. Apply fix:
-     - If tool has dedicated fixer → Invoke fixer SKILL
-     - Fixer skill launches cheap sonnet agent to implement fixes
+     - If tool has dedicated fixer (phpstan/phpunit) → Invoke fixer SKILL
+     - If self-fixing tool (rector/fixer/phpbf) → Re-run via runner (tool fixes itself)
      - If no fixer available → Report and ask user
   5. iteration++, previous_errors = current_errors
   6. IMMEDIATELY goto LOOP (no pause, no questions)
@@ -225,7 +242,7 @@ Pipeline succeeded! 🎉
 ```
 [Skill] Invoke phpstan-runner skill
   → Runner skill launches haiku agent
-  → Agent runs: export CI=true && vendor/bin/qa -t stan [-p path]
+  → Agent runs: export CI=true && {bin}/qa -t stan [-p path]
   → Agent parses: var/qa/phpstan_logs/phpstan.log
   → Returns summary to main context
 [Skill] If errors → Invoke phpstan-fixer skill
@@ -238,7 +255,7 @@ Clean: "No errors" in output
 ```
 [Skill] Invoke phpunit-runner skill
   → Runner skill launches haiku agent
-  → Agent runs: export CI=true && vendor/bin/qa -t unit [-p path]
+  → Agent runs: export CI=true && {bin}/qa -t unit [-p path]
   → Agent parses: var/qa/phpunit_logs/phpunit.junit.xml
   → Returns summary to main context
 [Skill] If failures → Invoke phpunit-fixer skill
@@ -249,57 +266,84 @@ Clean: "OK (X tests, Y assertions)" or "Tests: X, Failures: 0, Errors: 0"
 
 ### Rector (Refactoring)
 ```
-Run: export CI=true && vendor/bin/qa -t rector
-Log: stdout only
+[Skill] Invoke qa-tool-runner skill with tool=rector
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && {bin}/qa -t rector
 Self-fixing: Yes - re-run automatically applies fixes
 Clean: "[OK] Rector is done!" or no files changed
-Strategy: Just keep re-running until no changes
+Strategy: qa-tool-runner auto-cycles until stable
 ```
 
 ### PHP CS Fixer (Code Style)
 ```
-Run: export CI=true && vendor/bin/qa -t fixer
-Log: stdout only
+[Skill] Invoke qa-tool-runner skill with tool=fixer
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && {bin}/qa -t fixer
 Self-fixing: Yes - automatically fixes on each run
 Clean: "Fixed all files" or exit code 0
-Strategy: Just keep re-running until no changes
+Strategy: qa-tool-runner auto-cycles until stable
 ```
 
 ### Infection (Mutation Testing)
 ```
-Run: export CI=true && vendor/bin/qa -t infection
-Log: var/qa/infection/log.txt
+[Skill] Invoke qa-tool-runner skill with tool=infection
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && {bin}/qa -t infection
 No fixer: Cannot auto-fix mutations
 Strategy: Run once, report MSI, ask user for next steps
 ```
 
+### Other Tools (phpcs, phplint, messdetector, psr4, etc.)
+```
+[Skill] Invoke qa-tool-runner skill with tool={toolname}
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && {bin}/qa -t {toolname}
+Report-only: No auto-fix
+Strategy: Run once, report results
+```
+
 ### AllStatic (PHPStan + other static tools)
 ```
-Run: export CI=true && vendor/bin/qa -t allStatic
+[Skill] Invoke qa-tool-runner skill with tool=allStatic
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && {bin}/qa -t allStatic
 Fixers: PHPStan has fixer, others report-only
-Strategy: Cycle on PHPStan errors, report others
+Strategy: If PHPStan errors found, invoke phpstan-fixer then re-run
 ```
 
 ### AllCS (Rector + CS Fixer + linters)
 ```
-Run: export CI=true && vendor/bin/qa -t allCs
+[Skill] Invoke qa-tool-runner skill with tool=allCs
+  → Runner skill launches haiku agent
+  → Agent runs: export CI=true && {bin}/qa -t allCs
 Self-fixing: Yes - Rector and CS Fixer auto-fix
-Strategy: Keep re-running until no changes
+Strategy: qa-tool-runner auto-cycles until stable
+```
+
+### Full Pipeline (all tools)
+```
+[Skill] Invoke qa-tool-runner skill in full pipeline mode
+  → Runner skill launches php-qa-ci_full-pipeline-runner agent (haiku)
+  → Agent runs: export CI=true && {bin}/qa
+  → Returns per-tool pass/fail summary table
+Strategy: Run once, report comprehensive results, suggest fixing failed tools individually
 ```
 
 ## Implementation Template
 
 ```
 1. Detect tool from user request
-   - Extract tool name (phpstan, phpunit, etc.)
+   - Extract tool name (phpstan, phpunit, rector, fixer, etc.)
    - Extract optional path (-p flag)
+   - Detect "full pipeline" / "run all" / "run qa" (no -t flag)
 
-2. Invoke appropriate runner SKILL (NOT Bash!):
-   [Skill] phpstan-runner OR phpunit-runner
-   - Pass context about path if specified
-   - Runner skill launches cheap haiku agent
-   - Agent executes tool and parses results
-   - Returns summary to main context
+2. Route to appropriate runner SKILL (NOT Bash!):
+   - phpstan → [Skill] phpstan-runner
+   - phpunit, allTests → [Skill] phpunit-runner
+   - All other individual tools → [Skill] qa-tool-runner (with tool name)
+   - Full pipeline → [Skill] qa-tool-runner (full pipeline mode)
+
+   Runner skill launches cheap haiku agent, returns summary to main context
 
 3. Parse runner skill output:
    - Check for clean completion
@@ -307,10 +351,12 @@ Strategy: Keep re-running until no changes
    - Extract error patterns
 
 4. If not clean:
-   - Check if fixer available
-   - [Skill] Invoke fixer skill (phpstan-fixer, phpunit-fixer)
-   - Fixer skill launches cheap sonnet agent
-   - IMMEDIATELY goto step 2
+   - phpstan → [Skill] phpstan-fixer skill
+   - phpunit → [Skill] phpunit-fixer skill
+   - Self-fixing tool (rector/fixer/phpbf) → Re-run via same runner skill
+   - Report-only tool → Report results to user, EXIT
+   - Full pipeline → Report per-tool results, suggest fixing individually
+   - IMMEDIATELY goto step 2 (if fix was applied)
 
 5. If clean:
    - Report success with summary
@@ -325,7 +371,7 @@ User: "run phpstan"
 Iteration 1:
   [Skill] Invoke phpstan-runner skill
     → Runner launches haiku agent (cheap!)
-    → Agent runs: export CI=true && vendor/bin/qa -t stan
+    → Agent runs: export CI=true && {bin}/qa -t stan
     → Agent parses log, returns summary
   [Result] 45 errors across 12 files
   [Skill] Invoke phpstan-fixer skill
@@ -372,19 +418,19 @@ Report:
 User: "run rector"
 
 Iteration 1:
-  [Bash] export CI=true && vendor/bin/qa -t rector
+  [Bash] export CI=true && {bin}/qa -t rector
   [Exit code 0, but files changed]
   [Result] Modified 23 files
   [Self-fixing tool - AUTO-CONTINUE]
 
 Iteration 2:
-  [Bash] export CI=true && vendor/bin/qa -t stan
+  [Bash] export CI=true && {bin}/qa -t stan
   [Exit code 0, but files changed]
   [Result] Modified 5 files
   [Self-fixing tool - AUTO-CONTINUE]
 
 Iteration 3:
-  [Bash] export CI=true && vendor/bin/qa -t rector
+  [Bash] export CI=true && {bin}/qa -t rector
   [Exit code 0, no files changed]
   [DONE]
 
@@ -413,13 +459,24 @@ All tools write logs to `var/qa/{tool}_logs/`:
 
 Use log rotation - each run creates timestamped copy, keeps last 10.
 
-## Fixer Skills Reference
+## Runner & Fixer Skills Reference
 
 This skill can invoke:
-- `phpstan-fixer` skill → launches php-qa-ci_phpstan-fixer agent
-- `phpunit-fixer` skill → launches php-qa-ci_phpunit-fixer agent
 
-Both skills are in `.claude/skills/` directory.
+**Specialized runners** (for tools with dedicated agents):
+- `phpstan-runner` skill → launches php-qa-ci_phpstan-runner agent (haiku)
+- `phpunit-runner` skill → launches php-qa-ci_phpunit-runner agent (haiku)
+
+**Generic runner** (for all other tools):
+- `qa-tool-runner` skill → launches php-qa-ci_qa-tool-runner agent (haiku) for individual tools
+- `qa-tool-runner` skill → launches php-qa-ci_full-pipeline-runner agent (haiku) for full pipeline
+
+**Fixers** (for tools with dedicated fix agents):
+- `phpstan-fixer` skill → launches php-qa-ci_phpstan-fixer agent (sonnet)
+- `phpunit-fixer` skill → launches php-qa-ci_phpunit-fixer agent (sonnet)
+
+All skills are in `.claude/skills/` directory.
+All agents are in `.claude/agents/` directory.
 
 ## Important Notes
 
@@ -436,19 +493,19 @@ Quick reference for all php-qa-ci tools:
 
 ```bash
 # Static Analysis
-vendor/bin/qa -t stan [-p path]        # PHPStan
-vendor/bin/qa -t allStatic             # All static tools
+{bin}/qa -t stan [-p path]        # PHPStan
+{bin}/qa -t allStatic             # All static tools
 
 # Testing
-vendor/bin/qa -t unit [-p path]        # PHPUnit
-vendor/bin/qa -t infection             # Mutation testing
-vendor/bin/qa -t allTests              # All test tools
+{bin}/qa -t unit [-p path]        # PHPUnit
+{bin}/qa -t infection             # Mutation testing
+{bin}/qa -t allTests              # All test tools
 
 # Code Standards
-vendor/bin/qa -t rector                # Rector refactoring
-vendor/bin/qa -t fixer                 # PHP CS Fixer
-vendor/bin/qa -t allCs                 # All CS tools
+{bin}/qa -t rector                # Rector refactoring
+{bin}/qa -t fixer                 # PHP CS Fixer
+{bin}/qa -t allCs                 # All CS tools
 
 # Meta
-vendor/bin/qa                          # Full pipeline (all tools)
+{bin}/qa                          # Full pipeline (all tools)
 ```

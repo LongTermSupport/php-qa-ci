@@ -113,7 +113,7 @@ def main():
     # Check if log directory exists
     if not log_dir.exists():
         print(f"Error: PHPStan log directory not found: {log_dir}", file=sys.stderr)
-        print(f"\nNo PHPStan runs found. Run analysis first with: vendor/bin/qa -t stan", file=sys.stderr)
+        print(f"\nNo PHPStan runs found. Run analysis first with: $(composer config bin-dir)/qa -t stan", file=sys.stderr)
         sys.exit(1)
 
     # Determine log file path
@@ -129,7 +129,7 @@ def main():
             print(f"Parsing most recent log: {log_path.name}")
         except FileNotFoundError as e:
             print(f"Error: {e}", file=sys.stderr)
-            print(f"\nRun PHPStan first with: vendor/bin/qa -t stan", file=sys.stderr)
+            print(f"\nRun PHPStan first with: $(composer config bin-dir)/qa -t stan", file=sys.stderr)
             sys.exit(1)
 
     print()

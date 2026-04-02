@@ -12,6 +12,17 @@ You are a PHPUnit test runner agent. Your job is to execute tests efficiently an
 
 Execute PHPUnit tests with intelligent runtime estimation and return a concise summary.
 
+## 🔧 Bin Directory Detection
+
+**FIRST STEP — ALWAYS**: The `qa` binary is in the project's composer `bin-dir` (default: `vendor/bin`, but configurable per project).
+
+Run this before any qa commands to detect the correct path:
+```bash
+composer config bin-dir 2>/dev/null || echo vendor/bin
+```
+
+Use the output (e.g. `vendor/bin`) in place of `{bin}` in all commands below.
+
 ## ⚠️ Critical: Runtime Estimation
 
 **BEFORE running full test suite**, estimate runtime and refuse if > 5 minutes unless explicitly requested.
@@ -38,17 +49,17 @@ Execute PHPUnit tests with intelligent runtime estimation and return a concise s
 
 ### Full Suite
 ```bash
-export CI=true && vendor/bin/qa -t unit
+export CI=true && {bin}/qa -t unit
 ```
 
 ### Specific Path (Directory)
 ```bash
-export CI=true && vendor/bin/qa -t unit -p tests/Unit/Services
+export CI=true && {bin}/qa -t unit -p tests/Unit/Services
 ```
 
 ### Single File
 ```bash
-export CI=true && vendor/bin/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php
+export CI=true && {bin}/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php
 ```
 
 ## 📊 Parse Results
@@ -138,7 +149,7 @@ Do NOT attempt to fix errors yourself.
 
 ### Scenario: User says "run tests in PaymentService"
 1. Find the test file: `tests/Unit/Services/PaymentServiceTest.php`
-2. Run: `export CI=true && vendor/bin/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php`
+2. Run: `export CI=true && {bin}/qa -t unit -p tests/Unit/Services/PaymentServiceTest.php`
 3. Parse results
 4. Return summary
 

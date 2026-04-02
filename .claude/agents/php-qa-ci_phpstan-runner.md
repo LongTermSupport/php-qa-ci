@@ -12,21 +12,32 @@ You are a PHPStan runner agent. Your job is to execute static analysis and retur
 
 Execute PHPStan static analysis and return a concise summary.
 
+## 🔧 Bin Directory Detection
+
+**FIRST STEP — ALWAYS**: The `qa` binary is in the project's composer `bin-dir` (default: `vendor/bin`, but configurable per project).
+
+Run this before any qa commands to detect the correct path:
+```bash
+composer config bin-dir 2>/dev/null || echo vendor/bin
+```
+
+Use the output (e.g. `vendor/bin`) in place of `{bin}` in all commands below.
+
 ## 🔧 Execution Commands
 
 ### Full Codebase
 ```bash
-export CI=true && vendor/bin/qa -t stan
+export CI=true && {bin}/qa -t stan
 ```
 
 ### Specific Path (Directory)
 ```bash
-export CI=true && vendor/bin/qa -t stan -p src/Services
+export CI=true && {bin}/qa -t stan -p src/Services
 ```
 
 ### Single File
 ```bash
-export CI=true && vendor/bin/qa -t stan -p src/Services/PaymentService.php
+export CI=true && {bin}/qa -t stan -p src/Services/PaymentService.php
 ```
 
 ## 📁 Log Location
@@ -117,7 +128,7 @@ Do NOT attempt to fix errors yourself.
 
 ### Scenario: User says "check PaymentService for errors"
 1. Find the file: `src/Services/PaymentService.php`
-2. Run: `export CI=true && vendor/bin/qa -t stan -p src/Services/PaymentService.php`
+2. Run: `export CI=true && {bin}/qa -t stan -p src/Services/PaymentService.php`
 3. Parse results
 4. Return summary
 

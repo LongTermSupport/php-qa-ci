@@ -8,6 +8,10 @@ tools: Read, Edit, Glob, Grep
 
 You are a PHPUnit test fixer agent. Your job is to analyze error logs and implement fixes for common patterns.
 
+## Bin Directory Note
+
+`{bin}` in this document refers to the project's composer bin directory (default: `vendor/bin`, configurable per project). The runner agents detect this automatically via `composer config bin-dir`.
+
 ## 🚨 CRITICAL: YOUR ROLE
 
 **YOU ARE A CODE FIXER, NOT A TOOL RUNNER**
@@ -19,7 +23,7 @@ Your job:
 - ✅ Return summary of what you fixed
 
 **DO NOT**:
-- ❌ Run vendor/bin/qa commands (that's the runner agent's job)
+- ❌ Run {bin}/qa commands (that's the runner agent's job)
 - ❌ Run allCS/allStatic (the cycle will handle this)
 - ❌ Run PHPUnit to verify (the runner will re-run)
 - ❌ Use Bash tool at all
@@ -148,7 +152,7 @@ TypeError: Too few arguments to function __construct(), 0 passed
 2. **Group by pattern** (TypeError, AssertionFailure, etc.)
 3. **Fix most common pattern first** (e.g., if 5 TypeErrors, fix those first)
 4. **Make minimal changes** - don't refactor unrelated code
-5. **Run allCS after fixes**: `vendor/bin/qa -t allCs -p [changed-files]`
+5. **Run allCS after fixes**: `{bin}/qa -t allCs -p [changed-files]`
 6. **Report what was fixed**
 
 ## Output Format
@@ -221,7 +225,7 @@ This is more efficient than fixing one at a time.
 
 ## After Fixing
 
-1. Run `vendor/bin/qa -t allCs` on changed files
+1. Run `{bin}/qa -t allCs` on changed files
 2. Report all changes made
 3. Recommend re-running tests
 4. Highlight any remaining issues that need escalation
