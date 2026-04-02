@@ -16,7 +16,6 @@ final class Helper
      *
      * @throws Exception
      *
-     * @SuppressWarnings(PHPMD.StaticAccess)
      */
     public static function getComposerJsonDecoded(?string $path = null): array
     {

@@ -2,15 +2,15 @@
 name: qa-tool-runner
 description: |
   Run any php-qa-ci tool or the full pipeline via generic agent delegation. Use for tools
-  that lack a specialized runner skill (rector, fixer, infection, phplint, phpcs, etc.)
+  that lack a specialized runner skill (rector, fixer, infection, phplint, etc.)
   or to run the full unfiltered {bin}/qa pipeline.
 
   Delegates to:
   - php-qa-ci_qa-tool-runner agent (haiku) for individual tools
   - php-qa-ci_full-pipeline-runner agent (haiku) for full pipeline
 
-  Self-fixing tools (rector, fixer, phpbf) are automatically re-run until stable.
-  Report-only tools (infection, phpcs, messdetector) run once and report.
+  Self-fixing tools (rector, fixer) are automatically re-run until stable.
+  Report-only tools (infection, phplint, etc.) run once and report.
 allowed-tools: Task
 ---
 
@@ -66,7 +66,7 @@ This skill delegates to generic agents via the Task tool:
 
 ### Self-Fixing Tool Cycling
 
-For self-fixing tools (rector, fixer, phpbf), cycle automatically:
+For self-fixing tools (rector, fixer), cycle automatically:
 
 ```
 Iteration 1: Run tool → files modified → AUTO-CONTINUE
@@ -82,10 +82,7 @@ Max 5 iterations. If still modifying files after 5 runs, escalate.
 |------|------|-------------|
 | rector | Self-fixing | Yes - re-run until stable |
 | fixer | Self-fixing | Yes - re-run until stable |
-| phpbf | Self-fixing | Yes - re-run until stable |
-| phpcs | Report-only | No - report and stop |
 | phplint | Report-only | No - report and stop |
-| messdetector | Report-only | No - report and stop |
 | infection | Report-only | No - report and stop |
 | stricttypes | Report-only | No - report and stop |
 | psr4 | Report-only | No - report and stop |

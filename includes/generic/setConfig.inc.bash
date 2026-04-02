@@ -35,10 +35,6 @@ readarray psr4IgnoreList < "$psr4IgnoreListPath"
 # PHPStan configs
 phpstanConfigPath="$(configPath phpstan.neon)"
 
-#PHP Mess Detector Configs
-phpmdConfigPath="$(configPath phpmd/ruleset.xml)"
-
-
 ##PHPUnit Configs
 
 #Iterative Mode - prioritises runnign failed tests and stops on first error

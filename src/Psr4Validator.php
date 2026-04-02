@@ -86,9 +86,6 @@ final class Psr4Validator
      * @return Generator<array{string, string, SplFileInfo}>
      *
      * @throws Exception
-     *
-     * @SuppressWarnings(PHPMD.StaticAccess)
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     private function yieldPhpFilesToCheck(): Generator
     {
@@ -161,8 +158,6 @@ final class Psr4Validator
 
     /**
      * @return SplHeap<SplFileInfo>
-     *
-     * @SuppressWarnings(PHPMD.UndefinedVariable) - phpmd cant handle the anon class
      */
     private function getDirectoryIterator(string $realPath): SplHeap
     {

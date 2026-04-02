@@ -18,7 +18,6 @@ final class LinksChecker
     /**
      * @throws Exception
      *
-     * @SuppressWarnings(PHPMD.StaticAccess)
      */
     public static function main(?string $projectRootDirectory = null): int
     {
@@ -45,7 +44,6 @@ final class LinksChecker
     /**
      * @return string[]
      *
-     * @SuppressWarnings(PHPMD.StaticAccess)
      */
     private static function getFiles(string $projectRootDirectory): array
     {
@@ -56,8 +54,6 @@ final class LinksChecker
     }
 
     /**
-     * @SuppressWarnings(PHPMD.StaticAccess)
-     *
      * @return string[]
      */
     private static function getDocsFiles(string $projectRootDirectory): array
@@ -86,7 +82,6 @@ final class LinksChecker
     }
 
     /**
-     * @SuppressWarnings(PHPMD.StaticAccess)
      */
     private static function getMainReadme(string $projectRootDirectory): string
     {
@@ -102,8 +97,6 @@ final class LinksChecker
     }
 
     /**
-     * @SuppressWarnings(PHPMD.StaticAccess)
-     *
      * @return array<array<string>>
      */
     private static function getLinks(string $file): array
@@ -127,8 +120,6 @@ final class LinksChecker
     }
 
     /**
-     * @SuppressWarnings(PHPMD.StaticAccess)
-     *
      * @param string[] $link
      * @param string[] $errors
      */
@@ -174,8 +165,6 @@ final class LinksChecker
     /**
      * @param string[] $link
      * @param string[] $errors
-     *
-     * @SuppressWarnings(PHPMD.UndefinedVariable) - seems to not understand the static variable
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {

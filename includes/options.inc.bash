@@ -48,10 +48,7 @@ function usage {
     echo "     uniterate                  phpunit iterative mode - prioritise broken tests and fail on error"
     echo "     infect|infection           infection"
     echo "     cr                         composer require checker"
-    echo "     md|messdetector            php mess detector"
     echo "     ml|markdown                markdown validation"
-    echo "     bf|phpbf                   php beautifier and fixer"
-    echo "     cs|phpcs                   php code sniffer"
     echo "     l|loc                      lines of code and other stats"
     echo "     f|fixer|csfixer            PHP-CS-Fixer"
     echo "     r|rector                   Rector"
@@ -100,9 +97,6 @@ NON_PATH_SUPPORTING_TOOLS=(
     "infection" "infect"                         # ❌ Ignores pathsToCheck completely
     "composerRequireChecker" "cr"                # ❌ Analyzes entire project
     "markdownLinks" "markdown" "ml"              # ❌ Hardcoded to specific files
-    "messDetector" "md"                          # ❌ Need to verify implementation
-    "beautifierFixer" "bf" "phpbf"               # ❌ Need to verify implementation  
-    "codeSniffer" "cs" "phpcs"                   # ❌ Need to verify implementation
     "phpunitAnnotations" "ann"                   # ❌ Need to verify implementation
     "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
     "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
@@ -176,10 +170,7 @@ then
         uniterate                   ) singleToolToRun="phpunit"; phpUnitIterativeMode=1;;
         infect | infection          ) singleToolToRun="infection";;
         cr                          ) singleToolToRun="composerRequireChecker";;
-        md | messdetector           ) singleToolToRun="messDetector";;
         ml | markdown               ) singleToolToRun="markdownLinks";;
-        bf | phpbf                  ) singleToolToRun="beautifierFixer";;
-        cs | phpcs                  ) singleToolToRun="codeSniffer";;
         l | loc                     ) singleToolToRun="phploc";;
         f | fixer | csfixer         ) singleToolToRun="phpCsFixer";;
         r | rector                  ) singleToolToRun="rector";;

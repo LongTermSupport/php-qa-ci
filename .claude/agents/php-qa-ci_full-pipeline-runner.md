@@ -53,9 +53,7 @@ The full pipeline runs these tools in order (varies by project configuration):
 6. PHPUnit (tests)
 7. PHP CS Fixer (code style)
 8. Rector (refactoring)
-9. PHP Mess Detector
-10. PHP CodeSniffer
-11. Infection (mutation testing, if configured)
+9. Infection (mutation testing, if configured)
 
 Not all tools may be configured for every project. Parse what's actually in the output.
 
@@ -102,8 +100,6 @@ The pipeline output contains sections for each tool. Look for these patterns:
 | PHPUnit | PASS | 148 tests, 28720 assertions |
 | CS Fixer | PASS | No files modified |
 | Rector | PASS | No changes needed |
-| Mess Detector | SKIP | Not configured |
-| CodeSniffer | SKIP | Not configured |
 
 ### Failed Tools (if any)
 **PHPStan**: 5 errors across 3 files

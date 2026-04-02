@@ -12,8 +12,6 @@ use PHPUnit\Framework\TestCase;
 /**
  * Class HelperTest.
  *
- * @SuppressWarnings(PHPMD.StaticAccess)
- *
  * @internal
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(Helper::class)]

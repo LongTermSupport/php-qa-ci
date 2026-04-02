@@ -57,7 +57,7 @@ $rules = [
             'method_private',
         ],
     ],
-    // fights with PSR-12 in phpcs/phpcbf
+    // phpcs/phpcbf have been removed from the pipeline in favor of PHP CS Fixer
     'ordered_imports'                     => [
         'sort_algorithm' => 'alpha',
         // this is the PSR12 order, do not change

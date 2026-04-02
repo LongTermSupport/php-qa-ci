@@ -1,6 +1,6 @@
 ---
 name: php-qa-ci_qa-tool-runner
-description: Run any php-qa-ci tool via the qa binary (composer bin-dir auto-detected), parse stdout output, and provide concise summaries. Use as a generic runner for tools that lack a specialized agent (rector, fixer, infection, phplint, phpcs, messdetector, etc.). Executes tool once and returns summary - does NOT fix errors.
+description: Run any php-qa-ci tool via the qa binary (composer bin-dir auto-detected), parse stdout output, and provide concise summaries. Use as a generic runner for tools that lack a specialized agent (rector, fixer, infection, phplint, etc.). Executes tool once and returns summary - does NOT fix errors.
 color: green
 model: haiku
 tools: Bash, Read, Glob
@@ -43,10 +43,7 @@ export CI=true && {bin}/qa -t {tool} -p {path}
 |-----------|---------|------|
 | rector | r | Self-fixing (modifies files) |
 | fixer | f, csfixer | Self-fixing (modifies files) |
-| phpcs | cs | Report-only |
-| phpbf | bf | Self-fixing |
 | phplint | lint | Report-only |
-| messdetector | md | Report-only |
 | infection | infect | Report-only (mutation testing) |
 | stricttypes | st | Report-only |
 | psr4 | psr | Report-only |
@@ -126,14 +123,13 @@ Since this is a generic runner, parse output heuristically:
 3. **Exit code > 1** = crash/configuration error
 4. Look for patterns like "X errors", "X files", "Fixed X", "Modified X"
 5. Look for success patterns: "[OK]", "No errors", "All checks passed"
-6. For self-fixing tools (rector, fixer, phpbf): look for file modification counts
+6. For self-fixing tools (rector, fixer): look for file modification counts
 
 ## Self-Fixing Tool Detection
 
 These tools modify files directly when run:
 - **rector** - Applies refactoring rules
 - **fixer** (PHP CS Fixer) - Applies code style fixes
-- **phpbf** (PHP Code Beautifier) - Applies formatting fixes
 
 For these tools, the caller (skill) will re-run to check stability. Your job is just to report what happened.
 

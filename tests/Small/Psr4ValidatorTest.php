@@ -11,8 +11,6 @@ use PHPUnit\Framework\TestCase;
 /**
  * Class Psr4ValidatorTest.
  *
- * @SuppressWarnings(PHPMD.StaticAccess)
- *
  * @internal
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(Psr4Validator::class)]

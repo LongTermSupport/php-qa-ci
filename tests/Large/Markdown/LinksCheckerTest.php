@@ -13,8 +13,6 @@ use Throwable;
 /**
  * Class LinksCheckerTest.
  *
- * @SuppressWarnings(PHPMD.StaticAccess)
- *
  * @internal
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(LinksChecker::class)]
@@ -23,8 +21,6 @@ final class LinksCheckerTest extends TestCase
 {
     /**
      * @throws Exception
-     *
-     * @SuppressWarnings(PHPMD.StaticAccess)
      */
     public function testInvalidProject(): void
     {
@@ -46,8 +42,6 @@ Bad link for "incorrect link" to "./foo.md"
 
     /**
      * @throws Exception
-     *
-     * @SuppressWarnings(PHPMD.StaticAccess)
      */
     public function testMainNoReadmeFile(): void
     {

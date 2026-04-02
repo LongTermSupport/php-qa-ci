@@ -125,9 +125,7 @@ Parse user request to identify tool:
 | "run rector" | `rector` | qa-tool-runner skill | ✅ Self-fixing | N/A - just re-run |
 | "run cs fixer", "run fixer" | `fixer` | qa-tool-runner skill | ✅ Self-fixing | N/A - just re-run |
 | "run infection" | `infection` | qa-tool-runner skill | ❌ | N/A - report only |
-| "run phpcs", "run code sniffer" | `phpcs` | qa-tool-runner skill | ❌ | N/A - report only |
 | "run phplint", "run lint" | `phplint` | qa-tool-runner skill | ❌ | N/A - report only |
-| "run mess detector" | `messdetector` | qa-tool-runner skill | ❌ | N/A - report only |
 | "run strict types" | `stricttypes` | qa-tool-runner skill | ❌ | N/A - report only |
 | "run psr4" | `psr4` | qa-tool-runner skill | ❌ | N/A - report only |
 | "run composer check" | `composer` | qa-tool-runner skill | ❌ | N/A - report only |
@@ -164,7 +162,7 @@ LOOP:
      - errors == previous_errors? → Escalate, EXIT
   4. Apply fix:
      - If tool has dedicated fixer (phpstan/phpunit) → Invoke fixer SKILL
-     - If self-fixing tool (rector/fixer/phpbf) → Re-run via runner (tool fixes itself)
+     - If self-fixing tool (rector/fixer) → Re-run via runner (tool fixes itself)
      - If no fixer available → Report and ask user
   5. iteration++, previous_errors = current_errors
   6. IMMEDIATELY goto LOOP (no pause, no questions)
@@ -293,7 +291,7 @@ No fixer: Cannot auto-fix mutations
 Strategy: Run once, report MSI, ask user for next steps
 ```
 
-### Other Tools (phpcs, phplint, messdetector, psr4, etc.)
+### Other Tools (phplint, psr4, etc.)
 ```
 [Skill] Invoke qa-tool-runner skill with tool={toolname}
   → Runner skill launches haiku agent
@@ -353,7 +351,7 @@ Strategy: Run once, report comprehensive results, suggest fixing failed tools in
 4. If not clean:
    - phpstan → [Skill] phpstan-fixer skill
    - phpunit → [Skill] phpunit-fixer skill
-   - Self-fixing tool (rector/fixer/phpbf) → Re-run via same runner skill
+   - Self-fixing tool (rector/fixer) → Re-run via same runner skill
    - Report-only tool → Report results to user, EXIT
    - Full pipeline → Report per-tool results, suggest fixing individually
    - IMMEDIATELY goto step 2 (if fix was applied)
