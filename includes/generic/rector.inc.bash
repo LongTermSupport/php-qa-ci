@@ -14,7 +14,7 @@ fi
 rectorVerbosity=""
 rectorIgnorePaths="";
 if [[ "placeholder-ignore-item" != "${pathsToIgnore[*]}" ]]; then
-  rectorIgnorePaths="${pathsToIgnore[*]}"
+  rectorIgnorePaths=$(printf '%s\n' "${pathsToIgnore[@]}")
 fi
 
 
