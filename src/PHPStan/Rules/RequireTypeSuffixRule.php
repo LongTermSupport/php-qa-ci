@@ -25,8 +25,23 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class RequireTypeSuffixRule implements Rule
 {
-    /** @var list<string> Paths to exclude from this rule (e.g. generated SDK code) */
-    private const array EXCLUDED_PATH_SEGMENTS = ['/Generated/', '/vendor/'];
+    /**
+     * Absolute path substrings to exclude (match anywhere in the absolute file path).
+     *
+     * @var list<string>
+     */
+    private const array EXCLUDED_ABSOLUTE_SEGMENTS = ['/Generated/'];
+
+    /**
+     * Relative path prefixes to exclude (relative to getcwd()).
+     *
+     * Using a relative prefix avoids false-exclusions when the project itself
+     * is installed inside a parent vendor/ directory (which would make every
+     * absolute path contain "/vendor/").
+     *
+     * @var list<string>
+     */
+    private const array EXCLUDED_RELATIVE_PREFIXES = ['vendor/'];
 
     public function getNodeType(): string
     {
@@ -49,9 +64,18 @@ final class RequireTypeSuffixRule implements Rule
         }
 
         $fileName = $scope->getFile();
-        foreach (self::EXCLUDED_PATH_SEGMENTS as $segment) {
+        foreach (self::EXCLUDED_ABSOLUTE_SEGMENTS as $segment) {
             if (str_contains($fileName, $segment)) {
                 return [];
+            }
+        }
+        $cwd = getcwd();
+        if (false !== $cwd && str_starts_with($fileName, $cwd . '/')) {
+            $relative = substr($fileName, \strlen($cwd) + 1);
+            foreach (self::EXCLUDED_RELATIVE_PREFIXES as $prefix) {
+                if (str_starts_with($relative, $prefix)) {
+                    return [];
+                }
             }
         }
 
