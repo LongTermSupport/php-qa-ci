@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd" colors="true" timeoutForMediumTests="5" timeoutForSmallTests="1" timeoutForLargeTests="300" failOnRisky="true" failOnWarning="true" defaultTestSuite="tests" cacheResult="true" executionOrder="depends,random" cacheDirectory=".phpunit.cache" requireCoverageMetadata="true" beStrictAboutCoverageMetadata="true">
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd" colors="true" timeoutForMediumTests="5" timeoutForSmallTests="1" timeoutForLargeTests="300" failOnRisky="true" failOnWarning="true" defaultTestSuite="tests" cacheResult="true" executionOrder="depends,random" cacheDirectory="../var/qa/phpunit.cache" requireCoverageMetadata="true" beStrictAboutCoverageMetadata="true">
   <coverage>
     <report>
       <clover outputFile="../var/qa/phpunit_logs/coverage.clover"/>

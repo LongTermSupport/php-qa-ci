@@ -71,12 +71,10 @@ initLockSystem() {
     if [[ ! -f "$QA_LOCK_DIR/.gitignore" ]]; then
         cat > "$QA_LOCK_DIR/.gitignore" << 'EOF'
 # QA Lock System - Auto-generated, do not edit manually
-# Lock files should never be tracked
-*.lock
-.lock.*
-
-# Timing data SHOULD be tracked (negation)
-!timing-data.json
+# Nothing in this directory should ever be tracked.
+# Lock files are runtime-only. Timing data changes on every run and
+# varies by machine speed, so tracking it just creates merge noise.
+*
 EOF
     fi
 
