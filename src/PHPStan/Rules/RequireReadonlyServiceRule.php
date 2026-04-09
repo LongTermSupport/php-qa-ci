@@ -32,15 +32,15 @@ final class RequireReadonlyServiceRule implements Rule
 {
     /** @var list<string> */
     private const array EXCLUDED_NAMESPACE_SEGMENTS = [
-        '\\Controller\\',
-        '\\Command\\',
-        '\\Entity\\',
-        '\\Exception\\',
-        '\\Sdk\\',
-        '\\API\\',
-        '\\Oa\\',
-        '\\Form\\',
-        '\\Tests\\',
+        '\Controller\\',
+        '\Command\\',
+        '\Entity\\',
+        '\Exception\\',
+        '\Sdk\\',
+        '\API\\',
+        '\Oa\\',
+        '\Form\\',
+        '\Tests\\',
     ];
 
     /** @var list<string> */
@@ -89,8 +89,8 @@ final class RequireReadonlyServiceRule implements Rule
 
     /** @var list<string> */
     private const array EXCLUDED_INTERFACES = [
-        'Psr\\Log\\LoggerAwareInterface',
-        'Symfony\\Contracts\\Service\\ResetInterface',
+        'Psr\Log\LoggerAwareInterface',
+        'Symfony\Contracts\Service\ResetInterface',
     ];
 
     public function getNodeType(): string
@@ -139,7 +139,7 @@ final class RequireReadonlyServiceRule implements Rule
         }
 
         $classReflection = $scope->getClassReflection();
-        if (null !== $classReflection) {
+        if ($classReflection instanceof \PHPStan\Reflection\ClassReflection) {
             $interfaceNames = array_keys($classReflection->getInterfaces());
             foreach ($interfaceNames as $interfaceName) {
                 if (\in_array($interfaceName, self::EXCLUDED_INTERFACES, true)) {
@@ -165,7 +165,7 @@ final class RequireReadonlyServiceRule implements Rule
         foreach ($node->attrGroups as $attrGroup) {
             foreach ($attrGroup->attrs as $attr) {
                 $attrName = $attr->name->toString();
-                if ('ORM\\Entity' === $attrName || str_ends_with($attrName, '\\Entity')) {
+                if ('ORM\Entity' === $attrName || str_ends_with($attrName, '\Entity')) {
                     return true;
                 }
             }
@@ -183,12 +183,12 @@ final class RequireReadonlyServiceRule implements Rule
         }
 
         $classReflection = $scope->getClassReflection();
-        if (null === $classReflection) {
+        if (!$classReflection instanceof \PHPStan\Reflection\ClassReflection) {
             return false;
         }
 
         $parentClass = $classReflection->getParentClass();
-        if (null === $parentClass) {
+        if (!$parentClass instanceof \PHPStan\Reflection\ClassReflection) {
             return false;
         }
 

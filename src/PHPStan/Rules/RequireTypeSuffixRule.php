@@ -50,7 +50,7 @@ final class RequireTypeSuffixRule implements Rule
         }
 
         // Anonymous classes/interfaces have no name
-        if (null === $node->name) {
+        if (!$node->name instanceof Node\Identifier) {
             return [];
         }
 

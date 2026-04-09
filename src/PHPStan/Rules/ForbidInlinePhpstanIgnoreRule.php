@@ -63,7 +63,7 @@ final class ForbidInlinePhpstanIgnoreRule implements Rule
             $errors[] = RuleErrorBuilder::message(
                 'Inline PHPStan suppression annotations are forbidden. '
                 . 'Fix the underlying type issue instead '
-                . '(use type guards, array shapes, \\Safe\\ functions, etc.). '
+                . '(use type guards, array shapes, \Safe\ functions, etc.). '
                 . 'If truly irreducible, manage via ignoreErrors in phpstan.neon '
                 . 'with a specific identifier and path.',
             )->identifier('phpqaci.inlinePhpstanIgnore')->line($comment->getStartLine())->build();
@@ -74,9 +74,7 @@ final class ForbidInlinePhpstanIgnoreRule implements Rule
 
     private function containsSuppressionAnnotation(Comment $comment): bool
     {
-        $matchCount = \preg_match(self::PATTERN, $comment->getText());
-
-        return \is_int($matchCount) && $matchCount > 0;
+        return \Safe\preg_match(self::PATTERN, $comment->getText()) > 0;
     }
 
     private function isTestContext(Scope $scope): bool
