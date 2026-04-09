@@ -23,6 +23,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class RequireCronIntervalInDescriptionRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.cronMissingInterval';
+
     private const string INTERVAL_PATTERN = '/\[every\s+\d+[mhd]\]$/';
 
     public function getNodeType(): string
@@ -59,7 +61,7 @@ final class RequireCronIntervalInDescriptionRule implements Rule
                         . 'Add a description ending with a schedule interval, e.g. [every 1h].',
                         $name,
                     ),
-                )->identifier('counselbook.cronMissingInterval')->build(),
+                )->identifier(self::IDENTIFIER)->build(),
             ];
         }
 
@@ -72,7 +74,7 @@ final class RequireCronIntervalInDescriptionRule implements Rule
                         . 'Allowed suffixes: [every Nm], [every Nh], [every Nd].',
                         $name,
                     ),
-                )->identifier('counselbook.cronMissingInterval')->build(),
+                )->identifier(self::IDENTIFIER)->build(),
             ];
         }
 

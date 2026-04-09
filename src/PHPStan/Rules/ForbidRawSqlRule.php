@@ -25,6 +25,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidRawSqlRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.rawSql';
+
     /**
      * @var list<string>
      */
@@ -68,7 +70,7 @@ final class ForbidRawSqlRule implements Rule
                             . 'See docs/phpstan-rules/forbid-raw-sql.md for safe alternatives.',
                             $node->name->toString(),
                         ),
-                    )->identifier('counselbook.rawSql')->build(),
+                    )->identifier(self::IDENTIFIER)->build(),
                 ];
             }
         }

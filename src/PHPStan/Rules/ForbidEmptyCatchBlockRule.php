@@ -23,6 +23,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidEmptyCatchBlockRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.emptyCatchBlock';
+
     public function getNodeType(): string
     {
         return Catch_::class;
@@ -41,7 +43,7 @@ final class ForbidEmptyCatchBlockRule implements Rule
             RuleErrorBuilder::message(
                 'Empty catch block detected — exceptions must be handled (log, rethrow, or return). '
                 . 'A comment alone is not sufficient handling.',
-            )->identifier('counselbook.emptyCatchBlock')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }

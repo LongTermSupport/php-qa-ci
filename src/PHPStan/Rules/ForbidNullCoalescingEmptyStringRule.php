@@ -26,6 +26,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidNullCoalescingEmptyStringRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.nullCoalescingEmptyString';
+
     public function getNodeType(): string
     {
         return Coalesce::class;
@@ -48,7 +50,7 @@ final class ForbidNullCoalescingEmptyStringRule implements Rule
             RuleErrorBuilder::message(
                 "Avoid ?? '' — this hides null/undefined errors with an empty string. "
                 . 'Use an explicit null check or validate data at the API boundary.',
-            )->identifier('counselbook.nullCoalescingEmptyString')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }
