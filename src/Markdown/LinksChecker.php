@@ -17,7 +17,6 @@ final class LinksChecker
 {
     /**
      * @throws Exception
-     *
      */
     public static function main(?string $projectRootDirectory = null): int
     {
@@ -43,7 +42,6 @@ final class LinksChecker
 
     /**
      * @return string[]
-     *
      */
     private static function getFiles(string $projectRootDirectory): array
     {
@@ -81,8 +79,6 @@ final class LinksChecker
         return $files;
     }
 
-    /**
-     */
     private static function getMainReadme(string $projectRootDirectory): string
     {
         $path = $projectRootDirectory . '/README.md';

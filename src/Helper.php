@@ -15,7 +15,6 @@ final class Helper
      * @return array<int|string,mixed>
      *
      * @throws Exception
-     *
      */
     public static function getComposerJsonDecoded(?string $path = null): array
     {
