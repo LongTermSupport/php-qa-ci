@@ -31,6 +31,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidNewDateTimeRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.newDateTime';
+
     public function getNodeType(): string
     {
         return New_::class;
@@ -59,7 +61,7 @@ final class ForbidNewDateTimeRule implements Rule
             RuleErrorBuilder::message(
                 'Use DateTimeImmutable instead of DateTime. Mutable date/time objects cause subtle bugs '
                 . 'when shared between services. Replace "new DateTime()" with "new DateTimeImmutable()".',
-            )->identifier('phpqaci.newDateTime')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 

@@ -33,6 +33,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final readonly class ForbidSilentCatchRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.silentCatch';
+
     /** @var list<string> */
     private const array LOGGING_METHODS = [
         'emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug', 'log',
@@ -125,6 +127,6 @@ final readonly class ForbidSilentCatchRule implements Rule
             'Catch block swallows exception silently. '
             . 'Either re-throw the exception, log it, or use the caught exception variable. '
             . 'Silent catch blocks hide bugs and make debugging impossible.',
-        )->identifier('phpqaci.silentCatch')->build();
+        )->identifier(self::IDENTIFIER)->build();
     }
 }

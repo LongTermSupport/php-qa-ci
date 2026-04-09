@@ -26,6 +26,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidInlinePhpstanIgnoreRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.inlinePhpstanIgnore';
+
     /** Matches the PHPStan inline suppression annotation pattern */
     private const string PATTERN = '/@phpstan\x2dignore/';
 
@@ -66,7 +68,7 @@ final class ForbidInlinePhpstanIgnoreRule implements Rule
                 . '(use type guards, array shapes, \Safe\ functions, etc.). '
                 . 'If truly irreducible, manage via ignoreErrors in phpstan.neon '
                 . 'with a specific identifier and path.',
-            )->identifier('phpqaci.inlinePhpstanIgnore')->line($comment->getStartLine())->build();
+            )->identifier(self::IDENTIFIER)->line($comment->getStartLine())->build();
         }
 
         return $errors;

@@ -30,6 +30,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class RequireReadonlyServiceRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.readonlyService';
+
     /** @var list<string> */
     private const array EXCLUDED_NAMESPACE_SEGMENTS = [
         '\Controller\\',
@@ -156,7 +158,7 @@ final class RequireReadonlyServiceRule implements Rule
                     . 'If per-call state is needed, extract it into a context DTO.',
                     $className,
                 ),
-            )->identifier('phpqaci.readonlyService')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 
