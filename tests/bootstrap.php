@@ -37,7 +37,11 @@ declare(strict_types=1);
 // Load composer autoloader
 require \dirname(__DIR__) . '/vendor/autoload.php';
 
-// Uncomment and add your project-specific bootstrap logic here:
-// (static function (): void {
-//     // e.g. set environment variables, initialise framework, configure test database
-// })();
+// Load PHPStan core classes from the bundled phar so that PHPStan\* classes
+// (Scope, RuleErrorBuilder, IdentifierRuleError, etc.) are available when
+// unit-testing custom PHPStan rules directly — without running the full
+// static-analysis pipeline.
+$phpstanPhar = \dirname(__DIR__) . '/vendor-phar/phpstan.phar';
+if (\file_exists($phpstanPhar)) {
+    require_once 'phar://' . $phpstanPhar . '/vendor/autoload.php';
+}
