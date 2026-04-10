@@ -29,6 +29,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final readonly class ForbidMockingFinalClassRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.mockFinalClass';
+
     /** @var list<string> */
     private const array MOCK_METHODS = ['createStub', 'createMock'];
 
@@ -113,7 +115,7 @@ final readonly class ForbidMockingFinalClassRule implements Rule
                     $methodName,
                 ),
             )
-                ->identifier('phpqaci.mockFinalClass')
+                ->identifier(self::IDENTIFIER)
                 ->build(),
         ];
     }

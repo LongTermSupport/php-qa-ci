@@ -19,6 +19,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidAllowMockWithoutExpectationsRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.forbiddenAttribute';
+
     public function getNodeType(): string
     {
         return Attribute::class;
@@ -37,7 +39,7 @@ final class ForbidAllowMockWithoutExpectationsRule implements Rule
             return [
                 RuleErrorBuilder::message(
                     '#[AllowMockObjectsWithoutExpectations] is banned. Use createStub() for dependencies that have no expectations.',
-                )->identifier('counselbook.forbiddenAttribute')->build(),
+                )->identifier(self::IDENTIFIER)->build(),
             ];
         }
 

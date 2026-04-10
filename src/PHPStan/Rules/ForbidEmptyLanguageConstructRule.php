@@ -29,6 +29,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidEmptyLanguageConstructRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.emptyLanguageConstruct';
+
     public function getNodeType(): string
     {
         return Empty_::class;
@@ -46,7 +48,7 @@ final class ForbidEmptyLanguageConstructRule implements Rule
                 . '"$var === \'\'" for strings, '
                 . '"$var === null" for nullable. '
                 . 'empty() hides type errors and silently accepts undefined variables.',
-            )->identifier('phpqaci.emptyLanguageConstruct')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }

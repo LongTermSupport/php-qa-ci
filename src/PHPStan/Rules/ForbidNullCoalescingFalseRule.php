@@ -23,6 +23,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidNullCoalescingFalseRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.nullCoalescingFalse';
+
     public function getNodeType(): string
     {
         return Coalesce::class;
@@ -45,7 +47,7 @@ final class ForbidNullCoalescingFalseRule implements Rule
             RuleErrorBuilder::message(
                 'Avoid ?? false — this hides null/undefined errors with false. '
                 . 'Use an explicit null check or validate data at the API boundary.',
-            )->identifier('counselbook.nullCoalescingFalse')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }

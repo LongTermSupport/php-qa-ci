@@ -32,6 +32,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidLooseComparisonRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.looseComparison';
+
     public function getNodeType(): string
     {
         return BinaryOp::class;
@@ -47,7 +49,7 @@ final class ForbidLooseComparisonRule implements Rule
                 RuleErrorBuilder::message(
                     'Loose comparison (==) is banned. Use strict comparison (===) instead. '
                     . 'Loose comparisons cause type coercion bugs.',
-                )->identifier('phpqaci.looseComparison')->build(),
+                )->identifier(self::IDENTIFIER)->build(),
             ];
         }
 
@@ -56,7 +58,7 @@ final class ForbidLooseComparisonRule implements Rule
                 RuleErrorBuilder::message(
                     'Loose comparison (!=) is banned. Use strict comparison (!==) instead. '
                     . 'Loose comparisons cause type coercion bugs.',
-                )->identifier('phpqaci.looseComparison')->build(),
+                )->identifier(self::IDENTIFIER)->build(),
             ];
         }
 

@@ -23,6 +23,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidHeaderInjectionRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.headerInjection';
+
     /**
      * @var list<string>
      */
@@ -60,7 +62,7 @@ final class ForbidHeaderInjectionRule implements Rule
                     . 'See docs/phpstan-rules/forbid-header-injection.md for safe alternatives.',
                     $functionName,
                 ),
-            )->identifier('counselbook.headerInjection')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }

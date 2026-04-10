@@ -27,6 +27,10 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class RequireTypeSuffixRule implements Rule
 {
+    public const string IDENTIFIER_INTERFACE_SUFFIX = RuleIdentifierInterface::PREFIX . '.interfaceSuffix';
+    public const string IDENTIFIER_ENUM_SUFFIX      = RuleIdentifierInterface::PREFIX . '.enumSuffix';
+    public const string IDENTIFIER_TRAIT_SUFFIX     = RuleIdentifierInterface::PREFIX . '.traitSuffix';
+
     /**
      * Path substrings that cause a file to be skipped (matched against the absolute path).
      *
@@ -72,7 +76,7 @@ final class RequireTypeSuffixRule implements Rule
                         $name,
                     ),
                 )
-                    ->identifier('phpqaci.interfaceSuffix')
+                    ->identifier(self::IDENTIFIER_INTERFACE_SUFFIX)
                     ->build(),
             ];
         }
@@ -86,7 +90,7 @@ final class RequireTypeSuffixRule implements Rule
                         $name,
                     ),
                 )
-                    ->identifier('phpqaci.enumSuffix')
+                    ->identifier(self::IDENTIFIER_ENUM_SUFFIX)
                     ->build(),
             ];
         }
@@ -100,7 +104,7 @@ final class RequireTypeSuffixRule implements Rule
                         $name,
                     ),
                 )
-                    ->identifier('phpqaci.traitSuffix')
+                    ->identifier(self::IDENTIFIER_TRAIT_SUFFIX)
                     ->build(),
             ];
         }

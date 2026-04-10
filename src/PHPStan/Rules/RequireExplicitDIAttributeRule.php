@@ -88,6 +88,9 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
  */
 final class RequireExplicitDIAttributeRule implements Rule
 {
+    public const string IDENTIFIER_REQUIRE_EXPLICIT_DI_ATTRIBUTE = RuleIdentifierInterface::PREFIX . '.requireExplicitDIAttribute';
+    public const string IDENTIFIER_CONFLICTING_DI_ATTRIBUTES     = RuleIdentifierInterface::PREFIX . '.conflictingDIAttributes';
+
     private const array ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
         'PHPStan',
         'Tests',
@@ -173,7 +176,7 @@ final class RequireExplicitDIAttributeRule implements Rule
                         $shortName,
                         $hint
                     )
-                )->identifier('lts.requireExplicitDIAttribute')->build(),
+                )->identifier(self::IDENTIFIER_REQUIRE_EXPLICIT_DI_ATTRIBUTE)->build(),
             ];
         }
 
@@ -184,7 +187,7 @@ final class RequireExplicitDIAttributeRule implements Rule
                         'Class %s cannot have both service registration (#[Autoconfigure]/#[AutoconfigureTag]) and #[Exclude] attributes',
                         $node->name->toString()
                     )
-                )->identifier('lts.conflictingDIAttributes')->build(),
+                )->identifier(self::IDENTIFIER_CONFLICTING_DI_ATTRIBUTES)->build(),
             ];
         }
 

@@ -9,6 +9,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedSerializableRule
     - LTS\PHPQA\PHPStan\Rules\ForbidNestedTernaryRule
     - LTS\PHPQA\PHPStan\Rules\RequireTypeSuffixRule
+    - LTS\PHPQA\PHPStan\Rules\RequireRuleIdentifierConstantRule
 
 services:
     -

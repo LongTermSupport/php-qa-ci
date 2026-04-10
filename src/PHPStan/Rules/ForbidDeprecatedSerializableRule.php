@@ -21,6 +21,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidDeprecatedSerializableRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.deprecatedSerializable';
+
     public function getNodeType(): string
     {
         return Class_::class;
@@ -45,7 +47,7 @@ final class ForbidDeprecatedSerializableRule implements Rule
                             . 'Remove "implements Serializable" and the legacy serialization methods.',
                             $className,
                         ),
-                    )->identifier('phpqaci.deprecatedSerializable')->build(),
+                    )->identifier(self::IDENTIFIER)->build(),
                 ];
             }
         }

@@ -23,6 +23,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class RequireDeclareStrictTypesRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.missingStrictTypes';
+
     public function getNodeType(): string
     {
         return FileNode::class;
@@ -49,7 +51,7 @@ final class RequireDeclareStrictTypesRule implements Rule
             RuleErrorBuilder::message(
                 'Missing declare(strict_types=1) at the top of the file. '
                 . 'All PHP files must declare strict types.',
-            )->identifier('counselbook.missingStrictTypes')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }

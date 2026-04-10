@@ -23,6 +23,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidDangerousFunctionsRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.dangerousFunctions';
+
     /**
      * @var list<string>
      */
@@ -71,7 +73,7 @@ final class ForbidDangerousFunctionsRule implements Rule
                     . 'See docs/phpstan-rules/forbid-dangerous-functions.md for safe alternatives.',
                     $functionName,
                 ),
-            )->identifier('counselbook.dangerousFunctions')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }
