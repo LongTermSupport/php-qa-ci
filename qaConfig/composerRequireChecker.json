@@ -59,6 +59,7 @@
     "PhpParser\\Node\\Expr\\Ternary",
     "PhpParser\\Node\\NullableType",
     "PhpParser\\Node\\Param",
+    "PHPStan\\Analyser\\NodeCallbackInvoker",
     "PHPStan\\Analyser\\Scope",
     "PHPStan\\Node\\FileNode",
     "PHPStan\\Reflection\\ClassReflection",

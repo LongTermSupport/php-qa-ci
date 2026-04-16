@@ -47,8 +47,6 @@ final class RequireVariadicForSingleListParamRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        \assert($node instanceof ClassMethod);
-
         if (1 !== \count($node->params)) {
             return [];
         }
