@@ -81,7 +81,9 @@ The `phpstan/phpstan` package is in the `replace` section of `composer.json` sin
 
 ## Custom PHPStan Rules
 
-PHP-QA-CI ships with custom PHPStan rules that are auto-loaded via the PHPStan extension installer:
+### Always-on rules (auto-loaded)
+
+These rules are active automatically in every project that uses php-qa-ci — no configuration needed:
 
 - **ForbidMockingFinalClassRule** -- Prevents mocking of final classes
 - **ForbidAllowMockWithoutExpectationsRule** -- Bans `#[AllowMockObjectsWithoutExpectations]`
@@ -89,7 +91,31 @@ PHP-QA-CI ships with custom PHPStan rules that are auto-loaded via the PHPStan e
 - **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
 - **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
 
-Projects can add their own rules alongside these defaults.
+### Optional rules (opt-in)
+
+Ten additional rules ship in `rules-optional.neon` but are **not** enabled by default. To enable them, add to your `qaConfig/phpstan.neon`:
+
+**Recommended — include the whole set** (automatically picks up new rules on upgrade):
+
+```neon
+includes:
+    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
+    - ../vendor/lts/php-qa-ci/rules-optional.neon
+```
+
+**Alternative — cherry-pick individual rules** (full control, manual updates required):
+
+```neon
+includes:
+    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
+
+rules:
+    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
+    # ... add only what you want
+```
+
+See **[docs/tools/phpstan.md](docs/tools/phpstan.md)** for the full list of optional rules and descriptions.
 
 ## Quick Setup Scripts
 

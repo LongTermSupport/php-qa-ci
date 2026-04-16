@@ -55,6 +55,66 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 
 Projects can add their own custom rules in addition to these defaults.
 
+## Optional Rules
+
+PHP-QA-CI ships additional opt-in rules in `rules-optional.neon`. These are **not** loaded automatically — you must enable them explicitly.
+
+### Recommended: include the whole set
+
+Add an `includes` entry to your `qaConfig/phpstan.neon`. When new optional rules are added in future php-qa-ci versions you get them automatically without any change to your config:
+
+```neon
+includes:
+    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
+    - ../vendor/lts/php-qa-ci/rules-optional.neon
+```
+
+### Alternative: enable individual rules
+
+Copy only the rules you want into your `qaConfig/phpstan.neon`. You retain full control but must add new rules manually as they are released:
+
+```neon
+includes:
+    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
+
+rules:
+    # Bans `?? ''` — almost always a logic error
+    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
+    # Bans `?? false` — use explicit null checks instead
+    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
+    # Blocks user input passed directly into HTTP response headers
+    - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
+    # Requires Doctrine DQL/ORM — bans raw SQL strings
+    - LTS\PHPQA\PHPStan\Rules\ForbidRawSqlRule
+    # Symfony Console cron commands must include interval in description
+    - LTS\PHPQA\PHPStan\Rules\RequireCronIntervalInDescriptionRule
+    # Symfony services must declare DI attributes explicitly (#[Autowire] etc.)
+    - LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule
+    # catch blocks must reference the caught exception (stricter than ForbidEmptyCatchBlockRule)
+    - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
+    # Bans inline @phpstan-ignore annotations — use phpstan.neon ignoreErrors instead
+    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
+    # Service classes must be declared as "final readonly class"
+    - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
+    # Single array param annotated @param list<T> should use variadic syntax instead
+    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+```
+
+### Available optional rules
+
+| Rule | What it catches |
+|---|---|
+| `ForbidNullCoalescingEmptyStringRule` | `$x ?? ''` — almost always a logic bug |
+| `ForbidNullCoalescingFalseRule` | `$x ?? false` — use explicit null checks |
+| `ForbidHeaderInjectionRule` | User input passed directly to HTTP headers |
+| `ForbidRawSqlRule` | Raw SQL strings instead of Doctrine DQL/ORM |
+| `RequireCronIntervalInDescriptionRule` | Symfony cron commands missing interval in description |
+| `RequireExplicitDIAttributeRule` | Symfony services without explicit DI attributes |
+| `ForbidSilentCatchRule` | `catch` blocks that ignore the caught exception |
+| `ForbidInlinePhpstanIgnoreRule` | Inline `@phpstan-ignore` annotations in source files |
+| `RequireReadonlyServiceRule` | Service classes not declared `final readonly` |
+| `RequireVariadicForSingleListParamRule` | `array $items` annotated `@param list<T>` — use variadic syntax |
+
 ## Strict Rules
 
 The strict rules are brought in as a dependency and configured by default.
