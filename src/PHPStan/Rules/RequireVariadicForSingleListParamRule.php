@@ -61,6 +61,18 @@ final class RequireVariadicForSingleListParamRule implements Rule
             return [];
         }
 
+        // Skip promoted constructor parameters — PHP does not allow promoted
+        // properties to use variadic syntax, so the rule cannot apply.
+        if (0 !== $param->flags) {
+            return [];
+        }
+
+        // Skip parameters that carry PHP attributes — DI frameworks inject these
+        // as plain arrays and variadic syntax is not compatible with DI injection.
+        if ([] !== $param->attrGroups) {
+            return [];
+        }
+
         $docComment = $node->getDocComment();
 
         if (!$docComment instanceof \PhpParser\Comment\Doc) {

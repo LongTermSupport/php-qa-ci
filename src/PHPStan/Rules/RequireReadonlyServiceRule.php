@@ -78,6 +78,7 @@ final class RequireReadonlyServiceRule implements Rule
         'Transformer',
         'Voter',
         'Loader',
+        'Registry',
     ];
 
     /** @var list<string> */
@@ -129,6 +130,15 @@ final class RequireReadonlyServiceRule implements Rule
 
         if (null !== $node->extends) {
             return [];
+        }
+
+        // Skip classes that have any non-readonly properties — they have
+        // legitimate mutable state (e.g. lazy-initialised caches) and
+        // cannot be made readonly without extracting that state.
+        foreach ($node->stmts as $stmt) {
+            if ($stmt instanceof \PhpParser\Node\Stmt\Property && !$stmt->isReadonly()) {
+                return [];
+            }
         }
 
         $classReflection = $scope->getClassReflection();
