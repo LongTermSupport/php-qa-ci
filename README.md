@@ -93,9 +93,22 @@ These rules are active automatically in every project that uses php-qa-ci — no
 
 ### Optional rules (opt-in)
 
-Ten additional rules ship in `rules-optional.neon` but are **not** enabled by default. To enable them, add to your `qaConfig/phpstan.neon`:
+Ten additional rules ship as opt-in, split across two files:
 
-**Recommended — include the whole set** (automatically picks up new rules on upgrade):
+- **`rules-optional.neon`** — 6 generic rules suitable for any PHP project
+- **`rules-optional-symfony.neon`** — all generic rules + 4 Symfony/Doctrine-specific rules
+
+To enable them, add an `includes` entry to your `qaConfig/phpstan.neon`.
+
+**Symfony projects — include the full Symfony set** (automatically picks up new rules on upgrade):
+
+```neon
+includes:
+    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
+    - ../vendor/lts/php-qa-ci/rules-optional-symfony.neon
+```
+
+**Generic PHP projects — include the generic set only**:
 
 ```neon
 includes:
@@ -103,7 +116,7 @@ includes:
     - ../vendor/lts/php-qa-ci/rules-optional.neon
 ```
 
-**Alternative — cherry-pick individual rules** (full control, manual updates required):
+**Cherry-pick individual rules** (full control, manual updates required):
 
 ```neon
 includes:

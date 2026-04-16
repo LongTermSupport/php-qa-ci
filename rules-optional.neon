@@ -1,10 +1,14 @@
-# PHP-QA-CI Optional Rules
+# PHP-QA-CI Optional Rules — Generic
 #
-# All rules in this file are opt-in. To enable the full set in your project,
-# add to your qaConfig/phpstan.neon:
+# Rules suitable for any PHP project (no framework dependency).
+#
+# To enable in your project, add to your qaConfig/phpstan.neon:
 #
 #     includes:
 #         - ../vendor/lts/php-qa-ci/rules-optional.neon
+#
+# For Symfony/Doctrine projects use rules-optional-symfony.neon instead,
+# which includes this file plus Symfony-specific rules.
 #
 # To enable individual rules instead, copy the relevant lines into your
 # project's phpstan.neon rules: section.
@@ -13,16 +17,6 @@
 # OPINIONATED (any PHP project):
 #   ForbidNullCoalescingEmptyStringRule  — bans `?? ''` (almost always a bug)
 #   ForbidNullCoalescingFalseRule        — bans `?? false` (use explicit null checks)
-#
-# SYMFONY / DOCTRINE (framework-specific):
-#   ForbidHeaderInjectionRule            — blocks user input in HTTP headers
-#   ForbidRawSqlRule                     — requires Doctrine DQL/ORM over raw SQL
-#
-# SYMFONY CONSOLE (convention enforcement):
-#   RequireCronIntervalInDescriptionRule — cron interval must appear in command description
-#
-# SYMFONY DI (explicit service declaration):
-#   RequireExplicitDIAttributeRule       — services must use #[Autowire] etc. explicitly
 #
 # STRICT EXCEPTION HANDLING:
 #   ForbidSilentCatchRule                — catch blocks must use the caught exception
@@ -43,10 +37,6 @@
 rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
     - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
-    - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
-    - LTS\PHPQA\PHPStan\Rules\ForbidRawSqlRule
-    - LTS\PHPQA\PHPStan\Rules\RequireCronIntervalInDescriptionRule
-    - LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
     - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule

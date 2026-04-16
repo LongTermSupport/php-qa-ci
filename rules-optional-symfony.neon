@@ -1,0 +1,37 @@
+# PHP-QA-CI Optional Rules — Symfony / Doctrine
+#
+# Includes all generic optional rules plus Symfony/Doctrine-specific rules.
+# Use this file for Symfony and Symfony-based projects.
+#
+# To enable in your project, add to your qaConfig/phpstan.neon:
+#
+#     includes:
+#         - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
+#         - ../vendor/lts/php-qa-ci/rules-optional-symfony.neon
+#
+# This automatically includes rules-optional.neon (the generic set) as well.
+# When new rules are added in future php-qa-ci versions you get them
+# automatically without any change to your config.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# Includes all rules from rules-optional.neon, plus:
+#
+# SYMFONY / DOCTRINE (framework-specific):
+#   ForbidHeaderInjectionRule            — blocks user input in HTTP headers
+#   ForbidRawSqlRule                     — requires Doctrine DQL/ORM over raw SQL
+#
+# SYMFONY CONSOLE (convention enforcement):
+#   RequireCronIntervalInDescriptionRule — cron interval must appear in command description
+#
+# SYMFONY DI (explicit service declaration):
+#   RequireExplicitDIAttributeRule       — services must use #[Autowire] etc. explicitly
+# ─────────────────────────────────────────────────────────────────────────────
+
+includes:
+    - rules-optional.neon
+
+rules:
+    - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidRawSqlRule
+    - LTS\PHPQA\PHPStan\Rules\RequireCronIntervalInDescriptionRule
+    - LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule
