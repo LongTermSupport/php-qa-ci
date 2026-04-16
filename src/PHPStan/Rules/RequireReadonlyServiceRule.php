@@ -81,15 +81,6 @@ final class RequireReadonlyServiceRule implements Rule
     ];
 
     /** @var list<string> */
-    private const array EXCLUDED_PARENT_SUFFIXES = [
-        'Constraint',
-        'Controller',
-        'Command',
-        'TestCase',
-        'Exception',
-    ];
-
-    /** @var list<string> */
     private const array EXCLUDED_INTERFACES = [
         'Psr\Log\LoggerAwareInterface',
         'Symfony\Contracts\Service\ResetInterface',
@@ -136,7 +127,7 @@ final class RequireReadonlyServiceRule implements Rule
             return [];
         }
 
-        if (null !== $node->extends && $this->isExcludedParent($node->extends->toString(), $scope)) {
+        if (null !== $node->extends) {
             return [];
         }
 
@@ -176,31 +167,4 @@ final class RequireReadonlyServiceRule implements Rule
         return false;
     }
 
-    private function isExcludedParent(string $parentName, Scope $scope): bool
-    {
-        foreach (self::EXCLUDED_PARENT_SUFFIXES as $suffix) {
-            if (str_ends_with($parentName, $suffix)) {
-                return true;
-            }
-        }
-
-        $classReflection = $scope->getClassReflection();
-        if (!$classReflection instanceof \PHPStan\Reflection\ClassReflection) {
-            return false;
-        }
-
-        $parentClass = $classReflection->getParentClass();
-        if (!$parentClass instanceof \PHPStan\Reflection\ClassReflection) {
-            return false;
-        }
-
-        $parentFqcn = $parentClass->getName();
-        foreach (self::EXCLUDED_PARENT_SUFFIXES as $suffix) {
-            if (str_ends_with($parentFqcn, $suffix)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

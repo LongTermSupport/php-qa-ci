@@ -95,6 +95,7 @@ final class RequireExplicitDIAttributeRule implements Rule
         'PHPStan',
         'Tests',
         'Migrations',
+        'Generated',
     ];
 
     public function getNodeType(): string
