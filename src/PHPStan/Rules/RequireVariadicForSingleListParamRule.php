@@ -65,7 +65,7 @@ final class RequireVariadicForSingleListParamRule implements Rule
 
         $docComment = $node->getDocComment();
 
-        if (null === $docComment) {
+        if (!$docComment instanceof \PhpParser\Comment\Doc) {
             return [];
         }
 
