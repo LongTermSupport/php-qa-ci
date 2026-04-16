@@ -40,3 +40,10 @@
 #    controllers, commands, and framework classes that need mutability.
 #
 #    - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
+#
+# VARIADIC FOR SINGLE LIST PARAM (enforce variadic over array + @param list<T>):
+#    Flags single-parameter methods where the declared type is `array` but the
+#    PHPDoc annotates it as @param list<T>. Use T ...$param instead for
+#    compile-time type safety without the docblock crutch.
+#
+#    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
