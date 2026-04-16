@@ -1,49 +1,53 @@
 # PHP-QA-CI Optional Rules
 #
-# These rules are NOT enabled by default. They are either opinionated or
-# framework-specific. To enable them, copy the relevant lines into your
-# project's phpstan.neon (e.g. qaConfig/phpstan.neon).
+# All rules in this file are opt-in. To enable the full set in your project,
+# add to your qaConfig/phpstan.neon:
 #
+#     includes:
+#         - ../vendor/lts/php-qa-ci/rules-optional.neon
+#
+# To enable individual rules instead, copy the relevant lines into your
+# project's phpstan.neon rules: section.
+#
+# ─────────────────────────────────────────────────────────────────────────────
 # OPINIONATED (any PHP project):
-#
-#    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
-#    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
+#   ForbidNullCoalescingEmptyStringRule  — bans `?? ''` (almost always a bug)
+#   ForbidNullCoalescingFalseRule        — bans `?? false` (use explicit null checks)
 #
 # SYMFONY / DOCTRINE (framework-specific):
-#
-#    - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
-#    - LTS\PHPQA\PHPStan\Rules\ForbidRawSqlRule
+#   ForbidHeaderInjectionRule            — blocks user input in HTTP headers
+#   ForbidRawSqlRule                     — requires Doctrine DQL/ORM over raw SQL
 #
 # SYMFONY CONSOLE (convention enforcement):
-#
-#    - LTS\PHPQA\PHPStan\Rules\RequireCronIntervalInDescriptionRule
+#   RequireCronIntervalInDescriptionRule — cron interval must appear in command description
 #
 # SYMFONY DI (explicit service declaration):
-#    Note: RequireExplicitDIAttributeRule has no constructor params.
+#   RequireExplicitDIAttributeRule       — services must use #[Autowire] etc. explicitly
 #
-#    - LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule
+# STRICT EXCEPTION HANDLING:
+#   ForbidSilentCatchRule                — catch blocks must use the caught exception
+#                                          (stricter than the default ForbidEmptyCatchBlockRule)
 #
-# STRICT EXCEPTION HANDLING (catch blocks must use the exception):
-#    ForbidSilentCatchRule is stricter than ForbidEmptyCatchBlockRule (default).
-#    It flags catch blocks that have statements but ignore the caught exception.
-#
-#    - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
-#
-# INLINE PHPSTAN SUPPRESSION BAN (enforce fixing over suppressing):
-#    Bans @phpstan-ignore annotations. Forces type issues to be fixed properly
-#    instead of suppressed inline. Irreducible cases go in phpstan.neon ignoreErrors.
-#
-#    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
+# INLINE PHPSTAN SUPPRESSION BAN:
+#   ForbidInlinePhpstanIgnoreRule        — bans @phpstan-ignore annotations inline;
+#                                          irreducible suppressions go in phpstan.neon ignoreErrors
 #
 # READONLY SERVICES (enforce immutable services):
-#    Requires service classes to be "final readonly class". Skips entities,
-#    controllers, commands, and framework classes that need mutability.
+#   RequireReadonlyServiceRule           — service classes must be "final readonly class"
 #
-#    - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
-#
-# VARIADIC FOR SINGLE LIST PARAM (enforce variadic over array + @param list<T>):
-#    Flags single-parameter methods where the declared type is `array` but the
-#    PHPDoc annotates it as @param list<T>. Use T ...$param instead for
-#    compile-time type safety without the docblock crutch.
-#
-#    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+# VARIADIC FOR SINGLE LIST PARAM:
+#   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
+#                                           should be variadic T ...$param instead
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules:
+    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidRawSqlRule
+    - LTS\PHPQA\PHPStan\Rules\RequireCronIntervalInDescriptionRule
+    - LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
+    - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
+    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
