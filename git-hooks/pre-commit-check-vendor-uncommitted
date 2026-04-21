@@ -73,6 +73,16 @@ if [[ -f "$PROJECT_ROOT/composer.lock" ]]; then
     ' "$PROJECT_ROOT/composer.lock" 2>/dev/null)
 fi
 
+# Unset git environment variables before scanning vendor sub-repos.
+# When this hook runs from a git worktree, git exports GIT_DIR,
+# GIT_WORK_TREE, and GIT_INDEX_FILE pointing to the worktree's metadata.
+# If these leak into vendor sub-repo git commands, git ignores the vendor's
+# own .git directory and reports thousands of spurious changes against the
+# parent project's index. Unsetting them lets each vendor repo discover its
+# own .git naturally.  PROJECT_ROOT and COMPOSER_COMMITS are already captured
+# above, so this is safe.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+
 # Find all vendor/*/* directories that contain .git directories
 while IFS= read -r -d '' git_dir; do
     # Get the repo directory (parent of .git)
