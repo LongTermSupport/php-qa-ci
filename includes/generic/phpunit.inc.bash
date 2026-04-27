@@ -172,10 +172,17 @@ do
     # Archive human-readable stdout log
     archiveToolLog "PHPUnit stdout" "$phpunitLogDir" "phpunit.log" "$specifiedPath" "${pathsToCheck[@]}"
 
-    # Extract and display test result summary
+    # Extract and display test result summary.
+    # Strip ANSI colour codes first because PHPUnit emits the summary line
+    # wrapped in escape sequences when --colors=always is used, which would
+    # defeat a `^Tests:` anchored grep. Use an explicit `grep -q` guard so a
+    # missing summary line is handled cleanly — bin/qa runs with `set -o
+    # pipefail` + `set -e`, so an unconditional grep in a pipeline would abort
+    # the whole run on no-match.
     if [[ -f "$phpunitLogDir/phpunit.log" ]]; then
-        testSummary=$(grep -E '^Tests:.*Assertions:' "$phpunitLogDir/phpunit.log" | tail -n1)
-        if [[ -n "$testSummary" ]]; then
+        cleanedLog=$(sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$phpunitLogDir/phpunit.log")
+        if grep -qE '^Tests:.*Assertions:' <<< "$cleanedLog"; then
+            testSummary=$(grep -E '^Tests:.*Assertions:' <<< "$cleanedLog" | tail -n1)
             echo "Result: $testSummary"
         fi
     fi
