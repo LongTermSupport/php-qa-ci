@@ -392,7 +392,10 @@ function archiveToolLog() {
     fi
 
     # Archive with clear messaging
-    mv "$logFilePath" "$archivedLog"
+    # Use cp (not mv) so the live log stays at its known filename for any
+    # downstream tool that reads it (e.g. infection consumes phpunit.junit.xml).
+    # The timestamped copy is the rotated archive; the live file is the latest.
+    cp "$logFilePath" "$archivedLog"
     echo "${runType}"
     echo "Log: $(basename "$archivedLog")"
 
