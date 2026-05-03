@@ -99,7 +99,7 @@ final class RequireRuleIdentifierConstantRule implements Rule
                 \sprintf(
                     'PHPStan rule identifier "%s" is a magic string. '
                     . 'Declare it as a class constant composed from RuleIdentifierInterface::PREFIX '
-                    . '(e.g. public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . \'.something\') '
+                    . "(e.g. public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.something') "
                     . 'and pass the constant to ->identifier() instead.',
                     $firstArg->value->value,
                 ),

@@ -42,6 +42,6 @@ require \dirname(__DIR__) . '/vendor/autoload.php';
 // unit-testing custom PHPStan rules directly — without running the full
 // static-analysis pipeline.
 $phpstanPhar = \dirname(__DIR__) . '/vendor-phar/phpstan.phar';
-if (\file_exists($phpstanPhar)) {
+if (file_exists($phpstanPhar)) {
     require_once 'phar://' . $phpstanPhar . '/vendor/autoload.php';
 }
