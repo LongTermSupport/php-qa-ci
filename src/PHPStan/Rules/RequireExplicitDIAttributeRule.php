@@ -89,6 +89,7 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 final class RequireExplicitDIAttributeRule implements Rule
 {
     public const string IDENTIFIER_REQUIRE_EXPLICIT_DI_ATTRIBUTE = RuleIdentifierInterface::PREFIX . '.requireExplicitDIAttribute';
+
     public const string IDENTIFIER_CONFLICTING_DI_ATTRIBUTES     = RuleIdentifierInterface::PREFIX . '.conflictingDIAttributes';
 
     private const array ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
