@@ -34,17 +34,40 @@ elif [[ -f "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml" ]]; then
     echo "  📋 Detected hooks-daemon at parent: $DAEMON_CONFIG (monorepo)"
 fi
 
-# Detect daemon venv python3 for yaml operations (has pyyaml installed)
-# Fall back to system python3 if venv not found
-# Support monorepo: check both project root and parent directory for venv
-PYTHON3_YAML="python3"
-DAEMON_VENV_PYTHON="$PROJECT_ROOT/.claude/hooks-daemon/untracked/venv/bin/python3"
-DAEMON_VENV_PYTHON_PARENT="$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon/untracked/venv/bin/python3"
-if [[ -f "$DAEMON_VENV_PYTHON" ]]; then
-    PYTHON3_YAML="$DAEMON_VENV_PYTHON"
-elif [[ -f "$DAEMON_VENV_PYTHON_PARENT" ]]; then
-    PYTHON3_YAML="$DAEMON_VENV_PYTHON_PARENT"
+# Detect daemon venv python3 for yaml operations (has pyyaml installed).
+# Never falls back to system python3 — system Python won't have pyyaml, and
+# silently skipping config validation is worse than a clear error.
+# Supports monorepo: checks both project root and parent directory.
+PYTHON3_YAML=""
+
+_find_daemon_venv_python() {
+    local daemon_root="$1"
+    local untracked="$daemon_root/untracked"
+    # Fingerprint-keyed venv (v3.9.0+): venv-<fingerprint>/bin/python3
+    if [[ -d "$untracked" ]]; then
+        for _venv_python in "$untracked"/venv-*/bin/python3; do
+            if [[ -f "$_venv_python" ]]; then
+                echo "$_venv_python"
+                return 0
+            fi
+        done
+    fi
+    # Legacy path (pre-v3.9.0)
+    local _legacy="$daemon_root/untracked/venv/bin/python3"
+    if [[ -f "$_legacy" ]]; then
+        echo "$_legacy"
+        return 0
+    fi
+    return 1
+}
+
+_found=""
+if _found=$(_find_daemon_venv_python "$PROJECT_ROOT/.claude/hooks-daemon"); then
+    PYTHON3_YAML="$_found"
+elif _found=$(_find_daemon_venv_python "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon"); then
+    PYTHON3_YAML="$_found"
 fi
+unset _found
 
 echo "Deploying Skills from: $SKILLS_SOURCE"
 echo "                   to: $SKILLS_TARGET"
@@ -341,8 +364,16 @@ if [[ -f "$DAEMON_CONFIG" ]]; then
     echo ""
     echo "📋 hooks-daemon detected - enforcing required handler configuration..."
 
-    # Use Python with PyYAML to validate and update config
-    # Uses daemon venv python3 if available (has pyyaml), else falls back to system python3
+    if [[ -z "$PYTHON3_YAML" ]]; then
+        echo "  ❌ ERROR: hooks daemon venv not found" >&2
+        echo "  Cannot validate daemon config — hooks daemon is not installed or is outdated." >&2
+        echo "  Please install or upgrade hooks daemon (v3.9.0+):" >&2
+        echo "    curl -fsSL https://raw.githubusercontent.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon/main/scripts/upgrade.sh -o /tmp/upgrade.sh" >&2
+        echo "    bash /tmp/upgrade.sh --project-root $PROJECT_ROOT" >&2
+        exit 1
+    fi
+
+    # Use daemon venv Python (has pyyaml) - system Python is never used
     $PYTHON3_YAML - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
 import sys
 from pathlib import Path
@@ -357,10 +388,12 @@ except ImportError:
 config_file = Path(sys.argv[1])
 
 if not HAS_YAML:
-    print("  ⚠️  Warning: PyYAML not installed - cannot validate daemon config", file=sys.stderr)
-    print("  Install with: pip install pyyaml", file=sys.stderr)
-    print("  Continuing deployment without config validation...", file=sys.stderr)
-    sys.exit(0)
+    print("  ❌ ERROR: PyYAML not available in hooks daemon venv", file=sys.stderr)
+    print("  The daemon venv is missing pyyaml — the daemon needs to be upgraded.", file=sys.stderr)
+    print("  Upgrade hooks daemon (v3.9.0+):", file=sys.stderr)
+    print("    curl -fsSL https://raw.githubusercontent.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon/main/scripts/upgrade.sh -o /tmp/upgrade.sh", file=sys.stderr)
+    print("    bash /tmp/upgrade.sh --project-root <project-root>", file=sys.stderr)
+    sys.exit(1)
 
 # Required handlers for php-qa-ci projects
 REQUIRED_HANDLERS = {
