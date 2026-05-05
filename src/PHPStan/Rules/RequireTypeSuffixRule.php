@@ -28,7 +28,9 @@ use PHPStan\Rules\RuleErrorBuilder;
 final class RequireTypeSuffixRule implements Rule
 {
     public const string IDENTIFIER_INTERFACE_SUFFIX = RuleIdentifierInterface::PREFIX . '.interfaceSuffix';
+
     public const string IDENTIFIER_ENUM_SUFFIX      = RuleIdentifierInterface::PREFIX . '.enumSuffix';
+
     public const string IDENTIFIER_TRAIT_SUFFIX     = RuleIdentifierInterface::PREFIX . '.traitSuffix';
 
     /**

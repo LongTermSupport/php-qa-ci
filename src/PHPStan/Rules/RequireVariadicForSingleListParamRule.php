@@ -120,9 +120,9 @@ final class RequireVariadicForSingleListParamRule implements Rule
     private function hasListAnnotation(string $docComment, string $paramName): bool
     {
         // Matches: @param list<T> $paramName or list<T<U>> $paramName (one level of nesting)
-        $escapedName = \preg_quote($paramName, '/');
+        $escapedName = preg_quote($paramName, '/');
         $pattern     = '/@param\s+list\s*<(?:[^<>]|<[^>]*>)*>\s+\$' . $escapedName . '\b/';
 
-        return (bool) \preg_match($pattern, $docComment);
+        return (bool)\Safe\preg_match($pattern, $docComment);
     }
 }
