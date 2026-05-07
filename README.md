@@ -41,6 +41,14 @@ Your project's `composer.json` must allow the required plugins:
     }
 }
 ```
+## Disabling Config Push
+
+This project will push config updates direclty into the main repo
+
+If this is not desired eg in production,staging,CI deployments then 
+```
+export PHP_QA_CI_DISABLE_CONFIG_PUSH=true
+```
 
 ## What It Does
 
