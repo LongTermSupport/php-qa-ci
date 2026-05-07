@@ -47,23 +47,24 @@ Your project's `composer.json` must allow the required plugins:
 PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 
 **Phase 1 -- Code Modification:**
+
 1. Rector (safe functions, PHPUnit, PHP 8.4 upgrades)
 2. PHP CS Fixer
 
 **Phase 2 -- Linting and Validation:**
-3. PSR-4 Validation
-4. Composer Checks
-5. Strict Types Enforcement
-6. PHP Lint
-7. Composer Require Checker
-8. Markdown Links Checker
+3\. PSR-4 Validation
+4\. Composer Checks
+5\. Strict Types Enforcement
+6\. PHP Lint
+7\. Composer Require Checker
+8\. Markdown Links Checker
 
 **Phase 3 -- Static Analysis:**
-9. PHPStan (level max)
+9\. PHPStan (level max)
 
 **Phase 4 -- Testing:**
-10. PHPUnit
-11. Infection (mutation testing, optional, requires Xdebug)
+10\. PHPUnit
+11\. Infection (mutation testing, optional, requires Xdebug)
 
 **Post-Success:** PHPLoc (stats only, cannot fail)
 
@@ -141,6 +142,7 @@ vendor/lts/php-qa-ci/scripts/install-github-actions.bash
 ```
 
 This will:
+
 - Create `.github/workflows/qa.yml` with an optimized QA pipeline
 - Auto-detect your PHP version from `composer.json`
 - Configure smart caching for faster builds
@@ -183,6 +185,7 @@ vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 ```
 
 This will:
+
 - Copy hooks to `.claude/hooks/`
 - Register them in `.claude/settings.json`
 - Detect and configure hooks-daemon if present (see hooks-daemon documentation for installation)
@@ -198,6 +201,25 @@ This will:
 - `php-qa-ci__enforce-markdown-organization.py` -- Enforces doc organization
 
 See `.claude/hooks/README.md` for detailed hook documentation after deployment.
+
+### Disabling Auto-Deployment (Dev / Staging / CI Hosts)
+
+Skills, agents and hooks are deployed automatically on every `composer install`
+and `composer update` via the `SkillsDeployPlugin`. This is intentional --
+keeping `.claude/` config consistent across projects is a core goal.
+
+On hosts where this is unwanted (dev / staging deploys, build images, CI runners
+that aren't Claude Code environments) the deployment can leave the working tree
+dirty. Opt out by exporting:
+
+```bash
+export PHP_QA_CI_DISABLE_CONFIG_PUSH=true
+```
+
+When set (any truthy value -- `true`, `1`, `yes`, `on`), the plugin logs that it
+was disabled and exits without touching `.claude/`. When unset (the default), the
+plugin logs the opt-out instructions every time it runs so deploy operators can
+discover the flag.
 
 ### Composer Plugins
 

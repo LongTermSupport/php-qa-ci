@@ -53,7 +53,14 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
      */
     public function deploySkills(Event $event): void
     {
-        $io       = $event->getIO();
+        $io = $event->getIO();
+
+        if (filter_var(getenv('PHP_QA_CI_DISABLE_CONFIG_PUSH'), FILTER_VALIDATE_BOOLEAN)) {
+            $io->write('<info>php-qa-ci: Claude config push DISABLED via PHP_QA_CI_DISABLE_CONFIG_PUSH=true — skipping</info>');
+
+            return;
+        }
+
         $composer = $event->getComposer();
         $config   = $composer->getConfig();
 
@@ -83,6 +90,7 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
         }
 
         $io->write('<info>Deploying Claude Code Skills, Agents and Hooks...</info>');
+        $io->write('<comment>  (to disable on dev/staging/CI hosts: export PHP_QA_CI_DISABLE_CONFIG_PUSH=true)</comment>');
 
         $command = \sprintf(
             'bash %s %s %s 2>&1',
