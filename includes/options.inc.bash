@@ -52,6 +52,7 @@ function usage {
     echo "     l|loc                      lines of code and other stats"
     echo "     f|fixer|csfixer            PHP-CS-Fixer"
     echo "     r|rector                   Rector"
+    echo "     bnp|branchNamePolicy       Branch naming policy (PR convention)"
     exit 1
 }
 
@@ -99,6 +100,7 @@ NON_PATH_SUPPORTING_TOOLS=(
     "markdownLinks" "markdown" "ml"              # ❌ Hardcoded to specific files
     "phpunitAnnotations" "ann"                   # ❌ Need to verify implementation
     "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
+    "branchNamePolicy" "bnp"                     # ❌ Repo-level git check, not path-specific
     "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
     "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
     "allTestingTools" "allTests"                 # ❌ Aggregate - runs multiple tools
@@ -174,6 +176,7 @@ then
         l | loc                     ) singleToolToRun="phploc";;
         f | fixer | csfixer         ) singleToolToRun="phpCsFixer";;
         r | rector                  ) singleToolToRun="rector";;
+        bnp | branchNamePolicy      ) singleToolToRun="branchNamePolicy";;
         * )
             printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
             usage

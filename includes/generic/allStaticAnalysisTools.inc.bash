@@ -1,5 +1,12 @@
 echo "
 
+Checking Branch Name Policy
+---------------------------
+"
+runTool branchNamePolicy
+
+echo "
+
 Running PHPStan
 ---------------------
 "
