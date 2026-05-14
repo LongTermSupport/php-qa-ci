@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0f2e552d2db9aceef1dee3cbbbec329b",
+    "content-hash": "f1d3d56342d71a6a69bf5239d5399f21",
     "packages": [
         {
             "name": "dogma/dogma",
@@ -4329,6 +4329,7 @@
     "prefer-lowest": false,
     "platform": {
         "php": "^8.3",
+        "ext-filter": "*",
         "ext-json": "*",
         "ext-openssl": "*",
         "ext-tokenizer": "*",
@@ -4336,5 +4337,5 @@
         "composer-plugin-api": "^2.0"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }

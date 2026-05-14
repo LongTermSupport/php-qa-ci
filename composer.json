@@ -5,6 +5,7 @@
   "type": "composer-plugin",
   "require": {
     "php": "^8.3",
+    "ext-filter": "*",
     "ext-json": "*",
     "ext-openssl": "*",
     "ext-tokenizer": "*",
