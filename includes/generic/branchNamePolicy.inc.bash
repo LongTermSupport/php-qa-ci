@@ -8,8 +8,11 @@
 # Default allow-list (additive only via qaConfig/branchNamePolicy.yaml):
 #   feature/  bugfix/  chore/  hotfix/
 #
-# Default exempt branches (the repo's default branch is ALWAYS exempt,
-# detected dynamically). Plus a fallback list of common default branches.
+# Default exempt branches: only the repo's actual default branch, detected
+# dynamically via `git symbolic-ref refs/remotes/origin/HEAD` (local) and
+# `git ls-remote --symref origin HEAD` (queries upstream — works in CI).
+# No hardcoded list of branch names — projects with non-standard names that
+# detection cannot reach must configure via qaConfig/branchNamePolicy.yaml.
 #
 # Project override:
 #   qaConfig/branchNamePolicy.yaml
@@ -84,19 +87,25 @@ _bnp_run() {
         _bnp_defaultBranch=""
     fi
 
-    # Fallback: probe common candidates if dynamic detection failed.
+    # If symbolic-ref returned nothing (common in CI — actions/checkout@v4
+    # does not set origin/HEAD locally by default), ask the remote directly.
+    # `git ls-remote --symref origin HEAD` prints e.g.
+    #   ref: refs/heads/main\tHEAD
+    #   <sha>\tHEAD
+    # We parse the ref line and strip the refs/heads/ prefix.
     if [[ -z "$_bnp_defaultBranch" ]]; then
-        local _bnp_candidate
-        for _bnp_candidate in main master develop DumbItDown NewCheckout; do
-            if (cd "$_bnp_projectRoot" && git show-ref --verify --quiet "refs/heads/$_bnp_candidate"); then
-                _bnp_defaultBranch="$_bnp_candidate"
-                break
+        local _bnp_lsremoteOutput=""
+        if _bnp_lsremoteOutput="$(cd "$_bnp_projectRoot" && git ls-remote --symref origin HEAD 2>>"$_bnp_errLog")"; then
+            local _bnp_lsremoteRef
+            _bnp_lsremoteRef="$(printf '%s\n' "$_bnp_lsremoteOutput" | awk '$1 == "ref:" { print $2; exit }')"
+            if [[ -n "$_bnp_lsremoteRef" ]]; then
+                _bnp_defaultBranch="${_bnp_lsremoteRef#refs/heads/}"
+                if [[ "$_bnp_defaultBranch" == "$_bnp_lsremoteRef" ]]; then
+                    # Prefix didn't strip — unrecognised ref shape.
+                    _bnp_defaultBranch=""
+                fi
             fi
-            if (cd "$_bnp_projectRoot" && git show-ref --verify --quiet "refs/remotes/origin/$_bnp_candidate"); then
-                _bnp_defaultBranch="$_bnp_candidate"
-                break
-            fi
-        done
+        fi
     fi
 
     if [[ -n "$_bnp_defaultBranch" ]]; then
@@ -106,13 +115,15 @@ _bnp_run() {
     # Default allowed prefixes.
     local -a _bnp_allowedPrefixes=(feature/ bugfix/ chore/ hotfix/)
 
-    # Default exempt branches (the detected default branch is always exempt).
+    # Default exempt branches: only the detected default branch. NO hardcoded
+    # list — that's overfitting. If detection failed entirely, the project
+    # must configure exempt branches explicitly via qaConfig/branchNamePolicy.yaml.
     local -a _bnp_exemptBranches=()
     if [[ -n "$_bnp_defaultBranch" ]]; then
         _bnp_exemptBranches+=("$_bnp_defaultBranch")
+    else
+        echo "[branchNamePolicy] WARNING: could not detect default branch via git symbolic-ref or git ls-remote. If this branch should be exempt, add it to qaConfig/branchNamePolicy.yaml under extra_exempt_branches."
     fi
-    # Common defaults as belt-and-braces (idempotent if also detected).
-    _bnp_exemptBranches+=(main master develop DumbItDown NewCheckout)
 
     # Project-local config (optional).
     local _bnp_configFile="$_bnp_projectRoot/qaConfig/branchNamePolicy.yaml"
