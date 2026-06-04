@@ -17,5 +17,12 @@ else
     runTool phpstan
 fi
 
+echo "
+
+Checking SensitiveParameter Usage
+---------------------------------
+"
+runTool sensitiveParameterUsage
+
 
 

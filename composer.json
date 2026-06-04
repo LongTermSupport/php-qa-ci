@@ -65,7 +65,8 @@
     "bin/phpstan",
     "bin/phpunit-check-annotation",
     "bin/psr4-validate",
-    "bin/qa"
+    "bin/qa",
+    "bin/sensitive-parameter-usage"
   ],
   "config": {
     "allow-plugins": {

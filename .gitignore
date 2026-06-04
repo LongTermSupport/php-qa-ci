@@ -12,6 +12,7 @@
 !/bin/phpunit-runfailed-filter
 !/bin/psr4-validate
 !/bin/qa
+!/bin/sensitive-parameter-usage
 /cache/
 /.phive-home/
 /tools/rector/vendor/

@@ -105,13 +105,15 @@ These rules are active automatically in every project that uses php-qa-ci — no
   credential parameters (names matching `password`, `secret`, `privateKey`, … with a
   `string`/`?string`/untyped/`mixed` type). Object-typed params and already-hashed/encoded names
   (`$hashedPassword`, `$passwordHash`) are ignored. Keeps credentials out of stack traces.
-- **RequireSensitiveParameterUsageRule** (+ `SensitiveParameterAttributeCollector`) -- Codebase-wide
-  backstop: fails once if `#[\SensitiveParameter]` appears **nowhere** in the analysed code,
-  catching credentials carried under non-obvious names (`$token`, `$dsn`, `$apiKey`).
 
-#### Configuring the SensitiveParameter rules
+> The codebase-wide "is `#[\SensitiveParameter]` used **anywhere**?" coverage check is NOT a PHPStan
+> rule — PHPStan rules are opt-in (a consumer must include this library's rules neon), so they cannot
+> be relied on estate-wide. That check ships as an always-on pipeline tool instead. See
+> [SensitiveParameter usage check](#sensitiveparameter-usage-check-always-on).
 
-Both rules are wired in `rules-default.neon` from a `phpqaciSensitiveParameter` parameters block.
+#### Configuring RequireSensitiveParameterAttributeRule
+
+The rule is wired in `rules-default.neon` from a `phpqaciSensitiveParameter` parameters block.
 Override any key in your `qaConfig/phpstan.neon` (deep-merged over the defaults):
 
 ```neon
@@ -131,23 +133,7 @@ parameters:
         # Case-insensitive substrings that mark a name as already hashed/encoded
         # (and therefore NOT plaintext sensitive).
         ignoreSubstrings: [hash, hashed, encoded, encrypted]
-        # ESCAPE HATCH for RequireSensitiveParameterUsageRule.
-        requireAtLeastOneUsage: true
 ```
-
-**Escape hatch** — a few projects (e.g. pure tooling libraries) genuinely never handle a password,
-token or secret. They must opt out of the codebase-wide usage requirement, otherwise CI fails with no
-way to satisfy it:
-
-```neon
-parameters:
-    phpqaciSensitiveParameter:
-        requireAtLeastOneUsage: false
-```
-
-Note that enabling the usage rule by default means **every** project's CI now requires either at least
-one `#[\SensitiveParameter]` annotation somewhere or this opt-out flag. Most projects should add the
-annotation rather than opt out.
 
 ### Optional rules (opt-in)
 
@@ -187,6 +173,38 @@ rules:
 ```
 
 See **[docs/tools/phpstan.md](docs/tools/phpstan.md)** for the full list of optional rules and descriptions.
+
+## SensitiveParameter usage check (always-on)
+
+Unlike the PHPStan rules above (which are opt-in), php-qa-ci ships an **always-on**
+pipeline tool that asserts the native `#[\SensitiveParameter]` attribute is used at
+least once in your project's `src/`. PHP 8.2+ redacts a so-marked argument from
+stack traces, keeping passwords / tokens / secrets out of logs and error reporters.
+
+The check runs automatically as part of `bin/qa` for **every** consumer — no neon
+include required. The scan is AST-based, so the attribute is never false-matched in
+strings or comments.
+
+- **Run standalone**: `vendor/bin/qa -t sensitiveParameterUsage` (aliases: `spu`,
+  `sensitiveparameter`).
+- **Passes** when ≥1 `#[\SensitiveParameter]` is found; **fails** (exit 1) when none
+  is found.
+
+**Escape hatch** (opt-out, on by default) — for projects that genuinely never handle
+a sensitive parameter (e.g. pure tooling libraries). Add to `qaConfig/qaConfig.inc.bash`:
+
+```bash
+export useSensitiveParameterCheck=0
+```
+
+php-qa-ci itself is the canonical example: it handles no secrets, so it sets this flag
+in its own `qaConfig/qaConfig.inc.bash`.
+
+> **Estate-wide impact**: because this is always on, every consumer's `bin/qa` now
+> requires either at least one `#[\SensitiveParameter]` annotation or the opt-out flag
+> above. Most projects should add the annotation rather than opt out.
+
+Full details: **[docs/tools/sensitiveParameterUsage.md](docs/tools/sensitiveParameterUsage.md)**.
 
 ## Quick Setup Scripts
 

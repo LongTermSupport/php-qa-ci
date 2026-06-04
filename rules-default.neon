@@ -12,33 +12,23 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\RequireRuleIdentifierConstantRule
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SensitiveParameter rules — keep passwords/secrets out of stack traces.
+# RequireSensitiveParameterAttributeRule — keep passwords/secrets out of traces.
 #
 # PHP 8.2+ ships #[\SensitiveParameter]. When set on a parameter, PHP replaces
 # the real argument with a SensitiveParameterValue placeholder in
 # Throwable::getTrace(), so credentials never leak into logs / error reporters.
 #
-# Two rules are wired below:
+# This rule flags any parameter whose NAME looks like a credential AND whose
+# type is a plausible plaintext value (string / ?string / untyped / mixed) when
+# it is missing the attribute. Object-typed params and already-hashed/encoded
+# names are ignored. Configure the name patterns and ignore-substrings via the
+# parameters block below.
 #
-#   1. requireSensitiveParameterAttribute — flags any parameter whose NAME looks
-#      like a credential AND whose type is a plausible plaintext value
-#      (string / ?string / untyped / mixed) when it is missing the attribute.
-#      Object-typed params and already-hashed/encoded names are ignored.
-#      Configure the name patterns and ignore-substrings via the parameters block.
-#
-#   2. requireSensitiveParameterUsage (+ collector) — a codebase-wide backstop
-#      that fails once if #[\SensitiveParameter] appears NOWHERE in the analysed
-#      code. This catches credentials carried under non-obvious names that the
-#      name heuristic of rule 1 cannot see (e.g. $token, $dsn, $apiKey).
-#
-#      ESCAPE HATCH: a small number of projects genuinely never handle a
-#      password / token / secret. For those, set
-#      `phpqaciSensitiveParameter.requireAtLeastOneUsage: false` in your
-#      qaConfig/phpstan.neon and rule 2 becomes a no-op. MOST projects should
-#      instead add #[\SensitiveParameter] to the relevant parameter somewhere.
-#
-#      NOTE: enabling rule 2 by default means every project's CI now requires
-#      EITHER at least one #[\SensitiveParameter] annotation OR the opt-out flag.
+# NOTE: the codebase-wide "at least one #[\SensitiveParameter] exists" coverage
+# check is NOT a PHPStan rule. PHPStan rules are opt-in (consumers must include
+# this neon), so that check cannot be relied on estate-wide. It ships instead as
+# an always-on php-qa-ci pipeline tool (`sensitiveParameterUsage`) that runs for
+# every consumer via `bin/qa`. See README "SensitiveParameter usage check".
 # ─────────────────────────────────────────────────────────────────────────────
 parameters:
     phpqaciSensitiveParameter:
@@ -57,13 +47,11 @@ parameters:
             - hashed
             - encoded
             - encrypted
-        requireAtLeastOneUsage: true
 
 parametersSchema:
     phpqaciSensitiveParameter: structure([
         namePatterns: listOf(string())
         ignoreSubstrings: listOf(string())
-        requireAtLeastOneUsage: bool()
     ])
 
 services:
@@ -78,13 +66,3 @@ services:
             ignoreSubstrings: %phpqaciSensitiveParameter.ignoreSubstrings%
         tags:
             - phpstan.rules.rule
-    -
-        class: LTS\PHPQA\PHPStan\Rules\RequireSensitiveParameterUsageRule
-        arguments:
-            requireAtLeastOneUsage: %phpqaciSensitiveParameter.requireAtLeastOneUsage%
-        tags:
-            - phpstan.rules.rule
-    -
-        class: LTS\PHPQA\PHPStan\Rules\SensitiveParameterAttributeCollector
-        tags:
-            - phpstan.collector

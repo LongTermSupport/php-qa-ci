@@ -1,0 +1,8 @@
+{
+    "name": "fixture/with-attribute",
+    "description": "Fixture project for SensitiveParameterUsageScanner — uses the attribute.",
+    "type": "project",
+    "require": {
+        "php": "^8.2"
+    }
+}

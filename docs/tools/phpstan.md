@@ -53,9 +53,10 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
 - **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
 - **RequireSensitiveParameterAttributeRule** -- Requires `#[\SensitiveParameter]` on plaintext credential parameters (configurable name patterns / ignore substrings via the `phpqaciSensitiveParameter` parameters block)
-- **RequireSensitiveParameterUsageRule** (+ **SensitiveParameterAttributeCollector**) -- Fails once if `#[\SensitiveParameter]` is never used anywhere in the codebase; opt out with `phpqaciSensitiveParameter.requireAtLeastOneUsage: false`
 
-See the README "Configuring the SensitiveParameter rules" section for the full config keys, defaults and the escape-hatch flag.
+See the README "Configuring RequireSensitiveParameterAttributeRule" section for the full config keys and defaults.
+
+> The codebase-wide "is `#[\SensitiveParameter]` used anywhere?" coverage check is deliberately NOT a PHPStan rule (rules are opt-in and cannot be relied on estate-wide). It ships as an always-on pipeline tool — see [tools/sensitiveParameterUsage.md](sensitiveParameterUsage.md).
 
 Projects can add their own custom rules in addition to these defaults.
 

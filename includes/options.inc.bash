@@ -43,6 +43,7 @@ function usage {
     echo "     st|stricttypes             strict types validation"
     echo "     lint|phplint               phplint"
     echo "     stan|phpstan               phpstan"
+    echo "     spu|sensitiveParameterUsage  assert #[\\SensitiveParameter] is used somewhere in src/"
     echo "     ann|phpunitAnnotations     phpunitAnnotations"
     echo "     unit|phpunit               phpunit"
     echo "     uniterate                  phpunit iterative mode - prioritise broken tests and fail on error"
@@ -101,6 +102,7 @@ NON_PATH_SUPPORTING_TOOLS=(
     "phpunitAnnotations" "ann"                   # ❌ Need to verify implementation
     "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
     "branchNamePolicy" "bnp"                     # ❌ Repo-level git check, not path-specific
+    "sensitiveParameterUsage" "spu" "sensitiveparameter" # ❌ Codebase-wide check, always scans src/
     "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
     "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
     "allTestingTools" "allTests"                 # ❌ Aggregate - runs multiple tools
@@ -177,6 +179,7 @@ then
         f | fixer | csfixer         ) singleToolToRun="phpCsFixer";;
         r | rector                  ) singleToolToRun="rector";;
         bnp | branchNamePolicy      ) singleToolToRun="branchNamePolicy";;
+        spu | sensitiveparameter | sensitiveParameterUsage ) singleToolToRun="sensitiveParameterUsage";;
         * )
             printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
             usage

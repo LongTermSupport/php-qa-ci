@@ -10,12 +10,4 @@ parameters:
             identifier: class.notFound
             path: ../src/PHPStan/Rules/RequireExplicitDIAttributeRule.php
             reportUnmatched: false
-        # The usage-rule test must build a CollectedDataNode by hand to unit-test the
-        # rule's processNode() across the has-usage / no-usage / opt-out cases. PHPStan's
-        # finalizer never emits a CollectedDataNode when zero data is collected, so this
-        # is the only way to exercise the "no usage" branch. Constructing the node is a
-        # deliberate, test-only use of internal PHPStan API.
-        -
-            identifier: phpstanApi.constructor
-            path: ../tests/Small/PHPStan/Rules/RequireSensitiveParameterUsageRuleTest.php
 
