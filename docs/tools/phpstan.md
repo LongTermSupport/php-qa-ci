@@ -52,6 +52,10 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **ForbidDangerousFunctionsRule** -- Bans exec/eval/unserialize and similar unsafe functions
 - **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
 - **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
+- **RequireSensitiveParameterAttributeRule** -- Requires `#[\SensitiveParameter]` on plaintext credential parameters (configurable name patterns / ignore substrings via the `phpqaciSensitiveParameter` parameters block)
+- **RequireSensitiveParameterUsageRule** (+ **SensitiveParameterAttributeCollector**) -- Fails once if `#[\SensitiveParameter]` is never used anywhere in the codebase; opt out with `phpqaciSensitiveParameter.requireAtLeastOneUsage: false`
+
+See the README "Configuring the SensitiveParameter rules" section for the full config keys, defaults and the escape-hatch flag.
 
 Projects can add their own custom rules in addition to these defaults.
 
@@ -115,18 +119,18 @@ rules:
 
 ### Available optional rules
 
-| Rule | File | What it catches |
-|---|---|---|
-| `ForbidNullCoalescingEmptyStringRule` | `rules-optional.neon` | `$x ?? ''` — almost always a logic bug |
-| `ForbidNullCoalescingFalseRule` | `rules-optional.neon` | `$x ?? false` — use explicit null checks |
-| `ForbidSilentCatchRule` | `rules-optional.neon` | `catch` blocks that ignore the caught exception |
-| `ForbidInlinePhpstanIgnoreRule` | `rules-optional.neon` | Inline `@phpstan-ignore` annotations in source files |
-| `RequireReadonlyServiceRule` | `rules-optional.neon` | Service classes not declared `final readonly` |
-| `RequireVariadicForSingleListParamRule` | `rules-optional.neon` | `array $items` annotated `@param list<T>` — use variadic syntax |
-| `ForbidHeaderInjectionRule` | `rules-optional-symfony.neon` | User input passed directly to HTTP headers |
-| `ForbidRawSqlRule` | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM |
-| `RequireCronIntervalInDescriptionRule` | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description |
-| `RequireExplicitDIAttributeRule` | `rules-optional-symfony.neon` | Symfony services without explicit DI attributes |
+| Rule                                    | File                          | What it catches                                                 |
+| --------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
+| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`         | `$x ?? ''` — almost always a logic bug                          |
+| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`         | `$x ?? false` — use explicit null checks                        |
+| `ForbidSilentCatchRule`                 | `rules-optional.neon`         | `catch` blocks that ignore the caught exception                 |
+| `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`         | Inline `@phpstan-ignore` annotations in source files            |
+| `RequireReadonlyServiceRule`            | `rules-optional.neon`         | Service classes not declared `final readonly`                   |
+| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`         | `array $items` annotated `@param list<T>` — use variadic syntax |
+| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon` | User input passed directly to HTTP headers                      |
+| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM                     |
+| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description           |
+| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon` | Symfony services without explicit DI attributes                 |
 
 ## Strict Rules
 

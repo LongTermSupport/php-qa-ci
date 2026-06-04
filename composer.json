@@ -51,6 +51,9 @@
     "psr-4": {
       "LTS\\PHPQA\\Tests\\": [
         "tests/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SensitiveParameter\\": [
+        "tests/assets/PHPStan/SensitiveParameter/"
       ]
     }
   },

@@ -41,11 +41,13 @@ Your project's `composer.json` must allow the required plugins:
     }
 }
 ```
+
 ## Disabling Config Push
 
 This project will push config updates direclty into the main repo
 
-If this is not desired eg in production,staging,CI deployments then 
+If this is not desired eg in production,staging,CI deployments then
+
 ```
 export PHP_QA_CI_DISABLE_CONFIG_PUSH=true
 ```
@@ -99,6 +101,53 @@ These rules are active automatically in every project that uses php-qa-ci — no
 - **ForbidDangerousFunctionsRule** -- Bans exec/eval/unserialize and similar
 - **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
 - **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
+- **RequireSensitiveParameterAttributeRule** -- Requires `#[\SensitiveParameter]` on plaintext
+  credential parameters (names matching `password`, `secret`, `privateKey`, … with a
+  `string`/`?string`/untyped/`mixed` type). Object-typed params and already-hashed/encoded names
+  (`$hashedPassword`, `$passwordHash`) are ignored. Keeps credentials out of stack traces.
+- **RequireSensitiveParameterUsageRule** (+ `SensitiveParameterAttributeCollector`) -- Codebase-wide
+  backstop: fails once if `#[\SensitiveParameter]` appears **nowhere** in the analysed code,
+  catching credentials carried under non-obvious names (`$token`, `$dsn`, `$apiKey`).
+
+#### Configuring the SensitiveParameter rules
+
+Both rules are wired in `rules-default.neon` from a `phpqaciSensitiveParameter` parameters block.
+Override any key in your `qaConfig/phpstan.neon` (deep-merged over the defaults):
+
+```neon
+parameters:
+    phpqaciSensitiveParameter:
+        # Case-insensitive substrings that mark a parameter NAME as a credential.
+        namePatterns:
+            - password
+            - passwd
+            - pwd
+            - passphrase
+            - secret
+            - apiSecret
+            - privateKey
+            - credential
+            - credentials
+        # Case-insensitive substrings that mark a name as already hashed/encoded
+        # (and therefore NOT plaintext sensitive).
+        ignoreSubstrings: [hash, hashed, encoded, encrypted]
+        # ESCAPE HATCH for RequireSensitiveParameterUsageRule.
+        requireAtLeastOneUsage: true
+```
+
+**Escape hatch** — a few projects (e.g. pure tooling libraries) genuinely never handle a password,
+token or secret. They must opt out of the codebase-wide usage requirement, otherwise CI fails with no
+way to satisfy it:
+
+```neon
+parameters:
+    phpqaciSensitiveParameter:
+        requireAtLeastOneUsage: false
+```
+
+Note that enabling the usage rule by default means **every** project's CI now requires either at least
+one `#[\SensitiveParameter]` annotation somewhere or this opt-out flag. Most projects should add the
+annotation rather than opt out.
 
 ### Optional rules (opt-in)
 
