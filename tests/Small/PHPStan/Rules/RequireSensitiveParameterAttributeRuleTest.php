@@ -55,6 +55,27 @@ final class RequireSensitiveParameterAttributeRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function itDoesNotFlagUrlUriOrPathSuffixedCredentialParams(): void
+    {
+        // $forgotPasswordUrl, $secretUri, $secretFilePath all contain a credential
+        // substring but are suppressed by the url/uri/path ignore-substrings.
+        // The existing CredentialParams fixture now includes these params; the only
+        // error that must come back is the pre-existing $password one.
+        $this->analyse(
+            [__DIR__ . '/../../../assets/PHPStan/SensitiveParameter/CredentialParams.php'],
+            [
+                [
+                    'Parameter $password of method '
+                    . (\LTS\PHPQA\Tests\Assets\PHPStan\SensitiveParameter\CredentialParams::class . '::loginMissing() ')
+                    . 'looks like a plaintext credential but is missing the #[\SensitiveParameter] attribute. '
+                    . 'Add #[\SensitiveParameter] so its value is redacted from stack traces.',
+                    17,
+                ],
+            ],
+        );
+    }
+
+    #[Test]
     public function itHonoursCustomNamePatternsFromTheConstructor(): void
     {
         // Re-target the rule at a single custom pattern: "email" now counts as a

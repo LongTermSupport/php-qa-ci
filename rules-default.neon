@@ -47,6 +47,9 @@ parameters:
             - hashed
             - encoded
             - encrypted
+            - url
+            - uri
+            - path
 
 parametersSchema:
     phpqaciSensitiveParameter: structure([

@@ -52,4 +52,23 @@ final class CredentialParams
     {
         return $this->secret;
     }
+
+    // URL-suffixed credential name — ignored via the "url" ignore-substring.
+    // $forgotPasswordUrl contains "password" but also "url", so must NOT be flagged.
+    public function sendPasswordResetEmail(string $forgotPasswordUrl): void
+    {
+    }
+
+    // URI-suffixed credential name — ignored via the "uri" ignore-substring.
+    // $avatarUri contains no credential substring, but $secretUri contains both
+    // "secret" and "uri" — must NOT be flagged.
+    public function updateAvatar(string $avatarUri, string $secretUri): void
+    {
+    }
+
+    // Path-suffixed credential name — ignored via the "path" ignore-substring.
+    // $secretFilePath contains "secret" but also "path", so must NOT be flagged.
+    public function loadKeyFile(string $secretFilePath): void
+    {
+    }
 }

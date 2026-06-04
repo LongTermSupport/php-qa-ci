@@ -74,7 +74,10 @@ final readonly class RequireSensitiveParameterAttributeRule implements Rule
 
     /**
      * Default case-insensitive substrings that mark a name as already
-     * hashed/encoded/encrypted, and therefore NOT plaintext sensitive.
+     * hashed/encoded/encrypted, a URL/URI, or a file-system path — and therefore
+     * NOT plaintext sensitive.
+     *
+     * Includes: hash, hashed, encoded, encrypted, url, uri, path.
      *
      * @var list<string>
      */
@@ -83,6 +86,9 @@ final readonly class RequireSensitiveParameterAttributeRule implements Rule
         'hashed',
         'encoded',
         'encrypted',
+        'url',
+        'uri',
+        'path',
     ];
 
     /**
