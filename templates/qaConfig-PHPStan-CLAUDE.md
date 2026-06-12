@@ -70,6 +70,7 @@ rules:
 ### 3. Test the Rule
 
 Run PHPStan to verify the rule catches the pattern:
+
 ```bash
 export CI=true && bin/qa -t stan
 ```
@@ -85,6 +86,23 @@ When creating rules as part of the "Defence Before Fix" strategy:
 5. **Fix** -- Implement fixes, then verify both PHPStan and tests pass
 
 The rule creates permanent defence -- the bug class can never recur in future commits.
+
+**Net and Filter:** the static rule is the NET (catches the whole class structurally,
+permanently); TDD is the FILTER (reproduces the specific instance on the production path
+and proves the fix). Belt and braces — neither alone suffices.
+
+**Wire, don't delete.** When a rule goes RED, fix by WIRING the flagged contract to a
+real producer, proven by a production-path test. Deleting the flagged element to silence
+the rule bakes in the broken / half-built state — only delete when it is genuinely
+unwanted dead code (a deliberate scope decision).
+
+**Coverage theatre:** a test fixture that feeds a value production never sets yields
+false-green coverage and proves nothing — drive the real producer, not a hand-fed value.
+
+**Nullable ⇒ both paths:** a nullable member is two code paths; prove BOTH (with-value
+AND null). Prefer non-nullable where null is not a genuinely valid state.
+
+Full philosophy: `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`.
 
 ## Namespace
 

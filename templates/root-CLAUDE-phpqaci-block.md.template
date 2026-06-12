@@ -14,4 +14,16 @@ Plans represent atomic pieces of work. A feature or bug fix may be composed of z
 **Detailed docs** (read in vendor): see `vendor/lts/php-qa-ci/CLAUDE/branch-policy.md`
 for full convention, rationale, examples of multi-plan feature branches, and how
 to extend the allow-list per project via `qaConfig/branchNamePolicy.yaml`.
+
+## php-qa-ci — Defence Before Fix (Net + Filter)
+
+Static analysis is the NET (catches the bug CLASS, permanently); TDD is the FILTER
+(reproduces the INSTANCE on the production path and proves the fix). Belt and braces.
+When a rule goes RED, fix by WIRING the contract to a real producer — never by deleting
+the flagged element to silence the rule. Pure coding-standards issues are static-only
+(no behaviour to assert); behavioural/contract defects get the full net + filter. Every
+nullable member is two paths — test BOTH (value-present and null); prefer non-nullable
+where null is not a valid state.
+
+**Detailed docs** (read in vendor): `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`.
 </phpqaci>
