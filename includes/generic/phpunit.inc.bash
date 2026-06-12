@@ -92,8 +92,10 @@ do
       extraConfigs+=( --display-incomplete )
       extraConfigs+=( --display-skipped )
       extraConfigs+=( --display-deprecations )
+      extraConfigs+=( --display-phpunit-deprecations )
       extraConfigs+=( --display-errors )
       extraConfigs+=( --display-notices )
+      extraConfigs+=( --display-phpunit-notices )
       extraConfigs+=( --display-warnings )
     fi
 
