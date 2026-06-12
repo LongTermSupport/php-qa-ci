@@ -32,6 +32,14 @@ elif [[ -f "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml" ]]; then
     DAEMON_DETECTED=true
     DAEMON_CONFIG="$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml"
     echo "  📋 Detected hooks-daemon at parent: $DAEMON_CONFIG (monorepo)"
+elif [[ "${PHP_QA_CI_ASSUME_HOOKS_DAEMON:-0}" == "1" ]]; then
+    # Escape hatch: treat the project as daemon-managed even when the config
+    # file isn't visible from this environment (e.g. composer running in a
+    # container that doesn't mount .claude/). Presence of the daemon is a
+    # project-level fact; it does not depend on this environment being able to
+    # see the file or run the daemon's venv.
+    DAEMON_DETECTED=true
+    echo "  📋 hooks-daemon assumed present via PHP_QA_CI_ASSUME_HOOKS_DAEMON=1 (config file not visible here)"
 fi
 
 # Detect daemon venv python3 for yaml operations (has pyyaml installed).
@@ -360,21 +368,30 @@ fi
 
 # Note: DAEMON_CONFIG already set earlier with monorepo detection
 
-if [[ -f "$DAEMON_CONFIG" ]]; then
+if [[ "$DAEMON_DETECTED" == "true" ]]; then
     echo ""
     echo "📋 hooks-daemon detected - enforcing required handler configuration..."
 
+    # Daemon YAML handler enforcement requires a daemon venv Python that has
+    # pyyaml installed. That venv is host/platform-specific: when composer runs
+    # inside a container that bind-mounts a host-built venv, the venv's python
+    # symlink points at a host path (e.g. a Homebrew python) that does not exist
+    # in the container, so the venv is unusable here.
+    #
+    # In that situation we DO NOT fail the deployment. The daemon validates and
+    # enforces its own config where it actually runs (the host). We skip only
+    # the YAML enforcement step and still perform the classic-hook cleanup below
+    # (which uses system python3 and needs no venv) so settings.json is left in
+    # the correct daemon-managed state regardless of environment.
     if [[ -z "$PYTHON3_YAML" ]]; then
-        echo "  ❌ ERROR: hooks daemon venv not found" >&2
-        echo "  Cannot validate daemon config — hooks daemon is not installed or is outdated." >&2
-        echo "  Please install or upgrade hooks daemon (v3.9.0+):" >&2
-        echo "    curl -fsSL https://raw.githubusercontent.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon/main/scripts/upgrade.sh -o /tmp/upgrade.sh" >&2
-        echo "    bash /tmp/upgrade.sh --project-root $PROJECT_ROOT" >&2
-        exit 1
-    fi
-
-    # Use daemon venv Python (has pyyaml) - system Python is never used
-    $PYTHON3_YAML - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
+        echo "  ⚠️  hooks daemon venv not usable in this environment — skipping daemon YAML handler enforcement." >&2
+        echo "     This is expected when composer runs inside a container that mounts a host-built" >&2
+        echo "     daemon venv. The daemon enforces its own config where it runs (typically the host)." >&2
+        echo "     To enforce here too, install/upgrade the daemon (v3.9.0+) so a usable venv exists" >&2
+        echo "     in this environment." >&2
+    else
+        # Use daemon venv Python (has pyyaml) - system Python is never used
+        $PYTHON3_YAML - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
 import sys
 from pathlib import Path
 
@@ -467,7 +484,8 @@ except Exception as e:
 
 PYTHON_DAEMON_CONFIG
 
-    echo "  ✓ hooks-daemon configuration enforced"
+        echo "  ✓ hooks-daemon configuration enforced"
+    fi
 
     # ========================================================================
     # Remove classic hooks - daemon provides all functionality now
