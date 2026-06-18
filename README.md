@@ -85,7 +85,7 @@ See [Pipeline Architecture](./docs/pipeline.md) for full details.
 
 PHP-QA-CI uses a hybrid approach to tool delivery:
 
-- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect -- delivered in `vendor-phar/`
+- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect (PHIVE key `D9C905CED1932CA2` — the trailing 16 chars of the full fingerprint `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, which is what `tool-install.bash` pins) -- delivered in `vendor-phar/`
 - **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit, parallel-lint
 - **Isolated Composer project**: Rector -- in `tools/rector/` with its own `composer.json` to prevent dependency conflicts
 
@@ -141,6 +141,18 @@ The default tier matches on AST node *kind*, so it never forces arkitect to
 resolve class ancestry — that keeps it safe for any project. Ancestry-resolving
 rules (`IsA`/`Extend`/`Implement`, e.g. the `*Exception` convention) need a
 complete autoloader, so they live in the optional tier.
+
+### Troubleshooting: optional/symfony tiers need a complete autoloader
+
+The optional and symfony tiers use ancestry rules (`IsA`) that resolve a class's
+parents by **reflecting** it — so the analysed classes must be autoloadable. The
+pipeline runs arkitect with `--autoload=vendor/autoload.php`, so this is normally
+fine. But if you opt into these tiers and your autoloader is incomplete, `IsA`
+rules **silently match nothing** — arkitect reports "No violations" (a false
+green) rather than failing. (A genuine crash — exit > 1 — instead means a broken
+config or an unparseable file.) If an opted-in `*Exception`/`*Command`/`*Subscriber`
+rule never seems to fire, run `composer dump-autoload` and confirm your classes
+load.
 
 **Project usage.** With no project config, the default tier is applied to the
 detected source dir automatically. To go further, add `qaConfig/phparkitect.php`

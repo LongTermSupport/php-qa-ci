@@ -5,7 +5,7 @@
 # ON BY DEFAULT. configPath always resolves an entry config:
 #   - the project's qaConfig/phparkitect.php if present, else
 #   - the shipped configDefaults/generic/phparkitect.php, which applies the
-#     generic-safe BallicomDev baseline (phparkitect-rules-default.php) to the
+#     generic-safe default baseline (phparkitect-rules-default.php) to the
 #     detected source dir.
 # This is the arkitect equivalent of the rules-default PHPStan baseline.
 #
@@ -54,23 +54,47 @@ phpArkitectLogDir="$varDir/phparkitect_logs"
 phpArkitectLogFile="phparkitect.log"
 mkdir -p "$phpArkitectLogDir"
 
-# Retry loop. The tool runs inside the `until` condition so that, under the
-# pipeline's `set -e`, a non-zero exit does NOT abort the run — it is handled
-# explicitly. `set -o pipefail` (set by bin/qa) propagates arkitect's exit code
-# through the `tee`, so the condition reflects the real result rather than tee's.
+# Retry loop. Mirrors phpstan.inc.bash / phpunit.inc.bash:
+#   - The invocation runs inside an `if` CONDITION, so under bin/qa's errexit
+#     option a non-zero exit does NOT abort the run (errexit is suspended for
+#     conditions) — handled explicitly here.
+#   - We read ${PIPESTATUS[0]} to get arkitect's OWN exit code, independent of the
+#     `tee` (a tee write failure must not be misread as an arkitect failure).
+#   - arkitect's CLI returns 0 = ok, 1 = rule violations, >1 = a genuine error
+#     (bad config, parse failure, INCOMPLETE AUTOLOADER for IsA/ancestry rules).
+#     We special-case >1 as a crash — retrying it cannot help — exactly as
+#     phpstan/phpunit do for their crash codes.
 # arkitect must run from the project root so relative ClassSet paths in the
 # config resolve correctly; bin/qa has already `cd`-ed to $projectRoot.
-until phpNoXdebug -f "$pharDir"/phparkitect.phar -- \
+arkitectExitCode=99
+while ((arkitectExitCode > 0)); do
+  if phpNoXdebug -f "$pharDir"/phparkitect.phar -- \
         check \
         --config="$phpArkitectConfigPath" \
         --autoload="$projectRoot/vendor/autoload.php" \
         --no-interaction \
         2>&1 | tee "$phpArkitectLogDir/$phpArkitectLogFile"
-do
-  # Archive the log (keep last 10) BEFORE tryAgainOrAbort so it survives in CI.
-  archiveToolLog "PHPArkitect" "$phpArkitectLogDir" "$phpArkitectLogFile" "$specifiedPath" "${pathsToCheck[@]}"
-  tryAgainOrAbort "PHPArkitect"
-done
+  then
+    arkitectExitCode=0
+  else
+    arkitectExitCode=${PIPESTATUS[0]}
+  fi
 
-# Archive the successful run's log too, for parity with the failure path.
-archiveToolLog "PHPArkitect" "$phpArkitectLogDir" "$phpArkitectLogFile" "$specifiedPath" "${pathsToCheck[@]}"
+  # Archive the log (keep last 10) every iteration so it survives in CI, on both
+  # success and failure.
+  archiveToolLog "PHPArkitect" "$phpArkitectLogDir" "$phpArkitectLogFile" "$specifiedPath" "${pathsToCheck[@]}"
+
+  if ((arkitectExitCode > 1)); then
+    printf "\n\nPHPArkitect crashed (exit %s) — this is an ERROR, not a rule violation.\n" "$arkitectExitCode"
+    printf "Likely causes: an invalid phparkitect config, an unparseable source file, or a bad\n"
+    printf "ClassSet path. Inspect the output above; retrying will not help.\n"
+    printf "NOTE: an INCOMPLETE autoloader does NOT crash — instead the optional/symfony tiers'\n"
+    printf "ancestry rules (IsA) silently match nothing (a false green). If those rules seem to\n"
+    printf "find no violations, make your classes autoloadable: run 'composer dump-autoload'.\n\n"
+    exit 1
+  fi
+
+  if ((arkitectExitCode > 0)); then
+    tryAgainOrAbort "PHPArkitect"
+  fi
+done

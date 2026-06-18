@@ -519,7 +519,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 
 - **Purpose**: Enforce architectural/structural rules — class-naming conventions, namespace layering, dependency direction — that PHPStan expresses awkwardly
 - **Tool**: [@includes/generic/phpArkitect.inc.bash](includes/generic/phpArkitect.inc.bash)
-- **PHAR**: `vendor-phar/phparkitect.phar` (PHIVE, key `D9C905CED1932CA2`)
+- **PHAR**: `vendor-phar/phparkitect.phar` (PHIVE, key `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, short id `D9C905CED1932CA2`)
 - **Entry config (default)**: [@configDefaults/generic/phparkitect.php](configDefaults/generic/phparkitect.php) — applies the default tier to the detected source dir when a project has no `qaConfig/phparkitect.php`
 - **Rule tiers**: `phparkitect-rules-default.php` (on by default), `phparkitect-rules-optional.php` + `phparkitect-rules-optional-symfony.php` (opt-in) under [@configDefaults/generic](configDefaults/generic)
 - **Project template**: [@templates/qaConfig-phparkitect.php](templates/qaConfig-phparkitect.php)

@@ -7,7 +7,7 @@ declare(strict_types=1);
  *
  * configPath resolves this file whenever a project has NOT supplied its own
  * qaConfig/phparkitect.php, so every consuming project gets the generic-safe
- * BallicomDev baseline (phparkitect-rules-default.php) applied to its detected
+ * default baseline (phparkitect-rules-default.php) applied to its detected
  * source directory — no per-project setup required. This is the arkitect
  * equivalent of the rules-default PHPStan baseline.
  *
@@ -36,6 +36,8 @@ return static function (Config $config): void {
     $defaultRules = \is_file($defaultRulesFile) ? require $defaultRulesFile : [];
 
     if ([] === $defaultRules) {
+        fwrite(STDERR, "PHPArkitect: default ruleset resolved empty (looked at {$defaultRulesFile}) — NO rules applied.\n");
+
         return;
     }
 

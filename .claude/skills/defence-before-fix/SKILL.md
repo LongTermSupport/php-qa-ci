@@ -108,7 +108,22 @@ This phase is primarily manual/guided. Help the user by:
 
 ## Phase 2: DETECT (Static Analysis)
 
-**Goal:** Create a PHPStan rule that catches ALL instances of the bug pattern.
+**Goal:** Create a rule that catches ALL instances of the bug pattern.
+
+### Step 0: Choose the engine first
+
+Before writing a PHPStan rule, decide which engine owns the convention:
+
+- **Structural conventions** — class/interface/enum/trait **NAMING**, namespace
+  **LAYERING**, **DEPENDENCY** direction — belong in **PHPArkitect** (extend a tier or
+  the project's `qaConfig/phparkitect.php`), NOT PHPStan.
+- Only **finer-grained / method-level / semantic** patterns (which PHPArkitect cannot
+  express) become PHPStan rules.
+- **NEVER enforce one convention in both engines** — migrate, don't duplicate.
+
+Decision guide (SSoT): [README "Where does a rule belong"](../../../README.md#where-does-a-rule-belong--phparkitect-or-phpstan).
+If the pattern is structural, do the rest of this phase against arkitect; only continue to
+the PHPStan rule creator below for patterns arkitect cannot express.
 
 ### Step 1: Launch the Rule Creator Agent
 

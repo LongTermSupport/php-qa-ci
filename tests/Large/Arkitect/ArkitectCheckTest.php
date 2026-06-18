@@ -46,7 +46,7 @@ final class ArkitectCheckTest extends TestCase
     /**
      * A project that EXTENDS the shipped default rule set inherits the house
      * naming conventions: an interface not suffixed *Interface is rejected,
-     * proving PHPQACI_ARKITECT_DEFAULT_RULES wiring works end-to-end.
+     * proving PHPQACI_ARKITECT_RULES_DEFAULT wiring works end-to-end.
      */
     public function testShippedDefaultRulesAreEnforcedWhenExtended(): void
     {
@@ -82,11 +82,89 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
+     * The migrated Throwable->*Exception convention (formerly accountsiq's
+     * deleted ExceptionSuffixRule, now solely the optional tier's IsA rule) must
+     * reject a \Throwable whose name does not end Exception — and must NOT flag a
+     * correctly-suffixed one. This is the only behavioural coverage of that rule.
+     */
+    public function testOptionalTierEnforcesExceptionSuffix(): void
+    {
+        $optionalRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-optional.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/projectOptionalException',
+            ['PHPQACI_ARKITECT_RULES_OPTIONAL' => $optionalRules],
+        );
+
+        self::assertSame(1, $exitCode, "Expected an Exception-suffix violation, got:\n" . $output);
+        self::assertStringContainsString('BadError', $output);
+        self::assertStringContainsString('*Exception', $output);
+        // The correctly-suffixed Throwable must not be reported (no false positive).
+        self::assertStringNotContainsString('ValidPaymentException', $output);
+    }
+
+    /**
+     * The default tier ships three node-kind rules (Interface/Enum/Trait). Beyond
+     * the interface case above, prove the Enum and Trait suffix rules also fire —
+     * all three were migrated from the deleted PHPStan RequireTypeSuffixRule.
+     */
+    public function testDefaultTierEnforcesEnumAndTraitSuffixes(): void
+    {
+        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/projectExtendsDefaults',
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+        );
+
+        self::assertSame(1, $exitCode, "Expected enum/trait violations, got:\n" . $output);
+        self::assertStringContainsString('Status', $output);
+        self::assertStringContainsString('*Enum', $output);
+        self::assertStringContainsString('Helper', $output);
+        self::assertStringContainsString('*Trait', $output);
+    }
+
+    /**
+     * The production zero-config path: a project with NO qaConfig/phparkitect.php
+     * still gets the default tier applied to its srcDir via the shipped entry
+     * config, driven by PHPQACI_ARKITECT_SRC_DIR + PHPQACI_ARKITECT_RULES_DEFAULT.
+     * Every other test uses a per-fixture config; this exercises the most-used
+     * real path (the shipped configDefaults/generic/phparkitect.php).
+     */
+    public function testZeroConfigDefaultEntryAppliesDefaultTier(): void
+    {
+        $entryConfig  = __DIR__ . '/../../../configDefaults/generic/phparkitect.php';
+        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
+
+        [$exitCode, $output] = $this->runCheckConfig(
+            $entryConfig,
+            self::ASSETS . '/projectExtendsDefaults/autoload.php',
+            [
+                'PHPQACI_ARKITECT_SRC_DIR'       => self::ASSETS . '/projectExtendsDefaults/src',
+                'PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules,
+            ],
+        );
+
+        self::assertSame(1, $exitCode, "Expected the shipped entry config to enforce the default tier, got:\n" . $output);
+        self::assertStringContainsString('*Interface', $output);
+    }
+
+    /**
      * @param array<string, string> $env extra environment for the phar process
      *
      * @return array{0: int, 1: string}
      */
     private function runCheck(string $projectDir, array $env = []): array
+    {
+        return $this->runCheckConfig($projectDir . '/phparkitect.php', $projectDir . '/autoload.php', $env);
+    }
+
+    /**
+     * @param array<string, string> $env extra environment for the phar process
+     *
+     * @return array{0: int, 1: string}
+     */
+    private function runCheckConfig(string $configPath, string $autoloadPath, array $env = []): array
     {
         $envPrefix = '';
         foreach ($env as $name => $value) {
@@ -97,8 +175,8 @@ final class ArkitectCheckTest extends TestCase
             '%s -f %s -- check --config=%s --autoload=%s --no-interaction --no-ansi 2>&1',
             escapeshellarg(\PHP_BINARY),
             escapeshellarg(self::PHAR),
-            escapeshellarg($projectDir . '/phparkitect.php'),
-            escapeshellarg($projectDir . '/autoload.php'),
+            escapeshellarg($configPath),
+            escapeshellarg($autoloadPath),
         );
 
         $output   = [];

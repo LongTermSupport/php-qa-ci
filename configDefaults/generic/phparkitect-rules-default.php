@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * php-qa-ci PHPArkitect — GENERIC DEFAULT ruleset (the "rules-default" tier).
  *
- * Generic, safe-everywhere BallicomDev naming conventions. This tier is applied
+ * Generic, safe-everywhere naming conventions. This tier is applied
  * BY DEFAULT to every consuming project (the shipped configDefaults entry
  * config `phparkitect.php` adds it to the detected source dir), exactly the way
  * rules-default.neon is the PHPStan baseline. Keep it conservative — anything

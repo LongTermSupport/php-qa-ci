@@ -277,7 +277,7 @@ function findTestsDir() {
 
 function findSrcDir() {
   srcDir="$projectRoot/src"
-  if [[ "" == "$srcDir" ]]; then
+  if [[ ! -d "$srcDir" ]]; then
     echo "
 
 
