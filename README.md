@@ -97,6 +97,35 @@ The `phpstan/phpstan` package is in the `replace` section of `composer.json` sin
 rules that PHPStan expresses awkwardly: class-naming conventions, namespace
 layering, and dependency direction. It runs in Phase 3 and is **on by default**.
 
+### Where does a rule belong — PHPArkitect or PHPStan?
+
+**Default to PHPArkitect for structural rules. Upgrade to a PHPStan rule only when
+you need finer-grained, method-level, or semantic detection that arkitect cannot
+express.**
+
+- **PHPArkitect (the default)** reasons about a class's *identity*: its kind
+  (interface / enum / trait / class), its name, the namespace it sits in, and its
+  ancestry. Reach for it for naming conventions, namespace layering, and
+  dependency direction.
+- **PHPStan (the upgrade)** reasons about *code*. Move up to a PHPStan rule only
+  when the check needs something arkitect cannot see or say:
+  - a **method-level** predicate — e.g. "the class has a public `__invoke`";
+  - **"any of N name patterns, except an allow-list"** — arkitect's
+    `HaveNameMatching` is a single glob with no OR / except composite;
+  - a **type-kind carve-out** in a dependency rule — e.g. allow generated *enums*
+    but forbid generated *objects*; `NotDependsOnTheseNamespaces` has no type-kind
+    awareness;
+  - any **behavioural / semantic** check — type bans, call-site shape,
+    docblock-driven rules, loose comparison, nested ternary.
+
+**Single Source of Truth — never enforce one convention in both engines.** Adding
+arkitect is *not* purely additive: when a structural convention already lives in a
+PHPStan rule, **migrate** it to arkitect (and delete the PHPStan rule) rather than
+running both. Two engines enforcing one rule is a defect — duplicated failure
+messages, drift between them, and double maintenance. (The shipped Interface / Enum /
+Trait suffix convention was migrated exactly this way: it used to be the PHPStan
+`RequireTypeSuffixRule` and is now owned solely by the default arkitect tier.)
+
 Rules are organised in tiers (mirroring the `rules-default` / `rules-optional`
 PHPStan neon split). php-qa-ci ships each as a file returning a list of arkitect
 `ArchRule` objects, and the pipeline exports the resolved path of each so a

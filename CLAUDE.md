@@ -524,6 +524,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **Rule tiers**: `phparkitect-rules-default.php` (on by default), `phparkitect-rules-optional.php` + `phparkitect-rules-optional-symfony.php` (opt-in) under [@configDefaults/generic](configDefaults/generic)
 - **Project template**: [@templates/qaConfig-phparkitect.php](templates/qaConfig-phparkitect.php)
 - **How it works**: parses each class into an AST and matches expressions (naming, dependencies); rules and the paths to scan are defined inside the config (so `-p` does not apply). The pipeline passes `--autoload` and exports the tier paths + detected `srcDir` as env vars
+- **Where a rule belongs (PHPArkitect vs PHPStan)**: arkitect by default for structural rules; upgrade to a PHPStan rule only for finer-grained / method-level / semantic detection arkitect cannot express. **Never enforce one convention in both engines** — migrate, don't duplicate (SSoT). Full decision guide: [README.md "Where does a rule belong"](README.md#where-does-a-rule-belong--phparkitect-or-phpstan)
 - **Full usage** (tiers, extend/replace/customise, disable): see the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules)
 
 ### PHPUnit
