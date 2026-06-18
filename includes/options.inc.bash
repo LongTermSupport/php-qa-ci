@@ -43,6 +43,7 @@ function usage {
     echo "     st|stricttypes             strict types validation"
     echo "     lint|phplint               phplint"
     echo "     stan|phpstan               phpstan"
+    echo "     arch|arkitect|phparkitect  PHPArkitect architecture rules (opt-in: needs qaConfig/phparkitect.php)"
     echo "     spu|sensitiveParameterUsage  assert #[\\SensitiveParameter] is used somewhere in src/"
     echo "     ann|phpunitAnnotations     phpunitAnnotations"
     echo "     unit|phpunit               phpunit"
@@ -103,6 +104,7 @@ NON_PATH_SUPPORTING_TOOLS=(
     "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
     "branchNamePolicy" "bnp"                     # ❌ Repo-level git check, not path-specific
     "sensitiveParameterUsage" "spu" "sensitiveparameter" # ❌ Codebase-wide check, always scans src/
+    "phpArkitect" "arch" "arkitect" "phparkitect" # ❌ Paths defined inside the config file (ClassSet::fromDir)
     "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
     "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
     "allTestingTools" "allTests"                 # ❌ Aggregate - runs multiple tools
@@ -169,6 +171,7 @@ then
         st | stricttypes            ) singleToolToRun="phpStrictTypes";;
         lint | phplint              ) singleToolToRun="phpLint";;
         stan | phpstan              ) singleToolToRun="phpstan";;
+        arch | arkitect | phparkitect ) singleToolToRun="phpArkitect";;
         ann | phpunitAnnotations    ) singleToolToRun="phpunitAnnotations";;
         unit | phpunit              ) singleToolToRun="phpunit";;
         uniterate                   ) singleToolToRun="phpunit"; phpUnitIterativeMode=1;;

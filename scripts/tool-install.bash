@@ -85,6 +85,7 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
             "51C67305FFC2E5C0"                          # PHPStan
             "E82B2FB314E9906E"                          # PHP CS Fixer
             "033E5F8D801A2F8D"                          # Composer Require Checker
+            "47CD54B6398FE21B3709D0A4D9C905CED1932CA2"  # PHPArkitect (Michele Orselli)
         )
 
         TRUST_KEYS_ARG=""
