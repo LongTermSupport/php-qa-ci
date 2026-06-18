@@ -39,8 +39,10 @@ use Arkitect\Rules\Rule;
 // convention) live in the optional tier, because they require a complete
 // autoloader and are therefore not safe-everywhere.
 return [
-    // Interfaces / enums / traits carry their kind in the suffix
-    // (parity with php-qa-ci's RequireTypeSuffixRule).
+    // Interfaces / enums / traits carry their kind in the suffix.
+    // This tier is the SINGLE SOURCE OF TRUTH for type-suffix naming: the former
+    // PHPStan RequireTypeSuffixRule was migrated here (structural naming belongs
+    // in PHPArkitect, not PHPStan), so do not re-introduce a PHPStan equivalent.
     Rule::allClasses()
         ->that(new IsInterface())
         ->should(new HaveNameMatching('*Interface'))
