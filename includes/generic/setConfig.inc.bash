@@ -35,6 +35,12 @@ readarray psr4IgnoreList < "$psr4IgnoreListPath"
 # PHPStan configs
 phpstanConfigPath="$(configPath phpstan.neon)"
 
+# PHPArkitect config (opt-in architectural rules).
+# configPath returns the project override (qaConfig/phparkitect.php) when present,
+# otherwise the generic path — which intentionally does NOT exist by default, so
+# the tool skips unless a project opts in. See includes/generic/phpArkitect.inc.bash.
+phpArkitectConfigPath="$(configPath phparkitect.php)"
+
 ##PHPUnit Configs
 
 #Iterative Mode - prioritises runnign failed tests and stops on first error

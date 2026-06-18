@@ -10,6 +10,7 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\ClassMethod;
+use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\TestCase;
@@ -41,7 +42,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
             '/** @param list<ProductEnquiryItem> $items */',
         );
 
-        self::assertCount(1, $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertCount(1, $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testErrorMessageContainsMethodAndParamName(): void
@@ -52,7 +53,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
             '/** @param list<string> $records */',
         );
 
-        $errors = $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class]));
+        $errors = $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('process()', $errors[0]->getMessage());
@@ -67,21 +68,21 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
             '/** @param list<string> $items */',
         );
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testZeroParamsAreNotFlagged(): void
     {
         $method = $this->makeMethod('render', [], '/** no params */');
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testNoDocblockIsNotFlagged(): void
     {
         $method = $this->makeMethod('render', [$this->makeArrayParam('items')], null);
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testArrayDocblockIsNotFlagged(): void
@@ -92,7 +93,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
             '/** @param array<string> $items */',
         );
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testIterableDocblockIsNotFlagged(): void
@@ -103,7 +104,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
             '/** @param iterable<string> $items */',
         );
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testAlreadyVariadicIsNotFlagged(): void
@@ -115,7 +116,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
             '/** @param list<string> $items */',
         );
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testNonArrayTypeIsNotFlagged(): void
@@ -123,7 +124,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
         $param  = new Param(new Variable('items'), null, new Identifier('string'));
         $method = $this->makeMethod('render', [$param], '/** @param list<string> $items */');
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testNullableArrayTypeIsNotFlagged(): void
@@ -132,7 +133,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
         $param        = new Param(new Variable('items'), null, $nullableType);
         $method       = $this->makeMethod('render', [$param], '/** @param list<string> $items */');
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testUntypedParamIsNotFlagged(): void
@@ -140,7 +141,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
         $param  = new Param(new Variable('items'));
         $method = $this->makeMethod('render', [$param], '/** @param list<string> $items */');
 
-        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertSame([], $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     public function testNestedGenericListIsFlagged(): void
@@ -151,7 +152,7 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
             '/** @param list<Type<A, B>> $items */',
         );
 
-        self::assertCount(1, $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class])));
+        self::assertCount(1, $this->rule->processNode($method, $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class])));
     }
 
     /**

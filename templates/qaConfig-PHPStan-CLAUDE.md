@@ -17,6 +17,8 @@ qaConfig/
 
 ## Creating a New Rule
 
+Before writing a PHPStan rule, confirm it is not a structural naming/layering/dependency rule — those belong in PHPArkitect (see php-qa-ci README "Where does a rule belong").
+
 ### 1. Create the Rule Class
 
 ```php

@@ -64,8 +64,12 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     #[Test]
     public function mainReturnsZeroForAProjectThatUsesTheAttribute(): void
     {
+        // Pass useCheck explicitly so this is deterministic regardless of the
+        // ambient useSensitiveParameterCheck env var — php-qa-ci's own
+        // qaConfig.inc.bash exports it as 0, which would otherwise leak into the
+        // PHPUnit subprocess and make main() skip.
         \Safe\ob_start();
-        $exitCode = SensitiveParameterUsageScanner::main(self::PROJECT_WITH);
+        $exitCode = SensitiveParameterUsageScanner::main(self::PROJECT_WITH, useCheck: true);
         $output   = \Safe\ob_get_clean();
 
         self::assertSame(0, $exitCode);

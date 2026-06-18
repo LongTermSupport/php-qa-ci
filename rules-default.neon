@@ -8,7 +8,11 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidLooseComparisonRule
     - LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedSerializableRule
     - LTS\PHPQA\PHPStan\Rules\ForbidNestedTernaryRule
-    - LTS\PHPQA\PHPStan\Rules\RequireTypeSuffixRule
+    # NOTE: Interface/Enum/Trait *naming* suffixes are deliberately NOT a PHPStan
+    # rule. They are a structural naming convention, owned by PHPArkitect's
+    # on-by-default tier (configDefaults/generic/phparkitect-rules-default.php) —
+    # the single source of truth for type-suffix naming. The former
+    # RequireTypeSuffixRule was migrated there; do not re-add it here.
     - LTS\PHPQA\PHPStan\Rules\RequireRuleIdentifierConstantRule
 
 # ─────────────────────────────────────────────────────────────────────────────

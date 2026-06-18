@@ -19,6 +19,13 @@ fi
 
 echo "
 
+Running PHPArkitect (architecture rules)
+----------------------------------------
+"
+runTool phpArkitect
+
+echo "
+
 Checking SensitiveParameter Usage
 ---------------------------------
 "
