@@ -43,7 +43,7 @@ function usage {
     echo "     st|stricttypes             strict types validation"
     echo "     lint|phplint               phplint"
     echo "     stan|phpstan               phpstan"
-    echo "     arch|arkitect|phparkitect  PHPArkitect architecture rules (opt-in: needs qaConfig/phparkitect.php)"
+    echo "     arch|arkitect|phparkitect  PHPArkitect architecture rules (on by default; useArkitect=0 to disable)"
     echo "     spu|sensitiveParameterUsage  assert #[\\SensitiveParameter] is used somewhere in src/"
     echo "     ann|phpunitAnnotations     phpunitAnnotations"
     echo "     unit|phpunit               phpunit"

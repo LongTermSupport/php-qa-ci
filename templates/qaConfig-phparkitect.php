@@ -3,24 +3,30 @@
 declare(strict_types=1);
 
 /**
- * PHPArkitect architecture rules — STARTING POINT (opt-in).
+ * PHPArkitect entry config — PROJECT OVERRIDE template.
  *
  * PHPArkitect enforces *structural* rules that PHPStan expresses awkwardly:
  * class-naming conventions, namespace layering, and dependency direction.
  *
- * HOW TO ENABLE for your project:
- *   1. Copy this template into your project's qaConfig/ directory:
- *        cp vendor/lts/php-qa-ci/templates/qaConfig-phparkitect.php \
- *           qaConfig/phparkitect.php
- *   2. Edit the rules below to match your namespaces.
- *   3. Run it:  vendor/bin/qa -t arch
+ * You do NOT need this file to get the basics: php-qa-ci applies a generic-safe
+ * baseline (Exception/Interface/Enum/Trait suffixes) to every project by
+ * default. Add this file only when you want to EXTEND that baseline, OPT IN to
+ * extra shipped tiers, or add PROJECT-BESPOKE rules.
  *
- * Until qaConfig/phparkitect.php exists the tool skips cleanly, so adding the
- * file is the only thing needed to switch architecture checks on.
+ *   cp vendor/lts/php-qa-ci/templates/qaConfig-phparkitect.php qaConfig/phparkitect.php
+ *   vendor/bin/qa -t arch
  *
- * Paths are defined HERE (not on the command line): ClassSet::fromDir(...).
- * __DIR__ is the qaConfig/ directory, so '/../src' points at the project src/.
- * The pipeline passes --autoload=vendor/autoload.php for you.
+ * RULE TIERS (each resolved + exported by the pipeline; override any by dropping
+ * your own copy in qaConfig/, e.g. qaConfig/phparkitect-rules-default.php):
+ *   PHPQACI_ARKITECT_RULES_DEFAULT           generic-safe baseline (on by default)
+ *   PHPQACI_ARKITECT_RULES_OPTIONAL          stricter generic, opt-in
+ *   PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY  Symfony-specific, opt-in
+ *
+ * COMPOSE: default + (optional tiers you opt into) + your bespoke rules.
+ * REPLACE:  pass only your own rules (don't require the default tier).
+ *
+ * Paths are defined HERE: ClassSet::fromDir(...). __DIR__ is qaConfig/, so
+ * '/../src' is the project src/. The pipeline passes --autoload for you.
  *
  * Full rule catalogue: https://github.com/phparkitect/arkitect
  */
@@ -28,31 +34,37 @@ declare(strict_types=1);
 use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
-use Arkitect\Expression\ForClasses\NotDependsOnTheseNamespaces;
 use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
 
 return static function (Config $config): void {
-    // Adjust to your project's root namespace and source directory.
+    // Adjust to your project. Exclude generated code (cannot be renamed).
     $rootNamespace = 'App';
-    $classSet      = ClassSet::fromDir(__DIR__ . '/../src');
+    $classSet      = ClassSet::fromDir(__DIR__ . '/../src')->excludePath('Generated');
 
-    $rules = [];
+    $load = static fn (string $envVar): array => ($p = getenv($envVar)) && \is_file($p) ? require $p : [];
 
-    // Example 1 — naming convention.
-    // Every class in App\Controller must be suffixed *Controller.
-    // (A rule matches zero classes harmlessly if the namespace is absent.)
-    $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces($rootNamespace . '\\Controller'))
-        ->should(new HaveNameMatching('*Controller'))
-        ->because('controllers must be named consistently');
+    // EXTEND the generic-safe baseline. (Drop this line to REPLACE it.)
+    $defaultRules = $load('PHPQACI_ARKITECT_RULES_DEFAULT');
 
-    // Example 2 — dependency direction (layering).
-    // The domain layer must not depend on the infrastructure layer.
-    $rules[] = Rule::allClasses()
-        ->that(new ResideInOneOfTheseNamespaces($rootNamespace . '\\Domain'))
-        ->should(new NotDependsOnTheseNamespaces($rootNamespace . '\\Infrastructure'))
-        ->because('the domain layer must stay free of infrastructure concerns');
+    // OPT IN to extra shipped tiers — uncomment as desired:
+    // $optionalRules = $load('PHPQACI_ARKITECT_RULES_OPTIONAL');
+    // $symfonyRules  = $load('PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY');
 
-    $config->add($classSet, ...$rules);
+    // PROJECT-BESPOKE rules (stricter than the defaults):
+    $projectRules = [
+        // Example — classes in App\Controller end with *Controller.
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces($rootNamespace . '\\Controller'))
+            ->should(new HaveNameMatching('*Controller'))
+            ->because('controllers must be named consistently'),
+    ];
+
+    $config->add(
+        $classSet,
+        ...$defaultRules,
+        // ...$optionalRules,
+        // ...$symfonyRules,
+        ...$projectRules,
+    );
 };

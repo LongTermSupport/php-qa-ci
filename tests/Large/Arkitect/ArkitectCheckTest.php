@@ -21,9 +21,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class ArkitectCheckTest extends TestCase
 {
-    private const PHAR = __DIR__ . '/../../../vendor-phar/phparkitect.phar';
+    private const string PHAR = __DIR__ . '/../../../vendor-phar/phparkitect.phar';
 
-    private const ASSETS = __DIR__ . '/../../assets/arkitect';
+    private const string ASSETS = __DIR__ . '/../../assets/arkitect';
 
     public function testValidProjectPasses(): void
     {
@@ -44,22 +44,78 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
+     * A project that EXTENDS the shipped default rule set inherits the house
+     * naming conventions: an interface not suffixed *Interface is rejected,
+     * proving PHPQACI_ARKITECT_DEFAULT_RULES wiring works end-to-end.
+     */
+    public function testShippedDefaultRulesAreEnforcedWhenExtended(): void
+    {
+        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/projectExtendsDefaults',
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+        );
+
+        self::assertSame(1, $exitCode, "Expected a default-rule violation, got:\n" . $output);
+        self::assertStringContainsString('Repository', $output);
+        self::assertStringContainsString('*Interface', $output);
+    }
+
+    /**
+     * A project that OPTS IN to the stricter optional tier inherits its rules:
+     * an abstract class not prefixed Abstract* is rejected. Proves the
+     * PHPQACI_ARKITECT_RULES_OPTIONAL wiring works end-to-end.
+     */
+    public function testOptionalTierIsEnforcedWhenOptedIn(): void
+    {
+        $optionalRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-optional.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/projectOptional',
+            ['PHPQACI_ARKITECT_RULES_OPTIONAL' => $optionalRules],
+        );
+
+        self::assertSame(1, $exitCode, "Expected an optional-tier violation, got:\n" . $output);
+        self::assertStringContainsString('Base', $output);
+        self::assertStringContainsString('Abstract*', $output);
+    }
+
+    /**
+     * @param array<string, string> $env extra environment for the phar process
+     *
      * @return array{0: int, 1: string}
      */
-    private function runCheck(string $projectDir): array
+    private function runCheck(string $projectDir, array $env = []): array
     {
-        $cmd = \sprintf(
+        $envPrefix = '';
+        foreach ($env as $name => $value) {
+            $envPrefix .= $name . '=' . escapeshellarg($value) . ' ';
+        }
+
+        $cmd = $envPrefix . \sprintf(
             '%s -f %s -- check --config=%s --autoload=%s --no-interaction --no-ansi 2>&1',
-            \escapeshellarg(\PHP_BINARY),
-            \escapeshellarg(self::PHAR),
-            \escapeshellarg($projectDir . '/phparkitect.php'),
-            \escapeshellarg($projectDir . '/autoload.php'),
+            escapeshellarg(\PHP_BINARY),
+            escapeshellarg(self::PHAR),
+            escapeshellarg($projectDir . '/phparkitect.php'),
+            escapeshellarg($projectDir . '/autoload.php'),
         );
 
         $output   = [];
         $exitCode = 0;
-        \exec($cmd, $output, $exitCode);
+        // \Safe\exec's by-ref params are typed loosely by the stubs ($output as
+        // untyped array, $exitCode nullable); it throws on failure, so on return
+        // they are populated. Rebuild a string output with a type-safe guard
+        // (exec lines are always strings) for a clean array{int, string} return.
+        \Safe\exec($cmd, $output, $exitCode);
 
-        return [$exitCode, \implode("\n", $output)];
+        $text = '';
+        foreach ($output ?? [] as $line) {
+            if (\is_string($line)) {
+                $text .= $line . "\n";
+            }
+        }
+
+        return [$exitCode ?? 1, $text];
     }
 }

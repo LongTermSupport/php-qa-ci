@@ -71,10 +71,11 @@ PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 
 **Phase 3 -- Static Analysis:**
 9\. PHPStan (level max)
+10\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
 
 **Phase 4 -- Testing:**
-10\. PHPUnit
-11\. Infection (mutation testing, optional, requires Xdebug)
+11\. PHPUnit
+12\. Infection (mutation testing, optional, requires Xdebug)
 
 **Post-Success:** PHPLoc (stats only, cannot fail)
 
@@ -84,11 +85,45 @@ See [Pipeline Architecture](./docs/pipeline.md) for full details.
 
 PHP-QA-CI uses a hybrid approach to tool delivery:
 
-- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker -- delivered in `vendor-phar/`
+- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect -- delivered in `vendor-phar/`
 - **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit, parallel-lint
 - **Isolated Composer project**: Rector -- in `tools/rector/` with its own `composer.json` to prevent dependency conflicts
 
 The `phpstan/phpstan` package is in the `replace` section of `composer.json` since PHPStan is provided via PHAR. This prevents version conflicts when consuming projects also require PHPStan extensions.
+
+## PHPArkitect (architecture rules)
+
+[PHPArkitect](https://github.com/phparkitect/arkitect) enforces *structural*
+rules that PHPStan expresses awkwardly: class-naming conventions, namespace
+layering, and dependency direction. It runs in Phase 3 and is **on by default**.
+
+Rules are organised in tiers (mirroring the `rules-default` / `rules-optional`
+PHPStan neon split). php-qa-ci ships each as a file returning a list of arkitect
+`ArchRule` objects, and the pipeline exports the resolved path of each so a
+project config can compose them without knowing the vendor layout:
+
+| Tier                                 | Env var                                   | Default               | Contents                                |
+| ------------------------------------ | ----------------------------------------- | --------------------- | --------------------------------------- |
+| `phparkitect-rules-default`          | `PHPQACI_ARKITECT_RULES_DEFAULT`          | **on**, every project | Interface / Enum / Trait name suffixes  |
+| `phparkitect-rules-optional`         | `PHPQACI_ARKITECT_RULES_OPTIONAL`         | opt-in                | `*Exception` suffix, `Abstract*` prefix |
+| `phparkitect-rules-optional-symfony` | `PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY` | opt-in                | `*Command`, `*Subscriber`               |
+
+The default tier matches on AST node *kind*, so it never forces arkitect to
+resolve class ancestry — that keeps it safe for any project. Ancestry-resolving
+rules (`IsA`/`Extend`/`Implement`, e.g. the `*Exception` convention) need a
+complete autoloader, so they live in the optional tier.
+
+**Project usage.** With no project config, the default tier is applied to the
+detected source dir automatically. To go further, add `qaConfig/phparkitect.php`
+(copy `templates/qaConfig-phparkitect.php`) where you can:
+
+- **extend** the default tier (`require getenv('PHPQACI_ARKITECT_RULES_DEFAULT')`),
+- **opt in** to the optional / symfony tiers (their env vars),
+- **add** project-bespoke rules,
+- **replace** a tier wholesale by dropping your own `qaConfig/phparkitect-rules-*.php` (resolved ahead of the shipped copy by `configPath`).
+
+Disable arkitect for a project with `export useArkitect=0` in
+`qaConfig/qaConfig.inc.bash`. Run it alone with `vendor/bin/qa -t arch`.
 
 ## Custom PHPStan Rules
 
