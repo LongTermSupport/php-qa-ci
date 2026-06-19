@@ -11,7 +11,7 @@
             "version": "v0.2.22",
             "source": {
                 "type": "git",
-                "url": "https://github.com/paranoiq/dogma.git",
+                "url": "https://codeberg.org/paranoiq/dogma.git",
                 "reference": "5ed8a35420ce4fc80b2952e5b4e377d834409141"
             },
             "dist": {
@@ -2966,7 +2966,7 @@
             "version": "v0.1.17",
             "source": {
                 "type": "git",
-                "url": "https://github.com/SQLFTW/sqlftw.git",
+                "url": "https://codeberg.org/paranoiq/sqlftw.git",
                 "reference": "75ad341c9687922c2f08df019781d9508ceb29a4"
             },
             "dist": {
