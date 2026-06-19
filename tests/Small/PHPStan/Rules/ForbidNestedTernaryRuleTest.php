@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(ForbidNestedTernaryRule::class)]
 #[\PHPUnit\Framework\Attributes\Small]
+#[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
 final class ForbidNestedTernaryRuleTest extends TestCase
 {
     private ForbidNestedTernaryRule $rule;

@@ -14,6 +14,7 @@ use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ReflectionProvider;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +30,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(FactorySealedRule::class)]
 #[Small]
+#[AllowMockObjectsWithoutExpectations]
 final class FactorySealedRuleTest extends TestCase
 {
     public function testGetNodeType(): void

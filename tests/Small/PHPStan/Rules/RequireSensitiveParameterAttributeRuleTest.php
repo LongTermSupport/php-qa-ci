@@ -8,7 +8,7 @@ use LTS\PHPQA\PHPStan\Rules\RequireSensitiveParameterAttributeRule;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\Test;
  * @extends RuleTestCase<RequireSensitiveParameterAttributeRule>
  */
 #[CoversClass(RequireSensitiveParameterAttributeRule::class)]
-#[Small]
+#[Medium]
 final class RequireSensitiveParameterAttributeRuleTest extends RuleTestCase
 {
     /**

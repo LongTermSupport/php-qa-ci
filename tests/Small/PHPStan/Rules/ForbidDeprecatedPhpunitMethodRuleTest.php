@@ -10,7 +10,7 @@ use LTS\PHPQA\Tests\Assets\PHPStan\DeprecatedPhpunit\FakeTestCase;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\Medium;
 
 /**
  * Integration test: analyses real fixture files so scope-based type resolution
@@ -24,7 +24,7 @@ use PHPUnit\Framework\Attributes\Small;
  * @extends RuleTestCase<ForbidDeprecatedPhpunitMethodRule>
  */
 #[CoversClass(ForbidDeprecatedPhpunitMethodRule::class)]
-#[Small]
+#[Medium]
 final class ForbidDeprecatedPhpunitMethodRuleTest extends RuleTestCase
 {
     private const string DEPRECATED_MESSAGE_PREFIX = 'Method "';

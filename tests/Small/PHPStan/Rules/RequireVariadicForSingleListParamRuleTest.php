@@ -20,6 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(RequireVariadicForSingleListParamRule::class)]
 #[\PHPUnit\Framework\Attributes\Small]
+#[\PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations]
 final class RequireVariadicForSingleListParamRuleTest extends TestCase
 {
     private RequireVariadicForSingleListParamRule $rule;
