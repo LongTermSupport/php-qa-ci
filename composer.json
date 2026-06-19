@@ -52,6 +52,12 @@
       "LTS\\PHPQA\\Tests\\": [
         "tests/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\DeprecatedPhpunit\\": [
+        "tests/assets/PHPStan/DeprecatedPhpunit/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\FactorySealed\\": [
+        "tests/assets/PHPStan/FactorySealed/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SensitiveParameter\\": [
         "tests/assets/PHPStan/SensitiveParameter/"
       ]

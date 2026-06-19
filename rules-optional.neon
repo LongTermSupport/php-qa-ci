@@ -32,6 +32,29 @@
 # VARIADIC FOR SINGLE LIST PARAM:
 #   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
 #                                           should be variadic T ...$param instead
+#
+# FACTORY-SEALED CONSTRUCTION:
+#   FactorySealedRule                    — a class marked with a sealing attribute
+#                                          (#[FactorySealedBy(Factory::class)], or any
+#                                          project-defined attribute whose first argument
+#                                          is the factory class-string) may be constructed
+#                                          only by that factory; a direct `new X(...)`
+#                                          anywhere else in production code is flagged
+#                                          (tests exempt). Configure which attributes count
+#                                          as sealing markers via
+#                                          parameters.phpqaciFactorySealed.attributeClasses
+#                                          — default is the package's reference attribute.
+#                                          A project that annotates PRODUCTION code should
+#                                          register its OWN attribute FQCN so its classes
+#                                          need not `use` this dev-only QA package.
+#
+# DEPRECATED PHPUNIT METHODS:
+#   ForbidDeprecatedPhpunitMethodRule    — flags calls to a method deprecated by the
+#                                          INSTALLED PHPUnit (e.g. expectExceptionMessage()).
+#                                          The deprecated set is discovered dynamically by
+#                                          reflection (no hard-coded list), so it stays
+#                                          correct as PHPUnit evolves. Only calls on a PHPUnit
+#                                          type (TestCase/Assert or a subclass) are flagged.
 # ─────────────────────────────────────────────────────────────────────────────
 
 rules:
@@ -41,3 +64,25 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+
+parameters:
+    phpqaciFactorySealed:
+        attributeClasses:
+            - LTS\PHPQA\PHPStan\Attribute\FactorySealedBy
+
+parametersSchema:
+    phpqaciFactorySealed: structure([
+        attributeClasses: listOf(string())
+    ])
+
+services:
+    -
+        class: LTS\PHPQA\PHPStan\Rules\FactorySealedRule
+        arguments:
+            sealingAttributes: %phpqaciFactorySealed.attributeClasses%
+        tags:
+            - phpstan.rules.rule
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedPhpunitMethodRule
+        tags:
+            - phpstan.rules.rule
