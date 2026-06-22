@@ -90,7 +90,8 @@
     "class": [
       "LTS\\PHPQA\\ComposerPlugin\\PhiveUpdatePlugin",
       "LTS\\PHPQA\\ComposerPlugin\\SkillsDeployPlugin",
-      "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin"
+      "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin",
+      "LTS\\PHPQA\\ComposerPlugin\\ManagedSourceDeployPlugin"
     ],
     "phpstan": {
       "includes": [
