@@ -306,6 +306,13 @@ This will:
 
 **Migration**: Projects with old hook names (without `php-qa-ci__` prefix) will be automatically migrated during `composer install/update`. The deployment script updates `.claude/settings.json` to reference the new hook names.
 
+## Managed Source
+
+php-qa-ci can generate small PHP artefacts into a consumer's own production
+namespace (a locked `<RootNs>\PhpQaCi\` tree), regenerated on every composer
+install/update and drift-checked via `bin/managed-source check`. First artefact:
+the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-source.md).
+
 ## Environment Requirements
 
 - Linux/Unix environment (uses bash)
