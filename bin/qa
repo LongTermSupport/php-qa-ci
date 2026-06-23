@@ -94,6 +94,20 @@ else
     CI='false'
 fi
 
+# Read-only / check mode is ORTHOGONAL to CI (interactivity). CI decides whether
+# we prompt; qaReadOnly decides whether the mutating tools (Rector, PHP CS Fixer)
+# may write. Auto-enabled on GitHub Actions; overridable via QA_READONLY. See
+# detectReadOnly() in includes/functions.inc.bash for the full precedence rules.
+qaReadOnly="$(detectReadOnly)"
+export qaReadOnly
+if [[ "true" == "$qaReadOnly" ]]; then
+    echo "QA read-only (check) mode: fixers will NOT modify files; a pending change FAILS the run."
+    echo "  (override with QA_READONLY=0 to apply fixes)"
+else
+    echo "QA writable mode: fixers (Rector, PHP CS Fixer) may modify files."
+    echo "  (override with QA_READONLY=1 for a read-only check run, as GitHub Actions does)"
+fi
+
 # the path in the project to check for config
 projectConfigPath="$projectRoot/qaConfig/"
 

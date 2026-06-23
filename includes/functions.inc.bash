@@ -249,6 +249,84 @@ function tryAgainOrAbort() {
   hasBeenRestarted="true"
 }
 
+###############################################################
+# Decide whether this is a READ-ONLY (verification) run.
+#
+# Read-only is ORTHOGONAL to CI/interactivity:
+#   - CI (see bin/qa) controls INTERACTIVITY: no prompts, no retry loops. It is
+#     force-enabled for Claude Code / non-TTY shells so commands never hang.
+#   - qaReadOnly controls whether the mutating tools (Rector, PHP CS Fixer) may
+#     WRITE. A read-only run does not modify files; a pending change FAILS the
+#     gate with remediation guidance.
+#
+# These were historically conflated under CI, which made it impossible to (a)
+# run a real verification gate that fails-instead-of-applies, and (b) still let
+# a non-interactive Claude/local session APPLY fixes. Splitting them fixes both.
+#
+# Precedence (first match wins):
+#   1. explicit QA_READONLY=1/true  -> read-only   (reproduce CI locally)
+#      explicit QA_READONLY=0/false -> writable    (force-apply anywhere)
+#   2. real CI: GitHub Actions (GITHUB_ACTIONS=true) -> read-only
+#   3. everything else (local TTY, Claude sessions, cron) -> writable
+#
+# Echoes "true" or "false".
+function detectReadOnly() {
+  case "${QA_READONLY:-}" in
+    1 | true)
+      echo "true"
+      return 0
+      ;;
+    0 | false)
+      echo "false"
+      return 0
+      ;;
+  esac
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    echo "true"
+    return 0
+  fi
+  echo "false"
+}
+
+###############################################################
+# Emit standardized remediation guidance and FAIL when a mutating tool found
+# pending changes during a read-only run, then exit 1.
+#
+# Usage: reportReadOnlyWouldModify "Rector" "rector"
+#   $1 - human tool name (for the heading)
+#   $2 - the `bin/qa -t <target>` target that applies the fix (e.g. rector, fixer)
+function reportReadOnlyWouldModify() {
+  local toolName="$1"
+  local qaTarget="$2"
+  echo "
+
+    ==================================================
+
+        $toolName: pending changes in a READ-ONLY run
+
+    --------------------------------------------------
+
+    This run is read-only (qaReadOnly=true), so $toolName did NOT modify any
+    files. It found changes it WOULD make, which fails the gate. The diff is
+    shown above.
+
+    Read-only mode is auto-enabled on GitHub Actions. It is INDEPENDENT of CI /
+    interactivity: a Claude Code or local run is non-interactive (so it never
+    hangs) but still WRITES, so you can apply fixes there.
+
+    TO FIX -- apply the changes where writes are allowed, then commit them:
+
+        QA_READONLY=0 vendor/bin/qa -t $qaTarget
+        git add -A && git commit
+
+    Then push. CI passes because no pending changes remain.
+
+    ==================================================
+
+    "
+  exit 1
+}
+
 function findTestsDir() {
   testsDir="$(find $projectRoot -maxdepth 1 -type d \( -name test -o -name tests \) | head -n1)"
   if [[ "" == "$testsDir" ]]; then
