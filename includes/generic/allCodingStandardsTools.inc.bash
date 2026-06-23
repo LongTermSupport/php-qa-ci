@@ -4,7 +4,7 @@ Running Rector
 ----------------------------
 "
 
-runTool rector
+runToolGuarded rector
 
 echo "
 
@@ -12,4 +12,4 @@ Running PHP-CS-Fixer
 ----------------------------
 "
 
-runTool phpCsFixer
+runToolGuarded phpCsFixer

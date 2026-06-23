@@ -11,7 +11,7 @@ else
 Running tests using PhpUnit
 ---------------------------
 "
-    runTool phpunit
+    runToolGuarded phpunit
 
     if [[ "${TRAVIS:-'false'}" == "true" && "$xdebugEnabled" == "1" ]]
     then
@@ -25,6 +25,6 @@ Running tests using PhpUnit
 Running tests using Infection
 -----------------------------
 "
-        runTool infection
+        runToolGuarded infection
     fi
 fi

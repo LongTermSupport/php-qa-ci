@@ -327,6 +327,75 @@ function reportReadOnlyWouldModify() {
   exit 1
 }
 
+###############################################################
+# Run a leaf tool, honouring aggregate (non-fail-fast) mode.
+#
+# Fail-fast is correct for a local apply run: stop at the first problem so the
+# developer fixes it and re-runs. But a read-only verification run (e.g. CI)
+# is more useful when it reports EVERY failing tool in one pass, so nobody
+# fixes phpstan, pushes, and only then discovers phpunit was also red.
+#
+# When qaAggregate=true this runs the tool in a SUBSHELL so its `exit` is
+# contained, records a failure in qaFailedTools, and lets the pipeline carry
+# on. When qaAggregate is not set it is a transparent passthrough to runTool,
+# preserving the historic fail-fast behaviour (including retries) exactly.
+#
+# Aggregate mode never mutates: it is only enabled alongside read-only mode,
+# where Rector / PHP CS Fixer run with --dry-run.
+function runToolGuarded() {
+  local tool="$1"
+  if [[ "true" != "${qaAggregate:-false}" ]]; then
+    runTool "$tool"
+    return $?
+  fi
+  if (runTool "$tool"); then
+    return 0
+  fi
+  qaFailedTools+=("$tool")
+  echo ""
+  echo ">>> $tool FAILED — continuing (aggregate mode); see the summary at the end."
+  echo ""
+  return 0
+}
+
+###############################################################
+# Print the aggregate-mode summary and report overall pass/fail.
+#
+# Returns 0 when nothing failed (or aggregate mode is off), 1 when one or more
+# tools failed. Does NOT exit — the caller owns lock release and the exit code.
+function qaReportAggregate() {
+  if [[ "true" != "${qaAggregate:-false}" ]]; then
+    return 0
+  fi
+  if ((${#qaFailedTools[@]} == 0)); then
+    echo "
+    ==================================================
+
+        Aggregate (read-only) run: every QA tool passed.
+
+    ==================================================
+    "
+    return 0
+  fi
+  echo "
+    ==================================================
+
+        Aggregate (read-only) run: ${#qaFailedTools[@]} tool(s) FAILED
+
+"
+  local failedTool
+  for failedTool in "${qaFailedTools[@]}"; do
+    echo "          - $failedTool"
+  done
+  echo "
+        Each tool's full output is above. Fix every item, then re-run.
+        (This run did not fail fast: all tools ran so you see every problem.)
+
+    ==================================================
+    "
+  return 1
+}
+
 function findTestsDir() {
   testsDir="$(find $projectRoot -maxdepth 1 -type d \( -name test -o -name tests \) | head -n1)"
   if [[ "" == "$testsDir" ]]; then

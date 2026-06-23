@@ -3,7 +3,7 @@ echo "
 Checking Branch Name Policy
 ---------------------------
 "
-runTool branchNamePolicy
+runToolGuarded branchNamePolicy
 
 echo "
 
@@ -14,7 +14,7 @@ if [[ "$phpqaQuickTests" == "1" ]]
 then
     echo "Skipping PHPStan because \$phpqaQuickTests=1"
 else
-    runTool phpstan
+    runToolGuarded phpstan
 fi
 
 echo "
@@ -22,14 +22,14 @@ echo "
 Running PHPArkitect (architecture rules)
 ----------------------------------------
 "
-runTool phpArkitect
+runToolGuarded phpArkitect
 
 echo "
 
 Checking SensitiveParameter Usage
 ---------------------------------
 "
-runTool sensitiveParameterUsage
+runToolGuarded sensitiveParameterUsage
 
 
 
