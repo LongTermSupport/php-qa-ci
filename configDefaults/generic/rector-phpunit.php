@@ -34,6 +34,14 @@ return static function (RectorConfig $rectorConfig): void {
     // e.g., it changes name: '' to name: 0 when the parameter accepts int|string
     // but in tests, '' and 0 have very different meanings and test different code paths
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\ScalarArgumentToExpectedParamTypeRector::class]);
+    // StringCastAssertStringContainsStringRector adds a (string) cast to the haystack of
+    // assertStringContainsString(). Rector cannot see PHPStan's flow narrowing, so for the idiomatic
+    // `assertNotNull($x); assertStringContainsString(..., $x);` pattern (where $x is ?string proven
+    // non-null) it casts a value PHPStan already knows is a string — which php-qa-ci's PHPStan-max then
+    // rejects as "casting to string something that's already string". The two tools shipped here would
+    // contradict each other on correct code with no fix that satisfies both. PHPStan is the stronger
+    // guarantee, so we keep it and drop the redundant-cast-adding rule.
+    $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\StringCastAssertStringContainsStringRector::class]);
     $rectorConfig->rules([
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
