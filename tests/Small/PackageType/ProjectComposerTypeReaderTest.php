@@ -30,36 +30,36 @@ final class ProjectComposerTypeReaderTest extends TestCase
     #[Test]
     public function itReturnsAnExplicitlyDeclaredType(): void
     {
-        self::assertSame('library', (new ProjectComposerTypeReader(['type' => 'library']))->effectiveType());
-        self::assertSame('project', (new ProjectComposerTypeReader(['type' => 'project']))->effectiveType());
-        self::assertSame('metapackage', (new ProjectComposerTypeReader(['type' => 'metapackage']))->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['type' => 'library'])->effectiveType());
+        self::assertSame('project', new ProjectComposerTypeReader(['type' => 'project'])->effectiveType());
+        self::assertSame('metapackage', new ProjectComposerTypeReader(['type' => 'metapackage'])->effectiveType());
     }
 
     #[Test]
     public function itNormalisesCaseAndSurroundingWhitespace(): void
     {
-        self::assertSame('library', (new ProjectComposerTypeReader(['type' => '  Library '])) ->effectiveType());
-        self::assertSame('project', (new ProjectComposerTypeReader(['type' => 'PROJECT']))->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['type' => '  Library '])->effectiveType());
+        self::assertSame('project', new ProjectComposerTypeReader(['type' => 'PROJECT'])->effectiveType());
     }
 
     #[Test]
     public function itDefaultsToLibraryWhenTheTypeIsAbsent(): void
     {
-        self::assertSame('library', (new ProjectComposerTypeReader(['name' => 'acme/widget']))->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['name' => 'acme/widget'])->effectiveType());
     }
 
     #[Test]
     public function itDefaultsToLibraryWhenTheTypeIsBlank(): void
     {
-        self::assertSame('library', (new ProjectComposerTypeReader(['type' => '']))->effectiveType());
-        self::assertSame('library', (new ProjectComposerTypeReader(['type' => '   ']))->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['type' => ''])->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['type' => '   '])->effectiveType());
     }
 
     #[Test]
     public function itDefaultsToLibraryWhenTheTypeIsNotAString(): void
     {
-        self::assertSame('library', (new ProjectComposerTypeReader(['type' => null]))->effectiveType());
-        self::assertSame('library', (new ProjectComposerTypeReader(['type' => ['library']]))->effectiveType());
-        self::assertSame('library', (new ProjectComposerTypeReader(['type' => 123]))->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['type' => null])->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['type' => ['library']])->effectiveType());
+        self::assertSame('library', new ProjectComposerTypeReader(['type' => 123])->effectiveType());
     }
 }

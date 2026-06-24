@@ -45,7 +45,7 @@ final class RequireApiOrInternalTagRule implements Rule
 
     /**
      * @param list<string> $ignoredNamespacePrefixes fully-qualified namespace prefixes whose
-     *                                                class-likes are exempt (generated/managed code)
+     *                                               class-likes are exempt (generated/managed code)
      */
     public function __construct(
         private readonly ProjectComposerTypeReader $typeReader,
@@ -94,12 +94,12 @@ final class RequireApiOrInternalTagRule implements Rule
                 . 'and the library will support long-term.',
                 $className,
             ),
-            ApiOrInternalTagVerdict::Both => \sprintf(
+            ApiOrInternalTagVerdict::Both    => \sprintf(
                 'Class %s declares BOTH @api and @internal, which is contradictory. '
                 . 'Choose exactly one: @api (a supported public contract) or @internal (not for consumers).',
                 $className,
             ),
-            ApiOrInternalTagVerdict::Ok => null,
+            ApiOrInternalTagVerdict::Ok      => null,
         };
 
         if (null === $message) {

@@ -169,8 +169,8 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
-     * The same factory rejects a consumer that depends on the library's
-     * @internal namespace, naming the offending class and explaining why.
+     * The same factory rejects a consumer that depends on an internal namespace
+     * of the library, naming the offending class and explaining why.
      */
     public function testConsumerApiBoundaryRejectsInternalDependency(): void
     {

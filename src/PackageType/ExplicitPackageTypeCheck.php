@@ -52,6 +52,6 @@ final class ExplicitPackageTypeCheck
 
     public static function main(): int
     {
-        return (new self())->run(Helper::getComposerJsonDecoded());
+        return new self()->run(Helper::getComposerJsonDecoded());
     }
 }

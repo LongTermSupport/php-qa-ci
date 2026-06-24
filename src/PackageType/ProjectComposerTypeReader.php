@@ -35,12 +35,12 @@ final class ProjectComposerTypeReader
     public function effectiveType(): string
     {
         $composerJson = $this->composerJsonOverride ?? Helper::getComposerJsonDecoded();
-        $type         = $composerJson['type'] ?? null;
+        $type         = $composerJson['type']       ?? null;
 
-        if (!\is_string($type) || '' === \trim($type)) {
+        if (!\is_string($type) || '' === trim($type)) {
             return self::DEFAULT_TYPE;
         }
 
-        return \strtolower(\trim($type));
+        return strtolower(trim($type));
     }
 }
