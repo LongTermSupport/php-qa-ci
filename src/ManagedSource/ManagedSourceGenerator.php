@@ -45,8 +45,9 @@ final class ManagedSourceGenerator
         if (!\is_array($autoload) || !isset($autoload['psr-4']) || !\is_array($autoload['psr-4'])) {
             throw new RuntimeException('composer.json has no autoload.psr-4 mapping to host the managed namespace');
         }
+
         $psr4      = $autoload['psr-4'];
-        $namespace = \array_key_first($psr4);
+        $namespace = array_key_first($psr4);
         if (!\is_string($namespace) || '' === $namespace) {
             throw new RuntimeException('composer.json autoload.psr-4 is empty');
         }
@@ -55,13 +56,14 @@ final class ManagedSourceGenerator
         if (\is_array($path)) {
             $path = $path[0] ?? null;
         }
+
         if (!\is_string($path) || '' === $path) {
             throw new RuntimeException(\sprintf('autoload.psr-4 entry "%s" has no usable directory', $namespace));
         }
 
         return [
-            'rootNamespace' => \rtrim($namespace, '\\'),
-            'srcDir'        => \rtrim($path, '/'),
+            'rootNamespace' => rtrim($namespace, '\\'),
+            'srcDir'        => rtrim($path, '/'),
         ];
     }
 
@@ -74,7 +76,7 @@ final class ManagedSourceGenerator
     public function managedFiles(string $rootNamespace): array
     {
         return [
-            'PhpQaCi/FactorySealedBy.php' => self::renderFactorySealedBy($rootNamespace . '\\PhpQaCi'),
+            'PhpQaCi/FactorySealedBy.php' => $this->renderFactorySealedBy($rootNamespace . '\PhpQaCi'),
         ];
     }
 
@@ -91,9 +93,10 @@ final class ManagedSourceGenerator
         foreach ($this->managedFiles($rootNamespace) as $relativePath => $contents) {
             $absolutePath = $srcAbs . '/' . $relativePath;
             $directory    = \dirname($absolutePath);
-            if (!\is_dir($directory)) {
+            if (!is_dir($directory)) {
                 \Safe\mkdir($directory, 0o755, true);
             }
+
             \Safe\file_put_contents($absolutePath, $contents);
             $written[] = $absolutePath;
         }
@@ -114,7 +117,7 @@ final class ManagedSourceGenerator
         $drift = [];
         foreach ($this->managedFiles($rootNamespace) as $relativePath => $expected) {
             $absolutePath = $srcAbs . '/' . $relativePath;
-            if (!\is_file($absolutePath) || \Safe\file_get_contents($absolutePath) !== $expected) {
+            if (!is_file($absolutePath) || \Safe\file_get_contents($absolutePath) !== $expected) {
                 $drift[] = $relativePath;
             }
         }
@@ -140,7 +143,7 @@ final class ManagedSourceGenerator
         return [$target['rootNamespace'], $projectRoot . '/' . $target['srcDir']];
     }
 
-    private static function renderFactorySealedBy(string $namespace): string
+    private function renderFactorySealedBy(string $namespace): string
     {
         return <<<PHP
             <?php
@@ -172,6 +175,10 @@ final class ManagedSourceGenerator
              * It lives in your project's own (production) namespace — not php-qa-ci's —
              * because production code annotates with it and must never `use` a
              * `require-dev` package.
+             *
+             * @internal this managed artefact is not part of your package's public
+             *           API surface — a `type: library` consumer's @api/@internal
+             *           classification rule passes over it on that basis.
              */
             #[Attribute(Attribute::TARGET_CLASS)]
             final readonly class FactorySealedBy

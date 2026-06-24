@@ -58,7 +58,7 @@ final class ManagedSourceDeployPlugin implements PluginInterface, EventSubscribe
         $io       = $event->getIO();
         $composer = $event->getComposer();
 
-        if (\filter_var(\getenv('PHP_QA_CI_DISABLE_CONFIG_PUSH'), FILTER_VALIDATE_BOOLEAN)) {
+        if (filter_var(getenv('PHP_QA_CI_DISABLE_CONFIG_PUSH'), FILTER_VALIDATE_BOOLEAN)) {
             $io->write('<info>php-qa-ci: managed-source generation DISABLED via PHP_QA_CI_DISABLE_CONFIG_PUSH=true — skipping</info>');
 
             return;
@@ -80,11 +80,11 @@ final class ManagedSourceDeployPlugin implements PluginInterface, EventSubscribe
         $projectRoot = \dirname($vendorDir);
 
         try {
-            $written = (new ManagedSourceGenerator())->generate($projectRoot);
-        } catch (Throwable $exception) {
+            $written = new ManagedSourceGenerator()->generate($projectRoot);
+        } catch (Throwable $throwable) {
             // A project with no autoload.psr-4 has nowhere to host the namespace —
             // skip cleanly rather than failing the whole install/update.
-            $io->writeError('<comment>php-qa-ci: managed-source generation skipped — ' . $exception->getMessage() . '</comment>');
+            $io->writeError('<comment>php-qa-ci: managed-source generation skipped — ' . $throwable->getMessage() . '</comment>');
 
             return;
         }

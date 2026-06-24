@@ -24,7 +24,7 @@ final class ManagedSourceGeneratorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->projectRoot = sys_get_temp_dir() . '/phpqaci-managed-' . getmypid() . '-' . uniqid();
+        $this->projectRoot = sys_get_temp_dir() . '/phpqaci-managed-' . \Safe\getmypid() . '-' . uniqid();
         \Safe\mkdir($this->projectRoot, 0o755, true);
     }
 
@@ -36,56 +36,57 @@ final class ManagedSourceGeneratorTest extends TestCase
     public function testResolveTargetTakesTheRuntimePsr4RootAndItsSrcDir(): void
     {
         $composer = [
-            'autoload'     => ['psr-4' => ['Ballicom\\AccountsIq\\' => 'src/']],
-            'autoload-dev' => ['psr-4' => ['Ballicom\\AccountsIq\\Dev\\' => 'src-dev/']],
+            'autoload'     => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']],
+            'autoload-dev' => ['psr-4' => ['Ballicom\AccountsIq\Dev\\' => 'src-dev/']],
         ];
 
         $target = ManagedSourceGenerator::resolveTarget($composer);
 
-        self::assertSame('Ballicom\\AccountsIq', $target['rootNamespace'], 'trailing separator trimmed');
+        self::assertSame('Ballicom\AccountsIq', $target['rootNamespace'], 'trailing separator trimmed');
         self::assertSame('src', $target['srcDir'], 'runtime autoload src dir, never autoload-dev');
     }
 
     public function testResolveTargetAcceptsAnArrayPsr4Value(): void
     {
-        $composer = ['autoload' => ['psr-4' => ['Acme\\Lib\\' => ['lib/', 'extra/']]]];
+        $composer = ['autoload' => ['psr-4' => ['Acme\Lib\\' => ['lib/', 'extra/']]]];
 
         $target = ManagedSourceGenerator::resolveTarget($composer);
 
-        self::assertSame('Acme\\Lib', $target['rootNamespace']);
+        self::assertSame('Acme\Lib', $target['rootNamespace']);
         self::assertSame('lib', $target['srcDir'], 'first path of an array value');
     }
 
     public function testManagedFilesRendersFactorySealedByInThePhpQaCiSubNamespace(): void
     {
-        $files = (new ManagedSourceGenerator())->managedFiles('Ballicom\\AccountsIq');
+        $files = new ManagedSourceGenerator()->managedFiles('Ballicom\AccountsIq');
 
         self::assertArrayHasKey('PhpQaCi/FactorySealedBy.php', $files);
         $body = $files['PhpQaCi/FactorySealedBy.php'];
 
         self::assertStringContainsString('declare(strict_types=1);', $body);
-        self::assertStringContainsString('namespace Ballicom\\AccountsIq\\PhpQaCi;', $body);
+        self::assertStringContainsString('namespace Ballicom\AccountsIq\PhpQaCi;', $body);
         self::assertStringContainsString('#[Attribute(Attribute::TARGET_CLASS)]', $body);
         self::assertStringContainsString('final readonly class FactorySealedBy', $body);
+        self::assertStringContainsString('@internal', $body, "classified @internal so a type:library consumer's API-surface rule passes over the managed tree");
         self::assertStringContainsString('GENERATED', $body, 'carries a managed/do-not-edit header');
-        self::assertStringContainsString('LTS\\PHPQA\\PHPStan\\Rules\\FactorySealedRule', $body, 'points at the enforcing rule');
+        self::assertStringContainsString(\LTS\PHPQA\PHPStan\Rules\FactorySealedRule::class, $body, 'points at the enforcing rule');
     }
 
     public function testGenerateWritesTheManagedTreeAndCheckThenReportsNoDrift(): void
     {
-        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\\AccountsIq\\' => 'src/']]]);
+        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']]]);
 
-        $written = (new ManagedSourceGenerator())->generate($this->projectRoot);
+        $written = new ManagedSourceGenerator()->generate($this->projectRoot);
 
         $expected = $this->projectRoot . '/src/PhpQaCi/FactorySealedBy.php';
         self::assertContains($expected, $written);
         self::assertFileExists($expected);
-        self::assertSame([], (new ManagedSourceGenerator())->check($this->projectRoot), 'freshly generated tree has no drift');
+        self::assertSame([], new ManagedSourceGenerator()->check($this->projectRoot), 'freshly generated tree has no drift');
     }
 
     public function testCheckReportsDriftWhenAManagedFileIsHandEdited(): void
     {
-        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\\AccountsIq\\' => 'src/']]]);
+        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']]]);
         $generator = new ManagedSourceGenerator();
         $generator->generate($this->projectRoot);
 
@@ -96,9 +97,9 @@ final class ManagedSourceGeneratorTest extends TestCase
 
     public function testCheckReportsDriftWhenAManagedFileIsMissing(): void
     {
-        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\\AccountsIq\\' => 'src/']]]);
+        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']]]);
 
-        self::assertSame(['PhpQaCi/FactorySealedBy.php'], (new ManagedSourceGenerator())->check($this->projectRoot), 'a never-generated tree is drift');
+        self::assertSame(['PhpQaCi/FactorySealedBy.php'], new ManagedSourceGenerator()->check($this->projectRoot), 'a never-generated tree is drift');
     }
 
     /**
@@ -119,14 +120,27 @@ final class ManagedSourceGeneratorTest extends TestCase
 
             return;
         }
+
         if (!is_dir($path)) {
             return;
         }
+
         foreach (\Safe\scandir($path) as $entry) {
-            if ('.' !== $entry && '..' !== $entry) {
-                $this->deleteRecursive($path . '/' . $entry);
+            if (!\is_string($entry)) {
+                continue;
             }
+
+            if ('.' === $entry) {
+                continue;
+            }
+
+            if ('..' === $entry) {
+                continue;
+            }
+
+            $this->deleteRecursive($path . '/' . $entry);
         }
+
         \Safe\rmdir($path);
     }
 }
