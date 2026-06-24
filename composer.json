@@ -52,6 +52,9 @@
       "LTS\\PHPQA\\Tests\\": [
         "tests/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiOrInternal\\": [
+        "tests/assets/PHPStan/ApiOrInternal/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\DeprecatedPhpunit\\": [
         "tests/assets/PHPStan/DeprecatedPhpunit/"
       ],
@@ -67,6 +70,7 @@
     "bin/composer-require-checker",
     "bin/infection",
     "bin/mdlinks",
+    "bin/package-type-check",
     "bin/php-cs-fixer",
     "bin/phpstan",
     "bin/phpunit-check-annotation",

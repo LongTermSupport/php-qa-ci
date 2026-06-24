@@ -7,6 +7,7 @@
 !/bin/infection
 !/bin/managed-source
 !/bin/mdlinks
+!/bin/package-type-check
 !/bin/php-cs-fixer
 !/bin/phpstan
 !/bin/phpunit-check-annotation

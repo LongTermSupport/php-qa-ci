@@ -150,6 +150,43 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
+     * The shipped consumer API-boundary factory: a consumer that reaches the
+     * library only through its public @api namespace passes. Proves the
+     * PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY factory wiring works end-to-end and
+     * does not over-fire on legitimate facade-only usage.
+     */
+    public function testConsumerApiBoundaryAllowsPublicNamespaceOnly(): void
+    {
+        $factory = __DIR__ . '/../../../configDefaults/generic/phparkitect-consumer-api-boundary.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/consumerBoundaryValid',
+            ['PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY' => $factory],
+        );
+
+        self::assertSame(0, $exitCode, "Expected facade-only usage to pass, got:\n" . $output);
+        self::assertStringContainsString('No violations detected', $output);
+    }
+
+    /**
+     * The same factory rejects a consumer that depends on an internal namespace
+     * of the library, naming the offending class and explaining why.
+     */
+    public function testConsumerApiBoundaryRejectsInternalDependency(): void
+    {
+        $factory = __DIR__ . '/../../../configDefaults/generic/phparkitect-consumer-api-boundary.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/consumerBoundaryInvalid',
+            ['PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY' => $factory],
+        );
+
+        self::assertSame(1, $exitCode, "Expected an internal-dependency violation, got:\n" . $output);
+        self::assertStringContainsString('BadService', $output);
+        self::assertStringContainsString('Acme\Widget\Internal', $output);
+    }
+
+    /**
      * @param array<string, string> $env extra environment for the phar process
      *
      * @return array{0: int, 1: string}

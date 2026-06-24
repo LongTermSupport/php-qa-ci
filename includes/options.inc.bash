@@ -40,6 +40,7 @@ function usage {
     echo "     allCS                      all coding standards tools"
     echo "     psr|psr4                   psr4 validation"
     echo "     com|composer               composer validation"
+    echo "     pt|packageType             assert composer.json declares an explicit package type (library/project/...)"
     echo "     st|stricttypes             strict types validation"
     echo "     lint|phplint               phplint"
     echo "     stan|phpstan               phpstan"
@@ -104,6 +105,7 @@ NON_PATH_SUPPORTING_TOOLS=(
     "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
     "branchNamePolicy" "bnp"                     # ❌ Repo-level git check, not path-specific
     "sensitiveParameterUsage" "spu" "sensitiveparameter" # ❌ Codebase-wide check, always scans src/
+    "packageType" "pt" "packagetype"             # ❌ Reads composer.json only, not path-specific
     "phpArkitect" "arch" "arkitect" "phparkitect" # ❌ Paths defined inside the config file (ClassSet::fromDir)
     "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
     "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
@@ -183,6 +185,7 @@ then
         r | rector                  ) singleToolToRun="rector";;
         bnp | branchNamePolicy      ) singleToolToRun="branchNamePolicy";;
         spu | sensitiveparameter | sensitiveParameterUsage ) singleToolToRun="sensitiveParameterUsage";;
+        pt | packagetype | packageType ) singleToolToRun="packageType";;
         * )
             printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
             usage

@@ -54,11 +54,23 @@ parameters:
             - url
             - uri
             - path
+    # RequireApiOrInternalTagRule — fully-qualified namespace PREFIXES whose
+    # class-likes are exempt from @api/@internal classification. Generated and
+    # managed trees cannot carry hand-authored tags, so list them here, e.g.:
+    #   phpqaciApiOrInternal:
+    #       ignoredNamespacePrefixes:
+    #           - App\Generated
+    #           - App\PhpQaCi
+    phpqaciApiOrInternal:
+        ignoredNamespacePrefixes: []
 
 parametersSchema:
     phpqaciSensitiveParameter: structure([
         namePatterns: listOf(string())
         ignoreSubstrings: listOf(string())
+    ])
+    phpqaciApiOrInternal: structure([
+        ignoredNamespacePrefixes: listOf(string())
     ])
 
 services:
@@ -71,5 +83,18 @@ services:
         arguments:
             namePatterns: %phpqaciSensitiveParameter.namePatterns%
             ignoreSubstrings: %phpqaciSensitiveParameter.ignoreSubstrings%
+        tags:
+            - phpstan.rules.rule
+    # Package-type-aware API-surface classification (default-on). For a
+    # `type: library` project (Composer's silent default when type is omitted),
+    # every public class-like must be classified as exactly one of @api / @internal;
+    # for any other type the rule no-ops. The collaborators are autowired from the
+    # services below; ignored namespace prefixes come from the parameter above.
+    - LTS\PHPQA\PackageType\ProjectComposerTypeReader
+    - LTS\PHPQA\PHPStan\Rules\ApiOrInternalTagDetector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\RequireApiOrInternalTagRule
+        arguments:
+            ignoredNamespacePrefixes: %phpqaciApiOrInternal.ignoredNamespacePrefixes%
         tags:
             - phpstan.rules.rule

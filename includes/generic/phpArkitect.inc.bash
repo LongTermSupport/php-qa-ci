@@ -49,6 +49,11 @@ export PHPQACI_ARKITECT_SRC_DIR="$srcDir"
 export PHPQACI_ARKITECT_RULES_DEFAULT="$(configPath phparkitect-rules-default.php)"
 export PHPQACI_ARKITECT_RULES_OPTIONAL="$(configPath phparkitect-rules-optional.php)"
 export PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY="$(configPath phparkitect-rules-optional-symfony.php)"
+# Reusable consumer API-boundary rule FACTORY (not a tier). A consumer of a
+# type:library package loads this from its qaConfig/phparkitect.php to forbid its
+# own code from depending on that library's @internal namespaces — reaching it
+# only via the public @api namespace. See configDefaults/generic/phparkitect-consumer-api-boundary.php.
+export PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY="$(configPath phparkitect-consumer-api-boundary.php)"
 
 phpArkitectLogDir="$varDir/phparkitect_logs"
 phpArkitectLogFile="phparkitect.log"
