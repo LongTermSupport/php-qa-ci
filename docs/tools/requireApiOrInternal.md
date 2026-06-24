@@ -92,6 +92,35 @@ conscious rather than inherited from Composer's silent default. A package that i
 really an application sets `type: project` (and this rule then no-ops); a real
 library sets `type: library` and classifies its surface.
 
+## Enforcing the boundary in consumers
+
+Classifying the surface declares the contract; it does not stop a *consumer* from
+reaching into `@internal` code anyway. php-qa-ci ships a reusable PHPArkitect
+**consumer API-boundary factory** for that hard half — a consumer applies it to
+its own `src/` to forbid depending on a library's internal namespaces (only the
+public `@api` namespace is allowed).
+
+It is loaded the same way as the shipped rule tiers — via an env var the pipeline
+exports (`PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY`) — from the consumer's
+`qaConfig/phparkitect.php`:
+
+```php
+$consumerMustOnlyDependOn = require getenv('PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY');
+
+$config->add(
+    ClassSet::fromDir(__DIR__ . '/../src'),
+    ...$consumerMustOnlyDependOn(
+        'Ballicom\AccountsIq\Facade',   // the library's public @api namespace
+        'Ballicom\AccountsIq\Gateway',  // its @internal namespaces, off-limits …
+        'Ballicom\AccountsIq\Api',
+    ),
+);
+```
+
+Any consumer class that depends on a listed internal namespace then fails
+`bin/qa -t arch`, naming the offending class. The factory lives at
+[`configDefaults/generic/phparkitect-consumer-api-boundary.php`](./../../configDefaults/generic/phparkitect-consumer-api-boundary.php).
+
 ## Design / implementation notes
 
 - Pure decision core: [`ApiOrInternalTagDetector`](./../../src/PHPStan/Rules/ApiOrInternalTagDetector.php)
