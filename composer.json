@@ -70,6 +70,7 @@
     "bin/composer-require-checker",
     "bin/infection",
     "bin/mdlinks",
+    "bin/package-type-check",
     "bin/php-cs-fixer",
     "bin/phpstan",
     "bin/phpunit-check-annotation",

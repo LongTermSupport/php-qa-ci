@@ -85,11 +85,12 @@ The default is an empty list (nothing exempt).
 ## Relationship to the explicit-`type` requirement
 
 This rule treats an **undeclared** `type` as `library` (the safe side — keep the
-surface discipline on). Separately, php-qa-ci **hard-fails** a `composer.json` that
-does not declare `type` explicitly, so the app-vs-library decision is conscious
-rather than inherited from Composer's silent default. A package that is really an
-application sets `type: project` (and this rule then no-ops); a real library sets
-`type: library` and classifies its surface.
+surface discipline on). Separately, the always-on
+[Package Type Declaration Check](packageType.md) **hard-fails** a `composer.json`
+that does not declare `type` explicitly, so the app-vs-library decision is
+conscious rather than inherited from Composer's silent default. A package that is
+really an application sets `type: project` (and this rule then no-ops); a real
+library sets `type: library` and classifies its surface.
 
 ## Design / implementation notes
 

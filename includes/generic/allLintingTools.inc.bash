@@ -15,6 +15,14 @@ Checking for Composer Issues
 runTool composerChecks
 
 echo "
+
+Checking Package Type Is Declared
+---------------------------------
+"
+
+runTool packageType
+
+echo "
 Setting Strict Types If It's Missing
 -------------------------------------
 "
