@@ -18,7 +18,7 @@ namespace LTS\PHPQA\PHPStan\Rules;
  *     one of `@api` (supported) or `@internal` (may change) — neither ⇒ Missing,
  *     both ⇒ Both (contradictory).
  *   - Any other type (`project` application, `metapackage`, …): no consumer-facing
- *     API surface, so the classification is not required — always {@see ApiOrInternalTagVerdict::Ok}.
+ *     API surface, so the classification is not required — always {@see ApiOrInternalTagVerdictEnum::Ok}.
  *
  * The `type` string is normalised (trimmed + lower-cased) because it is
  * author-typed free text in composer.json.
@@ -27,20 +27,20 @@ final class ApiOrInternalTagDetector
 {
     private const string LIBRARY_TYPE = 'library';
 
-    public function classify(string $projectType, bool $hasApi, bool $hasInternal): ApiOrInternalTagVerdict
+    public function classify(string $projectType, bool $hasApi, bool $hasInternal): ApiOrInternalTagVerdictEnum
     {
-        if (self::LIBRARY_TYPE !== \strtolower(\trim($projectType))) {
-            return ApiOrInternalTagVerdict::Ok;
+        if (self::LIBRARY_TYPE !== strtolower(trim($projectType))) {
+            return ApiOrInternalTagVerdictEnum::Ok;
         }
 
         if ($hasApi && $hasInternal) {
-            return ApiOrInternalTagVerdict::Both;
+            return ApiOrInternalTagVerdictEnum::Both;
         }
 
         if (!$hasApi && !$hasInternal) {
-            return ApiOrInternalTagVerdict::Missing;
+            return ApiOrInternalTagVerdictEnum::Missing;
         }
 
-        return ApiOrInternalTagVerdict::Ok;
+        return ApiOrInternalTagVerdictEnum::Ok;
     }
 }

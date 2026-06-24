@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\PHPStan\Rules;
 
+use LTS\PHPQA\PackageType\DevAutoloadNamespaceReader;
 use LTS\PHPQA\PackageType\ProjectComposerTypeReader;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
@@ -32,25 +33,30 @@ use PHPStan\Rules\RuleErrorBuilder;
  * For any other package type (`project` application, `metapackage`, …) there is
  * no consumer-facing surface, so the rule no-ops.
  *
- * Generated / managed trees that cannot carry hand-authored tags are exempted via
- * the `ignoredNamespacePrefixes` parameter (e.g. `App\Generated`, `App\PhpQaCi`).
+ * Dev-only code (under an `autoload-dev` PSR-4 namespace — tests, dev tooling, QA
+ * config) is never shipped runtime surface, so it is skipped automatically (read
+ * from composer.json via {@see DevAutoloadNamespaceReader}); a library never has
+ * to hand-tag its own test suite. Generated / managed trees that live under the
+ * runtime `autoload` namespace yet cannot carry hand-authored tags are exempted
+ * via the explicit `ignoredNamespacePrefixes` parameter (e.g. `App\Generated`).
  *
  * @see ApiOrInternalTagDetector for the pure decision core.
  *
  * @implements Rule<InClassNode>
  */
-final class RequireApiOrInternalTagRule implements Rule
+final readonly class RequireApiOrInternalTagRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.requireApiOrInternalTag';
 
     /**
      * @param list<string> $ignoredNamespacePrefixes fully-qualified namespace prefixes whose
-     *                                               class-likes are exempt (generated/managed code)
+     *                                               class-likes are exempt (runtime generated/managed code)
      */
     public function __construct(
-        private readonly ProjectComposerTypeReader $typeReader,
-        private readonly ApiOrInternalTagDetector $detector,
-        private readonly array $ignoredNamespacePrefixes = [],
+        private ProjectComposerTypeReader $typeReader,
+        private ApiOrInternalTagDetector $detector,
+        private DevAutoloadNamespaceReader $devNamespaceReader,
+        private array $ignoredNamespacePrefixes = [],
     ) {
     }
 
@@ -73,7 +79,8 @@ final class RequireApiOrInternalTagRule implements Rule
 
         $className = $classReflection->getName();
 
-        foreach ($this->ignoredNamespacePrefixes as $prefix) {
+        $ignoredPrefixes = [...$this->ignoredNamespacePrefixes, ...$this->devNamespaceReader->namespacePrefixes()];
+        foreach ($ignoredPrefixes as $prefix) {
             if (str_starts_with($className, $prefix)) {
                 return [];
             }
@@ -86,20 +93,20 @@ final class RequireApiOrInternalTagRule implements Rule
         $verdict = $this->detector->classify($this->typeReader->effectiveType(), $hasApi, $hasInternal);
 
         $message = match ($verdict) {
-            ApiOrInternalTagVerdict::Missing => \sprintf(
-                'Class %s is part of a library\'s public surface but is not classified. '
+            ApiOrInternalTagVerdictEnum::Missing => \sprintf(
+                "Class %s is part of a library's public surface but is not classified. "
                 . 'Add exactly one of @api (a supported public contract — changing it later breaks '
                 . 'consumers) or @internal (not for consumers) to its docblock. '
                 . 'Safe default: @internal; promote to @api only what consumers genuinely need '
                 . 'and the library will support long-term.',
                 $className,
             ),
-            ApiOrInternalTagVerdict::Both    => \sprintf(
+            ApiOrInternalTagVerdictEnum::Both    => \sprintf(
                 'Class %s declares BOTH @api and @internal, which is contradictory. '
                 . 'Choose exactly one: @api (a supported public contract) or @internal (not for consumers).',
                 $className,
             ),
-            ApiOrInternalTagVerdict::Ok      => null,
+            ApiOrInternalTagVerdictEnum::Ok      => null,
         };
 
         if (null === $message) {

@@ -20,7 +20,7 @@ use LTS\PHPQA\Helper;
  * The optional constructor override makes the reader injectable so unit tests (and
  * the rule's own tests) can drive any type without touching a real `composer.json`.
  */
-final class ProjectComposerTypeReader
+final readonly class ProjectComposerTypeReader
 {
     private const string DEFAULT_TYPE = 'library';
 
@@ -28,7 +28,7 @@ final class ProjectComposerTypeReader
      * @param array<int|string, mixed>|null $composerJsonOverride decoded composer.json
      *                                                            for tests; null reads the live project file
      */
-    public function __construct(private readonly ?array $composerJsonOverride = null)
+    public function __construct(private ?array $composerJsonOverride = null)
     {
     }
 

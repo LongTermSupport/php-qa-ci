@@ -21,10 +21,10 @@ use LTS\PHPQA\Helper;
  * thin I/O runner (read composer.json → print → exit code) invoked by the
  * `packageType` pipeline tool.
  */
-final class ExplicitPackageTypeCheck
+final readonly class ExplicitPackageTypeCheck
 {
     public function __construct(
-        private readonly ExplicitPackageTypeDetector $detector = new ExplicitPackageTypeDetector(),
+        private ExplicitPackageTypeDetector $detector = new ExplicitPackageTypeDetector(),
     ) {
     }
 

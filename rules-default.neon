@@ -91,10 +91,20 @@ services:
     # for any other type the rule no-ops. The collaborators are autowired from the
     # services below; ignored namespace prefixes come from the parameter above.
     - LTS\PHPQA\PackageType\ProjectComposerTypeReader
+    - LTS\PHPQA\PackageType\DevAutoloadNamespaceReader
     - LTS\PHPQA\PHPStan\Rules\ApiOrInternalTagDetector
     -
         class: LTS\PHPQA\PHPStan\Rules\RequireApiOrInternalTagRule
         arguments:
             ignoredNamespacePrefixes: %phpqaciApiOrInternal.ignoredNamespacePrefixes%
+        tags:
+            - phpstan.rules.rule
+    # API-surface integrity (default-on, library-only): an @api class-like must not
+    # expose an @internal one (same package) through its public signature — else the
+    # @api promise is hollow and a consumer is forced to touch an @internal type.
+    # Complements RequireApiOrInternalTagRule (presence) with coherence. The
+    # ReflectionProvider is autowired by PHPStan core.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ApiMustNotExposeInternalRule
         tags:
             - phpstan.rules.rule

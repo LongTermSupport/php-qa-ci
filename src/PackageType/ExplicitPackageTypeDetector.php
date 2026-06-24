@@ -28,7 +28,7 @@ final class ExplicitPackageTypeDetector
     {
         $type = $composerJson['type'] ?? null;
 
-        if (\is_string($type) && '' !== \trim($type)) {
+        if (\is_string($type) && '' !== trim($type)) {
             return null;
         }
 

@@ -16,7 +16,7 @@ namespace LTS\PHPQA\PHPStan\Rules;
  *   - {@see self::Both}    — it carries BOTH tags: contradictory; a symbol is
  *                            either public API or internal, never both.
  */
-enum ApiOrInternalTagVerdict
+enum ApiOrInternalTagVerdictEnum
 {
     case Ok;
     case Missing;

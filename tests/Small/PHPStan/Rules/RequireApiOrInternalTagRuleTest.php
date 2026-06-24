@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
+use LTS\PHPQA\PackageType\DevAutoloadNamespaceReader;
 use LTS\PHPQA\PackageType\ProjectComposerTypeReader;
 use LTS\PHPQA\PHPStan\Rules\ApiOrInternalTagDetector;
 use LTS\PHPQA\PHPStan\Rules\RequireApiOrInternalTagRule;
@@ -38,6 +39,9 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
 
     /** @var list<string> */
     private array $ignoredNamespacePrefixes = [];
+
+    /** @var array<int|string, mixed> decoded composer.json for the dev-namespace reader */
+    private array $composerJson = [];
 
     #[Test]
     public function itFlagsAnUnclassifiedClassInALibrary(): void
@@ -94,11 +98,28 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
         );
     }
 
+    #[Test]
+    public function itSkipsClassLikesInAnAutoloadDevNamespace(): void
+    {
+        // The fixture lives under LTS\PHPQA\Tests\Assets\…; declaring that prefix
+        // as autoload-dev means the rule treats it as non-shipped dev code and
+        // does not require it to be classified — no hand-tagging of test suites.
+        $this->composerJson = [
+            'autoload-dev' => ['psr-4' => ['LTS\PHPQA\Tests\\' => 'tests/']],
+        ];
+
+        $this->analyse(
+            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [],
+        );
+    }
+
     protected function getRule(): Rule
     {
         return new RequireApiOrInternalTagRule(
             new ProjectComposerTypeReader(['type' => $this->projectType]),
             new ApiOrInternalTagDetector(),
+            new DevAutoloadNamespaceReader($this->composerJson),
             $this->ignoredNamespacePrefixes,
         );
     }
