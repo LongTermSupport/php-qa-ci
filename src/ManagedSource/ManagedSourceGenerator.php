@@ -177,7 +177,7 @@ final class ManagedSourceGenerator
              * `require-dev` package.
              *
              * @internal this managed artefact is not part of your package's public
-             *           API surface — a `type: library` consumer's @api/@internal
+             *           API surface, so a type:library consumer's API-surface
              *           classification rule passes over it on that basis.
              */
             #[Attribute(Attribute::TARGET_CLASS)]

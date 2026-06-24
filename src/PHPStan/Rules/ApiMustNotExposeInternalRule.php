@@ -142,6 +142,13 @@ final readonly class ApiMustNotExposeInternalRule implements Rule
                 continue;
             }
 
+            // A member tagged @internal (e.g. a factory-only constructor or an
+            // internal mapping bridge) is not part of the consumer surface, so an
+            // internal type reached only through it is not a leak.
+            if ($this->hasTag($this->docText($nativeMethod->getDocComment()), 'internal')) {
+                continue;
+            }
+
             $method = $classReflection->getMethod($nativeMethod->getName(), $scope);
             foreach ($method->getVariants() as $variant) {
                 foreach ($variant->getParameters() as $parameter) {

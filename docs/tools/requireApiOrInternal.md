@@ -121,9 +121,16 @@ same package** (same root namespace segment — the boundary PHPStan keys
 `@internal` on) is `@internal`. Third-party `@internal` types (a different root
 namespace) are not flagged — that is the other package's concern.
 
-Fix a violation by either **promoting** the referenced type to `@api` (commit to
-it as public contract) or **keeping it off the public surface** — e.g. map it to
-an `@api` DTO at the boundary so the internal type never crosses it. Together the
+A **member** that is itself tagged `@internal` (a factory-only `__construct`, or
+an internal mapping bridge) is skipped — it is not part of the consumer surface,
+so an internal type reached only through it is not a leak. This is how an `@api`
+class legitimately keeps internal wiring (e.g. a facade whose constructor takes
+`@internal` gateways but is only ever called by the factory).
+
+Fix a real violation by either **promoting** the referenced type to `@api`
+(commit to it as public contract), **keeping it off the public surface** — e.g.
+map it to an `@api` DTO at the boundary so the internal type never crosses it — or
+marking the exposing **member** `@internal` if it is genuinely not for consumers. Together the
 two rules give *presence* (everything classified) and *coherence* (the public
 surface is closed over `@api`).
 

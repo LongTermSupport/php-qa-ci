@@ -58,6 +58,15 @@ final class ApiMustNotExposeInternalRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function itSkipsMembersThatAreThemselvesInternal(): void
+    {
+        // An @api class with an @internal constructor (factory-only) and an
+        // @internal mapper that both touch an internal type — not a leak, because
+        // those members are not part of the consumer surface.
+        $this->analyse([self::ASSETS . '/ApiWithInternalMembers.php'], []);
+    }
+
+    #[Test]
     public function itNoOpsForANonLibraryProject(): void
     {
         $this->projectType = 'project';
