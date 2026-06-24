@@ -52,6 +52,9 @@
       "LTS\\PHPQA\\Tests\\": [
         "tests/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiOrInternal\\": [
+        "tests/assets/PHPStan/ApiOrInternal/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\DeprecatedPhpunit\\": [
         "tests/assets/PHPStan/DeprecatedPhpunit/"
       ],
@@ -60,9 +63,6 @@
       ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SensitiveParameter\\": [
         "tests/assets/PHPStan/SensitiveParameter/"
-      ],
-      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiOrInternal\\": [
-        "tests/assets/PHPStan/ApiOrInternal/"
       ]
     }
   },
