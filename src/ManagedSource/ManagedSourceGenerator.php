@@ -178,7 +178,7 @@ final class ManagedSourceGenerator
              *
              * @internal this managed artefact is not part of your package's public
              *           API surface, so a type:library consumer's API-surface
-             *           classification rule passes over it on that basis.
+             *           classification rule passes over it on that basis
              */
             #[Attribute(Attribute::TARGET_CLASS)]
             final readonly class FactorySealedBy
