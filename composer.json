@@ -60,6 +60,9 @@
       ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SensitiveParameter\\": [
         "tests/assets/PHPStan/SensitiveParameter/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiOrInternal\\": [
+        "tests/assets/PHPStan/ApiOrInternal/"
       ]
     }
   },

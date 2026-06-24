@@ -53,6 +53,7 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
 - **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
 - **RequireSensitiveParameterAttributeRule** -- Requires `#[\SensitiveParameter]` on plaintext credential parameters (configurable name patterns / ignore substrings via the `phpqaciSensitiveParameter` parameters block)
+- **RequireApiOrInternalTagRule** -- Package-type-aware: for a `type: library` project, every public class-like must be classified as exactly one of `@api` / `@internal`; no-ops for other package types. Generated/managed namespaces are exempt via the `phpqaciApiOrInternal.ignoredNamespacePrefixes` parameter. Full guidance (incl. the deliberate `@api`-vs-`@internal` judgement): [tools/requireApiOrInternal.md](requireApiOrInternal.md)
 
 See the README "Configuring RequireSensitiveParameterAttributeRule" section for the full config keys and defaults.
 
