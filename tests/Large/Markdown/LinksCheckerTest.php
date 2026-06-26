@@ -81,6 +81,44 @@ result: HTTP status: 404
     }
 
     /**
+     * GitHub-owned hosts cannot be verified anonymously (private repos return
+     * 404, indistinguishable from a genuine miss). With no token available the
+     * checker must SKIP them — never fail — and emit a clear notice. This runs
+     * fully offline: the skip happens before any HTTP request is made.
+     *
+     * @throws Exception
+     */
+    public function testGithubLinksAreSkippedWithoutToken(): void
+    {
+        $originalGhToken     = getenv('GH_TOKEN');
+        $originalGithubToken = getenv('GITHUB_TOKEN');
+        \Safe\putenv('GH_TOKEN');
+        \Safe\putenv('GITHUB_TOKEN');
+
+        try {
+            $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithGithubLink';
+            $expectedExitCode = 0;
+            $expectedOutput   = '
+/README.md
+----------
+
+Skipped link check for "private repo" to "https://github.com/BallicomDev/ballicom-accountsiq"
+reason: GitHub URLs cannot be verified anonymously'
+                . ' (private repos return 404); set GH_TOKEN or GITHUB_TOKEN to enable checking.
+
+Skipped link check for "raw file" to'
+                . ' "https://raw.githubusercontent.com/BallicomDev/ballicom-accountsiq/main/README.md"
+reason: GitHub URLs cannot be verified anonymously'
+                . ' (private repos return 404); set GH_TOKEN or GITHUB_TOKEN to enable checking.
+';
+            self::assertResult($pathToProject, $expectedExitCode, $expectedOutput);
+        } finally {
+            $this->restoreEnv('GH_TOKEN', $originalGhToken);
+            $this->restoreEnv('GITHUB_TOKEN', $originalGithubToken);
+        }
+    }
+
+    /**
      * @throws Exception
      */
     protected function assertResult(string $pathToProject, int $expectedExitCode, string $expectedOutput): void
@@ -91,5 +129,19 @@ result: HTTP status: 404
         echo $actualOutput;
         self::assertSame($expectedOutput, $actualOutput);
         self::assertSame($expectedExitCode, $actualExitCode);
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function restoreEnv(string $name, string|false $original): void
+    {
+        if (false === $original) {
+            \Safe\putenv($name);
+
+            return;
+        }
+
+        \Safe\putenv($name . '=' . $original);
     }
 }
