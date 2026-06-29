@@ -132,10 +132,22 @@ final class RequireExplicitDIAttributeRule implements Rule
         $hasExclude          = false;
         $hasAsCommand        = false;
         $hasAutoConfigureTag = false;
+        $isAttributeClass    = false;
 
         foreach ($node->attrGroups as $attrGroup) {
             foreach ($attrGroup->attrs as $attr) {
                 $name = $attr->name->toString();
+
+                // A class marked #[Attribute] is a PHP attribute, never an injectable
+                // service — the DI container never autowires it. Requiring an explicit
+                // #[Autoconfigure]/#[Exclude] on it is meaningless (and would force a
+                // Symfony dependency onto framework-agnostic attribute classes, e.g.
+                // php-qa-ci's own managed-source FactorySealedBy). Exempt it.
+                if ('Attribute'         === $name
+                    || \Attribute::class === $name
+                    || str_ends_with($name, '\Attribute')) {
+                    $isAttributeClass = true;
+                }
 
                 // Check for full namespace or just class name
                 if ('Autoconfigure'         === $name
@@ -160,6 +172,12 @@ final class RequireExplicitDIAttributeRule implements Rule
                     $hasAutoConfigureTag = true;
                 }
             }
+        }
+
+        // A PHP attribute class is never a container service — exempt it outright
+        // (no #[Autoconfigure]/#[Exclude] required).
+        if ($isAttributeClass) {
+            return [];
         }
 
         // AsCommand and AutoconfigureTag count as explicit service declaration
