@@ -33,14 +33,21 @@
 #   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
 #                                           should be variadic T ...$param instead
 #
-# TYPE SAFETY BEFORE TESTS:
-#   ForbidMagicStringAssertionRule       — bans test assertions that pin an
-#                                          identifier-like magic string against a
-#                                          plain `string` value. The smell that a
-#                                          value should be a backed enum; fires
-#                                          *before* the enum exists, exactly where
-#                                          the alreadyNarrowedType built-in is
-#                                          silent (it only confirms the fix after).
+# ─────────────────────────────────────────────────────────────────────────────
+# EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
+#   ForbidMagicStringAssertionRule       — flags test assertions that pin an
+#                                          identifier-like string against a plain
+#                                          `string`, on the theory the value should
+#                                          be a backed enum. Empirically too noisy
+#                                          for a default: it cannot distinguish a
+#                                          should-be-enum value from a wire-contract
+#                                          key (cf_*), fixture data, an id, or a
+#                                          param/type name — all of which are
+#                                          identifier-like single tokens. Enable
+#                                          deliberately for a one-off magic-string
+#                                          cleanup sweep and eyeball the results;
+#                                          do not run it in CI. Cherry-pick it:
+#                                          - LTS\PHPQA\PHPStan\Rules\ForbidMagicStringAssertionRule
 # ─────────────────────────────────────────────────────────────────────────────
 
 rules:
@@ -50,4 +57,3 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
-    - LTS\PHPQA\PHPStan\Rules\ForbidMagicStringAssertionRule

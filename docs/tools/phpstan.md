@@ -57,12 +57,16 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 11 additional opt-in rules split across two files:
+PHP-QA-CI ships 10 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 7 generic rules suitable for any PHP project
+- **`rules-optional.neon`** — 6 generic rules suitable for any PHP project
 - **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules
 
 These are **not** loaded automatically — you must enable them explicitly.
+
+One further rule, **`ForbidMagicStringAssertionRule`**, ships but is **not part of
+either bundle** — it is experimental and high-noise (see *Experimental rules*
+below). Cherry-pick it only for a deliberate one-off magic-string cleanup sweep.
 
 ### Symfony projects: include the Symfony set
 
@@ -103,8 +107,6 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     # Single array param annotated @param list<T> should use variadic syntax instead
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
-    # Bans test assertions pinning an identifier-like magic string against a plain string — use a backed enum
-    - LTS\PHPQA\PHPStan\Rules\ForbidMagicStringAssertionRule
     # Symfony: blocks user input passed directly into HTTP response headers
     - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
     # Symfony/Doctrine: requires Doctrine DQL/ORM — bans raw SQL strings
@@ -117,19 +119,32 @@ rules:
 
 ### Available optional rules
 
-| Rule                                    | File                          | What it catches                                                                                           |
-| --------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`         | `$x ?? ''` — almost always a logic bug                                                                    |
-| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`         | `$x ?? false` — use explicit null checks                                                                  |
-| `ForbidSilentCatchRule`                 | `rules-optional.neon`         | `catch` blocks that ignore the caught exception                                                           |
-| `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`         | Inline `@phpstan-ignore` annotations in source files                                                      |
-| `RequireReadonlyServiceRule`            | `rules-optional.neon`         | Service classes not declared `final readonly`                                                             |
-| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`         | `array $items` annotated `@param list<T>` — use variadic syntax                                           |
-| `ForbidMagicStringAssertionRule`        | `rules-optional.neon`         | Tests pinning an identifier-like magic string vs a plain `string` — model the closed set as a backed enum |
-| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon` | User input passed directly to HTTP headers                                                                |
-| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM                                                               |
-| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description                                                     |
-| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon` | Symfony services without explicit DI attributes                                                           |
+| Rule                                    | File                          | What it catches                                                 |
+| --------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
+| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`         | `$x ?? ''` — almost always a logic bug                          |
+| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`         | `$x ?? false` — use explicit null checks                        |
+| `ForbidSilentCatchRule`                 | `rules-optional.neon`         | `catch` blocks that ignore the caught exception                 |
+| `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`         | Inline `@phpstan-ignore` annotations in source files            |
+| `RequireReadonlyServiceRule`            | `rules-optional.neon`         | Service classes not declared `final readonly`                   |
+| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`         | `array $items` annotated `@param list<T>` — use variadic syntax |
+| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon` | User input passed directly to HTTP headers                      |
+| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM                     |
+| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description           |
+| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon` | Symfony services without explicit DI attributes                 |
+
+### Experimental rules (not in any bundle)
+
+`ForbidMagicStringAssertionRule` flags test assertions that pin an identifier-like
+string against a plain `string` (e.g. `assertSame('active', $x)`), on the theory
+the value should be a backed enum. The idea is sound — a test pinning a magic
+string is often a sign the value should be an enum (push type safety left; once it
+is an enum the assertion becomes redundant and `alreadyNarrowedType` flags it). In
+practice it is **high-noise**: it cannot distinguish a should-be-enum value from a
+wire-contract key (`cf_*`), fixture data, an id, or a param/type name — all
+identifier-like tokens. It is therefore a manual cleanup aid (cherry-pick it for a
+one-off sweep and eyeball the hits), **not** a CI gate. The durable form of the
+principle is guidance: *"don't bridge magic-string uncertainty with a test — model
+the closed set as a backed enum."*
 
 ## Strict Rules
 
