@@ -60,6 +60,14 @@ final class ForbidMagicStringAssertionRule implements Rule
 
     private const int MAX_IDENTIFIER_LENGTH = 40;
 
+    /**
+     * Metadata accessors whose string return is a structural contract, not a
+     * domain value (Reflection / PSR-7). See {@see isStructuralMetadataOrEnumDerived}.
+     *
+     * @var list<string>
+     */
+    private const array METADATA_ACCESSORS = ['getName', 'getMethod', 'getShortName'];
+
     public function getNodeType(): string
     {
         return CallLike::class;
@@ -108,6 +116,14 @@ final class ForbidMagicStringAssertionRule implements Rule
             return [];
         }
 
+        // Over-fire allowlist: skip operands that are structural-metadata
+        // accessors (Reflection `getName()`, PSR-7 `getMethod()`, …). These return
+        // contract strings, not domain values, so they are not a
+        // "should-be-an-enum" smell.
+        if ($this->isMetadataAccessor($otherExpr)) {
+            return [];
+        }
+
         // Non-redundant gate: only when the other operand is a GENERAL string.
         // A constant-string actual is exactly what alreadyNarrowedType reports —
         // we must not duplicate the built-in. A general string is the
@@ -131,6 +147,23 @@ final class ForbidMagicStringAssertionRule implements Rule
                 $literalValue,
             ))->identifier(self::IDENTIFIER)->build(),
         ];
+    }
+
+    /**
+     * Whether the operand is a structural-metadata accessor whose string return
+     * is a contract, not a domain value — `ReflectionParameter::getName()`,
+     * `ReflectionNamedType::getName()`, `RequestInterface::getMethod()`, etc.
+     *
+     * Matched by method name only: these accessors are reliably identified that
+     * way, it needs no type reflection (which is unavailable in PHPStan rule unit
+     * tests), and a domain method that happens to share the name returning a
+     * closed-set string is vanishingly rare for an opt-in rule.
+     */
+    private function isMetadataAccessor(Node\Expr $expr): bool
+    {
+        return $expr instanceof MethodCall
+            && $expr->name instanceof Node\Identifier
+            && \in_array($expr->name->toString(), self::METADATA_ACCESSORS, true);
     }
 
     /**

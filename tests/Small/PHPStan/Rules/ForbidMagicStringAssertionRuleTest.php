@@ -139,6 +139,49 @@ final class ForbidMagicStringAssertionRuleTest extends TestCase
     }
 
     #[Test]
+    public function reflectionGetNameIsNotFlagged(): void
+    {
+        // self::assertSame('orgId', $param->getName()) — Reflection metadata accessor.
+        $call  = $this->staticAssert(
+            'assertSame',
+            new String_('orgId'),
+            new MethodCall(new Variable('param'), new Identifier('getName')),
+        );
+        $scope = $this->scopeReturning(new StringType());
+
+        self::assertSame([], $this->rule->processNode($call, $scope));
+    }
+
+    #[Test]
+    public function psr7GetMethodIsNotFlagged(): void
+    {
+        // self::assertSame('POST', $request->getMethod()) — PSR-7 metadata accessor.
+        $call  = $this->staticAssert(
+            'assertSame',
+            new String_('POST'),
+            new MethodCall(new Variable('request'), new Identifier('getMethod')),
+        );
+        $scope = $this->scopeReturning(new StringType());
+
+        self::assertSame([], $this->rule->processNode($call, $scope));
+    }
+
+    #[Test]
+    public function aPlainDomainMethodReturningStringStillFlags(): void
+    {
+        // self::assertSame('active', $repo->getStatus()) — not a metadata accessor;
+        // a general string from domain code → still a smell.
+        $call  = $this->staticAssert(
+            'assertSame',
+            new String_('active'),
+            new MethodCall(new Variable('repo'), new Identifier('getStatus')),
+        );
+        $scope = $this->scopeReturning(new StringType());
+
+        self::assertCount(1, $this->rule->processNode($call, $scope));
+    }
+
+    #[Test]
     public function identifierLikeShapeHelper(): void
     {
         self::assertTrue(ForbidMagicStringAssertionRule::isIdentifierLike('desk'));
