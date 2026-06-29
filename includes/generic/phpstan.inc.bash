@@ -76,6 +76,33 @@ else
       exit 1
     fi
     if ((phpStanExitCode > 0)); then
+      # Educational note for the "tautology from stronger types" identifiers. These
+      # fire when PHPStan can already PROVE the check from the declared types
+      # (alreadyNarrowedType / alwaysTrue / alwaysFalse / impossibleCheck). In TEST
+      # code this very often means a recent type-safety improvement made an
+      # assertion redundant — the production types now guarantee exactly what the
+      # test was asserting. We only print this when such an identifier is actually
+      # present, so it stays quiet for ordinary errors.
+      if grep -qE 'alreadyNarrowedType|alwaysTrue|alwaysFalse|impossibleCheck' "$phpStanLogDir/$phpStanLogFile"; then
+        printf '\n%s\n' \
+"NOTE — possible tautology from stronger types
+---------------------------------------------
+One or more errors above (alreadyNarrowedType / alwaysTrue / alwaysFalse /
+impossibleCheck) report a check PHPStan can already prove from the types alone.
+
+In TEST code this is usually a GOOD sign: a type-safety improvement has made the
+assertion tautological — the production types now guarantee what the test pinned.
+When that is the case, DELETING the now-redundant assertion (or the whole
+tautological test) is the CORRECT fix, not a workaround. The type system has
+absorbed the guarantee the test used to provide; that is the goal, not a loss of
+coverage. Keep the tests that still exercise real runtime behaviour.
+
+In PRODUCTION code the same identifiers usually flag genuinely dead or redundant
+logic — simplify it (remove the impossible branch / redundant comparison).
+
+Either way, fix the CAUSE. Do NOT silence it with treatPhpDocTypesAsCertain:false,
+a baseline entry, or a @phpstan-ignore comment."
+      fi
       tryAgainOrAbort "PHPStan"
     fi
   done
