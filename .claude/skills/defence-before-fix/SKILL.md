@@ -32,15 +32,32 @@ Reference: https://ltscommerce.dev/articles/defence-before-fix-static-analysis
 One PHPStan rule prevents an entire class of bugs across all future commits and
 untested code paths. Tests only catch specific manifestations. Rules catch the pattern.
 
+## Core Framing: Net and Filter
+
+> Static analysis is the NET. TDD is the FILTER. Together they are belt and braces.
+
+- **NET (the static rule):** catches the whole *class* structurally — cheap, broad,
+  permanent. Once it exists the class cannot silently recur on any future commit.
+- **FILTER (TDD):** reproduces the *specific instance* on the real production path and
+  proves the fix. A failing test that goes green is honest evidence this instance is
+  resolved.
+- Neither alone suffices — a rule with no test can be gamed structurally; a test with no
+  rule lets the class recur elsewhere.
+
+Full philosophy (wire-don't-delete, coverage theatre, nullable both-paths, issue-type
+applicability): see `CLAUDE/DefenceBeforeFix.md` in php-qa-ci (read in vendor).
+
 ## Prerequisites
 
 Before starting, verify PHPStan rule infrastructure exists:
+
 - `qaConfig/PHPStan/Rules/` directory exists
 - `qaConfig/PHPStan/CLAUDE.md` documentation exists
 - `QaConfig\` PSR-4 entry in `composer.json` autoload-dev
 - `qaConfig/phpstan.neon` has a `rules:` section
 
 If any are missing, run deployment:
+
 ```bash
 vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 ```
@@ -49,14 +66,14 @@ vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 
 Parse the user's request to determine which phase to start at:
 
-| User Says | Start Phase | Notes |
-|---|---|---|
-| "defence before fix [bug description]" | Phase 1 | Full workflow |
-| "create a PHPStan rule for [pattern]" | Phase 2 | Pattern already understood |
-| "detect [pattern] with static analysis" | Phase 2 | Pattern already understood |
-| "ratchet this bug class" | Phase 2 | Pattern already analysed |
-| "reproduce this bug with tests" | Phase 3 | Rule already created |
-| "fix [bug] and verify" | Phase 4 | Tests already written |
+| User Says                               | Start Phase | Notes                      |
+| --------------------------------------- | ----------- | -------------------------- |
+| "defence before fix [bug description]"  | Phase 1     | Full workflow              |
+| "create a PHPStan rule for [pattern]"   | Phase 2     | Pattern already understood |
+| "detect [pattern] with static analysis" | Phase 2     | Pattern already understood |
+| "ratchet this bug class"                | Phase 2     | Pattern already analysed   |
+| "reproduce this bug with tests"         | Phase 3     | Rule already created       |
+| "fix [bug] and verify"                  | Phase 4     | Tests already written      |
 
 ## Phase 1: ANALYSE
 
@@ -69,17 +86,20 @@ This phase is primarily manual/guided. Help the user by:
    Magic string? Type coercion? Empty catch?"
 
 2. **Find all instances** — Search the codebase for the same pattern:
+
    ```
    Use Grep tool to search for the pattern across the codebase
    ```
 
 3. **Document the pattern** — Describe:
+
    - What the buggy code looks like (AST-level: what node types are involved?)
    - What the correct code looks like
    - Why the pattern is dangerous
    - How many instances exist
 
 4. **Assess feasibility** — Can PHPStan detect this at the AST level?
+
    - Simple patterns (magic strings, empty catches, silent defaults): YES
    - Type-level patterns (wrong return types, missing checks): MAYBE (needs Scope)
    - Domain logic patterns (wrong business rules): NO — use tests instead
@@ -88,7 +108,22 @@ This phase is primarily manual/guided. Help the user by:
 
 ## Phase 2: DETECT (Static Analysis)
 
-**Goal:** Create a PHPStan rule that catches ALL instances of the bug pattern.
+**Goal:** Create a rule that catches ALL instances of the bug pattern.
+
+### Step 0: Choose the engine first
+
+Before writing a PHPStan rule, decide which engine owns the convention:
+
+- **Structural conventions** — class/interface/enum/trait **NAMING**, namespace
+  **LAYERING**, **DEPENDENCY** direction — belong in **PHPArkitect** (extend a tier or
+  the project's `qaConfig/phparkitect.php`), NOT PHPStan.
+- Only **finer-grained / method-level / semantic** patterns (which PHPArkitect cannot
+  express) become PHPStan rules.
+- **NEVER enforce one convention in both engines** — migrate, don't duplicate.
+
+Decision guide (SSoT): [README "Where does a rule belong"](../../../README.md#where-does-a-rule-belong--phparkitect-or-phpstan).
+If the pattern is structural, do the rest of this phase against arkitect; only continue to
+the PHPStan rule creator below for patterns arkitect cannot express.
 
 ### Step 1: Launch the Rule Creator Agent
 
@@ -144,11 +179,13 @@ manually edit the rule in `qaConfig/PHPStan/Rules/`.
 This phase uses standard TDD workflow:
 
 1. **Write failing tests** — Each test should:
+
    - Target a specific bug instance (not the general pattern — the rule handles that)
    - Assert the CORRECT behaviour (what should happen after the fix)
    - Currently FAIL (proving the bug exists)
 
 2. **Run tests to confirm they fail:**
+
    ```
    Use Skill tool:
      skill: "phpunit-runner"
@@ -160,27 +197,49 @@ This phase uses standard TDD workflow:
 The tests (Phase 3) verify the specific fix works correctly. Both are needed — they
 serve different purposes.
 
+**Coverage-theatre warning:** the failing test MUST exercise the real production path. A
+fixture that supplies a value production never sets yields false-green line/branch
+coverage and proves nothing — it is exactly how a "dead contract" (a consumer with no
+producer) ships green. Drive the real producer, not a hand-fed fixture value.
+
+**Nullable ⇒ both paths:** a nullable member is TWO code paths (value-present and null).
+Prove BOTH — a with-value test AND a null test. A single populated-path test leaves the
+other branch unexercised. Prefer non-nullable types where null is not a genuinely valid
+domain state; nullable should be reserved for legitimately-absent values.
+
 ## Phase 4: FIX (Implementation)
 
 **Goal:** Fix the code so tests pass and PHPStan rules pass.
 
+**Wire, don't delete.** GREEN must come from making the code do its job — wiring the
+flagged contract to a real producer, proven by a production-path test. Deleting the
+flagged element to silence the rule **bakes in the broken / half-built state** and is
+forbidden unless it is a deliberate, agreed scope decision (the element is genuinely
+unwanted dead code with no intended producer). Clearing red by deletion is never the
+default move.
+
 1. **Implement fixes** — Make the failing tests pass.
 
 2. **Verify PHPStan rules pass:**
+
    ```
    Use Skill tool:
      skill: "phpstan-runner"
    ```
+
    The rule violations from Phase 2 should now be resolved.
 
 3. **Run full QA:**
+
    ```
    Use Skill tool:
      skill: "qa"
    ```
+
    Run allCS then allStatic to verify everything is clean.
 
 4. **Done** — The bug class is now permanently prevented:
+
    - PHPStan rule catches the pattern in all future code
    - Tests verify the specific fix works
    - The ratchet has turned — quality only goes one way
@@ -200,15 +259,32 @@ The plan provides structure for tracking progress across phases.
 
 ## Common Patterns and Their Rules
 
-| Bug Pattern | PHPStan Node Type | Example Rule |
-|---|---|---|
-| Magic strings in attributes | `Node\Attribute` | RoutePathMustUseConstantsRule |
-| Silent defaults (`?? ''`) | `Node\Expr\BinaryOp\Coalesce` | ExampleSilentDefaultRule |
-| Empty catch blocks | `Node\Stmt\Catch_` | ExampleEmptyCatchRule |
-| Missing return value check | `Node\Expr\MethodCall` | Custom per-method |
-| Constant not composed | `Node\Stmt\ClassConst` | RouteNameConstantMustComposeRule |
+| Bug Pattern                 | PHPStan Node Type             | Example Rule                     |
+| --------------------------- | ----------------------------- | -------------------------------- |
+| Magic strings in attributes | `Node\Attribute`              | RoutePathMustUseConstantsRule    |
+| Silent defaults (`?? ''`)   | `Node\Expr\BinaryOp\Coalesce` | ExampleSilentDefaultRule         |
+| Empty catch blocks          | `Node\Stmt\Catch_`            | ExampleEmptyCatchRule            |
+| Missing return value check  | `Node\Expr\MethodCall`        | Custom per-method                |
+| Constant not composed       | `Node\Stmt\ClassConst`        | RouteNameConstantMustComposeRule |
 
 Example rules are in `.claude/skills/defence-before-fix/examples/`.
+
+## Does TDD Apply? By Issue Type
+
+TDD applies where the issue type supports it — the dividing line is *is there behaviour
+to assert?*
+
+| Issue type                                 | Static rule (NET)         | TDD (FILTER)              |
+| ------------------------------------------ | ------------------------- | ------------------------- |
+| Pure coding-standards / style / formatting | yes — the rule IS the fix | no — nothing to assert    |
+| Behaviour / procedure / contract defect    | yes — catches the class   | yes — reproduce & prove   |
+| Dead-contract / coverage-theatre           | yes — catches the class   | yes — via PRODUCTION path |
+| Nullable member                            | yes — catches the class   | yes — BOTH paths asserted |
+
+Rule of thumb: if you can write an assertion about behaviour that fails before the fix
+and passes after, TDD applies. If the rule is purely structural with no behaviour to
+assert, the static rule alone is the complete defence. Full detail in
+`CLAUDE/DefenceBeforeFix.md`.
 
 ## When NOT to Use This Skill
 

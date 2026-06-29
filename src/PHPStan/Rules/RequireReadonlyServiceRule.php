@@ -136,7 +136,7 @@ final class RequireReadonlyServiceRule implements Rule
         // legitimate mutable state (e.g. lazy-initialised caches) and
         // cannot be made readonly without extracting that state.
         foreach ($node->stmts as $stmt) {
-            if ($stmt instanceof \PhpParser\Node\Stmt\Property && !$stmt->isReadonly()) {
+            if ($stmt instanceof Node\Stmt\Property && !$stmt->isReadonly()) {
                 return [];
             }
         }
@@ -176,5 +176,4 @@ final class RequireReadonlyServiceRule implements Rule
 
         return false;
     }
-
 }

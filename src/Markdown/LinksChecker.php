@@ -178,7 +178,27 @@ final class LinksChecker
 
         $checked[$href] = true;
 
-        $result = self::fetchLinkStatus($href);
+        $githubToken = null;
+        if (self::isGitHubOwnedHost($href)) {
+            $githubToken = self::getGitHubToken();
+            if (null === $githubToken) {
+                // github.com returns 404 for private repos when unauthenticated,
+                // which is indistinguishable from a genuinely missing page. With
+                // no token we cannot verify the URL, so skip it (do not fail) and
+                // emit a clear notice.
+                $errors[] = \sprintf(
+                    "\nSkipped link check for \"%s\" to \"%s\"\n"
+                    . 'reason: GitHub URLs cannot be verified anonymously'
+                    . " (private repos return 404); set GH_TOKEN or GITHUB_TOKEN to enable checking.\n",
+                    $anchor,
+                    $href
+                );
+
+                return;
+            }
+        }
+
+        $result = self::fetchLinkStatus($href, $githubToken);
         if (null === $result) {
             return;
         }
@@ -192,21 +212,72 @@ final class LinksChecker
         $return   = 1;
     }
 
-    private static function fetchLinkStatus(string $href): ?string
+    /**
+     * Is the URL hosted on a GitHub-owned domain that cannot be verified
+     * anonymously? Only the real host is considered (parsed via parse_url), so a
+     * non-GitHub host with "github.com" elsewhere in the URL is not matched.
+     */
+    private static function isGitHubOwnedHost(string $href): bool
+    {
+        try {
+            $host = \Safe\parse_url($href, PHP_URL_HOST);
+        } catch (Throwable) {
+            // A URL malformed enough that the host cannot be parsed is not a
+            // GitHub host; let the normal HTTP check report it.
+            return false;
+        }
+
+        if (!\is_string($host) || '' === $host) {
+            return false;
+        }
+
+        $host = strtolower($host);
+        if (str_starts_with($host, 'www.')) {
+            $host = substr($host, 4);
+        }
+
+        if (\in_array($host, ['github.com', 'gist.github.com'], true)) {
+            return true;
+        }
+
+        // raw.githubusercontent.com, objects.githubusercontent.com, etc.
+        return str_ends_with($host, '.githubusercontent.com') || 'githubusercontent.com' === $host;
+    }
+
+    private static function getGitHubToken(): ?string
+    {
+        foreach (['GH_TOKEN', 'GITHUB_TOKEN'] as $envVar) {
+            $token = getenv($envVar);
+            if (\is_string($token) && '' !== trim($token)) {
+                return trim($token);
+            }
+        }
+
+        return null;
+    }
+
+    private static function fetchLinkStatus(string $href, ?string $githubToken = null): ?string
     {
         $userAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
                      . ' (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-        $httpOpts  = [
+        $requestHeaders = [
+            'Connection: close',
+            'Accept: text/html,application/xhtml+xml,*/*',
+            'Accept-Language: en-US,en;q=0.9',
+        ];
+        if (null !== $githubToken) {
+            // Authenticate so private GitHub repos resolve correctly and genuine
+            // 404s are still reported.
+            $requestHeaders[] = 'Authorization: Bearer ' . $githubToken;
+        }
+
+        $httpOpts = [
             'method'           => 'HEAD',
             'protocol_version' => 1.1,
             'follow_location'  => true,
             'max_redirects'    => 5,
             'timeout'          => 15,
-            'header'           => [
-                'Connection: close',
-                'Accept: text/html,application/xhtml+xml,*/*',
-                'Accept-Language: en-US,en;q=0.9',
-            ],
+            'header'           => $requestHeaders,
             'user_agent'       => $userAgent,
         ];
 

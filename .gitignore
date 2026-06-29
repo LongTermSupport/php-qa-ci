@@ -5,13 +5,16 @@
 /bin/*
 !/bin/composer-require-checker
 !/bin/infection
+!/bin/managed-source
 !/bin/mdlinks
+!/bin/package-type-check
 !/bin/php-cs-fixer
 !/bin/phpstan
 !/bin/phpunit-check-annotation
 !/bin/phpunit-runfailed-filter
 !/bin/psr4-validate
 !/bin/qa
+!/bin/sensitive-parameter-usage
 /cache/
 /.phive-home/
 /tools/rector/vendor/

@@ -31,6 +31,7 @@ When you run the qa script in your project:
 Before running any QA tools, the pipeline executes these preflight steps:
 
 1. **Variable Initialization** (in `bin/qa`) - Core variables set before anything else:
+
    - `$qaDir` - The php-qa-ci library directory (where bin/qa lives)
    - `$projectRoot` - The project being tested
    - `$binDir` - The project's bin directory (usually vendor/bin)
@@ -40,13 +41,15 @@ Before running any QA tools, the pipeline executes these preflight steps:
 3. **Xdebug Check** - Determines if coverage/infection testing is available
 
 4. **Set Paths** (`setPaths`) - Auto-detects and configures paths:
+
    - `testsDir` - Finds test directory
-   - `srcDir` - Finds source directory  
+   - `srcDir` - Finds source directory
    - `binDir` - Finds bin directory (vendor/bin)
    - `pathsToCheck` - Array of paths to scan (defaults to tests + src)
    - `pathsToIgnore` - Array of paths to ignore
 
 5. **Set Config** (`setConfig`) - Loads all configuration files in cascade order and defines:
+
    - `$projectConfigPath` - Project's qaConfig directory
    - `$varDir` - Project's var/qa directory
    - `$cacheDir` - Project's var/qa/cache directory
@@ -56,6 +59,7 @@ Before running any QA tools, the pipeline executes these preflight steps:
 6. **Project Config Override** - Sources `qaConfig/qaConfig.inc.bash` if it exists
 
 7. **Prepare Directories** (`prepareDirectories`) - Creates necessary directories:
+
    - `var/qa/` - Main QA output directory
    - `var/qa/cache/` - Tool cache directory
    - Adds .gitignore files to exclude generated content
@@ -71,10 +75,12 @@ Only after all preflight steps complete does the actual tool execution begin.
 The pipeline runs tools in 4 distinct phases:
 
 ### Phase 1: Coding Standards Tools (can modify code)
+
 1. **Rector** (`rector`) - Automated refactoring and code upgrades
 2. **PHP CS Fixer** (`phpCsFixer`) - Code style fixing
 
 ### Phase 2: Linting Tools (validation only)
+
 3. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
 4. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
 5. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
@@ -84,9 +90,13 @@ The pipeline runs tools in 4 distinct phases:
 9. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 ### Phase 3: Static Analysis Tools
+
 10. **PHPStan** (`phpstan`) - Static analysis tool
+11. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+12. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
 
 ### Phase 4: Testing Tools
+
 11. **PHPUnit** (`phpunit`) - Unit testing framework
 12. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
 
@@ -95,14 +105,17 @@ The pipeline runs tools in 4 distinct phases:
 After the "ALL TESTS PASSING" message:
 
 13. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
+
     - This is informational only and cannot fail the pipeline
     - Provides metrics about code size and structure
 
 14. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
+
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
 
 ### Final Steps
+
 - **Retry Warning** - If any tools were retried during the run, displays a warning
 - **Completion Message** - Shows hostname and completion status
 
@@ -165,6 +178,7 @@ phpqaMemoryLimit=2G vendor/bin/qa
 ## Platform Detection
 
 The `detectPlatform` function checks for:
+
 - **Symfony**: Presence of `symfony.lock` file
 - **Laravel**: Presence of `artisan` file
 - **Generic**: Default for all other PHP projects
@@ -176,6 +190,7 @@ Platform-specific tool configurations are loaded from `includes/{platform}/`.
 The `runTool` function is the heart of the system:
 
 1. Searches for tool implementations in this order:
+
    - `{project}/qaConfig/tools/{toolName}.inc.bash` (project override)
    - `includes/{platform}/{toolName}.inc.bash` (platform-specific)
    - `includes/generic/{toolName}.inc.bash` (generic default)
@@ -187,6 +202,7 @@ The `runTool` function is the heart of the system:
 ## PHP 8.4 Compatibility (php8.4 branch)
 
 ### Changes Made
+
 - **Removed PHP_CodeSniffer** completely (was conflicting with PHP CS Fixer)
 - **Updated PHP CS Fixer config** to use `@PHP84Migration` ruleset
 - **Added nullable type rules** for PHP 8.4's deprecation of implicit nullable parameters
@@ -206,10 +222,12 @@ The `runTool` function is the heart of the system:
 The pipeline provides multiple extension points for customization:
 
 ### Built-in Hooks
+
 - `qaConfig/hookPre.bash` - Runs after preflight configuration but before main tools
 - `qaConfig/hookPost.bash` - Runs after all tools complete successfully (after PHPLoc)
 
 The post-hook only executes if the entire pipeline succeeds. This makes it ideal for:
+
 - Generating coverage reports
 - Sending notifications
 - Updating documentation
@@ -217,16 +235,20 @@ The post-hook only executes if the entire pipeline succeeds. This makes it ideal
 - Custom metrics collection
 
 ### Per-Tool Hooks
+
 Each tool can be completely overridden by creating:
+
 - `qaConfig/tools/{toolName}.inc.bash` - Replaces the default tool implementation
 
 This allows for arbitrary customization of any tool's behavior, including:
+
 - Changing command-line arguments
 - Adding pre/post processing
 - Completely replacing the tool with custom logic
 - Conditionally skipping tools based on custom criteria
 
 Example custom tool hook:
+
 ```bash
 # qaConfig/tools/phpstan.inc.bash
 echo "Running custom PHPStan with project-specific rules"
@@ -251,6 +273,7 @@ echo "PHPStan complete, checking results..."
 PHP-QA-CI includes Claude Code hooks that provide guardrails and automation when using Claude Code for development:
 
 **Included Hooks**:
+
 - `php-qa-ci__auto-continue.py` - Reduces confirmation prompts (✅ recommended for all projects)
 - `php-qa-ci__prevent-destructive-git.py` - Blocks commands that destroy uncommitted changes (✅ critical safety)
 - `php-qa-ci__discourage-git-stash.py` - Discourages git stash with escape hatch (⚠️ optional)
@@ -259,17 +282,20 @@ PHP-QA-CI includes Claude Code hooks that provide guardrails and automation when
 - `php-qa-ci__enforce-markdown-organization.py` - Enforces doc organization (⚠️ optional, opinionated)
 
 **Deployment**:
+
 ```bash
 # Deploy all hooks, agents, and skills to your project
 vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 ```
 
 This will:
+
 - Copy hooks to `.claude/hooks/`
 - Make them executable
 - Register them in `.claude/settings.json`
 
 **Documentation**: See `.claude/hooks/README.md` for detailed hook documentation including:
+
 - What each hook does
 - When to use each hook
 - Configuration options
@@ -279,6 +305,13 @@ This will:
 **Recommendation**: Always deploy `php-qa-ci__auto-continue.py` and `php-qa-ci__prevent-destructive-git.py` by default. Evaluate others based on team standards.
 
 **Migration**: Projects with old hook names (without `php-qa-ci__` prefix) will be automatically migrated during `composer install/update`. The deployment script updates `.claude/settings.json` to reference the new hook names.
+
+## Managed Source
+
+php-qa-ci can generate small PHP artefacts into a consumer's own production
+namespace (a locked `<RootNs>\PhpQaCi\` tree), regenerated on every composer
+install/update and drift-checked via `bin/managed-source check`. First artefact:
+the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-source.md).
 
 ## Environment Requirements
 
@@ -310,6 +343,7 @@ vendor/bin/qa
 ```
 
 This is useful when:
+
 - Running multiple PHP versions on the same system
 - Testing compatibility across PHP versions
 - Using custom PHP builds
@@ -317,7 +351,9 @@ This is useful when:
 ## Common Customizations
 
 ### Override a Specific Tool
+
 Create `qaConfig/tools/{toolName}.inc.bash`:
+
 ```bash
 # Example: Custom PHPStan configuration
 echo "Running custom PHPStan configuration"
@@ -329,14 +365,18 @@ phpNoXdebug -f "$binDir"/phpstan -- \
 ```
 
 ### Skip Specific Tools
+
 In `qaConfig/qaConfig.inc.bash`:
+
 ```bash
 # Skip infection testing
 export useInfection=0
 ```
 
 ### Add Custom Paths
+
 In `qaConfig/qaConfig.inc.bash`:
+
 ```bash
 pathsToCheck+=("custom/path")
 pathsToIgnore+=("vendor", "cache")
@@ -351,6 +391,7 @@ To override any tool's default configuration:
 3. **Customize as needed** - Modify rules, paths, and settings
 
 Example for PHP CS Fixer:
+
 ```bash
 # Copy default config
 cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
@@ -365,16 +406,18 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 ## Tools Reference
 
 ### Rector
+
 - **Purpose**: Automated refactoring and code upgrades
 - **Tool**: [@includes/generic/rector.inc.bash](includes/generic/rector.inc.bash)
 - **Default**: [@configDefaults/generic/rector-safe.php](configDefaults/generic/rector-safe.php)
 - **How it works**: Parses PHP code into AST, applies transformation rules, writes back modified code
-- **Key features**: 
+- **Key features**:
   - Upgrades code to newer PHP versions
   - Applies coding standards automatically
   - Can be configured with custom rules
 
-### PHP CS Fixer  
+### PHP CS Fixer
+
 - **Purpose**: Automatically fixes code style issues
 - **Tool**: [@includes/generic/phpCsFixer.inc.bash](includes/generic/phpCsFixer.inc.bash)
 - **Default**: [@configDefaults/generic/php_cs.php](configDefaults/generic/php_cs.php)
@@ -386,6 +429,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - Highly configurable with 200+ rules
 
 ### PSR-4 Validate
+
 - **Purpose**: Ensures namespace/directory structure compliance with PSR-4
 - **Tool**: [@includes/generic/psr4Validate.inc.bash](includes/generic/psr4Validate.inc.bash)
 - **Binary**: `bin/psr4-validate`
@@ -396,11 +440,12 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - Supports ignore patterns for legacy code
 
 ### Composer Checks
+
 - **Purpose**: Validates composer configuration and dependencies
 - **Tool**: [@includes/generic/composerChecks.inc.bash](includes/generic/composerChecks.inc.bash)
-- **Requirements**: 
+- **Requirements**:
   - `ergebnis/composer-normalize` plugin must be allowed in YOUR PROJECT's composer.json
-- **How it works**: 
+- **How it works**:
   - Checks if `ergebnis/composer-normalize` plugin is allowed
   - Runs `composer diagnose` to check for issues
   - Runs `composer normalize` to normalize composer.json
@@ -418,12 +463,14 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   After adding, run: `composer update nothing`
 
 ### PHP Strict Types
+
 - **Purpose**: Ensures all PHP files have `declare(strict_types=1)`
 - **Tool**: [@includes/generic/phpStrictTypes.inc.bash](includes/generic/phpStrictTypes.inc.bash)
 - **How it works**: Finds PHP files missing strict types declaration, optionally adds it automatically
 - **Interactive**: In non-CI mode, asks before adding to each file
 
 ### PHP Lint
+
 - **Purpose**: Fast parallel syntax checking
 - **Tool**: [@includes/generic/phpLint.inc.bash](includes/generic/phpLint.inc.bash)
 - **How it works**: Uses PHP's built-in `-l` flag to check syntax, runs in parallel for speed
@@ -432,16 +479,18 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - Catches parse errors before running other tools
 
 ### PHPUnit Annotations Check
+
 - **Purpose**: Validates PHPUnit test annotations
 - **Tool**: [@includes/generic/phpunitAnnotations.inc.bash](includes/generic/phpunitAnnotations.inc.bash)
 - **Binary**: `bin/phpunit-check-annotation`
 - **How it works**: Parses test files to ensure proper @test, @group annotations
 
-### Composer Require Checker  
+### Composer Require Checker
+
 - **Purpose**: Ensures all code dependencies are explicitly declared in composer.json
 - **Tool**: [@includes/generic/composerRequireChecker.inc.bash](includes/generic/composerRequireChecker.inc.bash)
 - **Default**: [@configDefaults/generic/composerRequireChecker.json](configDefaults/generic/composerRequireChecker.json)
-- **How it works**: 
+- **How it works**:
   - Scans all PHP files for symbols (classes, functions, constants)
   - Checks if each symbol's package is explicitly required in composer.json
   - Fails if using transitive dependencies without declaring them
@@ -455,6 +504,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - PSR interfaces without requiring the PSR package
 
 ### Markdown Links Checker
+
 - **Purpose**: Validates links in markdown documentation
 - **Tool**: [@includes/generic/markdownLinks.inc.bash](includes/generic/markdownLinks.inc.bash)
 - **Binary**: `bin/mdlinks`
@@ -462,6 +512,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **Scope**: README.md and all files in docs/
 
 ### PHPStan
+
 - **Purpose**: Static analysis for finding bugs without running code
 - **Tool**: [@includes/generic/phpstan.inc.bash](includes/generic/phpstan.inc.bash)
 - **Default**: [@configDefaults/generic/phpstan.neon](configDefaults/generic/phpstan.neon)
@@ -471,7 +522,20 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - Extensible with custom rules
   - Understands PHPDoc annotations
 
+### PHPArkitect
+
+- **Purpose**: Enforce architectural/structural rules — class-naming conventions, namespace layering, dependency direction — that PHPStan expresses awkwardly
+- **Tool**: [@includes/generic/phpArkitect.inc.bash](includes/generic/phpArkitect.inc.bash)
+- **PHAR**: `vendor-phar/phparkitect.phar` (PHIVE, key `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, short id `D9C905CED1932CA2`)
+- **Entry config (default)**: [@configDefaults/generic/phparkitect.php](configDefaults/generic/phparkitect.php) — applies the default tier to the detected source dir when a project has no `qaConfig/phparkitect.php`
+- **Rule tiers**: `phparkitect-rules-default.php` (on by default), `phparkitect-rules-optional.php` + `phparkitect-rules-optional-symfony.php` (opt-in) under [@configDefaults/generic](configDefaults/generic)
+- **Project template**: [@templates/qaConfig-phparkitect.php](templates/qaConfig-phparkitect.php)
+- **How it works**: parses each class into an AST and matches expressions (naming, dependencies); rules and the paths to scan are defined inside the config (so `-p` does not apply). The pipeline passes `--autoload` and exports the tier paths + detected `srcDir` as env vars
+- **Where a rule belongs (PHPArkitect vs PHPStan)**: arkitect by default for structural rules; upgrade to a PHPStan rule only for finer-grained / method-level / semantic detection arkitect cannot express. **Never enforce one convention in both engines** — migrate, don't duplicate (SSoT). Full decision guide: [README.md "Where does a rule belong"](README.md#where-does-a-rule-belong--phparkitect-or-phpstan)
+- **Full usage** (tiers, extend/replace/customise, disable): see the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules)
+
 ### PHPUnit
+
 - **Purpose**: Unit testing framework
 - **Tool**: [@includes/generic/phpunit.inc.bash](includes/generic/phpunit.inc.bash)
 - **Default**: [@configDefaults/generic/phpunit.xml](configDefaults/generic/phpunit.xml)
@@ -482,6 +546,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - Multiple output formats
 
 ### Infection
+
 - **Purpose**: Mutation testing to verify test quality
 - **Tool**: [@includes/generic/infection.inc.bash](includes/generic/infection.inc.bash)
 - **Default**: [@configDefaults/generic/infection.json](configDefaults/generic/infection.json)
@@ -492,6 +557,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - Covered Code MSI
 
 ### PHPLoc
+
 - **Purpose**: Measure project size and complexity
 - **Tool**: [@includes/generic/phploc.inc.bash](includes/generic/phploc.inc.bash)
 - **How it works**: Parses PHP files and counts lines, classes, methods, complexity
@@ -512,6 +578,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 **CRITICAL UNDERSTANDING**: The PHP-QA-CI pipeline is designed to enforce consistent, standardized tool configurations across projects. It is **NOT** intended to be a flexible proxy that passes arbitrary arguments to underlying tools.
 
 #### What the QA Pipeline IS For:
+
 - ✅ **Enforcing consistent configurations** - Same PHPStan level, same CS Fixer rules across projects
 - ✅ **Orchestrating tool execution** - Running tools in the correct order with proper dependencies
 - ✅ **Managing tool dependencies** - Handling PHIVE installs, cache directories, etc.
@@ -519,6 +586,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - ✅ **Standardized environments** - Consistent Xdebug settings, memory limits, etc.
 
 #### What the QA Pipeline is NOT For:
+
 - ❌ **Arbitrary tool flags** - Don't expect `vendor/bin/qa -t stan --help` to work
 - ❌ **Custom tool arguments** - The pipeline controls all tool arguments for consistency
 - ❌ **Tool-specific customization per run** - Use project config files instead
@@ -559,6 +627,7 @@ This maintains consistency while allowing targeted execution.
 ### Integration with Development Tools
 
 Development scripts (like docker.bash) should:
+
 - ✅ Use `vendor/bin/qa -t toolname` for standardized runs
 - ✅ Support path specification: `-p src/specific/path`
 - ❌ Try to pass arbitrary tool flags through the QA pipeline

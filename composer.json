@@ -5,6 +5,7 @@
   "type": "composer-plugin",
   "require": {
     "php": "^8.3",
+    "ext-filter": "*",
     "ext-json": "*",
     "ext-openssl": "*",
     "ext-tokenizer": "*",
@@ -50,6 +51,21 @@
     "psr-4": {
       "LTS\\PHPQA\\Tests\\": [
         "tests/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiInternalLeak\\": [
+        "tests/assets/PHPStan/ApiInternalLeak/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiOrInternal\\": [
+        "tests/assets/PHPStan/ApiOrInternal/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\DeprecatedPhpunit\\": [
+        "tests/assets/PHPStan/DeprecatedPhpunit/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\FactorySealed\\": [
+        "tests/assets/PHPStan/FactorySealed/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SensitiveParameter\\": [
+        "tests/assets/PHPStan/SensitiveParameter/"
       ]
     }
   },
@@ -57,11 +73,13 @@
     "bin/composer-require-checker",
     "bin/infection",
     "bin/mdlinks",
+    "bin/package-type-check",
     "bin/php-cs-fixer",
     "bin/phpstan",
     "bin/phpunit-check-annotation",
     "bin/psr4-validate",
-    "bin/qa"
+    "bin/qa",
+    "bin/sensitive-parameter-usage"
   ],
   "config": {
     "allow-plugins": {
@@ -79,7 +97,8 @@
     "class": [
       "LTS\\PHPQA\\ComposerPlugin\\PhiveUpdatePlugin",
       "LTS\\PHPQA\\ComposerPlugin\\SkillsDeployPlugin",
-      "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin"
+      "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin",
+      "LTS\\PHPQA\\ComposerPlugin\\ManagedSourceDeployPlugin"
     ],
     "phpstan": {
       "includes": [

@@ -32,19 +32,50 @@ elif [[ -f "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml" ]]; then
     DAEMON_DETECTED=true
     DAEMON_CONFIG="$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon.yaml"
     echo "  📋 Detected hooks-daemon at parent: $DAEMON_CONFIG (monorepo)"
+elif [[ "${PHP_QA_CI_ASSUME_HOOKS_DAEMON:-0}" == "1" ]]; then
+    # Escape hatch: treat the project as daemon-managed even when the config
+    # file isn't visible from this environment (e.g. composer running in a
+    # container that doesn't mount .claude/). Presence of the daemon is a
+    # project-level fact; it does not depend on this environment being able to
+    # see the file or run the daemon's venv.
+    DAEMON_DETECTED=true
+    echo "  📋 hooks-daemon assumed present via PHP_QA_CI_ASSUME_HOOKS_DAEMON=1 (config file not visible here)"
 fi
 
-# Detect daemon venv python3 for yaml operations (has pyyaml installed)
-# Fall back to system python3 if venv not found
-# Support monorepo: check both project root and parent directory for venv
-PYTHON3_YAML="python3"
-DAEMON_VENV_PYTHON="$PROJECT_ROOT/.claude/hooks-daemon/untracked/venv/bin/python3"
-DAEMON_VENV_PYTHON_PARENT="$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon/untracked/venv/bin/python3"
-if [[ -f "$DAEMON_VENV_PYTHON" ]]; then
-    PYTHON3_YAML="$DAEMON_VENV_PYTHON"
-elif [[ -f "$DAEMON_VENV_PYTHON_PARENT" ]]; then
-    PYTHON3_YAML="$DAEMON_VENV_PYTHON_PARENT"
+# Detect daemon venv python3 for yaml operations (has pyyaml installed).
+# Never falls back to system python3 — system Python won't have pyyaml, and
+# silently skipping config validation is worse than a clear error.
+# Supports monorepo: checks both project root and parent directory.
+PYTHON3_YAML=""
+
+_find_daemon_venv_python() {
+    local daemon_root="$1"
+    local untracked="$daemon_root/untracked"
+    # Fingerprint-keyed venv (v3.9.0+): venv-<fingerprint>/bin/python3
+    if [[ -d "$untracked" ]]; then
+        for _venv_python in "$untracked"/venv-*/bin/python3; do
+            if [[ -f "$_venv_python" ]]; then
+                echo "$_venv_python"
+                return 0
+            fi
+        done
+    fi
+    # Legacy path (pre-v3.9.0)
+    local _legacy="$daemon_root/untracked/venv/bin/python3"
+    if [[ -f "$_legacy" ]]; then
+        echo "$_legacy"
+        return 0
+    fi
+    return 1
+}
+
+_found=""
+if _found=$(_find_daemon_venv_python "$PROJECT_ROOT/.claude/hooks-daemon"); then
+    PYTHON3_YAML="$_found"
+elif _found=$(_find_daemon_venv_python "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon"); then
+    PYTHON3_YAML="$_found"
 fi
+unset _found
 
 echo "Deploying Skills from: $SKILLS_SOURCE"
 echo "                   to: $SKILLS_TARGET"
@@ -337,13 +368,30 @@ fi
 
 # Note: DAEMON_CONFIG already set earlier with monorepo detection
 
-if [[ -f "$DAEMON_CONFIG" ]]; then
+if [[ "$DAEMON_DETECTED" == "true" ]]; then
     echo ""
     echo "📋 hooks-daemon detected - enforcing required handler configuration..."
 
-    # Use Python with PyYAML to validate and update config
-    # Uses daemon venv python3 if available (has pyyaml), else falls back to system python3
-    $PYTHON3_YAML - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
+    # Daemon YAML handler enforcement requires a daemon venv Python that has
+    # pyyaml installed. That venv is host/platform-specific: when composer runs
+    # inside a container that bind-mounts a host-built venv, the venv's python
+    # symlink points at a host path (e.g. a Homebrew python) that does not exist
+    # in the container, so the venv is unusable here.
+    #
+    # In that situation we DO NOT fail the deployment. The daemon validates and
+    # enforces its own config where it actually runs (the host). We skip only
+    # the YAML enforcement step and still perform the classic-hook cleanup below
+    # (which uses system python3 and needs no venv) so settings.json is left in
+    # the correct daemon-managed state regardless of environment.
+    if [[ -z "$PYTHON3_YAML" ]]; then
+        echo "  ⚠️  hooks daemon venv not usable in this environment — skipping daemon YAML handler enforcement." >&2
+        echo "     This is expected when composer runs inside a container that mounts a host-built" >&2
+        echo "     daemon venv. The daemon enforces its own config where it runs (typically the host)." >&2
+        echo "     To enforce here too, install/upgrade the daemon (v3.9.0+) so a usable venv exists" >&2
+        echo "     in this environment." >&2
+    else
+        # Use daemon venv Python (has pyyaml) - system Python is never used
+        $PYTHON3_YAML - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
 import sys
 from pathlib import Path
 
@@ -357,10 +405,12 @@ except ImportError:
 config_file = Path(sys.argv[1])
 
 if not HAS_YAML:
-    print("  ⚠️  Warning: PyYAML not installed - cannot validate daemon config", file=sys.stderr)
-    print("  Install with: pip install pyyaml", file=sys.stderr)
-    print("  Continuing deployment without config validation...", file=sys.stderr)
-    sys.exit(0)
+    print("  ❌ ERROR: PyYAML not available in hooks daemon venv", file=sys.stderr)
+    print("  The daemon venv is missing pyyaml — the daemon needs to be upgraded.", file=sys.stderr)
+    print("  Upgrade hooks daemon (v3.9.0+):", file=sys.stderr)
+    print("    curl -fsSL https://raw.githubusercontent.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon/main/scripts/upgrade.sh -o /tmp/upgrade.sh", file=sys.stderr)
+    print("    bash /tmp/upgrade.sh --project-root <project-root>", file=sys.stderr)
+    sys.exit(1)
 
 # Required handlers for php-qa-ci projects
 REQUIRED_HANDLERS = {
@@ -434,7 +484,8 @@ except Exception as e:
 
 PYTHON_DAEMON_CONFIG
 
-    echo "  ✓ hooks-daemon configuration enforced"
+        echo "  ✓ hooks-daemon configuration enforced"
+    fi
 
     # ========================================================================
     # Remove classic hooks - daemon provides all functionality now
@@ -612,6 +663,29 @@ PYTHON_AUTOLOAD
 fi
 
 echo "  ✓ PHPStan custom rule infrastructure ready"
+
+# ============================================================================
+# Phase 7: Project root CLAUDE.md <phpqaci> block
+# ============================================================================
+# Inject (or idempotently replace) the auto-managed <phpqaci> block in the
+# project's root CLAUDE.md. Documents the branchNamePolicy convention.
+echo ""
+echo "📝 Updating project CLAUDE.md <phpqaci> block..."
+PHPQACI_BLOCK_TEMPLATE="$QACI_PATH/templates/root-CLAUDE-phpqaci-block.md.template"
+PHPQACI_BLOCK_TARGET="$PROJECT_ROOT/CLAUDE.md"
+PHPQACI_BLOCK_WRITER="$QACI_PATH/scripts/write-claude-block.bash"
+
+if [[ -f "$PHPQACI_BLOCK_TEMPLATE" && -f "$PHPQACI_BLOCK_WRITER" ]]; then
+    if bash "$PHPQACI_BLOCK_WRITER" "$PHPQACI_BLOCK_TEMPLATE" "$PHPQACI_BLOCK_TARGET"; then
+        echo "  ✓ <phpqaci> block in CLAUDE.md is current"
+    else
+        BLOCK_RC=$?
+        echo "  ⚠️  write-claude-block.bash failed (exit $BLOCK_RC) — see message above" >&2
+        # Non-fatal: composer install/update should not break on this.
+    fi
+else
+    echo "  ⚠️  Skipping CLAUDE.md block update — template or writer missing"
+fi
 
 # ============================================================================
 # Summary

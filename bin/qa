@@ -94,6 +94,34 @@ else
     CI='false'
 fi
 
+# Read-only / check mode is ORTHOGONAL to CI (interactivity). CI decides whether
+# we prompt; qaReadOnly decides whether the mutating tools (Rector, PHP CS Fixer)
+# may write. Auto-enabled on GitHub Actions; overridable via QA_READONLY. See
+# detectReadOnly() in includes/functions.inc.bash for the full precedence rules.
+qaReadOnly="$(detectReadOnly)"
+export qaReadOnly
+if [[ "true" == "$qaReadOnly" ]]; then
+    echo "QA read-only (check) mode: fixers will NOT modify files; a pending change FAILS the run."
+    echo "  (override with QA_READONLY=0 to apply fixes)"
+else
+    echo "QA writable mode: fixers (Rector, PHP CS Fixer) may modify files."
+    echo "  (override with QA_READONLY=1 for a read-only check run, as GitHub Actions does)"
+fi
+
+# Aggregate (non-fail-fast) mode collects EVERY failing tool in one pass instead
+# of stopping at the first. It only makes sense for a read-only verification run
+# (fail-fast is right when applying fixes locally), so it defaults on with
+# qaReadOnly and can be forced off with QA_FAIL_FAST=1.
+if [[ "true" == "$qaReadOnly" && "${QA_FAIL_FAST:-}" != "1" ]]; then
+    qaAggregate='true'
+    echo "QA aggregate mode: all tools run; failures are collected and reported together (not fail-fast)."
+    echo "  (override with QA_FAIL_FAST=1 to stop at the first failing tool)"
+else
+    qaAggregate='false'
+fi
+export qaAggregate
+qaFailedTools=()
+
 # the path in the project to check for config
 projectConfigPath="$projectRoot/qaConfig/"
 
@@ -201,6 +229,17 @@ Running Single Tool: $singleToolToRun
   runTool "$singleToolToRun"
   exitCode=$?
 
+  # A meta-target (allStatic/allLints/allTests/allCS) runs several leaf tools via
+  # runToolGuarded, so in aggregate mode the authoritative result is the failure
+  # tally, not the phase's own exit code.
+  if [[ "true" == "$qaAggregate" ]]; then
+    if qaReportAggregate; then
+      exitCode=0
+    else
+      exitCode=1
+    fi
+  fi
+
   # Release lock with correct exit code before exiting
   trap - EXIT ERR INT TERM
   releaseLock $exitCode
@@ -239,6 +278,14 @@ Running All Testing Tools
 
 "
 runTool allTestingTools
+
+# In aggregate mode no leaf tool fails fast, so the run reaches here even when
+# tools failed. Report the tally and stop before the success banner if any did.
+if ! qaReportAggregate; then
+  trap - EXIT ERR INT TERM
+  releaseLock 1
+  exit 1
+fi
 
 echo '
 

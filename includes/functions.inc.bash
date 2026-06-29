@@ -249,6 +249,153 @@ function tryAgainOrAbort() {
   hasBeenRestarted="true"
 }
 
+###############################################################
+# Decide whether this is a READ-ONLY (verification) run.
+#
+# Read-only is ORTHOGONAL to CI/interactivity:
+#   - CI (see bin/qa) controls INTERACTIVITY: no prompts, no retry loops. It is
+#     force-enabled for Claude Code / non-TTY shells so commands never hang.
+#   - qaReadOnly controls whether the mutating tools (Rector, PHP CS Fixer) may
+#     WRITE. A read-only run does not modify files; a pending change FAILS the
+#     gate with remediation guidance.
+#
+# These were historically conflated under CI, which made it impossible to (a)
+# run a real verification gate that fails-instead-of-applies, and (b) still let
+# a non-interactive Claude/local session APPLY fixes. Splitting them fixes both.
+#
+# Precedence (first match wins):
+#   1. explicit QA_READONLY=1/true  -> read-only   (reproduce CI locally)
+#      explicit QA_READONLY=0/false -> writable    (force-apply anywhere)
+#   2. real CI: GitHub Actions (GITHUB_ACTIONS=true) -> read-only
+#   3. everything else (local TTY, Claude sessions, cron) -> writable
+#
+# Echoes "true" or "false".
+function detectReadOnly() {
+  case "${QA_READONLY:-}" in
+    1 | true)
+      echo "true"
+      return 0
+      ;;
+    0 | false)
+      echo "false"
+      return 0
+      ;;
+  esac
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    echo "true"
+    return 0
+  fi
+  echo "false"
+}
+
+###############################################################
+# Emit standardized remediation guidance and FAIL when a mutating tool found
+# pending changes during a read-only run, then exit 1.
+#
+# Usage: reportReadOnlyWouldModify "Rector" "rector"
+#   $1 - human tool name (for the heading)
+#   $2 - the `bin/qa -t <target>` target that applies the fix (e.g. rector, fixer)
+function reportReadOnlyWouldModify() {
+  local toolName="$1"
+  local qaTarget="$2"
+  echo "
+
+    ==================================================
+
+        $toolName: pending changes in a READ-ONLY run
+
+    --------------------------------------------------
+
+    This run is read-only (qaReadOnly=true), so $toolName did NOT modify any
+    files. It found changes it WOULD make, which fails the gate. The diff is
+    shown above.
+
+    Read-only mode is auto-enabled on GitHub Actions. It is INDEPENDENT of CI /
+    interactivity: a Claude Code or local run is non-interactive (so it never
+    hangs) but still WRITES, so you can apply fixes there.
+
+    TO FIX -- apply the changes where writes are allowed, then commit them:
+
+        QA_READONLY=0 vendor/bin/qa -t $qaTarget
+        git add -A && git commit
+
+    Then push. CI passes because no pending changes remain.
+
+    ==================================================
+
+    "
+  exit 1
+}
+
+###############################################################
+# Run a leaf tool, honouring aggregate (non-fail-fast) mode.
+#
+# Fail-fast is correct for a local apply run: stop at the first problem so the
+# developer fixes it and re-runs. But a read-only verification run (e.g. CI)
+# is more useful when it reports EVERY failing tool in one pass, so nobody
+# fixes phpstan, pushes, and only then discovers phpunit was also red.
+#
+# When qaAggregate=true this runs the tool in a SUBSHELL so its `exit` is
+# contained, records a failure in qaFailedTools, and lets the pipeline carry
+# on. When qaAggregate is not set it is a transparent passthrough to runTool,
+# preserving the historic fail-fast behaviour (including retries) exactly.
+#
+# Aggregate mode never mutates: it is only enabled alongside read-only mode,
+# where Rector / PHP CS Fixer run with --dry-run.
+function runToolGuarded() {
+  local tool="$1"
+  if [[ "true" != "${qaAggregate:-false}" ]]; then
+    runTool "$tool"
+    return $?
+  fi
+  if (runTool "$tool"); then
+    return 0
+  fi
+  qaFailedTools+=("$tool")
+  echo ""
+  echo ">>> $tool FAILED — continuing (aggregate mode); see the summary at the end."
+  echo ""
+  return 0
+}
+
+###############################################################
+# Print the aggregate-mode summary and report overall pass/fail.
+#
+# Returns 0 when nothing failed (or aggregate mode is off), 1 when one or more
+# tools failed. Does NOT exit — the caller owns lock release and the exit code.
+function qaReportAggregate() {
+  if [[ "true" != "${qaAggregate:-false}" ]]; then
+    return 0
+  fi
+  if ((${#qaFailedTools[@]} == 0)); then
+    echo "
+    ==================================================
+
+        Aggregate (read-only) run: every QA tool passed.
+
+    ==================================================
+    "
+    return 0
+  fi
+  echo "
+    ==================================================
+
+        Aggregate (read-only) run: ${#qaFailedTools[@]} tool(s) FAILED
+
+"
+  local failedTool
+  for failedTool in "${qaFailedTools[@]}"; do
+    echo "          - $failedTool"
+  done
+  echo "
+        Each tool's full output is above. Fix every item, then re-run.
+        (This run did not fail fast: all tools ran so you see every problem.)
+
+    ==================================================
+    "
+  return 1
+}
+
 function findTestsDir() {
   testsDir="$(find $projectRoot -maxdepth 1 -type d \( -name test -o -name tests \) | head -n1)"
   if [[ "" == "$testsDir" ]]; then
@@ -277,7 +424,7 @@ function findTestsDir() {
 
 function findSrcDir() {
   srcDir="$projectRoot/src"
-  if [[ "" == "$srcDir" ]]; then
+  if [[ ! -d "$srcDir" ]]; then
     echo "
 
 

@@ -8,11 +8,103 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidLooseComparisonRule
     - LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedSerializableRule
     - LTS\PHPQA\PHPStan\Rules\ForbidNestedTernaryRule
-    - LTS\PHPQA\PHPStan\Rules\RequireTypeSuffixRule
+    # NOTE: Interface/Enum/Trait *naming* suffixes are deliberately NOT a PHPStan
+    # rule. They are a structural naming convention, owned by PHPArkitect's
+    # on-by-default tier (configDefaults/generic/phparkitect-rules-default.php) —
+    # the single source of truth for type-suffix naming. The former
+    # RequireTypeSuffixRule was migrated there; do not re-add it here.
     - LTS\PHPQA\PHPStan\Rules\RequireRuleIdentifierConstantRule
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RequireSensitiveParameterAttributeRule — keep passwords/secrets out of traces.
+#
+# PHP 8.2+ ships #[\SensitiveParameter]. When set on a parameter, PHP replaces
+# the real argument with a SensitiveParameterValue placeholder in
+# Throwable::getTrace(), so credentials never leak into logs / error reporters.
+#
+# This rule flags any parameter whose NAME looks like a credential AND whose
+# type is a plausible plaintext value (string / ?string / untyped / mixed) when
+# it is missing the attribute. Object-typed params and already-hashed/encoded
+# names are ignored. Configure the name patterns and ignore-substrings via the
+# parameters block below.
+#
+# NOTE: the codebase-wide "at least one #[\SensitiveParameter] exists" coverage
+# check is NOT a PHPStan rule. PHPStan rules are opt-in (consumers must include
+# this neon), so that check cannot be relied on estate-wide. It ships instead as
+# an always-on php-qa-ci pipeline tool (`sensitiveParameterUsage`) that runs for
+# every consumer via `bin/qa`. See README "SensitiveParameter usage check".
+# ─────────────────────────────────────────────────────────────────────────────
+parameters:
+    phpqaciSensitiveParameter:
+        namePatterns:
+            - password
+            - passwd
+            - pwd
+            - passphrase
+            - secret
+            - apiSecret
+            - privateKey
+            - credential
+            - credentials
+        ignoreSubstrings:
+            - hash
+            - hashed
+            - encoded
+            - encrypted
+            - url
+            - uri
+            - path
+    # RequireApiOrInternalTagRule — fully-qualified namespace PREFIXES whose
+    # class-likes are exempt from @api/@internal classification. Generated and
+    # managed trees cannot carry hand-authored tags, so list them here, e.g.:
+    #   phpqaciApiOrInternal:
+    #       ignoredNamespacePrefixes:
+    #           - App\Generated
+    #           - App\PhpQaCi
+    phpqaciApiOrInternal:
+        ignoredNamespacePrefixes: []
+
+parametersSchema:
+    phpqaciSensitiveParameter: structure([
+        namePatterns: listOf(string())
+        ignoreSubstrings: listOf(string())
+    ])
+    phpqaciApiOrInternal: structure([
+        ignoredNamespacePrefixes: listOf(string())
+    ])
 
 services:
     -
         class: LTS\PHPQA\PHPStan\Rules\ForbidMockingFinalClassRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: LTS\PHPQA\PHPStan\Rules\RequireSensitiveParameterAttributeRule
+        arguments:
+            namePatterns: %phpqaciSensitiveParameter.namePatterns%
+            ignoreSubstrings: %phpqaciSensitiveParameter.ignoreSubstrings%
+        tags:
+            - phpstan.rules.rule
+    # Package-type-aware API-surface classification (default-on). For a
+    # `type: library` project (Composer's silent default when type is omitted),
+    # every public class-like must be classified as exactly one of @api / @internal;
+    # for any other type the rule no-ops. The collaborators are autowired from the
+    # services below; ignored namespace prefixes come from the parameter above.
+    - LTS\PHPQA\PackageType\ProjectComposerTypeReader
+    - LTS\PHPQA\PackageType\DevAutoloadNamespaceReader
+    - LTS\PHPQA\PHPStan\Rules\ApiOrInternalTagDetector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\RequireApiOrInternalTagRule
+        arguments:
+            ignoredNamespacePrefixes: %phpqaciApiOrInternal.ignoredNamespacePrefixes%
+        tags:
+            - phpstan.rules.rule
+    # API-surface integrity (default-on, library-only): an @api class-like must not
+    # expose an @internal one (same package) through its public signature — else the
+    # @api promise is hollow and a consumer is forced to touch an @internal type.
+    # Complements RequireApiOrInternalTagRule (presence) with coherence. The
+    # ReflectionProvider is autowired by PHPStan core.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ApiMustNotExposeInternalRule
         tags:
             - phpstan.rules.rule

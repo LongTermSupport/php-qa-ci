@@ -4,7 +4,7 @@ Validating PSR-4 Roots
 ------------------------
 "
 
-runTool psr4Validate
+runToolGuarded psr4Validate
 
 echo "
 
@@ -12,35 +12,43 @@ Checking for Composer Issues
 ----------------------------
 "
 
-runTool composerChecks
+runToolGuarded composerChecks
+
+echo "
+
+Checking Package Type Is Declared
+---------------------------------
+"
+
+runTool packageType
 
 echo "
 Setting Strict Types If It's Missing
 -------------------------------------
 "
 
-runTool phpStrictTypes
+runToolGuarded phpStrictTypes
 
 echo "
 
 Running PHP Lint
 ----------------
 "
-runTool phpLint
+runToolGuarded phpLint
 
 echo "
 
 Running PHPUnit Annotations Check
 --------------------------------
 "
-runTool phpunitAnnotations
+runToolGuarded phpunitAnnotations
 
 echo "
 
 Running Composer Require Checker
 --------------------------------
 "
-runTool composerRequireChecker
+runToolGuarded composerRequireChecker
 
 
 echo "
@@ -48,4 +56,4 @@ echo "
 Running Markdown Links Checker
 ------------------------------
 "
-runTool markdownLinks
+runToolGuarded markdownLinks

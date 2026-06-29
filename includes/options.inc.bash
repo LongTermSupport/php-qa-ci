@@ -40,9 +40,12 @@ function usage {
     echo "     allCS                      all coding standards tools"
     echo "     psr|psr4                   psr4 validation"
     echo "     com|composer               composer validation"
+    echo "     pt|packageType             assert composer.json declares an explicit package type (library/project/...)"
     echo "     st|stricttypes             strict types validation"
     echo "     lint|phplint               phplint"
     echo "     stan|phpstan               phpstan"
+    echo "     arch|arkitect|phparkitect  PHPArkitect architecture rules (on by default; useArkitect=0 to disable)"
+    echo "     spu|sensitiveParameterUsage  assert #[\\SensitiveParameter] is used somewhere in src/"
     echo "     ann|phpunitAnnotations     phpunitAnnotations"
     echo "     unit|phpunit               phpunit"
     echo "     uniterate                  phpunit iterative mode - prioritise broken tests and fail on error"
@@ -52,6 +55,7 @@ function usage {
     echo "     l|loc                      lines of code and other stats"
     echo "     f|fixer|csfixer            PHP-CS-Fixer"
     echo "     r|rector                   Rector"
+    echo "     bnp|branchNamePolicy       Branch naming policy (PR convention)"
     exit 1
 }
 
@@ -99,6 +103,10 @@ NON_PATH_SUPPORTING_TOOLS=(
     "markdownLinks" "markdown" "ml"              # ❌ Hardcoded to specific files
     "phpunitAnnotations" "ann"                   # ❌ Need to verify implementation
     "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
+    "branchNamePolicy" "bnp"                     # ❌ Repo-level git check, not path-specific
+    "sensitiveParameterUsage" "spu" "sensitiveparameter" # ❌ Codebase-wide check, always scans src/
+    "packageType" "pt" "packagetype"             # ❌ Reads composer.json only, not path-specific
+    "phpArkitect" "arch" "arkitect" "phparkitect" # ❌ Paths defined inside the config file (ClassSet::fromDir)
     "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
     "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
     "allTestingTools" "allTests"                 # ❌ Aggregate - runs multiple tools
@@ -165,6 +173,7 @@ then
         st | stricttypes            ) singleToolToRun="phpStrictTypes";;
         lint | phplint              ) singleToolToRun="phpLint";;
         stan | phpstan              ) singleToolToRun="phpstan";;
+        arch | arkitect | phparkitect ) singleToolToRun="phpArkitect";;
         ann | phpunitAnnotations    ) singleToolToRun="phpunitAnnotations";;
         unit | phpunit              ) singleToolToRun="phpunit";;
         uniterate                   ) singleToolToRun="phpunit"; phpUnitIterativeMode=1;;
@@ -174,6 +183,9 @@ then
         l | loc                     ) singleToolToRun="phploc";;
         f | fixer | csfixer         ) singleToolToRun="phpCsFixer";;
         r | rector                  ) singleToolToRun="rector";;
+        bnp | branchNamePolicy      ) singleToolToRun="branchNamePolicy";;
+        spu | sensitiveparameter | sensitiveParameterUsage ) singleToolToRun="sensitiveParameterUsage";;
+        pt | packagetype | packageType ) singleToolToRun="packageType";;
         * )
             printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
             usage

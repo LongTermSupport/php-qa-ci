@@ -1,0 +1,61 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+use LTS\PHPQA\Helper;
+use LTS\PHPQA\ManagedSource\ManagedSourceGenerator;
+
+$files = [
+    __DIR__.'/../../../autoload.php',
+    __DIR__.'/../vendor/autoload.php',
+];
+
+$autoloadFileFound = false;
+foreach ($files as $file) {
+    if (file_exists($file)) {
+        require $file;
+        $autoloadFileFound = true;
+        break;
+    }
+}
+
+if (!$autoloadFileFound) {
+    echo 'You need to set up the project dependencies using composer install'.PHP_EOL;
+    die(1);
+}
+
+$command     = $argv[1] ?? 'check';
+$projectRoot = Helper::getProjectRootDirectory();
+$generator   = new ManagedSourceGenerator();
+
+try {
+    if ('generate' === $command) {
+        $written = $generator->generate($projectRoot);
+        foreach ($written as $path) {
+            echo 'generated: '.$path.PHP_EOL;
+        }
+        echo "\nphp-qa-ci managed source generated.\n";
+        exit(0);
+    }
+
+    if ('check' === $command) {
+        $drift = $generator->check($projectRoot);
+        if ([] === $drift) {
+            echo "\nphp-qa-ci managed source is up to date — no drift.\n";
+            exit(0);
+        }
+        echo "\nERROR: php-qa-ci managed source has DRIFTED (hand-edited, stale, or missing):\n";
+        foreach ($drift as $relativePath) {
+            echo '  - '.$relativePath.PHP_EOL;
+        }
+        echo "\nThis tree is generated and LOCKED — do NOT hand-edit it.\n";
+        echo "Restore it with 'composer install' (or 'vendor/bin/managed-source generate').\n";
+        echo "If the content itself must change, change php-qa-ci's ManagedSourceGenerator.\n";
+        exit(1);
+    }
+
+    echo "Usage: managed-source [generate|check]\n";
+    exit(2);
+} catch (\Throwable $exception) {
+    echo "\n".$exception->getMessage()."\n";
+    exit(1);
+}
