@@ -57,9 +57,9 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 10 additional opt-in rules split across two files:
+PHP-QA-CI ships 11 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 6 generic rules suitable for any PHP project
+- **`rules-optional.neon`** — 7 generic rules suitable for any PHP project
 - **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules
 
 These are **not** loaded automatically — you must enable them explicitly.
@@ -103,6 +103,8 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     # Single array param annotated @param list<T> should use variadic syntax instead
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+    # Bans test assertions pinning an identifier-like magic string against a plain string — use a backed enum
+    - LTS\PHPQA\PHPStan\Rules\ForbidMagicStringAssertionRule
     # Symfony: blocks user input passed directly into HTTP response headers
     - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
     # Symfony/Doctrine: requires Doctrine DQL/ORM — bans raw SQL strings
@@ -115,18 +117,19 @@ rules:
 
 ### Available optional rules
 
-| Rule | File | What it catches |
-|---|---|---|
-| `ForbidNullCoalescingEmptyStringRule` | `rules-optional.neon` | `$x ?? ''` — almost always a logic bug |
-| `ForbidNullCoalescingFalseRule` | `rules-optional.neon` | `$x ?? false` — use explicit null checks |
-| `ForbidSilentCatchRule` | `rules-optional.neon` | `catch` blocks that ignore the caught exception |
-| `ForbidInlinePhpstanIgnoreRule` | `rules-optional.neon` | Inline `@phpstan-ignore` annotations in source files |
-| `RequireReadonlyServiceRule` | `rules-optional.neon` | Service classes not declared `final readonly` |
-| `RequireVariadicForSingleListParamRule` | `rules-optional.neon` | `array $items` annotated `@param list<T>` — use variadic syntax |
-| `ForbidHeaderInjectionRule` | `rules-optional-symfony.neon` | User input passed directly to HTTP headers |
-| `ForbidRawSqlRule` | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM |
-| `RequireCronIntervalInDescriptionRule` | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description |
-| `RequireExplicitDIAttributeRule` | `rules-optional-symfony.neon` | Symfony services without explicit DI attributes |
+| Rule                                    | File                          | What it catches                                                                                           |
+| --------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`         | `$x ?? ''` — almost always a logic bug                                                                    |
+| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`         | `$x ?? false` — use explicit null checks                                                                  |
+| `ForbidSilentCatchRule`                 | `rules-optional.neon`         | `catch` blocks that ignore the caught exception                                                           |
+| `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`         | Inline `@phpstan-ignore` annotations in source files                                                      |
+| `RequireReadonlyServiceRule`            | `rules-optional.neon`         | Service classes not declared `final readonly`                                                             |
+| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`         | `array $items` annotated `@param list<T>` — use variadic syntax                                           |
+| `ForbidMagicStringAssertionRule`        | `rules-optional.neon`         | Tests pinning an identifier-like magic string vs a plain `string` — model the closed set as a backed enum |
+| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon` | User input passed directly to HTTP headers                                                                |
+| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM                                                               |
+| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description                                                     |
+| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon` | Symfony services without explicit DI attributes                                                           |
 
 ## Strict Rules
 

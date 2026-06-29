@@ -32,6 +32,15 @@
 # VARIADIC FOR SINGLE LIST PARAM:
 #   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
 #                                           should be variadic T ...$param instead
+#
+# TYPE SAFETY BEFORE TESTS:
+#   ForbidMagicStringAssertionRule       — bans test assertions that pin an
+#                                          identifier-like magic string against a
+#                                          plain `string` value. The smell that a
+#                                          value should be a backed enum; fires
+#                                          *before* the enum exists, exactly where
+#                                          the alreadyNarrowedType built-in is
+#                                          silent (it only confirms the fix after).
 # ─────────────────────────────────────────────────────────────────────────────
 
 rules:
@@ -41,3 +50,4 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidMagicStringAssertionRule
