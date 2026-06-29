@@ -39,11 +39,20 @@ use PHPStan\Rules\RuleErrorBuilder;
  * messages, formatted text) are never flagged. Opinionated — opt-in via
  * rules-optional.neon.
  *
- * WRONG (the value is a magic string; the test bridges the uncertainty):
- *   self::assertSame('desk', $portal->getProductType());   // getProductType(): string
+ * Two fixes, depending on what the string is:
  *
- * RIGHT (model the closed set; the type guarantees it):
+ * WRONG — a domain value (closed set) pinned with a literal:
+ *   self::assertSame('desk', $portal->getProductType());   // getProductType(): string
+ * RIGHT — model the closed set; the type guarantees it:
  *   self::assertSame(ZohoProduct::Desk, $portal->getProductType());  // : ZohoProduct
+ *
+ * WRONG — test data (a fixture id/key) duplicated as a literal:
+ *   $field = new FieldData('cf_bl_order_id', ...);
+ *   self::assertSame('cf_bl_order_id', $field->apiKey);
+ * RIGHT — define it once as a test-level const and reference it both sides:
+ *   private const string ORDER_ID_KEY = 'cf_bl_order_id';
+ *   $field = new FieldData(self::ORDER_ID_KEY, ...);
+ *   self::assertSame(self::ORDER_ID_KEY, $field->apiKey);
  *
  * @implements Rule<CallLike>
  */
@@ -139,10 +148,14 @@ final class ForbidMagicStringAssertionRule implements Rule
 
         return [
             RuleErrorBuilder::message(\sprintf(
-                'Asserting the magic string "%s" against a plain string value. This bridges with a test the '
-                . 'certainty a type should provide. If "%s" is one of a closed set of values, model that set as a '
-                . 'backed enum and assert the enum case — the type system then guarantees it for free, and this '
-                . 'assertion becomes unnecessary. Do not pin magic strings with assertions.',
+                'Asserting the magic string "%s" against a plain string value — a test is bridging certainty that a '
+                . 'type or a single definition should provide. Fix it one of two ways: '
+                . '(1) DOMAIN value (a closed set like a status, type, or action): model it as a backed enum (or a '
+                . 'domain constant) in production and assert the enum case / constant — the type system then '
+                . 'guarantees it and the assertion becomes unnecessary; '
+                . '(2) TEST DATA (a fixture id, key, or sample value): hoist "%s" to a test-level private const and '
+                . 'reference it from both the arrange step and the assertion, so the value is defined once instead of '
+                . 'duplicated. Either way, do not pin a raw magic string in the assertion.',
                 $literalValue,
                 $literalValue,
             ))->identifier(self::IDENTIFIER)->build(),
