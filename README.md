@@ -321,6 +321,14 @@ PHP-QA-CI includes three GitHub Actions workflows in `.github/workflows/`:
 - **`qa.yml`** -- Template workflow for consuming projects (copy to your project)
 - **`update-deps.yml`** -- Weekly scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, isolated Rector), runs the full QA pipeline, and creates an auto-merge PR if green
 
+Two consuming-project templates live in `templates/github-actions/`:
+
+- **`php-qa-ci.yml`** -- single-job pipeline; optional `AUTO_COMMIT_FIXES` commits fixes at the
+  end (so the checks ran against unfixed code)
+- **`qa-autofix.yml`** -- inline-barrier: a PR-only `autofix` job applies Rector + PHP CS Fixer
+  in write mode and commits the fixes back, then a `gate` job (`needs: autofix`) re-validates
+  the fixed tip read-only in the same run (no PAT, no re-trigger needed)
+
 See [GitHub Actions Integration](./docs/github-actions.md) for setup details.
 
 ## Claude Code Integration

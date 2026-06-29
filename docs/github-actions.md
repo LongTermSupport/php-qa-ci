@@ -10,6 +10,7 @@ vendor/lts/php-qa-ci/scripts/install-github-actions.bash
 ```
 
 Or manually:
+
 ```bash
 mkdir -p .github/workflows
 cp vendor/lts/php-qa-ci/templates/github-actions/php-qa-ci.yml .github/workflows/qa.yml
@@ -40,6 +41,7 @@ The workflow automatically detects the PHP version from your `composer.json` fil
 ### Tool-Specific Runs
 
 Manually trigger specific tools from GitHub UI:
+
 - Actions -> PHP QA Pipeline -> Run workflow -> Select tool
 
 ### Artifact Storage
@@ -75,6 +77,7 @@ env:
 ```
 
 **Safety Features:**
+
 - Never commits to main/master branches
 - Never commits to repository's default branch
 - Requires write permissions in repository settings
@@ -83,16 +86,77 @@ env:
 ### GitHub Repository Settings
 
 #### Required Permissions
+
 1. Go to Settings -> Actions -> General
 2. Under "Workflow permissions":
    - Select "Read and write permissions"
    - Check "Allow GitHub Actions to create and approve pull requests" (if using auto-commits)
 
 #### Branch Protection (Recommended)
+
 1. Go to Settings -> Branches
 2. Add rule for main/master branch
 3. Check "Require status checks to pass before merging"
 4. Select "PHP QA Pipeline" as required check
+
+## Inline-Barrier (autofix → read-only gate)
+
+Template: `templates/github-actions/qa-autofix.yml`
+
+Two jobs daisy-chained with `needs:`. The autofix job writes and commits fixes back on PRs;
+the gate job validates the fixed tree read-only in the **same run**:
+
+```text
+autofix (PR only: WRITE fixers + commit back) ──needs──► gate (READ-ONLY qa)
+```
+
+1. **autofix** runs only on `pull_request`. It checks out the PR branch **tip**, applies the
+   fixers in WRITE mode (`QA_READONLY=0` → Rector + PHP CS Fixer rewrite), and if anything
+   changed commits + pushes it back to the PR branch. It is **skipped** on push to the default
+   branch (already clean, arriving from an auto-fixed PR).
+2. **gate** (`needs: autofix`) checks out the same (possibly auto-fixed) tip and runs the
+   pipeline **read-only**. On GitHub Actions php-qa-ci auto-enables read-only
+   (`detectReadOnly`), so the fixers run as `--dry-run` and **fail on any pending change**;
+   PHPStan etc. run as normal.
+
+### Why no re-trigger / no PAT is needed
+
+The gate validates the fixed tip **in the same run**. The autofix push uses the default
+`GITHUB_TOKEN`, which deliberately starts **no** new workflow run — so there is no loop, no
+cancellation, and nothing to wait for. (A re-trigger-based design would need a PAT; this one
+does not.)
+
+> Contrast with the `php-qa-ci.yml` template's `AUTO_COMMIT_FIXES`, which commits fixes at the
+> **end** of a single run (so the validating tools ran against *unfixed* code). Here the fixers
+> run **before** the gate, and the gate re-validates the fixed tree read-only.
+
+### Default branch is dynamic (no hardcoded name)
+
+`on:` filters cannot use expressions, so the template triggers on **all** pushes and **guards
+the gate** to run — for push events — only on the default branch via
+`github.ref_name == github.event.repository.default_branch`. PRs always run. So: PR →
+autofix+gate; push to default (post-merge) → gate; push to a feature branch → skipped (its PR
+covers it). No double-runs and no branch name baked into the file, which is what makes it safe
+to copy verbatim into any repo. (A feature-branch push with no open PR produces an empty
+skipped run — cosmetic.)
+
+### Safety
+
+- The autofix write-back runs **only on PRs**, never on push to the default branch — automated
+  commits to production branches are never made.
+- Requires `permissions: contents: write` on the autofix job (the workflow is `contents: read`
+  by default) and Settings → Actions → General → "Read and write permissions".
+- A custom composer `bin-dir` (e.g. `bin`) changes the qa path from `vendor/bin/qa` to
+  `bin/qa` — adjust the `run:` lines accordingly.
+- The gate runs the full `qa` pipeline (incl. PHPUnit). If the suite needs services, add them
+  under `gate.services`, or scope the gate to `qa -t allCS` + `qa -t allStatic` until then.
+
+### Install
+
+```bash
+mkdir -p .github/workflows
+cp vendor/lts/php-qa-ci/templates/github-actions/qa-autofix.yml .github/workflows/qa.yml
+```
 
 ## Automated Dependency Updates
 
@@ -128,12 +192,14 @@ Place configuration files in your project's `qaConfig/` directory:
 ### Running Specific Tools
 
 #### Via Workflow Dispatch
+
 1. Go to Actions tab
 2. Select "PHP QA Pipeline"
 3. Click "Run workflow"
 4. Select tool from dropdown
 
 #### Via Workflow Modification
+
 ```yaml
 - name: Run specific tool
   run: vendor/bin/qa -t phpstan
@@ -142,6 +208,7 @@ Place configuration files in your project's `qaConfig/` directory:
 ### Caching Strategy
 
 The workflow caches:
+
 - Composer dependencies
 - QA tool PHARs
 - PHPStan cache
@@ -151,6 +218,7 @@ Cache keys include PHP version to prevent conflicts.
 ## Workflow Features
 
 The workflow includes:
+
 - **Dynamic PHP version detection** from composer.json
 - **Smart git cloning** (shallow by default, full when auto-commit enabled)
 - **PHIVE integration** for PHAR tool management
@@ -165,21 +233,25 @@ The workflow includes:
 ### Common Issues
 
 **"php-qa-ci not installed" error**
+
 ```bash
 composer require --dev lts/php-qa-ci:dev-php8.4@dev
 ```
 
 **Permission denied for auto-commits**
+
 - Check repository Settings -> Actions -> Workflow permissions
 - Ensure "Read and write permissions" is selected
 
 **Out of memory** (default is now 4G for all tools)
+
 ```yaml
 env:
   phpqaMemoryLimit: 8G
 ```
 
 **Infection timeout**
+
 ```yaml
 env:
   useInfection: 0  # Disable mutation testing in CI
@@ -190,6 +262,7 @@ env:
 1. Download artifacts from failed run
 2. Check `var/qa/` directory contents
 3. Run locally with same configuration:
+
 ```bash
 CI=true vendor/bin/qa
 ```
@@ -206,11 +279,13 @@ CI=true vendor/bin/qa
 ## Migration from Travis/Jenkins
 
 ### From Travis CI
+
 - Replace `.travis.yml` with `.github/workflows/qa.yml`
 - Environment variables work similarly
 - Artifacts replace Travis's build artifacts
 
 ### From Jenkins
+
 - GitHub Actions is commit-triggered by default
 - No need for webhooks or polling
 - Use workflow_dispatch for manual triggers
@@ -218,6 +293,7 @@ CI=true vendor/bin/qa
 ## Integration with Other Services
 
 ### Codecov
+
 ```yaml
 - name: Upload to Codecov
   uses: codecov/codecov-action@v3
@@ -226,6 +302,7 @@ CI=true vendor/bin/qa
 ```
 
 ### Slack Notifications
+
 ```yaml
 - name: Slack Notification
   if: failure()

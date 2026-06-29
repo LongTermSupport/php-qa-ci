@@ -1,0 +1,176 @@
+# ============================================================================
+# PHP QA CI — Inline-Barrier Workflow Template (autofix → read-only gate)
+# ============================================================================
+# Two jobs, daisy-chained with `needs:`:
+#
+#   autofix (PR only, WRITES + commits back)  ──needs──►  gate (READ-ONLY qa)
+#
+# 1. autofix runs ONLY on pull_request. It checks out the PR branch TIP, applies
+#    the fixers in WRITE mode (QA_READONLY=0 → Rector + PHP CS Fixer rewrite),
+#    and if anything changed commits + pushes it back to the PR branch. It is
+#    SKIPPED on push to the default branch (already clean, from an auto-fixed PR).
+#
+# 2. gate `needs: autofix`, checks out the SAME (possibly auto-fixed) tip and
+#    runs the full pipeline READ-ONLY. php-qa-ci auto-enables read-only on
+#    GitHub Actions (GITHUB_ACTIONS=true → detectReadOnly), so Rector + CS Fixer
+#    run as --dry-run and FAIL on any pending change; PHPStan/etc. run as normal.
+#
+# WHY NO PAT / NO RE-TRIGGER IS NEEDED
+# ------------------------------------
+# The gate validates the fixed tip in the SAME run. The autofix push uses the
+# default GITHUB_TOKEN, which deliberately starts NO new workflow run — so there
+# is no loop, no cancellation, and nothing to wait for. (A re-trigger-based
+# design would need a PAT; this one does not.)
+#
+# REQUIRED GITHUB CONFIGURATION
+# -----------------------------
+# - Settings → Actions → General → Workflow permissions → "Read and write".
+# - (Recommended) protect the default branch and require the "gate" check.
+#
+# DEFAULT BRANCH IS DYNAMIC (no hardcoded name)
+# ---------------------------------------------
+# `on:` filters cannot use expressions, so rather than hardcode `main`/`master`
+# this template triggers on ALL pushes and GUARDS the gate to run, for push
+# events, only on the default branch (github.event.repository.default_branch).
+# PRs always run. Net: PR → autofix+gate; push to default (post-merge) → gate;
+# push to a feature branch → skipped (its PR covers it) — no double-runs, no
+# hardcoded branch name. (A feature push with no PR yields an empty skipped run.)
+#
+# NOTES
+# -----
+# - Custom composer bin-dir (e.g. `bin`) → use `bin/qa` instead of `vendor/bin/qa`.
+# - The gate here runs the FULL `qa` pipeline (incl. PHPUnit). If your test suite
+#   needs services (a DB, etc.), add them under `gate.services` and the relevant
+#   env, or scope the gate to `qa -t allCS` + `qa -t allStatic` until then.
+#
+# INSTALLATION
+# ------------
+#   mkdir -p .github/workflows
+#   cp vendor/lts/php-qa-ci/templates/github-actions/qa-autofix.yml .github/workflows/qa.yml
+# ============================================================================
+
+name: QA
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same branch (normalised across push & PR events).
+concurrency:
+  group: qa-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # --------------------------------------------------------------------------
+  # PR-only: apply fixers in WRITE mode and commit them back to the PR branch,
+  # so the gate below validates the fixed tree in this same run.
+  # --------------------------------------------------------------------------
+  autofix:
+    name: Auto-fix (apply fixers, commit back) [inline barrier]
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the PR branch tip (push-capable)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Detect PHP version from composer.json
+        id: php
+        run: |
+          CONSTRAINT=$(jq -r '.require.php // "^8.3"' composer.json)
+          PHP_VERSION=8.3
+          for V in 8.4 8.3 8.2 8.1 8.0; do
+            if [[ "$CONSTRAINT" == *"$V"* ]]; then PHP_VERSION="$V"; break; fi
+          done
+          echo "version=$PHP_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ steps.php.outputs.version }}
+          coverage: none
+          tools: composer:v2
+          extensions: mbstring, intl, json, zip, dom, curl, libxml, xml, simplexml, iconv, pdo
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Apply fixers in write mode (Rector + PHP CS Fixer)
+        # QA_READONLY=0 forces WRITE mode even on GitHub Actions (where php-qa-ci
+        # auto-enables read-only). This only formats — the gate verifies read-only.
+        run: QA_READONLY=0 vendor/bin/qa -t allCS
+
+      - name: Commit & push any fixes back to the PR branch
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Auto-fix: nothing to fix — tree is already clean."
+            exit 0
+          fi
+          echo "Auto-fix: committing the following machine-applied fixes:"
+          git status --porcelain
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: apply automated code-style fixes [autofix]"
+          git push origin "HEAD:${{ github.head_ref }}"
+          echo "Auto-fix: pushed; the gate job checks out this fixed tip in the same run."
+
+  # --------------------------------------------------------------------------
+  # The read-only gate. `needs: autofix` so it validates the committed-back tip.
+  # Runs on PRs and on push to the DEFAULT branch (resolved dynamically); a push
+  # to a non-default branch is skipped (its PR covers it) — no double-run, no
+  # hardcoded branch name. On the default-branch push autofix is skipped
+  # (result 'skipped', not 'failure'), so the gate runs on the pushed commit.
+  # --------------------------------------------------------------------------
+  gate:
+    name: QA gate (read-only qa)
+    needs: autofix
+    if: >-
+      ${{ !cancelled() && needs.autofix.result != 'failure'
+          && (github.event_name == 'pull_request'
+              || github.event_name == 'workflow_dispatch'
+              || github.ref_name == github.event.repository.default_branch) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the (possibly auto-fixed) tip
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Detect PHP version from composer.json
+        id: php
+        run: |
+          CONSTRAINT=$(jq -r '.require.php // "^8.3"' composer.json)
+          PHP_VERSION=8.3
+          for V in 8.4 8.3 8.2 8.1 8.0; do
+            if [[ "$CONSTRAINT" == *"$V"* ]]; then PHP_VERSION="$V"; break; fi
+          done
+          echo "version=$PHP_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ steps.php.outputs.version }}
+          coverage: none
+          tools: composer:v2
+          extensions: mbstring, intl, json, zip, dom, curl, libxml, xml, simplexml, iconv, pdo
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      # Full pipeline, read-only (GITHUB_ACTIONS=true → fixers dry-run & fail on
+      # pending changes). Scope to `-t allCS` + `-t allStatic` if the suite needs
+      # services not configured here.
+      - name: Run QA gate (read-only)
+        env:
+          CI: 'true'
+        run: vendor/bin/qa
