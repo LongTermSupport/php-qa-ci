@@ -10,10 +10,10 @@
 #    and if anything changed commits + pushes it back to the PR branch. It is
 #    SKIPPED on push to the default branch (already clean, from an auto-fixed PR).
 #
-# 2. gate `needs: autofix`, checks out the SAME (possibly auto-fixed) tip and
-#    runs the full pipeline READ-ONLY. php-qa-ci auto-enables read-only on
-#    GitHub Actions (GITHUB_ACTIONS=true → detectReadOnly), so Rector + CS Fixer
-#    run as --dry-run and FAIL on any pending change; PHPStan/etc. run as normal.
+# 2. gate `needs: autofix`, checks out the SAME (possibly auto-fixed) tip and runs
+#    coding-standards + static analysis READ-ONLY. php-qa-ci auto-enables read-only
+#    on GitHub Actions (GITHUB_ACTIONS=true → detectReadOnly), so Rector + CS Fixer
+#    run as --dry-run and FAIL on any pending change; PHPStan + arkitect run normally.
 #
 # WHY NO PAT / NO RE-TRIGGER IS NEEDED
 # ------------------------------------
@@ -36,12 +36,39 @@
 # push to a feature branch → skipped (its PR covers it) — no double-runs, no
 # hardcoded branch name. (A feature push with no PR yields an empty skipped run.)
 #
+# WHAT IS PRE-WIRED (so this is copy-and-go for most repos)
+# ---------------------------------------------------------
+# - `PHP_QA_CI_DISABLE_CONFIG_PUSH: 'true'` (workflow env) — stops the composer
+#   plugins writing Claude config / managed source into the tree (the read-only
+#   gate would otherwise fail on that drift).
+# - `composer install --no-scripts` — skips framework post-install scripts that
+#   need runtime env absent in CI. The php-qa-ci plugin still runs (plugin event).
+# - "Install SSH deploy keys" step — a NO-OP unless the CI_SSH_DEPLOY_BUNDLE secret
+#   is set (see below); private-dependency repos work, public-only repos unaffected.
+# - The gate runs coding-standards + static analysis (tests deferred — see NOTES).
+#
+# THE ONE THING YOU MUST CHECK
+# ----------------------------
+# - Custom composer bin-dir: this template calls `vendor/bin/qa`. If composer.json
+#   sets `config.bin-dir` (e.g. `bin`), replace EVERY `vendor/bin/qa` below with
+#   `<bin-dir>/qa`. Verify: `grep -n 'vendor/bin/qa' .github/workflows/qa.yml`
+#   should then match only this comment.
+#
+# PRIVATE FIRST-PARTY DEPENDENCIES (ballicom/*, lts/* via github_deploy_* aliases)
+# --------------------------------------------------------------------------------
+# If composer.lock pins any dep to a `github_deploy_*` SSH alias, CI's GITHUB_TOKEN
+# cannot clone it. Provision the existing READ-ONLY deploy keys ONCE, from a dev
+# container that holds them:
+#   vendor/lts/php-qa-ci/scripts/ci-push-ssh-deploy-bundle.bash
+# It auto-discovers the aliases from composer.lock, bundles the matching keys, and
+# sets the CI_SSH_DEPLOY_BUNDLE repo secret. The install step above then unpacks it.
+# (lts/php-qa-ci itself is public — needs no key.)
+#
 # NOTES
 # -----
-# - Custom composer bin-dir (e.g. `bin`) → use `bin/qa` instead of `vendor/bin/qa`.
-# - The gate here runs the FULL `qa` pipeline (incl. PHPUnit). If your test suite
-#   needs services (a DB, etc.), add them under `gate.services` and the relevant
-#   env, or scope the gate to `qa -t allCS` + `qa -t allStatic` until then.
+# - Tests are deferred: the gate runs `qa -t allCS` + `qa -t allStatic` only, because
+#   a PHPUnit suite usually needs a DB / services not on the runner. When your suite
+#   runs without external services, add a tests step + a `services:` block to `gate`.
 #
 # INSTALLATION
 # ------------
@@ -63,6 +90,12 @@ concurrency:
 
 permissions:
   contents: read
+
+# php-qa-ci's composer plugins (skills/agents/hooks deploy + managed source) write
+# into the working tree on every install. In CI that write-back is unwanted and the
+# read-only gate would FAIL on the resulting drift — disable it globally.
+env:
+  PHP_QA_CI_DISABLE_CONFIG_PUSH: 'true'
 
 jobs:
   # --------------------------------------------------------------------------
@@ -100,8 +133,38 @@ jobs:
           tools: composer:v2
           extensions: mbstring, intl, json, zip, dom, curl, libxml, xml, simplexml, iconv, pdo
 
+      - name: Install SSH deploy keys for private first-party deps (no-op if none)
+        # If composer.lock pins private repos to github_deploy_* SSH aliases, CI's
+        # GITHUB_TOKEN cannot clone them. Provision the read-only keys ONCE with
+        #   vendor/lts/php-qa-ci/scripts/ci-push-ssh-deploy-bundle.bash
+        # run from a dev container that holds them — it sets the CI_SSH_DEPLOY_BUNDLE
+        # secret. This step unpacks that secret and recreates the host aliases. If the
+        # secret is unset (all deps are public), it is a clean no-op.
+        env:
+          CI_SSH_DEPLOY_BUNDLE: ${{ secrets.CI_SSH_DEPLOY_BUNDLE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CI_SSH_DEPLOY_BUNDLE}" ]; then
+            echo "No CI_SSH_DEPLOY_BUNDLE secret — assuming all dependencies are public; skipping."
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s' "${CI_SSH_DEPLOY_BUNDLE}" | base64 -d | tar -xzf - -C ~/.ssh
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts
+          for key in ~/.ssh/github_deploy_*; do
+            [ -f "$key" ] || continue
+            chmod 600 "$key"
+            printf 'Host %s\n  HostName github.com\n  User git\n  IdentityFile %s\n  IdentitiesOnly yes\n' \
+              "$(basename "$key")" "$key" >> ~/.ssh/config
+          done
+
       - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+        # --no-scripts skips framework post-install scripts (e.g. Symfony @auto-scripts
+        # cache:clear / assets:install) that need runtime env not present in CI. The
+        # php-qa-ci composer PLUGIN still runs (a plugin event, not a script) — which is
+        # why PHP_QA_CI_DISABLE_CONFIG_PUSH is set above. Drop --no-scripts if your
+        # project's post-install scripts are required and CI-safe.
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
       - name: Apply fixers in write mode (Rector + PHP CS Fixer)
         # QA_READONLY=0 forces WRITE mode even on GitHub Actions (where php-qa-ci
@@ -164,13 +227,51 @@ jobs:
           tools: composer:v2
           extensions: mbstring, intl, json, zip, dom, curl, libxml, xml, simplexml, iconv, pdo
 
-      - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+      - name: Install SSH deploy keys for private first-party deps (no-op if none)
+        # If composer.lock pins private repos to github_deploy_* SSH aliases, CI's
+        # GITHUB_TOKEN cannot clone them. Provision the read-only keys ONCE with
+        #   vendor/lts/php-qa-ci/scripts/ci-push-ssh-deploy-bundle.bash
+        # run from a dev container that holds them — it sets the CI_SSH_DEPLOY_BUNDLE
+        # secret. This step unpacks that secret and recreates the host aliases. If the
+        # secret is unset (all deps are public), it is a clean no-op.
+        env:
+          CI_SSH_DEPLOY_BUNDLE: ${{ secrets.CI_SSH_DEPLOY_BUNDLE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CI_SSH_DEPLOY_BUNDLE}" ]; then
+            echo "No CI_SSH_DEPLOY_BUNDLE secret — assuming all dependencies are public; skipping."
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s' "${CI_SSH_DEPLOY_BUNDLE}" | base64 -d | tar -xzf - -C ~/.ssh
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts
+          for key in ~/.ssh/github_deploy_*; do
+            [ -f "$key" ] || continue
+            chmod 600 "$key"
+            printf 'Host %s\n  HostName github.com\n  User git\n  IdentityFile %s\n  IdentitiesOnly yes\n' \
+              "$(basename "$key")" "$key" >> ~/.ssh/config
+          done
 
-      # Full pipeline, read-only (GITHUB_ACTIONS=true → fixers dry-run & fail on
-      # pending changes). Scope to `-t allCS` + `-t allStatic` if the suite needs
-      # services not configured here.
-      - name: Run QA gate (read-only)
+      - name: Install dependencies
+        # --no-scripts skips framework post-install scripts (e.g. Symfony @auto-scripts
+        # cache:clear / assets:install) that need runtime env not present in CI. The
+        # php-qa-ci composer PLUGIN still runs (a plugin event, not a script) — which is
+        # why PHP_QA_CI_DISABLE_CONFIG_PUSH is set above. Drop --no-scripts if your
+        # project's post-install scripts are required and CI-safe.
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+
+      # Read-only gate (GITHUB_ACTIONS=true → fixers run --dry-run and FAIL on any
+      # pending change). Defaults to coding-standards + static analysis: a PHPUnit
+      # suite usually needs a DB / services not present on the runner, so tests are
+      # deferred. When your suite runs WITHOUT external services, add a tests step
+      # (`vendor/bin/qa -t allTests`, or the full `vendor/bin/qa`) plus a `services:`
+      # block to this job.
+      - name: Coding standards — read-only check (Rector + PHP CS Fixer)
         env:
           CI: 'true'
-        run: vendor/bin/qa
+        run: vendor/bin/qa -t allCS
+
+      - name: Static analysis (PHPStan + PHPArkitect)
+        env:
+          CI: 'true'
+        run: vendor/bin/qa -t allStatic

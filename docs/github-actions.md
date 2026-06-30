@@ -147,9 +147,19 @@ skipped run — cosmetic.)
 - Requires `permissions: contents: write` on the autofix job (the workflow is `contents: read`
   by default) and Settings → Actions → General → "Read and write permissions".
 - A custom composer `bin-dir` (e.g. `bin`) changes the qa path from `vendor/bin/qa` to
-  `bin/qa` — adjust the `run:` lines accordingly.
-- The gate runs the full `qa` pipeline (incl. PHPUnit). If the suite needs services, add them
-  under `gate.services`, or scope the gate to `qa -t allCS` + `qa -t allStatic` until then.
+  `bin/qa` — replace every `vendor/bin/qa` `run:` line accordingly. This is the one edit the
+  template cannot make for you.
+- The gate runs `qa -t allCS` + `qa -t allStatic` (tests deferred — a PHPUnit suite usually
+  needs a DB / services not on the runner). When your suite runs without external services,
+  add a tests step plus a `gate.services` block.
+- **Private first-party deps**: the template ships a guarded "Install SSH deploy keys" step
+  that is a no-op unless the `CI_SSH_DEPLOY_BUNDLE` secret is set. If `composer.lock` pins any
+  dep to a `github_deploy_*` SSH alias (CI's `GITHUB_TOKEN` can't clone private sibling repos),
+  provision the existing **read-only** deploy keys once, from a dev container that holds them:
+  `vendor/lts/php-qa-ci/scripts/ci-push-ssh-deploy-bundle.bash` (auto-discovers the aliases from
+  `composer.lock`, bundles the keys, sets the secret). `lts/php-qa-ci` itself is public — no key.
+- Pre-wired: `PHP_QA_CI_DISABLE_CONFIG_PUSH: 'true'` (workflow env, stops the composer plugins
+  failing the read-only gate on config-push drift) and `composer install --no-scripts`.
 
 ### Install
 
