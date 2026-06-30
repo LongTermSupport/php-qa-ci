@@ -16,8 +16,10 @@ declare(strict_types=1);
  * into the optional/symfony tiers, and add bespoke rules. To turn arkitect off
  * for a project entirely, set `export useArkitect=0` in qaConfig/qaConfig.inc.bash.
  *
- * The wrapper exports PHPQACI_ARKITECT_SRC_DIR (the pipeline's detected srcDir)
- * and PHPQACI_ARKITECT_RULES_DEFAULT (the resolved default ruleset path).
+ * The wrapper exports PHPQACI_ARKITECT_SRC_DIR (the pipeline's detected srcDir),
+ * PHPQACI_ARKITECT_RULES_DEFAULT (the resolved default ruleset path) and
+ * PHPQACI_ARKITECT_EXCLUDE_PATHS (newline-delimited extra generated paths a
+ * project declares via `arkitectExcludePaths` in qaConfig/qaConfig.inc.bash).
  */
 
 use Arkitect\ClassSet;
@@ -42,5 +44,19 @@ return static function (Config $config): void {
     }
 
     // Generated code is regenerated and cannot be renamed — never check it.
-    $config->add(ClassSet::fromDir($srcDir)->excludePath('Generated'), ...$defaultRules);
+    // 'Generated' is the built-in convention. A project declares ADDITIONAL
+    // generated paths (e.g. a jane-php OpenAPI client at src/Quote/API) with
+    //   arkitectExcludePaths+=("Quote/API")
+    // in qaConfig/qaConfig.inc.bash; the pipeline exports them newline-delimited
+    // as PHPQACI_ARKITECT_EXCLUDE_PATHS. Each entry is matched by arkitect
+    // (Arkitect\Glob::toRegex) against the path RELATIVE to src/.
+    $classSet         = ClassSet::fromDir($srcDir)->excludePath('Generated');
+    $extraExcludePaths = getenv('PHPQACI_ARKITECT_EXCLUDE_PATHS');
+    if (false !== $extraExcludePaths && '' !== \trim($extraExcludePaths)) {
+        foreach (\array_filter(\array_map('trim', \explode("\n", $extraExcludePaths))) as $excludePath) {
+            $classSet = $classSet->excludePath($excludePath);
+        }
+    }
+
+    $config->add($classSet, ...$defaultRules);
 };

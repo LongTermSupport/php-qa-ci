@@ -166,6 +166,32 @@ detected source dir automatically. To go further, add `qaConfig/phparkitect.php`
 Disable arkitect for a project with `export useArkitect=0` in
 `qaConfig/qaConfig.inc.bash`. Run it alone with `vendor/bin/qa -t arch`.
 
+### Excluding generated code (at any path)
+
+Generated code (a jane-php OpenAPI client, protobuf stubs, an ORM proxy dir, …)
+is regenerated from a spec and **cannot be renamed** to satisfy the naming rules,
+so it must be excluded from analysis. The default config always excludes a
+directory literally named `Generated`. For generated code that lives anywhere
+else, declare the path(s) in `qaConfig/qaConfig.inc.bash`:
+
+```bash
+# Each entry is excluded from arkitect IN ADDITION to the built-in 'Generated'.
+arkitectExcludePaths+=("Quote/API")        # excludes src/Quote/API/**
+arkitectExcludePaths+=("Generated/Client") # add as many as needed
+```
+
+- **No config copy needed** — the shipped default entry config honours these, so
+  you do **not** have to add `qaConfig/phparkitect.php` just to exclude a path.
+  (If you *do* use the override template, it honours them too — declare paths in
+  this one place either way.)
+- Each entry is matched by arkitect (`Arkitect\Glob::toRegex`) against the path
+  **relative to `src/`** — a plain string is an unanchored substring match, and
+  `*` / `**` globs are supported (`*` within a segment, `**` across separators).
+  Use forward slashes on all platforms (`Quote/API`, never `Quote\API`).
+- This narrows only the FILE SET; it never silences a rule. An entry that matches
+  nothing is a harmless no-op. Prefer it over `useArkitect=0`, which drops the
+  rules for the **whole** project rather than just the generated tree.
+
 ## Custom PHPStan Rules
 
 ### Always-on rules (auto-loaded)

@@ -532,6 +532,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **Project template**: [@templates/qaConfig-phparkitect.php](templates/qaConfig-phparkitect.php)
 - **How it works**: parses each class into an AST and matches expressions (naming, dependencies); rules and the paths to scan are defined inside the config (so `-p` does not apply). The pipeline passes `--autoload` and exports the tier paths + detected `srcDir` as env vars
 - **Where a rule belongs (PHPArkitect vs PHPStan)**: arkitect by default for structural rules; upgrade to a PHPStan rule only for finer-grained / method-level / semantic detection arkitect cannot express. **Never enforce one convention in both engines** — migrate, don't duplicate (SSoT). Full decision guide: [README.md "Where does a rule belong"](README.md#where-does-a-rule-belong--phparkitect-or-phpstan)
+- **Excluding generated code at any path**: the default config always excludes a `Generated` dir; for generated code elsewhere declare `arkitectExcludePaths+=("Some/Path")` in `qaConfig/qaConfig.inc.bash` (no config copy needed — matched via `Glob::toRegex` against the `src/`-relative path; exported as `PHPQACI_ARKITECT_EXCLUDE_PATHS`). Prefer this over `useArkitect=0`, which drops rules for the whole project. See [README.md "Excluding generated code"](README.md#excluding-generated-code-at-any-path)
 - **Full usage** (tiers, extend/replace/customise, disable): see the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules)
 
 ### PHPUnit

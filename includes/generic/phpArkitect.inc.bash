@@ -55,6 +55,23 @@ export PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY="$(configPath phparkitect-rules-o
 # only via the public @api namespace. See configDefaults/generic/phparkitect-consumer-api-boundary.php.
 export PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY="$(configPath phparkitect-consumer-api-boundary.php)"
 
+# Project-declared generated/excluded paths. A project lists extra paths to
+# exclude from arkitect (on top of the built-in 'Generated' convention) in
+# qaConfig/qaConfig.inc.bash, e.g.:
+#   arkitectExcludePaths+=("Quote/API")
+# This is how a project tells arkitect to ignore GENERATED code that lives at an
+# arbitrary path (a jane-php OpenAPI client, protobuf stubs, etc.) without having
+# to copy the whole entry config. Each entry is matched by arkitect
+# (Arkitect\Glob::toRegex) against the path RELATIVE to src/, so "Quote/API"
+# excludes src/Quote/API/**. Newline-delimited, mirroring how rectorIgnorePaths
+# is passed in rector.inc.bash. Empty/unset => only the built-in 'Generated'
+# exclude applies (fully backward compatible).
+arkitectExcludePathsExport=""
+if [[ -n "${arkitectExcludePaths[*]:-}" ]]; then
+  arkitectExcludePathsExport="$(printf '%s\n' "${arkitectExcludePaths[@]}")"
+fi
+export PHPQACI_ARKITECT_EXCLUDE_PATHS="$arkitectExcludePathsExport"
+
 phpArkitectLogDir="$varDir/phparkitect_logs"
 phpArkitectLogFile="phparkitect.log"
 mkdir -p "$phpArkitectLogDir"
