@@ -60,6 +60,130 @@ final class InfectionDiffModeTest extends TestCase
         self::assertNotContains('--log-verbosity=all', $args, 'diff mode drops the verbose console report (file loggers stay authoritative)');
     }
 
+    public function testDiffModeRefusesADirtyWorkingTree(): void
+    {
+        [$exitCode, $output] = $this->runDiffPreflightInTempRepo(dirtySrcFile: true);
+
+        self::assertSame(1, $exitCode, "a dirty src/tests tree must REFUSE the diff lane:\n" . $output);
+        self::assertStringContainsString('REFUSED', $output, 'the refusal must be loud and name itself');
+        self::assertStringContainsString('src/Dirty.php', $output, 'the refusal must name the offending uncommitted path');
+        self::assertStringContainsString('commit', strtolower($output), 'the refusal must tell the user the remediation (commit first)');
+    }
+
+    public function testDiffModeAcceptsACleanTree(): void
+    {
+        [$exitCode, $output] = $this->runDiffPreflightInTempRepo(dirtySrcFile: false);
+
+        self::assertSame(0, $exitCode, "a clean tree must pass the diff-lane preflight:\n" . $output);
+    }
+
+    public function testDiffFilterIsComputedFromCommittedHistoryNotTheWorkingTree(): void
+    {
+        // In the temp repo: base branch has src/Base.php; the work branch COMMITS
+        // src/Committed.php. The filter must contain exactly the committed change —
+        // never files from the base branch, and (were the tree dirty) never
+        // uncommitted paths. Committed-history scoping is what makes the lane's
+        // verdict reproducible from the ref graph alone.
+        [$exitCode, $output] = $this->runDiffFilterComputationInTempRepo();
+
+        self::assertSame(0, $exitCode, "filter computation failed:\n" . $output);
+        self::assertStringContainsString('FILTER=src/Committed.php', $output, "the filter must be exactly the committed change:\n" . $output);
+    }
+
+    /**
+     * Run the extracted clean-tree preflight function inside a freshly-built temp
+     * git repo (base commit with src/ + tests/, optionally a dirty src file).
+     *
+     * @return array{int, string}
+     */
+    private function runDiffPreflightInTempRepo(bool $dirtySrcFile): array
+    {
+        $harness = <<<'BASH'
+            set -euo pipefail
+            include="$1"
+            wantDirty="$2"
+            repo="$(mktemp -d)"
+            trap 'rm -rf "$repo"' EXIT
+            cd "$repo"
+            git init -q -b main
+            git config user.email t@example.com
+            git config user.name t
+            mkdir -p src tests
+            echo '<?php' > src/Base.php
+            echo '<?php' > tests/BaseTest.php
+            git add -A && git commit -qm base
+            if [[ "$wantDirty" == "1" ]]; then
+                echo '<?php // uncommitted' > src/Dirty.php
+            fi
+            srcDir=src
+            testsDir=tests
+            infectionDiffBase=main
+            eval "$(awk '/^function assertCleanTreeForInfectionDiffMode\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$include")"
+            assertCleanTreeForInfectionDiffMode
+            BASH;
+
+        return $this->runBashHarness($harness, [$dirtySrcFile ? '1' : '0']);
+    }
+
+    /**
+     * Run the extracted diff-filter computation inside a temp repo whose work
+     * branch has one COMMITTED src change on top of the base branch.
+     *
+     * @return array{int, string}
+     */
+    private function runDiffFilterComputationInTempRepo(): array
+    {
+        $harness = <<<'BASH'
+            set -euo pipefail
+            include="$1"
+            repo="$(mktemp -d)"
+            trap 'rm -rf "$repo"' EXIT
+            cd "$repo"
+            git init -q -b main
+            git config user.email t@example.com
+            git config user.name t
+            mkdir -p src tests
+            echo '<?php' > src/Base.php
+            git add -A && git commit -qm base
+            git checkout -qb work
+            echo '<?php' > src/Committed.php
+            git add -A && git commit -qm change
+            srcDir=src
+            infectionDiffBase=main
+            infectionDiffFilter=""
+            eval "$(awk '/^function computeInfectionDiffFilter\(\) \{/{p=1} p{print} p&&/^\}/{exit}' "$include")"
+            computeInfectionDiffFilter
+            echo "FILTER=${infectionDiffFilter}"
+            BASH;
+
+        return $this->runBashHarness($harness, []);
+    }
+
+    /**
+     * @param list<string> $extraArgs
+     *
+     * @return array{int, string}
+     */
+    private function runBashHarness(string $harness, array $extraArgs): array
+    {
+        $harnessFile = (string) tempnam(sys_get_temp_dir(), 'infDiff');
+        \Safe\file_put_contents($harnessFile, $harness . "\n");
+
+        $cmd = \sprintf(
+            'bash %s %s%s 2>&1',
+            escapeshellarg($harnessFile),
+            escapeshellarg(self::INCLUDE),
+            implode('', array_map(static fn (string $arg): string => ' ' . escapeshellarg($arg), $extraArgs)),
+        );
+
+        $output   = [];
+        $exitCode = 0;
+        \Safe\exec($cmd, $output, $exitCode);
+        \Safe\unlink($harnessFile);
+
+        return [$exitCode, implode("\n", $output)];
+    }
+
     /**
      * Extract runInfection() from the include and evaluate it with a stubbed
      * phpNoXdebug that prints each argument on its own line, so we observe exactly

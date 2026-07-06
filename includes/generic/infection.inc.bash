@@ -41,6 +41,44 @@ if [[ "1" != "${xdebugEnabled:-0}" ]]; then
     return 0
 fi
 
+# DIFF-MODE PREFLIGHT: refuse a DIRTY working tree (uncommitted changes under the
+# source or tests directories) before doing anything expensive. The diff lane's
+# question is "did the COMMITTED change's tests kill its mutants?" — its verdict
+# must be reproducible from the ref graph alone. Running it over a dirty tree
+# measures a state that is neither the committed HEAD nor what the base-ref
+# scoping describes, and has been observed to silently UNDER-REPORT (a coverage
+# index built from the dirty tree left most changed files unmutated — a false
+# GREEN that was trusted and later disproved on the committed state). Fail loud
+# and early instead: commit the work first (a WIP commit is fine), then re-run.
+# The check is scoped to srcDir/testsDir — dirt elsewhere (docs, tooling) cannot
+# affect mutation results and must not block the lane.
+function assertCleanTreeForInfectionDiffMode() {
+    local -a dirtyScopePaths=( "$srcDir" )
+    if [[ -n "${testsDir:-}" ]]; then
+        dirtyScopePaths+=( "$testsDir" )
+    fi
+    local dirtyPaths=""
+    dirtyPaths="$(git status --porcelain -- "${dirtyScopePaths[@]}")" || {
+        echo "Infection: diff mode — 'git status' failed; cannot verify the working tree is clean."
+        return 1
+    }
+    if [[ -n "$dirtyPaths" ]]; then
+        echo "Infection: diff mode REFUSED — uncommitted changes under the source/tests directories:"
+        echo "$dirtyPaths"
+        echo "           A dirty-tree diff run can silently under-report (mutants for the uncommitted"
+        echo "           code may never be generated), producing a false green. Commit the work first"
+        echo "           (a WIP commit is fine), then re-run the diff lane against the committed state."
+        return 1
+    fi
+    return 0
+}
+
+if [[ -n "${infectionDiffBase:-}" ]]; then
+    if ! assertCleanTreeForInfectionDiffMode; then
+        return 1
+    fi
+fi
+
 infectionPath="$pharDir/infection.phar"
 coverageXmlDir="$varDir/phpunit_logs/coverage-xml"
 
@@ -131,20 +169,30 @@ fi
 # pass. Running `git diff --relative` ourselves normalises the paths to the CWD, so
 # diff scoping is correct whether the project is the repo root or a subdirectory; we
 # then hand the explicit list to Infection via --filter.
-infectionDiffFilter=""
-if [[ -n "${infectionDiffBase:-}" ]]; then
-    echo "Infection: diff mode — scoping mutation to source files changed against '${infectionDiffBase}'."
-    diffChangedRaw=""
-    diffGitExit=0
-    diffChangedRaw="$(git --no-pager diff "${infectionDiffBase}" --diff-filter=AM --name-only --relative -- "$srcDir")" || diffGitExit=$?
+# The changed-file set is computed from COMMITTED HISTORY ONLY: a three-dot
+# `git diff base...HEAD` (merge-base of the base ref and HEAD, against HEAD).
+# Two properties matter:
+#   - it never reads the working tree, so (belt to the preflight's braces) the
+#     scoping cannot be skewed by uncommitted state; and
+#   - the merge-base form lists only files changed ON THIS BRANCH — a base ref
+#     that has advanced since branching cannot leak ITS changed files into the
+#     lane (a plain two-dot diff against the base tip would, forcing the lane to
+#     judge code this change never touched).
+# Sets $infectionDiffFilter (comma-joined, possibly empty). Returns 1 on git
+# failure; the SKIP decision for an empty set stays with the caller.
+function computeInfectionDiffFilter() {
+    local diffChangedRaw=""
+    local diffGitExit=0
+    diffChangedRaw="$(git --no-pager diff "${infectionDiffBase}...HEAD" --diff-filter=AM --name-only --relative -- "$srcDir")" || diffGitExit=$?
     if ((diffGitExit != 0)); then
         echo "Infection: 'git diff' against base '${infectionDiffBase}' failed (exit ${diffGitExit}) — cannot determine the changed files for diff mode."
-        echo "           Check that the base ref exists (e.g. 'git fetch origin' first)."
+        echo "           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first)."
         return 1
     fi
     # Keep only PHP files and comma-join them for --filter. A `grep`/pipeline here
     # would abort the run under bin/qa's `set -o pipefail`+errexit on a legitimate
     # no-match, so we iterate explicitly instead.
+    local diffChangedFile
     while IFS= read -r diffChangedFile; do
         [[ "$diffChangedFile" == *.php ]] || continue
         if [[ -n "$infectionDiffFilter" ]]; then
@@ -153,9 +201,18 @@ if [[ -n "${infectionDiffBase:-}" ]]; then
             infectionDiffFilter="${diffChangedFile}"
         fi
     done <<< "$diffChangedRaw"
+    return 0
+}
+
+infectionDiffFilter=""
+if [[ -n "${infectionDiffBase:-}" ]]; then
+    echo "Infection: diff mode — scoping mutation to source files changed against '${infectionDiffBase}' (committed history only)."
+    if ! computeInfectionDiffFilter; then
+        return 1
+    fi
 
     if [[ -z "$infectionDiffFilter" ]]; then
-        echo "Infection: diff mode — no changed PHP source files against '${infectionDiffBase}'; there are no new mutants to check. SKIPPING."
+        echo "Infection: diff mode — no committed PHP source changes against '${infectionDiffBase}'; there are no new mutants to check. SKIPPING."
         return 0
     fi
     echo "Infection: diff mode — mutating only the changed files: ${infectionDiffFilter}"
