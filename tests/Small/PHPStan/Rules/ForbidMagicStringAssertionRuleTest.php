@@ -13,6 +13,7 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
+use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Type\Constant\ConstantStringType;
@@ -197,9 +198,16 @@ final class ForbidMagicStringAssertionRuleTest extends TestCase
         return new StaticCall(new Name('self'), new Identifier($method), [new Arg($arg0), new Arg($arg1)]);
     }
 
-    private function scopeReturning(Type $type): Scope&NodeCallbackInvoker
+    private function scopeReturning(Type $type): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        $scope = $this->createMockForIntersectionOfInterfaces([NodeCallbackInvoker::class, Scope::class]);
+        // PHPStan's Rule::processNode() widens the $scope parameter to the
+        // intersection the analyser actually passes; the double must satisfy all
+        // three interfaces or the call is a type error.
+        $scope = $this->createMockForIntersectionOfInterfaces([
+            CollectedDataEmitter::class,
+            NodeCallbackInvoker::class,
+            Scope::class,
+        ]);
         $scope->method('getType')->willReturn($type);
 
         return $scope;
