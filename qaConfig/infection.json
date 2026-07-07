@@ -8,6 +8,12 @@
       "/TestDox/"
     ]
   },
+  "mutators": {
+    "@default": true,
+    "global-ignoreSourceCodeByRegex": [
+      "#\\[\\s*[A-Za-z].*"
+    ]
+  },
   "logs": {
     "text": "var/qa/infection/log.txt",
     "summary": "var/qa/infection/summary-log.txt",
