@@ -41,6 +41,44 @@ if [[ "1" != "${xdebugEnabled:-0}" ]]; then
     return 0
 fi
 
+# DIFF-MODE PREFLIGHT: refuse a DIRTY working tree (uncommitted changes under the
+# source or tests directories) before doing anything expensive. The diff lane's
+# question is "did the COMMITTED change's tests kill its mutants?" — its verdict
+# must be reproducible from the ref graph alone. Running it over a dirty tree
+# measures a state that is neither the committed HEAD nor what the base-ref
+# scoping describes, and has been observed to silently UNDER-REPORT (a coverage
+# index built from the dirty tree left most changed files unmutated — a false
+# GREEN that was trusted and later disproved on the committed state). Fail loud
+# and early instead: commit the work first (a WIP commit is fine), then re-run.
+# The check is scoped to srcDir/testsDir — dirt elsewhere (docs, tooling) cannot
+# affect mutation results and must not block the lane.
+function assertCleanTreeForInfectionDiffMode() {
+    local -a dirtyScopePaths=( "$srcDir" )
+    if [[ -n "${testsDir:-}" ]]; then
+        dirtyScopePaths+=( "$testsDir" )
+    fi
+    local dirtyPaths=""
+    dirtyPaths="$(git status --porcelain -- "${dirtyScopePaths[@]}")" || {
+        echo "Infection: diff mode — 'git status' failed; cannot verify the working tree is clean."
+        return 1
+    }
+    if [[ -n "$dirtyPaths" ]]; then
+        echo "Infection: diff mode REFUSED — uncommitted changes under the source/tests directories:"
+        echo "$dirtyPaths"
+        echo "           A dirty-tree diff run can silently under-report (mutants for the uncommitted"
+        echo "           code may never be generated), producing a false green. Commit the work first"
+        echo "           (a WIP commit is fine), then re-run the diff lane against the committed state."
+        return 1
+    fi
+    return 0
+}
+
+if [[ -n "${infectionDiffBase:-}" ]]; then
+    if ! assertCleanTreeForInfectionDiffMode; then
+        return 1
+    fi
+fi
+
 infectionPath="$pharDir/infection.phar"
 coverageXmlDir="$varDir/phpunit_logs/coverage-xml"
 
@@ -102,20 +140,114 @@ fi
 #   - The invocation runs inside an `if` CONDITION, so under bin/qa's errexit a
 #     non-zero exit does NOT abort the run (errexit is suspended for conditions);
 #     it is handled explicitly via the retry loop below.
-function runInfection() {
-    local extraArgs=( -- )
-    if [[ "1" == "${infectionOnlyCovered:-0}" ]]; then
-        extraArgs+=( --only-covered )
+#
+# OPT-IN DIFF MODE (infectionDiffBase). Set infectionDiffBase to a git ref
+# (env var or project qaConfig, e.g. infectionDiffBase=origin/main) to scope the
+# run to only the code changed against that base, instead of the whole codebase.
+# This gives a fast, per-change mutation check whose question is "did the changed
+# code's tests kill its mutants?" — answerable from the diff alone, without paying
+# the whole-codebase cost on every iteration. When set, the step:
+#   - restricts mutation to the changed source files (see the file-list computation
+#     below) via --filter, so Infection mutates only added/modified files;
+#   - swaps the two monotonic floor flags for a single --min-covered-msi=100 — the
+#     "no new escaped mutants in the changed code" bar. A diff-scoped percentage
+#     floor is statistically meaningless (a handful of mutants makes any fixed
+#     percentage either vacuous or noise), whereas "kill everything you touched"
+#     is a stable, meaningful bar on a small denominator;
+#   - drops --log-verbosity=all back to Infection's default console verbosity (the
+#     file loggers configured in infection.json stay authoritative), so a report
+#     rendering issue over an escaped-mutant diff can never eat the run's result.
+# When infectionDiffBase is UNSET the run is byte-for-byte identical to the full
+# whole-codebase run against the SSoT floors — diff mode is purely additive.
+#
+# WHY WE COMPUTE THE FILE LIST OURSELVES INSTEAD OF Infection's --git-diff-base:
+# Infection's own --git-diff-base runs `git diff` from the process CWD but resolves
+# the resulting paths relative to that CWD, whereas `git diff` emits them relative
+# to the REPOSITORY ROOT. Those agree only when the project sits AT the git root;
+# for a project in a SUBDIRECTORY of the repo (a monorepo package) every path is
+# mis-resolved and the diff silently matches NOTHING — a false "no changed files"
+# pass. Running `git diff --relative` ourselves normalises the paths to the CWD, so
+# diff scoping is correct whether the project is the repo root or a subdirectory; we
+# then hand the explicit list to Infection via --filter.
+# The changed-file set is computed from COMMITTED HISTORY ONLY: a three-dot
+# `git diff base...HEAD` (merge-base of the base ref and HEAD, against HEAD).
+# Two properties matter:
+#   - it never reads the working tree, so (belt to the preflight's braces) the
+#     scoping cannot be skewed by uncommitted state; and
+#   - the merge-base form lists only files changed ON THIS BRANCH — a base ref
+#     that has advanced since branching cannot leak ITS changed files into the
+#     lane (a plain two-dot diff against the base tip would, forcing the lane to
+#     judge code this change never touched).
+# Sets $infectionDiffFilter (comma-joined, possibly empty). Returns 1 on git
+# failure; the SKIP decision for an empty set stays with the caller.
+function computeInfectionDiffFilter() {
+    local diffChangedRaw=""
+    local diffGitExit=0
+    diffChangedRaw="$(git --no-pager diff "${infectionDiffBase}...HEAD" --diff-filter=AM --name-only --relative -- "$srcDir")" || diffGitExit=$?
+    if ((diffGitExit != 0)); then
+        echo "Infection: 'git diff' against base '${infectionDiffBase}' failed (exit ${diffGitExit}) — cannot determine the changed files for diff mode."
+        echo "           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first)."
+        return 1
     fi
-    phpNoXdebug -f "$infectionPath" \
-        "${extraArgs[@]}" \
-        --coverage="$varDir/phpunit_logs" \
-        --skip-initial-tests \
-        --threads="${infectionThreads}" \
-        --configuration="${infectionConfig}" \
-        --min-msi="${minMsi}" \
-        --min-covered-msi="${minCoveredMsi}" \
-        --log-verbosity=all
+    # Keep only PHP files and comma-join them for --filter. A `grep`/pipeline here
+    # would abort the run under bin/qa's `set -o pipefail`+errexit on a legitimate
+    # no-match, so we iterate explicitly instead.
+    local diffChangedFile
+    while IFS= read -r diffChangedFile; do
+        [[ "$diffChangedFile" == *.php ]] || continue
+        if [[ -n "$infectionDiffFilter" ]]; then
+            infectionDiffFilter="${infectionDiffFilter},${diffChangedFile}"
+        else
+            infectionDiffFilter="${diffChangedFile}"
+        fi
+    done <<< "$diffChangedRaw"
+    return 0
+}
+
+infectionDiffFilter=""
+if [[ -n "${infectionDiffBase:-}" ]]; then
+    echo "Infection: diff mode — scoping mutation to source files changed against '${infectionDiffBase}' (committed history only)."
+    if ! computeInfectionDiffFilter; then
+        return 1
+    fi
+
+    if [[ -z "$infectionDiffFilter" ]]; then
+        echo "Infection: diff mode — no committed PHP source changes against '${infectionDiffBase}'; there are no new mutants to check. SKIPPING."
+        return 0
+    fi
+    echo "Infection: diff mode — mutating only the changed files: ${infectionDiffFilter}"
+fi
+
+function runInfection() {
+    local -a infectionArgs=( -- )
+    if [[ "1" == "${infectionOnlyCovered:-0}" ]]; then
+        infectionArgs+=( --only-covered )
+    fi
+    infectionArgs+=(
+        --coverage="$varDir/phpunit_logs"
+        --skip-initial-tests
+        --threads="${infectionThreads}"
+        --configuration="${infectionConfig}"
+    )
+
+    if [[ -n "${infectionDiffBase:-}" ]]; then
+        # Diff-scoped lane: mutate only the changed files (computed above) and
+        # enforce "no new escaped mutants in the changed code" via covered-MSI 100.
+        infectionArgs+=(
+            --filter="${infectionDiffFilter}"
+            --min-covered-msi=100
+        )
+    else
+        # Full lane (default, unchanged): whole codebase against the SSoT ratchet
+        # floors, with the verbose console report.
+        infectionArgs+=(
+            --min-msi="${minMsi}"
+            --min-covered-msi="${minCoveredMsi}"
+            --log-verbosity=all
+        )
+    fi
+
+    phpNoXdebug -f "$infectionPath" "${infectionArgs[@]}"
 }
 
 infectionExitCode=99
