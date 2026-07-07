@@ -166,7 +166,7 @@ final class InfectionDiffModeTest extends TestCase
      */
     private function runBashHarness(string $harness, array $extraArgs): array
     {
-        $harnessFile = (string) tempnam(sys_get_temp_dir(), 'infDiff');
+        $harnessFile = \Safe\tempnam(sys_get_temp_dir(), 'infDiff');
         \Safe\file_put_contents($harnessFile, $harness . "\n");
 
         $cmd = \sprintf(
@@ -181,7 +181,19 @@ final class InfectionDiffModeTest extends TestCase
         \Safe\exec($cmd, $output, $exitCode);
         \Safe\unlink($harnessFile);
 
-        return [$exitCode, implode("\n", $output)];
+        // \Safe\exec fills both by-reference, but its stub types them loosely
+        // (nullable, mixed-valued). Normalise to the sound shapes the declared
+        // array{int, string} return promises: an int code and a string of the
+        // (string) output lines.
+        $exitCode ??= 0;
+        $outputLines = [];
+        foreach ($output ?? [] as $line) {
+            if (\is_string($line)) {
+                $outputLines[] = $line;
+            }
+        }
+
+        return [$exitCode, implode("\n", $outputLines)];
     }
 
     /**
@@ -219,7 +231,7 @@ final class InfectionDiffModeTest extends TestCase
             runInfection
             BASH;
 
-        $harnessFile = (string) tempnam(sys_get_temp_dir(), 'infDiff');
+        $harnessFile = \Safe\tempnam(sys_get_temp_dir(), 'infDiff');
         \Safe\file_put_contents($harnessFile, $harness . "\n");
 
         $cmd = \sprintf(
@@ -234,14 +246,18 @@ final class InfectionDiffModeTest extends TestCase
         \Safe\exec($cmd, $output, $exitCode);
         \Safe\unlink($harnessFile);
 
-        self::assertSame(0, $exitCode, "harness failed:\n" . implode("\n", $output));
-
+        // \Safe\exec fills both by-reference, but its stub types them loosely
+        // (nullable, mixed-valued). Build a sound list<string> of output lines and
+        // coalesce the exit code before use.
+        $exitCode ??= 0;
         $args = [];
-        foreach ($output as $line) {
+        foreach ($output ?? [] as $line) {
             if (\is_string($line)) {
                 $args[] = $line;
             }
         }
+
+        self::assertSame(0, $exitCode, "harness failed:\n" . implode("\n", $args));
 
         return $args;
     }
