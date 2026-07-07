@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\PHPStan\Rules;
 
+use Attribute;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
@@ -144,7 +145,7 @@ final class RequireExplicitDIAttributeRule implements Rule
                 // Symfony dependency onto framework-agnostic attribute classes, e.g.
                 // php-qa-ci's own managed-source FactorySealedBy). Exempt it.
                 if ('Attribute'         === $name
-                    || \Attribute::class === $name
+                    || Attribute::class === $name
                     || str_ends_with($name, '\Attribute')) {
                     $isAttributeClass = true;
                 }

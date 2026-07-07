@@ -163,6 +163,19 @@ final class ForbidMagicStringAssertionRule implements Rule
     }
 
     /**
+     * A single identifier-like token (no whitespace/punctuation) — the shape of
+     * a closed-set value (slug, code, key), as opposed to free text.
+     */
+    public static function isIdentifierLike(string $value): bool
+    {
+        if ('' === $value || \strlen($value) > self::MAX_IDENTIFIER_LENGTH) {
+            return false;
+        }
+
+        return 1 === \Safe\preg_match('/^[A-Za-z][A-Za-z0-9_-]*$/', $value);
+    }
+
+    /**
      * Whether the operand is a structural-metadata accessor whose string return
      * is a contract, not a domain value — `ReflectionParameter::getName()`,
      * `ReflectionNamedType::getName()`, `RequestInterface::getMethod()`, etc.
@@ -177,18 +190,5 @@ final class ForbidMagicStringAssertionRule implements Rule
         return $expr instanceof MethodCall
             && $expr->name instanceof Node\Identifier
             && \in_array($expr->name->toString(), self::METADATA_ACCESSORS, true);
-    }
-
-    /**
-     * A single identifier-like token (no whitespace/punctuation) — the shape of
-     * a closed-set value (slug, code, key), as opposed to free text.
-     */
-    public static function isIdentifierLike(string $value): bool
-    {
-        if ('' === $value || \strlen($value) > self::MAX_IDENTIFIER_LENGTH) {
-            return false;
-        }
-
-        return 1 === preg_match('/^[A-Za-z][A-Za-z0-9_-]*$/', $value);
     }
 }
