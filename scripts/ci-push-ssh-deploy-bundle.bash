@@ -29,6 +29,11 @@ repo="$(printf '%s\n' "$originUrl" | awk '{ sub(/\.git$/, ""); n = split($0, p, 
 echo "Target repo: $repo"
 
 # Discover the github_deploy_* aliases this project's lock depends on.
+# SSoT: this discovery expression is mirrored INLINE (in BOTH jobs) by the
+# "Verify deploy keys cover every private dep" step in
+# templates/github-actions/qa-autofix.yml — that verifier must run before
+# `composer install` (so it cannot call this vendored script). Keep the jq +
+# grep in sync across all three copies if you ever change the alias grammar.
 mapfile -t aliases < <(
   jq -r '(.packages + (.["packages-dev"] // []))[].source.url // empty' composer.lock \
     | grep -oE '^github_deploy_[a-z0-9_]+' | sort -u

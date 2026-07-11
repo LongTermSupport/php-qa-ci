@@ -185,6 +185,10 @@ jobs:
         # github_deploy_* aliases in composer.lock).
         run: |
           set -euo pipefail
+          # Fail loudly on a malformed lock: otherwise an unparseable composer.lock
+          # yields an empty alias list and this step falsely reports "all public",
+          # masking the real breakage until composer errors one step later.
+          jq empty composer.lock
           # Aliases this lock REQUIRES an SSH deploy key for (process substitution,
           # so a no-match `grep` exit does not trip errexit).
           mapfile -t required < <(
@@ -206,7 +210,7 @@ jobs:
             echo "::error::CI_SSH_DEPLOY_BUNDLE is missing deploy key(s) for: ${missing[*]}"
             {
               echo ""
-              echo "composer.lock pins ${#required[@]} private first-party dep(s) to SSH aliases:"
+              echo "composer.lock requires ${#required[@]} private-dep SSH alias(es):"
               echo "    required : ${required[*]}"
               echo "    present  : ${present[*]:-(none)}"
               echo "    MISSING  : ${missing[*]}"
@@ -336,6 +340,10 @@ jobs:
         # github_deploy_* aliases in composer.lock).
         run: |
           set -euo pipefail
+          # Fail loudly on a malformed lock: otherwise an unparseable composer.lock
+          # yields an empty alias list and this step falsely reports "all public",
+          # masking the real breakage until composer errors one step later.
+          jq empty composer.lock
           # Aliases this lock REQUIRES an SSH deploy key for (process substitution,
           # so a no-match `grep` exit does not trip errexit).
           mapfile -t required < <(
@@ -357,7 +365,7 @@ jobs:
             echo "::error::CI_SSH_DEPLOY_BUNDLE is missing deploy key(s) for: ${missing[*]}"
             {
               echo ""
-              echo "composer.lock pins ${#required[@]} private first-party dep(s) to SSH aliases:"
+              echo "composer.lock requires ${#required[@]} private-dep SSH alias(es):"
               echo "    required : ${required[*]}"
               echo "    present  : ${present[*]:-(none)}"
               echo "    MISSING  : ${missing[*]}"
