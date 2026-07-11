@@ -64,6 +64,14 @@
 # sets the CI_SSH_DEPLOY_BUNDLE repo secret. The install step above then unpacks it.
 # (lts/php-qa-ci itself is public — needs no key.)
 #
+# FAIL-FAST: the "Verify deploy keys cover every private dep" step (right after the
+# install step, in BOTH jobs) cross-checks the aliases composer.lock requires against
+# the keys the bundle actually installed. If the bundle is stale (a new private dep
+# was added but the secret wasn't re-pushed) or unset, it fails immediately naming the
+# missing alias(es) + the one-command fix — instead of the cryptic
+# "ssh: Could not resolve hostname github_deploy_<name>" that composer emits far later.
+# After adding a new private first-party dep, re-run ci-push-ssh-deploy-bundle.bash.
+#
 # NOTES
 # -----
 # - Tests are deferred: the gate runs `qa -t allCS` + `qa -t allStatic` only, because
@@ -158,6 +166,63 @@ jobs:
               "$(basename "$key")" "$key" >> ~/.ssh/config
           done
 
+      - name: Verify deploy keys cover every private dep (fail fast, clear message)
+        # FAIL-FAST GUARD for the #1 cryptic CI failure. composer.lock can pin a
+        # private first-party dep to a github_deploy_* SSH alias; if the
+        # CI_SSH_DEPLOY_BUNDLE secret does not carry that key (stale bundle after
+        # a new dep was added, or unset entirely), `composer install` dies deep in
+        # a `git clone` with:
+        #     ssh: Could not resolve hostname github_deploy_<x>: ... name resolution
+        # — which says nothing about the real cause. This step compares the aliases
+        # composer.lock REQUIRES against the keys the bundle actually installed and,
+        # if any are missing, names them up front with the one-command fix.
+        #
+        # It is inline (not the vendored ci-push-ssh-deploy-bundle.bash helper)
+        # BECAUSE it must run BEFORE `composer install` — at which point vendor/ (and
+        # thus that script) does not exist yet. It needs only composer.lock, jq, and
+        # the ~/.ssh keys the previous step unpacked. The discovery jq mirrors
+        # scripts/ci-push-ssh-deploy-bundle.bash (same source of truth: the
+        # github_deploy_* aliases in composer.lock).
+        run: |
+          set -euo pipefail
+          # Aliases this lock REQUIRES an SSH deploy key for (process substitution,
+          # so a no-match `grep` exit does not trip errexit).
+          mapfile -t required < <(
+            jq -r '(.packages + (.["packages-dev"] // []))[].source.url // empty' composer.lock \
+              | grep -oE '^github_deploy_[a-z0-9_]+' | sort -u
+          )
+          if [ "${#required[@]}" -eq 0 ]; then
+            echo "No github_deploy_* aliases in composer.lock — all deps are public; nothing to verify."
+            exit 0
+          fi
+          # A key is "available" iff the previous step wrote ~/.ssh/<alias> (it only
+          # creates the matching Host alias when the bundle contained that key).
+          present=()
+          missing=()
+          for alias in "${required[@]}"; do
+            if [ -f "$HOME/.ssh/$alias" ]; then present+=("$alias"); else missing+=("$alias"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::CI_SSH_DEPLOY_BUNDLE is missing deploy key(s) for: ${missing[*]}"
+            {
+              echo ""
+              echo "composer.lock pins ${#required[@]} private first-party dep(s) to SSH aliases:"
+              echo "    required : ${required[*]}"
+              echo "    present  : ${present[*]:-(none)}"
+              echo "    MISSING  : ${missing[*]}"
+              echo ""
+              echo "Without these keys 'composer install' will fail cloning the missing repos"
+              echo "with 'ssh: Could not resolve hostname github_deploy_<name>'."
+              echo ""
+              echo "FIX (once): from a dev container that holds the read-only deploy keys, run"
+              echo "    vendor/lts/php-qa-ci/scripts/ci-push-ssh-deploy-bundle.bash"
+              echo "It re-discovers ALL aliases from composer.lock, bundles their keys, and (re)sets"
+              echo "the CI_SSH_DEPLOY_BUNDLE repository secret. If the secret was unset, it creates it."
+            } >&2
+            exit 1
+          fi
+          echo "OK: CI_SSH_DEPLOY_BUNDLE provides all ${#required[@]} required deploy key(s): ${required[*]}"
+
       - name: Install dependencies
         # --no-scripts skips framework post-install scripts (e.g. Symfony @auto-scripts
         # cache:clear / assets:install) that need runtime env not present in CI. The
@@ -251,6 +316,63 @@ jobs:
             printf 'Host %s\n  HostName github.com\n  User git\n  IdentityFile %s\n  IdentitiesOnly yes\n' \
               "$(basename "$key")" "$key" >> ~/.ssh/config
           done
+
+      - name: Verify deploy keys cover every private dep (fail fast, clear message)
+        # FAIL-FAST GUARD for the #1 cryptic CI failure. composer.lock can pin a
+        # private first-party dep to a github_deploy_* SSH alias; if the
+        # CI_SSH_DEPLOY_BUNDLE secret does not carry that key (stale bundle after
+        # a new dep was added, or unset entirely), `composer install` dies deep in
+        # a `git clone` with:
+        #     ssh: Could not resolve hostname github_deploy_<x>: ... name resolution
+        # — which says nothing about the real cause. This step compares the aliases
+        # composer.lock REQUIRES against the keys the bundle actually installed and,
+        # if any are missing, names them up front with the one-command fix.
+        #
+        # It is inline (not the vendored ci-push-ssh-deploy-bundle.bash helper)
+        # BECAUSE it must run BEFORE `composer install` — at which point vendor/ (and
+        # thus that script) does not exist yet. It needs only composer.lock, jq, and
+        # the ~/.ssh keys the previous step unpacked. The discovery jq mirrors
+        # scripts/ci-push-ssh-deploy-bundle.bash (same source of truth: the
+        # github_deploy_* aliases in composer.lock).
+        run: |
+          set -euo pipefail
+          # Aliases this lock REQUIRES an SSH deploy key for (process substitution,
+          # so a no-match `grep` exit does not trip errexit).
+          mapfile -t required < <(
+            jq -r '(.packages + (.["packages-dev"] // []))[].source.url // empty' composer.lock \
+              | grep -oE '^github_deploy_[a-z0-9_]+' | sort -u
+          )
+          if [ "${#required[@]}" -eq 0 ]; then
+            echo "No github_deploy_* aliases in composer.lock — all deps are public; nothing to verify."
+            exit 0
+          fi
+          # A key is "available" iff the previous step wrote ~/.ssh/<alias> (it only
+          # creates the matching Host alias when the bundle contained that key).
+          present=()
+          missing=()
+          for alias in "${required[@]}"; do
+            if [ -f "$HOME/.ssh/$alias" ]; then present+=("$alias"); else missing+=("$alias"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::CI_SSH_DEPLOY_BUNDLE is missing deploy key(s) for: ${missing[*]}"
+            {
+              echo ""
+              echo "composer.lock pins ${#required[@]} private first-party dep(s) to SSH aliases:"
+              echo "    required : ${required[*]}"
+              echo "    present  : ${present[*]:-(none)}"
+              echo "    MISSING  : ${missing[*]}"
+              echo ""
+              echo "Without these keys 'composer install' will fail cloning the missing repos"
+              echo "with 'ssh: Could not resolve hostname github_deploy_<name>'."
+              echo ""
+              echo "FIX (once): from a dev container that holds the read-only deploy keys, run"
+              echo "    vendor/lts/php-qa-ci/scripts/ci-push-ssh-deploy-bundle.bash"
+              echo "It re-discovers ALL aliases from composer.lock, bundles their keys, and (re)sets"
+              echo "the CI_SSH_DEPLOY_BUNDLE repository secret. If the secret was unset, it creates it."
+            } >&2
+            exit 1
+          fi
+          echo "OK: CI_SSH_DEPLOY_BUNDLE provides all ${#required[@]} required deploy key(s): ${required[*]}"
 
       - name: Install dependencies
         # --no-scripts skips framework post-install scripts (e.g. Symfony @auto-scripts
