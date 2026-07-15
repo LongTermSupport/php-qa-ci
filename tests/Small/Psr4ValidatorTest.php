@@ -46,6 +46,24 @@ final class Psr4ValidatorTest extends TestCase
         self::assertSame($expected, $actual);
     }
 
+    public function testIgnoredFilesAloneDoNotProduceErrorsAndAreNotReported(): void
+    {
+        // A project that is entirely valid but whose ignore patterns match some
+        // files. The scanner records those as "ignored" internally, but that
+        // debug info is DELIBERATELY suppressed when there are no real errors —
+        // main() returns early with an empty result the moment the error set is
+        // empty, so a clean run never leaks the "Ignored Files:" block.
+        $assetsPath  = __DIR__ . '/../assets/psr4/projectAllValid/';
+        $projectRoot = \Safe\realpath($assetsPath);
+        $validator   = new Psr4Validator(
+            ['%Nested/Deep%'],
+            $projectRoot,
+            Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
+        );
+
+        self::assertSame([], $validator->main());
+    }
+
     public function testItFindsErrorsAndThrowsAnExceptionOnAnInvalidProject(): void
     {
         $assetsPath  = __DIR__ . '/../assets/psr4/projectInValid/';

@@ -3,11 +3,15 @@ echo "
 Setting Infection Minimums
 --------------------------
 "
+# Monotonic ratchet — raise-only. Measured 84.68% covered MSI on 2026-07-15
+# (first complete Infection run on this branch, after the T6.6 mutant-killing
+# wave lifted it from 75.92%); floors set 2.7pp under the measurement to absorb
+# run-to-run timeout variance (~0.4pp observed). Raise again as the score rises.
 # shellcheck disable=SC2034 # consumed by includes/generic/infection.inc.bash (via the minMsi/
 #   minCoveredMsi fallback chain) once this project override has been sourced by bin/qa.
-infectionMutationScoreIndicator=71
+infectionMutationScoreIndicator=82
 # shellcheck disable=SC2034 # consumed by includes/generic/infection.inc.bash, same as above
-infectionCoveredCodeMSI=77
+infectionCoveredCodeMSI=82
 
 pathsToIgnore=()
 pathsToIgnore+=( "tests/assets" )

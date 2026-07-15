@@ -114,6 +114,105 @@ Seriously tidy it up **without breaking anything**. Three problem axes:
     stays open as deferred follow-up work alongside M-071/M-072 — pre-existing
     coverage gap, not a defect.
 
+### Phase 6 — Deferred-work wave (authorised 2026-07-15: "get this repo really as tight and clean as possible")
+
+The Phase-5 deferrals were sequencing-safety deferrals, not optional work. User
+instructed they now be completed. Four parallel agents, disjoint file scopes,
+none commit (coordinator stages explicit paths per track after grading —
+lesson from the W4 collision applied).
+
+- ✅ T6.1 (m072-deploy, opus): WP-S7 + M-072 landed (2ba9a81), grade A−.
+  Harness (8 scenarios) proven green against the monolith first; 726→152-line
+  orchestrator + 7 scripts/lib/ modules; behaviour identity verified
+  (stdout/tree/perms). Fable follow-ups before commit: fixer gates (rector×3 +
+  fixer + phpstan — 16 errors incl. TWO runtime-breaking Safe conversions:
+  Safe\mkdir/chmod return void, so `mkdir||fail` and assertTrue(chmod)
+  became always-fail; rewritten as bare statements, harness re-proven green);
+  DeployProcessRunner autoloading moved from require_once to an autoload-dev
+  entry (fixture-namespace precedent). NOTE: a concurrent unassigned
+  "bash-scripts" agent (not spawned by the coordinator) also attempted M-072 —
+  collision self-resolved (its modules deleted by itself); duplicate-assignment
+  lesson from W4 re-confirmed.
+- ✅ T6.2 (m071-stubs, sonnet): M-071 landed (49b93f9), grade A−. Byte-identical
+  output independently re-verified (diff vs git-HEAD originals, consumer-layout
+  simulation, both bootstrap failure-message variants). Fable follow-up: the
+  agent's new test file was not fixer-gate clean (rector×3 + fixer pending,
+  5 tautological assertNotFalse) — applied and fixed before commit.
+- ✅ T6.3 (m077-tests, opus): M-077 landed (c959d72), grade A. 126 new tests /
+  173 assertions: 19 rule tests (violation shapes + identifier + negatives,
+  detector-branch coverage; direct-AST house style) + 4 plugin wiring tests
+  against a guarded runtime-only Composer\* stub surface (composer/composer is
+  not installed; stubs are class_exists-guarded, non-autoloaded, assets-only).
+  Zero src/ bugs found. Fable follow-ups before/after commit: fixer-gate
+  fixpoint applied; agent's report arrived late (after my independent
+  verification and commit) and corroborated everything. Post-commit unlock
+  (7e88223): tests/Small/ComposerPlugin/* added to PHPStan excludePaths (same
+  absent-Composer-API rationale as src/ComposerPlugin/*), enabling the agent's
+  preserved BEHAVIORAL PhpStanGuardPlugin test (warning paths + silence) in
+  place of the wiring-only version. Follow-up open: behavioral tests for the
+  other 3 plugins (stubs already ship CapturingIO/FakeRootPackage).
+- ✅ T6.4 (shellcheck-sweep, sonnet): landed (18a5199), grade A. 158 findings:
+  64 real fixes (all SC2155 exit-code masks; SC2318 real latent bug in
+  qaToolGateAllows; SC2145/2206/2207/2010; archiveToolLog ls|grep → find+
+  mapfile), 2 dead vars deleted, rest justified targeted directives. CI gate
+  raised to -S warning AND widened by Fable to qaConfig/ + bin stubs + git
+  pre-commit hook source. Dead travis files deleted (repo's own abandoned
+  Travis setup, zero references).
+- ✅ T6.5 Fable grading + integration + commits/pushes: all four tracks landed
+  and CI-green on origin (18a5199, 2ba9a81, aa1b9d2, c959d72 — run 29424679965
+  success). Full local read-only pipeline run twice; the only failures were
+  (a) container-only composerChecks artifact (F-ENV-1), and (b) the broken
+  Infection lane — repaired in 7e88223 (see findings above), giving the
+  branch's FIRST complete mutation run: 1325 mutants, 100% mutation coverage,
+  Covered Code MSI 75.92 vs the 77 floor.
+- ✅ T6.6 (mutant-killer, opus): grade A. Covered Code MSI 75.92% → 84.68%
+  (Fable-verified with an independent infection run: 1325 mutants, 1110
+  killed, 203 escaped, exit 0), escapes concentrated in message-builder
+  concats killed via exact-output contract tests (scanner report formats,
+  package-type guidance, psr4 early-return) + a multi-occurrence aggregation
+  fixture. No src changes; no bugs found; harmless/equivalent mutants
+  documented and skipped. Floors RAISED 71/77 → 82/82 (ratchet locked 2.7pp
+  under measurement for timeout variance). Residual escapes: LinksChecker
+  (29) is the top remaining file — future wave candidate.
+
+Findings surfaced by the T6.5 full-pipeline verification (2026-07-15):
+- FIXED — qaConfig/infection.json (repo's own) resolved its source dir
+  config-relative to qaConfig/src (nonexistent) and its logs likewise; never
+  caught because CI has no Xdebug so infection is always skipped there.
+  Paths corrected to ../src and ../var/qa/... (tmpDir was already correct).
+- FIXED — 6 risky tests (fail-on-risky fires only in coverage runs, so
+  local-only): FactorySealedRuleTest and ExplicitPackageTypeCheckTest
+  executed collaborator classes without declaring them; added #[UsesClass].
+  Also silenced 12 PHPUnit notices by giving ForbidMagicStringAssertionRuleTest
+  the class-level #[AllowMockObjectsWithoutExpectations] its newer siblings use.
+- F-ST-2 (open): the phpStrictTypes gate greps for the literal string
+  'strict_types' ANYWHERE in the file — a comment mentioning it passes the
+  gate (observed: m077's MissingStrictTypes.php fixture passes despite having
+  no declaration). It also ignores pathsToIgnore (scans fixture dirs). A
+  stricter gate (anchored declare-regex + ignore support) is a behaviour
+  change for consumers — needs its own slot.
+- F-ENV-1 (open, environment robustness): composerChecks runs
+  `phpNoXdebug -f "$(which composer)"`, which breaks when composer is a shell
+  wrapper (as in this dev container — the wrapper text is executed as PHP and
+  echoed). CI's composer is a real PHP entrypoint, so CI is unaffected; local
+  aggregate runs in such containers report a false composerChecks failure.
+
+Open findings from Phase 6 (not yet actioned):
+- F-IFS-1 (flagged by shellcheck-sweep, deliberately not changed mid-sweep):
+  bin/qa captures standardIFS BEFORE setting IFS=$'\n\t', but
+  includes/options.inc.bash (sourced after) re-captures standardIFS from the
+  already-modified IFS — so infection.inc.bash's `IFS=$standardIFS` "restore"
+  is a no-op (restores \n\t, not the shell default). Restoring the intended
+  behaviour would change Infection's word-splitting — needs its own focused
+  slot with testing, not a drive-by fix.
+- Production CI incidents 2026-07-15 (all resolved; lessons in
+  CLAUDE/prepush-verification.md): 794dbc1 failed on unfixed W5 test files
+  (fixer gates); 87b993a failed on Rector 2.5.7 floating in via untracked
+  lock (design contradiction: tool-install.bash documented a tracked lock,
+  .gitignore excluded it). Fixed by 87b993a + 1118447 (lock now tracked).
+
+GATED ON USER (unchanged): pushing the local commits on php8.4 to origin.
+
 ## Ground rules for all audit agents
 
 1. Every finding needs **evidence**: file:line references, quoted claim vs

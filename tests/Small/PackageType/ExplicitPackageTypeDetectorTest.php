@@ -74,4 +74,24 @@ final class ExplicitPackageTypeDetectorTest extends TestCase
         self::assertIsString($this->detector->check(['type' => null]));
         self::assertIsString($this->detector->check(['type' => ['library']]));
     }
+
+    /**
+     * The rejection message is the actionable guidance a developer sees when the
+     * build fails: it must spell out both valid choices ("library" / "project"),
+     * WHY the explicit declaration matters (Composer's silent default), and the
+     * downstream consequence (a library's public surface is @api/@internal
+     * checked). Pinning the exact wording guards that guidance against
+     * accidental truncation or re-ordering of its constituent sentences.
+     */
+    #[Test]
+    public function theRejectionMessageIsTheExactActionableGuidance(): void
+    {
+        $expected = 'composer.json must declare "type" explicitly: "library" (an installable dependency) '
+            . 'or "project" (an application). Composer silently defaults an omitted "type" to "library", '
+            . 'which hides the app-vs-library decision — declare it so the choice is conscious. '
+            . 'A library additionally has its public surface checked: every public class must carry '
+            . '@api or @internal.';
+
+        self::assertSame($expected, $this->detector->check(['name' => 'acme/widget']));
+    }
 }
