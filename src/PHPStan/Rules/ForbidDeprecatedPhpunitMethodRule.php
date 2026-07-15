@@ -114,13 +114,7 @@ final readonly class ForbidDeprecatedPhpunitMethodRule implements Rule
 
     private function isCallOnPhpunitType(Node $node, Scope $scope): bool
     {
-        foreach ($this->targetClassNames($node, $scope) as $className) {
-            if ($this->isPhpunitType($className)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->targetClassNames($node, $scope), fn (string $className): bool => $this->isPhpunitType($className));
     }
 
     /**
@@ -147,12 +141,6 @@ final readonly class ForbidDeprecatedPhpunitMethodRule implements Rule
 
         $reflection = $this->reflectionProvider->getClass($className);
 
-        foreach ($this->phpunitClasses as $phpunitClass) {
-            if ($className === $phpunitClass || $reflection->isSubclassOf($phpunitClass)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->phpunitClasses, static fn (string $phpunitClass): bool => $className === $phpunitClass || $reflection->isSubclassOf($phpunitClass));
     }
 }

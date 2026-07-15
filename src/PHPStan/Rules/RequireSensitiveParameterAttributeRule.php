@@ -180,24 +180,12 @@ final readonly class RequireSensitiveParameterAttributeRule implements Rule
 
     private function nameLooksLikeCredential(string $paramNameLower): bool
     {
-        foreach ($this->namePatterns as $pattern) {
-            if (str_contains($paramNameLower, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->namePatterns, static fn (string $pattern): bool => str_contains($paramNameLower, $pattern));
     }
 
     private function nameIsIgnored(string $paramNameLower): bool
     {
-        foreach ($this->ignoreSubstrings as $ignore) {
-            if (str_contains($paramNameLower, $ignore)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->ignoreSubstrings, static fn (string $ignore): bool => str_contains($paramNameLower, $ignore));
     }
 
     private function typeIsPlausiblePlaintext(Identifier|Node\Name|ComplexType|null $type): bool

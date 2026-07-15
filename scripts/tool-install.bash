@@ -140,6 +140,9 @@ if [[ "$MODE" == "update" ]]; then
     echo -e "${GREEN}Updating isolated Rector installation...${NC}"
     composer update --working-dir="$RECTOR_DIR" --no-interaction --no-dev 2>&1
     echo -e "${GREEN}Rector updated successfully${NC}"
+    echo ""
+    echo "IMPORTANT: the Rector version is locked by tools/rector/composer.lock, which is"
+    echo "tracked in git so install runs (and CI) are reproducible. Commit the updated lock."
 elif [[ ! -f "$RECTOR_DIR/vendor/bin/rector" ]]; then
     echo -e "${GREEN}Installing isolated Rector...${NC}"
     composer install --working-dir="$RECTOR_DIR" --no-interaction --no-dev 2>&1

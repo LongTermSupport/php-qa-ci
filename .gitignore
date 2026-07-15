@@ -3,8 +3,10 @@
 **/var/
 /vendor/
 /bin/*
+!/bin/bootstrap.php
 !/bin/composer-require-checker
 !/bin/infection
+!/bin/lib-redirect-stub.inc.bash
 !/bin/managed-source
 !/bin/mdlinks
 !/bin/package-type-check
@@ -18,7 +20,6 @@
 /cache/
 /.phive-home/
 /tools/rector/vendor/
-/tools/rector/composer.lock
 
 # BEGIN php-qa-ci managed QA runtime excludes — do not edit
 # These patterns ensure QA tool runtime caches are never committed,
