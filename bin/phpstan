@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
-# Find project root by walking up to composer.json
-projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
-while [[ ! -f "$projectRoot/composer.json" && "$projectRoot" != "/" ]]; do
-    projectRoot="$(dirname "$projectRoot")"
-done
-# Make bin dir relative to project root
-qaCmd="${COMPOSER_RUNTIME_BIN_DIR#"$projectRoot/"}/qa"
-echo "PHPStan is managed by php-qa-ci. Run it via the QA pipeline:"
-echo ""
-echo "  $qaCmd -t phpstan                  # analyse full codebase"
-echo "  $qaCmd -t phpstan -p src/Service   # analyse specific path"
-echo "  $qaCmd -t phpstan -p src/Entity    # analyse specific folder"
-exit 1
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib-redirect-stub.inc.bash"
+phpQaCiRedirectStub "PHPStan" \
+    "  __QACMD__ -t phpstan                  # analyse full codebase" \
+    "  __QACMD__ -t phpstan -p src/Service   # analyse specific path" \
+    "  __QACMD__ -t phpstan -p src/Entity    # analyse specific folder"

@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
-# Find project root by walking up to composer.json
-projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
-while [[ ! -f "$projectRoot/composer.json" && "$projectRoot" != "/" ]]; do
-    projectRoot="$(dirname "$projectRoot")"
-done
-# Make bin dir relative to project root
-qaCmd="${COMPOSER_RUNTIME_BIN_DIR#"$projectRoot/"}/qa"
-echo "PHP CS Fixer is managed by php-qa-ci. Run it via the QA pipeline:"
-echo ""
-echo "  $qaCmd -t fixer                    # fix full codebase"
-echo "  $qaCmd -t fixer -p src/Controller  # fix specific path"
-exit 1
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib-redirect-stub.inc.bash"
+phpQaCiRedirectStub "PHP CS Fixer" \
+    "  __QACMD__ -t fixer                    # fix full codebase" \
+    "  __QACMD__ -t fixer -p src/Controller  # fix specific path"

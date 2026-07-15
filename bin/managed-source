@@ -4,24 +4,8 @@
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\ManagedSource\ManagedSourceGenerator;
 
-$files = [
-    __DIR__.'/../../../autoload.php',
-    __DIR__.'/../vendor/autoload.php',
-];
-
-$autoloadFileFound = false;
-foreach ($files as $file) {
-    if (file_exists($file)) {
-        require $file;
-        $autoloadFileFound = true;
-        break;
-    }
-}
-
-if (!$autoloadFileFound) {
-    echo 'You need to set up the project dependencies using composer install'.PHP_EOL;
-    die(1);
-}
+$phpQaCiBootstrapFailureMessage = 'You need to set up the project dependencies using composer install'.PHP_EOL;
+require __DIR__.'/bootstrap.php';
 
 $command     = $argv[1] ?? 'check';
 $projectRoot = Helper::getProjectRootDirectory();

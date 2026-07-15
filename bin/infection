@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Find project root by walking up to composer.json
-projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
-while [[ ! -f "$projectRoot/composer.json" && "$projectRoot" != "/" ]]; do
-    projectRoot="$(dirname "$projectRoot")"
-done
-# Make bin dir relative to project root
-qaCmd="${COMPOSER_RUNTIME_BIN_DIR#"$projectRoot/"}/qa"
-echo "Infection is managed by php-qa-ci. Run it via the QA pipeline:"
-echo ""
-echo "  $qaCmd -t infection                # run mutation testing"
-exit 1
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib-redirect-stub.inc.bash"
+phpQaCiRedirectStub "Infection" \
+    "  __QACMD__ -t infection                # run mutation testing"
