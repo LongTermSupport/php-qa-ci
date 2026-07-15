@@ -59,28 +59,13 @@ Sourced by `deploy-skills.bash`, `install-github-actions.bash`, `setup-claude-qa
   `DAEMON_DETECTED == "false"` (`deploy-skills.bash`), with a comment describing the
   register-then-undo fix. Not redone.
 
-## FLAGS — RESOLVED (Fable ruling, follow-up commit after 774e218)
+## FLAGS — RESOLVED
 
-Both flags below were accepted by the coordinator and are now implemented in
-`scripts/lib/consumer-write.inc.bash` (the ownership-model SSoT, which documents
-both exceptions in its header):
-
-1. **git pre-commit hook → SHARED/signature exception (`install_signed`)**:
-   `.git/hooks/pre-commit` is a singleton path shared with husky/lefthook, so a
-   foreign file there is not php-qa-ci-owned. Overwrite only when the target is
-   absent or carries the `PHP-QA-CI-HOOK-SIGNATURE` marker; a foreign hook gets
-   a loud stderr warning with chaining instructions and is left intact (never
-   fails composer install).
-2. **GitHub Actions workflow → SEED-ONCE (`install_seed_once`)**: the documented
-   contract tells consumers to customise it (matrix/triggers/secrets — not
-   expressible via qaConfig/), so it is written only when absent and
-   consumer-owned afterwards.
-
-Verified by direct helper exercise: foreign hook untouched + warned; our stale
-hook refreshed; absent hook installed; workflow seeded when absent, untouched
-when present. NOTE: the coordinator and the w4 agent implemented these rulings
-concurrently (messages crossed); the coordinator reconciled the collision and
-landed the merged version.
+Both flags were accepted by the coordinator and implemented in follow-up commit
+`f812b82` (install_signed marker-gated git hook; install_seed_once workflow).
+Full detail, verification, and the concurrent-edit reconciliation note are in
+"Follow-up commit — lead rulings on the two flags (accepted)" at the bottom of
+this file.
 
 ## FLAGS for the user (original, as raised — binding decision applied, but worth a second look)
 
