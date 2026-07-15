@@ -17,9 +17,15 @@ use PHPStan\Rules\RuleErrorBuilder;
  * PHPUnit 13 throws ClassIsFinalException when you try to stub or mock a final class.
  * Even in older PHPUnit versions, mocking final classes is fragile and violates SOLID.
  *
- * Only flags classes whose source file lives within the project (not in vendor/).
+ * Only flags classes the analysed project OWNS — i.e. whose source file lives
+ * within the project but NOT under the project's own vendor/ directory.
  * Third-party final classes (e.g. Symfony's Security) are outside your control and
  * cannot have interfaces added — those are silently skipped.
+ *
+ * "Third-party" is decided by {@see VendoredCodeDetector} against the analysed
+ * project's OWN vendor directory, NOT a bare `/vendor/` substring of the
+ * absolute path — see that class for why the substring test is wrong when a
+ * package is developed in-place inside a consumer's vendor/.
  *
  * THE FIX: Create an interface for the class and stub/mock the interface instead.
  * The concrete (final) class implements the interface. Services type-hint the interface.
@@ -36,6 +42,7 @@ final readonly class ForbidMockingFinalClassRule implements Rule
 
     public function __construct(
         private ReflectionProvider $reflectionProvider,
+        private VendoredCodeDetector $vendoredCodeDetector,
     ) {
     }
 
@@ -98,10 +105,9 @@ final readonly class ForbidMockingFinalClassRule implements Rule
             return [];
         }
 
-        // Skip third-party (vendor) final classes — we can't add interfaces to those.
-        // Only flag classes whose source file is within the project, not in vendor/.
-        $fileName = $classReflection->getFileName();
-        if (null === $fileName || str_contains($fileName, '/vendor/')) {
+        // Skip third-party (vendored) final classes — we can't add interfaces to
+        // those. Only flag classes the analysed project owns (see VendoredCodeDetector).
+        if ($this->vendoredCodeDetector->isVendoredCode($classReflection->getFileName())) {
             return [];
         }
 

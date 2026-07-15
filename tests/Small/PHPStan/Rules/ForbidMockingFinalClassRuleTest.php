@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidLooseComparisonRule;
 use LTS\PHPQA\PHPStan\Rules\ForbidMockingFinalClassRule;
+use LTS\PHPQA\PHPStan\Rules\VendoredCodeDetector;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\MethodCall;
@@ -160,9 +161,34 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
         self::assertSame([], $this->getRule()->processNode($call, $this->scopeResolvingTo(self::PROJECT_FINAL)));
     }
 
+    #[Test]
+    public function aProjectOwnedFinalClassWhoseAbsolutePathContainsVendorIsStillFlagged(): void
+    {
+        // Regression: when the project root itself lives under a /vendor/ path
+        // (developing a package in-place inside a consumer's vendor/, the normal
+        // way php-qa-ci is worked on), a project-owned class's absolute path
+        // contains '/vendor/' yet the class MUST still be flagged. Anchoring on
+        // '<cwd>/vendor/' (here an unrelated root, so the class is NOT under it)
+        // rather than a bare '/vendor/' substring is exactly what fixes this.
+        $rule = new ForbidMockingFinalClassRule(
+            $this->createReflectionProvider(),
+            new VendoredCodeDetector('/nonexistent/project/root'),
+        );
+
+        $errors = $rule->processNode(
+            $this->mockCall('createMock', self::PROJECT_FINAL),
+            $this->scopeResolvingTo(self::PROJECT_FINAL),
+        );
+
+        self::assertCount(1, $errors);
+    }
+
     protected function getRule(): Rule
     {
-        return new ForbidMockingFinalClassRule($this->createReflectionProvider());
+        return new ForbidMockingFinalClassRule(
+            $this->createReflectionProvider(),
+            new VendoredCodeDetector(\dirname(__DIR__, 4)),
+        );
     }
 
     private function mockCall(string $method, string $className): MethodCall
