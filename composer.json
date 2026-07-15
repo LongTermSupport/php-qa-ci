@@ -52,6 +52,9 @@
       "LTS\\PHPQA\\Tests\\": [
         "tests/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\DeploySkills\\": [
+        "tests/assets/deploySkills/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiInternalLeak\\": [
         "tests/assets/PHPStan/ApiInternalLeak/"
       ],
