@@ -20,7 +20,8 @@
 #
 # NOTE: unlike most tools the paths to scan live INSIDE the config file (via
 # ClassSet::fromDir(...)), so the pipeline's -p path specification does not
-# apply — this tool is classified as non-path-supporting in options.inc.bash.
+# apply — this tool is classified as non-path-supporting in the tool registry
+# (includes/generic/toolRegistry.inc.bash).
 
 useArkitect=${useArkitect:-1}
 if [[ "1" != "$useArkitect" ]]; then
