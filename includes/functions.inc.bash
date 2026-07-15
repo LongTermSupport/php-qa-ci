@@ -175,6 +175,43 @@ function tryAgainOrAbort() {
   hasBeenRestarted="true"
 }
 
+###############################################################################
+# Shared retry driver for the homogeneous leaf tools (M-010).
+#
+# The historic per-fragment pattern — a `while ((rc > 0))` retry loop that runs
+# a single command, captures its exit code WITHOUT tripping errexit, and calls
+# tryAgainOrAbort on failure (which exits in CI, loops interactively) — was
+# duplicated with minor spelling variations across psr4Validate, packageType,
+# sensitiveParameterUsage, phpLint and markdownLinks. This is the single
+# implementation those fragments opt into; behaviour is identical to the loops
+# it replaces.
+#
+# The command is invoked under an `if` condition so a non-zero exit is captured
+# without aborting under the pipeline's errexit — no manual errexit toggling, no
+# exit-code masking, no stderr suppression.
+#
+# Usage:  qaSimpleTool "<label>" <command> [args...]
+#   e.g.  qaSimpleTool "PHP Lint" phpNoXdebug -f "$binDir"/parallel-lint -- "${paths[@]}"
+#
+# Bespoke fragments (rector, phpCsFixer, phpstan, phpArkitect, phpunit,
+# infection, composerChecks, composerRequireChecker, branchNamePolicy) have
+# genuinely different control flow (read-only dry-run mapping, tee+PIPESTATUS
+# log archival, crash-code thresholds, output parsing) and deliberately do NOT
+# use this driver.
+function qaSimpleTool() {
+  local label="$1"
+  shift
+  local qaSimpleToolExitCode=99
+  while ((qaSimpleToolExitCode > 0)); do
+    if "$@"; then
+      qaSimpleToolExitCode=0
+    else
+      qaSimpleToolExitCode=$?
+      tryAgainOrAbort "$label"
+    fi
+  done
+}
+
 ###############################################################
 # Decide whether this is a READ-ONLY (verification) run.
 #

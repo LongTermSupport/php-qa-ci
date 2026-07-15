@@ -15,14 +15,6 @@
 # LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::main()).
 ###############################################################################
 
-packageTypeExitCode=99
-while ((packageTypeExitCode > 0)); do
-  # Run inside an `if` so a non-zero exit is captured without aborting under the
-  # pipeline's `set -e` — the failure is handled explicitly by the abort branch.
-  if phpNoXdebug -f "$binDir"/package-type-check; then
-    packageTypeExitCode=0
-  else
-    packageTypeExitCode=$?
-    tryAgainOrAbort "Package Type Declaration Check"
-  fi
-done
+# Retry loop via the shared driver (M-010) — errexit-safe exit-code capture and
+# tryAgainOrAbort handling, identical to the hand-written loop it replaces.
+qaSimpleTool "Package Type Declaration Check" phpNoXdebug -f "$binDir"/package-type-check

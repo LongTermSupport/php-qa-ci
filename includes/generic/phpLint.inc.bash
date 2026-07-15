@@ -5,19 +5,9 @@ do
     pathsToIgnorePrefixed+=( --exclude "$projectRoot/$ignoreFile")
 done
 
-phpLintExitCode=99
-set +e
-while (( phpLintExitCode > 0 ))
-do
-
-    phpNoXdebug -f "$binDir"/parallel-lint -- \
+# Retry loop via the shared driver (M-010). The driver's if-condition capture
+# replaces the errexit-toggling the loop used to do, with identical behaviour
+# (and correctly quoted array expansion, closing the SC2068 hazard M-025 noted).
+qaSimpleTool "PHP Lint" phpNoXdebug -f "$binDir"/parallel-lint -- \
     "${pathsToIgnorePrefixed[@]}" \
     "${pathsToCheck[@]}"
-    phpLintExitCode=$?
-
-    if (( phpLintExitCode > 0 ))
-    then
-        tryAgainOrAbort "PHP Lint"
-    fi
-done
-set -e

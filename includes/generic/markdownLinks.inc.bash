@@ -1,19 +1,8 @@
 if [[ -f $projectRoot/README.md ]]
 then
-    linksExitCode=99
-    while (( linksExitCode > 0 ))
-    do
-        set +e
-
-        phpNoXdebug -f "$binDir"/mdlinks
-        linksExitCode=$?
-
-        set -e
-        if (( linksExitCode > 0 ))
-        then
-            tryAgainOrAbort "Markdown Links Checker"
-        fi
-    done
+    # Retry loop via the shared driver (M-010) — identical behaviour to the
+    # hand-written loop it replaces.
+    qaSimpleTool "Markdown Links Checker" phpNoXdebug -f "$binDir"/mdlinks
 else
     echo "ERROR: The Markdown Links check requires a README.md in the root of the repository"
     echo "ERROR: You must create a README.md to proceed

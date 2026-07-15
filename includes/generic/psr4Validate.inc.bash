@@ -19,15 +19,6 @@ for psr4IgnorePattern in "${psr4IgnoreList[@]}"; do
   fi
 done
 
-psr4ExitCode=99
-while ((psr4ExitCode > 0)); do
-  if phpNoXdebug -f "$binDir"/psr4-validate -- "${psr4IgnoreArgs[@]}"; then
-    psr4ExitCode=0
-  else
-    psr4ExitCode=$?
-  fi
-
-  if ((psr4ExitCode > 0)); then
-    tryAgainOrAbort "PSR-4 Validation"
-  fi
-done
+# Retry loop via the shared driver (M-010) — identical behaviour to the
+# hand-written loop it replaces.
+qaSimpleTool "PSR-4 Validation" phpNoXdebug -f "$binDir"/psr4-validate -- "${psr4IgnoreArgs[@]}"
