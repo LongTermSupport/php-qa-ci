@@ -367,14 +367,18 @@ if [[ -d "$GIT_HOOKS_SOURCE" ]] && [[ -d "$GIT_HOOKS_TARGET" ]]; then
     PRE_COMMIT_TARGET="$GIT_HOOKS_TARGET/pre-commit"
 
     if [[ -f "$PRE_COMMIT_SOURCE" ]]; then
-        # OWNED artefact: the git pre-commit hook is php-qa-ci-managed (its header
-        # marks it DO NOT EDIT) and is overwritten unconditionally — the same one
-        # mechanism as skills/agents/hooks. If a differing hook already exists,
-        # install_owned_file prints an informational notice naming what it
-        # replaces (no signature gate, no prompt).
-        install_owned_file "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET" "git pre-commit hook"
-        chmod +x "$PRE_COMMIT_TARGET"
-        echo "  ✓ Git pre-commit hook installed: $PRE_COMMIT_TARGET"
+        # .git/hooks/pre-commit is a SINGLETON path git shares with husky/
+        # lefthook/hand-rolled hooks — the SHARED/signature exception in
+        # scripts/lib/consumer-write.inc.bash. install_signed overwrites only
+        # when the target is absent or carries our marker; a foreign hook gets
+        # a loud warning and is left intact (never fails composer install).
+        install_signed "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET" "PHP-QA-CI-HOOK-SIGNATURE" "git pre-commit hook"
+        # Only ours needs the exec bit + success line; a foreign hook was
+        # deliberately left alone (install_signed already warned).
+        if [[ -f "$PRE_COMMIT_TARGET" ]] && grep -q 'PHP-QA-CI-HOOK-SIGNATURE' "$PRE_COMMIT_TARGET"; then
+            chmod +x "$PRE_COMMIT_TARGET"
+            echo "  ✓ Git pre-commit hook installed: $PRE_COMMIT_TARGET"
+        fi
     fi
 fi
 

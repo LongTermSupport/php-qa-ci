@@ -1,22 +1,37 @@
 #!/usr/bin/env bash
 # Shared consumer-write helpers for php-qa-ci deploy scripts.
 #
-# OWNERSHIP MODEL (binding decision):
-#   Artefacts php-qa-ci deploys into a consumer project (skills, agents, hooks,
-#   generated agent definitions, git hooks) are php-qa-ci-OWNED. Consumers must
-#   NOT hand-edit the deployed copies — they customise behaviour through their
-#   own qaConfig/ files, never by editing a vendored/deployed artefact.
+# OWNERSHIP MODEL (binding decision) — this file is the single source of truth.
+#
+#   Most artefacts php-qa-ci deploys into a consumer project (skills, agents,
+#   generated agent definitions, classic .py hooks) are php-qa-ci-OWNED.
+#   Consumers must NOT hand-edit the deployed copies — they customise behaviour
+#   through their own qaConfig/ files, never by editing a vendored/deployed
+#   artefact.
 #
 #   Because they are owned, the deploy scripts overwrite them UNCONDITIONALLY
-#   and CONSISTENTLY — there is exactly one mechanism, not the previous mix of
-#   signature checks, interactive prompts, and no-check-at-all. When an existing
-#   target differs from what we are about to write, we print a single
-#   informational "overwriting" line (never a prompt). Identical content writes
-#   silently (no churn note).
+#   and CONSISTENTLY — one mechanism (install_owned_file / install_owned_tree),
+#   not the previous mix of signature checks, interactive prompts, and
+#   no-check-at-all. When an existing target differs from what we are about to
+#   write, we print a single informational "overwriting" line (never a prompt);
+#   identical content writes silently (no churn note). Deployed OWNED artefacts
+#   carry a generated-file header comment telling a reader not to hand-edit them.
 #
-#   Deployed artefacts should themselves carry a generated-file header comment
-#   stating that they are managed by php-qa-ci and will be overwritten, so a
-#   reader who opens the deployed copy is told not to hand-edit it.
+# TWO DELIBERATE EXCEPTIONS (not OWNED — do NOT clobber):
+#
+#   1. SHARED / signature — the git pre-commit hook (install_signed).
+#      .git/hooks/pre-commit is a SINGLETON path git shares with husky,
+#      lefthook, and hand-rolled hooks. A foreign file there is not ours, so the
+#      ownership model does not license overwriting it. We install only when the
+#      target is absent or already carries our PHP-QA-CI-HOOK-SIGNATURE marker;
+#      otherwise we warn (loud, non-fatal) and leave the foreign hook intact.
+#
+#   2. SEED-ONCE — the GitHub Actions workflow (install_seed_once).
+#      The consumer-facing contract is "customise this workflow" (matrix,
+#      triggers, secrets are legitimately per-project) and qaConfig/ cannot
+#      express those, so php-qa-ci must not own or re-sync it. We write it only
+#      when absent; if it already exists we leave it untouched and print one
+#      info line pointing at the template for a manual re-sync.
 #
 # This file is sourced, not executed. It defines functions only.
 
@@ -45,4 +60,45 @@ install_owned_tree() {
     fi
     rm -rf "${dst:?install_owned_tree: refusing to remove an empty destination}"
     cp -r "$src" "$dst"
+}
+
+# install_signed <src> <dst> <marker> [label]
+#   SHARED / signature exception (see header, exception 1). Overwrite <dst> only
+#   when it is absent OR already carries <marker> (i.e. it is one of our own
+#   versions). A foreign file at <dst> is left untouched with a loud warning —
+#   this NEVER fails (returns 0 in every case) so it cannot abort composer
+#   install/update. Used for the singleton .git/hooks/pre-commit path.
+install_signed() {
+    local src="$1" dst="$2" marker="$3"
+    local label="${4:-$(basename "$dst")}"
+
+    if [[ ! -f "$dst" ]] || grep -q "$marker" "$dst"; then
+        install_owned_file "$src" "$dst" "$label"
+        return 0
+    fi
+
+    echo "  ⚠️  $label already exists and is NOT managed by php-qa-ci" >&2
+    echo "      (marker '$marker' not found): $dst" >&2
+    echo "      Refusing to overwrite a foreign hook. To use the php-qa-ci hook, either:" >&2
+    echo "        • chain it from your existing hook (invoke php-qa-ci's" >&2
+    echo "          git-hooks/pre-commit-check-vendor-uncommitted from within yours), or" >&2
+    echo "        • remove your $dst and re-run the deploy." >&2
+    return 0
+}
+
+# install_seed_once <src> <dst> [label]
+#   SEED-ONCE exception (see header, exception 2). Write <dst> only when it is
+#   absent. An existing target is consumer-owned (whatever its content) and is
+#   left untouched with a single info line naming the template for a manual
+#   re-sync. Used for the per-project-customisable GitHub Actions workflow.
+install_seed_once() {
+    local src="$1" dst="$2"
+    local label="${3:-$(basename "$dst")}"
+
+    if [[ -e "$dst" ]]; then
+        echo "  ℹ️  $label exists — consumer-owned after seeding; template at $src if you want to re-sync manually."
+        return 0
+    fi
+    cp "$src" "$dst"
+    echo "  ✓ Seeded $label: $dst"
 }

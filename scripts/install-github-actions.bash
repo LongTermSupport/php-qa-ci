@@ -48,14 +48,15 @@ install_workflow() {
     # Create .github/workflows directory
     mkdir -p "$target_dir"
 
-    # OWNED artefact: overwrite unconditionally (no prompt), printing an
-    # informational notice if an existing workflow differs. See the ownership
-    # model in scripts/lib/consumer-write.inc.bash.
-    install_owned_file \
+    # SEED-ONCE artefact: the workflow is consumer-customisable (matrix,
+    # triggers, secrets — things qaConfig/ cannot express), so php-qa-ci seeds
+    # it once and never re-syncs. Absent → install; present → leave untouched
+    # with an info line. See the ownership model in
+    # scripts/lib/consumer-write.inc.bash.
+    install_seed_once \
         "$PHP_QA_CI_DIR/templates/github-actions/php-qa-ci.yml" \
         "$target_file" \
         "GitHub Actions workflow"
-    echo -e "${GREEN}✓ GitHub Actions workflow installed at: $target_file${NC}"
 }
 
 # Function to show customization tips
