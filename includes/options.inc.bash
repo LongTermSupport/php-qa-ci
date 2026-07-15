@@ -7,6 +7,12 @@ set -o pipefail
 standardIFS="$IFS"
 IFS=$'\n\t'
 
+# Tool registry — SINGLE SOURCE OF TRUTH (M-011). The -t alias resolution, the
+# path-support gate arrays and the usage tool list are all DERIVED from it below.
+# $DIR is this file's own (absolute) directory, resolved at the top of this
+# script, so the registry resolves regardless of the caller's cwd.
+source "$DIR/generic/toolRegistry.inc.bash"
+
 singleToolToRun=
 specifiedPath=
 useJsonOutput=0
@@ -34,27 +40,16 @@ function usage {
     echo " - use --json to get structured JSON output (supported tools only)"
     echo ""
     echo " - use -t to specify a single tool:"
-    echo "     allLints                   all linting tools"
-    echo "     allStatic                  all static analysis tools"
-    echo "     allTests                   all testing tools"
-    echo "     allCS                      all coding standards tools"
-    echo "     psr|psr4                   psr4 validation"
-    echo "     com|composer               composer validation"
-    echo "     pt|packageType             assert composer.json declares an explicit package type (library/project/...)"
-    echo "     st|stricttypes             strict types validation"
-    echo "     lint|phplint               phplint"
-    echo "     stan|phpstan               phpstan"
-    echo "     arch|arkitect|phparkitect  PHPArkitect architecture rules (on by default; useArkitect=0 to disable)"
-    echo "     spu|sensitiveParameterUsage  assert #[\\SensitiveParameter] is used somewhere in src/"
-    echo "     unit|phpunit               phpunit"
-    echo "     uniterate                  phpunit iterative mode - prioritise broken tests and fail on error"
-    echo "     infect|infection           infection"
-    echo "     cr                         composer require checker"
-    echo "     ml|markdown                markdown validation"
-    echo "     l|loc                      lines of code and other stats"
-    echo "     f|fixer|csfixer            PHP-CS-Fixer"
-    echo "     r|rector                   Rector"
-    echo "     bnp|branchNamePolicy       Branch naming policy (PR convention)"
+    # Tool list DERIVED from the registry (QA_TOOL_USAGE), so it can never drift
+    # from the actual -t aliases the way the old hand-maintained list did.
+    local _uName _uUsage _uDisplay _uDesc
+    for _uName in "${QA_TOOL_NAMES[@]}"; do
+        _uUsage="${QA_TOOL_USAGE[$_uName]:-}"
+        [[ -z "$_uUsage" ]] && continue
+        _uDisplay="${_uUsage%%::*}"
+        _uDesc="${_uUsage#*::}"
+        printf "     %-26s %s\n" "$_uDisplay" "$_uDesc"
+    done
     exit 1
 }
 
@@ -78,38 +73,14 @@ done
 # Shift processed options
 shift $((OPTIND-1))
 
-# Define tools that support path-specific execution
-# These tools use ${pathsToCheck[@]} or similar path variables in their implementation
-# VERIFIED by reading tool implementation files
-PATH_SUPPORTING_TOOLS=(
-    "phpstan" "stan"                    # ✓ Uses ${pathsToCheck[@]}
-    "phpCsFixer" "fixer" "f" "csfixer"  # ✓ Uses ${pathsToCheck[@]}  
-    "rector" "r"                        # ✓ Uses ${pathsToCheck[@]}
-    "phpLint" "lint" "phplint"          # ✓ Uses ${pathsToCheck[@]}
-    "phpStrictTypes" "stricttypes" "st" # ✓ Uses ${pathsToCheck[@]}
-    "phploc" "loc" "l"                  # ✓ Uses ${pathsToCheck[@]}
-    "phpunit" "unit"                    # ✓ Uses path arguments after config
-)
-
-# Define tools that do NOT support path-specific execution
-# These tools operate on the entire project regardless of path specification
-# VERIFIED by reading tool implementation files
-NON_PATH_SUPPORTING_TOOLS=(
-    "composerChecks" "composer" "com"            # ❌ Project-wide operations only
-    "infection" "infect"                         # ❌ Ignores pathsToCheck completely
-    "composerRequireChecker" "cr"                # ❌ Analyzes entire project
-    "markdownLinks" "markdown" "ml"              # ❌ Hardcoded to specific files
-    "psr4Validate" "psr" "psr4"                  # ❌ Validates whole project from composer.json autoload roots
-    "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
-    "branchNamePolicy" "bnp"                     # ❌ Repo-level git check, not path-specific
-    "sensitiveParameterUsage" "spu" "sensitiveparameter" # ❌ Codebase-wide check, always scans src/
-    "packageType" "pt" "packagetype"             # ❌ Reads composer.json only, not path-specific
-    "phpArkitect" "arch" "arkitect" "phparkitect" # ❌ Paths defined inside the config file (ClassSet::fromDir)
-    "allLintingTools" "allLints"                 # ❌ Aggregate - runs multiple tools
-    "allStaticAnalysisTools" "allStatic"         # ❌ Aggregate - runs multiple tools
-    "allTestingTools" "allTests"                 # ❌ Aggregate - runs multiple tools
-    "allCodingStandardsTools" "allCS"            # ❌ Aggregate - runs multiple tools
-)
+# Path-support gate tokens, DERIVED from the registry (QA_TOOL_PATHS). This
+# replaces the two hand-maintained arrays that had already drifted from the
+# tool implementations (the "VERIFIED by reading tool files" claim was false —
+# psr4Validate was listed path-supporting while the fragment was empty). The
+# classification now lives in ONE place; qaBuildPathSupportArrays fills these.
+PATH_SUPPORTING_TOOLS=()
+NON_PATH_SUPPORTING_TOOLS=()
+qaBuildPathSupportArrays
 
 # Function to check if a tool supports path specification
 tool_supports_paths() {
@@ -161,33 +132,13 @@ fi
 
 if [[ "" != "$singleToolToRun" ]]
 then
-    case "$singleToolToRun" in
-        allLints                    ) singleToolToRun="allLintingTools";;
-        allStatic                   ) singleToolToRun="allStaticAnalysisTools";;
-        allTests                    ) singleToolToRun="allTestingTools";;
-        allCS                       ) singleToolToRun="allCodingStandardsTools";;
-        psr | psr4                  ) singleToolToRun="psr4Validate";;
-        com | composer              ) singleToolToRun="composerChecks";;
-        st | stricttypes            ) singleToolToRun="phpStrictTypes";;
-        lint | phplint              ) singleToolToRun="phpLint";;
-        stan | phpstan              ) singleToolToRun="phpstan";;
-        arch | arkitect | phparkitect ) singleToolToRun="phpArkitect";;
-        unit | phpunit              ) singleToolToRun="phpunit";;
-        uniterate                   ) singleToolToRun="phpunit"; phpUnitIterativeMode=1;;
-        infect | infection          ) singleToolToRun="infection";;
-        cr                          ) singleToolToRun="composerRequireChecker";;
-        ml | markdown               ) singleToolToRun="markdownLinks";;
-        l | loc                     ) singleToolToRun="phploc";;
-        f | fixer | csfixer         ) singleToolToRun="phpCsFixer";;
-        r | rector                  ) singleToolToRun="rector";;
-        bnp | branchNamePolicy      ) singleToolToRun="branchNamePolicy";;
-        spu | sensitiveparameter | sensitiveParameterUsage ) singleToolToRun="sensitiveParameterUsage";;
-        pt | packagetype | packageType ) singleToolToRun="packageType";;
-        * )
-            printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
-            usage
-        ;;
-    esac
+    # Resolve the -t token to its canonical tool via the registry (SSoT). This
+    # replaces the hand-maintained alias `case`; qaResolveSingleTool also applies
+    # any per-tool ONSELECT side effect (e.g. uniterate sets phpUnitIterativeMode=1).
+    if ! qaResolveSingleTool; then
+        printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
+        usage
+    fi
     echo "Running Single Tool: $singleToolToRun"
 fi
 

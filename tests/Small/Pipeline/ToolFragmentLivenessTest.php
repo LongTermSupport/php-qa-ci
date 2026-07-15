@@ -79,13 +79,25 @@ final class ToolFragmentLivenessTest extends TestCase
 
     public function testEveryRegisteredToolResolvesToAFragment(): void
     {
-        $optionsPath = self::INCLUDES_DIR . '/options.inc.bash';
-        $contents    = \file_get_contents($optionsPath);
-        self::assertNotFalse($contents, "Could not read {$optionsPath}");
+        // Since M-011 the alias→tool mapping lives in the declarative tool
+        // registry (SSoT), not in an options.inc.bash `case`. Derive the set of
+        // canonical tools every -t token resolves to (a tool's TARGET, or its
+        // own name) and assert each has a real fragment — the liveness guarantee
+        // the emptied psr4Validate / commented phpunitAnnotations fragments once
+        // violated.
+        $registryPath = self::INCLUDES_DIR . '/generic/toolRegistry.inc.bash';
+        $contents     = \file_get_contents($registryPath);
+        self::assertNotFalse($contents, "Could not read {$registryPath}");
 
-        \preg_match_all('/singleToolToRun="(?<tool>[A-Za-z0-9]+)"/', $contents, $matches);
-        $tools = \array_unique($matches['tool']);
-        self::assertNotSame([], $tools, 'No -t tool mappings parsed from options.inc.bash — the parse regex or the alias map is broken.');
+        $names   = $this->parseIndexedArray($contents, 'QA_TOOL_NAMES');
+        $targets = $this->parseAssocArray($contents, 'QA_TOOL_TARGET');
+        self::assertNotSame([], $names, 'No tools parsed from the registry — the registry or the parse is broken.');
+
+        $tools = [];
+        foreach ($names as $name) {
+            $tools[] = $targets[$name] ?? $name;
+        }
+        $tools = \array_unique($tools);
 
         foreach ($tools as $tool) {
             $candidates = [
@@ -97,12 +109,46 @@ final class ToolFragmentLivenessTest extends TestCase
                 [],
                 $found,
                 \sprintf(
-                    'Tool "%s" is offered via -t in options.inc.bash but no fragment exists at %s. '
-                    . 'Either restore the fragment or remove the tool from the alias map/usage text.',
+                    'Tool "%s" is registered in the tool registry but no fragment exists at %s. '
+                    . 'Either restore the fragment or remove the tool from the registry.',
                     $tool,
                     \implode(' or ', $candidates),
                 ),
             );
         }
+    }
+
+    /** @return list<string> */
+    private function parseIndexedArray(string $contents, string $name): array
+    {
+        $body  = $this->arrayBody($contents, $name);
+        $words = \preg_split('/\s+/', \trim($body));
+        self::assertNotFalse($words);
+
+        return \array_values(\array_filter($words, static fn (string $w): bool => '' !== $w));
+    }
+
+    /** @return array<string, string> */
+    private function parseAssocArray(string $contents, string $name): array
+    {
+        $body = $this->arrayBody($contents, 'declare -A ' . $name);
+        \preg_match_all('/\[([A-Za-z0-9_]+)\]=(?:"([^"]*)"|(\S+))/', $body, $matches, \PREG_SET_ORDER);
+        $result = [];
+        foreach ($matches as $match) {
+            // Quoted value in group 2, bare value in group 3; only one is present.
+            $quoted            = $match[2] ?? '';
+            $result[$match[1]] = '' !== $quoted ? $quoted : ($match[3] ?? '');
+        }
+
+        return $result;
+    }
+
+    private function arrayBody(string $contents, string $declaration): string
+    {
+        // Body runs from "=(" to the first ")" anchored at the start of a line.
+        $pattern = '/' . \preg_quote($declaration, '/') . '=\((?<body>.*?)^\)/ms';
+        self::assertSame(1, \preg_match($pattern, $contents, $m), "Could not locate array {$declaration} in the registry.");
+
+        return $m['body'];
     }
 }

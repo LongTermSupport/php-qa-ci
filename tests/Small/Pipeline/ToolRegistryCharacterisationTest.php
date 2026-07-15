@@ -171,7 +171,14 @@ final class ToolRegistryCharacterisationTest extends TestCase
 
     public function testAliasMapMatchesGolden(): void
     {
-        self::assertSame(self::GOLDEN_ALIAS_MAP, $this->extractAliasMap());
+        // Alias resolution is a key lookup, so the map is a set of token=>tool
+        // mappings; declaration order is not a behavioural contract. Compare by
+        // key to assert identical membership and mapping, order-independent.
+        $expected = self::GOLDEN_ALIAS_MAP;
+        $actual   = $this->extractAliasMap();
+        \ksort($expected);
+        \ksort($actual);
+        self::assertSame($expected, $actual);
     }
 
     /** @return array<string, array{0: string, 1: bool}> */
@@ -233,35 +240,32 @@ final class ToolRegistryCharacterisationTest extends TestCase
     }
 
     // ---------------------------------------------------------------------
-    // Extraction of the CURRENT single source of truth.
+    // Extraction of the single source of truth — the tool registry.
     //
-    // Pre-refactor: parse the hand-written structures in options.inc.bash and
-    // the four all*Tools.inc.bash phase files. Post-refactor these methods are
-    // updated to query includes/generic/toolRegistry.inc.bash instead — the
-    // golden constants above stay identical, proving behaviour is preserved.
+    // These derive the alias map, path classification and phase ordering from
+    // the DECLARATIVE data in includes/generic/toolRegistry.inc.bash, applying
+    // exactly the same composition the registry's own bash helpers apply
+    // (qaResolveSingleTool / qaBuildPathSupportArrays / qaToolsForPhase). The
+    // golden constants above are the frozen behavioural contract; the SSoT moved
+    // from the hand-written options/phase structures into the registry, which is
+    // the point of the refactor. (The runtime resolution path is additionally
+    // exercised end-to-end by the `bin/qa -t <alias>` smoke checks and by
+    // ToolFragmentLivenessTest.)
     // ---------------------------------------------------------------------
+
+    private const REGISTRY = self::INCLUDES_DIR . '/generic/toolRegistry.inc.bash';
 
     /** @return array<string, string> */
     private function extractAliasMap(): array
     {
-        $contents = $this->readFile(self::INCLUDES_DIR . '/options.inc.bash');
+        $aliases = $this->parseAssocArray('QA_TOOL_ALIASES');
+        $targets = $this->parseAssocArray('QA_TOOL_TARGET');
 
         $map = [];
-        // Match case arms of the form:  tokA | tokB ) singleToolToRun="canonical"
-        \preg_match_all(
-            '/^\s*([A-Za-z0-9|\s]+?)\s*\)\s*singleToolToRun="([A-Za-z0-9]+)"/m',
-            $contents,
-            $matches,
-            \PREG_SET_ORDER,
-        );
-        foreach ($matches as $match) {
-            $canonical = $match[2];
-            foreach (\explode('|', $match[1]) as $token) {
-                $token = \trim($token);
-                if ('' === $token) {
-                    continue;
-                }
-                $map[$token] = $canonical;
+        foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
+            $target = $targets[$name] ?? $name;
+            foreach ($this->splitWords($aliases[$name] ?? '') as $alias) {
+                $map[$alias] = $target;
             }
         }
 
@@ -271,24 +275,17 @@ final class ToolRegistryCharacterisationTest extends TestCase
     /** @return array<string, bool> */
     private function extractPathClassification(): array
     {
-        $contents = $this->readFile(self::INCLUDES_DIR . '/options.inc.bash');
+        $aliases = $this->parseAssocArray('QA_TOOL_ALIASES');
+        $paths   = $this->parseAssocArray('QA_TOOL_PATHS');
 
         $classification = [];
-        foreach (
-            [
-                'PATH_SUPPORTING_TOOLS'     => true,
-                'NON_PATH_SUPPORTING_TOOLS' => false,
-            ] as $arrayName => $supported
-        ) {
-            // Anchor the closing paren at the start of a line: inline comments in
-            // the array body contain ")" (e.g. "(ClassSet::fromDir)"), so a plain
-            // non-greedy ".*?\)" would stop early and drop later tokens.
-            if (1 !== \preg_match('/' . $arrayName . '=\((?<body>.*?)^\)/ms', $contents, $m)) {
-                self::fail("Could not locate {$arrayName} array in options.inc.bash");
+        foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
+            $tokens = $this->splitWords($aliases[$name] ?? '');
+            if (!\in_array($name, $tokens, true)) {
+                \array_unshift($tokens, $name);
             }
-            \preg_match_all('/"([^"]+)"/', $m['body'], $tokenMatches);
-            foreach ($tokenMatches[1] as $token) {
-                $classification[$token] = $supported;
+            foreach ($tokens as $token) {
+                $classification[$token] = 'yes' === ($paths[$name] ?? 'no');
             }
         }
 
@@ -298,21 +295,69 @@ final class ToolRegistryCharacterisationTest extends TestCase
     /** @return array<string, list<string>> */
     private function extractPhaseOrder(): array
     {
+        $phaseToRunner = [
+            'codingStandards' => 'allCodingStandardsTools',
+            'linting'         => 'allLintingTools',
+            'staticAnalysis'  => 'allStaticAnalysisTools',
+            'testing'         => 'allTestingTools',
+        ];
+
+        $phases = $this->parseAssocArray('QA_TOOL_PHASE');
+
         $order = [];
-        foreach (\array_keys(self::GOLDEN_PHASE_ORDER) as $phaseRunner) {
-            $contents = $this->readFile(self::INCLUDES_DIR . '/generic/' . $phaseRunner . '.inc.bash');
-            \preg_match_all('/^\s*runToolGuarded\s+([A-Za-z0-9]+)/m', $contents, $m);
-            $order[$phaseRunner] = $m[1];
+        foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
+            $phase = $phases[$name] ?? '';
+            if ('' === $phase) {
+                continue;
+            }
+            self::assertArrayHasKey($phase, $phaseToRunner, "Registry declares unknown phase '{$phase}' for '{$name}'.");
+            $order[$phaseToRunner[$phase]][] = $name;
         }
 
         return $order;
     }
 
-    private function readFile(string $path): string
+    /** @return list<string> */
+    private function parseIndexedArray(string $name): array
     {
-        $contents = \file_get_contents($path);
-        self::assertNotFalse($contents, "Could not read {$path}");
+        $body = $this->arrayBody($name);
+        return $this->splitWords($body);
+    }
 
-        return $contents;
+    /** @return array<string, string> */
+    private function parseAssocArray(string $name): array
+    {
+        $body = $this->arrayBody('declare -A ' . $name);
+        // Values may be quoted ([k]="v") or bare ([k]=v) in the registry.
+        \preg_match_all('/\[([A-Za-z0-9_]+)\]=(?:"([^"]*)"|(\S+))/', $body, $matches, \PREG_SET_ORDER);
+        $result = [];
+        foreach ($matches as $match) {
+            // Quoted value in group 2, bare value in group 3; only one is present.
+            $quoted            = $match[2] ?? '';
+            $result[$match[1]] = '' !== $quoted ? $quoted : ($match[3] ?? '');
+        }
+
+        return $result;
+    }
+
+    private function arrayBody(string $declaration): string
+    {
+        $contents = \file_get_contents(self::REGISTRY);
+        self::assertNotFalse($contents, 'Could not read ' . self::REGISTRY);
+
+        // Body runs from the "=(" opener to the first ")" anchored at line start.
+        $pattern = '/' . \preg_quote($declaration, '/') . '=\((?<body>.*?)^\)/ms';
+        self::assertSame(1, \preg_match($pattern, $contents, $m), "Could not locate array {$declaration} in the registry.");
+
+        return $m['body'];
+    }
+
+    /** @return list<string> */
+    private function splitWords(string $value): array
+    {
+        $words = \preg_split('/\s+/', \trim($value));
+        self::assertNotFalse($words);
+
+        return \array_values(\array_filter($words, static fn (string $w): bool => '' !== $w));
     }
 }

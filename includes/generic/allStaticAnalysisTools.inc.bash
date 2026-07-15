@@ -1,35 +1,5 @@
-echo "
-
-Checking Branch Name Policy
----------------------------
-"
-runToolGuarded branchNamePolicy
-
-echo "
-
-Running PHPStan
----------------------
-"
-if [[ "$phpqaQuickTests" == "1" ]]
-then
-    echo "Skipping PHPStan because \$phpqaQuickTests=1"
-else
-    runToolGuarded phpstan
-fi
-
-echo "
-
-Running PHPArkitect (architecture rules)
-----------------------------------------
-"
-runToolGuarded phpArkitect
-
-echo "
-
-Checking SensitiveParameter Usage
----------------------------------
-"
-runToolGuarded sensitiveParameterUsage
-
-
-
+# Static-analysis phase. The ordered sequence is DERIVED from the tool registry
+# (SSoT, M-011): see qaRunPhase / QA_TOOL_PHASE in
+# includes/generic/toolRegistry.inc.bash. PHPStan is gated off when
+# phpqaQuickTests=1 (QA_TOOL_GATE[phpstan]=notQuick).
+qaRunPhase staticAnalysis
