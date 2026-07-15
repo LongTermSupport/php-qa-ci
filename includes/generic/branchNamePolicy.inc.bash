@@ -37,11 +37,15 @@ _bnp_run() {
     # Locate project root (bin/qa sets $projectRoot; fall back to pwd for safety).
     local _bnp_projectRoot="${projectRoot:-$(pwd)}"
 
-    # Stderr sink for probe-style git calls. We DO keep the contents (written
-    # to a tempfile under /tmp) so genuine failures can be inspected by the
-    # caller — this is NOT silent error suppression.
-    local _bnp_errLog
-    _bnp_errLog="$(mktemp -t branchNamePolicy.XXXXXX.err)"
+    # Stderr sink for probe-style git calls. We DO keep the contents so genuine
+    # failures can be inspected — this is NOT silent error suppression; the log
+    # is surfaced by the caller below when non-empty. Scope it under the
+    # project's var dir (NOT shared /tmp, whose wildcard cleanup could clobber a
+    # concurrent run's files). Not declared `local`, so the caller section at the
+    # bottom of this file can surface and delete exactly this run's file.
+    local _bnp_varDir="${varDir:-$_bnp_projectRoot/var/qa}"
+    mkdir -p "$_bnp_varDir"
+    _bnp_errLog="$(mktemp "$_bnp_varDir/branchNamePolicy.XXXXXX.err")"
 
     # Detect git repo. Skip cleanly if we are not inside one.
     local _bnp_inRepo=0
@@ -256,9 +260,17 @@ EOF
 _bnp_run
 _bnp_rc=$?
 unset -f _bnp_run
-# Best-effort cleanup of any tempfiles this tool may have left behind.
-# These are leftover stderr capture files from probe-style git calls.
-rm -f /tmp/branchNamePolicy.*.err
+# Surface any git-probe diagnostics captured during the run (genuine git
+# failures land here), then remove ONLY this run's capture file — never a shared
+# /tmp glob that could delete another process's files.
+if [[ -n "${_bnp_errLog:-}" && -s "$_bnp_errLog" ]]; then
+    echo "[branchNamePolicy] git probe diagnostics (non-fatal unless the check itself failed):" >&2
+    cat "$_bnp_errLog" >&2
+fi
+if [[ -n "${_bnp_errLog:-}" ]]; then
+    rm -f "$_bnp_errLog"
+fi
+unset _bnp_errLog
 if (( _bnp_rc == 0 )); then
     unset _bnp_rc
 else

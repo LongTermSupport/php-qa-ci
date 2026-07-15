@@ -7,6 +7,24 @@ on:
     branches: [php8.4]
 
 jobs:
+  shellcheck:
+    name: ShellCheck (severity=error)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck at error severity
+        # Fail the build on any error-severity finding in the pipeline's own
+        # Bash sources. Covers the entry point, CI wrapper, tool fragments under
+        # includes/, and the install/support scripts. Warning-level findings are
+        # intentionally NOT gated here (a later cleanup wave owns those).
+        run: |
+          shellcheck --version
+          mapfile -t shellFiles < <(find includes scripts -type f \( -name '*.bash' -o -name '*.sh' \) | sort)
+          shellcheck -S error bin/qa ci.bash "${shellFiles[@]}"
+
   qa:
     name: QA Pipeline
     runs-on: ubuntu-latest

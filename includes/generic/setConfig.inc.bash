@@ -78,12 +78,8 @@ composerRequireCheckerConfig=$(configPath composerRequireChecker.json)
 phpCsConfigPath=$(configPath php_cs.php)
 phpCsCacheFile="$varDir/cache/php_cs.cache"
 
-# If a CI variable is set, we use that, otherwise default to false.
-# Travis-CI sets a CI variable. You can easily set this in any other CI system
-# The value should the the string 'true' if this is CI
-# Also detect Claude Code (CLAUDECODE=1) as CI environment
-if [[ "${CLAUDECODE:-}" == "1" ]]; then
-    CI='true'
-else
-    CI=${CI:-'false'}
-fi
+# NOTE: CI is deliberately NOT set here. bin/qa establishes CI (honouring an
+# explicit CI=true, CLAUDECODE=1, and the no-TTY case) BEFORE it sources this
+# file via runTool setConfig, so a re-detection here would only ever recompute
+# the value bin/qa already set — a no-op that duplicated (and could drift from)
+# the authoritative logic. See bin/qa "Auto-detect CI environment".

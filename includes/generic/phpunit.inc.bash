@@ -56,15 +56,21 @@ EOF
 fi
 
 phpCmd=phpNoXdebug
+# phpNoXdebug applies the global phpqaMemoryLimit internally. The coverage path
+# bypasses it (it must run the Xdebug-enabled binary directly), so it would
+# otherwise fall back to PHP's default memory_limit. Apply the same global limit
+# explicitly in that case so a coverage run is not silently capped.
+phpUnitMemoryArgs=()
 if [[ "1" == "$phpUnitCoverage" ]]
 then
     phpCmd="$phpBinPath"
+    phpUnitMemoryArgs=(-d memory_limit="${phpqaMemoryLimit:-4G}")
 fi
 phpunitPath="$binDir"/phpunit
 phpunitVersion="$("$phpCmd" -f "$phpunitPath" -- --version | grep -Po '\d+.\d+.\d+')"
 phpunitVersionMajor="$(echo "$phpunitVersion" | cut -d . -f1)"
 echo "PHPUnit Major Version: $phpunitVersionMajor"
-paratestConfig=
+paratestConfig=()
 echo "Checking for paratest"
 if [[ -f "$binDir"/paratest ]]
 then
@@ -79,7 +85,7 @@ phpunitLogDir="$varDir/phpunit_logs"
 
 while (( phpunitExitCode > 0 ))
 do
-    extraConfigs=(" ")
+    extraConfigs=()
     extraConfigs+=( --strict-global-state )
 # Enabling testdox seems to prevent displaying of warnings
 #    extraConfigs+=( --testdox )
@@ -138,12 +144,12 @@ do
     fi
 
     # Capture both JUnit XML (via --log-junit) and stdout (via tee)
-    phpUnitQuickTests="$phpUnitQuickTests" $phpCmd -f $phpunitPath \
+    phpUnitQuickTests="$phpUnitQuickTests" "$phpCmd" "${phpUnitMemoryArgs[@]}" -f "$phpunitPath" \
         -- \
-        ${paratestConfig[@]} \
-        -c ${phpUnitConfigPath} \
-        ${extraConfigs[@]} \
-        ${pathArgs[@]} \
+        "${paratestConfig[@]}" \
+        -c "$phpUnitConfigPath" \
+        "${extraConfigs[@]}" \
+        "${pathArgs[@]}" \
         2>&1 | tee "$phpunitLogDir/phpunit.log"
 
     phpunitExitCode=${PIPESTATUS[0]}

@@ -1,5 +1,3 @@
-pathsStringArray=($(IFS=" " eval 'echo "${pathsToCheck[*]}"'))
-
 pathsToIgnorePrefixed=()
 
 for ignoreFile in "${pathsToIgnore[@]}"

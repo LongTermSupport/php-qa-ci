@@ -398,116 +398,6 @@ stopHeartbeat() {
 }
 
 ###################################################################
-# toolStart
-#
-# Records tool start in lock file.
-#
-# Arguments:
-#   $1 - Tool name
-###################################################################
-toolStart() {
-    local toolName="$1"
-
-    [[ $QA_LOCK_ACQUIRED -eq 0 ]] && return 0
-
-    local now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    local tmpFile="${QA_LOCK_FILE}.tmp.$$"
-
-    jq --arg tool "$toolName" \
-       --arg started "$now" \
-       '
-       .current_tool = $tool |
-       .tools += [{
-           "name": $tool,
-           "started": $started,
-           "status": "running"
-       }]
-       ' "$QA_LOCK_FILE" > "$tmpFile" 2>/dev/null
-
-    if [[ -f "$tmpFile" ]]; then
-        mv "$tmpFile" "$QA_LOCK_FILE" 2>/dev/null || true
-    fi
-}
-
-###################################################################
-# toolComplete
-#
-# Records tool completion in lock file.
-#
-# Arguments:
-#   $1 - Tool name
-###################################################################
-toolComplete() {
-    local toolName="$1"
-
-    [[ $QA_LOCK_ACQUIRED -eq 0 ]] && return 0
-
-    local now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    local tmpFile="${QA_LOCK_FILE}.tmp.$$"
-
-    jq --arg tool "$toolName" \
-       --arg completed "$now" \
-       '
-       .current_tool = "" |
-       .tools = [
-           .tools[] |
-           if .name == $tool and .status == "running" then
-               . + {
-                   "completed": $completed,
-                   "duration_seconds": ((now | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime) - (.started | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime)),
-                   "status": "completed"
-               }
-           else
-               .
-           end
-       ]
-       ' "$QA_LOCK_FILE" > "$tmpFile" 2>/dev/null
-
-    if [[ -f "$tmpFile" ]]; then
-        mv "$tmpFile" "$QA_LOCK_FILE" 2>/dev/null || true
-    fi
-}
-
-###################################################################
-# toolFailed
-#
-# Records tool failure in lock file.
-#
-# Arguments:
-#   $1 - Tool name
-###################################################################
-toolFailed() {
-    local toolName="$1"
-
-    [[ $QA_LOCK_ACQUIRED -eq 0 ]] && return 0
-
-    local now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    local tmpFile="${QA_LOCK_FILE}.tmp.$$"
-
-    jq --arg tool "$toolName" \
-       --arg failed "$now" \
-       '
-       .current_tool = "" |
-       .tools = [
-           .tools[] |
-           if .name == $tool and .status == "running" then
-               . + {
-                   "completed": $failed,
-                   "duration_seconds": ((now | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime) - (.started | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime)),
-                   "status": "failed"
-               }
-           else
-               .
-           end
-       ]
-       ' "$QA_LOCK_FILE" > "$tmpFile" 2>/dev/null
-
-    if [[ -f "$tmpFile" ]]; then
-        mv "$tmpFile" "$QA_LOCK_FILE" 2>/dev/null || true
-    fi
-}
-
-###################################################################
 # releaseLock
 #
 # Releases the QA lock and records timing data.
@@ -528,15 +418,22 @@ releaseLock() {
     local endTime=$(date +%s)
     local duration=$((endTime - QA_LOCK_START_TIME))
 
-    # Record timing data if successful
+    # Record timing data if successful.
+    #
+    # A full-pipeline run stores an EMPTY tool in the lock file, and the timing
+    # command key derives from tool+path (getCommandKey) — an empty tool with no
+    # path keys on ":full-suite", which is EXACTLY what calculateEta reads back
+    # for a full run. The historic `[[ -n "$tool" ]]` guard here skipped the
+    # record whenever the tool was empty, so full-suite runs never recorded a
+    # timing and their ETA was frozen at the 15-minute default forever. Record
+    # unconditionally on success; recordCommandTiming already skips file-scoped
+    # runs internally.
     if [[ $exitCode -eq 0 ]]; then
         # Extract tool and path from lock file
         local tool=$(jq -r '.tool' "$QA_LOCK_FILE" 2>/dev/null || echo "")
         local path=$(jq -r '.path' "$QA_LOCK_FILE" 2>/dev/null || echo "")
 
-        if [[ -n "$tool" ]]; then
-            recordCommandTiming "$tool" "$path" "$duration"
-        fi
+        recordCommandTiming "$tool" "$path" "$duration"
     fi
 
     # Remove lock file

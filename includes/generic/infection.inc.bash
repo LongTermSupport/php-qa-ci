@@ -113,7 +113,10 @@ else
     echo "           (this also proves the suite is green, which lets Infection skip its initial run)"
     rm -rf "$coverageXmlDir"
     coverageGenExit=0
-    if XDEBUG_MODE=coverage "$phpBinPath" -f "$binDir"/phpunit -- \
+    # Runs the Xdebug-enabled binary directly (not phpNoXdebug), so the global
+    # phpqaMemoryLimit must be applied explicitly here — otherwise coverage
+    # generation falls back to PHP's default memory_limit.
+    if XDEBUG_MODE=coverage "$phpBinPath" -d memory_limit="${phpqaMemoryLimit:-4G}" -f "$binDir"/phpunit -- \
         -c "$phpUnitConfigPath" \
         --coverage-xml "$coverageXmlDir" \
         --log-junit "$varDir/phpunit_logs/phpunit.junit.xml"; then

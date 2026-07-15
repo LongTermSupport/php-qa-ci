@@ -28,57 +28,6 @@ NOTE - Safe php - special case - you need to modify the scan-files section and a
 
         "
 
-        # # Parse the output and build composer require command
-        # echo "
-# ============================================
-# Analyzing missing dependencies...
-# ============================================"
-
-        # # Extract guessed dependencies from the table output
-        # missingDeps=$(echo "$requireCheckerOutput" | grep -E '^\|.*\|.*ext-.*\|$' | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3}' | sort -u)
-
-        # if [[ -n "$missingDeps" ]]; then
-        #     requireCommand="composer require"
-
-        #     # Check what's already installed
-        #     echo "
-# Checking installed packages..."
-
-        #     while IFS= read -r dep; do
-        #         if [[ "$dep" == ext-* ]]; then
-        #             # For PHP extensions, check if already in composer.json
-        #             if ! grep -q "\"$dep\"" "${projectRoot}/composer.json"; then
-        #                 requireCommand="$requireCommand $dep:\"*\""
-        #             else
-        #                 echo "  ✓ $dep already in composer.json"
-        #             fi
-        #         else
-        #             # For regular packages, check if installed
-        #             if ! composer info "$dep" &>/dev/null; then
-        #                 requireCommand="$requireCommand $dep"
-        #             else
-        #                 echo "  ✓ $dep already installed"
-        #             fi
-        #         fi
-        #     done <<< "$missingDeps"
-
-        #     if [[ "$requireCommand" != "composer require" ]]; then
-        #         echo "
-# ============================================
-# Suggested composer command:
-# ============================================
-
-# $requireCommand
-
-# ============================================
-# "
-        #     else
-        #         echo "
-# All dependencies appear to be already declared!
-# "
-        #     fi
-        # fi
-        
         echo "
 HOW TO FIX
 ----------

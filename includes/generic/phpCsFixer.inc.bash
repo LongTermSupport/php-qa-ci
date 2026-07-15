@@ -30,7 +30,7 @@ if [[ "true" == "${qaReadOnly:-false}" ]]; then
   if phpNoXdebug -f "$pharDir"/php-cs-fixer.phar -- \
     "${csFixerCommonArgs[@]}" \
     --dry-run \
-    ${pathsToCheck[@]} > "$csFixerOutputFile" 2>&1; then
+    "${pathsToCheck[@]}" > "$csFixerOutputFile" 2>&1; then
     csFixerExitCode=0
   else
     csFixerExitCode=$?
@@ -61,7 +61,7 @@ while ((csFixerExitCode > 1)); do
   csFixerRunExit=0
   if phpNoXdebug -f "$pharDir"/php-cs-fixer.phar -- \
     "${csFixerCommonArgs[@]}" \
-    ${pathsToCheck[@]} > "$csFixerOutputFile" 2>&1; then
+    "${pathsToCheck[@]}" > "$csFixerOutputFile" 2>&1; then
     csFixerRunExit=0
   else
     csFixerRunExit=$?

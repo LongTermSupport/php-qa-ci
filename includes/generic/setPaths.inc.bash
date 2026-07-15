@@ -12,9 +12,9 @@ echo "binDir: $binDir"
 
 # An array of paths that are to be checked
 pathsToCheck=()
-pathsToCheck+=($testsDir)
-pathsToCheck+=($srcDir)
-#pathsToCheck+=($binDir)
+pathsToCheck+=("$testsDir")
+pathsToCheck+=("$srcDir")
+#pathsToCheck+=("$binDir")
 
 # An array of paths that are to be ignored
 pathsToIgnore=()

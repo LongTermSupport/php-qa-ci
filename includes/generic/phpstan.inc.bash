@@ -33,7 +33,7 @@ if [[ "1" == "${useJsonOutput:-0}" ]]; then
   phpStanJsonFile="$phpStanLogDir/phpstan.json"
 
   phpNoXdebug -f "$pharDir"/phpstan.phar -- \
-    analyse ${pathsToCheck[@]} \
+    analyse "${pathsToCheck[@]}" \
     -c "$phpstanConfigPath" \
     --no-progress \
     --error-format=json \
@@ -57,9 +57,9 @@ else
   while ((phpStanExitCode > 0)); do
     # Run PHPStan with tee to capture output to both file and stdout
     phpNoXdebug -f "$pharDir"/phpstan.phar -- \
-      analyse ${pathsToCheck[@]} \
+      analyse "${pathsToCheck[@]}" \
       -c "$phpstanConfigPath" \
-      ${phpstanNoProgress[@]:-} \
+      "${phpstanNoProgress[@]}" \
       2>&1 | tee "$phpStanLogDir/$phpStanLogFile"
 
     phpStanExitCode=${PIPESTATUS[0]}
@@ -72,7 +72,8 @@ else
     #exit code 0 = fine, 1 = ran fine but found errors, else it means it crashed
     if ((phpStanExitCode > 1)); then
       printf "\n\n\nPHPStan Crashed!!....\n\nrunning again with debug mode:\nWhere ever it stops is probably a fatal PHP error\n\n"
-      eval phpNoXdebug -f "$pharDir"/phpstan.phar -- analyse $pathsStringArray -c "$phpstanConfigPath" --debug -v
+      phpNoXdebug -f "$pharDir"/phpstan.phar -- \
+        analyse "${pathsToCheck[@]}" -c "$phpstanConfigPath" --debug -v
       exit 1
     fi
     if ((phpStanExitCode > 0)); then

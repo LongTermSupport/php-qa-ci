@@ -89,11 +89,21 @@ function phpNoXdebug() {
     # Using awk to ensure that files ending without newlines do not lead to configuration error
     ${phpBinPath} -i | grep "\.ini" | grep -o -e '\(/[a-z0-9._-]\+\)\+\.ini' | grep -v xdebug | xargs awk 'FNR==1{print ""}1' >"$noXdebugConfigPath"
   fi
+  # Trace the actual PHP invocation, but PRESERVE the caller's xtrace setting.
+  # Historically this always ran `set +x` at the end, silently disabling tracing
+  # that a caller had deliberately turned on (e.g. phpunit.inc.bash wraps its run
+  # in set -x). Remember the incoming state and only restore it.
+  local _xtraceWasOn=0
+  case "$-" in
+    *x*) _xtraceWasOn=1 ;;
+  esac
   set -x
   # Apply global memory limit (can be overridden with explicit -d memory_limit=X after this)
   ${phpBinPath} -n -c "$noXdebugConfigPath" -d memory_limit=${phpqaMemoryLimit:-4G} "$@"
   local exitCode=$?
-  set +x
+  if (( _xtraceWasOn == 0 )); then
+    set +x
+  fi
   echo
   return $exitCode
 }
@@ -426,6 +436,20 @@ function archiveToolLog() {
     local pathsToCheck=("$@")
 
     local logFilePath="$logDir/$logFileName"
+
+    # Clean up stale high-count warning markers left by earlier runs. The marker
+    # (.warned_high_count_<pid>) exists only to warn once per logDir per run; once
+    # its owning process has exited it is dead weight. A marker is stale when its
+    # PID is no longer a live process (checked via /proc, avoiding any stderr
+    # redirect). The current run's marker (PID $$) is alive, so it is preserved.
+    local staleMarker staleMarkerPid
+    for staleMarker in "$logDir"/.warned_high_count_*; do
+        [[ -e "$staleMarker" ]] || continue
+        staleMarkerPid="${staleMarker##*_}"
+        if [[ "$staleMarkerPid" =~ ^[0-9]+$ && ! -d "/proc/$staleMarkerPid" ]]; then
+            rm -f "$staleMarker"
+        fi
+    done
 
     # Only archive if log file exists
     if [[ ! -f "$logFilePath" ]]; then
