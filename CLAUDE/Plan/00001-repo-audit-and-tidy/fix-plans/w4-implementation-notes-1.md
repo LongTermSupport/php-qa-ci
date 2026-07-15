@@ -122,3 +122,37 @@ landed the merged version.
 - `docs/github-actions.md` is co-owned; I added only a 2-line M-007 note (workflow checks out
   the default branch; no edit needed) and did **not** stage/commit that file — it carried other
   docs agents' uncommitted edits. Messaged the docs agent to fold my note into their commit.
+
+## Follow-up commit — lead rulings on the two flags (accepted)
+
+The lead graded `774e218` A- and accepted both flags. Implemented as a follow-up commit (no
+`--amend`; it's blocked). `scripts/lib/consumer-write.inc.bash` is now the ownership-model SSoT
+and documents TWO deliberate non-OWNED exceptions in its header:
+
+- **FLAG 1 — git pre-commit hook is SHARED/signature, not OWNED.** `.git/hooks/pre-commit` is a
+  singleton path git shares with husky/lefthook/hand-rolled hooks, so a foreign file there is not
+  ours to clobber. New `install_signed <src> <dst> <marker> [label]`: overwrite only when the
+  target is absent OR already carries `PHP-QA-CI-HOOK-SIGNATURE` (line 2 of our shipped hook —
+  matches any of our versions); otherwise print a loud warning naming the foreign hook (chain it
+  from theirs, or remove theirs and re-run) and **leave it intact**. Never exits non-zero — must
+  not fail `composer install`. `deploy-skills.bash` now calls `install_signed` and only sets the
+  exec bit / prints the success line when the in-place hook is ours.
+
+- **FLAG 2 — GitHub Actions workflow is SEED-ONCE, not OWNED.** The consumer docs contract is
+  "customise this workflow" (matrix/triggers/secrets are per-project and cannot be expressed via
+  `qaConfig/`), so php-qa-ci must not own or re-sync it. New `install_seed_once <src> <dst>
+  [label]`: write only when absent; if present, leave untouched and print one info line pointing
+  at the template for a manual re-sync. `install-github-actions.bash` now calls it (no prompt, no
+  diff-check overwrite).
+
+**Follow-up verification:** `bash -n` + `shellcheck -x -S warning` clean on the three changed
+scripts. Unit-tested both helpers directly: `install_signed` — absent→install, ours→overwrite,
+foreign→kept+warn+rc0; `install_seed_once` — absent→seed, present→untouched+info line. Full
+fixture deploy still idempotent; fresh dir installs our git hook; a pre-planted foreign
+`pre-commit` is preserved with the warning and the deploy still exits 0.
+
+**Note on concurrent edits:** this file and `deploy-skills.bash`/`consumer-write.inc.bash` were
+being edited in parallel during the follow-up (a duplicate `install_seed`/`install_seed_once`
+briefly appeared and the git-hook block was rewritten with equivalent wording). Reconciled to a
+single seed function named `install_seed_once` (the name the header + caller use) and confirmed
+the final state is self-consistent and green.
