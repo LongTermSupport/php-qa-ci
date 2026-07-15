@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "69858591b25de69277f3eaf5cf25a369",
+    "content-hash": "c27625892bed357ae390bf2518183b9b",
     "packages": [
         {
             "name": "dogma/dogma",
@@ -4457,7 +4457,7 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.3",
+        "php": "^8.4",
         "ext-filter": "*",
         "ext-json": "*",
         "ext-openssl": "*",
