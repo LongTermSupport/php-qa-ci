@@ -93,6 +93,27 @@ Seriously tidy it up **without breaking anything**. Three problem axes:
 - ✅ T4.4 W4 Consumer scripts: main commit 774e218 + follow-up f812b82 (Fable-landed after reconciling a concurrent-edit collision with the w4 agent — both implemented the flag rulings simultaneously). Final state: install_signed (marker-gated git hook, foreign hooks warned + preserved) and install_seed_once (workflow seed-once) in consumer-write.inc.bash SSoT; behaviours smoke-tested directly. Main commit was 774e218 landed (M-007/015-021/060/063-070/073; branch-protection GET→merge→PUT Fable-verified — preserves foreign contexts + restrictions, normalises GET/PUT schema; consumer-write.inc.bash ownership SSoT). Fable grade: A-. Follow-up commit pending on two Fable rulings: (1) git pre-commit hook = ours-or-absent overwrite via PHP-QA-CI-HOOK-SIGNATURE marker grep, foreign hook → warn + refuse (singleton path, not ours to clobber); (2) qa.yml workflow = SEED-ONCE (docs contract says consumers customize it; qaConfig/ can't express matrix/triggers)
 - ✅ T4.5 W5 Structural: commits 2c493b7 (characterisation golden-master, proven green pre-refactor) → d824341 (registry SSoT: toolRegistry.inc.bash, options/phase files derive from it) → f421b8e (qaSimpleTool driver; 5 homogeneous fragments migrated, 9 bespoke deliberately not) → 9836f21 (M-053 fork-tolerant proxy self-parse + notes). Fable grade: A — gate model verified exact against pre-refactor phase files (phpstan=notQuick; phpunit+infection quick-gated, infection also useInfection; others unconditional); M-053 design verified ($qaDir stays library bin/, loud failure); independent re-verify: 209 Small tests green, shellcheck gate clean, psr4/st/lint smokes exit 0, bogus -t rejected, path gating intact. RULING: M-071/M-072 stay deferred to a scripts follow-up (gated on unbuilt WP-S3 helper + WP-S7 golden fixture; W4 closed) — do NOT force them blind. Doc-staleness handoff checked: no doc referenced the phase files/options internals; one stale code comment (phpArkitect fragment → registry) fixed by Fable
 
+### Phase 5 — Post-fix re-audit (V5 loop)
+
+- ✅ T5.1 Fresh-eyes re-audit → audits/post-fix-reaudit-2.md (opus). Verdict:
+  SHIP-WITH-NITS — 0 CRITICAL / 1 MAJOR / 1 MINOR / 2 INFO; residual-rot sweep
+  CLEAN (all claimed-fixed M-IDs re-verified against HEAD); no cross-wave
+  regressions.
+- ✅ T5.2 Findings resolved by Fable (commit 2173b0a; the commit message says
+  "R-04" for the banner nit — the report's correct ID is R-03):
+  - R-01 (MAJOR): M-053 parse failed on Composer 2.x SPLIT-literal proxies
+    (real format, e.g. this repo's bin/phpunit) — pre-existing latent bug, not
+    a wave regression, but it was claimed fixed. Parse now also tests per-line
+    joined literals; mock-proxy verified end-to-end (split resolves,
+    single-literal resolves, broken fails loudly).
+  - R-02 (MINOR): install_signed marker check anchored to a header line on a
+    regular file; symlinks (incl. dangling = hook managers) treated as foreign.
+    Eight edge cases exercised.
+  - R-03 (INFO): duplicate single-tool banner removed (options.inc.bash).
+  - R-04 (INFO): M-077 (src/ PHPStan rules + composer plugins unit-untested)
+    stays open as deferred follow-up work alongside M-071/M-072 — pre-existing
+    coverage gap, not a defect.
+
 ## Ground rules for all audit agents
 
 1. Every finding needs **evidence**: file:line references, quoted claim vs
