@@ -46,7 +46,6 @@ function usage {
     echo "     stan|phpstan               phpstan"
     echo "     arch|arkitect|phparkitect  PHPArkitect architecture rules (on by default; useArkitect=0 to disable)"
     echo "     spu|sensitiveParameterUsage  assert #[\\SensitiveParameter] is used somewhere in src/"
-    echo "     ann|phpunitAnnotations     phpunitAnnotations"
     echo "     unit|phpunit               phpunit"
     echo "     uniterate                  phpunit iterative mode - prioritise broken tests and fail on error"
     echo "     infect|infection           infection"
@@ -87,7 +86,6 @@ PATH_SUPPORTING_TOOLS=(
     "phpCsFixer" "fixer" "f" "csfixer"  # ✓ Uses ${pathsToCheck[@]}  
     "rector" "r"                        # ✓ Uses ${pathsToCheck[@]}
     "phpLint" "lint" "phplint"          # ✓ Uses ${pathsToCheck[@]}
-    "psr4Validate" "psr" "psr4"         # ✓ Uses ${pathsToCheck[@]}
     "phpStrictTypes" "stricttypes" "st" # ✓ Uses ${pathsToCheck[@]}
     "phploc" "loc" "l"                  # ✓ Uses ${pathsToCheck[@]}
     "phpunit" "unit"                    # ✓ Uses path arguments after config
@@ -101,7 +99,7 @@ NON_PATH_SUPPORTING_TOOLS=(
     "infection" "infect"                         # ❌ Ignores pathsToCheck completely
     "composerRequireChecker" "cr"                # ❌ Analyzes entire project
     "markdownLinks" "markdown" "ml"              # ❌ Hardcoded to specific files
-    "phpunitAnnotations" "ann"                   # ❌ Need to verify implementation
+    "psr4Validate" "psr" "psr4"                  # ❌ Validates whole project from composer.json autoload roots
     "uniterate"                                  # ❌ Special PHPUnit mode, not path-specific
     "branchNamePolicy" "bnp"                     # ❌ Repo-level git check, not path-specific
     "sensitiveParameterUsage" "spu" "sensitiveparameter" # ❌ Codebase-wide check, always scans src/
@@ -174,7 +172,6 @@ then
         lint | phplint              ) singleToolToRun="phpLint";;
         stan | phpstan              ) singleToolToRun="phpstan";;
         arch | arkitect | phparkitect ) singleToolToRun="phpArkitect";;
-        ann | phpunitAnnotations    ) singleToolToRun="phpunitAnnotations";;
         unit | phpunit              ) singleToolToRun="phpunit";;
         uniterate                   ) singleToolToRun="phpunit"; phpUnitIterativeMode=1;;
         infect | infection          ) singleToolToRun="infection";;

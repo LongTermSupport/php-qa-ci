@@ -69,9 +69,8 @@ This step includes:
 4. **Composer Checks** -- Diagnose, normalize, dump autoloader
 5. **Strict Types Enforcement** -- Ensures `declare(strict_types=1)`
 6. **PHP Lint** -- Fast parallel syntax checking
-7. **PHPUnit Annotations Check** -- Test annotation validation (currently disabled)
-8. **Composer Require Checker** -- Missing dependency detection (runs as PHAR)
-9. **Markdown Links Checker** -- Link validation in documentation
+7. **Composer Require Checker** -- Missing dependency detection (runs as PHAR)
+8. **Markdown Links Checker** -- Link validation in documentation
 
 #### Phase 3: Static Analysis
 10. **PHPStan** -- Static analysis at level max (runs as PHAR)

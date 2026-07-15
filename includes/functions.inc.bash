@@ -99,113 +99,29 @@ function phpNoXdebug() {
 }
 
 ###############################################################
-# Function to check there are no uncommitted changes.
+# Re-apply config derivations that DEPEND on project-overridable variables.
 #
-# This will also prompt you to commit these changes if you want to.
-#
-# Usage:
-# checkForUncommitedChanges
-function checkForUncommittedChanges() {
-  if [[ "false" != "${CI:-'false'}" ]]; then
-    echo "Skipping uncommited changes check in CI"
-    return 0
+# setConfig runs BEFORE the project's qaConfig/qaConfig.inc.bash is sourced
+# (see bin/qa), so any value derived there from a project-overridable variable
+# would freeze at the generic default and silently ignore the override. This
+# function holds those derivations; it is called at the end of setConfig AND
+# again by bin/qa after the project override is sourced, so overrides of
+# phpUnitCoverage / useInfection / mutationScoreIndicator / coveredCodeMSI
+# take effect. It must stay idempotent: gating only ever forces values OFF,
+# never on.
+function deriveDependentConfig() {
+  # Coverage requires an Xdebug driver.
+  if [[ "1" != "${xdebugEnabled:-0}" ]]; then
+    phpUnitCoverage=0
   fi
-  if [[ "$skipUncommittedChangesCheck" == "1" ]]; then
-    echo "Skipping uncommitted changes check. export skipUncommittedChangesCheck=0 to reinstate"
-    return 0
+  # Infection requires coverage.
+  if [[ "0" == "${xdebugEnabled:-0}" || "0" == "${phpUnitCoverage:-1}" ]]; then
+    useInfection=0
   fi
-
-  targetDir=${1:-$(pwd)}
-  originalDir=$(pwd)
-
-  if [[ ! -d $targetDir/.git/ ]]; then
-    echo "$targetDir is not a git repo"
-    return
-  fi
-
-  cd $targetDir
-
-  set +e
-  inGitRepo="$(git rev-parse --is-inside-work-tree 2>/dev/null)"
-  if [[ "" != "$inGitRepo" ]]; then
-    git status | grep -Eq "nothing to commit, working .*? clean"
-    repoDirty=$?
-    set -e
-    if (($repoDirty > 0)); then
-      git status
-      echo "
-
-    ==================================================
-
-        Untracked or Uncommited changes detected
-
-        Would you like to commit (c) or abort (a)
-
-        (git commit will be 'git add -A; git commit')
-
-        Alternatively you can skip (s), but please be aware that from this point on, your code is going to be
-        actively changed and not having a git commit to restore to could cause you significant pain.
-        You have been warned.
-
-        To always skip, you can export skipUncommittedChangesCheck=1
-
-    ==================================================
-
-            "
-      read -n 1 commitOrAbort
-      case "$commitOrAbort" in
-      s)
-        echo "Skipping"
-        return 0
-        ;;
-      c)
-        git add -A
-        git commit
-        ;;
-      *)
-        printf "\n\n\nAborting...\n\n\n"
-        exit 1
-        ;;
-      esac
-    fi
-  fi
-
-  cd $originalDir
-}
-
-function phpunitReRunFailedOrFull() {
-  if [[ "false" != "${CI:-'false'}" ]]; then
-    return 0
-  fi
-  local rerunFailed
-  local reunLogFileTimeLimit=${phpunitRerunTimeoutMins:-5}
-  local rerunLogFile="$(find $varDir -type f -name 'phpunit.junit.xml' -mmin -$reunLogFileTimeLimit)"
-  if [[ "" == "$rerunLogFile" ]]; then
-    echo ""
-    return 1
-  fi
-  echo "
-
-    ==================================================
-
-        PHPUnit Run detected from less than $reunLogFileTimeLimit mins ago
-
-        Would you like to just rerun failed tests?
-
-        (will timeout and run full in 10 seconds)
-
-    ==================================================
-
-        "
-  set +e
-  read -t 10 -n 1 rerunFailed
-  set -e
-  if [[ "y" != "$rerunFailed" ]]; then
-    printf "\n\nRunning Full...\n\n"
-    return 1
-  fi
-  printf "\n\nRerunning Failed Only\n\n"
-  return 0
+  # MSI floors: the project SSoT vars (mutationScoreIndicator / coveredCodeMSI)
+  # win whenever set; otherwise keep the current derived value / defaults.
+  infectionMutationScoreIndicator=${mutationScoreIndicator:-${infectionMutationScoreIndicator:-60}}
+  infectionCoveredCodeMSI=${coveredCodeMSI:-${infectionCoveredCodeMSI:-80}}
 }
 
 function tryAgainOrAbort() {

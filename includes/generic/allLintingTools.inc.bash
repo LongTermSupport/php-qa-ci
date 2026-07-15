@@ -20,7 +20,7 @@ Checking Package Type Is Declared
 ---------------------------------
 "
 
-runTool packageType
+runToolGuarded packageType
 
 echo "
 Setting Strict Types If It's Missing
@@ -35,13 +35,6 @@ Running PHP Lint
 ----------------
 "
 runToolGuarded phpLint
-
-echo "
-
-Running PHPUnit Annotations Check
---------------------------------
-"
-runToolGuarded phpunitAnnotations
 
 echo "
 

@@ -6,9 +6,6 @@ phpqaMemoryLimit=${phpqaMemoryLimit:-4G}
 # Skip long running tests if globally set to 1
 phpqaQuickTests=${phpqaQuickTests:-0}
 
-# Allow uncommitted changes check by default
-skipUncommittedChangesCheck=${skipUncommittedChangesCheck:-0}
-
 # the path in the project to check for config
 projectConfigPath="$projectRoot/qaConfig/"
 
@@ -28,9 +25,10 @@ defaultConfigPath="$(readlink -f ./../configDefaults/)"
 
 # configPath function can only be used after this point
 
-# PSR4 validation
+# PSR4 validation — one regex pattern per line; -t strips trailing newlines so
+# each array entry is a clean argument for bin/psr4-validate.
 psr4IgnoreListPath="$(configPath psr4-validate-ignore-list.txt)"
-readarray psr4IgnoreList < "$psr4IgnoreListPath"
+readarray -t psr4IgnoreList < "$psr4IgnoreListPath"
 
 # PHPStan configs
 phpstanConfigPath="$(configPath phpstan.neon)"
@@ -49,40 +47,31 @@ phpUnitIterativeMode=${phpUnitIterativeMode:-0}
 # PHPUnit Quick Tests - optional skip slow tests
 phpUnitQuickTests=${phpUnitQuickTests:-0}
 
-# PHPUnit Coverage - default disabled
-# if enabled, tests will run with Xdebug and generate coverage (which is a lot slower)
+# PHPUnit Coverage - default ENABLED (needed for Infection mutation testing).
+# When enabled, tests run with Xdebug and generate coverage (a lot slower).
+# Disable per-project with `export phpUnitCoverage=0` in qaConfig/qaConfig.inc.bash.
 phpUnitCoverage=${phpUnitCoverage:-1}
-
-# Can only generate coverage if Xdebug is enabled
-if [[ "1" != "$xdebugEnabled" ]]
-then
-    phpUnitCoverage=0
-fi
 
 # Now check if we are generating coverage and configure the correct file to include
 phpUnitConfigPath=$(configPath phpunit.xml)
 
 ## Infection options
 # Let's use infection by default
-# If no PHPUnit coverage though, we cant use it
 useInfection=${useInfection:-1}
-if [[ "0" == "$xdebugEnabled" || "0" == "$phpUnitCoverage" ]]
-then
-    useInfection=0
-fi
 
 # This is the path to our configuration
 infectionConfig=$(configPath infection.json)
 # Speeds up the tests https://infection.github.io/guide/command-line-options.html#threads
 # Can cause issues if the test rely on the database
 infectionThreads=${infectionThreads:-$(grep -c ^processor /proc/cpuinfo)}
-# See here https://infection.github.io/guide/index.html#Mutation-Score-Indicator-MSI and here
-# for more details about this
-infectionMutationScoreIndicator=${mutationScoreIndicator:-60}
-# See here https://infection.github.io/guide/index.html#Covered-Code-Mutation-Score-Indicator
-infectionCoveredCodeMSI=${coveredCodeMSI:-80}
 # Only Covered
 infectionOnlyCovered=${infectionOnlyCovered:-0}
+
+# Derivations that depend on project-overridable variables (coverage→infection
+# gating, MSI floors) live in deriveDependentConfig (functions.inc.bash). It
+# runs here AND again in bin/qa after qaConfig/qaConfig.inc.bash is sourced,
+# so project overrides of the inputs actually take effect.
+deriveDependentConfig
 
 composerRequireCheckerConfig=$(configPath composerRequireChecker.json)
 

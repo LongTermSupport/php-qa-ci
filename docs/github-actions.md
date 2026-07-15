@@ -59,7 +59,6 @@ Add these to the `env:` section of your workflow:
 ```yaml
 env:
   CI: true                          # Required
-  skipUncommittedChangesCheck: 1   # Required
   AUTO_COMMIT_FIXES: 'false'       # Enable auto-commit of fixes
   phpUnitCoverage: 0                # Disable coverage
   phpqaQuickTests: 1                # Quick test mode

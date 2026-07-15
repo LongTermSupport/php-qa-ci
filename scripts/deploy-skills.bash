@@ -209,9 +209,13 @@ except Exception as e:
 PYTHON_MIGRATION
 fi
 
-# Register hooks in settings.json
+# Register hooks in settings.json — ONLY when the daemon is not detected,
+# matching the copy gate above. Registering classic hooks under a daemon setup
+# only for Phase 4 to undo them left a register-then-undo window: an
+# interrupted run stranded settings.json entries pointing at hooks that were
+# never copied.
 SETTINGS_FILE="$PROJECT_ROOT/.claude/settings.json"
-if [[ -d "$HOOKS_SOURCE" ]] && ls "$HOOKS_SOURCE"/*.py 1>/dev/null 2>&1; then
+if [[ "$DAEMON_DETECTED" == "false" ]] && [[ -d "$HOOKS_SOURCE" ]] && ls "$HOOKS_SOURCE"/*.py 1>/dev/null 2>&1; then
     echo "  Registering hooks in settings.json..."
 
     # Create settings.json if it doesn't exist

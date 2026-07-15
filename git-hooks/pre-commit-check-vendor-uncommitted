@@ -155,11 +155,13 @@ if [[ ${#COMPOSER_OUT_OF_SYNC[@]} -gt 0 ]]; then
     echo -e "${YELLOW}ISSUE 2: composer.lock not tracking current vendor commits${NC}"
     echo ""
     for entry in "${COMPOSER_OUT_OF_SYNC[@]}"; do
-        # Split on ||| delimiter - save IFS first
-        OLD_IFS="$IFS"
-        IFS='|||'
-        read -r repo_path locked_commit current_commit <<< "$entry"
-        IFS="$OLD_IFS"
+        # Split on the ||| delimiter. NOTE: IFS='|||' would be WRONG here — IFS
+        # is a set of single characters, so it splits on every '|' and garbles
+        # the fields. Use prefix/suffix stripping like the DIRTY_REPOS loop.
+        repo_path="${entry%%|||*}"
+        rest="${entry#*|||}"
+        locked_commit="${rest%%|||*}"
+        current_commit="${rest#*|||}"
 
         echo -e "${YELLOW}  • ${repo_path}${NC}"
         if [[ -z "$locked_commit" ]]; then

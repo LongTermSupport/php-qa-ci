@@ -46,11 +46,6 @@ Here are some general PHPQA environment variables you might want to set:
 
  Will not prompt for user input.
 
-##### Skip uncommitted check:
- `skipUncommittedChangesCheck`
-
- Don't check for uncommitted changes when running.
-
 ##### Memory limit:
  `phpqaMemoryLimit`
 

@@ -85,9 +85,8 @@ The pipeline runs tools in 4 distinct phases:
 4. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
 5. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
 6. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
-7. **PHPUnit Annotations Check** (`phpunitAnnotations`) - Validates test annotations
-8. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
-9. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+7. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+8. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 ### Phase 3: Static Analysis Tools
 
@@ -143,7 +142,7 @@ phpqaQuickTests=${phpqaQuickTests:-0}
 
 # PHPUnit specific
 phpUnitQuickTests=${phpUnitQuickTests:-0}
-phpUnitCoverage=${phpUnitCoverage:-0}
+phpUnitCoverage=${phpUnitCoverage:-1}  # Coverage ON by default (needed for Infection)
 phpUnitIterativeMode=${phpUnitIterativeMode:-0}
 
 # Infection
@@ -151,9 +150,6 @@ useInfection=${useInfection:-1}  # Disabled if no xdebug/coverage
 
 # CI mode
 CI=${CI:-'false'}
-
-# Skip uncommitted changes check
-skipUncommittedChangesCheck=${skipUncommittedChangesCheck:-0}
 ```
 
 ### Memory Configuration
@@ -466,8 +462,9 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 
 - **Purpose**: Ensures all PHP files have `declare(strict_types=1)`
 - **Tool**: [@includes/generic/phpStrictTypes.inc.bash](includes/generic/phpStrictTypes.inc.bash)
-- **How it works**: Finds PHP files missing strict types declaration, optionally adds it automatically
-- **Interactive**: In non-CI mode, asks before adding to each file
+- **How it works**: Scans `.php`/`.phtml` files under the checked paths for a missing declaration
+- **Read-only run**: reports every offending file and fails
+- **Writable run**: adds the declaration to the opening `<?php` tag automatically and reports each fixed file; a file with no opening tag fails the gate
 
 ### PHP Lint
 
@@ -477,13 +474,6 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **Key features**:
   - Much faster than full parsing
   - Catches parse errors before running other tools
-
-### PHPUnit Annotations Check
-
-- **Purpose**: Validates PHPUnit test annotations
-- **Tool**: [@includes/generic/phpunitAnnotations.inc.bash](includes/generic/phpunitAnnotations.inc.bash)
-- **Binary**: `bin/phpunit-check-annotation`
-- **How it works**: Parses test files to ensure proper @test, @group annotations
 
 ### Composer Require Checker
 

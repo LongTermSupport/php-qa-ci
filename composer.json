@@ -77,7 +77,6 @@
     "bin/package-type-check",
     "bin/php-cs-fixer",
     "bin/phpstan",
-    "bin/phpunit-check-annotation",
     "bin/psr4-validate",
     "bin/qa",
     "bin/sensitive-parameter-usage"

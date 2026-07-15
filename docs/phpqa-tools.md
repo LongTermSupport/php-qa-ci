@@ -39,16 +39,6 @@ export CI=true
 vendor/bin/qa
 ```
 
-### skipUncommittedChangesCheck Environment Variable
-
-```bash
-cd /project/root
-mkdir -p qaConfig
-echo "
-export skipUncommittedChangesCheck=1
-" >> qaConfig/qaConfig.inc.bash
-```
-
 ## Phase 1: Code Modification
 
 These tools can modify your source files.
@@ -124,12 +114,6 @@ Checks for PHP files that do not have `declare(strict_types=1)` and allows you t
 Very fast PHP linting process. Checks for syntax errors in your PHP files.
 
 See the [PHP Parallel Lint project page](https://github.com/php-parallel-lint/PHP-Parallel-Lint) for more information.
-
-### PHPUnit Annotations Check (currently disabled)
-
-[PHPUnit Annotations Tool](../includes/generic/phpunitAnnotations.inc.bash)
-
-Validates PHPUnit test annotations. This tool is currently commented out in the pipeline.
 
 ### Composer Require Checker
 

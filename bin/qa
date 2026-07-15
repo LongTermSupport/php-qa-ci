@@ -186,6 +186,11 @@ Override config applied
 "
 fi
 
+# Re-apply derivations that depend on project-overridable variables (see
+# deriveDependentConfig in functions.inc.bash) so the override just sourced
+# actually influences useInfection / phpUnitCoverage gating and MSI floors.
+deriveDependentConfig
+
 export pathsToCheck
 export pathsToIgnore
 
@@ -226,8 +231,14 @@ if [[ "" != "$singleToolToRun" ]]; then
 Running Single Tool: $singleToolToRun
 ------------------------
 "
-  runTool "$singleToolToRun"
-  exitCode=$?
+  # Capture the tool's exit code via the if-condition so errexit is suspended:
+  # a plain `runTool; exitCode=$?` under `set -e` aborts on failure before the
+  # capture line, so exitCode could only ever be 0 (the historic bug).
+  if runTool "$singleToolToRun"; then
+    exitCode=0
+  else
+    exitCode=$?
+  fi
 
   # A meta-target (allStatic/allLints/allTests/allCS) runs several leaf tools via
   # runToolGuarded, so in aggregate mode the authoritative result is the failure
