@@ -28,7 +28,36 @@ if [[ "$COMPOSER_RUNTIME_BIN_DIR" != "" ]]; then
   echo "new composer detected, no longer a symlink, instead its a parent script"
   binDir="$COMPOSER_RUNTIME_BIN_DIR"
   bashSource="$binDir/qa"
-  qaDir="$(cd $binDir/$(grep -Po "[^']+php-qa-ci[^']+" $binDir/qa) && pwd)"
+  # Resolve the php-qa-ci library dir from the composer bin proxy at $binDir/qa.
+  # M-053: the previous parse hard-coded the literal 'php-qa-ci' in the grep, so
+  # it silently mis-resolved (to $binDir itself) whenever the package was forked
+  # or renamed. Instead, scan the proxy's single-quoted path fragments and pick
+  # the one that actually resolves (relative to $binDir) to the real qa script —
+  # accepting a fragment that names either the script's DIRECTORY or the qa FILE
+  # itself. Independent of the install-dir name; the php-qa-ci layout resolves
+  # unchanged. Fails loudly instead of silently picking the wrong directory.
+  qaDir=""
+  qaBinDirAbs="$(cd "$binDir" && pwd)"
+  while IFS= read -r qaProxyFragment; do
+    [[ -n "$qaProxyFragment" ]] || continue
+    qaProxyCandidate="$binDir/$qaProxyFragment"
+    qaProxyCandidateDir=""
+    if [[ -f "$qaProxyCandidate/qa" ]]; then
+      qaProxyCandidateDir="$qaProxyCandidate"
+    elif [[ -f "$qaProxyCandidate" && "$(basename "$qaProxyCandidate")" == "qa" ]]; then
+      qaProxyCandidateDir="$(dirname "$qaProxyCandidate")"
+    fi
+    [[ -n "$qaProxyCandidateDir" ]] || continue
+    qaProxyCandidateAbs="$(cd "$qaProxyCandidateDir" && pwd)"
+    if [[ "$qaProxyCandidateAbs" != "$qaBinDirAbs" ]]; then
+      qaDir="$qaProxyCandidateAbs"
+      break
+    fi
+  done < <(grep -Po "(?<=')[^']+(?=')" "$binDir/qa")
+  if [[ -z "$qaDir" ]]; then
+    echo "ERROR: could not resolve the php-qa-ci library directory from the composer bin proxy at $binDir/qa" >&2
+    exit 1
+  fi
   # project root directory
   projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
   while [[ ! -f $projectRoot/composer.json ]]; do
