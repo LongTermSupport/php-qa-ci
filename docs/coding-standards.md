@@ -18,7 +18,7 @@ PHP CS Fixer is configured through the `php_cs.php` file. The default configurat
 The default configuration includes:
 
 - `@PhpCsFixer` and `@Symfony` rule sets
-- `@PHP84Migration` -- PHP 8.4 migration rules
+- `@PHP8x4Migration` -- PHP 8.4 migration rules
 - `nullable_type_declaration_for_default_null_value` -- Required for PHP 8.4 compatibility (implicit nullable parameters are deprecated)
 - `nullable_type_declaration` with `question_mark` syntax
 - `declare_strict_types` -- Enforces strict types in all files

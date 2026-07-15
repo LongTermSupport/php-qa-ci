@@ -49,9 +49,14 @@ A repo may add additional prefixes via `qaConfig/branchNamePolicy.yaml` (see
 
 ## Default-Branch Exemption
 
-The repo's default branch (detected dynamically from `origin/HEAD`, or falling
-back to common candidates like `main`, `master`, `develop`, `DumbItDown`,
-`NewCheckout`) is always exempt — the policy fires only on non-default branches.
+The repo's default branch is always exempt — the policy fires only on
+non-default branches. The default branch is detected dynamically (via
+`git symbolic-ref refs/remotes/origin/HEAD`, falling back to `git ls-remote
+--symref origin HEAD`). There is **no** hardcoded list of candidate branch names
+(a code comment reads "NO hardcoded list — that's overfitting"). If detection
+fails entirely (e.g. no `origin`, or a broken `origin/HEAD`), the tool prints a
+warning and does **not** guess: to exempt a branch in that situation, add it
+explicitly under `extra_exempt_branches` in `qaConfig/branchNamePolicy.yaml`.
 
 ## Worked Example: Multi-Plan Feature
 

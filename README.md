@@ -1,6 +1,6 @@
 # PHP-QA-CI
 
-A comprehensive quality assurance and continuous integration pipeline for PHP 8.3+ projects, written in Bash. Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
+A comprehensive quality assurance and continuous integration pipeline for PHP 8.4+ projects (this is the `php8.4` branch; a `php8.3` branch supports PHP 8.3), written in Bash. Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
 
 This package is written for and tested on Linux.
 
@@ -64,20 +64,23 @@ PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 **Phase 2 -- Linting and Validation:**
 3\. PSR-4 Validation
 4\. Composer Checks
-5\. Strict Types Enforcement
-6\. PHP Lint
-7\. Composer Require Checker
-8\. Markdown Links Checker
+5\. Package Type Declaration (always-on)
+6\. Strict Types Enforcement
+7\. PHP Lint
+8\. Composer Require Checker
+9\. Markdown Links Checker
 
 **Phase 3 -- Static Analysis:**
-9\. PHPStan (level max)
-10\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
+10\. Branch Name Policy (always-on; runs first in this phase)
+11\. PHPStan (level max)
+12\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
+13\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
 
 **Phase 4 -- Testing:**
-11\. PHPUnit
-12\. Infection (mutation testing, optional, requires Xdebug)
+14\. PHPUnit
+15\. Infection (mutation testing, optional, requires Xdebug)
 
-**Post-Success:** PHPLoc (stats only, cannot fail)
+**Post-Success:** PHPLoc (stats only, not part of the pass/fail gate)
 
 See [Pipeline Architecture](./docs/pipeline.md) for full details.
 
@@ -207,6 +210,19 @@ These rules are active automatically in every project that uses php-qa-ci — no
   credential parameters (names matching `password`, `secret`, `privateKey`, … with a
   `string`/`?string`/untyped/`mixed` type). Object-typed params and already-hashed/encoded names
   (`$hashedPassword`, `$passwordHash`) are ignored. Keeps credentials out of stack traces.
+- **ForbidNewDateTimeRule** -- Bans direct `new DateTime`/`new DateTimeImmutable`
+- **ForbidEmptyLanguageConstructRule** -- Bans `empty()` (use explicit type-safe checks)
+- **ForbidLooseComparisonRule** -- Bans `==` / `!=` (require strict `===` / `!==`)
+- **ForbidDeprecatedSerializableRule** -- Bans the deprecated `Serializable` interface
+- **ForbidNestedTernaryRule** -- Bans nested ternary expressions
+- **RequireRuleIdentifierConstantRule** -- PHPStan rule classes must expose an identifier constant
+- **RequireApiOrInternalTagRule** -- Package-type-aware: for a `type: library` project every public
+  class-like must be classified as exactly one of `@api` / `@internal` (no-ops for other package types)
+- **ApiMustNotExposeInternalRule** -- An `@api` class-like must not expose an `@internal` one from the
+  same package through its public signature
+
+`rules-default.neon` is the authoritative list of always-on rules — the above are its currently
+wired rules; consult that file if in doubt.
 
 > The codebase-wide "is `#[\SensitiveParameter]` used **anywhere**?" coverage check is NOT a PHPStan
 > rule — PHPStan rules are opt-in (a consumer must include this library's rules neon), so they cannot
@@ -239,10 +255,14 @@ parameters:
 
 ### Optional rules (opt-in)
 
-Ten additional rules ship as opt-in, split across two files:
+Twelve additional rules ship as opt-in, split across two files:
 
-- **`rules-optional.neon`** — 6 generic rules suitable for any PHP project
-- **`rules-optional-symfony.neon`** — all generic rules + 4 Symfony/Doctrine-specific rules
+- **`rules-optional.neon`** — 8 generic rules suitable for any PHP project (6 named in its `rules:`
+  block plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
+- **`rules-optional-symfony.neon`** — all 8 generic rules + 4 Symfony/Doctrine-specific rules (12 total)
+
+(A further rule, `ForbidMagicStringAssertionRule`, ships but is in **neither** bundle — it is
+experimental/high-noise and must be cherry-picked deliberately.)
 
 To enable them, add an `includes` entry to your `qaConfig/phpstan.neon`.
 
@@ -408,11 +428,14 @@ discover the flag.
 
 ### Composer Plugins
 
-PHP-QA-CI registers three Composer plugins:
+PHP-QA-CI registers four Composer plugins (`composer.json` `extra.class`):
 
 - **PhiveUpdatePlugin** -- Manages PHAR installation via PHIVE
 - **SkillsDeployPlugin** -- Deploys Claude Code skills and hooks
 - **PhpStanGuardPlugin** -- Prevents `phpstan/phpstan` from being installed alongside the PHAR
+- **ManagedSourceDeployPlugin** -- Regenerates the managed `<RootNs>\PhpQaCi\` source tree on
+  install/update (gated by the same `PHP_QA_CI_DISABLE_CONFIG_PUSH` flag as `SkillsDeployPlugin`);
+  see [CLAUDE/managed-source.md](CLAUDE/managed-source.md)
 
 ## Docs
 
@@ -424,13 +447,16 @@ Comprehensive documentation is available in the [./docs](./docs) folder:
 - **[Coding Standards](./docs/coding-standards.md)** -- PHP CS Fixer and Rector configuration
 - **[GitHub Actions Integration](./docs/github-actions.md)** -- CI/CD setup guide
 - **[Continuous Integration](./docs/ci.md)** -- General CI usage and workflows
-- **[Platform Detection](./docs/platform-detection.md)** -- Symfony/Laravel specific settings
+- **[Platform Detection](./docs/platform-detection.md)** -- Symfony-specific settings
 
 Tool-specific documentation:
 
 - **[PHPStan](./docs/tools/phpstan.md)** -- Static analysis configuration and custom rules
 - **[PHPUnit](./docs/tools/phpunit.md)** -- Test runner configuration and modes
 - **[Infection](./docs/tools/infection.md)** -- Mutation testing setup
+- **[Package Type](./docs/tools/packageType.md)** -- The always-on `composer.json` `type` check
+- **[Require @api / @internal](./docs/tools/requireApiOrInternal.md)** -- API-surface classification rule
+- **[SensitiveParameter Usage](./docs/tools/sensitiveParameterUsage.md)** -- The always-on `#[\SensitiveParameter]` check
 
 ## Other Notes
 

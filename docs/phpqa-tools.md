@@ -8,9 +8,9 @@ In local development, a failed tool can be retried indefinitely. In CI, a failed
 
 ## The Tool Runner
 
-Each tool is run by calling the [`runTool`](./../includes/functions.inc.bash#L30) function.
+Each tool is run by calling the [`runTool`](./../includes/functions.inc.bash#L20) function.
 
-The `runTool` function takes into account the platform that PHPQA detected via the [`detectPlatform`](./../includes/functions.inc.bash#L7) function.
+The `runTool` function takes into account the platform that PHPQA detected via the [`detectPlatform`](./../includes/functions.inc.bash#L6) function.
 
 You can override any tool for your project by copying it into `qaConfig/tools` and editing as you see fit.
 
@@ -23,20 +23,6 @@ The platform-specific script will be run instead of the generic script. You can 
 ```bash
 source $DIR/../includes/generic/setConfig.inc.bash
 ... platform-specific script contents ...
-```
-
-## Preflight: Uncommitted Changes Check
-
-[Uncommitted Changes Check](./../includes/functions.inc.bash#L92)
-
-Before the main tools run, the pipeline checks for uncommitted changes. Tools in Phase 1 will actively modify code, so you should be able to easily roll back changes if needed.
-
-This check can be bypassed in two ways:
-
-### CI Mode
-```bash
-export CI=true
-vendor/bin/qa
 ```
 
 ## Phase 1: Code Modification
@@ -66,7 +52,7 @@ Default configurations:
 
 PHP CS Fixer automatically fixes code style issues according to modern PHP standards. It runs as a **PHAR** from `vendor-phar/php-cs-fixer.phar` (not as a Composer dependency).
 
-The default configuration includes `@PHP84Migration` rules for PHP 8.4 compatibility, including nullable type declarations.
+The default configuration includes `@PHP8x4Migration` rules for PHP 8.4 compatibility, including nullable type declarations.
 
 Please see the [PHPQA Coding Standards docs](./coding-standards.md) for configuration details.
 
@@ -101,11 +87,21 @@ You can specify files or directories to be ignored by the validator. This is a n
 - Runs `composer normalize` to normalize `composer.json`
 - Dumps the autoloader to ensure recent code changes will not cause autoloading issues
 
+### Package Type Declaration
+
+[Package Type Tool](../includes/generic/packageType.inc.bash)
+
+Always-on check that requires `composer.json` to declare an explicit `type`. Runs immediately
+after Composer Checks. See [tools/packageType.md](./tools/packageType.md) for details.
+
 ### Strict Types Enforcement
 
 [Strict Types Tool](../includes/generic/phpStrictTypes.inc.bash)
 
-Checks for PHP files that do not have `declare(strict_types=1)` and allows you to fix them.
+Scans `.php` and `.phtml` files under the checked paths for a missing `declare(strict_types=1)`.
+On a read-only run it reports every offending file and fails; on a writable run it adds the
+declaration to the opening `<?php` tag automatically (a file with no opening tag fails the gate).
+There is no interactive prompt.
 
 ### PHP Parallel Lint
 
@@ -131,6 +127,14 @@ Checks your `README.md` file and all `*.md` files in the `docs` directory. For e
 
 ## Phase 3: Static Analysis
 
+### Branch Name Policy
+
+[Branch Name Policy Tool](../includes/generic/branchNamePolicy.inc.bash)
+
+Always-on check that runs **first** in this phase. Enforces the PR branch-naming convention (a PR
+branch must use an allowed prefix — `feature/`, `bugfix/`, `chore/`, `hotfix/` — never `plan/*`);
+the repo's detected default branch is exempt. See [CLAUDE/branch-policy.md](./../CLAUDE/branch-policy.md).
+
 ### PHPStan
 
 [PHPStan Tool](../includes/generic/phpstan.inc.bash)
@@ -144,6 +148,22 @@ PHP-QA-CI bundles custom PHPStan rules (auto-loaded via extension installer) and
 Please see the [PHPQA PHPStan docs](./tools/phpstan.md) for full details.
 
 See the [PHPStan project page](https://github.com/phpstan/phpstan) for more information about PHPStan in general.
+
+### PHPArkitect
+
+[PHPArkitect Tool](../includes/generic/phpArkitect.inc.bash)
+
+Architecture rules (class naming, namespace layering, dependency direction). On by default; runs as
+a **PHAR** from `vendor-phar/phparkitect.phar`. Disable per-project with `export useArkitect=0`. See
+the [PHPArkitect section in the README](./../README.md#phparkitect-architecture-rules).
+
+### SensitiveParameter Usage
+
+[SensitiveParameter Usage Tool](../includes/generic/sensitiveParameterUsage.inc.bash)
+
+Always-on security baseline: fails if the native `#[\SensitiveParameter]` attribute is used nowhere
+in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`. See
+[tools/sensitiveParameterUsage.md](./tools/sensitiveParameterUsage.md).
 
 ## Phase 4: Testing
 

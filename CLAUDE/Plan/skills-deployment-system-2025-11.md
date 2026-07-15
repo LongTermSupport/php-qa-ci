@@ -1,7 +1,18 @@
 # PHP-QA-CI Skills Deployment System Proposal
 
+> **SUPERSEDED — historical proposal, NOT a current how-to.** This is a point-in-time
+> design proposal. The shipped `scripts/deploy-skills.bash` diverged substantially from
+> it: the skills/agents source lives under `.claude/skills/` and `.claude/agents/` (not the
+> repo-root `php-qa-ci/skills/` this doc describes), and the real script additionally does
+> hooks-daemon detection, `php-qa-ci__` hook-name migration + `settings.json` rewriting,
+> git-hooks deployment, PHPStan rule scaffolding, and root-CLAUDE.md block injection — none
+> of which this proposal anticipated. **Ownership model (authoritative):** deployed skills,
+> agents and hooks are php-qa-ci-owned and are overwritten freely on every deploy; consumers
+> must never hand-edit the deployed copies. Do not use this document as a guide to current
+> behaviour.
+
 **Date**: November 2025
-**Status**: Proposal
+**Status**: Proposal (superseded — see banner above)
 **Target**: php-qa-ci v2.0 (post php8.4 branch merge)
 
 ## Executive Summary

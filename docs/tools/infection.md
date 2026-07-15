@@ -8,8 +8,10 @@ In PHPQA we run this after the normal PHPUnit run and pass in the coverage gener
 
 ## Configuration
 
-You may need to tell infection where the configuration directory for PHPUnit is. To do this, override the
-[./configDefaults/generic/infection.json](./../../configDefaults/generic/infection.json) file and add the following to it
+You may need to tell infection where the configuration directory for PHPUnit is. The shipped
+[./configDefaults/generic/infection.json](./../../configDefaults/generic/infection.json) already
+contains `"phpUnit": {"configDir": "./"}`; to point it elsewhere, override that file in your
+`qaConfig/` and change the existing value:
 
 ```json
 "phpUnit": {
@@ -27,7 +29,7 @@ Here are the environment variables that you might decide to override:
 
 Infection has been configured to require both a minimum MSI and covered MSI to be achieved for the test to pass.
 
-By default these are set to 60% for MSI, and 90% for covered MSI. These values can be overwritten by using environment
+By default these are set to 60% for MSI, and 80% for covered MSI. These values can be overwritten by using environment
 variables. To do this, simply export the following before running qa:
 
  * `mutationScoreIndicator` to set the MSI level

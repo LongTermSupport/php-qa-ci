@@ -39,7 +39,10 @@ Here are some general PHPQA environment variables you might want to set:
 ##### Quick tests only:
  `phpqaQuickTests`
 
- If you want to run only fast PHPQA tests.
+ Setting this to `1` **skips whole phases**, not just slow tests: PHPStan (Phase 3) and both
+ PHPUnit and Infection (Phase 4) are skipped entirely. Use it for a fast lint/style/validation
+ pass. Do not confuse it with `phpUnitQuickTests`, which is narrower — it still runs PHPUnit but
+ lets individual tests take a faster path (see the PHPUnit docs).
 
 ##### CI Mode:
  `CI`
@@ -61,39 +64,50 @@ export phpqaMemoryLimit=8G
 
 ## Configuration Files
 
-The bulk of the configuration is handled with configuration files which are separated by platform.
+The bulk of the configuration is handled with configuration files under
+[configDefaults/](./../configDefaults). Only a `generic/` folder ships today — there are no
+per-platform config folders. The `configPath()` resolver still supports a platform rung
+(`configDefaults/{platform}/`), but because no such folder exists it always falls through to
+`generic/` unless your project supplies its own override (see below).
 
-- [configDefaults/](./../configDefaults) contains subfolders specific to each platform
-    - [generic/](./../configDefaults/generic) for config files not specific to any platform
-
-Each platform folder contains the configuration files for that platform. Where a file does not exist in the platform folder, the generic configuration file is used.
-
-PHPQA's [configDefaults/generic](./../configDefaults/generic) folder contains a config file for each tool run by PHPQA. At the moment this includes:
+PHPQA's [configDefaults/generic](./../configDefaults/generic) folder contains the default config
+files. At the moment this includes:
 
 - [infection.json](./../configDefaults/generic/infection.json)
 - [phpstan.neon](./../configDefaults/generic/phpstan.neon)
 - [phpunit.xml](./../configDefaults/generic/phpunit.xml)
 - [php_cs.php](./../configDefaults/generic/php_cs.php)
+- [php_cs_finder.php](./../configDefaults/generic/php_cs_finder.php)
 - [psr4-validate-ignore-list.txt](./../configDefaults/generic/psr4-validate-ignore-list.txt)
 - [composerRequireChecker.json](./../configDefaults/generic/composerRequireChecker.json)
 - [rector-safe.php](./../configDefaults/generic/rector-safe.php)
 - [rector-phpunit.php](./../configDefaults/generic/rector-phpunit.php)
 - [rector-php84.php](./../configDefaults/generic/rector-php84.php)
+- [phparkitect.php](./../configDefaults/generic/phparkitect.php) (entry config) and its rule tiers
+  [phparkitect-rules-default.php](./../configDefaults/generic/phparkitect-rules-default.php),
+  [phparkitect-rules-optional.php](./../configDefaults/generic/phparkitect-rules-optional.php),
+  [phparkitect-rules-optional-symfony.php](./../configDefaults/generic/phparkitect-rules-optional-symfony.php),
+  and [phparkitect-consumer-api-boundary.php](./../configDefaults/generic/phparkitect-consumer-api-boundary.php)
+
+Note: the PHPStan rule bundles (`rules-default.neon`, `rules-optional.neon`,
+`rules-optional-symfony.neon`) live at the **repo root**, not under `configDefaults/generic/`.
 
 #### Config Overrides
 
-If no local config file exists in your project's `qaConfig` folder, PHPQA will detect what type of platform you're on and use the config in its own `configDefaults/` folder.
-
-As an example, when running PHPStan on a Symfony codebase, PHPQA will check for its config in the following order:
+If no local config file exists in your project's `qaConfig` folder, PHPQA uses the config in its
+own `configDefaults/` folder. Resolution is handled by `configPath()`
+([includes/functions.inc.bash](./../includes/functions.inc.bash)) as a 3-level lookup — the first
+that exists wins:
 
 1. Your project's root `qaConfig/phpstan.neon`
-2. PHPQA's root `configDefaults/symfony/phpstan.neon`
-3. PHPQA's root `configDefaults/generic/phpstan.neon`
+2. PHPQA's `configDefaults/{platform}/phpstan.neon` (no platform folder ships, so this rung is
+   normally absent)
+3. PHPQA's `configDefaults/generic/phpstan.neon`
 
 To create your own override:
 
 1. Make a directory in your project root called `qaConfig`
-2. Copy the configuration from [configDefaults](./../configDefaults) into your project `qaConfig` folder
+2. Copy the configuration from [configDefaults/generic](./../configDefaults/generic) into your project `qaConfig` folder
 3. Customise the copied config as you see fit
 
 For example, for PHPStan:
@@ -104,8 +118,7 @@ cd /my/project/root
 mkdir -p qaConfig
 
 # Copy in the default config
-platform="generic" # See vendor/lts/php-qa-ci/configDefaults/ for options
-cp vendor/lts/php-qa-ci/configDefaults/${platform}/phpstan.neon qaConfig/
+cp vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon qaConfig/
 
 # Edit the config
 vim qaConfig/phpstan.neon

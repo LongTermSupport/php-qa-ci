@@ -54,6 +54,18 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
 - **RequireSensitiveParameterAttributeRule** -- Requires `#[\SensitiveParameter]` on plaintext credential parameters (configurable name patterns / ignore substrings via the `phpqaciSensitiveParameter` parameters block)
 - **RequireApiOrInternalTagRule** -- Package-type-aware: for a `type: library` project, every public class-like must be classified as exactly one of `@api` / `@internal`; no-ops for other package types. Generated/managed namespaces are exempt via the `phpqaciApiOrInternal.ignoredNamespacePrefixes` parameter. Full guidance (incl. the deliberate `@api`-vs-`@internal` judgement): [tools/requireApiOrInternal.md](requireApiOrInternal.md)
+- **ApiMustNotExposeInternalRule** -- An `@api` class-like must not expose an `@internal` one from the same package through its public signature (keeps the `@api` promise honest)
+- **ForbidNewDateTimeRule** -- Bans direct `new DateTime` / `new DateTimeImmutable`
+- **ForbidEmptyLanguageConstructRule** -- Bans `empty()` (use explicit type-safe checks)
+- **ForbidLooseComparisonRule** -- Bans `==` / `!=` (require strict `===` / `!==`)
+- **ForbidDeprecatedSerializableRule** -- Bans the deprecated `Serializable` interface
+- **ForbidNestedTernaryRule** -- Bans nested ternary expressions
+- **RequireRuleIdentifierConstantRule** -- PHPStan rule classes must expose an identifier constant
+
+`rules-default.neon` is the single source of truth for the always-on set (14 rules at time of
+writing: 10 in its `rules:` block plus `ForbidMockingFinalClassRule`,
+`RequireSensitiveParameterAttributeRule`, `RequireApiOrInternalTagRule`, and
+`ApiMustNotExposeInternalRule` registered as tagged services). Consult that file if in doubt.
 
 See the README "Configuring RequireSensitiveParameterAttributeRule" section for the full config keys and defaults.
 
@@ -63,10 +75,11 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 10 additional opt-in rules split across two files:
+PHP-QA-CI ships 12 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 6 generic rules suitable for any PHP project
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules
+- **`rules-optional.neon`** — 8 generic rules suitable for any PHP project (6 in its `rules:` block
+  plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (12 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -133,6 +146,8 @@ rules:
 | `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`         | Inline `@phpstan-ignore` annotations in source files            |
 | `RequireReadonlyServiceRule`            | `rules-optional.neon`         | Service classes not declared `final readonly`                   |
 | `RequireVariadicForSingleListParamRule` | `rules-optional.neon`         | `array $items` annotated `@param list<T>` — use variadic syntax |
+| `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |
+| `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit           |
 | `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon` | User input passed directly to HTTP headers                      |
 | `ForbidRawSqlRule`                      | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM                     |
 | `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description           |

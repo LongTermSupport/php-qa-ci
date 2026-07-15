@@ -1,5 +1,17 @@
 # QA Tool File-Level Locking System
 
+> **HISTORICAL DESIGN DOC — verify specifics against the code before relying on them.**
+> The locking/timing system this describes is implemented and in production use
+> (`includes/generic/lock.inc.bash`, `timing.inc.bash`, wired run-level in `bin/qa`), but two
+> parts of this document no longer match the code:
+> - **Git tracking of `timing-data.json`**: the system now writes a `.gitignore` containing
+>   `*` in the lock directory, so **nothing** there is tracked (timing data varies per machine
+>   and created merge noise). Ignore any guidance here about committing `timing-data.json`.
+> - **Per-tool `toolStart` / `toolComplete` / `toolFailed` hooks**: these were never wired into
+>   `runTool` and have since been removed. Locking is **run-level only** — there is no per-tool
+>   timing/hook instrumentation, and the `tools` array / `current_tool` field described here are
+>   not populated.
+
 ## Progress
 
 [✓] Add Linux/GNU date check (fail fast if not Linux)

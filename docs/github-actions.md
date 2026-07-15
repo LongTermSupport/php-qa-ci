@@ -96,7 +96,10 @@ env:
 1. Go to Settings -> Branches
 2. Add rule for main/master branch
 3. Check "Require status checks to pass before merging"
-4. Select "PHP QA Pipeline" as required check
+4. Select the required **check-run** names — these are the job names, not the workflow name.
+   For the `php-qa-ci.yml` template they are "Detect PHP Version", "PHP QA (<version>)" (the version
+   is filled in dynamically, e.g. "PHP QA (8.4)"), and "Coverage Report". ("PHP QA Pipeline" is the
+   workflow name shown in the Actions tab, not a selectable status check.)
 
 ## Inline-Barrier (autofix → read-only gate)
 
@@ -172,7 +175,7 @@ cp vendor/lts/php-qa-ci/templates/github-actions/qa-autofix.yml .github/workflow
 PHP-QA-CI includes an `update-deps.yml` workflow that runs weekly to automatically update all dependencies:
 
 - Composer dependencies (`composer update`)
-- PHARs via PHIVE (`phive update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker
+- PHARs via PHIVE (`phive update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect
 - Isolated Rector installation (`composer update --working-dir=tools/rector`)
 
 If changes are detected, it runs the full QA pipeline. If QA passes, it creates a pull request with auto-merge enabled.
@@ -182,6 +185,9 @@ To add this to your project:
 ```bash
 cp vendor/lts/php-qa-ci/.github/workflows/update-deps.yml .github/workflows/update-deps.yml
 ```
+
+The workflow checks out your repository's own default branch (it pins no
+explicit `ref:`), so the copied file works as-is — no branch edit is required.
 
 See [Continuous Integration](./ci.md) for more details on the available workflows.
 
@@ -216,13 +222,14 @@ Place configuration files in your project's `qaConfig/` directory:
 
 ### Caching Strategy
 
-The workflow caches:
+The `php-qa-ci.yml` template uses two caches:
 
-- Composer dependencies
-- QA tool PHARs
-- PHPStan cache
+- **Composer dependencies** — keyed on `${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}`
+  (this key does **not** include the PHP version).
+- **QA tool PHARs + tool cache** (`vendor-phar/` and `var/qa/cache`) — keyed on the OS, the detected
+  PHP version, and `hashFiles('**/phive.xml', '**/composer.lock')`.
 
-Cache keys include PHP version to prevent conflicts.
+There is no separate "PHPStan cache" block. Only the QA-tools cache key includes the PHP version.
 
 ## Workflow Features
 
@@ -270,10 +277,13 @@ env:
 
 1. Download artifacts from failed run
 2. Check `var/qa/` directory contents
-3. Run locally with same configuration:
+3. Reproduce the CI **gate** locally. On GitHub Actions php-qa-ci auto-enables read-only mode, so a
+   pending Rector / PHP CS Fixer change fails the run instead of being applied. `CI=true` only
+   disables prompts — it does **not** make the run read-only. To reproduce the gate, set
+   `QA_READONLY=1`:
 
 ```bash
-CI=true vendor/bin/qa
+QA_READONLY=1 vendor/bin/qa
 ```
 
 ## Best Practices

@@ -86,10 +86,15 @@ You might decide to do this if you are running these tests in CI, as you can see
 
 ### Config Changes When Generating Coverage
 
-Generating coverage can cause a dramatic speed degradation. For this reason:
+Generating coverage can cause a dramatic speed degradation. The exact run configuration depends on
+whether you are in CI:
 
-* PHPUnit will fail on the first error rather than run the full suite
-* We will not enforce any time limits for `@small` `@medium` `@large`
+* The suite always runs to completion — it does **not** stop on the first failure. (Stop-on-failure
+  flags apply only in the separate iterative mode, `vendor/bin/qa -t uniterate`; they were
+  deliberately removed from the CI coverage path so CI reports every failure.)
+* Test time limits (`@small` / `@medium` / `@large`) are **only** skipped when generating coverage
+  **in CI** (`CI=true`). A local coverage run (`phpUnitCoverage=1 vendor/bin/qa` with `CI` unset)
+  still enforces the time limits, so long tests can hit them.
 
 ### Speed Impact of Enabling Coverage
 

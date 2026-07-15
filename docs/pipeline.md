@@ -8,7 +8,7 @@ In local development, a failed step can be retried indefinitely until it passes.
 
 The tools are organised into four phases. Code modification runs first (so later phases validate the final state of the code), followed by linting, static analysis, and testing. There is no point running static analysis on code that has not yet been auto-fixed, and no point running tests if the code has syntax errors.
 
-Each tool is run in `bin/qa` using the [runTool](./../includes/functions.inc.bash#L30) function. This function handles the process of checking for a platform-specific tool and falling back to the generic tool.
+Each tool is run in `bin/qa` using the [runTool](./../includes/functions.inc.bash#L20) function. This function handles the process of checking for a platform-specific tool and falling back to the generic tool.
 
 ## Hooks
 
@@ -44,7 +44,7 @@ exit 1;
 
 This step includes:
 
- - Platform detection (Symfony/Laravel/generic)
+ - Platform detection (Symfony via `symfony.lock`, otherwise generic)
  - Detecting if Xdebug is available
  - [setPaths.inc.bash](./../includes/generic/setPaths.inc.bash): setting the paths to be checked and ignored
  - [setConfig.inc.bash](./../includes/generic/setConfig.inc.bash): setting the configuration
@@ -55,8 +55,9 @@ This step includes:
 This step includes:
 
  - [prepareDirectories.inc.bash](./../includes/generic/prepareDirectories.inc.bash): ensuring required directories exist
- - PHIVE install: if `phive.xml` exists, installs PHAR dependencies to `vendor-phar/`
+ - Tool install: `bin/qa` runs `scripts/tool-install.bash` unconditionally. `phive.xml` is a hard requirement (the script exits 1 if it is missing). In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE re-fetches only in the maintainer `update`/`--force` modes) and installs the isolated Rector composer sub-project under `tools/rector/` on first use.
  - Checking for and running your project's `hookPre.bash` script
+ - Acquiring a run-level lock (`lock.inc.bash`) so concurrent `qa` runs cannot collide; a held lock aborts the run
 
 ### 3. QA Tools (Four Phases)
 
@@ -67,17 +68,21 @@ This step includes:
 #### Phase 2: Linting and Validation
 3. **PSR-4 Validation** -- Namespace/directory structure compliance
 4. **Composer Checks** -- Diagnose, normalize, dump autoloader
-5. **Strict Types Enforcement** -- Ensures `declare(strict_types=1)`
-6. **PHP Lint** -- Fast parallel syntax checking
-7. **Composer Require Checker** -- Missing dependency detection (runs as PHAR)
-8. **Markdown Links Checker** -- Link validation in documentation
+5. **Package Type Declaration** -- Always-on: requires `composer.json` to declare a `type`
+6. **Strict Types Enforcement** -- Ensures `declare(strict_types=1)`
+7. **PHP Lint** -- Fast parallel syntax checking
+8. **Composer Require Checker** -- Missing dependency detection (runs as PHAR)
+9. **Markdown Links Checker** -- Link validation in documentation
 
 #### Phase 3: Static Analysis
-10. **PHPStan** -- Static analysis at level max (runs as PHAR)
+10. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase)
+11. **PHPStan** -- Static analysis at level max (runs as PHAR)
+12. **PHPArkitect** -- Architecture rules; on by default (`useArkitect=0` to disable, runs as PHAR)
+13. **SensitiveParameter Usage** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
 
 #### Phase 4: Testing
-11. **PHPUnit** -- Unit and integration tests
-12. **Infection** -- Mutation testing (optional, requires Xdebug, runs as PHAR)
+14. **PHPUnit** -- Unit and integration tests
+15. **Infection** -- Mutation testing (optional, requires Xdebug, runs as PHAR)
 
 To read about each tool in detail, see [PHPQA's suite of tools](./phpqa-tools.md).
 

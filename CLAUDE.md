@@ -11,14 +11,14 @@ PHP-QA-CI is a comprehensive quality assurance pipeline for PHP projects written
 1. **Main Script**: `bin/qa` - Entry point that orchestrates all tools
 2. **Tool Runners**: Individual bash scripts in `includes/generic/` that run specific tools
 3. **Configuration System**: Cascading configuration from defaults to project overrides
-4. **Platform Detection**: Automatic detection of Symfony/Laravel/generic platforms
+4. **Platform Detection**: Automatic detection of Symfony vs. generic platforms
 
 ### How It Works
 
 When you run the qa script in your project:
 
 1. The script detects your project root and platform type
-2. Loads configuration from multiple sources (defaults → platform-specific → project overrides)
+2. Loads configuration from the shipped defaults, overridable per-project via `qaConfig/`
 3. Runs tools from your project's bin directory (NOT from php-qa-ci's own vendor)
 4. Executes tools in 4 phases in a specific order designed to modify code first, then validate
 
@@ -36,7 +36,7 @@ Before running any QA tools, the pipeline executes these preflight steps:
    - `$projectRoot` - The project being tested
    - `$binDir` - The project's bin directory (usually vendor/bin)
 
-2. **Platform Detection** (`detectPlatform`) - Identifies if project is Symfony/Laravel/generic
+2. **Platform Detection** (`detectPlatform`) - Identifies if project is Symfony (via `symfony.lock`) or generic
 
 3. **Xdebug Check** - Determines if coverage/infection testing is available
 
@@ -64,9 +64,11 @@ Before running any QA tools, the pipeline executes these preflight steps:
    - `var/qa/cache/` - Tool cache directory
    - Adds .gitignore files to exclude generated content
 
-8. **PHIVE Install** - If `phive.xml` exists, runs `scripts/phive-install.bash` to install PHAR dependencies
+8. **Tool Install** - Runs `scripts/tool-install.bash` unconditionally (`bin/qa`). `phive.xml` is a hard requirement: if it is missing the script prints an error and exits 1. In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE only re-fetches in the maintainer `update`/`--force` modes) and installs the isolated Rector composer sub-project under `tools/rector/` on first use.
 
 9. **Pre-Hook** (`hookPre.bash`) - Runs project-specific pre-pipeline script if exists
+
+10. **Locking** - Sources `includes/generic/lock.inc.bash` and acquires a run-level lock (`initLockSystem` / `acquireLock`) so concurrent `qa` invocations cannot collide. If another `qa` process already holds the lock, `acquireLock` aborts the run (`exit 1`) before any tool executes. Locking is run-level only — there are no per-tool timing hooks.
 
 Only after all preflight steps complete does the actual tool execution begin.
 
@@ -83,32 +85,34 @@ The pipeline runs tools in 4 distinct phases:
 
 3. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
 4. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
-5. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
-6. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
-7. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
-8. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+5. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
+6. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+7. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+8. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+9. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 ### Phase 3: Static Analysis Tools
 
-10. **PHPStan** (`phpstan`) - Static analysis tool
-11. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
-12. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
+10. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
+11. **PHPStan** (`phpstan`) - Static analysis tool
+12. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+13. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
 
 ### Phase 4: Testing Tools
 
-11. **PHPUnit** (`phpunit`) - Unit testing framework
-12. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
+14. **PHPUnit** (`phpunit`) - Unit testing framework
+15. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
 
 ### Post-Success Phase (After all tests pass)
 
 After the "ALL TESTS PASSING" message:
 
-13. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
+16. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
 
     - This is informational only and cannot fail the pipeline
     - Provides metrics about code size and structure
 
-14. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
+17. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
@@ -122,14 +126,44 @@ After the "ALL TESTS PASSING" message:
 
 ### Configuration Cascade
 
-Configuration is resolved in this order (later overrides earlier):
+Config **files** are resolved by `configPath()` (`includes/functions.inc.bash`), a
+3-level lookup — the first that exists wins:
 
-1. **Built-in defaults** in `configDefaults.inc.bash`
-2. **Platform-specific defaults** in `configDefaults/{platform}/`
-3. **Tool-specific defaults** in `configDefaults/generic/` (e.g., `php_cs.php`, `phpstan.neon`)
-4. **Project config** in `{project}/qaConfig/qaConfig.inc.bash`
-5. **Project tool configs** in `{project}/qaConfig/` (e.g., `php_cs.php`, `phpstan.neon`)
-6. **Project tool overrides** in `{project}/qaConfig/tools/{toolName}.inc.bash`
+1. **Project override** — `{project}/qaConfig/{relativePath}` (e.g. `qaConfig/phpstan.neon`)
+2. **Platform default** — `configDefaults/{platform}/{relativePath}` — only `generic` ships,
+   so on a Symfony project this rung exists only where an `includes/symfony/` override supplies
+   it; otherwise the lookup falls through to generic
+3. **Generic default** — `configDefaults/generic/{relativePath}` (e.g. `php_cs.php`,
+   `phpstan.neon`)
+
+There is no `configDefaults.inc.bash` and no per-platform `configDefaults/` directory beyond
+`generic/`.
+
+Config **variables** additionally cascade through bash: `setConfig` establishes the defaults,
+then `{project}/qaConfig/qaConfig.inc.bash` is sourced afterwards and can override them.
+`deriveDependentConfig()` re-applies coverage/infection gating and MSI floors *after* that
+override is sourced, so a project's `phpUnitCoverage` / `useInfection` / `mutationScoreIndicator`
+/ `coveredCodeMSI` overrides actually take effect. Per-tool script overrides live in
+`{project}/qaConfig/tools/{toolName}.inc.bash` (resolved by `runTool`).
+
+### Read-Only / CI Verification Mode
+
+Whether the mutating tools (Rector, PHP CS Fixer, Strict Types) may WRITE is governed by
+`qaReadOnly`, which is **orthogonal to `CI`**:
+
+- **`CI`** controls interactivity only (no prompts, no retry loops). It is auto-enabled for
+  Claude Code (`CLAUDECODE=1`) and non-TTY shells. `CI=true` does **not** make a run read-only.
+- **`qaReadOnly`** controls writes, decided by `detectReadOnly()` (`includes/functions.inc.bash`):
+  `QA_READONLY=1`/`true` → read-only; `QA_READONLY=0`/`false` → writable; else GitHub Actions
+  (`GITHUB_ACTIONS=true`) → read-only; everything else (local TTY, Claude sessions, cron) →
+  writable. In a read-only run the fixers run `--dry-run` and a pending change FAILS the gate
+  instead of being applied. **To reproduce a CI failure locally, run `QA_READONLY=1 vendor/bin/qa`,
+  not `CI=true vendor/bin/qa`.**
+
+**Aggregate mode**: a read-only run also defaults to aggregate (non-fail-fast) mode
+(`qaAggregate`), collecting every failing tool in one pass rather than stopping at the first.
+Force it off with `QA_FAIL_FAST=1`. `--json` emits structured PHPStan output on fd 3 (with all
+decoration redirected to stderr).
 
 ### Key Configuration Variables
 
@@ -176,10 +210,10 @@ phpqaMemoryLimit=2G vendor/bin/qa
 The `detectPlatform` function checks for:
 
 - **Symfony**: Presence of `symfony.lock` file
-- **Laravel**: Presence of `artisan` file
-- **Generic**: Default for all other PHP projects
+- **Generic**: Default for all other PHP projects (anything without `symfony.lock`)
 
-Platform-specific tool configurations are loaded from `includes/{platform}/`.
+There is no Laravel/`artisan` detection. Platform-specific tool overrides are loaded from
+`includes/{platform}/` (currently only `includes/symfony/` ships any).
 
 ## Tool Runner System
 
@@ -200,7 +234,7 @@ The `runTool` function is the heart of the system:
 ### Changes Made
 
 - **Removed PHP_CodeSniffer** completely (was conflicting with PHP CS Fixer)
-- **Updated PHP CS Fixer config** to use `@PHP84Migration` ruleset
+- **Updated PHP CS Fixer config** to use the `@PHP8x4Migration` ruleset
 - **Added nullable type rules** for PHP 8.4's deprecation of implicit nullable parameters
 - **PHP CS Fixer v3.84.0+** supports PHP 8.4 natively (no `PHP_CS_FIXER_IGNORE_ENV` needed)
 
@@ -208,7 +242,7 @@ The `runTool` function is the heart of the system:
 
 ```php
 // In configDefaults/generic/php_cs.php
-'@PHP84Migration' => true,
+'@PHP8x4Migration' => true,
 'nullable_type_declaration_for_default_null_value' => true,
 'nullable_type_declaration' => ['syntax' => 'question_mark'],
 ```
@@ -312,7 +346,7 @@ the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-s
 ## Environment Requirements
 
 - Linux/Unix environment (uses bash)
-- PHP 7.4 or higher (PHP 8.4 supported on php8.4 branch)
+- PHP 8.4 or higher on this branch (`composer.json` requires `^8.4`; the `php8.4` branch targets PHP 8.4, while the separate `php8.3` branch supports PHP 8.3)
 - Composer-installed project with php-qa-ci as a dependency
 - Your project's composer.json must allow the `ergebnis/composer-normalize` plugin:
   ```json
@@ -458,6 +492,14 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   ```
   After adding, run: `composer update nothing`
 
+### Package Type Declaration
+
+- **Purpose**: Requires `composer.json` to declare an explicit `type` (Composer silently defaults an omitted `type` to `library`, which changes how the API-surface PHPStan rules behave)
+- **Tool**: [@includes/generic/packageType.inc.bash](includes/generic/packageType.inc.bash)
+- **Binary**: `bin/package-type-check`
+- **When it runs**: Always-on, Phase 2, immediately after Composer Checks
+- **Details**: [docs/tools/packageType.md](docs/tools/packageType.md)
+
 ### PHP Strict Types
 
 - **Purpose**: Ensures all PHP files have `declare(strict_types=1)`
@@ -500,6 +542,14 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **Binary**: `bin/mdlinks`
 - **How it works**: Parses markdown files, checks internal file links and external URLs
 - **Scope**: README.md and all files in docs/
+
+### Branch Name Policy
+
+- **Purpose**: Enforces the PR branch-naming convention (a PR branch must use an allowed prefix — `feature/`, `bugfix/`, `chore/`, `hotfix/` — never `plan/*`); the repo's detected default branch is exempt
+- **Tool**: [@includes/generic/branchNamePolicy.inc.bash](includes/generic/branchNamePolicy.inc.bash)
+- **When it runs**: Always-on, first tool in Phase 3 (Static Analysis)
+- **Fallback**: on default-branch detection failure it warns and requires explicit config in `qaConfig/branchNamePolicy.yaml` — there is no hardcoded default-branch guess list
+- **Details**: [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md)
 
 ### PHPStan
 
@@ -560,7 +610,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 2. **Project's vendor/bin is used** - Not php-qa-ci's internal vendor directory
 3. **Configuration is highly flexible** - Almost every aspect can be overridden
 4. **Platform detection is automatic** - But can be overridden if needed
-5. **Fail-fast design** - Pipeline stops on first tool failure (except in retry mode)
+5. **Fail-fast design** - Pipeline stops on the first tool failure (except in interactive retry mode, and except in read-only aggregate mode, where every failing tool is collected and reported together — see "Read-Only / CI Verification Mode")
 
 ## Design Philosophy: Standardized Configuration
 
