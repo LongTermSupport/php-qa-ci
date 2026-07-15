@@ -139,7 +139,8 @@ then
         printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
         usage
     fi
-    echo "Running Single Tool: $singleToolToRun"
+    # No banner here — bin/qa prints the "Running Single Tool" banner at
+    # execution time (re-audit R-04: the double banner was redundant).
 fi
 
 # Validate JSON output compatibility

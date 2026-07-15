@@ -64,15 +64,22 @@ install_owned_tree() {
 
 # install_signed <src> <dst> <marker> [label]
 #   SHARED / signature exception (see header, exception 1). Overwrite <dst> only
-#   when it is absent OR already carries <marker> (i.e. it is one of our own
-#   versions). A foreign file at <dst> is left untouched with a loud warning —
-#   this NEVER fails (returns 0 in every case) so it cannot abort composer
-#   install/update. Used for the singleton .git/hooks/pre-commit path.
+#   when it is truly absent (no file, no symlink — a dangling symlink is
+#   somebody's hook manager at work, so it counts as foreign) OR it is a regular
+#   file carrying <marker> as a header line ("# <marker>..." at line start —
+#   i.e. one of our own versions; a foreign hook merely MENTIONING the marker in
+#   prose does not match). Anything else is foreign and is left untouched with a
+#   loud warning — this NEVER fails (returns 0 in every case) so it cannot abort
+#   composer install/update. Used for the singleton .git/hooks/pre-commit path.
 install_signed() {
     local src="$1" dst="$2" marker="$3"
     local label="${4:-$(basename "$dst")}"
 
-    if [[ ! -f "$dst" ]] || grep -q "$marker" "$dst"; then
+    if [[ ! -e "$dst" && ! -L "$dst" ]]; then
+        install_owned_file "$src" "$dst" "$label"
+        return 0
+    fi
+    if [[ -f "$dst" && ! -L "$dst" ]] && grep -q "^# ${marker}" "$dst"; then
         install_owned_file "$src" "$dst" "$label"
         return 0
     fi
