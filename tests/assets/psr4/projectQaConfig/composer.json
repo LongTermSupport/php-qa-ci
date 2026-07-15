@@ -1,0 +1,16 @@
+{
+  "autoload": {
+    "psr-4": {
+      "Project\\": [
+        "src/"
+      ]
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "QaConfig\\": [
+        "qaConfig/"
+      ]
+    }
+  }
+}

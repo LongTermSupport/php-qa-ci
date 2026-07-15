@@ -1,3 +1,5 @@
 #tests/bootstrap\.php#
 #tests/phpstan-bootstrap\.php#
 #tests/Asset#
+#qaConfig/phparkitect\.php#
+#qaConfig/php_cs\.php#

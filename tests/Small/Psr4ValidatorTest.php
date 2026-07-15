@@ -110,4 +110,50 @@ Magento\'s composer includes this by default, it should be removed from the psr-
 
         self::assertSame($expected, $actual);
     }
+
+    /**
+     * Regression: php-qa-ci's own convention maps `qaConfig/` as a PSR-4 root
+     * (QaConfig\, for custom PHPStan rules) AND ships non-class config files
+     * there that projects override — qaConfig/phparkitect.php and
+     * qaConfig/php_cs.php. Those legitimately have no namespace, so the SHIPPED
+     * default ignore list must exclude them; otherwise the re-enabled PSR-4
+     * gate falsely reports them as Parse Errors on every consuming project.
+     *
+     * The fixture also contains a correctly-namespaced rule class under the
+     * same root (qaConfig/PHPStan/Rules/GoodRule.php) to prove the exclusion is
+     * scoped to the config files and does not blanket-skip the qaConfig tree.
+     */
+    public function testShippedDefaultIgnoreListExcludesQaConfigConfigFiles(): void
+    {
+        $assetsPath  = __DIR__ . '/../assets/psr4/projectQaConfig/';
+        $projectRoot = \Safe\realpath($assetsPath);
+        $validator   = new Psr4Validator(
+            $this->loadShippedDefaultIgnoreList(),
+            $projectRoot,
+            Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
+        );
+
+        self::assertSame([], $validator->main());
+    }
+
+    /**
+     * The exact ignore patterns bin/qa feeds the validator in production: every
+     * non-blank line of the shipped default list (see psr4Validate.inc.bash).
+     *
+     * @return list<string>
+     */
+    private function loadShippedDefaultIgnoreList(): array
+    {
+        $path     = __DIR__ . '/../../configDefaults/generic/psr4-validate-ignore-list.txt';
+        $contents = \Safe\file_get_contents($path);
+
+        $patterns = [];
+        foreach (explode("\n", $contents) as $line) {
+            if ('' !== trim($line)) {
+                $patterns[] = $line;
+            }
+        }
+
+        return $patterns;
+    }
 }
