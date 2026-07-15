@@ -2,6 +2,11 @@ parameters:
     excludePaths:
         - ./../tests/assets/*
         - ./../src/ComposerPlugin/*
+        # The plugin tests exercise the src/ComposerPlugin classes excluded just
+        # above, against the runtime-only Composer\* stub surface in
+        # tests/assets/ComposerPlugin/ — the same absent-Composer-API reason, so
+        # the same exclusion. Runtime behaviour is covered by the tests themselves.
+        - ./../tests/Small/ComposerPlugin/*
     level: max
     inferPrivatePropertyTypeFromConstructor: true
     ignoreErrors:

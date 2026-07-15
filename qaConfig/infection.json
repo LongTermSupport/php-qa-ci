@@ -1,11 +1,13 @@
 {
   "timeout": 10,
+  "bootstrap": "tests/bootstrap.php",
   "source": {
     "directories": [
-      "src"
+      "../src"
     ],
     "excludes": [
-      "/TestDox/"
+      "/TestDox/",
+      "/ComposerPlugin/"
     ]
   },
   "mutators": {
@@ -15,9 +17,9 @@
     ]
   },
   "logs": {
-    "text": "var/qa/infection/log.txt",
-    "summary": "var/qa/infection/summary-log.txt",
-    "debug": "var/qa/infection/debug-log.txt"
+    "text": "../var/qa/infection/log.txt",
+    "summary": "../var/qa/infection/summary-log.txt",
+    "debug": "../var/qa/infection/debug-log.txt"
   },
   "phpUnit": {
     "configDir": "./"
