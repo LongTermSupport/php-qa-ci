@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PackageType;
 
 use LTS\PHPQA\PackageType\ExplicitPackageTypeCheck;
+use LTS\PHPQA\PackageType\ExplicitPackageTypeDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Tests the thin pipeline runner around {@see \LTS\PHPQA\PackageType\ExplicitPackageTypeDetector}:
+ * Tests the thin pipeline runner around {@see ExplicitPackageTypeDetector}:
  * it maps the pure verdict to a process exit code (0 = OK, 1 = build failure) and
  * prints either a confirmation or the actionable guidance. The exhaustive
  * type-matrix lives in ExplicitPackageTypeDetectorTest; here we only assert the
@@ -20,6 +22,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(ExplicitPackageTypeCheck::class)]
+#[UsesClass(ExplicitPackageTypeDetector::class)]
 #[Small]
 final class ExplicitPackageTypeCheckTest extends TestCase
 {

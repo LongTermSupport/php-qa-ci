@@ -20,6 +20,7 @@ use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -28,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * @internal
  */
+#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(ForbidMagicStringAssertionRule::class)]
 #[Small]
 final class ForbidMagicStringAssertionRuleTest extends TestCase
