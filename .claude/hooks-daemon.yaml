@@ -1,5 +1,12 @@
 version: "2.0"
 
+# PERSISTENT CLAUDE MEMORY: DISABLED (user ruling 2026-07-15).
+# Claude Code's harness-level persistent memory store must NOT be used for this
+# project — agents must not write to ~/.claude/projects/*/memory/. ALL
+# knowledge, memory and context is tracked IN-REPO instead (CLAUDE/*.md docs,
+# CLAUDE/Plan/ records), kept clean of secrets. The daemon ships no memory
+# handler today; if one is ever added, it must default OFF here.
+
 # Daemon configuration
 daemon:
   idle_timeout_seconds: 600  # Auto-shutdown after 10 minutes of inactivity

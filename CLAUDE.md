@@ -1,5 +1,14 @@
 # PHP-QA-CI Library Documentation
 
+## Knowledge & Memory Policy (binding)
+
+Persistent Claude memory is DISABLED for this project — never write to the
+harness memory store (`~/.claude/projects/*/memory/`). ALL knowledge, memory
+and context MUST be tracked in-repo, clean of secrets: durable operational
+knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
+— the mandatory pre-push battery; pushing `php8.4` deploys to production),
+programme/work records in `CLAUDE/Plan/`.
+
 ## Overview
 
 PHP-QA-CI is a comprehensive quality assurance pipeline for PHP projects written in Bash. It orchestrates multiple PHP quality assurance tools in a carefully designed sequence to fail fast and provide rapid feedback.
