@@ -1,0 +1,447 @@
+version: "2.0"
+
+# Daemon configuration
+daemon:
+  idle_timeout_seconds: 600  # Auto-shutdown after 10 minutes of inactivity
+  log_level: INFO
+  project_root: ../../  # Project root relative to this config file (always ../../)
+
+  stale_file_days: 7  # Remove daemon runtime files older than this (days)
+
+  # Path exclusion for content-scanning blockers (v3.35.0+, Plan 00150)
+  # Gitignore-style globs (*, ?, ** = zero-or-more segments) exempted from ALL
+  # three content blockers at once: security_antipattern, qa_suppression,
+  # error_hiding_blocker. Set once here; each handler inherits it on top of its
+  # own options.exclude_paths and built-in defaults. Use for QA/linting projects
+  # whose fixtures intentionally contain "bad" code. Default: [] (no exclusions).
+  # exclude_paths:
+  #   - "**/fixtures/**"
+  #   - "**/__fixtures__/**"
+  #   - "samples/**"
+
+  # CI enforcement (v2.27.0+) - Controls behaviour when daemon cannot start
+  # Default (false/omitted): fail open — warn once then silently passthrough
+  # When true: fail closed — block all tool use and tell agent to stop
+  # ci_enabled: false
+
+  # Input validation (v2.2.0+) - Catch malformed events at front controller layer
+  input_validation:
+    enabled: true              # Validate hook inputs (recommended)
+    strict_mode: true          # Fail-closed: return errors on validation failures
+    log_validation_errors: true
+
+# Built-in handler configuration
+# Handlers run in priority order (lower number = earlier execution)
+# Priority ranges: 5=test, 10-20=safety, 25-45=workflow, 50-60=tool usage
+handlers:
+  # PreToolUse handlers (run before every tool call)
+  pre_tool_use:
+    # SAFETY HANDLERS (Priority 10-20) - HIGHLY RECOMMENDED
+    destructive_git:       # Blocks git reset --hard, git clean -f, etc
+      enabled: true
+      priority: 10
+
+    daemon_location_guard: # Prevents cd into .claude/hooks-daemon (run commands from project root)
+      enabled: true
+      priority: 11
+
+    sed_blocker:           # Blocks sed command usage (use Edit tool instead)
+      enabled: true
+      priority: 11
+
+    absolute_path:         # Enforces absolute paths in file operations
+      enabled: true
+      priority: 12
+
+    error_hiding_blocker:  # Blocks error-hiding patterns (|| true, empty catch, except: pass, etc.)
+      enabled: true
+      priority: 13
+
+    curl_pipe_shell:       # Blocks dangerous curl | sh patterns
+      enabled: true
+      priority: 14
+
+    security_antipattern:  # Blocks hardcoded secrets and injection patterns
+      enabled: true
+      priority: 15
+
+    root_recursion_guard:  # Blocks recursive scans (grep -r, find, rg) rooted at / /proc /sys ~ $HOME
+      enabled: true
+      priority: 16
+
+    pipe_blocker:          # Blocks dangerous pipe patterns in bash commands
+      enabled: true
+      priority: 15
+
+    dangerous_permissions: # Warns about dangerous file permission changes
+      enabled: true
+      priority: 18
+
+    git_stash:             # Warns about git stash (stashes can be lost)
+      enabled: true
+      priority: 17
+
+    lock_file_edit_blocker: # Prevents editing package lock files
+      enabled: true
+      priority: 19
+
+    pip_break_system:      # Blocks pip commands that break system packages
+      enabled: true
+      priority: 20
+
+    sudo_pip:              # Blocks sudo pip (use venv instead)
+      enabled: true
+      priority: 21
+
+    daemon_restart_verifier: # Verifies daemon restart after code changes
+      enabled: false       # Enable for daemon development projects
+      priority: 22
+
+    ask_user_question_blocker: # Blocks AskUserQuestion so Claude works autonomously (for unattended workflows)
+      enabled: false           # Enable for fully unattended operation
+      priority: 23
+
+    worktree_file_copy:    # Prevents copying files between git worktrees
+      enabled: true
+      priority: 16
+
+    # CODE QUALITY HANDLERS (Priority 25-45) - Optional but recommended
+    qa_suppression:        # Unified multi-language QA suppression blocker (11 languages)
+      enabled: false       # Enable for strict code quality control
+      priority: 30
+      # options:
+      #   languages:       # Restrict to specific languages (default: ALL)
+      #     - Python
+      #     - Go
+      #     - JavaScript/TypeScript
+      #     - PHP
+
+    tdd_enforcement:       # Enforces test-first development
+      enabled: false       # Enable for strict TDD workflow
+      priority: 32
+
+    lsp_enforcement:       # Steers LLMs toward LSP tools instead of Grep/Bash grep
+      enabled: false       # Enable when LSP is configured
+      priority: 38
+      options:
+        mode: block_once       # advisory | block_once | strict
+        no_lsp_mode: block     # block | advisory | disable
+
+    # WORKFLOW HANDLERS (Priority 30-50) - Enable based on your workflow
+    plan_number_helper:    # Provides correct next plan number
+      enabled: false       # Enable when using CLAUDE/Plan/ structure
+      priority: 33
+      # Plan directory is the top-level plan_workflow.directory (single source
+      # of truth) — no per-handler track_plans_in_project needed.
+
+    task_tdd_advisor:      # Advises on TDD workflow for tasks
+      enabled: false       # Enable for TDD guidance
+      priority: 36
+
+    gh_issue_comments:     # Requires --comments flag for gh issue view
+      enabled: true
+      priority: 40
+
+    gh_pr_comments:        # Requires --comments flag for gh pr view
+      enabled: true
+      priority: 40
+
+    validate_plan_number:  # Validates plan number format (001-, 002-, etc)
+      enabled: false       # Enable for projects using CLAUDE/Plan/
+      priority: 38
+
+    global_npm_advisor:    # Advises against global npm installs
+      enabled: true
+      priority: 42
+
+    plan_qa_edit:          # Stage 1 plan QA lint on PLAN.md writes (Plan 00144)
+      enabled: false       # Enable for projects using CLAUDE/Plan/; policy under plan_workflow.qa
+      priority: 44
+
+    plan_qa_commit_gate:   # Stage 2 cross-file plan checks on git commit (Plan 00144)
+      enabled: false       # Enable for projects using CLAUDE/Plan/; warn-first via plan_workflow.qa
+      priority: 44
+
+    plan_time_estimates:   # Blocks time estimates in plan files
+      enabled: false       # Enable for projects using CLAUDE/Plan/
+      priority: 45
+
+    plan_workflow:         # Provides guidance when creating plans
+      enabled: false       # Enable for projects using CLAUDE/Plan/
+      priority: 44
+
+    plan_completion_advisor: # Advises on plan completion workflow
+      enabled: false       # Enable for projects using CLAUDE/Plan/
+      priority: 48
+
+    validate_instruction_content: # Blocks ephemeral content in CLAUDE.md/README.md
+      enabled: false       # Enable to prevent implementation logs in instruction files
+      priority: 49
+
+    npm_command:           # Restricts npm commands to approved list
+      enabled: false       # Enable for strict npm usage control
+      priority: 50
+
+    markdown_organization: # Enforces markdown file organization rules & plan tracking
+      enabled: false       # Enable for md organization + plan tracking
+      priority: 51
+      # Docs: docs/guides/handlers/markdown_organization.md
+      options:
+        # Plan tracking is configured at the top-level plan_workflow: block
+        # (single source of truth). Set plan_workflow.enabled: true there to
+        # enable plan tracking for this handler — no per-handler option needed.
+        #
+        # Monorepo support: regex patterns matching sub-project root directories.
+        # Sub-projects get the same organization rules as the root project.
+        # See docs/guides/HANDLER_REFERENCE.md -> "Monorepo Support"
+        #   monorepo_subproject_patterns:
+        #     - "packages/[^/]+"    # matches packages/frontend, packages/backend, etc.
+        #     - "apps/[^/]+"        # matches apps/web, apps/mobile, etc.
+        #
+        # Custom allowed markdown paths: OVERRIDES all built-in path rules.
+        # Each entry is a regex matched against the project-relative path.
+        # In monorepos, patterns match AFTER sub-project prefix stripping (same
+        # rules apply to root and all sub-projects). See HANDLER_REFERENCE.md.
+        # CLAUDE.md, README.md, CHANGELOG.md are always allowed regardless.
+        # Built-in defaults (used when this option is absent):
+        #   allowed_markdown_paths:
+        #     - "^CLAUDE/.*\\.md$"                              # LLM documentation
+        #     - "^docs/.*\\.md$"                                # Human-facing docs
+        #     - "^untracked/.*\\.md$"                           # Temporary docs
+        #     - "^RELEASES/.*\\.md$"                            # Release notes
+        #     - "^eslint-rules/.*\\.md$"                        # ESLint rule docs
+        #     - "^src/claude_code_hooks_daemon/guides/.*\\.md$" # Shipped guides
+        #     - "cluster"           # matches a single top-level sub-project folder
+        #     - "services"          # matches another top-level sub-project folder
+        monorepo_subproject_patterns: null
+
+    # TOOL USAGE HANDLERS (Priority 50-60)
+    web_search_year:       # Fixes year in web search queries (uses current year)
+      enabled: true
+      priority: 55
+
+    daemon_docs_guard:     # Warns when reading from hooks-daemon internal CLAUDE/ docs (wrong directory)
+      enabled: true
+      priority: 57
+
+    british_english:       # Warns about American English spelling
+      enabled: false       # Enable if you prefer British English
+      priority: 60
+
+  # PostToolUse handlers (run after tool execution)
+  post_tool_use:
+    bash_error_detector:   # Detects bash errors and suggests corrections
+      enabled: true
+      priority: 10
+
+    lint_on_edit:              # Language-aware lint validation after Write/Edit
+      enabled: false           # Enable for automatic lint validation (Shell, Python, Go, Rust, etc.)
+      priority: 25
+
+    markdown_table_formatter:  # Auto-format markdown tables via mdformat + mdformat-gfm
+      enabled: false           # Enable for automatic markdown table alignment
+      priority: 26
+
+    git_hooks_executable_fixer:  # Auto-chmod +x git hooks git skipped as non-executable
+      enabled: true
+      priority: 27
+
+    background_process_tracker:  # Tracks backgrounded processes; advises harvest-background + watchdog cron (never kills)
+      enabled: true              # On by default (opt-out); advisory-only and rate-limited. Set false to disable.
+      priority: 28
+
+    recovery_cron_advisor:  # Advises on failsafe recovery cron lifecycle (creation, progress, completion)
+      enabled: true         # On by default (opt-out); advisory-only, fires only on CLAUDE/Plan/*/PLAN.md writes. Set false to disable.
+      priority: 30
+
+    validate_eslint_on_write:  # Runs ESLint after file writes
+      enabled: false           # Enable for automatic ESLint validation
+      priority: 20
+
+  # SessionStart handlers (run when session starts)
+  session_start:
+    yolo_container_detection:  # Detects YOLO development environments (Docker, etc)
+      enabled: true
+      priority: 10
+
+    project_handler_load_checker:  # Loud alert when project handlers fail to load (Plan 00143)
+      enabled: true                 # Silent unless a project handler was skipped at startup
+      priority: 50
+
+    hook_registration_checker:  # Validates hook registrations in Claude Code settings
+      enabled: true             # Alerts when expected hooks are missing or misconfigured
+      priority: 51
+
+    optimal_config_checker:  # Checks Claude Code env for optimal settings
+      enabled: true
+      priority: 52
+
+    git_filemode_checker:  # Warns when git core.fileMode=false (hooks lose exec perms)
+      enabled: true
+      priority: 53
+
+    gitignore_safety_checker:  # Warns when required .claude/ paths are missing from .gitignore
+      enabled: true            # Uses content-hash cache - only re-checks when .gitignore changes
+      priority: 54
+
+    suggest_status_line:  # Suggests daemon-based status line setup
+      enabled: true      # Recommends status line if not configured
+      priority: 55
+
+    version_check:  # Checks if daemon is up-to-date with latest release
+      enabled: true  # Notifies on new sessions if updates available (24h cache)
+      priority: 56
+
+    plan_qa_sweep:  # Plan-tree drift report at session start (Plan 00144; silent when clean)
+      enabled: true  # Policy lives under the top-level plan_workflow.qa section
+      priority: 57
+
+    ccy_supervisor_integrity:  # Warns when the ccy supervisor is armed but its files are unsafe (Plan 00148)
+      enabled: true            # Silent unless .claude/ccy/ is a ccy project with an armed ccy.env
+      priority: 58
+
+  # PreCompact handlers (run before conversation compaction)
+  pre_compact:
+    transcript_archiver:  # Archives transcripts before compaction
+      enabled: false      # Enable to save conversation history
+      priority: 10
+
+    compaction_signal:  # Drops <session>.compacting for the PTY supervisor (opt-in)
+      enabled: false
+      priority: 20
+
+  # SessionEnd handlers (run when session ends)
+  session_end:
+    cleanup:  # Session cleanup operations
+      enabled: true
+      priority: 10
+
+  # SubagentStop handlers (run when subagent completes)
+  subagent_stop:
+    subagent_completion_logger:  # Logs subagent completion
+      enabled: false  # Enable for debugging subagent workflows
+      priority: 10
+
+    remind_prompt_library:  # Reminds about prompt library after agent work
+      enabled: false        # Enable if using prompt library system
+      priority: 20
+
+  # UserPromptSubmit handlers (run when user submits prompt)
+  user_prompt_submit:
+    git_context_injector:  # Injects git context into user prompts
+      enabled: true
+      priority: 10
+
+    critical_thinking_advisory:  # Periodic advisory encouraging critical evaluation
+      enabled: false              # Enable for critical thinking nudges on substantial prompts
+      priority: 55
+
+    idle_housekeeping_advisory:  # BETA: report-first idle housekeeping (Plan 00161)
+      enabled: false             # Opt-in beta - leave off unless trying it. See docs/guides/CREATING_REPORTS.md
+      priority: 56
+
+  # Other hook events
+  permission_request:
+    auto_approve_reads:  # Auto-approves read-only file operations
+      enabled: true
+      priority: 10
+
+  notification:
+    notification_logger:  # Logs notifications
+      enabled: false      # Enable for debugging
+      priority: 10
+
+  stop:
+    auto_continue_stop:  # Auto-continues after stop events based on criteria
+      enabled: true
+      priority: 10
+
+    hedging_language_detector:  # Detects guessing language (should probably, IIRC, I believe, etc)
+      enabled: true
+      priority: 30
+
+    dismissive_language_detector:  # Detects dismissive language (pre-existing issue, out of scope, etc)
+      enabled: true
+      priority: 58
+
+    task_completion_checker:  # Checks for task completion
+      enabled: false           # Enable if using task management system
+      priority: 20
+
+  # Status line handlers (format daemon-based status display)
+  status_line:
+    model_context:  # Shows model name and color-coded context percentage
+      enabled: true
+      priority: 10
+
+    context_sidecar:  # Observe-only: writes context state for the PTY supervisor (opt-in)
+      enabled: false
+      priority: 12
+
+    environment_indicator:  # Shows 💻 desktop / 🐳 docker / 📦 podman (cached at startup)
+      enabled: true
+      priority: 11
+
+    git_branch:     # Shows current git branch if in repo
+      enabled: true
+      priority: 20
+      options:
+        # Keep remote-tracking refs fresh so ahead/behind icons are honest.
+        # TTL-gated background fetch in a daemon thread — never blocks the
+        # render, never prompts for credentials, tolerates being offline.
+        auto_fetch: true
+        fetch_interval_seconds: 300
+
+    git_repo_name:  # Shows git repository name
+      enabled: true
+      priority: 25
+
+    working_directory:  # Shows current working directory when different from project root
+      enabled: true
+      priority: 25
+
+    startup_cleanup:  # Shows 🧹 briefly after startup when stale files were removed
+      enabled: true
+      priority: 28
+
+    daemon_stats:   # Shows daemon uptime, memory, log level
+      enabled: true
+      priority: 30
+
+    account_display: # Shows account information
+      enabled: true
+      priority: 40
+
+    multithread_indicator:  # Shows "🧵 Y/X" — first segment; this thread's rank among live threads
+      enabled: true
+      priority: 2
+
+    current_time:   # Shows current local time (24-hour format)
+      enabled: true
+      priority: 14
+
+    usage_tracking: # Tracks and displays usage statistics
+      enabled: true
+      priority: 60
+
+# Project-level handlers (custom handlers in .claude/hooks/handlers/)
+# Example:
+# plugins:
+#   - type: "file"
+#     path: ".claude/hooks/handlers/pre_tool_use/my_handler.py"
+#     class: "MyHandler"
+#     events: ["PreToolUse"]
+
+# Plan workflow (single source of truth for plan tracking).
+# OPT-IN: disabled by default so a stock install does not scatter CLAUDE/Plan/
+# or deploy the mkplan scaffolding script while the plan handlers are off.
+# Uncomment and set enabled: true to turn on plan tracking. Enabling this
+# feeds the plan directory to all planning handlers (plan_number_helper,
+# markdown_organization, validate_plan_number, ...) AND deploys the CLAUDE/Plan/
+# scaffold + mkplan.bash on install/upgrade. The directory here is authoritative
+# — do not duplicate it in per-handler options.
+# plan_workflow:
+#   enabled: true
+#   directory: "CLAUDE/Plan"
+#   workflow_docs: "CLAUDE/PlanWorkflow.md"
+#   enforce_claude_code_sync: false

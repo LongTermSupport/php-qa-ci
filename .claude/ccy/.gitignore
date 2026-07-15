@@ -1,0 +1,10 @@
+# CCY session data - NEVER commit sensitive files
+# Only .gitignore, Dockerfile, allowed-hostnames, ccy.env and the
+# claude-supervise* supervisor (any extension or none) are safe to track
+*
+!.gitignore
+!Dockerfile
+!allowed-hostnames
+!ccy.env
+!claude-supervise*
+!claude-supervise.py

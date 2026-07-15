@@ -31,3 +31,11 @@
 **/.rector.cache/
 **/phpstan-result.json
 # END php-qa-ci managed QA runtime excludes
+
+# Claude Code Hooks Daemon
+.claude/hooks-daemon/
+.claude/worktrees
+.claude/scheduled_tasks.lock
+
+# ClaudeMdInjector backup (session artifact, never commit)
+.CLAUDE.md.pre-inject

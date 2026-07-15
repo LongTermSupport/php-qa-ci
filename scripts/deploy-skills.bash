@@ -584,11 +584,12 @@ else
     echo "  Classic .claude/hooks/*.py files have been deployed but won't run without daemon."
     echo ""
     echo "  To install hooks-daemon:"
-    echo "    git clone -b v2.2.0 https://github.com/anthropics/claude-code-hooks-daemon.git .claude/hooks-daemon"
+    echo "    git clone -b v2.2.0 https://github.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon.git .claude/hooks-daemon"
     echo "    cd .claude/hooks-daemon"
-    echo "    ./scripts/install/install.bash"
+    echo "    python3 -m venv untracked/venv && untracked/venv/bin/pip install -e ."
+    echo "    untracked/venv/bin/python install.py"
     echo ""
-    echo "  Or see: https://github.com/anthropics/claude-code-hooks-daemon"
+    echo "  Or see: https://github.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon"
     echo ""
 fi
 
