@@ -26,41 +26,24 @@ use PHPUnit\Framework\TestCase;
 #[\PHPUnit\Framework\Attributes\Small]
 final class ToolFragmentLivenessTest extends TestCase
 {
-    private const INCLUDES_DIR = __DIR__ . '/../../../includes';
-
-    /** @return array<string, array{0: string}> */
-    public static function provideToolFragments(): array
-    {
-        $cases = [];
-        foreach (['generic', 'symfony'] as $platform) {
-            $paths = \glob(self::INCLUDES_DIR . '/' . $platform . '/*.inc.bash');
-            self::assertNotFalse($paths);
-            foreach ($paths as $path) {
-                $cases[$platform . '/' . \basename($path)] = [$path];
-            }
-        }
-        if ([] === $cases) {
-            self::fail('No tool fragments found under ' . self::INCLUDES_DIR . ' — the glob or repo layout is broken.');
-        }
-
-        return $cases;
-    }
+    private const string INCLUDES_DIR = __DIR__ . '/../../../includes';
 
     #[\PHPUnit\Framework\Attributes\DataProvider('provideToolFragments')]
     public function testFragmentContainsExecutableCode(string $path): void
     {
-        $contents = \file_get_contents($path);
-        self::assertNotFalse($contents, "Could not read fragment {$path}");
+        $contents = \Safe\file_get_contents($path);
 
         $codeLines = [];
-        foreach (\explode("\n", $contents) as $line) {
-            $trimmed = \trim($line);
+        foreach (explode("\n", $contents) as $line) {
+            $trimmed = trim($line);
             if ('' === $trimmed) {
                 continue;
             }
-            if (\str_starts_with($trimmed, '#')) {
+
+            if (str_starts_with($trimmed, '#')) {
                 continue;
             }
+
             $codeLines[] = $trimmed;
         }
 
@@ -77,6 +60,25 @@ final class ToolFragmentLivenessTest extends TestCase
         );
     }
 
+    /** @return array<string, array{0: string}> */
+    public static function provideToolFragments(): array
+    {
+        $cases = [];
+        foreach (['generic', 'symfony'] as $platform) {
+            $paths = \Safe\glob(self::INCLUDES_DIR . '/' . $platform . '/*.inc.bash');
+            foreach ($paths as $path) {
+                self::assertIsString($path);
+                $cases[$platform . '/' . basename($path)] = [$path];
+            }
+        }
+
+        if ([] === $cases) {
+            self::fail('No tool fragments found under ' . self::INCLUDES_DIR . ' — the glob or repo layout is broken.');
+        }
+
+        return $cases;
+    }
+
     public function testEveryRegisteredToolResolvesToAFragment(): void
     {
         // Since M-011 the alias→tool mapping lives in the declarative tool
@@ -86,8 +88,7 @@ final class ToolFragmentLivenessTest extends TestCase
         // the emptied psr4Validate / commented phpunitAnnotations fragments once
         // violated.
         $registryPath = self::INCLUDES_DIR . '/generic/toolRegistry.inc.bash';
-        $contents     = \file_get_contents($registryPath);
-        self::assertNotFalse($contents, "Could not read {$registryPath}");
+        $contents     = \Safe\file_get_contents($registryPath);
 
         $names   = $this->parseIndexedArray($contents, 'QA_TOOL_NAMES');
         $targets = $this->parseAssocArray($contents, 'QA_TOOL_TARGET');
@@ -97,14 +98,15 @@ final class ToolFragmentLivenessTest extends TestCase
         foreach ($names as $name) {
             $tools[] = $targets[$name] ?? $name;
         }
-        $tools = \array_unique($tools);
+
+        $tools = array_unique($tools);
 
         foreach ($tools as $tool) {
             $candidates = [
                 self::INCLUDES_DIR . '/generic/' . $tool . '.inc.bash',
                 self::INCLUDES_DIR . '/symfony/' . $tool . '.inc.bash',
             ];
-            $found = \array_filter($candidates, static fn (string $p): bool => \is_file($p));
+            $found = array_filter($candidates, is_file(...));
             self::assertNotSame(
                 [],
                 $found,
@@ -112,7 +114,7 @@ final class ToolFragmentLivenessTest extends TestCase
                     'Tool "%s" is registered in the tool registry but no fragment exists at %s. '
                     . 'Either restore the fragment or remove the tool from the registry.',
                     $tool,
-                    \implode(' or ', $candidates),
+                    implode(' or ', $candidates),
                 ),
             );
         }
@@ -122,22 +124,36 @@ final class ToolFragmentLivenessTest extends TestCase
     private function parseIndexedArray(string $contents, string $name): array
     {
         $body  = $this->arrayBody($contents, $name);
-        $words = \preg_split('/\s+/', \trim($body));
-        self::assertNotFalse($words);
+        $words = \Safe\preg_split('/\s+/', trim($body));
 
-        return \array_values(\array_filter($words, static fn (string $w): bool => '' !== $w));
+        $result = [];
+        foreach ($words as $word) {
+            self::assertIsString($word);
+            if ('' !== $word) {
+                $result[] = $word;
+            }
+        }
+
+        return $result;
     }
 
     /** @return array<string, string> */
     private function parseAssocArray(string $contents, string $name): array
     {
         $body = $this->arrayBody($contents, 'declare -A ' . $name);
-        \preg_match_all('/\[([A-Za-z0-9_]+)\]=(?:"([^"]*)"|(\S+))/', $body, $matches, \PREG_SET_ORDER);
+        \Safe\preg_match_all('/\[(\w+)\]=(?:"([^"]*)"|(\S+))/', $body, $matches, \PREG_SET_ORDER);
+        self::assertIsArray($matches);
         $result = [];
         foreach ($matches as $match) {
+            self::assertIsArray($match);
+            $key = $match[1] ?? null;
+            self::assertIsString($key);
             // Quoted value in group 2, bare value in group 3; only one is present.
-            $quoted            = $match[2] ?? '';
-            $result[$match[1]] = '' !== $quoted ? $quoted : ($match[3] ?? '');
+            $quoted = $match[2] ?? '';
+            $bare   = $match[3] ?? '';
+            self::assertIsString($quoted);
+            self::assertIsString($bare);
+            $result[$key] = '' !== $quoted ? $quoted : $bare;
         }
 
         return $result;
@@ -146,8 +162,10 @@ final class ToolFragmentLivenessTest extends TestCase
     private function arrayBody(string $contents, string $declaration): string
     {
         // Body runs from "=(" to the first ")" anchored at the start of a line.
-        $pattern = '/' . \preg_quote($declaration, '/') . '=\((?<body>.*?)^\)/ms';
-        self::assertSame(1, \preg_match($pattern, $contents, $m), "Could not locate array {$declaration} in the registry.");
+        $pattern = '/' . preg_quote($declaration, '/') . '=\((?<body>.*?)^\)/ms';
+        self::assertSame(1, \Safe\preg_match($pattern, $contents, $m), \sprintf('Could not locate array %s in the registry.', $declaration));
+        self::assertIsArray($m);
+        self::assertArrayHasKey('body', $m);
 
         return $m['body'];
     }

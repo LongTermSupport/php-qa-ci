@@ -35,14 +35,14 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ToolRegistryCharacterisationTest extends TestCase
 {
-    private const INCLUDES_DIR = __DIR__ . '/../../../includes';
+    private const string INCLUDES_DIR = __DIR__ . '/../../../includes';
 
     /**
      * Every accepted `-t <token>` and the canonical tool it resolves to.
      *
      * @var array<string, string>
      */
-    private const GOLDEN_ALIAS_MAP = [
+    private const array GOLDEN_ALIAS_MAP = [
         'allLints'                 => 'allLintingTools',
         'allStatic'                => 'allStaticAnalysisTools',
         'allTests'                 => 'allTestingTools',
@@ -91,27 +91,27 @@ final class ToolRegistryCharacterisationTest extends TestCase
      *
      * @var array<string, bool>
      */
-    private const GOLDEN_PATH_SUPPORT = [
+    private const array GOLDEN_PATH_SUPPORT = [
         // path-supporting
-        'phpstan'        => true,
-        'stan'           => true,
-        'phpCsFixer'     => true,
-        'fixer'          => true,
-        'f'              => true,
-        'csfixer'        => true,
-        'rector'         => true,
-        'r'              => true,
-        'phpLint'        => true,
-        'lint'           => true,
-        'phplint'        => true,
-        'phpStrictTypes' => true,
-        'stricttypes'    => true,
-        'st'             => true,
-        'phploc'         => true,
-        'loc'            => true,
-        'l'              => true,
-        'phpunit'        => true,
-        'unit'           => true,
+        'phpstan'                 => true,
+        'stan'                    => true,
+        'phpCsFixer'              => true,
+        'fixer'                   => true,
+        'f'                       => true,
+        'csfixer'                 => true,
+        'rector'                  => true,
+        'r'                       => true,
+        'phpLint'                 => true,
+        'lint'                    => true,
+        'phplint'                 => true,
+        'phpStrictTypes'          => true,
+        'stricttypes'             => true,
+        'st'                      => true,
+        'phploc'                  => true,
+        'loc'                     => true,
+        'l'                       => true,
+        'phpunit'                 => true,
+        'unit'                    => true,
         // NOT path-supporting
         'composerChecks'          => false,
         'composer'                => false,
@@ -154,7 +154,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
      *
      * @var array<string, list<string>>
      */
-    private const GOLDEN_PHASE_ORDER = [
+    private const array GOLDEN_PHASE_ORDER = [
         'allCodingStandardsTools' => ['rector', 'phpCsFixer'],
         'allLintingTools'         => [
             'psr4Validate',
@@ -165,79 +165,9 @@ final class ToolRegistryCharacterisationTest extends TestCase
             'composerRequireChecker',
             'markdownLinks',
         ],
-        'allStaticAnalysisTools' => ['branchNamePolicy', 'phpstan', 'phpArkitect', 'sensitiveParameterUsage'],
-        'allTestingTools'        => ['phpunit', 'infection'],
+        'allStaticAnalysisTools'  => ['branchNamePolicy', 'phpstan', 'phpArkitect', 'sensitiveParameterUsage'],
+        'allTestingTools'         => ['phpunit', 'infection'],
     ];
-
-    public function testAliasMapMatchesGolden(): void
-    {
-        // Alias resolution is a key lookup, so the map is a set of token=>tool
-        // mappings; declaration order is not a behavioural contract. Compare by
-        // key to assert identical membership and mapping, order-independent.
-        $expected = self::GOLDEN_ALIAS_MAP;
-        $actual   = $this->extractAliasMap();
-        \ksort($expected);
-        \ksort($actual);
-        self::assertSame($expected, $actual);
-    }
-
-    /** @return array<string, array{0: string, 1: bool}> */
-    public static function providePathSupport(): array
-    {
-        $cases = [];
-        foreach (self::GOLDEN_PATH_SUPPORT as $token => $supported) {
-            $cases[$token] = [$token, $supported];
-        }
-
-        return $cases;
-    }
-
-    #[DataProvider('providePathSupport')]
-    public function testPathSupportClassificationMatchesGolden(string $token, bool $expected): void
-    {
-        $actual = $this->extractPathClassification();
-        self::assertArrayHasKey(
-            $token,
-            $actual,
-            "Token '{$token}' is no longer classified by the path-support gate.",
-        );
-        self::assertSame(
-            $expected,
-            $actual[$token],
-            "Path-support classification for token '{$token}' changed.",
-        );
-    }
-
-    public function testPathClassificationHasNoUnexpectedTokens(): void
-    {
-        $actual = \array_keys($this->extractPathClassification());
-        $golden = \array_keys(self::GOLDEN_PATH_SUPPORT);
-        \sort($actual);
-        \sort($golden);
-        self::assertSame($golden, $actual, 'The set of path-classified tokens drifted from the golden set.');
-    }
-
-    /** @return array<string, array{0: string, 1: list<string>}> */
-    public static function providePhaseOrder(): array
-    {
-        $cases = [];
-        foreach (self::GOLDEN_PHASE_ORDER as $phase => $tools) {
-            $cases[$phase] = [$phase, $tools];
-        }
-
-        return $cases;
-    }
-
-    /**
-     * @param list<string> $expected
-     */
-    #[DataProvider('providePhaseOrder')]
-    public function testPhaseOrderMatchesGolden(string $phaseRunner, array $expected): void
-    {
-        $actual = $this->extractPhaseOrder();
-        self::assertArrayHasKey($phaseRunner, $actual, "Phase runner '{$phaseRunner}' produced no tool sequence.");
-        self::assertSame($expected, $actual[$phaseRunner], "Tool ordering for '{$phaseRunner}' changed.");
-    }
 
     // ---------------------------------------------------------------------
     // Extraction of the single source of truth — the tool registry.
@@ -253,7 +183,77 @@ final class ToolRegistryCharacterisationTest extends TestCase
     // ToolFragmentLivenessTest.)
     // ---------------------------------------------------------------------
 
-    private const REGISTRY = self::INCLUDES_DIR . '/generic/toolRegistry.inc.bash';
+    private const string REGISTRY = self::INCLUDES_DIR . '/generic/toolRegistry.inc.bash';
+
+    public function testAliasMapMatchesGolden(): void
+    {
+        // Alias resolution is a key lookup, so the map is a set of token=>tool
+        // mappings; declaration order is not a behavioural contract. Compare by
+        // key to assert identical membership and mapping, order-independent.
+        $expected = self::GOLDEN_ALIAS_MAP;
+        $actual   = $this->extractAliasMap();
+        ksort($expected);
+        ksort($actual);
+        self::assertSame($expected, $actual);
+    }
+
+    #[DataProvider('providePathSupport')]
+    public function testPathSupportClassificationMatchesGolden(string $token, bool $expected): void
+    {
+        $actual = $this->extractPathClassification();
+        self::assertArrayHasKey(
+            $token,
+            $actual,
+            \sprintf("Token '%s' is no longer classified by the path-support gate.", $token),
+        );
+        self::assertSame(
+            $expected,
+            $actual[$token],
+            \sprintf("Path-support classification for token '%s' changed.", $token),
+        );
+    }
+
+    /** @return array<string, array{0: string, 1: bool}> */
+    public static function providePathSupport(): array
+    {
+        $cases = [];
+        foreach (self::GOLDEN_PATH_SUPPORT as $token => $supported) {
+            $cases[$token] = [$token, $supported];
+        }
+
+        return $cases;
+    }
+
+    public function testPathClassificationHasNoUnexpectedTokens(): void
+    {
+        $actual = array_keys($this->extractPathClassification());
+        $golden = array_keys(self::GOLDEN_PATH_SUPPORT);
+        sort($actual);
+        sort($golden);
+        self::assertSame($golden, $actual, 'The set of path-classified tokens drifted from the golden set.');
+    }
+
+    /**
+     * @param list<string> $expected
+     */
+    #[DataProvider('providePhaseOrder')]
+    public function testPhaseOrderMatchesGolden(string $phaseRunner, array $expected): void
+    {
+        $actual = $this->extractPhaseOrder();
+        self::assertArrayHasKey($phaseRunner, $actual, \sprintf("Phase runner '%s' produced no tool sequence.", $phaseRunner));
+        self::assertSame($expected, $actual[$phaseRunner], \sprintf("Tool ordering for '%s' changed.", $phaseRunner));
+    }
+
+    /** @return array<string, array{0: string, 1: list<string>}> */
+    public static function providePhaseOrder(): array
+    {
+        $cases = [];
+        foreach (self::GOLDEN_PHASE_ORDER as $phase => $tools) {
+            $cases[$phase] = [$phase, $tools];
+        }
+
+        return $cases;
+    }
 
     /** @return array<string, string> */
     private function extractAliasMap(): array
@@ -282,8 +282,9 @@ final class ToolRegistryCharacterisationTest extends TestCase
         foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
             $tokens = $this->splitWords($aliases[$name] ?? '');
             if (!\in_array($name, $tokens, true)) {
-                \array_unshift($tokens, $name);
+                array_unshift($tokens, $name);
             }
+
             foreach ($tokens as $token) {
                 $classification[$token] = 'yes' === ($paths[$name] ?? 'no');
             }
@@ -310,7 +311,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
             if ('' === $phase) {
                 continue;
             }
-            self::assertArrayHasKey($phase, $phaseToRunner, "Registry declares unknown phase '{$phase}' for '{$name}'.");
+
+            self::assertArrayHasKey($phase, $phaseToRunner, \sprintf("Registry declares unknown phase '%s' for '%s'.", $phase, $name));
             $order[$phaseToRunner[$phase]][] = $name;
         }
 
@@ -321,6 +323,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
     private function parseIndexedArray(string $name): array
     {
         $body = $this->arrayBody($name);
+
         return $this->splitWords($body);
     }
 
@@ -329,12 +332,19 @@ final class ToolRegistryCharacterisationTest extends TestCase
     {
         $body = $this->arrayBody('declare -A ' . $name);
         // Values may be quoted ([k]="v") or bare ([k]=v) in the registry.
-        \preg_match_all('/\[([A-Za-z0-9_]+)\]=(?:"([^"]*)"|(\S+))/', $body, $matches, \PREG_SET_ORDER);
+        \Safe\preg_match_all('/\[(\w+)\]=(?:"([^"]*)"|(\S+))/', $body, $matches, \PREG_SET_ORDER);
+        self::assertIsArray($matches);
         $result = [];
         foreach ($matches as $match) {
+            self::assertIsArray($match);
+            $key = $match[1] ?? null;
+            self::assertIsString($key);
             // Quoted value in group 2, bare value in group 3; only one is present.
-            $quoted            = $match[2] ?? '';
-            $result[$match[1]] = '' !== $quoted ? $quoted : ($match[3] ?? '');
+            $quoted = $match[2] ?? '';
+            $bare   = $match[3] ?? '';
+            self::assertIsString($quoted);
+            self::assertIsString($bare);
+            $result[$key] = '' !== $quoted ? $quoted : $bare;
         }
 
         return $result;
@@ -342,12 +352,13 @@ final class ToolRegistryCharacterisationTest extends TestCase
 
     private function arrayBody(string $declaration): string
     {
-        $contents = \file_get_contents(self::REGISTRY);
-        self::assertNotFalse($contents, 'Could not read ' . self::REGISTRY);
+        $contents = \Safe\file_get_contents(self::REGISTRY);
 
         // Body runs from the "=(" opener to the first ")" anchored at line start.
-        $pattern = '/' . \preg_quote($declaration, '/') . '=\((?<body>.*?)^\)/ms';
-        self::assertSame(1, \preg_match($pattern, $contents, $m), "Could not locate array {$declaration} in the registry.");
+        $pattern = '/' . preg_quote($declaration, '/') . '=\((?<body>.*?)^\)/ms';
+        self::assertSame(1, \Safe\preg_match($pattern, $contents, $m), \sprintf('Could not locate array %s in the registry.', $declaration));
+        self::assertIsArray($m);
+        self::assertArrayHasKey('body', $m);
 
         return $m['body'];
     }
@@ -355,9 +366,16 @@ final class ToolRegistryCharacterisationTest extends TestCase
     /** @return list<string> */
     private function splitWords(string $value): array
     {
-        $words = \preg_split('/\s+/', \trim($value));
-        self::assertNotFalse($words);
+        $words = \Safe\preg_split('/\s+/', trim($value));
 
-        return \array_values(\array_filter($words, static fn (string $w): bool => '' !== $w));
+        $result = [];
+        foreach ($words as $word) {
+            self::assertIsString($word);
+            if ('' !== $word) {
+                $result[] = $word;
+            }
+        }
+
+        return $result;
     }
 }
