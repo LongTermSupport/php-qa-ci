@@ -80,42 +80,168 @@ echo "  • Require PR conversation resolution"
 # Apply protection
 echo -e "\n${BLUE}Applying protection...${NC}"
 
-# Create the protection rules
-# Note: When enforce_admins is false, admins can bypass PR requirements
-# We need to use --input with proper JSON instead of --field for complex objects
-PROTECTION_JSON=$(cat <<EOF
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": ["PHP QA Pipeline"]
-  },
-  "enforce_admins": ${ENFORCE_ADMINS},
-  "required_pull_request_reviews": {
-    "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": false,
-    "required_approving_review_count": ${REQUIRED_APPROVALS},
-    "require_last_push_approval": false
-  },
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false,
-  "block_creations": false,
-  "required_conversation_resolution": true,
-  "lock_branch": false,
-  "allow_fork_syncing": false,
-  "required_signatures": ${SIGNED_COMMITS},
-  "required_linear_history": false
-}
-EOF
-)
+# Merging over the existing protection requires python3 (json). This is a
+# maintainer-invoked script; fail early with a clear message if it is absent
+# rather than risk a malformed payload.
+if ! command -v python3 > /dev/null; then
+    echo -e "${RED}Error: python3 is required to merge branch protection safely${NC}"
+    exit 1
+fi
 
-echo "$PROTECTION_JSON" | gh api \
-    --method PUT \
-    -H "Accept: application/vnd.github+json" \
-    "/repos/${REPO}/branches/${BRANCH}/protection" \
-    --input - 2>&1 | tee /tmp/protection-result.txt > /dev/null \
-    && echo -e "${GREEN}✓ Branch protection applied${NC}" \
-    || (echo -e "${RED}✗ Failed to apply protection${NC}" && cat /tmp/protection-result.txt | jq -r '.message // .errors[0].message // .' 2>/dev/null | head -5)
+# Temp files: current protection (GET), the merged PUT payload, the PUT result,
+# and captured stderr. mktemp avoids the predictable, world-readable
+# /tmp/protection-result.txt; the trap cleans them up on any exit.
+tmp_current="$(mktemp)"
+tmp_payload="$(mktemp)"
+tmp_result="$(mktemp)"
+tmp_err="$(mktemp)"
+trap 'rm -f "$tmp_current" "$tmp_payload" "$tmp_result" "$tmp_err"' EXIT
+
+# GET the current protection so we MERGE our modeled fields over it rather than
+# blind-replacing the whole object. A wholesale PUT silently drops any existing
+# status-check contexts (other CI jobs!), push restrictions, and settings this
+# script does not model. A 404 means the branch is currently unprotected, in
+# which case a fresh PUT of our defaults is correct.
+if gh api -H "Accept: application/vnd.github+json" \
+        "/repos/${REPO}/branches/${BRANCH}/protection" > "$tmp_current" 2> "$tmp_err"; then
+    echo -e "${BLUE}Merging over existing branch protection...${NC}"
+else
+    if grep -qiE 'not protected|not found|HTTP 404' "$tmp_err"; then
+        echo -e "${BLUE}ℹ No existing branch protection — applying a fresh policy.${NC}"
+        echo '{}' > "$tmp_current"
+    else
+        echo -e "${RED}✗ Could not read current branch protection:${NC}"
+        cat "$tmp_err"
+        exit 1
+    fi
+fi
+
+# Build the PUT payload by overlaying our modeled fields on the current state.
+# The GitHub GET and PUT schemas are asymmetric (GET nests {enabled: bool}
+# objects; PUT wants flat booleans and login/slug arrays), so a structured
+# transform is required — hence python rather than a shell splice.
+python3 - "$tmp_current" "$tmp_payload" "$ENFORCE_ADMINS" "$REQUIRED_APPROVALS" "$SIGNED_COMMITS" <<'PYTHON_MERGE'
+import json
+import sys
+
+current_path, payload_path, enforce_admins, approvals, signed = sys.argv[1:6]
+
+with open(current_path) as fh:
+    current = json.load(fh) or {}
+
+
+def as_bool(value):
+    return str(value).lower() == "true"
+
+
+def enabled_of(node):
+    # GET returns many toggles as {"enabled": bool}; normalise to a plain bool.
+    if isinstance(node, dict):
+        return bool(node.get("enabled", False))
+    return bool(node)
+
+
+OUR_CONTEXT = "PHP QA Pipeline"
+
+# required_status_checks: preserve every existing context (both the legacy
+# `contexts` list and the newer `checks` objects), then add ours.
+existing_rsc = current.get("required_status_checks") or {}
+existing_contexts = list(existing_rsc.get("contexts") or [])
+for check in existing_rsc.get("checks") or []:
+    ctx = check.get("context")
+    if ctx and ctx not in existing_contexts:
+        existing_contexts.append(ctx)
+merged_contexts = list(existing_contexts)
+if OUR_CONTEXT not in merged_contexts:
+    merged_contexts.append(OUR_CONTEXT)
+
+# restrictions: preserve existing push restrictions, converting GET's object
+# arrays into the login/slug arrays PUT expects.
+existing_restrictions = current.get("restrictions")
+if existing_restrictions:
+    restrictions = {
+        "users": [u.get("login") for u in existing_restrictions.get("users", []) if u.get("login")],
+        "teams": [t.get("slug") for t in existing_restrictions.get("teams", []) if t.get("slug")],
+        "apps": [a.get("slug") for a in existing_restrictions.get("apps", []) if a.get("slug")],
+    }
+else:
+    restrictions = None
+
+# required_pull_request_reviews: overlay our modeled keys, keep any others the
+# repo already had; drop GET-only sub-objects that are invalid as PUT input.
+existing_reviews = current.get("required_pull_request_reviews") or {}
+reviews = dict(existing_reviews)
+reviews.update({
+    "dismiss_stale_reviews": True,
+    "require_code_owner_reviews": existing_reviews.get("require_code_owner_reviews", False),
+    "required_approving_review_count": int(approvals),
+    "require_last_push_approval": existing_reviews.get("require_last_push_approval", False),
+})
+for get_only in ("url", "dismissal_restrictions", "bypass_pull_request_allowances"):
+    reviews.pop(get_only, None)
+
+payload = {
+    "required_status_checks": {"strict": True, "contexts": merged_contexts},
+    "enforce_admins": as_bool(enforce_admins),
+    "required_pull_request_reviews": reviews,
+    "restrictions": restrictions,
+    "allow_force_pushes": False,
+    "allow_deletions": False,
+    "block_creations": enabled_of(current.get("block_creations")),
+    "required_conversation_resolution": True,
+    "lock_branch": enabled_of(current.get("lock_branch")),
+    "allow_fork_syncing": enabled_of(current.get("allow_fork_syncing")),
+    "required_signatures": as_bool(signed),
+    "required_linear_history": enabled_of(current.get("required_linear_history")),
+}
+
+with open(payload_path, "w") as fh:
+    json.dump(payload, fh, indent=2)
+
+# Diff-style summary of what this run changes.
+print("  Branch protection changes:")
+added = [c for c in merged_contexts if c not in existing_contexts]
+if added:
+    print("    + status-check contexts: " + ", ".join(added))
+if existing_contexts:
+    print("    = preserved existing contexts: " + ", ".join(existing_contexts))
+if restrictions:
+    print("    = preserved existing push restrictions (users/teams/apps)")
+
+
+def report_change(label, old, new):
+    if old != new:
+        print("    ~ {0}: {1} -> {2}".format(label, old, new))
+
+
+report_change("enforce_admins", enabled_of(current.get("enforce_admins")), as_bool(enforce_admins))
+report_change("required_signatures", enabled_of(current.get("required_signatures")), as_bool(signed))
+report_change(
+    "required_approving_review_count",
+    existing_reviews.get("required_approving_review_count"),
+    int(approvals),
+)
+PYTHON_MERGE
+
+# PUT the merged payload. Use an explicit if/else (not A && B || C) so a failing
+# success-branch cannot fall through to the failure message (SC2015).
+if gh api \
+        --method PUT \
+        -H "Accept: application/vnd.github+json" \
+        "/repos/${REPO}/branches/${BRANCH}/protection" \
+        --input "$tmp_payload" > "$tmp_result" 2> "$tmp_err"; then
+    echo -e "${GREEN}✓ Branch protection applied (merged over existing settings)${NC}"
+else
+    echo -e "${RED}✗ Failed to apply protection${NC}"
+    # Surface the API error message. gh writes the response body to stdout
+    # (captured in $tmp_result) and a summary line to stderr ($tmp_err).
+    if command -v jq > /dev/null && jq -e . "$tmp_result" > /dev/null; then
+        jq -r '.message // .errors[0].message // .' "$tmp_result"
+    else
+        cat "$tmp_err"
+    fi
+    exit 1
+fi
 
 # Configure repo settings
 gh api \

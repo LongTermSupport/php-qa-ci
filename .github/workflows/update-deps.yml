@@ -16,10 +16,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # No explicit `ref:` — actions/checkout defaults to the repository's own
+      # default branch for schedule/workflow_dispatch events. This keeps the
+      # workflow correct when a consumer copies it verbatim: it operates on the
+      # consumer's default branch, not php-qa-ci's. (Hardcoding a branch here
+      # previously shipped `ref: php8.4` to consumers, breaking their scheduled
+      # runs at checkout.)
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: php8.4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2

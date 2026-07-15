@@ -88,8 +88,10 @@ while IFS= read -r -d '' git_dir; do
     # Get the repo directory (parent of .git)
     repo_dir="$(dirname "$git_dir")"
 
-    # Get path relative to project root for display
-    relative_path="${repo_dir#$PROJECT_ROOT/}"
+    # Get path relative to project root for display. Quote the prefix so the
+    # pattern is treated literally (SC2295); an unquoted $PROJECT_ROOT would be
+    # interpreted as a glob and mis-strip a path containing *, ?, or [.
+    relative_path="${repo_dir#"$PROJECT_ROOT"/}"
 
     # Extract package name from path (vendor/org/package -> org/package)
     package_name="${relative_path#vendor/}"

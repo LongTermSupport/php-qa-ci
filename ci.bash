@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 readonly DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
-cd $DIR;
+cd "$DIR";
 set -e
 set -u
 set -o pipefail
-standardIFS="$IFS"
+# Note: no standardIFS here — bin/qa runs as its own process and re-derives its
+# own standardIFS internally, so setting it in this entrypoint did nothing.
 IFS=$'\n\t'
 echo "
 ===========================================
-$(hostname) $0 $@
+$(hostname) $0 $*
 ===========================================
 "
 export phpqaQuickTests=0
@@ -22,6 +23,6 @@ bin/qa |& tee var/qa/ci.log
 
 echo "
 ===========================================
-$(hostname) $0 $@ COMPLETED
+$(hostname) $0 $* COMPLETED
 ===========================================
 "

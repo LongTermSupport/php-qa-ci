@@ -14,6 +14,29 @@ fi
 QACI_PATH="$(realpath "$QACI_PATH")"
 PROJECT_ROOT="$(realpath "$PROJECT_ROOT")"
 
+# Ownership-model helpers (install_owned_file / install_owned_tree). Deployed
+# skills/agents/hooks are php-qa-ci-OWNED and overwritten unconditionally with a
+# single consistent mechanism — see scripts/lib/consumer-write.inc.bash.
+# shellcheck source=scripts/lib/consumer-write.inc.bash
+source "$QACI_PATH/scripts/lib/consumer-write.inc.bash"
+
+# Minimum hooks-daemon version the daemon-config enforcement below targets
+# (fingerprint-keyed venv + pyyaml). A single constant so the "not detected"
+# install instructions cannot drift from what the YAML enforcement path requires
+# (this previously pinned v2.2.0 while the enforcement assumed v3.9.0+).
+readonly DAEMON_INSTALL_REF="v3.9.0"
+
+# python3 is required for the settings.json / composer.json merges below (system
+# python3, distinct from the daemon venv used for YAML). Check it ONCE, up front,
+# BEFORE any mutation: a missing interpreter must fail cleanly here rather than
+# abort a half-applied deploy at the first bare `python3` heredoc under `set -e`.
+if ! command -v python3 > /dev/null; then
+    echo "ERROR: python3 is required to deploy php-qa-ci skills/agents/hooks" >&2
+    echo "       (used for settings.json and composer.json updates) but was not found on PATH." >&2
+    echo "       Install python3 and re-run — no changes have been made yet." >&2
+    exit 1
+fi
+
 SKILLS_SOURCE="$QACI_PATH/.claude/skills"
 SKILLS_TARGET="$PROJECT_ROOT/.claude/skills"
 AGENTS_SOURCE="$QACI_PATH/.claude/agents"
@@ -102,10 +125,10 @@ if [[ -d "$SKILLS_SOURCE" ]]; then
             skill_name=$(basename "$skill_dir")
             echo "  Installing skill: $skill_name"
 
-            # Remove existing skill directory to prevent nested copying
-            rm -rf "$SKILLS_TARGET/$skill_name"
-            # Copy skill directory
-            cp -r "$skill_dir" "$SKILLS_TARGET/$skill_name"
+            # OWNED artefact: remove-then-copy, guarded against an empty target
+            # (${VAR:?}) and printing an informational notice when the existing
+            # tree differs. See scripts/lib/consumer-write.inc.bash.
+            install_owned_tree "$skill_dir" "$SKILLS_TARGET/$skill_name" "skill '$skill_name'"
 
             # Make scripts executable
             if [[ -d "$SKILLS_TARGET/$skill_name/scripts" ]]; then
@@ -122,7 +145,7 @@ if [[ -d "$AGENTS_SOURCE" ]]; then
         if [[ -f "$agent_file" ]]; then
             agent_name=$(basename "$agent_file")
             echo "  Installing agent: $agent_name"
-            cp "$agent_file" "$AGENTS_TARGET/$agent_name"
+            install_owned_file "$agent_file" "$AGENTS_TARGET/$agent_name" "agent '$agent_name'"
         fi
     done
 fi
@@ -133,7 +156,7 @@ if [[ "$DAEMON_DETECTED" == "false" ]] && [[ -d "$HOOKS_SOURCE" ]]; then
         if [[ -f "$hook_file" ]]; then
             hook_name=$(basename "$hook_file")
             echo "  Installing hook: $hook_name"
-            cp "$hook_file" "$HOOKS_TARGET/$hook_name"
+            install_owned_file "$hook_file" "$HOOKS_TARGET/$hook_name" "hook '$hook_name'"
             chmod +x "$HOOKS_TARGET/$hook_name"
         fi
     done
@@ -344,24 +367,14 @@ if [[ -d "$GIT_HOOKS_SOURCE" ]] && [[ -d "$GIT_HOOKS_TARGET" ]]; then
     PRE_COMMIT_TARGET="$GIT_HOOKS_TARGET/pre-commit"
 
     if [[ -f "$PRE_COMMIT_SOURCE" ]]; then
-        if [[ -f "$PRE_COMMIT_TARGET" ]]; then
-            # Check if existing hook is our hook (by signature)
-            if grep -q "PHP-QA-CI-HOOK-SIGNATURE: pre-commit-check-vendor-uncommitted" "$PRE_COMMIT_TARGET" 2>/dev/null; then
-                echo "  Updating git pre-commit hook (php-qa-ci managed)..."
-                cp "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET"
-                chmod +x "$PRE_COMMIT_TARGET"
-                echo "  ✓ Git pre-commit hook updated: $PRE_COMMIT_TARGET"
-            else
-                echo "  ⚠️  Git pre-commit hook already exists (custom) - skipping deployment"
-                echo "      Existing: $PRE_COMMIT_TARGET"
-                echo "      To use php-qa-ci hook, backup existing and re-run deployment"
-            fi
-        else
-            echo "  Installing git pre-commit hook..."
-            cp "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET"
-            chmod +x "$PRE_COMMIT_TARGET"
-            echo "  ✓ Git pre-commit hook installed: $PRE_COMMIT_TARGET"
-        fi
+        # OWNED artefact: the git pre-commit hook is php-qa-ci-managed (its header
+        # marks it DO NOT EDIT) and is overwritten unconditionally — the same one
+        # mechanism as skills/agents/hooks. If a differing hook already exists,
+        # install_owned_file prints an informational notice naming what it
+        # replaces (no signature gate, no prompt).
+        install_owned_file "$PRE_COMMIT_SOURCE" "$PRE_COMMIT_TARGET" "git pre-commit hook"
+        chmod +x "$PRE_COMMIT_TARGET"
+        echo "  ✓ Git pre-commit hook installed: $PRE_COMMIT_TARGET"
     fi
 fi
 
@@ -502,7 +515,7 @@ PYTHON_DAEMON_CONFIG
     for hook_file in "$HOOKS_TARGET"/php-qa-ci__*.py; do
         if [[ -f "$hook_file" ]]; then
             hook_name=$(basename "$hook_file")
-            rm -f "$hook_file"
+            rm -f "${hook_file:?}"
             echo "  ✓ Removed file: $hook_name"
             FILES_REMOVED=$((FILES_REMOVED + 1))
         fi
@@ -588,7 +601,7 @@ else
     echo "  Classic .claude/hooks/*.py files have been deployed but won't run without daemon."
     echo ""
     echo "  To install hooks-daemon:"
-    echo "    git clone -b v2.2.0 https://github.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon.git .claude/hooks-daemon"
+    echo "    git clone -b $DAEMON_INSTALL_REF https://github.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon.git .claude/hooks-daemon"
     echo "    cd .claude/hooks-daemon"
     echo "    python3 -m venv untracked/venv && untracked/venv/bin/pip install -e ."
     echo "    untracked/venv/bin/python install.py"

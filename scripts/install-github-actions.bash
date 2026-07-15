@@ -12,6 +12,9 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PHP_QA_CI_DIR="$(dirname "$SCRIPT_DIR")"
 
+# shellcheck source=scripts/lib/consumer-write.inc.bash
+source "$SCRIPT_DIR/lib/consumer-write.inc.bash"
+
 # Look for project root by searching for composer.json
 PROJECT_ROOT=""
 CURRENT_DIR="$PWD"
@@ -44,44 +47,15 @@ install_workflow() {
     
     # Create .github/workflows directory
     mkdir -p "$target_dir"
-    
-    if [[ -f "$target_file" ]]; then
-        echo -e "${YELLOW}Warning: $target_file already exists${NC}"
-        read -p "Do you want to overwrite it? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Skipping workflow installation"
-            return
-        fi
-    fi
-    
-    # Copy the template
-    cp "$PHP_QA_CI_DIR/templates/github-actions/php-qa-ci.yml" "$target_file"
-    echo -e "${GREEN}✓ GitHub Actions workflow installed at: $target_file${NC}"
-}
 
-# Function to check PHP version in composer.json
-check_php_version() {
-    local composer_file="$PROJECT_ROOT/composer.json"
-    local php_version=""
-    
-    if command -v jq &> /dev/null; then
-        php_version=$(jq -r '.require.php // empty' "$composer_file" 2>/dev/null)
-    elif command -v php &> /dev/null; then
-        php_version=$(php -r "
-            \$json = json_decode(file_get_contents('$composer_file'), true);
-            echo \$json['require']['php'] ?? '';
-        " 2>/dev/null)
-    fi
-    
-    if [[ -n "$php_version" ]]; then
-        echo -e "${YELLOW}Detected PHP version requirement: $php_version${NC}"
-        
-        # Extract major.minor version
-        if [[ "$php_version" =~ ([0-9]+\.[0-9]+) ]]; then
-            echo "${BASH_REMATCH[1]}"
-        fi
-    fi
+    # OWNED artefact: overwrite unconditionally (no prompt), printing an
+    # informational notice if an existing workflow differs. See the ownership
+    # model in scripts/lib/consumer-write.inc.bash.
+    install_owned_file \
+        "$PHP_QA_CI_DIR/templates/github-actions/php-qa-ci.yml" \
+        "$target_file" \
+        "GitHub Actions workflow"
+    echo -e "${GREEN}✓ GitHub Actions workflow installed at: $target_file${NC}"
 }
 
 # Function to show customization tips
@@ -114,9 +88,6 @@ main() {
     if [[ -d "$PROJECT_ROOT/.github/workflows" ]]; then
         echo -e "${YELLOW}Found existing .github/workflows directory${NC}"
     fi
-    
-    # Detect PHP version
-    php_version=$(check_php_version)
     
     # Install the workflow
     install_workflow

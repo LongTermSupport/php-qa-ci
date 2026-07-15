@@ -60,7 +60,7 @@ done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
 
 if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
     # Maintainer workflow: use phive to update/reinstall PHARs
-    if ! which phive 1>&2; then
+    if ! command -v phive >/dev/null; then
         if [[ $PHARS_INSTALLED -eq 1 ]]; then
             # PHARs are already present (committed to repo) — skip silently.
             # This happens when composer normalize or other commands trigger post-update-cmd.
@@ -88,9 +88,12 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
             "47CD54B6398FE21B3709D0A4D9C905CED1932CA2"  # PHPArkitect (Michele Orselli)
         )
 
-        TRUST_KEYS_ARG=""
+        # Build the phive invocation as an argument array (no eval). eval'ing a
+        # command string that splices a comma-joined key list is exactly the
+        # quoting hazard eval invites; an array keeps every argument intact.
+        phive_install_cmd=(phive --home "$PHIVE_HOME" install --copy)
         if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
-            TRUST_KEYS_ARG="--trust-gpg-keys $(IFS=','; echo "${TRUSTED_KEYS[*]}")"
+            phive_install_cmd+=(--trust-gpg-keys "$(IFS=','; echo "${TRUSTED_KEYS[*]}")")
         fi
 
         export XDEBUG_MODE=off
@@ -104,10 +107,10 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
                     rm "$phar_file"
                 fi
             done
-            eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+            "${phive_install_cmd[@]}"
         else
             echo -e "${GREEN}Force-installing PHAR dependencies via phive...${NC}"
-            eval "phive --home \"$PHIVE_HOME\" install --copy $TRUST_KEYS_ARG"
+            "${phive_install_cmd[@]}"
         fi
         echo -e "${GREEN}PHAR dependencies installed successfully${NC}"
         echo ""
