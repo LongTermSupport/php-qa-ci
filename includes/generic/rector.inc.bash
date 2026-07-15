@@ -1,3 +1,7 @@
+# shellcheck disable=SC2154 # qaDir/pathsToIgnore/pathsToCheck/testsDir are core pipeline
+#   variables bin/qa (setConfig, setPaths) sets before this fragment is sourced —
+#   genuine sourced-fragment architecture, not unset variables.
+#
 # Rector — automated refactoring (Safe-function conversion, PHPUnit upgrades, PHP 8.4).
 #
 # Rector MUTATES code. Whether it is allowed to write is governed by qaReadOnly

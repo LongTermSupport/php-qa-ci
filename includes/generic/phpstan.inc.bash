@@ -1,5 +1,6 @@
 set +e
 phpStanExitCode=99
+# shellcheck disable=SC2154 # varDir is set by bin/qa (setConfig) before this fragment is sourced
 phpStanLogDir="$varDir/phpstan_logs"
 phpStanLogFile="phpstan.log"
 mkdir -p "$phpStanLogDir"
@@ -32,6 +33,7 @@ if [[ "1" == "${useJsonOutput:-0}" ]]; then
   # JSON mode: single run, no retry loop, structured output
   phpStanJsonFile="$phpStanLogDir/phpstan.json"
 
+  # shellcheck disable=SC2154 # pharDir/pathsToCheck are set by bin/qa (setConfig, setPaths)
   phpNoXdebug -f "$pharDir"/phpstan.phar -- \
     analyse "${pathsToCheck[@]}" \
     -c "$phpstanConfigPath" \
@@ -45,6 +47,7 @@ if [[ "1" == "${useJsonOutput:-0}" ]]; then
   cat "$phpStanJsonFile" >&3
 
   # Archive the JSON log
+  # shellcheck disable=SC2154 # specifiedPath/pathsToCheck are set by bin/qa (options.inc.bash, setPaths)
   archiveToolLog "PHPStan" "$phpStanLogDir" "phpstan.json" "$specifiedPath" "${pathsToCheck[@]}"
 
   if ((phpStanExitCode > 1)); then

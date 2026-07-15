@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154 # phpArkitectConfigPath/srcDir/varDir/pharDir/projectRoot/
+#   specifiedPath/pathsToCheck are core pipeline variables bin/qa (setConfig)
+#   sets before this fragment is sourced — genuine sourced-fragment architecture.
+#
 # PHPArkitect — architectural rule enforcement (class naming, namespace
 # dependencies, layering). https://github.com/phparkitect/arkitect
 #
@@ -47,14 +51,18 @@ echo "PHPArkitect: using config $phpArkitectConfigPath"
 # project can also customise any tier. The phar's PHP process inherits these via
 # phpNoXdebug.
 export PHPQACI_ARKITECT_SRC_DIR="$srcDir"
-export PHPQACI_ARKITECT_RULES_DEFAULT="$(configPath phparkitect-rules-default.php)"
-export PHPQACI_ARKITECT_RULES_OPTIONAL="$(configPath phparkitect-rules-optional.php)"
-export PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY="$(configPath phparkitect-rules-optional-symfony.php)"
+export PHPQACI_ARKITECT_RULES_DEFAULT
+PHPQACI_ARKITECT_RULES_DEFAULT="$(configPath phparkitect-rules-default.php)"
+export PHPQACI_ARKITECT_RULES_OPTIONAL
+PHPQACI_ARKITECT_RULES_OPTIONAL="$(configPath phparkitect-rules-optional.php)"
+export PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY
+PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY="$(configPath phparkitect-rules-optional-symfony.php)"
 # Reusable consumer API-boundary rule FACTORY (not a tier). A consumer of a
 # type:library package loads this from its qaConfig/phparkitect.php to forbid its
 # own code from depending on that library's @internal namespaces — reaching it
 # only via the public @api namespace. See configDefaults/generic/phparkitect-consumer-api-boundary.php.
-export PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY="$(configPath phparkitect-consumer-api-boundary.php)"
+export PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY
+PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY="$(configPath phparkitect-consumer-api-boundary.php)"
 
 # Project-declared generated/excluded paths. A project lists extra paths to
 # exclude from arkitect (on top of the built-in 'Generated' convention) in

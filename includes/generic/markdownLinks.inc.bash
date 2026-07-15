@@ -1,3 +1,4 @@
+# shellcheck disable=SC2154 # projectRoot/binDir are set by bin/qa (setConfig) before this fragment is sourced
 if [[ -f $projectRoot/README.md ]]
 then
     # Retry loop via the shared driver (M-010) — identical behaviour to the

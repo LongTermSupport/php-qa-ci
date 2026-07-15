@@ -99,6 +99,7 @@ cd $qaDir
 set -e
 set -u
 set -o pipefail
+# shellcheck disable=SC2034 # consumed by includes/generic/infection.inc.bash to restore IFS
 standardIFS="$IFS"
 IFS=$'\n\t'
 echo "
@@ -169,6 +170,7 @@ else
     qaAggregate='false'
 fi
 export qaAggregate
+# shellcheck disable=SC2034 # consumed by includes/functions.inc.bash's aggregate-mode reporting
 qaFailedTools=()
 
 # the path in the project to check for config
@@ -183,6 +185,8 @@ echo "
 Checking for Xdebug
 -------------------
 "
+# shellcheck disable=SC2034 # xdebugEnabled is consumed by includes/functions.inc.bash
+#   (deriveDependentConfig) and includes/generic/infection.inc.bash
 if [[ "" == "$($phpBinPath -i | grep xdebug)" ]]; then
   xdebugEnabled=0
   echo "Xdebug is not enabled - infection and coverage not available"
@@ -210,10 +214,12 @@ Setting phpqa Config
 "
 runTool setConfig
 
+# shellcheck disable=SC2154 # specifiedPath/singleToolToRun are set by includes/options.inc.bash,
+#   sourced before this point in the pipeline — genuine sourced-fragment architecture.
 if [[ "$specifiedPath" != "" ]]; then
   echo "Only scanning the specified path $specifiedPath"
   pathsToCheck=()
-  pathsToCheck+=($projectRoot/$specifiedPath)
+  pathsToCheck+=("$projectRoot/$specifiedPath")
 fi
 
 #### PRE PROCESS #############################################
@@ -228,7 +234,9 @@ if [[ -f "$overridePath" ]]; then
 
 Found override config at $overridePath
 "
-  source $overridePath
+  # shellcheck disable=SC1090 # $overridePath is the project's qaConfig.inc.bash,
+  #   an inherently non-constant per-project path — no fixed target for source=.
+  source "$overridePath"
   echo "
 Override config applied
 
@@ -267,6 +275,7 @@ source "$qaDir/../includes/generic/lock.inc.bash"
 
 # Initialize lock system and acquire lock
 initLockSystem "$projectRoot"
+# shellcheck disable=SC2154 # singleToolToRun/specifiedPath set by includes/options.inc.bash
 acquireLock "$singleToolToRun" "$specifiedPath" || exit 1
 
 # Set up cleanup trap

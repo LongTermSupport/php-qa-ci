@@ -1,3 +1,8 @@
+# shellcheck disable=SC2154 # testsDir/phpUnitCoverage/phpBinPath/binDir/varDir/
+#   phpUnitIterativeMode/phpUnitQuickTests/phpUnitConfigPath are core pipeline
+#   variables bin/qa (setConfig + project qaConfig.inc.bash) sets before this
+#   fragment is sourced — genuine sourced-fragment architecture, not unset vars.
+#
 # Note the phpUnitQuickTests=$phpUnitQuickTests
 # this sets a config variable which you can then use
 # to allow tests to run less thoroughly but more quickly
@@ -78,7 +83,6 @@ then
     phpunitPath="$binDir"/paratest
     paratestConfig=(--phpunit "$binDir"/phpunit)
 fi
-phpunitFailedOnlyFiltered=0
 phpunitExitCode=99
 phpunitLogFilePath="$varDir/phpunit_logs/phpunit.junit.xml"
 phpunitLogDir="$varDir/phpunit_logs"
@@ -113,6 +117,8 @@ do
         echo "Uniterate Mode - Iterative Testing with Fast Failure"
         echo "----------------------------------------------------"
         echo
+        # shellcheck disable=SC2054 # single --order-by=VALUE argument; PHPUnit's own
+        #   syntax for that value is a comma-separated list, not two array elements.
         extraConfigs+=( --order-by=depends,defects )
         extraConfigs+=( --stop-on-failure --stop-on-error --stop-on-defect --stop-on-warning )
         extraConfigs+=( --no-coverage )

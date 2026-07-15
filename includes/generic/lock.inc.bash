@@ -94,6 +94,7 @@ EOF
 ###################################################################
 setupMasterLog() {
     # Create master log file with timestamp
+    # shellcheck disable=SC2154 # varDir is set by bin/qa (setConfig) before this fragment is sourced
     QA_MASTER_LOG="$varDir/qa-run.$(date +%Y%m%d-%H%M%S).log"
     mkdir -p "$varDir"
 
@@ -136,13 +137,17 @@ isStaleLock() {
     [[ -f "$lockFile" ]] || return 1  # Not stale, doesn't exist
 
     # Read lock file
-    local lastActivity=$(jq -r '.last_activity' "$lockFile" 2>/dev/null || echo "")
-    local etaCompletion=$(jq -r '.eta_completion' "$lockFile" 2>/dev/null || echo "")
-    local now=$(date +%s)
+    local lastActivity
+    lastActivity=$(jq -r '.last_activity' "$lockFile" 2>/dev/null || echo "")
+    local etaCompletion
+    etaCompletion=$(jq -r '.eta_completion' "$lockFile" 2>/dev/null || echo "")
+    local now
+    now=$(date +%s)
 
     # Check activity timeout (10 minutes since last activity)
     if [[ -n "$lastActivity" && "$lastActivity" != "null" ]]; then
-        local activityTimestamp=$(date -d "$lastActivity" +%s 2>/dev/null || echo 0)
+        local activityTimestamp
+        activityTimestamp=$(date -d "$lastActivity" +%s 2>/dev/null || echo 0)
         local activityTimeout=600  # 10 minutes in seconds
 
         if [[ $activityTimestamp -gt 0 ]] && [[ $((now - activityTimeout)) -gt $activityTimestamp ]]; then
@@ -153,7 +158,8 @@ isStaleLock() {
 
     # Check ETA timeout (10 minutes past expected completion)
     if [[ -n "$etaCompletion" && "$etaCompletion" != "null" ]]; then
-        local etaTimestamp=$(date -d "$etaCompletion" +%s 2>/dev/null || echo 0)
+        local etaTimestamp
+        etaTimestamp=$(date -d "$etaCompletion" +%s 2>/dev/null || echo 0)
         local etaGracePeriod=600  # 10 minutes grace period
 
         if [[ $etaTimestamp -gt 0 ]] && [[ $((now - etaGracePeriod)) -gt $etaTimestamp ]]; then
@@ -179,12 +185,18 @@ displayLockStatus() {
     echo ""
     echo "[QA Lock] Cannot start - another QA process is running"
 
-    local command=$(jq -r '.command' "$lockFile" 2>/dev/null || echo "unknown")
-    local started=$(jq -r '.timestamp' "$lockFile" 2>/dev/null || echo "unknown")
-    local user=$(jq -r '.user' "$lockFile" 2>/dev/null || echo "unknown")
-    local hostname=$(jq -r '.hostname' "$lockFile" 2>/dev/null || echo "unknown")
-    local etaCompletion=$(jq -r '.eta_completion' "$lockFile" 2>/dev/null || echo "unknown")
-    local currentTool=$(jq -r '.current_tool' "$lockFile" 2>/dev/null || echo "unknown")
+    local command
+    command=$(jq -r '.command' "$lockFile" 2>/dev/null || echo "unknown")
+    local started
+    started=$(jq -r '.timestamp' "$lockFile" 2>/dev/null || echo "unknown")
+    local user
+    user=$(jq -r '.user' "$lockFile" 2>/dev/null || echo "unknown")
+    local hostname
+    hostname=$(jq -r '.hostname' "$lockFile" 2>/dev/null || echo "unknown")
+    local etaCompletion
+    etaCompletion=$(jq -r '.eta_completion' "$lockFile" 2>/dev/null || echo "unknown")
+    local currentTool
+    currentTool=$(jq -r '.current_tool' "$lockFile" 2>/dev/null || echo "unknown")
 
     echo "[QA Lock] Process: $command"
     echo "[QA Lock] Started: $(formatTimestamp "$started") by $user on $hostname"
@@ -194,9 +206,12 @@ displayLockStatus() {
     fi
 
     if [[ "$etaCompletion" != "null" && "$etaCompletion" != "unknown" ]]; then
-        local etaTime=$(formatTimestamp "$etaCompletion")
-        local now=$(date +%s)
-        local etaTimestamp=$(date -d "$etaCompletion" +%s 2>/dev/null || echo 0)
+        local etaTime
+        etaTime=$(formatTimestamp "$etaCompletion")
+        local now
+        now=$(date +%s)
+        local etaTimestamp
+        etaTimestamp=$(date -d "$etaCompletion" +%s 2>/dev/null || echo 0)
 
         if [[ $etaTimestamp -gt 0 ]]; then
             local remaining=$((etaTimestamp - now))
@@ -207,7 +222,8 @@ displayLockStatus() {
             fi
 
             local staleTime=$((etaTimestamp + 600))  # ETA + 10 min grace
-            local staleTimestamp=$(date -d "@$staleTime" +"%H:%M:%S" 2>/dev/null || echo "unknown")
+            local staleTimestamp
+            staleTimestamp=$(date -d "@$staleTime" +"%H:%M:%S" 2>/dev/null || echo "unknown")
             echo "[QA Lock] If this lock is stale, it will auto-clear after $staleTimestamp"
         fi
     fi
@@ -231,27 +247,38 @@ removeStaleLock() {
     echo ""
     echo "[QA Lock] Detected stale lock from previous process"
 
-    local started=$(jq -r '.timestamp' "$lockFile" 2>/dev/null || echo "unknown")
-    local user=$(jq -r '.user' "$lockFile" 2>/dev/null || echo "unknown")
-    local hostname=$(jq -r '.hostname' "$lockFile" 2>/dev/null || echo "unknown")
-    local lastActivity=$(jq -r '.last_activity' "$lockFile" 2>/dev/null || echo "unknown")
-    local etaCompletion=$(jq -r '.eta_completion' "$lockFile" 2>/dev/null || echo "unknown")
+    local started
+    started=$(jq -r '.timestamp' "$lockFile" 2>/dev/null || echo "unknown")
+    local user
+    user=$(jq -r '.user' "$lockFile" 2>/dev/null || echo "unknown")
+    local hostname
+    hostname=$(jq -r '.hostname' "$lockFile" 2>/dev/null || echo "unknown")
+    local lastActivity
+    lastActivity=$(jq -r '.last_activity' "$lockFile" 2>/dev/null || echo "unknown")
+    local etaCompletion
+    etaCompletion=$(jq -r '.eta_completion' "$lockFile" 2>/dev/null || echo "unknown")
 
     echo "[QA Lock] Started: $(formatTimestamp "$started") by $user on $hostname"
 
     if [[ "$reason" == "activity_timeout" && "$lastActivity" != "null" && "$lastActivity" != "unknown" ]]; then
-        local lastTime=$(formatTimestamp "$lastActivity")
-        local now=$(date +%s)
-        local lastTimestamp=$(date -d "$lastActivity" +%s 2>/dev/null || echo 0)
+        local lastTime
+        lastTime=$(formatTimestamp "$lastActivity")
+        local now
+        now=$(date +%s)
+        local lastTimestamp
+        lastTimestamp=$(date -d "$lastActivity" +%s 2>/dev/null || echo 0)
         if [[ $lastTimestamp -gt 0 ]]; then
             local elapsed=$((now - lastTimestamp))
             echo "[QA Lock] Last activity: $lastTime ($(formatDuration $elapsed) ago)"
         fi
         echo "[QA Lock] Reason: No activity for 10+ minutes (process likely died)"
     elif [[ "$reason" == "eta_timeout" && "$etaCompletion" != "null" && "$etaCompletion" != "unknown" ]]; then
-        local etaTime=$(formatTimestamp "$etaCompletion")
-        local now=$(date +%s)
-        local etaTimestamp=$(date -d "$etaCompletion" +%s 2>/dev/null || echo 0)
+        local etaTime
+        etaTime=$(formatTimestamp "$etaCompletion")
+        local now
+        now=$(date +%s)
+        local etaTimestamp
+        etaTimestamp=$(date -d "$etaCompletion" +%s 2>/dev/null || echo 0)
         if [[ $etaTimestamp -gt 0 ]]; then
             local overdue=$((now - etaTimestamp))
             echo "[QA Lock] Expected completion: $etaTime ($(formatDuration $overdue) ago)"
@@ -303,9 +330,11 @@ acquireLock() {
     QA_LOCK_START_TIME=$(date +%s)
 
     # Create lock file
-    local now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local now
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     local etaCompletionTimestamp=$((QA_LOCK_START_TIME + QA_ETA_SECONDS))
-    local etaCompletion=$(date -u -d "@$etaCompletionTimestamp" +"%Y-%m-%dT%H:%M:%SZ")
+    local etaCompletion
+    etaCompletion=$(date -u -d "@$etaCompletionTimestamp" +"%Y-%m-%dT%H:%M:%SZ")
 
     # Determine path type
     local pathType="full-suite"
@@ -314,7 +343,8 @@ acquireLock() {
     fi
 
     # Get command from process command line
-    local command="$(ps -p $$ -o args= 2>/dev/null || echo './bin/qa')"
+    local command
+    command="$(ps -p $$ -o args= 2>/dev/null || echo './bin/qa')"
 
     # Create lock file with all metadata
     local tmpFile="${QA_LOCK_FILE}.tmp.$$"
@@ -371,7 +401,8 @@ startHeartbeat() {
         while [[ -f "$lockFile" ]]; do
             sleep 60
             if [[ -f "$lockFile" ]]; then
-                local now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                local now
+                now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
                 local tmpFile="${lockFile}.tmp.$$"
                 jq --arg now "$now" '.last_activity = $now' "$lockFile" > "$tmpFile" 2>/dev/null
                 if [[ -f "$tmpFile" ]]; then
@@ -415,7 +446,8 @@ releaseLock() {
     stopHeartbeat
 
     # Calculate duration
-    local endTime=$(date +%s)
+    local endTime
+    endTime=$(date +%s)
     local duration=$((endTime - QA_LOCK_START_TIME))
 
     # Record timing data if successful.
@@ -430,8 +462,10 @@ releaseLock() {
     # runs internally.
     if [[ $exitCode -eq 0 ]]; then
         # Extract tool and path from lock file
-        local tool=$(jq -r '.tool' "$QA_LOCK_FILE" 2>/dev/null || echo "")
-        local path=$(jq -r '.path' "$QA_LOCK_FILE" 2>/dev/null || echo "")
+        local tool
+        tool=$(jq -r '.tool' "$QA_LOCK_FILE" 2>/dev/null || echo "")
+        local path
+        path=$(jq -r '.path' "$QA_LOCK_FILE" 2>/dev/null || echo "")
 
         recordCommandTiming "$tool" "$path" "$duration"
     fi

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-readonly DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
+readonly DIR
 cd $DIR;
 set -e
 set -u
 set -o pipefail
+# shellcheck disable=SC2034 # consumed by includes/generic/infection.inc.bash to restore IFS
 standardIFS="$IFS"
 IFS=$'\n\t'
 
@@ -29,6 +31,7 @@ set -- "${processedArgs[@]}"
 
 function usage {
     echo "Usage:"
+    # shellcheck disable=SC2154 # binDir is set by bin/qa's setPaths, sourced before usage() can be called
     echo "$binDir/qa [-t tool to run ] [ -p path to scan ] [ --json ]"
     echo ""
     echo "Defaults to using all tools and scanning whole project based on platform"
@@ -79,6 +82,8 @@ shift $((OPTIND-1))
 # psr4Validate was listed path-supporting while the fragment was empty). The
 # classification now lives in ONE place; qaBuildPathSupportArrays fills these.
 PATH_SUPPORTING_TOOLS=()
+# shellcheck disable=SC2034 # rebuilt in place by qaBuildPathSupportArrays (toolRegistry.inc.bash);
+#   this just establishes the array before the (re)build appends to it.
 NON_PATH_SUPPORTING_TOOLS=()
 qaBuildPathSupportArrays
 

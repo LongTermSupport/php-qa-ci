@@ -17,4 +17,5 @@
 
 # Retry loop via the shared driver (M-010) — errexit-safe exit-code capture and
 # tryAgainOrAbort handling, identical to the hand-written loop it replaces.
+# shellcheck disable=SC2154 # binDir is set by bin/qa (setConfig) before this fragment is sourced
 qaSimpleTool "Package Type Declaration Check" phpNoXdebug -f "$binDir"/package-type-check

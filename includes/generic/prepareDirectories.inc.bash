@@ -1,3 +1,4 @@
+# shellcheck disable=SC2154 # varDir/cacheDir/projectRoot are set by bin/qa (setConfig) before this fragment is sourced
 mkdir -p "$varDir";
 echo '
 *

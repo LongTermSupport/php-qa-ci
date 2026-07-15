@@ -24,6 +24,7 @@
 useSensitiveParameterCheck=${useSensitiveParameterCheck:-1}
 export useSensitiveParameterCheck
 
+# shellcheck disable=SC2154 # binDir is set by bin/qa (setConfig) before this fragment is sourced
 if [[ "0" == "$useSensitiveParameterCheck" ]]; then
   echo "
 SensitiveParameter usage check is disabled for this project (useSensitiveParameterCheck=0) — skipping.

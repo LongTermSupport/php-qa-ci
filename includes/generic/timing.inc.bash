@@ -12,7 +12,7 @@
 
 # Global variables
 TIMING_DATA_FILE=""
-QA_COMMAND_KEY=""
+# shellcheck disable=SC2034 # assigned here, read/consumed by includes/generic/lock.inc.bash
 QA_ETA_SECONDS=""
 
 ###################################################################
@@ -93,7 +93,8 @@ getCommandKey() {
     local tool="$1"
     local path="$2"
 
-    local pathType=$(getPathType "$path")
+    local pathType
+    pathType=$(getPathType "$path")
 
     if [[ "$pathType" == "full-suite" ]]; then
         echo "${tool}:full-suite"
@@ -101,7 +102,8 @@ getCommandKey() {
     fi
 
     # Normalize path for consistency
-    local normalizedPath=$(normalizePathForKey "$path")
+    local normalizedPath
+    normalizedPath=$(normalizePathForKey "$path")
 
     if [[ "$pathType" == "folder" ]]; then
         echo "${tool}:folder:${normalizedPath}"
@@ -123,7 +125,8 @@ initTimingData() {
     TIMING_DATA_FILE="$1"
 
     if [[ ! -f "$TIMING_DATA_FILE" ]]; then
-        local now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        local now
+        now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         cat > "$TIMING_DATA_FILE" << EOF
 {
   "metadata": {
@@ -153,7 +156,8 @@ calculateEta() {
     local tool="$1"
     local path="$2"
 
-    local pathType=$(getPathType "$path")
+    local pathType
+    pathType=$(getPathType "$path")
 
     # File paths always get 30-second hardcoded ETA
     if [[ "$pathType" == "file" ]]; then
@@ -167,14 +171,17 @@ calculateEta() {
     fi
 
     # Build command key
-    local commandKey=$(getCommandKey "$tool" "$path")
+    local commandKey
+    commandKey=$(getCommandKey "$tool" "$path")
 
     # Look up average duration in timing data
-    local avgSeconds=$(jq -r ".commands[\"${commandKey}\"].average_seconds // empty" "$TIMING_DATA_FILE" 2>/dev/null)
+    local avgSeconds
+    avgSeconds=$(jq -r ".commands[\"${commandKey}\"].average_seconds // empty" "$TIMING_DATA_FILE" 2>/dev/null)
 
     if [[ -n "$avgSeconds" && "$avgSeconds" != "null" && "$avgSeconds" != "empty" ]]; then
         # Add 20% buffer to average for safety
-        local buffered=$(echo "$avgSeconds * 1.2" | bc 2>/dev/null || echo "$avgSeconds")
+        local buffered
+        buffered=$(echo "$avgSeconds * 1.2" | bc 2>/dev/null || echo "$avgSeconds")
         # Round down to integer
         echo "${buffered%.*}"
     else
@@ -198,7 +205,8 @@ recordCommandTiming() {
     local path="$2"
     local durationSeconds="$3"
 
-    local pathType=$(getPathType "$path")
+    local pathType
+    pathType=$(getPathType "$path")
 
     # Don't record timing data for file-specific runs
     if [[ "$pathType" == "file" ]]; then
@@ -210,8 +218,10 @@ recordCommandTiming() {
         path="$(normalizePathForKey "$path")"
     fi
 
-    local commandKey=$(getCommandKey "$tool" "$path")
-    local now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local commandKey
+    commandKey=$(getCommandKey "$tool" "$path")
+    local now
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     # Use temp file for atomic update
     local tmpFile="${TIMING_DATA_FILE}.tmp.$$"

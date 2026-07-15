@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2154 # pharDir/composerRequireCheckerConfig/projectRoot are set by
+#   bin/qa (setConfig) before this fragment is sourced — genuine sourced-fragment architecture.
 composerRequireCheckExitCode=99
 while (( composerRequireCheckExitCode > 0 ))
 do

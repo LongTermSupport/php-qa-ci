@@ -16,6 +16,7 @@
 #     (no <?php open tag) FAILS the gate.
 
 strictTypesMissingFiles=()
+# shellcheck disable=SC2154 # pathsToCheck is set by bin/qa (setPaths) before this fragment is sourced
 for strictTypesDir in "${pathsToCheck[@]}"; do
   if [[ ! -d "$strictTypesDir" ]]; then
     continue

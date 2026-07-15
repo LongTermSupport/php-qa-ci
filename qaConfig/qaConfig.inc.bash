@@ -3,7 +3,10 @@ echo "
 Setting Infection Minimums
 --------------------------
 "
+# shellcheck disable=SC2034 # consumed by includes/generic/infection.inc.bash (via the minMsi/
+#   minCoveredMsi fallback chain) once this project override has been sourced by bin/qa.
 infectionMutationScoreIndicator=71
+# shellcheck disable=SC2034 # consumed by includes/generic/infection.inc.bash, same as above
 infectionCoveredCodeMSI=77
 
 pathsToIgnore=()

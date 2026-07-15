@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-readonly DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
+readonly DIR
 cd "$DIR";
 set -e
 set -u

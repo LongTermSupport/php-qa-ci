@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+#
+# shellcheck disable=SC2154 # $projectRoot/$projectConfigPath/$platform/$DIR/$defaultConfigPath/
+#   $noXdebugConfigPath/$phpBinPath are core pipeline variables bin/qa sets
+#   before sourcing this file's functions are ever called — genuine
+#   sourced-fragment architecture, not unset variables.
+# shellcheck disable=SC1090 # runTool/runNonPlatformTool source a path built
+#   from a runtime $tool/$platform argument — inherently non-constant; there
+#   is no fixed target to point a `source=` directive at.
 
 readonly platformGeneric="generic"
 readonly platformSymfony="symfony"
@@ -126,6 +134,7 @@ function deriveDependentConfig() {
   fi
   # Infection requires coverage.
   if [[ "0" == "${xdebugEnabled:-0}" || "0" == "${phpUnitCoverage:-1}" ]]; then
+    # shellcheck disable=SC2034 # global consumed by bin/qa and toolRegistry/allTestingTools after this function returns
     useInfection=0
   fi
   # MSI floors: the project SSoT vars (mutationScoreIndicator / coveredCodeMSI)
@@ -172,6 +181,7 @@ function tryAgainOrAbort() {
     printf "\n\ninvalid choice: $tryAgainOrAbort - should be y or n \n\n        would you like to try again? (y/n)"
   done
   printf "\n\nTrying again, good luck!\n\n"
+  # shellcheck disable=SC2034 # global consumed by bin/qa after the retry loop returns
   hasBeenRestarted="true"
 }
 
@@ -493,26 +503,31 @@ function archiveToolLog() {
         return 0
     fi
 
-    local timestamp=$(date +"%Y%m%d-%H%M%S")
+    local timestamp
+    timestamp=$(date +"%Y%m%d-%H%M%S")
     local baseFileName="${logFileName%.*}"  # Remove extension
     local extension="${logFileName##*.}"    # Get extension
 
     # Determine log file naming based on whether specific paths were specified
+    local archivedLogs=()
     if [[ -n "$specifiedPath" ]]; then
         # Path-specific run - generate suffix from paths
-        local pathSuffix=$(echo "${pathsToCheck[*]}" | tr -cs '[:alnum:]' '_' | sed 's/^_//; s/_$//')
+        local pathSuffix
+        pathSuffix=$(echo "${pathsToCheck[*]}" | tr -cs '[:alnum:]' '_' | sed 's/^_//; s/_$//')
         local archivedLog="$logDir/${baseFileName}.${pathSuffix}.${timestamp}.${extension}"
         local runType="Path-specific run: ${pathsToCheck[*]}"
 
-        # Match only logs for this specific path suffix
-        local archivedLogs=($(ls -1t "$logDir"/${baseFileName}.*.${extension} 2>/dev/null | grep "${baseFileName}\\.${pathSuffix}\\."))
+        # Match only logs for this specific path suffix. find+sort-by-mtime (not
+        # `ls | grep`, which mishandles non-alphanumeric filenames) feeds mapfile
+        # so word-splitting never touches the file list.
+        mapfile -t archivedLogs < <(find "$logDir" -maxdepth 1 -name "${baseFileName}.*.${extension}" -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2- | grep -F ".${pathSuffix}.")
     else
         # Full suite run
         local archivedLog="$logDir/${baseFileName}.${timestamp}.${extension}"
         local runType="Full test suite run"
 
         # Match only full suite logs (timestamp directly after base name)
-        local archivedLogs=($(ls -1t "$logDir"/${baseFileName}.*.${extension} 2>/dev/null | grep -E "${baseFileName}\\.[0-9]{8}-[0-9]{6}\\.${extension}$"))
+        mapfile -t archivedLogs < <(find "$logDir" -maxdepth 1 -name "${baseFileName}.*.${extension}" -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2- | grep -E "${baseFileName}\\.[0-9]{8}-[0-9]{6}\\.${extension}$")
     fi
 
     # Archive with clear messaging
@@ -535,7 +550,8 @@ function archiveToolLog() {
     # Check total log count across all patterns and warn if > 100
     # Use a marker file to track if we've already warned for this logDir in this run
     local warnMarkerFile="$logDir/.warned_high_count_$$"
-    local totalLogs=$(find "$logDir" -name "*.${extension}" -type f 2>/dev/null | wc -l)
+    local totalLogs
+    totalLogs=$(find "$logDir" -name "*.${extension}" -type f 2>/dev/null | wc -l)
 
     if (( totalLogs > 100 )) && [[ ! -f "$warnMarkerFile" ]]; then
         # Create marker to prevent duplicate warnings

@@ -2,6 +2,7 @@
 # to $projectRoot/config). lint:yaml errors on a missing path, so filter to the
 # directories that actually exist and skip cleanly when none do — a project
 # without a config/ dir has nothing to lint.
+# shellcheck disable=SC2154 # yamlDirectories — see above, set before this fragment is sourced
 yamlLintDirs=()
 for yamlDir in "${yamlDirectories[@]}"; do
     if [[ -d "$yamlDir" ]]; then

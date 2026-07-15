@@ -79,7 +79,11 @@ if [[ -n "${infectionDiffBase:-}" ]]; then
     fi
 fi
 
+# shellcheck disable=SC2154 # pharDir/varDir/phpBinPath/binDir/phpUnitConfigPath/standardIFS
+#   are core pipeline variables set by bin/qa (setConfig, options.inc.bash) before
+#   this fragment is sourced — genuine sourced-fragment architecture.
 infectionPath="$pharDir/infection.phar"
+# shellcheck disable=SC2154 # varDir is set by bin/qa (setConfig) before this fragment is sourced
 coverageXmlDir="$varDir/phpunit_logs/coverage-xml"
 
 # Resolve the MSI floors HERE, at run time, from the project's SSoT vars
@@ -116,6 +120,7 @@ else
     # Runs the Xdebug-enabled binary directly (not phpNoXdebug), so the global
     # phpqaMemoryLimit must be applied explicitly here — otherwise coverage
     # generation falls back to PHP's default memory_limit.
+    # shellcheck disable=SC2154 # phpBinPath/binDir/phpUnitConfigPath are set by bin/qa (setConfig)
     if XDEBUG_MODE=coverage "$phpBinPath" -d memory_limit="${phpqaMemoryLimit:-4G}" -f "$binDir"/phpunit -- \
         -c "$phpUnitConfigPath" \
         --coverage-xml "$coverageXmlDir" \
@@ -256,6 +261,7 @@ function runInfection() {
 infectionExitCode=99
 while ((infectionExitCode > 0)); do
     backupIFS=$IFS
+    # shellcheck disable=SC2154 # standardIFS is set by bin/qa/options.inc.bash before this fragment is sourced
     IFS=$standardIFS
 
     rm -rf "$varDir"/infection/*

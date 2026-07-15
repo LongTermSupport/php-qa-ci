@@ -1,3 +1,4 @@
+# shellcheck disable=SC2154 # pathsToIgnore/binDir/pathsToCheck are set by bin/qa (setPaths, setConfig) before this fragment is sourced
 pathsToIgnorePrefixed=()
 
 for ignoreFile in "${pathsToIgnore[@]}"

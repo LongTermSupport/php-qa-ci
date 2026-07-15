@@ -12,6 +12,7 @@
 # qaConfig/, see configPath). Each non-empty line is a PHP regex passed as an
 # argument to bin/psr4-validate.
 
+# shellcheck disable=SC2154 # psr4IgnoreList/binDir are set by bin/qa (setConfig) before this fragment is sourced
 psr4IgnoreArgs=()
 for psr4IgnorePattern in "${psr4IgnoreList[@]}"; do
   if [[ -n "${psr4IgnorePattern// /}" ]]; then

@@ -173,6 +173,7 @@ declare -A QA_TOOL_BANNER=(
 
 # Usage listing: "DISPLAY::DESCRIPTION". DISPLAY groups the accepted tokens with
 # "|"; the "::" separator avoids ambiguity with the "|" inside DISPLAY.
+# shellcheck disable=SC2034 # consumed by includes/options.inc.bash's usage() function
 declare -A QA_TOOL_USAGE=(
   [allCodingStandardsTools]="allCS::all coding standards tools"
   [allLintingTools]="allLints::all linting tools"
@@ -259,7 +260,8 @@ function qaToolsForPhase() {
 # Decide whether a phased tool should run given the current runtime flags.
 ###############################################################################
 function qaToolGateAllows() {
-  local tool="$1" gate="${QA_TOOL_GATE[$tool]:-}"
+  local tool="$1"
+  local gate="${QA_TOOL_GATE[$tool]:-}"
   case "$gate" in
     "")        return 0 ;;
     notQuick)  [[ "${phpqaQuickTests:-0}" != "1" ]] ;;

@@ -1,3 +1,12 @@
+# shellcheck disable=SC2034 # every path/config var this file sets (projectConfigPath,
+#   cacheDir, pharDir, noXdebugConfigPath, defaultConfigPath, psr4IgnoreList,
+#   phpstanConfigPath, phpArkitectConfigPath, phpUnitConfigPath, infectionConfig,
+#   composerRequireCheckerConfig, phpCsConfigPath, phpCsCacheFile, ...) is consumed
+#   by LATER-sourced tool fragments (includes/generic/*.inc.bash), not by this file
+#   — that is this file's entire purpose. shellcheck can only see this one file.
+# shellcheck disable=SC2154 # projectRoot/qaDir/phpBinPath are core variables bin/qa
+#   sets before sourcing setConfig — genuine sourced-fragment architecture.
+#
 # Global PHP memory limit for all QA tools
 # Override with: export phpqaMemoryLimit=8G
 # Default is 4G which should handle most projects

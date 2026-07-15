@@ -1,3 +1,6 @@
+# shellcheck disable=SC2154 # varDir/pharDir/pathsToCheck are set by bin/qa (setConfig, setPaths)
+#   before this fragment is sourced — genuine sourced-fragment architecture.
+#
 # PHP CS Fixer — code-style fixing.
 #
 # PHP CS Fixer MUTATES code. Whether it may write is governed by qaReadOnly
