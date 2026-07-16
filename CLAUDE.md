@@ -73,7 +73,7 @@ Before running any QA tools, the pipeline executes these preflight steps:
     - `var/qa/cache/` - Tool cache directory
     - Adds .gitignore files to exclude generated content
 
-08. **Tool Install** - Runs `scripts/tool-install.bash` unconditionally (`bin/qa`). `phive.xml` is a hard requirement: if it is missing the script prints an error and exits 1. In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE only re-fetches in the maintainer `update`/`--force` modes) and installs the isolated Rector composer sub-project under `tools/rector/` on first use.
+08. **Tool Install** - Runs `scripts/tool-install.bash` unconditionally (`bin/qa`). `phive.xml` is a hard requirement: if it is missing the script prints an error and exits 1. In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE only re-fetches in the maintainer `update`/`--force` modes) Rector is delivered as the committed `vendor-phar/rector.phar` (verified alongside the other phars); it is NOT an isolated composer sub-project — maintainers rebuild it with `scripts/build-rector-phar.bash` (see [CLAUDE/Plan/00002-phar-vendored-rector](CLAUDE/Plan/00002-phar-vendored-rector/PLAN.md)).
 
 09. **Pre-Hook** (`hookPre.bash`) - Runs project-specific pre-pipeline script if exists
 
@@ -825,6 +825,22 @@ Direct `Write` or `Edit` to package manager lock files is blocked. Lock files ar
 - Ruby: `bundle install` / `bundle add gem`
 - Rust: `cargo add crate`
 - Go: `go get module`
+
+## lsp_enforcement — use LSP tools for code symbol lookups
+
+Using `Grep` or `Bash` (grep/rg) to find class definitions, function signatures, or symbol references is blocked or redirected to LSP tools, which are faster and semantically accurate.
+
+**Prefer LSP tools for**:
+
+- Finding where a class or function is defined → `goToDefinition`
+- Finding all usages of a symbol → `findReferences`
+- Getting type information or documentation → `hover`
+- Listing all symbols in a file → `documentSymbol`
+- Searching symbols across the project → `workspaceSymbol`
+
+**Grep/Bash grep is still appropriate for**: text patterns in content, log searching, finding strings in config files.
+
+Default mode (`block_once`): the first symbol-lookup grep in a session is denied with guidance; subsequent retries are allowed.
 
 ## markdown_organization — tracked-docs policy (untracked Claude memory BLOCKED)
 
