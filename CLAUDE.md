@@ -39,43 +39,43 @@ When you run the qa script in your project:
 
 Before running any QA tools, the pipeline executes these preflight steps:
 
-1. **Variable Initialization** (in `bin/qa`) - Core variables set before anything else:
+01. **Variable Initialization** (in `bin/qa`) - Core variables set before anything else:
 
-   - `$qaDir` - The php-qa-ci library directory (where bin/qa lives)
-   - `$projectRoot` - The project being tested
-   - `$binDir` - The project's bin directory (usually vendor/bin)
+    - `$qaDir` - The php-qa-ci library directory (where bin/qa lives)
+    - `$projectRoot` - The project being tested
+    - `$binDir` - The project's bin directory (usually vendor/bin)
 
-2. **Platform Detection** (`detectPlatform`) - Identifies if project is Symfony (via `symfony.lock`) or generic
+02. **Platform Detection** (`detectPlatform`) - Identifies if project is Symfony (via `symfony.lock`) or generic
 
-3. **Xdebug Check** - Determines if coverage/infection testing is available
+03. **Xdebug Check** - Determines if coverage/infection testing is available
 
-4. **Set Paths** (`setPaths`) - Auto-detects and configures paths:
+04. **Set Paths** (`setPaths`) - Auto-detects and configures paths:
 
-   - `testsDir` - Finds test directory
-   - `srcDir` - Finds source directory
-   - `binDir` - Finds bin directory (vendor/bin)
-   - `pathsToCheck` - Array of paths to scan (defaults to tests + src)
-   - `pathsToIgnore` - Array of paths to ignore
+    - `testsDir` - Finds test directory
+    - `srcDir` - Finds source directory
+    - `binDir` - Finds bin directory (vendor/bin)
+    - `pathsToCheck` - Array of paths to scan (defaults to tests + src)
+    - `pathsToIgnore` - Array of paths to ignore
 
-5. **Set Config** (`setConfig`) - Loads all configuration files in cascade order and defines:
+05. **Set Config** (`setConfig`) - Loads all configuration files in cascade order and defines:
 
-   - `$projectConfigPath` - Project's qaConfig directory
-   - `$varDir` - Project's var/qa directory
-   - `$cacheDir` - Project's var/qa/cache directory
-   - `$pharDir` - QA library's vendor-phar directory (for PHIVE-installed tools)
-   - Various tool configuration paths
+    - `$projectConfigPath` - Project's qaConfig directory
+    - `$varDir` - Project's var/qa directory
+    - `$cacheDir` - Project's var/qa/cache directory
+    - `$pharDir` - QA library's vendor-phar directory (for PHIVE-installed tools)
+    - Various tool configuration paths
 
-6. **Project Config Override** - Sources `qaConfig/qaConfig.inc.bash` if it exists
+06. **Project Config Override** - Sources `qaConfig/qaConfig.inc.bash` if it exists
 
-7. **Prepare Directories** (`prepareDirectories`) - Creates necessary directories:
+07. **Prepare Directories** (`prepareDirectories`) - Creates necessary directories:
 
-   - `var/qa/` - Main QA output directory
-   - `var/qa/cache/` - Tool cache directory
-   - Adds .gitignore files to exclude generated content
+    - `var/qa/` - Main QA output directory
+    - `var/qa/cache/` - Tool cache directory
+    - Adds .gitignore files to exclude generated content
 
-8. **Tool Install** - Runs `scripts/tool-install.bash` unconditionally (`bin/qa`). `phive.xml` is a hard requirement: if it is missing the script prints an error and exits 1. In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE only re-fetches in the maintainer `update`/`--force` modes) and installs the isolated Rector composer sub-project under `tools/rector/` on first use.
+08. **Tool Install** - Runs `scripts/tool-install.bash` unconditionally (`bin/qa`). `phive.xml` is a hard requirement: if it is missing the script prints an error and exits 1. In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE only re-fetches in the maintainer `update`/`--force` modes) and installs the isolated Rector composer sub-project under `tools/rector/` on first use.
 
-9. **Pre-Hook** (`hookPre.bash`) - Runs project-specific pre-pipeline script if exists
+09. **Pre-Hook** (`hookPre.bash`) - Runs project-specific pre-pipeline script if exists
 
 10. **Locking** - Sources `includes/generic/lock.inc.bash` and acquires a run-level lock (`initLockSystem` / `acquireLock`) so concurrent `qa` invocations cannot collide. If another `qa` process already holds the lock, `acquireLock` aborts the run (`exit 1`) before any tool executes. Locking is run-level only — there are no per-tool timing hooks.
 
