@@ -826,6 +826,25 @@ Direct `Write` or `Edit` to package manager lock files is blocked. Lock files ar
 - Rust: `cargo add crate`
 - Go: `go get module`
 
+## markdown_organization — tracked-docs policy (untracked Claude memory BLOCKED)
+
+This project sets `allow_untracked_claude_memory: false`. Writing to Claude
+auto-memory files (`~/.claude/projects/*/memory/*.md`) is **blocked** — via the
+Write/Edit tools AND via bash redirect/`tee` side-doors. **Reading memory is
+still allowed** so existing memory can be migrated out.
+
+**Put durable knowledge in TRACKED project docs (progressive disclosure):**
+
+- Always-relevant facts → `CLAUDE.md` (keep lean; resident every session)
+- Path-specific guidance → `.claude/rules/*.md` with `paths:` glob frontmatter (loads on demand only when matching files are touched)
+- Intent-triggered procedures → a thin skill under `.claude/skills/` pointing at a single-source-of-truth doc body
+- Human-facing reference → `docs/`
+- Link docs with plain markdown links (zero token cost until followed); **avoid `@`-imports** (they re-inline eagerly rather than defer)
+
+Keep ONE source of truth per fact and link to it. Normal markdown-location rules (below) still apply to every other `.md` file.
+
+**Allowed locations**: `CLAUDE/`, `docs/`, `RELEASES/`, `CLAUDE/Plan/`, root-level `README.md`, `.claude/rules/`, or any `extra_allowed_markdown_paths` pattern.
+
 ## pip_break_system — --break-system-packages is blocked
 
 `pip install --break-system-packages` (and the `pip3` / `python -m pip` / `python3 -m pip` variants) is blocked. The flag bypasses PEP 668 system-package protection and corrupts the system Python environment in containers and on modern Linux distros.
@@ -864,6 +883,110 @@ pytest tests/ 2>&1 | echd-capture 20
 **Allowed** (whitelisted): `grep`, `rg`, `awk`, `sed`, `jq`, `ls`, `cat`, `git log`, `git tag`, `git branch`, and other cheap filtering commands.
 
 **Add to whitelist** (if safe to pipe): set `extra_whitelist` in `.claude/hooks-daemon.yaml` under `pipe_blocker`.
+
+## plan_number_helper — use `mkplan.bash` to create a plan
+
+**To create a new plan, run the deployed scaffolding script:**
+
+```
+CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
+```
+
+(Use the project's configured plan directory if it is not `CLAUDE/Plan/`.) The script takes a lock, reads the same authoritative git counter (`hooksdaemon.latestPlanNumber`), assigns the next number atomically, creates the `NNNNN-name/` folder, scaffolds `PLAN.md`, and advances the counter — so concurrent runs can never collide on a number. It prints the new folder path on stdout. You still add the README index row yourself (the script reminds you).
+
+**If you only need the *number* (not a folder)**, read the counter and add 1 — this is the fallback, not the primary path:
+
+```
+git config --local hooksdaemon.latestPlanNumber
+```
+
+Add 1 to that value (zero-pad to 5 digits, e.g. counter `117` → next plan `00118`). The git counter is the source of truth; the daemon keeps it correct across branches.
+
+**Do NOT** scan `CLAUDE/Plan/` with `ls`/`find`/glob pipelines to discover the next number. Folder scans miss plans in `Completed/` and other subdirectories, and disagree across branches. The folder scan is only used to bootstrap the counter when the git key is unset (which `mkplan.bash` and the daemon both handle).
+
+## plan_qa_commit_gate — cross-file plan checks at git commit
+
+Every `git commit` is checked against the STAGED tree's plan QA
+invariants. In `commit_gate_mode: warn` (the rollout default)
+violations appear as advisory context — read them and amend the
+commit content BEFORE committing; in `block` mode they deny the
+commit with a TODO list of what the commit must also contain.
+
+**The invariants**:
+
+- creating a plan folder ⇒ the SAME commit stages its README
+  index row (`index-at-birth`) and the number must come from the
+  git counter / mkplan.bash (`counter-sanity`, `no-new-collisions`)
+- flipping a plan to Complete/Cancelled/Superseded ⇒ the SAME
+  commit contains the `git mv` into the archive dir AND the README
+  row + statistics update (`terminal-state-atomic`)
+- every folder has a README row in the section matching its
+  location, and every row's link resolves
+  (`row-folder-bijection`, `stats-recount`)
+- a commit claiming `Plan NNNNN` that stages src/tests/config
+  changes should also update that plan's PLAN.md
+  (`same-commit-plan-doc`); reference plans as `Plan NNNNN:`
+  (`plan-ref-format`)
+- (advise-only, Plan 00163) a commit that changes a plan's PLAN.md
+  tasks should stage a `JOURNAL/` entry recording what changed
+  (`journal-entry-with-progress`); a terminal-status flip should
+  stage a closing journal entry when
+  `plan_workflow.qa.journal.enforce_on_completion` is on
+  (`journal-completion-entry`)
+
+Check the staged tree any time without committing:
+`$PYTHON -m claude_code_hooks_daemon.daemon.cli plan-qa --check-staged`.
+Commits inside nested/vendor repos or foreign worktrees are exempt.
+
+## plan_qa_edit — PLAN.md writes are linted in real time
+
+Every Write/Edit of a `PLAN.md` under the plan directory is checked
+against the plan QA edit-stage rules on the content the file WOULD
+have. Block-level violations (in `edit_mode: block`) deny the tool
+call with the exact remediation; fix the content and retry.
+
+**Rules that block new plan material**:
+
+- a parseable `**Status**:` line must exist (`status-line-present`)
+- the status token must be one of: Not Started, In Progress,
+  Complete, Blocked, Cancelled, Superseded, Dormant
+  (`status-enum-and-date`)
+- the header must not contradict the body — do not leave
+  `Not Started`/`In Progress` above an all-ticked task list or
+  "ALL DONE" prose; flip the status instead
+  (`header-body-coherence`)
+- use the template task grammar `- [ ] ⬜ **Task N.N**:` — not
+  ad-hoc markers like `[✓]`/`[⏳]` (`task-grammar`)
+
+**Advisory rules**: missing Created/Owner/Priority headers on new
+plans; a terminal status set while the folder is still in the plan
+root (the same commit must `git mv` it to the archive dir and
+update the README row); edits to archived plans; backticked
+`src/...` paths that no longer exist.
+
+**Journal day-files** (`JOURNAL/NNNNN-Journal-YY-MM-DD.md`) are also
+linted (all ADVISE): the name must match the grammar and the
+enclosing plan number with a today/yesterday date
+(`journal-dayfile-naming`), and edits must APPEND — never rewrite or
+remove earlier entries (`journal-append-only`). Corrections are new
+dated entries at the bottom, not edits to old ones.
+
+Grandfathered plans in `plan_workflow.qa.legacy_plan_allowlist`
+only ever advise. Lint any file on demand:
+`$PYTHON -m claude_code_hooks_daemon.daemon.cli plan-qa --lint <file>`.
+
+## plan_time_estimates — plans describe WHAT, not WHEN
+
+Writing time estimates into a `CLAUDE/Plan/*.md` file is blocked. Plans capture the work to be done, not how long it will take.
+
+**Blocked in plan documents:**
+
+- Effort estimates — `**Estimated Effort**: 4 hours`, `Total Estimated Time: 2 days`
+- Per-phase durations — `Phase 1: ... (3 days)`, `takes 8-12 hours`
+- Target/completion dates — `**Target Completion**: 2026-06-30`, `Completion: 2026-06-30`
+- `ETA:`, `timeline:`, `deadline:`, `due date:` lines
+
+**Instead:** break work into concrete tasks and implementation steps, and let the user decide scheduling. Technical durations that describe a feature (cache TTL, session timeout, retention window) are allowed — only work/effort estimates are blocked.
 
 ## root_recursion_guard — recursive scans rooted at / are blocked
 
@@ -936,6 +1059,20 @@ pip install --user <package>
 ```
 
 Even in a container running as root, `sudo` adds nothing — drop it and use a venv.
+
+## validate_instruction_content — CLAUDE.md and README.md must have stable content
+
+Writing ephemeral or session-specific content to `CLAUDE.md` or `README.md` is blocked. These files should contain only stable instructions, not implementation logs or session state.
+
+**Blocked content types**:
+
+- Timestamps and ISO dates
+- Status emoji followed by completion words (e.g. checkmark + 'Done')
+- Implementation log sentences ('created the file X', 'added the class Y')
+- Test output counts ('3 tests passed')
+- LLM summary section headings ('## Summary', '## Key Points')
+
+Content inside markdown code blocks is exempt from validation.
 
 ## worktree_file_copy — do not copy files between worktrees and the main repo
 
