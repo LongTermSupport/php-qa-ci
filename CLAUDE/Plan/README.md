@@ -11,11 +11,10 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 ## Active Plans
 
 - [00001: Repo Audit & Tidy](00001-repo-audit-and-tidy/PLAN.md) - In Progress
-- [00002: PHAR-vendored Rector](00002-phar-vendored-rector/PLAN.md) - Draft (research + planning; fable review loop)
 
 ## Completed Plans
 
-_None yet — finished plans move to [Completed/](Completed/) with a matching row here._
+- [00002: PHAR-vendored Rector](Completed/00002-phar-vendored-rector/PLAN.md) - Complete — Rector now ships as the committed `vendor-phar/rector.phar`; `tools/rector/` and `PhiveUpdatePlugin` deleted
 
 ## Cancelled Plans
 
