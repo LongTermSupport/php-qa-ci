@@ -1,5 +1,5 @@
-# shellcheck disable=SC2154 # qaDir/pathsToIgnore/pathsToCheck/testsDir are core pipeline
-#   variables bin/qa (setConfig, setPaths) sets before this fragment is sourced —
+# shellcheck disable=SC2154 # pharDir/pathsToIgnore/pathsToCheck/testsDir/projectRoot are core
+#   pipeline variables bin/qa (setConfig, setPaths) sets before this fragment is sourced —
 #   genuine sourced-fragment architecture, not unset variables.
 #
 # Rector — automated refactoring (Safe-function conversion, PHPUnit upgrades, PHP 8.4).
@@ -10,12 +10,16 @@
 #   - read-only run -> --dry-run; a pending change FAILS with remediation guidance
 #     (used by GitHub Actions so the gate verifies instead of silently rewriting)
 
-# Rector is installed in an isolated sub-composer project to prevent
-# phpstan/phpstan leaking into the project's dependencies.
-rectorBin="$qaDir/../tools/rector/vendor/bin/rector"
+# Rector is delivered as a committed, self-contained PHAR (a peer of the other
+# vendor-phar/ tools) — NOT an isolated composer sub-project. The PHAR bundles
+# its own (extracted) phpstan, so phpstan/phpstan never leaks into any composer
+# graph, and there is no consumer-side composer subprocess. Maintainers rebuild
+# it with scripts/build-rector-phar.bash (see CLAUDE/Plan/00002-phar-vendored-rector).
+rectorBin="$pharDir/rector.phar"
 if [[ ! -f "$rectorBin" ]]; then
-  echo "ERROR: Rector not found at $rectorBin"
-  echo "Run: cd $qaDir/../tools/rector && composer install --no-dev"
+  echo "ERROR: Rector PHAR not found at $rectorBin"
+  echo "It should be committed under vendor-phar/. Reinstall php-qa-ci, or"
+  echo "(maintainer) rebuild it: scripts/build-rector-phar.bash"
   exit 1
 fi
 

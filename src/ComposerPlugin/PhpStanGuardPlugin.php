@@ -17,8 +17,9 @@ use Composer\Semver\Semver;
  *
  * php-qa-ci provides PHPStan via a PHIVE-managed phar and declares
  * "replace": {"phpstan/phpstan": "*"} to prevent it being installed as a composer package.
- * Rector is installed in an isolated sub-composer project (tools/rector/) so its
- * phpstan/phpstan dependency doesn't leak into the project.
+ * Rector is delivered as a committed, self-contained phar (vendor-phar/rector.phar)
+ * that bundles its own extracted phpstan, so Rector's phpstan/phpstan dependency
+ * never enters any composer graph either.
  *
  * Projects must NOT add phpstan/phpstan directly to their own require or require-dev.
  *
@@ -58,7 +59,7 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
     /**
      * Validates PHPStan setup after install/update.
      *
-     * Runs with low priority (-10) to execute after PhiveUpdatePlugin has installed/updated phars.
+     * Runs with low priority (-10) so it executes after other plugins' install/update handlers.
      */
     public function validatePhpStan(Event $event): void
     {

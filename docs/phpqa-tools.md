@@ -33,7 +33,7 @@ These tools can modify your source files.
 
 [Rector Tool](../includes/generic/rector.inc.bash)
 
-Rector performs automated refactoring and code upgrades. It is installed in an isolated sub-composer project at `tools/rector/` (with its own `composer.json`) to prevent `phpstan/phpstan` leaking into the project's dependencies.
+Rector performs automated refactoring and code upgrades. It is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) built by `scripts/build-rector-phar.bash`. The PHAR bundles its own *extracted* `phpstan/phpstan`, so Rector's PHPStan dependency never leaks into any consuming project's dependencies (and, being its own process, never collides with the pipeline's `phpstan.phar`).
 
 The pipeline runs Rector in three stages:
 

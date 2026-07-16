@@ -64,7 +64,7 @@ See the [PHP CS Fixer docs](https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/blob/ma
 
 ## Rector
 
-Rector is installed in an isolated sub-composer project at `tools/rector/` to prevent dependency conflicts with PHPStan.
+Rector is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) that bundles its own extracted phpstan, so it cannot conflict with the project's PHPStan. Maintainers rebuild it with `scripts/build-rector-phar.bash`.
 
 The pipeline runs three Rector configurations in order:
 

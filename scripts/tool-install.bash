@@ -58,6 +58,14 @@ while IFS= read -r location; do
     fi
 done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
 
+# rector.phar is committed but deliberately NOT listed in phive.xml — it is
+# self-built (scripts/build-rector-phar.bash), with no PHIVE-fetchable upstream
+# source. Verify it separately so a missing/corrupt checkout is still caught.
+if [[ ! -e "$VENDOR_PHAR_DIR/rector.phar" ]]; then
+    PHARS_INSTALLED=0
+    echo -e "${RED}Missing PHAR: $VENDOR_PHAR_DIR/rector.phar${NC}"
+fi
+
 if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
     # Maintainer workflow: use phive to update/reinstall PHARs
     if ! command -v phive >/dev/null; then
@@ -101,9 +109,11 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
 
         if [[ "$MODE" == "update" ]]; then
             echo -e "${GREEN}Updating PHAR dependencies via phive...${NC}"
-            # Remove existing PHARs and re-install to get latest versions
+            # Remove existing phive-managed PHARs and re-install to get latest
+            # versions. rector.phar is NOT phive-managed (self-built, no upstream
+            # source); it is rebuilt separately in Phase 2, so never delete it here.
             for phar_file in "$VENDOR_PHAR_DIR"/*.phar; do
-                if [[ -f "$phar_file" ]]; then
+                if [[ -f "$phar_file" && "$(basename "$phar_file")" != "rector.phar" ]]; then
                     rm "$phar_file"
                 fi
             done
@@ -128,23 +138,41 @@ elif [[ $PHARS_INSTALLED -eq 0 ]]; then
 fi
 
 # ============================================================================
-# Phase 2: Isolated Composer Tools (Rector)
-# These are installed via composer in their own sub-projects to prevent
-# dependency conflicts. composer.json and composer.lock are tracked,
-# but vendor/ is not (too large). Installed on first use.
+# Phase 2: Rector PHAR (self-built, committed at vendor-phar/rector.phar).
+# Rector is NOT a phive tool (no upstream phar) and NOT an isolated composer
+# sub-project any more — the committed phar bundles its own extracted phpstan,
+# so nothing leaks into any composer graph and there is no consumer-side
+# composer subprocess.
+#
+# In update/force mode a maintainer rebuilds the phar from the build/rector-phar/
+# manifest. Mirroring the phive block above, the rebuild only runs when Box is
+# actually available (a maintainer environment); otherwise it degrades to a
+# silent skip using the committed phar, so routine composer events never fail on
+# a missing Box. build-rector-phar.bash may auto-download Box when invoked
+# directly, but tool-install never triggers that download implicitly.
 # ============================================================================
 
-RECTOR_DIR="$PROJECT_ROOT/tools/rector"
+if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
+    rector_box_available=0
+    if [[ -n "${BOX_PHAR:-}" && -f "${BOX_PHAR}" ]]; then
+        rector_box_available=1
+    elif command -v box >/dev/null; then
+        rector_box_available=1
+    fi
 
-if [[ "$MODE" == "update" ]]; then
-    echo -e "${GREEN}Updating isolated Rector installation...${NC}"
-    composer update --working-dir="$RECTOR_DIR" --no-interaction --no-dev 2>&1
-    echo -e "${GREEN}Rector updated successfully${NC}"
-    echo ""
-    echo "IMPORTANT: the Rector version is locked by tools/rector/composer.lock, which is"
-    echo "tracked in git so install runs (and CI) are reproducible. Commit the updated lock."
-elif [[ ! -f "$RECTOR_DIR/vendor/bin/rector" ]]; then
-    echo -e "${GREEN}Installing isolated Rector...${NC}"
-    composer install --working-dir="$RECTOR_DIR" --no-interaction --no-dev 2>&1
-    echo -e "${GREEN}Rector installed successfully${NC}"
+    if (( rector_box_available == 1 )); then
+        echo -e "${GREEN}Rebuilding rector.phar from build/rector-phar/ manifest...${NC}"
+        rector_build_args=()
+        if [[ $FORCE_INSTALL -eq 1 ]]; then
+            rector_build_args+=(--force)
+        fi
+        "$SCRIPT_DIR/build-rector-phar.bash" "${rector_build_args[@]}"
+        echo "IMPORTANT: commit the updated vendor-phar/rector.phar and build/rector-phar/composer.lock."
+    elif [[ -f "$VENDOR_PHAR_DIR/rector.phar" ]]; then
+        echo -e "${GREEN}rector.phar present — skipping rebuild (Box not available; not a maintainer build).${NC}"
+    else
+        echo -e "${RED}ERROR: vendor-phar/rector.phar is missing and Box is not available to build it.${NC}"
+        echo "Install Box (or set BOX_PHAR) and re-run, or restore the committed vendor-phar/rector.phar."
+        exit 1
+    fi
 fi

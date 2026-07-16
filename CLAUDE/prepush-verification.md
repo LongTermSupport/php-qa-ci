@@ -46,8 +46,9 @@ Converting calls to `\Safe\*` changes types, and the fixes must land together
 
 ## Rector is version-pinned
 
-`tools/rector/composer.lock` is tracked in git (since 1118447; before that it
-was gitignored against tool-install.bash's documented design, CI floated
-`rector/rector: @stable`, and Rector 2.5.7's release broke CI twice in one day
-with zero repo changes). Bump deliberately via tool-install's update mode and
-commit the lock.
+`build/rector-phar/composer.lock` is tracked in git (relocated from the former
+`tools/rector/` sub-project; the lock has been tracked since 1118447 — before
+that it was gitignored, CI floated `rector/rector: @stable`, and Rector 2.5.7's
+release broke CI twice in one day with zero repo changes). Bump deliberately via
+tool-install's update mode (or `scripts/build-rector-phar.bash`) and commit the
+updated lock together with the rebuilt `vendor-phar/rector.phar`.

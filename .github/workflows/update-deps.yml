@@ -66,9 +66,14 @@ jobs:
             --trust-gpg-keys C6D76C329EBADE2FB9C458CFC5095986493B4AA0,51C67305FFC2E5C0,E82B2FB314E9906E,033E5F8D801A2F8D \
             || echo "::warning::phive update failed (GPG key server issue?) - continuing with existing PHARs"
 
-      # Step 3: Update isolated Rector
-      - name: Update isolated Rector
-        run: composer update --working-dir=tools/rector --no-interaction --no-dev
+      # Step 3: Update Rector and rebuild its committed PHAR
+      # Bump rector/rector in the build manifest (updates build/rector-phar/composer.lock),
+      # then rebuild vendor-phar/rector.phar. build-rector-phar.bash auto-downloads a
+      # pinned Box and sets phar.readonly=0 itself.
+      - name: Update Rector PHAR
+        run: |
+          composer update --working-dir=build/rector-phar --no-interaction --no-dev
+          bash scripts/build-rector-phar.bash --force
 
       # Step 4: Check for changes
       - name: Detect changes
@@ -117,12 +122,13 @@ jobs:
             echo "" >> "$GITHUB_OUTPUT"
           fi
 
-          # Check for Rector changes
-          if ! git diff --quiet tools/rector/composer.lock; then
+          # Check for Rector changes (keyed off the build manifest lock — under
+          # reproducible builds the phar binary follows the lock).
+          if ! git diff --quiet build/rector-phar/composer.lock; then
             echo "## Rector Changes" >> "$GITHUB_OUTPUT"
             echo "" >> "$GITHUB_OUTPUT"
             echo '```diff' >> "$GITHUB_OUTPUT"
-            git diff tools/rector/composer.lock | head -50 >> "$GITHUB_OUTPUT"
+            git diff build/rector-phar/composer.lock | head -50 >> "$GITHUB_OUTPUT"
             echo '```' >> "$GITHUB_OUTPUT"
           fi
 

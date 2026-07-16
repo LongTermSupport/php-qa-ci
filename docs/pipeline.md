@@ -55,7 +55,7 @@ This step includes:
 This step includes:
 
  - [prepareDirectories.inc.bash](./../includes/generic/prepareDirectories.inc.bash): ensuring required directories exist
- - Tool install: `bin/qa` runs `scripts/tool-install.bash` unconditionally. `phive.xml` is a hard requirement (the script exits 1 if it is missing). In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE re-fetches only in the maintainer `update`/`--force` modes) and installs the isolated Rector composer sub-project under `tools/rector/` on first use.
+ - Tool install: `bin/qa` runs `scripts/tool-install.bash` unconditionally. `phive.xml` is a hard requirement (the script exits 1 if it is missing). In the default `install` mode it verifies the PHARs committed under `vendor-phar/` are present (PHIVE re-fetches only in the maintainer `update`/`--force` modes) Rector is delivered as the committed `vendor-phar/rector.phar` (verified like the other phars; maintainers rebuild it with `scripts/build-rector-phar.bash`).
  - Checking for and running your project's `hookPre.bash` script
  - Acquiring a run-level lock (`lock.inc.bash`) so concurrent `qa` runs cannot collide; a held lock aborts the run
 

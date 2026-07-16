@@ -176,7 +176,7 @@ PHP-QA-CI includes an `update-deps.yml` workflow that runs weekly to automatical
 
 - Composer dependencies (`composer update`)
 - PHARs via PHIVE (`phive update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect
-- Isolated Rector installation (`composer update --working-dir=tools/rector`)
+- Rector PHAR rebuild (`composer update --working-dir=build/rector-phar` then `scripts/build-rector-phar.bash --force`)
 
 If changes are detected, it runs the full QA pipeline. If QA passes, it creates a pull request with auto-merge enabled.
 
