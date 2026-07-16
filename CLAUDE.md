@@ -845,6 +845,16 @@ Keep ONE source of truth per fact and link to it. Normal markdown-location rules
 
 **Allowed locations**: `CLAUDE/`, `docs/`, `RELEASES/`, `CLAUDE/Plan/`, root-level `README.md`, `.claude/rules/`, or any `extra_allowed_markdown_paths` pattern.
 
+## npm_command — use llm: prefixed npm commands
+
+Direct `npm run` and `npx` commands are blocked or advised against. Projects with `llm:` prefixed scripts in `package.json` should use those instead.
+
+**Why**: `llm:` commands are configured for LLM-friendly output (no spinners, no colour codes, structured results).
+
+**Example**: Use `npm run llm:build` instead of `npm run build`.
+
+If no `llm:` commands exist in `package.json`, the handler operates in advisory mode (warns but does not block).
+
 ## pip_break_system — --break-system-packages is blocked
 
 `pip install --break-system-packages` (and the `pip3` / `python -m pip` / `python3 -m pip` variants) is blocked. The flag bypasses PEP 668 system-package protection and corrupts the system Python environment in containers and on modern Linux distros.
