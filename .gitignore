@@ -39,5 +39,11 @@
 .claude/worktrees
 .claude/scheduled_tasks.lock
 
+# Scratch / runtime working dir (ccy supervisor log, hooks-daemon reports,
+# worktrees). Belt-and-braces with untracked/.gitignore: ignore all contents
+# here at the root too, but keep the self-excluding .gitignore tracked.
+untracked/*
+!untracked/.gitignore
+
 # ClaudeMdInjector backup (session artifact, never commit)
 .CLAUDE.md.pre-inject
