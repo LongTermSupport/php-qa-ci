@@ -128,7 +128,7 @@ handlers:
       priority: 32
 
     lsp_enforcement:       # Steers LLMs toward LSP tools instead of Grep/Bash grep
-      enabled: false       # Enable when LSP is configured
+      enabled: true        # Enable when LSP is configured
       priority: 38
       options:
         mode: block_once       # advisory | block_once | strict
@@ -136,13 +136,13 @@ handlers:
 
     # WORKFLOW HANDLERS (Priority 30-50) - Enable based on your workflow
     plan_number_helper:    # Provides correct next plan number
-      enabled: false       # Enable when using CLAUDE/Plan/ structure
+      enabled: true        # Enable when using CLAUDE/Plan/ structure
       priority: 33
       # Plan directory is the top-level plan_workflow.directory (single source
       # of truth) — no per-handler track_plans_in_project needed.
 
     task_tdd_advisor:      # Advises on TDD workflow for tasks
-      enabled: false       # Enable for TDD guidance
+      enabled: true        # Enable for TDD guidance
       priority: 36
 
     gh_issue_comments:     # Requires --comments flag for gh issue view
@@ -154,7 +154,7 @@ handlers:
       priority: 40
 
     validate_plan_number:  # Validates plan number format (001-, 002-, etc)
-      enabled: false       # Enable for projects using CLAUDE/Plan/
+      enabled: true        # Enable for projects using CLAUDE/Plan/
       priority: 38
 
     global_npm_advisor:    # Advises against global npm installs
@@ -162,35 +162,35 @@ handlers:
       priority: 42
 
     plan_qa_edit:          # Stage 1 plan QA lint on PLAN.md writes (Plan 00144)
-      enabled: false       # Enable for projects using CLAUDE/Plan/; policy under plan_workflow.qa
+      enabled: true        # Enable for projects using CLAUDE/Plan/; policy under plan_workflow.qa
       priority: 44
 
     plan_qa_commit_gate:   # Stage 2 cross-file plan checks on git commit (Plan 00144)
-      enabled: false       # Enable for projects using CLAUDE/Plan/; warn-first via plan_workflow.qa
+      enabled: true        # Enable for projects using CLAUDE/Plan/; warn-first via plan_workflow.qa
       priority: 44
 
     plan_time_estimates:   # Blocks time estimates in plan files
-      enabled: false       # Enable for projects using CLAUDE/Plan/
+      enabled: true        # Enable for projects using CLAUDE/Plan/
       priority: 45
 
     plan_workflow:         # Provides guidance when creating plans
-      enabled: false       # Enable for projects using CLAUDE/Plan/
+      enabled: true        # Enable for projects using CLAUDE/Plan/
       priority: 44
 
     plan_completion_advisor: # Advises on plan completion workflow
-      enabled: false       # Enable for projects using CLAUDE/Plan/
+      enabled: true        # Enable for projects using CLAUDE/Plan/
       priority: 48
 
     validate_instruction_content: # Blocks ephemeral content in CLAUDE.md/README.md
-      enabled: false       # Enable to prevent implementation logs in instruction files
+      enabled: true        # Enable to prevent implementation logs in instruction files
       priority: 49
 
     npm_command:           # Restricts npm commands to approved list
-      enabled: false       # Enable for strict npm usage control
+      enabled: true        # Enable for strict npm usage control
       priority: 50
 
     markdown_organization: # Enforces markdown file organization rules & plan tracking
-      enabled: false       # Enable for md organization + plan tracking
+      enabled: true        # Enable for md organization + plan tracking
       priority: 51
       # Docs: docs/guides/handlers/markdown_organization.md
       options:
@@ -447,8 +447,8 @@ handlers:
 # markdown_organization, validate_plan_number, ...) AND deploys the CLAUDE/Plan/
 # scaffold + mkplan.bash on install/upgrade. The directory here is authoritative
 # — do not duplicate it in per-handler options.
-# plan_workflow:
-#   enabled: true
-#   directory: "CLAUDE/Plan"
-#   workflow_docs: "CLAUDE/PlanWorkflow.md"
-#   enforce_claude_code_sync: false
+plan_workflow:
+  enabled: true
+  directory: "CLAUDE/Plan"
+  workflow_docs: "CLAUDE/PlanWorkflow.md"
+  enforce_claude_code_sync: false
