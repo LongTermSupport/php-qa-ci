@@ -90,7 +90,7 @@ PHP-QA-CI uses a hybrid approach to tool delivery:
 
 - **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect (PHIVE key `D9C905CED1932CA2` — the trailing 16 chars of the full fingerprint `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, which is what `tool-install.bash` pins) -- delivered in `vendor-phar/`
 - **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit, parallel-lint
-- **Isolated Composer project**: Rector -- in `tools/rector/` with its own `composer.json` to prevent dependency conflicts
+- **Committed PHAR**: Rector -- shipped as `vendor-phar/rector.phar` (self-built via `scripts/build-rector-phar.bash`; it bundles its own extracted phpstan, so nothing leaks into any consuming project's composer graph)
 
 The `phpstan/phpstan` package is in the `replace` section of `composer.json` since PHPStan is provided via PHAR. This prevents version conflicts when consuming projects also require PHPStan extensions.
 
@@ -365,7 +365,7 @@ PHP-QA-CI includes three GitHub Actions workflows in `.github/workflows/`:
 
 - **`ci.yml`** -- Runs on push/PR to `php8.4`, executes `bash ci.bash`
 - **`qa.yml`** -- Template workflow for consuming projects (copy to your project)
-- **`update-deps.yml`** -- Weekly scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, isolated Rector), runs the full QA pipeline, and creates an auto-merge PR if green
+- **`update-deps.yml`** -- Weekly scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, the Rector PHAR), runs the full QA pipeline, and creates an auto-merge PR if green
 
 Two consuming-project templates live in `templates/github-actions/`:
 
@@ -428,9 +428,8 @@ discover the flag.
 
 ### Composer Plugins
 
-PHP-QA-CI registers four Composer plugins (`composer.json` `extra.class`):
+PHP-QA-CI registers three Composer plugins (`composer.json` `extra.class`):
 
-- **PhiveUpdatePlugin** -- Manages PHAR installation via PHIVE
 - **SkillsDeployPlugin** -- Deploys Claude Code skills and hooks
 - **PhpStanGuardPlugin** -- Prevents `phpstan/phpstan` from being installed alongside the PHAR
 - **ManagedSourceDeployPlugin** -- Regenerates the managed `<RootNs>\PhpQaCi\` source tree on
