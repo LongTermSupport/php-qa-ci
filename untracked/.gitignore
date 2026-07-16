@@ -1,0 +1,5 @@
+# Scratch / runtime working dir — ccy supervisor log, hooks-daemon reports,
+# worktrees, etc. Nothing in here is source. This file self-excludes the whole
+# directory's contents while keeping the directory itself in the repo.
+*
+!.gitignore
