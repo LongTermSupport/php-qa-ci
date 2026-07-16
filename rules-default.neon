@@ -75,6 +75,10 @@ parametersSchema:
 
 services:
     -
+        class: LTS\PHPQA\PHPStan\Rules\VendoredCodeDetector
+        arguments:
+            currentWorkingDirectory: %currentWorkingDirectory%
+    -
         class: LTS\PHPQA\PHPStan\Rules\ForbidMockingFinalClassRule
         tags:
             - phpstan.rules.rule
