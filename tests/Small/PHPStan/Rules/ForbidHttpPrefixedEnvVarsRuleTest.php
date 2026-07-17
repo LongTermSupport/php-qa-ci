@@ -54,10 +54,10 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
         // PHPStan's own file/line metadata cannot point outside the file
         // actually being analysed (see the rule's docblock).
         $this->analyse([self::ASSETS . '/dummy.php'], [
-            [$this->expectedMessage(self::ASSETS . '/offending/.env', 4, 'HTTP_EGRESS_PROXY'), 3],
-            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 2, 'HTTP_EGRESS_PROXY'), 3],
-            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 8, 'HTTP_EGRESS_PROXY'), 3],
-            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 9, 'HTTP_CACHE_ROOT'), 3],
+            [$this->expectedMessage(self::ASSETS . '/offending/.env', 4, 'HTTP_API_KEY'), 3],
+            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 2, 'HTTP_API_KEY'), 3],
+            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 8, 'HTTP_API_KEY'), 3],
+            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 9, 'HTTP_CACHE_DIR'), 3],
         ]);
     }
 
@@ -91,7 +91,7 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
             '%s:%d: env var \'%s\' is consumed by Symfony but named with an HTTP_ prefix — '
             . 'Symfony treats HTTP_* as an HTTP request header and will NOT read it from '
             . '$_SERVER, so a CLI process (worker/console/cron) resolves it EMPTY. Rename it '
-            . 'off the HTTP_ prefix (e.g. HTTP_EGRESS_PROXY -> APP_EGRESS_PROXY).',
+            . 'off the HTTP_ prefix (e.g. HTTP_API_KEY -> APP_API_KEY).',
             $file,
             $line,
             $name,

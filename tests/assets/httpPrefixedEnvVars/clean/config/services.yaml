@@ -1,10 +1,10 @@
 parameters:
-    env(APP_CACHE_ROOT): ''
-    app.some_other_param: '%env(SITE_FETCH_EGRESS_CHANNELS)%'
+    env(APP_CACHE_DIR): ''
+    app.some_other_param: '%env(APP_FEATURE_FLAGS)%'
 
 services:
-    App\Service\Egress\ProxyClient:
+    App\Service\SomeClient:
         arguments:
-            $proxy: '%env(APP_EGRESS_PROXY)%'
-            $cacheRoot: '%env(string:APP_CACHE_ROOT)%'
-            $channels: '%env(csv:SITE_FETCH_EGRESS_CHANNELS)%'
+            $apiKey: '%env(APP_API_KEY)%'
+            $cacheDir: '%env(string:APP_CACHE_DIR)%'
+            $featureFlags: '%env(csv:APP_FEATURE_FLAGS)%'
