@@ -86,7 +86,11 @@ $rules = [
     'static_lambda'                       => true,
     'strict_comparison'                   => true,
     'strict_param'                        => true,
-    'ternary_to_null_coalescing'          => true,
+    // Disabled deliberately: this fixer rewrites `isset($x) ? $x : ''` (and similar ternaries defaulting
+    // to '') into `$x ?? ''`, which this package's own ForbidNullCoalescingEmptyStringRule (PHPStan,
+    // rules-optional.neon) BANS — the two would contradict by construction. See the matching
+    // TernaryToNullCoalescingRector skip in rector-php84.php for the full rationale.
+    'ternary_to_null_coalescing'          => false,
     'void_return'                         => true,
     'yoda_style'                          => [
         'equal'     => true,

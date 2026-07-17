@@ -53,8 +53,23 @@ return static function (RectorConfig $rectorConfig): void {
     // php-qa-ci's PHPStan-max rejects it as "casting to string something that's already string". The
     // defensive cast contradicts PHPStan-max by construction; PHPStan is the stronger guarantee (it
     // makes you fix the nullability explicitly), so we keep it and drop this cast-adding rule.
+    //
+    // TernaryToNullCoalescingRector rewrites `null === $x ? '' : $x` (and the isset()/!== null ternary
+    // variants defaulting to '') into `$x ?? ''` — which this package's own opt-in
+    // ForbidNullCoalescingEmptyStringRule (rules-optional.neon) then BANS. The two rules contradict by
+    // construction: Rector mechanically produces exactly the pattern the PHPStan rule forbids, so a file
+    // carrying such a ternary can never be made green (Rector rewrites it on every writable run, PHPStan
+    // then fails it). PHPStan is the stronger guarantee here — a `?? ''` default is almost always
+    // error-hiding and should be an explicit null check — and the rare LEGITIMATE null->'' case
+    // (canonicalising a nullable into a hash/serialisation preimage, where the absent marker must differ
+    // from every present value) must stay written as a ternary: its mutation set is fully killable,
+    // whereas `?? ''` yields an UNKILLABLE equivalent mutant (Infection's Coalesce mutator reduces
+    // `$x ?? ''` to `$x`, indistinguishable once null and '' coerce identically downstream). So we keep
+    // the ban and drop the Rector rule that manufactures its violation — the same stance, for the same
+    // reason, as the NullToStrictStringFuncCallArgRector skip above.
     $rectorConfig->skip([
         Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector::class,
+        Rector\Php70\Rector\Ternary\TernaryToNullCoalescingRector::class,
     ]);
 
     // Use memory cache for performance
