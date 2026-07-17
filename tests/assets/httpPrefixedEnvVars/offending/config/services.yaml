@@ -1,0 +1,10 @@
+parameters:
+    env(HTTP_EGRESS_PROXY): ''
+    app.some_other_param: '%env(SITE_FETCH_EGRESS_CHANNELS)%'
+
+services:
+    App\Service\Egress\ProxyClient:
+        arguments:
+            $proxy: '%env(HTTP_EGRESS_PROXY)%'
+            $cacheRoot: '%env(string:HTTP_CACHE_ROOT)%'
+            $channels: '%env(csv:SITE_FETCH_EGRESS_CHANNELS)%'
