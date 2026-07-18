@@ -1,0 +1,10 @@
+parameters:
+    env(HTTP_API_KEY): ''
+    app.some_other_param: '%env(APP_FEATURE_FLAGS)%'
+
+services:
+    App\Service\SomeClient:
+        arguments:
+            $apiKey: '%env(HTTP_API_KEY)%'
+            $cacheDir: '%env(string:HTTP_CACHE_DIR)%'
+            $featureFlags: '%env(csv:APP_FEATURE_FLAGS)%'

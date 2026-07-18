@@ -1,0 +1,2 @@
+parameters:
+    app.some_param: '%env(HTTP_SHOULD_NOT_BE_SCANNED)%'

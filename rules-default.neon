@@ -91,6 +91,19 @@ services:
         class: LTS\PHPQA\PHPStan\Rules\ForbidMockingFinalClassRule
         tags:
             - phpstan.rules.rule
+    # ForbidHttpPrefixedEnvVarsRule — the violation lives in Symfony YAML
+    # config and .env files, not PHP AST, so the rule reaches those itself
+    # (plain file reads — see its own docblock for why this is not a
+    # shelled-out grep). Auto-skips cleanly on any consumer with neither
+    # symfony/dependency-injection nor symfony/dotenv installed — no manual
+    # opt-out flag, so it can never be silently forgotten on a project that
+    # DOES use Symfony. See docs/tools/httpPrefixedEnvVars.md (TODO: add).
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidHttpPrefixedEnvVarsRule
+        arguments:
+            projectRoot: %currentWorkingDirectory%
+        tags:
+            - phpstan.rules.rule
     -
         class: LTS\PHPQA\PHPStan\Rules\RequireSensitiveParameterAttributeRule
         arguments:
