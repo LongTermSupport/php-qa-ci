@@ -37,6 +37,8 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
 
     private string $projectType = 'library';
 
+    private string $enforceMode = 'auto';
+
     /** @var list<string> */
     private array $ignoredNamespacePrefixes = [];
 
@@ -88,6 +90,35 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function itEnforcesForANonLibraryTypeWhenTheOverrideForcesItOn(): void
+    {
+        // A composer-plugin IS a form of library: with enforce=always it must still
+        // classify its public surface, even though its composer `type` is not `library`.
+        // This is the motivating opt-in (ballicom/ballicom-sql: a self-deploying
+        // composer-plugin that still ships a public API).
+        $this->projectType = 'composer-plugin';
+        $this->enforceMode = 'always';
+
+        $this->analyse(
+            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [[self::MISSING_MESSAGE, 7]],
+        );
+    }
+
+    #[Test]
+    public function itDoesNotEnforceForALibraryWhenTheOverrideForcesItOff(): void
+    {
+        // enforce=never forces the rule off even for a library (the escape hatch).
+        $this->projectType = 'library';
+        $this->enforceMode = 'never';
+
+        $this->analyse(
+            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [],
+        );
+    }
+
+    #[Test]
     public function itRespectsIgnoredNamespacePrefixes(): void
     {
         $this->ignoredNamespacePrefixes = ['LTS\PHPQA\Tests\Assets'];
@@ -117,7 +148,7 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
     protected function getRule(): Rule
     {
         return new RequireApiOrInternalTagRule(
-            new ProjectComposerTypeReader(['type' => $this->projectType]),
+            new ProjectComposerTypeReader(['type' => $this->projectType], $this->enforceMode),
             new ApiOrInternalTagDetector(),
             new DevAutoloadNamespaceReader($this->composerJson),
             $this->ignoredNamespacePrefixes,

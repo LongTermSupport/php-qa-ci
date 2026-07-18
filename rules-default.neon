@@ -63,6 +63,14 @@ parameters:
     #           - App\PhpQaCi
     phpqaciApiOrInternal:
         ignoredNamespacePrefixes: []
+        # API-surface enforcement mode for the two rules below (RequireApiOrInternalTagRule
+        # + ApiMustNotExposeInternalRule):
+        #   auto   (default) — enforce iff the composer `type` is `library`
+        #   always           — enforce regardless of `type` (a package that IS a consumable
+        #                       library but carries a non-library type, e.g. a self-deploying
+        #                       composer-plugin that still ships a public API)
+        #   never            — never enforce, regardless of `type`
+        enforce: auto
 
 parametersSchema:
     phpqaciSensitiveParameter: structure([
@@ -71,6 +79,7 @@ parametersSchema:
     ])
     phpqaciApiOrInternal: structure([
         ignoredNamespacePrefixes: listOf(string())
+        enforce: string()
     ])
 
 services:
@@ -94,7 +103,10 @@ services:
     # every public class-like must be classified as exactly one of @api / @internal;
     # for any other type the rule no-ops. The collaborators are autowired from the
     # services below; ignored namespace prefixes come from the parameter above.
-    - LTS\PHPQA\PackageType\ProjectComposerTypeReader
+    -
+        class: LTS\PHPQA\PackageType\ProjectComposerTypeReader
+        arguments:
+            enforceMode: %phpqaciApiOrInternal.enforce%
     - LTS\PHPQA\PackageType\DevAutoloadNamespaceReader
     - LTS\PHPQA\PHPStan\Rules\ApiOrInternalTagDetector
     -

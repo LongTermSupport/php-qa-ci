@@ -36,7 +36,9 @@ use PHPStan\Type\Type;
  * Third-party `@internal` types (a different root namespace) are NOT flagged here
  * — leaking another package's internals is that package's concern, and flagging it
  * would punish unavoidable vendor surface. The rule no-ops for any non-library
- * package type.
+ * package type, unless the project opts in via `phpqaciApiOrInternal.enforce: always`
+ * (and `never` forces it off even for a library) — the shared gate is
+ * {@see ProjectComposerTypeReader::enforcesApiSurface()}.
  *
  * @implements Rule<InClassNode>
  */
@@ -60,7 +62,7 @@ final readonly class ApiMustNotExposeInternalRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if ('library' !== $this->typeReader->effectiveType()) {
+        if (!$this->typeReader->enforcesApiSurface()) {
             return [];
         }
 

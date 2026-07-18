@@ -27,6 +27,8 @@ final class ApiMustNotExposeInternalRuleTest extends RuleTestCase
 
     private string $projectType = 'library';
 
+    private string $enforceMode = 'auto';
+
     #[Test]
     public function itFlagsAnApiClassReturningAnInternalType(): void
     {
@@ -74,10 +76,28 @@ final class ApiMustNotExposeInternalRuleTest extends RuleTestCase
         $this->analyse([self::ASSETS . '/ApiLeaksViaReturn.php'], []);
     }
 
+    #[Test]
+    public function itEnforcesForANonLibraryTypeWhenTheOverrideForcesItOn(): void
+    {
+        // The integrity check honours the same enforce override as its sibling
+        // RequireApiOrInternalTagRule: a composer-plugin that opts in with
+        // enforce=always must not leak its own @internal types either.
+        $this->projectType = 'composer-plugin';
+        $this->enforceMode = 'always';
+
+        $this->analyse(
+            [self::ASSETS . '/ApiLeaksViaReturn.php'],
+            [[$this->leakMessage(
+                \LTS\PHPQA\Tests\Assets\PHPStan\ApiInternalLeak\ApiLeaksViaReturn::class,
+                'return type of method fetch()',
+            ), 10]],
+        );
+    }
+
     protected function getRule(): Rule
     {
         return new ApiMustNotExposeInternalRule(
-            new ProjectComposerTypeReader(['type' => $this->projectType]),
+            new ProjectComposerTypeReader(['type' => $this->projectType], $this->enforceMode),
             $this->createReflectionProvider(),
         );
     }

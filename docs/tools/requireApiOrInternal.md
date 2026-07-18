@@ -105,6 +105,33 @@ conscious rather than inherited from Composer's silent default. A package that i
 really an application sets `type: project` (and this rule then no-ops); a real
 library sets `type: library` and classifies its surface.
 
+## Overriding enforcement by package `type` (`auto` / `always` / `never`)
+
+By default enforcement is **`auto`**: both API-surface rules
+(RequireApiOrInternalTagRule and the coherence rule below) enforce **iff** the
+composer `type` is `library`. That is right for the common case, but a package can
+be a genuine consumable **library** yet be forced to carry a **non-`library`**
+composer `type` for an unrelated reason — the motivating case is a package that
+must be `type: composer-plugin` so Composer will activate its self-deployment,
+while it still ships a public API its consumers depend on. A `composer-plugin` is a
+form of library, not an application, so its public surface deserves the same
+discipline.
+
+Set `phpqaciApiOrInternal.enforce` to override the `type` gate:
+
+```neon
+parameters:
+    phpqaciApiOrInternal:
+        # auto (default) — enforce iff composer `type` is `library`
+        # always         — enforce regardless of `type` (a library that carries a
+        #                   non-library type, e.g. a self-deploying composer-plugin)
+        # never          — never enforce, regardless of `type`
+        enforce: always
+```
+
+The setting governs **both** API-surface rules (presence *and* coherence). `auto`
+is byte-for-byte the historic behaviour, so existing projects are unaffected.
+
 ## Coherence: an `@api` class must not expose `@internal` (default-on)
 
 Classifying every class-like is necessary but not sufficient — the classification

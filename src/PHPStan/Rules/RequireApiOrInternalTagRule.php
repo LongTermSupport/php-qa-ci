@@ -31,7 +31,11 @@ use PHPStan\Rules\RuleErrorBuilder;
  * `@internal`, promote to `@api` only what consumers genuinely need.
  *
  * For any other package type (`project` application, `metapackage`, …) there is
- * no consumer-facing surface, so the rule no-ops.
+ * no consumer-facing surface, so the rule no-ops — UNLESS a project opts in via
+ * `phpqaciApiOrInternal.enforce: always` (a library that carries a non-`library`
+ * type, e.g. a self-deploying `composer-plugin`). Conversely `enforce: never`
+ * forces the rule off even for a `library`. The gate is
+ * {@see ProjectComposerTypeReader::enforcesApiSurface()}.
  *
  * Dev-only code (under an `autoload-dev` PSR-4 namespace — tests, dev tooling, QA
  * config) is never shipped runtime surface, so it is skipped automatically (read
@@ -70,6 +74,13 @@ final readonly class RequireApiOrInternalTagRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
+        // Enforcement gate: is this project's public surface a consumer contract?
+        // Decided by the package `type` plus the auto/always/never override
+        // (see ProjectComposerTypeReader::enforcesApiSurface()).
+        if (!$this->typeReader->enforcesApiSurface()) {
+            return [];
+        }
+
         $classReflection = $node->getClassReflection();
 
         // Anonymous classes have no name to classify and form no public contract.
@@ -90,7 +101,7 @@ final readonly class RequireApiOrInternalTagRule implements Rule
         $hasApi      = $this->hasTag($docText, 'api');
         $hasInternal = $this->hasTag($docText, 'internal');
 
-        $verdict = $this->detector->classify($this->typeReader->effectiveType(), $hasApi, $hasInternal);
+        $verdict = $this->detector->classify($hasApi, $hasInternal);
 
         $message = match ($verdict) {
             ApiOrInternalTagVerdictEnum::Missing => \sprintf(

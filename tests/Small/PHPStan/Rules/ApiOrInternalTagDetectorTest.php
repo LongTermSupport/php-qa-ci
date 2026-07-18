@@ -13,10 +13,15 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Pure decision tests for {@see ApiOrInternalTagDetector}: given the project's
- * composer `type` and whether a public class-like carries `@api` / `@internal`,
- * decide whether (and how) it violates the "a library must classify its public
- * surface" convention. Framework-free — no PHPStan Scope / RuleTestCase needed.
+ * Pure decision tests for {@see ApiOrInternalTagDetector}: given whether a public
+ * class-like carries `@api` / `@internal`, decide whether it is classified,
+ * unclassified (Missing) or contradictory (Both). Framework-free — no PHPStan
+ * Scope / RuleTestCase needed.
+ *
+ * The detector is now PURE tag logic: WHETHER to enforce at all (the package-type
+ * gate plus the auto/always/never override) is decided upstream by
+ * {@see \LTS\PHPQA\PackageType\ProjectComposerTypeReader::enforcesApiSurface()} and
+ * tested there — so there are no `type` cases here any more.
  *
  * @internal
  */
@@ -33,50 +38,27 @@ final class ApiOrInternalTagDetectorTest extends TestCase
 
     #[Test]
     #[DataProvider('cases')]
-    public function itClassifiesByProjectTypeAndTagPresence(
-        string $projectType,
+    public function itClassifiesByTagPresence(
         bool $hasApi,
         bool $hasInternal,
         ApiOrInternalTagVerdictEnum $expected,
     ): void {
         self::assertSame(
             $expected,
-            $this->detector->classify($projectType, $hasApi, $hasInternal),
+            $this->detector->classify($hasApi, $hasInternal),
         );
     }
 
     /**
-     * @return iterable<string, array{string, bool, bool, ApiOrInternalTagVerdictEnum}>
+     * @return iterable<string, array{bool, bool, ApiOrInternalTagVerdictEnum}>
      */
     public static function cases(): iterable
     {
-        // A library MUST classify every public class-like as exactly one of
-        // @api (supported contract) or @internal (may change without a major bump).
-        yield 'library, @api only — classified public'      => ['library', true, false, ApiOrInternalTagVerdictEnum::Ok];
-        yield 'library, @internal only — classified internal' => ['library', false, true, ApiOrInternalTagVerdictEnum::Ok];
-        yield 'library, neither — must classify'             => ['library', false, false, ApiOrInternalTagVerdictEnum::Missing];
-        yield 'library, both — contradictory'                => ['library', true, true, ApiOrInternalTagVerdictEnum::Both];
-
-        // An application (type: project) has no consumer-facing API surface, so the
-        // classification is NOT required — the rule no-ops regardless of tags.
-        yield 'project, neither — not enforced'              => ['project', false, false, ApiOrInternalTagVerdictEnum::Ok];
-        yield 'project, both — not enforced'                 => ['project', true, true, ApiOrInternalTagVerdictEnum::Ok];
-        yield 'project, @api only — not enforced'            => ['project', true, false, ApiOrInternalTagVerdictEnum::Ok];
-
-        // Any other declared type (metapackage, composer-plugin, …) is treated like
-        // a non-library: not enforced by this rule.
-        yield 'metapackage — not enforced'                   => ['metapackage', false, false, ApiOrInternalTagVerdictEnum::Ok];
-        yield 'composer-plugin — not enforced'               => ['composer-plugin', false, false, ApiOrInternalTagVerdictEnum::Ok];
-    }
-
-    #[Test]
-    public function theTypeComparisonIsCaseInsensitiveAndTrimmed(): void
-    {
-        // composer `type` is author-typed free text; normalise so " Library " and
-        // "LIBRARY" are still treated as a library (and still enforced).
-        self::assertSame(
-            ApiOrInternalTagVerdictEnum::Missing,
-            $this->detector->classify('  LiBrArY  ', false, false),
-        );
+        // A classified public class-like carries exactly one of @api (supported
+        // contract) or @internal (may change without a major bump).
+        yield '@api only — classified public'         => [true, false, ApiOrInternalTagVerdictEnum::Ok];
+        yield '@internal only — classified internal'  => [false, true, ApiOrInternalTagVerdictEnum::Ok];
+        yield 'neither — must classify'               => [false, false, ApiOrInternalTagVerdictEnum::Missing];
+        yield 'both — contradictory'                  => [true, true, ApiOrInternalTagVerdictEnum::Both];
     }
 }
