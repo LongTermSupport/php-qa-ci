@@ -77,12 +77,31 @@ function configPath() {
   local genericPath="$defaultConfigPath/generic/$relativePath"
   # -e FILE - True if the FILE exists and is a file, regardless of type
   if [[ -e $projectConfigPath/$relativePath ]]; then
-    echo $projectConfigPath/$relativePath
+    echo "$projectConfigPath/$relativePath"
   elif [[ -e $platformPath ]]; then
-    echo $platformPath
+    echo "$platformPath"
   else
-    echo $genericPath
+    echo "$genericPath"
   fi
+}
+
+###############################################################
+# Half the available CPU threads, minimum 1 — the shared parallelism default for the
+# heavy tools (Rector, PHPStan, Infection), so no single tool saturates the machine or
+# starves long-lived processes (editors, the Claude hooks daemon). SSoT for the
+# "50% of cores" number: computed here, exported by setConfig as $qaHalfCpuThreads.
+function halfCpuThreadCount() {
+  local cores
+  if command -v nproc > /dev/null; then
+    cores=$(nproc)
+  else
+    cores=$(grep -c ^processor /proc/cpuinfo)
+  fi
+  local half=$(( cores / 2 ))
+  if (( half < 1 )); then
+    half=1
+  fi
+  echo "$half"
 }
 
 ###############################################################
@@ -107,7 +126,7 @@ function phpNoXdebug() {
   esac
   set -x
   # Apply global memory limit (can be overridden with explicit -d memory_limit=X after this)
-  ${phpBinPath} -n -c "$noXdebugConfigPath" -d memory_limit=${phpqaMemoryLimit:-4G} "$@"
+  ${phpBinPath} -n -c "$noXdebugConfigPath" -d memory_limit="${phpqaMemoryLimit:-4G}" "$@"
   local exitCode=$?
   if (( _xtraceWasOn == 0 )); then
     set +x
@@ -170,7 +189,7 @@ function tryAgainOrAbort() {
     ==================================================
 
     "
-  while read -n 1 tryAgainOrAbort; do
+  while read -r -n 1 tryAgainOrAbort; do
     if [[ "n" == "$tryAgainOrAbort" ]]; then
       printf "\n\nAborting...\n\n"
       exit 1
@@ -178,7 +197,7 @@ function tryAgainOrAbort() {
     if [[ "y" == "$tryAgainOrAbort" ]]; then
       break
     fi
-    printf "\n\ninvalid choice: $tryAgainOrAbort - should be y or n \n\n        would you like to try again? (y/n)"
+    printf '\n\ninvalid choice: %s - should be y or n \n\n        would you like to try again? (y/n)' "$tryAgainOrAbort"
   done
   printf "\n\nTrying again, good luck!\n\n"
   # shellcheck disable=SC2034 # global consumed by bin/qa after the retry loop returns
@@ -370,7 +389,7 @@ function qaReportAggregate() {
 }
 
 function findTestsDir() {
-  testsDir="$(find $projectRoot -maxdepth 1 -type d \( -name test -o -name tests \) | head -n1)"
+  testsDir="$(find "$projectRoot" -maxdepth 1 -type d \( -name test -o -name tests \) | head -n1)"
   if [[ "" == "$testsDir" ]]; then
     echo "
 
@@ -422,7 +441,7 @@ function findSrcDir() {
 }
 
 function findBinDir() {
-  binDir="$(cd $projectRoot && composer config bin-dir)"
+  binDir="$(cd "$projectRoot" && composer config bin-dir)"
   if [[ "" == "$binDir" ]]; then
     echo "
 

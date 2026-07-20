@@ -72,7 +72,14 @@ useInfection=${useInfection:-1}
 infectionConfig=$(configPath infection.json)
 # Speeds up the tests https://infection.github.io/guide/command-line-options.html#threads
 # Can cause issues if the test rely on the database
-infectionThreads=${infectionThreads:-$(grep -c ^processor /proc/cpuinfo)}
+# Shared "50% of cores" parallelism default (halfCpuThreadCount), computed ONCE here and
+# exported so every heavy tool reads the same number: Infection (here), PHPStan and Rector
+# all consume $qaHalfCpuThreads — no duplicated core-count maths. Running mutation testing at
+# 100% of cores saturates the machine and starves long-lived processes (editors, the Claude
+# hooks daemon). Override the Infection thread count with `export infectionThreads=N`.
+qaHalfCpuThreads=$(halfCpuThreadCount)
+export qaHalfCpuThreads
+infectionThreads=${infectionThreads:-$qaHalfCpuThreads}
 # Only Covered
 infectionOnlyCovered=${infectionOnlyCovered:-0}
 

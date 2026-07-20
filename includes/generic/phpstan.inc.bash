@@ -5,13 +5,11 @@ phpStanLogDir="$varDir/phpstan_logs"
 phpStanLogFile="phpstan.log"
 mkdir -p "$phpStanLogDir"
 
-# Limit parallel processing to use only half of available CPU threads
-# to avoid overwhelming the system (consistent with Rector configuration)
-cpuThreads=$(nproc 2>/dev/null || echo 4)
-maxProcesses=$(( cpuThreads / 2 ))
-if (( maxProcesses < 1 )); then
-  maxProcesses=1
-fi
+# Limit parallel processing to half the CPU threads to avoid overwhelming the system —
+# the shared SSoT ($qaHalfCpuThreads, computed once by setConfig via halfCpuThreadCount),
+# consistent with Rector and Infection. Fall back to the helper if run standalone.
+# shellcheck disable=SC2154 # qaHalfCpuThreads is exported by setConfig before this fragment is sourced
+maxProcesses=${qaHalfCpuThreads:-$(halfCpuThreadCount)}
 phpStanParallelConfig="$phpStanLogDir/phpstan-parallel.neon"
 cat > "$phpStanParallelConfig" << NEON
 includes:
@@ -22,7 +20,7 @@ parameters:
         maximumNumberOfProcesses: $maxProcesses
 NEON
 phpstanConfigPath="$phpStanParallelConfig"
-echo "PHPStan: limiting to $maxProcesses parallel processes (50% of $cpuThreads cores)"
+echo "PHPStan: limiting to $maxProcesses parallel processes (50% of cores)"
 
 phpstanNoProgress=()
 if [[ "true" == "$CI" ]]; then

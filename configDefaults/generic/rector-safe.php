@@ -11,8 +11,16 @@ use Rector\Config\RectorConfig;
 return static function (RectorConfig $rectorConfig): void {
     // Limit parallel processing to use only half of available CPU threads
     // to avoid overwhelming the system
-    $cpuThreads = (int) shell_exec('nproc') ?: 4;  // Default to 4 if nproc fails
-    $maxProcesses = max(1, (int) floor($cpuThreads / 2));  // Use half the threads, minimum 1
+    // Shared "50% of cores" parallelism default. Prefer the value the QA pipeline computes
+    // once and exports ($qaHalfCpuThreads, via halfCpuThreadCount in functions.inc.bash);
+    // fall back to reading /proc/cpuinfo here when Rector runs standalone (env var absent).
+    $maxProcesses = (int) getenv('qaHalfCpuThreads');
+    if ($maxProcesses < 1) {
+        $cpuThreads = is_readable('/proc/cpuinfo')
+            ? substr_count((string) file_get_contents('/proc/cpuinfo'), 'processor')
+            : 4;
+        $maxProcesses = max(1, (int) floor($cpuThreads / 2));  // Use half the threads, minimum 1
+    }
 
     // Parameters: timeout (seconds), max processes, job size (files per job)
     $rectorConfig->parallel(

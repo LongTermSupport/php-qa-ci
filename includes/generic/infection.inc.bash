@@ -255,7 +255,21 @@ function runInfection() {
         )
     fi
 
-    phpNoXdebug -f "$infectionPath" "${infectionArgs[@]}"
+    # Daemon/host resilience (best-effort; never aborts the run). Mutation testing is the
+    # heaviest QA stage (many parallel PHPUnit workers, each up to phpqaMemoryLimit). Run its
+    # process tree at low CPU priority AND mark it as the preferred OOM victim, so it yields
+    # to — and is killed before — long-lived processes (editors, the Claude hooks daemon)
+    # under CPU/memory pressure. Scoped to a subshell so only Infection's children (which
+    # inherit both attributes) are affected, not bin/qa. Raising niceness / oom_score_adj
+    # needs no privilege; $BASHPID is the subshell's own pid.
+    (
+        renice -n 19 -p "$BASHPID" > /dev/null \
+            || echo "Infection: renice unavailable — continuing at normal CPU priority"
+        if [[ -w /proc/self/oom_score_adj ]]; then
+            echo 900 > /proc/self/oom_score_adj
+        fi
+        phpNoXdebug -f "$infectionPath" "${infectionArgs[@]}"
+    )
 }
 
 infectionExitCode=99
