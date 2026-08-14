@@ -9,6 +9,39 @@ knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush
 — the mandatory pre-push battery; pushing `php8.4` deploys to production),
 programme/work records in `CLAUDE/Plan/`.
 
+## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
+
+php-qa-ci is frequently installed **from source** into a consuming project, so
+`vendor/lts/php-qa-ci/` is a real git checkout with its own `.git`. When a harness
+change is needed while working inside the consumer, work on it in place — no separate
+clone required:
+
+- **Edit and commit in the vendored checkout.** Change the include/config/test under
+  `vendor/lts/php-qa-ci/` and `git commit` there. Pushing follows the consuming
+  project's policy for `lts/*` (typically: commit locally, a human pushes/releases).
+
+- **Dogfood against real consumer code.** The vendored copy is the live copy the
+  consumer's `vendor/bin/qa` runs from, so the consumer's next QA run exercises the
+  change with no reinstall.
+
+- **Also pass php-qa-ci's OWN battery before any push.** php-qa-ci ships its own
+  `composer.json` + `composer.lock` + `qaConfig/`, so run its own QA against its own
+  `src/`/`tests/`:
+
+  ```bash
+  cd vendor/lts/php-qa-ci
+  composer install
+  QA_READONLY=1 CI=true bin/qa        # full read-only battery (the real pre-push gate)
+  CI=true bin/qa -t unit              # or a single tool while iterating
+  ```
+
+  A consumer's `bin/qa` validates the CONSUMER's code; the commands above validate
+  php-qa-ci itself (its `Large` include-level tests, PHPStan, Rector/CS-Fixer
+  dry-run). This is the battery [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
+  mandates before a `php8.4` push. The nested `vendor/lts/php-qa-ci/vendor/` from
+  `composer install` is the package's own dev environment, isolated from the
+  consumer's tree.
+
 ## Overview
 
 PHP-QA-CI is a comprehensive quality assurance pipeline for PHP projects written in Bash. It orchestrates multiple PHP quality assurance tools in a carefully designed sequence to fail fast and provide rapid feedback.
