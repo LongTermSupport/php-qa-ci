@@ -156,7 +156,8 @@ fi
 # code's tests kill its mutants?" — answerable from the diff alone, without paying
 # the whole-codebase cost on every iteration. When set, the step:
 #   - restricts mutation to the changed source files (see the file-list computation
-#     below) via --filter, so Infection mutates only added/modified files;
+#     below) by passing them as POSITIONAL path arguments, so Infection mutates
+#     only added/modified files;
 #   - swaps the two monotonic floor flags for a single --min-covered-msi=100 — the
 #     "no new escaped mutants in the changed code" bar. A diff-scoped percentage
 #     floor is statistically meaningless (a handful of mutants makes any fixed
@@ -176,7 +177,9 @@ fi
 # mis-resolved and the diff silently matches NOTHING — a false "no changed files"
 # pass. Running `git diff --relative` ourselves normalises the paths to the CWD, so
 # diff scoping is correct whether the project is the repo root or a subdirectory; we
-# then hand the explicit list to Infection via --filter.
+# then hand the explicit list to Infection as POSITIONAL path arguments (the
+# non-deprecated replacement for the --filter option, which Infection deprecated
+# in 0.34.0 and will remove in a future release).
 # The changed-file set is computed from COMMITTED HISTORY ONLY: a three-dot
 # `git diff base...HEAD` (merge-base of the base ref and HEAD, against HEAD).
 # Two properties matter:
@@ -197,12 +200,21 @@ function computeInfectionDiffFilter() {
         echo "           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first)."
         return 1
     fi
-    # Keep only PHP files and comma-join them for --filter. A `grep`/pipeline here
-    # would abort the run under bin/qa's `set -o pipefail`+errexit on a legitimate
-    # no-match, so we iterate explicitly instead.
+    # Keep only PHP files, collecting BOTH forms of the list: the authoritative
+    # positional-args array (passed to Infection in runInfection) and a
+    # comma-joined string (kept only for the human-readable log line and the
+    # emptiness/SKIP check). A `grep`/pipeline here would abort the run under
+    # bin/qa's `set -o pipefail`+errexit on a legitimate no-match, so we iterate
+    # explicitly instead.
     local diffChangedFile
     while IFS= read -r diffChangedFile; do
         [[ "$diffChangedFile" == *.php ]] || continue
+        # Positional paths are absolutised against the CWD. Infection's
+        # PositionalPathsClassifier resolves a RELATIVE positional path against the
+        # infection.json CONFIG dir (not the CWD), so a CWD-relative "src/..." would
+        # resolve under qaConfig/ and be rejected. `git diff --relative` above emits
+        # paths relative to the CWD, so ${PWD}/<path> is the correct absolute form.
+        infectionDiffFilterPaths+=("${PWD}/${diffChangedFile}")
         if [[ -n "$infectionDiffFilter" ]]; then
             infectionDiffFilter="${infectionDiffFilter},${diffChangedFile}"
         else
@@ -213,6 +225,11 @@ function computeInfectionDiffFilter() {
 }
 
 infectionDiffFilter=""
+# Parallel to the comma-joined string above: the SAME changed files as an ARRAY,
+# handed to Infection as positional path arguments (see runInfection). This is the
+# authoritative list for the run; the string exists only for the log line + the
+# emptiness/SKIP check below.
+infectionDiffFilterPaths=()
 if [[ -n "${infectionDiffBase:-}" ]]; then
     echo "Infection: diff mode — scoping mutation to source files changed against '${infectionDiffBase}' (committed history only)."
     if ! computeInfectionDiffFilter; then
@@ -241,10 +258,20 @@ function runInfection() {
     if [[ -n "${infectionDiffBase:-}" ]]; then
         # Diff-scoped lane: mutate only the changed files (computed above) and
         # enforce "no new escaped mutants in the changed code" via covered-MSI 100.
+        # The changed files are passed as POSITIONAL path arguments (appended LAST,
+        # after every option) — the non-deprecated replacement for the "--filter"
+        # option, which Infection deprecated in 0.34.0 and will remove in a future
+        # release. Both forms scope mutation to exactly the listed files; the
+        # positional form additionally avoids the deprecation warning (and the
+        # eventual hard break). Infection's own guidance: "infection run <path>
+        # <path> ..." (the "paths" IS_ARRAY argument).
         infectionArgs+=(
-            --filter="${infectionDiffFilter}"
             --min-covered-msi=100
         )
+        # Positional source paths MUST come after all options. In diff mode the
+        # list is guaranteed non-empty (an empty diff SKIPs earlier, before this
+        # function is ever called).
+        infectionArgs+=( "${infectionDiffFilterPaths[@]}" )
     else
         # Full lane (default, unchanged): whole codebase against the SSoT ratchet
         # floors, with the verbose console report.
