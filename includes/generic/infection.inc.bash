@@ -97,6 +97,21 @@ coverageXmlDir="$varDir/phpunit_logs/coverage-xml"
 minMsi="${mutationScoreIndicator:-${infectionMutationScoreIndicator}}"
 minCoveredMsi="${coveredCodeMSI:-${infectionCoveredCodeMSI}}"
 
+# Diff-lane covered-MSI floor (opt-in diff mode only — see OPT-IN DIFF MODE below).
+# Defaults to 100 — the "kill every mutant in the code you touched" ideal — but is
+# OVERRIDABLE, because a rigid 100 is not always HONESTLY achievable. A touched file
+# can contain a PROVABLY EQUIVALENT mutant: a mutation whose result is semantically
+# identical to the original, so NO test can ever distinguish (and therefore kill) it.
+# These are frequently a form a static-analysis rule MANDATES (e.g. a required
+# non-throwing variant of an API call on an already-guarded path, where the mutated
+# argument makes no observable difference). Such a mutant cannot be killed AND must
+# not be excluded/suppressed — so the honest response is to lower this floor a few
+# points (95 is the usual choice; 90 the practical floor), NOT to add a suppression
+# or contort tests to chase an unreachable 100. Override in qaConfig/qaConfig.inc.bash
+# or per-run: `infectionDiffCoveredMsi=95`. The 100%-floor advisory emitted below
+# spells this out whenever a 100 floor is in force.
+infectionDiffCoveredMsi="${infectionDiffCoveredMsi:-100}"
+
 # DETECT vs GENERATE coverage. Infection must mutate against coverage for the CODE
 # UNDER TEST, so stale coverage from an earlier run would give a wrong score.
 #   - Full-pipeline run ($singleToolToRun empty): the phpunit-with-coverage step ran
@@ -158,11 +173,13 @@ fi
 #   - restricts mutation to the changed source files (see the file-list computation
 #     below) by passing them as POSITIONAL path arguments, so Infection mutates
 #     only added/modified files;
-#   - swaps the two monotonic floor flags for a single --min-covered-msi=100 — the
-#     "no new escaped mutants in the changed code" bar. A diff-scoped percentage
-#     floor is statistically meaningless (a handful of mutants makes any fixed
-#     percentage either vacuous or noise), whereas "kill everything you touched"
-#     is a stable, meaningful bar on a small denominator;
+#   - swaps the two monotonic floor flags for a single --min-covered-msi floor
+#     ($infectionDiffCoveredMsi, default 100) — the "kill the mutants in the code you
+#     touched" bar. 100 keeps the ideal ("kill everything you touched") as the default,
+#     which is meaningful on the small changed-file denominator; but it is overridable
+#     to a lower honest floor (e.g. 95) because a touched file may carry a provably
+#     equivalent mutant that no test can kill and that must not be excluded — see the
+#     $infectionDiffCoveredMsi definition and the 100%-floor advisory below;
 #   - drops --log-verbosity=all back to Infection's default console verbosity (the
 #     file loggers configured in infection.json stay authoritative), so a report
 #     rendering issue over an escaped-mutant diff can never eat the run's result.
@@ -257,7 +274,9 @@ function runInfection() {
 
     if [[ -n "${infectionDiffBase:-}" ]]; then
         # Diff-scoped lane: mutate only the changed files (computed above) and
-        # enforce "no new escaped mutants in the changed code" via covered-MSI 100.
+        # enforce the "no new escaped mutants in the changed code" bar via the
+        # covered-MSI floor $infectionDiffCoveredMsi (default 100, overridable —
+        # see its definition above for why an honest run may need 95).
         # The changed files are passed as POSITIONAL path arguments (appended LAST,
         # after every option) — the non-deprecated replacement for the "--filter"
         # option, which Infection deprecated in 0.34.0 and will remove in a future
@@ -266,7 +285,7 @@ function runInfection() {
         # eventual hard break). Infection's own guidance: "infection run <path>
         # <path> ..." (the "paths" IS_ARRAY argument).
         infectionArgs+=(
-            --min-covered-msi=100
+            --min-covered-msi="${infectionDiffCoveredMsi}"
         )
         # Positional source paths MUST come after all options. In diff mode the
         # list is guaranteed non-empty (an empty diff SKIPs earlier, before this
@@ -298,6 +317,44 @@ function runInfection() {
         phpNoXdebug -f "$infectionPath" "${infectionArgs[@]}"
     )
 }
+
+# 100%-MSI floor advisory. A 100 floor is a fine TARGET when it is honestly
+# achievable, but it is NOT a good permanent goal to force: real code contains
+# provably EQUIVALENT mutants (mutations with identical semantics that no test can
+# kill), so demanding 100 eventually costs far more than it is worth — and the two
+# ways to "reach" it from there are both dishonest: excluding/suppressing the mutant,
+# or contorting production/test code purely to please the mutation tool (pure tech
+# debt). When 100 stops being achievable honestly, the right move is to DROP the floor
+# a few points (95 is good, 90 is fine), NOT to exclude or contort. This advisory
+# fires whenever a 100 floor is actually in force for this run, so that decision is a
+# conscious one. It never fails the run.
+infectionActiveFloorIsHundred=0
+if [[ -n "${infectionDiffBase:-}" ]]; then
+    [[ "${infectionDiffCoveredMsi}" == "100" ]] && infectionActiveFloorIsHundred=1
+else
+    { [[ "${minMsi}" == "100" ]] || [[ "${minCoveredMsi}" == "100" ]]; } && infectionActiveFloorIsHundred=1
+fi
+if ((infectionActiveFloorIsHundred == 1)); then
+    cat <<'INFECTION_MSI_100_ADVISORY'
+
+------------------------------------------------------------------------------
+Infection: a 100% MSI floor is in force for this run.
+------------------------------------------------------------------------------
+100% is a fine target WHILE it is honestly achievable — but it is usually not a
+good idea to hold it as a permanent goal. Real code contains provably EQUIVALENT
+mutants (semantically identical mutations no test can ever kill), so at some point
+100 becomes unreachable without one of two DISHONEST moves:
+  - excluding/suppressing the mutant (hides a real signal), or
+  - contorting production or test code just to please Infection (pure tech debt).
+Neither is acceptable. If 100 stops being honestly achievable, the correct course
+is to LOWER the floor a few points — 95 is good, 90 is fine — via
+  infectionDiffCoveredMsi=95   (diff lane)   or
+  coveredCodeMSI / mutationScoreIndicator   (full lane, qaConfig.inc.bash)
+An honest 90+% MSI is a healthy gate; a forced 100% is diminishing-returns busywork.
+------------------------------------------------------------------------------
+
+INFECTION_MSI_100_ADVISORY
+fi
 
 infectionExitCode=99
 while ((infectionExitCode > 0)); do

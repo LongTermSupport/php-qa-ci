@@ -16,8 +16,11 @@ use PHPUnit\Framework\TestCase;
  *     invocation — the SSoT floors (--min-msi / --min-covered-msi) plus the
  *     verbose console report — byte-for-byte, so the default gate is unchanged.
  *   - DIFF mode (infectionDiffBase set) must instead scope the run to the changed
- *     files via --filter, enforce the "no new escaped mutants" bar
- *     (--min-covered-msi=100), and drop the verbose report.
+ *     files via POSITIONAL path arguments (the non-deprecated replacement for the
+ *     removed --filter option), enforce the "no new escaped mutants" bar via the
+ *     covered-MSI floor $infectionDiffCoveredMsi (default 100, overridable — a
+ *     touched file with a provably equivalent mutant may need an honest 95), and
+ *     drop the verbose report.
  *
  * The function is extracted from the include and evaluated with a stubbed runner
  * so the arguments Infection would receive are captured without running the phar
@@ -49,15 +52,34 @@ final class InfectionDiffModeTest extends TestCase
 
     public function testDiffModeScopesToChangedFilesAndEnforcesNoNewEscapes(): void
     {
+        // No override passed → the include's DEFAULT diff floor must resolve to 100
+        // (the "kill everything you touched" ideal). captureInfectionArgs evaluates
+        // the include's own `infectionDiffCoveredMsi="${infectionDiffCoveredMsi:-100}"`
+        // line, so this pins the real default rather than a re-hardcoded literal.
         $args = $this->captureInfectionArgs(diffBase: 'origin/main');
 
-        self::assertContains('--filter=src/Changed.php', $args, "diff run must scope to the changed files:\n" . implode("\n", $args));
-        self::assertContains('--min-covered-msi=100', $args, 'diff run enforces "no new escaped mutants in changed code"');
+        // Scoping is now via a POSITIONAL path argument (the non-deprecated
+        // replacement for --filter, which Infection removed), so the changed file
+        // appears as a bare path, not a --filter=... flag.
+        self::assertContains('src/Changed.php', $args, "diff run must scope to the changed files (positional path):\n" . implode("\n", $args));
+        self::assertNotContains('--filter=src/Changed.php', $args, 'the deprecated --filter form must not be used');
+        self::assertContains('--min-covered-msi=100', $args, 'diff run defaults to the "no new escaped mutants in changed code" bar (100)');
 
         // The full-run floors and verbose report must NOT appear in diff mode.
         self::assertNotContains('--min-msi=74', $args, 'the whole-codebase floor is meaningless on a diff and must be dropped');
         self::assertNotContains('--min-covered-msi=76', $args, 'the whole-codebase covered floor must be dropped in diff mode');
         self::assertNotContains('--log-verbosity=all', $args, 'diff mode drops the verbose console report (file loggers stay authoritative)');
+    }
+
+    public function testDiffCoveredMsiFloorIsOverridableForEquivalentMutants(): void
+    {
+        // A touched file may carry a provably equivalent mutant no test can kill and
+        // that must not be excluded — the honest response is to lower the diff floor a
+        // few points. Setting infectionDiffCoveredMsi=95 must flow through to the flag.
+        $args = $this->captureInfectionArgs(diffBase: 'origin/main', diffCoveredMsi: '95');
+
+        self::assertContains('--min-covered-msi=95', $args, "an overridden diff floor must reach Infection:\n" . implode("\n", $args));
+        self::assertNotContains('--min-covered-msi=100', $args, 'the overridden floor must REPLACE the default 100, not accompany it');
     }
 
     public function testDiffModeRefusesADirtyWorkingTree(): void
@@ -203,7 +225,7 @@ final class InfectionDiffModeTest extends TestCase
      *
      * @return list<string>
      */
-    private function captureInfectionArgs(?string $diffBase): array
+    private function captureInfectionArgs(?string $diffBase, ?string $diffCoveredMsi = null): array
     {
         $harness = <<<'BASH'
             set -euo pipefail
@@ -218,12 +240,23 @@ final class InfectionDiffModeTest extends TestCase
             minMsi=74
             minCoveredMsi=76
             infectionOnlyCovered=0
+            # If an override was requested, set it BEFORE resolving the default below
+            # so the include's `${infectionDiffCoveredMsi:-100}` keeps it; otherwise the
+            # resolution yields the include's own default (100). Evaluating that exact
+            # line from the include pins the DEFAULT to the include, not a test literal.
+            if [[ -n "${3:-}" ]]; then
+                infectionDiffCoveredMsi="$3"
+            fi
+            eval "$(grep -E '^infectionDiffCoveredMsi=' "$include")"
             if [[ -n "${2:-}" ]]; then
                 infectionDiffBase="$2"
-                # In a real run the include computes this list from `git diff`; the
-                # unit under test here is runInfection's flag assembly, so we inject
-                # a fixed changed-file list.
+                # In a real run the include computes these from `git diff`; the unit
+                # under test here is runInfection's flag assembly, so we inject a fixed
+                # changed-file list. runInfection appends the POSITIONAL path list
+                # (infectionDiffFilterPaths) — the non-deprecated replacement for the
+                # removed --filter option; infectionDiffFilter is only the log string.
                 infectionDiffFilter="src/Changed.php"
+                infectionDiffFilterPaths=("src/Changed.php")
             fi
             # Pull ONLY the runInfection function out of the include (its top-level
             # code generates coverage and is not what we are pinning here).
@@ -235,10 +268,11 @@ final class InfectionDiffModeTest extends TestCase
         \Safe\file_put_contents($harnessFile, $harness . "\n");
 
         $cmd = \sprintf(
-            'bash %s %s %s 2>&1',
+            'bash %s %s %s %s 2>&1',
             escapeshellarg($harnessFile),
             escapeshellarg(self::INCLUDE),
             escapeshellarg($diffBase ?? ''),
+            escapeshellarg($diffCoveredMsi ?? ''),
         );
 
         $output   = [];
