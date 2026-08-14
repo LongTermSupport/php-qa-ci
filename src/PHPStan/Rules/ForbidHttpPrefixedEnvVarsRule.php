@@ -81,6 +81,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
         if ($this->alreadyScanned) {
             return [];
         }
+
         $this->alreadyScanned = true;
 
         if (!$this->symfonyEnvCarveOutApplies()) {
@@ -101,7 +102,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
         $errors = [];
         foreach ($offenders as $offender) {
             [$file, $line, $name] = $offender;
-            $errors[] = RuleErrorBuilder::message(\sprintf(
+            $errors[]             = RuleErrorBuilder::message(\sprintf(
                 '%s:%d: env var \'%s\' is consumed by Symfony but named with an HTTP_ prefix — '
                 . 'Symfony treats HTTP_* as an HTTP request header and will NOT read it from '
                 . '$_SERVER, so a CLI process (worker/console/cron) resolves it EMPTY. Rename it '
@@ -163,7 +164,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
                     }
                 }
 
-                foreach ($this->matchAllGroup1('/env\(([A-Za-z_][A-Za-z0-9_]*)\):/', $lineContent) as $name) {
+                foreach ($this->matchAllGroup1('/env\(([A-Za-z_]\w*)\):/', $lineContent) as $name) {
                     if (str_starts_with($name, 'HTTP_')) {
                         $offenders[] = [$path, $lineNumber, $name];
                     }
@@ -188,7 +189,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
         foreach ($this->findEnvFilePaths($projectRoot) as $path) {
             $lines = explode("\n", \Safe\file_get_contents($path));
             foreach ($lines as $lineIndex => $lineContent) {
-                if (1 !== \Safe\preg_match('/^HTTP_[A-Za-z0-9_]*=/', $lineContent, $matches)) {
+                if (1 !== \Safe\preg_match('/^HTTP_\w*=/', $lineContent, $matches)) {
                     continue;
                 }
 
@@ -219,7 +220,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
 
         $paths = [];
         foreach ($candidates as $candidate) {
-            if (is_string($candidate) && is_file($candidate)) {
+            if (\is_string($candidate) && is_file($candidate)) {
                 $paths[] = $candidate;
             }
         }
@@ -252,13 +253,13 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
         \Safe\preg_match_all($pattern, $subject, $matches);
 
         $group1 = $matches[1] ?? [];
-        if (!is_array($group1)) {
+        if (!\is_array($group1)) {
             return [];
         }
 
         $names = [];
         foreach ($group1 as $value) {
-            if (is_string($value)) {
+            if (\is_string($value)) {
                 $names[] = $value;
             }
         }
@@ -278,6 +279,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
             if (!$current instanceof SplFileInfo) {
                 continue;
             }
+
             if ($current->isFile()) {
                 yield $current;
             }

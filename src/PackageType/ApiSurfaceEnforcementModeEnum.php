@@ -52,6 +52,7 @@ enum ApiSurfaceEnforcementModeEnum: string
 
         return $mode;
     }
+
     case Auto   = 'auto';
     case Always = 'always';
     case Never  = 'never';
