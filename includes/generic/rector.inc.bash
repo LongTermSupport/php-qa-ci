@@ -112,3 +112,36 @@ if [[ $projectRectorFound == false ]]; then
 else
   echo "Skipping standard PHP 8.4 Rector as we assume its handled in project rector"
 fi
+
+# ---------------------------------------------------------------------------
+# WRITABLE-RUN ADVISORY (agent-facing). Rector only MUTATES in a writable run;
+# a read-only run just reports pending changes, so this guidance is irrelevant
+# there and is suppressed. It fires once, after all Rector configs have run.
+if [[ "true" != "${qaReadOnly:-false}" ]]; then
+  cat <<'RECTOR_WRITABLE_ADVISORY'
+
+------------------------------------------------------------------------------
+Rector ran in WRITABLE mode and may have rewritten files. DO NOT FIGHT IT.
+------------------------------------------------------------------------------
+Rector is a DETERMINISTIC, CONFIG-DRIVEN autofixer. Every edit it just made is
+intentional and part of the standard — treat it as authoritative, not as a
+suggestion to negotiate:
+
+  - Do NOT revert, undo, partially back out, or hand-"tidy" a Rector edit to
+    keep a smaller or "cleaner" diff. The change is reproducible from the config,
+    so a local revert is simply re-applied on the next run — reverting Rector is
+    wasted effort and is forbidden.
+  - KEEP every change. When a Rector edit surfaces a DOWNSTREAM error (most
+    commonly a PHPStan type error from a newly-precise \Safe\* return type, or
+    mutation debt dragged in when a touched file enters the diff-MSI gate), fix
+    the CAUSE the honest way — narrow the type, write the missing test — NEVER by
+    reverting the Rector edit or suppressing the follow-on check.
+  - COMMIT what Rector produced. Prefer an ATOMIC commit of just the autofix
+    output (e.g. "style: apply Rector autofixes"), kept separate from your
+    feature/bugfix change so the mechanical rewrite is trivial to review.
+
+Roll with Rector. It is part of the gate, not an obstacle to it.
+------------------------------------------------------------------------------
+
+RECTOR_WRITABLE_ADVISORY
+fi
