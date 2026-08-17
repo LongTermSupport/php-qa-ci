@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Large\DeploySkills;
 
 use FilesystemIterator;
 use LTS\PHPQA\Tests\Assets\DeploySkills\DeployProcessRunner;
+use LTS\PHPQA\Tests\Assets\DeploySkills\ShellRunner;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
@@ -80,18 +81,18 @@ final class DeploySkillsCharacterisationTest extends TestCase
 
         self::assertSame(0, $result['exit'], "Fresh deploy must exit 0.\n" . $result['output']);
 
-        // Skills: every source skill directory is deployed.
-        foreach ($this->sourceSkillNames() as $skill) {
+        // Skills: every MANIFEST-listed skill directory is deployed.
+        foreach ($this->manifestSkillNames() as $skill) {
             self::assertDirectoryExists(\sprintf('%s/.claude/skills/%s', $consumer, $skill), \sprintf("skill '%s' not deployed", $skill));
         }
 
-        // Agents: every source agent .md is deployed.
-        foreach ($this->sourceAgentFiles() as $agent) {
+        // Agents: every MANIFEST-listed agent .md is deployed.
+        foreach ($this->manifestAgentFiles() as $agent) {
             self::assertFileExists(\sprintf('%s/.claude/agents/%s', $consumer, $agent), \sprintf("agent '%s' not deployed", $agent));
         }
 
-        // Classic hooks: every source hook .py is deployed and executable.
-        foreach ($this->sourceHookFiles() as $hook) {
+        // Classic hooks: every MANIFEST-listed hook .py is deployed and executable.
+        foreach ($this->manifestHookFiles() as $hook) {
             $target = \sprintf('%s/.claude/hooks/%s', $consumer, $hook);
             self::assertFileExists($target, \sprintf("hook '%s' not deployed", $hook));
             self::assertTrue(is_executable($target), \sprintf("hook '%s' is not executable", $hook));
@@ -146,7 +147,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
 
         // auto-continue is the sole Stop-only hook (registered with the
         // CLAUDE_HOOK_EVENT=Stop prefix); every other hook lands in PreToolUse.
-        foreach ($this->sourceHookFiles() as $hook) {
+        foreach ($this->manifestHookFiles() as $hook) {
             $command = '.claude/hooks/' . $hook;
             if ('php-qa-ci__auto-continue.py' === $hook) {
                 self::assertContains('CLAUDE_HOOK_EVENT=Stop ' . $command, $stop, 'auto-continue not registered in Stop');
@@ -353,6 +354,70 @@ final class DeploySkillsCharacterisationTest extends TestCase
         self::assertContains('/some/foreign/hook.py', $pre);
     }
 
+    /**
+     * A skill present in the package but ABSENT from the manifest must not be
+     * deployed, and must not disturb one the consumer already has.
+     *
+     * hooks-daemon is the worked example and the reason the manifest exists:
+     * the hooks daemon deploys that skill itself, from its own source tree, on
+     * every install/upgrade. Both packages therefore wrote the same path and
+     * the last writer won. That was not a harmless overwrite — install_owned_tree
+     * is remove-then-copy, so files the daemon ships and our snapshot lacks were
+     * DELETED (a consumer on daemon v3.53.1 lost the skill's plan-qa.md to a
+     * plain `composer install`). This guard pins both halves: we skip it, and we
+     * leave the owner's files byte-identical.
+     */
+    public function testUnlistedSkillIsNotDeployedAndConsumerCopyIsLeftIntact(): void
+    {
+        $consumer = $this->newConsumer(daemon: true);
+
+        self::assertNotContains('hooks-daemon', $this->manifestSkillNames(), 'hooks-daemon must stay out of the deploy manifest — the daemon owns it');
+        self::assertDirectoryExists($this->qaciPath . '/.claude/skills/hooks-daemon', 'this test is only meaningful while the package still carries the unlisted skill');
+
+        // Stand in for the daemon's own, NEWER deployed skill: one file our
+        // packaged copy does not ship at all, and one that it does.
+        $skillDir = $consumer . '/.claude/skills/hooks-daemon';
+        $this->makeDir($skillDir);
+        $this->write($skillDir . '/plan-qa.md', "# only the daemon ships this\n");
+        $this->write($skillDir . '/SKILL.md', "# daemon's newer copy\n");
+
+        $result = $this->runDeploy($consumer);
+        self::assertSame(0, $result['exit'], $result['output']);
+
+        self::assertStringContainsString("skill 'hooks-daemon' is present but NOT in the deploy manifest", $result['output']);
+
+        self::assertFileExists($skillDir . '/plan-qa.md', 'a file only the owner ships must not be deleted by the deploy');
+        self::assertSame("# only the daemon ships this\n", \Safe\file_get_contents($skillDir . '/plan-qa.md'));
+        self::assertSame("# daemon's newer copy\n", \Safe\file_get_contents($skillDir . '/SKILL.md'), "the owner's copy must not be overwritten");
+
+        // Every MANIFEST-listed skill still deploys — the omission is surgical,
+        // not a bail-out.
+        foreach ($this->manifestSkillNames() as $skill) {
+            self::assertDirectoryExists(\sprintf('%s/.claude/skills/%s', $consumer, $skill), \sprintf("skill '%s' must still deploy", $skill));
+        }
+    }
+
+    /**
+     * The manifest is the shipping CONTRACT, so an entry it lists that the
+     * package does not contain is fatal: deploying less than promised is how a
+     * guardrail goes missing without anyone noticing.
+     */
+    public function testManifestEntryMissingFromThePackageAbortsTheDeploy(): void
+    {
+        $consumer = $this->newConsumer(daemon: false);
+
+        // A throwaway copy of the package whose manifest promises a skill that
+        // is not there. Copying keeps the real package untouched.
+        $brokenQaci = $this->makeTempBase() . '/qaci';
+        $this->runShell(\sprintf('cp -r %s %s', escapeshellarg($this->qaciPath), escapeshellarg($brokenQaci)));
+        $this->runShell(\sprintf('rm -rf %s', escapeshellarg($brokenQaci . '/.claude/skills/qa')));
+
+        $result = DeployProcessRunner::run($brokenQaci . '/scripts/deploy-skills.bash', $brokenQaci, $consumer);
+
+        self::assertNotSame(0, $result['exit'], "a manifest/package mismatch must fail the deploy.\n" . $result['output']);
+        self::assertStringContainsString("manifest lists skill 'qa' but it is not in", $result['output']);
+    }
+
     // =====================================================================
     // Fixture + process helpers
     // =====================================================================
@@ -396,35 +461,49 @@ final class DeploySkillsCharacterisationTest extends TestCase
     }
 
     // =====================================================================
-    // Source-tree introspection (expectations derived from the shipped repo)
+    // Manifest introspection (expectations derived from the SHIPPING CONTRACT)
     // =====================================================================
+    //
+    // These read scripts/lib/deploy-manifest.inc.bash — the explicit list of
+    // what php-qa-ci deploys — rather than globbing the source tree. Globbing
+    // the source would make the test tautological with the old glob-driven
+    // deploy: it could only ever assert "we deployed whatever was there",
+    // which is exactly the behaviour the manifest exists to replace. Reading
+    // the manifest means these tests fail if the deploy stops honouring it.
 
     /** @return list<string> */
-    private function sourceSkillNames(): array
+    private function manifestSkillNames(): array
     {
-        $names = [];
-        $base  = $this->qaciPath . '/.claude/skills';
-        foreach ($this->scanDir($base) as $entry) {
-            if (is_dir($base . '/' . $entry)) {
-                $names[] = $entry;
-            }
-        }
-
-        sort($names);
-
-        return $names;
+        return $this->manifestArray('PHPQACI_DEPLOY_SKILLS');
     }
 
     /** @return list<string> */
-    private function sourceAgentFiles(): array
+    private function manifestAgentFiles(): array
     {
-        return $this->filesWithSuffix($this->qaciPath . '/.claude/agents', '.md');
+        return $this->manifestArray('PHPQACI_DEPLOY_AGENTS');
     }
 
     /** @return list<string> */
-    private function sourceHookFiles(): array
+    private function manifestHookFiles(): array
     {
-        return $this->filesWithSuffix($this->qaciPath . '/.claude/hooks', '.py');
+        return $this->manifestArray('PHPQACI_DEPLOY_HOOKS');
+    }
+
+    /**
+     * Source the manifest in bash and read one of its arrays back, so the
+     * expectations track the single source of truth instead of duplicating it.
+     *
+     * @return list<string>
+     */
+    private function manifestArray(string $arrayName): array
+    {
+        $manifest = $this->qaciPath . '/scripts/lib/deploy-manifest.inc.bash';
+        self::assertFileExists($manifest, 'deploy manifest not found — has it moved?');
+
+        $values = ShellRunner::readManifestArray($manifest, $arrayName);
+        self::assertNotEmpty($values, \sprintf('%s is empty — the manifest must list what we ship', $arrayName));
+
+        return $values;
     }
 
     /** @return list<string> deployed classic hook basenames under the consumer */
@@ -527,6 +606,13 @@ final class DeploySkillsCharacterisationTest extends TestCase
         ksort($hashes);
 
         return $hashes;
+    }
+
+    /** Run a shell command for fixture setup, asserting it succeeded. */
+    private function runShell(string $command): void
+    {
+        $result = ShellRunner::run($command);
+        self::assertSame(0, $result['exit'], \sprintf("fixture command failed: %s\n%s", $command, $result['output']));
     }
 
     private function makeTempBase(): string

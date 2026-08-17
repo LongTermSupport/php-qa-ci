@@ -8,16 +8,23 @@
 # settings.json exists, so a consumer upgrading from the old un-prefixed hook
 # names is repaired regardless of daemon state.
 
-# Copy each hook (Python scripts) - ONLY if daemon not detected
-if [[ "$DAEMON_DETECTED" == "false" ]] && [[ -d "$HOOKS_SOURCE" ]]; then
-    for hook_file in "$HOOKS_SOURCE"/*.py; do
-        if [[ -f "$hook_file" ]]; then
+# Copy each manifest-listed hook (Python scripts) - ONLY if daemon not detected.
+# WHAT ships is PHPQACI_DEPLOY_HOOKS in scripts/lib/deploy-manifest.inc.bash, not
+# a glob over the source directory — see that file for the rationale.
+if [[ "$DAEMON_DETECTED" == "false" ]]; then
+    hookPathList=""
+    if ! hookPathList="$(deploy_manifest_resolve "$HOOKS_SOURCE" "hook" "${PHPQACI_DEPLOY_HOOKS[@]}")"; then
+        exit 1
+    fi
+
+    if [[ -n "$hookPathList" ]]; then
+        while IFS= read -r hook_file; do
             hook_name=$(basename "$hook_file")
             echo "  Installing hook: $hook_name"
             install_owned_file "$hook_file" "$HOOKS_TARGET/$hook_name" "hook '$hook_name'"
             chmod +x "$HOOKS_TARGET/$hook_name"
-        fi
-    done
+        done <<< "$hookPathList"
+    fi
 fi
 
 # Migrate old hook names to new php-qa-ci__ prefix

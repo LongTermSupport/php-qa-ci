@@ -130,6 +130,13 @@ SETTINGS_FILE="$PROJECT_ROOT/.claude/settings.json"
 # identical to the previous monolith. Order is load-bearing and unchanged.
 # ---------------------------------------------------------------------------
 
+# The deploy MANIFEST — the explicit list of skills/agents/hooks we ship, and
+# the resolver that checks it against the package contents. Sourced FIRST: the
+# two modules below consume its arrays. See deploy-manifest.inc.bash for why
+# this is an explicit list rather than a glob.
+# shellcheck source=scripts/lib/deploy-manifest.inc.bash
+source "$QACI_PATH/scripts/lib/deploy-manifest.inc.bash"
+
 # shellcheck source=scripts/lib/deploy-owned-artefacts.inc.bash
 source "$QACI_PATH/scripts/lib/deploy-owned-artefacts.inc.bash"
 
