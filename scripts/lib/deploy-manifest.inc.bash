@@ -70,6 +70,7 @@ readonly -a PHPQACI_DEPLOY_AGENTS=(
     php-qa-ci_phpstan-runner.md
     php-qa-ci_phpunit-fixer.md
     php-qa-ci_phpunit-runner.md
+    php-qa-ci_qa-fix-auditor.md
     php-qa-ci_qa-tool-runner.md
 )
 

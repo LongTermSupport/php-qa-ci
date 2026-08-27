@@ -43,6 +43,10 @@ phase MUST use the deployed php-qa-ci machinery — never hand-rolled tool invoc
   agents may only use per-file mode (`bin/qa -t stan -p <file>`).
 - **Fixers never suppress**: no baselines, no `@phpstan-ignore`, no loosened
   assertions — fix causes, or stop and report honestly.
+- **Audit the green**: after a fix cycle reports green, run
+  `php-qa-ci_qa-fix-auditor` (opus, read-only) over the fix diff to catch cheating —
+  suppressions, loosened assertions, type-guard theatre, scope games. AUDIT FAIL goes
+  back to the fixer, never shipped.
 - **Model economy**: runner agents are cheap models by design; keep them so. Do not
   route mechanical QA runs through top-tier models.
 </phpqaci>
