@@ -26,4 +26,23 @@ nullable member is two paths — test BOTH (value-present and null); prefer non-
 where null is not a valid state.
 
 **Detailed docs** (read in vendor): `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`.
+
+## php-qa-ci — QA in Dynamic Workflows / Multi-Agent Orchestration
+
+When QA runs inside an orchestrated workflow (Workflow tool, agent fan-outs), the QA
+phase MUST use the deployed php-qa-ci machinery — never hand-rolled tool invocations:
+
+- **Run→fix cycling via the dedicated sub-agents**: `php-qa-ci_qa-tool-runner` /
+  `php-qa-ci_phpstan-runner` / `php-qa-ci_phpunit-runner` to execute (they wrap
+  `bin/qa`), and `php-qa-ci_phpstan-fixer` / `php-qa-ci_phpunit-fixer` to remediate.
+  Cycle run→fix→run until green or escalation — never stop after one fix.
+- **Every execution goes through `bin/qa`** (`-t allCS`, `-t stan`, `-t allStatic`,
+  `-t phpunit`) — never invoke phars/binaries directly.
+- **Concurrency**: full-codebase `bin/qa` runs are SINGLE-THREADED — exactly one QA
+  executor at a time, as a barrier stage after all editing agents finish. Parallel
+  agents may only use per-file mode (`bin/qa -t stan -p <file>`).
+- **Fixers never suppress**: no baselines, no `@phpstan-ignore`, no loosened
+  assertions — fix causes, or stop and report honestly.
+- **Model economy**: runner agents are cheap models by design; keep them so. Do not
+  route mechanical QA runs through top-tier models.
 </phpqaci>
