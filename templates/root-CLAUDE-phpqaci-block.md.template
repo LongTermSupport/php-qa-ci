@@ -27,6 +27,16 @@ where null is not a valid state.
 
 **Detailed docs** (read in vendor): `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`.
 
+## php-qa-ci — Full Pipeline Is the Proof
+
+**QA is NOT passing until the full unfiltered pipeline passes**: `CI=true bin/qa` with
+NO `-t` flag, run end to end, exit 0. Single steps (`-t allCS`, `-t stan`, `-t phpunit`,
+per-file `-p`) exist for fast iteration on hot areas only — they are working tools, not
+evidence. Never declare work complete, close a plan/task, or report "QA green" on the
+strength of individual steps alone: finish with one full unfiltered run (single-threaded,
+after all editing is done) and report ITS exit code. Prefer delegating that run to the
+`php-qa-ci_full-pipeline-runner` agent.
+
 ## php-qa-ci — QA in Dynamic Workflows / Multi-Agent Orchestration
 
 When QA runs inside an orchestrated workflow (Workflow tool, agent fan-outs), the QA
