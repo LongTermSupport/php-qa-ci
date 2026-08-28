@@ -114,10 +114,12 @@ Magento\'s composer includes this by default, it should be removed from the psr-
     /**
      * Regression: php-qa-ci's own convention maps `qaConfig/` as a PSR-4 root
      * (QaConfig\, for custom PHPStan rules) AND ships non-class config files
-     * there that projects override — qaConfig/phparkitect.php and
-     * qaConfig/php_cs.php. Those legitimately have no namespace, so the SHIPPED
-     * default ignore list must exclude them; otherwise the re-enabled PSR-4
-     * gate falsely reports them as Parse Errors on every consuming project.
+     * there that projects override — qaConfig/phparkitect.php,
+     * qaConfig/php_cs.php and qaConfig/php_cs_finder.php (the documented CS
+     * Fixer Finder override, docs/coding-standards.md). Those legitimately
+     * have no namespace, so the SHIPPED default ignore list must exclude them;
+     * otherwise the re-enabled PSR-4 gate falsely reports them as Parse Errors
+     * on every consuming project.
      *
      * The fixture also contains a correctly-namespaced rule class under the
      * same root (qaConfig/PHPStan/Rules/GoodRule.php) to prove the exclusion is

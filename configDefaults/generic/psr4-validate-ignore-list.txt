@@ -3,3 +3,4 @@
 #tests/Asset#
 #qaConfig/phparkitect\.php#
 #qaConfig/php_cs\.php#
+#qaConfig/php_cs_finder\.php#
