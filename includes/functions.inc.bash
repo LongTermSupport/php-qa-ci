@@ -21,6 +21,43 @@ function detectPlatform() {
 }
 
 ################################################################
+# Normalise a -p specified path to a project-root-relative path.
+#
+# Accepts BOTH forms callers actually use:
+#   - project-root-relative (src/Foo.php)      -> echoed unchanged
+#   - absolute under the project root          -> relativised
+# An absolute path OUTSIDE the project root (or equal to it) is an error —
+# bin/qa composes "$projectRoot/$specifiedPath", so anything else would
+# silently scan the wrong location. Automated callers (editor/agent lint
+# hooks) pass absolute paths; humans pass relative ones. Both must work.
+#
+# Usage: qaNormaliseSpecifiedPath <path> <projectRoot>
+# Echoes the normalised relative path; returns 1 with a message on stderr
+# for an unusable absolute path.
+function qaNormaliseSpecifiedPath() {
+  local pathToNormalise="$1"
+  local rootForPath="${2%/}"
+
+  if [[ "$pathToNormalise" != /* ]]; then
+    echo "$pathToNormalise"
+    return 0
+  fi
+
+  if [[ "$pathToNormalise" == "$rootForPath" ]]; then
+    echo "ERROR: -p path '$pathToNormalise' is the project root itself — omit -p for a full run" >&2
+    return 1
+  fi
+
+  if [[ "$pathToNormalise" == "$rootForPath"/* ]]; then
+    echo "${pathToNormalise#"$rootForPath"/}"
+    return 0
+  fi
+
+  echo "ERROR: -p path '$pathToNormalise' is absolute and outside the project root '$rootForPath'" >&2
+  return 1
+}
+
+################################################################
 # Run a tool
 # First check for a project qaConfig tool override
 # Then a platform tool
