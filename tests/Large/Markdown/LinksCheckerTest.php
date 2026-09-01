@@ -82,80 +82,8 @@ result: HTTP status: 404
             self::assertResult($pathToProject, $expectedExitCode, $expectedOutput);
         } finally {
             proc_terminate($serverProcess);
-            proc_close($serverProcess);
+            \Safe\proc_close($serverProcess);
         }
-    }
-
-    /**
-     * Start PHP's built-in web server on a free localhost port, serving
-     * arbitrary status codes via tests/assets/linksChecker/statusRouter.php.
-     *
-     * @return array{resource, string} the server process handle and base URL
-     */
-    private function startLocalStatusServer(): array
-    {
-        $router = \Safe\realpath(__DIR__ . '/../../assets/linksChecker/statusRouter.php');
-
-        // Bind port 0 to let the OS pick a free port, then release it for the
-        // server (a tiny reuse race, acceptable in a test on localhost).
-        $probe = \Safe\stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
-        $name  = \Safe\stream_socket_get_name($probe, false);
-        $port  = (int)substr($name, (int)strrpos($name, ':') + 1);
-        \Safe\fclose($probe);
-
-        // \Safe\proc_open (this Safe version) only takes the string form; every
-        // component is internally generated (no untrusted input) and escaped.
-        // `exec` makes sh replace itself with the server, so proc_terminate()
-        // reaches the real php -S process — without it the SIGTERM kills only
-        // the sh wrapper and the orphaned server (holding an inherited fd on
-        // phpunit's output pipe) hangs the surrounding qa run's tee forever.
-        $command = \sprintf(
-            'exec %s -S 127.0.0.1:%d %s',
-            escapeshellarg(PHP_BINARY),
-            $port,
-            escapeshellarg($router),
-        );
-        $process = \Safe\proc_open(
-            $command,
-            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
-            $pipes,
-        );
-
-        $baseUrl  = 'http://127.0.0.1:' . $port;
-        $deadline = microtime(true) + 10.0;
-        while (microtime(true) < $deadline) {
-            try {
-                @\Safe\get_headers($baseUrl . '/200');
-
-                return [$process, $baseUrl];
-            } catch (Throwable) {
-                usleep(50_000);
-            }
-        }
-
-        proc_terminate($process);
-        proc_close($process);
-        self::fail('Local status server failed to start on ' . $baseUrl);
-    }
-
-    /**
-     * Build a throwaway project fixture whose README points at the local
-     * status server (the fixture cannot be static — the port is dynamic).
-     */
-    private function createProjectWithNonFileLinks(string $baseUrl): string
-    {
-        $projectDir = sys_get_temp_dir() . '/linksCheckerNonFile' . uniqid('', true);
-        \Safe\mkdir($projectDir, 0o755, true);
-
-        \Safe\file_put_contents(
-            $projectDir . '/README.md',
-            "contains links to external resource and in page links\n\n"
-            . '[valid link](' . $baseUrl . "/200)\n\n"
-            . '[invalid link](' . $baseUrl . "/404);\n\n"
-            . "[ignored in page link](#link-target-not-validated)\n",
-        );
-
-        return $projectDir;
     }
 
     /**
@@ -207,6 +135,78 @@ reason: GitHub URLs cannot be verified anonymously'
         echo $actualOutput;
         self::assertSame($expectedOutput, $actualOutput);
         self::assertSame($expectedExitCode, $actualExitCode);
+    }
+
+    /**
+     * Start PHP's built-in web server on a free localhost port, serving
+     * arbitrary status codes via tests/assets/linksChecker/statusRouter.php.
+     *
+     * @return array{resource, string} the server process handle and base URL
+     */
+    private function startLocalStatusServer(): array
+    {
+        $router = \Safe\realpath(__DIR__ . '/../../assets/linksChecker/statusRouter.php');
+
+        // Bind port 0 to let the OS pick a free port, then release it for the
+        // server (a tiny reuse race, acceptable in a test on localhost).
+        $probe = \Safe\stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
+        $name  = \Safe\stream_socket_get_name($probe, false);
+        $port  = (int)substr($name, (int)strrpos($name, ':') + 1);
+        \Safe\fclose($probe);
+
+        // \Safe\proc_open (this Safe version) only takes the string form; every
+        // component is internally generated (no untrusted input) and escaped.
+        // `exec` makes sh replace itself with the server, so proc_terminate()
+        // reaches the real php -S process — without it the SIGTERM kills only
+        // the sh wrapper and the orphaned server (holding an inherited fd on
+        // phpunit's output pipe) hangs the surrounding qa run's tee forever.
+        $command = \sprintf(
+            'exec %s -S 127.0.0.1:%d %s',
+            escapeshellarg(PHP_BINARY),
+            $port,
+            escapeshellarg($router),
+        );
+        $process = \Safe\proc_open(
+            $command,
+            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+            $pipes,
+        );
+
+        $baseUrl  = 'http://127.0.0.1:' . $port;
+        $deadline = microtime(true) + 10.0;
+        while (microtime(true) < $deadline) {
+            try {
+                @\Safe\get_headers($baseUrl . '/200');
+
+                return [$process, $baseUrl];
+            } catch (Throwable) {
+                usleep(50_000);
+            }
+        }
+
+        proc_terminate($process);
+        \Safe\proc_close($process);
+        self::fail('Local status server failed to start on ' . $baseUrl);
+    }
+
+    /**
+     * Build a throwaway project fixture whose README points at the local
+     * status server (the fixture cannot be static — the port is dynamic).
+     */
+    private function createProjectWithNonFileLinks(string $baseUrl): string
+    {
+        $projectDir = sys_get_temp_dir() . '/linksCheckerNonFile' . uniqid('', true);
+        \Safe\mkdir($projectDir, 0o755, true);
+
+        \Safe\file_put_contents(
+            $projectDir . '/README.md',
+            "contains links to external resource and in page links\n\n"
+            . '[valid link](' . $baseUrl . "/200)\n\n"
+            . '[invalid link](' . $baseUrl . "/404);\n\n"
+            . "[ignored in page link](#link-target-not-validated)\n",
+        );
+
+        return $projectDir;
     }
 
     /**
