@@ -134,7 +134,11 @@ final class DaemonLintOverrideCheckTest extends TestCase
         \Safe\exec($cmd, $output, $exitCode);
         \Safe\unlink($harnessFile);
 
-        self::assertSame(0, $exitCode ?? 0, 'Template filter must not fail: ' . implode("\n", $output ?? []));
+        self::assertSame(
+            0,
+            $exitCode ?? 0,
+            'Template filter must not fail: ' . implode("\n", array_filter($output ?? [], is_string(...))),
+        );
 
         $filtered = \Safe\file_get_contents($outFile);
         \Safe\unlink($outFile);
