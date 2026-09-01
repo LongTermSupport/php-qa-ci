@@ -62,12 +62,84 @@ final class DaemonLintOverrideCheckTest extends TestCase
         self::assertSame('', $output);
     }
 
+    public function testTemplateFilterKeepsLintSectionWhenOverrideMissing(): void
+    {
+        $configFile = $this->writeConfig(
+            "handlers:\n  post_tool_use:\n    lint_on_edit:\n      enabled: true\n",
+        );
+
+        $filtered = $this->filterTemplate($configFile);
+
+        self::assertStringContainsString('Claude Hooks-Daemon Lint Integration', $filtered);
+        self::assertStringContainsString('qa -t phpstan -p {file}', $filtered);
+        self::assertStringNotContainsString('daemon-lint-notice', $filtered, 'Marker comments must never ship');
+    }
+
+    public function testTemplateFilterStripsLintSectionWhenOverridePresent(): void
+    {
+        $configFile = $this->writeConfig(
+            "handlers:\n  post_tool_use:\n    lint_on_edit:\n      options:\n"
+            . "        command_overrides:\n          PHP:\n"
+            . "            extended: \"qa -t phpstan -p {file}\"\n",
+        );
+
+        $filtered = $this->filterTemplate($configFile);
+
+        self::assertStringNotContainsString('Claude Hooks-Daemon Lint Integration', $filtered);
+        self::assertStringContainsString('Branch and PR Conventions', $filtered, 'Rest of block must survive');
+        self::assertStringContainsString('</phpqaci>', $filtered);
+    }
+
+    public function testTemplateFilterStripsLintSectionWhenNoDaemonConfig(): void
+    {
+        $filtered = $this->filterTemplate(sys_get_temp_dir() . '/no-such-daemon-config.yaml');
+
+        self::assertStringNotContainsString('Claude Hooks-Daemon Lint Integration', $filtered);
+        self::assertStringContainsString('Branch and PR Conventions', $filtered);
+    }
+
     private function writeConfig(string $yaml): string
     {
         $configFile = \Safe\tempnam(sys_get_temp_dir(), 'daemonLintCheck');
         \Safe\file_put_contents($configFile, $yaml);
 
         return $configFile;
+    }
+
+    private function filterTemplate(string $configFile): string
+    {
+        $template = __DIR__ . '/../../../templates/root-CLAUDE-phpqaci-block.md.template';
+        $outFile  = \Safe\tempnam(sys_get_temp_dir(), 'daemonLintFiltered');
+
+        $harness = <<<'BASH'
+            set -euo pipefail
+            source "$1"
+            phpQaCiFilterClaudeBlockTemplate "$2" "$3" "$4"
+            BASH;
+
+        $harnessFile = \Safe\tempnam(sys_get_temp_dir(), 'daemonLintFilterHarness');
+        \Safe\file_put_contents($harnessFile, $harness . "\n");
+
+        $cmd = \sprintf(
+            'bash %s %s %s %s %s 2>&1',
+            escapeshellarg($harnessFile),
+            escapeshellarg(self::CHECK_LIB),
+            escapeshellarg($template),
+            escapeshellarg($configFile),
+            escapeshellarg($outFile),
+        );
+
+        $output   = [];
+        $exitCode = 0;
+        \Safe\exec($cmd, $output, $exitCode);
+        \Safe\unlink($harnessFile);
+
+        self::assertSame(0, $exitCode ?? 0, 'Template filter must not fail: ' . implode("\n", $output ?? []));
+
+        $filtered = \Safe\file_get_contents($outFile);
+        \Safe\unlink($outFile);
+
+        return $filtered;
     }
 
     /**
