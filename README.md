@@ -134,16 +134,42 @@ PHPStan neon split). php-qa-ci ships each as a file returning a list of arkitect
 `ArchRule` objects, and the pipeline exports the resolved path of each so a
 project config can compose them without knowing the vendor layout:
 
-| Tier                                 | Env var                                   | Default               | Contents                                |
-| ------------------------------------ | ----------------------------------------- | --------------------- | --------------------------------------- |
-| `phparkitect-rules-default`          | `PHPQACI_ARKITECT_RULES_DEFAULT`          | **on**, every project | Interface / Enum / Trait name suffixes  |
-| `phparkitect-rules-optional`         | `PHPQACI_ARKITECT_RULES_OPTIONAL`         | opt-in                | `*Exception` suffix, `Abstract*` prefix |
-| `phparkitect-rules-optional-symfony` | `PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY` | opt-in                | `*Command`, `*Subscriber`               |
+| Tier                                 | Env var                                   | Default               | Contents                                               |
+| ------------------------------------ | ----------------------------------------- | --------------------- | ------------------------------------------------------ |
+| `phparkitect-rules-default`          | `PHPQACI_ARKITECT_RULES_DEFAULT`          | **on**, every project | Interface / Enum / Trait name suffixes, DTO convention |
+| `phparkitect-rules-optional`         | `PHPQACI_ARKITECT_RULES_OPTIONAL`         | opt-in                | `*Exception` suffix, `Abstract*` prefix                |
+| `phparkitect-rules-optional-symfony` | `PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY` | opt-in                | `*Command`, `*Subscriber`                              |
 
-The default tier matches on AST node *kind*, so it never forces arkitect to
-resolve class ancestry — that keeps it safe for any project. Ancestry-resolving
-rules (`IsA`/`Extend`/`Implement`, e.g. the `*Exception` convention) need a
-complete autoloader, so they live in the optional tier.
+The default tier matches on AST node *kind*, on the class *name* and on the
+*namespace*, so it never forces arkitect to resolve class ancestry — that keeps
+it safe for any project. Ancestry-resolving rules (`IsA`/`Extend`/`Implement`,
+e.g. the `*Exception` convention) need a complete autoloader, so they live in
+the optional tier.
+
+### The DTO convention (default tier)
+
+DTOs are suffixed, grouped and immutable. Four rules read one convention from
+three sides, so a DTO cannot be mistaken for a service and a service cannot
+hide in the DTO namespace:
+
+- a class in a `Dto` namespace segment must be named `*Dto`;
+- a class named `*Dto` must live in a `Dto` namespace segment;
+- a class named `*Dto` must be `final` — a DTO is a value carrier, not an
+  extension point;
+- a class named `*Dto` must be `readonly` — what a caller receives is what the
+  producer sent.
+
+The namespace match is on a segment named exactly `Dto` at any depth
+(`Acme\Billing\Dto\InvoiceDto`), plus a root-level `Dto` namespace. A `Dtos`
+segment does **not** match — rename it to `Dto`.
+
+Interfaces, enums and traits are exempt from all four: they already carry their
+own suffix under the rules above, so `Dto\ShapeDtoInterface` is correct and is
+never asked to be `*Dto`, `final` or `readonly`. Abstract classes are **not**
+exempt — an abstract `*Dto` fails the `final` rule, which is the intended
+answer. If a project genuinely needs an inheritable or mutable DTO, drop its
+own `qaConfig/phparkitect-rules-default.php` (the override lane described
+below) rather than reaching for a suppression.
 
 ### Troubleshooting: optional/symfony tiers need a complete autoloader
 
