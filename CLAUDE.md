@@ -125,14 +125,15 @@ The pipeline runs tools in 4 distinct phases:
 
 ### Phase 2: Linting Tools (validation only)
 
-3. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
-4. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
-5. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
-6. **Config Template Ignore-List Audit** (`configTemplateIgnoreList`) - Always-on self-check: every namespace-less `configDefaults/generic/` template must be covered by `psr4-validate-ignore-list.txt` (see [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md))
-7. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
-8. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
-9. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
-10. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+03. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
+04. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
+05. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
+06. **Config Template Ignore-List Audit** (`configTemplateIgnoreList`) - Always-on self-check: every namespace-less `configDefaults/generic/` template must be covered by `psr4-validate-ignore-list.txt` (see [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md))
+07. **Infection Config Source Directories Check** (`infectionConfigSourceDirs`) - Always-on: infection.json's `source.directories` entries must resolve, relative to infection.json's own directory, to real directories (see [docs/tools/infectionConfigSourceDirs.md](docs/tools/infectionConfigSourceDirs.md))
+08. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+09. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+10. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+11. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 ### Phase 3: Static Analysis Tools
 
