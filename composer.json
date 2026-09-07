@@ -108,6 +108,11 @@
       "includes": [
         "rules-default.neon"
       ]
+    },
+    "defence-before-fix": {
+      "method": "1.0.0",
+      "toolchain": "0.1.0",
+      "known-gaps": []
     }
   },
   "scripts": {

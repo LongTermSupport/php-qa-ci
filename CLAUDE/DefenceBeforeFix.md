@@ -129,6 +129,15 @@ fails the build if one is dropped.
 A new rule is not finished when it passes its own test. It is finished when somebody who has only
 its identifier can find out what to do.
 
+## The claim is declared where it can be checked
+
+`composer.json` carries `extra.defence-before-fix`, naming the version of the Defence Before Fix
+method specification and of its toolchain specification this package implements, with a
+`known-gaps` list. A gap the package learns of, from its own self-checks or from a practitioner's
+report, is recorded there against the clause it fails, and the package does not claim conformance
+whilst that list is non-empty. The key is machine-readable so a consumer checks the claim against
+the installed artefact rather than against a sentence in a README.
+
 ## Cross-Reference
 
 - Identifier index: `docs/phpstan-rules/README.md` (start here when a rule fires).
