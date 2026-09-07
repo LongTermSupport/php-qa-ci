@@ -1,0 +1,24 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Resolve a PHPStan rule identifier, as printed in a failure, to its
+ * documentation. Offline, from the installed package.
+ *
+ *   bin/rule-doc phpqaci.nullCoalescingFalse
+ */
+
+require __DIR__.'/bootstrap.php';
+
+$identifier = $argv[1] ?? null;
+if (null === $identifier || '' === $identifier || str_starts_with($identifier, '-')) {
+    fwrite(STDERR, "Usage: bin/rule-doc <identifier>\n\n  e.g. bin/rule-doc phpqaci.nullCoalescingFalse\n");
+    exit(2);
+}
+
+try {
+    echo (new \LTS\PHPQA\PHPStan\RuleDocResolver(\dirname(__DIR__)))->render($identifier);
+} catch (\InvalidArgumentException $e) {
+    fwrite(STDERR, $e->getMessage()."\n");
+    exit(1);
+}
