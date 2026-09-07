@@ -83,6 +83,10 @@ Two commands ship for working with a single rule:
   configuration and reports whether that one rule fired there, and where. Exit 0 for did not fire,
   1 for fired. Use it to prove a new rule sees what it should before trusting a green full run.
 
+To list every defence active in the project — without running PHPStan — use
+`vendor/bin/rules [project-root] [--json]`. See the [identifier index](../phpstan-rules/README.md)
+for the full description.
+
 See the README "Configuring RequireSensitiveParameterAttributeRule" section for the full config keys and defaults.
 
 > The codebase-wide "is `#[\SensitiveParameter]` used anywhere?" coverage check is deliberately NOT a PHPStan rule (rules are opt-in and cannot be relied on estate-wide). It ships as an always-on pipeline tool — see [tools/sensitiveParameterUsage.md](sensitiveParameterUsage.md).
