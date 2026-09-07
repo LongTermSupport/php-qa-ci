@@ -33,13 +33,35 @@ final readonly class ActiveRulesLister
 {
     private const string TAG = 'phpstan.rules.rule';
 
-    /** @var list<array{name: string, identifier: ?string, summary: string}> */
-    private const array PIPELINE_LANES = [
-        ['name' => 'branchNamePolicy', 'identifier' => null, 'summary' => 'Always-on: enforces the PR branch-naming convention (feature/, bugfix/, chore/, hotfix/).'],
-        ['name' => 'packageType', 'identifier' => null, 'summary' => "Always-on: requires composer.json to declare an explicit 'type'."],
-        ['name' => 'sensitiveParameterUsage', 'identifier' => null, 'summary' => 'Always-on: fails if #[\SensitiveParameter] is used nowhere in src/.'],
-        ['name' => 'phpArkitect', 'identifier' => null, 'summary' => 'On by default: architecture rules (class naming, namespace layering, dependency direction).'],
-    ];
+    /**
+     * The phase in includes/generic/toolRegistry.inc.bash whose tools are the
+     * always-on (or on-by-default) pipeline lanes worth surfacing alongside
+     * the PHPStan rules — everything EXCEPT phpstan itself, which is already
+     * covered by the rule listing above.
+     */
+    private const string PIPELINE_LANE_PHASE = 'staticAnalysis';
+
+    private const string PIPELINE_LANE_PHASE_TOOL_TO_EXCLUDE = 'phpstan';
+
+    /**
+     * Extra lane names to surface from OUTSIDE PIPELINE_LANE_PHASE — currently
+     * just packageType, which is registered in the registry's `linting` phase
+     * rather than `staticAnalysis` but has always been listed here as one of
+     * the project's always-on defences. This is the one piece of curation left
+     * once the name/identifier/summary DATA itself is derived from the
+     * registry (clause 7.2): which of the registry's many linting/analysis
+     * tools counts as a "defence lane" worth surfacing alongside the PHPStan
+     * rules is not something the registry encodes, so it is named once, here,
+     * as a list of NAMES only — every other property of each named lane
+     * (whether it still exists, and its summary) is looked up live in the
+     * registry, so a rename/removal there is reflected automatically and this
+     * list can never grow stale DATA, only stale membership.
+     *
+     * @var list<string>
+     */
+    private const array PIPELINE_LANE_EXTRA_NAMES = ['packageType'];
+
+    private const string PIPELINE_LANES_DOC_HEADING = '## Pipeline lanes';
 
     private RuleDocResolver $ruleDocResolver;
 
@@ -58,10 +80,7 @@ final readonly class ActiveRulesLister
 
         $rules = array_map($this->resolveRuleEntry(...), $ruleClasses);
 
-        $lanes = array_map(
-            static fn (array $lane): PipelineLaneDto => new PipelineLaneDto($lane['name'], $lane['identifier'], $lane['summary']),
-            self::PIPELINE_LANES,
-        );
+        $lanes = $this->pipelineLanes();
 
         return new ActiveDefencesListingDto($configPath, $rules, $lanes, $ignoreErrorEntries);
     }
@@ -174,6 +193,208 @@ final readonly class ActiveRulesLister
             $projectPath,
             $defaultPath,
         ));
+    }
+
+    /**
+     * Derives the always-on / on-by-default pipeline lanes from
+     * includes/generic/toolRegistry.inc.bash — the SAME registry bin/qa
+     * itself resolves QA_TOOL_NAMES / QA_TOOL_PHASE / QA_TOOL_USAGE from
+     * (toolchain-spec clause 7.2: this MUST NOT be a hand-maintained document
+     * that happens to describe the configuration). Every tool in the
+     * `staticAnalysis` phase, other than phpstan itself (already covered by
+     * the rule listing above), is a lane.
+     *
+     * @return list<PipelineLaneDto>
+     */
+    private function pipelineLanes(): array
+    {
+        $registryPath = $this->qaCiRoot . '/includes/generic/toolRegistry.inc.bash';
+        if (!is_file($registryPath)) {
+            throw new RuntimeException(\sprintf('Tool registry not found: %s', $registryPath));
+        }
+
+        $registryLanes = $this->parseRegistryLanes($registryPath);
+        $docTable      = $this->pipelineLanesDocTable(...array_column($registryLanes, 'name'));
+
+        $lanes = [];
+        foreach ($registryLanes as $lane) {
+            $docEntry = $docTable[$lane['name']] ?? null;
+            $lanes[]  = new PipelineLaneDto(
+                $lane['name'],
+                $docEntry['identifier'] ?? null,
+                $lane['summary'],
+            );
+        }
+
+        return $lanes;
+    }
+
+    /**
+     * Parses includes/generic/toolRegistry.inc.bash — the SAME file bin/qa
+     * itself sources for QA_TOOL_NAMES / QA_TOOL_PHASE / QA_TOOL_USAGE — for
+     * the staticAnalysis-phase lanes (minus phpstan itself, already covered
+     * by the rule listing above). A strict, narrow parser for exactly these
+     * three bash array literal shapes (an indexed array of bare identifiers,
+     * and two `declare -A ...=( [key]=value ... )` associative arrays) — not
+     * a general bash parser, and it never executes the file. The registry's
+     * own characterisation test
+     * (tests/Small/Pipeline/ToolRegistryCharacterisationTest.php) freezes the
+     * shape this depends on.
+     *
+     * @return list<array{name: string, summary: string}>
+     */
+    private function parseRegistryLanes(string $registryPath): array
+    {
+        $contents = \Safe\file_get_contents($registryPath);
+
+        $names = $this->parseBashIndexedArray($contents, 'QA_TOOL_NAMES');
+        $phase = $this->parseBashAssocArray($contents, 'QA_TOOL_PHASE');
+        $usage = $this->parseBashAssocArray($contents, 'QA_TOOL_USAGE');
+
+        $lanes = [];
+        foreach ($names as $name) {
+            $isPhaseLane = self::PIPELINE_LANE_PHASE === ($phase[$name] ?? null)
+                && self::PIPELINE_LANE_PHASE_TOOL_TO_EXCLUDE !== $name;
+            $isExtraLane = \in_array($name, self::PIPELINE_LANE_EXTRA_NAMES, true);
+
+            if (!$isPhaseLane && !$isExtraLane) {
+                continue;
+            }
+
+            $usageEntry      = $usage[$name] ?? null;
+            $usageEntry      = null === $usageEntry ? '' : $usageEntry;
+            $separatorOffset = strpos($usageEntry, '::');
+            $summary         = false === $separatorOffset
+                ? \sprintf('Registered lane "%s" (see includes/generic/toolRegistry.inc.bash).', $name)
+                : substr($usageEntry, $separatorOffset + 2);
+
+            $lanes[] = ['name' => $name, 'summary' => $summary];
+        }
+
+        return $lanes;
+    }
+
+    /** @return list<string> */
+    private function parseBashIndexedArray(string $contents, string $varName): array
+    {
+        if (1 !== \Safe\preg_match('/(?<!declare -A )\b' . preg_quote($varName, '/') . '=\((.*?)\n\)/s', $contents, $matches) || !isset($matches[1])) {
+            throw new RuntimeException(\sprintf('Could not find bash indexed array %s in the tool registry.', $varName));
+        }
+
+        $entries = [];
+        foreach (explode("\n", $matches[1]) as $line) {
+            $withoutComment = \Safe\preg_replace('/#.*$/', '', $line);
+            $line           = trim(\is_string($withoutComment) ? $withoutComment : $line);
+            if ('' !== $line) {
+                $entries[] = $line;
+            }
+        }
+
+        return $entries;
+    }
+
+    /** @return array<string, string> */
+    private function parseBashAssocArray(string $contents, string $varName): array
+    {
+        if (1 !== \Safe\preg_match('/declare -A ' . preg_quote($varName, '/') . '=\((.*?)\n\)/s', $contents, $matches) || !isset($matches[1])) {
+            throw new RuntimeException(\sprintf('Could not find bash associative array %s in the tool registry.', $varName));
+        }
+
+        $entries = [];
+        foreach (explode("\n", $matches[1]) as $line) {
+            $line = trim($line);
+            if (1 !== \Safe\preg_match('/^\[(\w+)]=(.*)$/', $line, $entryMatches)) {
+                continue;
+            }
+
+            if (!isset($entryMatches[1], $entryMatches[2])) {
+                continue;
+            }
+
+            $entries[$entryMatches[1]] = $this->unquoteBashValue($entryMatches[2]);
+        }
+
+        return $entries;
+    }
+
+    private function unquoteBashValue(string $value): string
+    {
+        $value = trim($value);
+        if (\strlen($value) >= 2 && str_starts_with($value, '"') && str_ends_with($value, '"')) {
+            $value = substr($value, 1, -1);
+            $value = str_replace(['\"', '\\\\'], ['"', '\\'], $value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Best-effort join against docs/phpstan-rules/README.md's
+     * "## Pipeline lanes" table, WHERE that section exists — it does not, on
+     * this branch, so absence is not an error: lanes are still listed by
+     * name/phase/usage without the extra identifier column.
+     *
+     * @param string ...$laneNames the registry-derived lane names to look for
+     *                             a doc-table row mentioning — kept
+     *                             caller-supplied rather than hardcoded, so
+     *                             this join cannot itself drift into the
+     *                             hand-maintained list clause 7.2 forbids
+     *
+     * @return array<string, array{identifier: string}>
+     */
+    private function pipelineLanesDocTable(string ...$laneNames): array
+    {
+        $readmePath = $this->qaCiRoot . '/docs/phpstan-rules/README.md';
+        if (!is_file($readmePath)) {
+            return [];
+        }
+
+        $contents = \Safe\file_get_contents($readmePath);
+        $start    = strpos($contents, self::PIPELINE_LANES_DOC_HEADING);
+        if (false === $start) {
+            return [];
+        }
+
+        $section     = substr($contents, $start + \strlen(self::PIPELINE_LANES_DOC_HEADING));
+        $nextHeading = strpos($section, "\n## ");
+        if (false !== $nextHeading) {
+            $section = substr($section, 0, $nextHeading);
+        }
+
+        $byName = [];
+        foreach (explode("\n", $section) as $line) {
+            $line = trim($line);
+            if (!str_starts_with($line, '|')) {
+                continue;
+            }
+
+            $cells = array_map(trim(...), explode('|', trim($line, '|')));
+            if (\count($cells) < 3) {
+                continue;
+            }
+
+            $identifier = trim($cells[0], "` \t");
+            $where      = $cells[2];
+            if ('' === $identifier) {
+                continue;
+            }
+
+            if (str_starts_with($identifier, '-')) {
+                continue;
+            }
+
+            if ('Identifier' === $identifier) {
+                continue;
+            }
+
+            foreach ($laneNames as $laneName) {
+                if (str_contains($where, $laneName)) {
+                    $byName[$laneName] = ['identifier' => $identifier];
+                }
+            }
+        }
+
+        return $byName;
     }
 
     /**

@@ -143,4 +143,70 @@ final class ActiveRulesListerTest extends TestCase
         $this->expectException(RuntimeException::class);
         $lister->list(__DIR__ . '/../../assets/ActiveRulesLister/unparseableProject');
     }
+
+    /**
+     * Defence against toolchain-spec clause 7.2 drift (a lane added to
+     * includes/generic/toolRegistry.inc.bash's staticAnalysis phase — the
+     * same way branchNamePolicy/phpArkitect/sensitiveParameterUsage are
+     * registered today — must appear in ActiveRulesLister's output without
+     * any source change here). This test parses the registry file
+     * INDEPENDENTLY of ActiveRulesLister's own parser (a small, deliberately
+     * separate regex, not a shared helper) so it cannot pass merely because
+     * both sides share a bug — it re-derives the expected staticAnalysis-phase
+     * lane names from the registry text and asserts every one of them (minus
+     * phpstan, which is covered by the rule listing, not the lane listing)
+     * is present in the listing ActiveRulesLister produces.
+     */
+    public function testEveryStaticAnalysisPhaseRegistryToolAppearsAsAPipelineLane(): void
+    {
+        $registryPath = self::QA_CI_ROOT . '/includes/generic/toolRegistry.inc.bash';
+        self::assertFileExists($registryPath);
+        $registryContents = \Safe\file_get_contents($registryPath);
+
+        $phaseMatchResult = \Safe\preg_match('/declare -A QA_TOOL_PHASE=\((.*?)\n\)/s', $registryContents, $phaseMatches);
+        self::assertSame(
+            1,
+            $phaseMatchResult,
+            'Could not locate the QA_TOOL_PHASE associative array in the tool registry — has its shape changed?',
+        );
+        self::assertIsArray($phaseMatches);
+        self::assertArrayHasKey(1, $phaseMatches);
+
+        $expectedLaneNames = [];
+        foreach (explode("\n", $phaseMatches[1]) as $phaseLine) {
+            if (1 !== \Safe\preg_match('/^\s*\[(\w+)]=staticAnalysis\s*$/', $phaseLine, $entryMatches)) {
+                continue;
+            }
+
+            if (!isset($entryMatches[1])) {
+                continue;
+            }
+
+            if ('phpstan' === $entryMatches[1]) {
+                continue;
+            }
+
+            $expectedLaneNames[] = $entryMatches[1];
+        }
+
+        self::assertNotEmpty($expectedLaneNames, 'Expected at least one staticAnalysis-phase lane in the tool registry.');
+
+        $lister    = new ActiveRulesLister(self::QA_CI_ROOT);
+        $listing   = $lister->list(self::FIXTURE_PROJECT);
+        $laneNames = array_map(
+            static fn (\LTS\PHPQA\PHPStan\Dto\PipelineLaneDto $lane): string => $lane->name,
+            $listing->pipelineLanes,
+        );
+
+        foreach ($expectedLaneNames as $expectedLaneName) {
+            self::assertContains(
+                $expectedLaneName,
+                $laneNames,
+                \sprintf(
+                    'Tool "%s" is registered in the staticAnalysis phase of toolRegistry.inc.bash but ActiveRulesLister did not list it as a pipeline lane.',
+                    $expectedLaneName,
+                ),
+            );
+        }
+    }
 }
