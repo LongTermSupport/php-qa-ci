@@ -51,9 +51,7 @@ final class RuleDocumentationTest extends TestCase
         $missing = [];
 
         foreach ($this->ruleSourceFiles() as $path => $contents) {
-            \Safe\preg_match_all('#docs/phpstan-rules/[a-z0-9-]+\.md#', $contents, $matches);
-
-            foreach ($matches[0] as $reference) {
+            foreach ($this->matchAllGroup('#docs/phpstan-rules/[a-z0-9-]+\.md#', $contents, 0) as $reference) {
                 if (is_file(self::REPO_ROOT . '/' . $reference)) {
                     continue;
                 }
@@ -94,13 +92,11 @@ final class RuleDocumentationTest extends TestCase
 
     public function testIndexDoesNotListIdentifiersThatNoRuleDeclares(): void
     {
-        $index = \Safe\file_get_contents(self::INDEX);
-        \Safe\preg_match_all('#`(phpqaci\.[A-Za-z]+)`#', $index, $matches);
-
+        $index    = \Safe\file_get_contents(self::INDEX);
         $declared = $this->declaredIdentifiers();
         $stale    = [];
 
-        foreach (array_unique($matches[1]) as $indexed) {
+        foreach (array_unique($this->matchAllGroup('#`(phpqaci\.[A-Za-z]+)`#', $index, 1)) as $indexed) {
             if (\in_array($indexed, $declared, true)) {
                 continue;
             }
@@ -124,14 +120,12 @@ final class RuleDocumentationTest extends TestCase
 
         foreach ($this->ruleSourceFiles() as $contents) {
             // The sanctioned form: a constant composed from RuleIdentifierInterface::PREFIX.
-            \Safe\preg_match_all("#PREFIX \\. '(\\.[A-Za-z]+)'#", $contents, $constants);
-            foreach ($constants[1] as $suffix) {
+            foreach ($this->matchAllGroup("#PREFIX \\. '(\\.[A-Za-z]+)'#", $contents, 1) as $suffix) {
                 $identifiers['phpqaci' . $suffix] = true;
             }
 
             // The magic-string form, so a rule that bypasses the constant is still indexed.
-            \Safe\preg_match_all("#->identifier\\('(phpqaci\\.[A-Za-z]+)'\\)#", $contents, $literals);
-            foreach ($literals[1] as $literal) {
+            foreach ($this->matchAllGroup("#->identifier\\('(phpqaci\\.[A-Za-z]+)'\\)#", $contents, 1) as $literal) {
                 $identifiers[$literal] = true;
             }
         }
@@ -161,5 +155,32 @@ final class RuleDocumentationTest extends TestCase
         }
 
         return $files;
+    }
+
+    /**
+     * Runs preg_match_all and returns one capture group from every match,
+     * filtered to genuine strings. A runtime guard against
+     * \Safe\preg_match_all's loosely-typed $matches out-param, so callers get
+     * a real list<string> without a suppression.
+     *
+     * @return list<string>
+     */
+    private function matchAllGroup(string $pattern, string $subject, int $group): array
+    {
+        \Safe\preg_match_all($pattern, $subject, $matches);
+
+        $captured = $matches[$group] ?? [];
+        if (!\is_array($captured)) {
+            return [];
+        }
+
+        $strings = [];
+        foreach ($captured as $value) {
+            if (\is_string($value)) {
+                $strings[] = $value;
+            }
+        }
+
+        return $strings;
     }
 }
