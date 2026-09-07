@@ -10,8 +10,10 @@
 !/bin/managed-source
 !/bin/mdlinks
 !/bin/package-type-check
+!/bin/config-template-ignorelist-check
 !/bin/php-cs-fixer
 !/bin/phpstan
+!/bin/phpstan-ignore-justification
 !/bin/phpstan-rule
 !/bin/phpunit-check-annotation
 !/bin/phpunit-runfailed-filter

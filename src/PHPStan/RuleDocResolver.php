@@ -11,7 +11,10 @@ use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
  * Resolves a bundled rule identifier, as printed in a PHPStan failure, to the
  * rule's documentation. Works offline from the installed package: the index in
  * docs/phpstan-rules/README.md is the single source, and each row names the
- * rule class and, where one exists, its remediation page.
+ * rule class and, where one exists, its remediation page. Pipeline lanes that
+ * print an identifier of their own are rows in the same index, with the class
+ * given as a path under src/, so one lookup covers everything the package can
+ * print.
  *
  * @internal
  */
@@ -23,7 +26,9 @@ final readonly class RuleDocResolver
 
     private const string DOCS_DIR = '/docs/phpstan-rules/';
 
-    private const string ROW_PATTERN = '/^\| `(phpqaci\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9]+)` +\|(.*)\|\s*$/';
+    private const string ROW_PATTERN = '/^\| `(phpqaci\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
+
+    private const string SRC_DIR = '/src/';
 
     private const string LINK_PATTERN = '/\[([^\]]+)\]\(([^)]+)\)/';
 
@@ -103,8 +108,8 @@ final readonly class RuleDocResolver
         $link    = $this->link($requirement);
         if (null !== $link) {
             [$summary, $target] = $link;
-            if (str_ends_with($target, '.md') && !str_contains($target, '/')) {
-                $docPath = $this->repoRoot . self::DOCS_DIR . $target;
+            if (str_ends_with($target, '.md')) {
+                $docPath = \Safe\realpath($this->repoRoot . self::DOCS_DIR . $target);
             }
         }
 
@@ -113,7 +118,9 @@ final readonly class RuleDocResolver
             ruleClass: $ruleClass,
             summary: $summary,
             bundle: $bundle,
-            sourcePath: $this->repoRoot . self::RULES_DIR . $ruleClass . '.php',
+            sourcePath: str_contains($ruleClass, '/')
+                ? $this->repoRoot . self::SRC_DIR . $ruleClass . '.php'
+                : $this->repoRoot . self::RULES_DIR . $ruleClass . '.php',
             docPath: $docPath,
         );
     }
