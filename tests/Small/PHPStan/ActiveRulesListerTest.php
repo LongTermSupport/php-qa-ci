@@ -47,7 +47,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertSame(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::class, $withIdentifier->ruleClass);
         self::assertSame('No exec/eval/unserialize and similar', $withIdentifier->summary);
         self::assertSame(
-            self::QA_CI_ROOT . '/docs/phpstan-rules/forbid-dangerous-functions.md',
+            \Safe\realpath(self::QA_CI_ROOT . '/docs/phpstan-rules/forbid-dangerous-functions.md'),
             $withIdentifier->docPath,
         );
 
