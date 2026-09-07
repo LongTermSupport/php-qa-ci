@@ -111,6 +111,20 @@ identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
   any rule references remediation documentation that does not exist, or ships an identifier the
   index omits. Both had happened before the guard existed, which is the point — neither is visible
   from inside a review of the rule itself.
+- `bin/rule-doc <identifier>` is the index as a command: the one string a failure prints resolves
+  to the rule's documentation, offline. `bin/phpstan-rule <identifier> <path>` is the single-rule
+  harness: it runs one path under the project's own config and says whether that rule fired. Use
+  the harness to prove a new rule sees its target before trusting a green full run; a green run
+  proves nothing unless the rule was loaded and looked.
+
+## The net has to be cast over itself
+
+The bundled rules reach a consumer through the PHPStan extension installer, which never reads the
+root package. Left alone, php-qa-ci is the one project in which its own rules never run, and a
+clean self-check is believed because nobody expects a clean run to have run nothing. That is how an
+unanchored `vendor/` check lived in a rule file undetected. `qaConfig/phpstan.neon` therefore
+includes every bundled rule set by hand, and `tests/Small/SelfCheckRunsBundledRulesTest.php`
+fails the build if one is dropped.
 
 A new rule is not finished when it passes its own test. It is finished when somebody who has only
 its identifier can find out what to do.

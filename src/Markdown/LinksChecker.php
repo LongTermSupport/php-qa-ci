@@ -222,6 +222,7 @@ final readonly class LinksChecker
             // host; let the normal HTTP check report it.
             return false;
         }
+
         $host = \Safe\parse_url($href, PHP_URL_HOST);
 
         if (!\is_string($host) || '' === $host) {

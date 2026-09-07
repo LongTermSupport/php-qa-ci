@@ -7,9 +7,6 @@ namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 use LTS\PHPQA\PHPStan\Rules\ForbidNestedTernaryRule;
 use PhpParser\Node\Expr\Ternary;
 use PhpParser\Node\Expr\Variable;
-use PHPStan\Analyser\CollectedDataEmitter;
-use PHPStan\Analyser\NodeCallbackInvoker;
-use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\TestCase;
 
 /**

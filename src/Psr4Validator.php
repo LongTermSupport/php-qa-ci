@@ -11,7 +11,6 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 use SplHeap;
-use Throwable;
 
 final class Psr4Validator
 {
@@ -117,6 +116,7 @@ final class Psr4Validator
                         $this->addMissingPathError($path, $namespaceRoot, $absPathRoot);
                         continue;
                     }
+
                     $realAbsPathRoot = \Safe\realpath($absPathRoot);
 
                     $iterator = $this->getDirectoryIterator($absPathRoot);

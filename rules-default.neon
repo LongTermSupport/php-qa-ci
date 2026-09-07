@@ -20,6 +20,10 @@ rules:
     # guards against (ForbidMockingFinalClassRule going dark when php-qa-ci is
     # itself analysed from inside a consumer's vendor/lts/php-qa-ci/ checkout).
     - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredVendorSubstringCheckRule
+    # An inline @phpstan-ignore silences a finding at the point of the finding,
+    # where nobody reviewing the config will see it. A suppression that is
+    # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
+    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RequireSensitiveParameterAttributeRule — keep passwords/secrets out of traces.

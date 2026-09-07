@@ -10,9 +10,6 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\ClassMethod;
-use PHPStan\Analyser\CollectedDataEmitter;
-use PHPStan\Analyser\NodeCallbackInvoker;
-use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\TestCase;
 
 /**

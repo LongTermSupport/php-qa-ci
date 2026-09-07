@@ -172,7 +172,7 @@ reason: GitHub URLs cannot be verified anonymously'
             $pipes,
         );
 
-        $baseUrl  = 'http://127.0.0.1:' . $port;
+        $baseUrl   = 'http://127.0.0.1:' . $port;
         $deadline  = microtime(true) + 10.0;
         $lastError = 'no attempt made';
         while (microtime(true) < $deadline) {

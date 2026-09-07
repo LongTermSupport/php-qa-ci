@@ -63,9 +63,10 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **RequireRuleIdentifierConstantRule** -- PHPStan rule classes must expose an identifier constant
 - **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and `.env` files itself; auto-skips on non-Symfony projects. Full guidance: [phpstan-rules/forbid-http-prefixed-env-vars.md](../phpstan-rules/forbid-http-prefixed-env-vars.md)
 - **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path. Use `VendoredCodeDetector`. Full guidance: [phpstan-rules/forbid-unanchored-vendor-substring-check.md](../phpstan-rules/forbid-unanchored-vendor-substring-check.md)
+- **ForbidInlinePhpstanIgnoreRule** -- Bans inline `@phpstan-ignore` annotations. A suppression that is genuinely irreducible goes in `phpstan.neon` `ignoreErrors`, where it is visible in review; inline, it silences the finding at the one place nobody looks.
 
-`rules-default.neon` is the single source of truth for the always-on set (16 rules at time of
-writing: 11 in its `rules:` block plus `ForbidMockingFinalClassRule`,
+`rules-default.neon` is the single source of truth for the always-on set (17 rules at time of
+writing: 12 in its `rules:` block plus `ForbidMockingFinalClassRule`,
 `ForbidHttpPrefixedEnvVarsRule`, `RequireSensitiveParameterAttributeRule`,
 `RequireApiOrInternalTagRule`, and `ApiMustNotExposeInternalRule` registered as tagged services).
 Consult that file if in doubt.
@@ -73,6 +74,14 @@ Consult that file if in doubt.
 **To look up a rule from a failure, use the [identifier index](../phpstan-rules/README.md).** PHPStan
 prints an identifier such as `phpqaci.nullCoalescingFalse`, not a class name, and the index is keyed
 on the identifier. The list above is organised by class name and is for reading, not for lookup.
+
+Two commands ship for working with a single rule:
+
+- `vendor/bin/rule-doc <identifier>` prints the rule's class, bundle and summary and, where one
+  exists, its remediation page. Offline, from the installed package.
+- `vendor/bin/phpstan-rule <identifier> <path>` runs PHPStan over one path with the project's own
+  configuration and reports whether that one rule fired there, and where. Exit 0 for did not fire,
+  1 for fired. Use it to prove a new rule sees what it should before trusting a green full run.
 
 See the README "Configuring RequireSensitiveParameterAttributeRule" section for the full config keys and defaults.
 
@@ -82,11 +91,11 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 12 additional opt-in rules split across two files:
+PHP-QA-CI ships 11 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 8 generic rules suitable for any PHP project (6 in its `rules:` block
+- **`rules-optional.neon`** — 7 generic rules suitable for any PHP project (5 in its `rules:` block
   plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (12 total)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (11 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -127,8 +136,6 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
     # catch blocks must reference the caught exception (stricter than ForbidEmptyCatchBlockRule)
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
-    # Bans inline @phpstan-ignore annotations — use phpstan.neon ignoreErrors instead
-    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
     # Service classes must be declared as "final readonly class"
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     # Single array param annotated @param list<T> should use variadic syntax instead
@@ -150,7 +157,6 @@ rules:
 | `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                         |
 | `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                       |
 | `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                |
-| `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`           | Inline `@phpstan-ignore` annotations in source files                           |
 | `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                  |
 | `RequireVariadicForSingleListParamRule` | `rules-optional.neon`           | `array $items` annotated `@param list<T>` — use variadic syntax                |
 | `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |

@@ -281,11 +281,11 @@ parameters:
 
 ### Optional rules (opt-in)
 
-Twelve additional rules ship as opt-in, split across two files:
+Eleven additional rules ship as opt-in, split across two files:
 
-- **`rules-optional.neon`** — 8 generic rules suitable for any PHP project (6 named in its `rules:`
+- **`rules-optional.neon`** — 7 generic rules suitable for any PHP project (5 named in its `rules:`
   block plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — all 8 generic rules + 4 Symfony/Doctrine-specific rules (12 total)
+- **`rules-optional-symfony.neon`** — all 7 generic rules + 4 Symfony/Doctrine-specific rules (11 total)
 
 (A further rule, `ForbidMagicStringAssertionRule`, ships but is in **neither** bundle — it is
 experimental/high-noise and must be cherry-picked deliberately.)

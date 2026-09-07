@@ -109,7 +109,7 @@ final readonly class ForbidUnanchoredVendorSubstringCheckRule implements Rule
                     \sprintf(
                         "Unanchored 'vendor/' substring check: %s(..., '%s'). It misclassifies this project's own "
                         . 'source whenever the project sits under a vendor/ path. Use VendoredCodeDetector, or anchor '
-                        . "on the project root. See docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md",
+                        . 'on the project root. See docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md',
                         $functionName,
                         $arg->value->value,
                     ),

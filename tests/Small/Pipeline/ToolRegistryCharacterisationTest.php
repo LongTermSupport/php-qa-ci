@@ -307,9 +307,14 @@ final class ToolRegistryCharacterisationTest extends TestCase
 
         $order = [];
         foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
-            if (!\array_key_exists($name, $phases) || '' === $phases[$name]) {
+            if (!\array_key_exists($name, $phases)) {
                 continue;
             }
+
+            if ('' === $phases[$name]) {
+                continue;
+            }
+
             $phase = $phases[$name];
 
             self::assertArrayHasKey($phase, $phaseToRunner, \sprintf("Registry declares unknown phase '%s' for '%s'.", $phase, $name));

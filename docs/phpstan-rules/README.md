@@ -16,31 +16,49 @@ PHPStan reports a failure with an identifier, not a class name:
 `phpqaci.nullCoalescingFalse` is the only string you are given, so this index is keyed on it. Search
 this page for the identifier from the failure, not for the rule's class name.
 
-`grep -rn '<identifier>' vendor/lts/php-qa-ci/docs/phpstan-rules/` works too, and works offline.
+The same lookup as a command, offline and at the installed version:
+
+```bash
+vendor/bin/rule-doc phpqaci.nullCoalescingFalse
+```
+
+It prints the rule class, bundle and summary, followed by the remediation page where one exists.
+An identifier this index does not carry is an error, which is the point: every identifier the
+package can print must resolve here, and `tests/Small/PHPStan/RuleDocResolverTest.php` audits that.
+
+To check whether one rule fires on one path, with the project's own configuration:
+
+```bash
+vendor/bin/phpstan-rule phpqaci.nullCoalescingFalse src/Service/Importer.php
+```
+
+Exit 0 means it did not fire; exit 1 means it did, and every location is printed. This is the
+harness to reach for when writing a rule, or when a green run is suspected of not having looked.
 
 ## Always on
 
 Loaded automatically via the PHPStan extension installer. Registered in
 [`rules-default.neon`](../../rules-default.neon), which is the single source of truth.
 
-| Identifier                                   | Rule                                     | What it requires                                                                      |
-| -------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| `phpqaci.dangerousFunctions`                 | `ForbidDangerousFunctionsRule`           | [No exec/eval/unserialize and similar](forbid-dangerous-functions.md)                 |
-| `phpqaci.emptyCatchBlock`                    | `ForbidEmptyCatchBlockRule`              | [A catch block must do something](forbid-empty-catch-block.md)                        |
-| `phpqaci.missingStrictTypes`                 | `RequireDeclareStrictTypesRule`          | [`declare(strict_types=1)` in every file](require-declare-strict-types.md)            |
-| `phpqaci.httpPrefixedEnvVars`                | `ForbidHttpPrefixedEnvVarsRule`          | [No Symfony env var named `HTTP_*`](forbid-http-prefixed-env-vars.md)                 |
-| `phpqaci.forbiddenAttribute`                 | `ForbidAllowMockWithoutExpectationsRule` | No `#[AllowMockObjectsWithoutExpectations]`                                           |
-| `phpqaci.newDateTime`                        | `ForbidNewDateTimeRule`                  | No direct `new DateTime` / `new DateTimeImmutable`                                    |
-| `phpqaci.emptyLanguageConstruct`             | `ForbidEmptyLanguageConstructRule`       | No `empty()`; use an explicit type-safe check                                         |
-| `phpqaci.looseComparison`                    | `ForbidLooseComparisonRule`              | No `==` / `!=`; use `===` / `!==`                                                     |
-| `phpqaci.deprecatedSerializable`             | `ForbidDeprecatedSerializableRule`       | No `Serializable`; use `__serialize()` / `__unserialize()`                            |
-| `phpqaci.nestedTernary`                      | `ForbidNestedTernaryRule`                | No nested ternary expressions                                                         |
-| `phpqaci.unanchoredVendorSubstringCheck`    | `ForbidUnanchoredVendorSubstringCheckRule` | [Decide ownership against the project root, not a `vendor/` substring](forbid-unanchored-vendor-substring-check.md) |
-| `phpqaci.mockFinalClass`                     | `ForbidMockingFinalClassRule`            | Mock an interface, never a final class                                                |
-| `phpqaci.ruleIdentifierMustBeConstant`       | `RequireRuleIdentifierConstantRule`      | A PHPStan rule's identifier must be a class constant                                  |
-| `phpqaci.requireSensitiveParameterAttribute` | `RequireSensitiveParameterAttributeRule` | `#[\SensitiveParameter]` on plaintext credential parameters                           |
-| `phpqaci.requireApiOrInternalTag`            | `RequireApiOrInternalTagRule`            | [`@api` or `@internal` on every public class-like](../tools/requireApiOrInternal.md)  |
-| `phpqaci.apiMustNotExposeInternal`           | `ApiMustNotExposeInternalRule`           | [An `@api` type must not expose an `@internal` one](../tools/requireApiOrInternal.md) |
+| Identifier                                   | Rule                                       | What it requires                                                                                                    |
+| -------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `phpqaci.dangerousFunctions`                 | `ForbidDangerousFunctionsRule`             | [No exec/eval/unserialize and similar](forbid-dangerous-functions.md)                                               |
+| `phpqaci.emptyCatchBlock`                    | `ForbidEmptyCatchBlockRule`                | [A catch block must do something](forbid-empty-catch-block.md)                                                      |
+| `phpqaci.missingStrictTypes`                 | `RequireDeclareStrictTypesRule`            | [`declare(strict_types=1)` in every file](require-declare-strict-types.md)                                          |
+| `phpqaci.httpPrefixedEnvVars`                | `ForbidHttpPrefixedEnvVarsRule`            | [No Symfony env var named `HTTP_*`](forbid-http-prefixed-env-vars.md)                                               |
+| `phpqaci.forbiddenAttribute`                 | `ForbidAllowMockWithoutExpectationsRule`   | No `#[AllowMockObjectsWithoutExpectations]`                                                                         |
+| `phpqaci.newDateTime`                        | `ForbidNewDateTimeRule`                    | No direct `new DateTime` / `new DateTimeImmutable`                                                                  |
+| `phpqaci.emptyLanguageConstruct`             | `ForbidEmptyLanguageConstructRule`         | No `empty()`; use an explicit type-safe check                                                                       |
+| `phpqaci.looseComparison`                    | `ForbidLooseComparisonRule`                | No `==` / `!=`; use `===` / `!==`                                                                                   |
+| `phpqaci.deprecatedSerializable`             | `ForbidDeprecatedSerializableRule`         | No `Serializable`; use `__serialize()` / `__unserialize()`                                                          |
+| `phpqaci.nestedTernary`                      | `ForbidNestedTernaryRule`                  | No nested ternary expressions                                                                                       |
+| `phpqaci.unanchoredVendorSubstringCheck`     | `ForbidUnanchoredVendorSubstringCheckRule` | [Decide ownership against the project root, not a `vendor/` substring](forbid-unanchored-vendor-substring-check.md) |
+| `phpqaci.inlinePhpstanIgnore`                | `ForbidInlinePhpstanIgnoreRule`            | No inline `@phpstan-ignore`; use `ignoreErrors` in the config                                                       |
+| `phpqaci.mockFinalClass`                     | `ForbidMockingFinalClassRule`              | Mock an interface, never a final class                                                                              |
+| `phpqaci.ruleIdentifierMustBeConstant`       | `RequireRuleIdentifierConstantRule`        | A PHPStan rule's identifier must be a class constant                                                                |
+| `phpqaci.requireSensitiveParameterAttribute` | `RequireSensitiveParameterAttributeRule`   | `#[\SensitiveParameter]` on plaintext credential parameters                                                         |
+| `phpqaci.requireApiOrInternalTag`            | `RequireApiOrInternalTagRule`              | [`@api` or `@internal` on every public class-like](../tools/requireApiOrInternal.md)                                |
+| `phpqaci.apiMustNotExposeInternal`           | `ApiMustNotExposeInternalRule`             | [An `@api` type must not expose an `@internal` one](../tools/requireApiOrInternal.md)                               |
 
 ## Opt in
 
@@ -52,7 +70,6 @@ Not loaded unless the project includes the bundle. See
 | `phpqaci.nullCoalescingFalse`        | `ForbidNullCoalescingFalseRule`         | [generic](../../rules-optional.neon)                                            | [No `?? false`](forbid-null-coalescing-false.md)                  |
 | `phpqaci.nullCoalescingEmptyString`  | `ForbidNullCoalescingEmptyStringRule`   | [generic](../../rules-optional.neon)                                            | [No `?? ''`](forbid-null-coalescing-empty-string.md)              |
 | `phpqaci.silentCatch`                | `ForbidSilentCatchRule`                 | [generic](../../rules-optional.neon)                                            | A catch block must reference the exception it caught              |
-| `phpqaci.inlinePhpstanIgnore`        | `ForbidInlinePhpstanIgnoreRule`         | [generic](../../rules-optional.neon)                                            | No inline `@phpstan-ignore`; use `ignoreErrors` in the config     |
 | `phpqaci.readonlyService`            | `RequireReadonlyServiceRule`            | [generic](../../rules-optional.neon)                                            | A service class must be `final readonly`                          |
 | `phpqaci.arrayListShouldBeVariadic`  | `RequireVariadicForSingleListParamRule` | [generic](../../rules-optional.neon)                                            | A single `@param list<T>` array parameter should be variadic      |
 | `phpqaci.factorySealed`              | `FactorySealedRule`                     | [generic](../../rules-optional.neon)                                            | A factory-sealed class is constructed only by its factory         |
