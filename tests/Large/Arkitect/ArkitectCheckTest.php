@@ -125,6 +125,60 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
+     * The default tier's DTO convention, valid half: a *Dto that is final,
+     * readonly and inside a Dto namespace passes. The fixture also holds a
+     * ShapeDtoInterface in that same Dto namespace — arkitect ignores an
+     * expression's appliesTo() inside should(), so this pins the explicit
+     * andThat(IsNot*) kind carve-out. Drop those guards and this test goes red.
+     */
+    public function testDefaultTierAcceptsAConformingDto(): void
+    {
+        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/projectDtoValid',
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+        );
+
+        self::assertSame(0, $exitCode, "Expected a conforming Dto to pass, got:\n" . $output);
+        self::assertStringContainsString('No violations detected', $output);
+    }
+
+    /**
+     * The default tier's DTO convention, invalid half. Each of the three ways to
+     * break it is a separate fixture class, so a rule silently dropped from the
+     * tier fails this test rather than hiding behind its neighbours: Foo lacks
+     * the suffix, BazDto sits outside a Dto namespace, and QuxDto is neither
+     * final nor readonly.
+     */
+    public function testDefaultTierEnforcesTheDtoConvention(): void
+    {
+        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
+
+        [$exitCode, $output] = $this->runCheck(
+            self::ASSETS . '/projectDtoInvalid',
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+        );
+
+        self::assertSame(1, $exitCode, "Expected Dto violations, got:\n" . $output);
+        // Each expectation names the fixture class INSIDE arkitect's report line
+        // ("<FQCN> has N violations"). The trailing prose is load-bearing twice
+        // over: it pins the violation COUNT per class, and it keeps the literal
+        // from being a bare class name — which Rector would rewrite to ::class,
+        // producing a reference to a fixture that is deliberately not
+        // autoloadable and a PHPStan class.notFound.
+        // Missing *Dto suffix inside a Dto namespace.
+        self::assertStringContainsString('ArkitectFixture\Dto\Foo has 1 violations', $output);
+        self::assertStringContainsString('*Dto', $output);
+        // Correctly suffixed but stranded outside a Dto namespace.
+        self::assertStringContainsString('ArkitectFixture\Bar\BazDto has 1 violations', $output);
+        self::assertStringContainsString('should reside in one of these namespaces', $output);
+        // Correctly named and placed, but mutable — one violation per rule.
+        self::assertStringContainsString('QuxDto should be final', $output);
+        self::assertStringContainsString('QuxDto should be readonly', $output);
+    }
+
+    /**
      * The production zero-config path: a project with NO qaConfig/phparkitect.php
      * still gets the default tier applied to its srcDir via the shipped entry
      * config, driven by PHPQACI_ARKITECT_SRC_DIR + PHPQACI_ARKITECT_RULES_DEFAULT.

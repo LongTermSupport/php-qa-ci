@@ -6,7 +6,8 @@ declare(strict_types=1);
  * PHPArkitect entry config — PROJECT OVERRIDE template.
  *
  * You do NOT need this file to get the basics: php-qa-ci applies an on-by-default
- * baseline of Interface/Enum/Trait name suffixes to every project. The
+ * baseline to every project — Interface/Enum/Trait name suffixes, plus the DTO
+ * convention (a *Dto suffix, a Dto namespace, final and readonly). The
  * `*Exception` suffix is NOT in that baseline — it lives in the opt-in optional
  * tier (PHPQACI_ARKITECT_RULES_OPTIONAL). Add this file only to EXTEND the
  * baseline, OPT IN to extra shipped tiers, or add PROJECT-BESPOKE rules.
