@@ -86,9 +86,10 @@ Not loaded unless the project includes the bundle. See
 Not PHPStan rules, but lanes of `bin/qa` that print an identifier of their own. The same
 `rule-doc` lookup resolves them, and the same audit requires every one to be here.
 
-| Identifier                          | Class                                                     | Where            | What it requires                                                                                                   |
-| ----------------------------------- | --------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `phpqaci.configTemplateIgnoreList`  | `ConfigTemplateIgnoreList/ConfigTemplateIgnoreListCheck`  | `bin/qa -t cti`  | [Every shipped config template is covered by the PSR-4 ignore list](../tools/configTemplateIgnoreListCheck.md)     |
+| Identifier                                          | Class                                                    | Where            | What it requires                                                                                               |
+| --------------------------------------------------- | -------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `phpqaci.configTemplateIgnoreList`                  | `ConfigTemplateIgnoreList/ConfigTemplateIgnoreListCheck` | `bin/qa -t cti`  | [Every shipped config template is covered by the PSR-4 ignore list](../tools/configTemplateIgnoreListCheck.md) |
+| `phpqaci.infectionConfigSourceDirectoriesMustExist` | `InfectionConfig/InfectionConfigSourceDirectoriesCheck`  | `bin/qa -t icsd` | [infection.json's `source.directories` resolve to real directories](../tools/infectionConfigSourceDirs.md)     |
 
 ## Why this index exists
 

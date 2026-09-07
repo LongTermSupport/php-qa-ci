@@ -129,34 +129,35 @@ The pipeline runs tools in 4 distinct phases:
 04. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
 05. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
 06. **Config Template Ignore-List Audit** (`configTemplateIgnoreList`) - Always-on self-check: every namespace-less `configDefaults/generic/` template must be covered by `psr4-validate-ignore-list.txt` (see [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md))
-07. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
-08. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
-09. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
-10. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+07. **Infection Config Source Directories Check** (`infectionConfigSourceDirs`) - Always-on: infection.json's `source.directories` entries must resolve, relative to infection.json's own directory, to real directories (see [docs/tools/infectionConfigSourceDirs.md](docs/tools/infectionConfigSourceDirs.md))
+08. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+09. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+10. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+11. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 ### Phase 3: Static Analysis Tools
 
-11. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-12. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
-13. **PHPStan** (`phpstan`) - Static analysis tool
-14. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
-15. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
+12. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
+13. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+14. **PHPStan** (`phpstan`) - Static analysis tool
+15. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+16. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
 
 ### Phase 4: Testing Tools
 
-16. **PHPUnit** (`phpunit`) - Unit testing framework
-17. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
+17. **PHPUnit** (`phpunit`) - Unit testing framework
+18. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
 
 ### Post-Success Phase (After all tests pass)
 
 After the "ALL TESTS PASSING" message:
 
-18. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
+19. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
 
     - This is informational only and cannot fail the pipeline
     - Provides metrics about code size and structure
 
-19. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
+20. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup

@@ -6,6 +6,7 @@
 !/bin/bootstrap.php
 !/bin/composer-require-checker
 !/bin/infection
+!/bin/infection-config-source-dirs-check
 !/bin/lib-redirect-stub.inc.bash
 !/bin/managed-source
 !/bin/mdlinks
