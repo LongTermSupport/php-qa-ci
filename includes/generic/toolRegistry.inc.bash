@@ -45,11 +45,13 @@ QA_TOOL_NAMES=(
   psr4Validate
   composerChecks
   packageType
+  configTemplateIgnoreList
   phpStrictTypes
   phpLint
   composerRequireChecker
   markdownLinks
   branchNamePolicy
+  phpstanIgnoreJustification
   phpstan
   phpArkitect
   sensitiveParameterUsage
@@ -72,11 +74,13 @@ declare -A QA_TOOL_ALIASES=(
   [psr4Validate]="psr psr4"
   [composerChecks]="com composer"
   [packageType]="pt packagetype packageType"
+  [configTemplateIgnoreList]="cti configTemplateIgnoreList"
   [phpStrictTypes]="st stricttypes"
   [phpLint]="lint phplint"
   [composerRequireChecker]="cr"
   [markdownLinks]="ml markdown"
   [branchNamePolicy]="bnp branchNamePolicy"
+  [phpstanIgnoreJustification]="pij phpstanIgnoreJustification"
   [phpstan]="stan phpstan"
   [phpArkitect]="arch arkitect phparkitect"
   [sensitiveParameterUsage]="spu sensitiveparameter sensitiveParameterUsage"
@@ -110,11 +114,13 @@ declare -A QA_TOOL_PATHS=(
   [psr4Validate]=no
   [composerChecks]=no
   [packageType]=no
+  [configTemplateIgnoreList]=no
   [phpStrictTypes]=yes
   [phpLint]=yes
   [composerRequireChecker]=no
   [markdownLinks]=no
   [branchNamePolicy]=no
+  [phpstanIgnoreJustification]=no
   [phpstan]=yes
   [phpArkitect]=no
   [sensitiveParameterUsage]=no
@@ -131,11 +137,13 @@ declare -A QA_TOOL_PHASE=(
   [psr4Validate]=linting
   [composerChecks]=linting
   [packageType]=linting
+  [configTemplateIgnoreList]=linting
   [phpStrictTypes]=linting
   [phpLint]=linting
   [composerRequireChecker]=linting
   [markdownLinks]=linting
   [branchNamePolicy]=staticAnalysis
+  [phpstanIgnoreJustification]=staticAnalysis
   [phpstan]=staticAnalysis
   [phpArkitect]=staticAnalysis
   [sensitiveParameterUsage]=staticAnalysis
@@ -159,11 +167,13 @@ declare -A QA_TOOL_BANNER=(
   [psr4Validate]="Validating PSR-4 Roots"
   [composerChecks]="Checking for Composer Issues"
   [packageType]="Checking Package Type Is Declared"
+  [configTemplateIgnoreList]="Auditing Config Template Ignore-List Coverage"
   [phpStrictTypes]="Setting Strict Types If It's Missing"
   [phpLint]="Running PHP Lint"
   [composerRequireChecker]="Running Composer Require Checker"
   [markdownLinks]="Running Markdown Links Checker"
   [branchNamePolicy]="Checking Branch Name Policy"
+  [phpstanIgnoreJustification]="Checking PHPStan ignoreErrors Justifications"
   [phpstan]="Running PHPStan"
   [phpArkitect]="Running PHPArkitect (architecture rules)"
   [sensitiveParameterUsage]="Checking SensitiveParameter Usage"
@@ -184,11 +194,13 @@ declare -A QA_TOOL_USAGE=(
   [psr4Validate]="psr|psr4::psr4 validation"
   [composerChecks]="com|composer::composer validation"
   [packageType]="pt|packageType::assert composer.json declares an explicit package type (library/project/...)"
+  [configTemplateIgnoreList]="cti|configTemplateIgnoreList::audit configDefaults/generic templates against psr4-validate-ignore-list.txt"
   [phpStrictTypes]="st|stricttypes::strict types validation"
   [phpLint]="lint|phplint::phplint"
   [composerRequireChecker]="cr::composer require checker"
   [markdownLinks]="ml|markdown::markdown validation"
   [branchNamePolicy]="bnp|branchNamePolicy::Branch naming policy (PR convention)"
+  [phpstanIgnoreJustification]="pij|phpstanIgnoreJustification::assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification"
   [phpstan]="stan|phpstan::phpstan"
   [phpArkitect]="arch|arkitect|phparkitect::PHPArkitect architecture rules (on by default; useArkitect=0 to disable)"
   [sensitiveParameterUsage]="spu|sensitiveParameterUsage::assert #[\\SensitiveParameter] is used somewhere in src/"

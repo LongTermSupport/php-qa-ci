@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 
 /**
  * Defence for the class "a bundled rule blocks a build without explaining itself".
@@ -31,7 +34,11 @@ final class RuleDocumentationTest extends TestCase
 {
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
-    private const string RULES_DIR = self::REPO_ROOT . '/src/PHPStan/Rules';
+    /**
+     * Every source file, not the PHPStan rules alone: a pipeline lane that prints
+     * an identifier of its own is held to the same index (toolchain specification 10.1).
+     */
+    private const string SRC_DIR = self::REPO_ROOT . '/src';
 
     private const string INDEX = self::REPO_ROOT . '/docs/phpstan-rules/README.md';
 
@@ -145,14 +152,22 @@ final class RuleDocumentationTest extends TestCase
      */
     private function ruleSourceFiles(): array
     {
-        $paths = \Safe\glob(self::RULES_DIR . '/*.php');
-        self::assertNotSame([], $paths, 'No rule sources found — the glob path is wrong.');
+        $files    = [];
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
+            self::SRC_DIR,
+            RecursiveDirectoryIterator::SKIP_DOTS,
+        ));
+        /** @var SplFileInfo $file */
+        foreach ($iterator as $file) {
+            if ('php' !== $file->getExtension()) {
+                continue;
+            }
 
-        $files = [];
-        foreach ($paths as $path) {
-            self::assertIsString($path);
-            $files[$path] = \Safe\file_get_contents($path);
+            $files[$file->getPathname()] = \Safe\file_get_contents($file->getPathname());
         }
+
+        ksort($files);
+        self::assertNotSame([], $files, 'No sources found — the directory path is wrong.');
 
         return $files;
     }

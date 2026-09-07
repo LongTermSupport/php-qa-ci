@@ -86,6 +86,17 @@ final class RuleDocResolverTest extends TestCase
         self::assertStringContainsString('## The correct construction', $rendered);
     }
 
+    #[Test]
+    public function aPipelineLaneIdentifierResolvesLikeARule(): void
+    {
+        $entry = $this->resolver()->resolve('phpqaci.configTemplateIgnoreList');
+
+        self::assertSame('ConfigTemplateIgnoreList/ConfigTemplateIgnoreListCheck', $entry->ruleClass);
+        self::assertFileExists($entry->sourcePath);
+        self::assertNotNull($entry->docPath);
+        self::assertStringEndsWith('docs/tools/configTemplateIgnoreListCheck.md', $entry->docPath);
+    }
+
     private function resolver(): RuleDocResolver
     {
         return new RuleDocResolver(self::REPO_ROOT);

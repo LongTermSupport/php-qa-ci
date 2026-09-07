@@ -196,6 +196,25 @@ See [the main PHPStan strict rules docs](https://github.com/phpstan/phpstan-stri
 
 [Here](https://github.com/phpstan/phpstan#ignore-error-messages-with-regular-expressions) you can read more about how to ignore errors by modifying `phpstan.neon`.
 
+`ignoreErrors` in `qaConfig/phpstan.neon` is the project's record of the exceptions it has decided
+to keep, and the pipeline reads it as one. Every entry must be immediately preceded by a comment
+that names the hazard the rule would report there and why that is acceptable at that path. The
+`phpstanIgnoreJustification` lane (`bin/qa -t pij`) fails on an entry with no comment, a comment
+too short to name a hazard and a scope, or a phrase that would fit any entry unchanged (`legacy`,
+`needed for now`, `false positive` and the like). The check cannot tell whether a sentence is true;
+that is the reviewer's judgement, which is why the entries are kept in one file where a vacuous
+reason sits next to its neighbours.
+
+```neon
+parameters:
+    ignoreErrors:
+        # The generated API client references a class that exists only at runtime in the
+        # consuming application; scoped to the generated directory, which is never edited.
+        -
+            identifier: class.notFound
+            path: ../src/Generated/*
+```
+
 ## Mock Objects in Tests
 
 The bundled `phpstan-phpunit` extension handles PHPUnit mock objects automatically. Without it, PHPStan gets confused by mock objects:

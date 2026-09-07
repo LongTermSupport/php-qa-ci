@@ -125,36 +125,38 @@ The pipeline runs tools in 4 distinct phases:
 
 ### Phase 2: Linting Tools (validation only)
 
-3. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
-4. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
-5. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
-6. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
-7. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
-8. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
-9. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+03. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
+04. **Composer Checks** (`composerChecks`) - Runs composer diagnose and dumps autoloader
+05. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
+06. **Config Template Ignore-List Audit** (`configTemplateIgnoreList`) - Always-on self-check: every namespace-less `configDefaults/generic/` template must be covered by `psr4-validate-ignore-list.txt` (see [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md))
+07. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+08. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+09. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+10. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 ### Phase 3: Static Analysis Tools
 
-10. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-11. **PHPStan** (`phpstan`) - Static analysis tool
-12. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
-13. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
+11. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
+12. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+13. **PHPStan** (`phpstan`) - Static analysis tool
+14. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+15. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
 
 ### Phase 4: Testing Tools
 
-14. **PHPUnit** (`phpunit`) - Unit testing framework
-15. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
+16. **PHPUnit** (`phpunit`) - Unit testing framework
+17. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
 
 ### Post-Success Phase (After all tests pass)
 
 After the "ALL TESTS PASSING" message:
 
-16. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
+18. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
 
     - This is informational only and cannot fail the pipeline
     - Provides metrics about code size and structure
 
-17. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
+19. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
@@ -541,6 +543,13 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **Binary**: `bin/package-type-check`
 - **When it runs**: Always-on, Phase 2, immediately after Composer Checks
 - **Details**: [docs/tools/packageType.md](docs/tools/packageType.md)
+
+### Config Template Ignore-List Audit
+
+- **Tool**: [@includes/generic/configTemplateIgnoreList.inc.bash](includes/generic/configTemplateIgnoreList.inc.bash)
+- **Purpose**: every namespace-less template under `configDefaults/generic/` is covered by `psr4-validate-ignore-list.txt`, so the documented copy-override never fails `psr4Validate`
+- **Identifier**: `phpqaci.configTemplateIgnoreList`
+- **Details**: [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md)
 
 ### PHP Strict Types
 
