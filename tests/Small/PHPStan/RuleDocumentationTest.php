@@ -123,22 +123,21 @@ final class RuleDocumentationTest extends TestCase
         $identifiers = [];
 
         foreach ($this->ruleSourceFiles() as $contents) {
-            preg_match_all(
-                "#PREFIX \. '(\.[A-Za-z]+)'|->identifier\('(phpqaci\.[A-Za-z]+)'\)#",
-                $contents,
-                $matches,
-                \PREG_SET_ORDER,
-            );
-
-            foreach ($matches as $match) {
-                $identifier = '' === $match[1] ? $match[2] : 'phpqaci' . $match[1];
-
-                if (\in_array($identifier, self::EXAMPLE_IDENTIFIERS, true)) {
-                    continue;
-                }
-
-                $identifiers[$identifier] = true;
+            // The sanctioned form: a constant composed from RuleIdentifierInterface::PREFIX.
+            preg_match_all("#PREFIX \\. '(\\.[A-Za-z]+)'#", $contents, $constants);
+            foreach ($constants[1] as $suffix) {
+                $identifiers['phpqaci' . $suffix] = true;
             }
+
+            // The magic-string form, so a rule that bypasses the constant is still indexed.
+            preg_match_all("#->identifier\\('(phpqaci\\.[A-Za-z]+)'\\)#", $contents, $literals);
+            foreach ($literals[1] as $literal) {
+                $identifiers[$literal] = true;
+            }
+        }
+
+        foreach (self::EXAMPLE_IDENTIFIERS as $example) {
+            unset($identifiers[$example]);
         }
 
         $unique = array_keys($identifiers);
@@ -152,8 +151,7 @@ final class RuleDocumentationTest extends TestCase
      */
     private function ruleSourceFiles(): array
     {
-        $paths = glob(self::RULES_DIR . '/*.php');
-        self::assertIsArray($paths);
+        $paths = \Safe\glob(self::RULES_DIR . '/*.php');
         self::assertNotSame([], $paths, 'No rule sources found — the glob path is wrong.');
 
         $files = [];
