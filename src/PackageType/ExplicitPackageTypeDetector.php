@@ -17,7 +17,7 @@ namespace LTS\PHPQA\PackageType;
  * error message. The decoded composer.json is passed in so this stays pure and
  * unit-testable; the pipeline reads the real file via {@see \LTS\PHPQA\Helper}.
  */
-final class ExplicitPackageTypeDetector
+final readonly class ExplicitPackageTypeDetector
 {
     /**
      * @param array<int|string, mixed> $composerJson the decoded composer.json

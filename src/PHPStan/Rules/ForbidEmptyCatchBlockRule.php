@@ -21,7 +21,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Catch_>
  */
-final class ForbidEmptyCatchBlockRule implements Rule
+final readonly class ForbidEmptyCatchBlockRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.emptyCatchBlock';
 

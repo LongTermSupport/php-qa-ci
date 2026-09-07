@@ -13,7 +13,7 @@ use RegexIterator;
 use RuntimeException;
 use Throwable;
 
-final class LinksChecker
+final readonly class LinksChecker
 {
     /**
      * @throws Exception
@@ -150,9 +150,7 @@ final class LinksChecker
             }
         }
 
-        try {
-            $realpath = \Safe\realpath($start . '/' . $path);
-        } catch (Throwable) {
+        if (!file_exists($start . '/' . $path)) {
             $errors[] = \sprintf("\nBad link for \"%s\" to \"%s\"\n", $link[1], $link[2]);
             $return   = 1;
         }
@@ -219,13 +217,12 @@ final class LinksChecker
      */
     private static function isGitHubOwnedHost(string $href): bool
     {
-        try {
-            $host = \Safe\parse_url($href, PHP_URL_HOST);
-        } catch (Throwable) {
-            // A URL malformed enough that the host cannot be parsed is not a
-            // GitHub host; let the normal HTTP check report it.
+        if (false === filter_var($href, FILTER_VALIDATE_URL)) {
+            // A URL malformed enough that it does not validate is not a GitHub
+            // host; let the normal HTTP check report it.
             return false;
         }
+        $host = \Safe\parse_url($href, PHP_URL_HOST);
 
         if (!\is_string($host) || '' === $host) {
             return false;
@@ -281,6 +278,7 @@ final class LinksChecker
             'user_agent'       => $userAgent,
         ];
 
+        $lastError = null;
         foreach (['HEAD', 'GET'] as $method) {
             $httpOpts['method'] = $method;
             $context            = stream_context_create([
@@ -302,12 +300,13 @@ final class LinksChecker
                 if ('HEAD' === $method && null !== $lastStatus && $lastStatus >= 400) {
                     continue;
                 }
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                $lastError = $e->getMessage();
                 continue;
             }
         }
 
-        return 'HTTP status: ' . ($lastStatus ?? 'connection failed');
+        return 'HTTP status: ' . ($lastStatus ?? $lastError ?? 'connection failed');
     }
 
     /**

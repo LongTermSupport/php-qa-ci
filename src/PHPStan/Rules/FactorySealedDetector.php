@@ -17,7 +17,7 @@ namespace LTS\PHPQA\PHPStan\Rules;
  *   - enclosing class IS the authorised factory    → no violation;
  *   - otherwise                                     → violation.
  */
-final class FactorySealedDetector
+final readonly class FactorySealedDetector
 {
     private const string TESTS_PATH_FRAGMENT = '/tests/';
 

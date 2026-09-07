@@ -149,8 +149,8 @@ final class ToolFragmentLivenessTest extends TestCase
             $key = $match[1] ?? null;
             self::assertIsString($key);
             // Quoted value in group 2, bare value in group 3; only one is present.
-            $quoted = $match[2] ?? '';
-            $bare   = $match[3] ?? '';
+            $quoted = \array_key_exists(2, $match) ? $match[2] : '';
+            $bare   = \array_key_exists(3, $match) ? $match[3] : '';
             self::assertIsString($quoted);
             self::assertIsString($bare);
             $result[$key] = '' !== $quoted ? $quoted : $bare;

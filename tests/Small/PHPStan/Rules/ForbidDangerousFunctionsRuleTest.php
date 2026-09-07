@@ -12,7 +12,6 @@ use PhpParser\Node\Name;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -27,9 +26,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ForbidDangerousFunctionsRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidDangerousFunctionsRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private ForbidDangerousFunctionsRule $rule;
 
     protected function setUp(): void
@@ -95,6 +95,6 @@ final class ForbidDangerousFunctionsRuleTest extends TestCase
 
     private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        return $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        return self::scopeStub();
     }
 }

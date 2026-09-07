@@ -62,9 +62,10 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **ForbidNestedTernaryRule** -- Bans nested ternary expressions
 - **RequireRuleIdentifierConstantRule** -- PHPStan rule classes must expose an identifier constant
 - **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and `.env` files itself; auto-skips on non-Symfony projects. Full guidance: [phpstan-rules/forbid-http-prefixed-env-vars.md](../phpstan-rules/forbid-http-prefixed-env-vars.md)
+- **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path. Use `VendoredCodeDetector`. Full guidance: [phpstan-rules/forbid-unanchored-vendor-substring-check.md](../phpstan-rules/forbid-unanchored-vendor-substring-check.md)
 
-`rules-default.neon` is the single source of truth for the always-on set (15 rules at time of
-writing: 10 in its `rules:` block plus `ForbidMockingFinalClassRule`,
+`rules-default.neon` is the single source of truth for the always-on set (16 rules at time of
+writing: 11 in its `rules:` block plus `ForbidMockingFinalClassRule`,
 `ForbidHttpPrefixedEnvVarsRule`, `RequireSensitiveParameterAttributeRule`,
 `RequireApiOrInternalTagRule`, and `ApiMustNotExposeInternalRule` registered as tagged services).
 Consult that file if in doubt.

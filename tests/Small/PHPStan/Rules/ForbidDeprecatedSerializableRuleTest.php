@@ -10,7 +10,6 @@ use PhpParser\Node\Stmt\Class_;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -21,9 +20,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ForbidDeprecatedSerializableRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidDeprecatedSerializableRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private ForbidDeprecatedSerializableRule $rule;
 
     protected function setUp(): void
@@ -76,7 +76,7 @@ final class ForbidDeprecatedSerializableRuleTest extends TestCase
 
     private function scopeResolvingTo(string $resolved): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('resolveName')->willReturn($resolved);
 
         return $scope;

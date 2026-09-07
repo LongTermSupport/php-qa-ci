@@ -14,7 +14,6 @@ use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ReflectionProvider;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -33,9 +32,10 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\PHPStan\Rules\FactorySealedDetector::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\Rules\SealingAttributeReader::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class FactorySealedRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     public function testGetNodeType(): void
     {
         self::assertSame(New_::class, $this->rule()->getNodeType());
@@ -104,7 +104,7 @@ final class FactorySealedRuleTest extends TestCase
 
     private function rule(): FactorySealedRule
     {
-        $reflectionProvider = $this->createMock(ReflectionProvider::class);
+        $reflectionProvider = self::createStub(ReflectionProvider::class);
         $reflectionProvider->method('hasClass')->willReturn(true);
 
         return new FactorySealedRule($reflectionProvider);
@@ -124,7 +124,7 @@ final class FactorySealedRuleTest extends TestCase
     {
         self::assertNull($enclosingClass, 'rule-level tests use a null enclosing class (ClassReflection is final)');
 
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('resolveName')->willReturn($resolvesTo);
         $scope->method('getFile')->willReturn($file);
         $scope->method('getClassReflection')->willReturn(null);

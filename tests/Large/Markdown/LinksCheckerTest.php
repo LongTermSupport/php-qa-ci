@@ -173,20 +173,22 @@ reason: GitHub URLs cannot be verified anonymously'
         );
 
         $baseUrl  = 'http://127.0.0.1:' . $port;
-        $deadline = microtime(true) + 10.0;
+        $deadline  = microtime(true) + 10.0;
+        $lastError = 'no attempt made';
         while (microtime(true) < $deadline) {
             try {
                 @\Safe\get_headers($baseUrl . '/200');
 
                 return [$process, $baseUrl];
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                $lastError = $e->getMessage();
                 usleep(50_000);
             }
         }
 
         proc_terminate($process);
         \Safe\proc_close($process);
-        self::fail('Local status server failed to start on ' . $baseUrl);
+        self::fail('Local status server failed to start on ' . $baseUrl . ': ' . $lastError);
     }
 
     /**

@@ -35,6 +35,7 @@ Loaded automatically via the PHPStan extension installer. Registered in
 | `phpqaci.looseComparison`                    | `ForbidLooseComparisonRule`              | No `==` / `!=`; use `===` / `!==`                                                     |
 | `phpqaci.deprecatedSerializable`             | `ForbidDeprecatedSerializableRule`       | No `Serializable`; use `__serialize()` / `__unserialize()`                            |
 | `phpqaci.nestedTernary`                      | `ForbidNestedTernaryRule`                | No nested ternary expressions                                                         |
+| `phpqaci.unanchoredVendorSubstringCheck`    | `ForbidUnanchoredVendorSubstringCheckRule` | [Decide ownership against the project root, not a `vendor/` substring](forbid-unanchored-vendor-substring-check.md) |
 | `phpqaci.mockFinalClass`                     | `ForbidMockingFinalClassRule`            | Mock an interface, never a final class                                                |
 | `phpqaci.ruleIdentifierMustBeConstant`       | `RequireRuleIdentifierConstantRule`      | A PHPStan rule's identifier must be a class constant                                  |
 | `phpqaci.requireSensitiveParameterAttribute` | `RequireSensitiveParameterAttributeRule` | `#[\SensitiveParameter]` on plaintext credential parameters                           |

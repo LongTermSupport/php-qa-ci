@@ -29,7 +29,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<New_>
  */
-final class ForbidNewDateTimeRule implements Rule
+final readonly class ForbidNewDateTimeRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.newDateTime';
 

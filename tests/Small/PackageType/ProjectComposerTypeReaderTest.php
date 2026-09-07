@@ -121,7 +121,7 @@ final class ProjectComposerTypeReaderTest extends TestCase
     public function itRejectsAnUnknownEnforceMode(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid phpqaciApiOrInternal.enforce value "sometimes"');
+        $this->expectExceptionMessageIs('Invalid phpqaciApiOrInternal.enforce value "sometimes"; expected one of: auto, always, never.');
 
         new ProjectComposerTypeReader(['type' => 'library'], 'sometimes');
     }

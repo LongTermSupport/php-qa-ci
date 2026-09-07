@@ -13,7 +13,6 @@ use PhpParser\Node\Stmt\Class_;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -24,9 +23,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(RequireExplicitDIAttributeRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class RequireExplicitDIAttributeRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private RequireExplicitDIAttributeRule $rule;
 
     protected function setUp(): void
@@ -143,7 +143,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
 
     private function scope(string $namespace): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);
 
         return $scope;

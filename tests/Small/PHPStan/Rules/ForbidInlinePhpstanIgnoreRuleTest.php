@@ -11,7 +11,6 @@ use PhpParser\Node\Stmt\Nop;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,9 +21,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ForbidInlinePhpstanIgnoreRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     // Assembled at runtime so this literal does not itself read as a suppression.
     private const string SUPPRESSION = '// @phpstan-ignore-next-line';
 
@@ -100,7 +100,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
 
     private function scope(string $namespace, string $file): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);
         $scope->method('getFile')->willReturn($file);
 

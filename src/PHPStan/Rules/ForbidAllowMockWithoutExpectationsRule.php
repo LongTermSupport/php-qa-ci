@@ -17,7 +17,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Attribute>
  */
-final class ForbidAllowMockWithoutExpectationsRule implements Rule
+final readonly class ForbidAllowMockWithoutExpectationsRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.forbiddenAttribute';
 

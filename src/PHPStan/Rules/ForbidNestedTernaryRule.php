@@ -27,7 +27,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Ternary>
  */
-final class ForbidNestedTernaryRule implements Rule
+final readonly class ForbidNestedTernaryRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.nestedTernary';
 

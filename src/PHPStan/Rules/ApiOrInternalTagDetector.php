@@ -22,7 +22,7 @@ namespace LTS\PHPQA\PHPStan\Rules;
  * both ⇒ {@see ApiOrInternalTagVerdictEnum::Both} (contradictory), exactly one ⇒
  * {@see ApiOrInternalTagVerdictEnum::Ok}.
  */
-final class ApiOrInternalTagDetector
+final readonly class ApiOrInternalTagDetector
 {
     public function classify(bool $hasApi, bool $hasInternal): ApiOrInternalTagVerdictEnum
     {

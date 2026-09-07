@@ -14,6 +14,12 @@ rules:
     # the single source of truth for type-suffix naming. The former
     # RequireTypeSuffixRule was migrated there; do not re-add it here.
     - LTS\PHPQA\PHPStan\Rules\RequireRuleIdentifierConstantRule
+    # A rule over path-attribution logic: forbids deciding "is this file mine or a
+    # dependency's" with a bare, unanchored 'vendor/' substring check anywhere in
+    # this project's own source. See its class docblock for the defect this
+    # guards against (ForbidMockingFinalClassRule going dark when php-qa-ci is
+    # itself analysed from inside a consumer's vendor/lts/php-qa-ci/ checkout).
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredVendorSubstringCheckRule
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RequireSensitiveParameterAttributeRule — keep passwords/secrets out of traces.

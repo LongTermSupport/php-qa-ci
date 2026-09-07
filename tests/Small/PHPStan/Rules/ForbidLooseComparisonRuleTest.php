@@ -14,7 +14,6 @@ use PhpParser\Node\Expr\Variable;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -25,9 +24,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ForbidLooseComparisonRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidLooseComparisonRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private ForbidLooseComparisonRule $rule;
 
     protected function setUp(): void
@@ -74,6 +74,6 @@ final class ForbidLooseComparisonRuleTest extends TestCase
 
     private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        return $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        return self::scopeStub();
     }
 }

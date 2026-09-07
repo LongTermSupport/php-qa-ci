@@ -28,7 +28,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Class_>
  */
-final class RequireReadonlyServiceRule implements Rule
+final readonly class RequireReadonlyServiceRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.readonlyService';
 

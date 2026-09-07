@@ -21,7 +21,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Class_>
  */
-final class RequireCronIntervalInDescriptionRule implements Rule
+final readonly class RequireCronIntervalInDescriptionRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.cronMissingInterval';
 

@@ -1,3 +1,11 @@
+# php-qa-ci analysing itself. The bundled rule sets reach consumers through the
+# PHPStan extension installer, which never reads the root package, so they must
+# be included here by hand or the self-check runs none of the rules this package
+# ships. tests/Small/SelfCheckRunsBundledRulesTest.php guards this list.
+includes:
+    - ../rules-default.neon
+    - ../rules-optional.neon
+
 parameters:
     excludePaths:
         - ./../tests/assets/*

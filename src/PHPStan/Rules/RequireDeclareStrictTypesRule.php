@@ -21,7 +21,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<FileNode>
  */
-final class RequireDeclareStrictTypesRule implements Rule
+final readonly class RequireDeclareStrictTypesRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.missingStrictTypes';
 

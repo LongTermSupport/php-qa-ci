@@ -264,7 +264,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
         $map = [];
         foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
             $target = $targets[$name] ?? $name;
-            foreach ($this->splitWords($aliases[$name] ?? '') as $alias) {
+            foreach ($this->splitWords(\array_key_exists($name, $aliases) ? $aliases[$name] : '') as $alias) {
                 $map[$alias] = $target;
             }
         }
@@ -280,7 +280,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
 
         $classification = [];
         foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
-            $tokens = $this->splitWords($aliases[$name] ?? '');
+            $tokens = $this->splitWords(\array_key_exists($name, $aliases) ? $aliases[$name] : '');
             if (!\in_array($name, $tokens, true)) {
                 array_unshift($tokens, $name);
             }
@@ -307,10 +307,10 @@ final class ToolRegistryCharacterisationTest extends TestCase
 
         $order = [];
         foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
-            $phase = $phases[$name] ?? '';
-            if ('' === $phase) {
+            if (!\array_key_exists($name, $phases) || '' === $phases[$name]) {
                 continue;
             }
+            $phase = $phases[$name];
 
             self::assertArrayHasKey($phase, $phaseToRunner, \sprintf("Registry declares unknown phase '%s' for '%s'.", $phase, $name));
             $order[$phaseToRunner[$phase]][] = $name;
@@ -340,8 +340,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
             $key = $match[1] ?? null;
             self::assertIsString($key);
             // Quoted value in group 2, bare value in group 3; only one is present.
-            $quoted = $match[2] ?? '';
-            $bare   = $match[3] ?? '';
+            $quoted = \array_key_exists(2, $match) ? $match[2] : '';
+            $bare   = \array_key_exists(3, $match) ? $match[3] : '';
             self::assertIsString($quoted);
             self::assertIsString($bare);
             $result[$key] = '' !== $quoted ? $quoted : $bare;

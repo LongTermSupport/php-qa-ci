@@ -27,7 +27,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Empty_>
  */
-final class ForbidEmptyLanguageConstructRule implements Rule
+final readonly class ForbidEmptyLanguageConstructRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.emptyLanguageConstruct';
 

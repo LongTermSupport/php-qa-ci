@@ -21,7 +21,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Coalesce>
  */
-final class ForbidNullCoalescingFalseRule implements Rule
+final readonly class ForbidNullCoalescingFalseRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.nullCoalescingFalse';
 
