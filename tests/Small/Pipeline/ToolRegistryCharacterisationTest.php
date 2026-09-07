@@ -87,6 +87,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'packageType'                => 'packageType',
         'cti'                        => 'configTemplateIgnoreList',
         'configTemplateIgnoreList'   => 'configTemplateIgnoreList',
+        'icsd'                       => 'infectionConfigSourceDirs',
+        'infectionConfigSourceDirs'  => 'infectionConfigSourceDirs',
     ];
 
     /**
@@ -141,6 +143,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'packageType'                => false,
         'configTemplateIgnoreList'   => false,
         'cti'                        => false,
+        'infectionConfigSourceDirs'  => false,
+        'icsd'                       => false,
         'pt'                         => false,
         'packagetype'                => false,
         'phpArkitect'                => false,
@@ -169,6 +173,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
             'composerChecks',
             'packageType',
             'configTemplateIgnoreList',
+            'infectionConfigSourceDirs',
             'phpStrictTypes',
             'phpLint',
             'composerRequireChecker',
