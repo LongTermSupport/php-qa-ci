@@ -66,6 +66,29 @@ final class ActiveRulesListerTest extends TestCase
         self::assertContains('sensitiveParameterUsage', $laneNames);
         self::assertContains('packageType', $laneNames);
         self::assertContains('phpArkitect', $laneNames);
+        self::assertContains('psr4Validate', $laneNames);
+        self::assertContains('phpStrictTypes', $laneNames);
+        self::assertContains('composerRequireChecker', $laneNames);
+        self::assertContains('markdownLinks', $laneNames);
+        self::assertContains('rector', $laneNames);
+        self::assertContains('phpCsFixer', $laneNames);
+        self::assertContains('phpunit', $laneNames);
+        self::assertContains('infection', $laneNames);
+        self::assertNotContains('phpstan', $laneNames);
+
+        $lanesByName = [];
+        foreach ($listing->pipelineLanes as $lane) {
+            $lanesByName[$lane->name] = $lane;
+        }
+
+        self::assertSame('linting', $lanesByName['psr4Validate']->phase);
+        self::assertSame('staticAnalysis', $lanesByName['phpArkitect']->phase);
+        self::assertSame('testing', $lanesByName['phpunit']->phase);
+        self::assertNull($lanesByName['phploc']->phase);
+
+        self::assertSame('useInfection', $lanesByName['infection']->optInVariable);
+        self::assertSame('useArkitect', $lanesByName['phpArkitect']->optInVariable);
+        self::assertNull($lanesByName['psr4Validate']->optInVariable);
 
         self::assertCount(1, $listing->projectRecord);
         $record = $listing->projectRecord[0];
@@ -145,51 +168,48 @@ final class ActiveRulesListerTest extends TestCase
     }
 
     /**
-     * Defence against toolchain-spec clause 7.2 drift (a lane added to
-     * includes/generic/toolRegistry.inc.bash's staticAnalysis phase — the
-     * same way branchNamePolicy/phpArkitect/sensitiveParameterUsage are
-     * registered today — must appear in ActiveRulesLister's output without
+     * Defence against toolchain-spec clause 7.1/7.2 drift (a lane added
+     * ANYWHERE in includes/generic/toolRegistry.inc.bash's QA_TOOL_NAMES —
+     * whatever its phase — must appear in ActiveRulesLister's output without
      * any source change here). This test parses the registry file
      * INDEPENDENTLY of ActiveRulesLister's own parser (a small, deliberately
      * separate regex, not a shared helper) so it cannot pass merely because
-     * both sides share a bug — it re-derives the expected staticAnalysis-phase
-     * lane names from the registry text and asserts every one of them (minus
-     * phpstan, which is covered by the rule listing, not the lane listing)
-     * is present in the listing ActiveRulesLister produces.
+     * both sides share a bug — it re-derives every QA_TOOL_NAMES entry from
+     * the registry text and asserts every one of them (minus phpstan, which
+     * is covered by the rule listing, not the lane listing) is present in
+     * the listing ActiveRulesLister produces.
      */
-    public function testEveryStaticAnalysisPhaseRegistryToolAppearsAsAPipelineLane(): void
+    public function testEveryRegistryToolNameAppearsAsAPipelineLane(): void
     {
         $registryPath = self::QA_CI_ROOT . '/includes/generic/toolRegistry.inc.bash';
         self::assertFileExists($registryPath);
         $registryContents = \Safe\file_get_contents($registryPath);
 
-        $phaseMatchResult = \Safe\preg_match('/declare -A QA_TOOL_PHASE=\((.*?)\n\)/s', $registryContents, $phaseMatches);
+        $namesMatchResult = \Safe\preg_match('/(?<!declare -A )\bQA_TOOL_NAMES=\((.*?)\n\)/s', $registryContents, $namesMatches);
         self::assertSame(
             1,
-            $phaseMatchResult,
-            'Could not locate the QA_TOOL_PHASE associative array in the tool registry — has its shape changed?',
+            $namesMatchResult,
+            'Could not locate the QA_TOOL_NAMES indexed array in the tool registry — has its shape changed?',
         );
-        self::assertIsArray($phaseMatches);
-        self::assertArrayHasKey(1, $phaseMatches);
+        self::assertIsArray($namesMatches);
+        self::assertArrayHasKey(1, $namesMatches);
 
         $expectedLaneNames = [];
-        foreach (explode("\n", $phaseMatches[1]) as $phaseLine) {
-            if (1 !== \Safe\preg_match('/^\s*\[(\w+)]=staticAnalysis\s*$/', $phaseLine, $entryMatches)) {
+        foreach (explode("\n", $namesMatches[1]) as $nameLine) {
+            $withoutComment = \Safe\preg_replace('/#.*$/', '', $nameLine);
+            $nameLine       = trim(\is_string($withoutComment) ? $withoutComment : $nameLine);
+            if ('' === $nameLine) {
                 continue;
             }
 
-            if (!isset($entryMatches[1])) {
+            if ('phpstan' === $nameLine) {
                 continue;
             }
 
-            if ('phpstan' === $entryMatches[1]) {
-                continue;
-            }
-
-            $expectedLaneNames[] = $entryMatches[1];
+            $expectedLaneNames[] = $nameLine;
         }
 
-        self::assertNotEmpty($expectedLaneNames, 'Expected at least one staticAnalysis-phase lane in the tool registry.');
+        self::assertNotEmpty($expectedLaneNames, 'Expected at least one registered tool in the tool registry.');
 
         $lister    = new ActiveRulesLister(self::QA_CI_ROOT);
         $listing   = $lister->list(self::FIXTURE_PROJECT);
@@ -203,7 +223,7 @@ final class ActiveRulesListerTest extends TestCase
                 $expectedLaneName,
                 $laneNames,
                 \sprintf(
-                    'Tool "%s" is registered in the staticAnalysis phase of toolRegistry.inc.bash but ActiveRulesLister did not list it as a pipeline lane.',
+                    'Tool "%s" is registered in toolRegistry.inc.bash but ActiveRulesLister did not list it as a pipeline lane.',
                     $expectedLaneName,
                 ),
             );

@@ -16,6 +16,8 @@ final readonly class PipelineLaneDto
         public string $name,
         public ?string $identifier,
         public string $summary,
+        public ?string $phase,
+        public ?string $optInVariable,
     ) {
     }
 }
