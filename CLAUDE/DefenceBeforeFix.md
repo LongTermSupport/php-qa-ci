@@ -98,8 +98,26 @@ every surfaced instance at root cause and never suppress**:
 This is the same net-and-filter principle applied at the tooling level: tightening the net
 is only worthwhile if every instance it catches is honestly fixed.
 
+## The net has to explain itself
+
+A rule that blocks a build without saying how to fix the code is a ratchet that only turns.
+The explanation has to be reachable **from the string PHPStan actually printed**, which is the
+identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
+
+- `docs/phpstan-rules/README.md` is the identifier index. It is keyed on the identifier, covers
+  every rule this package can report, and lives in the installed package so the lookup works
+  offline and at the version actually installed.
+- `tests/Small/PHPStan/RuleDocumentationTest.php` is the defence over that: it fails the build if
+  any rule references remediation documentation that does not exist, or ships an identifier the
+  index omits. Both had happened before the guard existed, which is the point — neither is visible
+  from inside a review of the rule itself.
+
+A new rule is not finished when it passes its own test. It is finished when somebody who has only
+its identifier can find out what to do.
+
 ## Cross-Reference
 
+- Identifier index: `docs/phpstan-rules/README.md` (start here when a rule fires).
 - Workflow skill: `.claude/skills/defence-before-fix/SKILL.md` (model-invoked; the
   4-phase ANALYSE → DETECT → TDD → FIX ratchet).
 - Rule authoring: `qaConfig/PHPStan/CLAUDE.md` (deployed into each project) and the

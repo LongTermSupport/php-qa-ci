@@ -1,0 +1,89 @@
+# PHPStan rule identifier index
+
+**Every rule identifier php-qa-ci can print, and where its documentation is.**
+
+PHPStan reports a failure with an identifier, not a class name:
+
+```text
+ ------ -------------------------------------------------------------------------
+  42     src/Service/Importer.php
+         Avoid ?? false — this hides null/undefined errors with false. Use an
+         explicit null check or validate data at the API boundary.
+         🪪  phpqaci.nullCoalescingFalse
+ ------ -------------------------------------------------------------------------
+```
+
+`phpqaci.nullCoalescingFalse` is the only string you are given, so this index is keyed on it. Search
+this page for the identifier from the failure, not for the rule's class name.
+
+`grep -rn '<identifier>' vendor/lts/php-qa-ci/docs/phpstan-rules/` works too, and works offline.
+
+## Always on
+
+Loaded automatically via the PHPStan extension installer. Registered in
+[`rules-default.neon`](../../rules-default.neon), which is the single source of truth.
+
+| Identifier                                   | Rule                                     | What it requires                                                                      |
+| -------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| `phpqaci.dangerousFunctions`                 | `ForbidDangerousFunctionsRule`           | [No exec/eval/unserialize and similar](forbid-dangerous-functions.md)                 |
+| `phpqaci.emptyCatchBlock`                    | `ForbidEmptyCatchBlockRule`              | [A catch block must do something](forbid-empty-catch-block.md)                        |
+| `phpqaci.missingStrictTypes`                 | `RequireDeclareStrictTypesRule`          | [`declare(strict_types=1)` in every file](require-declare-strict-types.md)            |
+| `phpqaci.httpPrefixedEnvVars`                | `ForbidHttpPrefixedEnvVarsRule`          | [No Symfony env var named `HTTP_*`](forbid-http-prefixed-env-vars.md)                 |
+| `phpqaci.forbiddenAttribute`                 | `ForbidAllowMockWithoutExpectationsRule` | No `#[AllowMockObjectsWithoutExpectations]`                                           |
+| `phpqaci.newDateTime`                        | `ForbidNewDateTimeRule`                  | No direct `new DateTime` / `new DateTimeImmutable`                                    |
+| `phpqaci.emptyLanguageConstruct`             | `ForbidEmptyLanguageConstructRule`       | No `empty()`; use an explicit type-safe check                                         |
+| `phpqaci.looseComparison`                    | `ForbidLooseComparisonRule`              | No `==` / `!=`; use `===` / `!==`                                                     |
+| `phpqaci.deprecatedSerializable`             | `ForbidDeprecatedSerializableRule`       | No `Serializable`; use `__serialize()` / `__unserialize()`                            |
+| `phpqaci.nestedTernary`                      | `ForbidNestedTernaryRule`                | No nested ternary expressions                                                         |
+| `phpqaci.mockFinalClass`                     | `ForbidMockingFinalClassRule`            | Mock an interface, never a final class                                                |
+| `phpqaci.ruleIdentifierMustBeConstant`       | `RequireRuleIdentifierConstantRule`      | A PHPStan rule's identifier must be a class constant                                  |
+| `phpqaci.requireSensitiveParameterAttribute` | `RequireSensitiveParameterAttributeRule` | `#[\SensitiveParameter]` on plaintext credential parameters                           |
+| `phpqaci.requireApiOrInternalTag`            | `RequireApiOrInternalTagRule`            | [`@api` or `@internal` on every public class-like](../tools/requireApiOrInternal.md)  |
+| `phpqaci.apiMustNotExposeInternal`           | `ApiMustNotExposeInternalRule`           | [An `@api` type must not expose an `@internal` one](../tools/requireApiOrInternal.md) |
+
+## Opt in
+
+Not loaded unless the project includes the bundle. See
+[Optional Rules](../tools/phpstan.md#optional-rules) for how to enable them.
+
+| Identifier                           | Rule                                    | Bundle                                                                          | What it requires                                                  |
+| ------------------------------------ | --------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `phpqaci.nullCoalescingFalse`        | `ForbidNullCoalescingFalseRule`         | [generic](../../rules-optional.neon)                                            | [No `?? false`](forbid-null-coalescing-false.md)                  |
+| `phpqaci.nullCoalescingEmptyString`  | `ForbidNullCoalescingEmptyStringRule`   | [generic](../../rules-optional.neon)                                            | [No `?? ''`](forbid-null-coalescing-empty-string.md)              |
+| `phpqaci.silentCatch`                | `ForbidSilentCatchRule`                 | [generic](../../rules-optional.neon)                                            | A catch block must reference the exception it caught              |
+| `phpqaci.inlinePhpstanIgnore`        | `ForbidInlinePhpstanIgnoreRule`         | [generic](../../rules-optional.neon)                                            | No inline `@phpstan-ignore`; use `ignoreErrors` in the config     |
+| `phpqaci.readonlyService`            | `RequireReadonlyServiceRule`            | [generic](../../rules-optional.neon)                                            | A service class must be `final readonly`                          |
+| `phpqaci.arrayListShouldBeVariadic`  | `RequireVariadicForSingleListParamRule` | [generic](../../rules-optional.neon)                                            | A single `@param list<T>` array parameter should be variadic      |
+| `phpqaci.factorySealed`              | `FactorySealedRule`                     | [generic](../../rules-optional.neon)                                            | A factory-sealed class is constructed only by its factory         |
+| `phpqaci.deprecatedPhpunitMethod`    | `ForbidDeprecatedPhpunitMethodRule`     | [generic](../../rules-optional.neon)                                            | No PHPUnit method deprecated by the installed version             |
+| `phpqaci.headerInjection`            | `ForbidHeaderInjectionRule`             | [symfony](../../rules-optional-symfony.neon)                                    | [No raw `header()` / `setcookie()`](forbid-header-injection.md)   |
+| `phpqaci.rawSql`                     | `ForbidRawSqlRule`                      | [symfony](../../rules-optional-symfony.neon)                                    | [No concatenation in a DBAL SQL argument](forbid-raw-sql.md)      |
+| `phpqaci.cronMissingInterval`        | `RequireCronIntervalInDescriptionRule`  | [symfony](../../rules-optional-symfony.neon)                                    | A cron command must state its interval in its description         |
+| `phpqaci.requireExplicitDIAttribute` | `RequireExplicitDIAttributeRule`        | [symfony](../../rules-optional-symfony.neon)                                    | A Symfony service must declare its DI attributes explicitly       |
+| `phpqaci.conflictingDIAttributes`    | `RequireExplicitDIAttributeRule`        | [symfony](../../rules-optional-symfony.neon)                                    | A service must not carry DI attributes that contradict each other |
+| `phpqaci.magicStringAssertion`       | `ForbidMagicStringAssertionRule`        | [none — experimental](../tools/phpstan.md#experimental-rules-not-in-any-bundle) | No magic-string assertion where an enum belongs                   |
+
+## Why this index exists
+
+A rule that blocks a build without explaining itself teaches nobody anything, and the explanation
+has to be reachable **from the string the tool actually printed**. Documentation keyed on the rule's
+class name is documentation keyed on something the practitioner was never given.
+
+This matters more for an agent than for a person. A human can ask a colleague; an agent has the
+failure text and whatever is on disk. Keeping this index in the installed package rather than only
+on a website means the lookup works offline, behind a proxy, and at the version actually installed
+rather than whatever the website says today.
+
+This is [Defence Before Fix](../../CLAUDE/DefenceBeforeFix.md) applied to php-qa-ci itself.
+
+## Adding a rule
+
+A new rule is not finished until it appears here. In order:
+
+1. Declare the identifier as a constant built from `RuleIdentifierInterface::PREFIX`. The
+   `phpqaci.ruleIdentifierMustBeConstant` rule enforces this.
+2. Write the remediation document in this directory, named for the rule in kebab-case.
+3. Add the row to the correct table above.
+4. Add it to [`docs/tools/phpstan.md`](../tools/phpstan.md) and correct the count stated there.
+
+Step 4 is the one that gets skipped, and the stated count is what makes the omission visible.

@@ -97,7 +97,7 @@ services:
     # shelled-out grep). Auto-skips cleanly on any consumer with neither
     # symfony/dependency-injection nor symfony/dotenv installed — no manual
     # opt-out flag, so it can never be silently forgotten on a project that
-    # DOES use Symfony. See docs/tools/httpPrefixedEnvVars.md (TODO: add).
+    # DOES use Symfony. See docs/phpstan-rules/forbid-http-prefixed-env-vars.md.
     -
         class: LTS\PHPQA\PHPStan\Rules\ForbidHttpPrefixedEnvVarsRule
         arguments:

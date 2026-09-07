@@ -61,11 +61,17 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **ForbidDeprecatedSerializableRule** -- Bans the deprecated `Serializable` interface
 - **ForbidNestedTernaryRule** -- Bans nested ternary expressions
 - **RequireRuleIdentifierConstantRule** -- PHPStan rule classes must expose an identifier constant
+- **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and `.env` files itself; auto-skips on non-Symfony projects. Full guidance: [phpstan-rules/forbid-http-prefixed-env-vars.md](../phpstan-rules/forbid-http-prefixed-env-vars.md)
 
-`rules-default.neon` is the single source of truth for the always-on set (14 rules at time of
+`rules-default.neon` is the single source of truth for the always-on set (15 rules at time of
 writing: 10 in its `rules:` block plus `ForbidMockingFinalClassRule`,
-`RequireSensitiveParameterAttributeRule`, `RequireApiOrInternalTagRule`, and
-`ApiMustNotExposeInternalRule` registered as tagged services). Consult that file if in doubt.
+`ForbidHttpPrefixedEnvVarsRule`, `RequireSensitiveParameterAttributeRule`,
+`RequireApiOrInternalTagRule`, and `ApiMustNotExposeInternalRule` registered as tagged services).
+Consult that file if in doubt.
+
+**To look up a rule from a failure, use the [identifier index](../phpstan-rules/README.md).** PHPStan
+prints an identifier such as `phpqaci.nullCoalescingFalse`, not a class name, and the index is keyed
+on the identifier. The list above is organised by class name and is for reading, not for lookup.
 
 See the README "Configuring RequireSensitiveParameterAttributeRule" section for the full config keys and defaults.
 
@@ -138,20 +144,20 @@ rules:
 
 ### Available optional rules
 
-| Rule                                    | File                          | What it catches                                                 |
-| --------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
-| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`         | `$x ?? ''` — almost always a logic bug                          |
-| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`         | `$x ?? false` — use explicit null checks                        |
-| `ForbidSilentCatchRule`                 | `rules-optional.neon`         | `catch` blocks that ignore the caught exception                 |
-| `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`         | Inline `@phpstan-ignore` annotations in source files            |
-| `RequireReadonlyServiceRule`            | `rules-optional.neon`         | Service classes not declared `final readonly`                   |
-| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`         | `array $items` annotated `@param list<T>` — use variadic syntax |
+| Rule                                    | File                            | What it catches                                                                |
+| --------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------ |
+| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                         |
+| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                       |
+| `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                |
+| `ForbidInlinePhpstanIgnoreRule`         | `rules-optional.neon`           | Inline `@phpstan-ignore` annotations in source files                           |
+| `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                  |
+| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`           | `array $items` annotated `@param list<T>` — use variadic syntax                |
 | `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |
-| `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit           |
-| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon` | User input passed directly to HTTP headers                      |
-| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon` | Raw SQL strings instead of Doctrine DQL/ORM                     |
-| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon` | Symfony cron commands missing interval in description           |
-| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon` | Symfony services without explicit DI attributes                 |
+| `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                          |
+| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                     |
+| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon`   | Raw SQL strings instead of Doctrine DQL/ORM                                    |
+| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon`   | Symfony cron commands missing interval in description                          |
+| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon`   | Symfony services without explicit DI attributes                                |
 
 ### Experimental rules (not in any bundle)
 

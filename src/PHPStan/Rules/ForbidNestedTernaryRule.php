@@ -29,6 +29,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class ForbidNestedTernaryRule implements Rule
 {
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.nestedTernary';
+
     public function getNodeType(): string
     {
         return Ternary::class;
@@ -50,7 +52,7 @@ final class ForbidNestedTernaryRule implements Rule
         return [
             RuleErrorBuilder::message(
                 'Nested ternary expressions are banned. Extract conditions to named variables for clarity.',
-            )->identifier('phpqaci.nestedTernary')->build(),
+            )->identifier(self::IDENTIFIER)->build(),
         ];
     }
 }
