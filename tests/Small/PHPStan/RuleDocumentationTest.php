@@ -51,7 +51,7 @@ final class RuleDocumentationTest extends TestCase
         $missing = [];
 
         foreach ($this->ruleSourceFiles() as $path => $contents) {
-            preg_match_all('#docs/phpstan-rules/[a-z0-9-]+\.md#', $contents, $matches);
+            \Safe\preg_match_all('#docs/phpstan-rules/[a-z0-9-]+\.md#', $contents, $matches);
 
             foreach ($matches[0] as $reference) {
                 if (is_file(self::REPO_ROOT . '/' . $reference)) {
@@ -95,7 +95,7 @@ final class RuleDocumentationTest extends TestCase
     public function testIndexDoesNotListIdentifiersThatNoRuleDeclares(): void
     {
         $index = \Safe\file_get_contents(self::INDEX);
-        preg_match_all('#`(phpqaci\.[A-Za-z]+)`#', $index, $matches);
+        \Safe\preg_match_all('#`(phpqaci\.[A-Za-z]+)`#', $index, $matches);
 
         $declared = $this->declaredIdentifiers();
         $stale    = [];
@@ -124,13 +124,13 @@ final class RuleDocumentationTest extends TestCase
 
         foreach ($this->ruleSourceFiles() as $contents) {
             // The sanctioned form: a constant composed from RuleIdentifierInterface::PREFIX.
-            preg_match_all("#PREFIX \\. '(\\.[A-Za-z]+)'#", $contents, $constants);
+            \Safe\preg_match_all("#PREFIX \\. '(\\.[A-Za-z]+)'#", $contents, $constants);
             foreach ($constants[1] as $suffix) {
                 $identifiers['phpqaci' . $suffix] = true;
             }
 
             // The magic-string form, so a rule that bypasses the constant is still indexed.
-            preg_match_all("#->identifier\\('(phpqaci\\.[A-Za-z]+)'\\)#", $contents, $literals);
+            \Safe\preg_match_all("#->identifier\\('(phpqaci\\.[A-Za-z]+)'\\)#", $contents, $literals);
             foreach ($literals[1] as $literal) {
                 $identifiers[$literal] = true;
             }
@@ -156,6 +156,7 @@ final class RuleDocumentationTest extends TestCase
 
         $files = [];
         foreach ($paths as $path) {
+            self::assertIsString($path);
             $files[$path] = \Safe\file_get_contents($path);
         }
 
