@@ -50,7 +50,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<MethodCall>
  */
-final class RequireRuleIdentifierConstantRule implements Rule
+final readonly class RequireRuleIdentifierConstantRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.ruleIdentifierMustBeConstant';
 

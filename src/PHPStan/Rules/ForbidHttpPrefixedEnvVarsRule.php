@@ -47,6 +47,8 @@ use SplFileInfo;
  * several parallel workers, each independently performing one full scan;
  * see the docblock on $alreadyScanned).
  *
+ * See: docs/phpstan-rules/forbid-http-prefixed-env-vars.md for fix documentation.
+ *
  * @implements Rule<FileNode>
  */
 final class ForbidHttpPrefixedEnvVarsRule implements Rule

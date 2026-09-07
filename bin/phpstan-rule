@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Single-rule harness: run PHPStan over ONE path with the project's own config
+# and report whether ONE rule fired there, and where.
+#
+#   bin/phpstan-rule <identifier> <path>
+#   bin/phpstan-rule phpqaci.nestedTernary src/Service/Pricing.php
+#
+# Exit 0: the rule did not fire.  Exit 1: it fired (locations printed).
+# Exit 2: usage error, or PHPStan did not produce a JSON run.
+#
+# The run is the ordinary `qa -t phpstan -p <path> --json`, so the rule is
+# exercised exactly as the pipeline exercises it: same config, same includes,
+# same bundled rule sets. Only the reporting is narrowed to the one identifier.
+set -euo pipefail
+
+binDir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+if [[ $# -ne 2 || "$1" == -* ]]; then
+  printf 'Usage: %s <identifier> <path>\n\n  e.g. %s phpqaci.nestedTernary src/Service/Pricing.php\n' "$0" "$0" >&2
+  exit 2
+fi
+identifier="$1"
+path="$2"
+
+if [[ ! -e "$path" ]]; then
+  printf 'No such path: %s\n' "$path" >&2
+  exit 2
+fi
+
+# qa --json prints the PHPStan JSON on stdout and everything else on stderr.
+# It exits 1 when PHPStan found anything at all, which is not this harness's
+# question, so the exit code is deliberately not consulted here; a run that
+# produced no JSON is caught by the report.
+qaLog="$(mktemp)"
+trap 'rm -f "$qaLog"' EXIT
+json="$("$binDir/qa" -t phpstan -p "$path" --json 2>"$qaLog" || true)"
+if [[ -z "$json" ]]; then
+  printf 'PHPStan produced no JSON run for %s. The qa output was:\n' "$path" >&2
+  cat "$qaLog" >&2
+  exit 2
+fi
+
+# PHP reads the run from stdin; the identifier and bootstrap path travel as
+# arguments so that neither is interpolated into code.
+phpMain="require \$argv[1]; exit(\\LTS\\PHPQA\\PHPStan\\SingleRuleReport::main(\$argv[2], (string) stream_get_contents(STDIN)));"
+exec php -r "$phpMain" -- "$binDir/bootstrap.php" "$identifier" <<< "$json"

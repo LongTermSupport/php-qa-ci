@@ -24,7 +24,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Stmt>
  */
-final class ForbidInlinePhpstanIgnoreRule implements Rule
+final readonly class ForbidInlinePhpstanIgnoreRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.inlinePhpstanIgnore';
 

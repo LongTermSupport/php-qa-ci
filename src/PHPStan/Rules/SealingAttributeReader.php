@@ -20,7 +20,7 @@ use ReflectionClass;
  * define its own attribute in its production namespace rather than depending on
  * the package's reference {@see \LTS\PHPQA\PHPStan\Attribute\FactorySealedBy}.
  */
-final class SealingAttributeReader
+final readonly class SealingAttributeReader
 {
     /**
      * @param string             $className         the class that may be sealed (skipped if it does

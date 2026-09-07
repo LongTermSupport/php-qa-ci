@@ -33,7 +33,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<ClassMethod>
  */
-final class RequireVariadicForSingleListParamRule implements Rule
+final readonly class RequireVariadicForSingleListParamRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.arrayListShouldBeVariadic';
 

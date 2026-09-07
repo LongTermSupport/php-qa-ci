@@ -28,7 +28,7 @@ use RuntimeException;
  *
  * @internal
  */
-final class ManagedSourceGenerator
+final readonly class ManagedSourceGenerator
 {
     /**
      * Resolve the consumer's runtime root namespace and source directory from its

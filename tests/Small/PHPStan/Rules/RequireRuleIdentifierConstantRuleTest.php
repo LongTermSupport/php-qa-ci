@@ -20,7 +20,6 @@ use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
@@ -39,9 +38,10 @@ use PHPUnit\Framework\Attributes\Test;
  */
 #[CoversClass(RequireRuleIdentifierConstantRule::class)]
 #[Medium]
-#[AllowMockObjectsWithoutExpectations]
 final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
 {
+    use ScopeStubTrait;
+
     #[Test]
     public function getNodeTypeIsMethodCall(): void
     {
@@ -115,7 +115,7 @@ final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
             $reflection = $this->reflectionFor($className);
         }
 
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('getClassReflection')->willReturn($reflection);
 
         return $scope;

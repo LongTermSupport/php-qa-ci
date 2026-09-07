@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA;
 
-final class Constants
+final readonly class Constants
 {
     /**
      * The key in $_SERVER that we check for in our PHPUnit tests.

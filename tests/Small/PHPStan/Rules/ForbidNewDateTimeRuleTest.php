@@ -11,7 +11,6 @@ use PhpParser\Node\Name;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,9 +21,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ForbidNewDateTimeRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidNewDateTimeRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private ForbidNewDateTimeRule $rule;
 
     protected function setUp(): void
@@ -98,7 +98,7 @@ final class ForbidNewDateTimeRuleTest extends TestCase
 
     private function scope(?string $namespace, string $file, string $resolvesTo): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);
         $scope->method('getFile')->willReturn($file);
         $scope->method('resolveName')->willReturn($resolvesTo);

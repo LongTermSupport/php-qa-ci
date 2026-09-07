@@ -21,7 +21,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<FuncCall>
  */
-final class ForbidHeaderInjectionRule implements Rule
+final readonly class ForbidHeaderInjectionRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.headerInjection';
 

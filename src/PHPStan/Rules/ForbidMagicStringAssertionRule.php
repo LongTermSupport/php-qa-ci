@@ -56,7 +56,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<CallLike>
  */
-final class ForbidMagicStringAssertionRule implements Rule
+final readonly class ForbidMagicStringAssertionRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.magicStringAssertion';
 

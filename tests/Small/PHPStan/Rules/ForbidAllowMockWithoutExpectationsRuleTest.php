@@ -21,9 +21,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ForbidAllowMockWithoutExpectationsRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidAllowMockWithoutExpectationsRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private ForbidAllowMockWithoutExpectationsRule $rule;
 
     protected function setUp(): void
@@ -64,6 +65,6 @@ final class ForbidAllowMockWithoutExpectationsRuleTest extends TestCase
 
     private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        return $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        return self::scopeStub();
     }
 }

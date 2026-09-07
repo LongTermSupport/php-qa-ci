@@ -14,6 +14,16 @@ rules:
     # the single source of truth for type-suffix naming. The former
     # RequireTypeSuffixRule was migrated there; do not re-add it here.
     - LTS\PHPQA\PHPStan\Rules\RequireRuleIdentifierConstantRule
+    # A rule over path-attribution logic: forbids deciding "is this file mine or a
+    # dependency's" with a bare, unanchored 'vendor/' substring check anywhere in
+    # this project's own source. See its class docblock for the defect this
+    # guards against (ForbidMockingFinalClassRule going dark when php-qa-ci is
+    # itself analysed from inside a consumer's vendor/lts/php-qa-ci/ checkout).
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredVendorSubstringCheckRule
+    # An inline @phpstan-ignore silences a finding at the point of the finding,
+    # where nobody reviewing the config will see it. A suppression that is
+    # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
+    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RequireSensitiveParameterAttributeRule — keep passwords/secrets out of traces.
@@ -97,7 +107,7 @@ services:
     # shelled-out grep). Auto-skips cleanly on any consumer with neither
     # symfony/dependency-injection nor symfony/dotenv installed — no manual
     # opt-out flag, so it can never be silently forgotten on a project that
-    # DOES use Symfony. See docs/tools/httpPrefixedEnvVars.md (TODO: add).
+    # DOES use Symfony. See docs/phpstan-rules/forbid-http-prefixed-env-vars.md.
     -
         class: LTS\PHPQA\PHPStan\Rules\ForbidHttpPrefixedEnvVarsRule
         arguments:

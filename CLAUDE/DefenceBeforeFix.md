@@ -98,8 +98,40 @@ every surfaced instance at root cause and never suppress**:
 This is the same net-and-filter principle applied at the tooling level: tightening the net
 is only worthwhile if every instance it catches is honestly fixed.
 
+## The net has to explain itself
+
+A rule that blocks a build without saying how to fix the code is a ratchet that only turns.
+The explanation has to be reachable **from the string PHPStan actually printed**, which is the
+identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
+
+- `docs/phpstan-rules/README.md` is the identifier index. It is keyed on the identifier, covers
+  every rule this package can report, and lives in the installed package so the lookup works
+  offline and at the version actually installed.
+- `tests/Small/PHPStan/RuleDocumentationTest.php` is the defence over that: it fails the build if
+  any rule references remediation documentation that does not exist, or ships an identifier the
+  index omits. Both had happened before the guard existed, which is the point — neither is visible
+  from inside a review of the rule itself.
+- `bin/rule-doc <identifier>` is the index as a command: the one string a failure prints resolves
+  to the rule's documentation, offline. `bin/phpstan-rule <identifier> <path>` is the single-rule
+  harness: it runs one path under the project's own config and says whether that rule fired. Use
+  the harness to prove a new rule sees its target before trusting a green full run; a green run
+  proves nothing unless the rule was loaded and looked.
+
+## The net has to be cast over itself
+
+The bundled rules reach a consumer through the PHPStan extension installer, which never reads the
+root package. Left alone, php-qa-ci is the one project in which its own rules never run, and a
+clean self-check is believed because nobody expects a clean run to have run nothing. That is how an
+unanchored `vendor/` check lived in a rule file undetected. `qaConfig/phpstan.neon` therefore
+includes every bundled rule set by hand, and `tests/Small/SelfCheckRunsBundledRulesTest.php`
+fails the build if one is dropped.
+
+A new rule is not finished when it passes its own test. It is finished when somebody who has only
+its identifier can find out what to do.
+
 ## Cross-Reference
 
+- Identifier index: `docs/phpstan-rules/README.md` (start here when a rule fires).
 - Workflow skill: `.claude/skills/defence-before-fix/SKILL.md` (model-invoked; the
   4-phase ANALYSE → DETECT → TDD → FIX ratchet).
 - Rule authoring: `qaConfig/PHPStan/CLAUDE.md` (deployed into each project) and the

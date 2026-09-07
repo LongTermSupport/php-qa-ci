@@ -22,10 +22,6 @@
 #   ForbidSilentCatchRule                — catch blocks must use the caught exception
 #                                          (stricter than the default ForbidEmptyCatchBlockRule)
 #
-# INLINE PHPSTAN SUPPRESSION BAN:
-#   ForbidInlinePhpstanIgnoreRule        — bans @phpstan-ignore annotations inline;
-#                                          irreducible suppressions go in phpstan.neon ignoreErrors
-#
 # READONLY SERVICES (enforce immutable services):
 #   RequireReadonlyServiceRule           — service classes must be "final readonly class"
 #
@@ -77,7 +73,6 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
     - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
-    - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
 

@@ -30,7 +30,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<BinaryOp>
  */
-final class ForbidLooseComparisonRule implements Rule
+final readonly class ForbidLooseComparisonRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.looseComparison';
 

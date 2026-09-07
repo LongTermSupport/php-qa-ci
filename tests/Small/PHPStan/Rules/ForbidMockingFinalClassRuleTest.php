@@ -18,7 +18,6 @@ use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,9 +36,10 @@ use PHPUnit\Framework\Attributes\Test;
  */
 #[CoversClass(ForbidMockingFinalClassRule::class)]
 #[Medium]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidMockingFinalClassRuleTest extends RuleTestCase
 {
+    use ScopeStubTrait;
+
     // A final class shipped by this project (source lives in src/, not vendor/).
     private const string PROJECT_FINAL = ForbidLooseComparisonRule::class;
 
@@ -145,7 +145,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     #[Test]
     public function dynamicFirstArgumentIsIgnored(): void
     {
-        // $this->createMock($var) — the argument is not a ::class fetch.
+        // self::createStub($var) — the argument is not a ::class fetch.
         $call = new MethodCall(new Variable('this'), new Identifier('createMock'), [new Arg(new Variable('type'))]);
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scopeResolvingTo(self::PROJECT_FINAL)));
@@ -154,7 +154,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     #[Test]
     public function classConstantOtherThanClassIsIgnored(): void
     {
-        // $this->createMock(Foo::SOME_CONST) — not the ::class magic constant.
+        // self::createStub(Foo::SOME_CONST) — not the ::class magic constant.
         $fetch = new ClassConstFetch(new Name(self::PROJECT_FINAL), new Identifier('SOME_CONST'));
         $call  = new MethodCall(new Variable('this'), new Identifier('createMock'), [new Arg($fetch)]);
 
@@ -200,7 +200,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
 
     private function scopeResolvingTo(string $className): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('resolveName')->willReturn($className);
 
         return $scope;

@@ -20,7 +20,6 @@ use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,11 +28,12 @@ use PHPUnit\Framework\TestCase;
 /**
  * @internal
  */
-#[AllowMockObjectsWithoutExpectations]
 #[CoversClass(ForbidMagicStringAssertionRule::class)]
 #[Small]
 final class ForbidMagicStringAssertionRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private ForbidMagicStringAssertionRule $rule;
 
     protected function setUp(): void
@@ -205,11 +205,7 @@ final class ForbidMagicStringAssertionRuleTest extends TestCase
         // PHPStan's Rule::processNode() widens the $scope parameter to the
         // intersection the analyser actually passes; the double must satisfy all
         // three interfaces or the call is a type error.
-        $scope = $this->createMockForIntersectionOfInterfaces([
-            CollectedDataEmitter::class,
-            NodeCallbackInvoker::class,
-            Scope::class,
-        ]);
+        $scope = self::scopeStub();
         $scope->method('getType')->willReturn($type);
 
         return $scope;

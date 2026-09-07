@@ -15,7 +15,6 @@ use PhpParser\Node\VariadicPlaceholder;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,9 +25,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ForbidRawSqlRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class ForbidRawSqlRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private ForbidRawSqlRule $rule;
 
     protected function setUp(): void
@@ -116,6 +116,6 @@ final class ForbidRawSqlRuleTest extends TestCase
 
     private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        return $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        return self::scopeStub();
     }
 }

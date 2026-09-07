@@ -87,7 +87,7 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
  *
  * @implements Rule<Node\Stmt\Class_>
  */
-final class RequireExplicitDIAttributeRule implements Rule
+final readonly class RequireExplicitDIAttributeRule implements Rule
 {
     public const string IDENTIFIER_REQUIRE_EXPLICIT_DI_ATTRIBUTE = RuleIdentifierInterface::PREFIX . '.requireExplicitDIAttribute';
 

@@ -271,8 +271,8 @@ final class InfectionDiffModeTest extends TestCase
             'bash %s %s %s %s 2>&1',
             escapeshellarg($harnessFile),
             escapeshellarg(self::INCLUDE),
-            escapeshellarg($diffBase ?? ''),
-            escapeshellarg($diffCoveredMsi ?? ''),
+            escapeshellarg(null === $diffBase ? '' : $diffBase),
+            escapeshellarg(null === $diffCoveredMsi ? '' : $diffCoveredMsi),
         );
 
         $output   = [];

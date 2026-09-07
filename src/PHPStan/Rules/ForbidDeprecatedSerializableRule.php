@@ -19,7 +19,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<Class_>
  */
-final class ForbidDeprecatedSerializableRule implements Rule
+final readonly class ForbidDeprecatedSerializableRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.deprecatedSerializable';
 

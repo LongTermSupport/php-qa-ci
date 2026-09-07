@@ -15,7 +15,6 @@ use PhpParser\Node\Stmt\Property;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -32,9 +31,10 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(RequireReadonlyServiceRule::class)]
 #[Small]
-#[AllowMockObjectsWithoutExpectations]
 final class RequireReadonlyServiceRuleTest extends TestCase
 {
+    use ScopeStubTrait;
+
     private RequireReadonlyServiceRule $rule;
 
     protected function setUp(): void
@@ -149,7 +149,7 @@ final class RequireReadonlyServiceRuleTest extends TestCase
 
     private function scope(?string $namespace): CollectedDataEmitter&NodeCallbackInvoker&Scope
     {
-        $scope = $this->createMockForIntersectionOfInterfaces([CollectedDataEmitter::class, NodeCallbackInvoker::class, Scope::class]);
+        $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);
         $scope->method('getClassReflection')->willReturn(null);
 

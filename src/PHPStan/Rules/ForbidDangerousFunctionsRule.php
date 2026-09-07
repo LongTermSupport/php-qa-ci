@@ -21,7 +21,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<FuncCall>
  */
-final class ForbidDangerousFunctionsRule implements Rule
+final readonly class ForbidDangerousFunctionsRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.dangerousFunctions';
 

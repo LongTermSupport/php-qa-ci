@@ -24,8 +24,12 @@ final class Helper
             throw new RuntimeException('composer.json is empty');
         }
 
-        // @phpstan-ignore-next-line
-        return \Safe\json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        $decoded = \Safe\json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        if (!\is_array($decoded)) {
+            throw new RuntimeException('composer.json did not decode to an array: ' . $path);
+        }
+
+        return $decoded;
     }
 
     /**

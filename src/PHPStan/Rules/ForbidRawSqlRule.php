@@ -23,7 +23,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<MethodCall>
  */
-final class ForbidRawSqlRule implements Rule
+final readonly class ForbidRawSqlRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.rawSql';
 
