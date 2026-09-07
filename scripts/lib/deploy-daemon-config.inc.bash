@@ -132,6 +132,13 @@ PYTHON_DAEMON_CONFIG
         echo "  ✓ hooks-daemon configuration enforced"
     fi
 
+    # Lint-override advisory (grep-based, no venv needed): the daemon's default
+    # extended PHP lint hits php-qa-ci's phpstan redirect stub. Prints the exact
+    # YAML fix for a human/agent to apply; never edits the YAML, never fails.
+    # shellcheck source=scripts/lib/daemon-lint-override-check.inc.bash
+    source "$QACI_PATH/scripts/lib/daemon-lint-override-check.inc.bash"
+    phpQaCiDaemonLintOverrideCheck "$DAEMON_CONFIG"
+
     # ========================================================================
     # Remove classic hooks - daemon provides all functionality now
     # ========================================================================

@@ -217,6 +217,11 @@ runTool setConfig
 # shellcheck disable=SC2154 # specifiedPath/singleToolToRun are set by includes/options.inc.bash,
 #   sourced before this point in the pipeline — genuine sourced-fragment architecture.
 if [[ "$specifiedPath" != "" ]]; then
+  # Accept both project-root-relative and absolute -p paths: automated callers
+  # (editor/agent lint hooks) pass absolute paths, humans pass relative ones.
+  if ! specifiedPath="$(qaNormaliseSpecifiedPath "$specifiedPath" "$projectRoot")"; then
+    exit 1
+  fi
   echo "Only scanning the specified path $specifiedPath"
   pathsToCheck=()
   pathsToCheck+=("$projectRoot/$specifiedPath")

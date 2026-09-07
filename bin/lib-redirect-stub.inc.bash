@@ -10,8 +10,46 @@
 # Usage line convention: write the qa command placeholder as the literal
 # token __QACMD__ (NOT $qaCmd, to avoid bash expanding it before it reaches
 # this function); it is substituted with the resolved relative qa command.
-#
-# Output must stay byte-identical to the pre-consolidation per-stub copies.
+
+# Claude hooks-daemon integration noise. The daemon's default extended PHP
+# lint command is `phpstan analyse {file}`, which lands on the PHPStan stub
+# and can never pass — false-failing every PHP edit in the session. php-qa-ci
+# ships the stubs, so php-qa-ci owns telling the operator the exact
+# `.claude/hooks-daemon.yaml` override that routes the lint through qa.
+# Prints only when a daemon config exists AND lacks the override.
+function phpQaCiHooksDaemonLintNotice() {
+    local projectRoot="$1"
+    local qaCmd="$2"
+    local hooksDaemonConfig="$projectRoot/.claude/hooks-daemon.yaml"
+    if [[ ! -f "$hooksDaemonConfig" ]]; then
+        return 0
+    fi
+    if grep -qF 'qa -t phpstan -p {file}' "$hooksDaemonConfig"; then
+        return 0
+    fi
+    cat <<NOTICE
+
+------------------------------------------------------------------------------
+HOOKS DAEMON DETECTED (.claude/hooks-daemon.yaml) WITHOUT THE QA LINT OVERRIDE
+------------------------------------------------------------------------------
+The Claude hooks-daemon's default extended PHP lint command is
+'phpstan analyse {file}', which hits this stub and FALSE-FAILS EVERY PHP
+Write/Edit in the session. Fix it by adding to .claude/hooks-daemon.yaml:
+
+  handlers:
+    post_tool_use:
+      lint_on_edit:
+        options:
+          command_overrides:
+            PHP:
+              extended: "qa -t phpstan -p {file}"
+
+then restart the daemon (/hooks-daemon restart). The daemon resolves the bare
+'qa' against the project bin dirs; the pipeline accepts the absolute {file}
+path ($qaCmd -t phpstan -p <file> is the per-file analysis entry point).
+------------------------------------------------------------------------------
+NOTICE
+}
 
 function phpQaCiRedirectStub() {
     local toolLabel="$1"
@@ -31,5 +69,9 @@ function phpQaCiRedirectStub() {
     for usageLine in "$@"; do
         echo "${usageLine//__QACMD__/$qaCmd}"
     done
+
+    if [[ "$toolLabel" == "PHPStan" ]]; then
+        phpQaCiHooksDaemonLintNotice "$projectRoot" "$qaCmd"
+    fi
     exit 1
 }
