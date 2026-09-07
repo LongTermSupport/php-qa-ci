@@ -12,6 +12,7 @@
 !/bin/package-type-check
 !/bin/php-cs-fixer
 !/bin/phpstan
+!/bin/phpstan-ignore-justification
 !/bin/phpstan-rule
 !/bin/phpunit-check-annotation
 !/bin/phpunit-runfailed-filter
