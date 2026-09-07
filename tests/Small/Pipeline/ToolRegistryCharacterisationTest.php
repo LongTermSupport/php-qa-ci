@@ -85,6 +85,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'pt'                         => 'packageType',
         'packagetype'                => 'packageType',
         'packageType'                => 'packageType',
+        'cti'                        => 'configTemplateIgnoreList',
+        'configTemplateIgnoreList'   => 'configTemplateIgnoreList',
     ];
 
     /**
@@ -137,6 +139,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'spu'                        => false,
         'sensitiveparameter'         => false,
         'packageType'                => false,
+        'configTemplateIgnoreList'   => false,
+        'cti'                        => false,
         'pt'                         => false,
         'packagetype'                => false,
         'phpArkitect'                => false,
@@ -164,6 +168,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
             'psr4Validate',
             'composerChecks',
             'packageType',
+            'configTemplateIgnoreList',
             'phpStrictTypes',
             'phpLint',
             'composerRequireChecker',

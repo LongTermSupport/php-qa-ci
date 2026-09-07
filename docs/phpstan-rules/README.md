@@ -81,6 +81,15 @@ Not loaded unless the project includes the bundle. See
 | `phpqaci.conflictingDIAttributes`    | `RequireExplicitDIAttributeRule`        | [symfony](../../rules-optional-symfony.neon)                                    | A service must not carry DI attributes that contradict each other |
 | `phpqaci.magicStringAssertion`       | `ForbidMagicStringAssertionRule`        | [none — experimental](../tools/phpstan.md#experimental-rules-not-in-any-bundle) | No magic-string assertion where an enum belongs                   |
 
+## Pipeline lanes
+
+Not PHPStan rules, but lanes of `bin/qa` that print an identifier of their own. The same
+`rule-doc` lookup resolves them, and the same audit requires every one to be here.
+
+| Identifier                          | Class                                                     | Where            | What it requires                                                                                                   |
+| ----------------------------------- | --------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `phpqaci.configTemplateIgnoreList`  | `ConfigTemplateIgnoreList/ConfigTemplateIgnoreListCheck`  | `bin/qa -t cti`  | [Every shipped config template is covered by the PSR-4 ignore list](../tools/configTemplateIgnoreListCheck.md)     |
+
 ## Why this index exists
 
 A rule that blocks a build without explaining itself teaches nobody anything, and the explanation

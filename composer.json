@@ -74,6 +74,7 @@
   },
   "bin": [
     "bin/composer-require-checker",
+    "bin/config-template-ignorelist-check",
     "bin/infection",
     "bin/managed-source",
     "bin/mdlinks",

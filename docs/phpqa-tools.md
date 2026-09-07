@@ -94,6 +94,16 @@ You can specify files or directories to be ignored by the validator. This is a n
 Always-on check that requires `composer.json` to declare an explicit `type`. Runs immediately
 after Composer Checks. See [tools/packageType.md](./tools/packageType.md) for details.
 
+### Config Template Ignore-List Audit
+
+[Config Template Ignore-List Tool](../includes/generic/configTemplateIgnoreList.inc.bash)
+
+Always-on self-check that php-qa-ci runs against its own shipped `configDefaults/generic/`: every
+namespace-less config template a consumer is documented to copy into `qaConfig/` must be matched
+by a pattern in `psr4-validate-ignore-list.txt`, or the documented override fails `psr4Validate`.
+Identifier `phpqaci.configTemplateIgnoreList`. See
+[tools/configTemplateIgnoreListCheck.md](./tools/configTemplateIgnoreListCheck.md).
+
 ### Strict Types Enforcement
 
 [Strict Types Tool](../includes/generic/phpStrictTypes.inc.bash)
