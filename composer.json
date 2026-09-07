@@ -13,6 +13,7 @@
     "composer-plugin-api": "^2.0",
     "ergebnis/composer-normalize": "^2.42",
     "funkyproject/reflection-file": "@stable",
+    "nette/neon": "^3.4",
     "nikic/php-parser": "^5.0",
     "php-parallel-lint/php-console-color": "@stable",
     "php-parallel-lint/php-parallel-lint": "@stable",
@@ -52,6 +53,9 @@
       "LTS\\PHPQA\\Tests\\": [
         "tests/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\ActiveRulesLister\\": [
+        "tests/assets/ActiveRulesLister/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\DeploySkills\\": [
         "tests/assets/deploySkills/"
       ],
@@ -86,6 +90,7 @@
     "bin/psr4-validate",
     "bin/qa",
     "bin/rule-doc",
+    "bin/rules",
     "bin/sensitive-parameter-usage"
   ],
   "config": {

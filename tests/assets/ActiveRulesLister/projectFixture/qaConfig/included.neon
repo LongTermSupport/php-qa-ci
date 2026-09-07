@@ -1,0 +1,13 @@
+services:
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule
+        tags:
+            - phpstan.rules.rule
+
+parameters:
+    ignoreErrors:
+        # Justification: legacy generated code, tracked for removal in TICKET-123.
+        -
+            identifier: class.notFound
+            path: some/legacy/path.php
+            count: 2

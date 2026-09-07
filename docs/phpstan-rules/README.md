@@ -35,6 +35,22 @@ vendor/bin/phpstan-rule phpqaci.nullCoalescingFalse src/Service/Importer.php
 Exit 0 means it did not fire; exit 1 means it did, and every location is printed. This is the
 harness to reach for when writing a rule, or when a green run is suspected of not having looked.
 
+To list every defence active in a project — WITHOUT running PHPStan — use `bin/rules`:
+
+```bash
+vendor/bin/rules [project-root] [--json]
+```
+
+It resolves the project's `phpstan.neon` (following `includes:` recursively, the project's own
+override if present, else the shipped default), and prints: every rule class under `rules:` and
+every `phpstan.rules.rule`-tagged service, each with its identifier, summary and doc route where
+one is declared (a rule with no `IDENTIFIER` constant is still listed, marked as such rather than
+dropped); the php-qa-ci pipeline's always-on lanes (`branchNamePolicy`, `packageType`,
+`sensitiveParameterUsage`, `phpArkitect`); and the project record — every `ignoreErrors` entry,
+with any `#` comment directly above it in the source recovered as its justification. `--json`
+emits the same data structured. Exit non-zero only if the config cannot be resolved or a neon
+file fails to parse.
+
 ## Always on
 
 Loaded automatically via the PHPStan extension installer. Registered in

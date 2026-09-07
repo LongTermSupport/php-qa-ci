@@ -116,6 +116,9 @@ identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
   harness: it runs one path under the project's own config and says whether that rule fired. Use
   the harness to prove a new rule sees its target before trusting a green full run; a green run
   proves nothing unless the rule was loaded and looked.
+- `bin/rules [project-root] [--json]` lists every defence active in a project — its resolved
+  `phpstan.neon` rules, the always-on pipeline lanes, and the project record — WITHOUT running
+  PHPStan, so an agent arriving cold can learn the standards without violating them first.
 
 ## The net has to be cast over itself
 

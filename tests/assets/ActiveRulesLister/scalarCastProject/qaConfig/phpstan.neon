@@ -1,0 +1,3 @@
+includes: includedScalar.neon
+
+rules: LTS\PHPQA\Tests\Assets\ActiveRulesLister\FixtureProjectRule

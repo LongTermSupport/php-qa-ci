@@ -1,0 +1,49 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * List the active defences for a project — PHPStan rule classes derived from
+ * its resolved phpstan.neon (rules: entries and phpstan.rules.rule-tagged
+ * services), the always-on php-qa-ci pipeline lanes, and the project record
+ * (ignoreErrors, with any preceding justification comment). Runs WITHOUT
+ * invoking PHPStan.
+ *
+ *   bin/rules [project-root] [--json]
+ *
+ * project-root defaults to the current working directory.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+$args = array_slice($argv, 1);
+$json = false;
+$projectRoot = null;
+foreach ($args as $arg) {
+    if ('--json' === $arg) {
+        $json = true;
+        continue;
+    }
+    if (str_starts_with($arg, '-')) {
+        fwrite(STDERR, "Usage: bin/rules [project-root] [--json]\n");
+        exit(2);
+    }
+    $projectRoot = $arg;
+}
+
+$projectRoot ??= getcwd();
+if (false === $projectRoot) {
+    fwrite(STDERR, "Could not determine the current working directory.\n");
+    exit(2);
+}
+
+$qaCiRoot = \dirname(__DIR__);
+
+try {
+    $lister  = new \LTS\PHPQA\PHPStan\ActiveRulesLister($qaCiRoot);
+    $listing = $lister->list($projectRoot);
+} catch (\InvalidArgumentException|\RuntimeException $e) {
+    fwrite(STDERR, $e->getMessage()."\n");
+    exit(1);
+}
+
+echo $json ? $lister->renderJson($listing)."\n" : $lister->renderText($listing);

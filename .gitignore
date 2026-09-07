@@ -21,6 +21,7 @@
 !/bin/psr4-validate
 !/bin/qa
 !/bin/rule-doc
+!/bin/rules
 !/bin/sensitive-parameter-usage
 /cache/
 /.phive-home/
