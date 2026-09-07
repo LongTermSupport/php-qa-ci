@@ -52,6 +52,7 @@ QA_TOOL_NAMES=(
   composerRequireChecker
   markdownLinks
   branchNamePolicy
+  phpstanIgnoreJustification
   phpstan
   phpArkitect
   sensitiveParameterUsage
@@ -81,6 +82,7 @@ declare -A QA_TOOL_ALIASES=(
   [composerRequireChecker]="cr"
   [markdownLinks]="ml markdown"
   [branchNamePolicy]="bnp branchNamePolicy"
+  [phpstanIgnoreJustification]="pij phpstanIgnoreJustification"
   [phpstan]="stan phpstan"
   [phpArkitect]="arch arkitect phparkitect"
   [sensitiveParameterUsage]="spu sensitiveparameter sensitiveParameterUsage"
@@ -121,6 +123,7 @@ declare -A QA_TOOL_PATHS=(
   [composerRequireChecker]=no
   [markdownLinks]=no
   [branchNamePolicy]=no
+  [phpstanIgnoreJustification]=no
   [phpstan]=yes
   [phpArkitect]=no
   [sensitiveParameterUsage]=no
@@ -144,6 +147,7 @@ declare -A QA_TOOL_PHASE=(
   [composerRequireChecker]=linting
   [markdownLinks]=linting
   [branchNamePolicy]=staticAnalysis
+  [phpstanIgnoreJustification]=staticAnalysis
   [phpstan]=staticAnalysis
   [phpArkitect]=staticAnalysis
   [sensitiveParameterUsage]=staticAnalysis
@@ -174,6 +178,7 @@ declare -A QA_TOOL_BANNER=(
   [composerRequireChecker]="Running Composer Require Checker"
   [markdownLinks]="Running Markdown Links Checker"
   [branchNamePolicy]="Checking Branch Name Policy"
+  [phpstanIgnoreJustification]="Checking PHPStan ignoreErrors Justifications"
   [phpstan]="Running PHPStan"
   [phpArkitect]="Running PHPArkitect (architecture rules)"
   [sensitiveParameterUsage]="Checking SensitiveParameter Usage"
@@ -201,6 +206,7 @@ declare -A QA_TOOL_USAGE=(
   [composerRequireChecker]="cr::composer require checker"
   [markdownLinks]="ml|markdown::markdown validation"
   [branchNamePolicy]="bnp|branchNamePolicy::Branch naming policy (PR convention)"
+  [phpstanIgnoreJustification]="pij|phpstanIgnoreJustification::assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification"
   [phpstan]="stan|phpstan::phpstan"
   [phpArkitect]="arch|arkitect|phparkitect::PHPArkitect architecture rules (on by default; useArkitect=0 to disable)"
   [sensitiveParameterUsage]="spu|sensitiveParameterUsage::assert #[\\SensitiveParameter] is used somewhere in src/"

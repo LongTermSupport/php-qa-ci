@@ -137,26 +137,27 @@ The pipeline runs tools in 4 distinct phases:
 
 ### Phase 3: Static Analysis Tools
 
-11. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-12. **PHPStan** (`phpstan`) - Static analysis tool
-13. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
-14. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
+12. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
+13. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+14. **PHPStan** (`phpstan`) - Static analysis tool
+15. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+16. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
 
 ### Phase 4: Testing Tools
 
-15. **PHPUnit** (`phpunit`) - Unit testing framework
-16. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
+17. **PHPUnit** (`phpunit`) - Unit testing framework
+18. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
 
 ### Post-Success Phase (After all tests pass)
 
 After the "ALL TESTS PASSING" message:
 
-17. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
+19. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
 
     - This is informational only and cannot fail the pipeline
     - Provides metrics about code size and structure
 
-18. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
+20. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
