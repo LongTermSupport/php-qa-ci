@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9bd4a77ef61e3b82b486e12058ad90ab",
+    "content-hash": "9b095f9f3f5286ab628e32956f654a39",
     "packages": [
         {
             "name": "dogma/dogma",

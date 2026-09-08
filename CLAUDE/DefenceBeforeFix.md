@@ -142,6 +142,19 @@ report, is recorded there against the clause it fails, and the package does not 
 whilst that list is non-empty. The key is machine-readable so a consumer checks the claim against
 the installed artefact rather than against a sentence in a README.
 
+The declaration carries two levels, graded separately, because they have different readers:
+
+- The top-level `method`, `toolchain` and `known-gaps` describe the **artefact**: what a
+  consuming project gets when it installs this package with nothing else built around it.
+- The `project` object carries the same three keys for **this repository as a project**
+  following the method with the toolchain it ships. A gap can hold at one level and not the
+  other; most hold at both, because the project runs the artefact it ships.
+
+Every entry in either `known-gaps` list opens with the document and clause it fails, in the shape
+`toolchain 4.1: ...`, `detector 6.2: ...` or `method 3.6: ...`, followed by one sentence stating
+the gap. `tests/Small/DefenceBeforeFixDeclarationTest.php` guards the shape: both levels present,
+the versions this package is audited against, and every gap naming its clause.
+
 ## Cross-Reference
 
 - Identifier index: `docs/phpstan-rules/README.md` (start here when a rule fires).
