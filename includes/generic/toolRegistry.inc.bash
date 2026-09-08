@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 ###############################################################################
-# Tool registry — SINGLE SOURCE OF TRUTH for the QA tool set (M-011).
+# Tool registry — SINGLE SOURCE OF TRUTH for the QA tool set.
 #
-# Historically the tool list was triplicated across includes/options.inc.bash
-# (the -t alias `case`, the usage text, and the PATH/NON_PATH arrays) AND a
-# fourth time across the four all*Tools.inc.bash phase files — hand-synced, with
-# now-false "VERIFIED by reading tool files" comments that had already drifted
-# (psr4Validate listed path-supporting while empty; phpunitAnnotations listed
-# while commented). This file makes the registry declarative and single-sourced:
+# The registry is declarative and single-sourced; everything else derives
+# from it:
 #
 #   - options.inc.bash DERIVES the -t alias resolution, the path-support gate
 #     arrays, and the usage text from here (qaResolveSingleTool /
@@ -48,6 +44,7 @@ QA_TOOL_NAMES=(
   configTemplateIgnoreList
   infectionConfigSourceDirs
   phpunitConfigVersion
+  githubActionsPhpVersion
   phpStrictTypes
   phpLint
   composerRequireChecker
@@ -64,8 +61,8 @@ QA_TOOL_NAMES=(
 )
 
 # Accepted `-t <token>` inputs per tool (space-separated). The canonical name is
-# accepted ONLY when it also appears here (mirrors the historic `case` arms — a
-# canonical like psr4Validate is intentionally NOT a valid -t input).
+# accepted ONLY when it also appears here (a canonical like psr4Validate is
+# intentionally NOT a valid -t input).
 declare -A QA_TOOL_ALIASES=(
   [allCodingStandardsTools]="allCS"
   [allLintingTools]="allLints"
@@ -79,6 +76,7 @@ declare -A QA_TOOL_ALIASES=(
   [configTemplateIgnoreList]="cti configTemplateIgnoreList"
   [infectionConfigSourceDirs]="icsd infectionConfigSourceDirs"
   [phpunitConfigVersion]="pcv phpunitConfigVersion"
+  [githubActionsPhpVersion]="gapv githubActionsPhpVersion"
   [phpStrictTypes]="st stricttypes"
   [phpLint]="lint phplint"
   [composerRequireChecker]="cr"
@@ -121,6 +119,7 @@ declare -A QA_TOOL_PATHS=(
   [configTemplateIgnoreList]=no
   [infectionConfigSourceDirs]=no
   [phpunitConfigVersion]=no
+  [githubActionsPhpVersion]=no
   [phpStrictTypes]=yes
   [phpLint]=yes
   [composerRequireChecker]=no
@@ -146,6 +145,7 @@ declare -A QA_TOOL_PHASE=(
   [configTemplateIgnoreList]=linting
   [infectionConfigSourceDirs]=linting
   [phpunitConfigVersion]=linting
+  [githubActionsPhpVersion]=linting
   [phpStrictTypes]=linting
   [phpLint]=linting
   [composerRequireChecker]=linting
@@ -178,6 +178,7 @@ declare -A QA_TOOL_BANNER=(
   [configTemplateIgnoreList]="Auditing Config Template Ignore-List Coverage"
   [infectionConfigSourceDirs]="Checking Infection Config Source Directories Exist"
   [phpunitConfigVersion]="Checking phpunit.xml Version Pins Match Installed PHPUnit"
+  [githubActionsPhpVersion]="Checking GitHub Actions Workflows Can Select The Required PHP"
   [phpStrictTypes]="Setting Strict Types If It's Missing"
   [phpLint]="Running PHP Lint"
   [composerRequireChecker]="Running Composer Require Checker"
@@ -207,6 +208,7 @@ declare -A QA_TOOL_USAGE=(
   [configTemplateIgnoreList]="cti|configTemplateIgnoreList::audit configDefaults/generic templates against psr4-validate-ignore-list.txt"
   [infectionConfigSourceDirs]="icsd|infectionConfigSourceDirs::assert infection.json's source.directories resolve to real directories"
   [phpunitConfigVersion]="pcv|phpunitConfigVersion::assert phpunit.xml's schema/SYMFONY_PHPUNIT_VERSION pins match the installed PHPUnit major"
+  [githubActionsPhpVersion]="gapv|githubActionsPhpVersion::assert every PHP-version-detecting GitHub Actions workflow can select the PHP composer.json requires"
   [phpStrictTypes]="st|stricttypes::strict types validation"
   [phpLint]="lint|phplint::phplint"
   [composerRequireChecker]="cr::composer require checker"
@@ -295,8 +297,8 @@ function qaToolGateAllows() {
 }
 
 ###############################################################################
-# Run every tool in a phase, in registry order, via runToolGuarded — the single
-# derivation of what the historic all*Tools.inc.bash sequences did by hand.
+# Run every tool in a phase, in registry order, via runToolGuarded. The four
+# all*Tools.inc.bash phase fragments are each a single call to this.
 ###############################################################################
 function qaRunPhase() {
   local phase="$1" tool banner

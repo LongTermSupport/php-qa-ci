@@ -80,6 +80,7 @@
     "bin/composer-require-checker",
     "bin/composer-require-checker-safe-scan-files-check",
     "bin/config-template-ignorelist-check",
+    "bin/github-actions-php-version-check",
     "bin/infection",
     "bin/infection-config-source-dirs-check",
     "bin/managed-source",

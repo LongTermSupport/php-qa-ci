@@ -91,6 +91,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'infectionConfigSourceDirs'  => 'infectionConfigSourceDirs',
         'pcv'                        => 'phpunitConfigVersion',
         'phpunitConfigVersion'       => 'phpunitConfigVersion',
+        'gapv'                       => 'githubActionsPhpVersion',
+        'githubActionsPhpVersion'    => 'githubActionsPhpVersion',
     ];
 
     /**
@@ -149,6 +151,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'icsd'                       => false,
         'phpunitConfigVersion'       => false,
         'pcv'                        => false,
+        'githubActionsPhpVersion'    => false,
+        'gapv'                       => false,
         'pt'                         => false,
         'packagetype'                => false,
         'phpArkitect'                => false,
@@ -179,6 +183,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
             'configTemplateIgnoreList',
             'infectionConfigSourceDirs',
             'phpunitConfigVersion',
+            'githubActionsPhpVersion',
             'phpStrictTypes',
             'phpLint',
             'composerRequireChecker',
