@@ -10,6 +10,7 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00003: PHP pipeline rewrite](00003-php-pipeline-rewrite/PLAN.md) - In Progress — Bash orchestration replaced by TDD PHP 8.5 under LTS\PHPQA\Pipeline, shipped with the 8.5 switch
 - [00001: Repo Audit & Tidy](00001-repo-audit-and-tidy/PLAN.md) - In Progress
 
 ## Completed Plans
