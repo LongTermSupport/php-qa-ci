@@ -34,6 +34,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
+# The build host's umask leaks into the phar: Box stores each entry's mode, and
+# a restrictive umask (e.g. 0077 in a root container) yields 0400 entries. Root
+# reads those regardless, so the phar works for the maintainer and then breaks
+# for every non-root consumer/CI runner — PHPStan's config loader silently skips
+# a neon it cannot is_readable() (seen as "Undefined array key expandRelativePaths").
+# Force a conventional umask so entries are world-readable (0444/0555).
+umask 0022
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
