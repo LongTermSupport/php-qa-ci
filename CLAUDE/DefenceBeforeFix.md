@@ -4,7 +4,8 @@ This document is the single source of truth for the **Defence Before Fix** philo
 The `defence-before-fix` skill orchestrates the workflow; this doc states *why* it is
 shaped the way it is, and the rules that keep a "green" honest.
 
-Reference: https://ltscommerce.dev/articles/defence-before-fix-static-analysis
+Reference (the specification for the method): https://defence-before-fix.github.io/
+Original publication (the article): https://ltscommerce.dev/articles/defence-before-fix-static-analysis
 
 ## Canonical Framing
 
