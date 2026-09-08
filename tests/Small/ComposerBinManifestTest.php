@@ -71,6 +71,7 @@ final class ComposerBinManifestTest extends TestCase
             if (!is_file($path)) {
                 continue;
             }
+
             if (\in_array($name, self::NON_EXECUTABLE_SUPPORT_FILES, true)) {
                 continue;
             }
