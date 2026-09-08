@@ -1,5 +1,11 @@
 #!/bin/bash
 #
+# DAEMON-OWNED FILE - do not edit. Deployed into your project by the
+# claude-code-hooks-daemon installer and refreshed on every upgrade, so local
+# changes are discarded. See the daemon clone's CLAUDE/LLM-INSTALL.md,
+# "Which Files Under .claude/ Are Yours?", for the full list and the
+# linter exclusions.
+#
 # health-check.sh - Check daemon health and status
 #
 # Usage:
@@ -142,8 +148,27 @@ if [ ! -f "$PROJECT_ROOT/.claude/hooks-daemon.yaml" ]; then
 fi
 
 DAEMON_DIR="$PROJECT_ROOT/.claude/hooks-daemon"
-# shellcheck source=_resolve-venv.sh
-source "$(dirname "$0")/_resolve-venv.sh"
+
+# Plan 00285: resolve the canonical venv library via DAEMON_DIR, not via
+# this script's own directory. After the self-bootstrap re-exec above, this
+# script may be running from a mktemp copy with no sibling shim on disk at
+# all — but DAEMON_DIR is derived from PROJECT_ROOT (walked up from $(pwd)),
+# which survives the re-exec intact. DAEMON_DIR is a full checkout of the
+# daemon repo, so its scripts/lib/resolve_venv.sh is always present.
+RESOLVE_LIB="$DAEMON_DIR/scripts/lib/resolve_venv.sh"
+if [ ! -f "$RESOLVE_LIB" ]; then
+    echo "❌ venv resolver missing at $RESOLVE_LIB" >&2
+    echo "   Reinstall or upgrade the daemon to restore scripts/lib/." >&2
+    exit 5
+fi
+# shellcheck disable=SC1090  # path is computed at runtime from DAEMON_DIR
+source "$RESOLVE_LIB"
+
+if ! PYTHON="$(resolve_venv_python "$DAEMON_DIR")"; then
+    echo "❌ could not resolve a usable venv under $DAEMON_DIR" >&2
+    echo "   Run the installer/upgrade to rebuild it." >&2
+    exit 5
+fi
 
 echo "Claude Code Hooks Daemon - Health Check"
 echo ""
@@ -166,7 +191,7 @@ echo "════════════════════════�
     echo "❌ Daemon status check failed"
     echo ""
     echo "Try restarting the daemon:"
-    echo "  $PYTHON -m claude_code_hooks_daemon.daemon.cli restart"
+    echo "  $DAEMON_DIR/bin/hooks-daemon restart"
     exit 1
 }
 
@@ -186,7 +211,7 @@ if [ -f "$CONFIG_FILE" ]; then
         echo "⚠️  Config validation: FAILED"
         echo ""
         echo "Run for details:"
-        echo "  $PYTHON -m claude_code_hooks_daemon.daemon.cli config-validate $CONFIG_FILE"
+        echo "  $DAEMON_DIR/bin/hooks-daemon config-validate $CONFIG_FILE"
     fi
 else
     echo "❌ Config file missing: $CONFIG_FILE"
@@ -223,7 +248,7 @@ echo ""
 echo "✓ Health check complete"
 echo ""
 echo "For detailed logs:"
-echo "  $PYTHON -m claude_code_hooks_daemon.daemon.cli logs"
+echo "  $DAEMON_DIR/bin/hooks-daemon logs"
 echo ""
 echo "To restart daemon:"
-echo "  $PYTHON -m claude_code_hooks_daemon.daemon.cli restart"
+echo "  $DAEMON_DIR/bin/hooks-daemon restart"

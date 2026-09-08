@@ -1,7 +1,7 @@
 ---
 name: hooks-daemon
 description: Manage Claude Code Hooks Daemon - install, upgrade, check health, restart, and develop project-level handlers
-argument-hint: "[install|upgrade|health|restart|check|dev-handlers|regen-docs|logs|release-notes] [args...]"
+argument-hint: "[install|upgrade|optimise|health|restart|check|dev-handlers|regen-docs|rule-explain|logs|release-notes] [args...]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit
@@ -17,7 +17,7 @@ Manage your Claude Code Hooks Daemon installation with these commands.
 
 Install the hooks daemon on a fresh clone (daemon not yet present):
 
-```bash
+```claude-code
 /hooks-daemon install          # Install daemon from GitHub
 /hooks-daemon install --force  # Force reinstall over existing
 ```
@@ -28,7 +28,7 @@ See [install.md](install.md) for detailed install documentation.
 
 Update to a new version of the hooks daemon:
 
-```bash
+```claude-code
 /hooks-daemon upgrade          # Auto-detect and upgrade to latest version
 /hooks-daemon upgrade 2.14.0   # Upgrade to specific version
 /hooks-daemon upgrade --force  # Force reinstall current version
@@ -36,11 +36,27 @@ Update to a new version of the hooks daemon:
 
 See [upgrade.md](upgrade.md) for detailed upgrade documentation.
 
+### Optimise Configuration
+
+The config-optimisation review — the mandatory closing step of every upgrade,
+and the repeatable answer to "enable all relevant handlers and ensure optimal
+configuration for this project":
+
+```claude-code
+/hooks-daemon optimise
+```
+
+Scores five areas, surfaces handlers that are new or disabled-but-relevant, and
+applies its recommendations only on explicit confirmation.
+
+See [optimise.md](optimise.md) — it starts by running
+`scripts/optimise-invoke.sh`, which prints the procedure to follow.
+
 ### Restart Daemon
 
 **Required after editing `.claude/hooks-daemon.yaml` or project handlers:**
 
-```bash
+```claude-code
 /hooks-daemon restart
 ```
 
@@ -52,7 +68,7 @@ See [restart.md](restart.md) for details.
 
 Force-regenerate the daemon's generated documentation **without restarting**:
 
-```bash
+```claude-code
 /hooks-daemon regen-docs
 ```
 
@@ -68,11 +84,36 @@ bounce.)
 
 See [regen-docs.md](regen-docs.md) for details.
 
+### Explain a Rule
+
+Get the full, verbatim detail for any daemon rule on demand — independent of
+whether it has already fired this session:
+
+```claude-code
+/hooks-daemon rule-explain R-GIT-RESET-HARD
+/hooks-daemon rule-explain --list             # every known rule ID + handler
+```
+
+See [rule-explain.md](rule-explain.md) for details.
+
+### Plan QA
+
+Lint and sweep the plan tree on demand — the same checks the edit-time lint,
+commit gate and session sweep run automatically:
+
+```bash
+.claude/hooks-daemon/bin/hooks-daemon plan-qa --sweep          # whole tree (exit 1 on findings)
+.claude/hooks-daemon/bin/hooks-daemon plan-qa --lint <PLAN.md> # one plan document
+.claude/hooks-daemon/bin/hooks-daemon plan-qa --check-staged   # what the commit gate will say
+```
+
+See [plan-qa.md](plan-qa.md) for details.
+
 ### Check Health & Status
 
 Verify daemon is running correctly:
 
-```bash
+```claude-code
 /hooks-daemon health           # Quick health check
 /hooks-daemon logs             # View last 50 lines of logs
 /hooks-daemon logs --follow    # Stream logs in real-time
@@ -84,7 +125,7 @@ See [health.md](health.md) for health check details.
 
 Run a verbose, on-demand audit of the Claude Code environment:
 
-```bash
+```claude-code
 /hooks-daemon check
 ```
 
@@ -100,7 +141,7 @@ See [check.md](check.md) for details.
 
 Scaffold new project-level handlers:
 
-```bash
+```claude-code
 /hooks-daemon dev-handlers     # Interactive handler scaffolding
 ```
 
@@ -110,7 +151,7 @@ See [dev-handlers.md](dev-handlers.md) for handler development guide.
 
 Generate a detailed investigation report with timeline, evidence, and analysis:
 
-```bash
+```claude-code
 /hooks-daemon report "daemon stopped responding during edits"
 ```
 
@@ -123,7 +164,7 @@ See [report.md](report.md) for details.
 Show the daemon's release notes without leaving the terminal. With no flag it
 shows the notes for the version you currently have installed:
 
-```bash
+```claude-code
 /hooks-daemon release-notes                       # installed version's notes
 /hooks-daemon release-notes --latest              # newest available version
 /hooks-daemon release-notes --version 3.27.0      # a specific version
@@ -140,14 +181,14 @@ inclusive, matching the upgrade semantics (the notes for everything you gained).
 
 After editing `.claude/hooks-daemon.yaml`:
 
-```bash
+```claude-code
 /hooks-daemon restart   # Apply config changes
 /hooks-daemon health    # Verify it's running
 ```
 
 If you're experiencing issues:
 
-```bash
+```claude-code
 # 1. Check daemon status
 /hooks-daemon health
 
@@ -198,6 +239,13 @@ case "$SUBCOMMAND" in
         bash "$SKILL_DIR/scripts/init-handlers.sh" "$@"
         ;;
 
+    optimise|optimize)
+        # Prints the review procedure for Claude to follow (like `report`).
+        # `optimize` is accepted so the US spelling does not hit the
+        # unknown-subcommand branch.
+        bash "$SKILL_DIR/scripts/optimise-invoke.sh" "$@"
+        ;;
+
     report)
         # LLM-driven investigation report — outputs prompt for Claude to follow
         cat "$SKILL_DIR/report.md" | sed "s/\$ARGUMENTS/$*/"
@@ -208,7 +256,12 @@ case "$SUBCOMMAND" in
         bash "$SKILL_DIR/scripts/daemon-cli.sh" regenerate-docs "$@"
         ;;
 
-    logs|status|restart|handlers|validate-config|bug-report|check|release-notes)
+    rule-explain)
+        # User-facing alias rule-explain maps to the CLI command explain-rule.
+        bash "$SKILL_DIR/scripts/daemon-cli.sh" explain-rule "$@"
+        ;;
+
+    logs|status|restart|handlers|config-validate|bug-report|check|release-notes)
         # Forward to daemon CLI wrapper
         bash "$SKILL_DIR/scripts/daemon-cli.sh" "$SUBCOMMAND" "$@"
         ;;
@@ -220,7 +273,9 @@ case "$SUBCOMMAND" in
         echo "Available commands:"
         echo "  install [--force]     Install daemon (fresh clone)"
         echo "  restart               Restart daemon (required after config changes)"
+        echo "  optimise              Config-optimisation review (closes every upgrade)"
         echo "  regen-docs            Force-regenerate HOOKS-DAEMON.md + CLAUDE.md block"
+        echo "  rule-explain ID       Full detail for a rule ID, or --list every rule"
         echo "  health                Check daemon health and status"
         echo "  upgrade [VERSION]     Upgrade daemon to new version"
         echo "  dev-handlers          Scaffold new project handlers"

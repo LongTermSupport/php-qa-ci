@@ -1,5 +1,10 @@
 #!/bin/bash
 #
+# DAEMON-OWNED FILE - do not edit. Deployed into your project by the
+# claude-code-hooks-daemon installer and refreshed on every upgrade, so local
+# changes are discarded. See CLAUDE/LLM-INSTALL.md, "Which Files Under
+# .claude/ Are Yours?", for the full list and the linter exclusions.
+#
 # Claude Code Hooks Daemon - Init Script
 #
 # Provides shell functions for daemon lifecycle management:
@@ -275,8 +280,8 @@ fi
 #
 # Plan 00103 Decision 2: when none of the above resolve, fail loudly with
 # return 5 + stderr directive. The pre-v3.7.0 unversioned legacy
-# `untracked/venv/bin/python` is no longer accepted as a silent fallback —
-# it hid the v3.9.0 field-bug regression where operators saw "venv not
+# `untracked/venv/bin/python` is no longer a silent fallback  # python-var-guidance-exempt: names the retired path to document its rejection
+# — it hid the v3.9.0 field-bug regression where operators saw "venv not
 # found" while the real cause was a 3.9-vs-3.11 `import tomllib` crash.
 #
 # Plan 00103 Decision 3 Rule A: no `${VAR:-python3}` parameter expansion —
@@ -405,6 +410,26 @@ _exec_bit_selfheal() {
         notification
         pre-compact
         permission-request
+        setup
+        permission-denied
+        cwd-changed
+        worktree-create
+        worktree-remove
+        user-prompt-expansion
+        post-tool-use-failure
+        post-tool-batch
+        subagent-start
+        task-created
+        task-completed
+        stop-failure
+        teammate-idle
+        instructions-loaded
+        config-change
+        file-changed
+        post-compact
+        elicitation
+        elicitation-result
+        message-display
     )
     local h
     for h in "${hooks[@]}"; do
@@ -597,11 +622,22 @@ start_daemon() {
     # CRITICAL: Pass --project-root and export env vars so the CLI uses the
     # same paths we computed above. Without this, the CLI re-discovers the
     # project from CWD which may find a worktree's .claude/ instead of ours.
-    CLAUDE_HOOKS_SOCKET_PATH="$SOCKET_PATH" \
+    #
+    # Output is CAPTURED, not discarded (Plan 00200 Task 5.5): this parent
+    # invocation is the short-lived process that daemonises and returns —
+    # cli.py's cmd_start() prints its own diagnostics (e.g. "ERROR: Fork
+    # failed", "ERROR: Daemon failed to start (no PID file created)") on
+    # THIS fd, before the double-fork detaches the long-lived daemon (which
+    # redirects its OWN stdout/stderr to /dev/null internally regardless —
+    # see daemon/cli.py's "Second child" branch). The readiness poll below
+    # remains the authority for success/failure either way; this capture
+    # only stops a genuine startup failure's root cause from being silently
+    # discarded on the timeout path.
+    local start_output
+    start_output="$(CLAUDE_HOOKS_SOCKET_PATH="$SOCKET_PATH" \
     CLAUDE_HOOKS_PID_PATH="$PID_PATH" \
     $PYTHON_CMD -m claude_code_hooks_daemon.daemon.cli \
-        --project-root "$PROJECT_PATH" start \
-        > /dev/null 2>&1
+        --project-root "$PROJECT_PATH" start 2>&1)"
 
     # Wait for daemon to be ready (using deciseconds for integer arithmetic).
     #
@@ -633,6 +669,10 @@ start_daemon() {
     # coming up, the PID slot belongs to it. is_daemon_running() cleans
     # stale PID files on next call when the process is actually dead.
     echo "ERROR: Daemon startup timeout (daemon not ready after ${DAEMON_STARTUP_TIMEOUT}/10 seconds)" >&2
+    if [[ -n "$start_output" ]]; then
+        echo "Launcher output (may explain the failure):" >&2
+        echo "$start_output" >&2
+    fi
     return 1
 }
 
@@ -843,13 +883,102 @@ send_request_stdin() {
     # Only uses stdlib: socket, sys, json (no venv packages needed).
     local event_name="${1:-Unknown}"
     local response_mode="${2:-}"
+    # Plan 00290 (T4.1/T4.2, DESIGN-socket-relay.md §6.2): $3, when the
+    # forwarder_generator inserted it (nc_enabled at deploy time), names this
+    # event's per-event socket filename (its bash_key, e.g. "pre-tool-use") —
+    # a literal baked in at generation time so no PascalCase->kebab mapping is
+    # needed here. Absent for every deployed forwarder by default (byte-identical).
+    local event_sock_name="${3:-}"
+
+    # nc rung (rung 2): only for the plain passthrough shape (no response_mode
+    # translation needed — "status"/"worktree" always go through the python3
+    # rung's render_status/print_worktree, so that logic is never duplicated
+    # here). The payload is buffered to a TEMP FILE, never a shell variable —
+    # the same control-character-safety rule the python3 rung follows (see
+    # the CRITICAL comment above). A failed/empty nc capture REPLAYS the
+    # buffered payload into the python3 rung below via its stdin redirect
+    # (design §5: an empty capture means no verdict was ever delivered, so
+    # replay is always safe).
+    local _nc_replay_payload=""
+    if [[ -z "$response_mode" && -n "$event_sock_name" ]] \
+        && [[ "${HOOKS_DAEMON_NC_UNIX_CAPABLE:-0}" == "1" ]] \
+        && command -v nc > /dev/null; then
+        local _nc_sock="$_untracked_dir/events${_hostname_suffix}/${event_sock_name}.sock"
+        if [[ -S "$_nc_sock" ]]; then
+            local _nc_payload _nc_response _nc_stderr _nc_rc
+            _nc_payload="$(mktemp)"
+            _nc_response="$(mktemp)"
+            _nc_stderr="$(mktemp)"
+            cat > "$_nc_payload"
+            _nc_rc=0
+            # -N: shut down the socket's write half once stdin hits EOF.
+            # Without it, OpenBSD nc keeps the connection open after the
+            # payload is fully sent, the daemon's EOF-framed per-event
+            # socket (DESIGN-socket-relay.md §2) never sees the half-close,
+            # never responds, and nc sits until -w's timeout elapses —
+            # observed as a ~30s hang on every nc-rung call (Plan 00290
+            # Phase 6 measurement). With -N, -w's "final net reads" role
+            # becomes the correct overall response-wait budget.
+            nc -U -N -w "${CLAUDE_HOOKS_SOCKET_TIMEOUT:-30}" "$_nc_sock" \
+                < "$_nc_payload" > "$_nc_response" 2> "$_nc_stderr" || _nc_rc=$?
+            if [[ "$_nc_rc" -eq 0 && -s "$_nc_response" ]]; then
+                cat "$_nc_response"
+                rm -f "$_nc_payload" "$_nc_response" "$_nc_stderr"
+                return 0
+            fi
+            # Empty/short/failed capture: NOT silently dropped — surfaced on
+            # stderr for debug capture, then rung 2 degrades to rung 3 by
+            # keeping the buffered payload for the python3 stdin redirect
+            # below (this process's own stdin was already drained by the
+            # `cat > "$_nc_payload"` above). Design §5: an empty nc capture
+            # means no verdict was delivered, so the replay is always safe.
+            if [[ -s "$_nc_stderr" ]]; then
+                echo "HOOKS DAEMON: nc rung failed (rc=$_nc_rc), falling back to python3 transport:" >&2
+                cat "$_nc_stderr" >&2
+            fi
+            rm -f "$_nc_response" "$_nc_stderr"
+            _nc_replay_payload="$_nc_payload"
+        fi
+    fi
+
+    # stdin for the python3 transport: the nc replay file when rung 2 buffered
+    # the payload and failed, else THIS process's own stdin duplicated by fd
+    # (dup2 semantics — valid for ANY fd type). NEVER a /dev/stdin re-open:
+    # Claude Code hands hooks a SOCKET as stdin, and open() on a socket fails
+    # with ENXIO ("No such device or address") — while every pipe-fed test
+    # invocation works, which is exactly how this shipped. Field-observed as a
+    # non-blocking error on every real hook event.
+    if [[ -n "$_nc_replay_payload" ]]; then
+        exec 3<"$_nc_replay_payload"
+    else
+        exec 3<&0
+    fi
+
     python3 -c "
 import json
+import os
 import socket
 import sys
 
 event_name = sys.argv[1] if len(sys.argv) > 1 else 'Unknown'
 response_mode = sys.argv[2] if len(sys.argv) > 2 else ''
+
+# Socket budget for the whole connect+send+recv exchange. Default 30s; operators
+# can raise it via CLAUDE_HOOKS_SOCKET_TIMEOUT (also lets tests drive the timeout
+# path fast). A non-numeric or non-positive value falls back to the default.
+# Defined up-front (not inside the try) so emit_error_json can name it even when
+# a failure fires before the socket is opened (Plan 00177).
+def _resolve_socket_timeout():
+    raw = os.environ.get('CLAUDE_HOOKS_SOCKET_TIMEOUT', '').strip()
+    if not raw:
+        return 30.0
+    try:
+        value = float(raw)
+    except ValueError:
+        return 30.0
+    return value if value > 0 else 30.0
+
+SOCKET_TIMEOUT_SECONDS = _resolve_socket_timeout()
 
 def emit_error_json(event_name, error_type, error_details):
     '''Output valid hook error response to stdout.
@@ -873,6 +1002,24 @@ def emit_error_json(event_name, error_type, error_details):
             'The daemon itself is likely healthy — do NOT restart it.',
             'If this recurs, capture the exact hook input and report it.',
         ]
+    elif error_type == 'socket_timeout':
+        # A read-side timeout: connect()+sendall() SUCCEEDED, so the daemon was
+        # reached and is ALIVE — a handler merely ran past the budget. Framing
+        # this as 'daemon not running' and advising a restart is wrong and
+        # actively harmful (a restart fixes nothing). Almost always the session
+        # transcript has grown very large (Plan 00177).
+        context_lines = [
+            f'HOOKS DAEMON: A hook handler exceeded the {SOCKET_TIMEOUT_SECONDS:g}s budget',
+            '',
+            f'Error: {error_type} - {error_details}',
+            '',
+            'The daemon was REACHED and is ALIVE (the connection succeeded); a',
+            'hook handler simply ran past the deadline. This is NOT a dead daemon',
+            '— do NOT restart it, a restart fixes nothing here.',
+            '',
+            'This usually means the session transcript has grown very large.',
+            'Run /compact or start a new session to restore fast hooks.',
+        ]
     else:
         context_lines = [
             'HOOKS DAEMON: Not currently running',
@@ -892,21 +1039,34 @@ def emit_error_json(event_name, error_type, error_details):
         ]
     context = chr(10).join(context_lines)
 
-    # Stop/SubagentStop: top-level decision only (deny to show error). Fail
-    # CLOSED regardless of cause, but keep the reason honest: a malformed payload
-    # failed to parse client-side and never reached the socket, so 'daemon not
-    # running' is wrong for that case (Plan 00157 review follow-up) — mirror the
-    # error_type branch used for context_lines above.
+    # Stop/SubagentStop: top-level decision only. Fail CLOSED (block) for a
+    # genuinely-down daemon, but keep the reason honest and carve out the two
+    # cases where the daemon is NOT down: a malformed payload failed to parse
+    # client-side and never reached the socket (Plan 00157), and a read-side
+    # socket_timeout reached a live-but-slow daemon (Plan 00177) — that one fails
+    # OPEN. Mirror the error_type branches used for context_lines above.
     if event_name in ('Stop', 'SubagentStop'):
-        if error_type == 'invalid_hook_input':
+        if error_type == 'socket_timeout':
+            # Read-side timeout: the daemon was reached and is ALIVE, a handler
+            # was just slow. Fail OPEN (allow the stop) rather than wedge the
+            # session with a misleading block that also re-fires into a 30s
+            # stall loop. The honest diagnostic is on stderr above. Connect/send
+            # failures (genuine down) still fail closed via the else arm below
+            # (Plan 00177).
+            response = {}
+        elif error_type == 'invalid_hook_input':
             reason = ('Hooks daemon received a malformed hook payload - this '
                       'event was not validated (daemon likely healthy; do not restart)')
+            response = {
+                'decision': 'block',
+                'reason': reason,
+            }
         else:
             reason = 'Hooks daemon not running - protection not active'
-        response = {
-            'decision': 'block',
-            'reason': reason,
-        }
+            response = {
+                'decision': 'block',
+                'reason': reason,
+            }
     else:
         # Other events: hookSpecificOutput with context (fail-open allow)
         response = {
@@ -928,6 +1088,12 @@ def fail(error_type, error_details):
         # finding 3). (The non-status path logs stderr inside emit_error_json.)
         print(f'HOOKS DAEMON ERROR [{error_type}]: {error_details}', file=sys.stderr)
         print('⚠️ NO STATUS DATA')
+    elif response_mode == 'worktree':
+        # WorktreeCreate stdout is parsed as a path; a transport failure has no
+        # valid path to offer. Fail creation cleanly (non-zero) with the reason
+        # on stderr rather than emitting '{}' (which becomes a bad path).
+        print(f'HOOKS DAEMON ERROR [{error_type}]: {error_details}', file=sys.stderr)
+        sys.exit(1)
     else:
         emit_error_json(event_name, error_type, error_details)
     sys.exit(0)
@@ -944,6 +1110,24 @@ def render_status(output):
         return data['text']
     return '⚠️ NO STATUS DATA'
 
+def print_worktree(output):
+    '''WorktreeCreate: Claude Code parses this hook's stdout as the created
+    worktree PATH (not JSON), so print the raw .worktreePath the daemon returns.
+    If the daemon produced no path (no handler / error), FAIL the creation
+    cleanly with a non-zero exit rather than echoing '{}' — Claude Code would
+    take '{}' literally as the path '/<cwd>/{}' (the original Plan 00188 bug).'''
+    try:
+        data = json.loads(output)
+    except Exception:
+        data = None
+    path = data.get('worktreePath') if isinstance(data, dict) else None
+    if path:
+        print(path)
+        sys.exit(0)
+    print('HOOKS DAEMON: WorktreeCreate produced no worktree path '
+          '(is the worktree_create handler enabled?)', file=sys.stderr)
+    sys.exit(1)
+
 # Read the raw hook_input payload from stdin (preserves control characters).
 raw = sys.stdin.read()
 
@@ -959,6 +1143,14 @@ except Exception as exc:
 # jq '. + {hook_event_name: \"Status\"}').
 if event_name == 'Status' and isinstance(hook_input, dict):
     hook_input['hook_event_name'] = 'Status'
+    # Forward the terminal size from THIS wrapper process's environment (Plan
+    # 00167) - the daemon is a separate long-running process and never
+    # inherits COLUMNS/LINES. Omit entirely when unset/non-numeric so older
+    # Claude Code clients (<2.1.153, which sends no COLUMNS) degrade cleanly.
+    for _src, _dst in (('COLUMNS', 'terminal_columns'), ('LINES', 'terminal_lines')):
+        _v = os.environ.get(_src)
+        if _v is not None and _v.strip().isdigit():
+            hook_input[_dst] = int(_v)
 
 # Wrap into the daemon request envelope; newline-terminated as the daemon expects.
 request = json.dumps({'event': event_name, 'hook_input': hook_input}) + '\n'
@@ -967,7 +1159,7 @@ socket_path = '$SOCKET_PATH'
 
 try:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(30)  # 30 second timeout
+    sock.settimeout(SOCKET_TIMEOUT_SECONDS)  # budget for connect+send+recv
     sock.connect(socket_path)
     sock.sendall(request.encode('utf-8'))
     sock.shutdown(socket.SHUT_WR)
@@ -985,14 +1177,16 @@ try:
     output = response.decode('utf-8').rstrip('\n')
     if response_mode == 'status':
         print(render_status(output))
+    elif response_mode == 'worktree':
+        print_worktree(output)  # prints raw path + exits (0 on success, 1 if none)
     else:
         print(output)
     sys.exit(0)
 
 except socket.timeout:
     fail('socket_timeout',
-        f'Socket timeout (30s) connecting to daemon at {socket_path}. '
-        'Daemon may be hung or overloaded.')
+        f'Socket timeout ({SOCKET_TIMEOUT_SECONDS:g}s) waiting on daemon at {socket_path}. '
+        'The daemon was reached but a handler ran past the budget (it is alive).')
 
 except FileNotFoundError:
     fail('socket_not_found',
@@ -1006,8 +1200,13 @@ except ConnectionRefusedError:
 
 except Exception as e:
     fail(type(e).__name__, f'{type(e).__name__}: {e}')
-" "$event_name" "$response_mode"
-    return $?
+" "$event_name" "$response_mode" <&3
+    local _rv=$?
+    exec 3<&-
+    if [[ -n "$_nc_replay_payload" ]]; then
+        rm -f "$_nc_replay_payload"
+    fi
+    return $_rv
 }
 
 #
@@ -1033,6 +1232,9 @@ except Exception as e:
 #
 # Args:
 #   $1 - event_name: "Stop" or "SubagentStop"
+#   $2 - event_sock_name: (optional, Plan 00290) this event's bash_key, e.g.
+#        "stop" — threaded through to send_request_stdin's nc rung. Absent
+#        for every deployed forwarder by default (byte-identical).
 #
 # Reads:
 #   stdin: Claude Code hook input JSON
@@ -1045,6 +1247,7 @@ except Exception as e:
 #
 forward_stop_event() {
     local event_name="$1"
+    local event_sock_name="${2:-}"
     if [ -z "$event_name" ]; then
         echo '{"error":"forward_stop_event: event_name required"}' >&2
         return 1
@@ -1060,7 +1263,7 @@ forward_stop_event() {
     # translates decision=block into exit 2 + reason on stderr. The reason may
     # contain control characters, so it is printed straight from python rather
     # than round-tripped through a shell variable.
-    send_request_stdin "$event_name" > "$response_file"
+    send_request_stdin "$event_name" "" "$event_sock_name" > "$response_file"
     cat "$response_file"
 
     python3 -c "
