@@ -225,9 +225,7 @@ final readonly class QaApplication
 
     private function pid(): int
     {
-        $pid = \Safe\getmypid();
-
-        return false === $pid ? 0 : $pid;
+        return \Safe\getmypid();
     }
 
     /** Half the CPU threads, minimum one: the shared parallelism default for the heavy tools. */

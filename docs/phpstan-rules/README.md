@@ -108,6 +108,13 @@ Not PHPStan rules, but lanes of `bin/qa` that print an identifier of their own. 
 | `phpqaci.configTemplateIgnoreList`                  | `ConfigTemplateIgnoreList/ConfigTemplateIgnoreListCheck` | `bin/qa -t cti`  | [Every shipped config template is covered by the PSR-4 ignore list](../tools/configTemplateIgnoreListCheck.md) |
 | `phpqaci.infectionConfigSourceDirectoriesMustExist` | `InfectionConfig/InfectionConfigSourceDirectoriesCheck`  | `bin/qa -t icsd` | [infection.json's `source.directories` resolve to real directories](../tools/infectionConfigSourceDirs.md)     |
 | `phpqaci.versionPins`                               | `VersionPins/VersionPinsCheck`                           | `bin/qa -t vp`   | [phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use](../tools/versionPins.md)      |
+| `phpqaci.psr4Validate`                              | `Pipeline/Lane/Psr4ValidateTool`                         | `bin/qa -t psr4` | [Every PHP file's namespace matches the composer.json autoload mapping](../tools/psr4Validate.md)                  |
+| `phpqaci.packageType`                               | `Pipeline/Lane/PackageTypeTool`                          | `bin/qa -t pt`   | [composer.json declares an explicit `type`](../tools/packageType.md)                                               |
+| `phpqaci.phpstanIgnoreJustification`                | `Pipeline/Lane/PhpstanIgnoreJustificationTool`           | `bin/qa -t pij`  | [Every `ignoreErrors` entry carries a usable justification](../tools/phpstanIgnoreJustification.md)                |
+| `phpqaci.sensitiveParameterUsage`                   | `Pipeline/Lane/SensitiveParameterUsageTool`              | `bin/qa -t spu`  | [`#[\SensitiveParameter]` is used somewhere in src/](../tools/sensitiveParameterUsage.md)                           |
+| `phpqaci.markdownLinks`                             | `Pipeline/Lane/MarkdownLinksTool`                        | `bin/qa -t ml`   | [Every link in README.md and docs/ resolves](../tools/markdownLinks.md)                                            |
+| `phpqaci.phpStrictTypes`                            | `Pipeline/Lane/PhpStrictTypesTool`                       | `bin/qa -t st`   | [Every PHP file declares strict_types](../tools/phpStrictTypes.md)                                                 |
+| `phpqaci.branchNamePolicy`                          | `Pipeline/Lane/BranchNamePolicyTool`                     | `bin/qa -t bnp`  | [A PR branch uses an allowed prefix, never plan/*](../../CLAUDE/branch-policy.md)                                  |
 
 ## Why this index exists
 

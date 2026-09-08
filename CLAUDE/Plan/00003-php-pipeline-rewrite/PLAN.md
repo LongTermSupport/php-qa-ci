@@ -75,9 +75,9 @@ subprocesses. Design notes and dead-ends go in `JOURNAL/`.
 
 ### Phase 2: In-process lanes
 
-- [ ] ⬜ **Task 2.1**: `Psr4Validate`, `PackageType`, `ConfigTemplateIgnoreList`, `InfectionConfigSourceDirs`, `VersionPins`, `PhpstanIgnoreJustification`, `SensitiveParameterUsage`, `MarkdownLinks` as `ToolInterface` classes calling the existing PHP checks.
-- [ ] ⬜ **Task 2.2**: `PhpStrictTypes` (scan + fix, read-only aware) and `BranchNamePolicy` (git probes via ProcessRunner, `qaConfig/branchNamePolicy.yaml` via nette/neon) in PHP; both print identifiers.
-- [ ] ⬜ **Task 2.3**: The `bin/<check>` entrypoints stay for standalone use but are no longer spawned by the pipeline.
+- [x] ✅ **Task 2.1**: `Psr4Validate`, `PackageType`, `ConfigTemplateIgnoreList`, `InfectionConfigSourceDirs`, `VersionPins`, `PhpstanIgnoreJustification`, `SensitiveParameterUsage`, `MarkdownLinks` as `ToolInterface` classes under `Pipeline\Lane` calling the existing PHP checks; every one prints an identifier, indexed in `docs/phpstan-rules/README.md` with a page under `docs/tools/`.
+- [x] ✅ **Task 2.2**: `PhpStrictTypesTool` (scan + fix, read-only aware) and `BranchNamePolicyTool` (`GitBranches` probes via ProcessRunner, `BranchNamePolicyConfig` via nette/neon, pure `BranchNamePolicyDecision`); both print identifiers with index rows.
+- [x] ✅ **Task 2.3**: The `bin/<check>` entrypoints stay for standalone use; the PHP pipeline calls the checks in-process.
 
 ### Phase 3: Subprocess lanes
 

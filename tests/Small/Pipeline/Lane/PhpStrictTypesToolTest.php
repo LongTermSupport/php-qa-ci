@@ -1,0 +1,115 @@
+<?php
+
+declare(strict_types=1);
+
+namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
+
+use LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool;
+use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
+use LTS\PHPQA\Tests\Support\ContextFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * @internal
+ */
+#[CoversClass(PhpStrictTypesTool::class)]
+#[UsesClass(ContextFactory::class)]
+#[Small]
+final class PhpStrictTypesToolTest extends TestCase
+{
+    private ContextFactory $factory;
+
+    protected function setUp(): void
+    {
+        $this->factory = ContextFactory::create();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->factory->project->remove();
+    }
+
+    #[Test]
+    public function everyFileDeclaringStrictTypesPasses(): void
+    {
+        $this->factory->project->write('src/A.php', "<?php\n\ndeclare(strict_types=1);\n");
+        $this->factory->project->write('src/view.phtml', "<?php declare(strict_types=1); ?>\n<p>hi</p>\n");
+        $this->factory->project->write('src/notes.txt', 'not php');
+
+        $result = new PhpStrictTypesTool()->run($this->factory->context());
+
+        self::assertTrue($result->isSuccess());
+        self::assertStringContainsString('All PHP files declare strict_types', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aReadOnlyRunListsTheOffendersAndFailsWithoutTouchingThem(): void
+    {
+        $this->factory->project->write('src/A.php', "<?php\n\nfinal class A {}\n");
+        $this->factory->project->write('tests/deep/BTest.php', "<?php\nfinal class BTest {}\n");
+
+        $result  = new PhpStrictTypesTool()->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString('Files missing declare(strict_types=1):', $printed);
+        self::assertStringContainsString('src/A.php', $printed);
+        self::assertStringContainsString('tests/deep/BTest.php', $printed);
+        self::assertStringContainsString('READ-ONLY run', $printed);
+        self::assertStringContainsString(PhpStrictTypesTool::IDENTIFIER, $printed);
+        self::assertSame("<?php\n\nfinal class A {}\n", $this->factory->project->read('src/A.php'));
+    }
+
+    #[Test]
+    public function aWritableRunAddsTheDeclarationToTheOpeningTag(): void
+    {
+        $this->factory->project->write('src/A.php', "<?php\n\nfinal class A {}\n");
+
+        $result  = new PhpStrictTypesTool()->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertTrue($result->isSuccess());
+        self::assertStringContainsString('fixed: ', $printed);
+        self::assertStringContainsString('Added declare(strict_types=1) to 1 file(s)', $printed);
+        self::assertSame("<?php declare(strict_types=1);\n\nfinal class A {}\n", $this->factory->project->read('src/A.php'));
+    }
+
+    #[Test]
+    public function aFileWithNoOpeningTagCannotBeFixedAndFailsTheWritableRun(): void
+    {
+        $this->factory->project->write('src/A.php', "<?php\n\nfinal class A {}\n");
+        $this->factory->project->write('src/broken.php', "no opening tag here\n");
+
+        $result  = new PhpStrictTypesTool()->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString('fixed: ', $printed, 'the fixable file is still fixed');
+        self::assertStringContainsString('no opening <?php tag found', $printed);
+        self::assertStringContainsString('src/broken.php', $printed);
+        self::assertStringContainsString(PhpStrictTypesTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function aSpecifiedPathThatIsASingleFileIsScanned(): void
+    {
+        $this->factory->project->write('src/A.php', "<?php\nfinal class A {}\n");
+        $config = $this->factory->builder(readOnly: true, specifiedPath: 'src/A.php')->build();
+
+        $result = new PhpStrictTypesTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+    }
+
+    #[Test]
+    public function aMissingPathIsSimplyEmpty(): void
+    {
+        $config = $this->factory->builder(readOnly: true, specifiedPath: 'nope')->build();
+
+        self::assertTrue(new PhpStrictTypesTool()->run($this->factory->context($config))->isSuccess());
+    }
+}
