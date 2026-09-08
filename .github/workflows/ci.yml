@@ -18,14 +18,10 @@ jobs:
       - name: Run ShellCheck at warning severity
         # Fail the build on any warning-or-above finding in the pipeline's own
         # Bash sources. Covers the entry point, CI wrapper, tool fragments under
-        # includes/, and the install/support scripts. The repo was swept clean
-        # at -S warning (2026-07-15) — every SC2154/SC2034/SC1090 false positive
-        # from the sourced-fragment architecture carries a targeted
-        # `# shellcheck disable=SCxxxx` directive with justification, and every
-        # genuine defect (SC2155 masked exit codes, SC2145 mixed array/string,
-        # SC2206/SC2207/SC2010 unsafe splitting, SC2318 stale local) was fixed.
-        # Raised from -S error now that the bar is met — do not lower this back
-        # to -S error without re-auditing.
+        # includes/, and the install/support scripts. These pass at -S warning:
+        # every SC2154/SC2034/SC1090 false positive from the sourced-fragment
+        # architecture carries a targeted `# shellcheck disable=SCxxxx` directive
+        # with justification. Do not lower this to -S error.
         run: |
           shellcheck --version
           mapfile -t shellFiles < <(find includes scripts qaConfig -type f \( -name '*.bash' -o -name '*.sh' \) | sort)

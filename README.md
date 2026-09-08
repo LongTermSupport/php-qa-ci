@@ -65,20 +65,25 @@ PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 3\. PSR-4 Validation
 4\. Composer Checks
 5\. Package Type Declaration (always-on)
-6\. Strict Types Enforcement
-7\. PHP Lint
-8\. Composer Require Checker
-9\. Markdown Links Checker
+6\. Config Template Ignore-List Audit (always-on)
+7\. Infection Config Source Directories Check (always-on)
+8\. PHPUnit Config Version Check (always-on)
+9\. GitHub Actions PHP Version Check (always-on)
+10\. Strict Types Enforcement
+11\. PHP Lint
+12\. Composer Require Checker (starts with the always-on Safe scan-files preflight)
+13\. Markdown Links Checker
 
 **Phase 3 -- Static Analysis:**
-10\. Branch Name Policy (always-on; runs first in this phase)
-11\. PHPStan (level max)
-12\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
-13\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
+14\. Branch Name Policy (always-on; runs first in this phase)
+15\. PHPStan ignoreErrors Justification (always-on)
+16\. PHPStan (level max)
+17\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
+18\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
 
 **Phase 4 -- Testing:**
-14\. PHPUnit
-15\. Infection (mutation testing, optional, requires Xdebug)
+19\. PHPUnit
+20\. Infection (mutation testing, optional, requires Xdebug)
 
 **Post-Success:** PHPLoc (stats only, not part of the pass/fail gate)
 
@@ -246,6 +251,14 @@ These rules are active automatically in every project that uses php-qa-ci — no
   class-like must be classified as exactly one of `@api` / `@internal` (no-ops for other package types)
 - **ApiMustNotExposeInternalRule** -- An `@api` class-like must not expose an `@internal` one from the
   same package through its public signature
+- **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony
+  refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and
+  `.env` files itself; auto-skips on non-Symfony projects
+- **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare
+  `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path.
+  Use `VendoredCodeDetector`
+- **ForbidInlinePhpstanIgnoreRule** -- Bans inline `@phpstan-ignore` annotations. A suppression that is
+  genuinely irreducible goes in `phpstan.neon` `ignoreErrors`, where it is visible in review
 
 `rules-default.neon` is the authoritative list of always-on rules — the above are its currently
 wired rules; consult that file if in doubt.
@@ -281,11 +294,11 @@ parameters:
 
 ### Optional rules (opt-in)
 
-Eleven additional rules ship as opt-in, split across two files:
+Twelve additional rules ship as opt-in, split across two files:
 
-- **`rules-optional.neon`** — 7 generic rules suitable for any PHP project (5 named in its `rules:`
+- **`rules-optional.neon`** — 8 generic rules suitable for any PHP project (6 named in its `rules:`
   block plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — all 7 generic rules + 4 Symfony/Doctrine-specific rules (11 total)
+- **`rules-optional-symfony.neon`** — all 8 generic rules + 4 Symfony/Doctrine-specific rules (12 total)
 
 (A further rule, `ForbidMagicStringAssertionRule`, ships but is in **neither** bundle — it is
 experimental/high-noise and must be cherry-picked deliberately.)
@@ -480,6 +493,9 @@ Tool-specific documentation:
 - **[PHPUnit](./docs/tools/phpunit.md)** -- Test runner configuration and modes
 - **[Infection](./docs/tools/infection.md)** -- Mutation testing setup
 - **[Package Type](./docs/tools/packageType.md)** -- The always-on `composer.json` `type` check
+- **[PHPUnit Config Version](./docs/tools/phpunitConfigVersion.md)** -- The always-on phpunit.xml version-pin check
+- **[GitHub Actions PHP Version](./docs/tools/githubActionsPhpVersion.md)** -- The always-on workflow PHP-version-detection check
+- **[Composer Require Checker Safe scan-files](./docs/tools/composerRequireCheckerSafeScanFiles.md)** -- The always-on Safe scan-files preflight
 - **[Require @api / @internal](./docs/tools/requireApiOrInternal.md)** -- API-surface classification rule
 - **[SensitiveParameter Usage](./docs/tools/sensitiveParameterUsage.md)** -- The always-on `#[\SensitiveParameter]` check
 
@@ -512,9 +528,9 @@ vendor/bin/qa -t stan -p src/Domain
 
 ### Branches
 
-- `php8.5` -- Targets PHP 8.5 (will become the default branch)
+- `php8.5` -- Targets PHP 8.5
 - `php8.4` -- Default branch, targets PHP 8.4
-- `php8.3` -- PHP 8.3 support
+- `php8.3` -- Targets PHP 8.3
 
 ## Long Term Support
 

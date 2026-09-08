@@ -22,8 +22,7 @@ source "$QACI_PATH/scripts/lib/consumer-write.inc.bash"
 
 # Minimum hooks-daemon version the daemon-config enforcement below targets
 # (fingerprint-keyed venv + pyyaml). A single constant so the "not detected"
-# install instructions cannot drift from what the YAML enforcement path requires
-# (this previously pinned v2.2.0 while the enforcement assumed v3.9.0+).
+# install instructions cannot drift from what the YAML enforcement path requires.
 readonly DAEMON_INSTALL_REF="v3.9.0"
 
 # python3 is required for the settings.json / composer.json merges below (system

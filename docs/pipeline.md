@@ -69,20 +69,25 @@ This step includes:
 3. **PSR-4 Validation** -- Namespace/directory structure compliance
 4. **Composer Checks** -- Diagnose, normalize, dump autoloader
 5. **Package Type Declaration** -- Always-on: requires `composer.json` to declare a `type`
-6. **Strict Types Enforcement** -- Ensures `declare(strict_types=1)`
-7. **PHP Lint** -- Fast parallel syntax checking
-8. **Composer Require Checker** -- Missing dependency detection (runs as PHAR)
-9. **Markdown Links Checker** -- Link validation in documentation
+6. **Config Template Ignore-List Audit** -- Always-on self-check: every namespace-less `configDefaults/generic/` template is covered by `psr4-validate-ignore-list.txt`
+7. **Infection Config Source Directories Check** -- Always-on: infection.json's `source.directories` must resolve to real directories
+8. **PHPUnit Config Version Check** -- Always-on: phpunit.xml's version pins match the installed PHPUnit major
+9. **GitHub Actions PHP Version Check** -- Always-on: every PHP-version-detecting workflow can select the PHP `composer.json` requires
+10. **Strict Types Enforcement** -- Ensures `declare(strict_types=1)`
+11. **PHP Lint** -- Fast parallel syntax checking
+12. **Composer Require Checker** -- Missing dependency detection (runs as PHAR); starts with the Safe scan-files preflight
+13. **Markdown Links Checker** -- Link validation in documentation
 
 #### Phase 3: Static Analysis
-10. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase)
-11. **PHPStan** -- Static analysis at level max (runs as PHAR)
-12. **PHPArkitect** -- Architecture rules; on by default (`useArkitect=0` to disable, runs as PHAR)
-13. **SensitiveParameter Usage** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
+14. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase)
+15. **PHPStan ignoreErrors Justification** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment
+16. **PHPStan** -- Static analysis at level max (runs as PHAR)
+17. **PHPArkitect** -- Architecture rules; on by default (`useArkitect=0` to disable, runs as PHAR)
+18. **SensitiveParameter Usage** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
 
 #### Phase 4: Testing
-14. **PHPUnit** -- Unit and integration tests
-15. **Infection** -- Mutation testing (optional, requires Xdebug, runs as PHAR)
+19. **PHPUnit** -- Unit and integration tests
+20. **Infection** -- Mutation testing (optional, requires Xdebug, runs as PHAR)
 
 To read about each tool in detail, see [PHPQA's suite of tools](./phpqa-tools.md).
 

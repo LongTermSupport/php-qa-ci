@@ -19,7 +19,9 @@
 # - Go to Settings → Branches
 # - Add rule for main/master branch
 # - Check "Require status checks to pass before merging"
-# - Select "PHP QA Pipeline" as required check
+# - Select the required check-run names: "Detect PHP Version", "PHP QA (<version>)"
+#   (e.g. "PHP QA (8.5)") and "Coverage Report". These are the job names;
+#   "PHP QA Pipeline" is the workflow name and is not a selectable status check.
 #
 # CUSTOMIZATION:
 # --------------

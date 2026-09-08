@@ -14,7 +14,7 @@ declare(strict_types=1);
  * PHP 8.5 Compatibility Note:
  * - This config includes PHP 8.5 migration rules via @PHP8x5Migration (cumulative
  *   over the 8.4 set, so the implicit-nullable fixes stay in force)
- * - PHP CS Fixer v3.95+ supports PHP 8.5 natively (no PHP_CS_FIXER_IGNORE_ENV needed)
+ * - PHP CS Fixer 3.95+ supports PHP 8.5 natively
  */
 
 use Composer\Autoload\ClassLoader;
@@ -57,7 +57,6 @@ $rules = [
             'method_private',
         ],
     ],
-    // phpcs/phpcbf have been removed from the pipeline in favor of PHP CS Fixer
     'ordered_imports'                     => [
         'sort_algorithm' => 'alpha',
         // this is the PSR12 order, do not change

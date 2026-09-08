@@ -104,6 +104,35 @@ by a pattern in `psr4-validate-ignore-list.txt`, or the documented override fail
 Identifier `phpqaci.configTemplateIgnoreList`. See
 [tools/configTemplateIgnoreListCheck.md](./tools/configTemplateIgnoreListCheck.md).
 
+### Infection Config Source Directories Check
+
+[Infection Config Source Directories Tool](../includes/generic/infectionConfigSourceDirs.inc.bash)
+
+Always-on check that every entry in infection.json's `source.directories` resolves, relative to
+infection.json's own directory, to a real directory. Identifier `phpqaci.infectionConfigSourceDirs`.
+See [tools/infectionConfigSourceDirs.md](./tools/infectionConfigSourceDirs.md).
+
+### PHPUnit Config Version Check
+
+[PHPUnit Config Version Tool](../includes/generic/phpunitConfigVersion.inc.bash)
+
+Always-on check that the resolved phpunit.xml's version pins (the schema URL in
+`xsi:noNamespaceSchemaLocation` and any `SYMFONY_PHPUNIT_VERSION` pin) match the major version of
+the installed PHPUnit. Runs immediately after the Infection Config Source Directories Check;
+standalone alias `-t pcv`. Identifier `phpqaci.phpunitConfigVersion`. See
+[tools/phpunitConfigVersion.md](./tools/phpunitConfigVersion.md).
+
+### GitHub Actions PHP Version Check
+
+[GitHub Actions PHP Version Tool](../includes/generic/githubActionsPhpVersion.inc.bash)
+
+Always-on check that every GitHub Actions workflow under `.github/workflows/` and every shipped
+template under `templates/github-actions/` that derives a runner PHP from `composer.json` can
+select, and defaults to, the PHP version `composer.json` requires; the shipped consumer template
+must stay identical to the workflow this repository runs. Runs immediately after the PHPUnit
+Config Version Check; standalone alias `-t gapv`. Identifier `phpqaci.githubActionsPhpVersion`.
+See [tools/githubActionsPhpVersion.md](./tools/githubActionsPhpVersion.md).
+
 ### Strict Types Enforcement
 
 [Strict Types Tool](../includes/generic/phpStrictTypes.inc.bash)
@@ -128,6 +157,13 @@ See the [PHP Parallel Lint project page](https://github.com/php-parallel-lint/PH
 Ensures all code dependencies are explicitly declared in `composer.json`. Catches use of transitive dependencies that are not directly required.
 
 This tool runs as a **PHAR** from `vendor-phar/composer-require-checker.phar`.
+
+#### Safe scan-files preflight
+
+The lane starts with an always-on preflight: every `thecodingmachine/safe` entry in the resolved
+`composerRequireChecker.json`'s `scan-files` must name the generated file safe actually loads on
+the PHP version QA runs under. Identifier `phpqaci.composerRequireCheckerSafeScanFiles`. See
+[tools/composerRequireCheckerSafeScanFiles.md](./tools/composerRequireCheckerSafeScanFiles.md).
 
 ### Markdown Links Checker
 

@@ -5,7 +5,11 @@ declare(strict_types=1);
 use Rector\Config\RectorConfig;
 
 /*
- * The configuration for Rector to run on PHPUnit 10 is also good for PHPUnit 9.1 upwards
+ * Rector config for Safe-function conversion: applies thecodingmachine/safe's
+ * (or shish/safe's) rector-migrate.php rule set, which rewrites false-returning
+ * native calls to their throwing \Safe\* equivalents. Runs at half the CPU
+ * threads, and preflights that safe is declared as a PRODUCTION dependency,
+ * because the converted code depends on it at runtime.
  */
 return static function (RectorConfig $rectorConfig): void {
     // Limit parallel processing to use only half of available CPU threads

@@ -1,9 +1,10 @@
 # Project overrides for the branchNamePolicy gate (see CLAUDE/branch-policy.md).
 #
 # php-qa-ci keeps one long-lived branch per supported PHP minor. Only the
-# repo's detected default branch is exempt automatically, so the other version
-# branches must be declared here or the gate fails on them (e.g. while php8.5
-# is being prepared before it becomes the default).
+# repo's detected default branch is exempt automatically, so every version
+# branch that is not the current default must be declared here or the gate
+# fails on it. Listing all of them keeps this file correct whichever one is
+# the default.
 extra_exempt_branches:
   - php8.3
   - php8.4

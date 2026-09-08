@@ -3,10 +3,9 @@ echo "
 Setting Infection Minimums
 --------------------------
 "
-# Monotonic ratchet — raise-only. Measured 84.68% covered MSI on 2026-07-15
-# (first complete Infection run on this branch, after the T6.6 mutant-killing
-# wave lifted it from 75.92%); floors set 2.7pp under the measurement to absorb
-# run-to-run timeout variance (~0.4pp observed). Raise again as the score rises.
+# Monotonic ratchet — raise-only. The floors sit a few points under the last
+# measured covered MSI to absorb run-to-run timeout variance. Raise them as the
+# score rises; never lower them.
 # shellcheck disable=SC2034 # consumed by includes/generic/infection.inc.bash (via the minMsi/
 #   minCoveredMsi fallback chain) once this project override has been sourced by bin/qa.
 infectionMutationScoreIndicator=82

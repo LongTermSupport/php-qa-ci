@@ -6,9 +6,12 @@ use Rector\Config\RectorConfig;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 
 /*
- * Rector 2.6+ dropped the versioned PHPUnit sets (PHPUNIT_100 etc.) in favour of
- * COMPOSER_BASED, which applies the upgrade rules matching the PHPUnit version
- * locked in the project's composer.lock.
+ * PHPUnit upgrade rules are selected by PHPUnitSetList::COMPOSER_BASED, which
+ * picks the rules matching the PHPUnit version locked in the project's
+ * composer.lock; Rector exposes no versioned set constants (PHPUNIT_100 etc.).
+ * The rule CLASSES under the versioned namespaces still exist, which is why
+ * individual ones (e.g. PHPUnit100\...\ParentTestClassConstructorRector) can be
+ * skipped by class name below.
  */
 
 return static function (RectorConfig $rectorConfig): void {

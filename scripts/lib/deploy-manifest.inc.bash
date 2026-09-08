@@ -3,9 +3,9 @@
 #
 # WHY AN EXPLICIT LIST RATHER THAN A GLOB
 # ---------------------------------------
-# The deploy loops used to iterate `$SOURCE/*`, so "what we ship" was whatever
-# happened to be sitting in .claude/ at package time. That is not a decision, it
-# is an accident, and it fails in both directions:
+# A glob over `$SOURCE/*` would make "what we ship" whatever happens to be
+# sitting in .claude/ at package time. That is not a decision, it is an
+# accident, and it fails in both directions:
 #
 #   - A directory that is NOT ours to deploy gets deployed anyway. The
 #     hooks-daemon skill is the worked example: the hooks daemon deploys that
