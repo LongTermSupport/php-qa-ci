@@ -29,6 +29,12 @@
 #   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
 #                                           should be variadic T ...$param instead
 #
+# ENUM OVER A DOCBLOCK LITERAL SET:
+#   RequireEnumOverLiteralUnionRule      — a scalar @param/@return typed as 'a'|'b' (or 0|1)
+#                                          in the docblock is an enum that never got declared;
+#                                          declare a backed enum. See
+#                                          docs/phpstan-rules/require-enum-over-literal-union.md
+#
 # FACTORY-SEALED CONSTRUCTION:
 #   FactorySealedRule                    — a class marked with a sealing attribute
 #                                          (#[FactorySealedBy(Factory::class)], or any
@@ -75,6 +81,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+    - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
 
 parameters:
     phpqaciFactorySealed:

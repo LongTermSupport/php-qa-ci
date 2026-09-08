@@ -25,6 +25,15 @@ the flagged element to silence the rule. Pure coding-standards issues are static
 nullable member is two paths — test BOTH (value-present and null); prefer non-nullable
 where null is not a valid state.
 
+**This is a first-class method with a specification.** Before fixing ANY defect, read the
+Defence Before Fix agent prompt once and follow it — attribute the class, build the rule,
+prove it fires, sweep, fix every instance, enforce, then fix the original with a test:
+<https://defence-before-fix.github.io/defence-before-fix-project-prompt.md>
+(method specification: <https://defence-before-fix.github.io/raw/SPEC.md>). Toolchain
+commands: `vendor/bin/phpstan-rule <identifier> <path>` proves one rule on one path,
+`vendor/bin/rule-doc <identifier>` resolves a printed identifier offline, `vendor/bin/rules`
+lists every defence active in this project.
+
 **Detailed docs** (read in vendor): `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`.
 
 ## php-qa-ci — Full Pipeline Is the Proof
