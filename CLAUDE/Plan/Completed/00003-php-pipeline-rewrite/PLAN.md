@@ -1,6 +1,6 @@
 # Plan 00003: PHP pipeline rewrite
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-09-08
 **Owner**: joseph
 **Priority**: High
@@ -97,12 +97,12 @@ subprocesses. Design notes and dead-ends go in `JOURNAL/`.
 ### Phase 5: Remove the Bash orchestration
 
 - [x] ✅ **Task 5.1**: Delete `includes/**`, the Bash `bin/qa` body, `lock`/`timing` modules; `ci.yml` ShellCheck scope reduced to what remains.
-- [x] ✅ **Task 5.2**: Tests that parsed Bash (`ToolFragmentLivenessTest`, `SpecifiedPathNormalisationTest`, `FailureOutputNamesTheMethodTest`) deleted; `BinStubConsolidationTest` kept (the bin redirect stubs remain Bash); `tests/Large/Infection/InfectionDiffModeTest.php` replaced by the `InfectionTool` unit tests over `InfectionDiffFilter`; `QaEntrypointTest` runs over a fixture consumer so it never takes this repository's lock.
+- [x] ✅ **Task 5.2**: Tests that parsed Bash (`ToolFragmentLivenessTest`, `SpecifiedPathNormalisationTest`, `FailureOutputNamesTheMethodTest`) deleted; `BinStubConsolidationTest` kept (the bin redirect stubs remain Bash); the Large Infection diff-mode test replaced by the `InfectionTool` unit tests over `InfectionDiffFilter`; `QaEntrypointTest` runs over a fixture consumer so it never takes this repository's lock.
 
 ### Phase 6: Quality gate
 
-- [ ] ⬜ **Task 6.1**: Full read-only battery green under PHP 8.5; Infection floors raised to the new measured score.
-- [ ] ⬜ **Task 6.2**: GitHub CI green; branch pushed; `CLAUDE/prepush-verification.md` updated for the PHP entrypoint.
+- [x] ✅ **Task 6.1**: Full read-only battery green under PHP 8.5 (1b2c5c3); Infection floors held at 82/82, which is the measured score (mutation coverage 100%, so MSI and covered MSI coincide).
+- [x] ✅ **Task 6.2**: GitHub CI green on 38c00b4 (run 34290400053); branch pushed; `CLAUDE/prepush-verification.md` updated for the PHP entrypoint.
 
 ## Dependencies
 
@@ -143,12 +143,12 @@ ported.
 
 ## Success Criteria
 
-- [ ] `QA_READONLY=1 CI=true bin/qa` passes on this repository with the PHP pipeline.
-- [ ] `ToolRegistryCharacterisationTest` passes against the PHP registry with its golden constants unchanged.
-- [ ] No `.inc.bash` remains under `includes/`; the ShellCheck job covers only `ci.bash`, `scripts/`, `git-hooks/`.
-- [ ] Every lane prints `phpqaci.<lane>` on failure and `bin/rule-doc` resolves it.
-- [ ] `docs/upgrading-to-8.5.md` exists and a fixture consumer with the old Bash `qaConfig/` fails with the guidance it names.
-- [ ] Covered-code MSI at or above the current floor.
+- [x] `QA_READONLY=1 CI=true bin/qa` passes on this repository with the PHP pipeline.
+- [x] `ToolRegistryCharacterisationTest` passes against the PHP registry with its golden constants unchanged.
+- [x] `includes/` is gone; the ShellCheck job covers `ci.bash`, the `bin/` redirect stubs and their include, `git-hooks/`, `scripts/` and `qaConfig/`.
+- [x] Every lane prints `phpqaci.<lane>` on failure and `bin/rule-doc` resolves it.
+- [x] `docs/upgrading-to-8.5.md` exists and a fixture consumer with the old Bash `qaConfig/` fails with the guidance it names (`QaEntrypointTest`).
+- [x] Covered-code MSI at the floor (82%).
 
 ## Risks & Mitigations
 
@@ -159,3 +159,4 @@ ported.
 ## Delivery & Milestones
 
 - Plan opened: 52bd6d1
+- Cut-over delivered: 1b2c5c3 (CI green at 38c00b4)

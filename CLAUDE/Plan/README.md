@@ -10,10 +10,11 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00003: PHP pipeline rewrite](00003-php-pipeline-rewrite/PLAN.md) - In Progress — Bash orchestration replaced by TDD PHP 8.5 under LTS\PHPQA\Pipeline, shipped with the 8.5 switch
 - [00001: Repo Audit & Tidy](00001-repo-audit-and-tidy/PLAN.md) - In Progress
 
 ## Completed Plans
+
+- [00003: PHP pipeline rewrite](Completed/00003-php-pipeline-rewrite/PLAN.md) - Complete — Bash orchestration replaced by TDD PHP 8.5 under LTS\PHPQA\Pipeline; `bin/qa` is PHP, `qaConfig/qa.php` is the consumer contract (delivered 1b2c5c3)
 
 - [00002: PHAR-vendored Rector](Completed/00002-phar-vendored-rector/PLAN.md) - Complete — Rector now ships as the committed `vendor-phar/rector.phar`; `tools/rector/` and `PhiveUpdatePlugin` deleted
 
