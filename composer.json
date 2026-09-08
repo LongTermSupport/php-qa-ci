@@ -112,9 +112,27 @@
       "LTS\\PHPQA\\ComposerPlugin\\ManagedSourceDeployPlugin"
     ],
     "defence-before-fix": {
-      "known-gaps": [],
+      "known-gaps": [
+        "toolchain 4.1: the PHPArkitect lane prints no identifier with a violation, runs only over the whole class set, and has no resolver for its bundled tier, so that detector as wrapped fails detector 4.3, 5.2 and 6.1 to 6.3",
+        "toolchain 4.1: the packageType, phpstanIgnoreJustification, sensitiveParameterUsage, branchNamePolicy and phpStrictTypes lanes print no identifier with a failure, failing detector 4.3",
+        "toolchain 4.1: PHPStan's native identifiers resolve online only and bin/rule-doc does not resolve them, so that detector as wrapped fails detector 6.2 and 6.3",
+        "toolchain 4.2: fifteen bundled PHPStan rules resolve to a one-line index row and no page stating the correct construction",
+        "toolchain 4.3: a phparkitect-baseline.json is read silently by the PHPArkitect lane, and a PHPStan baseline included from qaConfig/phpstan.neon is not checked by the justification lane",
+        "toolchain 5.1: pipeline lanes are listed by bin/rules without an identifier or a documentation route",
+        "toolchain 6.2: the justification lane reads qaConfig/phpstan.neon alone and not the files it includes",
+        "toolchain 8.1: the release guard requires an index row, not a remediation page, and a lane that prints no identifier is outside it"
+      ],
       "method": "1.0.0",
-      "toolchain": "0.1.0"
+      "project": {
+        "known-gaps": [
+          "toolchain 4.1: the same PHPArkitect, lane and PHPStan native-identifier gaps as the artefact, since the project runs the toolchain it ships",
+          "toolchain 4.2: the same fifteen bundled rules run on this repository and resolve to no remediation page",
+          "toolchain 4.3: the same silent PHPArkitect baseline route is open on this repository"
+        ],
+        "method": "1.0.0",
+        "toolchain": "0.2.0"
+      },
+      "toolchain": "0.2.0"
     },
     "phpstan": {
       "includes": [
