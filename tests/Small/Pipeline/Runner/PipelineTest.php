@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 
+use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Runner\AggregateReport;
 use LTS\PHPQA\Pipeline\Runner\DirectoryPreparer;
@@ -67,6 +68,23 @@ final class PipelineTest extends TestCase
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'the lock is released');
         self::assertFileExists($this->factory->project->path . '/var/qa/cache/.gitignore', 'directories are prepared');
+    }
+
+    #[Test]
+    public function aSymfonyProjectRunsTheTwigAndYamlLintersAfterTheGenericLintingLanes(): void
+    {
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, platform: PlatformEnum::Symfony)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        $printed = $this->factory->output->fetch();
+        \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
+        $captured = $ran[1] ?? null;
+        $order    = \is_array($captured) ? array_values(array_filter($captured, is_string(...))) : [];
+        self::assertContains('twigLint', $order);
+        self::assertContains('yamlLint', $order);
+        self::assertGreaterThan(array_search('markdownLinks', $order, true), array_search('twigLint', $order, true));
+        self::assertLessThan(array_search('branchNamePolicy', $order, true), array_search('yamlLint', $order, true));
+        self::assertStringContainsString('Running Twig Linter', $printed);
     }
 
     #[Test]

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Tool;
 
+use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\Exception\UnknownToolException;
 
@@ -72,6 +73,24 @@ final readonly class ToolRegistry
             new ToolDefinitionDto('phploc', ['l', 'loc'], 'lines of code and other stats', null, true),
             new ToolDefinitionDto('uniterate', ['uniterate'], 'phpunit iterative mode - prioritise broken tests and fail on error', null, false, target: 'phpunit'),
         );
+    }
+
+    /**
+     * The lanes a platform adds to a phase, on top of the generic set. They
+     * are not `-t` selectable and are not part of the frozen registry.
+     *
+     * @return list<ToolDefinitionDto>
+     */
+    public static function platformLanes(PlatformEnum $platform, PhaseEnum $phase): array
+    {
+        if (PlatformEnum::Symfony !== $platform || PhaseEnum::Linting !== $phase) {
+            return [];
+        }
+
+        return [
+            new ToolDefinitionDto('twigLint', [], 'Symfony twig linter', PhaseEnum::Linting, false, banner: 'Running Twig Linter'),
+            new ToolDefinitionDto('yamlLint', [], 'Symfony yaml linter', PhaseEnum::Linting, false, banner: 'Running Yaml Linter'),
+        ];
     }
 
     /** Resolve a `-t` token to its definition. */

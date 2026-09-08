@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Runner;
 
+use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
@@ -66,7 +67,7 @@ final readonly class Pipeline
             $definition = $this->registry->definition($config->singleTool);
             $this->banner(\sprintf('Running Single Tool: %s', $definition->name), '-');
             $tools = $definition->isPhaseRunner && $definition->phase instanceof PhaseEnum
-                ? $this->registry->toolsForPhase($definition->phase)
+                ? $this->toolsFor($definition->phase, $config->platform)
                 : [$definition];
             $ok = $this->runTools($tools, $context, $failed, $retried, gated: $definition->isPhaseRunner);
 
@@ -75,7 +76,7 @@ final readonly class Pipeline
 
         foreach (PhaseEnum::cases() as $phase) {
             $this->banner($phase->banner(), '=');
-            if (!$this->runTools($this->registry->toolsForPhase($phase), $context, $failed, $retried, gated: true)) {
+            if (!$this->runTools($this->toolsFor($phase, $config->platform), $context, $failed, $retried, gated: true)) {
                 return $this->finish(false, $failed, $retried, $config->aggregate);
             }
         }
@@ -133,6 +134,17 @@ final readonly class Pipeline
         }
 
         return true;
+    }
+
+    /**
+     * A phase's generic lanes followed by the platform's own (Symfony's twig
+     * and yaml linters after the generic linting lanes).
+     *
+     * @return list<ToolDefinitionDto>
+     */
+    private function toolsFor(PhaseEnum $phase, PlatformEnum $platform): array
+    {
+        return [...$this->registry->toolsForPhase($phase), ...ToolRegistry::platformLanes($platform, $phase)];
     }
 
     /** @param list<string> $failed */

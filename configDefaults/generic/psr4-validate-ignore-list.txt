@@ -1,6 +1,10 @@
 #tests/bootstrap\.php#
 #tests/phpstan-bootstrap\.php#
 #tests/Asset#
+#qaConfig/qa\.php#
+#qaConfig/hookPre\.php#
+#qaConfig/hookPost\.php#
+#qaConfig/tools/#
 #qaConfig/phparkitect\.php#
 #qaConfig/php_cs\.php#
 #qaConfig/php_cs_finder\.php#
