@@ -1,6 +1,6 @@
-# Pre-Push Verification (php8.4 = production)
+# Pre-Push Verification (php8.5 = production)
 
-Pushing `php8.4` deploys to production (user ruling 2026-07-15). Branch
+Pushing `php8.5` deploys to production (user ruling 2026-07-15). Branch
 protection requires PRs but the maintainer account bypasses it, so the local
 battery below is the real gate. CI runs the FULL pipeline in read-only mode
 (`qaReadOnly=true`, aggregate) — a pending Rector or PHP CS Fixer change FAILS
@@ -11,7 +11,7 @@ the gate, not just test/analysis errors.
 Reproduce `QA_READONLY=1 bin/qa` in full, or at minimum:
 
 1. All three Rector configs in dry-run: `rector-safe` (src+tests),
-   `rector-phpunit` (tests), `rector-php84` (src+tests — runs whenever the repo
+   `rector-phpunit` (tests), `rector-php85` (src+tests — runs whenever the repo
    has no project-level rector.php).
 2. `php-cs-fixer` dry-run.
 3. PHPStan via the pipeline (`QA_READONLY=1 bin/qa -t stan [-p src]`), NOT the
@@ -26,7 +26,7 @@ Reproduce `QA_READONLY=1 bin/qa` in full, or at minimum:
   `pathsToIgnore=("tests/assets" "src/PHPUnit/TestDox")`. Including fixture
   assets produces false errors (deliberately-broken ParseError.php etc.).
 - CI's rector fragment exits at the FIRST failing config, so a rector-safe
-  failure can hide a rector-php84 failure behind it — always dry-run all three.
+  failure can hide a rector-php85 failure behind it — always dry-run all three.
 
 ## The Safe-conversion ripple (rector-safe)
 

@@ -98,7 +98,7 @@ env:
 3. Check "Require status checks to pass before merging"
 4. Select the required **check-run** names — these are the job names, not the workflow name.
    For the `php-qa-ci.yml` template they are "Detect PHP Version", "PHP QA (<version>)" (the version
-   is filled in dynamically, e.g. "PHP QA (8.4)"), and "Coverage Report". ("PHP QA Pipeline" is the
+   is filled in dynamically, e.g. "PHP QA (8.5)"), and "Coverage Report". ("PHP QA Pipeline" is the
    workflow name shown in the Actions tab, not a selectable status check.)
 
 ## Inline-Barrier (autofix → read-only gate)
@@ -251,7 +251,7 @@ The workflow includes:
 **"php-qa-ci not installed" error**
 
 ```bash
-composer require --dev lts/php-qa-ci:dev-php8.4@dev
+composer require --dev lts/php-qa-ci:dev-php8.5@dev
 ```
 
 **Permission denied for auto-commits**

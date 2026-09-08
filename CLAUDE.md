@@ -6,7 +6,7 @@ Persistent Claude memory is DISABLED for this project — never write to the
 harness memory store (`~/.claude/projects/*/memory/`). ALL knowledge, memory
 and context MUST be tracked in-repo, clean of secrets: durable operational
 knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
-— the mandatory pre-push battery; pushing `php8.4` deploys to production),
+— the mandatory pre-push battery; pushing `php8.5` deploys to production),
 programme/work records in `CLAUDE/Plan/`.
 
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
@@ -38,7 +38,7 @@ clone required:
   A consumer's `bin/qa` validates the CONSUMER's code; the commands above validate
   php-qa-ci itself (its `Large` include-level tests, PHPStan, Rector/CS-Fixer
   dry-run). This is the battery [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
-  mandates before a `php8.4` push. The nested `vendor/lts/php-qa-ci/vendor/` from
+  mandates before a `php8.5` push. The nested `vendor/lts/php-qa-ci/vendor/` from
   `composer install` is the package's own dev environment, isolated from the
   consumer's tree.
 
@@ -274,20 +274,21 @@ The `runTool` function is the heart of the system:
 
 3. In non-CI mode, allows retry on failure via `tryAgainOrAbort`
 
-## PHP 8.4 Compatibility (php8.4 branch)
+## PHP 8.5 Compatibility (php8.5 branch)
 
 ### Changes Made
 
 - **Removed PHP_CodeSniffer** completely (was conflicting with PHP CS Fixer)
-- **Updated PHP CS Fixer config** to use the `@PHP8x4Migration` ruleset
+- **Updated PHP CS Fixer config** to use the `@PHP8x5Migration` ruleset (cumulative over 8.4)
 - **Added nullable type rules** for PHP 8.4's deprecation of implicit nullable parameters
-- **PHP CS Fixer v3.84.0+** supports PHP 8.4 natively (no `PHP_CS_FIXER_IGNORE_ENV` needed)
+- **Rector** runs `LevelSetList::UP_TO_PHP_85` via `rector-php85.php`
+- **PHP CS Fixer v3.95+** supports PHP 8.5 natively (no `PHP_CS_FIXER_IGNORE_ENV` needed)
 
-### PHP 8.4 Specific Configuration
+### PHP 8.5 Specific Configuration
 
 ```php
 // In configDefaults/generic/php_cs.php
-'@PHP8x4Migration' => true,
+'@PHP8x5Migration' => true,
 'nullable_type_declaration_for_default_null_value' => true,
 'nullable_type_declaration' => ['syntax' => 'question_mark'],
 ```
@@ -391,7 +392,7 @@ the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-s
 ## Environment Requirements
 
 - Linux/Unix environment (uses bash)
-- PHP 8.4 or higher on this branch (`composer.json` requires `^8.4`; the `php8.4` branch targets PHP 8.4, while the separate `php8.3` branch supports PHP 8.3)
+- PHP 8.5 or higher on this branch (`composer.json` requires `^8.5`; the `php8.5` branch targets PHP 8.5, while the separate `php8.4` and `php8.3` branches support PHP 8.4 and 8.3)
 - Composer-installed project with php-qa-ci as a dependency
 - Your project's composer.json must allow the `ergebnis/composer-normalize` plugin:
   ```json
@@ -410,10 +411,10 @@ You can specify which PHP binary to use via the `PHP_QA_CI_PHP_EXECUTABLE` envir
 
 ```bash
 # Use specific PHP version (assuming default vendor/bin location)
-PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.4 vendor/bin/qa
+PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.5 vendor/bin/qa
 
 # Or export for the session
-export PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.4
+export PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.5
 vendor/bin/qa
 ```
 

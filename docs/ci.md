@@ -14,7 +14,7 @@ PHP-QA-CI ships with three GitHub Actions workflows in `.github/workflows/`:
 
 ### ci.yml
 
-The main CI workflow. Runs on push and pull requests to the `php8.4` branch. Executes `bash ci.bash`.
+The main CI workflow. Runs on push and pull requests to the `php8.5` branch. Executes `bash ci.bash`.
 
 See [.github/workflows/ci.yml](./../.github/workflows/ci.yml).
 

@@ -8,6 +8,6 @@
 #qaConfig/phparkitect-rules-default\.php#
 #qaConfig/phparkitect-rules-optional\.php#
 #qaConfig/phparkitect-rules-optional-symfony\.php#
-#qaConfig/rector-php84\.php#
+#qaConfig/rector-php85\.php#
 #qaConfig/rector-phpunit\.php#
 #qaConfig/rector-safe\.php#

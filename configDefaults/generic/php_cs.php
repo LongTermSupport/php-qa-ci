@@ -11,10 +11,10 @@ declare(strict_types=1);
  *
  * @see https://mlocati.github.io/php-cs-fixer-configurator/
  *
- * PHP 8.4 Compatibility Note:
- * - This config includes PHP 8.4 migration rules via @PHP8x4Migration
- * - Property hooks are not yet fully supported by PHP CS Fixer (as of 2025)
- * - PHP CS Fixer v3.84.0+ supports PHP 8.4 natively (no PHP_CS_FIXER_IGNORE_ENV needed)
+ * PHP 8.5 Compatibility Note:
+ * - This config includes PHP 8.5 migration rules via @PHP8x5Migration (cumulative
+ *   over the 8.4 set, so the implicit-nullable fixes stay in force)
+ * - PHP CS Fixer v3.95+ supports PHP 8.5 natively (no PHP_CS_FIXER_IGNORE_ENV needed)
  */
 
 use Composer\Autoload\ClassLoader;
@@ -24,7 +24,7 @@ $rules = [
     '@PhpCsFixer'                         => true,
     '@Symfony'                            => true,
     '@DoctrineAnnotation'                 => true,
-    '@PHP8x4Migration'                    => true,
+    '@PHP8x5Migration'                    => true,
     'align_multiline_comment'             => true,
     'array_indentation'                   => true,
     'array_syntax'                        => ['syntax' => 'short'],
@@ -89,7 +89,7 @@ $rules = [
     // Disabled deliberately: this fixer rewrites `isset($x) ? $x : ''` (and similar ternaries defaulting
     // to '') into `$x ?? ''`, which this package's own ForbidNullCoalescingEmptyStringRule (PHPStan,
     // rules-optional.neon) BANS — the two would contradict by construction. See the matching
-    // TernaryToNullCoalescingRector skip in rector-php84.php for the full rationale.
+    // TernaryToNullCoalescingRector skip in rector-php85.php for the full rationale.
     'ternary_to_null_coalescing'          => false,
     'void_return'                         => true,
     'yoda_style'                          => [

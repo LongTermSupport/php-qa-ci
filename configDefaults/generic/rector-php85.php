@@ -3,12 +3,11 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
-use Rector\Php84\Rector\Param\ExplicitNullableParamTypeRector;
 use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
 
 /*
- * PHP 8.4 specific Rector configuration for php-qa-ci
+ * PHP 8.5 specific Rector configuration for php-qa-ci
  * This runs after rector-safe.php and rector-phpunit.php
  */
 return static function (RectorConfig $rectorConfig): void {
@@ -24,13 +23,14 @@ return static function (RectorConfig $rectorConfig): void {
         16    // Default job size
     );
 
-    // PHP 8.4 upgrade sets
+    // PHP 8.5 upgrade sets. UP_TO_PHP_85 is cumulative (includes every earlier
+    // version set, e.g. PHP 8.4's ExplicitNullableParamTypeRector), so no
+    // version-specific rules need listing separately.
     // IMPORTANT: SetList::NAMING is EXCLUDED because it includes RenameParamToMatchTypeRector
     // which renames constructor parameters like $productsRow → $productsRowDto
     // This is a BREAKING CHANGE for any code calling constructors with named parameters
     $rectorConfig->sets([
-        LevelSetList::UP_TO_PHP_84,
-        SetList::PHP_84,
+        LevelSetList::UP_TO_PHP_85,
         SetList::DEAD_CODE,
         SetList::CODE_QUALITY,
         SetList::CODING_STYLE,
@@ -38,11 +38,6 @@ return static function (RectorConfig $rectorConfig): void {
         SetList::PRIVATIZATION,
         SetList::EARLY_RETURN,
         // SetList::NAMING, // EXCLUDED - causes constructor parameter renaming
-    ]);
-
-    // PHP 8.4 specific rules
-    $rectorConfig->rules([
-        ExplicitNullableParamTypeRector::class,
     ]);
 
     // NullToStrictStringFuncCallArgRector wraps a possibly-null argument to a string function in a

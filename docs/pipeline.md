@@ -62,7 +62,7 @@ This step includes:
 ### 3. QA Tools (Four Phases)
 
 #### Phase 1: Code Modification
-1. **Rector** -- Automated refactoring (safe functions, PHPUnit, PHP 8.4 upgrades)
+1. **Rector** -- Automated refactoring (safe functions, PHPUnit, PHP 8.5 upgrades)
 2. **PHP CS Fixer** -- Code style fixing (runs as PHAR)
 
 #### Phase 2: Linting and Validation

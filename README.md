@@ -1,13 +1,13 @@
 # PHP-QA-CI
 
-A comprehensive quality assurance and continuous integration pipeline for PHP 8.4+ projects (this is the `php8.4` branch; a `php8.3` branch supports PHP 8.3), written in Bash. Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
+A comprehensive quality assurance and continuous integration pipeline for PHP 8.5+ projects (this is the `php8.5` branch; `php8.4` and `php8.3` branches support PHP 8.4 and 8.3), written in Bash. Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
 
 This package is written for and tested on Linux.
 
 ## Install
 
 ```bash
-composer require --dev lts/php-qa-ci:dev-php8.4@dev
+composer require --dev lts/php-qa-ci:dev-php8.5@dev
 ```
 
 The `qa` script will be installed in your project's bin directory. By default, Composer uses `vendor/bin`, but you can configure a custom location in your `composer.json`:
@@ -58,7 +58,7 @@ PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 
 **Phase 1 -- Code Modification:**
 
-1. Rector (safe functions, PHPUnit, PHP 8.4 upgrades)
+1. Rector (safe functions, PHPUnit, PHP 8.5 upgrades)
 2. PHP CS Fixer
 
 **Phase 2 -- Linting and Validation:**
@@ -389,7 +389,7 @@ vendor/lts/php-qa-ci/scripts/setup-branch-protection.bash --harden
 
 PHP-QA-CI includes three GitHub Actions workflows in `.github/workflows/`:
 
-- **`ci.yml`** -- Runs on push/PR to `php8.4`, executes `bash ci.bash`
+- **`ci.yml`** -- Runs on push/PR to `php8.5`, executes `bash ci.bash`
 - **`qa.yml`** -- Template workflow for consuming projects (copy to your project)
 - **`update-deps.yml`** -- Weekly scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, the Rector PHAR), runs the full QA pipeline, and creates an auto-merge PR if green
 
@@ -490,11 +490,11 @@ Tool-specific documentation:
 If you are running multiple PHP versions, you can specify which one to use:
 
 ```bash
-export PHP_QA_CI_PHP_EXECUTABLE=/bin/php84
+export PHP_QA_CI_PHP_EXECUTABLE=/bin/php85
 vendor/bin/qa
 
 # Or inline:
-PHP_QA_CI_PHP_EXECUTABLE=/bin/php84 vendor/bin/qa
+PHP_QA_CI_PHP_EXECUTABLE=/bin/php85 vendor/bin/qa
 ```
 
 ### Running Specific Tools
@@ -512,6 +512,7 @@ vendor/bin/qa -t stan -p src/Domain
 
 ### Branches
 
+- `php8.5` -- Targets PHP 8.5 (will become the default branch)
 - `php8.4` -- Default branch, targets PHP 8.4
 - `php8.3` -- PHP 8.3 support
 

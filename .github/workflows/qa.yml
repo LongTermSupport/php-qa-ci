@@ -130,7 +130,9 @@ jobs:
             
             # Convert constraint to specific version
             # Handle different constraint formats
-            if [[ "$PHP_CONSTRAINT" == *"8.4"* ]]; then
+            if [[ "$PHP_CONSTRAINT" == *"8.5"* ]]; then
+              PHP_VERSION="8.5"
+            elif [[ "$PHP_CONSTRAINT" == *"8.4"* ]]; then
               PHP_VERSION="8.4"
             elif [[ "$PHP_CONSTRAINT" == *"8.3"* ]]; then
               PHP_VERSION="8.3"
@@ -142,15 +144,15 @@ jobs:
               PHP_VERSION="8.0"
             else
               # Default to latest stable
-              PHP_VERSION="8.4"
+              PHP_VERSION="8.5"
               echo "Could not determine version from constraint, using $PHP_VERSION"
             fi
-            
+
             echo "Using PHP version: $PHP_VERSION"
             echo "version=$PHP_VERSION" >> $GITHUB_OUTPUT
           else
-            echo "No composer.json found, using PHP 8.4"
-            echo "version=8.4" >> $GITHUB_OUTPUT
+            echo "No composer.json found, using PHP 8.5"
+            echo "version=8.5" >> $GITHUB_OUTPUT
           fi
   
   qa:

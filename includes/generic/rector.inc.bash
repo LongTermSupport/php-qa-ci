@@ -2,7 +2,7 @@
 #   pipeline variables bin/qa (setConfig, setPaths) sets before this fragment is sourced —
 #   genuine sourced-fragment architecture, not unset variables.
 #
-# Rector — automated refactoring (Safe-function conversion, PHPUnit upgrades, PHP 8.4).
+# Rector — automated refactoring (Safe-function conversion, PHPUnit upgrades, PHP 8.5).
 #
 # Rector MUTATES code. Whether it is allowed to write is governed by qaReadOnly
 # (see detectReadOnly() in functions.inc.bash), NOT by CI:
@@ -23,9 +23,7 @@ if [[ ! -f "$rectorBin" ]]; then
   exit 1
 fi
 
-# Note: Rector does not support -v or -vv verbosity flags
-# Using empty string for default verbosity level
-rectorVerbosity=""
+# Note: Rector does not support -v or -vv verbosity flags, so none are passed.
 rectorIgnorePaths="";
 if [[ "placeholder-ignore-item" != "${pathsToIgnore[*]}" ]]; then
   rectorIgnorePaths=$(printf '%s\n' "${pathsToIgnore[@]}")
@@ -59,7 +57,7 @@ function runRectorConfig() {
     # READ-ONLY: single pass, no retry (retrying a dry-run cannot change the result).
     echo "Running Rector ('$label') in read-only check mode"
     local readOnlyExit=0
-    if rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$rectorBin" -- $rectorVerbosity "${rectorArgs[@]}"; then
+    if rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$rectorBin" -- "${rectorArgs[@]}"; then
       readOnlyExit=0
     else
       readOnlyExit=$?
@@ -78,7 +76,7 @@ function runRectorConfig() {
   local rectorExitCode=99
   while ((rectorExitCode > 1)); do
     echo "Running Rector ('$label')"
-    if rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$rectorBin" -- $rectorVerbosity "${rectorArgs[@]}"; then
+    if rectorIgnorePaths="$rectorIgnorePaths" phpNoXdebug -f "$rectorBin" -- "${rectorArgs[@]}"; then
       rectorExitCode=0
     else
       rectorExitCode=$?
@@ -107,10 +105,10 @@ for rectorConfig in "$projectRoot/rector.php" "$projectRoot/qaConfig/rector.php"
 done
 
 if [[ $projectRectorFound == false ]]; then
-  # Run PHP 8.4 specific rectors
-  runRectorConfig "PHP 8.4" "$(configPath rector-php84.php)" "${pathsToCheck[@]}"
+  # Run PHP 8.5 specific rectors
+  runRectorConfig "PHP 8.5" "$(configPath rector-php85.php)" "${pathsToCheck[@]}"
 else
-  echo "Skipping standard PHP 8.4 Rector as we assume its handled in project rector"
+  echo "Skipping standard PHP 8.5 Rector as we assume its handled in project rector"
 fi
 
 # ---------------------------------------------------------------------------

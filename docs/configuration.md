@@ -82,7 +82,7 @@ files. At the moment this includes:
 - [composerRequireChecker.json](./../configDefaults/generic/composerRequireChecker.json)
 - [rector-safe.php](./../configDefaults/generic/rector-safe.php)
 - [rector-phpunit.php](./../configDefaults/generic/rector-phpunit.php)
-- [rector-php84.php](./../configDefaults/generic/rector-php84.php)
+- [rector-php85.php](./../configDefaults/generic/rector-php85.php)
 - [phparkitect.php](./../configDefaults/generic/phparkitect.php) (entry config) and its rule tiers
   [phparkitect-rules-default.php](./../configDefaults/generic/phparkitect-rules-default.php),
   [phparkitect-rules-optional.php](./../configDefaults/generic/phparkitect-rules-optional.php),

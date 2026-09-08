@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [php8.4]
+    branches: [php8.5]
   pull_request:
-    branches: [php8.4]
+    branches: [php8.5]
 
 jobs:
   shellcheck:
@@ -48,7 +48,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           tools: composer:v2
           coverage: xdebug
           extensions: json, tokenizer, mbstring

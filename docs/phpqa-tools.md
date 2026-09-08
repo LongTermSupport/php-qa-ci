@@ -39,12 +39,12 @@ The pipeline runs Rector in three stages:
 
 1. **Safe Functions** -- Converts standard PHP functions to their [thecodingmachine/safe](https://github.com/thecodingmachine/safe) equivalents (which throw exceptions instead of returning false). Requires `thecodingmachine/safe` as a production dependency.
 2. **PHPUnit** -- Applies PHPUnit-specific rector rules to the test directory.
-3. **PHP 8.4** -- Applies PHP 8.4 migration rules (skipped if a project-specific `rector.php` or `qaConfig/rector.php` is found, as it is assumed those handle version upgrades).
+3. **PHP 8.5** -- Applies PHP 8.5 migration rules (skipped if a project-specific `rector.php` or `qaConfig/rector.php` is found, as it is assumed those handle version upgrades).
 
 Default configurations:
 - [rector-safe.php](../configDefaults/generic/rector-safe.php)
 - [rector-phpunit.php](../configDefaults/generic/rector-phpunit.php)
-- [rector-php84.php](../configDefaults/generic/rector-php84.php)
+- [rector-php85.php](../configDefaults/generic/rector-php85.php)
 
 ### PHP CS Fixer
 
@@ -52,7 +52,7 @@ Default configurations:
 
 PHP CS Fixer automatically fixes code style issues according to modern PHP standards. It runs as a **PHAR** from `vendor-phar/php-cs-fixer.phar` (not as a Composer dependency).
 
-The default configuration includes `@PHP8x4Migration` rules for PHP 8.4 compatibility, including nullable type declarations.
+The default configuration includes `@PHP8x5Migration` rules for PHP 8.5 compatibility, including nullable type declarations.
 
 Please see the [PHPQA Coding Standards docs](./coding-standards.md) for configuration details.
 
