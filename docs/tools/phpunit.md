@@ -141,6 +141,17 @@ The `phpstan-phpunit` extension is bundled with php-qa-ci and auto-loaded via th
 
 Read the [PHPQA PHPStan docs](./phpstan.md) for more information.
 
+## How the lane runs
+
+The lane is `LTS\PHPQA\Pipeline\Lane\PhpunitTool` (identifier `phpqaci.phpunit`); the argv it builds lives in `PhpunitArguments` so every mode is unit-tested without running anything.
+
+1. A missing `tests/bootstrap.php` is seeded with a documented placeholder.
+2. The project's `vendor/bin/phpunit` is probed for its major version; `vendor/bin/paratest` is used instead when installed.
+3. With coverage on, the Xdebug-enabled PHP binary runs under `XDEBUG_MODE=coverage` (so Infection can reuse the result); otherwise Xdebug is stripped and `XDEBUG_MODE=off`. `phpUnitQuickTests` is passed through as `1`/`0`.
+4. Flags: `--strict-global-state --fail-on-risky --fail-on-warning --log-junit`, the PHPUnit 10+ `--display-*` flags, then the mode flags (iterative, no-coverage, coverage in CI, coverage interactively) and the `-p` paths.
+5. An absent or empty junit log ("no tests have been run") fails the lane. Both `phpunit.junit.xml` and `phpunit.log` are archived under `var/qa/phpunit_logs`, and the `Tests: … Assertions: …` summary line is echoed.
+6. Exit 0 passes, 1 and 2 fail (retried interactively), anything higher is a crash: the suite is re-run once with `--debug` for diagnosis and never retried.
+
 ## Infection
 
 Another tool that runs your PHPUnit tests is Infection. This will only run if Xdebug is enabled and you have configured PHPUnit to generate coverage. Infection runs as a PHAR.

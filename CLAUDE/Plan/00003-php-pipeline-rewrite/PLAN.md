@@ -81,11 +81,11 @@ subprocesses. Design notes and dead-ends go in `JOURNAL/`.
 
 ### Phase 3: Subprocess lanes
 
-- [ ] ⬜ **Task 3.1**: `PhpLint`, `ComposerChecks` (diagnose, normalize dry-run in read-only, dump-autoload), `ComposerRequireChecker`, `Phploc`.
-- [ ] ⬜ **Task 3.2**: `Phpstan` (parallel neon wrapper, text and `--json` on the real stdout, crash re-run, tautology note, log archival), `PhpArkitect` (env exports, crash threshold).
-- [ ] ⬜ **Task 3.3**: `Rector` (safe, phpunit, project, php85 passes; dry-run in read-only; writable advisory) and `PhpCsFixer` (dry-run exit 8, lint-error detection).
-- [ ] ⬜ **Task 3.4**: `Phpunit` (bootstrap seeding, paratest, modes, log archival, summary line) and `Infection` (coverage reuse or generation, diff mode with committed-history filter, MSI floors, 100% advisory, renice via process wrapper).
-- [ ] ⬜ **Task 3.5**: Symfony platform: `TwigLint`, `YamlLint`, platform-specific directories in config.
+- [x] ✅ **Task 3.1**: `PhpLintTool`, `ComposerChecksTool` (diagnose, normalize dry-run in read-only, dump-autoload), `ComposerRequireCheckerTool`, `PhplocTool`.
+- [x] ✅ **Task 3.2**: `PhpstanTool` (parallel neon wrapper, text and `--json` on the real stdout, crash re-run, tautology note, log archival), `PhpArkitectTool` (env exports, crash threshold).
+- [x] ✅ **Task 3.3**: `RectorTool` (safe, phpunit, project, php85 passes; dry-run in read-only; writable advisory) and `PhpCsFixerTool` (dry-run exit 8, lint-error detection); shared `ReadOnlyGuidance`.
+- [x] ✅ **Task 3.4**: `PhpunitTool` (+ pure `PhpunitArguments`) and `InfectionTool` (+ pure `InfectionArguments`, `InfectionDiffFilter`): coverage reuse or generation, diff mode with committed-history filter, MSI floors, 100% advisory, low-priority phar run.
+- [x] ✅ **Task 3.5**: Symfony platform: `TwigLintTool`, `YamlLintTool` as platform lanes appended to the linting phase; twig/yaml directories on the builder.
 
 ### Phase 4: Consumer configuration and migration
 

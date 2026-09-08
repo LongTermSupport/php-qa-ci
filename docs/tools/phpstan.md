@@ -4,6 +4,29 @@ Full details of how PHPStan is used with PHPQA and how you can configure it for 
 
 PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan` Composer package is in the `replace` section of `php-qa-ci`'s `composer.json`, so the PHAR is used instead of a Composer-installed binary.
 
+## How the lane runs
+
+**Identifier**: `phpqaci.phpstan`. Lane: [`PhpstanTool`](../../src/Pipeline/Lane/PhpstanTool.php).
+
+- In the full pipeline, in the static analysis phase after the ignoreErrors justification check.
+  Standalone: `vendor/bin/qa -t stan`; supports `-p <path>`.
+- The resolved `phpstan.neon` (project override or shipped default) is wrapped in a generated
+  `var/qa/phpstan_logs/phpstan-parallel.neon` that includes it and caps
+  `parallel.maximumNumberOfProcesses` at half the CPU threads, the same figure Rector and
+  Infection use. The lane prints the cap it applied.
+- The phar runs without Xdebug as `analyse <paths> -c <wrapper>`, with `--no-progress` in CI.
+- **Text mode**: the output is streamed and written to `var/qa/phpstan_logs/phpstan.log`, and a
+  timestamped copy is archived (last ten kept per full-suite or per-path pattern). Exit 1 means
+  errors were found: the lane fails with the identifier trailer, and when the output mentions
+  `alreadyNarrowedType`, `alwaysTrue`, `alwaysFalse` or `impossibleCheck` it first prints a note
+  explaining that such an error is usually a tautology left behind by stronger types, to be
+  deleted rather than silenced. An exit above 1 is a crash: the lane says so, runs PHPStan again
+  with `--debug -v` so the fatal that stopped it is visible, and is never retried.
+- **`--json` mode** (`vendor/bin/qa --json -t stan`): PHPStan runs with `--error-format=json`,
+  the report is written to `var/qa/phpstan_logs/phpstan.json`, archived, and printed unchanged on
+  the real stdout while every other line goes to stderr. Exit 1 fails, above 1 crashes, and
+  nothing is re-run.
+
 ## Configuration
 
 Default configuration is in [configDefaults/generic/phpstan.neon](./../../configDefaults/generic/phpstan.neon).

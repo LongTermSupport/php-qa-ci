@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesCheck;
+use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
 use LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool;
@@ -14,6 +15,8 @@ use LTS\PHPQA\Pipeline\Lane\PhpstanIgnoreJustificationTool;
 use LTS\PHPQA\Pipeline\Lane\Psr4ValidateTool;
 use LTS\PHPQA\Pipeline\Lane\SensitiveParameterUsageTool;
 use LTS\PHPQA\Pipeline\Lane\VersionPinsTool;
+use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
+use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use LTS\PHPQA\Pipeline\Tool\ShippedTools;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
@@ -72,9 +75,16 @@ final class InProcessLanesTest extends TestCase
     {
         $shipped = ShippedTools::all();
 
+        $platformNames = array_map(
+            static fn (ToolDefinitionDto $lane): string => $lane->name,
+            ToolRegistry::platformLanes(PlatformEnum::Symfony, PhaseEnum::Linting),
+        );
         foreach ($shipped as $name => $tool) {
             self::assertSame($name, $tool->name());
-            self::assertSame($name, ToolRegistry::shipped()->definition($name)->name, $name . ' is not a registry name');
+            if (!\in_array($name, $platformNames, true)) {
+                self::assertSame($name, ToolRegistry::shipped()->definition($name)->name, $name . ' is not a registry name');
+            }
+
             self::assertStringStartsWith('phpqaci.', $tool->identifier());
         }
     }
