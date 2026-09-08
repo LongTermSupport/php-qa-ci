@@ -80,6 +80,7 @@
     "bin/composer-require-checker",
     "bin/config-template-ignorelist-check",
     "bin/infection",
+    "bin/infection-config-source-dirs-check",
     "bin/managed-source",
     "bin/mdlinks",
     "bin/package-type-check",
