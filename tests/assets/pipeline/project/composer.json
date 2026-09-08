@@ -1,0 +1,7 @@
+{
+  "name": "fixture/project",
+  "type": "project",
+  "require": {
+    "php": "^8.5"
+  }
+}
