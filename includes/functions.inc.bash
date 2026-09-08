@@ -208,6 +208,8 @@ function tryAgainOrAbort() {
 
         $toolname Failed...
 
+        Defence Before Fix: https://defence-before-fix.github.io/
+
     ==================================================
 
         "
@@ -218,6 +220,8 @@ function tryAgainOrAbort() {
     ==================================================
 
         $toolname Failed...
+
+        Defence Before Fix: https://defence-before-fix.github.io/
 
         would you like to try again? (y/n)
 
@@ -417,6 +421,8 @@ function qaReportAggregate() {
     echo "          - $failedTool"
   done
   echo "
+        Defence Before Fix: https://defence-before-fix.github.io/
+
         Each tool's full output is above. Fix every item, then re-run.
         (This run did not fail fast: all tools ran so you see every problem.)
 
