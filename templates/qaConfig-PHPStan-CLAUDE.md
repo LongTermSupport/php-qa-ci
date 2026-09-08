@@ -2,7 +2,10 @@
 
 Project-specific PHPStan rules that enforce architectural patterns and prevent bug classes.
 
-Deployed by php-qa-ci. See https://ltscommerce.dev/articles/defence-before-fix-static-analysis
+Deployed by php-qa-ci. Method: https://defence-before-fix.github.io/ (specification), first
+published at https://ltscommerce.dev/articles/defence-before-fix-static-analysis. The procedure
+this project follows is `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`, invoked through the
+`defence-before-fix` skill.
 
 ## Directory Structure
 

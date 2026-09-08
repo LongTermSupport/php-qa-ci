@@ -152,7 +152,17 @@ Report:
 
 ### Rules MUST:
 
-- Use `->identifier('ruleName.violationType')` on every error
+- Use `->identifier('ruleName.violationType')` on every error. The identifier is **stable**:
+  never derived from the file path, class name or config position, and never changed once a
+  release can print it (method specification clause 3.6, detector specification 4.3)
+- Keep the message **terse**: what was detected, where, and the identifier. The reasoning and
+  the remedy go in the documentation the identifier resolves to
+- Ship that documentation with the rule, in the same commit: a page stating what the rule is
+  about, why it exists, and how to fix a violation correctly, reachable from the identifier
+  (in this project: the identifier index the toolchain's `bin/rule-doc` resolves; the
+  project's `qaConfig/PHPStan/CLAUDE.md` says where project rules document themselves)
+- Have a **fixture** that carries the hazard, kept as the rule's own test, so the rule is
+  seen to fire before it is trusted (clause 3.3)
 - Have comprehensive docblock explaining the problem and solution
 - Include WRONG/RIGHT examples in the docblock
 - Return `list<\PHPStan\Rules\IdentifierRuleError>`
@@ -216,4 +226,5 @@ You are a CREATOR, not a RUNNER or FIXER. Your job is to:
 - Register the rule
 - Report what was created
 
-The defence-before-fix skill orchestrates the full workflow. You handle Phase 2 (detection).
+The defence-before-fix skill orchestrates the full workflow. You handle clause 3.2 (build
+the net) and the documentation half of 3.6; the caller proves, sweeps, enforces and fixes.

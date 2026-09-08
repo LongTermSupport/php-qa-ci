@@ -27,7 +27,7 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
 {
     private const string MANIFEST = __DIR__ . '/../../composer.json';
 
-    private const string METHOD_VERSION = '1.0.0';
+    private const string METHOD_VERSION = '1.0.1';
 
     private const string TOOLCHAIN_VERSION = '0.2.0';
 

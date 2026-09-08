@@ -125,14 +125,14 @@
         "toolchain 6.2: the justification lane reads qaConfig/phpstan.neon alone and not the files it includes",
         "toolchain 8.1: the release guard requires an index row, not a remediation page, and a lane that prints no identifier is outside it"
       ],
-      "method": "1.0.0",
+      "method": "1.0.1",
       "project": {
         "known-gaps": [
           "toolchain 4.1: the same PHPArkitect, lane and PHPStan native-identifier gaps as the artefact, since the project runs the toolchain it ships",
           "toolchain 4.2: the same fifteen bundled rules run on this repository and resolve to no remediation page",
           "toolchain 4.3: the same silent PHPArkitect baseline route is open on this repository"
         ],
-        "method": "1.0.0",
+        "method": "1.0.1",
         "toolchain": "0.2.0"
       },
       "toolchain": "0.2.0"
