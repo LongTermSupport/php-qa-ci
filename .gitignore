@@ -5,6 +5,7 @@
 /bin/*
 !/bin/bootstrap.php
 !/bin/composer-require-checker
+!/bin/composer-require-checker-safe-scan-files-check
 !/bin/infection
 !/bin/infection-config-source-dirs-check
 !/bin/lib-redirect-stub.inc.bash
@@ -16,8 +17,7 @@
 !/bin/phpstan
 !/bin/phpstan-ignore-justification
 !/bin/phpstan-rule
-!/bin/phpunit-check-annotation
-!/bin/phpunit-runfailed-filter
+!/bin/phpunit-config-version-check
 !/bin/psr4-validate
 !/bin/qa
 !/bin/rule-doc
