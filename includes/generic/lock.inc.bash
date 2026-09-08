@@ -379,7 +379,7 @@ EOF
     # Display success message
     echo ""
     echo "[QA Lock] Acquired lock at $(formatTimestamp "$now")"
-    echo "[QA Lock] Estimated completion: $(formatTimestamp "$etaCompletion") ($(formatDuration $QA_ETA_SECONDS))"
+    echo "[QA Lock] Estimated completion: $(formatTimestamp "$etaCompletion") ($(formatDuration "$QA_ETA_SECONDS"))"
     echo ""
 
     return 0
@@ -455,11 +455,10 @@ releaseLock() {
     # A full-pipeline run stores an EMPTY tool in the lock file, and the timing
     # command key derives from tool+path (getCommandKey) — an empty tool with no
     # path keys on ":full-suite", which is EXACTLY what calculateEta reads back
-    # for a full run. The historic `[[ -n "$tool" ]]` guard here skipped the
-    # record whenever the tool was empty, so full-suite runs never recorded a
-    # timing and their ETA was frozen at the 15-minute default forever. Record
-    # unconditionally on success; recordCommandTiming already skips file-scoped
-    # runs internally.
+    # for a full run. So an empty tool must NOT be skipped here, or full-suite
+    # runs would never record a timing and their ETA would stay at the
+    # 15-minute default. Record unconditionally on success; recordCommandTiming
+    # already skips file-scoped runs internally.
     if [[ $exitCode -eq 0 ]]; then
         # Extract tool and path from lock file
         local tool

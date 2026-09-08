@@ -5,7 +5,7 @@
 #
 # PHP CS Fixer MUTATES code. Whether it may write is governed by qaReadOnly
 # (see detectReadOnly() in functions.inc.bash), NOT by CI:
-#   - writable run  -> apply fixes, retry loop on failure (historic behaviour)
+#   - writable run  -> apply fixes, retry loop on failure
 #   - read-only run -> --dry-run; a pending fix FAILS with remediation guidance
 #     (used by GitHub Actions so the gate verifies instead of silently rewriting)
 #

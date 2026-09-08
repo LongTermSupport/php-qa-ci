@@ -12,12 +12,12 @@ readonly platformGeneric="generic"
 readonly platformSymfony="symfony"
 
 function detectPlatform() {
-  if [[ -f $projectRoot/symfony.lock ]]; then
-    echo $platformSymfony
+  if [[ -f "$projectRoot/symfony.lock" ]]; then
+    echo "$platformSymfony"
     return 0
   fi
 
-  echo $platformGeneric
+  echo "$platformGeneric"
 }
 
 ################################################################
@@ -113,9 +113,9 @@ function configPath() {
   local platformPath="$defaultConfigPath/$platform/$relativePath"
   local genericPath="$defaultConfigPath/generic/$relativePath"
   # -e FILE - True if the FILE exists and is a file, regardless of type
-  if [[ -e $projectConfigPath/$relativePath ]]; then
+  if [[ -e "$projectConfigPath/$relativePath" ]]; then
     echo "$projectConfigPath/$relativePath"
-  elif [[ -e $platformPath ]]; then
+  elif [[ -e "$platformPath" ]]; then
     echo "$platformPath"
   else
     echo "$genericPath"
@@ -153,23 +153,26 @@ function phpNoXdebug() {
     # Using awk to ensure that files ending without newlines do not lead to configuration error
     ${phpBinPath} -i | grep "\.ini" | grep -o -e '\(/[a-z0-9._-]\+\)\+\.ini' | grep -v xdebug | xargs awk 'FNR==1{print ""}1' >"$noXdebugConfigPath"
   fi
-  # Trace the actual PHP invocation, but PRESERVE the caller's xtrace setting.
-  # Historically this always ran `set +x` at the end, silently disabling tracing
-  # that a caller had deliberately turned on (e.g. phpunit.inc.bash wraps its run
-  # in set -x). Remember the incoming state and only restore it.
+  # Trace the actual PHP invocation, but PRESERVE the caller's xtrace setting:
+  # remember the incoming state and only restore it, so a caller that has
+  # deliberately turned tracing on keeps it after this returns.
   local _xtraceWasOn=0
   case "$-" in
     *x*) _xtraceWasOn=1 ;;
   esac
   set -x
   # Apply global memory limit (can be overridden with explicit -d memory_limit=X after this)
-  ${phpBinPath} -n -c "$noXdebugConfigPath" -d memory_limit="${phpqaMemoryLimit:-4G}" "$@"
-  local exitCode=$?
+  local exitCode=0
+  if ${phpBinPath} -n -c "$noXdebugConfigPath" -d memory_limit="${phpqaMemoryLimit:-4G}" "$@"; then
+    exitCode=0
+  else
+    exitCode=$?
+  fi
   if (( _xtraceWasOn == 0 )); then
     set +x
   fi
   echo
-  return $exitCode
+  return "$exitCode"
 }
 
 ###############################################################
@@ -246,18 +249,15 @@ function tryAgainOrAbort() {
 }
 
 ###############################################################################
-# Shared retry driver for the homogeneous leaf tools (M-010).
+# Shared retry driver for the homogeneous leaf tools.
 #
-# The historic per-fragment pattern — a `while ((rc > 0))` retry loop that runs
-# a single command, captures its exit code WITHOUT tripping errexit, and calls
-# tryAgainOrAbort on failure (which exits in CI, loops interactively) — was
-# duplicated with minor spelling variations across psr4Validate, packageType,
-# sensitiveParameterUsage, phpLint and markdownLinks. This is the single
-# implementation those fragments opt into; behaviour is identical to the loops
-# it replaces.
+# Runs a single command in a `while ((rc > 0))` retry loop, capturing its exit
+# code WITHOUT tripping errexit, and calls tryAgainOrAbort on failure (which
+# exits in CI and prompts interactively). Every leaf fragment whose control flow
+# is just "run one command, retry on failure" uses this rather than its own loop.
 #
 # The command is invoked under an `if` condition so a non-zero exit is captured
-# without aborting under the pipeline's errexit — no manual errexit toggling, no
+# without aborting under the pipeline's errexit — no errexit toggling, no
 # exit-code masking, no stderr suppression.
 #
 # Usage:  qaSimpleTool "<label>" <command> [args...]
@@ -292,9 +292,9 @@ function qaSimpleTool() {
 #     WRITE. A read-only run does not modify files; a pending change FAILS the
 #     gate with remediation guidance.
 #
-# These were historically conflated under CI, which made it impossible to (a)
-# run a real verification gate that fails-instead-of-applies, and (b) still let
-# a non-interactive Claude/local session APPLY fixes. Splitting them fixes both.
+# Keeping the two independent is what lets a real verification gate fail
+# instead of apply, while a non-interactive Claude/local session still APPLIES
+# fixes.
 #
 # Precedence (first match wins):
 #   1. explicit QA_READONLY=1/true  -> read-only   (reproduce CI locally)
@@ -371,7 +371,7 @@ function reportReadOnlyWouldModify() {
 # When qaAggregate=true this runs the tool in a SUBSHELL so its `exit` is
 # contained, records a failure in qaFailedTools, and lets the pipeline carry
 # on. When qaAggregate is not set it is a transparent passthrough to runTool,
-# preserving the historic fail-fast behaviour (including retries) exactly.
+# so the fail-fast behaviour (including retries) is unchanged.
 #
 # Aggregate mode never mutates: it is only enabled alongside read-only mode,
 # where Rector / PHP CS Fixer run with --dry-run.

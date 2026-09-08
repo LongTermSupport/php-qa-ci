@@ -6,7 +6,7 @@
 #
 # Rector MUTATES code. Whether it is allowed to write is governed by qaReadOnly
 # (see detectReadOnly() in functions.inc.bash), NOT by CI:
-#   - writable run  -> apply changes, retry loop on failure (historic behaviour)
+#   - writable run  -> apply changes, retry loop on failure
 #   - read-only run -> --dry-run; a pending change FAILS with remediation guidance
 #     (used by GitHub Actions so the gate verifies instead of silently rewriting)
 

@@ -30,7 +30,5 @@ if [[ "0" == "$useSensitiveParameterCheck" ]]; then
 SensitiveParameter usage check is disabled for this project (useSensitiveParameterCheck=0) — skipping.
 "
 else
-  # Retry loop via the shared driver (M-010) — errexit-safe exit-code capture and
-  # tryAgainOrAbort handling, identical to the hand-written loop it replaces.
   qaSimpleTool "SensitiveParameter Usage Check" phpNoXdebug -f "$binDir"/sensitive-parameter-usage
 fi

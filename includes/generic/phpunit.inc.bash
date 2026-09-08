@@ -1,11 +1,14 @@
-# shellcheck disable=SC2154 # testsDir/phpUnitCoverage/phpBinPath/binDir/varDir/
-#   phpUnitIterativeMode/phpUnitQuickTests/phpUnitConfigPath are core pipeline
-#   variables bin/qa (setConfig + project qaConfig.inc.bash) sets before this
-#   fragment is sourced — genuine sourced-fragment architecture, not unset vars.
+# phpunit — runs the test suite (paratest when installed), with coverage when
+# phpUnitCoverage=1, iterative fail-fast ordering when phpUnitIterativeMode=1,
+# JUnit + stdout log archival, and a --debug re-run on a crash.
 #
-# Note the phpUnitQuickTests=$phpUnitQuickTests
-# this sets a config variable which you can then use
-# to allow tests to run less thoroughly but more quickly
+# shellcheck disable=SC2154 # testsDir/phpUnitCoverage/phpBinPath/binDir/varDir/
+#   phpUnitIterativeMode/phpUnitQuickTests/phpUnitConfigPath/specifiedPath/
+#   pathsToCheck are core pipeline variables bin/qa (setConfig + project
+#   qaConfig.inc.bash) sets before this fragment is sourced.
+#
+# phpUnitQuickTests is exported into the PHPUnit process so a test can run
+# less thoroughly but more quickly when it is set to 1.
 # @see https://github.com/edmondscommerce/phpqa#quick-tests
 
 # Check for bootstrap file and create a placeholder if it doesn't exist
@@ -96,7 +99,7 @@ do
     extraConfigs+=( --fail-on-risky )
     extraConfigs+=( --fail-on-warning )
     extraConfigs+=( --log-junit "$phpunitLogFilePath" )
-    if(( $phpunitVersionMajor >= 10 ))
+    if ((phpunitVersionMajor >= 10))
     then
       extraConfigs+=( --colors=always )
       extraConfigs+=( --display-incomplete )
@@ -139,9 +142,6 @@ do
       extraConfigs+=( --enforce-time-limit )
     fi
 
-    set +e
-    set -x
-
     # If specific paths are provided, append them after the config options
     pathArgs=()
     if [[ -n "$specifiedPath" ]]; then
@@ -149,21 +149,27 @@ do
         echo "Running PHPUnit on specified paths: ${pathsToCheck[*]}"
     fi
 
-    # Capture both JUnit XML (via --log-junit) and stdout (via tee)
-    phpUnitQuickTests="$phpUnitQuickTests" "$phpCmd" "${phpUnitMemoryArgs[@]}" -f "$phpunitPath" \
+    # Capture both JUnit XML (via --log-junit) and stdout (via tee). The exit
+    # code is captured via the `if` condition so a failure never aborts under
+    # errexit; bin/qa sets pipefail, so a failing PHPUnit makes the pipeline
+    # non-zero and ${PIPESTATUS[0]} then yields PHPUnit's OWN code (not tee's).
+    # The invocation is traced (set -x) so the exact command line is visible.
+    set -x
+    if phpUnitQuickTests="$phpUnitQuickTests" "$phpCmd" "${phpUnitMemoryArgs[@]}" -f "$phpunitPath" \
         -- \
         "${paratestConfig[@]}" \
         -c "$phpUnitConfigPath" \
         "${extraConfigs[@]}" \
         "${pathArgs[@]}" \
         2>&1 | tee "$phpunitLogDir/phpunit.log"
-
-    phpunitExitCode=${PIPESTATUS[0]}
+    then
+        phpunitExitCode=0
+    else
+        phpunitExitCode=${PIPESTATUS[0]}
+    fi
     set +x
-    set -e
 
-
-    if [[ "" != "$(grep '<testsuites/>' $phpunitLogFilePath)" || ! -f  $phpunitLogFilePath ]]
+    if [[ ! -f "$phpunitLogFilePath" ]] || grep -q '<testsuites/>' "$phpunitLogFilePath"
     then
         echo "
 
@@ -201,9 +207,9 @@ do
         fi
     fi
 
-    if (( $phpunitExitCode > 0 ))
+    if ((phpunitExitCode > 0))
     then
-        if (( $phpunitExitCode > 2 ))
+        if ((phpunitExitCode > 2))
         then
             printf "\n\n\nPHPUnit Crashed\n\nRunning again with Debug mode...\n\n\n"
             qaQuickTests="$phpUnitQuickTests" phpNoXdebug -f "$binDir"/phpunit -- "$testsDir" --debug
@@ -212,5 +218,3 @@ do
         tryAgainOrAbort "PHPUnit Tests"
     fi
 done
-
-set -e

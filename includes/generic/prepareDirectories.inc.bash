@@ -1,11 +1,15 @@
+# prepareDirectories — preflight: creates var/qa and var/qa/cache (each with a
+# self-excluding .gitignore) and ensures the project's root .gitignore carries
+# the managed block of QA runtime-cache excludes.
+
 # shellcheck disable=SC2154 # varDir/cacheDir/projectRoot are set by bin/qa (setConfig) before this fragment is sourced
-mkdir -p "$varDir";
+mkdir -p "$varDir"
 echo '
 *
 !.gitignore
 ' > "$varDir/.gitignore"
 
-mkdir -p "$cacheDir";
+mkdir -p "$cacheDir"
 echo '
 *
 !.gitignore

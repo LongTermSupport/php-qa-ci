@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly DIR
-cd $DIR;
+cd "$DIR"
 set -e
 set -u
 set -o pipefail
@@ -9,10 +9,12 @@ set -o pipefail
 standardIFS="$IFS"
 IFS=$'\n\t'
 
-# Tool registry — SINGLE SOURCE OF TRUTH (M-011). The -t alias resolution, the
+# Tool registry — SINGLE SOURCE OF TRUTH. The -t alias resolution, the
 # path-support gate arrays and the usage tool list are all DERIVED from it below.
 # $DIR is this file's own (absolute) directory, resolved at the top of this
 # script, so the registry resolves regardless of the caller's cwd.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=generic/toolRegistry.inc.bash
 source "$DIR/generic/toolRegistry.inc.bash"
 
 singleToolToRun=
@@ -44,7 +46,7 @@ function usage {
     echo ""
     echo " - use -t to specify a single tool:"
     # Tool list DERIVED from the registry (QA_TOOL_USAGE), so it can never drift
-    # from the actual -t aliases the way the old hand-maintained list did.
+    # from the actual -t aliases.
     local _uName _uUsage _uDisplay _uDesc
     for _uName in "${QA_TOOL_NAMES[@]}"; do
         _uUsage="${QA_TOOL_USAGE[$_uName]:-}"
@@ -63,11 +65,11 @@ while getopts ":t:p:h" opt; do
         p) specifiedPath=$OPTARG ;;
         h) usage ;;
         \?)
-            printf "\nERROR:\nInvalid option: -$OPTARG\n\n" >&2
+            printf "\nERROR:\nInvalid option: -%s\n\n" "$OPTARG" >&2
             usage
         ;;
         :)
-            printf "\nERROR\nOption -$OPTARG requires an argument\n\n" >&2
+            printf "\nERROR\nOption -%s requires an argument\n\n" "$OPTARG" >&2
             usage
         ;;
     esac
@@ -76,11 +78,8 @@ done
 # Shift processed options
 shift $((OPTIND-1))
 
-# Path-support gate tokens, DERIVED from the registry (QA_TOOL_PATHS). This
-# replaces the two hand-maintained arrays that had already drifted from the
-# tool implementations (the "VERIFIED by reading tool files" claim was false —
-# psr4Validate was listed path-supporting while the fragment was empty). The
-# classification now lives in ONE place; qaBuildPathSupportArrays fills these.
+# Path-support gate tokens, DERIVED from the registry (QA_TOOL_PATHS). The
+# classification lives in ONE place; qaBuildPathSupportArrays fills these.
 PATH_SUPPORTING_TOOLS=()
 # shellcheck disable=SC2034 # rebuilt in place by qaBuildPathSupportArrays (toolRegistry.inc.bash);
 #   this just establishes the array before the (re)build appends to it.
@@ -102,22 +101,22 @@ tool_supports_paths() {
 if [[ -z "$specifiedPath" && $# -gt 0 ]]; then
     # Check for unsupported flags
     for arg in "$@"; do
-        if [[ "$arg" == --* ]] || [[ "$arg" == -* ]]; then
-            printf "\nERROR:\nUnsupported argument: $arg\n\n" >&2
+        if [[ "$arg" == -* ]]; then
+            printf "\nERROR:\nUnsupported argument: %s\n\n" "$arg" >&2
             printf "The QA pipeline only supports path specification.\n" >&2
-            printf "Use: $binDir/qa -t toolname -p path/to/check\n" >&2
-            printf "Or:  $binDir/qa -t toolname path/to/check (automatic -p)\n\n" >&2
+            printf "Use: %s/qa -t toolname -p path/to/check\n" "$binDir" >&2
+            printf "Or:  %s/qa -t toolname path/to/check (automatic -p)\n\n" "$binDir" >&2
             exit 1
         fi
     done
-    
+
     # Assume remaining arguments are paths
     if [[ $# -eq 1 ]]; then
         specifiedPath="$1"
-        printf "\nAuto-detected path: $specifiedPath\n"
+        printf "\nAuto-detected path: %s\n" "$specifiedPath"
     elif [[ $# -gt 1 ]]; then
-        printf "\nERROR:\nMultiple paths not supported: $*\n\n" >&2
-        printf "Specify a single path: $binDir/qa -t toolname path/to/check\n\n" >&2
+        printf "\nERROR:\nMultiple paths not supported: %s\n\n" "$*" >&2
+        printf "Specify a single path: %s/qa -t toolname path/to/check\n\n" "$binDir" >&2
         exit 1
     fi
 fi
@@ -125,27 +124,27 @@ fi
 # Check if a tool that doesn't support paths is being run with a path
 if [[ -n "$specifiedPath" && -n "$singleToolToRun" ]]; then
     if ! tool_supports_paths "$singleToolToRun"; then
-        printf "\nERROR:\nTool '$singleToolToRun' does not support path-specific execution.\n\n" >&2
+        printf "\nERROR:\nTool '%s' does not support path-specific execution.\n\n" "$singleToolToRun" >&2
         printf "This tool operates on the entire project regardless of path specification.\n" >&2
         printf "If you expected a quick test run, this would trigger a full project scan.\n\n" >&2
         printf "Tools that support path specification:\n" >&2
         printf "  %s\n" "${PATH_SUPPORTING_TOOLS[@]}" >&2
-        printf "\nTo run this tool on the entire project: $binDir/qa -t $singleToolToRun\n\n" >&2
+        printf "\nTo run this tool on the entire project: %s/qa -t %s\n\n" "$binDir" "$singleToolToRun" >&2
         exit 1
     fi
 fi
 
 if [[ "" != "$singleToolToRun" ]]
 then
-    # Resolve the -t token to its canonical tool via the registry (SSoT). This
-    # replaces the hand-maintained alias `case`; qaResolveSingleTool also applies
-    # any per-tool ONSELECT side effect (e.g. uniterate sets phpUnitIterativeMode=1).
+    # Resolve the -t token to its canonical tool via the registry (SSoT).
+    # qaResolveSingleTool also applies any per-tool ONSELECT side effect
+    # (e.g. uniterate sets phpUnitIterativeMode=1).
     if ! qaResolveSingleTool; then
-        printf "\nERROR:\nInvalid tool: $singleToolToRun\n\n" >&2
+        printf "\nERROR:\nInvalid tool: %s\n\n" "$singleToolToRun" >&2
         usage
     fi
     # No banner here — bin/qa prints the "Running Single Tool" banner at
-    # execution time (re-audit R-04: the double banner was redundant).
+    # execution time.
 fi
 
 # Validate JSON output compatibility

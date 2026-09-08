@@ -1,7 +1,8 @@
-# yamlDirectories is populated in includes/symfony/setConfig.inc.bash (defaults
-# to $projectRoot/config). lint:yaml errors on a missing path, so filter to the
-# directories that actually exist and skip cleanly when none do — a project
-# without a config/ dir has nothing to lint.
+# yamlLint — Symfony `bin/console lint:yaml` over yamlDirectories (populated in
+# includes/symfony/setConfig.inc.bash, defaulting to $projectRoot/config).
+# lint:yaml errors on a missing path, so filter to the directories that actually
+# exist and skip cleanly when none do — a project without a config/ dir has
+# nothing to lint.
 # shellcheck disable=SC2154 # yamlDirectories — see above, set before this fragment is sourced
 yamlLintDirs=()
 for yamlDir in "${yamlDirectories[@]}"; do
@@ -15,18 +16,4 @@ if (( ${#yamlLintDirs[@]} == 0 )); then
     return 0
 fi
 
-# Exit code captured via the `if` condition so a non-zero status does not abort
-# the run under errexit, and no errexit toggling is required.
-yamlLintExitCode=99
-while (( yamlLintExitCode > 0 ))
-do
-    if phpNoXdebug -f bin/console -- lint:yaml --parse-tags "${yamlLintDirs[@]}"; then
-        yamlLintExitCode=0
-    else
-        yamlLintExitCode=$?
-    fi
-    if (( yamlLintExitCode > 0 ))
-    then
-        tryAgainOrAbort "Yaml Lint"
-    fi
-done
+qaSimpleTool "Yaml Lint" phpNoXdebug -f bin/console -- lint:yaml --parse-tags "${yamlLintDirs[@]}"

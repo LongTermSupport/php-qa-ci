@@ -29,17 +29,15 @@ if [[ "$COMPOSER_RUNTIME_BIN_DIR" != "" ]]; then
   binDir="$COMPOSER_RUNTIME_BIN_DIR"
   bashSource="$binDir/qa"
   # Resolve the php-qa-ci library dir from the composer bin proxy at $binDir/qa.
-  # M-053: the previous parse hard-coded the literal 'php-qa-ci' in the grep, so
-  # it silently mis-resolved (to $binDir itself) whenever the package was forked
-  # or renamed. Instead, collect candidate path fragments from the proxy and pick
-  # the one that actually resolves (relative to $binDir) to the real qa script —
-  # accepting a candidate that names either the script's DIRECTORY or the qa FILE
-  # itself. Candidates are every single-quoted literal PLUS, per line, the
-  # in-order concatenation of that line's literals: Composer 2.x proxies emit
-  # the target as SPLIT literals (e.g. __DIR__ . '/..'.'/lts/php-qa-ci/bin/qa' —
-  # see this repo's own bin/phpunit), so the real relative path only exists as
-  # the joined form (re-audit finding R-01). Independent of the install-dir
-  # name. Fails loudly instead of silently picking the wrong directory.
+  # Collect candidate path fragments from the proxy and pick the one that
+  # actually resolves (relative to $binDir) to the real qa script — accepting a
+  # candidate that names either the script's DIRECTORY or the qa FILE itself.
+  # Candidates are every single-quoted literal PLUS, per line, the in-order
+  # concatenation of that line's literals: Composer 2.x proxies emit the target
+  # as SPLIT literals (e.g. __DIR__ . '/..'.'/lts/php-qa-ci/bin/qa' — see this
+  # repo's own bin/phpunit), so the real relative path only exists as the joined
+  # form. This is independent of the install-dir name (a fork or rename still
+  # resolves) and fails loudly instead of silently picking the wrong directory.
   qaDir=""
   qaBinDirAbs="$(cd "$binDir" && pwd)"
   qaProxyCandidates=()
@@ -80,22 +78,22 @@ if [[ "$COMPOSER_RUNTIME_BIN_DIR" != "" ]]; then
   fi
   # project root directory
   projectRoot="$COMPOSER_RUNTIME_BIN_DIR"
-  while [[ ! -f $projectRoot/composer.json ]]; do
-    projectRoot="$(realpath $projectRoot/../)"
+  while [[ ! -f "$projectRoot/composer.json" ]]; do
+    projectRoot="$(realpath "$projectRoot/../")"
   done
 else
   echo "no COMPOSER_RUNTIME_BIN_DIR detected - ASSUMING THIS IS BECAUSE WE ARE RUNNING A SELF TEST ON THE QA LIBRARY"
   bashSource="${BASH_SOURCE[0]}"
-  binDir="$(dirname $bashSource)"
-  while [ -h "$bashSource" ]; do # resolve $bashSource until the file is no longer a symlink
+  binDir="$(dirname "$bashSource")"
+  while [[ -h "$bashSource" ]]; do # resolve $bashSource until the file is no longer a symlink
     qaDir="$(cd -P "$(dirname "$bashSource")" && pwd)"
     bashSource="$(readlink "$bashSource")"
     [[ $bashSource != /* ]] && bashSource="$qaDir/$bashSource" # if $bashSource was a relative symlink, we need to resolve it relative to the path where the symlink file was located
   done
   qaDir="$(cd -P "$(dirname "$bashSource")" && pwd)"
-  projectRoot="$(realpath $qaDir/../)"
+  projectRoot="$(realpath "$qaDir/../")"
 fi
-cd $qaDir
+cd "$qaDir"
 set -e
 set -u
 set -o pipefail
@@ -253,23 +251,23 @@ fi
 # actually influences useInfection / phpUnitCoverage gating and MSI floors.
 deriveDependentConfig
 
-export pathsToCheck
-export pathsToIgnore
+# pathsToCheck / pathsToIgnore are bash ARRAYS: they reach the tool fragments by
+# being sourced into this shell, not by export (bash cannot export arrays).
 
 cd "$projectRoot"
 
 runTool prepareDirectories
 
-# Install PHAR dependencies via PHIVE and isolated composer tools
-$qaDir/../scripts/tool-install.bash
+# Verify the committed PHAR tools are present (see scripts/tool-install.bash)
+"$qaDir/../scripts/tool-install.bash"
 
-if [[ -f $projectConfigPath/hookPre.bash ]]; then
+if [[ -f "$projectConfigPath/hookPre.bash" ]]; then
   echo "
 
 Running Pre Hook $projectConfigPath/hookPre.bash
 ------------------------------------------------
 "
-  source $projectConfigPath/hookPre.bash
+  source "$projectConfigPath/hookPre.bash"
 fi
 
 #### LOCKING SYSTEM ##########################################
@@ -295,8 +293,8 @@ Running Single Tool: $singleToolToRun
 ------------------------
 "
   # Capture the tool's exit code via the if-condition so errexit is suspended:
-  # a plain `runTool; exitCode=$?` under `set -e` aborts on failure before the
-  # capture line, so exitCode could only ever be 0 (the historic bug).
+  # a plain `runTool; exitCode=$?` under `set -e` would abort on failure before
+  # the capture line, so exitCode could only ever be 0.
   if runTool "$singleToolToRun"; then
     exitCode=0
   else
@@ -316,8 +314,8 @@ Running Single Tool: $singleToolToRun
 
   # Release lock with correct exit code before exiting
   trap - EXIT ERR INT TERM
-  releaseLock $exitCode
-  exit $exitCode
+  releaseLock "$exitCode"
+  exit "$exitCode"
 fi
 
 echo "
@@ -388,13 +386,13 @@ Statistics:
 runTool phploc
 set +x
 
-if [[ -f $projectConfigPath/hookPost.bash ]]; then
+if [[ -f "$projectConfigPath/hookPost.bash" ]]; then
   echo "
 
 Running Post Hook $projectConfigPath/hookPost.bash
 ------------------------------------------------
 "
-  source $projectConfigPath/hookPost.bash
+  source "$projectConfigPath/hookPost.bash"
 fi
 
 if [[ "false" != "$hasBeenRestarted" ]]; then

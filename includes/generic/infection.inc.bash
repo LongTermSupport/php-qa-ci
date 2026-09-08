@@ -157,8 +157,7 @@ fi
 #   - --skip-initial-tests: coverage is guaranteed present; never re-run the
 #     kernel-booting suite (see header).
 #   - Infection itself runs WITHOUT Xdebug (phpNoXdebug) — it only consumes the
-#     coverage we already produced, and dropping Xdebug here is faster, matching
-#     the historic behaviour of this step.
+#     coverage we already produced, and dropping Xdebug here is faster.
 #   - The floor flags (--min-msi / --min-covered-msi) are the SSoT ratchet.
 #   - The invocation runs inside an `if` CONDITION, so under bin/qa's errexit a
 #     non-zero exit does NOT abort the run (errexit is suspended for conditions);

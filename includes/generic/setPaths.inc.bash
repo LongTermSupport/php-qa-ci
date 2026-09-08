@@ -1,3 +1,8 @@
+# setPaths — preflight: detects the project's tests/src/bin directories and
+# establishes the pathsToCheck / pathsToIgnore arrays every tool reads. Values
+# are consumed by later-sourced fragments, so shellcheck cannot see their use.
+# shellcheck disable=SC2034
+
 # project tests folder
 testsDir="$(findTestsDir)"
 echo "testsDir: $testsDir"

@@ -1,4 +1,11 @@
-set +e
+# phpstan — static analysis over pathsToCheck, with the shared half-cores
+# parallelism cap, per-run log archival, a crash re-run in --debug mode, and
+# (--json) structured output on fd 3.
+#
+# Exit codes are captured via `if` conditions so a non-zero status never aborts
+# the run under errexit (no errexit toggling). PHPStan's own codes: 0 = clean,
+# 1 = errors found, anything else = crashed.
+
 phpStanExitCode=99
 # shellcheck disable=SC2154 # varDir is set by bin/qa (setConfig) before this fragment is sourced
 phpStanLogDir="$varDir/phpstan_logs"
@@ -32,14 +39,16 @@ if [[ "1" == "${useJsonOutput:-0}" ]]; then
   phpStanJsonFile="$phpStanLogDir/phpstan.json"
 
   # shellcheck disable=SC2154 # pharDir/pathsToCheck are set by bin/qa (setConfig, setPaths)
-  phpNoXdebug -f "$pharDir"/phpstan.phar -- \
+  if phpNoXdebug -f "$pharDir"/phpstan.phar -- \
     analyse "${pathsToCheck[@]}" \
     -c "$phpstanConfigPath" \
     --no-progress \
     --error-format=json \
-    > "$phpStanJsonFile"
-
-  phpStanExitCode=$?
+    > "$phpStanJsonFile"; then
+    phpStanExitCode=0
+  else
+    phpStanExitCode=$?
+  fi
 
   # Output JSON to fd 3 (original stdout, bypassing stderr redirect)
   cat "$phpStanJsonFile" >&3
@@ -54,27 +63,35 @@ if [[ "1" == "${useJsonOutput:-0}" ]]; then
   fi
   # Exit code 1 = found errors — expected for JSON consumption, don't retry
 else
-  # Text mode: original behavior with retry loop
+  # Text mode: retry loop. The run is tee'd to the log file; bin/qa sets
+  # pipefail, so a failing PHPStan makes the whole pipeline non-zero and
+  # ${PIPESTATUS[0]} then yields PHPStan's OWN exit code (not tee's).
   while ((phpStanExitCode > 0)); do
-    # Run PHPStan with tee to capture output to both file and stdout
-    phpNoXdebug -f "$pharDir"/phpstan.phar -- \
+    if phpNoXdebug -f "$pharDir"/phpstan.phar -- \
       analyse "${pathsToCheck[@]}" \
       -c "$phpstanConfigPath" \
       "${phpstanNoProgress[@]}" \
       2>&1 | tee "$phpStanLogDir/$phpStanLogFile"
-
-    phpStanExitCode=${PIPESTATUS[0]}
+    then
+      phpStanExitCode=0
+    else
+      phpStanExitCode=${PIPESTATUS[0]}
+    fi
 
     # Archive PHPStan log with timestamp - keep last 10 per pattern
     # Do this BEFORE tryAgainOrAbort so log is archived even on failure (in CI mode)
-    # Uses shared archiveToolLog function from functions.inc.bash
     archiveToolLog "PHPStan" "$phpStanLogDir" "$phpStanLogFile" "$specifiedPath" "${pathsToCheck[@]}"
 
-    #exit code 0 = fine, 1 = ran fine but found errors, else it means it crashed
     if ((phpStanExitCode > 1)); then
       printf "\n\n\nPHPStan Crashed!!....\n\nrunning again with debug mode:\nWhere ever it stops is probably a fatal PHP error\n\n"
-      phpNoXdebug -f "$pharDir"/phpstan.phar -- \
+      # Diagnostic re-run only: its own status is irrelevant, the step exits 1 regardless.
+      if phpNoXdebug -f "$pharDir"/phpstan.phar -- \
         analyse "${pathsToCheck[@]}" -c "$phpstanConfigPath" --debug -v
+      then
+        echo "PHPStan debug re-run completed"
+      else
+        echo "PHPStan debug re-run stopped with exit code $?"
+      fi
       exit 1
     fi
     if ((phpStanExitCode > 0)); then
@@ -109,5 +126,3 @@ a baseline entry, or a @phpstan-ignore comment."
     fi
   done
 fi
-
-set -e

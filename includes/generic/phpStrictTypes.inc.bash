@@ -1,13 +1,5 @@
-# Strict-types gate — every .php/.phtml file under pathsToCheck must contain
-# a `declare(strict_types=1)`.
-#
-# HISTORY: until 2026-07-15 the find expression was
-#   find $d -name '*.php' -o -name '*.phtml' -exec grep ... \;
-# where -exec binds tighter than -o, so grep only ever ran on .phtml files and
-# .php files were NEVER scanned — the gate was a silent no-op for the entire
-# language it exists for. It also prompted interactively with no CI guard and
-# edited files in place with no read-only guard. Rewritten: correct scan, no
-# prompts.
+# phpStrictTypes — every .php/.phtml file under pathsToCheck must contain a
+# `declare(strict_types=1)`. Never prompts.
 #
 # Behaviour (mirrors the Rector / PHP CS Fixer read-only contract):
 #   - read-only run (qaReadOnly=true): report every offending file, FAIL.
