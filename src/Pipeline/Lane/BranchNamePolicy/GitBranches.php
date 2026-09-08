@@ -58,9 +58,8 @@ final readonly class GitBranches
         }
 
         foreach (explode("\n", $remote->output) as $line) {
-            $parts = \Safe\preg_split('/\s+/', trim($line));
-            if (\is_array($parts) && 'ref:' === ($parts[0] ?? null) && isset($parts[1]) && str_starts_with($parts[1], 'refs/heads/')) {
-                return substr($parts[1], \strlen('refs/heads/'));
+            if (1 === \Safe\preg_match('/^ref:\s+(refs\/heads\/\S+)/', trim($line), $matches) && isset($matches[1])) {
+                return substr($matches[1], \strlen('refs/heads/'));
             }
         }
 
