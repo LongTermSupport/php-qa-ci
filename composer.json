@@ -22,7 +22,9 @@
     "phpstan/phpstan-strict-rules": "^2.0.12",
     "phpunit/phpunit": "^13.3",
     "sqlftw/sqlftw": "^0.1.17",
-    "thecodingmachine/safe": "^3.4"
+    "thecodingmachine/safe": "^3.4",
+    "symfony/process": "^8.1",
+    "symfony/console": "^8.1"
   },
   "require-dev": {
     "roave/security-advisories": "dev-master"
