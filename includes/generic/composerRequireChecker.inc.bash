@@ -1,14 +1,8 @@
 # Composer Require Checker — every symbol production code uses must be declared
-# in composer.json's require section.
-#
-# Preflight: the config's thecodingmachine/safe scan-files entries must be the
-# generated files safe loads on the running PHP, or the whitelist is judging
-# against the wrong function set. Identifier: phpqaci.composerRequireCheckerSafeScanFiles.
-# shellcheck disable=SC2154 # pharDir/composerRequireCheckerConfig/projectRoot/binDir are set by
+# in composer.json's require section. (The safe scan-files entries in its
+# config are checked against the running PHP by the versionPins lane.)
+# shellcheck disable=SC2154 # pharDir/composerRequireCheckerConfig/projectRoot are set by
 #   bin/qa (setConfig) before this fragment is sourced — genuine sourced-fragment architecture.
-qaSimpleTool "Composer Require Checker safe scan-files" phpNoXdebug -f "$binDir"/composer-require-checker-safe-scan-files-check -- \
-    "$composerRequireCheckerConfig" "$projectRoot"
-
 composerRequireCheckExitCode=99
 while (( composerRequireCheckExitCode > 0 ))
 do

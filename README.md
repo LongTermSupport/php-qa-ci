@@ -67,23 +67,22 @@ PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 5\. Package Type Declaration (always-on)
 6\. Config Template Ignore-List Audit (always-on)
 7\. Infection Config Source Directories Check (always-on)
-8\. PHPUnit Config Version Check (always-on)
-9\. GitHub Actions PHP Version Check (always-on)
-10\. Strict Types Enforcement
-11\. PHP Lint
-12\. Composer Require Checker (starts with the always-on Safe scan-files preflight)
-13\. Markdown Links Checker
+8\. Version Pins Check (always-on)
+9\. Strict Types Enforcement
+10\. PHP Lint
+11\. Composer Require Checker
+12\. Markdown Links Checker
 
 **Phase 3 -- Static Analysis:**
-14\. Branch Name Policy (always-on; runs first in this phase)
-15\. PHPStan ignoreErrors Justification (always-on)
-16\. PHPStan (level max)
-17\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
-18\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
+13\. Branch Name Policy (always-on; runs first in this phase)
+14\. PHPStan ignoreErrors Justification (always-on)
+15\. PHPStan (level max)
+16\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
+17\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
 
 **Phase 4 -- Testing:**
-19\. PHPUnit
-20\. Infection (mutation testing, optional, requires Xdebug)
+18\. PHPUnit
+19\. Infection (mutation testing, optional, requires Xdebug)
 
 **Post-Success:** PHPLoc (stats only, not part of the pass/fail gate)
 
@@ -493,9 +492,7 @@ Tool-specific documentation:
 - **[PHPUnit](./docs/tools/phpunit.md)** -- Test runner configuration and modes
 - **[Infection](./docs/tools/infection.md)** -- Mutation testing setup
 - **[Package Type](./docs/tools/packageType.md)** -- The always-on `composer.json` `type` check
-- **[PHPUnit Config Version](./docs/tools/phpunitConfigVersion.md)** -- The always-on phpunit.xml version-pin check
-- **[GitHub Actions PHP Version](./docs/tools/githubActionsPhpVersion.md)** -- The always-on workflow PHP-version-detection check
-- **[Composer Require Checker Safe scan-files](./docs/tools/composerRequireCheckerSafeScanFiles.md)** -- The always-on Safe scan-files preflight
+- **[Version Pins](./docs/tools/versionPins.md)** -- The always-on check that phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
 - **[Require @api / @internal](./docs/tools/requireApiOrInternal.md)** -- API-surface classification rule
 - **[SensitiveParameter Usage](./docs/tools/sensitiveParameterUsage.md)** -- The always-on `#[\SensitiveParameter]` check
 

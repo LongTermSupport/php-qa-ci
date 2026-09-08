@@ -43,8 +43,7 @@ QA_TOOL_NAMES=(
   packageType
   configTemplateIgnoreList
   infectionConfigSourceDirs
-  phpunitConfigVersion
-  githubActionsPhpVersion
+  versionPins
   phpStrictTypes
   phpLint
   composerRequireChecker
@@ -75,8 +74,7 @@ declare -A QA_TOOL_ALIASES=(
   [packageType]="pt packagetype packageType"
   [configTemplateIgnoreList]="cti configTemplateIgnoreList"
   [infectionConfigSourceDirs]="icsd infectionConfigSourceDirs"
-  [phpunitConfigVersion]="pcv phpunitConfigVersion"
-  [githubActionsPhpVersion]="gapv githubActionsPhpVersion"
+  [versionPins]="vp versionPins"
   [phpStrictTypes]="st stricttypes"
   [phpLint]="lint phplint"
   [composerRequireChecker]="cr"
@@ -118,8 +116,7 @@ declare -A QA_TOOL_PATHS=(
   [packageType]=no
   [configTemplateIgnoreList]=no
   [infectionConfigSourceDirs]=no
-  [phpunitConfigVersion]=no
-  [githubActionsPhpVersion]=no
+  [versionPins]=no
   [phpStrictTypes]=yes
   [phpLint]=yes
   [composerRequireChecker]=no
@@ -144,8 +141,7 @@ declare -A QA_TOOL_PHASE=(
   [packageType]=linting
   [configTemplateIgnoreList]=linting
   [infectionConfigSourceDirs]=linting
-  [phpunitConfigVersion]=linting
-  [githubActionsPhpVersion]=linting
+  [versionPins]=linting
   [phpStrictTypes]=linting
   [phpLint]=linting
   [composerRequireChecker]=linting
@@ -177,8 +173,7 @@ declare -A QA_TOOL_BANNER=(
   [packageType]="Checking Package Type Is Declared"
   [configTemplateIgnoreList]="Auditing Config Template Ignore-List Coverage"
   [infectionConfigSourceDirs]="Checking Infection Config Source Directories Exist"
-  [phpunitConfigVersion]="Checking phpunit.xml Version Pins Match Installed PHPUnit"
-  [githubActionsPhpVersion]="Checking GitHub Actions Workflows Can Select The Required PHP"
+  [versionPins]="Checking Version Pins Match The Toolchain In Use"
   [phpStrictTypes]="Setting Strict Types If It's Missing"
   [phpLint]="Running PHP Lint"
   [composerRequireChecker]="Running Composer Require Checker"
@@ -207,8 +202,7 @@ declare -A QA_TOOL_USAGE=(
   [packageType]="pt|packageType::assert composer.json declares an explicit package type (library/project/...)"
   [configTemplateIgnoreList]="cti|configTemplateIgnoreList::audit configDefaults/generic templates against psr4-validate-ignore-list.txt"
   [infectionConfigSourceDirs]="icsd|infectionConfigSourceDirs::assert infection.json's source.directories resolve to real directories"
-  [phpunitConfigVersion]="pcv|phpunitConfigVersion::assert phpunit.xml's schema/SYMFONY_PHPUNIT_VERSION pins match the installed PHPUnit major"
-  [githubActionsPhpVersion]="gapv|githubActionsPhpVersion::assert every PHP-version-detecting GitHub Actions workflow can select the PHP composer.json requires"
+  [versionPins]="vp|versionPins::assert phpunit.xml, safe scan-files and GitHub Actions PHP pins match the installed PHPUnit / running PHP"
   [phpStrictTypes]="st|stricttypes::strict types validation"
   [phpLint]="lint|phplint::phplint"
   [composerRequireChecker]="cr::composer require checker"

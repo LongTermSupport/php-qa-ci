@@ -130,36 +130,35 @@ The pipeline runs tools in 4 distinct phases:
 05. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
 06. **Config Template Ignore-List Audit** (`configTemplateIgnoreList`) - Always-on self-check: every namespace-less `configDefaults/generic/` template must be covered by `psr4-validate-ignore-list.txt` (see [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md))
 07. **Infection Config Source Directories Check** (`infectionConfigSourceDirs`) - Always-on: infection.json's `source.directories` entries must resolve, relative to infection.json's own directory, to real directories (see [docs/tools/infectionConfigSourceDirs.md](docs/tools/infectionConfigSourceDirs.md))
-08. **PHPUnit Config Version Check** (`phpunitConfigVersion`, alias `-t pcv`) - Always-on: the resolved phpunit.xml's version pins (schema URL and any `SYMFONY_PHPUNIT_VERSION` pin) must match the installed PHPUnit major (see [docs/tools/phpunitConfigVersion.md](docs/tools/phpunitConfigVersion.md))
-09. **GitHub Actions PHP Version Check** (`githubActionsPhpVersion`, alias `-t gapv`) - Always-on: every PHP-version-detecting workflow under `.github/workflows/` and `templates/github-actions/` can select, and defaults to, the PHP `composer.json` requires (see [docs/tools/githubActionsPhpVersion.md](docs/tools/githubActionsPhpVersion.md))
-10. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
-11. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
-12. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies; starts with the always-on Safe scan-files preflight (see [docs/tools/composerRequireCheckerSafeScanFiles.md](docs/tools/composerRequireCheckerSafeScanFiles.md))
-13. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+08. **Version Pins Check** (`versionPins`, alias `-t vp`) - Always-on: phpunit.xml's schema/`SYMFONY_PHPUNIT_VERSION` pins, composer-require-checker's safe scan-files and GitHub Actions workflows' PHP version detection all match the toolchain in use (see [docs/tools/versionPins.md](docs/tools/versionPins.md))
+09. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+10. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+11. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+12. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 ### Phase 3: Static Analysis Tools
 
-14. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-15. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
-16. **PHPStan** (`phpstan`) - Static analysis tool
-17. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
-18. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
+13. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
+14. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+15. **PHPStan** (`phpstan`) - Static analysis tool
+16. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `export useArkitect=0`. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+17. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `export useSensitiveParameterCheck=0`.
 
 ### Phase 4: Testing Tools
 
-19. **PHPUnit** (`phpunit`) - Unit testing framework
-20. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
+18. **PHPUnit** (`phpunit`) - Unit testing framework
+19. **Infection** (`infection`) - Mutation testing (optional, requires `useInfection=1`)
 
 ### Post-Success Phase (After all tests pass)
 
 After the "ALL TESTS PASSING" message:
 
-21. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
+20. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
 
     - This is informational only and cannot fail the pipeline
     - Provides metrics about code size and structure
 
-22. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
+21. **Post-Hook** (`hookPost.bash`) - Runs project-specific post-pipeline script if exists
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
@@ -553,23 +552,14 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
 - **Identifier**: `phpqaci.configTemplateIgnoreList`
 - **Details**: [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md)
 
-### PHPUnit Config Version Check
+### Version Pins Check
 
-- **Tool**: [@includes/generic/phpunitConfigVersion.inc.bash](includes/generic/phpunitConfigVersion.inc.bash)
-- **Purpose**: the resolved phpunit.xml's version pins (the `xsi:noNamespaceSchemaLocation` schema URL and any `SYMFONY_PHPUNIT_VERSION` pin) match the major version of the installed PHPUnit; a stale pin never fails a test run, so nothing else catches it
-- **Binary**: `bin/phpunit-config-version-check`, handed the same resolved config path the PHPUnit step runs with
-- **Alias**: `vendor/bin/qa -t pcv`
-- **Identifier**: `phpqaci.phpunitConfigVersion`
-- **Details**: [docs/tools/phpunitConfigVersion.md](docs/tools/phpunitConfigVersion.md)
-
-### GitHub Actions PHP Version Check
-
-- **Tool**: [@includes/generic/githubActionsPhpVersion.inc.bash](includes/generic/githubActionsPhpVersion.inc.bash)
-- **Purpose**: every workflow under `.github/workflows/` and every shipped template under `templates/github-actions/` that derives a runner PHP from `composer.json` can select, and defaults to, the PHP version `composer.json` requires; the shipped consumer template stays identical to the workflow this repository runs
-- **Binary**: `bin/github-actions-php-version-check <project-root>`
-- **Alias**: `vendor/bin/qa -t gapv`
-- **Identifier**: `phpqaci.githubActionsPhpVersion`
-- **Details**: [docs/tools/githubActionsPhpVersion.md](docs/tools/githubActionsPhpVersion.md)
+- **Tool**: [@includes/generic/versionPins.inc.bash](includes/generic/versionPins.inc.bash)
+- **Purpose**: every version pin in the QA configuration matches the toolchain in use: phpunit.xml's schema URL and `SYMFONY_PHPUNIT_VERSION` against the installed PHPUnit major, composer-require-checker's `thecodingmachine/safe` scan-files against the generated files safe loads on the running PHP, and GitHub Actions workflows' PHP version detection against the PHP `composer.json` requires; none of these fails a test run when stale, so nothing else catches them
+- **Binary**: `bin/version-pins-check <project-root> <phpunit.xml> <composerRequireChecker.json>`, handed the same resolved config paths the phpunit and cr lanes run with
+- **Alias**: `vendor/bin/qa -t vp`
+- **Identifier**: `phpqaci.versionPins`
+- **Details**: [docs/tools/versionPins.md](docs/tools/versionPins.md)
 
 ### PHP Strict Types
 
@@ -605,10 +595,7 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
   - Using Symfony components without explicit require
   - Safe functions from `thecodingmachine/safe` after Rector conversion
   - PSR interfaces without requiring the PSR package
-- **Safe scan-files preflight**: the lane starts with an always-on check that every `thecodingmachine/safe` entry in the resolved `composerRequireChecker.json` `scan-files` names the version directory safe's dispatcher requires on the running PHP
-  - **Binary**: `bin/composer-require-checker-safe-scan-files-check <config> <project-root>`
-  - **Identifier**: `phpqaci.composerRequireCheckerSafeScanFiles`
-  - **Details**: [docs/tools/composerRequireCheckerSafeScanFiles.md](docs/tools/composerRequireCheckerSafeScanFiles.md)
+- **Safe scan-files**: the `thecodingmachine/safe` entries in the resolved `composerRequireChecker.json` are checked against the running PHP by the Version Pins lane (see [docs/tools/versionPins.md](docs/tools/versionPins.md))
 
 ### Markdown Links Checker
 

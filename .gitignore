@@ -5,7 +5,6 @@
 /bin/*
 !/bin/bootstrap.php
 !/bin/composer-require-checker
-!/bin/composer-require-checker-safe-scan-files-check
 !/bin/infection
 !/bin/infection-config-source-dirs-check
 !/bin/lib-redirect-stub.inc.bash
@@ -13,17 +12,16 @@
 !/bin/mdlinks
 !/bin/package-type-check
 !/bin/config-template-ignorelist-check
-!/bin/github-actions-php-version-check
 !/bin/php-cs-fixer
 !/bin/phpstan
 !/bin/phpstan-ignore-justification
 !/bin/phpstan-rule
-!/bin/phpunit-config-version-check
 !/bin/psr4-validate
 !/bin/qa
 !/bin/rule-doc
 !/bin/rules
 !/bin/sensitive-parameter-usage
+!/bin/version-pins-check
 /cache/
 /.phive-home/
 /build/rector-phar/vendor/
