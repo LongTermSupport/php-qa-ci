@@ -19,9 +19,7 @@ jobs:
       # No explicit `ref:` — actions/checkout defaults to the repository's own
       # default branch for schedule/workflow_dispatch events. This keeps the
       # workflow correct when a consumer copies it verbatim: it operates on the
-      # consumer's default branch, not php-qa-ci's. (Hardcoding a branch here
-      # previously shipped `ref: php8.4` to consumers, breaking their scheduled
-      # runs at checkout.)
+      # consumer's default branch, not php-qa-ci's.
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -104,10 +102,19 @@ jobs:
         id: summary
         run: |
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          # Summaries only: a full lock diff can exceed the GITHUB_OUTPUT size
+          # limit, and a truncated diff would be misleading. The PR's own diff
+          # tab carries the detail.
           echo "## Composer Changes" >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
-          echo '```diff' >> "$GITHUB_OUTPUT"
-          git diff composer.lock | head -100 >> "$GITHUB_OUTPUT"
+          echo '```' >> "$GITHUB_OUTPUT"
+          git diff --stat composer.json composer.lock >> "$GITHUB_OUTPUT"
+          echo '```' >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "Package versions after the update:" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo '```' >> "$GITHUB_OUTPUT"
+          composer show --direct --no-interaction >> "$GITHUB_OUTPUT"
           echo '```' >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
 
@@ -117,7 +124,9 @@ jobs:
             echo "" >> "$GITHUB_OUTPUT"
             for phar in vendor-phar/*.phar; do
               name=$(basename "$phar" .phar)
-              echo "- **$name**: $(php "$phar" --version 2>/dev/null | head -1 || echo 'version unknown')" >> "$GITHUB_OUTPUT"
+              # Only the first line of --version output is the version banner.
+              version=$(php "$phar" --version 2>/dev/null | awk 'NR==1' || true)
+              echo "- **$name**: ${version:-version unknown}" >> "$GITHUB_OUTPUT"
             done
             echo "" >> "$GITHUB_OUTPUT"
           fi
@@ -127,9 +136,8 @@ jobs:
           if ! git diff --quiet build/rector-phar/composer.lock; then
             echo "## Rector Changes" >> "$GITHUB_OUTPUT"
             echo "" >> "$GITHUB_OUTPUT"
-            echo '```diff' >> "$GITHUB_OUTPUT"
-            git diff build/rector-phar/composer.lock | head -50 >> "$GITHUB_OUTPUT"
-            echo '```' >> "$GITHUB_OUTPUT"
+            echo "- **rector**: $(php vendor-phar/rector.phar --version 2>/dev/null || echo 'version unknown')" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
           fi
 
           echo "" >> "$GITHUB_OUTPUT"
@@ -157,6 +165,8 @@ jobs:
 
       - name: Enable auto-merge
         if: steps.create-pr.outputs.pull-request-number
-        run: gh pr merge --auto --squash "${{ steps.create-pr.outputs.pull-request-number }}"
+        # A merge commit, never a squash or rebase: both rewrite the PR's commits,
+        # so `git branch -d` can no longer see the branch as merged.
+        run: gh pr merge --auto --merge "${{ steps.create-pr.outputs.pull-request-number }}"
         env:
           GH_TOKEN: ${{ github.token }}
