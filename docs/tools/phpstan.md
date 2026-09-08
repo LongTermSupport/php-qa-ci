@@ -144,6 +144,8 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     # Single array param annotated @param list<T> should use variadic syntax instead
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+    # A scalar @param/@return typed as a docblock literal set ('a'|'b', 0|1) is an undeclared enum
+    - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
     # Symfony: blocks user input passed directly into HTTP response headers
     - LTS\PHPQA\PHPStan\Rules\ForbidHeaderInjectionRule
     # Symfony/Doctrine: requires Doctrine DQL/ORM — bans raw SQL strings
@@ -163,6 +165,7 @@ rules:
 | `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                |
 | `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                  |
 | `RequireVariadicForSingleListParamRule` | `rules-optional.neon`           | `array $items` annotated `@param list<T>` — use variadic syntax                |
+| `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum |
 | `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |
 | `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                          |
 | `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                     |
