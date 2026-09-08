@@ -149,6 +149,12 @@ final readonly class QaConfigBuilder
         return $this->with(phpUnitCoverage: $coverage);
     }
 
+    /** Order by defects, stop at the first failure, no coverage (the `uniterate` pseudo-tool). */
+    public function withPhpUnitIterativeMode(bool $iterative): self
+    {
+        return $this->with(phpUnitIterativeMode: $iterative);
+    }
+
     public function withInfection(bool $enabled): self
     {
         return $this->with(useInfection: $enabled);
@@ -263,6 +269,7 @@ final readonly class QaConfigBuilder
         ?array $pathsToIgnore = null,
         ?string $memoryLimit = null,
         ?bool $phpUnitCoverage = null,
+        ?bool $phpUnitIterativeMode = null,
         ?bool $useInfection = null,
         ?int $infectionThreads = null,
         ?int $minMsi = null,
@@ -293,9 +300,9 @@ final readonly class QaConfigBuilder
             halfCpuThreads: $this->halfCpuThreads,
             phpUnitCoverage: $phpUnitCoverage ?? $this->phpUnitCoverage,
             phpUnitQuickTests: $this->phpUnitQuickTests,
-            phpUnitIterativeMode: $this->phpUnitIterativeMode,
-            useInfection: $useInfection         ?? $this->useInfection,
-            infectionThreads: $infectionThreads ?? $this->infectionThreads,
+            phpUnitIterativeMode: $phpUnitIterativeMode ?? $this->phpUnitIterativeMode,
+            useInfection: $useInfection                 ?? $this->useInfection,
+            infectionThreads: $infectionThreads         ?? $this->infectionThreads,
             infectionOnlyCovered: $this->infectionOnlyCovered,
             minMsi: $minMsi                                         ?? $this->minMsi,
             minCoveredMsi: $minCoveredMsi                           ?? $this->minCoveredMsi,

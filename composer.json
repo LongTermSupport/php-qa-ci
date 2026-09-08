@@ -92,6 +92,7 @@
     "bin/phpstan-rule",
     "bin/psr4-validate",
     "bin/qa",
+    "bin/qa-php",
     "bin/rule-doc",
     "bin/rules",
     "bin/sensitive-parameter-usage",

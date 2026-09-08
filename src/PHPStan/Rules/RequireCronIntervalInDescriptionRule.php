@@ -86,8 +86,8 @@ final readonly class RequireCronIntervalInDescriptionRule implements Rule
         foreach ($node->attrGroups as $attrGroup) {
             foreach ($attrGroup->attrs as $attr) {
                 $attrName = $attr->name->toString();
-                if ('Symfony\Component\Console\Attribute\AsCommand' === $attrName
-                    || 'AsCommand'                                  === $attrName
+                if (\Symfony\Component\Console\Attribute\AsCommand::class === $attrName
+                    || 'AsCommand'                                        === $attrName
                 ) {
                     return $attr;
                 }

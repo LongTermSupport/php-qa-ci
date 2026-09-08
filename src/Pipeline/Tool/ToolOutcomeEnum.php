@@ -23,6 +23,7 @@ enum ToolOutcomeEnum
     {
         return self::Failed === $this;
     }
+
     /** The tool ran and found nothing to report. */
     case Passed;
     /** The tool ran and reported violations; interactively this is retried. */

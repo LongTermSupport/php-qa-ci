@@ -69,7 +69,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     #[Test]
     public function commandWithAsCommandCountsAsAService(): void
     {
-        $class = $this->class('DoThing', ['Symfony\Component\Console\Attribute\AsCommand']);
+        $class = $this->class('DoThing', [\Symfony\Component\Console\Attribute\AsCommand::class]);
 
         self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
     }

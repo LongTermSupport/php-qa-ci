@@ -98,7 +98,7 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
     public function fullyQualifiedAsCommandAttributeIsRecognised(): void
     {
         $class = $this->commandClass(
-            'Symfony\Component\Console\Attribute\AsCommand',
+            \Symfony\Component\Console\Attribute\AsCommand::class,
             ['app:cron:cleanup', 'Clean up. [every 15m]'],
         );
 

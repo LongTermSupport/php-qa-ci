@@ -13,6 +13,10 @@ declare(strict_types=1);
  *
  * Required as: require __DIR__.'/bootstrap.php';
  *
+ * After a successful require, $phpQaCiBootstrapAutoloadPath holds the absolute
+ * path of the autoloader that was loaded (bin/qa-php derives the project root
+ * from it).
+ *
  * An entrypoint whose failure message must differ from the default (see
  * bin/managed-source) sets $phpQaCiBootstrapFailureMessage before requiring
  * this file; it is used verbatim instead of the default guidance.
@@ -28,6 +32,7 @@ foreach ($phpQaCiBootstrapFiles as $phpQaCiBootstrapFile) {
     if (file_exists($phpQaCiBootstrapFile)) {
         require $phpQaCiBootstrapFile;
         $phpQaCiBootstrapAutoloadFound = true;
+        $phpQaCiBootstrapAutoloadPath  = realpath($phpQaCiBootstrapFile);
         break;
     }
 }

@@ -64,14 +64,14 @@ subprocesses. Design notes and dead-ends go in `JOURNAL/`.
 
 ### Phase 1: Foundations
 
-- [ ] ⬜ **Task 1.1**: Dependencies: `symfony/process`, `symfony/console`; composer-require-checker config; PHPStan self-check stays at max.
-- [ ] ⬜ **Task 1.2**: `Pipeline\Config`: `QaConfig` readonly DTO, `QaConfigBuilder`, `EnvironmentReader` (existing env var names), `PlatformDetector`, `ConfigPathResolver` (3-level), `ProjectPaths` (src/tests/bin/var/cache/phar discovery), `DependentConfig` (xdebug → coverage → infection gating, MSI floors).
-- [ ] ⬜ **Task 1.3**: `Pipeline\Tool`: `ToolInterface`, `Phase` enum, `ToolOutcome` enum, `ToolResult`, `ToolContext`, `ToolRegistry` with the frozen aliases/phases/gates/banners; the characterisation test re-targeted at the PHP registry.
-- [ ] ⬜ **Task 1.4**: `Pipeline\Process`: `ProcessRunner` interface, `SymfonyProcessRunner`, `PhpInvoker` (no-Xdebug ini, memory limit, `PHP_QA_CI_PHP_EXECUTABLE`), `FakeProcessRunner` for tests, `LogArchiver` (port of archiveToolLog).
-- [ ] ⬜ **Task 1.5**: `Pipeline\Lock\RunLock`: JSON lock file under `qaConfig/.qa-lock/`, stale detection by last-activity age, release on exit.
-- [ ] ⬜ **Task 1.6**: `Pipeline\Runner`: `Pipeline` orchestrator (preflight, hooks, phases, single tool, retry prompt when interactive, aggregate mode, read-only policy, exit code), `RetryPolicy`, `AggregateReport`.
-- [ ] ⬜ **Task 1.7**: `bin/qa` as a PHP entrypoint via a `QaCommand` (symfony/console) with the existing option contract and usage text derived from the registry; `--json` fd handling.
-- [ ] ⬜ **Task 1.8**: Large characterisation test: `bin/qa` run end-to-end over a fixture project under `tests/assets/` for `-h`, invalid tool, `-p` gate, single in-process lane, aggregate summary.
+- [x] ✅ **Task 1.1**: Dependencies: `symfony/process`, `symfony/console`; composer-require-checker config; PHPStan self-check stays at max.
+- [x] ✅ **Task 1.2**: `Pipeline\Config`: `QaConfigDto`, `QaConfigBuilder` (immutable withers; derivations in `build()`), `EnvironmentReader` (existing env var names), `PlatformDetector`, `ConfigPathResolver` (3-level), `ProjectPathsResolver` (src/tests/bin/var/cache/phar discovery).
+- [x] ✅ **Task 1.3**: `Pipeline\Tool`: `ToolInterface`, `PhaseEnum`, `ToolOutcomeEnum`, `ToolResultDto`, `ToolContext`, `ToolRegistry` with the frozen aliases/phases/gates/banners; the characterisation test re-targeted at the PHP registry.
+- [x] ✅ **Task 1.4**: `Pipeline\Process`: `ProcessRunnerInterface`, `SymfonyProcessRunner`, `PhpInvoker` (no-Xdebug ini, memory limit, `PHP_QA_CI_PHP_EXECUTABLE`), `FakeProcessRunner` for tests, `LogArchiver`.
+- [x] ✅ **Task 1.5**: `Pipeline\Lock\RunLock`: JSON lock file under `qaConfig/.qa-lock/`, stale detection by last-activity age, release on exit.
+- [x] ✅ **Task 1.6**: `Pipeline\Runner`: `Pipeline` orchestrator (preflight, hooks, phases, single tool, retry prompt when interactive, aggregate mode, exit code), `ToolExecutor`, `AggregateReport`, `DirectoryPreparer`, `PharToolsVerifier`, `HookRunner`, `ShippedToolLocator`.
+- [x] ✅ **Task 1.7**: `bin/qa-php` PHP entrypoint (renamed to `bin/qa` in Phase 5) via `QaApplication` + `ArgumentsParser` with the existing option contract and usage text derived from the registry; `--json` sends decoration to stderr.
+- [x] ✅ **Task 1.8**: Large characterisation test `tests/Large/Pipeline/QaEntrypointTest.php`: `-h`, invalid tool, `-p` gate, path outside root, run header and the legacy-config guard; each ported lane adds its own case.
 
 ### Phase 2: In-process lanes
 

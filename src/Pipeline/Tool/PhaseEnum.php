@@ -21,6 +21,7 @@ enum PhaseEnum: string
             self::Testing         => 'Running All Testing Tools',
         };
     }
+
     case CodingStandards = 'codingStandards';
     case Linting         = 'linting';
     case StaticAnalysis  = 'staticAnalysis';

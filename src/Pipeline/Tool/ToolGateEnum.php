@@ -19,6 +19,7 @@ enum ToolGateEnum
             self::Infection => !$quickTests && $infectionEnabled,
         };
     }
+
     /** Always runs. */
     case None;
     /** Skipped when phpqaQuickTests=1. */
