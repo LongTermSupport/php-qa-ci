@@ -807,6 +807,8 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 
 <!-- handler: enforce-project-containment -->
 
+<!-- handler: qa-suppression-blocker -->
+
 <!-- handler: quarantine-artefact-read-guard -->
 
 <!-- handler: remote-docs-commit-gate -->
@@ -829,6 +831,8 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 
 <!-- handler: block-sudo-pip -->
 
+<!-- handler: enforce-tdd -->
+
 <!-- handler: validate-instruction-content -->
 
 <!-- handler: verification-result-gate -->
@@ -836,6 +840,8 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 <!-- handler: prevent-worktree-file-copying -->
 
 <!-- handler: block-unread-overwrite -->
+
+<!-- handler: lint-on-edit -->
 
 <!-- handler: failsafe-cron-blockage-suppressor -->
 
@@ -888,6 +894,7 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 | R-PLAN-QA-EDIT                     | a PLAN.md/README.md Write/Edit violates a block-level plan QA check                                                | Plan QA linting catches issues you can fix immediately, before they reach commit                                                                                                                  | Fix the content per each finding's remediation below and retry                              |
 | R-PLAN-TIME-ESTIMATE               | Time estimates not allowed in plan documents                                                                       | Time estimates in plans create false expectations and pressure                                                                                                                                    | Break work into concrete tasks and implementation steps; let the user decide scheduling     |
 | R-WRITE-OUTSIDE-PROJECT-ROOT       | a write whose target is outside the repository root                                                                | Outside the repo nothing is version-controlled, reviewed or durable — a container's temp directory is wiped on restart, and every other path rule is scoped to the repo so none of them judges it | Write it inside the repository — `untracked/scratch/` is the scratch location               |
+| R-QA-SUPPRESSION                   | a QA suppression directive (noqa, type: ignore, eslint-disable, ...)                                               | Suppression comments hide real problems and create technical debt                                                                                                                                 | Fix the underlying issue; do not suppress the warning                                       |
 | R-QUARANTINE-ARTEFACT-READ         | reading a quarantined `*-opus-security-DETAIL*` artefact into the coordinator                                      | A DETAIL artefact holds raw flaggable substance meant for a human or another quarantine agent only                                                                                                | Read the paired `*-opus-security-SUMMARY*` artefact instead                                 |
 | R-REMOTE-DOCS-STAGED-PROVENANCE    | a commit staging a remote-docs file without valid provenance frontmatter                                           | An unattributed vendored document that reaches history needs a rewrite to remove, and cannot be refreshed, dated or trusted meanwhile                                                             | Capture with `hooks-daemon remote-docs add <url>` and re-stage                              |
 | R-REMOTE-DOCS-PROVENANCE           | a write into the remote-docs tree without valid provenance frontmatter                                             | A vendored document with no recorded source is indistinguishable from something we wrote ourselves, and cannot be refreshed, dated or trusted                                                     | Capture with `hooks-daemon remote-docs add <url>` instead of hand-authoring                 |
@@ -907,6 +914,7 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 | R-SENSITIVE-SECRET-TERM            | content matching a configured blocked term                                                                         | A gitignored secret word list term was found in this write                                                                                                                                        | Ask the user what the cited entry covers, then remove the matching text                     |
 | R-STAGED-LINT-FAILURE              | a staged file fails the cheap syntax check at commit time                                                          | lint_on_edit only ever runs at Write/Edit time, so a git add of pre-existing content skips it entirely                                                                                            | Fix the failing file(s) above and re-stage before committing                                |
 | R-SUDO-PIP-INSTALL                 | `sudo pip install`                                                                                                 | Conflicts with the OS package manager and can corrupt system Python                                                                                                                               | Use a virtual environment or `pip install --user` instead                                   |
+| R-TDD-TEST-FIRST                   | creating a production source file without its test file                                                            | TDD requires the test file to exist before the source file                                                                                                                                        | Create the test file first (RED), then the source file (GREEN)                              |
 | R-INSTRUCTION-IMPLEMENTATION-LOG   | implementation logs (e.g. 'created the file X', 'added the class Y')                                               | Instruction files hold permanent instructions, not a log of past edits                                                                                                                            | Remove the log sentence; put implementation history in git or a plan JOURNAL/               |
 | R-INSTRUCTION-STATUS-INDICATOR     | status indicators (e.g. checkmark + 'Complete', 'Done', 'Success', 'Fixed')                                        | A completion emoji records a moment in time, not a permanent fact                                                                                                                                 | Remove the status marker; instruction files describe the project, not its history           |
 | R-INSTRUCTION-TIMESTAMP            | timestamps (ISO dates such as 2024-03-15)                                                                          | A dated entry is a log line, and instruction files are not a log                                                                                                                                  | Remove the date; if it is genuinely load-bearing, put it in git history                     |
@@ -918,6 +926,7 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 | R-VERIFICATION-RESULT-NOT-CONSUMED | a verifier followed by a mutator with nothing consuming the result                                                 | The verifier can fail and the mutator would still run                                                                                                                                             | Gate with `&&`, an explicit exit-code check, or `set -euo pipefail`                         |
 | R-WORKTREE-FILE-COPY               | `cp`/`mv`/`rsync` between a worktree and the main repo                                                             | Defeats worktree isolation, bypasses git tracking, and can nuke untracked work in the target directory                                                                                            | cd into the worktree, commit, then git merge back                                           |
 | R-WRITE-CLOBBER                    | `Write` to an existing file you have not read this session                                                         | You cannot know what you are destroying, so you could not report the loss even afterwards                                                                                                         | `Read` the file then retry, or use `Edit` for a targeted change                             |
+| R-LINT-FAILURE                     | a written/authored file that fails its language's lint check                                                       | The write has already landed on disk; this is a failure report, not a rollback                                                                                                                    | Fix the reported problems with Edit — do not re-Write the file from scratch                 |
 | R-FAILSAFE-CRON-SUPPRESSED         | A delivered failsafe-cron tick, while a 'blocked only on human input' marker is live                               | Every tick against a session blocked only on human input is a guaranteed no-op model turn                                                                                                         | Nothing to do -- this is expected. Send a real message to clear the marker and resume ticks |
 | R-STOP-QA-FAILURE                  | Stopping while the last QA tool run's own output indicated failure                                                 | QA failures detected in the last QA tool run                                                                                                                                                      | Fix the failures, re-run the QA tool, and continue without stopping                         |
 | R-STOP-TAUTOLOGICAL-QUESTION       | Stopping behind a rhetorical continue/confirmation question                                                        | The answer is obvious -- yes, continue the already-planned work now                                                                                                                               | Resume the next unit of work immediately; STOPPING BECAUSE: does not exempt this            |
@@ -1025,5 +1034,13 @@ One line each; these fire with their own guidance when relevant. Full text: `bin
 <!-- handler: worktree-create -->
 
 - worktree_create — semantic worktree naming
+
+<!-- handler: nitpick-dismissive-language -->
+
+- nitpick.dismissive_language — do not deflect or prematurely halt
+
+<!-- handler: nitpick-hedging-language -->
+
+- nitpick.hedging_language — the guessing is the defect, not the wording
 
 </hooksdaemon>
