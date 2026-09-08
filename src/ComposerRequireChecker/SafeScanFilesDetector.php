@@ -40,6 +40,7 @@ final readonly class SafeScanFilesDetector
             if (1 !== \Safe\preg_match(self::ENTRY_PATTERN, $entry, $matches) || !isset($matches[1], $matches[2], $matches[3])) {
                 continue;
             }
+
             [, $generatedDir, $listedVersion, $file] = $matches;
 
             $dispatcher = $projectRoot . '/' . $generatedDir . $file;

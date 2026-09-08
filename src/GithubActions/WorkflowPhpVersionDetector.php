@@ -83,14 +83,13 @@ final readonly class WorkflowPhpVersionDetector
     {
         $lists = [];
 
-        \Safe\preg_match_all(self::LOOP_PATTERN, $workflowYaml, $loops);
-        foreach ($loops[1] as $loop) {
+        foreach ($this->matchAll(self::LOOP_PATTERN, $workflowYaml, 1) as $loop) {
             $lists[] = array_values(array_filter(explode(' ', trim($loop)), static fn (string $v): bool => '' !== $v));
         }
 
-        \Safe\preg_match_all(self::CHAIN_ARM_PATTERN, $workflowYaml, $arms);
-        if ([] !== $arms[1]) {
-            $lists[] = $arms[1];
+        $arms = $this->matchAll(self::CHAIN_ARM_PATTERN, $workflowYaml, 1);
+        if ([] !== $arms) {
+            $lists[] = $arms;
         }
 
         return $lists;
@@ -104,20 +103,34 @@ final readonly class WorkflowPhpVersionDetector
      */
     private function fallbackDefaults(string $workflowYaml): array
     {
-        \Safe\preg_match_all(self::DEFAULT_PATTERN, $workflowYaml, $assignments);
-        \Safe\preg_match_all(self::CHAIN_ARM_ASSIGNMENT_PATTERN, $workflowYaml, $armAssignments);
-
-        $armValues = array_count_values($armAssignments[2]);
+        $armValues = array_count_values($this->matchAll(self::CHAIN_ARM_ASSIGNMENT_PATTERN, $workflowYaml, 2));
         $defaults  = [];
-        foreach ($assignments[1] as $version) {
-            if (isset($armValues[$version]) && $armValues[$version] > 0) {
+        foreach ($this->matchAll(self::DEFAULT_PATTERN, $workflowYaml, 1) as $version) {
+            if (($armValues[$version] ?? 0) > 0) {
                 --$armValues[$version];
 
                 continue;
             }
+
             $defaults[] = $version;
         }
 
         return $defaults;
+    }
+
+    /**
+     * Every capture of one group across all matches, as a typed list.
+     *
+     * @return list<string>
+     */
+    private function matchAll(string $pattern, string $subject, int $group): array
+    {
+        \Safe\preg_match_all($pattern, $subject, $matches);
+        $captures = $matches[$group] ?? [];
+        if (!\is_array($captures)) {
+            return [];
+        }
+
+        return array_values(array_filter($captures, is_string(...)));
     }
 }

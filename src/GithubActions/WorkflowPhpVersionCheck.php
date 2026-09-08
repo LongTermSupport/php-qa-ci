@@ -48,6 +48,7 @@ final readonly class WorkflowPhpVersionCheck
             if (!$this->detector->detectsPhpVersion($yaml)) {
                 continue;
             }
+
             ++$checked;
             foreach ($this->detector->check($yaml, $required) as $problem) {
                 $problems[] = $relative . ': ' . $problem;
@@ -98,14 +99,17 @@ final readonly class WorkflowPhpVersionCheck
         if (!is_file($composerJson)) {
             return null;
         }
+
         $composer = \Safe\json_decode(\Safe\file_get_contents($composerJson), true);
         if (!\is_array($composer)) {
             return null;
         }
+
         $require = $composer['require'] ?? null;
         if (!\is_array($require)) {
             return null;
         }
+
         $constraint = $require['php'] ?? null;
         if (!\is_string($constraint) || 1 !== \Safe\preg_match('/(\d+\.\d+)/', $constraint, $matches) || !isset($matches[1])) {
             return null;
@@ -123,7 +127,12 @@ final readonly class WorkflowPhpVersionCheck
             if (!is_dir($absolute)) {
                 continue;
             }
+
             foreach (\Safe\glob($absolute . '/*.yml') as $path) {
+                if (!\is_string($path)) {
+                    continue;
+                }
+
                 $files[ltrim($dir, '/') . '/' . basename($path)] = \Safe\file_get_contents($path);
             }
         }
