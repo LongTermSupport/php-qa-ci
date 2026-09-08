@@ -2,12 +2,12 @@
 # php-qa-ci — custom CCY container
 # ============================================================================
 # This project is a bash-orchestrated PHP QA pipeline (composer library).
-# composer.json requires PHP ^8.3; the php8.4 branch targets PHP 8.4, so the
-# container installs PHP 8.4 from the Sury repo (Debian bookworm ships 8.2,
+# composer.json requires PHP ^8.5 (the php8.5 branch targets PHP 8.5), so the
+# container installs PHP 8.5 from the Sury repo (Debian bookworm ships 8.2,
 # which cannot even run `composer install` here).
 #
 # Installed on top of claude-yolo:latest:
-#   - PHP 8.4 CLI + extensions the pipeline/tools need
+#   - PHP 8.5 CLI + extensions the pipeline/tools need
 #     (xml, mbstring, curl, zip, intl) and Xdebug (coverage + Infection)
 #   - Composer (checksum-verified installer)
 #   - PHIVE (GPG-verified) — scripts/tool-install.bash uses it for PHAR tools
@@ -19,7 +19,7 @@
 FROM claude-yolo:latest
 
 # ----------------------------------------------------------------------------
-# PHP 8.4 from the Sury repo (keyring verified via packages.sury.org deb)
+# PHP 8.5 from the Sury repo (keyring verified via packages.sury.org deb)
 # ----------------------------------------------------------------------------
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -32,13 +32,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         > /etc/apt/sources.list.d/sury-php.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        php8.4-cli \
-        php8.4-xml \
-        php8.4-mbstring \
-        php8.4-curl \
-        php8.4-zip \
-        php8.4-intl \
-        php8.4-xdebug \
+        php8.5-cli \
+        php8.5-xml \
+        php8.5-mbstring \
+        php8.5-curl \
+        php8.5-zip \
+        php8.5-intl \
+        php8.5-xdebug \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
