@@ -26,7 +26,16 @@ use RuntimeException;
 #[CoversClass(MissingPharException::class)]
 #[CoversClass(HookRunner::class)]
 #[CoversClass(LegacyBashConfigException::class)]
-#[UsesClass(ContextFactory::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[Small]
 final class PreflightTest extends TestCase
 {

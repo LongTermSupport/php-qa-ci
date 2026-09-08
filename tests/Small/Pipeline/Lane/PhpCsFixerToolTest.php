@@ -19,8 +19,21 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpCsFixerTool::class)]
-#[UsesClass(ContextFactory::class)]
 #[UsesClass(ReadOnlyGuidance::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
+#[UsesClass(ToolContext::class)]
+#[UsesClass(ToolOutcomeEnum::class)]
 #[Small]
 final class PhpCsFixerToolTest extends TestCase
 {

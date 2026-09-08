@@ -67,9 +67,8 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     public function mainReturnsZeroForAProjectThatUsesTheAttribute(): void
     {
         // Pass useCheck explicitly so this is deterministic regardless of the
-        // ambient useSensitiveParameterCheck env var — php-qa-ci's own
-        // qaConfig.inc.bash exports it as 0, which would otherwise leak into the
-        // PHPUnit subprocess and make main() skip.
+        // ambient useSensitiveParameterCheck env var, which would otherwise
+        // make main() skip.
         \Safe\ob_start();
         $exitCode = SensitiveParameterUsageScanner::main(self::PROJECT_WITH, useCheck: true);
         $output   = \Safe\ob_get_clean();
@@ -87,7 +86,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
 
         self::assertSame(1, $exitCode);
         self::assertStringContainsString('No #[\SensitiveParameter]', $output);
-        self::assertStringContainsString('useSensitiveParameterCheck', $output);
+        self::assertStringContainsString('->withSensitiveParameterCheck(false)', $output);
     }
 
     #[Test]
@@ -202,7 +201,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     /**
      * The FAILED guidance is a security-baseline contract: it must render the
      * scanned directory, the worked #[\SensitiveParameter] example, and the exact
-     * `export useSensitiveParameterCheck=0` opt-out line. A corruption of any part
+     * `->withSensitiveParameterCheck(false)` opt-out line. A corruption of any part
      * of that guidance (a dropped instruction, a reversed line) would silently
      * mislead a developer hitting the check, so the whole block is pinned exactly.
      */
@@ -231,9 +230,9 @@ final class SensitiveParameterUsageScannerTest extends TestCase
             . '    public function login(string $user, #[\SensitiveParameter] string $password) {}' . \PHP_EOL
             . \PHP_EOL
             . 'If this project genuinely never handles a sensitive parameter, opt out by' . \PHP_EOL
-            . 'adding the following to qaConfig/qaConfig.inc.bash:' . \PHP_EOL
+            . 'adding the following to qaConfig/qa.php:' . \PHP_EOL
             . \PHP_EOL
-            . '    export useSensitiveParameterCheck=0' . \PHP_EOL
+            . '    ->withSensitiveParameterCheck(false)' . \PHP_EOL
             . \PHP_EOL
             . $rule . \PHP_EOL;
 

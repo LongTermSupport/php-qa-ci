@@ -39,8 +39,9 @@ use SplFileInfo;
  * ESCAPE HATCH
  * ============
  * A small number of projects (e.g. pure tooling libraries — php-qa-ci itself is
- * one) genuinely never handle a sensitive parameter. They opt out by setting
- * `export useSensitiveParameterCheck=0` in qaConfig/qaConfig.inc.bash.
+ * one) genuinely never handle a sensitive parameter. They opt out with
+ * `->withSensitiveParameterCheck(false)` in qaConfig/qa.php (the standalone
+ * binary honours the `useSensitiveParameterCheck=0` environment variable).
  */
 final readonly class SensitiveParameterUsageScanner
 {
@@ -213,9 +214,9 @@ final readonly class SensitiveParameterUsageScanner
             . '    public function login(string $user, #[\SensitiveParameter] string $password) {}' . PHP_EOL
             . PHP_EOL
             . 'If this project genuinely never handles a sensitive parameter, opt out by' . PHP_EOL
-            . 'adding the following to qaConfig/qaConfig.inc.bash:' . PHP_EOL
+            . 'adding the following to qaConfig/qa.php:' . PHP_EOL
             . PHP_EOL
-            . '    export ' . self::ESCAPE_HATCH_ENV . '=0' . PHP_EOL
+            . '    ->withSensitiveParameterCheck(false)' . PHP_EOL
             . PHP_EOL
             . '==============================================================================' . PHP_EOL;
     }

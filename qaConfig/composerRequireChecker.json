@@ -51,6 +51,10 @@
     "vendor/thecodingmachine/safe/generated/8.2/exec.php",
     "vendor/thecodingmachine/safe/generated/8.1/url.php",
     "vendor/thecodingmachine/safe/generated/8.1/json.php",
-    "vendor/thecodingmachine/safe/generated/8.2/filesystem.php"
+    "vendor/thecodingmachine/safe/generated/8.2/filesystem.php",
+    "vendor/thecodingmachine/safe/generated/8.1/dir.php",
+    "vendor/thecodingmachine/safe/generated/8.4/info.php",
+    "vendor/thecodingmachine/safe/generated/8.4/network.php",
+    "vendor/thecodingmachine/safe/generated/8.4/outcontrol.php"
   ]
 }

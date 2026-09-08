@@ -197,7 +197,7 @@ See [Continuous Integration](./ci.md) for more details on the available workflow
 
 Place configuration files in your project's `qaConfig/` directory:
 
-- `qaConfig/qaConfig.inc.bash` - Override pipeline settings
+- `qaConfig/qa.php` - Override pipeline settings (a closure adjusting the `QaConfigBuilder`)
 - `qaConfig/phpstan.neon` - PHPStan configuration
 - `qaConfig/phpunit.xml` - PHPUnit configuration
 - `qaConfig/php_cs.php` - PHP CS Fixer rules

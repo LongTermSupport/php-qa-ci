@@ -9,7 +9,6 @@ use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -17,7 +16,6 @@ use Symfony\Component\Console\Output\BufferedOutput;
  * @internal
  */
 #[CoversClass(LogArchiver::class)]
-#[UsesClass(TempDir::class)]
 #[Small]
 final class LogArchiverTest extends TestCase
 {

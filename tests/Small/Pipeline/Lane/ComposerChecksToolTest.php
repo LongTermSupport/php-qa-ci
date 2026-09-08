@@ -18,7 +18,20 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(ComposerChecksTool::class)]
-#[UsesClass(ContextFactory::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
+#[UsesClass(ProcessSpecDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
 #[Small]
 final class ComposerChecksToolTest extends TestCase
 {

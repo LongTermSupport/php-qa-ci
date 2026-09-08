@@ -18,7 +18,6 @@
 !/bin/phpstan-rule
 !/bin/psr4-validate
 !/bin/qa
-!/bin/qa-php
 !/bin/rule-doc
 !/bin/rules
 !/bin/sensitive-parameter-usage
@@ -31,7 +30,7 @@
 # BEGIN php-qa-ci managed QA runtime excludes — do not edit
 # These patterns ensure QA tool runtime caches are never committed,
 # regardless of where they happen to appear in the project tree.
-# Managed by vendor/lts/php-qa-ci/includes/generic/prepareDirectories.inc.bash
+# Managed by php-qa-ci (LTS\PHPQA\Pipeline\Runner\DirectoryPreparer)
 **/.phpunit.cache/
 **/.qa-lock/
 **/.php-cs-fixer.cache

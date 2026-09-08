@@ -19,6 +19,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ArgumentsParser::class)]
 #[CoversClass(RunRequestDto::class)]
 #[CoversClass(UsageException::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Exception\UnknownToolException::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(ToolRegistry::class)]
 #[Small]
 final class ArgumentsParserTest extends TestCase
 {

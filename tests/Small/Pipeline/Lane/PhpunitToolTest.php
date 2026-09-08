@@ -21,7 +21,19 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PhpunitTool::class)]
 #[UsesClass(PhpunitArguments::class)]
-#[UsesClass(ContextFactory::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
+#[UsesClass(ToolContext::class)]
 #[Small]
 final class PhpunitToolTest extends TestCase
 {

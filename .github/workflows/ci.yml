@@ -16,17 +16,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run ShellCheck at warning severity
-        # Fail the build on any warning-or-above finding in the pipeline's own
-        # Bash sources. Covers the entry point, CI wrapper, tool fragments under
-        # includes/, and the install/support scripts. These pass at -S warning:
-        # every SC2154/SC2034/SC1090 false positive from the sourced-fragment
-        # architecture carries a targeted `# shellcheck disable=SCxxxx` directive
-        # with justification. Do not lower this to -S error.
+        # Fail the build on any warning-or-above finding in the Bash that
+        # remains around the PHP pipeline: the CI wrapper, the four bin/
+        # redirect stubs and their shared include, the git hook, and the
+        # maintainer scripts under scripts/ (qaConfig/ is scanned too, so a
+        # stray .bash file there is caught). Every remaining false positive
+        # carries a targeted `# shellcheck disable=SCxxxx` directive with
+        # justification. Do not lower this to -S error.
         run: |
           shellcheck --version
-          mapfile -t shellFiles < <(find includes scripts qaConfig -type f \( -name '*.bash' -o -name '*.sh' \) | sort)
+          mapfile -t shellFiles < <(find scripts qaConfig -type f \( -name '*.bash' -o -name '*.sh' \) | sort)
           shellcheck -S warning \
-            bin/qa \
             bin/composer-require-checker bin/infection bin/php-cs-fixer bin/phpstan \
             bin/lib-redirect-stub.inc.bash \
             ci.bash \

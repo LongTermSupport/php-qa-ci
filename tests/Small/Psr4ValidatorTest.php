@@ -140,7 +140,7 @@ Magento\'s composer includes this by default, it should be removed from the psr-
 
     /**
      * The exact ignore patterns bin/qa feeds the validator in production: every
-     * non-blank line of the shipped default list (see psr4Validate.inc.bash).
+     * non-blank line of the shipped default list (see Psr4ValidateTool).
      *
      * @return list<string>
      */

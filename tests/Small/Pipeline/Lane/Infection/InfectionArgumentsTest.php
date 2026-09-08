@@ -20,6 +20,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(InfectionArguments::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(InfectionOptionsDto::class)]
 #[Small]
 final class InfectionArgumentsTest extends TestCase
 {

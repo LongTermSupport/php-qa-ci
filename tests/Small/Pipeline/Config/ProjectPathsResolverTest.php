@@ -16,6 +16,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ProjectPathsResolver::class)]
 #[CoversClass(ProjectLayoutException::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
 #[Small]
 final class ProjectPathsResolverTest extends TestCase
 {

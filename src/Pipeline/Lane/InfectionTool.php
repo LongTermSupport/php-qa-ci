@@ -54,7 +54,7 @@ final readonly class InfectionTool implements ToolInterface
         Neither is acceptable. If 100 stops being honestly achievable, the correct course
         is to LOWER the floor a few points — 95 is good, 90 is fine — via
           infectionDiffCoveredMsi=95   (diff lane)   or
-          coveredCodeMSI / mutationScoreIndicator   (full lane, qaConfig.inc.bash)
+          ->withInfectionFloors(msi, coveredMsi)    (full lane, qaConfig/qa.php)
         An honest 90+% MSI is a healthy gate; a forced 100% is diminishing-returns busywork.
         ------------------------------------------------------------------------------
 

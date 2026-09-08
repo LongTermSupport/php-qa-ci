@@ -84,7 +84,8 @@ final readonly class TempDir
         );
         /** @var SplFileInfo $item */
         foreach ($iterator as $item) {
-            if ($item->isDir()) {
+            // A symlink to a directory reports isDir() true but is removed like a file.
+            if ($item->isDir() && !$item->isLink()) {
                 \Safe\rmdir($item->getPathname());
             } else {
                 \Safe\unlink($item->getPathname());

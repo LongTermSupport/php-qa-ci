@@ -15,6 +15,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpunitArguments::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(PhpUnitOptionsDto::class)]
 #[Small]
 final class PhpunitArgumentsTest extends TestCase
 {

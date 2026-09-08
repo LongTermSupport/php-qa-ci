@@ -58,15 +58,18 @@ Here are some general PHPQA environment variables you might want to set:
 # Override via environment variable
 phpqaMemoryLimit=8G vendor/bin/qa
 
-# Or in qaConfig/qaConfig.inc.bash
-export phpqaMemoryLimit=8G
+```
+
+```php
+// Or in qaConfig/qa.php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa->withMemoryLimit('8G');
 ```
 
 ## Configuration Files
 
 The bulk of the configuration is handled with configuration files under
 [configDefaults/](./../configDefaults). Only a `generic/` folder ships today — there are no
-per-platform config folders. The `configPath()` resolver still supports a platform rung
+per-platform config folders. The `ConfigPathResolver` lookup still supports a platform rung
 (`configDefaults/{platform}/`), but because no such folder exists it always falls through to
 `generic/` unless your project supplies its own override (see below).
 
@@ -95,8 +98,8 @@ Note: the PHPStan rule bundles (`rules-default.neon`, `rules-optional.neon`,
 #### Config Overrides
 
 If no local config file exists in your project's `qaConfig` folder, PHPQA uses the config in its
-own `configDefaults/` folder. Resolution is handled by `configPath()`
-([includes/functions.inc.bash](./../includes/functions.inc.bash)) as a 3-level lookup — the first
+own `configDefaults/` folder. Resolution is handled by
+[ConfigPathResolver](./../src/Pipeline/Config/ConfigPathResolver.php) as a 3-level lookup — the first
 that exists wins:
 
 1. Your project's root `qaConfig/phpstan.neon`

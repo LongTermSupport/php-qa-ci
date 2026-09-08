@@ -89,15 +89,15 @@ subprocesses. Design notes and dead-ends go in `JOURNAL/`.
 
 ### Phase 4: Consumer configuration and migration
 
-- [ ] ⬜ **Task 4.1**: `qaConfig/qa.php` builder contract, `qaConfig/tools/<name>.php` overrides, `hookPre.php` / `hookPost.php`; hard failure with guidance when the Bash forms are present.
-- [ ] ⬜ **Task 4.2**: This repository's own `qaConfig/` migrated; `templates/` gain a `qaConfig-qa.php` template; `deploy-skills` manifest updated.
-- [ ] ⬜ **Task 4.3**: `docs/upgrading-to-8.5.md` migration guide; `docs/configuration.md`, `docs/pipeline.md`, `docs/phpqa-tools.md`, README and CLAUDE.md rewritten for the PHP pipeline.
-- [ ] ⬜ **Task 4.4**: `bin/rules` lists lanes from the PHP registry with identifier and doc route; `composer.json` known-gaps updated to what still holds.
+- [x] ✅ **Task 4.1**: `qaConfig/qa.php` builder contract, `qaConfig/tools/<name>.php` overrides, `hookPre.php` / `hookPost.php`; hard failure with guidance when the Bash forms are present.
+- [x] ✅ **Task 4.2**: This repository's own `qaConfig/` migrated; `templates/` gain a `qaConfig-qa.php` template; `deploy-skills` manifest updated.
+- [x] ✅ **Task 4.3**: `docs/upgrading-to-8.5.md` migration guide; `docs/configuration.md`, `docs/pipeline.md`, `docs/phpqa-tools.md`, README and CLAUDE.md rewritten for the PHP pipeline.
+- [x] ✅ **Task 4.4**: `bin/rules` lists lanes from the PHP registry with identifier and doc route; `composer.json` known-gaps updated to what still holds.
 
 ### Phase 5: Remove the Bash orchestration
 
-- [ ] ⬜ **Task 5.1**: Delete `includes/**`, the Bash `bin/qa` body, `lock`/`timing` modules; `ci.yml` ShellCheck scope reduced to what remains.
-- [ ] ⬜ **Task 5.2**: Tests that parsed Bash (`ToolFragmentLivenessTest`, `BinStubConsolidationTest`, bash-harness tests) replaced or deleted; `tests/Large/Infection/InfectionDiffModeTest.php` re-targeted at the PHP lane.
+- [x] ✅ **Task 5.1**: Delete `includes/**`, the Bash `bin/qa` body, `lock`/`timing` modules; `ci.yml` ShellCheck scope reduced to what remains.
+- [x] ✅ **Task 5.2**: Tests that parsed Bash (`ToolFragmentLivenessTest`, `SpecifiedPathNormalisationTest`, `FailureOutputNamesTheMethodTest`) deleted; `BinStubConsolidationTest` kept (the bin redirect stubs remain Bash); `tests/Large/Infection/InfectionDiffModeTest.php` replaced by the `InfectionTool` unit tests over `InfectionDiffFilter`; `QaEntrypointTest` runs over a fixture consumer so it never takes this repository's lock.
 
 ### Phase 6: Quality gate
 

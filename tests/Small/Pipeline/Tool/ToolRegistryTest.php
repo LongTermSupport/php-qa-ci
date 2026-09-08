@@ -23,6 +23,8 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ToolRegistry::class)]
 #[CoversClass(ToolDefinitionDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(UnknownToolException::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(ToolGateEnum::class)]
 #[Small]
 final class ToolRegistryTest extends TestCase
 {

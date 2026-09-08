@@ -17,7 +17,18 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpStrictTypesTool::class)]
-#[UsesClass(ContextFactory::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
+#[UsesClass(ToolOutcomeEnum::class)]
 #[Small]
 final class PhpStrictTypesToolTest extends TestCase
 {

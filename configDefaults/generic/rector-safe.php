@@ -15,7 +15,7 @@ return static function (RectorConfig $rectorConfig): void {
     // Limit parallel processing to use only half of available CPU threads
     // to avoid overwhelming the system
     // Shared "50% of cores" parallelism default. Prefer the value the QA pipeline computes
-    // once and exports ($qaHalfCpuThreads, via halfCpuThreadCount in functions.inc.bash);
+    // once and exports (qaHalfCpuThreads, from the pipeline's environment);
     // fall back to reading /proc/cpuinfo here when Rector runs standalone (env var absent).
     $maxProcesses = (int) getenv('qaHalfCpuThreads');
     if ($maxProcesses < 1) {

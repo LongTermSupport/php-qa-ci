@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
  * a project that satisfies its rules exits 0, one that violates them exits 1
  * and names the offending class. This guards the tool integration (phar
  * present + runnable, config API stable, exit-code contract) that
- * includes/generic/phpArkitect.inc.bash relies on.
+ * PhpArkitectTool relies on.
  *
  * @internal
  */

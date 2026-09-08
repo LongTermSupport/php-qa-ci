@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use LTS\PHPQA\PHPStan\ActiveRulesLister;
+use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -26,6 +27,34 @@ use RuntimeException;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\ProjectRecordEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\RuleDocResolver::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecksTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitectTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhplocTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanIgnoreJustificationTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\Psr4ValidateTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\SensitiveParameterUsageTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\ShippedTools::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(ToolRegistry::class)]
 #[\PHPUnit\Framework\Attributes\Small]
 final class ActiveRulesListerTest extends TestCase
 {
@@ -168,45 +197,21 @@ final class ActiveRulesListerTest extends TestCase
     }
 
     /**
-     * Defence against toolchain-spec clause 7.1/7.2 drift (a lane added
-     * ANYWHERE in includes/generic/toolRegistry.inc.bash's QA_TOOL_NAMES —
-     * whatever its phase — must appear in ActiveRulesLister's output without
-     * any source change here). This test parses the registry file
-     * INDEPENDENTLY of ActiveRulesLister's own parser (a small, deliberately
-     * separate regex, not a shared helper) so it cannot pass merely because
-     * both sides share a bug — it re-derives every QA_TOOL_NAMES entry from
-     * the registry text and asserts every one of them (minus phpstan, which
-     * is covered by the rule listing, not the lane listing) is present in
-     * the listing ActiveRulesLister produces.
+     * Defence against toolchain-spec clause 7.1/7.2 drift: a lane added
+     * ANYWHERE in the shipped ToolRegistry, whatever its phase, must appear in
+     * ActiveRulesLister's output without any source change here. The expected
+     * set is re-derived from the registry's leaf definitions (minus phpstan,
+     * which is covered by the rule listing, not the lane listing).
      */
     public function testEveryRegistryToolNameAppearsAsAPipelineLane(): void
     {
-        $registryPath = self::QA_CI_ROOT . '/includes/generic/toolRegistry.inc.bash';
-        self::assertFileExists($registryPath);
-        $registryContents = \Safe\file_get_contents($registryPath);
-
-        $namesMatchResult = \Safe\preg_match('/(?<!declare -A )\bQA_TOOL_NAMES=\((.*?)\n\)/s', $registryContents, $namesMatches);
-        self::assertSame(
-            1,
-            $namesMatchResult,
-            'Could not locate the QA_TOOL_NAMES indexed array in the tool registry — has its shape changed?',
-        );
-        self::assertIsArray($namesMatches);
-        self::assertArrayHasKey(1, $namesMatches);
-
         $expectedLaneNames = [];
-        foreach (explode("\n", $namesMatches[1]) as $nameLine) {
-            $withoutComment = \Safe\preg_replace('/#.*$/', '', $nameLine);
-            $nameLine       = trim(\is_string($withoutComment) ? $withoutComment : $nameLine);
-            if ('' === $nameLine) {
+        foreach (ToolRegistry::shipped()->all() as $definition) {
+            if ('phpstan' === $definition->name) {
                 continue;
             }
 
-            if ('phpstan' === $nameLine) {
-                continue;
-            }
-
-            $expectedLaneNames[] = $nameLine;
+            $expectedLaneNames[] = $definition->name;
         }
 
         self::assertNotEmpty($expectedLaneNames, 'Expected at least one registered tool in the tool registry.');
@@ -223,7 +228,7 @@ final class ActiveRulesListerTest extends TestCase
                 $expectedLaneName,
                 $laneNames,
                 \sprintf(
-                    'Tool "%s" is registered in toolRegistry.inc.bash but ActiveRulesLister did not list it as a pipeline lane.',
+                    'Tool "%s" is registered in ToolRegistry but ActiveRulesLister did not list it as a pipeline lane.',
                     $expectedLaneName,
                 ),
             );

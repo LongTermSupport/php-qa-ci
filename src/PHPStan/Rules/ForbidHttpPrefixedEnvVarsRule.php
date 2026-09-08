@@ -57,7 +57,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
 
     /**
      * PHPStan may run several parallel worker PROCESSES (php-qa-ci's own
-     * phpstan.inc.bash configures parallel.maximumNumberOfProcesses). Each
+     * PhpstanTool configures parallel.maximumNumberOfProcesses). Each
      * worker gets its own PHP process and therefore its own instance of this
      * rule, so this instance-level flag only dedupes WITHIN one worker — it
      * cannot dedupe ACROSS workers. Accepted trade-off: at most one duplicate

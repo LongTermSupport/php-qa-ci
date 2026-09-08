@@ -12,7 +12,6 @@ use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -21,8 +20,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(PhpInvoker::class)]
 #[CoversClass(ProcessSpecDto::class)]
 #[CoversClass(ProcessResultDto::class)]
-#[UsesClass(FakeProcessRunner::class)]
-#[UsesClass(TempDir::class)]
 #[Small]
 final class PhpInvokerTest extends TestCase
 {

@@ -25,7 +25,19 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(InfectionArguments::class)]
 #[UsesClass(InfectionDiffFilter::class)]
 #[UsesClass(InfectionDiffFilterDto::class)]
-#[UsesClass(ContextFactory::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
+#[UsesClass(ToolContext::class)]
 #[Small]
 final class InfectionToolTest extends TestCase
 {
@@ -169,7 +181,7 @@ final class InfectionToolTest extends TestCase
 
         self::assertStringContainsString('Infection: a 100% MSI floor is in force for this run.', $printed);
         self::assertStringContainsString('An honest 90+% MSI is a healthy gate; a forced 100% is diminishing-returns busywork.', $printed);
-        self::assertStringContainsString('coveredCodeMSI / mutationScoreIndicator   (full lane, qaConfig.inc.bash)', $printed);
+        self::assertStringContainsString('->withInfectionFloors(msi, coveredMsi)    (full lane, qaConfig/qa.php)', $printed);
     }
 
     #[Test]

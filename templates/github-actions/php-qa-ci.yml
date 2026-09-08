@@ -26,7 +26,7 @@
 # CUSTOMIZATION:
 # --------------
 # Project-specific QA configuration:
-# - qaConfig/qaConfig.inc.bash    - Override QA pipeline settings
+# - qaConfig/qa.php               - Override QA pipeline settings
 # - qaConfig/phpstan.neon         - PHPStan configuration
 # - qaConfig/phpunit.xml          - PHPUnit configuration  
 # - qaConfig/php_cs.php           - PHP CS Fixer rules

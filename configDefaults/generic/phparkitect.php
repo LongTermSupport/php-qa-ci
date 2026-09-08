@@ -14,12 +14,12 @@ declare(strict_types=1);
  * A project takes over by adding qaConfig/phparkitect.php (use the template at
  * templates/qaConfig-phparkitect.php), where it can extend the defaults, opt
  * into the optional/symfony tiers, and add bespoke rules. To turn arkitect off
- * for a project entirely, set `export useArkitect=0` in qaConfig/qaConfig.inc.bash.
+ * for a project entirely, call `->withArkitect(false)` in qaConfig/qa.php.
  *
- * The wrapper exports PHPQACI_ARKITECT_SRC_DIR (the pipeline's detected srcDir),
+ * The pipeline exports PHPQACI_ARKITECT_SRC_DIR (the detected srcDir),
  * PHPQACI_ARKITECT_RULES_DEFAULT (the resolved default ruleset path) and
  * PHPQACI_ARKITECT_EXCLUDE_PATHS (newline-delimited extra generated paths a
- * project declares via `arkitectExcludePaths` in qaConfig/qaConfig.inc.bash).
+ * project declares via `->withArkitectExcludedPaths(...)` in qaConfig/qa.php).
  */
 
 use Arkitect\ClassSet;
@@ -46,8 +46,8 @@ return static function (Config $config): void {
     // Generated code is regenerated and cannot be renamed — never check it.
     // 'Generated' is the built-in convention. A project declares ADDITIONAL
     // generated paths (e.g. a jane-php OpenAPI client at src/Quote/API) with
-    //   arkitectExcludePaths+=("Quote/API")
-    // in qaConfig/qaConfig.inc.bash; the pipeline exports them newline-delimited
+    //   ->withArkitectExcludedPaths('Quote/API')
+    // in qaConfig/qa.php; the pipeline exports them newline-delimited
     // as PHPQACI_ARKITECT_EXCLUDE_PATHS. Each entry is matched by arkitect
     // (Arkitect\Glob::toRegex) against the path RELATIVE to src/.
     $classSet         = ClassSet::fromDir($srcDir)->excludePath('Generated');
