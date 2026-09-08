@@ -239,7 +239,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
     {
         $segments = explode(':', $expr);
 
-        return $segments[array_key_last($segments)];
+        return array_last($segments);
     }
 
     /**

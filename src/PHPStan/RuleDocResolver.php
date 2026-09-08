@@ -100,7 +100,7 @@ final readonly class RuleDocResolver
         $ruleClass  = $matches[2];
 
         $cells       = array_map(trim(...), explode('|', $matches[3]));
-        $requirement = $cells[array_key_last($cells)];
+        $requirement = array_last($cells);
         $bundle      = $this->bundleFrom(...$cells);
 
         $summary = $requirement;
