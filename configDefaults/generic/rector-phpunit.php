@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;
 use Rector\Config\RectorConfig;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 
 /*
- * The configuration for Rector to run on PHPUnit 10 is also good for PHPUnit 9.1 upwards
+ * Rector 2.6+ dropped the versioned PHPUnit sets (PHPUNIT_100 etc.) in favour of
+ * COMPOSER_BASED, which applies the upgrade rules matching the PHPUnit version
+ * locked in the project's composer.lock.
  */
 
 return static function (RectorConfig $rectorConfig): void {
@@ -24,7 +25,7 @@ return static function (RectorConfig $rectorConfig): void {
     );
 
     $rectorConfig->sets([
-        PHPUnitSetList::PHPUNIT_100,
+        PHPUnitSetList::COMPOSER_BASED,
         PHPUnitSetList::PHPUNIT_CODE_QUALITY,
         PHPUnitSetList::ANNOTATIONS_TO_ATTRIBUTES,
     ]);
@@ -46,7 +47,6 @@ return static function (RectorConfig $rectorConfig): void {
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
     ]);
-    $rectorConfig->cacheClass(MemoryCacheStorage::class);
     if (isset($_SERVER['rectorIgnorePaths'])) {
         $ignorePaths = array_filter(array_map('trim', explode("\n", $_SERVER['rectorIgnorePaths'])));
         $rectorConfig->skip($ignorePaths);

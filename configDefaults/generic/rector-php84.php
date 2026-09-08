@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;
 use Rector\Config\RectorConfig;
 use Rector\Php84\Rector\Param\ExplicitNullableParamTypeRector;
 use Rector\Set\ValueObject\LevelSetList;
@@ -71,9 +70,6 @@ return static function (RectorConfig $rectorConfig): void {
         Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector::class,
         Rector\Php70\Rector\Ternary\TernaryToNullCoalescingRector::class,
     ]);
-
-    // Use memory cache for performance
-    $rectorConfig->cacheClass(MemoryCacheStorage::class);
 
     // Support for ignoring paths via environment variable
     if (isset($_SERVER['rectorIgnorePaths'])) {

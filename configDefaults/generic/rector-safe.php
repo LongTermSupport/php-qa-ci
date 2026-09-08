@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;
 use Rector\Config\RectorConfig;
 
 /*
@@ -93,7 +92,6 @@ return static function (RectorConfig $rectorConfig): void {
         throw new \RuntimeException('Could not find safe function rector-migrate.php. Ensure thecodingmachine/safe or shish/safe is installed via composer.');
     }
     $safeFunction($rectorConfig);
-    $rectorConfig->cacheClass(MemoryCacheStorage::class);
     if (isset($_SERVER['rectorIgnorePaths'])) {
         $ignorePaths = array_filter(array_map('trim', explode("\n", $_SERVER['rectorIgnorePaths'])));
         $rectorConfig->skip($ignorePaths);
