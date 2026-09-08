@@ -1,20 +1,26 @@
-#!/usr/bin/env bash
-
-# shellcheck disable=SC2154 # pharDir/composerRequireCheckerConfig/projectRoot are set by
+# Composer Require Checker — every symbol production code uses must be declared
+# in composer.json's require section.
+#
+# Preflight: the config's thecodingmachine/safe scan-files entries must be the
+# generated files safe loads on the running PHP, or the whitelist is judging
+# against the wrong function set. Identifier: phpqaci.composerRequireCheckerSafeScanFiles.
+# shellcheck disable=SC2154 # pharDir/composerRequireCheckerConfig/projectRoot/binDir are set by
 #   bin/qa (setConfig) before this fragment is sourced — genuine sourced-fragment architecture.
+qaSimpleTool "Composer Require Checker safe scan-files" phpNoXdebug -f "$binDir"/composer-require-checker-safe-scan-files-check -- \
+    "$composerRequireCheckerConfig" "$projectRoot"
+
 composerRequireCheckExitCode=99
 while (( composerRequireCheckExitCode > 0 ))
 do
-    set +e
-    # Capture the output to parse it
-    requireCheckerOutput=$(phpNoXdebug "$pharDir"/composer-require-checker.phar check --config-file="${composerRequireCheckerConfig}" -- "${projectRoot}/composer.json" 2>&1)
-    composerRequireCheckExitCode=$?
-    
-    # Display the original output
-    echo "$requireCheckerOutput"
-    
-    set -e
-    if (( $composerRequireCheckExitCode > 0 ))
+    # Exit code captured via the if so a non-zero status does not abort under errexit.
+    if phpNoXdebug "$pharDir"/composer-require-checker.phar check --config-file="${composerRequireCheckerConfig}" -- "${projectRoot}/composer.json"
+    then
+        composerRequireCheckExitCode=0
+    else
+        composerRequireCheckExitCode=$?
+    fi
+
+    if (( composerRequireCheckExitCode > 0 ))
     then
         echo "
 

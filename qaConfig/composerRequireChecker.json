@@ -48,7 +48,7 @@
   ],
   "scan-files": [
     "vendor/thecodingmachine/safe/generated/8.1/pcre.php",
-    "vendor/thecodingmachine/safe/generated/8.1/exec.php",
+    "vendor/thecodingmachine/safe/generated/8.2/exec.php",
     "vendor/thecodingmachine/safe/generated/8.1/url.php",
     "vendor/thecodingmachine/safe/generated/8.1/json.php",
     "vendor/thecodingmachine/safe/generated/8.2/filesystem.php"

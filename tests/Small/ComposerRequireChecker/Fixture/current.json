@@ -1,0 +1,7 @@
+{
+  "scan-files": [
+    "vendor/thecodingmachine/safe/generated/8.4/array.php",
+    "vendor/thecodingmachine/safe/generated/8.2/exec.php",
+    "vendor/some/other/file.php"
+  ]
+}

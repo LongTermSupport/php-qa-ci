@@ -107,6 +107,8 @@ Not PHPStan rules, but lanes of `bin/qa` that print an identifier of their own. 
 | --------------------------------------------------- | -------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
 | `phpqaci.configTemplateIgnoreList`                  | `ConfigTemplateIgnoreList/ConfigTemplateIgnoreListCheck` | `bin/qa -t cti`  | [Every shipped config template is covered by the PSR-4 ignore list](../tools/configTemplateIgnoreListCheck.md) |
 | `phpqaci.infectionConfigSourceDirectoriesMustExist` | `InfectionConfig/InfectionConfigSourceDirectoriesCheck`  | `bin/qa -t icsd` | [infection.json's `source.directories` resolve to real directories](../tools/infectionConfigSourceDirs.md)     |
+| `phpqaci.phpunitConfigVersion`                      | `PhpUnitConfig/PhpUnitConfigVersionCheck`                | `bin/qa -t pcv`  | [phpunit.xml's schema and SYMFONY_PHPUNIT_VERSION pins match the installed PHPUnit major](../tools/phpunitConfigVersion.md) |
+| `phpqaci.composerRequireCheckerSafeScanFiles`       | `ComposerRequireChecker/SafeScanFilesCheck`              | `bin/qa -t cr`   | [composer-require-checker `scan-files` name the safe files loaded on the running PHP](../tools/composerRequireCheckerSafeScanFiles.md) |
 
 ## Why this index exists
 

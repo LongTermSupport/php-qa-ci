@@ -47,6 +47,7 @@ QA_TOOL_NAMES=(
   packageType
   configTemplateIgnoreList
   infectionConfigSourceDirs
+  phpunitConfigVersion
   phpStrictTypes
   phpLint
   composerRequireChecker
@@ -77,6 +78,7 @@ declare -A QA_TOOL_ALIASES=(
   [packageType]="pt packagetype packageType"
   [configTemplateIgnoreList]="cti configTemplateIgnoreList"
   [infectionConfigSourceDirs]="icsd infectionConfigSourceDirs"
+  [phpunitConfigVersion]="pcv phpunitConfigVersion"
   [phpStrictTypes]="st stricttypes"
   [phpLint]="lint phplint"
   [composerRequireChecker]="cr"
@@ -118,6 +120,7 @@ declare -A QA_TOOL_PATHS=(
   [packageType]=no
   [configTemplateIgnoreList]=no
   [infectionConfigSourceDirs]=no
+  [phpunitConfigVersion]=no
   [phpStrictTypes]=yes
   [phpLint]=yes
   [composerRequireChecker]=no
@@ -142,6 +145,7 @@ declare -A QA_TOOL_PHASE=(
   [packageType]=linting
   [configTemplateIgnoreList]=linting
   [infectionConfigSourceDirs]=linting
+  [phpunitConfigVersion]=linting
   [phpStrictTypes]=linting
   [phpLint]=linting
   [composerRequireChecker]=linting
@@ -173,6 +177,7 @@ declare -A QA_TOOL_BANNER=(
   [packageType]="Checking Package Type Is Declared"
   [configTemplateIgnoreList]="Auditing Config Template Ignore-List Coverage"
   [infectionConfigSourceDirs]="Checking Infection Config Source Directories Exist"
+  [phpunitConfigVersion]="Checking phpunit.xml Version Pins Match Installed PHPUnit"
   [phpStrictTypes]="Setting Strict Types If It's Missing"
   [phpLint]="Running PHP Lint"
   [composerRequireChecker]="Running Composer Require Checker"
@@ -201,6 +206,7 @@ declare -A QA_TOOL_USAGE=(
   [packageType]="pt|packageType::assert composer.json declares an explicit package type (library/project/...)"
   [configTemplateIgnoreList]="cti|configTemplateIgnoreList::audit configDefaults/generic templates against psr4-validate-ignore-list.txt"
   [infectionConfigSourceDirs]="icsd|infectionConfigSourceDirs::assert infection.json's source.directories resolve to real directories"
+  [phpunitConfigVersion]="pcv|phpunitConfigVersion::assert phpunit.xml's schema/SYMFONY_PHPUNIT_VERSION pins match the installed PHPUnit major"
   [phpStrictTypes]="st|stricttypes::strict types validation"
   [phpLint]="lint|phplint::phplint"
   [composerRequireChecker]="cr::composer require checker"
