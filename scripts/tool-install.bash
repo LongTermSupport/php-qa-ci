@@ -94,6 +94,9 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
             "E82B2FB314E9906E"                          # PHP CS Fixer
             "033E5F8D801A2F8D"                          # Composer Require Checker
             "47CD54B6398FE21B3709D0A4D9C905CED1932CA2"  # PHPArkitect (Michele Orselli)
+            # Read from the release signatures. The upstream README states a different
+            # fingerprint; it is stale. Verification record: plan 00004 journal.
+            "6371FDC534E47BD979208B6F21A10B2F4F0488C9"  # Twig CS Fixer (Vincent Langlet)
         )
 
         # Build the phive invocation as an argument array (no eval). eval'ing a
