@@ -110,6 +110,8 @@ The pipeline runs tools in 4 distinct phases, each lane being a class under `src
 1. **Rector** (`rector`) - Automated refactoring and code upgrades
 2. **PHP CS Fixer** (`phpCsFixer`) - Code style fixing
 
+On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appended to this phase; it is not `-t` selectable.
+
 ### Phase 2: Linting Tools (validation only)
 
 03. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
@@ -250,7 +252,7 @@ phpqaMemoryLimit=2G vendor/bin/qa
 - **Generic**: Default for all other PHP projects (anything without `symfony.lock`)
 
 There is no Laravel/`artisan` detection. A platform contributes extra lanes through
-`ToolRegistry::platformLanes()`: Symfony appends `twigLint` and `yamlLint` to the linting phase.
+`ToolRegistry::platformLanes()`: Symfony appends `twigCsFixer` to the coding-standards phase, and `twigLint` and `yamlLint` to the linting phase.
 Their directories default to `templates/` and `config/` and are set with `withTwigDirectories()`
 and `withYamlDirectories()` in `qaConfig/qa.php`. See [docs/platform-detection.md](docs/platform-detection.md).
 
@@ -732,12 +734,13 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
   - Covered Code MSI
 - **Details**: [docs/tools/infection.md](docs/tools/infection.md)
 
-### Twig Lint and Yaml Lint (Symfony platform lanes)
+### Twig CS Fixer, Twig Lint and Yaml Lint (Symfony platform lanes)
 
-- **Lanes**: [src/Pipeline/Lane/TwigLintTool.php](src/Pipeline/Lane/TwigLintTool.php), [src/Pipeline/Lane/YamlLintTool.php](src/Pipeline/Lane/YamlLintTool.php)
-- **When they run**: appended to Phase 2 on a Symfony project only; skipped cleanly elsewhere
+- **Lanes**: [src/Pipeline/Lane/TwigCsFixerTool.php](src/Pipeline/Lane/TwigCsFixerTool.php), [src/Pipeline/Lane/TwigLintTool.php](src/Pipeline/Lane/TwigLintTool.php), [src/Pipeline/Lane/YamlLintTool.php](src/Pipeline/Lane/YamlLintTool.php)
+- **When they run**: on a Symfony project only, skipped cleanly elsewhere. Twig CS Fixer is appended to Phase 1 (it modifies code); Twig Lint and Yaml Lint to Phase 2
+- **Twig CS Fixer vs Twig Lint**: the fixer checks how templates are *written* (the shipped `TwigCsFixer` standard, `--fix` in a writable run); the linter checks they *compile*. PHP CS Fixer reads no Twig at all, which is the gap the fixer closes
 - **Directories**: `templates/` and `config/` by default; `withTwigDirectories()` / `withYamlDirectories()` in `qaConfig/qa.php`
-- **Details**: [docs/tools/twigLint.md](docs/tools/twigLint.md), [docs/tools/yamlLint.md](docs/tools/yamlLint.md)
+- **Details**: [docs/tools/twigCsFixer.md](docs/tools/twigCsFixer.md), [docs/tools/twigLint.md](docs/tools/twigLint.md), [docs/tools/yamlLint.md](docs/tools/yamlLint.md)
 
 ## Important Notes
 

@@ -118,10 +118,12 @@ final class InProcessLanesTest extends TestCase
     {
         $shipped = ShippedTools::all();
 
-        $platformNames = array_map(
-            static fn (ToolDefinitionDto $lane): string => $lane->name,
-            ToolRegistry::platformLanes(PlatformEnum::Symfony, PhaseEnum::Linting),
-        );
+        $platformLanes = [];
+        foreach (PhaseEnum::cases() as $phase) {
+            $platformLanes = [...$platformLanes, ...ToolRegistry::platformLanes(PlatformEnum::Symfony, $phase)];
+        }
+
+        $platformNames = array_map(static fn (ToolDefinitionDto $lane): string => $lane->name, $platformLanes);
         foreach ($shipped as $name => $tool) {
             self::assertSame($name, $tool->name());
             if (!\in_array($name, $platformNames, true)) {

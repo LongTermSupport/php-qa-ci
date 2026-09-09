@@ -89,14 +89,20 @@ final readonly class ToolRegistry
      */
     public static function platformLanes(PlatformEnum $platform, PhaseEnum $phase): array
     {
-        if (PlatformEnum::Symfony !== $platform || PhaseEnum::Linting !== $phase) {
+        if (PlatformEnum::Symfony !== $platform) {
             return [];
         }
 
-        return [
-            new ToolDefinitionDto('twigLint', [], 'Symfony twig linter', PhaseEnum::Linting, false, banner: 'Running Twig Linter'),
-            new ToolDefinitionDto('yamlLint', [], 'Symfony yaml linter', PhaseEnum::Linting, false, banner: 'Running Yaml Linter'),
-        ];
+        return match ($phase) {
+            PhaseEnum::CodingStandards => [
+                new ToolDefinitionDto('twigCsFixer', [], 'Symfony twig coding standards', PhaseEnum::CodingStandards, false, banner: 'Running Twig CS Fixer'),
+            ],
+            PhaseEnum::Linting => [
+                new ToolDefinitionDto('twigLint', [], 'Symfony twig linter', PhaseEnum::Linting, false, banner: 'Running Twig Linter'),
+                new ToolDefinitionDto('yamlLint', [], 'Symfony yaml linter', PhaseEnum::Linting, false, banner: 'Running Yaml Linter'),
+            ],
+            default => [],
+        };
     }
 
     /** Resolve a `-t` token to its definition. */
