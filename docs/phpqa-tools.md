@@ -36,6 +36,7 @@ The pipeline runs Rector in three stages:
 3. **PHP 8.5** -- Applies PHP 8.5 migration rules (skipped if a project-specific `rector.php` or `qaConfig/rector.php` is found, as it is assumed those handle version upgrades).
 
 Default configurations:
+
 - [rector-safe.php](../configDefaults/generic/rector-safe.php)
 - [rector-phpunit.php](../configDefaults/generic/rector-phpunit.php)
 - [rector-php85.php](../configDefaults/generic/rector-php85.php)
@@ -76,9 +77,8 @@ You can specify files or directories to be ignored by the validator. This is a n
 
 [ComposerChecksTool](../src/Pipeline/Lane/ComposerChecksTool.php) -- [docs/tools/composerChecks.md](./tools/composerChecks.md)
 
-- Checks that `ergebnis/composer-normalize` plugin is allowed
 - Runs `composer diagnose` to check for issues (informational, never fails the run)
-- Runs `composer normalize` to normalize `composer.json` (dry-run in a read-only run, where a pending change fails the gate)
+- Runs the shipped composer-normalize PHAR to normalize `composer.json` (dry-run in a read-only run, where a pending change fails the gate); no plugin or allow-plugins entry is needed
 - Dumps the autoloader to ensure recent code changes will not cause autoloading issues
 
 ### Package Type Declaration
@@ -131,7 +131,8 @@ There is no interactive prompt.
 
 [PhpLintTool](../src/Pipeline/Lane/PhpLintTool.php) -- [docs/tools/phpLint.md](./tools/phpLint.md)
 
-Very fast PHP linting process. Checks for syntax errors in your PHP files.
+Very fast PHP linting process. Checks for syntax errors in your PHP files. Runs the shipped
+`vendor-phar/parallel-lint.phar` (PHIVE-managed; upstream publishes the asset unsigned).
 
 See the [PHP Parallel Lint project page](https://github.com/php-parallel-lint/PHP-Parallel-Lint) for more information.
 

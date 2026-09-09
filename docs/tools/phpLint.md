@@ -3,7 +3,7 @@
 **Identifier**: `phpqaci.phpLint`
 
 An always-on parallel syntax check of every PHP file under the checked paths, using the
-project's `parallel-lint` binary.
+shipped `vendor-phar/parallel-lint.phar`.
 
 ## What it is about
 
@@ -16,7 +16,7 @@ syntax error before anything heavier runs.
 
 - In the full pipeline, in the linting phase after the Strict Types check.
 - Standalone: `vendor/bin/qa -t lint`; supports `-p <path>`.
-- Runs `vendor/bin/parallel-lint` without Xdebug over every checked path. Each ignored path
+- Runs `vendor-phar/parallel-lint.phar` without Xdebug over every checked path. Each ignored path
   (`pathsToIgnore`) is passed as an `--exclude`, resolved under the project root.
 - Any non-zero exit fails the lane.
 

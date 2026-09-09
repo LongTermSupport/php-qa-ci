@@ -52,12 +52,8 @@ $config->ignoreUnknownClassesRegex('#^Symfony\\\\Component\\\\DependencyInjectio
  * pipeline at run time through a route static analysis cannot follow.
  */
 $config
-    // A Composer plugin, driven by the `composer normalize` command in the composerChecks lane.
-    ->ignoreErrorsOnPackage('ergebnis/composer-normalize', [ErrorType::UNUSED_DEPENDENCY])
     // Binaries the lanes invoke as subprocesses.
     ->ignoreErrorsOnPackages([
-        'php-parallel-lint/php-parallel-lint',
-        'php-parallel-lint/php-console-color',
         'shipmonk/composer-dependency-analyser',
         'phpcpd-next/phpcpd',
     ], [ErrorType::UNUSED_DEPENDENCY])

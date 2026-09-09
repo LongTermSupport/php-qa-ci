@@ -97,12 +97,16 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
             # Read from the release signatures. The upstream README states a different
             # fingerprint; it is stale. Verification record: plan 00004 journal.
             "6371FDC534E47BD979208B6F21A10B2F4F0488C9"  # Twig CS Fixer (Vincent Langlet)
+            # Read from the release signature (keyserver UID Andreas Möller). Verification record: plan 00006 journal.
+            "0FDE18AE1D09E19F60F6B1CBC00543248C87FB13"  # composer-normalize (Andreas Möller)
         )
 
         # Build the phive invocation as an argument array (no eval). eval'ing a
         # command string that splices a comma-joined key list is exactly the
         # quoting hazard eval invites; an array keeps every argument intact.
-        phive_install_cmd=(phive --home "$PHIVE_HOME" install --copy)
+        # parallel-lint publishes an unsigned release asset (no GPG signature
+        # to verify); every other entry is checked against TRUSTED_KEYS.
+        phive_install_cmd=(phive --home "$PHIVE_HOME" install --copy --force-accept-unsigned)
         if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
             phive_install_cmd+=(--trust-gpg-keys "$(IFS=','; echo "${TRUSTED_KEYS[*]}")")
         fi

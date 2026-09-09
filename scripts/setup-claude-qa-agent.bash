@@ -298,7 +298,7 @@ If ANY tool fails:
 - Suggest proper fix sequence
 
 ### Configuration Issues
-- Detect missing composer plugins (`ergebnis/composer-normalize`)
+- Detect missing composer plugins (`phpstan/extension-installer`)
 - Identify path configuration problems
 - Recognize missing dependencies or wrong tool versions
 - Guide through configuration fixes

@@ -45,7 +45,6 @@ Your project's `composer.json` must allow the required plugins:
 {
     "config": {
         "allow-plugins": {
-            "ergebnis/composer-normalize": true,
             "lts/php-qa-ci": true,
             "phpstan/extension-installer": true
         }
@@ -103,8 +102,8 @@ See [Pipeline Architecture](./docs/pipeline.md) for full details.
 
 PHP-QA-CI uses a hybrid approach to tool delivery:
 
-- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect (PHIVE key `D9C905CED1932CA2` — the trailing 16 chars of the full fingerprint `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, which is what `scripts/tool-install.bash` pins) -- committed in `vendor-phar/`
-- **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit, parallel-lint
+- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect (PHIVE key `D9C905CED1932CA2` — the trailing 16 chars of the full fingerprint `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, which is what `scripts/tool-install.bash` pins), Twig CS Fixer, composer-normalize, parallel-lint (unsigned release asset, installed with `--force-accept-unsigned`) -- committed in `vendor-phar/`
+- **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit
 - **Committed PHAR**: Rector -- shipped as `vendor-phar/rector.phar` (self-built via `scripts/build-rector-phar.bash`; it bundles its own extracted phpstan, so nothing leaks into any consuming project's composer graph)
 - **In-process checks**: PSR-4 validation, package type, config-template audit, infection config, version pins, PHPStan ignore justification, SensitiveParameter usage, markdown links and branch policy are PHP classes the pipeline calls directly; their `bin/<check>` entrypoints remain for standalone use
 

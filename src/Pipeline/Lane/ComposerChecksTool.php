@@ -13,14 +13,15 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use Symfony\Component\Process\ExecutableFinder;
 
 /**
- * Composer hygiene, in six steps: `composer diagnose` (informational, never
+ * Composer hygiene, in five steps: `composer diagnose` (informational, never
  * fails), `composer audit` against the lock file (a known advisory fails the
  * lane; abandoned packages are reported; off with withComposerAudit(false)),
  * no `suggest` entry may name a package the project already requires, the
- * ergebnis/composer-normalize plugin must be allowed, the composer.json must
- * be normalised (a read-only run dry-runs and fails on a pending change; a
- * writable run applies it), and the autoloader is dumped. The dump only
- * regenerates files under vendor/, so it runs in every mode.
+ * composer.json must be normalised by the shipped composer-normalize PHAR (a
+ * read-only run dry-runs and fails on a pending change; a writable run applies
+ * it), and the autoloader is dumped. The dump only regenerates files under
+ * vendor/, so it runs in every mode. The PHAR bundles Composer and the
+ * normalize command, so the consumer needs no plugin and no allow-plugins entry.
  *
  * @internal
  */
@@ -31,6 +32,8 @@ final readonly class ComposerChecksTool implements ToolInterface
     private const string RULE      = '---------------------';
 
     private const string COMPOSER = 'composer';
+
+    private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
     public function __construct(
         private ?string $composerPath = null,
@@ -87,21 +90,15 @@ final readonly class ComposerChecksTool implements ToolInterface
             return ToolResultDto::failed(\sprintf('%d suggest entry/entries duplicate a required package', \count($redundant)));
         }
 
-        $allowed = $context->php->withoutXdebug($composer, ['config', 'allow-plugins.ergebnis/composer-normalize'], $root, streamOutput: false);
-        if ('true' !== trim($allowed->output)) {
-            $this->pluginNotAllowedGuidance($context);
-            $context->writeIdentifier(self::IDENTIFIER);
-
-            return ToolResultDto::failed('the ergebnis/composer-normalize plugin is not allowed in composer.json');
-        }
-
+        $normalizePhar = $context->config->paths->pharDir . '/' . self::NORMALIZE_PHAR;
+        $composerJson  = $root . '/composer.json';
         if ($context->config->readOnly) {
             $context->writeln('');
             $context->writeln('');
             $context->writeln('Checking Composer Normalisation (read-only)');
             $context->writeln(self::RULE);
             $context->writeln('');
-            $normalize = $context->php->withoutXdebug($composer, ['normalize', '--dry-run'], $root);
+            $normalize = $context->php->withoutXdebug($normalizePhar, ['--dry-run', $composerJson], $root);
             if (!$normalize->succeeded()) {
                 ReadOnlyGuidance::wouldModify($context, 'Composer Normalize', 'com');
                 $context->writeIdentifier(self::IDENTIFIER);
@@ -114,11 +111,11 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('Running Composer Normalise');
             $context->writeln(self::RULE);
             $context->writeln('');
-            $normalize = $context->php->withoutXdebug($composer, ['normalize'], $root);
+            $normalize = $context->php->withoutXdebug($normalizePhar, [$composerJson], $root);
             if (!$normalize->succeeded()) {
                 $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::failed(\sprintf('composer normalize failed (exit %d)', $normalize->exitCode));
+                return ToolResultDto::failed(\sprintf('composer-normalize failed (exit %d)', $normalize->exitCode));
             }
         }
 
@@ -181,24 +178,5 @@ final readonly class ComposerChecksTool implements ToolInterface
         $context->writeln('  - An abandoned package is reported, not failed: plan its replacement.');
         $context->writeln('  - Offline builds: ->withComposerAudit(false) in qaConfig/qa.php, or');
         $context->writeln('    useComposerAudit=0 for one run.');
-    }
-
-    private function pluginNotAllowedGuidance(ToolContext $context): void
-    {
-        $context->writeln('');
-        $context->writeln('ERROR: The ergebnis/composer-normalize plugin is not allowed in your composer.json');
-        $context->writeln('');
-        $context->writeln('To fix this, add the following to your composer.json config section:');
-        $context->writeln('');
-        $context->writeln('    "config": {');
-        $context->writeln('        "allow-plugins": {');
-        $context->writeln('            ...');
-        $context->writeln('            "ergebnis/composer-normalize": true');
-        $context->writeln('        }');
-        $context->writeln('    }');
-        $context->writeln('');
-        $context->writeln('Then run: composer update nothing');
-        $context->writeln('');
-        $context->writeln('This is required for the PHP QA pipeline to run properly.');
     }
 }

@@ -458,16 +458,6 @@ the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-s
 - Linux/Unix environment (uses bash)
 - PHP 8.5 or higher on this branch (`composer.json` requires `^8.5`; the `php8.5` branch targets PHP 8.5, while the separate `php8.4` and `php8.3` branches support PHP 8.4 and 8.3)
 - Composer-installed project with php-qa-ci as a dependency
-- Your project's composer.json must allow the `ergebnis/composer-normalize` plugin:
-  ```json
-  {
-      "config": {
-          "allow-plugins": {
-              "ergebnis/composer-normalize": true
-          }
-      }
-  }
-  ```
 
 ### Custom PHP Executable
 
@@ -587,24 +577,11 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 
 - **Purpose**: Validates composer configuration and dependencies
 - **Lane**: [src/Pipeline/Lane/ComposerChecksTool.php](src/Pipeline/Lane/ComposerChecksTool.php)
-- **Requirements**:
-  - `ergebnis/composer-normalize` plugin must be allowed in YOUR PROJECT's composer.json
 - **How it works**:
-  - Checks if `ergebnis/composer-normalize` plugin is allowed
   - Runs `composer diagnose` to check for issues (informational, never fails the run)
-  - Runs `composer normalize` to normalize composer.json (`--dry-run` in a read-only run, where a pending change fails the gate)
+  - Runs `composer audit` against the lock file
+  - Runs the shipped `vendor-phar/composer-normalize.phar` to normalize composer.json (`--dry-run` in a read-only run, where a pending change fails the gate); the PHAR bundles Composer, so the project needs no plugin and no allow-plugins entry
   - Runs `composer dump-autoload` to ensure autoloading works
-- **Required in your project's composer.json**:
-  ```json
-  {
-      "config": {
-          "allow-plugins": {
-              "ergebnis/composer-normalize": true
-          }
-      }
-  }
-  ```
-  After adding, run: `composer update nothing`
 - **Details**: [docs/tools/composerChecks.md](docs/tools/composerChecks.md)
 
 ### Package Type Declaration

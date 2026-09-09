@@ -57,17 +57,18 @@ question is recorded under Non-Goals.
 
 ### Phase 1: official PHARs
 
-- [ ] ⬜ **Task 1.1**: `composer-normalize` via PHIVE (alias `composer-normalize`, GPG-signed
+- [x] ✅ **Task 1.1**: `composer-normalize` via PHIVE (alias `composer-normalize`, GPG-signed
   releases). Add to `phive.xml`, fetch with `scripts/tool-install.bash update`, commit the PHAR.
   `ComposerChecksTool` runs `vendor-phar/composer-normalize.phar` (`--dry-run` in a read-only run)
   instead of `composer normalize`, and drops the allow-plugins precondition. Remove
   `ergebnis/composer-normalize` from `require` and from the dependency-analyser ignore list.
   Docs: `docs/tools/composerChecks.md`, README and CLAUDE.md allow-plugins sections, the
   upgrading guide.
-- [ ] ⬜ **Task 1.2**: `parallel-lint` from its GitHub release asset (`parallel-lint.phar`, no
-  PHIVE entry, no signature). A pinned version and sha256 in a manifest under `build/`, fetched by
-  the same script Phase 2 adds, so the provenance is recorded and checked. `PhpLintTool` runs
-  the PHAR. Remove both `php-parallel-lint/*` packages from `require` and the analyser ignores.
+- [x] ✅ **Task 1.2**: `parallel-lint` via PHIVE from its GitHub release asset
+  (`php-parallel-lint/php-parallel-lint`, unsigned, so `--force-accept-unsigned` in
+  `scripts/tool-install.bash`; PHIVE records the version in `phive.xml`). `PhpLintTool` runs
+  `vendor-phar/parallel-lint.phar`. Remove both `php-parallel-lint/*` packages from `require`
+  and the analyser ignores.
 
 ### Phase 2: self-built PHARs
 

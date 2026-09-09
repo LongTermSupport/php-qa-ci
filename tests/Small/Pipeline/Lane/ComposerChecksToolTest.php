@@ -40,11 +40,13 @@ final class ComposerChecksToolTest extends TestCase
 {
     private const string DIAGNOSE = 'diagnose';
 
-    private const string NORMALIZE = 'normalize';
-
-    private const string COMPOSER_ALLOWED = 'true';
+    private const string DRY_RUN = '--dry-run';
 
     private const string COMPOSER = '/usr/local/bin/composer';
+
+    private const string NORMALIZE_PHAR = 'composer-normalize.phar';
+
+    private const string COMPOSER_JSON = '/composer.json';
 
     private ContextFactory $factory;
 
@@ -59,12 +61,11 @@ final class ComposerChecksToolTest extends TestCase
     }
 
     #[Test]
-    public function aReadOnlyRunDiagnosesChecksThePluginDryRunsNormalizeAndDumpsTheAutoloader(): void
+    public function aReadOnlyRunDiagnosesAuditsDryRunsTheNormalizePharAndDumpsTheAutoloader(): void
     {
         $this->factory->processes
             ->willSucceed('diagnose ok')
             ->willSucceed('No security vulnerability advisories found.')
-            ->willSucceed("true\n")
             ->willSucceed('composer.json is already normalized.')
             ->willSucceed('Generated autoload files')
         ;
@@ -76,12 +77,11 @@ final class ComposerChecksToolTest extends TestCase
             [
                 [self::DIAGNOSE],
                 ['audit', '--locked', '--abandoned=report', '--no-interaction'],
-                ['config', 'allow-plugins.ergebnis/composer-normalize'],
-                [self::NORMALIZE, '--dry-run'],
                 ['dump-autoload'],
             ],
             $this->composerInvocations(),
         );
+        self::assertSame([self::DRY_RUN, $this->factory->project->path . self::COMPOSER_JSON], $this->normalizeArguments());
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('Auditing Dependencies For Known Advisories', $printed);
         self::assertStringContainsString('Checking Composer Normalisation (read-only)', $printed);
@@ -90,12 +90,11 @@ final class ComposerChecksToolTest extends TestCase
     }
 
     #[Test]
-    public function aWritableRunAppliesNormalize(): void
+    public function aWritableRunAppliesNormalizeThroughThePhar(): void
     {
         $this->factory->processes
             ->willSucceed()
             ->willSucceed()
-            ->willSucceed(self::COMPOSER_ALLOWED)
             ->willSucceed('Successfully normalized')
             ->willSucceed()
         ;
@@ -103,8 +102,33 @@ final class ComposerChecksToolTest extends TestCase
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertSame([self::NORMALIZE], $this->composerInvocations()[3]);
+        self::assertSame([$this->factory->project->path . self::COMPOSER_JSON], $this->normalizeArguments());
         self::assertStringContainsString('Running Composer Normalise', $this->factory->output->fetch());
+    }
+
+    /**
+     * The PHAR bundles Composer and the normalize command, so no plugin has to be
+     * installed or allow-listed in the consumer: the lane never probes allow-plugins.
+     */
+    #[Test]
+    public function theNormalizePharIsRunFromTheLibrarysPharDirWithoutAnyPluginProbe(): void
+    {
+        $this->factory->processes
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed()
+        ;
+
+        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+
+        $normalize = $this->factory->processes->specs[2];
+        self::assertSame($this->factory->paths()->pharDir . '/' . self::NORMALIZE_PHAR, $normalize->command[4]);
+        self::assertSame($this->factory->project->path, $normalize->cwd);
+        self::assertTrue($normalize->streamOutput);
+        foreach ($this->factory->processes->specs as $spec) {
+            self::assertNotContains('config', $spec->command, 'no allow-plugins probe runs');
+        }
     }
 
     #[Test]
@@ -113,7 +137,6 @@ final class ComposerChecksToolTest extends TestCase
         $this->factory->processes
             ->willSucceed()
             ->willSucceed()
-            ->willSucceed(self::COMPOSER_ALLOWED)
             ->willSucceed()
             ->willSucceed()
         ;
@@ -127,7 +150,6 @@ final class ComposerChecksToolTest extends TestCase
             $first->command,
         );
         self::assertSame($root, $first->cwd);
-        self::assertFalse($this->factory->processes->specs[2]->streamOutput, 'the allow-plugins probe is captured, not streamed');
     }
 
     #[Test]
@@ -136,7 +158,6 @@ final class ComposerChecksToolTest extends TestCase
         $this->factory->processes
             ->willFail(1, 'Checking platform settings: FAIL')
             ->willSucceed()
-            ->willSucceed(self::COMPOSER_ALLOWED)
             ->willSucceed()
             ->willSucceed()
         ;
@@ -148,7 +169,7 @@ final class ComposerChecksToolTest extends TestCase
     }
 
     #[Test]
-    public function aKnownAdvisoryFailsTheLaneWithTheRemediationBeforeThePluginCheck(): void
+    public function aKnownAdvisoryFailsTheLaneWithTheRemediationBeforeNormalizing(): void
     {
         $this->factory->processes
             ->willSucceed()
@@ -160,7 +181,7 @@ final class ComposerChecksToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('composer audit found advisories or could not run (exit 1)', $result->summary);
-        self::assertCount(2, $this->composerInvocations(), 'nothing after the audit runs');
+        self::assertCount(2, $this->factory->processes->specs, 'nothing after the audit runs');
         self::assertStringContainsString('composer update <vendor/package> --with-all-dependencies', $printed);
         self::assertStringContainsString('config.audit.ignore', $printed);
         self::assertStringContainsString('withComposerAudit(false)', $printed);
@@ -172,7 +193,6 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
-            ->willSucceed(self::COMPOSER_ALLOWED)
             ->willSucceed()
             ->willSucceed()
         ;
@@ -181,15 +201,13 @@ final class ComposerChecksToolTest extends TestCase
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertSame(
-            [[self::DIAGNOSE], ['config', 'allow-plugins.ergebnis/composer-normalize'], [self::NORMALIZE, '--dry-run'], ['dump-autoload']],
-            $this->composerInvocations(),
-        );
+        self::assertSame([[self::DIAGNOSE], ['dump-autoload']], $this->composerInvocations());
+        self::assertSame([self::DRY_RUN, $this->factory->project->path . self::COMPOSER_JSON], $this->normalizeArguments());
         self::assertStringContainsString('composer audit disabled for this project', $this->factory->output->fetch());
     }
 
     #[Test]
-    public function aSuggestEntryNamingAnAlreadyRequiredPackageFailsBeforeThePluginProbe(): void
+    public function aSuggestEntryNamingAnAlreadyRequiredPackageFailsBeforeNormalizing(): void
     {
         $this->factory->project->write('composer.json', <<<'JSON'
             {
@@ -209,29 +227,9 @@ final class ComposerChecksToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 suggest entry/entries duplicate a required package', $result->summary);
-        self::assertCount(2, $this->composerInvocations(), 'nothing after the suggest check runs');
+        self::assertCount(2, $this->factory->processes->specs, 'nothing after the suggest check runs');
         self::assertStringContainsString('composer.json suggests a package it already requires', $printed);
         self::assertStringContainsString('acme/thing (require)', $printed);
-        self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
-    }
-
-    #[Test]
-    public function aDisallowedNormalizePluginFailsWithTheGuidanceBeforeNormalizing(): void
-    {
-        $this->factory->processes
-            ->willSucceed()
-            ->willSucceed()
-            ->willSucceed('null')
-        ;
-
-        $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
-        $printed = $this->factory->output->fetch();
-
-        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertCount(3, $this->composerInvocations(), 'normalize and dump-autoload never run');
-        self::assertStringContainsString('ERROR: The ergebnis/composer-normalize plugin is not allowed in your composer.json', $printed);
-        self::assertStringContainsString('"ergebnis/composer-normalize": true', $printed);
-        self::assertStringContainsString('Then run: composer update nothing', $printed);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
     }
 
@@ -241,7 +239,6 @@ final class ComposerChecksToolTest extends TestCase
         $this->factory->processes
             ->willSucceed()
             ->willSucceed()
-            ->willSucceed(self::COMPOSER_ALLOWED)
             ->willFail(1, 'composer.json is not normalized.')
         ;
 
@@ -249,7 +246,7 @@ final class ComposerChecksToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertCount(4, $this->composerInvocations(), 'dump-autoload does not run after a failed gate');
+        self::assertCount(3, $this->factory->processes->specs, 'dump-autoload does not run after a failed gate');
         self::assertStringContainsString('Composer Normalize: pending changes in a READ-ONLY run', $printed);
         self::assertStringContainsString('QA_READONLY=0 vendor/bin/qa -t com', $printed);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
@@ -261,14 +258,13 @@ final class ComposerChecksToolTest extends TestCase
         $this->factory->processes
             ->willSucceed()
             ->willSucceed()
-            ->willSucceed(self::COMPOSER_ALLOWED)
             ->willFail(2, 'invalid json')
         ;
 
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertSame('composer normalize failed (exit 2)', $result->summary);
+        self::assertSame('composer-normalize failed (exit 2)', $result->summary);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $this->factory->output->fetch());
     }
 
@@ -278,7 +274,6 @@ final class ComposerChecksToolTest extends TestCase
         $this->factory->processes
             ->willSucceed()
             ->willSucceed()
-            ->willSucceed(self::COMPOSER_ALLOWED)
             ->willSucceed()
             ->willFail(1, 'Class Foo not found')
         ;
@@ -295,8 +290,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
-            ->willSucceed()
-            ->willSucceed('nope')
+            ->willFail(1, 'stop here')
         ;
 
         new ComposerChecksTool()->run($this->factory->context());
@@ -323,5 +317,17 @@ final class ComposerChecksToolTest extends TestCase
         ));
 
         return array_map(static fn (ProcessSpecDto $spec): array => \array_slice($spec->command, 6), $composerSpecs);
+    }
+
+    /** @return list<string> the arguments given to the composer-normalize PHAR */
+    private function normalizeArguments(): array
+    {
+        $pharSpecs = array_values(array_filter(
+            $this->factory->processes->specs,
+            static fn (ProcessSpecDto $spec): bool => isset($spec->command[4]) && str_ends_with($spec->command[4], self::NORMALIZE_PHAR),
+        ));
+        self::assertCount(1, $pharSpecs, 'the normalize PHAR runs exactly once');
+
+        return \array_slice($pharSpecs[0]->command, 6);
     }
 }

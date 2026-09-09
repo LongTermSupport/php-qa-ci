@@ -86,9 +86,10 @@ the second, a row in the table in section 4.2 or a decision that it belongs in a
 composer require --dev lts/php-qa-ci:dev-php8.5@dev
 ```
 
-The `ergebnis/composer-normalize` plugin must be allowed in the project's `composer.json`
-(`config.allow-plugins`), as before. If Composer's `config.bin-dir` is set, `vendor/bin/qa` is
-wherever that points; the pipeline reads `bin-dir` itself.
+The `ergebnis/composer-normalize` plugin is no longer needed: the composerChecks lane runs the
+shipped composer-normalize PHAR, so the `config.allow-plugins` entry for it can go. If Composer's
+`config.bin-dir` is set, `vendor/bin/qa` is wherever that points; the pipeline reads `bin-dir`
+itself.
 
 Done when: `vendor/bin/qa -h` prints the usage (it exits 1 by design).
 

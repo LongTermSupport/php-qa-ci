@@ -47,7 +47,7 @@ final class PhpLintToolTest extends TestCase
     }
 
     #[Test]
-    public function aCleanLintPassesAndRunsParallelLintOverTheCheckedPaths(): void
+    public function aCleanLintPassesAndRunsTheParallelLintPharOverTheCheckedPaths(): void
     {
         $this->factory->processes->willSucceed('No syntax error found');
         $root = $this->factory->project->path;
@@ -56,7 +56,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $root . '/vendor/bin/parallel-lint', '--', $root . '/tests', $root . '/src'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->factory->context()->config->paths->pharDir . '/parallel-lint.phar', '--', $root . '/tests', $root . '/src'],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
