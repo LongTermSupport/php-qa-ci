@@ -475,10 +475,17 @@ pre hook exists) before the tool output.
 
 ## 7. Verify
 
-Run the full read-only battery, which is exactly what CI runs:
+Run the full battery. Writable is the default and is what you want here — the migration
+leaves Rector and PHP CS Fixer work to do, and a writable run applies it:
 
 ```bash
-QA_READONLY=1 CI=true vendor/bin/qa
+vendor/bin/qa
+```
+
+Only once that is green and committed, confirm the committed tree the way CI will see it:
+
+```bash
+QA_READONLY=1 vendor/bin/qa
 ```
 
 Then, if the project has overrides or hooks, run each one directly:

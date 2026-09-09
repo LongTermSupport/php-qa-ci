@@ -31,14 +31,16 @@ clone required:
   ```bash
   cd vendor/lts/php-qa-ci
   composer install
-  QA_READONLY=1 CI=true bin/qa        # full read-only battery (the real pre-push gate)
-  CI=true bin/qa -t unit              # or a single tool while iterating
   ```
 
-  A consumer's `bin/qa` validates the CONSUMER's code; the commands above validate
-  php-qa-ci itself (its `Large` include-level tests, PHPStan, Rector/CS-Fixer
-  dry-run). This is the battery [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
-  mandates before a `php8.5` push. The nested `vendor/lts/php-qa-ci/vendor/` from
+  Then run the battery. **Which command, and when, is defined once** in
+  [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md) — the single source of
+  truth. Follow it there rather than inventing a variant here; in particular the working
+  default is writable, so the fixers fix.
+
+  A consumer's `bin/qa` validates the CONSUMER's code; running it inside
+  `vendor/lts/php-qa-ci` validates php-qa-ci itself (its `Large` include-level tests,
+  PHPStan, Rector/CS-Fixer). The nested `vendor/lts/php-qa-ci/vendor/` from
   `composer install` is the package's own dev environment, isolated from the
   consumer's tree.
 

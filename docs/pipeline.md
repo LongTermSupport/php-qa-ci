@@ -75,6 +75,8 @@ The phase order and the `-t` aliases are owned by [ToolRegistry](../src/Pipeline
 1. **[Rector](./tools/rector.md)** -- Automated refactoring (safe functions, PHPUnit, PHP 8.5 upgrades)
 2. **[PHP CS Fixer](./tools/phpCsFixer.md)** -- Code style fixing (runs as PHAR)
 
+On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)** is appended to this phase; it modifies templates, which is why it belongs here rather than with Twig Lint.
+
 #### Phase 2: Linting and Validation
 3. **[PSR-4 Validation](./tools/psr4Validate.md)** -- Namespace/directory structure compliance
 4. **[Composer Checks](./tools/composerChecks.md)** -- Diagnose, normalize, dump autoloader
@@ -85,20 +87,21 @@ The phase order and the `-t` aliases are owned by [ToolRegistry](../src/Pipeline
 9. **[Strict Types Enforcement](./tools/phpStrictTypes.md)** -- Ensures `declare(strict_types=1)`
 10. **[PHP Lint](./tools/phpLint.md)** -- Fast parallel syntax checking
 11. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
-12. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
+12. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
+13. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
 
 On a Symfony project the platform lanes **[Twig Lint](./tools/twigLint.md)** and **[Yaml Lint](./tools/yamlLint.md)** follow, appended to this phase.
 
 #### Phase 3: Static Analysis
-13. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase); see [branch-policy.md](../CLAUDE/branch-policy.md)
-14. **[PHPStan ignoreErrors Justification](./tools/phpstanIgnoreJustification.md)** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment
-15. **[PHPStan](./tools/phpstan.md)** -- Static analysis at level max (runs as PHAR)
-16. **[PHPArkitect](./tools/phpArkitect.md)** -- Architecture rules; on by default (`withArkitect(false)` to disable, runs as PHAR)
-17. **[SensitiveParameter Usage](./tools/sensitiveParameterUsage.md)** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
+14. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase); see [branch-policy.md](../CLAUDE/branch-policy.md)
+15. **[PHPStan ignoreErrors Justification](./tools/phpstanIgnoreJustification.md)** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment
+16. **[PHPStan](./tools/phpstan.md)** -- Static analysis at level max (runs as PHAR), optionally with the [type-coverage](./tools/phpstan.md) floors
+17. **[PHPArkitect](./tools/phpArkitect.md)** -- Architecture rules; on by default (`withArkitect(false)` to disable, runs as PHAR)
+18. **[SensitiveParameter Usage](./tools/sensitiveParameterUsage.md)** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
 
 #### Phase 4: Testing
-18. **[PHPUnit](./tools/phpunit.md)** -- Unit and integration tests
-19. **[Infection](./tools/infection.md)** -- Mutation testing (requires Xdebug and coverage; `withInfection(false)` to disable, runs as PHAR)
+19. **[PHPUnit](./tools/phpunit.md)** -- Unit and integration tests
+20. **[Infection](./tools/infection.md)** -- Mutation testing (requires Xdebug and coverage; `withInfection(false)` to disable, runs as PHAR)
 
 PHPStan and PHPUnit are skipped when `phpqaQuickTests=1`; Infection is skipped when quick tests are on or Infection is disabled. These gates apply to phase runs, not to a single tool selected with `-t`.
 

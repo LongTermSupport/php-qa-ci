@@ -51,22 +51,22 @@ Nothing is fetched at run time; PHARs go through PHIVE, PHPStan extensions throu
 - [x] ✅ **Task 2.2**: Evaluation recorded in JOURNAL/. Complements, not substitutes: require-checker reports nothing on this repository while the analyser found two dead `require` entries, and an unused dependency is invisible to require-checker by construction.
 - [x] ✅ **Task 2.3**: tomasvotruba/type-coverage wired through the phpstan lane behind `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)`, every floor off by default. All five error identifiers documented on the phpstan page. The lane now writes `parameters.paths` when the floors are on, without which the extension reports nothing at all.
 - [x] ✅ **Task 2.4a**: `PhplocTool` deleted with its registry row, aliases, docs page and test. phploc has been abandoned since 2020 and was never shipped, so the lane could not run. Owner decision: drop the size metric, it is not wanted. No successor is sought.
-- [ ] ⬜ **Task 2.4b**: `PhpcpdTool` (post-success, informational, cannot fail): phpcpd-next via PHIVE; JSON output archived under var/qa; docs page. It detects copy/paste, which is unrelated to what phploc measured — this is a new signal, not a replacement.
+- [x] ✅ **Task 2.4b**: `PhpcpdTool` (post-success, informational, cannot fail): phpcpd-next via PHIVE; JSON output archived under var/qa; docs page. It detects copy/paste, which is unrelated to what phploc measured — this is a new signal, not a replacement.
 - [x] ✅ **Task 2.5**: `TwigCsFixerTool` as a Symfony platform lane in the coding-standards phase; `platformLanes()` now dispatches on phase. Check-only with `ReadOnlyGuidance` in a read-only run, `--fix` otherwise; config `.twig-cs-fixer.php`; PHAR via PHIVE; docs page.
 
 ### Phase 2b: raised in review, not from the ecosystem survey
 
 - [x] ✅ **Task 2.6**: `RequireVariadicOverArrayParameterRule` — an `array` parameter whose element type lives only in a docblock should be `T ...$name`. Owner-raised. DBF 3.1 to 3.3 complete, rule committed red at `9c030cf`, 12 instances recorded.
-- [ ] ⬜ **Task 2.7**: DBF 3.4 — convert all 12 instances and re-sweep to zero.
+- [x] ✅ **Task 2.7**: DBF 3.4 — the class was widened twice on Owner correction, so the 12 became 21 on re-sweep. Final disposition: 8 converted in `src/` plus the test helpers; 13 outside the class because a later parameter carries a default and PHP rejects unpacking after a named argument; 4 never in the class because `array<T>` resolves to `array<mixed, mixed>` and says nothing about keys. Re-sweep is zero. No unfixed instances, so no Owner acceptance was required.
 
 ### Phase 3: Decisions under review
 
-- [ ] ⬜ **Task 3.1**: spaze/phpstan-disallowed-calls: decide between adopting it with a shipped deny-list that supersedes `ForbidDangerousFunctionsRule`, adopting it alongside with the two lists kept in sync by a test, or rejecting it. Record the decision in JOURNAL/ and either add the tasks or close this item.
-- [ ] ⬜ **Task 3.2**: shipmonk/dead-code-detector: decide on adoption as an opt-in `withDeadCodeDetection(bool)`; confirm the PHAR-run PHPStan loads a Composer-installed extension. Record the decision in JOURNAL/.
+- [x] ✅ **Task 3.1**: spaze/phpstan-disallowed-calls: Owner decision — neither adopt nor reject, but **lift and shift** the deny-lists into our own rules, so the ruleset stays coherent and cannot drift against a third party's. Licence confirmed MIT (Copyright © 2018 Michal Špaček), provenance recorded in each rule's docblock and on the `(spaze)` entries. `ForbidDangerousFunctionsRule` widened; `ForbidInsecureFunctionsRule` and `ForbidDebugOutputFunctionsRule` added opt-in.
+- [x] ✅ **Task 3.2**: shipmonk/dead-code-detector: PHAR-run PHPStan **does** load a Composer-installed extension — proven via `vendor/phpstan/extension-installer/src/GeneratedConfig.php`. Adoption itself is **deferred to plan 00005**: the Owner's route is to dogfood it first through a project-level extended pipeline, which needs the pipeline-extensibility work that is now a feature branch.
 
 ### Phase 4: Documentation and gate
 
-- [ ] ⬜ **Task 4.1**: `docs/upgrading-to-8.5.md` builder table, CLAUDE.md pipeline order and tools reference, `docs/pipeline.md`, `docs/phpstan-rules/README.md` lane rows for every new lane.
+- [x] ✅ **Task 4.1**: `docs/upgrading-to-8.5.md` builder table, CLAUDE.md pipeline order and tools reference, `docs/pipeline.md` (both new lanes and the renumbering they force), `docs/phpstan-rules/README.md` rows for every new lane and rule. Also corrected two docs that were instructing a read-only run as the working default.
 - [ ] ⬜ **Task 4.2**: Full read-only battery green; CI green; pushed.
 
 ## Success Criteria
