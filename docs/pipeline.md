@@ -92,21 +92,22 @@ On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)
 11. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
 12. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
 13. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
+14. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
 
-On a Symfony project the platform lanes **[Twig Lint](./tools/twigLint.md)** and **[Yaml Lint](./tools/yamlLint.md)** follow, appended to this phase.
+On a Symfony project the platform lane **[Twig Lint](./tools/twigLint.md)** follows, appended to this phase.
 
 #### Phase 3: Static Analysis
 
-14. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase); see [branch-policy.md](../CLAUDE/branch-policy.md)
-15. **[PHPStan ignoreErrors Justification](./tools/phpstanIgnoreJustification.md)** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment
-16. **[PHPStan](./tools/phpstan.md)** -- Static analysis at level max (runs as PHAR), optionally with the [type-coverage](./tools/phpstan.md) floors
-17. **[PHPArkitect](./tools/phpArkitect.md)** -- Architecture rules; on by default (`withArkitect(false)` to disable, runs as PHAR)
-18. **[SensitiveParameter Usage](./tools/sensitiveParameterUsage.md)** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
+15. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase); see [branch-policy.md](../CLAUDE/branch-policy.md)
+16. **[PHPStan ignoreErrors Justification](./tools/phpstanIgnoreJustification.md)** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment
+17. **[PHPStan](./tools/phpstan.md)** -- Static analysis at level max (runs as PHAR), optionally with the [type-coverage](./tools/phpstan.md) floors
+18. **[PHPArkitect](./tools/phpArkitect.md)** -- Architecture rules; on by default (`withArkitect(false)` to disable, runs as PHAR)
+19. **[SensitiveParameter Usage](./tools/sensitiveParameterUsage.md)** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
 
 #### Phase 4: Testing
 
-19. **[PHPUnit](./tools/phpunit.md)** -- Unit and integration tests
-20. **[Infection](./tools/infection.md)** -- Mutation testing (requires Xdebug and coverage; `withInfection(false)` to disable, runs as PHAR)
+20. **[PHPUnit](./tools/phpunit.md)** -- Unit and integration tests
+21. **[Infection](./tools/infection.md)** -- Mutation testing (requires Xdebug and coverage; `withInfection(false)` to disable, runs as PHAR)
 
 PHPStan and PHPUnit are skipped when `phpqaQuickTests=1`; Infection is skipped when quick tests are on or Infection is disabled. These gates apply to phase runs, not to a single tool selected with `-t`.
 

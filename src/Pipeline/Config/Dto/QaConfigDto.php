@@ -33,7 +33,9 @@ final readonly class QaConfigDto
      * @param list<string> $twigDirectories      absolute; `templates/` on every platform, because
      *                                           twigCsFixer is gated on Twig rather than on Symfony
      *                                           and skips cleanly when the directory is absent
-     * @param list<string> $yamlDirectories      absolute, Symfony platform only
+     * @param list<string> $yamlDirectories      absolute; `config/` on every platform, because
+     *                                           yamlLint is gated on symfony/yaml rather than on
+     *                                           Symfony and skips cleanly when the directory is absent
      */
     public function __construct(
         public ProjectPathsDto $paths,

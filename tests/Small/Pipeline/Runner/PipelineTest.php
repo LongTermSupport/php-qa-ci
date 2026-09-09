@@ -68,6 +68,8 @@ final class PipelineTest extends TestCase
 
     private const string PHPSTAN = 'phpstan';
 
+    private const string TWIG_LINT = 'twigLint';
+
     private const string PARAM_TYPES = 'types';
 
     private ContextFactory $factory;
@@ -95,7 +97,7 @@ final class PipelineTest extends TestCase
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
-        $expectedOrder = ['rector', 'phpCsFixer', 'twigCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
+        $expectedOrder = ['rector', 'phpCsFixer', 'twigCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'yamlLint', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'the lock is released');
@@ -103,7 +105,7 @@ final class PipelineTest extends TestCase
     }
 
     #[Test]
-    public function aSymfonyProjectRunsTheTwigAndYamlLintersAfterTheGenericLintingLanes(): void
+    public function aSymfonyProjectRunsTheTwigLinterAfterTheGenericLintingLanes(): void
     {
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, platform: PlatformEnum::Symfony)->build());
 
@@ -112,10 +114,9 @@ final class PipelineTest extends TestCase
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         $captured = $ran[1] ?? null;
         $order    = \is_array($captured) ? array_values(array_filter($captured, is_string(...))) : [];
-        self::assertContains('twigLint', $order);
-        self::assertContains('yamlLint', $order);
-        self::assertGreaterThan(array_search('markdownLinks', $order, true), array_search('twigLint', $order, true));
-        self::assertLessThan(array_search('branchNamePolicy', $order, true), array_search('yamlLint', $order, true));
+        self::assertContains(self::TWIG_LINT, $order);
+        self::assertGreaterThan(array_search('yamlLint', $order, true), array_search(self::TWIG_LINT, $order, true));
+        self::assertLessThan(array_search('branchNamePolicy', $order, true), array_search(self::TWIG_LINT, $order, true));
         self::assertStringContainsString('Running Twig Linter', $printed);
     }
 

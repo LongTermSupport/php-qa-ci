@@ -232,30 +232,31 @@ lane for that tool in every run, including `-t <tool>`.
 
 The file name is the tool's **canonical registry name**, not an alias:
 
-| File                                                                | Replaces                                      | Aliases (for `-t`, not for the file name) |
-| ------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
-| `tools/rector.php`                                                  | Rector                                        | `r`, `rector`                             |
-| `tools/phpCsFixer.php`                                              | PHP CS Fixer                                  | `f`, `fixer`, `csfixer`                   |
-| `tools/psr4Validate.php`                                            | PSR-4 validation                              | `psr`, `psr4`                             |
-| `tools/composerChecks.php`                                          | composer diagnose / normalize / dump-autoload | `com`, `composer`                         |
-| `tools/packageType.php`                                             | package type declaration                      | `pt`                                      |
-| `tools/configTemplateIgnoreList.php`                                | template ignore-list audit                    | `cti`                                     |
-| `tools/infectionConfigSourceDirs.php`                               | infection.json source dirs                    | `icsd`                                    |
-| `tools/versionPins.php`                                             | version pins                                  | `vp`                                      |
-| `tools/phpStrictTypes.php`                                          | strict types                                  | `st`, `stricttypes`                       |
-| `tools/phpLint.php`                                                 | parallel lint                                 | `lint`, `phplint`                         |
-| `tools/composerRequireChecker.php`                                  | composer-require-checker                      | `cr`                                      |
-| `tools/composerDependencyAnalyser.php`                              | composer-dependency-analyser                  | `cda`                                     |
-| `tools/phpcpd.php`                                                  | PHPCPD copy/paste detection                   | `cpd`, `phpcpd`                           |
-| `tools/markdownLinks.php`                                           | markdown links                                | `ml`, `markdown`                          |
-| `tools/branchNamePolicy.php`                                        | branch name policy                            | `bnp`                                     |
-| `tools/phpstanIgnoreJustification.php`                              | ignoreErrors justification                    | `pij`                                     |
-| `tools/phpstan.php`                                                 | PHPStan                                       | `stan`, `phpstan`                         |
-| `tools/phpArkitect.php`                                             | PHPArkitect                                   | `arch`, `arkitect`, `phparkitect`         |
-| `tools/sensitiveParameterUsage.php`                                 | SensitiveParameter usage                      | `spu`                                     |
-| `tools/phpunit.php`                                                 | PHPUnit                                       | `unit`, `phpunit`                         |
-| `tools/infection.php`                                               | Infection                                     | `infect`, `infection`                     |
-| `tools/twigCsFixer.php`, `tools/twigLint.php`, `tools/yamlLint.php` | Symfony platform lanes                        | none                                      |
+| File                                          | Replaces                                      | Aliases (for `-t`, not for the file name) |
+| --------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
+| `tools/rector.php`                            | Rector                                        | `r`, `rector`                             |
+| `tools/phpCsFixer.php`                        | PHP CS Fixer                                  | `f`, `fixer`, `csfixer`                   |
+| `tools/psr4Validate.php`                      | PSR-4 validation                              | `psr`, `psr4`                             |
+| `tools/composerChecks.php`                    | composer diagnose / normalize / dump-autoload | `com`, `composer`                         |
+| `tools/packageType.php`                       | package type declaration                      | `pt`                                      |
+| `tools/configTemplateIgnoreList.php`          | template ignore-list audit                    | `cti`                                     |
+| `tools/infectionConfigSourceDirs.php`         | infection.json source dirs                    | `icsd`                                    |
+| `tools/versionPins.php`                       | version pins                                  | `vp`                                      |
+| `tools/phpStrictTypes.php`                    | strict types                                  | `st`, `stricttypes`                       |
+| `tools/phpLint.php`                           | parallel lint                                 | `lint`, `phplint`                         |
+| `tools/composerRequireChecker.php`            | composer-require-checker                      | `cr`                                      |
+| `tools/composerDependencyAnalyser.php`        | composer-dependency-analyser                  | `cda`                                     |
+| `tools/phpcpd.php`                            | PHPCPD copy/paste detection                   | `cpd`, `phpcpd`                           |
+| `tools/markdownLinks.php`                     | markdown links                                | `ml`, `markdown`                          |
+| `tools/branchNamePolicy.php`                  | branch name policy                            | `bnp`                                     |
+| `tools/phpstanIgnoreJustification.php`        | ignoreErrors justification                    | `pij`                                     |
+| `tools/phpstan.php`                           | PHPStan                                       | `stan`, `phpstan`                         |
+| `tools/phpArkitect.php`                       | PHPArkitect                                   | `arch`, `arkitect`, `phparkitect`         |
+| `tools/sensitiveParameterUsage.php`           | SensitiveParameter usage                      | `spu`                                     |
+| `tools/phpunit.php`                           | PHPUnit                                       | `unit`, `phpunit`                         |
+| `tools/infection.php`                         | Infection                                     | `infect`, `infection`                     |
+| `tools/yamlLint.php`                          | Yaml Lint (when `symfony/yaml` is installed)  | `yaml`                                    |
+| `tools/twigCsFixer.php`, `tools/twigLint.php` | Twig lanes (library-gated / Symfony platform) | `twigcs` / none                           |
 
 `uniterate` and the `all*Tools` phase runners are not lanes and cannot be overridden.
 

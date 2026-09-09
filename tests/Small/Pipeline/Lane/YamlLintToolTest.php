@@ -51,23 +51,38 @@ final class YamlLintToolTest extends TestCase
     }
 
     #[Test]
-    public function aGenericProjectIsSkippedWithoutRunningAnything(): void
+    public function aProjectWithoutSymfonyYamlIsSkippedWithoutRunningAnything(): void
     {
+        $this->factory->project->mkdir(YamlLintTool::CONSOLE_PACKAGE);
         $this->factory->project->mkdir(self::CONFIG_DIR);
 
         $result = new YamlLintTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertSame('not a Symfony project', $result->summary);
+        self::assertSame('symfony/yaml not installed', $result->summary);
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function aProjectWithoutSymfonyConsoleIsSkippedBecauseTheScriptNeedsIt(): void
+    {
+        $this->factory->project->write(YamlLintTool::YAML_LINT, '');
+        $this->factory->project->mkdir(self::CONFIG_DIR);
+
+        $result = new YamlLintTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame('symfony/console not installed', $result->summary);
         self::assertSame([], $this->factory->processes->specs);
     }
 
     #[Test]
     public function noExistingYamlDirectoryIsSkippedWithoutRunningAnything(): void
     {
+        $this->installYamlLint();
         $root = $this->factory->project->path;
 
-        $result = new YamlLintTool()->run($this->factory->context($this->symfonyConfig()));
+        $result = new YamlLintTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString(
@@ -77,19 +92,24 @@ final class YamlLintToolTest extends TestCase
         self::assertSame([], $this->factory->processes->specs);
     }
 
+    /**
+     * The point of the gate: the script is standalone, so a generic project
+     * that has symfony/yaml gets its configuration linted without bin/console.
+     */
     #[Test]
-    public function aCleanLintPassesAndRunsLintYamlWithParseTagsOverTheConfigDirectory(): void
+    public function aCleanLintOnAGenericProjectPassesAndRunsYamlLintWithParseTagsOverTheConfigDirectory(): void
     {
         $this->factory->processes->willSucceed('All 4 YAML files contain valid syntax.');
+        $this->installYamlLint();
         $this->factory->project->mkdir(self::CONFIG_DIR);
 
         $root = $this->factory->project->path;
 
-        $result = new YamlLintTool()->run($this->factory->context($this->symfonyConfig()));
+        $result = new YamlLintTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', 'bin/console', '--', 'lint:yaml', '--parse-tags', $root . '/config'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', YamlLintTool::YAML_LINT, '--', '--parse-tags', $root . '/config'],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -101,6 +121,7 @@ final class YamlLintToolTest extends TestCase
     public function onlyTheConfiguredDirectoriesThatExistArePassedInOrder(): void
     {
         $this->factory->processes->willSucceed();
+        $this->installYamlLint();
         $this->factory->project->mkdir(self::CONFIG_DIR);
         $this->factory->project->mkdir('translations');
 
@@ -113,7 +134,7 @@ final class YamlLintToolTest extends TestCase
         new YamlLintTool()->run($this->factory->context($config));
 
         self::assertSame(
-            ['--', 'lint:yaml', '--parse-tags', $root . '/config', $root . '/translations'],
+            ['--', '--parse-tags', $root . '/config', $root . '/translations'],
             \array_slice($this->factory->processes->lastSpec()->command, 5),
         );
     }
@@ -122,9 +143,10 @@ final class YamlLintToolTest extends TestCase
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
         $this->factory->processes->willFail(1, 'Unable to parse at line 3');
+        $this->installYamlLint();
         $this->factory->project->mkdir(self::CONFIG_DIR);
 
-        $result = new YamlLintTool()->run($this->factory->context($this->symfonyConfig()));
+        $result = new YamlLintTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('Yaml Lint failed (exit 1)', $result->summary);
@@ -140,8 +162,9 @@ final class YamlLintToolTest extends TestCase
         self::assertSame('phpqaci.yamlLint', $tool->identifier());
     }
 
-    private function symfonyConfig(): QaConfigDto
+    private function installYamlLint(): void
     {
-        return $this->factory->builder(platform: PlatformEnum::Symfony)->build();
+        $this->factory->project->write(YamlLintTool::YAML_LINT, '');
+        $this->factory->project->mkdir(YamlLintTool::CONSOLE_PACKAGE);
     }
 }

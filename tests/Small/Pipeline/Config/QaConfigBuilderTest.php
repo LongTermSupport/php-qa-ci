@@ -169,12 +169,14 @@ final class QaConfigBuilderTest extends TestCase
     }
 
     #[Test]
-    public function aSymfonyProjectGetsTheTwigAndYamlDirectoriesByDefault(): void
+    public function everyPlatformGetsTheTwigAndYamlDirectoriesByDefault(): void
     {
-        $config = $this->defaults(platform: PlatformEnum::Symfony)->build();
+        foreach (PlatformEnum::cases() as $platform) {
+            $config = $this->defaults(platform: $platform)->build();
 
-        self::assertSame([self::TEMPLATES_DIR], $config->twigDirectories);
-        self::assertSame(['/p/config'], $config->yamlDirectories);
+            self::assertSame([self::TEMPLATES_DIR], $config->twigDirectories, $platform->name);
+            self::assertSame(['/p/config'], $config->yamlDirectories, $platform->name);
+        }
     }
 
     #[Test]

@@ -102,6 +102,7 @@ final readonly class ToolRegistry
                 new ToolDefinitionDto('composerRequireChecker', ['cr'], 'composer require checker', $linting, false, banner: 'Running Composer Require Checker'),
                 new ToolDefinitionDto('composerDependencyAnalyser', ['cda'], 'unused, shadow and misplaced dependencies', $linting, false, banner: 'Running Composer Dependency Analyser'),
                 new ToolDefinitionDto('markdownLinks', ['ml', 'markdown'], 'markdown validation', $linting, false, banner: 'Running Markdown Links Checker'),
+                new ToolDefinitionDto('yamlLint', ['yaml'], 'YAML syntax (when symfony/yaml is installed)', $linting, false, banner: 'Running Yaml Linter'),
                 new ToolDefinitionDto('branchNamePolicy', ['bnp', 'branchNamePolicy'], 'Branch naming policy (PR convention)', $staticAnalysis, false, banner: 'Checking Branch Name Policy'),
                 new ToolDefinitionDto('phpstanIgnoreJustification', ['pij', 'phpstanIgnoreJustification'], 'assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification', $staticAnalysis, false, banner: 'Checking PHPStan ignoreErrors Justifications'),
                 new ToolDefinitionDto(self::PHPSTAN, ['stan', self::PHPSTAN], self::PHPSTAN, $staticAnalysis, true, ToolGateEnum::NotQuick, 'Running PHPStan', supportsJson: true),
@@ -125,11 +126,12 @@ final readonly class ToolRegistry
      * The lanes a platform adds to a phase, on top of the generic set. They
      * are not `-t` selectable and are not part of the frozen registry.
      *
-     * Both remaining entries shell out to `bin/console`, so they are coupled to
-     * the Symfony console rather than to the file format they check. A lane that
-     * only needs a library is NOT a platform lane: twigCsFixer runs a standalone
-     * PHAR and belongs to any project that has Twig, so it lives in the shipped
-     * registry and decides for itself.
+     * The one remaining entry shells out to `bin/console lint:twig`, which needs
+     * the application's own Twig environment, so it is coupled to the Symfony
+     * console rather than to the file format it checks. A lane that only needs
+     * a library is NOT a platform lane: twigCsFixer runs a standalone PHAR and
+     * yamlLint the script symfony/yaml ships, so both live in the shipped
+     * registry and decide for themselves.
      *
      * @return list<ToolDefinitionDto>
      */
@@ -141,7 +143,6 @@ final readonly class ToolRegistry
 
         return [
             new ToolDefinitionDto('twigLint', [], 'Symfony twig linter', $phase, false, banner: 'Running Twig Linter'),
-            new ToolDefinitionDto('yamlLint', [], 'Symfony yaml linter', $phase, false, banner: 'Running Yaml Linter'),
         ];
     }
 
