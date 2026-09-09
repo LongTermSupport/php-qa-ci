@@ -9,15 +9,22 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 
 /**
  * Builds and runs PHP invocations the way every tool needs them: the
- * configured PHP binary, the global memory limit, and (by default) an ini
- * set with Xdebug stripped out so a tool that does not need coverage does not
- * pay for it. The no-Xdebug ini is generated once per PHP version under var/qa
- * by asking the target binary which ini files it loads.
+ * configured PHP binary, the global memory limit, and (by default) Xdebug
+ * switched off so a tool that does not need coverage does not pay for it.
+ *
+ * Xdebug is switched off through `XDEBUG_MODE=off` in the child's environment,
+ * never by loading a different ini: the extension stays loaded but does
+ * nothing, the host's ini layout is untouched, and a tool that spawns its own
+ * PHP workers (PHPStan, paratest) hands the setting down with the environment.
  *
  * @api
  */
 final readonly class PhpInvoker
 {
+    private const string XDEBUG_MODE = 'XDEBUG_MODE';
+
+    private const array XDEBUG_OFF = [self::XDEBUG_MODE => 'off'];
+
     public function __construct(
         private ProcessRunnerInterface $runner,
         private string $phpBinPath,
@@ -27,7 +34,7 @@ final readonly class PhpInvoker
     }
 
     /**
-     * Run a PHP script without Xdebug: `php -n -c <no-xdebug.ini> -d memory_limit=X -f <script> -- <args>`.
+     * Run a PHP script without Xdebug: `XDEBUG_MODE=off php -d memory_limit=X -f <script> -- <args>`.
      *
      * @param list<string>          $args
      * @param array<string, string> $env
@@ -55,15 +62,18 @@ final readonly class PhpInvoker
     }
 
     /**
+     * The caller's environment is kept, except that `XDEBUG_MODE` is always `off`:
+     * that is what "without Xdebug" means, whatever the caller passed.
+     *
      * @param list<string>          $args
      * @param array<string, string> $env
      */
     public function specWithoutXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true, bool $lowPriority = false): ProcessSpecDto
     {
         return new ProcessSpecDto(
-            command: [$this->phpBinPath, '-n', '-c', $this->noXdebugIni(), '-d', 'memory_limit=' . $this->memoryLimit, '-f', $script, '--', ...$args],
+            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-f', $script, '--', ...$args],
             cwd: $cwd,
-            env: $env,
+            env: [...$env, ...self::XDEBUG_OFF],
             streamOutput: $streamOutput,
             lowPriority: $lowPriority,
         );
@@ -72,57 +82,25 @@ final readonly class PhpInvoker
     /** The PHP version string of the configured binary, e.g. "8.5.10". */
     public function version(): string
     {
-        $result = $this->runner->run(new ProcessSpecDto([$this->phpBinPath, '-r', 'echo PHP_VERSION;'], $this->varDir, streamOutput: false));
-
-        return trim($result->output);
+        return trim($this->probe('echo PHP_VERSION;'));
     }
 
-    /** Whether the configured binary loads Xdebug. */
+    /** Whether the configured binary loads Xdebug (in any mode, including off). */
     public function hasXdebug(): bool
     {
-        $result = $this->runner->run(new ProcessSpecDto([$this->phpBinPath, '-r', 'echo extension_loaded("xdebug") ? "1" : "0";'], $this->varDir, streamOutput: false));
-
-        return '1' === trim($result->output);
+        return '1' === trim($this->probe('echo extension_loaded("xdebug") ? "1" : "0";'));
     }
 
     /**
-     * The path of the no-Xdebug ini for the configured binary, generated on
-     * first use: every ini file the binary loads, concatenated, minus any
-     * whose name mentions xdebug.
+     * Run a one-line probe and return what it printed. Xdebug is switched off
+     * for the probe so a host Xdebug configured to connect to a debugging
+     * client on every request cannot add its "Could not connect" line to the
+     * captured answer.
      */
-    public function noXdebugIni(): string
+    private function probe(string $code): string
     {
-        $path = $this->varDir . '/phpqa-no-xdebug.' . $this->version() . '.ini';
-        if (is_file($path)) {
-            return $path;
-        }
+        $result = $this->runner->run(new ProcessSpecDto([$this->phpBinPath, '-r', $code], $this->varDir, self::XDEBUG_OFF, streamOutput: false));
 
-        $result = $this->runner->run(new ProcessSpecDto(
-            [$this->phpBinPath, '-r', 'echo php_ini_loaded_file(), PHP_EOL, php_ini_scanned_files();'],
-            $this->varDir,
-            streamOutput: false,
-        ));
-
-        $ini = '';
-        foreach (\Safe\preg_split('/[\n,]/', $result->output) as $file) {
-            if (!\is_string($file)) {
-                continue;
-            }
-
-            $file = trim($file);
-            if ('' === $file || str_contains($file, 'xdebug') || !is_file($file)) {
-                continue;
-            }
-
-            $ini .= \Safe\file_get_contents($file) . "\n";
-        }
-
-        if (!is_dir($this->varDir)) {
-            \Safe\mkdir($this->varDir, 0o777, true);
-        }
-
-        \Safe\file_put_contents($path, $ini);
-
-        return $path;
+        return $result->output;
     }
 }

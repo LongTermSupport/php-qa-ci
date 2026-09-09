@@ -44,18 +44,9 @@ final class PhpInvokerTest extends TestCase
     }
 
     #[Test]
-    public function withoutXdebugBuildsTheNoXdebugIniOnceAndPassesMemoryLimitAndArgs(): void
+    public function withoutXdebugSwitchesXdebugOffThroughTheEnvironmentAndPassesMemoryLimitAndArgs(): void
     {
-        $iniA = $this->varDir->write('a.ini', "memory_limit=1G\n");
-        $iniX = $this->varDir->write('xdebug.ini', "zend_extension=xdebug\n");
-
-        $runner = new FakeProcessRunner()
-            ->willSucceed(self::PHP_VERSION)
-            ->willSucceed($iniA . "\n" . $iniX . ",\n")
-            ->willSucceed('tool ran')
-            ->willSucceed(self::PHP_VERSION)
-            ->willSucceed('again')
-        ;
+        $runner  = new FakeProcessRunner()->willSucceed('tool ran');
         $invoker = new PhpInvoker($runner, '/usr/bin/php8.5', '4G', $this->varDir->path);
 
         $result = $invoker->withoutXdebug(self::BIN_TOOL, ['--flag', 'value'], self::PROJECT, ['FOO' => 'bar']);
@@ -64,16 +55,25 @@ final class PhpInvokerTest extends TestCase
         self::assertTrue($result->succeeded());
         $spec = $runner->lastSpec();
         self::assertSame(
-            ['/usr/bin/php8.5', '-n', '-c', $this->varDir->path . '/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G', '-f', self::BIN_TOOL, '--', '--flag', 'value'],
+            ['/usr/bin/php8.5', '-d', 'memory_limit=4G', '-f', self::BIN_TOOL, '--', '--flag', 'value'],
             $spec->command,
         );
         self::assertSame(self::PROJECT, $spec->cwd);
-        self::assertSame(['FOO' => 'bar'], $spec->env);
-        self::assertSame("memory_limit=1G\n\n", $this->varDir->read('phpqa-no-xdebug.8.5.10.ini'));
+        self::assertSame(['FOO' => 'bar', 'XDEBUG_MODE' => 'off'], $spec->env);
+        // No probe, no generated ini: the tool run is the only process.
+        self::assertCount(1, $runner->specs);
+        self::assertSame([], glob($this->varDir->path . '/*.ini'));
+    }
 
-        // Second invocation: the ini exists, so only the version probe and the tool run.
-        $invoker->withoutXdebug(self::BIN_TOOL, [], self::PROJECT);
-        self::assertCount(5, $runner->specs);
+    #[Test]
+    public function withoutXdebugOverridesAnXdebugModeTheCallerPassed(): void
+    {
+        $runner  = new FakeProcessRunner()->willSucceed('');
+        $invoker = new PhpInvoker($runner, self::PHP_BINARY, '4G', $this->varDir->path);
+
+        $spec = $invoker->specWithoutXdebug('/x', [], '/p', ['XDEBUG_MODE' => 'coverage']);
+
+        self::assertSame(['XDEBUG_MODE' => 'off'], $spec->env);
     }
 
     #[Test]
@@ -101,12 +101,16 @@ final class PhpInvokerTest extends TestCase
         self::assertTrue($invoker->hasXdebug());
         self::assertSame(['/opt/php', '-r', 'echo PHP_VERSION;'], $runner->specs[0]->command);
         self::assertFalse($runner->specs[0]->streamOutput);
+        // A host Xdebug in debug mode prints "Could not connect to debugging client" on every
+        // CLI call; both probes switch it off so the captured output is the answer alone.
+        self::assertSame(['XDEBUG_MODE' => 'off'], $runner->specs[0]->env);
+        self::assertSame(['XDEBUG_MODE' => 'off'], $runner->specs[1]->env);
     }
 
     #[Test]
     public function lowPriorityIsCarriedOnTheSpec(): void
     {
-        $runner  = new FakeProcessRunner()->willSucceed(self::PHP_VERSION)->willSucceed('');
+        $runner  = new FakeProcessRunner()->willSucceed('');
         $invoker = new PhpInvoker($runner, self::PHP_BINARY, '4G', $this->varDir->path);
 
         $spec = $invoker->specWithoutXdebug('/x', [], '/p', lowPriority: true);
