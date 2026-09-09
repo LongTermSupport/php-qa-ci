@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Tool\Dto;
 
-use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use LTS\PHPQA\Pipeline\Tool\ToolGateEnum;
 
 /**
  * One row of the tool registry: what `-t` tokens select it, where it runs,
  * and how it is described.
  *
- * `$phase` is the phase a leaf tool belongs to, the phase a phase runner runs,
- * and null for a pseudo-tool. `$isPhaseRunner` marks the four `all*` entries,
- * whose target is a phase rather than a leaf tool. `$target` names the
- * canonical tool a pseudo-tool actually runs (`uniterate` runs `phpunit`).
- * `$banner` is printed before the tool runs as part of a phase.
+ * `$phase` names the phase a leaf tool belongs to (a PhaseDto name, e.g.
+ * PhaseEnum::Linting->value), the phase a phase runner runs, and is null for
+ * a pseudo-tool. `$isPhaseRunner` marks the `all*` entries, whose target is a
+ * phase rather than a leaf tool. `$target` names the canonical tool a
+ * pseudo-tool actually runs (`uniterate` runs `phpunit`). `$banner` is printed
+ * before the tool runs as part of a phase.
  *
  * @internal
  */
@@ -26,7 +26,7 @@ final readonly class ToolDefinitionDto
         public string $name,
         public array $aliases,
         public string $description,
-        public ?PhaseEnum $phase,
+        public ?string $phase,
         public bool $supportsPaths,
         public ToolGateEnum $gate = ToolGateEnum::None,
         public ?string $banner = null,

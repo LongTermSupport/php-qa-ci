@@ -212,7 +212,7 @@ final readonly class ActiveRulesLister
                 $definition->name,
                 $tool?->identifier(),
                 $definition->description,
-                $definition->phase?->value,
+                $definition->phase,
                 $this->optInVariable($definition),
             );
         }

@@ -53,6 +53,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto::class)]
 #[UsesClass(ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\PhaseEnum::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
 #[UsesClass(ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolGateEnum::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum::class)]

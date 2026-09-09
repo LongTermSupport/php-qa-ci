@@ -36,12 +36,15 @@ in-flight changes were verified by a full writable battery (exit 0, 840 tests, C
 
 What landed, and why each was held back from the 00004 release rather than rushed into it:
 
-| Change | Why it exists |
-| --- | --- |
-| The variadic rule never suggests converting a parameter with its own default | A variadic cannot carry a default — there is no `string ...$items = ['a']` — so converting would silently drop a non-empty default |
-| `twigCsFixer` gated on `twig/twig` rather than on Symfony | The PHAR is standalone; gating on `symfony.lock` meant a Slim, Laravel or plain library project using Twig got no Twig coding standards at all |
+| Change                                                                       | Why it exists                                                                                                                                  |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| The variadic rule never suggests converting a parameter with its own default | A variadic cannot carry a default — there is no `string ...$items = ['a']` — so converting would silently drop a non-empty default             |
+| `twigCsFixer` gated on `twig/twig` rather than on Symfony                    | The PHAR is standalone; gating on `symfony.lock` meant a Slim, Laravel or plain library project using Twig got no Twig coding standards at all |
 
-**Start here**: Phase 2, Task 2.1. Nothing in Phases 2–4 has been started.
+**Start here**: Phase 2, Task 2.2. Task 2.1 landed `PipelineBuilder`, `PhaseDto` and an open
+phase list on the registry (each phase derives its own `all*` runner; `ToolDefinitionDto::$phase`
+is now the phase name). `QaApplication` already runs through `PipelineBuilder::defaults()`, so the
+default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has been started.
 
 ## Goals
 
@@ -64,68 +67,71 @@ What landed, and why each was held back from the 00004 release rather than rushe
 ### Phase 1: land the in-flight work
 
 - [x] ✅ **Task 1.1**: Full writable battery on the feature branch — green, exit 0, ALL TESTS
-      PASSING, **Covered Code MSI 82%**, holding the floor exactly as the 00004 release did. The
-      two changes removed as many mutants as they added, so no extra assertions were needed and
-      the floor was not touched.
+  PASSING, **Covered Code MSI 82%**, holding the floor exactly as the 00004 release did. The
+  two changes removed as many mutants as they added, so no extra assertions were needed and
+  the floor was not touched.
 - [x] ✅ **Task 1.2**: Merged into `php8.5` with `--no-ff` and pushed.
 
 ### Phase 2: pipeline extensibility
 
-- [ ] ⬜ **Task 2.1**: `PipelineBuilder`, composition over inheritance. `::defaults()` seeds the
-      shipped registry, `::empty()` starts from nothing; immutable withers add a tool to a phase,
-      add a phase, and set phase order, in the style of `QaConfigBuilder`.
+- [x] ✅ **Task 2.1**: `PipelineBuilder`, composition over inheritance. `::defaults()` seeds the
+  shipped registry, `::empty()` starts from nothing; immutable withers add a tool to a phase,
+  add a phase, and set phase order, in the style of `QaConfigBuilder`.
 - [ ] ⬜ **Task 2.2**: `ToolDefinitionDto` becomes `@api` — a consuming project must be able to
-      construct one and it is currently `@internal`. Check what else on the construction path
-      needs promoting with it.
+  construct one and it is currently `@internal`. Check what else on the construction path
+  needs promoting with it.
 - [ ] ⬜ **Task 2.3**: Wire the builder into `qaConfig/qa.php`, and make the `-t` usage text and
-      the characterisation test follow the constructed registry rather than a frozen literal.
+  the characterisation test follow the constructed registry rather than a frozen literal.
 - [ ] ⬜ **Task 2.4**: Document the extension process as the archetype, with a worked example.
 
 ### Phase 3: tool evaluation by dogfooding
 
 - [ ] ⬜ **Task 3.1**: Install `shipmonk/dead-code-detector` here and run it through a
-      project-level extended pipeline against `src/`. Record findings and false-positive rate in
-      JOURNAL/. PHAR-run PHPStan does load Composer-installed extensions — proven in 00004 via
-      `vendor/phpstan/extension-installer/src/GeneratedConfig.php`.
+  project-level extended pipeline against `src/`. Record findings and false-positive rate in
+  JOURNAL/. PHAR-run PHPStan does load Composer-installed extensions — proven in 00004 via
+  `vendor/phpstan/extension-installer/src/GeneratedConfig.php`.
 
-      **Why this repository is an unusually good candidate.** The tool has no "this is a library"
-      flag; its only documented entrypoint mechanism is `@api` phpdoc. For most libraries that
-      means a large annotation sweep before the first useful run, because nothing internal calls
-      the public API and it all reports as dead.
+  ```
+  **Why this repository is an unusually good candidate.** The tool has no "this is a library"
+  flag; its only documented entrypoint mechanism is `@api` phpdoc. For most libraries that
+  means a large annotation sweep before the first useful run, because nothing internal calls
+  the public API and it all reports as dead.
 
-      We have already done that sweep, for an unrelated reason. `RequireApiOrInternalTagRule`
-      forces every class in `src/` to declare `@api` or `@internal`, and the 26 `@api` classes
-      are exactly the consumer contract — `QaConfigBuilder`, `ToolInterface`, `ToolContext`,
-      `ToolResultDto`, `PhpInvoker`, `ProcessRunnerInterface`, the config DTOs, `ShippedTools`.
-      So there is no untagged public surface to be misreported, and no reason to exclude
-      php-qa-ci from its own run.
+  We have already done that sweep, for an unrelated reason. `RequireApiOrInternalTagRule`
+  forces every class in `src/` to declare `@api` or `@internal`, and the 26 `@api` classes
+  are exactly the consumer contract — `QaConfigBuilder`, `ToolInterface`, `ToolContext`,
+  `ToolResultDto`, `PhpInvoker`, `ProcessRunnerInterface`, the config DTOs, `ShippedTools`.
+  So there is no untagged public surface to be misreported, and no reason to exclude
+  php-qa-ci from its own run.
 
-      Two things still to confirm when the task is picked up, neither a blocker:
+  Two things still to confirm when the task is picked up, neither a blocker:
 
-      - Whether class-level `@api` is honoured for the class's public methods, or whether the
-        tool wants the tag on each method. The recon read the README as class/interface/method,
-        but that was not verified against the source.
-      - `usageExcluders.tests.enabled` must be on, or a method reached only from tests counts as
-        dead.
+  - Whether class-level `@api` is honoured for the class's public methods, or whether the
+    tool wants the tag on each method. The recon read the README as class/interface/method,
+    but that was not verified against the source.
+  - `usageExcluders.tests.enabled` must be on, or a method reached only from tests counts as
+    dead.
 
-      `--error-format removeDeadCode` stays review-only regardless: it deletes code, and on a
-      library a false positive means deleting published API.
+  `--error-format removeDeadCode` stays review-only regardless: it deletes code, and on a
+  library a false positive means deleting published API.
+  ```
+
 - [ ] ⬜ **Task 3.2**: Decide on bundling as an opt-in `withDeadCodeDetection(bool)` on the
-      evidence from 3.1. Record the decision either way.
+  evidence from 3.1. Record the decision either way.
 
 ### Phase 4: coupling and SSoT debts carried from 00004
 
 - [ ] ⬜ **Task 4.1**: Audit the remaining platform coupling. `twigLint` and `yamlLint` invoke
-      `bin/console`, so they are genuinely Symfony-coupled — but confirm no standalone linter
-      would free them the way the PHAR freed `twigCsFixer`, and decide whether `yamlDirectories`
-      should default off Symfony as `twigDirectories` now does.
+  `bin/console`, so they are genuinely Symfony-coupled — but confirm no standalone linter
+  would free them the way the PHAR freed `twigCsFixer`, and decide whether `yamlDirectories`
+  should default off Symfony as `twigDirectories` now does.
 - [ ] ⬜ **Task 4.2**: The "skills should be pointers" refactor. The `qa` skill is 509 lines and
-      carries context belonging in `CLAUDE/` docs. `CLAUDE/prepush-verification.md` is the model.
+  carries context belonging in `CLAUDE/` docs. `CLAUDE/prepush-verification.md` is the model.
 - [ ] ⬜ **Task 4.3**: A PHPStan rule for the other half of the `array<T>` finding: `T[]` and
-      `array<T>` state nothing about keys, so a docblock meaning a list should say `list<T>`.
-      This is why the variadic rule deliberately does not match `T[]`; see
-      [its docs page](../../../docs/phpstan-rules/require-variadic-over-array-parameter.md).
-      Only 5 `T[]` parameters exist repo-wide, so the sweep is small.
+  `array<T>` state nothing about keys, so a docblock meaning a list should say `list<T>`.
+  This is why the variadic rule deliberately does not match `T[]`; see
+  [its docs page](../../../docs/phpstan-rules/require-variadic-over-array-parameter.md).
+  Only 5 `T[]` parameters exist repo-wide, so the sweep is small.
 
 ## Success Criteria
 

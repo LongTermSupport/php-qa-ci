@@ -51,40 +51,42 @@ The pre hook runs after configuration and PHAR verification, before the run lock
 
 `QaApplication` performs these steps in order:
 
- - **Arguments** ([ArgumentsParser](../src/Pipeline/Cli/ArgumentsParser.php)): `-t <tool>`, `-p <path>` (or a single bare path), `--json` (PHPStan only), `-h`. A path given to a tool that does not support paths, an unknown tool or an unknown option prints the usage and exits 1.
- - **Environment** ([EnvironmentReader](../src/Pipeline/Config/EnvironmentReader.php)): decides CI, read-only and aggregate mode and announces them.
- - **Project paths** ([ProjectPathsResolver](../src/Pipeline/Config/ProjectPathsResolver.php)): requires `src/` and `tests/` (or `test/`); reads `config.bin-dir` from `composer.json` (default `vendor/bin`); fixes `var/qa`, `var/qa/cache`, `qaConfig/` and the library's `vendor-phar/` and `configDefaults/`.
- - **Platform detection** ([PlatformDetector](../src/Pipeline/Config/PlatformDetector.php)): Symfony via `symfony.lock`, otherwise generic. See [Platform Detection](./platform-detection.md).
- - **Xdebug probe**: whether coverage and mutation testing are available.
- - **Configuration**: `QaConfigBuilder::defaults()` seeds every setting from the shipped defaults and the environment variables; [ProjectConfigLoader](../src/Pipeline/Config/ProjectConfigLoader.php) applies your `qaConfig/qa.php`; `build()` derives the dependent values (coverage needs Xdebug, Infection needs coverage). A leftover `qaConfig.inc.bash` is refused with migration guidance.
+- **Arguments** ([ArgumentsParser](../src/Pipeline/Cli/ArgumentsParser.php)): `-t <tool>`, `-p <path>` (or a single bare path), `--json` (PHPStan only), `-h`. A path given to a tool that does not support paths, an unknown tool or an unknown option prints the usage and exits 1.
+- **Environment** ([EnvironmentReader](../src/Pipeline/Config/EnvironmentReader.php)): decides CI, read-only and aggregate mode and announces them.
+- **Project paths** ([ProjectPathsResolver](../src/Pipeline/Config/ProjectPathsResolver.php)): requires `src/` and `tests/` (or `test/`); reads `config.bin-dir` from `composer.json` (default `vendor/bin`); fixes `var/qa`, `var/qa/cache`, `qaConfig/` and the library's `vendor-phar/` and `configDefaults/`.
+- **Platform detection** ([PlatformDetector](../src/Pipeline/Config/PlatformDetector.php)): Symfony via `symfony.lock`, otherwise generic. See [Platform Detection](./platform-detection.md).
+- **Xdebug probe**: whether coverage and mutation testing are available.
+- **Configuration**: `QaConfigBuilder::defaults()` seeds every setting from the shipped defaults and the environment variables; [ProjectConfigLoader](../src/Pipeline/Config/ProjectConfigLoader.php) applies your `qaConfig/qa.php`; `build()` derives the dependent values (coverage needs Xdebug, Infection needs coverage). A leftover `qaConfig.inc.bash` is refused with migration guidance.
 
 ### 2. Preparation
 
 `Pipeline::run()` then:
 
- - creates `var/qa/` and `var/qa/cache/` with self-excluding `.gitignore` files and adds the managed block of QA runtime-cache excludes to the project's root `.gitignore` ([DirectoryPreparer](../src/Pipeline/Runner/DirectoryPreparer.php));
- - verifies the PHARs ([PharToolsVerifier](../src/Pipeline/Runner/PharToolsVerifier.php)): `phive.xml` is a hard requirement, and every PHAR it lists plus the committed `vendor-phar/rector.phar` must be present under the library's `vendor-phar/`. Nothing is fetched at run time; PHIVE re-fetches only in the maintainer `update`/`--force` modes of `scripts/tool-install.bash`, and maintainers rebuild Rector with `scripts/build-rector-phar.bash`;
- - runs your project's `hookPre.php` if present;
- - acquires the run lock ([RunLock](../src/Pipeline/Lock/RunLock.php)). One run per project: a JSON lock file under `qaConfig/.qa-lock/` records host, pid, tool, path and last activity. A live holder aborts the run before any tool executes. A holder with no activity for 600 seconds is presumed dead (container restarts leave PIDs meaningless, so liveness is time-based) and its lock is removed with a note. The runner touches the lock before every tool so a long lane never goes stale, and releases it with the exit code and elapsed time at the end.
+- creates `var/qa/` and `var/qa/cache/` with self-excluding `.gitignore` files and adds the managed block of QA runtime-cache excludes to the project's root `.gitignore` ([DirectoryPreparer](../src/Pipeline/Runner/DirectoryPreparer.php));
+- verifies the PHARs ([PharToolsVerifier](../src/Pipeline/Runner/PharToolsVerifier.php)): `phive.xml` is a hard requirement, and every PHAR it lists plus the committed `vendor-phar/rector.phar` must be present under the library's `vendor-phar/`. Nothing is fetched at run time; PHIVE re-fetches only in the maintainer `update`/`--force` modes of `scripts/tool-install.bash`, and maintainers rebuild Rector with `scripts/build-rector-phar.bash`;
+- runs your project's `hookPre.php` if present;
+- acquires the run lock ([RunLock](../src/Pipeline/Lock/RunLock.php)). One run per project: a JSON lock file under `qaConfig/.qa-lock/` records host, pid, tool, path and last activity. A live holder aborts the run before any tool executes. A holder with no activity for 600 seconds is presumed dead (container restarts leave PIDs meaningless, so liveness is time-based) and its lock is removed with a note. The runner touches the lock before every tool so a long lane never goes stale, and releases it with the exit code and elapsed time at the end.
 
 ### 3. QA Tools (Four Phases)
 
-The phase order and the `-t` aliases are owned by [ToolRegistry](../src/Pipeline/Tool/ToolRegistry.php) and frozen by a characterisation test.
+The phase order and the `-t` aliases are owned by [ToolRegistry](../src/Pipeline/Tool/ToolRegistry.php) and frozen by a characterisation test. The run reads them through [PipelineBuilder](../src/Pipeline/Tool/PipelineBuilder.php), whose `defaults()` is exactly this shipped set.
 
 #### Phase 1: Code Modification
+
 1. **[Rector](./tools/rector.md)** -- Automated refactoring (safe functions, PHPUnit, PHP 8.5 upgrades)
 2. **[PHP CS Fixer](./tools/phpCsFixer.md)** -- Code style fixing (runs as PHAR)
 
 On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)** is appended to this phase; it modifies templates, which is why it belongs here rather than with Twig Lint.
 
 #### Phase 2: Linting and Validation
-3. **[PSR-4 Validation](./tools/psr4Validate.md)** -- Namespace/directory structure compliance
-4. **[Composer Checks](./tools/composerChecks.md)** -- Diagnose, normalize, dump autoloader
-5. **[Package Type Declaration](./tools/packageType.md)** -- Always-on: requires `composer.json` to declare a `type`
-6. **[Config Template Ignore-List Audit](./tools/configTemplateIgnoreListCheck.md)** -- Always-on self-check: every namespace-less `configDefaults/generic/` template is covered by `psr4-validate-ignore-list.txt`
-7. **[Infection Config Source Directories Check](./tools/infectionConfigSourceDirs.md)** -- Always-on: infection.json's `source.directories` must resolve to real directories
-8. **[Version Pins Check](./tools/versionPins.md)** -- Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
-9. **[Strict Types Enforcement](./tools/phpStrictTypes.md)** -- Ensures `declare(strict_types=1)`
+
+03. **[PSR-4 Validation](./tools/psr4Validate.md)** -- Namespace/directory structure compliance
+04. **[Composer Checks](./tools/composerChecks.md)** -- Diagnose, normalize, dump autoloader
+05. **[Package Type Declaration](./tools/packageType.md)** -- Always-on: requires `composer.json` to declare a `type`
+06. **[Config Template Ignore-List Audit](./tools/configTemplateIgnoreListCheck.md)** -- Always-on self-check: every namespace-less `configDefaults/generic/` template is covered by `psr4-validate-ignore-list.txt`
+07. **[Infection Config Source Directories Check](./tools/infectionConfigSourceDirs.md)** -- Always-on: infection.json's `source.directories` must resolve to real directories
+08. **[Version Pins Check](./tools/versionPins.md)** -- Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
+09. **[Strict Types Enforcement](./tools/phpStrictTypes.md)** -- Ensures `declare(strict_types=1)`
 10. **[PHP Lint](./tools/phpLint.md)** -- Fast parallel syntax checking
 11. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
 12. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
@@ -93,6 +95,7 @@ On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)
 On a Symfony project the platform lanes **[Twig Lint](./tools/twigLint.md)** and **[Yaml Lint](./tools/yamlLint.md)** follow, appended to this phase.
 
 #### Phase 3: Static Analysis
+
 14. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase); see [branch-policy.md](../CLAUDE/branch-policy.md)
 15. **[PHPStan ignoreErrors Justification](./tools/phpstanIgnoreJustification.md)** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment
 16. **[PHPStan](./tools/phpstan.md)** -- Static analysis at level max (runs as PHAR), optionally with the [type-coverage](./tools/phpstan.md) floors
@@ -100,6 +103,7 @@ On a Symfony project the platform lanes **[Twig Lint](./tools/twigLint.md)** and
 18. **[SensitiveParameter Usage](./tools/sensitiveParameterUsage.md)** -- Always-on: fails if `#[\SensitiveParameter]` is used nowhere in `src/`
 
 #### Phase 4: Testing
+
 19. **[PHPUnit](./tools/phpunit.md)** -- Unit and integration tests
 20. **[Infection](./tools/infection.md)** -- Mutation testing (requires Xdebug and coverage; `withInfection(false)` to disable, runs as PHAR)
 

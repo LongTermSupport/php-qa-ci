@@ -26,9 +26,8 @@ use LTS\PHPQA\Pipeline\Runner\PharToolsVerifier;
 use LTS\PHPQA\Pipeline\Runner\Pipeline;
 use LTS\PHPQA\Pipeline\Runner\ShippedToolLocator;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
-use LTS\PHPQA\Pipeline\Tool\ShippedTools;
+use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
-use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
 use Throwable;
@@ -73,7 +72,8 @@ final readonly class QaApplication
         $stdout     = new StreamOutput($this->stdoutStream);
         $decoration = $json ? new StreamOutput($this->stderrStream) : $stdout;
 
-        $registry = ToolRegistry::shipped();
+        $tools    = PipelineBuilder::defaults()->build();
+        $registry = $tools->registry;
         $env      = new EnvironmentReader($this->env);
         $parser   = new ArgumentsParser($registry, 'vendor/bin');
 
@@ -170,7 +170,7 @@ final readonly class QaApplication
             $pipeline = new Pipeline(
                 registry: $registry,
                 executor: new ToolExecutor(
-                    new ShippedToolLocator(ShippedTools::all(), $paths->projectConfigDir),
+                    new ShippedToolLocator($tools->tools, $paths->projectConfigDir),
                     $ci ? new NonInteractiveRetryPrompt() : new ConsoleRetryPrompt($decoration, $this->stdinStream),
                     $decoration,
                 ),

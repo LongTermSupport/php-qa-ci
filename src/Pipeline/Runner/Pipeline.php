@@ -7,13 +7,12 @@ namespace LTS\PHPQA\Pipeline\Runner;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
-use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * The run: preflight, lock, then either one tool or the four phases in
+ * The run: preflight, lock, then either one tool or the registry's phases in
  * order, with the retry, aggregate and gate policies applied; hooks around
  * it; the lock released with the exit code.
  *
@@ -73,7 +72,7 @@ final readonly class Pipeline
         if (null !== $config->singleTool) {
             $definition = $this->registry->definition($config->singleTool);
             $this->banner(\sprintf('Running Single Tool: %s', $definition->name), '-');
-            $tools = $definition->isPhaseRunner && $definition->phase instanceof PhaseEnum
+            $tools = $definition->isPhaseRunner && null !== $definition->phase
                 ? $this->toolsFor($definition->phase, $config->platform)
                 : [$definition];
             $ok = $this->runTools($context, $failed, $retried, $definition->isPhaseRunner, ...$tools);
@@ -81,9 +80,9 @@ final readonly class Pipeline
             return $this->finish($ok, $retried, $config->aggregate, ...$failed);
         }
 
-        foreach (PhaseEnum::cases() as $phase) {
-            $this->banner($phase->banner(), '=');
-            if (!$this->runTools($context, $failed, $retried, true, ...$this->toolsFor($phase, $config->platform))) {
+        foreach ($this->registry->phases() as $phase) {
+            $this->banner($phase->banner, '=');
+            if (!$this->runTools($context, $failed, $retried, true, ...$this->toolsFor($phase->name, $config->platform))) {
                 return $this->finish(false, $retried, $config->aggregate, ...$failed);
             }
         }
@@ -147,7 +146,7 @@ final readonly class Pipeline
      *
      * @return list<ToolDefinitionDto>
      */
-    private function toolsFor(PhaseEnum $phase, PlatformEnum $platform): array
+    private function toolsFor(string $phase, PlatformEnum $platform): array
     {
         return [...$this->registry->toolsForPhase($phase), ...ToolRegistry::platformLanes($platform, $phase)];
     }

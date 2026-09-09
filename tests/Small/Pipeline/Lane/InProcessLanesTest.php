@@ -94,6 +94,8 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
 #[UsesClass(ToolDefinitionDto::class)]
 #[UsesClass(ToolRegistry::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
+#[UsesClass(PhaseEnum::class)]
 #[Small]
 final class InProcessLanesTest extends TestCase
 {
@@ -123,8 +125,8 @@ final class InProcessLanesTest extends TestCase
         $shipped = ShippedTools::all();
 
         $platformLanes = [];
-        foreach (PhaseEnum::cases() as $phase) {
-            $platformLanes = [...$platformLanes, ...ToolRegistry::platformLanes(PlatformEnum::Symfony, $phase)];
+        foreach (ToolRegistry::shipped()->phases() as $phase) {
+            $platformLanes = [...$platformLanes, ...ToolRegistry::platformLanes(PlatformEnum::Symfony, $phase->name)];
         }
 
         $platformNames = array_map(static fn (ToolDefinitionDto $lane): string => $lane->name, $platformLanes);

@@ -25,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ToolDefinitionDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(UnknownToolException::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(ToolGateEnum::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(PhaseEnum::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
 #[Small]
 final class ToolRegistryTest extends TestCase
 {
@@ -71,7 +73,7 @@ final class ToolRegistryTest extends TestCase
     {
         $registry = ToolRegistry::shipped();
 
-        self::assertSame(PhaseEnum::Linting, $registry->resolve('allLints')->phase);
+        self::assertSame(PhaseEnum::Linting->value, $registry->resolve('allLints')->phase);
         self::assertTrue($registry->resolve('allLints')->isPhaseRunner);
         self::assertFalse($registry->resolve('lint')->isPhaseRunner);
     }
@@ -81,7 +83,7 @@ final class ToolRegistryTest extends TestCase
     {
         $names = array_map(
             static fn (ToolDefinitionDto $tool): string => $tool->name,
-            ToolRegistry::shipped()->toolsForPhase(PhaseEnum::Testing),
+            ToolRegistry::shipped()->toolsForPhase(PhaseEnum::Testing->value),
         );
 
         self::assertSame([self::PHPUNIT, 'infection'], $names);
