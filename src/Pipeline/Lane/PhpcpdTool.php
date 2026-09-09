@@ -10,7 +10,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 
 /**
- * Copy/paste detection over the checked paths, after the gate has passed.
+ * Copy/paste detection over the checked paths via the shipped
+ * vendor-phar/phpcpd.phar, after the gate has passed.
  * Informational by design: duplication is a judgement call, not a defect, and
  * a lane that failed on it would be turned off within a week.
  *
@@ -26,7 +27,7 @@ final readonly class PhpcpdTool implements ToolInterface
 
     public const string LOG_FILE = 'phpcpd.json';
 
-    private const string BINARY = 'phpcpd';
+    private const string PHAR = 'phpcpd.phar';
 
     private const int EXIT_CLONES_OR_ERROR = 1;
 
@@ -43,14 +44,9 @@ final readonly class PhpcpdTool implements ToolInterface
     public function run(ToolContext $context): ToolResultDto
     {
         $paths  = $context->config->paths;
-        $binary = $paths->binDir . '/' . self::BINARY;
-        if (!is_file($binary)) {
-            return ToolResultDto::skipped(self::BINARY . ' not installed');
-        }
-
-        $logDir = $context->logDir(self::BINARY);
+        $logDir = $context->logDir($this->name());
         $result = $context->php->withoutXdebug(
-            $binary,
+            $paths->pharDir . '/' . self::PHAR,
             ['--log-json=' . $logDir . '/' . self::LOG_FILE, ...$context->config->pathsToCheck],
             $paths->projectRoot,
         );

@@ -93,6 +93,7 @@ final class PreflightTest extends TestCase
         $library = TempDir::create('phpqa-lib');
         $library->write('phive.xml', '<phive><phar name="phpstan" version="^2" location="./vendor-phar/phpstan.phar"/><phar name="infection/infection" version="^0.35" location="./vendor-phar/infection.phar"/></phive>');
         $library->write('vendor-phar/phpstan.phar', '');
+        $library->write('build/rector/composer.json', '{}');
 
         try {
             new PharToolsVerifier()->verify($library->path);

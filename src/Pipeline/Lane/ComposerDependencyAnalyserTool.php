@@ -13,8 +13,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  * The other direction of the dependency check: composerRequireChecker finds
  * symbols with no declared package, this finds declared packages with no
  * symbols, plus shadow dependencies and dev packages used in production code.
- * Runs the Composer-installed binary with the resolved
- * composer-dependency-analyser.php.
+ * Runs the shipped vendor-phar/composer-dependency-analyser.phar with the
+ * resolved composer-dependency-analyser.php.
  *
  * The tool exits 1 both for findings and for its own errors, so the lane
  * cannot tell them apart and reports every non-zero exit as a failure; the
@@ -28,7 +28,7 @@ final readonly class ComposerDependencyAnalyserTool implements ToolInterface
 
     public const string CONFIG = 'composer-dependency-analyser.php';
 
-    private const string BINARY = 'composer-dependency-analyser';
+    private const string PHAR = 'composer-dependency-analyser.phar';
 
     public function name(): string
     {
@@ -43,16 +43,8 @@ final readonly class ComposerDependencyAnalyserTool implements ToolInterface
     public function run(ToolContext $context): ToolResultDto
     {
         $paths  = $context->config->paths;
-        $binary = $paths->binDir . '/' . self::BINARY;
-        if (!is_file($binary)) {
-            $this->notInstalledGuidance($context, $binary);
-            $context->writeIdentifier(self::IDENTIFIER);
-
-            return ToolResultDto::failed(self::BINARY . ' is not installed');
-        }
-
         $result = $context->php->withoutXdebug(
-            $binary,
+            $paths->pharDir . '/' . self::PHAR,
             ['--config=' . $context->configPath(self::CONFIG), '--composer-json=' . $paths->projectRoot . '/composer.json'],
             $paths->projectRoot,
         );
@@ -65,18 +57,6 @@ final readonly class ComposerDependencyAnalyserTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed(\sprintf('composer-dependency-analyser reported problems (exit %d)', $result->exitCode));
-    }
-
-    private function notInstalledGuidance(ToolContext $context, string $binary): void
-    {
-        $context->writeln('');
-        $context->writeln('ERROR: composer-dependency-analyser was not found at ' . $binary);
-        $context->writeln('');
-        $context->writeln('It is a "require" dependency of php-qa-ci, so it should always be present.');
-        $context->writeln('A missing binary means the install is incomplete rather than the project');
-        $context->writeln('being misconfigured.');
-        $context->writeln('');
-        $context->writeln('TO FIX: composer install');
     }
 
     private function guidance(ToolContext $context): void

@@ -34,10 +34,6 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpcpdToolTest extends TestCase
 {
-    private const string BINARY = 'vendor/bin/phpcpd';
-
-    private const string SHEBANG = "#!/usr/bin/env php\n";
-
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -51,26 +47,17 @@ final class PhpcpdToolTest extends TestCase
     }
 
     #[Test]
-    public function itIsSkippedWhenTheBinaryIsAbsent(): void
-    {
-        $result = new PhpcpdTool()->run($this->factory->context());
-
-        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertSame('phpcpd not installed', $result->summary);
-    }
-
-    #[Test]
     public function aCleanRunWritesTheJsonReportOverTheCheckedPaths(): void
     {
         $this->factory->processes->willSucceed('0% duplicated lines');
-        $binary = $this->factory->project->write(self::BINARY, self::SHEBANG);
+        $phar   = $this->factory->context()->config->paths->pharDir . '/phpcpd.phar';
         $config = $this->factory->builder()->build();
 
         $result = new PhpcpdTool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $command = $this->factory->processes->lastSpec()->command;
-        self::assertContains($binary, $command);
+        self::assertContains($phar, $command);
         self::assertContains(
             '--log-json=' . $this->factory->project->path . '/var/qa/phpcpd/' . PhpcpdTool::LOG_FILE,
             $command,
@@ -84,7 +71,6 @@ final class PhpcpdToolTest extends TestCase
     public function foundClonesDoNotFailTheLane(): void
     {
         $this->factory->processes->willFail(1, '2.4% duplicated lines');
-        $this->factory->project->write(self::BINARY, self::SHEBANG);
 
         $result = new PhpcpdTool()->run($this->factory->context());
 
@@ -96,7 +82,6 @@ final class PhpcpdToolTest extends TestCase
     public function aCrashIsReportedOnScreenAndStillDoesNotFailTheLane(): void
     {
         $this->factory->processes->willFail(255, 'segfault');
-        $this->factory->project->write(self::BINARY, self::SHEBANG);
 
         $result = new PhpcpdTool()->run($this->factory->context());
 

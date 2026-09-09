@@ -35,8 +35,8 @@ See the [GitHub Actions Integration](./github-actions.md) guide for full setup i
 A **weekly scheduled workflow** that automatically:
 
 1. Updates Composer dependencies (`composer update`)
-2. Updates PHARs via PHIVE (`phive update`)
-3. Updates Rector and rebuilds its committed PHAR (`composer update --working-dir=build/rector-phar` then `scripts/build-rector-phar.bash --force`)
+2. Updates PHARs via PHIVE (`scripts/tool-install.bash update`)
+3. Updates the self-built PHARs (`composer update --working-dir=build/<tool>` for each manifest, then `scripts/build-phar.bash --all --force`)
 4. Runs the full QA pipeline to verify everything still passes
 5. Creates a pull request with the changes (if any)
 6. Enables auto-merge on the PR

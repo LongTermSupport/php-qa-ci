@@ -24,8 +24,8 @@
 !/bin/version-pins-check
 /cache/
 /.phive-home/
-/build/rector-phar/vendor/
-/build/rector-phar/rector.phar
+/build/*/vendor/
+/build/*/*.phar
 
 # BEGIN php-qa-ci managed QA runtime excludes — do not edit
 # These patterns ensure QA tool runtime caches are never committed,

@@ -1,0 +1,15 @@
+{
+    "name": "lts/php-qa-ci-phpcpd",
+    "description": "Isolated phpcpd installation for php-qa-ci, boxed into vendor-phar/phpcpd.phar.",
+    "license": "MIT",
+    "require": {
+        "php": "^8.5",
+        "phpcpd-next/phpcpd": "@stable"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": {
+            "*": "dist"
+        }
+    }
+}

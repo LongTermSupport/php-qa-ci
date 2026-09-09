@@ -52,11 +52,6 @@ $config->ignoreUnknownClassesRegex('#^Symfony\\\\Component\\\\DependencyInjectio
  * pipeline at run time through a route static analysis cannot follow.
  */
 $config
-    // Binaries the lanes invoke as subprocesses.
-    ->ignoreErrorsOnPackages([
-        'shipmonk/composer-dependency-analyser',
-        'phpcpd-next/phpcpd',
-    ], [ErrorType::UNUSED_DEPENDENCY])
     // PHPStan extensions, loaded by the PHAR through extension-installer, never referenced in our code.
     ->ignoreErrorsOnPackages([
         'phpstan/extension-installer',

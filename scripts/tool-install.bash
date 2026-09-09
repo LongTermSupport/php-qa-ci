@@ -29,7 +29,7 @@ for arg in "$@"; do
             ;;
         *)
             echo "Usage: $0 [update] [-f|--force]" >&2
-            echo "  update     Run phive update instead of install (requires phive)" >&2
+            echo "  update     Re-resolve every phive.xml constraint to its newest release (requires phive)" >&2
             echo "  -f|--force Force reinstall even if PHARs exist (requires phive)" >&2
             exit 1
             ;;
@@ -58,13 +58,16 @@ while IFS= read -r location; do
     fi
 done < <(grep -oP 'location="\K[^"]+' "$PHIVE_XML")
 
-# rector.phar is committed but deliberately NOT listed in phive.xml — it is
-# self-built (scripts/build-rector-phar.bash), with no PHIVE-fetchable upstream
-# source. Verify it separately so a missing/corrupt checkout is still caught.
-if [[ ! -e "$VENDOR_PHAR_DIR/rector.phar" ]]; then
-    PHARS_INSTALLED=0
-    echo -e "${RED}Missing PHAR: $VENDOR_PHAR_DIR/rector.phar${NC}"
-fi
+# Self-built PHARs (one per build/<tool>/ manifest) are committed but not
+# listed in phive.xml — scripts/build-phar.bash makes them, there is no
+# PHIVE-fetchable upstream. Verify them too so a corrupt checkout is caught.
+for manifest in "$PROJECT_ROOT"/build/*/composer.json; do
+    built_tool="$(basename "$(dirname "$manifest")")"
+    if [[ ! -e "$VENDOR_PHAR_DIR/$built_tool.phar" ]]; then
+        PHARS_INSTALLED=0
+        echo -e "${RED}Missing PHAR: $VENDOR_PHAR_DIR/$built_tool.phar${NC}"
+    fi
+done
 
 if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
     # Maintainer workflow: use phive to update/reinstall PHARs
@@ -106,7 +109,13 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
         # quoting hazard eval invites; an array keeps every argument intact.
         # parallel-lint publishes an unsigned release asset (no GPG signature
         # to verify); every other entry is checked against TRUSTED_KEYS.
-        phive_install_cmd=(phive --home "$PHIVE_HOME" install --copy --force-accept-unsigned)
+        phive_home_for_run="$PHIVE_HOME"
+        if [[ "$MODE" == "update" ]]; then
+            # A fresh home: install resolves against its local cache first, and
+            # a cached older release would satisfy the constraint and win.
+            phive_home_for_run="$(mktemp -d)"
+        fi
+        phive_install_cmd=(phive --home "$phive_home_for_run" install --copy --force-accept-unsigned)
         if [[ ${#TRUSTED_KEYS[@]} -gt 0 ]]; then
             phive_install_cmd+=(--trust-gpg-keys "$(IFS=','; echo "${TRUSTED_KEYS[*]}")")
         fi
@@ -116,15 +125,33 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
 
         if [[ "$MODE" == "update" ]]; then
             echo -e "${GREEN}Updating PHAR dependencies via phive...${NC}"
-            # Remove existing phive-managed PHARs and re-install to get latest
-            # versions. rector.phar is NOT phive-managed (self-built, no upstream
-            # source); it is rebuilt separately in Phase 2, so never delete it here.
-            for phar_file in "$VENDOR_PHAR_DIR"/*.phar; do
-                if [[ -f "$phar_file" && "$(basename "$phar_file")" != "rector.phar" ]]; then
-                    rm "$phar_file"
-                fi
-            done
-            "${phive_install_cmd[@]}"
+            # Every release lookup is a GitHub API call; unauthenticated that is
+            # 60 an hour, which a handful of runs exhausts. PHIVE reads
+            # GITHUB_AUTH_TOKEN; borrow gh's token when one is not already set.
+            if [[ -z "${GITHUB_AUTH_TOKEN:-}" ]] && command -v gh >/dev/null && gh_token="$(gh auth token 2>/dev/null)"; then
+                export GITHUB_AUTH_TOKEN="$gh_token"
+            fi
+            # `phive update` cannot be used here: it has no --trust-gpg-keys or
+            # --force-accept-unsigned, so it needs a TTY for key import and
+            # skips unsigned releases (parallel-lint) outright. `phive install`
+            # takes both flags but reinstalls the installed="" pins. So: drop
+            # the pins and let install re-pin whatever the constraints allow.
+            # A failed run (rate limit, key server down) must not leave the
+            # checkout without its tools: keep a copy and put it back.
+            update_backup="$(mktemp -d)"
+            cp "$PHIVE_XML" "$update_backup/phive.xml"
+            cp -a "$VENDOR_PHAR_DIR" "$update_backup/vendor-phar"
+            php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/ installed=\"[^\"]*\"/", "", file_get_contents($f)));' "$PHIVE_XML"
+            if "${phive_install_cmd[@]}" </dev/null; then
+                rm -rf "$update_backup" "$phive_home_for_run"
+            else
+                cp "$update_backup/phive.xml" "$PHIVE_XML"
+                cp -a "$update_backup/vendor-phar/." "$VENDOR_PHAR_DIR/"
+                rm -rf "$update_backup" "$phive_home_for_run"
+                echo -e "${RED}ERROR: PHAR update failed; phive.xml and vendor-phar/ restored.${NC}" >&2
+                echo "A GitHub API rate limit is the usual cause: set GITHUB_AUTH_TOKEN (or log in with gh) and re-run." >&2
+                exit 1
+            fi
         else
             echo -e "${GREEN}Force-installing PHAR dependencies via phive...${NC}"
             "${phive_install_cmd[@]}"
@@ -145,41 +172,44 @@ elif [[ $PHARS_INSTALLED -eq 0 ]]; then
 fi
 
 # ============================================================================
-# Phase 2: Rector PHAR (self-built, committed at vendor-phar/rector.phar).
-# Rector is NOT a phive tool (no upstream phar) and NOT an isolated composer
-# sub-project any more — the committed phar bundles its own extracted phpstan,
-# so nothing leaks into any composer graph and there is no consumer-side
-# composer subprocess.
+# Phase 2: self-built PHARs (build/<tool>/ manifests, committed at
+# vendor-phar/<tool>.phar). These tools publish no PHAR upstream, so we box
+# them ourselves; each is an isolated composer graph, so nothing leaks into any
+# consumer's composer graph and there is no consumer-side composer subprocess.
 #
-# In update/force mode a maintainer rebuilds the phar from the build/rector-phar/
-# manifest. Mirroring the phive block above, the rebuild only runs when Box is
-# actually available (a maintainer environment); otherwise it degrades to a
-# silent skip using the committed phar, so routine composer events never fail on
-# a missing Box. build-rector-phar.bash may auto-download Box when invoked
-# directly, but tool-install never triggers that download implicitly.
+# In update/force mode a maintainer rebuilds them from their manifests.
+# Mirroring the phive block above, the rebuild only runs when Box is actually
+# available (a maintainer environment); otherwise it degrades to a silent skip
+# using the committed phars, so routine composer events never fail on a missing
+# Box. build-phar.bash may auto-download Box when invoked directly, but
+# tool-install never triggers that download implicitly.
 # ============================================================================
 
 if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
-    rector_box_available=0
+    box_available=0
     if [[ -n "${BOX_PHAR:-}" && -f "${BOX_PHAR}" ]]; then
-        rector_box_available=1
+        box_available=1
     elif command -v box >/dev/null; then
-        rector_box_available=1
+        box_available=1
     fi
 
-    if (( rector_box_available == 1 )); then
-        echo -e "${GREEN}Rebuilding rector.phar from build/rector-phar/ manifest...${NC}"
-        rector_build_args=()
+    if (( box_available == 1 )); then
+        echo -e "${GREEN}Rebuilding self-built PHARs from build/<tool>/ manifests...${NC}"
+        build_args=(--all)
         if [[ $FORCE_INSTALL -eq 1 ]]; then
-            rector_build_args+=(--force)
+            build_args+=(--force)
         fi
-        "$SCRIPT_DIR/build-rector-phar.bash" "${rector_build_args[@]}"
-        echo "IMPORTANT: commit the updated vendor-phar/rector.phar and build/rector-phar/composer.lock."
-    elif [[ -f "$VENDOR_PHAR_DIR/rector.phar" ]]; then
-        echo -e "${GREEN}rector.phar present — skipping rebuild (Box not available; not a maintainer build).${NC}"
+        "$SCRIPT_DIR/build-phar.bash" "${build_args[@]}"
+        echo "IMPORTANT: commit the updated vendor-phar/<tool>.phar files and build/<tool>/composer.lock."
     else
-        echo -e "${RED}ERROR: vendor-phar/rector.phar is missing and Box is not available to build it.${NC}"
-        echo "Install Box (or set BOX_PHAR) and re-run, or restore the committed vendor-phar/rector.phar."
-        exit 1
+        for manifest in "$PROJECT_ROOT"/build/*/composer.json; do
+            built_tool="$(basename "$(dirname "$manifest")")"
+            if [[ ! -f "$VENDOR_PHAR_DIR/$built_tool.phar" ]]; then
+                echo -e "${RED}ERROR: vendor-phar/$built_tool.phar is missing and Box is not available to build it.${NC}"
+                echo "Install Box (or set BOX_PHAR) and re-run, or restore the committed vendor-phar/$built_tool.phar."
+                exit 1
+            fi
+        done
+        echo -e "${GREEN}Self-built PHARs present — skipping rebuild (Box not available; not a maintainer build).${NC}"
     fi
 fi

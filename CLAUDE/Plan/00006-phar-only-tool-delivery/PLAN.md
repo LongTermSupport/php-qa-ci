@@ -69,26 +69,34 @@ question is recorded under Non-Goals.
   `scripts/tool-install.bash`; PHIVE records the version in `phive.xml`). `PhpLintTool` runs
   `vendor-phar/parallel-lint.phar`. Remove both `php-parallel-lint/*` packages from `require`
   and the analyser ignores.
+- [x] ✅ **Task 1.3**: The update path really updates. `scripts/tool-install.bash update` drops
+  the `installed=` pins and re-resolves every constraint from a fresh PHIVE home with
+  `--trust-gpg-keys` and `--force-accept-unsigned`, non-interactively; `update-deps.yml` calls it
+  instead of the invalid `phive update --copy --trust-gpg-keys` step. Proven by a real run that
+  re-resolved all eight tools to identical bytes.
 
 ### Phase 2: self-built PHARs
 
-- [ ] ⬜ **Task 2.1**: Generalise `scripts/build-rector-phar.bash` into a per-tool build driven by
-  `build/<tool>/composer.json` + `box.json.dist`, keeping Rector's phpstan-extraction step as
-  Rector's own special case. Same Box location rules, same umask fix, same "build if missing or
-  manifest changed" behaviour.
-- [ ] ⬜ **Task 2.2**: `phpcpd` from `phpcpd-next/phpcpd` (no release PHAR; zero dependencies).
+- [x] ✅ **Task 2.1**: Generalise `scripts/build-rector-phar.bash` into `scripts/build-phar.bash <tool>|--all`, driven by `build/<tool>/composer.json` + `box.json.dist` with an optional
+  `prepare.bash` hook; Rector's phpstan extraction is `build/rector/prepare.bash`. Same Box
+  location rules, same umask fix, same "build if missing or manifest changed" behaviour.
+  `build-rector-phar.bash` stays as a forwarding entry point.
+- [x] ✅ **Task 2.2**: `phpcpd` from `phpcpd-next/phpcpd` (no release PHAR; zero dependencies).
   `PhpcpdTool` runs `vendor-phar/phpcpd.phar`; package leaves `require` and the analyser ignores.
-- [ ] ⬜ **Task 2.3**: `composer-dependency-analyser` from `shipmonk/composer-dependency-analyser`
+- [x] ✅ **Task 2.3**: `composer-dependency-analyser` from `shipmonk/composer-dependency-analyser`
   (no release PHAR; zero dependencies). `ComposerDependencyAnalyserTool` runs the PHAR; the
-  `bin/composer-dependency-analyser` stub and the package go.
+  `bin/composer-dependency-analyser` stub and the package go. `PharToolsVerifier` requires one
+  `vendor-phar/<tool>.phar` per `build/<tool>/` manifest.
 
 ### Phase 3: enforcement and docs
 
-- [ ] ⬜ **Task 3.1**: A guard that the exception cannot creep back: `PharToolsVerifier` (or the
-  version-pins lane) fails when `composer.json` `require` names a package whose binary a lane runs,
-  naming the PHAR route instead. Defence Before Fix shape: prove it red on the pre-plan
-  `composer.json` first.
-- [ ] ⬜ **Task 3.2**: Docs sweep: `docs/phpqa-tools.md`, `docs/pipeline.md`, per-tool pages,
+- [x] ✅ **Task 3.1**: A guard that the exception cannot creep back: PHPStan rule
+  `ForbidBinDirToolRule` (`phpqaci.binDirTool`) reports any path built from
+  `ProjectPathsDto::$binDir` other than phpunit/paratest, naming the PHAR route. The composer
+  side is already netted: the dependency analyser reports a CLI-only package in `require` as
+  unused now that the ignores are gone. Defence Before Fix shape: proven red on the pre-plan
+  `PhpLintTool` and `PhpcpdTool`, green on the current tree.
+- [x] ✅ **Task 3.2**: Docs sweep: `docs/phpqa-tools.md`, `docs/pipeline.md`, per-tool pages,
   CLAUDE.md's tool reference, `CLAUDE/prepush-verification.md` if the maintainer build path
   changes, and the GitHub Actions workflow that rebuilds PHARs (`update-deps.yml`).
 - [ ] ⬜ **Task 3.3**: Move both consumers to the result; accounts-api and accountsiq drop the
@@ -96,11 +104,13 @@ question is recorded under Non-Goals.
 
 ## Success Criteria
 
-- [ ] `jq '.require | keys' composer.json` lists no CLI tool package.
-- [ ] `vendor-phar/` holds composer-normalize, parallel-lint, phpcpd and
-  composer-dependency-analyser PHARs, each with a recorded version and provenance.
-- [ ] A consumer with no `allow-plugins` entry for composer-normalize passes composerChecks.
-- [ ] Task 3.1's guard is red on the pre-plan `composer.json` and green after.
+- [x] `jq '.require | keys' composer.json` lists no CLI tool package.
+- [x] `vendor-phar/` holds composer-normalize, parallel-lint, phpcpd and
+  composer-dependency-analyser PHARs, each with a recorded version and provenance (`phive.xml`
+  for the first two, `build/<tool>/composer.lock` for the others).
+- [x] A consumer with no `allow-plugins` entry for composer-normalize passes composerChecks
+  (`QaEntrypointTest`'s fixture consumer has none).
+- [x] Task 3.1's guard is red on the pre-plan lanes and green after.
 - [ ] Full unfiltered pipeline exit 0 here and in both consumers.
 
 ## Delivery & Milestones

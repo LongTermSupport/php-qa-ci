@@ -16,9 +16,9 @@ use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
 
 return new Configuration()
     /*
-     * php-qa-ci runs PHPStan, PHPArkitect and Rector from PHARs rather than
-     * from the consumer's vendor/, so a qaConfig/ file that configures one of
-     * them names classes Composer cannot autoload. That is the design, not a
+     * php-qa-ci runs PHPStan, PHPArkitect, Rector and this analyser from PHARs
+     * rather than from the consumer's vendor/, so a qaConfig/ file that
+     * configures one of them names classes Composer cannot autoload. That is the design, not a
      * missing dependency, and reporting it would train the reader to ignore
      * the unknown-symbol output entirely.
      */

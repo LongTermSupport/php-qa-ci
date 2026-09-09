@@ -45,8 +45,7 @@ final class QaEntrypointTest extends TestCase
               "name": "fixture/consumer",
               "type": "project",
               "require": { "php": "^8.5" },
-              "autoload": { "psr-4": { "Fixture\\": "src/" } },
-              "config": { "allow-plugins": { "ergebnis/composer-normalize": true } }
+              "autoload": { "psr-4": { "Fixture\\": "src/" } }
             }
             JSON);
         $this->consumer->write('src/Thing.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Fixture;\n\nfinal class Thing {}\n");

@@ -33,16 +33,15 @@ The last row is the one worth understanding: an unknown symbol is not a pass, it
 - In the full pipeline, in the linting phase immediately after Composer Require Checker, which
   is where the two halves of the same question belong together.
 - Standalone: `vendor/bin/qa -t cda`.
-- The binary is `composer-dependency-analyser` from your project's bin directory. It is a
-  `require` dependency of php-qa-ci, so a missing binary means an incomplete install and fails
-  the lane rather than skipping it.
+- Runs the shipped `vendor-phar/composer-dependency-analyser.phar`; its presence is verified
+  at the start of every run with the other PHARs.
 - Configuration resolves through the usual three levels; the shipped default is
   [configDefaults/generic/composer-dependency-analyser.php](../../configDefaults/generic/composer-dependency-analyser.php).
   A project copy at `qaConfig/composer-dependency-analyser.php` **replaces** it outright.
 - A project copy lives under `qaConfig/`, which is autoloaded and therefore scanned, and it
-  names the analyser's own `Configuration` and `ErrorType` classes, which php-qa-ci installs
-  rather than the project. Exclude the file from its own scan with `->addPathToExclude(__FILE__)`
-  or that `use` is reported as a shadow dependency.
+  names the analyser's own `Configuration` and `ErrorType` classes, which come from the PHAR
+  rather than from any Composer package. Exclude the file from its own scan with
+  `->addPathToExclude(__FILE__)` or that `use` is reported as an unknown class.
 - The tool exits `1` for an ignore that nothing matched. The shipped default switches that off
   because it serves every project; a project copy should leave it on so a stale ignore is
   noticed.
@@ -98,3 +97,5 @@ running both.
 
 - Lane: [`ComposerDependencyAnalyserTool`](../../src/Pipeline/Lane/ComposerDependencyAnalyserTool.php).
 - Upstream: [shipmonk/composer-dependency-analyser](https://github.com/shipmonk-rnd/composer-dependency-analyser).
+  It publishes no PHAR, so `scripts/build-phar.bash composer-dependency-analyser` boxes it from
+  the `build/composer-dependency-analyser/` manifest.

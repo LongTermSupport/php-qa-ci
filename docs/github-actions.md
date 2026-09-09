@@ -175,8 +175,8 @@ cp vendor/lts/php-qa-ci/templates/github-actions/qa-autofix.yml .github/workflow
 PHP-QA-CI includes an `update-deps.yml` workflow that runs weekly to automatically update all dependencies:
 
 - Composer dependencies (`composer update`)
-- PHARs via PHIVE (`phive update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect
-- Rector PHAR rebuild (`composer update --working-dir=build/rector-phar` then `scripts/build-rector-phar.bash --force`)
+- PHARs via PHIVE (`scripts/tool-install.bash update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect, Twig CS Fixer, composer-normalize, parallel-lint
+- Self-built PHAR rebuild (`composer update --working-dir=build/<tool>` for each manifest, then `scripts/build-phar.bash --all --force`)
 
 If changes are detected, it runs the full QA pipeline. If QA passes, it creates a pull request with auto-merge enabled.
 

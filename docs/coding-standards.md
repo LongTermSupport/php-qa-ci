@@ -64,7 +64,7 @@ See the [PHP CS Fixer docs](https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/blob/ma
 
 ## Rector
 
-Rector is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) that bundles its own extracted phpstan, so it cannot conflict with the project's PHPStan. Maintainers rebuild it with `scripts/build-rector-phar.bash`.
+Rector is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) that bundles its own extracted phpstan, so it cannot conflict with the project's PHPStan. Maintainers rebuild it with `scripts/build-phar.bash rector`.
 
 The pipeline runs three Rector configurations in order:
 

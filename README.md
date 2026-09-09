@@ -104,7 +104,7 @@ PHP-QA-CI uses a hybrid approach to tool delivery:
 
 - **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect (PHIVE key `D9C905CED1932CA2` — the trailing 16 chars of the full fingerprint `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, which is what `scripts/tool-install.bash` pins), Twig CS Fixer, composer-normalize, parallel-lint (unsigned release asset, installed with `--force-accept-unsigned`) -- committed in `vendor-phar/`
 - **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit
-- **Committed PHAR**: Rector -- shipped as `vendor-phar/rector.phar` (self-built via `scripts/build-rector-phar.bash`; it bundles its own extracted phpstan, so nothing leaks into any consuming project's composer graph)
+- **Self-built PHARs** (via `scripts/build-phar.bash` from `build/<tool>/` manifests): Rector (`vendor-phar/rector.phar`, bundling its own extracted phpstan so nothing leaks into any consuming project's composer graph), phpcpd, composer-dependency-analyser -- committed in `vendor-phar/`
 - **In-process checks**: PSR-4 validation, package type, config-template audit, infection config, version pins, PHPStan ignore justification, SensitiveParameter usage, markdown links and branch policy are PHP classes the pipeline calls directly; their `bin/<check>` entrypoints remain for standalone use
 
 Every PHAR is verified present at the start of each run (`phive.xml` is a hard requirement); nothing is fetched at run time.

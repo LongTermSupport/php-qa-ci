@@ -8,14 +8,15 @@ use LTS\PHPQA\Pipeline\Runner\Exception\MissingPharException;
 
 /**
  * Every PHAR the pipeline runs is committed under the library's vendor-phar/:
- * the PHIVE-managed ones named in phive.xml, plus the self-built rector.phar.
- * A missing one means a broken install, not something to fetch at run time.
+ * the PHIVE-managed ones named in phive.xml, plus one self-built <tool>.phar
+ * per build/<tool>/ manifest (scripts/build-phar.bash). A missing one means a
+ * broken install, not something to fetch at run time.
  *
  * @internal
  */
 final readonly class PharToolsVerifier
 {
-    private const string RECTOR = 'rector';
+    private const string BUILD_DIR = 'build';
 
     public function verify(string $libraryRoot): void
     {
@@ -24,8 +25,9 @@ final readonly class PharToolsVerifier
             throw MissingPharException::noPhiveXml($phiveXml);
         }
 
-        $missing = [];
-        foreach ([...$this->pharFiles(\Safe\file_get_contents($phiveXml)), 'vendor-phar/' . self::RECTOR . '.phar'] as $relative) {
+        $missing  = [];
+        $required = [...$this->pharFiles(\Safe\file_get_contents($phiveXml)), ...$this->builtPharFiles($libraryRoot)];
+        foreach ($required as $relative) {
             if (!is_file($libraryRoot . '/' . $relative)) {
                 $missing[] = basename($relative, '.phar');
             }
@@ -48,5 +50,20 @@ final readonly class PharToolsVerifier
         $locations = $matches[1] ?? [];
 
         return \is_array($locations) ? array_values(array_filter($locations, is_string(...))) : [];
+    }
+
+    /**
+     * vendor-phar/<tool>.phar for every build/<tool>/composer.json manifest.
+     *
+     * @return list<string>
+     */
+    private function builtPharFiles(string $libraryRoot): array
+    {
+        $manifests = \Safe\glob($libraryRoot . '/' . self::BUILD_DIR . '/*/composer.json');
+
+        return array_map(
+            static fn (string $manifest): string => 'vendor-phar/' . basename(\dirname($manifest)) . '.phar',
+            array_values(array_filter($manifests, is_string(...))),
+        );
     }
 }

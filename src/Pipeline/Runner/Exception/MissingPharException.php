@@ -19,7 +19,7 @@ final class MissingPharException extends RuntimeException
     public static function missing(string $pharDir, string ...$names): self
     {
         return new self(\sprintf(
-            'Missing PHAR tool(s) under %s: %s. Reinstall php-qa-ci (composer reinstall lts/php-qa-ci); a maintainer rebuilds rector.phar with scripts/build-rector-phar.bash.',
+            'Missing PHAR tool(s) under %s: %s. Reinstall php-qa-ci (composer reinstall lts/php-qa-ci); a maintainer rebuilds self-built PHARs with scripts/build-phar.bash --all.',
             $pharDir,
             implode(', ', $names),
         ));

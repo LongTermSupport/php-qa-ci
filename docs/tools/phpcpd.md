@@ -21,7 +21,7 @@ report at all.
 
 - After the "ALL TESTS PASSING" banner, before the project's `hookPost.php`.
 - Standalone: `vendor/bin/qa -t cpd`.
-- Skipped with a note when the binary is absent.
+- Runs the shipped `vendor-phar/phpcpd.phar` (self-built from `build/phpcpd/`).
 - A JSON report is written to `var/qa/phpcpd/phpcpd.json` on every run, so the numbers can be
   tracked over time by something outside the pipeline even though nothing here acts on them.
 
@@ -47,4 +47,5 @@ There is no "fix" to apply mechanically, which is exactly why this does not gate
 
 - Lane: [`PhpcpdTool`](../../src/Pipeline/Lane/PhpcpdTool.php).
 - Upstream: [phpcpd-next/phpcpd](https://github.com/phpcpd-next/phpcpd), a maintained,
-  dependency-free successor to the archived `sebastian/phpcpd`.
+  dependency-free successor to the archived `sebastian/phpcpd`. It publishes no PHAR, so
+  `scripts/build-phar.bash phpcpd` boxes it from the `build/phpcpd/` manifest.

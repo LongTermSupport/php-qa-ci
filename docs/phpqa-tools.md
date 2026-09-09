@@ -27,7 +27,7 @@ These tools can modify your source files in a writable run. In a read-only run (
 
 [RectorTool](../src/Pipeline/Lane/RectorTool.php) -- [docs/tools/rector.md](./tools/rector.md)
 
-Rector performs automated refactoring and code upgrades. It is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) built by `scripts/build-rector-phar.bash`. The PHAR bundles its own *extracted* `phpstan/phpstan`, so Rector's PHPStan dependency never leaks into any consuming project's dependencies (and, being its own process, never collides with the pipeline's `phpstan.phar`).
+Rector performs automated refactoring and code upgrades. It is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) built by `scripts/build-phar.bash rector` from the `build/rector/` manifest. The PHAR bundles its own *extracted* `phpstan/phpstan`, so Rector's PHPStan dependency never leaks into any consuming project's dependencies (and, being its own process, never collides with the pipeline's `phpstan.phar`).
 
 The pipeline runs Rector in three stages:
 

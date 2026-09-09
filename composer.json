@@ -13,13 +13,11 @@
     "composer-plugin-api": "^2.0",
     "nette/neon": "^3.4.8",
     "nikic/php-parser": "^5.8",
-    "phpcpd-next/phpcpd": "^1.4",
     "phpstan/extension-installer": "^1.4.3",
     "phpstan/phpstan-deprecation-rules": "^2.0",
     "phpstan/phpstan-phpunit": "^2.0.18",
     "phpstan/phpstan-strict-rules": "^2.0.12",
     "phpunit/phpunit": "^13.3",
-    "shipmonk/composer-dependency-analyser": "^1.8",
     "symfony/console": "^8.1",
     "symfony/process": "^8.1",
     "symfony/service-contracts": "^3",
@@ -66,6 +64,9 @@
       ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiOrInternal\\": [
         "tests/assets/PHPStan/ApiOrInternal/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\BinDirTool\\": [
+        "tests/assets/PHPStan/BinDirTool/"
       ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ComposerPluginOutside\\": [
         "tests/assets/PHPStan/ComposerPluginOutside/"
