@@ -132,6 +132,7 @@ final class TwigCsFixerToolTest extends TestCase
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
         $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
         $this->factory->project->write(self::TWIG_PACKAGE_FILE, '{}');
+
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)
             ->withTwigDirectories(self::TEMPLATES, 'src/Resources/views')
             ->build()

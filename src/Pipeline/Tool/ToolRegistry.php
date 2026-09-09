@@ -102,7 +102,7 @@ final readonly class ToolRegistry
         }
 
         return match ($phase) {
-            PhaseEnum::Linting => [
+            PhaseEnum::Linting         => [
                 new ToolDefinitionDto('twigLint', [], 'Symfony twig linter', PhaseEnum::Linting, false, banner: 'Running Twig Linter'),
                 new ToolDefinitionDto('yamlLint', [], 'Symfony yaml linter', PhaseEnum::Linting, false, banner: 'Running Yaml Linter'),
             ],
