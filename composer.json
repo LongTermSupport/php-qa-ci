@@ -35,13 +35,10 @@
     "phpstan/phpstan": "*"
   },
   "suggest": {
-    "nunomaduro/larastan": "Laravel specific checks (PHPStan Wrapper)",
-    "phploc/phploc": "get some stats, not currently compatible with latest symfony",
+    "larastan/larastan": "Laravel specific checks (PHPStan wrapper)",
     "phpstan/phpstan-doctrine": "Adds checks for Doctrine",
     "phpstan/phpstan-mockery": "Prevents Mockery from failing on Stan",
-    "phpstan/phpstan-phpunit": "Adds checks for PHPUnit tests",
-    "phpstan/phpstan-symfony": "Symfony specific checks",
-    "sllh/composer-versions-check": "To be brought back in when there is a PHP8 version..."
+    "phpstan/phpstan-symfony": "Symfony specific checks"
   },
   "minimum-stability": "stable",
   "autoload": {

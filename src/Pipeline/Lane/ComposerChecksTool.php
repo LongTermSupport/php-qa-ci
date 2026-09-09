@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane;
 
+use LTS\PHPQA\Helper;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use Symfony\Component\Process\ExecutableFinder;
 
 /**
- * Composer hygiene, in five steps: `composer diagnose` (informational, never
+ * Composer hygiene, in six steps: `composer diagnose` (informational, never
  * fails), `composer audit` against the lock file (a known advisory fails the
  * lane; abandoned packages are reported; off with withComposerAudit(false)),
- * the ergebnis/composer-normalize plugin must be allowed, the composer.json
- * must be normalised (a read-only run dry-runs and fails on a pending change;
- * a writable run applies it), and the autoloader is dumped. The dump only
+ * no `suggest` entry may name a package the project already requires, the
+ * ergebnis/composer-normalize plugin must be allowed, the composer.json must
+ * be normalised (a read-only run dry-runs and fails on a pending change; a
+ * writable run applies it), and the autoloader is dumped. The dump only
  * regenerates files under vendor/, so it runs in every mode.
  *
  * @internal
@@ -30,8 +33,8 @@ final readonly class ComposerChecksTool implements ToolInterface
     private const string COMPOSER = 'composer';
 
     public function __construct(
-        /** The composer executable; found on PATH when null. */
         private ?string $composerPath = null,
+        private RedundantSuggestDetector $redundantSuggests = new RedundantSuggestDetector(),
     ) {
     }
 
@@ -76,7 +79,15 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('composer audit disabled for this project (withComposerAudit(false) / useComposerAudit=0) — skipping.');
         }
 
-        $allowed =$context->php->withoutXdebug($composer, ['config', 'allow-plugins.ergebnis/composer-normalize'], $root, streamOutput: false);
+        $redundant = $this->redundantSuggests->check(Helper::getComposerJsonDecoded($root . '/composer.json'));
+        if ([] !== $redundant) {
+            $this->redundantSuggestGuidance($context, ...$redundant);
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::failed(\sprintf('%d suggest entry/entries duplicate a required package', \count($redundant)));
+        }
+
+        $allowed = $context->php->withoutXdebug($composer, ['config', 'allow-plugins.ergebnis/composer-normalize'], $root, streamOutput: false);
         if ('true' !== trim($allowed->output)) {
             $this->pluginNotAllowedGuidance($context);
             $context->writeIdentifier(self::IDENTIFIER);
@@ -136,6 +147,24 @@ final readonly class ComposerChecksTool implements ToolInterface
         $found = new ExecutableFinder()->find(self::COMPOSER, self::COMPOSER);
 
         return null === $found ? self::COMPOSER : $found;
+    }
+
+    private function redundantSuggestGuidance(ToolContext $context, string ...$redundant): void
+    {
+        $context->writeln('');
+        $context->writeln('ERROR: composer.json suggests a package it already requires:');
+        $context->writeln('');
+        foreach ($redundant as $entry) {
+            $context->writeln('  - ' . $entry);
+        }
+
+        $context->writeln('');
+        $context->writeln('A suggestion is advice to install something the consumer does not already');
+        $context->writeln('get. Advice they cannot act on is noise, and noise in that block trains the');
+        $context->writeln('reader to skip the rest of it.');
+        $context->writeln('');
+        $context->writeln('TO FIX: delete the entry from "suggest". If the package should be optional');
+        $context->writeln('rather than required, move it out of "require"/"require-dev" instead.');
     }
 
     private function auditFailedGuidance(ToolContext $context): void

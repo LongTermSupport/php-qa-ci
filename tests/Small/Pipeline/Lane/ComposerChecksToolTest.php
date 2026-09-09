@@ -32,6 +32,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector::class)]
+#[UsesClass(\LTS\PHPQA\Helper::class)]
 #[Small]
 final class ComposerChecksToolTest extends TestCase
 {
@@ -187,6 +189,33 @@ final class ComposerChecksToolTest extends TestCase
             $this->composerInvocations(),
         );
         self::assertStringContainsString('composer audit disabled for this project', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aSuggestEntryNamingAnAlreadyRequiredPackageFailsBeforeThePluginProbe(): void
+    {
+        $this->factory->project->write('composer.json', <<<'JSON'
+            {
+              "name": "fixture/ctx",
+              "type": "project",
+              "require": { "acme/thing": "^1.0" },
+              "suggest": { "acme/thing": "you already have this" }
+            }
+            JSON);
+        $this->factory->processes
+            ->willSucceed(self::PHP_VERSION)->willSucceed()
+            ->willSucceed(self::PHP_VERSION)->willSucceed()
+        ;
+
+        $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('1 suggest entry/entries duplicate a required package', $result->summary);
+        self::assertCount(2, $this->composerInvocations(), 'nothing after the suggest check runs');
+        self::assertStringContainsString('composer.json suggests a package it already requires', $printed);
+        self::assertStringContainsString('acme/thing (require)', $printed);
+        self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
     }
 
     #[Test]
