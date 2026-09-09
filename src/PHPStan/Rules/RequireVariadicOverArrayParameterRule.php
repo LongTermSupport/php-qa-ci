@@ -18,18 +18,32 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * A method or function whose LAST parameter is declared `array` and whose `@param`
- * docblock types that parameter as a homogeneous list — `list<T>`, `non-empty-list<T>`,
- * or `array<T>` with no key type — could be declared `T ...$name` instead. A native
- * variadic parameter is checked by the engine at every call site, including ones
- * PHPStan cannot see into (a consumer project's override calling into this library),
- * and needs no docblock that can drift from the native type.
+ * A method or function with a parameter declared `array` whose `@param` docblock types
+ * it as `list<T>` or `non-empty-list<T>` could be declared `T ...$name` instead. A native
+ * variadic parameter is checked by the engine at every call site, including ones PHPStan
+ * cannot see into (a consumer project's override calling into this library), and needs no
+ * docblock that can drift from the native type.
+ *
+ * `array<T>` is deliberately NOT treated as list-shaped. PHPStan expands it to
+ * `array<mixed, mixed>` — the single argument constrains the VALUE type and says nothing
+ * about the keys — so an `array<T>` parameter may well be a map, and converting one to a
+ * variadic silently discards its keys. Only `list` states the shape a variadic provides.
+ *
+ * The parameter does NOT have to be last already. A variadic must be final, so one that
+ * is not can be moved there and then converted; the message says so. Only one parameter
+ * per signature is reported, since a signature can hold only one variadic, and the one
+ * nearest the end is chosen because it moves the least.
  *
  * Not flagged, because none of them can become a plain variadic:
  *   - the parameter is promoted (PHP forbids a variadic promoted property), by
  *     reference, or already variadic;
- *   - the `@param` type is a map (`array<K, V>`, two type arguments), `iterable<K, V>`,
- *     a shape/object-like array type, or there is no `@param` entry for it at all;
+ *   - the signature already has a variadic, so its one slot is spent;
+ *   - any parameter AFTER it carries a default. Moving past an optional parameter
+ *     breaks callers outright: PHP rejects `f($a, name: $b, ...$args)` with "Cannot
+ *     use argument unpacking after named arguments", and a library cannot see its
+ *     consumers' call sites;
+ *   - the `@param` type is anything other than `list<T>` / `non-empty-list<T>`, including
+ *     `array<T>`, a map, `iterable<K, V>`, a shape, or no `@param` entry at all;
  *   - the method is `__construct` — PHPStan's own neon DI container passes each
  *     `arguments:` entry as one positional value, so a variadic constructor would
  *     silently re-interpret an array argument as the first element of a spread;
@@ -63,7 +77,7 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
 
     private const string INT_TYPE = 'int';
 
-    private const array LIST_LIKE_KEYWORDS = ['non-empty-list', 'list', self::ARRAY_KEYWORD];
+    private const array LIST_LIKE_KEYWORDS = ['non-empty-list', 'list'];
 
     private const string DATA_PROVIDER = \PHPUnit\Framework\Attributes\DataProvider::class;
 
@@ -88,29 +102,20 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
         }
 
         $params = $node->getParams();
-        if ([] === $params) {
-            return [];
+
+        /*
+         * A signature can hold one variadic and only in final position, so a
+         * method that already has one has spent it and nothing else in that
+         * signature is convertible.
+         */
+        foreach ($params as $param) {
+            if ($param->variadic) {
+                return [];
+            }
         }
-
-        $lastParam = $params[\count($params) - 1];
-
-        if (!$this->isPlainArrayParam($lastParam)) {
-            return [];
-        }
-
-        if (!$lastParam->var instanceof Variable || !\is_string($lastParam->var->name)) {
-            return [];
-        }
-
-        $paramName = $lastParam->var->name;
 
         $docComment = $node->getDocComment();
         if (!$docComment instanceof Doc) {
-            return [];
-        }
-
-        $listType = $this->listLikeType($docComment->getText(), $paramName);
-        if (null === $listType) {
             return [];
         }
 
@@ -122,19 +127,85 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
             return [];
         }
 
-        [$keyword, $elementType] = $listType;
+        $candidate = $this->lastConvertibleParam($docComment->getText(), ...$params);
+        if (null === $candidate) {
+            return [];
+        }
+
+        [$paramName, $keyword, $elementType, $isLast] = $candidate;
 
         return [
             RuleErrorBuilder::message(\sprintf(
-                'Parameter $%s of %s() is a %s<%s> in a docblock; declare it "%s ...$%s" so the engine checks it.',
+                'Parameter $%s of %s() is a %s<%s> in a docblock; %sdeclare it "%s ...$%s" so the engine checks it.',
                 $paramName,
                 $node->name->toString(),
                 $keyword,
                 $elementType,
+                $isLast ? '' : 'move it to last and ',
                 $this->nativeType($elementType),
                 $paramName,
             ))->identifier(self::IDENTIFIER)->build(),
         ];
+    }
+
+    /**
+     * The convertible parameter nearest the end of the signature, or null when
+     * there is none.
+     *
+     * Only one parameter can become the variadic, so a signature with several
+     * list-shaped array parameters is reported once. The last one is chosen
+     * because it moves the least: if it is already final, nothing else shifts.
+     *
+     * @return array{0: string, 1: string, 2: string, 3: bool}|null name, keyword, element type, already last
+     */
+    private function lastConvertibleParam(string $docText, Param ...$params): ?array
+    {
+        $lastIndex = \count($params) - 1;
+
+        for ($index = $lastIndex; $index >= 0; --$index) {
+            $param = $params[$index];
+            if (!$this->isPlainArrayParam($param)) {
+                continue;
+            }
+
+            if ($this->anyLaterParamIsOptional($index, ...$params)) {
+                continue;
+            }
+
+            if (!$param->var instanceof Variable || !\is_string($param->var->name)) {
+                continue;
+            }
+
+            $listType = $this->listLikeType($docText, $param->var->name);
+            if (null === $listType) {
+                continue;
+            }
+
+            return [$param->var->name, $listType[0], $listType[1], $index === $lastIndex];
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether any parameter after this one carries a default.
+     *
+     * Moving a parameter past an optional one is not a style question. PHP
+     * rejects `f($a, name: $b, ...$args)` outright with "Cannot use argument
+     * unpacking after named arguments", so every caller that names one of those
+     * optionals stops compiling; the rest are forced to spell out defaults they
+     * did not care about. A library cannot see its consumers' call sites, so the
+     * only safe reading is that this parameter is not convertible.
+     */
+    private function anyLaterParamIsOptional(int $index, Param ...$params): bool
+    {
+        for ($later = $index + 1, $total = \count($params); $later < $total; ++$later) {
+            if ($params[$later]->default instanceof Node\Expr) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -190,33 +261,19 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
                 continue;
             }
 
-            if (self::ARRAY_KEYWORD === $keyword && $this->hasTopLevelComma($elementType)) {
-                continue;
-            }
-
             return [$keyword, $elementType];
         }
 
         return null;
     }
 
-    /** A comma outside any nested `<...>` marks a two-argument map type, e.g. array<K, V>. */
-    private function hasTopLevelComma(string $type): bool
-    {
-        $depth = 0;
-        foreach (str_split($type) as $char) {
-            if ('<' === $char) {
-                ++$depth;
-            } elseif ('>' === $char) {
-                --$depth;
-            } elseif (',' === $char && 0 === $depth) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
+    /**
+     * PHPStan runs PhpParser's name resolver before a rule sees the node, so an
+     * attribute name is always fully qualified here however it was written at the
+     * call site — imported, aliased or spelled out. Comparing the resolved name is
+     * therefore both sufficient and exact; matching on the trailing segment would
+     * additionally catch an unrelated `App\DataProvider` attribute.
+     */
     private function hasDataProviderAttribute(ClassMethod $node): bool
     {
         foreach ($node->attrGroups as $attrGroup) {
@@ -224,11 +281,6 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
                 $name = $attr->name->toString();
 
                 if (self::DATA_PROVIDER === $name || self::DATA_PROVIDER_EXTERNAL === $name) {
-                    return true;
-                }
-
-                $shortName = $attr->name->getLast();
-                if ('DataProvider' === $shortName || 'DataProviderExternal' === $shortName) {
                     return true;
                 }
             }

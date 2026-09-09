@@ -37,10 +37,79 @@ final class Reportable
     {
         return $prefix . implode(', ', $items);
     }
+
+    /**
+     * A docblock refinement has no native spelling, so the suggestion names the
+     * base type the engine can actually check.
+     *
+     * @param list<class-string> $classes
+     */
+    public function classStringParam(array $classes): int
+    {
+        return \count($classes);
+    }
+
+    /** @param list<int<0, max>> $offsets */
+    public function boundedIntParam(array $offsets): int
+    {
+        return array_sum($offsets);
+    }
+
+    /** @param list<positive-int> $sizes */
+    public function positiveIntParam(array $sizes): int
+    {
+        return array_sum($sizes);
+    }
+
+    /** @param list<negative-int> $debts */
+    public function negativeIntParam(array $debts): int
+    {
+        return array_sum($debts);
+    }
+
+    /** @param list< string > $values */
+    public function spacedGenericParam(array $values): string
+    {
+        return implode(', ', $values);
+    }
+
+    /**
+     * A variadic is inherently optional, so a defaulted array parameter converts
+     * without changing what callers may omit.
+     *
+     * @param list<string> $items
+     */
+    public function defaultedListParam(array $items = []): string
+    {
+        return implode(', ', $items);
+    }
+
+    /**
+     * $item is a map and is last, so the search continues past it. Its shorter
+     * name must not be satisfied by the $itemNames entry.
+     *
+     * @param list<string>         $itemNames
+     * @param array<string, mixed> $item
+     */
+    public function similarlyNamedParams(array $itemNames, array $item): int
+    {
+        return \count($itemNames) + \count($item);
+    }
 }
 
 /** @param list<string> $parts */
 function joinAll(array $parts): string
 {
     return implode('/', $parts);
+}
+
+/**
+ * Not last, and nothing after it has a default, so it can be moved to final
+ * position and converted. The message says so.
+ *
+ * @param list<string> $parts
+ */
+function joinWithSuffix(array $parts, string $suffix): string
+{
+    return implode('/', $parts) . $suffix;
 }

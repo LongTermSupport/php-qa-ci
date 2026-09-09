@@ -62,6 +62,39 @@ final class NotReportable
     {
     }
 
+    /**
+     * A later parameter has a default, so moving $items last would force every
+     * caller naming $separator to stop compiling: PHP rejects argument
+     * unpacking after a named argument.
+     *
+     * @param list<string> $items
+     */
+    public function laterParamIsOptional(array $items, string $separator = ','): string
+    {
+        return implode($separator, $items);
+    }
+
+    /**
+     * The one variadic slot is already spent, so $items is not convertible even
+     * though its docblock says it is list-shaped.
+     *
+     * @param list<string> $items
+     */
+    public function alreadyHasAVariadic(array $items, string ...$rest): string
+    {
+        return implode(',', [...$items, ...$rest]);
+    }
+
+    /**
+     * The rule is about the native `array` declaration. `iterable` accepts a
+     * Traversable too, so the list docblock does not make it convertible.
+     *
+     * @param list<string> $items
+     */
+    public function iterableIsNotArray(iterable $items): void
+    {
+    }
+
     /** @return list<list<string>> */
     public static function rowsProvider(): array
     {
