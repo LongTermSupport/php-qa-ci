@@ -34,6 +34,8 @@ final class QaConfigBuilderTest extends TestCase
 
     private const string PROJECT_SRC = '/p/src';
 
+    private const string TEMPLATES_DIR = '/p/templates';
+
     #[Test]
     public function defaultsMirrorThePipelineDefaults(): void
     {
@@ -55,7 +57,8 @@ final class QaConfigBuilderTest extends TestCase
         self::assertTrue($config->useComposerAudit);
         self::assertTrue($config->useArkitect);
         self::assertTrue($config->useSensitiveParameterCheck);
-        self::assertSame([], $config->twigDirectories);
+        // templates/ on every platform: twigCsFixer is gated on Twig, not Symfony.
+        self::assertSame([self::TEMPLATES_DIR], $config->twigDirectories);
         self::assertSame(PlatformEnum::Generic, $config->platform);
     }
 
@@ -161,7 +164,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertFalse($config->useArkitect);
         self::assertSame(['Quote/API'], $config->arkitectExcludePaths);
         self::assertFalse($config->useSensitiveParameterCheck);
-        self::assertSame(['/p/templates', '/abs/views'], $config->twigDirectories);
+        self::assertSame([self::TEMPLATES_DIR, '/abs/views'], $config->twigDirectories);
         self::assertSame(['/p/config'], $config->yamlDirectories);
     }
 
@@ -170,7 +173,7 @@ final class QaConfigBuilderTest extends TestCase
     {
         $config = $this->defaults(platform: PlatformEnum::Symfony)->build();
 
-        self::assertSame(['/p/templates'], $config->twigDirectories);
+        self::assertSame([self::TEMPLATES_DIR], $config->twigDirectories);
         self::assertSame(['/p/config'], $config->yamlDirectories);
     }
 

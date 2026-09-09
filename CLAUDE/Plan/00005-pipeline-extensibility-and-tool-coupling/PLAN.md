@@ -30,18 +30,18 @@ in [CLAUDE.md](../../../CLAUDE.md).
 
 ## Current state (read this first when resuming)
 
-**Released and safe to build on**: `php8.5` at `085f595` — CI green, repository default branch,
-full writable battery green, Covered Code MSI 82%.
+**Everything is on `php8.5`, which is the repository default branch.** Phase 1 is done: the two
+in-flight changes were verified by a full writable battery (exit 0, 840 tests, Covered Code MSI
+82%) and merged with `--no-ff`. There is no unmerged work and no uncommitted work.
 
-**In flight** on `feature/twig-decoupling-and-variadic-narrowing`, branched from `085f595`:
+What landed, and why each was held back from the 00004 release rather than rushed into it:
 
-| Commit    | What                                                                           |
-| --------- | ------------------------------------------------------------------------------ |
-| `cb547a1` | The variadic rule never suggests converting a parameter that has its own default |
-| `0973cc6` | `twigCsFixer` gated on `twig/twig` rather than on Symfony                       |
+| Change | Why it exists |
+| --- | --- |
+| The variadic rule never suggests converting a parameter with its own default | A variadic cannot carry a default — there is no `string ...$items = ['a']` — so converting would silently drop a non-empty default |
+| `twigCsFixer` gated on `twig/twig` rather than on Symfony | The PHAR is standalone; gating on `symfony.lock` meant a Slim, Laravel or plain library project using Twig got no Twig coding standards at all |
 
-Both are unit-green (840 tests) and `allStatic` green. **Neither has had a full battery run**,
-so their effect on the mutation floor is unverified. That is Task 1.1.
+**Start here**: Phase 2, Task 2.1. Nothing in Phases 2–4 has been started.
 
 ## Goals
 
@@ -63,11 +63,11 @@ so their effect on the mutation floor is unverified. That is Task 1.1.
 
 ### Phase 1: land the in-flight work
 
-- [ ] ⬜ **Task 1.1**: Full writable battery on the feature branch; confirm Covered Code MSI is
-      still at or above 82%. Both commits changed rule and registry behaviour, so escaped-mutant
-      counts will have moved. If the floor is missed, add assertions for the new behaviour — the
-      floor is Owner-only and is not to be lowered.
-- [ ] ⬜ **Task 1.2**: Merge the feature branch into `php8.5` with `--no-ff`, push, confirm CI.
+- [x] ✅ **Task 1.1**: Full writable battery on the feature branch — green, exit 0, ALL TESTS
+      PASSING, **Covered Code MSI 82%**, holding the floor exactly as the 00004 release did. The
+      two changes removed as many mutants as they added, so no extra assertions were needed and
+      the floor was not touched.
+- [x] ✅ **Task 1.2**: Merged into `php8.5` with `--no-ff` and pushed.
 
 ### Phase 2: pipeline extensibility
 
@@ -87,6 +87,29 @@ so their effect on the mutation floor is unverified. That is Task 1.1.
       project-level extended pipeline against `src/`. Record findings and false-positive rate in
       JOURNAL/. PHAR-run PHPStan does load Composer-installed extensions — proven in 00004 via
       `vendor/phpstan/extension-installer/src/GeneratedConfig.php`.
+
+      **Why this repository is an unusually good candidate.** The tool has no "this is a library"
+      flag; its only documented entrypoint mechanism is `@api` phpdoc. For most libraries that
+      means a large annotation sweep before the first useful run, because nothing internal calls
+      the public API and it all reports as dead.
+
+      We have already done that sweep, for an unrelated reason. `RequireApiOrInternalTagRule`
+      forces every class in `src/` to declare `@api` or `@internal`, and the 26 `@api` classes
+      are exactly the consumer contract — `QaConfigBuilder`, `ToolInterface`, `ToolContext`,
+      `ToolResultDto`, `PhpInvoker`, `ProcessRunnerInterface`, the config DTOs, `ShippedTools`.
+      So there is no untagged public surface to be misreported, and no reason to exclude
+      php-qa-ci from its own run.
+
+      Two things still to confirm when the task is picked up, neither a blocker:
+
+      - Whether class-level `@api` is honoured for the class's public methods, or whether the
+        tool wants the tag on each method. The recon read the README as class/interface/method,
+        but that was not verified against the source.
+      - `usageExcluders.tests.enabled` must be on, or a method reached only from tests counts as
+        dead.
+
+      `--error-format removeDeadCode` stays review-only regardless: it deletes code, and on a
+      library a false positive means deleting published API.
 - [ ] ⬜ **Task 3.2**: Decide on bundling as an opt-in `withDeadCodeDetection(bool)` on the
       evidence from 3.1. Record the decision either way.
 

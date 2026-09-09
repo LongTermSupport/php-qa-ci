@@ -168,7 +168,7 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
                 continue;
             }
 
-            if ($this->anyLaterParamIsOptional($index, ...$params)) {
+            if ($this->thisOrAnyLaterParamIsOptional($index, ...$params)) {
                 continue;
             }
 
@@ -188,19 +188,24 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
     }
 
     /**
-     * Whether any parameter after this one carries a default.
+     * Whether this parameter or any after it carries a default. Either way the
+     * parameter is not convertible, for two separate reasons.
      *
-     * Moving a parameter past an optional one is not a style question. PHP
-     * rejects `f($a, name: $b, ...$args)` outright with "Cannot use argument
-     * unpacking after named arguments", so every caller that names one of those
-     * optionals stops compiling; the rest are forced to spell out defaults they
-     * did not care about. A library cannot see its consumers' call sites, so the
-     * only safe reading is that this parameter is not convertible.
+     * A LATER optional blocks the move to final position. PHP rejects
+     * `f($a, name: $b, ...$args)` outright with "Cannot use argument unpacking
+     * after named arguments", so every caller that names one of those optionals
+     * stops compiling and the rest are forced to spell out defaults they did not
+     * care about. A library cannot see its consumers' call sites.
+     *
+     * A default on the parameter ITSELF cannot survive the conversion at all: a
+     * variadic is implicitly optional and empty, and PHP has no syntax for
+     * `string ...$items = ['a']`. Converting one would silently drop a non-empty
+     * default, changing what a caller passing nothing receives.
      */
-    private function anyLaterParamIsOptional(int $index, Param ...$params): bool
+    private function thisOrAnyLaterParamIsOptional(int $index, Param ...$params): bool
     {
-        for ($later = $index + 1, $total = \count($params); $later < $total; ++$later) {
-            if ($params[$later]->default instanceof Node\Expr) {
+        for ($at = $index, $total = \count($params); $at < $total; ++$at) {
+            if ($params[$at]->default instanceof Node\Expr) {
                 return true;
             }
         }

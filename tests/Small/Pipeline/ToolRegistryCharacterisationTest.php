@@ -48,6 +48,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'composer'                   => 'composerChecks',
         'st'                         => 'phpStrictTypes',
         'stricttypes'                => 'phpStrictTypes',
+        'twigcs'                     => 'twigCsFixer',
         'lint'                       => 'phpLint',
         'phplint'                    => 'phpLint',
         'stan'                       => 'phpstan',
@@ -116,6 +117,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'phpunit'                    => true,
         'unit'                       => true,
         // NOT path-supporting
+        'twigCsFixer'                => false,
+        'twigcs'                     => false,
         'composerChecks'             => false,
         'composer'                   => false,
         'com'                        => false,
@@ -168,7 +171,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
      * @var array<string, list<string>>
      */
     private const array GOLDEN_PHASE_ORDER = [
-        'allCodingStandardsTools' => ['rector', 'phpCsFixer'],
+        'allCodingStandardsTools' => ['rector', 'phpCsFixer', 'twigCsFixer'],
         'allLintingTools'         => [
             'psr4Validate',
             'composerChecks',

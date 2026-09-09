@@ -75,6 +75,18 @@ final class NotReportable
     }
 
     /**
+     * The parameter carries its own default. PHP has no syntax for
+     * `string ...$items = ['a']`, so converting would silently drop the default
+     * and change what a caller passing nothing receives.
+     *
+     * @param list<string> $items
+     */
+    public function defaultedListParam(array $items = ['a']): string
+    {
+        return implode(', ', $items);
+    }
+
+    /**
      * The one variadic slot is already spent, so $items is not convertible even
      * though its docblock says it is list-shaped.
      *

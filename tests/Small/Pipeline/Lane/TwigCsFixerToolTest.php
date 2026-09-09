@@ -45,6 +45,8 @@ final class TwigCsFixerToolTest extends TestCase
 
     private const string CLEAN_TEMPLATE = '{{ x }}';
 
+    private const string TWIG_PACKAGE_FILE = 'vendor/twig/twig/composer.json';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -59,18 +61,37 @@ final class TwigCsFixerToolTest extends TestCase
     }
 
     #[Test]
-    public function aNonSymfonyProjectIsSkippedWithoutRunningAnything(): void
+    public function aProjectWithoutTwigInstalledIsSkippedWithoutRunningAnything(): void
     {
         $result = new TwigCsFixerTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertSame('not a Symfony project', $result->summary);
+        self::assertSame('twig/twig not installed', $result->summary);
+    }
+
+    /**
+     * The whole point of the lane's gate: the PHAR is standalone, so a project
+     * that uses Twig without Symfony still gets its templates checked.
+     */
+    #[Test]
+    public function aNonSymfonyProjectWithTwigInstalledIsStillChecked(): void
+    {
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
+
+        $result = new TwigCsFixerTool()->run($this->twigContext());
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertContains(
+            $this->factory->project->path . '/' . self::TEMPLATES,
+            $this->factory->processes->lastSpec()->command,
+        );
     }
 
     #[Test]
-    public function aSymfonyProjectWithNoTwigDirectoryIsSkipped(): void
+    public function aProjectWithTwigButNoTwigDirectoryIsSkipped(): void
     {
-        $result = new TwigCsFixerTool()->run($this->symfonyContext());
+        $result = new TwigCsFixerTool()->run($this->twigContext());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertSame('no twig directories', $result->summary);
@@ -83,7 +104,7 @@ final class TwigCsFixerToolTest extends TestCase
         $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
         $library = \dirname(__DIR__, 4);
 
-        $result = new TwigCsFixerTool()->run($this->symfonyContext());
+        $result = new TwigCsFixerTool()->run($this->twigContext());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $command = $this->factory->processes->lastSpec()->command;
@@ -100,7 +121,7 @@ final class TwigCsFixerToolTest extends TestCase
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
         $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
 
-        new TwigCsFixerTool()->run($this->symfonyContext(readOnly: false));
+        new TwigCsFixerTool()->run($this->twigContext(readOnly: false));
 
         self::assertContains('--fix', $this->factory->processes->lastSpec()->command);
     }
@@ -110,6 +131,8 @@ final class TwigCsFixerToolTest extends TestCase
     {
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
         $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
+        $this->factory->project->write(self::TWIG_PACKAGE_FILE, '{}');
+
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)
             ->withTwigDirectories(self::TEMPLATES, 'src/Resources/views')
             ->build()
@@ -129,7 +152,7 @@ final class TwigCsFixerToolTest extends TestCase
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'violation found');
         $this->factory->project->write(self::TEMPLATE_FILE, '{{x}}');
 
-        $result  = new TwigCsFixerTool()->run($this->symfonyContext());
+        $result  = new TwigCsFixerTool()->run($this->twigContext());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -143,7 +166,7 @@ final class TwigCsFixerToolTest extends TestCase
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'unfixable violation');
         $this->factory->project->write(self::TEMPLATE_FILE, '{{x}}');
 
-        $result  = new TwigCsFixerTool()->run($this->symfonyContext(readOnly: false));
+        $result  = new TwigCsFixerTool()->run($this->twigContext(readOnly: false));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -168,7 +191,7 @@ final class TwigCsFixerToolTest extends TestCase
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(2, 'Error: bad config');
         $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
 
-        $result = new TwigCsFixerTool()->run($this->symfonyContext());
+        $result = new TwigCsFixerTool()->run($this->twigContext());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('twig-cs-fixer could not run (exit 2)', $result->summary);
@@ -183,10 +206,16 @@ final class TwigCsFixerToolTest extends TestCase
         self::assertSame('phpqaci.twigCsFixer', $tool->identifier());
     }
 
-    private function symfonyContext(bool $readOnly = true): ToolContext
+    /**
+     * A project with Twig installed. The platform is deliberately left generic:
+     * this lane is gated on the library, not on Symfony.
+     */
+    private function twigContext(bool $readOnly = true, PlatformEnum $platform = PlatformEnum::Generic): ToolContext
     {
+        $this->factory->project->write(self::TWIG_PACKAGE_FILE, '{}');
+
         return $this->factory->context(
-            $this->factory->builder(readOnly: $readOnly, platform: PlatformEnum::Symfony)->build(),
+            $this->factory->builder(readOnly: $readOnly, platform: $platform)->build(),
         );
     }
 }

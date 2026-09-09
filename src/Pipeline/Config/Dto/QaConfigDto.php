@@ -30,7 +30,9 @@ final readonly class QaConfigDto
      * @param list<string> $pathsToCheck         absolute paths the path-supporting tools scan
      * @param list<string> $pathsToIgnore        project-relative paths excluded from scans
      * @param list<string> $arkitectExcludePaths src-relative paths excluded from PHPArkitect
-     * @param list<string> $twigDirectories      absolute, Symfony platform only
+     * @param list<string> $twigDirectories      absolute; `templates/` on every platform, because
+     *                                           twigCsFixer is gated on Twig rather than on Symfony
+     *                                           and skips cleanly when the directory is absent
      * @param list<string> $yamlDirectories      absolute, Symfony platform only
      */
     public function __construct(

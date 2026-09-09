@@ -59,6 +59,7 @@ final readonly class ToolRegistry
             new ToolDefinitionDto('allTestingTools', ['allTests'], 'all testing tools', PhaseEnum::Testing, false, isPhaseRunner: true),
             new ToolDefinitionDto('rector', ['r', 'rector'], 'Rector', PhaseEnum::CodingStandards, true, banner: 'Running Rector'),
             new ToolDefinitionDto('phpCsFixer', ['f', 'fixer', 'csfixer'], 'PHP-CS-Fixer', PhaseEnum::CodingStandards, true, banner: 'Running PHP-CS-Fixer'),
+            new ToolDefinitionDto('twigCsFixer', ['twigcs'], 'Twig coding standards (when twig/twig is installed)', PhaseEnum::CodingStandards, false, banner: 'Running Twig CS Fixer'),
             new ToolDefinitionDto('psr4Validate', ['psr', 'psr4'], 'psr4 validation', PhaseEnum::Linting, false, banner: 'Validating PSR-4 Roots'),
             new ToolDefinitionDto('composerChecks', ['com', 'composer'], 'composer validation', PhaseEnum::Linting, false, banner: 'Checking for Composer Issues'),
             new ToolDefinitionDto('packageType', ['pt', 'packagetype', 'packageType'], 'assert composer.json declares an explicit package type (library/project/...)', PhaseEnum::Linting, false, banner: 'Checking Package Type Is Declared'),
@@ -86,6 +87,12 @@ final readonly class ToolRegistry
      * The lanes a platform adds to a phase, on top of the generic set. They
      * are not `-t` selectable and are not part of the frozen registry.
      *
+     * Both remaining entries shell out to `bin/console`, so they are coupled to
+     * the Symfony console rather than to the file format they check. A lane that
+     * only needs a library is NOT a platform lane: twigCsFixer runs a standalone
+     * PHAR and belongs to any project that has Twig, so it lives in the shipped
+     * registry and decides for itself.
+     *
      * @return list<ToolDefinitionDto>
      */
     public static function platformLanes(PlatformEnum $platform, PhaseEnum $phase): array
@@ -95,9 +102,6 @@ final readonly class ToolRegistry
         }
 
         return match ($phase) {
-            PhaseEnum::CodingStandards => [
-                new ToolDefinitionDto('twigCsFixer', [], 'Symfony twig coding standards', PhaseEnum::CodingStandards, false, banner: 'Running Twig CS Fixer'),
-            ],
             PhaseEnum::Linting         => [
                 new ToolDefinitionDto('twigLint', [], 'Symfony twig linter', PhaseEnum::Linting, false, banner: 'Running Twig Linter'),
                 new ToolDefinitionDto('yamlLint', [], 'Symfony yaml linter', PhaseEnum::Linting, false, banner: 'Running Yaml Linter'),
