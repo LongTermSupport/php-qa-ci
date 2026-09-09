@@ -29,6 +29,20 @@
 #   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
 #                                           should be variadic T ...$param instead
 #
+# REPEATED STRING LITERAL:
+#   ForbidRepeatedStringLiteralRule      — the same string literal (3+ chars) written 3+
+#                                          times in one class is an undeclared constant;
+#                                          array keys and attribute arguments not counted.
+#                                          See docs/phpstan-rules/forbid-repeated-string-literal.md
+#
+# MEMBER DOCS ALL-OR-NONE (per kind):
+#   RequireConsistentMemberDocsRule      — a class documents every constant or none, and
+#                                          every property (declared or promoted) or none;
+#                                          tag-only docblocks do not count; methods are not
+#                                          checked. The fix is usually deleting comments
+#                                          that restate the name. See
+#                                          docs/phpstan-rules/require-consistent-member-docs.md
+#
 # ENUM OVER A DOCBLOCK LITERAL SET:
 #   RequireEnumOverLiteralUnionRule      — a scalar @param/@return typed as 'a'|'b' (or 0|1)
 #                                          in the docblock is an enum that never got declared;
@@ -82,6 +96,8 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
     - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidRepeatedStringLiteralRule
+    - LTS\PHPQA\PHPStan\Rules\RequireConsistentMemberDocsRule
 
 parameters:
     phpqaciFactorySealed:

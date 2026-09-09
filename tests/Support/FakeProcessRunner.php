@@ -31,12 +31,12 @@ final class FakeProcessRunner implements ProcessRunnerInterface
 
     public function willSucceed(string $output = ''): self
     {
-        return $this->willReturn(new ProcessResultDto(0, $output));
+        return $this->willReturn(new ProcessResultDto(0, $output, $output));
     }
 
     public function willFail(int $exitCode = 1, string $output = ''): self
     {
-        return $this->willReturn(new ProcessResultDto($exitCode, $output));
+        return $this->willReturn(new ProcessResultDto($exitCode, $output, $output));
     }
 
     public function run(ProcessSpecDto $spec): ProcessResultDto

@@ -47,6 +47,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(80, $config->infection->minCoveredMsi);
         self::assertNull($config->infection->diffBase);
         self::assertSame(100, $config->infection->diffCoveredMsi);
+        self::assertTrue($config->useComposerAudit);
         self::assertTrue($config->useArkitect);
         self::assertTrue($config->useSensitiveParameterCheck);
         self::assertSame([], $config->twigDirectories);
@@ -69,6 +70,7 @@ final class QaConfigBuilderTest extends TestCase
             'coveredCodeMSI'             => '90',
             'infectionDiffBase'          => 'origin/main',
             'infectionDiffCoveredMsi'    => '95',
+            'useComposerAudit'           => '0',
             'useArkitect'                => '0',
             'useSensitiveParameterCheck' => '0',
         ]);
@@ -87,6 +89,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(90, $config->infection->minCoveredMsi);
         self::assertSame('origin/main', $config->infection->diffBase);
         self::assertSame(95, $config->infection->diffCoveredMsi);
+        self::assertFalse($config->useComposerAudit);
         self::assertFalse($config->useArkitect);
         self::assertFalse($config->useSensitiveParameterCheck);
     }
@@ -130,6 +133,7 @@ final class QaConfigBuilderTest extends TestCase
             ->withInfectionFloors(msi: 82, coveredMsi: 84)
             ->withInfectionThreads(0)
             ->withInfectionDiffBase('origin/php8.5', 95)
+            ->withComposerAudit(false)
             ->withArkitect(false)
             ->withArkitectExcludedPaths('Quote/API')
             ->withSensitiveParameterCheck(false)
@@ -148,6 +152,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(1, $config->infection->threads);
         self::assertSame('origin/php8.5', $config->infection->diffBase);
         self::assertSame(95, $config->infection->diffCoveredMsi);
+        self::assertFalse($config->useComposerAudit);
         self::assertFalse($config->useArkitect);
         self::assertSame(['Quote/API'], $config->arkitectExcludePaths);
         self::assertFalse($config->useSensitiveParameterCheck);

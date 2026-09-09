@@ -59,6 +59,7 @@ final readonly class QaConfigBuilder
         private int $minCoveredMsi,
         private ?string $infectionDiffBase,
         private int $infectionDiffCoveredMsi,
+        private bool $useComposerAudit,
         private bool $useArkitect,
         private array $arkitectExcludePaths,
         private bool $useSensitiveParameterCheck,
@@ -117,6 +118,7 @@ final readonly class QaConfigBuilder
             minCoveredMsi: $env->int('coveredCodeMSI', 80),
             infectionDiffBase: $env->string('infectionDiffBase'),
             infectionDiffCoveredMsi: $env->int('infectionDiffCoveredMsi', 100),
+            useComposerAudit: $env->bool('useComposerAudit', true),
             useArkitect: $env->bool('useArkitect', true),
             arkitectExcludePaths: [],
             useSensitiveParameterCheck: $env->bool('useSensitiveParameterCheck', true),
@@ -173,6 +175,11 @@ final readonly class QaConfigBuilder
     public function withInfectionDiffBase(?string $gitRef, int $coveredMsi = 100): self
     {
         return $this->with(infectionDiffBase: $gitRef, infectionDiffCoveredMsi: $coveredMsi);
+    }
+
+    public function withComposerAudit(bool $enabled): self
+    {
+        return $this->with(useComposerAudit: $enabled);
     }
 
     public function withArkitect(bool $enabled): self
@@ -238,6 +245,7 @@ final readonly class QaConfigBuilder
                 diffBase: $this->infectionDiffBase,
                 diffCoveredMsi: $this->infectionDiffCoveredMsi,
             ),
+            useComposerAudit: $this->useComposerAudit,
             useArkitect: $this->useArkitect,
             arkitectExcludePaths: $this->arkitectExcludePaths,
             useSensitiveParameterCheck: $this->useSensitiveParameterCheck,
@@ -276,6 +284,7 @@ final readonly class QaConfigBuilder
         ?int $minCoveredMsi = null,
         ?string $infectionDiffBase = null,
         ?int $infectionDiffCoveredMsi = null,
+        ?bool $useComposerAudit = null,
         ?bool $useArkitect = null,
         ?array $arkitectExcludePaths = null,
         ?bool $useSensitiveParameterCheck = null,
@@ -308,6 +317,7 @@ final readonly class QaConfigBuilder
             minCoveredMsi: $minCoveredMsi                           ?? $this->minCoveredMsi,
             infectionDiffBase: $infectionDiffBase                   ?? $this->infectionDiffBase,
             infectionDiffCoveredMsi: $infectionDiffCoveredMsi       ?? $this->infectionDiffCoveredMsi,
+            useComposerAudit: $useComposerAudit                     ?? $this->useComposerAudit,
             useArkitect: $useArkitect                               ?? $this->useArkitect,
             arkitectExcludePaths: $arkitectExcludePaths             ?? $this->arkitectExcludePaths,
             useSensitiveParameterCheck: $useSensitiveParameterCheck ?? $this->useSensitiveParameterCheck,

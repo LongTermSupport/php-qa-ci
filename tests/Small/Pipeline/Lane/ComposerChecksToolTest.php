@@ -56,6 +56,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed('8.5.10')->willSucceed('diagnose ok')
+            ->willSucceed('8.5.10')->willSucceed('No security vulnerability advisories found.')
             ->willSucceed('8.5.10')->willSucceed("true\n")
             ->willSucceed('8.5.10')->willSucceed('composer.json is already normalized.')
             ->willSucceed('8.5.10')->willSucceed('Generated autoload files')
@@ -67,6 +68,7 @@ final class ComposerChecksToolTest extends TestCase
         self::assertSame(
             [
                 ['diagnose'],
+                ['audit', '--locked', '--abandoned=report', '--no-interaction'],
                 ['config', 'allow-plugins.ergebnis/composer-normalize'],
                 ['normalize', '--dry-run'],
                 ['dump-autoload'],
@@ -74,6 +76,7 @@ final class ComposerChecksToolTest extends TestCase
             $this->composerInvocations(),
         );
         $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('Auditing Dependencies For Known Advisories', $printed);
         self::assertStringContainsString('Checking Composer Normalisation (read-only)', $printed);
         self::assertStringContainsString('Dumping Composer Autoloader', $printed);
         self::assertStringNotContainsString(ComposerChecksTool::IDENTIFIER, $printed);
@@ -84,6 +87,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed('8.5.10')->willSucceed()
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('true')
             ->willSucceed('8.5.10')->willSucceed('Successfully normalized')
             ->willSucceed('8.5.10')->willSucceed()
@@ -92,7 +96,7 @@ final class ComposerChecksToolTest extends TestCase
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertSame(['normalize'], $this->composerInvocations()[2]);
+        self::assertSame(['normalize'], $this->composerInvocations()[3]);
         self::assertStringContainsString('Running Composer Normalise', $this->factory->output->fetch());
     }
 
@@ -100,6 +104,7 @@ final class ComposerChecksToolTest extends TestCase
     public function everyComposerCallGoesThroughPhpWithoutXdebugFromTheProjectRoot(): void
     {
         $this->factory->processes
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('true')
             ->willSucceed('8.5.10')->willSucceed()
@@ -115,7 +120,7 @@ final class ComposerChecksToolTest extends TestCase
             $first->command,
         );
         self::assertSame($root, $first->cwd);
-        self::assertFalse($this->factory->processes->specs[3]->streamOutput, 'the allow-plugins probe is captured, not streamed');
+        self::assertFalse($this->factory->processes->specs[5]->streamOutput, 'the allow-plugins probe is captured, not streamed');
     }
 
     #[Test]
@@ -123,6 +128,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed('8.5.10')->willFail(1, 'Checking platform settings: FAIL')
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('true')
             ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed()
@@ -135,9 +141,51 @@ final class ComposerChecksToolTest extends TestCase
     }
 
     #[Test]
+    public function aKnownAdvisoryFailsTheLaneWithTheRemediationBeforeThePluginCheck(): void
+    {
+        $this->factory->processes
+            ->willSucceed('8.5.10')->willSucceed()
+            ->willSucceed('8.5.10')->willFail(1, 'Found 1 security vulnerability advisory affecting 1 package')
+        ;
+
+        $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('composer audit found advisories or could not run (exit 1)', $result->summary);
+        self::assertCount(2, $this->composerInvocations(), 'nothing after the audit runs');
+        self::assertStringContainsString('composer update <vendor/package> --with-all-dependencies', $printed);
+        self::assertStringContainsString('config.audit.ignore', $printed);
+        self::assertStringContainsString('withComposerAudit(false)', $printed);
+        self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function theAuditIsSkippedWithANoteWhenDisabledForTheProject(): void
+    {
+        $this->factory->processes
+            ->willSucceed('8.5.10')->willSucceed()
+            ->willSucceed('8.5.10')->willSucceed('true')
+            ->willSucceed('8.5.10')->willSucceed()
+            ->willSucceed('8.5.10')->willSucceed()
+        ;
+
+        $config = $this->factory->builder()->withComposerAudit(false)->build();
+        $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            [['diagnose'], ['config', 'allow-plugins.ergebnis/composer-normalize'], ['normalize', '--dry-run'], ['dump-autoload']],
+            $this->composerInvocations(),
+        );
+        self::assertStringContainsString('composer audit disabled for this project', $this->factory->output->fetch());
+    }
+
+    #[Test]
     public function aDisallowedNormalizePluginFailsWithTheGuidanceBeforeNormalizing(): void
     {
         $this->factory->processes
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('null')
         ;
@@ -146,7 +194,7 @@ final class ComposerChecksToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertCount(2, $this->composerInvocations(), 'normalize and dump-autoload never run');
+        self::assertCount(3, $this->composerInvocations(), 'normalize and dump-autoload never run');
         self::assertStringContainsString('ERROR: The ergebnis/composer-normalize plugin is not allowed in your composer.json', $printed);
         self::assertStringContainsString('"ergebnis/composer-normalize": true', $printed);
         self::assertStringContainsString('Then run: composer update nothing', $printed);
@@ -158,6 +206,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed('8.5.10')->willSucceed()
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('true')
             ->willSucceed('8.5.10')->willFail(1, 'composer.json is not normalized.')
         ;
@@ -166,7 +215,7 @@ final class ComposerChecksToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertCount(3, $this->composerInvocations(), 'dump-autoload does not run after a failed gate');
+        self::assertCount(4, $this->composerInvocations(), 'dump-autoload does not run after a failed gate');
         self::assertStringContainsString('Composer Normalize: pending changes in a READ-ONLY run', $printed);
         self::assertStringContainsString('QA_READONLY=0 vendor/bin/qa -t com', $printed);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
@@ -176,6 +225,7 @@ final class ComposerChecksToolTest extends TestCase
     public function aFailingWritableNormalizeFailsTheLane(): void
     {
         $this->factory->processes
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('true')
             ->willSucceed('8.5.10')->willFail(2, 'invalid json')
@@ -193,6 +243,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed('8.5.10')->willSucceed()
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('true')
             ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willFail(1, 'Class Foo not found')
@@ -209,6 +260,7 @@ final class ComposerChecksToolTest extends TestCase
     public function withoutAnExplicitPathComposerIsLocatedOrDefaultsToItsBareName(): void
     {
         $this->factory->processes
+            ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed()
             ->willSucceed('8.5.10')->willSucceed('nope')
         ;

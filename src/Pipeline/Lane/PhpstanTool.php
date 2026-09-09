@@ -91,8 +91,8 @@ final readonly class PhpstanTool implements ToolInterface
             streamOutput: false,
         );
 
-        \Safe\file_put_contents($logDir . '/' . self::JSON_FILE, $result->output);
-        $context->stdout->write($result->output, false, OutputInterface::OUTPUT_RAW);
+        \Safe\file_put_contents($logDir . '/' . self::JSON_FILE, $result->stdout);
+        $context->stdout->write($result->stdout, false, OutputInterface::OUTPUT_RAW);
         $context->logs->archive('PHPStan', $logDir, self::JSON_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
 
         if ($result->exitCode > 1) {

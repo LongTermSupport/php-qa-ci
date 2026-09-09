@@ -13,6 +13,7 @@ final readonly class ProcessResultDto
         public int $exitCode,
         /** stdout and stderr interleaved as they arrived. */
         public string $output,
+        public string $stdout,
     ) {
     }
 

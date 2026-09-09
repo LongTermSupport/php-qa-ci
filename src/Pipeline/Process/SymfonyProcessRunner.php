@@ -12,8 +12,9 @@ use Symfony\Component\Process\Process;
 /**
  * Runs a command with symfony/process, streaming its output to the console
  * as it arrives and capturing it for the caller (the equivalent of
- * `cmd 2>&1 | tee`). The command line is echoed first so a log shows exactly
- * what ran.
+ * `cmd 2>&1 | tee`), with stdout also captured on its own so structured
+ * output (PHPStan --json) is never polluted by stderr. The command line is
+ * echoed first so a log shows exactly what ran.
  *
  * @internal
  */
@@ -33,13 +34,18 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
         $this->output->writeln('++ ' . $spec->commandLine());
 
         $captured = '';
-        $process->run(function (string $type, string $buffer) use ($spec, &$captured): void {
+        $stdout   = '';
+        $process->run(function (string $type, string $buffer) use ($spec, &$captured, &$stdout): void {
             $captured .= $buffer;
+            if (Process::OUT === $type) {
+                $stdout .= $buffer;
+            }
+
             if ($spec->streamOutput) {
                 $this->output->write($buffer, false, OutputInterface::OUTPUT_RAW);
             }
         });
 
-        return new ProcessResultDto($process->getExitCode() ?? 1, $captured);
+        return new ProcessResultDto($process->getExitCode() ?? 1, $captured, $stdout);
     }
 }

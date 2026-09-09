@@ -47,6 +47,7 @@ final readonly class QaConfigDto
         public int $halfCpuThreads,
         public PhpUnitOptionsDto $phpUnit,
         public InfectionOptionsDto $infection,
+        public bool $useComposerAudit,
         public bool $useArkitect,
         public array $arkitectExcludePaths,
         public bool $useSensitiveParameterCheck,

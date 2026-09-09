@@ -173,11 +173,11 @@ final readonly class ApiMustNotExposeInternalRule implements Rule
                 continue;
             }
 
-            if (!$classReflection->hasProperty($nativeProperty->getName())) {
+            if (!$classReflection->hasInstanceProperty($nativeProperty->getName())) {
                 continue;
             }
 
-            $property = $classReflection->getProperty($nativeProperty->getName(), $scope);
+            $property = $classReflection->getInstanceProperty($nativeProperty->getName(), $scope);
             yield [\sprintf('property $%s', $nativeProperty->getName()), $property->getReadableType()];
         }
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use LTS\PHPQA\Pipeline\Lane\PhpstanTool;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
@@ -160,6 +161,20 @@ final class PhpstanToolTest extends TestCase
             $this->toolArgs($this->factory->processes->lastSpec()),
             'the debug re-run drops --no-progress and adds --debug -v',
         );
+    }
+
+    #[Test]
+    public function jsonModeWritesOnlyTheProcessStdoutSoStderrNoiseNeverCorruptsTheReport(): void
+    {
+        $json  = '{"totals":{"errors":0,"file_errors":0},"files":{},"errors":[]}';
+        $noise = "PHP Warning:  Module \"xml\" is already loaded in Unknown on line 0\n";
+        $this->queueVersion()->willReturn(new ProcessResultDto(0, $noise . $json, $json));
+        $config = $this->factory->builder(jsonOutput: true, specifiedPath: 'src')->build();
+
+        $result = new PhpstanTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame($json, $this->factory->stdout->fetch());
     }
 
     #[Test]
