@@ -40,6 +40,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  *     signature belongs to the supertype, not to this declaration.
  *
  * WRONG:
+ *
  *   /** @param list<string> $baseArgs * /
  *   public function build(array $baseArgs): Process
  *
@@ -246,12 +247,6 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
         $methodName = $node->name->toString();
         $ancestors  = [...$classReflection->getParents(), ...array_values($classReflection->getInterfaces())];
 
-        foreach ($ancestors as $ancestor) {
-            if ($ancestor->hasNativeMethod($methodName)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($ancestors, static fn (ClassReflection $ancestor): bool => $ancestor->hasNativeMethod($methodName));
     }
 }

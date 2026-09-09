@@ -45,11 +45,11 @@ final readonly class TypeCoverageOptionsDto
     public function neonParameters(): array
     {
         return array_filter([
-            'return_type' => $this->returnType,
-            'param_type' => $this->paramType,
+            'return_type'   => $this->returnType,
+            'param_type'    => $this->paramType,
             'property_type' => $this->propertyType,
             'constant_type' => $this->constantType,
-            'declare' => $this->declare,
+            'declare'       => $this->declare,
         ], static fn (?int $floor): bool => null !== $floor);
     }
 }

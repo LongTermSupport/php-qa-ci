@@ -23,8 +23,8 @@ use ReflectionClass;
 final readonly class SealingAttributeReader
 {
     /**
-     * @param string $className the class that may be sealed (skipped if it does not resolve to
-     *                          a loadable class)
+     * @param string       $className            the class that may be sealed (skipped if it does not resolve to
+     *                                           a loadable class)
      * @param class-string ...$sealingAttributes attribute FQCNs that mark a class as sealed
      *
      * @return string|null the authorised factory FQCN as written in the attribute's first argument,

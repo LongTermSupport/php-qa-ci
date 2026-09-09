@@ -98,11 +98,11 @@ final readonly class ToolRegistry
             PhaseEnum::CodingStandards => [
                 new ToolDefinitionDto('twigCsFixer', [], 'Symfony twig coding standards', PhaseEnum::CodingStandards, false, banner: 'Running Twig CS Fixer'),
             ],
-            PhaseEnum::Linting => [
+            PhaseEnum::Linting         => [
                 new ToolDefinitionDto('twigLint', [], 'Symfony twig linter', PhaseEnum::Linting, false, banner: 'Running Twig Linter'),
                 new ToolDefinitionDto('yamlLint', [], 'Symfony yaml linter', PhaseEnum::Linting, false, banner: 'Running Yaml Linter'),
             ],
-            default => [],
+            default                    => [],
         };
     }
 

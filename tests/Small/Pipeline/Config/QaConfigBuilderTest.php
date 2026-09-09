@@ -25,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(PhpUnitOptionsDto::class)]
 #[CoversClass(InfectionOptionsDto::class)]
 #[CoversClass(ProjectPathsDto::class)]
+#[CoversClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(EnvironmentReader::class)]
 #[Small]
 final class QaConfigBuilderTest extends TestCase

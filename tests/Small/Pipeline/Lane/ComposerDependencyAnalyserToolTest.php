@@ -22,6 +22,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
@@ -105,6 +106,54 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
         self::assertStringContainsString('PROD DEPENDENCY ONLY IN DEV', $printed);
         self::assertStringContainsString('UNKNOWN CLASS / FUNCTION', $printed);
         self::assertStringContainsString(ComposerDependencyAnalyserTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function theGuidanceSpellsOutTheFixForEveryErrorTypeTheToolCanReport(): void
+    {
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Found 2 unused dependencies!');
+        $this->factory->project->write(self::BINARY, self::SHEBANG);
+
+        new ComposerDependencyAnalyserTool()->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        foreach ([
+            'HOW TO FIX',
+            'declared in composer.json, used nowhere in the scanned',
+            'Remove it. If it is used at run time in a way no static scan can see',
+            '->ignoreErrorsOnPackage()',
+            'used in your code but only installed because something',
+            'Require it explicitly; the package that pulls it in today',
+            'production code uses a require-dev package. A',
+            '--no-dev install will not have it',
+            'required for production but only ever used by',
+            'Move it to require-dev so a production install stops carrying it.',
+            'the symbol could not be autoloaded, so its package',
+            '->ignoreUnknownClassesRegex()',
+            'qaConfig/composer-dependency-analyser.php',
+            'replaces the',
+        ] as $expected) {
+            self::assertStringContainsString($expected, $printed);
+        }
+    }
+
+    #[Test]
+    public function theNotInstalledGuidanceExplainsItIsARequireDependency(): void
+    {
+        $this->factory->processes->willSucceed(self::PHP_VERSION);
+
+        new ComposerDependencyAnalyserTool()->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        foreach ([
+            'composer-dependency-analyser was not found at',
+            'It is a "require" dependency of php-qa-ci, so it should always be present.',
+            'A missing binary means the install is incomplete rather than the project',
+            'being misconfigured.',
+            'TO FIX: composer install',
+        ] as $expected) {
+            self::assertStringContainsString($expected, $printed);
+        }
     }
 
     #[Test]

@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
@@ -111,7 +112,8 @@ final class TwigCsFixerToolTest extends TestCase
         $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)
             ->withTwigDirectories(self::TEMPLATES, 'src/Resources/views')
-            ->build();
+            ->build()
+        ;
 
         new TwigCsFixerTool()->run($this->factory->context($config));
 
@@ -145,8 +147,19 @@ final class TwigCsFixerToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('applied every fix it could', $printed);
         self::assertStringContainsString(TwigCsFixerTool::IDENTIFIER, $printed);
+
+        foreach ([
+            'Twig CS Fixer applied every fix it could and violations remain, so these',
+            'need a human. It exits non-zero whenever anything is left, including after',
+            'a successful --fix run.',
+            'TO FIX: correct the templates listed above by hand, then re-run:',
+            'vendor/bin/qa -t twigcs',
+            'To change which rules apply, copy the shipped config to',
+            'qaConfig/.twig-cs-fixer.php',
+        ] as $expected) {
+            self::assertStringContainsString($expected, $printed);
+        }
     }
 
     #[Test]
