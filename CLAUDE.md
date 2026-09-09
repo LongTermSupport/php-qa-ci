@@ -147,7 +147,13 @@ On a Symfony project the platform lanes **Twig Lint** (`twigLint`) and **Yaml Li
 
 After the "ALL TESTS PASSING" message:
 
-21. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
+21. **PHPCPD** (`phpcpd`) - Copy/paste detection over the checked paths
+
+    - Informational only and cannot fail the pipeline, because duplication is a judgement call rather than a defect
+    - Writes a JSON report to `var/qa/phpcpd/phpcpd.json` on every run
+    - See [docs/tools/phpcpd.md](docs/tools/phpcpd.md)
+
+22. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
@@ -211,22 +217,22 @@ real stdout and every line of decoration to stderr.
 Environment variables are read once by `EnvironmentReader`; `"1"`/`"true"` and `"0"`/`"false"`
 are the accepted boolean spellings. Defaults:
 
-| Variable | Default | Builder method |
-| --- | --- | --- |
-| `PHP_QA_CI_PHP_EXECUTABLE` | `php` | (none: PHP binary for every tool) |
-| `phpqaQuickTests` | `0` | (none: skips PHPStan, PHPUnit and Infection) |
-| `phpUnitQuickTests` | `0` | (none: passed through to the test suite) |
-| `phpUnitCoverage` | `1` | `withPhpUnitCoverage(bool)` |
-| `phpUnitIterativeMode` | `0` | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool) |
-| `useInfection` | `1` | `withInfection(bool)` |
-| `mutationScoreIndicator` / `coveredCodeMSI` | `60` / `80` | `withInfectionFloors(int, int)` |
-| `infectionThreads` | half the CPU threads | `withInfectionThreads(int)` |
-| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / `100` | `withInfectionDiffBase(?string, int)` |
-| `useComposerAudit` | `1` | `withComposerAudit(bool)` |
-| (none) | all floors off | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
-| `useArkitect` | `1` | `withArkitect(bool)` |
-| `useSensitiveParameterCheck` | `1` | `withSensitiveParameterCheck(bool)` |
-| `CI` | `false` | (none: interactivity) |
+| Variable                                        | Default              | Builder method                                                                                                     |
+| ----------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                | (none: PHP binary for every tool)                                                                                  |
+| `phpqaQuickTests`                               | `0`                  | (none: skips PHPStan, PHPUnit and Infection)                                                                       |
+| `phpUnitQuickTests`                             | `0`                  | (none: passed through to the test suite)                                                                           |
+| `phpUnitCoverage`                               | `1`                  | `withPhpUnitCoverage(bool)`                                                                                        |
+| `phpUnitIterativeMode`                          | `0`                  | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                                     |
+| `useInfection`                                  | `1`                  | `withInfection(bool)`                                                                                              |
+| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`          | `withInfectionFloors(int, int)`                                                                                    |
+| `infectionThreads`                              | half the CPU threads | `withInfectionThreads(int)`                                                                                        |
+| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / `100`        | `withInfectionDiffBase(?string, int)`                                                                              |
+| `useComposerAudit`                              | `1`                  | `withComposerAudit(bool)`                                                                                          |
+| (none)                                          | all floors off       | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
+| `useArkitect`                                   | `1`                  | `withArkitect(bool)`                                                                                               |
+| `useSensitiveParameterCheck`                    | `1`                  | `withSensitiveParameterCheck(bool)`                                                                                |
+| `CI`                                            | `false`              | (none: interactivity)                                                                                              |
 
 ### Memory Configuration
 
@@ -735,6 +741,14 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
   - MSI (Mutation Score Indicator)
   - Covered Code MSI
 - **Details**: [docs/tools/infection.md](docs/tools/infection.md)
+
+### PHPCPD
+
+- **Purpose**: Report duplicated code after a green run
+- **Lane**: [src/Pipeline/Lane/PhpcpdTool.php](src/Pipeline/Lane/PhpcpdTool.php)
+- **Output**: a JSON report under `var/qa/phpcpd/`, plus the summary on screen. Cannot fail the pipeline: phpcpd returns `1` for both "found clones" and its own errors, and duplication is a judgement call in any case
+- **Alias**: `vendor/bin/qa -t cpd`
+- **Details**: [docs/tools/phpcpd.md](docs/tools/phpcpd.md)
 
 ### Twig CS Fixer, Twig Lint and Yaml Lint (Symfony platform lanes)
 
