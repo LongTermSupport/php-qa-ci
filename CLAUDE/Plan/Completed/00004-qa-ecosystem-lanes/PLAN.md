@@ -1,6 +1,6 @@
 # Plan 00004: QA ecosystem lanes
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-09-09
 **Owner**: joseph
 **Priority**: Medium
@@ -67,14 +67,20 @@ Nothing is fetched at run time; PHARs go through PHIVE, PHPStan extensions throu
 ### Phase 4: Documentation and gate
 
 - [x] ✅ **Task 4.1**: `docs/upgrading-to-8.5.md` builder table, CLAUDE.md pipeline order and tools reference, `docs/pipeline.md` (both new lanes and the renumbering they force), `docs/phpstan-rules/README.md` rows for every new lane and rule. Also corrected two docs that were instructing a read-only run as the working default.
-- [ ] ⬜ **Task 4.2**: Full read-only battery green; CI green; pushed.
+- [x] ✅ **Task 4.2**: Full writable battery green locally (Covered Code MSI 82%, at the floor), and the read-only battery green in CI — GitHub Actions sets `GITHUB_ACTIONS=true`, which is read-only by definition, so the CI run on `085f595` IS the read-only confirmation. Pushed; `php8.5` is now the repository default branch.
 
 ## Success Criteria
 
-- [ ] Every approved tool has a lane or extension, a test, an identifier, an index row and a docs page.
-- [ ] `QA_READONLY=1 CI=true bin/qa` passes on this repository with every new lane on.
-- [ ] Each review item has a recorded decision.
+- [x] Every approved tool has a lane or extension, a test, an identifier, an index row and a docs page.
+- [x] The read-only battery passes on this repository with every new lane on — via CI on `085f595`.
+- [x] Each review item has a recorded decision. Two of those decisions were "not now": the
+      extensible pipeline and dead-code-detector both moved to plan 00005, the first by Owner
+      instruction so a stable `php8.5` could ship, the second because it depends on the first.
 
 ## Delivery & Milestones
 
 - Plan opened: see the first commit touching this folder.
+- Delivered on `php8.5` at `085f595` — 22 commits pushed, CI green, and `php8.5` made the
+  repository default branch. Full writable battery green, Covered Code MSI 82%.
+- Carried forward to plan 00005: the extensible pipeline, dead-code-detector adoption, the
+  "skills should be pointers" refactor, and a rule for `T[]` docblocks that mean `list<T>`.
