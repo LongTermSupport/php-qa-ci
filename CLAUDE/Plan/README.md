@@ -10,6 +10,7 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00004: QA ecosystem lanes](00004-qa-ecosystem-lanes/PLAN.md) - In Progress — composer audit, deprecation rules, composer-dependency-analyser, type-coverage, phpcpd-next, twig-cs-fixer; disallowed-calls and dead-code-detector under review
 - [00001: Repo Audit & Tidy](00001-repo-audit-and-tidy/PLAN.md) - In Progress
 
 ## Completed Plans

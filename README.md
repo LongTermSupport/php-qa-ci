@@ -139,13 +139,15 @@ express.**
   - any **behavioural / semantic** check — type bans, call-site shape,
     docblock-driven rules, loose comparison, nested ternary.
 
-**Single Source of Truth — never enforce one convention in both engines.** Adding
-arkitect is *not* purely additive: when a structural convention already lives in a
-PHPStan rule, **migrate** it to arkitect (and delete the PHPStan rule) rather than
-running both. Two engines enforcing one rule is a defect — duplicated failure
-messages, drift between them, and double maintenance. (The shipped Interface / Enum /
-Trait suffix convention was migrated exactly this way: it used to be the PHPStan
-`RequireTypeSuffixRule` and is now owned solely by the default arkitect tier.)
+**One owner per convention, overlap by design only.** When a structural convention
+already lives in a PHPStan rule and arkitect can express it, prefer to **migrate** it
+(and delete the PHPStan rule) so there is one place to change and one failure message.
+(The shipped Interface / Enum / Trait suffix convention was migrated exactly this way:
+it used to be the PHPStan `RequireTypeSuffixRule` and is now owned solely by the default
+arkitect tier.) Overlap between engines is not itself a defect: two tools catching the
+same class of problem is acceptable, sometimes unavoidable, as long as the two are kept
+in sync and the overlap is documented where both live. What is a defect is silent
+drift, where one engine's list is updated and the other's is not.
 
 Rules are organised in tiers (mirroring the `rules-default` / `rules-optional`
 PHPStan neon split). php-qa-ci ships each as a file returning a list of arkitect
