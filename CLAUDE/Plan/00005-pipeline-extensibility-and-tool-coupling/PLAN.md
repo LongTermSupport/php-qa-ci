@@ -41,11 +41,11 @@ What landed, and why each was held back from the 00004 release rather than rushe
 | The variadic rule never suggests converting a parameter with its own default | A variadic cannot carry a default — there is no `string ...$items = ['a']` — so converting would silently drop a non-empty default             |
 | `twigCsFixer` gated on `twig/twig` rather than on Symfony                    | The PHAR is standalone; gating on `symfony.lock` meant a Slim, Laravel or plain library project using Twig got no Twig coding standards at all |
 
-**Start here**: Task 3.2 needs the Owner's bundling decision; Phase 4 is open. Phase 2 is done
-and Task 3.1's evidence is in the journal. Task 2.1 landed `PipelineBuilder`, `PhaseDto` and an open
-phase list on the registry (each phase derives its own `all*` runner; `ToolDefinitionDto::$phase`
-is now the phase name). `QaApplication` already runs through `PipelineBuilder::defaults()`, so the
-default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has been started.
+**Start here**: every task is done except Task 3.2, which needs the Owner's bundling decision
+(recommendation and evidence in the journal). Phase 2 landed `PipelineBuilder`, `PhaseDto` and an
+open phase list on the registry; Phase 4 freed `yamlLint` from `bin/console` (Twig Lint is the one
+platform lane left), reduced the `qa` skill to a shim over `CLAUDE/qa-orchestration.md`, and shipped
+`ForbidAmbiguousArrayDocRule` in rules-optional.
 
 ## Goals
 
@@ -127,11 +127,11 @@ default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has b
 
 ### Phase 4: coupling and SSoT debts carried from 00004
 
-- [ ] ⬜ **Task 4.1**: Audit the remaining platform coupling. `twigLint` and `yamlLint` invoke
+- [x] ✅ **Task 4.1**: Audit the remaining platform coupling. `twigLint` and `yamlLint` invoke
   `bin/console`, so they are genuinely Symfony-coupled — but confirm no standalone linter
   would free them the way the PHAR freed `twigCsFixer`, and decide whether `yamlDirectories`
   should default off Symfony as `twigDirectories` now does.
-- [ ] ⬜ **Task 4.2**: The "skills should be pointers" refactor. The `qa` skill is 509 lines and
+- [x] ✅ **Task 4.2**: The "skills should be pointers" refactor. The `qa` skill is 509 lines and
   carries context belonging in `CLAUDE/` docs. `CLAUDE/prepush-verification.md` is the model.
 - [x] ✅ **Task 4.3**: A PHPStan rule for the other half of the `array<T>` finding: `T[]` and
   `array<T>` state nothing about keys, so a docblock meaning a list should say `list<T>`.

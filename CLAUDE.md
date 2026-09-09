@@ -6,7 +6,9 @@ Persistent Claude memory is DISABLED for this project — never write to the
 harness memory store (`~/.claude/projects/*/memory/`). ALL knowledge, memory
 and context MUST be tracked in-repo, clean of secrets: durable operational
 knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
-— the mandatory pre-push battery; pushing `php8.5` deploys to production),
+— the mandatory pre-push battery; pushing `php8.5` deploys to production — and
+[CLAUDE/qa-orchestration.md](CLAUDE/qa-orchestration.md) — the run → fix → run cycle the
+`qa` skill follows),
 programme/work records in `CLAUDE/Plan/`.
 
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
@@ -118,31 +120,43 @@ On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appe
 ### Phase 2: Linting Tools (validation only)
 
 03. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure
+
 04. **Composer Checks** (`composerChecks`) - Runs composer diagnose, normalize and dump-autoload
+
 05. **Package Type Declaration** (`packageType`) - Always-on: requires `composer.json` to declare a `type` (see [docs/tools/packageType.md](docs/tools/packageType.md))
+
 06. **Config Template Ignore-List Audit** (`configTemplateIgnoreList`) - Always-on self-check: every namespace-less `configDefaults/generic/` template must be covered by `psr4-validate-ignore-list.txt` (see [docs/tools/configTemplateIgnoreListCheck.md](docs/tools/configTemplateIgnoreListCheck.md))
+
 07. **Infection Config Source Directories Check** (`infectionConfigSourceDirs`) - Always-on: infection.json's `source.directories` entries must resolve, relative to infection.json's own directory, to real directories (see [docs/tools/infectionConfigSourceDirs.md](docs/tools/infectionConfigSourceDirs.md))
+
 08. **Version Pins Check** (`versionPins`) - Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use (see [docs/tools/versionPins.md](docs/tools/versionPins.md))
+
 09. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+
 10. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+
 11. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+
 12. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
+
 13. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
-On a Symfony project the platform lanes **Twig Lint** (`twigLint`) and **Yaml Lint** (`yamlLint`) are appended to this phase. They are not `-t` selectable.
+14. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+
+On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to this phase. It is not `-t` selectable.
 
 ### Phase 3: Static Analysis Tools
 
-14. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-15. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
-16. **PHPStan** (`phpstan`) - Static analysis tool
-17. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
-18. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.
+15. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
+16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+17. **PHPStan** (`phpstan`) - Static analysis tool
+18. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+19. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.
 
 ### Phase 4: Testing Tools
 
-19. **PHPUnit** (`phpunit`) - Unit testing framework
-20. **Infection** (`infection`) - Mutation testing (requires Xdebug and coverage; `withInfection(false)` or `useInfection=0` to disable)
+20. **PHPUnit** (`phpunit`) - Unit testing framework
+21. **Infection** (`infection`) - Mutation testing (requires Xdebug and coverage; `withInfection(false)` or `useInfection=0` to disable)
 
 **Gates**: PHPStan and PHPUnit are skipped when `phpqaQuickTests=1`; Infection is skipped when quick tests are on or Infection is disabled ([ToolGateEnum](src/Pipeline/Tool/ToolGateEnum.php)). Gates apply to phase runs, not to a single tool selected with `-t`.
 
@@ -150,13 +164,13 @@ On a Symfony project the platform lanes **Twig Lint** (`twigLint`) and **Yaml Li
 
 After the "ALL TESTS PASSING" message:
 
-21. **PHPCPD** (`phpcpd`) - Copy/paste detection over the checked paths
+22. **PHPCPD** (`phpcpd`) - Copy/paste detection over the checked paths
 
     - Informational only and cannot fail the pipeline, because duplication is a judgement call rather than a defect
     - Writes a JSON report to `var/qa/phpcpd/phpcpd.json` on every run
     - See [docs/tools/phpcpd.md](docs/tools/phpcpd.md)
 
-22. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
+23. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
@@ -263,7 +277,7 @@ phpqaMemoryLimit=2G vendor/bin/qa
 - **Generic**: Default for all other PHP projects (anything without `symfony.lock`)
 
 There is no Laravel/`artisan` detection. A platform contributes extra lanes through
-`ToolRegistry::platformLanes()`: Symfony appends `twigLint` and `yamlLint` to the linting phase (`twigCsFixer` is a shipped lane that gates itself on Twig, not a platform lane).
+`ToolRegistry::platformLanes()`: Symfony appends `twigLint` to the linting phase (`twigCsFixer` and `yamlLint` are shipped lanes that gate themselves on Twig and on `symfony/yaml`, not platform lanes).
 Their directories default to `templates/` and `config/` and are set with `withTwigDirectories()`
 and `withYamlDirectories()` in `qaConfig/qa.php`. See [docs/platform-detection.md](docs/platform-detection.md).
 
@@ -753,10 +767,10 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 - **Alias**: `vendor/bin/qa -t cpd`
 - **Details**: [docs/tools/phpcpd.md](docs/tools/phpcpd.md)
 
-### Twig CS Fixer, Twig Lint and Yaml Lint (Symfony platform lanes)
+### Twig CS Fixer, Twig Lint and Yaml Lint
 
 - **Lanes**: [src/Pipeline/Lane/TwigCsFixerTool.php](src/Pipeline/Lane/TwigCsFixerTool.php), [src/Pipeline/Lane/TwigLintTool.php](src/Pipeline/Lane/TwigLintTool.php), [src/Pipeline/Lane/YamlLintTool.php](src/Pipeline/Lane/YamlLintTool.php)
-- **When they run**: on a Symfony project only, skipped cleanly elsewhere. Twig CS Fixer is appended to Phase 1 (it modifies code); Twig Lint and Yaml Lint to Phase 2
+- **When they run**: Twig CS Fixer (Phase 1, it modifies code) gates on `twig/twig`; Yaml Lint (Phase 2) gates on `symfony/yaml` plus `symfony/console`, whose standalone `yaml-lint` script it runs; both skip cleanly when the library is absent, on any platform. Twig Lint (Phase 2) is the one Symfony platform lane left: `lint:twig` needs the application's Twig environment and has no standalone form
 - **Twig CS Fixer vs Twig Lint**: the fixer checks how templates are *written* (the shipped `TwigCsFixer` standard, `--fix` in a writable run); the linter checks they *compile*. PHP CS Fixer reads no Twig at all, which is the gap the fixer closes
 - **Directories**: `templates/` and `config/` by default; `withTwigDirectories()` / `withYamlDirectories()` in `qaConfig/qa.php`
 - **Details**: [docs/tools/twigCsFixer.md](docs/tools/twigCsFixer.md), [docs/tools/twigLint.md](docs/tools/twigLint.md), [docs/tools/yamlLint.md](docs/tools/yamlLint.md)
