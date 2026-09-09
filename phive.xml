@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phive xmlns="https://phar.io/phive">
-  <phar name="infection" version="^0.34" location="./vendor-phar/infection.phar" copy="true" installed="0.34.0"/>
+  <phar name="infection" version="^0.35.4" location="./vendor-phar/infection.phar" copy="true" installed="0.35.4"/>
   <phar name="phpstan" version="^2.2.3" location="./vendor-phar/phpstan.phar" copy="true" installed="2.2.3"/>
   <phar name="php-cs-fixer" version="^3.95.11" location="./vendor-phar/php-cs-fixer.phar" copy="true" installed="3.95.11"/>
   <phar name="composer-require-checker" version="^4.24.0" location="./vendor-phar/composer-require-checker.phar" copy="true" installed="4.24.0"/>
