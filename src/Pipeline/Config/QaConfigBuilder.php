@@ -125,7 +125,7 @@ final readonly class QaConfigBuilder
             useArkitect: $env->bool('useArkitect', true),
             arkitectExcludePaths: [],
             useSensitiveParameterCheck: $env->bool('useSensitiveParameterCheck', true),
-            twigDirectories: PlatformEnum::Symfony === $platform ? [$paths->projectRoot . '/templates'] : [],
+            twigDirectories: [$paths->projectRoot . '/templates'],
             yamlDirectories: PlatformEnum::Symfony === $platform ? [$paths->projectRoot . '/config'] : [],
         );
     }

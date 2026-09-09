@@ -5,16 +5,21 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
-use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 
 /**
- * Symfony only: coding standards for Twig templates, which PHP CS Fixer does
- * not read. Runs the shipped twig-cs-fixer PHAR over the configured twig
- * directories — check-only in a read-only run, where a pending fix fails the
- * gate, and `--fix` in a writable one.
+ * Coding standards for Twig templates, which PHP CS Fixer does not read. Runs
+ * the shipped twig-cs-fixer PHAR over the configured twig directories —
+ * check-only in a read-only run, where a pending fix fails the gate, and
+ * `--fix` in a writable one.
+ *
+ * Gated on Twig, not on Symfony. The PHAR is standalone and needs no framework,
+ * so the lane belongs to any project that has `twig/twig` in its vendor tree —
+ * Slim, Laravel, a static site generator, or a library that ships templates.
+ * Twig Lint is the opposite case and is still a Symfony platform lane, because
+ * it invokes `bin/console lint:twig`.
  *
  * `--fix` still exits 1 when a violation it cannot fix remains, so a writable
  * run distinguishes "fixed everything" from "fixed what it could": the former
@@ -31,6 +36,8 @@ final readonly class TwigCsFixerTool implements ToolInterface
 
     private const string PHAR = 'twig-cs-fixer.phar';
 
+    private const string TWIG_PACKAGE = 'vendor/twig/twig';
+
     private const int EXIT_CRASH = 2;
 
     public function name(): string
@@ -46,8 +53,10 @@ final readonly class TwigCsFixerTool implements ToolInterface
     public function run(ToolContext $context): ToolResultDto
     {
         $config = $context->config;
-        if (PlatformEnum::Symfony !== $config->platform) {
-            return ToolResultDto::skipped('not a Symfony project');
+        if (!is_dir($config->paths->projectRoot . '/' . self::TWIG_PACKAGE)) {
+            $context->writeln('Twig is not installed, nothing to do');
+
+            return ToolResultDto::skipped('twig/twig not installed');
         }
 
         $directories = $this->existingDirectories($context);
