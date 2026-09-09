@@ -88,17 +88,28 @@ so their effect on the mutation floor is unverified. That is Task 1.1.
       JOURNAL/. PHAR-run PHPStan does load Composer-installed extensions — proven in 00004 via
       `vendor/phpstan/extension-installer/src/GeneratedConfig.php`.
 
-      **Sequencing constraint found in the 00004 recon**: on a library, the tool has no "this is
-      a library" flag. Its only documented mechanism is `@api` phpdoc marking entrypoints, so
-      without that sweep first it reports our entire public surface as dead — every
-      `ToolInterface` lane, every `QaConfigBuilder::with*()`, every hook signature — and the run
-      is uninterpretable rather than merely noisy. Also enable `usageExcluders.tests.enabled`,
-      or a method reached only from tests counts as dead. `--error-format removeDeadCode` exists
-      and must not be run before the sweep: it would delete public API.
+      **Why this repository is an unusually good candidate.** The tool has no "this is a library"
+      flag; its only documented entrypoint mechanism is `@api` phpdoc. For most libraries that
+      means a large annotation sweep before the first useful run, because nothing internal calls
+      the public API and it all reports as dead.
 
-      This is why 3.1 sits after Phase 2 rather than beside it. Task 2.2 already has to mark the
-      construction path `@api` for the builder to be usable from a consumer, so the annotation
-      work is shared rather than duplicated.
+      We have already done that sweep, for an unrelated reason. `RequireApiOrInternalTagRule`
+      forces every class in `src/` to declare `@api` or `@internal`, and the 26 `@api` classes
+      are exactly the consumer contract — `QaConfigBuilder`, `ToolInterface`, `ToolContext`,
+      `ToolResultDto`, `PhpInvoker`, `ProcessRunnerInterface`, the config DTOs, `ShippedTools`.
+      So there is no untagged public surface to be misreported, and no reason to exclude
+      php-qa-ci from its own run.
+
+      Two things still to confirm when the task is picked up, neither a blocker:
+
+      - Whether class-level `@api` is honoured for the class's public methods, or whether the
+        tool wants the tag on each method. The recon read the README as class/interface/method,
+        but that was not verified against the source.
+      - `usageExcluders.tests.enabled` must be on, or a method reached only from tests counts as
+        dead.
+
+      `--error-format removeDeadCode` stays review-only regardless: it deletes code, and on a
+      library a false positive means deleting published API.
 - [ ] ⬜ **Task 3.2**: Decide on bundling as an opt-in `withDeadCodeDetection(bool)` on the
       evidence from 3.1. Record the decision either way.
 
