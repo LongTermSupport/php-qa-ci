@@ -40,6 +40,10 @@ final class TwigCsFixerToolTest extends TestCase
 
     private const string TEMPLATES = 'templates';
 
+    private const string TEMPLATE_FILE = 'templates/page.html.twig';
+
+    private const string CLEAN_TEMPLATE = '{{ x }}';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -75,7 +79,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function aReadOnlyRunChecksWithoutFixingAndPassesWhenClean(): void
     {
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
-        $this->factory->project->write('templates/page.html.twig', '{{ x }}');
+        $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
         $library = \dirname(__DIR__, 4);
 
         $result = new TwigCsFixerTool()->run($this->symfonyContext());
@@ -93,7 +97,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function aWritableRunPassesTheFixFlag(): void
     {
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
-        $this->factory->project->write('templates/page.html.twig', '{{ x }}');
+        $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
 
         new TwigCsFixerTool()->run($this->symfonyContext(readOnly: false));
 
@@ -104,7 +108,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function onlyDirectoriesThatExistArePassedToTheFixer(): void
     {
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
-        $this->factory->project->write('templates/page.html.twig', '{{ x }}');
+        $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)
             ->withTwigDirectories(self::TEMPLATES, 'src/Resources/views')
             ->build();
@@ -121,7 +125,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function aPendingFixInAReadOnlyRunFailsWithTheWouldModifyGuidance(): void
     {
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'violation found');
-        $this->factory->project->write('templates/page.html.twig', '{{x}}');
+        $this->factory->project->write(self::TEMPLATE_FILE, '{{x}}');
 
         $result  = new TwigCsFixerTool()->run($this->symfonyContext());
         $printed = $this->factory->output->fetch();
@@ -135,7 +139,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function aWritableRunThatCannotFixEverythingFailsAndSaysSo(): void
     {
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'unfixable violation');
-        $this->factory->project->write('templates/page.html.twig', '{{x}}');
+        $this->factory->project->write(self::TEMPLATE_FILE, '{{x}}');
 
         $result  = new TwigCsFixerTool()->run($this->symfonyContext(readOnly: false));
         $printed = $this->factory->output->fetch();
@@ -149,7 +153,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function exitCodeTwoIsACrashRatherThanAFinding(): void
     {
         $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(2, 'Error: bad config');
-        $this->factory->project->write('templates/page.html.twig', '{{ x }}');
+        $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
 
         $result = new TwigCsFixerTool()->run($this->symfonyContext());
 

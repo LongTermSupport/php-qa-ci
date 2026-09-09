@@ -295,7 +295,7 @@ final readonly class LinksChecker
             try {
                 $headers = @\Safe\get_headers($href, false, $context);
                 /** @var list<string> $headers */
-                $lastStatus = self::getLastStatusCode($headers);
+                $lastStatus = self::getLastStatusCode(...$headers);
                 if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
                     return null;
                 }
@@ -312,10 +312,7 @@ final readonly class LinksChecker
         return 'HTTP status: ' . ($lastStatus ?? $lastError ?? 'connection failed');
     }
 
-    /**
-     * @param array<string> $headers
-     */
-    private static function getLastStatusCode(array $headers): ?int
+    private static function getLastStatusCode(string ...$headers): ?int
     {
         $lastStatus = null;
         foreach ($headers as $header) {

@@ -62,6 +62,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'infection'                  => 'infection',
         'cr'                         => 'composerRequireChecker',
         'cda'                        => 'composerDependencyAnalyser',
+        'cpd'                        => 'phpcpd',
+        'phpcpd'                     => 'phpcpd',
         'ml'                         => 'markdownLinks',
         'markdown'                   => 'markdownLinks',
         'f'                          => 'phpCsFixer',
@@ -109,6 +111,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'phpStrictTypes'             => true,
         'stricttypes'                => true,
         'st'                         => true,
+        'phpcpd'                     => true,
+        'cpd'                        => true,
         'phpunit'                    => true,
         'unit'                       => true,
         // NOT path-supporting

@@ -180,6 +180,10 @@ final readonly class RequireVariadicOverArrayParameterRule implements Rule
                 continue;
             }
 
+            if (!isset($matches[2])) {
+                continue;
+            }
+
             $elementType = trim($matches[2]);
             if ('' === $elementType) {
                 continue;

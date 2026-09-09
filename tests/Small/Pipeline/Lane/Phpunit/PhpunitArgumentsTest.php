@@ -106,17 +106,13 @@ final class PhpunitArgumentsTest extends TestCase
     #[Test]
     public function specifiedPathsComeLast(): void
     {
-        $args = $this->build(coverage: false, iterative: false, ci: true, paths: ['/p/tests/Unit', '/p/src/A.php']);
+        $args = $this->build(false, false, true, 12, null, '/p/tests/Unit', '/p/src/A.php');
 
         self::assertSame([...self::BASE, ...self::DISPLAY, self::NO_COVERAGE, self::ENFORCE_TIME_LIMIT, '/p/tests/Unit', '/p/src/A.php'], $args);
     }
 
-    /**
-     * @param list<string> $paths
-     *
-     * @return list<string>
-     */
-    private function build(bool $coverage, bool $iterative, bool $ci, int $major = 12, ?string $paratestTarget = null, array $paths = []): array
+    /** @return list<string> */
+    private function build(bool $coverage, bool $iterative, bool $ci, int $major = 12, ?string $paratestTarget = null, string ...$paths): array
     {
         return new PhpunitArguments()->build(
             new PhpUnitOptionsDto(coverage: $coverage, quickTests: false, iterativeMode: $iterative),

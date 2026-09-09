@@ -224,4 +224,10 @@ Please see the [PHPQA Infection docs](./tools/infection.md) for full details.
 
 ## Post-Success
 
-Nothing but the project's own `qaConfig/hookPost.php`. The pipeline ships no post-success lane.
+### PHPCPD
+
+[PhpcpdTool](../src/Pipeline/Lane/PhpcpdTool.php) -- [docs/tools/phpcpd.md](./tools/phpcpd.md)
+
+Reports duplicated code and writes a JSON report. Informational only -- cannot fail the pipeline.
+
+Then the project's own `qaConfig/hookPost.php`, if present.

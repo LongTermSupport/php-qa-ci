@@ -86,6 +86,7 @@ final readonly class Pipeline
         }
 
         $this->successBanner();
+        $this->executor->execute('phpcpd', $context);
         $this->hooks->runPost($context);
         $this->retryWarning($retried);
 

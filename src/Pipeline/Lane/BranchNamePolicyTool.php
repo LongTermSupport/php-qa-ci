@@ -79,7 +79,7 @@ final readonly class BranchNamePolicyTool implements ToolInterface
         $prefixes = [...BranchNamePolicyDecision::DEFAULT_PREFIXES, ...$overrides->extraAllowedPrefixes];
         $exempt   = [...$exempt, ...$overrides->extraExemptBranches];
 
-        $verdict = $this->decision->decide($branch, $exempt, $prefixes);
+        $verdict = $this->decision->decide($branch, $exempt, ...$prefixes);
         if ($verdict->passes) {
             $context->writeln('exempt' === $verdict->reason
                 ? \sprintf("[branchNamePolicy] PASS — branch '%s' is exempt (default/protected).", $branch)

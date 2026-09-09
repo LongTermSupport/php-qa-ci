@@ -91,7 +91,7 @@ final readonly class FactorySealedRule implements Rule
             return [];
         }
 
-        $sealedFactory  = $this->reader->factoryFor($fqcn, $this->sealingAttributes);
+        $sealedFactory  = $this->reader->factoryFor($fqcn, ...$this->sealingAttributes);
         $enclosingClass = $scope->getClassReflection()?->getName();
 
         if (!$this->detector->isViolation($sealedFactory, $enclosingClass, $scope->getFile())) {

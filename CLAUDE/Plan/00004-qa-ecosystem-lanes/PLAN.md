@@ -47,12 +47,17 @@ Nothing is fetched at run time; PHARs go through PHIVE, PHPStan extensions throu
 
 ### Phase 2: New lanes
 
-- [ ] ⬜ **Task 2.1**: `ComposerDependencyAnalyserTool` (linting phase, after composerRequireChecker): shipmonk/composer-dependency-analyser as a PHIVE PHAR if published, else a Composer dependency; config resolved via `qaConfig/composer-dependency-analyser.php`; identifier, index row, docs page.
-- [ ] ⬜ **Task 2.2**: Evaluation note in JOURNAL/: what composer-dependency-analyser reports that composer-require-checker does not, and the reverse, over this repository and one Symfony consumer; recommendation recorded.
-- [ ] ⬜ **Task 2.3**: tomasvotruba/type-coverage as a Composer dependency wired through the phpstan lane; `withTypeCoverageFloors(int $return, int $param, int $property)` on the builder, off by default; the extension's error identifiers documented on the phpstan page.
+- [x] ✅ **Task 2.1**: `ComposerDependencyAnalyserTool` in the linting phase after composerRequireChecker, alias `cda`. No PHIVE PHAR is published, so a Composer `require` (zero runtime dependencies of its own). Identifier, index row and docs page done.
+- [x] ✅ **Task 2.2**: Evaluation recorded in JOURNAL/. Complements, not substitutes: require-checker reports nothing on this repository while the analyser found two dead `require` entries, and an unused dependency is invisible to require-checker by construction.
+- [x] ✅ **Task 2.3**: tomasvotruba/type-coverage wired through the phpstan lane behind `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)`, every floor off by default. All five error identifiers documented on the phpstan page. The lane now writes `parameters.paths` when the floors are on, without which the extension reports nothing at all.
 - [x] ✅ **Task 2.4a**: `PhplocTool` deleted with its registry row, aliases, docs page and test. phploc has been abandoned since 2020 and was never shipped, so the lane could not run. Owner decision: drop the size metric, it is not wanted. No successor is sought.
 - [ ] ⬜ **Task 2.4b**: `PhpcpdTool` (post-success, informational, cannot fail): phpcpd-next via PHIVE; JSON output archived under var/qa; docs page. It detects copy/paste, which is unrelated to what phploc measured — this is a new signal, not a replacement.
-- [ ] ⬜ **Task 2.5**: `TwigCsFixerTool` as a Symfony platform lane in the coding-standards phase (`ToolRegistry::platformLanes`); dry-run and `ReadOnlyGuidance` in a read-only run; config via `qaConfig/.twig-cs-fixer.php`; docs page.
+- [x] ✅ **Task 2.5**: `TwigCsFixerTool` as a Symfony platform lane in the coding-standards phase; `platformLanes()` now dispatches on phase. Check-only with `ReadOnlyGuidance` in a read-only run, `--fix` otherwise; config `.twig-cs-fixer.php`; PHAR via PHIVE; docs page.
+
+### Phase 2b: raised in review, not from the ecosystem survey
+
+- [x] ✅ **Task 2.6**: `RequireVariadicOverArrayParameterRule` — an `array` parameter whose element type lives only in a docblock should be `T ...$name`. Owner-raised. DBF 3.1 to 3.3 complete, rule committed red at `9c030cf`, 12 instances recorded.
+- [ ] ⬜ **Task 2.7**: DBF 3.4 — convert all 12 instances and re-sweep to zero.
 
 ### Phase 3: Decisions under review
 

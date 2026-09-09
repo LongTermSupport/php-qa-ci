@@ -246,6 +246,7 @@ The file name is the tool's **canonical registry name**, not an alias:
 | `tools/phpLint.php` | parallel lint | `lint`, `phplint` |
 | `tools/composerRequireChecker.php` | composer-require-checker | `cr` |
 | `tools/composerDependencyAnalyser.php` | composer-dependency-analyser | `cda` |
+| `tools/phpcpd.php` | PHPCPD copy/paste detection | `cpd`, `phpcpd` |
 | `tools/markdownLinks.php` | markdown links | `ml`, `markdown` |
 | `tools/branchNamePolicy.php` | branch name policy | `bnp` |
 | `tools/phpstanIgnoreJustification.php` | ignoreErrors justification | `pij` |

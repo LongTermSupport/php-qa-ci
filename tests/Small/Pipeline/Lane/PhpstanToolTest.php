@@ -40,6 +40,10 @@ final class PhpstanToolTest extends TestCase
 
     private const string VAR_QA_PREFIX = 'var/qa/';
 
+    private const string ANALYSE = 'analyse';
+
+    private const string SRC = 'src';
+
     private const string PHP_VERSION = '8.5.0';
 
     private ContextFactory $factory;
@@ -70,7 +74,7 @@ final class PhpstanToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('PHPStan: limiting to 2 parallel processes (50% of cores)', $printed);
 
-        $logDir  = $this->factory->project->path . '/var/qa/' . PhpstanTool::LOG_DIR;
+        $logDir  = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR;
         $wrapper = $logDir . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
             "includes:\n    - " . \dirname(__DIR__, 4) . "/configDefaults/generic/phpstan.neon\n\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 2\n",
@@ -79,7 +83,7 @@ final class PhpstanToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            ['analyse', ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
             $this->toolArgs($spec),
         );
         self::assertSame(\dirname(__DIR__, 4) . '/vendor-phar/phpstan.phar', $this->script($spec));
@@ -141,9 +145,9 @@ final class PhpstanToolTest extends TestCase
 
         new PhpstanTool()->run($this->factory->context($config));
 
-        $wrapper = $this->factory->project->path . '/var/qa/' . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
+        $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
-            ['analyse', '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, '-c', $wrapper, self::NO_PROGRESS],
             $this->toolArgs($this->factory->processes->lastSpec()),
             'type-coverage reports nothing when the analysed paths differ from the configured ones',
         );
@@ -156,13 +160,13 @@ final class PhpstanToolTest extends TestCase
     public function aSinglePathRunKeepsTheCommandLineFormEvenWithTypeCoverageOn(): void
     {
         $this->queueVersion()->willSucceed();
-        $config = $this->factory->builder(specifiedPath: 'src')->withTypeCoverageFloors(returnType: 50)->build();
+        $config = $this->factory->builder(specifiedPath: self::SRC)->withTypeCoverageFloors(returnType: 50)->build();
 
         new PhpstanTool()->run($this->factory->context($config));
 
-        $wrapper = $this->factory->project->path . '/var/qa/' . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
+        $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
-            ['analyse', ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
             $this->toolArgs($this->factory->processes->lastSpec()),
         );
         self::assertStringNotContainsString('    paths:', \Safe\file_get_contents($wrapper), 'a subset must not masquerade as the whole project');
@@ -222,10 +226,10 @@ final class PhpstanToolTest extends TestCase
         self::assertStringContainsString('Where ever it stops is probably a fatal PHP error', $printed);
         self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
 
-        $wrapper = $this->factory->project->path . '/var/qa/' . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
+        $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertCount(4, $this->factory->processes->specs);
         self::assertSame(
-            ['analyse', ...$config->pathsToCheck, '-c', $wrapper, '--debug', '-v'],
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, '--debug', '-v'],
             $this->toolArgs($this->factory->processes->lastSpec()),
             'the debug re-run drops --no-progress and adds --debug -v',
         );
@@ -237,7 +241,7 @@ final class PhpstanToolTest extends TestCase
         $json  = '{"totals":{"errors":0,"file_errors":0},"files":{},"errors":[]}';
         $noise = "PHP Warning:  Module \"xml\" is already loaded in Unknown on line 0\n";
         $this->queueVersion()->willReturn(new ProcessResultDto(0, $noise . $json, $json));
-        $config = $this->factory->builder(jsonOutput: true, specifiedPath: 'src')->build();
+        $config = $this->factory->builder(jsonOutput: true, specifiedPath: self::SRC)->build();
 
         $result = new PhpstanTool()->run($this->factory->context($config));
 
@@ -250,7 +254,7 @@ final class PhpstanToolTest extends TestCase
     {
         $json = '{"totals":{"errors":0,"file_errors":1},"files":{},"errors":[]}';
         $this->queueVersion()->willFail(1, $json);
-        $config = $this->factory->builder(ci: false, jsonOutput: true, specifiedPath: 'src')->build();
+        $config = $this->factory->builder(ci: false, jsonOutput: true, specifiedPath: self::SRC)->build();
 
         $result = new PhpstanTool()->run($this->factory->context($config));
 

@@ -18,7 +18,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  *
  * `--fix` still exits 1 when a violation it cannot fix remains, so a writable
  * run distinguishes "fixed everything" from "fixed what it could": the former
- * passes, the latter fails with the remainder on screen.
+ * passes, the latter fails with the remainder on screen. Exit 2 means a config
+ * error or an unhandled throwable, which is a crash rather than a finding.
  *
  * @internal
  */
@@ -30,7 +31,6 @@ final readonly class TwigCsFixerTool implements ToolInterface
 
     private const string PHAR = 'twig-cs-fixer.phar';
 
-    /** twig-cs-fixer returns 2 for a config error or an unhandled throwable, which is a crash rather than a finding. */
     private const int EXIT_CRASH = 2;
 
     public function name(): string

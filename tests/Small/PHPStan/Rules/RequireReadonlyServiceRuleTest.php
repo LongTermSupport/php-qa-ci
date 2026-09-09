@@ -121,7 +121,7 @@ final class RequireReadonlyServiceRuleTest extends TestCase
     public function classWithAMutablePropertyIsNotFlagged(): void
     {
         $property = new Property(0, [new PropertyItem('cache')]);
-        $class    = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, stmts: [$property]);
+        $class    = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, [], null, $property);
 
         self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
@@ -132,11 +132,8 @@ final class RequireReadonlyServiceRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS, Modifiers::FINAL), $this->scope(null)));
     }
 
-    /**
-     * @param list<string>               $attributeNames
-     * @param list<\PhpParser\Node\Stmt> $stmts
-     */
-    private function class(string $name, int $flags, array $attributeNames = [], ?Name $extends = null, array $stmts = []): Class_
+    /** @param list<string> $attributeNames */
+    private function class(string $name, int $flags, array $attributeNames = [], ?Name $extends = null, \PhpParser\Node\Stmt ...$stmts): Class_
     {
         $attrGroups = [];
         foreach ($attributeNames as $attributeName) {

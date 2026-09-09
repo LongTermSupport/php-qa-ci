@@ -85,19 +85,18 @@ final readonly class PhpstanTool implements ToolInterface
         $baseArgs = ['analyse', ...$pathArgs, '-c', $wrapper];
 
         if ($config->jsonOutput) {
-            return $this->runJson($context, $logDir, $baseArgs);
+            return $this->runJson($context, $logDir, ...$baseArgs);
         }
 
-        return $this->runText($context, $logDir, $baseArgs);
+        return $this->runText($context, $logDir, ...$baseArgs);
     }
 
-    /** @param list<string> $baseArgs */
-    private function runJson(ToolContext $context, string $logDir, array $baseArgs): ToolResultDto
+    private function runJson(ToolContext $context, string $logDir, string ...$baseArgs): ToolResultDto
     {
         $config = $context->config;
         $result = $context->php->withoutXdebug(
             $config->paths->pharDir . '/phpstan.phar',
-            [...$baseArgs, '--no-progress', '--error-format=json'],
+            array_values([...$baseArgs, '--no-progress', '--error-format=json']),
             $config->paths->projectRoot,
             streamOutput: false,
         );
@@ -121,12 +120,11 @@ final readonly class PhpstanTool implements ToolInterface
         return ToolResultDto::failed('PHPStan found errors');
     }
 
-    /** @param list<string> $baseArgs */
-    private function runText(ToolContext $context, string $logDir, array $baseArgs): ToolResultDto
+    private function runText(ToolContext $context, string $logDir, string ...$baseArgs): ToolResultDto
     {
         $config = $context->config;
         $phar   = $config->paths->pharDir . '/phpstan.phar';
-        $args   = $config->ci ? [...$baseArgs, '--no-progress'] : $baseArgs;
+        $args   = array_values($config->ci ? [...$baseArgs, '--no-progress'] : $baseArgs);
 
         $result = $context->php->withoutXdebug($phar, $args, $config->paths->projectRoot);
 
@@ -145,7 +143,7 @@ final readonly class PhpstanTool implements ToolInterface
             $context->writeln('running again with debug mode:');
             $context->writeln('Where ever it stops is probably a fatal PHP error');
             $context->writeln('');
-            $context->php->withoutXdebug($phar, [...$baseArgs, '--debug', '-v'], $config->paths->projectRoot);
+            $context->php->withoutXdebug($phar, array_values([...$baseArgs, '--debug', '-v']), $config->paths->projectRoot);
 
             return ToolResultDto::crashed(\sprintf('PHPStan crashed (exit %d)', $result->exitCode));
         }

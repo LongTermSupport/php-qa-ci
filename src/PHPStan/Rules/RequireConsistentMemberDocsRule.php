@@ -71,7 +71,7 @@ final readonly class RequireConsistentMemberDocsRule implements Rule
 
         $errors = [];
         foreach ([self::KIND_CONSTANTS => $constants, self::KIND_PROPERTIES => $properties] as $kind => $members) {
-            $error = $this->check($kind, $members);
+            $error = $this->check($kind, ...$members);
             if ($error instanceof \PHPStan\Rules\IdentifierRuleError) {
                 $errors[] = $error;
             }
@@ -80,8 +80,7 @@ final readonly class RequireConsistentMemberDocsRule implements Rule
         return $errors;
     }
 
-    /** @param list<ClassConst|EnumCase|Property|Param> $members */
-    private function check(string $kind, array $members): ?\PHPStan\Rules\IdentifierRuleError
+    private function check(string $kind, ClassConst|EnumCase|Property|Param ...$members): ?\PHPStan\Rules\IdentifierRuleError
     {
         $total = \count($members);
         if ($total < 2) {

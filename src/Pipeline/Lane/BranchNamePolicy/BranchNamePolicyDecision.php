@@ -17,11 +17,8 @@ final readonly class BranchNamePolicyDecision
     /** @var list<string> */
     public const array DEFAULT_PREFIXES = ['feature/', 'bugfix/', 'chore/', 'hotfix/'];
 
-    /**
-     * @param list<string> $exemptBranches
-     * @param list<string> $allowedPrefixes
-     */
-    public function decide(string $branch, array $exemptBranches, array $allowedPrefixes): BranchVerdictDto
+    /** @param list<string> $exemptBranches */
+    public function decide(string $branch, array $exemptBranches, string ...$allowedPrefixes): BranchVerdictDto
     {
         if (\in_array($branch, $exemptBranches, true)) {
             return BranchVerdictDto::exempt($branch);

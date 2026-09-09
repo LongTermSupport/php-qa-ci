@@ -69,12 +69,12 @@ final class BranchNamePolicyToolTest extends TestCase
     {
         $decision = new BranchNamePolicyDecision();
 
-        self::assertSame('exempt', $decision->decide(self::DEFAULT_BRANCH, [self::DEFAULT_BRANCH], [self::FEATURE])->reason);
-        self::assertSame(self::FEATURE, $decision->decide('feature/x', [self::DEFAULT_BRANCH], [self::FEATURE, 'bugfix/'])->reason);
-        $failed = $decision->decide('plan/00001-x', [self::DEFAULT_BRANCH], BranchNamePolicyDecision::DEFAULT_PREFIXES);
+        self::assertSame('exempt', $decision->decide(self::DEFAULT_BRANCH, [self::DEFAULT_BRANCH], self::FEATURE)->reason);
+        self::assertSame(self::FEATURE, $decision->decide('feature/x', [self::DEFAULT_BRANCH], self::FEATURE, 'bugfix/')->reason);
+        $failed = $decision->decide('plan/00001-x', [self::DEFAULT_BRANCH], ...BranchNamePolicyDecision::DEFAULT_PREFIXES);
         self::assertFalse($failed->passes);
         self::assertTrue($failed->isPlanBranch);
-        self::assertFalse($decision->decide('wip', [], [])->isPlanBranch);
+        self::assertFalse($decision->decide('wip', [])->isPlanBranch);
     }
 
     #[Test]

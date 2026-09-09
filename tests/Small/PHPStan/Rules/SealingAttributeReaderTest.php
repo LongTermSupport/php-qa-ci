@@ -38,7 +38,7 @@ final class SealingAttributeReaderTest extends TestCase
     {
         self::assertSame(
             'Acme\Widget\WidgetFactory',
-            $this->reader->factoryFor(SealedByPackageAttribute::class, [FactorySealedBy::class]),
+            $this->reader->factoryFor(SealedByPackageAttribute::class, FactorySealedBy::class),
         );
     }
 
@@ -46,14 +46,14 @@ final class SealingAttributeReaderTest extends TestCase
     {
         self::assertSame(
             'Acme\Order\OrderFactory',
-            $this->reader->factoryFor(SealedByCustomAttribute::class, [CustomSeal::class]),
+            $this->reader->factoryFor(SealedByCustomAttribute::class, CustomSeal::class),
         );
     }
 
     public function testItReturnsNullWhenTheClassHasNoConfiguredSealingAttribute(): void
     {
         self::assertNull(
-            $this->reader->factoryFor(UnsealedClass::class, [FactorySealedBy::class, CustomSeal::class]),
+            $this->reader->factoryFor(UnsealedClass::class, FactorySealedBy::class, CustomSeal::class),
         );
     }
 
@@ -62,14 +62,14 @@ final class SealingAttributeReaderTest extends TestCase
         // SealedByCustomAttribute IS sealed, but only by CustomSeal — which is
         // not in the list we pass here, so the reader must not pick it up.
         self::assertNull(
-            $this->reader->factoryFor(SealedByCustomAttribute::class, [FactorySealedBy::class]),
+            $this->reader->factoryFor(SealedByCustomAttribute::class, FactorySealedBy::class),
         );
     }
 
     public function testItReturnsNullForAnUnknownClass(): void
     {
         self::assertNull(
-            $this->reader->factoryFor('Acme\Nope\DoesNotExist', [FactorySealedBy::class]),
+            $this->reader->factoryFor('Acme\Nope\DoesNotExist', FactorySealedBy::class),
         );
     }
 }

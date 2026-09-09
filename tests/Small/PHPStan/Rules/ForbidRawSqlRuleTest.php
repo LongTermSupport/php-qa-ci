@@ -50,7 +50,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     public function concatenationInABannedMethodArgumentIsFlagged(): void
     {
         // $conn->executeQuery($a . $b)
-        $call   = $this->methodCall(self::EXECUTE_QUERY, [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
+        $call   = $this->methodCall(self::EXECUTE_QUERY, new Arg(new Concat(new Variable('a'), new Variable('b'))));
         $errors = $this->rule->processNode($call, $this->scope());
 
         self::assertCount(1, $errors);
@@ -63,7 +63,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     {
         // $conn->prepare(foo($a . $b)) — concat is nested inside a call, found via NodeFinder.
         $nested = new FuncCall(new \PhpParser\Node\Name('foo'), [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
-        $call   = $this->methodCall('prepare', [new Arg($nested)]);
+        $call   = $this->methodCall('prepare', new Arg($nested));
 
         self::assertCount(1, $this->rule->processNode($call, $this->scope()));
     }
@@ -71,7 +71,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     #[Test]
     public function bannedMethodMatchesCaseInsensitively(): void
     {
-        $call = $this->methodCall('ExecuteStatement', [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
+        $call = $this->methodCall('ExecuteStatement', new Arg(new Concat(new Variable('a'), new Variable('b'))));
 
         self::assertCount(1, $this->rule->processNode($call, $this->scope()));
     }
@@ -79,7 +79,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     #[Test]
     public function bannedMethodWithoutConcatenationIsNotFlagged(): void
     {
-        $call = $this->methodCall(self::EXECUTE_QUERY, [new Arg(new Variable('preparedSql'))]);
+        $call = $this->methodCall(self::EXECUTE_QUERY, new Arg(new Variable('preparedSql')));
 
         self::assertSame([], $this->rule->processNode($call, $this->scope()));
     }
@@ -87,7 +87,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     #[Test]
     public function unrelatedMethodWithConcatenationIsNotFlagged(): void
     {
-        $call = $this->methodCall('doThing', [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
+        $call = $this->methodCall('doThing', new Arg(new Concat(new Variable('a'), new Variable('b'))));
 
         self::assertSame([], $this->rule->processNode($call, $this->scope()));
     }
@@ -110,10 +110,7 @@ final class ForbidRawSqlRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode($call, $this->scope()));
     }
 
-    /**
-     * @param list<Arg|VariadicPlaceholder> $args
-     */
-    private function methodCall(string $method, array $args): MethodCall
+    private function methodCall(string $method, Arg|VariadicPlaceholder ...$args): MethodCall
     {
         return new MethodCall(new Variable(self::VARIABLE_CONN), new Identifier($method), $args);
     }

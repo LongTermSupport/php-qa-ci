@@ -63,8 +63,37 @@ PHP-QA-CI bundles these PHPStan extensions as Composer dependencies (auto-loaded
 
 - **[phpstan-strict-rules](https://github.com/phpstan/phpstan-strict-rules)** -- Additional strict type-checking rules
 - **[phpstan-phpunit](https://github.com/phpstan/phpstan-phpunit)** -- PHPUnit-aware analysis, including proper mock object support
+- **[phpstan-deprecation-rules](https://github.com/phpstan/phpstan-deprecation-rules)** -- Reports calls to anything marked `@deprecated`
+- **[type-coverage](https://github.com/TomasVotruba/type-coverage)** -- Measures the share of declarations carrying a native type. Off until you set a floor, see below
 
 These are configured and loaded automatically. You do not need to install or configure them separately.
+
+### Type coverage
+
+Level max already demands a type on every new declaration. Type coverage answers a different
+question: on a codebase that is *not* there yet, how much of it is typed, and is that share
+going up? It is a ratchet, not a gate, so every floor is off until you set one:
+
+```php
+// qaConfig/qa.php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withTypeCoverageFloors(returnType: 65, paramType: 70, propertyType: 80, declare: 100);
+```
+
+Each argument is a percentage and each is optional; an omitted one is not measured at all. Raise
+them as you earn them. The identifiers, for `ignoreErrors` and for `rule-doc`, are
+`typeCoverage.returnTypeCoverage`, `typeCoverage.paramTypeCoverage`,
+`typeCoverage.propertyTypeCoverage`, `typeCoverage.constantTypeCoverage` and
+`typeCoverage.declareCoverage`.
+
+**It does nothing in a `-p` run, deliberately.** A percentage measured over one directory is not
+the project's coverage, so the extension refuses to report unless the whole configured project
+is being analysed. `vendor/bin/qa -t stan -p src/Domain` will therefore never show a coverage
+error, whatever the floors say. Use a full run to check them.
+
+`declare` is the share of files with `declare(strict_types=1)`. A project running the
+`phpStrictTypes` lane already requires that everywhere, so it is at 100 by construction and the
+floor is only worth setting as a belt-and-braces record of that fact.
 
 ## Custom PHPStan Rules
 

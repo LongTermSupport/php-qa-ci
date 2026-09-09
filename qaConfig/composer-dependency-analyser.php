@@ -59,6 +59,7 @@ $config
         'php-parallel-lint/php-parallel-lint',
         'php-parallel-lint/php-console-color',
         'shipmonk/composer-dependency-analyser',
+        'phpcpd-next/phpcpd',
     ], [ErrorType::UNUSED_DEPENDENCY])
     // PHPStan extensions, loaded by the PHAR through extension-installer, never referenced in our code.
     ->ignoreErrorsOnPackages([
@@ -66,6 +67,7 @@ $config
         'phpstan/phpstan-deprecation-rules',
         'phpstan/phpstan-phpunit',
         'phpstan/phpstan-strict-rules',
+        'tomasvotruba/type-coverage',
     ], [ErrorType::UNUSED_DEPENDENCY])
     /*
      * Extensions the shipped tools need rather than our own code: openssl for
