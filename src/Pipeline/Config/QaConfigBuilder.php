@@ -8,6 +8,7 @@ use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
+use LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto;
 
 /**
  * Immutable builder for a run's configuration. The pipeline seeds it from the
@@ -60,6 +61,7 @@ final readonly class QaConfigBuilder
         private ?string $infectionDiffBase,
         private int $infectionDiffCoveredMsi,
         private bool $useComposerAudit,
+        private TypeCoverageOptionsDto $typeCoverage,
         private bool $useArkitect,
         private array $arkitectExcludePaths,
         private bool $useSensitiveParameterCheck,
@@ -119,6 +121,7 @@ final readonly class QaConfigBuilder
             infectionDiffBase: $env->string('infectionDiffBase'),
             infectionDiffCoveredMsi: $env->int('infectionDiffCoveredMsi', 100),
             useComposerAudit: $env->bool('useComposerAudit', true),
+            typeCoverage: new TypeCoverageOptionsDto(),
             useArkitect: $env->bool('useArkitect', true),
             arkitectExcludePaths: [],
             useSensitiveParameterCheck: $env->bool('useSensitiveParameterCheck', true),
@@ -180,6 +183,21 @@ final readonly class QaConfigBuilder
     public function withComposerAudit(bool $enabled): self
     {
         return $this->with(useComposerAudit: $enabled);
+    }
+
+    /**
+     * Minimum percentage of declarations carrying a native type, per kind.
+     * Every floor is off unless given, so the check does nothing until a
+     * project opts in and raises each ratchet as it earns it.
+     */
+    public function withTypeCoverageFloors(
+        ?int $returnType = null,
+        ?int $paramType = null,
+        ?int $propertyType = null,
+        ?int $constantType = null,
+        ?int $declare = null,
+    ): self {
+        return $this->with(typeCoverage: new TypeCoverageOptionsDto($returnType, $paramType, $propertyType, $constantType, $declare));
     }
 
     public function withArkitect(bool $enabled): self
@@ -246,6 +264,7 @@ final readonly class QaConfigBuilder
                 diffCoveredMsi: $this->infectionDiffCoveredMsi,
             ),
             useComposerAudit: $this->useComposerAudit,
+            typeCoverage: $this->typeCoverage,
             useArkitect: $this->useArkitect,
             arkitectExcludePaths: $this->arkitectExcludePaths,
             useSensitiveParameterCheck: $this->useSensitiveParameterCheck,
@@ -285,6 +304,7 @@ final readonly class QaConfigBuilder
         ?string $infectionDiffBase = null,
         ?int $infectionDiffCoveredMsi = null,
         ?bool $useComposerAudit = null,
+        ?TypeCoverageOptionsDto $typeCoverage = null,
         ?bool $useArkitect = null,
         ?array $arkitectExcludePaths = null,
         ?bool $useSensitiveParameterCheck = null,
@@ -318,6 +338,7 @@ final readonly class QaConfigBuilder
             infectionDiffBase: $infectionDiffBase                   ?? $this->infectionDiffBase,
             infectionDiffCoveredMsi: $infectionDiffCoveredMsi       ?? $this->infectionDiffCoveredMsi,
             useComposerAudit: $useComposerAudit                     ?? $this->useComposerAudit,
+            typeCoverage: $typeCoverage                             ?? $this->typeCoverage,
             useArkitect: $useArkitect                               ?? $this->useArkitect,
             arkitectExcludePaths: $arkitectExcludePaths             ?? $this->arkitectExcludePaths,
             useSensitiveParameterCheck: $useSensitiveParameterCheck ?? $this->useSensitiveParameterCheck,

@@ -72,6 +72,22 @@
 #                                          correct as PHPUnit evolves. Only calls on a PHPUnit
 #                                          type (TestCase/Assert or a subclass) are flagged.
 #
+# VARIADIC OVER A LAST ARRAY PARAMETER:
+#   RequireVariadicOverArrayParameterRule — a method/function's LAST parameter, declared
+#                                          `array` and PHPDoc-annotated as a homogeneous
+#                                          list (`list<T>`, `non-empty-list<T>`, or
+#                                          `array<T>` with no key type), could be a native
+#                                          variadic `T ...$name` instead — engine-checked at
+#                                          every call site instead of docblock-only. Skips
+#                                          promoted/by-ref/already-variadic parameters, map
+#                                          and shape docblock types, __construct (PHPStan's
+#                                          own neon DI passes one positional value per
+#                                          argument), PHPUnit data-provided methods, and any
+#                                          method that implements an interface or overrides a
+#                                          parent (the signature is not this declaration's to
+#                                          change). See
+#                                          docs/phpstan-rules/require-variadic-over-array-parameter.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -98,6 +114,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
     - LTS\PHPQA\PHPStan\Rules\ForbidRepeatedStringLiteralRule
     - LTS\PHPQA\PHPStan\Rules\RequireConsistentMemberDocsRule
+    - LTS\PHPQA\PHPStan\Rules\RequireVariadicOverArrayParameterRule
 
 parameters:
     phpqaciFactorySealed:

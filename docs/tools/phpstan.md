@@ -118,11 +118,11 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 12 additional opt-in rules split across two files:
+PHP-QA-CI ships 15 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 8 generic rules suitable for any PHP project (6 in its `rules:` block
+- **`rules-optional.neon`** — 11 generic rules suitable for any PHP project (9 in its `rules:` block
   plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (12 total)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (15 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -167,6 +167,9 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
     # Single array param annotated @param list<T> should use variadic syntax instead
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+    # A method/function's LAST array param annotated @param list<T> (any param count)
+    # should use variadic syntax instead
+    - LTS\PHPQA\PHPStan\Rules\RequireVariadicOverArrayParameterRule
     # A scalar @param/@return typed as a docblock literal set ('a'|'b', 0|1) is an undeclared enum
     - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
     # Symfony: blocks user input passed directly into HTTP response headers
@@ -188,6 +191,7 @@ rules:
 | `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                |
 | `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                  |
 | `RequireVariadicForSingleListParamRule` | `rules-optional.neon`           | `array $items` annotated `@param list<T>` — use variadic syntax                |
+| `RequireVariadicOverArrayParameterRule` | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
 | `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum |
 | `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |
 | `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                          |

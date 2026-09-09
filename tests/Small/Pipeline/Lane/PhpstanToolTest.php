@@ -105,6 +105,70 @@ final class PhpstanToolTest extends TestCase
     }
 
     #[Test]
+    public function noTypeCoverageBlockIsWrittenWhenNoFloorIsSet(): void
+    {
+        $this->queueVersion()->willSucceed();
+
+        new PhpstanTool()->run($this->factory->context());
+
+        self::assertStringNotContainsString(
+            'type_coverage',
+            $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON),
+            'the extension must do nothing until a project opts in',
+        );
+    }
+
+    #[Test]
+    public function onlyTheTypeCoverageFloorsActuallySetAreWrittenToTheWrapperNeon(): void
+    {
+        $this->queueVersion()->willSucceed();
+        $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50, declare: 100)->build();
+
+        new PhpstanTool()->run($this->factory->context($config));
+
+        $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
+        self::assertStringContainsString("    type_coverage:\n        return_type: 50\n        declare: 100\n", $wrapper);
+        self::assertStringNotContainsString('param_type', $wrapper, 'an unset floor must not be written as zero');
+        self::assertStringNotContainsString('property_type', $wrapper);
+        self::assertStringNotContainsString('constant_type', $wrapper);
+    }
+
+    #[Test]
+    public function withTypeCoverageOnTheWholeProjectThePathsMoveIntoTheConfigAndOffTheCommandLine(): void
+    {
+        $this->queueVersion()->willSucceed();
+        $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50)->build();
+
+        new PhpstanTool()->run($this->factory->context($config));
+
+        $wrapper = $this->factory->project->path . '/var/qa/' . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
+        self::assertSame(
+            ['analyse', '-c', $wrapper, self::NO_PROGRESS],
+            $this->toolArgs($this->factory->processes->lastSpec()),
+            'type-coverage reports nothing when the analysed paths differ from the configured ones',
+        );
+        foreach ($config->pathsToCheck as $path) {
+            self::assertStringContainsString('        - ' . $path . "\n", \Safe\file_get_contents($wrapper));
+        }
+    }
+
+    #[Test]
+    public function aSinglePathRunKeepsTheCommandLineFormEvenWithTypeCoverageOn(): void
+    {
+        $this->queueVersion()->willSucceed();
+        $config = $this->factory->builder(specifiedPath: 'src')->withTypeCoverageFloors(returnType: 50)->build();
+
+        new PhpstanTool()->run($this->factory->context($config));
+
+        $wrapper = $this->factory->project->path . '/var/qa/' . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
+        self::assertSame(
+            ['analyse', ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
+            $this->toolArgs($this->factory->processes->lastSpec()),
+        );
+        self::assertStringNotContainsString('    paths:', \Safe\file_get_contents($wrapper), 'a subset must not masquerade as the whole project');
+    }
+
+    #[Test]
     public function anInteractiveRunKeepsTheProgressBar(): void
     {
         $this->queueVersion()->willSucceed();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -71,7 +72,17 @@ final readonly class PhpstanTool implements ToolInterface
         $wrapper = $this->writeWrapperNeon($context, $logDir);
         $context->writeln(\sprintf('PHPStan: limiting to %d parallel processes (50%% of cores)', $config->halfCpuThreads));
 
-        $baseArgs = ['analyse', ...$config->pathsToCheck, '-c', $wrapper];
+        /*
+         * type-coverage refuses to report when the analysed paths differ from
+         * the ones the config declares, because a percentage measured over a
+         * subset is misleading. Passing the paths on the command line always
+         * trips that check, so when the floors are on and the whole project is
+         * being analysed the paths go into the wrapper neon instead and no path
+         * argument is given. A `-p` run keeps the command-line form, which
+         * leaves type-coverage correctly silent for that run.
+         */
+        $pathArgs = $this->pathsBelongInConfig($config) ? [] : $config->pathsToCheck;
+        $baseArgs = ['analyse', ...$pathArgs, '-c', $wrapper];
 
         if ($config->jsonOutput) {
             return $this->runJson($context, $logDir, $baseArgs);
@@ -149,7 +160,12 @@ final readonly class PhpstanTool implements ToolInterface
         return ToolResultDto::failed('PHPStan found errors');
     }
 
-    /** Generate the neon that includes the resolved config and caps the worker count. */
+    /**
+     * Generate the neon that includes the resolved config, caps the worker
+     * count and applies the project's type-coverage floors. The floors go here
+     * rather than in the shipped phpstan.neon so a project that has copied that
+     * file still gets them from qa.php.
+     */
     private function writeWrapperNeon(ToolContext $context, string $logDir): string
     {
         $wrapper = $logDir . '/' . self::WRAPPER_NEON;
@@ -158,8 +174,35 @@ final readonly class PhpstanTool implements ToolInterface
             $context->configPath('phpstan.neon'),
             $context->config->halfCpuThreads,
         );
+
+        $config = $context->config;
+        if ($config->typeCoverage->enabled()) {
+            $neon .= "    type_coverage:\n";
+            foreach ($config->typeCoverage->neonParameters() as $key => $floor) {
+                $neon .= \sprintf("        %s: %d\n", $key, $floor);
+            }
+        }
+
+        if ($this->pathsBelongInConfig($config)) {
+            $neon .= "    paths:\n";
+            foreach ($config->pathsToCheck as $path) {
+                $neon .= \sprintf("        - %s\n", $path);
+            }
+        }
+
         \Safe\file_put_contents($wrapper, $neon);
 
         return $wrapper;
+    }
+
+    /**
+     * type-coverage compares the analysed paths against the configured ones and
+     * stays silent when they differ. They only agree when the paths come from
+     * the config, which is worth doing solely for a whole-project run with the
+     * floors switched on.
+     */
+    private function pathsBelongInConfig(QaConfigDto $config): bool
+    {
+        return $config->typeCoverage->enabled() && null === $config->specifiedPath;
     }
 }

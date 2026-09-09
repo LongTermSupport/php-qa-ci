@@ -158,6 +158,8 @@ back on. Keep permanent policy in `qa.php` and leave ad-hoc switches to the envi
 | `useSensitiveParameterCheck=0` | `withSensitiveParameterCheck(false)` | |
 | `twigDirectories` (Symfony) | `withTwigDirectories('templates', ...)` | Absolute or project-relative. Replaces the default `templates/`. |
 | `yamlDirectories` (Symfony) | `withYamlDirectories('config', ...)` | Replaces the default `config/`. |
+| *(new in 8.5)* | `withTypeCoverageFloors(returnType: 50, paramType: 40, propertyType: 60, constantType: 80, declare: 100)` | Minimum percentage of declarations carrying a native type, per kind. Every argument is optional and every floor is off unless given. Ignored in a `-p` run, deliberately — see [phpstan.md](tools/phpstan.md). |
+| *(new in 8.5)* | `withComposerAudit(false)` | Turns off `composer audit` in the composerChecks lane, which an offline build needs. `useComposerAudit=0` for one run. |
 
 Variables that stay **environment-only** (no builder method; set them in CI or on the command
 line, never in `qa.php`):

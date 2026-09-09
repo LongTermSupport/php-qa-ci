@@ -52,6 +52,7 @@ final readonly class QaConfigDto
         public PhpUnitOptionsDto $phpUnit,
         public InfectionOptionsDto $infection,
         public bool $useComposerAudit,
+        public TypeCoverageOptionsDto $typeCoverage,
         public bool $useArkitect,
         public array $arkitectExcludePaths,
         public bool $useSensitiveParameterCheck,
