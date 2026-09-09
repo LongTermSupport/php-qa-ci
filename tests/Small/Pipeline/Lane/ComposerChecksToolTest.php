@@ -38,8 +38,6 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ComposerChecksToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.10';
-
     private const string DIAGNOSE = 'diagnose';
 
     private const string NORMALIZE = 'normalize';
@@ -53,8 +51,6 @@ final class ComposerChecksToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        // Pre-generate the no-Xdebug ini so PhpInvoker only probes the PHP version per invocation.
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -66,11 +62,11 @@ final class ComposerChecksToolTest extends TestCase
     public function aReadOnlyRunDiagnosesChecksThePluginDryRunsNormalizeAndDumpsTheAutoloader(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed('diagnose ok')
-            ->willSucceed(self::PHP_VERSION)->willSucceed('No security vulnerability advisories found.')
-            ->willSucceed(self::PHP_VERSION)->willSucceed("true\n")
-            ->willSucceed(self::PHP_VERSION)->willSucceed('composer.json is already normalized.')
-            ->willSucceed(self::PHP_VERSION)->willSucceed('Generated autoload files')
+            ->willSucceed('diagnose ok')
+            ->willSucceed('No security vulnerability advisories found.')
+            ->willSucceed("true\n")
+            ->willSucceed('composer.json is already normalized.')
+            ->willSucceed('Generated autoload files')
         ;
 
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
@@ -97,11 +93,11 @@ final class ComposerChecksToolTest extends TestCase
     public function aWritableRunAppliesNormalize(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::COMPOSER_ALLOWED)
-            ->willSucceed(self::PHP_VERSION)->willSucceed('Successfully normalized')
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER_ALLOWED)
+            ->willSucceed('Successfully normalized')
+            ->willSucceed()
         ;
 
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
@@ -115,34 +111,34 @@ final class ComposerChecksToolTest extends TestCase
     public function everyComposerCallGoesThroughPhpWithoutXdebugFromTheProjectRoot(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::COMPOSER_ALLOWED)
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER_ALLOWED)
+            ->willSucceed()
+            ->willSucceed()
         ;
         $root = $this->factory->project->path;
 
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
 
-        $first = $this->factory->processes->specs[1];
+        $first = $this->factory->processes->specs[0];
         self::assertSame(
-            ['/usr/bin/php', '-n', '-c', $root . '/var/qa/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G', '-f', self::COMPOSER, '--', self::DIAGNOSE],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', self::COMPOSER, '--', self::DIAGNOSE],
             $first->command,
         );
         self::assertSame($root, $first->cwd);
-        self::assertFalse($this->factory->processes->specs[5]->streamOutput, 'the allow-plugins probe is captured, not streamed');
+        self::assertFalse($this->factory->processes->specs[2]->streamOutput, 'the allow-plugins probe is captured, not streamed');
     }
 
     #[Test]
     public function aFailingDiagnoseIsInformationalOnly(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willFail(1, 'Checking platform settings: FAIL')
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::COMPOSER_ALLOWED)
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
+            ->willFail(1, 'Checking platform settings: FAIL')
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER_ALLOWED)
+            ->willSucceed()
+            ->willSucceed()
         ;
 
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
@@ -155,8 +151,8 @@ final class ComposerChecksToolTest extends TestCase
     public function aKnownAdvisoryFailsTheLaneWithTheRemediationBeforeThePluginCheck(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willFail(1, 'Found 1 security vulnerability advisory affecting 1 package')
+            ->willSucceed()
+            ->willFail(1, 'Found 1 security vulnerability advisory affecting 1 package')
         ;
 
         $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
@@ -175,10 +171,10 @@ final class ComposerChecksToolTest extends TestCase
     public function theAuditIsSkippedWithANoteWhenDisabledForTheProject(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::COMPOSER_ALLOWED)
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER_ALLOWED)
+            ->willSucceed()
+            ->willSucceed()
         ;
 
         $config = $this->factory->builder()->withComposerAudit(false)->build();
@@ -204,8 +200,8 @@ final class ComposerChecksToolTest extends TestCase
             }
             JSON);
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
+            ->willSucceed()
+            ->willSucceed()
         ;
 
         $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
@@ -223,9 +219,9 @@ final class ComposerChecksToolTest extends TestCase
     public function aDisallowedNormalizePluginFailsWithTheGuidanceBeforeNormalizing(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed('null')
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed('null')
         ;
 
         $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
@@ -243,10 +239,10 @@ final class ComposerChecksToolTest extends TestCase
     public function aPendingNormalisationInAReadOnlyRunFailsWithTheWouldModifyGuidance(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::COMPOSER_ALLOWED)
-            ->willSucceed(self::PHP_VERSION)->willFail(1, 'composer.json is not normalized.')
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER_ALLOWED)
+            ->willFail(1, 'composer.json is not normalized.')
         ;
 
         $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
@@ -263,10 +259,10 @@ final class ComposerChecksToolTest extends TestCase
     public function aFailingWritableNormalizeFailsTheLane(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::COMPOSER_ALLOWED)
-            ->willSucceed(self::PHP_VERSION)->willFail(2, 'invalid json')
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER_ALLOWED)
+            ->willFail(2, 'invalid json')
         ;
 
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
@@ -280,11 +276,11 @@ final class ComposerChecksToolTest extends TestCase
     public function aFailingAutoloaderDumpFailsTheLane(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::COMPOSER_ALLOWED)
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willFail(1, 'Class Foo not found')
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER_ALLOWED)
+            ->willSucceed()
+            ->willFail(1, 'Class Foo not found')
         ;
 
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
@@ -298,14 +294,14 @@ final class ComposerChecksToolTest extends TestCase
     public function withoutAnExplicitPathComposerIsLocatedOrDefaultsToItsBareName(): void
     {
         $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
-            ->willSucceed(self::PHP_VERSION)->willSucceed('nope')
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed('nope')
         ;
 
         new ComposerChecksTool()->run($this->factory->context());
 
-        $script = $this->factory->processes->specs[1]->command[7];
+        $script = $this->factory->processes->specs[0]->command[4];
         self::assertTrue('composer' === $script || str_ends_with($script, '/composer') || str_ends_with($script, '/composer.phar'), $script);
     }
 
@@ -318,7 +314,7 @@ final class ComposerChecksToolTest extends TestCase
         self::assertSame('phpqaci.composerChecks', $tool->identifier());
     }
 
-    /** @return list<list<string>> the composer arguments of every composer invocation, in order (version probes skipped) */
+    /** @return list<list<string>> the composer arguments of every composer invocation, in order */
     private function composerInvocations(): array
     {
         $composerSpecs = array_values(array_filter(
@@ -326,6 +322,6 @@ final class ComposerChecksToolTest extends TestCase
             static fn (ProcessSpecDto $spec): bool => \in_array(self::COMPOSER, $spec->command, true),
         ));
 
-        return array_map(static fn (ProcessSpecDto $spec): array => \array_slice($spec->command, 9), $composerSpecs);
+        return array_map(static fn (ProcessSpecDto $spec): array => \array_slice($spec->command, 6), $composerSpecs);
     }
 }

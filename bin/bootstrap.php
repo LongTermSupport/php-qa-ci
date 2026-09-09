@@ -11,10 +11,15 @@ declare(strict_types=1);
  * whichever is found and returns control to the entrypoint, or prints
  * guidance and exits 1 if neither is found.
  *
+ * A vendored checkout that has run its own composer install has BOTH. The
+ * working directory decides: run from inside this package, the package is
+ * the project (its own vendor/ wins); run from anywhere else, the consumer
+ * is (the autoloader three levels up wins).
+ *
  * Required as: require __DIR__.'/bootstrap.php';
  *
  * After a successful require, $phpQaCiBootstrapAutoloadPath holds the absolute
- * path of the autoloader that was loaded (bin/qa-php derives the project root
+ * path of the autoloader that was loaded (bin/qa derives the project root
  * from it).
  *
  * An entrypoint whose failure message must differ from the default (see
@@ -22,10 +27,17 @@ declare(strict_types=1);
  * this file; it is used verbatim instead of the default guidance.
  */
 
-$phpQaCiBootstrapFiles = [
-    __DIR__.'/../../../autoload.php',
-    __DIR__.'/../vendor/autoload.php',
-];
+$phpQaCiBootstrapConsumerAutoload = __DIR__.'/../../../autoload.php';
+$phpQaCiBootstrapOwnAutoload      = __DIR__.'/../vendor/autoload.php';
+$phpQaCiBootstrapCwd              = getcwd();
+$phpQaCiBootstrapLibraryRoot      = realpath(dirname(__DIR__));
+$phpQaCiBootstrapRunFromInside    = false !== $phpQaCiBootstrapCwd
+    && false !== $phpQaCiBootstrapLibraryRoot
+    && ($phpQaCiBootstrapCwd === $phpQaCiBootstrapLibraryRoot || str_starts_with($phpQaCiBootstrapCwd, $phpQaCiBootstrapLibraryRoot.'/'));
+
+$phpQaCiBootstrapFiles = $phpQaCiBootstrapRunFromInside
+    ? [$phpQaCiBootstrapOwnAutoload, $phpQaCiBootstrapConsumerAutoload]
+    : [$phpQaCiBootstrapConsumerAutoload, $phpQaCiBootstrapOwnAutoload];
 
 $phpQaCiBootstrapAutoloadFound = false;
 foreach ($phpQaCiBootstrapFiles as $phpQaCiBootstrapFile) {

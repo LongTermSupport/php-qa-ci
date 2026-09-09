@@ -38,8 +38,6 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpCsFixerToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.10';
-
     private const string LINT_ERROR_LINE = "Files that were not fixed due to errors:\n   1) src/Broken.php\n";
 
     private ContextFactory $factory;
@@ -47,7 +45,6 @@ final class PhpCsFixerToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -58,13 +55,13 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function aReadOnlyRunPassesDryRunWithTheExpectedArgv(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed("Loaded config default.\n");
+        $this->factory->processes->willSucceed("Loaded config default.\n");
         $context = $this->context(readOnly: true);
 
         $result = new PhpCsFixerTool()->run($context);
 
         self::assertTrue($result->isSuccess());
-        self::assertCount(2, $this->factory->processes->specs, 'the version probe and the fixer');
+        self::assertCount(1, $this->factory->processes->specs, 'the fixer, no version probe');
         self::assertSame([...$this->expectedArgs($context), '--dry-run', ...$context->config->pathsToCheck], $this->toolArgs());
         self::assertSame($context->config->paths->projectRoot, $this->factory->processes->lastSpec()->cwd);
         self::assertContains($context->config->paths->pharDir . '/php-cs-fixer.phar', $this->factory->processes->lastSpec()->command);
@@ -74,7 +71,7 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function aWritableRunOmitsDryRun(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed();
         $context = $this->context(readOnly: false);
 
         $result = new PhpCsFixerTool()->run($context);
@@ -87,7 +84,7 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function theOutputIsWrittenToTheLogFile(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed("Fixed 0 of 3 files\n");
+        $this->factory->processes->willSucceed("Fixed 0 of 3 files\n");
 
         new PhpCsFixerTool()->run($this->context(readOnly: true));
 
@@ -97,7 +94,7 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function aReadOnlyPendingFixFailsWithTheRemediation(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(8, "   1) src/A.php\n");
+        $this->factory->processes->willFail(8, "   1) src/A.php\n");
 
         $result  = new PhpCsFixerTool()->run($this->context(readOnly: true));
         $printed = $this->factory->output->fetch();
@@ -111,7 +108,7 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function aReadOnlyGenuineErrorCrashes(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1);
+        $this->factory->processes->willFail(1);
 
         $result  = new PhpCsFixerTool()->run($this->context(readOnly: true));
         $printed = $this->factory->output->fetch();
@@ -125,7 +122,7 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function aWritableNonZeroExitFailsSoTheRunnerCanRetry(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(8);
+        $this->factory->processes->willFail(8);
 
         $result  = new PhpCsFixerTool()->run($this->context(readOnly: false));
         $printed = $this->factory->output->fetch();
@@ -139,7 +136,7 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function aLintErrorCrashesInAReadOnlyRunEvenWhenTheExitCodeIsZero(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::LINT_ERROR_LINE);
+        $this->factory->processes->willSucceed(self::LINT_ERROR_LINE);
 
         $result  = new PhpCsFixerTool()->run($this->context(readOnly: true));
         $printed = $this->factory->output->fetch();
@@ -154,7 +151,7 @@ final class PhpCsFixerToolTest extends TestCase
     #[Test]
     public function aLintErrorCrashesInAWritableRun(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(8, self::LINT_ERROR_LINE);
+        $this->factory->processes->willFail(8, self::LINT_ERROR_LINE);
 
         $result  = new PhpCsFixerTool()->run($this->context(readOnly: false));
         $printed = $this->factory->output->fetch();

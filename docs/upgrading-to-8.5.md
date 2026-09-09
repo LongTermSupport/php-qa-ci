@@ -349,9 +349,9 @@ Everything an override or hook may use. All properties are public and readonly.
 | `$context->config->platform` | `PlatformEnum` | `Generic` or `Symfony`. |
 | `$context->configPath('phpstan.neon')` | `string` | The three-level lookup; the generic path is returned even if absent. |
 | `$context->configPaths->isProjectOverride('x')` | `bool` | Whether the project supplies its own copy. |
-| `$context->php->withoutXdebug($script, $args, $cwd, $env = [], $streamOutput = true, $lowPriority = false)` | `ProcessResultDto` | Run a PHP script or PHAR with the no-Xdebug ini and the memory limit. The Bash `phpNoXdebug -f X -- args`. |
-| `$context->php->withXdebug($script, $args, $cwd, $env = [], $streamOutput = true)` | `ProcessResultDto` | Full ini set, for coverage; set `XDEBUG_MODE` in `$env`. |
-| `$context->php->version()`, `->hasXdebug()`, `->noXdebugIni()` | | Host probes. |
+| `$context->php->withoutXdebug($script, $args, $cwd, $env = [], $streamOutput = true, $lowPriority = false)` | `ProcessResultDto` | Run a PHP script or PHAR with `XDEBUG_MODE=off` and the memory limit. The Bash `phpNoXdebug -f X -- args`. |
+| `$context->php->withXdebug($script, $args, $cwd, $env = [], $streamOutput = true)` | `ProcessResultDto` | Xdebug left as the host runs it, for coverage; set `XDEBUG_MODE` in `$env`. |
+| `$context->php->version()`, `->hasXdebug()` | | Host probes. |
 | `$context->processes->run(new ProcessSpecDto(command: [...], cwd: ..., env: [...], timeout: null, streamOutput: true, lowPriority: false))` | `ProcessResultDto` | Any non-PHP command. `command` is an argv list, never a string. |
 | `$context->logs->archive($toolName, $logDir, $logFileName, $pathSpecific, $pathsChecked)` | `void` | The Bash `archiveToolLog`: timestamped copy, last ten kept per pattern. |
 | `$context->logDir('mytool_logs')` | `string` | A directory under `var/qa`, created on first use. |

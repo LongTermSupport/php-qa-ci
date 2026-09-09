@@ -22,4 +22,11 @@ return new Configuration()
      * missing dependency, and reporting it would train the reader to ignore
      * the unknown-symbol output entirely.
      */
-    ->ignoreErrorsOnPath('qaConfig', [ErrorType::UNKNOWN_CLASS, ErrorType::UNKNOWN_FUNCTION]);
+    ->ignoreErrorsOnPath('qaConfig', [ErrorType::UNKNOWN_CLASS, ErrorType::UNKNOWN_FUNCTION])
+    /*
+     * This file serves every project that has no copy of its own, so an
+     * ignore above that a given project never trips is expected, not stale.
+     * The tool would otherwise exit 1 for the unmatched ignore on a project
+     * with nothing wrong.
+     */
+    ->disableReportingUnmatchedIgnores();

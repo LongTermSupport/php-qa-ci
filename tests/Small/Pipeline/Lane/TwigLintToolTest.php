@@ -36,8 +36,6 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class TwigLintToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.10';
-
     private const string SYMFONY_TWIG_BUNDLE = 'vendor/symfony/twig-bundle';
 
     private const string CONSOLE_LISTING = "Available commands:\n  lint:twig  Lint a Twig template\n";
@@ -47,8 +45,6 @@ final class TwigLintToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        // Pre-generate the no-Xdebug ini so PhpInvoker only probes the PHP version per invocation.
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -69,17 +65,17 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function aConsoleWithoutLintTwigIsSkipped(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed("Available commands:\n  cache:clear\n");
+        $this->factory->processes->willSucceed("Available commands:\n  cache:clear\n");
         $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString('Twig Lint not found in bin/console, skipping', $this->factory->output->fetch());
-        self::assertCount(2, $this->factory->processes->specs, 'only the version probe and the command listing ran');
+        self::assertCount(1, $this->factory->processes->specs, 'only the command listing ran');
         self::assertFalse($this->factory->processes->lastSpec()->streamOutput, 'the listing is captured, not streamed');
         self::assertSame(
-            ['/usr/bin/php', '-n', '-c', $this->factory->project->path . '/var/qa/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G', '-f', 'bin/console', '--'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', 'bin/console', '--'],
             $this->factory->processes->lastSpec()->command,
         );
     }
@@ -87,19 +83,19 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function aMissingTwigBundleIsSkipped(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING);
+        $this->factory->processes->willSucceed(self::CONSOLE_LISTING);
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString('Twig Not Installed, nothing to do', $this->factory->output->fetch());
-        self::assertCount(2, $this->factory->processes->specs, 'lint:twig itself never ran');
+        self::assertCount(1, $this->factory->processes->specs, 'lint:twig itself never ran');
     }
 
     #[Test]
     public function aCleanLintPassesAndRunsLintTwigOverTheTwigDirectories(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING)->willSucceed(self::PHP_VERSION)->willSucceed('All 3 Twig files contain valid syntax.');
+        $this->factory->processes->willSucceed(self::CONSOLE_LISTING)->willSucceed('All 3 Twig files contain valid syntax.');
         $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
         $root = $this->factory->project->path;
 
@@ -107,7 +103,7 @@ final class TwigLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-n', '-c', $root . '/var/qa/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G', '-f', 'bin/console', '--', 'lint:twig', $root . '/templates'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', 'bin/console', '--', 'lint:twig', $root . '/templates'],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -118,7 +114,7 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function configuredTwigDirectoriesArePassedInOrder(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING)->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed(self::CONSOLE_LISTING)->willSucceed();
         $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
         $root   = $this->factory->project->path;
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)->withTwigDirectories('templates', 'src/Resources/views')->build();
@@ -127,14 +123,14 @@ final class TwigLintToolTest extends TestCase
 
         self::assertSame(
             ['--', 'lint:twig', $root . '/templates', $root . '/src/Resources/views'],
-            \array_slice($this->factory->processes->lastSpec()->command, 8),
+            \array_slice($this->factory->processes->lastSpec()->command, 5),
         );
     }
 
     #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING)->willSucceed(self::PHP_VERSION)->willFail(1, 'Unexpected token in templates/base.html.twig');
+        $this->factory->processes->willSucceed(self::CONSOLE_LISTING)->willFail(1, 'Unexpected token in templates/base.html.twig');
         $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));

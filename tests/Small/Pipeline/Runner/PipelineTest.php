@@ -14,6 +14,8 @@ use LTS\PHPQA\Pipeline\Runner\PharToolsVerifier;
 use LTS\PHPQA\Pipeline\Runner\Pipeline;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
+use LTS\PHPQA\Pipeline\Tool\ToolContext;
+use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FakeToolLocator;
@@ -23,6 +25,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * @internal
@@ -50,7 +53,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto::class)]
 #[UsesClass(ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\PhaseEnum::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
+#[UsesClass(ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolGateEnum::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum::class)]
 #[UsesClass(ToolRegistry::class)]
@@ -237,6 +240,37 @@ final class PipelineTest extends TestCase
 
         self::assertSame(0, $this->pipeline(retry: true)->run($context));
         self::assertStringContainsString('WARNING - RAN WITH RETRIES', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aToolThatThrowsReleasesTheLockAndTheExceptionPropagates(): void
+    {
+        $this->tools->register(new class implements ToolInterface {
+            public function name(): string
+            {
+                return 'phpLint';
+            }
+
+            public function identifier(): string
+            {
+                return 'phpqaci.phpLint';
+            }
+
+            public function run(ToolContext $context): ToolResultDto
+            {
+                throw new RuntimeException('the lane crashed');
+            }
+        });
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::PHP_LINT)->build());
+
+        try {
+            $this->pipeline()->run($context);
+            self::fail('the crash must propagate');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame('the lane crashed', $runtimeException->getMessage());
+        }
+
+        self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'a crash inside the locked section must not leave the lock behind');
     }
 
     private function pipeline(bool $retry = false): Pipeline

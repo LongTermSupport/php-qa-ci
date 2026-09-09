@@ -12,7 +12,6 @@ use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
-use LTS\PHPQA\Tests\Support\FakeProcessRunner;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -41,17 +40,11 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpArkitectToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.0';
-
     private ContextFactory $factory;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        // PhpInvoker asks the binary for its version before every run and then looks
-        // for the no-Xdebug ini of that version; pre-seeding the ini keeps the fake
-        // runner's queue to "version, then the tool" per invocation.
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', "memory_limit=-1\n");
     }
 
     protected function tearDown(): void
@@ -62,7 +55,7 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function aCleanRunPassesTheConfigAutoloadAndTierEnvironment(): void
     {
-        $this->queueVersion()->willSucceed("✓ no violations\n");
+        $this->factory->processes->willSucceed("✓ no violations\n");
         $config = $this->factory->builder()->withArkitectExcludedPaths('Quote/API', 'Generated/Client')->build();
 
         $result  = new PhpArkitectTool()->run($this->factory->context($config));
@@ -87,12 +80,13 @@ final class PhpArkitectToolTest extends TestCase
         self::assertTrue($spec->streamOutput);
         self::assertSame(
             [
-                'PHPQACI_ARKITECT_SRC_DIR'                => $this->factory->project->path . '/src',
-                'PHPQACI_ARKITECT_RULES_DEFAULT'          => $defaults . '/phparkitect-rules-default.php',
-                'PHPQACI_ARKITECT_RULES_OPTIONAL'         => $defaults . '/phparkitect-rules-optional.php',
-                'PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY' => $defaults . '/phparkitect-rules-optional-symfony.php',
-                'PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY'  => $defaults . '/phparkitect-consumer-api-boundary.php',
-                'PHPQACI_ARKITECT_EXCLUDE_PATHS'          => "Quote/API\nGenerated/Client",
+                'PHPQACI_ARKITECT_SRC_DIR'                 => $this->factory->project->path . '/src',
+                'PHPQACI_ARKITECT_RULES_DEFAULT'           => $defaults . '/phparkitect-rules-default.php',
+                'PHPQACI_ARKITECT_RULES_OPTIONAL'          => $defaults . '/phparkitect-rules-optional.php',
+                'PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY'  => $defaults . '/phparkitect-rules-optional-symfony.php',
+                'PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY'   => $defaults . '/phparkitect-consumer-api-boundary.php',
+                'PHPQACI_ARKITECT_EXCLUDE_PATHS'           => "Quote/API\nGenerated/Client",
+                'XDEBUG_MODE'                              => 'off',
             ],
             $spec->env,
         );
@@ -107,7 +101,7 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function noExcludePathsExportsAnEmptyString(): void
     {
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
 
         new PhpArkitectTool()->run($this->factory->context());
 
@@ -119,7 +113,7 @@ final class PhpArkitectToolTest extends TestCase
     {
         $entry   = $this->factory->project->write('qaConfig/phparkitect.php', "<?php return static fn () => null;\n");
         $default = $this->factory->project->write('qaConfig/phparkitect-rules-default.php', "<?php return [];\n");
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
 
         new PhpArkitectTool()->run($this->factory->context());
 
@@ -132,7 +126,7 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function ruleViolationsFailWithTheIdentifier(): void
     {
-        $this->queueVersion()->willFail(1, "App\\Foo violates ...\n");
+        $this->factory->processes->willFail(1, "App\\Foo violates ...\n");
 
         $result  = new PhpArkitectTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -146,7 +140,7 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function aCrashPrintsTheExplanationAndIsNeverRetried(): void
     {
-        $this->queueVersion()->willFail(2, "Parse error in src/Broken.php\n");
+        $this->factory->processes->willFail(2, "Parse error in src/Broken.php\n");
 
         $result  = new PhpArkitectTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -157,7 +151,7 @@ final class PhpArkitectToolTest extends TestCase
         self::assertStringContainsString('an INCOMPLETE autoloader does NOT crash', $printed);
         self::assertStringContainsString("run 'composer dump-autoload'", $printed);
         self::assertStringNotContainsString(PhpArkitectTool::IDENTIFIER, $printed);
-        self::assertCount(2, $this->factory->processes->specs);
+        self::assertCount(1, $this->factory->processes->specs);
     }
 
     #[Test]
@@ -202,11 +196,6 @@ final class PhpArkitectToolTest extends TestCase
         self::assertSame('phpArkitect', $tool->name());
         self::assertSame('phpqaci.phpArkitect', $tool->identifier());
         self::assertSame(PhpArkitectTool::IDENTIFIER, $tool->identifier());
-    }
-
-    private function queueVersion(): FakeProcessRunner
-    {
-        return $this->factory->processes->willSucceed(self::PHP_VERSION);
     }
 
     /** @return list<string> everything after the "--" separator */

@@ -34,15 +34,11 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ComposerRequireCheckerToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.10';
-
     private ContextFactory $factory;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        // Pre-generate the no-Xdebug ini so PhpInvoker only probes the PHP version per invocation.
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -53,7 +49,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
     #[Test]
     public function aCleanCheckPassesAndRunsThePharWithTheShippedConfig(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('There were no unknown symbols found.');
+        $this->factory->processes->willSucceed('There were no unknown symbols found.');
         $root    = $this->factory->project->path;
         $library = \dirname(__DIR__, 4);
 
@@ -62,7 +58,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
             [
-                '/usr/bin/php', '-n', '-c', $root . '/var/qa/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G',
+                '/usr/bin/php', '-d', 'memory_limit=4G',
                 '-f', $library . '/vendor-phar/composer-require-checker.phar', '--',
                 'check', '--config-file=' . $library . '/configDefaults/generic/composerRequireChecker.json', '--', $root . '/composer.json',
             ],
@@ -75,7 +71,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
     #[Test]
     public function aProjectConfigOverrideWins(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed();
         $override = $this->factory->project->write('qaConfig/composerRequireChecker.json', '{}');
 
         new ComposerRequireCheckerTool()->run($this->factory->context());
@@ -86,7 +82,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
     #[Test]
     public function aFailureIsFollowedByTheHowToFixGuidanceAndTheIdentifier(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'The following unknown symbols were found: Foo\Bar');
+        $this->factory->processes->willFail(1, 'The following unknown symbols were found: Foo\Bar');
 
         $result  = new ComposerRequireCheckerTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();

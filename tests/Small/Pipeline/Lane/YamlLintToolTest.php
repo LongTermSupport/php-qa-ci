@@ -38,15 +38,11 @@ final class YamlLintToolTest extends TestCase
 {
     private const string CONFIG_DIR = 'config';
 
-    private const string PHP_VERSION = '8.5.10';
-
     private ContextFactory $factory;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        // Pre-generate the no-Xdebug ini so PhpInvoker only probes the PHP version per invocation.
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -84,15 +80,16 @@ final class YamlLintToolTest extends TestCase
     #[Test]
     public function aCleanLintPassesAndRunsLintYamlWithParseTagsOverTheConfigDirectory(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('All 4 YAML files contain valid syntax.');
+        $this->factory->processes->willSucceed('All 4 YAML files contain valid syntax.');
         $this->factory->project->mkdir(self::CONFIG_DIR);
+
         $root = $this->factory->project->path;
 
         $result = new YamlLintTool()->run($this->factory->context($this->symfonyConfig()));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-n', '-c', $root . '/var/qa/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G', '-f', 'bin/console', '--', 'lint:yaml', '--parse-tags', $root . '/config'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', 'bin/console', '--', 'lint:yaml', '--parse-tags', $root . '/config'],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -103,7 +100,7 @@ final class YamlLintToolTest extends TestCase
     #[Test]
     public function onlyTheConfiguredDirectoriesThatExistArePassedInOrder(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed();
         $this->factory->project->mkdir(self::CONFIG_DIR);
         $this->factory->project->mkdir('translations');
 
@@ -117,14 +114,14 @@ final class YamlLintToolTest extends TestCase
 
         self::assertSame(
             ['--', 'lint:yaml', '--parse-tags', $root . '/config', $root . '/translations'],
-            \array_slice($this->factory->processes->lastSpec()->command, 8),
+            \array_slice($this->factory->processes->lastSpec()->command, 5),
         );
     }
 
     #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Unable to parse at line 3');
+        $this->factory->processes->willFail(1, 'Unable to parse at line 3');
         $this->factory->project->mkdir(self::CONFIG_DIR);
 
         $result = new YamlLintTool()->run($this->factory->context($this->symfonyConfig()));

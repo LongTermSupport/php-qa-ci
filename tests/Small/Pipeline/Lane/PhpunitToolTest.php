@@ -53,8 +53,6 @@ final class PhpunitToolTest extends TestCase
 
     private const string TESTS_UNIT = '/tests/Unit';
 
-    private const string PHP_VERSION = '8.5.10';
-
     private const string VERSION_LINE = "PHPUnit 12.3.4 by Sebastian Bergmann and contributors.\n";
 
     private const string JUNIT_WITH_TESTS = "<?xml version=\"1.0\"?>\n<testsuites><testsuite name=\"t\" tests=\"1\"/></testsuites>\n";
@@ -68,7 +66,6 @@ final class PhpunitToolTest extends TestCase
         $this->factory = ContextFactory::create();
         $this->root    = $this->factory->project->path;
         $this->factory->project->write(self::TESTS_BOOTSTRAP_PHP, self::PHP);
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', '');
     }
 
     protected function tearDown(): void
@@ -117,10 +114,7 @@ final class PhpunitToolTest extends TestCase
     public function aNoCoverageRunStripsXdebugAndAddsTheNoCoverageFlags(): void
     {
         $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
-        $this->factory->processes
-            ->willSucceed(self::PHP_VERSION)->willSucceed(self::VERSION_LINE)
-            ->willSucceed(self::PHP_VERSION)->willSucceed('OK')
-        ;
+        $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
 
         $config = $this->factory->builder(env: ['phpUnitCoverage' => '0', 'phpUnitQuickTests' => '1'], ci: true);
         $result = new PhpunitTool()->run($this->context($config));
@@ -128,7 +122,7 @@ final class PhpunitToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $run = $this->factory->processes->lastSpec();
         self::assertSame(self::PHP_BIN_PATH, $run->command[0]);
-        self::assertSame('-n', $run->command[1]);
+        self::assertSame('-d', $run->command[1]);
         self::assertContains('--no-coverage', $run->command);
         self::assertContains('--enforce-time-limit', $run->command);
         self::assertSame(['phpUnitQuickTests' => '1', 'XDEBUG_MODE' => 'off'], $run->env);
@@ -256,7 +250,7 @@ final class PhpunitToolTest extends TestCase
         $this->factory->processes
             ->willSucceed(self::VERSION_LINE)
             ->willFail(255, 'PHP Fatal error: boom')
-            ->willSucceed(self::PHP_VERSION)->willFail(255, 'boom again')
+            ->willFail(255, 'boom again')
         ;
 
         $result  = new PhpunitTool()->run($this->context($this->factory->builder()));
@@ -270,10 +264,10 @@ final class PhpunitToolTest extends TestCase
 
         $debug = $this->factory->processes->lastSpec();
         self::assertSame(
-            [self::PHP_BIN_PATH, '-n', '-c', $this->root . '/var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', '-d', self::MEMORY_LIMIT_ARG, '-f', $this->root . self::BIN_PHPUNIT, '--', $this->root . '/tests', '--debug'],
+            [self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-f', $this->root . self::BIN_PHPUNIT, '--', $this->root . '/tests', '--debug'],
             $debug->command,
         );
-        self::assertSame(['qaQuickTests' => '0'], $debug->env);
+        self::assertSame(['qaQuickTests' => '0', 'XDEBUG_MODE' => 'off'], $debug->env);
     }
 
     #[Test]

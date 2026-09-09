@@ -9,7 +9,6 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
-use LTS\PHPQA\Tests\Support\FakeProcessRunner;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -45,17 +44,11 @@ final class PhpstanToolTest extends TestCase
 
     private const string SRC = 'src';
 
-    private const string PHP_VERSION = '8.5.0';
-
     private ContextFactory $factory;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        // PhpInvoker asks the binary for its version before every run and then looks
-        // for the no-Xdebug ini of that version; pre-seeding the ini keeps the fake
-        // runner's queue to "version, then the tool" per invocation.
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', "memory_limit=-1\n");
     }
 
     protected function tearDown(): void
@@ -66,7 +59,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function aCleanRunWritesTheWrapperNeonRunsThePharAndArchivesTheLog(): void
     {
-        $this->queueVersion()->willSucceed("[OK] No errors\n");
+        $this->factory->processes->willSucceed("[OK] No errors\n");
         $config = $this->factory->builder(ci: true)->build();
 
         $result  = new PhpstanTool()->run($this->factory->context($config));
@@ -102,7 +95,7 @@ final class PhpstanToolTest extends TestCase
     public function theProjectOverrideNeonIsIncludedWhenPresent(): void
     {
         $override = $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    level: max\n");
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
 
         new PhpstanTool()->run($this->factory->context());
 
@@ -112,7 +105,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function noTypeCoverageBlockIsWrittenWhenNoFloorIsSet(): void
     {
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
 
         new PhpstanTool()->run($this->factory->context());
 
@@ -126,7 +119,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function onlyTheTypeCoverageFloorsActuallySetAreWrittenToTheWrapperNeon(): void
     {
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
         $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50, declare: 100)->build();
 
         new PhpstanTool()->run($this->factory->context($config));
@@ -141,7 +134,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function withTypeCoverageOnTheWholeProjectThePathsMoveIntoTheConfigAndOffTheCommandLine(): void
     {
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
         $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50)->build();
 
         new PhpstanTool()->run($this->factory->context($config));
@@ -160,7 +153,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function aSinglePathRunKeepsTheCommandLineFormEvenWithTypeCoverageOn(): void
     {
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
         $config = $this->factory->builder(specifiedPath: self::SRC)->withTypeCoverageFloors(returnType: 50)->build();
 
         new PhpstanTool()->run($this->factory->context($config));
@@ -176,7 +169,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function anInteractiveRunKeepsTheProgressBar(): void
     {
-        $this->queueVersion()->willSucceed();
+        $this->factory->processes->willSucceed();
 
         new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: false)->build()));
 
@@ -186,7 +179,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function errorsFoundFailWithTheIdentifierAndNoTautologyNote(): void
     {
-        $this->queueVersion()->willFail(1, " 12  Method foo() has no return type specified.\n");
+        $this->factory->processes->willFail(1, " 12  Method foo() has no return type specified.\n");
 
         $result  = new PhpstanTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -194,13 +187,13 @@ final class PhpstanToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString(PhpstanTool::IDENTIFIER, $printed);
         self::assertStringNotContainsString('possible tautology', $printed);
-        self::assertCount(2, $this->factory->processes->specs, 'no debug re-run for a plain failure');
+        self::assertCount(1, $this->factory->processes->specs, 'no debug re-run for a plain failure');
     }
 
     #[Test]
     public function aTautologyIdentifierInTheOutputPrintsTheNote(): void
     {
-        $this->queueVersion()->willFail(1, "Call to method assertTrue() with true will always evaluate to true.\n  🪪 method.alreadyNarrowedType\n");
+        $this->factory->processes->willFail(1, "Call to method assertTrue() with true will always evaluate to true.\n  🪪 method.alreadyNarrowedType\n");
 
         $result  = new PhpstanTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -215,8 +208,9 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function aCrashIsReRunWithDebugAndReportedAsCrashed(): void
     {
-        $this->queueVersion()->willFail(255, "PHP Fatal error: boom\n");
-        $this->queueVersion()->willFail(255, "debug output\n");
+        $this->factory->processes->willFail(255, "PHP Fatal error: boom\n");
+        $this->factory->processes->willFail(255, "debug output\n");
+
         $config = $this->factory->builder(ci: true)->build();
 
         $result  = new PhpstanTool()->run($this->factory->context($config));
@@ -228,7 +222,7 @@ final class PhpstanToolTest extends TestCase
         self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
-        self::assertCount(4, $this->factory->processes->specs);
+        self::assertCount(2, $this->factory->processes->specs);
         self::assertSame(
             [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, '--debug', '-v'],
             $this->toolArgs($this->factory->processes->lastSpec()),
@@ -241,7 +235,7 @@ final class PhpstanToolTest extends TestCase
     {
         $json  = '{"totals":{"errors":0,"file_errors":0},"files":{},"errors":[]}';
         $noise = "PHP Warning:  Module \"xml\" is already loaded in Unknown on line 0\n";
-        $this->queueVersion()->willReturn(new ProcessResultDto(0, $noise . $json, $json));
+        $this->factory->processes->willReturn(new ProcessResultDto(0, $noise . $json, $json));
         $config = $this->factory->builder(jsonOutput: true, specifiedPath: self::SRC)->build();
 
         $result = new PhpstanTool()->run($this->factory->context($config));
@@ -254,7 +248,7 @@ final class PhpstanToolTest extends TestCase
     public function jsonModeWritesTheReportToStdoutOnlyAndNeverRetries(): void
     {
         $json = '{"totals":{"errors":0,"file_errors":1},"files":{},"errors":[]}';
-        $this->queueVersion()->willFail(1, $json);
+        $this->factory->processes->willFail(1, $json);
         $config = $this->factory->builder(ci: false, jsonOutput: true, specifiedPath: self::SRC)->build();
 
         $result = new PhpstanTool()->run($this->factory->context($config));
@@ -271,7 +265,7 @@ final class PhpstanToolTest extends TestCase
         $args = $this->toolArgs($spec);
         self::assertContains('--error-format=json', $args);
         self::assertContains(self::NO_PROGRESS, $args, 'json mode always suppresses progress, even interactively');
-        self::assertCount(2, $this->factory->processes->specs, 'no re-run of any kind in json mode');
+        self::assertCount(1, $this->factory->processes->specs, 'no re-run of any kind in json mode');
 
         $logDir = self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR;
         self::assertSame($json, $this->factory->project->read($logDir . '/' . PhpstanTool::JSON_FILE));
@@ -282,7 +276,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function jsonModeCleanRunPasses(): void
     {
-        $this->queueVersion()->willSucceed('{"totals":{"errors":0,"file_errors":0}}');
+        $this->factory->processes->willSucceed('{"totals":{"errors":0,"file_errors":0}}');
 
         $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
 
@@ -293,13 +287,13 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function jsonModeCrashIsReportedWithoutADebugReRun(): void
     {
-        $this->queueVersion()->willFail(255, 'Fatal');
+        $this->factory->processes->willFail(255, 'Fatal');
 
         $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertStringContainsString('PHPStan crashed (exit code: 255)', $this->factory->output->fetch());
-        self::assertCount(2, $this->factory->processes->specs);
+        self::assertCount(1, $this->factory->processes->specs);
     }
 
     #[Test]
@@ -310,11 +304,6 @@ final class PhpstanToolTest extends TestCase
         self::assertSame('phpstan', $tool->name());
         self::assertSame('phpqaci.phpstan', $tool->identifier());
         self::assertSame(PhpstanTool::IDENTIFIER, $tool->identifier());
-    }
-
-    private function queueVersion(): FakeProcessRunner
-    {
-        return $this->factory->processes->willSucceed(self::PHP_VERSION);
     }
 
     /** @return list<string> everything after the "--" separator */

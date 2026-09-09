@@ -48,8 +48,6 @@ final class InfectionToolTest extends TestCase
 
     private const string INFECTION = 'infection';
 
-    private const string PHP_VERSION = '8.5.10';
-
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4'];
 
     private ContextFactory $factory;
@@ -60,7 +58,6 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory = ContextFactory::create();
         $this->root    = $this->factory->project->path;
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', '');
     }
 
     protected function tearDown(): void
@@ -84,7 +81,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->project->write('var/qa/infection/log.txt', 'stale');
         $this->factory->project->write('var/qa/infection/tmp/deep/file', 'stale');
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('Mutation Score Indicator (MSI): 90%');
+        $this->factory->processes->willSucceed('Mutation Score Indicator (MSI): 90%');
 
         $result  = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)));
         $printed = $this->factory->output->fetch();
@@ -95,7 +92,7 @@ final class InfectionToolTest extends TestCase
 
         $phar = $this->factory->processes->lastSpec();
         self::assertSame([
-            '/usr/bin/php', '-n', '-c', $this->root . '/var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', '-d', 'memory_limit=4G',
+            '/usr/bin/php', '-d', 'memory_limit=4G',
             '-f', \dirname(__DIR__, 4) . '/vendor-phar/infection.phar', '--',
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
@@ -118,7 +115,7 @@ final class InfectionToolTest extends TestCase
     public function aSingleToolRunGeneratesFreshCoverageWithXdebug(): void
     {
         $this->factory->project->write('var/qa/phpunit_logs/coverage-xml/stale.xml', self::MINIMAL_XML);
-        $this->factory->processes->willSucceed('OK (3 tests)')->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed('OK (3 tests)')->willSucceed();
 
         $result  = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS, singleTool: self::INFECTION)));
         $printed = $this->factory->output->fetch();
@@ -135,13 +132,13 @@ final class InfectionToolTest extends TestCase
             '--log-junit', $this->root . '/var/qa/phpunit_logs/phpunit.junit.xml',
         ], $coverage->command);
         self::assertSame(['XDEBUG_MODE' => 'coverage'], $coverage->env);
-        self::assertCount(3, $this->factory->processes->specs);
+        self::assertCount(2, $this->factory->processes->specs);
     }
 
     #[Test]
     public function aFullRunWithNoCoverageOnDiskGeneratesIt(): void
     {
-        $this->factory->processes->willSucceed()->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed()->willSucceed();
 
         $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)));
 
@@ -167,7 +164,7 @@ final class InfectionToolTest extends TestCase
     public function anEscapedMutantFloorBreachIsFailedWithTheIdentifier(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'MSI 50% is less than min MSI 74%');
+        $this->factory->processes->willFail(1, 'MSI 50% is less than min MSI 74%');
 
         $result  = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)));
         $printed = $this->factory->output->fetch();
@@ -181,7 +178,7 @@ final class InfectionToolTest extends TestCase
     public function aHundredPercentFullFloorPrintsTheAdvisory(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed();
 
         new InfectionTool()->run($this->context($this->factory->builder(env: ['mutationScoreIndicator' => '90', 'coveredCodeMSI' => '100'])));
         $printed = $this->factory->output->fetch();
@@ -227,7 +224,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->processes
             ->willSucceed('')
             ->willSucceed("src/Committed.php\n")
-            ->willSucceed(self::PHP_VERSION)->willSucceed()
+            ->willSucceed()
         ;
 
         $result  = new InfectionTool()->run($this->context($this->diffBuilder()));
@@ -252,7 +249,7 @@ final class InfectionToolTest extends TestCase
             '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
             '--min-covered-msi=100',
             $this->root . '/src/Committed.php',
-        ], \array_slice($phar->command, 9));
+        ], \array_slice($phar->command, 6));
         self::assertTrue($phar->lowPriority);
     }
 
@@ -260,7 +257,7 @@ final class InfectionToolTest extends TestCase
     public function anOverriddenDiffFloorReachesInfectionAndSilencesTheAdvisory(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed('')->willSucceed("src/Changed.php\n")->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed('')->willSucceed("src/Changed.php\n")->willSucceed();
 
         new InfectionTool()->run($this->context($this->diffBuilder(['infectionDiffCoveredMsi' => '95'])));
         $printed = $this->factory->output->fetch();

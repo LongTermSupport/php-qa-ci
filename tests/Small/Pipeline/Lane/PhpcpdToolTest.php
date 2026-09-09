@@ -34,8 +34,6 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpcpdToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.10';
-
     private const string BINARY = 'vendor/bin/phpcpd';
 
     private const string SHEBANG = "#!/usr/bin/env php\n";
@@ -45,7 +43,6 @@ final class PhpcpdToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -65,7 +62,7 @@ final class PhpcpdToolTest extends TestCase
     #[Test]
     public function aCleanRunWritesTheJsonReportOverTheCheckedPaths(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('0% duplicated lines');
+        $this->factory->processes->willSucceed('0% duplicated lines');
         $binary = $this->factory->project->write(self::BINARY, self::SHEBANG);
         $config = $this->factory->builder()->build();
 
@@ -86,7 +83,7 @@ final class PhpcpdToolTest extends TestCase
     #[Test]
     public function foundClonesDoNotFailTheLane(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, '2.4% duplicated lines');
+        $this->factory->processes->willFail(1, '2.4% duplicated lines');
         $this->factory->project->write(self::BINARY, self::SHEBANG);
 
         $result = new PhpcpdTool()->run($this->factory->context());
@@ -98,7 +95,7 @@ final class PhpcpdToolTest extends TestCase
     #[Test]
     public function aCrashIsReportedOnScreenAndStillDoesNotFailTheLane(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(255, 'segfault');
+        $this->factory->processes->willFail(255, 'segfault');
         $this->factory->project->write(self::BINARY, self::SHEBANG);
 
         $result = new PhpcpdTool()->run($this->factory->context());

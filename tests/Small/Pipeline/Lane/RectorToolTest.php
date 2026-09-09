@@ -50,7 +50,6 @@ final class RectorToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -110,7 +109,7 @@ final class RectorToolTest extends TestCase
 
         foreach ($this->rectorSpecs() as $spec) {
             self::assertSame($config->paths->projectRoot, $spec->cwd);
-            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated"], $spec->env);
+            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated", 'XDEBUG_MODE' => 'off'], $spec->env);
             self::assertContains($config->paths->pharDir . '/rector.phar', $spec->command);
         }
     }
@@ -122,7 +121,7 @@ final class RectorToolTest extends TestCase
 
         new RectorTool()->run($this->context(readOnly: true));
 
-        self::assertSame(['rectorIgnorePaths' => ''], array_last($this->rectorSpecs())?->env);
+        self::assertSame(['rectorIgnorePaths' => '', 'XDEBUG_MODE' => 'off'], array_last($this->rectorSpecs())?->env);
     }
 
     #[Test]
@@ -243,11 +242,10 @@ final class RectorToolTest extends TestCase
         self::assertSame('phpqaci.rector', $tool->identifier());
     }
 
-    /** Queue one Rector pass per exit code, each preceded by the PHP version probe the invoker makes. */
+    /** Queue one Rector pass per exit code. */
     private function queuePasses(int ...$exitCodes): void
     {
         foreach ($exitCodes as $exitCode) {
-            $this->factory->processes->willSucceed('8.5.10');
             if (0 === $exitCode) {
                 $this->factory->processes->willSucceed();
             } else {
@@ -256,7 +254,7 @@ final class RectorToolTest extends TestCase
         }
     }
 
-    /** @return list<ProcessSpecDto> only the Rector invocations, without the invoker's version probes */
+    /** @return list<ProcessSpecDto> the Rector invocations made by this run */
     private function rectorSpecs(): array
     {
         return array_values(array_filter(

@@ -39,6 +39,13 @@ The last row is the one worth understanding: an unknown symbol is not a pass, it
 - Configuration resolves through the usual three levels; the shipped default is
   [configDefaults/generic/composer-dependency-analyser.php](../../configDefaults/generic/composer-dependency-analyser.php).
   A project copy at `qaConfig/composer-dependency-analyser.php` **replaces** it outright.
+- A project copy lives under `qaConfig/`, which is autoloaded and therefore scanned, and it
+  names the analyser's own `Configuration` and `ErrorType` classes, which php-qa-ci installs
+  rather than the project. Exclude the file from its own scan with `->addPathToExclude(__FILE__)`
+  or that `use` is reported as a shadow dependency.
+- The tool exits `1` for an ignore that nothing matched. The shipped default switches that off
+  because it serves every project; a project copy should leave it on so a stale ignore is
+  noticed.
 
 ### The exit code is ambiguous
 

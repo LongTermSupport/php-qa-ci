@@ -32,6 +32,8 @@ final class QaEntrypointTest extends TestCase
 
     private const string INSTALLED_LIBRARY = 'vendor/lts/php-qa-ci';
 
+    private const string AUTOLOAD = '/vendor/autoload.php';
+
     private TempDir $consumer;
 
     protected function setUp(): void
@@ -122,6 +124,34 @@ final class QaEntrypointTest extends TestCase
     }
 
     /**
+     * A vendored php-qa-ci that has run its own composer install holds two
+     * autoloaders: the consumer's, three levels up, and its own. Which one is
+     * the project is decided by where the command is run from, so
+     * "cd vendor/lts/php-qa-ci && bin/qa" validates php-qa-ci itself while the
+     * consumer's vendor/bin/qa still validates the consumer.
+     */
+    #[Test]
+    public function theBootstrapPicksTheProjectByTheWorkingDirectoryWhenBothAutoloadersExist(): void
+    {
+        $installed = $this->consumer->path . '/' . self::INSTALLED_LIBRARY;
+        $this->consumer->write(self::INSTALLED_LIBRARY . self::AUTOLOAD, "<?php\n\ndeclare(strict_types=1);\n\nreturn require " . var_export(\Safe\realpath(self::LIBRARY_ROOT) . self::AUTOLOAD, true) . ";\n");
+        $probe     = $this->consumer->write('probe.php', "<?php\n\ndeclare(strict_types=1);\n\nrequire \$argv[1];\necho \$phpQaCiBootstrapAutoloadPath;\n");
+        $bootstrap = $installed . '/bin/bootstrap.php';
+
+        self::assertSame(\Safe\realpath($this->consumer->path . self::AUTOLOAD), $this->probe($probe, $bootstrap, $this->consumer->path));
+        self::assertSame(\Safe\realpath($installed . self::AUTOLOAD), $this->probe($probe, $bootstrap, $installed));
+        self::assertSame(\Safe\realpath($installed . self::AUTOLOAD), $this->probe($probe, $bootstrap, $installed . '/bin'));
+    }
+
+    private function probe(string $probe, string $bootstrap, string $cwd): string
+    {
+        $process = new Process(['php', $probe, $bootstrap], $cwd, ['XDEBUG_MODE' => 'off'], null, 60);
+        $process->mustRun();
+
+        return $process->getOutput();
+    }
+
+    /**
      * PHP resolves __DIR__ through symlinks, so a symlinked library would find
      * THIS repository's autoloader and treat this repository as the project.
      * The consumer therefore gets a real bin/ directory holding copies of the
@@ -150,7 +180,7 @@ final class QaEntrypointTest extends TestCase
 
         $this->consumer->write('vendor/autoload.php', \sprintf(
             "<?php\n\ndeclare(strict_types=1);\n\nreturn require %s;\n",
-            var_export($libraryRoot . '/vendor/autoload.php', true),
+            var_export($libraryRoot . self::AUTOLOAD, true),
         ));
     }
 

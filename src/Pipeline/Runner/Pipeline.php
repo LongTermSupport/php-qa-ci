@@ -51,8 +51,15 @@ final readonly class Pipeline
             return 1;
         }
 
-        $exitCode = $this->runLocked($context);
-        $this->lock->release($exitCode);
+        // A lane that throws must not leave the lock behind: the next run would
+        // wait out the stale window for a holder that no longer exists.
+        $exitCode = 1;
+
+        try {
+            $exitCode = $this->runLocked($context);
+        } finally {
+            $this->lock->release($exitCode);
+        }
 
         return $exitCode;
     }

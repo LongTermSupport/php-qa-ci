@@ -390,7 +390,7 @@ return new class implements ToolInterface {
 ```
 
 A tool prints through `$context->writeln()` and runs commands through `$context->php` (PHP
-scripts and PHARs, with the no-Xdebug ini and the memory limit applied) or `$context->processes`
+scripts and PHARs, with Xdebug switched off and the memory limit applied) or `$context->processes`
 (any other command). It never calls `exit` or builds a shell string.
 
 ### Claude Code Hooks

@@ -31,6 +31,10 @@ final class PhpInvokerTest extends TestCase
 
     private const string PHP_BINARY = 'php';
 
+    private const array XDEBUG_OFF = ['XDEBUG_MODE' => 'off'];
+
+    private const array XDEBUG_COVERAGE = ['XDEBUG_MODE' => 'coverage'];
+
     private TempDir $varDir;
 
     protected function setUp(): void
@@ -59,10 +63,10 @@ final class PhpInvokerTest extends TestCase
             $spec->command,
         );
         self::assertSame(self::PROJECT, $spec->cwd);
-        self::assertSame(['FOO' => 'bar', 'XDEBUG_MODE' => 'off'], $spec->env);
+        self::assertSame(['FOO' => 'bar', ...self::XDEBUG_OFF], $spec->env);
         // No probe, no generated ini: the tool run is the only process.
         self::assertCount(1, $runner->specs);
-        self::assertSame([], glob($this->varDir->path . '/*.ini'));
+        self::assertSame([], \Safe\glob($this->varDir->path . '/*.ini'));
     }
 
     #[Test]
@@ -71,9 +75,9 @@ final class PhpInvokerTest extends TestCase
         $runner  = new FakeProcessRunner()->willSucceed('');
         $invoker = new PhpInvoker($runner, self::PHP_BINARY, '4G', $this->varDir->path);
 
-        $spec = $invoker->specWithoutXdebug('/x', [], '/p', ['XDEBUG_MODE' => 'coverage']);
+        $spec = $invoker->specWithoutXdebug('/x', [], '/p', self::XDEBUG_COVERAGE);
 
-        self::assertSame(['XDEBUG_MODE' => 'off'], $spec->env);
+        self::assertSame(self::XDEBUG_OFF, $spec->env);
     }
 
     #[Test]
@@ -82,12 +86,12 @@ final class PhpInvokerTest extends TestCase
         $runner  = new FakeProcessRunner()->willFail(2, 'boom');
         $invoker = new PhpInvoker($runner, self::PHP_BINARY, '2G', $this->varDir->path);
 
-        $result = $invoker->withXdebug('/lib/bin/phpunit', ['-c', 'x.xml'], self::PROJECT, ['XDEBUG_MODE' => 'coverage'], streamOutput: false);
+        $result = $invoker->withXdebug('/lib/bin/phpunit', ['-c', 'x.xml'], self::PROJECT, self::XDEBUG_COVERAGE, streamOutput: false);
 
         self::assertSame(2, $result->exitCode);
         self::assertFalse($result->succeeded());
         self::assertSame([self::PHP_BINARY, '-d', 'memory_limit=2G', '-f', '/lib/bin/phpunit', '--', '-c', 'x.xml'], $runner->lastSpec()->command);
-        self::assertSame(['XDEBUG_MODE' => 'coverage'], $runner->lastSpec()->env);
+        self::assertSame(self::XDEBUG_COVERAGE, $runner->lastSpec()->env);
         self::assertFalse($runner->lastSpec()->streamOutput);
     }
 
@@ -103,8 +107,8 @@ final class PhpInvokerTest extends TestCase
         self::assertFalse($runner->specs[0]->streamOutput);
         // A host Xdebug in debug mode prints "Could not connect to debugging client" on every
         // CLI call; both probes switch it off so the captured output is the answer alone.
-        self::assertSame(['XDEBUG_MODE' => 'off'], $runner->specs[0]->env);
-        self::assertSame(['XDEBUG_MODE' => 'off'], $runner->specs[1]->env);
+        self::assertSame(self::XDEBUG_OFF, $runner->specs[0]->env);
+        self::assertSame(self::XDEBUG_OFF, $runner->specs[1]->env);
     }
 
     #[Test]

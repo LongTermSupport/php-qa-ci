@@ -34,15 +34,11 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpLintToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.10';
-
     private ContextFactory $factory;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        // Pre-generate the no-Xdebug ini so PhpInvoker only probes the PHP version per invocation.
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -53,14 +49,14 @@ final class PhpLintToolTest extends TestCase
     #[Test]
     public function aCleanLintPassesAndRunsParallelLintOverTheCheckedPaths(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('No syntax error found');
+        $this->factory->processes->willSucceed('No syntax error found');
         $root = $this->factory->project->path;
 
         $result = new PhpLintTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-n', '-c', $root . '/var/qa/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G', '-f', $root . '/vendor/bin/parallel-lint', '--', $root . '/tests', $root . '/src'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $root . '/vendor/bin/parallel-lint', '--', $root . '/tests', $root . '/src'],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -70,7 +66,7 @@ final class PhpLintToolTest extends TestCase
     #[Test]
     public function eachIgnoredPathBecomesAnExcludeUnderTheProjectRoot(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed();
         $root   = $this->factory->project->path;
         $config = $this->factory->builder()->withIgnoredPaths('tests/Asset', 'src/Generated')->build();
 
@@ -78,14 +74,14 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(
             ['--', '--exclude', $root . '/tests/Asset', '--exclude', $root . '/src/Generated', $root . '/tests', $root . '/src'],
-            \array_slice($this->factory->processes->lastSpec()->command, 8),
+            \array_slice($this->factory->processes->lastSpec()->command, 5),
         );
     }
 
     #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Parse error: syntax error');
+        $this->factory->processes->willFail(1, 'Parse error: syntax error');
 
         $result = new PhpLintTool()->run($this->factory->context());
 

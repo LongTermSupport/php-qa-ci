@@ -34,8 +34,6 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ComposerDependencyAnalyserToolTest extends TestCase
 {
-    private const string PHP_VERSION = '8.5.10';
-
     private const string BINARY = 'vendor/bin/composer-dependency-analyser';
 
     private const string SHEBANG = "#!/usr/bin/env php\n";
@@ -45,7 +43,6 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        $this->factory->project->write('var/qa/phpqa-no-xdebug.8.5.10.ini', '');
     }
 
     protected function tearDown(): void
@@ -56,7 +53,7 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     #[Test]
     public function aCleanAnalysisPassesAndRunsTheBinaryWithTheShippedConfig(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('No unused dependencies');
+        $this->factory->processes->willSucceed('No unused dependencies');
         $binary  = $this->factory->project->write(self::BINARY, self::SHEBANG);
         $root    = $this->factory->project->path;
         $library = \dirname(__DIR__, 4);
@@ -66,7 +63,7 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
             [
-                '/usr/bin/php', '-n', '-c', $root . '/var/qa/phpqa-no-xdebug.8.5.10.ini', '-d', 'memory_limit=4G',
+                '/usr/bin/php', '-d', 'memory_limit=4G',
                 '-f', $binary, '--',
                 '--config=' . $library . '/configDefaults/generic/composer-dependency-analyser.php',
                 '--composer-json=' . $root . '/composer.json',
@@ -80,8 +77,9 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     #[Test]
     public function aProjectConfigOverrideWins(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->processes->willSucceed();
         $this->factory->project->write(self::BINARY, self::SHEBANG);
+
         $override = $this->factory->project->write('qaConfig/composer-dependency-analyser.php', '<?php');
 
         new ComposerDependencyAnalyserTool()->run($this->factory->context());
@@ -92,7 +90,7 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     #[Test]
     public function findingsFailTheLaneWithGuidanceCoveringEveryErrorTypeAndTheIdentifier(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Found 2 unused dependencies!');
+        $this->factory->processes->willFail(1, 'Found 2 unused dependencies!');
         $this->factory->project->write(self::BINARY, self::SHEBANG);
 
         $result  = new ComposerDependencyAnalyserTool()->run($this->factory->context());
@@ -111,7 +109,7 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     #[Test]
     public function theGuidanceSpellsOutTheFixForEveryErrorTypeTheToolCanReport(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Found 2 unused dependencies!');
+        $this->factory->processes->willFail(1, 'Found 2 unused dependencies!');
         $this->factory->project->write(self::BINARY, self::SHEBANG);
 
         new ComposerDependencyAnalyserTool()->run($this->factory->context());
@@ -140,8 +138,6 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     #[Test]
     public function theNotInstalledGuidanceExplainsItIsARequireDependency(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION);
-
         new ComposerDependencyAnalyserTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
@@ -159,7 +155,7 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     #[Test]
     public function theGuidanceSaysExitOneIsAmbiguousBetweenFindingsAndFailure(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Error: config not found');
+        $this->factory->processes->willFail(1, 'Error: config not found');
         $this->factory->project->write(self::BINARY, self::SHEBANG);
 
         new ComposerDependencyAnalyserTool()->run($this->factory->context());
@@ -173,8 +169,6 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     #[Test]
     public function aMissingBinaryFailsRatherThanSkippingSinceItIsARequireDependency(): void
     {
-        $this->factory->processes->willSucceed(self::PHP_VERSION);
-
         $result  = new ComposerDependencyAnalyserTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
