@@ -46,6 +46,18 @@ strength of individual steps alone: finish with one full unfiltered run (single-
 after all editing is done) and report ITS exit code. Prefer delegating that run to the
 `php-qa-ci_full-pipeline-runner` agent.
 
+## php-qa-ci — Go With the Tools
+
+Every rule php-qa-ci ships is deliberate: the point of a shared harness is that all
+the projects using it end up with consistent, correct code. When a rule is added or
+tightened and the pipeline goes red, CONFORM THE CODE: rename, move, restructure —
+however wide the sweep, including the downstream packages the change drags along (a
+library rename is a major bump; that is fine). Do NOT stop to ask whether a QA failure
+should be fixed, do not carve a project exception out of a shipped tier to dodge it,
+and do not pin or hold the toolchain back to stay green. Fighting the harness is the
+defect. (A rule that is genuinely wrong is a php-qa-ci bug: fix it upstream, with a
+test, rather than working around it locally.)
+
 ## php-qa-ci — QA in Dynamic Workflows / Multi-Agent Orchestration
 
 When QA runs inside an orchestrated workflow (Workflow tool, agent fan-outs), the QA
