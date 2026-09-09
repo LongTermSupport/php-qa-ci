@@ -86,8 +86,6 @@ final readonly class Pipeline
         }
 
         $this->successBanner();
-        $this->output->writeln('Statistics:');
-        $this->executor->execute('phploc', $context);
         $this->hooks->runPost($context);
         $this->retryWarning($retried);
 

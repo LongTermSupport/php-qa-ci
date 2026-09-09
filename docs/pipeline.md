@@ -104,10 +104,8 @@ PHPStan and PHPUnit are skipped when `phpqaQuickTests=1`; Infection is skipped w
 
 To read about each tool in detail, see [PHPQA's suite of tools](./phpqa-tools.md).
 
-### 4. Statistics and Post Hook
+### 4. Post Hook
 
-If all tests pass, you get some interesting stats about your codebase via [PHPLoc](./tools/phploc.md).
-
-Finally, the pipeline runs your project's `hookPost.php` if present, prints the retry warning if any tool was retried, and releases the lock.
+If all tests pass, the pipeline runs your project's `hookPost.php` if present, prints the retry warning if any tool was retried, and releases the lock.
 
 If there were retries of any of the tools, it is strongly suggested that you rerun the full pipeline before regarding it as passing.

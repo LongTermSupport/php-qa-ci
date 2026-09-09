@@ -224,8 +224,4 @@ Please see the [PHPQA Infection docs](./tools/infection.md) for full details.
 
 ## Post-Success
 
-### PHPLoc
-
-[PhplocTool](../src/Pipeline/Lane/PhplocTool.php) -- [docs/tools/phploc.md](./tools/phploc.md)
-
-Generates code statistics (lines of code, complexity). Informational only -- cannot fail the pipeline.
+Nothing but the project's own `qaConfig/hookPost.php`. The pipeline ships no post-success lane.

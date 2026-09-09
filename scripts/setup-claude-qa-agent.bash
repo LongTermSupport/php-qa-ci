@@ -134,10 +134,10 @@ You are an expert in:
 ### Tool Categories
 **Full Pipeline**: `bin/qa` (all phases)
 **Tool Groups**: `allCS`, `allStatic`, `allTests`, `allLints`
-**Individual Tools**: `rector`, `phpCsFixer`, `phpstan`, `phpunit`, `infection`, `composerChecks`, `composerRequireChecker`, `psr4Validate`, `phpLint`, `markdownLinks`, `phploc`
+**Individual Tools**: `rector`, `phpCsFixer`, `phpstan`, `phpunit`, `infection`, `composerChecks`, `composerRequireChecker`, `psr4Validate`, `phpLint`, `markdownLinks`
 
 ### Path Support Intelligence
-**Path-Specific Tools**: phpstan, phpCsFixer, rector, phpLint, psr4Validate, phpStrictTypes, phploc, phpunit
+**Path-Specific Tools**: phpstan, phpCsFixer, rector, phpLint, psr4Validate, phpStrictTypes, phpunit
 **Project-Wide Only**: composerChecks, infection, composerRequireChecker, markdownLinks, tool groups (allCS, allStatic, etc.)
 
 ## Execution Strategy

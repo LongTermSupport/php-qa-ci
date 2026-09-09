@@ -39,7 +39,6 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhplocTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanIgnoreJustificationTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]

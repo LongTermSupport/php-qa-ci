@@ -25,7 +25,7 @@ Nothing is fetched at run time; PHARs go through PHIVE, PHPStan extensions throu
 - shipmonk/composer-dependency-analyser runs as a linting lane; a decision recorded on
   whether it replaces composer-require-checker.
 - tomasvotruba/type-coverage runs through the phpstan lane behind `withTypeCoverageFloors()`.
-- phpcpd-next runs as an informational post-success lane next to phploc.
+- phpcpd-next runs as the informational post-success lane; the abandoned phploc lane is gone.
 - vincentlanglet/twig-cs-fixer runs as a Symfony platform lane in the coding-standards phase,
   dry-run in a read-only run.
 - The upgrade guide and CLAUDE.md list every new lane and builder method.
@@ -50,7 +50,8 @@ Nothing is fetched at run time; PHARs go through PHIVE, PHPStan extensions throu
 - [ ] ⬜ **Task 2.1**: `ComposerDependencyAnalyserTool` (linting phase, after composerRequireChecker): shipmonk/composer-dependency-analyser as a PHIVE PHAR if published, else a Composer dependency; config resolved via `qaConfig/composer-dependency-analyser.php`; identifier, index row, docs page.
 - [ ] ⬜ **Task 2.2**: Evaluation note in JOURNAL/: what composer-dependency-analyser reports that composer-require-checker does not, and the reverse, over this repository and one Symfony consumer; recommendation recorded.
 - [ ] ⬜ **Task 2.3**: tomasvotruba/type-coverage as a Composer dependency wired through the phpstan lane; `withTypeCoverageFloors(int $return, int $param, int $property)` on the builder, off by default; the extension's error identifiers documented on the phpstan page.
-- [ ] ⬜ **Task 2.4**: `PhpcpdTool` (post-success, informational, cannot fail): phpcpd-next via PHIVE; JSON output archived under var/qa; docs page.
+- [x] ✅ **Task 2.4a**: `PhplocTool` deleted with its registry row, aliases, docs page and test. phploc has been abandoned since 2020 and was never shipped, so the lane could not run. Owner decision: drop the size metric, it is not wanted. No successor is sought.
+- [ ] ⬜ **Task 2.4b**: `PhpcpdTool` (post-success, informational, cannot fail): phpcpd-next via PHIVE; JSON output archived under var/qa; docs page. It detects copy/paste, which is unrelated to what phploc measured — this is a new signal, not a replacement.
 - [ ] ⬜ **Task 2.5**: `TwigCsFixerTool` as a Symfony platform lane in the coding-standards phase (`ToolRegistry::platformLanes`); dry-run and `ReadOnlyGuidance` in a read-only run; config via `qaConfig/.twig-cs-fixer.php`; docs page.
 
 ### Phase 3: Decisions under review

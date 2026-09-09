@@ -15,7 +15,6 @@ use LTS\PHPQA\Pipeline\Lane\PackageTypeTool;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitectTool;
 use LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool;
 use LTS\PHPQA\Pipeline\Lane\PhpLintTool;
-use LTS\PHPQA\Pipeline\Lane\PhplocTool;
 use LTS\PHPQA\Pipeline\Lane\PhpstanIgnoreJustificationTool;
 use LTS\PHPQA\Pipeline\Lane\PhpstanTool;
 use LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool;
@@ -52,7 +51,6 @@ final readonly class ShippedTools
             new PhpLintTool(),
             new ComposerChecksTool(),
             new ComposerRequireCheckerTool(),
-            new PhplocTool(),
             new TwigLintTool(),
             new YamlLintTool(),
             new PhpstanTool(),

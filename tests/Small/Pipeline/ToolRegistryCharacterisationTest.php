@@ -63,8 +63,6 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'cr'                         => 'composerRequireChecker',
         'ml'                         => 'markdownLinks',
         'markdown'                   => 'markdownLinks',
-        'l'                          => 'phploc',
-        'loc'                        => 'phploc',
         'f'                          => 'phpCsFixer',
         'fixer'                      => 'phpCsFixer',
         'csfixer'                    => 'phpCsFixer',
@@ -110,9 +108,6 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'phpStrictTypes'             => true,
         'stricttypes'                => true,
         'st'                         => true,
-        'phploc'                     => true,
-        'loc'                        => true,
-        'l'                          => true,
         'phpunit'                    => true,
         'unit'                       => true,
         // NOT path-supporting

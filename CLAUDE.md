@@ -144,12 +144,7 @@ On a Symfony project the platform lanes **Twig Lint** (`twigLint`) and **Yaml Li
 
 After the "ALL TESTS PASSING" message:
 
-20. **PHPLoc** (`phploc`) - Generates code statistics (lines of code, complexity, etc.)
-
-    - This is informational only and cannot fail the pipeline
-    - Provides metrics about code size and structure
-
-21. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
+20. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
@@ -724,14 +719,6 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
   - MSI (Mutation Score Indicator)
   - Covered Code MSI
 - **Details**: [docs/tools/infection.md](docs/tools/infection.md)
-
-### PHPLoc
-
-- **Purpose**: Measure project size and complexity
-- **Lane**: [src/Pipeline/Lane/PhplocTool.php](src/Pipeline/Lane/PhplocTool.php)
-- **How it works**: Parses PHP files and counts lines, classes, methods, complexity
-- **Output**: Statistics only, cannot fail the pipeline
-- **Details**: [docs/tools/phploc.md](docs/tools/phploc.md)
 
 ### Twig Lint and Yaml Lint (Symfony platform lanes)
 

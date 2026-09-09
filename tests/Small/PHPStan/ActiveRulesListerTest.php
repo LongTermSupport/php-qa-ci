@@ -42,7 +42,6 @@ use RuntimeException;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool::class)]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhplocTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanIgnoreJustificationTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
@@ -115,7 +114,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertSame('linting', $lanesByName['psr4Validate']->phase);
         self::assertSame('staticAnalysis', $lanesByName['phpArkitect']->phase);
         self::assertSame('testing', $lanesByName['phpunit']->phase);
-        self::assertNull($lanesByName['phploc']->phase);
+        self::assertNull($lanesByName['uniterate']->phase);
 
         self::assertSame('useInfection', $lanesByName['infection']->optInVariable);
         self::assertSame('useArkitect', $lanesByName['phpArkitect']->optInVariable);

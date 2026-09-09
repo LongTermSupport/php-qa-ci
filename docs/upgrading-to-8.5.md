@@ -251,7 +251,6 @@ The file name is the tool's **canonical registry name**, not an alias:
 | `tools/sensitiveParameterUsage.php` | SensitiveParameter usage | `spu` |
 | `tools/phpunit.php` | PHPUnit | `unit`, `phpunit` |
 | `tools/infection.php` | Infection | `infect`, `infection` |
-| `tools/phploc.php` | PHPLoc | `l`, `loc` |
 | `tools/twigLint.php`, `tools/yamlLint.php` | Symfony platform lanes | none |
 
 `uniterate` and the `all*Tools` phase runners are not lanes and cannot be overridden.

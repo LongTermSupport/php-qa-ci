@@ -63,8 +63,6 @@ final class PipelineTest extends TestCase
 
     private const string PHPSTAN = 'phpstan';
 
-    private const string PHPLOC = 'phploc';
-
     private const string PARAM_TYPES = 'types';
 
     private ContextFactory $factory;
@@ -92,7 +90,7 @@ final class PipelineTest extends TestCase
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
-        $expectedOrder = ['rector', 'phpCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'composerRequireChecker', 'markdownLinks', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', self::PHPLOC];
+        $expectedOrder = ['rector', 'phpCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'composerRequireChecker', 'markdownLinks', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection'];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'the lock is released');
@@ -129,7 +127,6 @@ final class PipelineTest extends TestCase
         self::assertStringContainsString('[phpLint ran]', $printed);
         self::assertStringNotContainsString('[composerRequireChecker ran]', $printed);
         self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
-        self::assertSame(0, $this->tools->stub(self::PHPLOC)->runs);
     }
 
     #[Test]
@@ -194,7 +191,6 @@ final class PipelineTest extends TestCase
         self::assertStringContainsString('Running Single Tool: phpstan', $printed);
         self::assertSame(1, $this->tools->stub(self::PHPSTAN)->runs);
         self::assertSame(0, $this->tools->stub(self::PHP_LINT)->runs);
-        self::assertSame(0, $this->tools->stub(self::PHPLOC)->runs);
         self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
     }
 

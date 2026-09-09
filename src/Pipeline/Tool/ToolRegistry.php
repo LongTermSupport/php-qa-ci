@@ -76,7 +76,6 @@ final readonly class ToolRegistry
             new ToolDefinitionDto('sensitiveParameterUsage', ['spu', 'sensitiveparameter', 'sensitiveParameterUsage'], 'assert #[\SensitiveParameter] is used somewhere in src/', PhaseEnum::StaticAnalysis, false, banner: 'Checking SensitiveParameter Usage'),
             new ToolDefinitionDto(self::PHPUNIT, ['unit', self::PHPUNIT], self::PHPUNIT, PhaseEnum::Testing, true, ToolGateEnum::NotQuick, 'Running PHPUnit Tests'),
             new ToolDefinitionDto(self::INFECTION, ['infect', self::INFECTION], self::INFECTION, PhaseEnum::Testing, false, ToolGateEnum::Infection, 'Running Infection (mutation testing)'),
-            new ToolDefinitionDto('phploc', ['l', 'loc'], 'lines of code and other stats', null, true),
             new ToolDefinitionDto('uniterate', ['uniterate'], 'phpunit iterative mode - prioritise broken tests and fail on error', null, false, target: self::PHPUNIT),
         );
     }
