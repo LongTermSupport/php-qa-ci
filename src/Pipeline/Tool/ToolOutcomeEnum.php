@@ -7,7 +7,7 @@ namespace LTS\PHPQA\Pipeline\Tool;
 /**
  * How a tool run ended.
  *
- * @internal
+ * @api
  */
 enum ToolOutcomeEnum
 {

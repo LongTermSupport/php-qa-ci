@@ -11,7 +11,7 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
  * QaConfigBuilder from the environment, the project's qaConfig/qa.php and the
  * CLI; immutable from then on.
  *
- * @internal
+ * @api
  */
 final readonly class QaConfigDto
 {

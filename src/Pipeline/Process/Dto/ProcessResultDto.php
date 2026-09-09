@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Process\Dto;
 
 /**
- * @internal
+ * @api
  */
 final readonly class ProcessResultDto
 {

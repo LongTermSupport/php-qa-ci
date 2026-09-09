@@ -7,7 +7,7 @@ namespace LTS\PHPQA\Pipeline\Config\Dto;
 /**
  * Every directory the pipeline reads or writes, resolved once at start-up.
  *
- * @internal
+ * @api
  */
 final readonly class ProjectPathsDto
 {

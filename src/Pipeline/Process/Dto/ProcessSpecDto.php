@@ -7,7 +7,7 @@ namespace LTS\PHPQA\Pipeline\Process\Dto;
 /**
  * Everything needed to run one external command.
  *
- * @internal
+ * @api
  */
 final readonly class ProcessSpecDto
 {

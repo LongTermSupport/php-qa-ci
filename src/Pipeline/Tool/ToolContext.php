@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Everything a tool needs to run: the resolved configuration and the shared
  * services. Handed to every ToolInterface::run().
  *
- * @internal
+ * @api
  */
 final readonly class ToolContext
 {

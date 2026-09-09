@@ -14,7 +14,7 @@ namespace LTS\PHPQA\Pipeline\Config;
  * The generic path is returned even when it does not exist, so a caller can
  * report the path it looked for.
  *
- * @internal
+ * @api
  */
 final readonly class ConfigPathResolver
 {

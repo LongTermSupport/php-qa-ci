@@ -22,7 +22,7 @@ use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
  * needs Xdebug, Infection needs coverage) so an override cannot switch on
  * something the host cannot run.
  *
- * @internal
+ * @api
  */
 final readonly class QaConfigBuilder
 {

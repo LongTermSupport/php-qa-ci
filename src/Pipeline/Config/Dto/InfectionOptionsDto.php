@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Config\Dto;
 
 /**
- * @internal
+ * @api
  */
 final readonly class InfectionOptionsDto
 {

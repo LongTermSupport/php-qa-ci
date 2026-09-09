@@ -11,7 +11,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolContext;
  * changes it would have applied. The tool itself decides the outcome; this
  * only prints the guidance.
  *
- * @internal
+ * @api
  */
 final readonly class ReadOnlyGuidance
 {

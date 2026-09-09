@@ -11,7 +11,7 @@ use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
  * output and returns how it ended; the runner owns retries, aggregation and
  * exit codes. A tool must never exit the process.
  *
- * @internal
+ * @api
  */
 interface ToolInterface
 {

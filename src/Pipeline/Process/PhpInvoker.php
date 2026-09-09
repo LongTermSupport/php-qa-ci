@@ -14,7 +14,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
  * pay for it. The no-Xdebug ini is generated once per PHP version under var/qa
  * by asking the target binary which ini files it loads.
  *
- * @internal
+ * @api
  */
 final readonly class PhpInvoker
 {

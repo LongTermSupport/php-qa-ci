@@ -21,7 +21,7 @@ guide.
 - In the full pipeline, in the static analysis phase after PHPStan.
 - Standalone: `vendor/bin/qa -t arch`. The paths to scan live inside the entry config, so
   `-p <path>` does not apply.
-- **Disabled** with `export useArkitect=0` in `qaConfig/qaConfig.inc.bash`: the lane prints a
+- **Disabled** with `->withArkitect(false)` in `qaConfig/qa.php` (or `useArkitect=0` in the environment for one run): the lane prints a
   "disabled" line and is skipped. Prefer excluding generated paths (below) over disabling.
 - **Entry config** is resolved through the normal cascade: `qaConfig/phparkitect.php` if the
   project supplies one, otherwise the shipped
@@ -54,10 +54,11 @@ guide.
 
 Read the violation list: each line names the class, the rule and the reason the rule gives.
 Rename or move the class to satisfy the convention. For generated code that cannot be renamed,
-declare its path in `qaConfig/qaConfig.inc.bash`:
+declare its path in `qaConfig/qa.php`:
 
-```bash
-arkitectExcludePaths+=("Quote/API")
+```php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withArkitectExcludedPaths('Quote/API');
 ```
 
 The path is relative to `src/`. To extend, replace or opt into the optional tiers, copy

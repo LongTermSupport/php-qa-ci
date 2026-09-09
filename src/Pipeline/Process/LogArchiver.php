@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * ten copies per pattern are kept. Full-suite runs and `-p <path>` runs are
  * separate patterns so a path run never evicts a full-suite log.
  *
- * @internal
+ * @api
  */
 final readonly class LogArchiver
 {

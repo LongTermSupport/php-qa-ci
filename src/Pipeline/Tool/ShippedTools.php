@@ -31,7 +31,7 @@ use LTS\PHPQA\Pipeline\Lane\YamlLintTool;
  * The lanes php-qa-ci ships, keyed by canonical registry name. A lane is
  * added here as it is ported; the locator refuses a name that is not here.
  *
- * @internal
+ * @api
  */
 final readonly class ShippedTools
 {

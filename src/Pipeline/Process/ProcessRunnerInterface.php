@@ -12,7 +12,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
  * symfony/process directly, so a test substitutes a fake and asserts the
  * exact argv a tool built.
  *
- * @internal
+ * @api
  */
 interface ProcessRunnerInterface
 {

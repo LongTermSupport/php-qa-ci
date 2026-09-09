@@ -7,7 +7,7 @@ namespace LTS\PHPQA\Pipeline\Tool\Dto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 
 /**
- * @internal
+ * @api
  */
 final readonly class ToolResultDto
 {

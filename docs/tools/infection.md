@@ -39,9 +39,14 @@ See the following page for more information on MSIs being used in CI [https://in
 
 ##### Setting Minimum Score Indicators
 
-The easiest way to override the default minimum score indicators permanently for your project is to include these in a `qaConfig.inc.bash` file in your projects `qaConfig` folder.
+Set the floors permanently for your project in `qaConfig/qa.php`:
 
-You can see that this is being done in the phpqa project itself in its own [qaConfig](./../../qaConfig) folder.
+```php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withInfectionFloors(msi: 82, coveredMsi: 82);
+```
+
+You can see that this is being done in the phpqa project itself in its own [qaConfig/qa.php](./../../qaConfig/qa.php). For a single run the `mutationScoreIndicator` and `coveredCodeMSI` environment variables still work.
 
 #### Disabling Infection
 
