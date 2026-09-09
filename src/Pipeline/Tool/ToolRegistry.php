@@ -121,11 +121,6 @@ final readonly class ToolRegistry
         return array_values($this->phases);
     }
 
-    public function phase(string $name): PhaseDto
-    {
-        return $this->phases[$name] ?? throw UnknownPhaseException::forName($name, ...array_keys($this->phases));
-    }
-
     /**
      * The lanes a platform adds to a phase, on top of the generic set. They
      * are not `-t` selectable and are not part of the frozen registry.

@@ -161,7 +161,7 @@ final class PipelineBuilderTest extends TestCase
         self::assertSame('allSecurityTools', $runner->name);
         self::assertTrue($runner->isPhaseRunner);
         self::assertSame(self::SECURITY, $runner->phase);
-        self::assertSame('Running All Security Tools', $built->registry->phase(self::SECURITY)->banner);
+        self::assertSame('Running All Security Tools', array_last($built->registry->phases())?->banner);
     }
 
     #[Test]

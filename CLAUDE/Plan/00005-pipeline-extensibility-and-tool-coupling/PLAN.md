@@ -41,7 +41,8 @@ What landed, and why each was held back from the 00004 release rather than rushe
 | The variadic rule never suggests converting a parameter with its own default | A variadic cannot carry a default — there is no `string ...$items = ['a']` — so converting would silently drop a non-empty default             |
 | `twigCsFixer` gated on `twig/twig` rather than on Symfony                    | The PHAR is standalone; gating on `symfony.lock` meant a Slim, Laravel or plain library project using Twig got no Twig coding standards at all |
 
-**Start here**: Phase 3, Task 3.1; Phase 2 is done. Task 2.1 landed `PipelineBuilder`, `PhaseDto` and an open
+**Start here**: Task 3.2 needs the Owner's bundling decision; Phase 4 is open. Phase 2 is done
+and Task 3.1's evidence is in the journal. Task 2.1 landed `PipelineBuilder`, `PhaseDto` and an open
 phase list on the registry (each phase derives its own `all*` runner; `ToolDefinitionDto::$phase`
 is now the phase name). `QaApplication` already runs through `PipelineBuilder::defaults()`, so the
 default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has been started.
@@ -90,7 +91,7 @@ default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has b
 
 ### Phase 3: tool evaluation by dogfooding
 
-- [ ] ⬜ **Task 3.1**: Install `shipmonk/dead-code-detector` here and run it through a
+- [x] ✅ **Task 3.1**: Install `shipmonk/dead-code-detector` here and run it through a
   project-level extended pipeline against `src/`. Record findings and false-positive rate in
   JOURNAL/. PHAR-run PHPStan does load Composer-installed extensions — proven in 00004 via
   `vendor/phpstan/extension-installer/src/GeneratedConfig.php`.
@@ -121,7 +122,8 @@ default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has b
   ```
 
 - [ ] ⬜ **Task 3.2**: Decide on bundling as an opt-in `withDeadCodeDetection(bool)` on the
-  evidence from 3.1. Record the decision either way.
+  evidence from 3.1. Record the decision either way. **Owner's call**: the evidence and a
+  recommendation are in the journal (18:58 entry); the lane stays `-t dcd` only until then.
 
 ### Phase 4: coupling and SSoT debts carried from 00004
 
