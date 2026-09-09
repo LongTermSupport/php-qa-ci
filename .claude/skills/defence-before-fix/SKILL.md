@@ -54,7 +54,10 @@ Delegation available inside the clauses:
   `bin/qa` lane, in the shape of the existing lanes listed under "Pipeline lanes" in
   `docs/phpstan-rules/README.md`.
 - 3.3 and 3.5, proving and enforcing: the `qa` skill or `Bash` running the project's own
-  entry point (`bin/qa -t <alias>`, then `QA_READONLY=1 CI=true bin/qa`).
+  entry point. **How to run it is not restated here** — read
+  `CLAUDE/prepush-verification.md` (in a consuming project:
+  `vendor/lts/php-qa-ci/CLAUDE/prepush-verification.md`), which is the single source of
+  truth for which command to run and when.
 - 3.4, sweeping: `Bash` for the independent search techniques; the `phpstan-runner` skill
   for the rule's own run.
 

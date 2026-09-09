@@ -25,9 +25,14 @@
 # READONLY SERVICES (enforce immutable services):
 #   RequireReadonlyServiceRule           — service classes must be "final readonly class"
 #
-# VARIADIC FOR SINGLE LIST PARAM:
-#   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
-#                                           should be variadic T ...$param instead
+# VARIADIC OVER AN ARRAY PARAMETER:
+#   RequireVariadicOverArrayParameterRule — a method's LAST parameter declared `array` whose
+#                                          element type lives only in a @param list<T> docblock
+#                                          should be T ...$param, which the engine checks at
+#                                          every call. Promoted, by-ref, map-typed, constructor,
+#                                          #[DataProvider] and supertype-bound parameters are
+#                                          excluded, because none can become a variadic. See
+#                                          docs/phpstan-rules/require-variadic-over-array-parameter.md
 #
 # INSECURE FUNCTIONS (lists lifted from spaze/phpstan-disallowed-calls, MIT):
 #   ForbidInsecureFunctionsRule          — broken hashes (md5/sha1, and hash* with a literal
@@ -125,7 +130,6 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
-    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
     - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
     - LTS\PHPQA\PHPStan\Rules\ForbidRepeatedStringLiteralRule
     - LTS\PHPQA\PHPStan\Rules\RequireConsistentMemberDocsRule

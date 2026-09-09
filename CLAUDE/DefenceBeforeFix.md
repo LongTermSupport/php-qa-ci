@@ -104,10 +104,11 @@ the rule anyway and record the mechanism gap in `composer.json` `known-gaps`.
 - The rule is in the checks the project uses to accept changes, it **fails rather than warns**,
   and every suppression it carries is covered by a recorded decision (`qaConfig/phpstan.neon`
   `ignoreErrors` with a justification the `phpstanIgnoreJustification` lane accepts).
-- **Demonstrate through the entry point**: run `QA_READONLY=1 CI=true bin/qa` (or the lane,
-  `bin/qa -t <alias>`) over everything it covers and see the rule reported there. Running the
-  Detector directly proves the rule, not the Defence. For a bundled rule the demonstrating
-  project is any project the toolchain is installed into, this repository included.
+- **Demonstrate through the entry point**: run the pipeline over everything the rule covers and
+  see it reported there. Running the Detector directly proves the rule, not the Defence. For a
+  bundled rule the demonstrating project is any project the toolchain is installed into, this
+  repository included. Which command to run is in
+  [prepush-verification.md](prepush-verification.md) and is not repeated here.
 - Removing or disabling a rule, or adding a suppression, is a recorded Owner decision, never a
   silent edit.
 

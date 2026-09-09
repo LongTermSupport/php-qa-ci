@@ -194,8 +194,6 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
     # Service classes must be declared as "final readonly class"
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
-    # Single array param annotated @param list<T> should use variadic syntax instead
-    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
     # A method/function's LAST array param annotated @param list<T> (any param count)
     # should use variadic syntax instead
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicOverArrayParameterRule
@@ -219,7 +217,6 @@ rules:
 | `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                       |
 | `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                |
 | `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                  |
-| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`           | `array $items` annotated `@param list<T>` — use variadic syntax                |
 | `RequireVariadicOverArrayParameterRule` | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
 | `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum |
 | `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |
