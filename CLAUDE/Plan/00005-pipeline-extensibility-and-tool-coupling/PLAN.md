@@ -41,7 +41,7 @@ What landed, and why each was held back from the 00004 release rather than rushe
 | The variadic rule never suggests converting a parameter with its own default | A variadic cannot carry a default — there is no `string ...$items = ['a']` — so converting would silently drop a non-empty default             |
 | `twigCsFixer` gated on `twig/twig` rather than on Symfony                    | The PHAR is standalone; gating on `symfony.lock` meant a Slim, Laravel or plain library project using Twig got no Twig coding standards at all |
 
-**Start here**: Phase 2, Task 2.2. Task 2.1 landed `PipelineBuilder`, `PhaseDto` and an open
+**Start here**: Phase 3, Task 3.1; Phase 2 is done. Task 2.1 landed `PipelineBuilder`, `PhaseDto` and an open
 phase list on the registry (each phase derives its own `all*` runner; `ToolDefinitionDto::$phase`
 is now the phase name). `QaApplication` already runs through `PipelineBuilder::defaults()`, so the
 default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has been started.
@@ -77,12 +77,16 @@ default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has b
 - [x] ✅ **Task 2.1**: `PipelineBuilder`, composition over inheritance. `::defaults()` seeds the
   shipped registry, `::empty()` starts from nothing; immutable withers add a tool to a phase,
   add a phase, and set phase order, in the style of `QaConfigBuilder`.
-- [ ] ⬜ **Task 2.2**: `ToolDefinitionDto` becomes `@api` — a consuming project must be able to
+- [x] ✅ **Task 2.2**: `ToolDefinitionDto` becomes `@api` — a consuming project must be able to
   construct one and it is currently `@internal`. Check what else on the construction path
   needs promoting with it.
-- [ ] ⬜ **Task 2.3**: Wire the builder into `qaConfig/qa.php`, and make the `-t` usage text and
-  the characterisation test follow the constructed registry rather than a frozen literal.
-- [ ] ⬜ **Task 2.4**: Document the extension process as the archetype, with a worked example.
+- [x] ✅ **Task 2.3**: Wire the builder into the project config, and make the `-t` usage text and
+  the characterisation test follow the constructed registry rather than a frozen literal. Landed
+  as a sibling file, `qaConfig/pipeline.php`, rather than a second return from `qa.php` (see the
+  journal for why).
+- [x] ✅ **Task 2.4**: Document the extension process as the archetype, with a worked example:
+  [docs/extending-the-pipeline.md](../../../docs/extending-the-pipeline.md) and
+  `templates/qaConfig-pipeline.php`.
 
 ### Phase 3: tool evaluation by dogfooding
 

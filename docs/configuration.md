@@ -23,11 +23,13 @@ vendor/bin/qa
 ```
 
 2. Set them inline when running PHPQA
+
 ```bash
 environmentVariable="value" vendor/bin/qa
 ```
 
 3. Export them as part of your CI script
+
 ```bash
 #ci.bash
 export CI=true
@@ -37,22 +39,25 @@ vendor/bin/qa
 Here are some general PHPQA environment variables you might want to set:
 
 ##### Quick tests only:
- `phpqaQuickTests`
 
- Setting this to `1` **skips whole phases**, not just slow tests: PHPStan (Phase 3) and both
- PHPUnit and Infection (Phase 4) are skipped entirely. Use it for a fast lint/style/validation
- pass. Do not confuse it with `phpUnitQuickTests`, which is narrower — it still runs PHPUnit but
- lets individual tests take a faster path (see the PHPUnit docs).
+`phpqaQuickTests`
+
+Setting this to `1` **skips whole phases**, not just slow tests: PHPStan (Phase 3) and both
+PHPUnit and Infection (Phase 4) are skipped entirely. Use it for a fast lint/style/validation
+pass. Do not confuse it with `phpUnitQuickTests`, which is narrower — it still runs PHPUnit but
+lets individual tests take a faster path (see the PHPUnit docs).
 
 ##### CI Mode:
- `CI`
 
- Will not prompt for user input.
+`CI`
+
+Will not prompt for user input.
 
 ##### Memory limit:
- `phpqaMemoryLimit`
 
- Global memory limit for all QA tools. Default: `4G`.
+`phpqaMemoryLimit`
+
+Global memory limit for all QA tools. Default: `4G`.
 
 ```bash
 # Override via environment variable
@@ -150,6 +155,9 @@ The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at
 `templates/qaConfig-qa.php`. This repository's own [qaConfig/qa.php](./../qaConfig/qa.php) is
 the worked example.
+
+Adding tools and phases of your own is a separate file, `qaConfig/pipeline.php`, returning a
+closure over `PipelineBuilder`; see [extending the pipeline](extending-the-pipeline.md).
 
 Per-tool overrides (`qaConfig/tools/<tool>.php` returning a `ToolInterface`) and the pre/post
 hooks (`qaConfig/hookPre.php`, `qaConfig/hookPost.php` returning a callable) are described on the

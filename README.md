@@ -498,6 +498,7 @@ Comprehensive documentation is available in the [./docs](./docs) folder:
 - **[Pipeline Architecture](./docs/pipeline.md)** -- Tool execution order and phases
 - **[Tools Overview](./docs/phpqa-tools.md)** -- All tools with configuration details
 - **[Configuration](./docs/configuration.md)** -- Customizing tool settings and overrides
+- **[Extending the Pipeline](./docs/extending-the-pipeline.md)** -- Adding your own tools and phases from `qaConfig/pipeline.php`
 - **[Upgrading to 8.5](./docs/upgrading-to-8.5.md)** -- Migrating a project's `qaConfig/` from the Bash-configured branches
 - **[Coding Standards](./docs/coding-standards.md)** -- PHP CS Fixer and Rector configuration
 - **[GitHub Actions Integration](./docs/github-actions.md)** -- CI/CD setup guide
