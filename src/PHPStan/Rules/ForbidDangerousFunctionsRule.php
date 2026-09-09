@@ -12,10 +12,16 @@ use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Bans dangerous PHP functions that enable code/command injection.
+ * Bans PHP functions that execute code, run shell commands or disclose source.
  *
- * Functions like exec(), shell_exec(), eval(), unserialize() are OWASP A03 risks.
- * Use safe alternatives: shell commands via Symfony Process, serialization via JSON.
+ * These are OWASP A03 risks with no legitimate place in application source:
+ * run shell commands through Symfony Process, serialise through JSON.
+ *
+ * Part of the list below is lifted from spaze/phpstan-disallowed-calls (MIT,
+ * Copyright (c) 2018 Michal Špaček), whose execution-calls and dangerous-calls
+ * bundles are the reference for this class. The list is carried here rather
+ * than the engine imported, so that one rule owns the convention and the two
+ * cannot drift; each lifted entry is marked.
  *
  * See: docs/phpstan-rules/forbid-dangerous-functions.md for fix documentation.
  *
@@ -26,19 +32,29 @@ final readonly class ForbidDangerousFunctionsRule implements Rule
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.dangerousFunctions';
 
     /**
-     * @var list<string>
+     * Function name to the reason it is banned, which becomes the message.
+     * Entries marked "spaze" are lifted from the MIT-licensed bundles named in
+     * the class docblock.
+     *
+     * @var array<string, string>
      */
     private const array BANNED_FUNCTIONS = [
-        'exec',
-        'shell_exec',
-        'system',
-        'passthru',
-        'proc_open',
-        'popen',
-        'eval',
-        'unserialize',
-        'extract',
-        'parse_str',
+        'exec'            => 'runs a shell command; use Symfony Process',
+        'shell_exec'      => 'runs a shell command, as does the backtick operator; use Symfony Process',
+        'system'          => 'runs a shell command; use Symfony Process',
+        'passthru'        => 'runs a shell command; use Symfony Process',
+        'proc_open'       => 'runs a shell command; use Symfony Process',
+        'popen'           => 'runs a shell command; use Symfony Process',
+        'pcntl_exec'      => 'replaces the running process with a program; use Symfony Process (spaze)',
+        'eval'            => 'executes a string as code, and there is always another way',
+        'unserialize'     => 'deserialising untrusted data can execute arbitrary code; use json_decode',
+        'extract'         => 'creates variables from array keys, so the data chooses the variable names',
+        'parse_str'       => 'without a second argument it writes straight into local scope',
+        'create_function' => 'evaluates a string as a function body; removed in PHP 8.0 (spaze)',
+        'dl'              => 'loads a shared extension at run time, letting untrusted code into the process (spaze)',
+        'highlight_file'  => 'renders source, disclosing code and configuration (spaze)',
+        'show_source'     => 'renders source, disclosing code and configuration (spaze)',
+        'phpinfo'         => 'prints the environment including cookies and session ids (spaze)',
     ];
 
     public function getNodeType(): string
@@ -56,8 +72,8 @@ final readonly class ForbidDangerousFunctionsRule implements Rule
         }
 
         $functionName = $node->name->toLowerString();
-
-        if (!\in_array($functionName, self::BANNED_FUNCTIONS, true)) {
+        $reason       = self::BANNED_FUNCTIONS[$functionName] ?? null;
+        if (null === $reason) {
             return [];
         }
 
@@ -69,9 +85,9 @@ final readonly class ForbidDangerousFunctionsRule implements Rule
         return [
             RuleErrorBuilder::message(
                 \sprintf(
-                    'Dangerous function %s() is banned (OWASP A03 Injection). '
-                    . 'See docs/phpstan-rules/forbid-dangerous-functions.md for safe alternatives.',
+                    '%s() is banned: %s. See docs/phpstan-rules/forbid-dangerous-functions.md.',
                     $functionName,
+                    $reason,
                 ),
             )->identifier(self::IDENTIFIER)->build(),
         ];
