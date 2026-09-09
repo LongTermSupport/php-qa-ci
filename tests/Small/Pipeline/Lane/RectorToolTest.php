@@ -109,9 +109,23 @@ final class RectorToolTest extends TestCase
 
         foreach ($this->rectorSpecs() as $spec) {
             self::assertSame($config->paths->projectRoot, $spec->cwd);
-            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated", 'XDEBUG_MODE' => 'off'], $spec->env);
+            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated", 'TMPDIR' => $config->paths->cacheDir . '/rector', 'XDEBUG_MODE' => 'off'], $spec->env);
             self::assertContains($config->paths->pharDir . '/rector.phar', $spec->command);
         }
+    }
+
+    #[Test]
+    public function eachPassGetsAProjectOwnedTempDirectorySoConcurrentProjectsDoNotShareRectorsCache(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $config = $this->factory->builder(readOnly: true)->build();
+        $tmpDir = $config->paths->cacheDir . '/rector';
+        self::assertDirectoryDoesNotExist($tmpDir);
+
+        new RectorTool()->run($this->factory->context($config));
+
+        self::assertDirectoryExists($tmpDir);
+        self::assertSame($tmpDir, array_last($this->rectorSpecs())?->env['TMPDIR'] ?? null);
     }
 
     #[Test]
@@ -121,7 +135,7 @@ final class RectorToolTest extends TestCase
 
         new RectorTool()->run($this->context(readOnly: true));
 
-        self::assertSame(['rectorIgnorePaths' => '', 'XDEBUG_MODE' => 'off'], array_last($this->rectorSpecs())?->env);
+        self::assertSame('', array_last($this->rectorSpecs())?->env['rectorIgnorePaths'] ?? null);
     }
 
     #[Test]

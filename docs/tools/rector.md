@@ -32,7 +32,9 @@ project config covers it.
 
 Each process runs from the project root with `--autoload-file vendor/autoload.php`,
 `--clear-cache`, and the ignored paths exported newline-joined in the `rectorIgnorePaths`
-environment variable, which the shipped configs read into `skip()`.
+environment variable, which the shipped configs read into `skip()`. `TMPDIR` is set to
+`var/qa/cache/rector` so Rector's cache is the project's own: two projects running QA at the same
+time on one host would otherwise clear each other's `/tmp/rector_cached_files`.
 
 - In the full pipeline, first in the coding-standards phase.
 - Standalone: `vendor/bin/qa -t rector` (alias `-t r`); supports `-p <path>`.

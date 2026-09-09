@@ -111,7 +111,15 @@ final readonly class RectorTool implements ToolInterface
             $args[] = '--dry-run';
         }
 
-        $env = ['rectorIgnorePaths' => implode("\n", $context->config->pathsToIgnore)];
+        // Rector caches under sys_get_temp_dir(), which two projects on one host
+        // share; with --clear-cache, concurrent runs delete each other's files.
+        // TMPDIR moves it under this project's own cache directory.
+        $tmpDir = $context->config->paths->cacheDir . '/rector';
+        if (!is_dir($tmpDir)) {
+            \Safe\mkdir($tmpDir, 0o777, true);
+        }
+
+        $env = ['rectorIgnorePaths' => implode("\n", $context->config->pathsToIgnore), 'TMPDIR' => $tmpDir];
 
         $context->writeln($readOnly
             ? \sprintf("Running Rector ('%s') in read-only check mode", $label)
