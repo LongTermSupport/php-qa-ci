@@ -85,9 +85,11 @@ behaviour, so none of them is reported:
 - The parameter is **by-reference** (`&$x`) or **already variadic**.
 - The **signature already has a variadic**, so its one slot is spent and nothing else in that
   signature is convertible.
-- **Any parameter after it carries a default.** This is a language limit, not a preference.
-  Moving the parameter past an optional one forces callers into
-  `f($a, name: $b, ...$args)`, which PHP rejects outright:
+- **The parameter itself, or any parameter after it, carries a default.** Two separate
+  language limits, both fatal to the conversion.
+
+  A *later* optional blocks the move to final position, because the resulting call shape
+  `f($a, name: $b, ...$args)` is rejected outright:
 
   ```
   PHP Fatal error: Cannot use argument unpacking after named arguments
@@ -95,6 +97,11 @@ behaviour, so none of them is reported:
 
   Every caller that names one of those optionals would stop compiling, and a library cannot
   see its consumers' call sites.
+
+  A default on the parameter *itself* cannot survive at all. A variadic is implicitly
+  optional and implicitly empty, and there is no syntax for `string ...$items = ['a']`, so
+  converting would silently drop a non-empty default and change what a caller passing
+  nothing receives.
 - The docblock type is anything other than `list<T>` / `non-empty-list<T>` — including
   `array<T>` and `T[]` (see above), a **map** (`array<K, V>`), an `iterable<K, V>`, a
   **shape/object-like array** (`array{name: string}`), or **no `@param` entry** at all.

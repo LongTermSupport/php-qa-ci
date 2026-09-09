@@ -42,10 +42,9 @@ final class RequireVariadicOverArrayParameterRuleTest extends RuleTestCase
                 ['Parameter $sizes of positiveIntParam() is a list<positive-int> in a docblock; declare it "int ...$sizes" so the engine checks it.', 59],
                 ['Parameter $debts of negativeIntParam() is a list<negative-int> in a docblock; declare it "int ...$debts" so the engine checks it.', 65],
                 ['Parameter $values of spacedGenericParam() is a list<string> in a docblock; declare it "string ...$values" so the engine checks it.', 71],
-                ['Parameter $items of defaultedListParam() is a list<string> in a docblock; declare it "string ...$items" so the engine checks it.', 82],
-                ['Parameter $itemNames of similarlyNamedParams() is a list<string> in a docblock; move it to last and declare it "string ...$itemNames" so the engine checks it.', 94],
-                ['Parameter $parts of joinAll() is a list<string> in a docblock; declare it "string ...$parts" so the engine checks it.', 101],
-                ['Parameter $parts of joinWithSuffix() is a list<string> in a docblock; move it to last and declare it "string ...$parts" so the engine checks it.', 112],
+                ['Parameter $itemNames of similarlyNamedParams() is a list<string> in a docblock; move it to last and declare it "string ...$itemNames" so the engine checks it.', 83],
+                ['Parameter $parts of joinAll() is a list<string> in a docblock; declare it "string ...$parts" so the engine checks it.', 90],
+                ['Parameter $parts of joinWithSuffix() is a list<string> in a docblock; move it to last and declare it "string ...$parts" so the engine checks it.', 101],
             ],
         );
     }

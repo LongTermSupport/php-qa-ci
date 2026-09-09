@@ -74,17 +74,6 @@ final class Reportable
     }
 
     /**
-     * A variadic is inherently optional, so a defaulted array parameter converts
-     * without changing what callers may omit.
-     *
-     * @param list<string> $items
-     */
-    public function defaultedListParam(array $items = []): string
-    {
-        return implode(', ', $items);
-    }
-
-    /**
      * $item is a map and is last, so the search continues past it. Its shorter
      * name must not be satisfied by the $itemNames entry.
      *
