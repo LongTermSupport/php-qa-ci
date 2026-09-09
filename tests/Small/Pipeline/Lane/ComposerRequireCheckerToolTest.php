@@ -33,6 +33,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ComposerRequireCheckerToolTest extends TestCase
 {
+    private const string PHP_VERSION = '8.5.10';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -50,7 +52,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
     #[Test]
     public function aCleanCheckPassesAndRunsThePharWithTheShippedConfig(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed('There were no unknown symbols found.');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('There were no unknown symbols found.');
         $root    = $this->factory->project->path;
         $library = \dirname(__DIR__, 4);
 
@@ -72,7 +74,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
     #[Test]
     public function aProjectConfigOverrideWins(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed();
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
         $override = $this->factory->project->write('qaConfig/composerRequireChecker.json', '{}');
 
         new ComposerRequireCheckerTool()->run($this->factory->context());
@@ -83,7 +85,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
     #[Test]
     public function aFailureIsFollowedByTheHowToFixGuidanceAndTheIdentifier(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willFail(1, 'The following unknown symbols were found: Foo\Bar');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'The following unknown symbols were found: Foo\Bar');
 
         $result  = new ComposerRequireCheckerTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();

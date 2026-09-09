@@ -29,12 +29,16 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class QaConfigBuilderTest extends TestCase
 {
+    private const string PROJECT_TESTS = '/p/tests';
+
+    private const string PROJECT_SRC = '/p/src';
+
     #[Test]
     public function defaultsMirrorThePipelineDefaults(): void
     {
         $config = $this->defaults()->build();
 
-        self::assertSame(['/p/tests', '/p/src'], $config->pathsToCheck);
+        self::assertSame([self::PROJECT_TESTS, self::PROJECT_SRC], $config->pathsToCheck);
         self::assertSame([], $config->pathsToIgnore);
         self::assertSame('4G', $config->memoryLimit);
         self::assertFalse($config->quickTests);
@@ -146,7 +150,7 @@ final class QaConfigBuilderTest extends TestCase
         $config = $adjusted->build();
         self::assertSame('16G', $config->memoryLimit);
         self::assertSame(['tests/assets', 'src/Generated'], $config->pathsToIgnore);
-        self::assertSame(['/p/tests', '/p/src', '/p/lib'], $config->pathsToCheck);
+        self::assertSame([self::PROJECT_TESTS, self::PROJECT_SRC, '/p/lib'], $config->pathsToCheck);
         self::assertSame(82, $config->infection->minMsi);
         self::assertSame(84, $config->infection->minCoveredMsi);
         self::assertSame(1, $config->infection->threads);
@@ -186,8 +190,8 @@ final class QaConfigBuilderTest extends TestCase
             projectRoot: '/p',
             libraryRoot: '/lib',
             binDir: '/p/vendor/bin',
-            srcDir: '/p/src',
-            testsDir: '/p/tests',
+            srcDir: self::PROJECT_SRC,
+            testsDir: self::PROJECT_TESTS,
             projectConfigDir: '/p/qaConfig',
             varDir: '/p/var/qa',
             cacheDir: '/p/var/qa/cache',

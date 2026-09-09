@@ -54,6 +54,8 @@ use RuntimeException;
 #[Small]
 final class ShippedToolLocatorTest extends TestCase
 {
+    private const string PHP_LINT = 'phpLint';
+
     private TempDir $qaConfig;
 
     protected function setUp(): void
@@ -69,22 +71,22 @@ final class ShippedToolLocatorTest extends TestCase
     #[Test]
     public function aShippedToolIsReturnedByName(): void
     {
-        $shipped = new StubTool('phpLint', ToolResultDto::passed());
-        $locator = new ShippedToolLocator(['phpLint' => $shipped], $this->qaConfig->path);
+        $shipped = new StubTool(self::PHP_LINT, ToolResultDto::passed());
+        $locator = new ShippedToolLocator([self::PHP_LINT => $shipped], $this->qaConfig->path);
 
-        self::assertSame($shipped, $locator->locate('phpLint'));
+        self::assertSame($shipped, $locator->locate(self::PHP_LINT));
     }
 
     #[Test]
     public function aProjectOverrideReplacesTheShippedTool(): void
     {
         $this->qaConfig->write('tools/phpLint.php', '<?php return new LTS\PHPQA\Tests\Support\StubTool("phpLint");');
-        $locator = new ShippedToolLocator(['phpLint' => new StubTool('phpLint')], $this->qaConfig->path);
+        $locator = new ShippedToolLocator([self::PHP_LINT => new StubTool(self::PHP_LINT)], $this->qaConfig->path);
 
-        $tool = $locator->locate('phpLint');
+        $tool = $locator->locate(self::PHP_LINT);
 
         self::assertInstanceOf(StubTool::class, $tool);
-        self::assertNotSame($locator->locate('phpLint'), $tool, 'each locate requires the file afresh');
+        self::assertNotSame($locator->locate(self::PHP_LINT), $tool, 'each locate requires the file afresh');
     }
 
     #[Test]
@@ -108,7 +110,7 @@ final class ShippedToolLocatorTest extends TestCase
         $locator = new ShippedToolLocator([], $this->qaConfig->path);
 
         $this->expectException(RuntimeException::class);
-        $locator->locate('phpLint');
+        $locator->locate(self::PHP_LINT);
     }
 
     #[Test]

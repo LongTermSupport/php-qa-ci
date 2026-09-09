@@ -25,6 +25,10 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string APP_SERVICE = 'App\Service';
+
+    private const string SERVICE_FOO_PHP = '/app/src/Service/Foo.php';
+
     // Assembled at runtime so this literal does not itself read as a suppression.
     private const string SUPPRESSION = '// @phpstan-ignore-next-line';
 
@@ -45,7 +49,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
     public function suppressionCommentInProductionCodeIsFlaggedAtCommentLine(): void
     {
         $node   = $this->stmtWithComment(self::SUPPRESSION, 42);
-        $errors = $this->rule->processNode($node, $this->scope('App\Service', '/app/src/Service/Foo.php'));
+        $errors = $this->rule->processNode($node, $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('Inline PHPStan suppression annotations are forbidden', $errors[0]->getMessage());
@@ -58,7 +62,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
     #[Test]
     public function statementWithNoCommentsIsNotFlagged(): void
     {
-        self::assertSame([], $this->rule->processNode(new Nop(), $this->scope('App\Service', '/app/src/Service/Foo.php')));
+        self::assertSame([], $this->rule->processNode(new Nop(), $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP)));
     }
 
     #[Test]
@@ -66,7 +70,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
     {
         $node = $this->stmtWithComment('// just an ordinary explanatory comment', 10);
 
-        self::assertSame([], $this->rule->processNode($node, $this->scope('App\Service', '/app/src/Service/Foo.php')));
+        self::assertSame([], $this->rule->processNode($node, $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP)));
     }
 
     #[Test]
@@ -74,7 +78,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
     {
         $node = $this->stmtWithComment(self::SUPPRESSION, 5);
 
-        self::assertSame([], $this->rule->processNode($node, $this->scope('App\Tests\Service', '/app/src/Service/Foo.php')));
+        self::assertSame([], $this->rule->processNode($node, $this->scope('App\Tests\Service', self::SERVICE_FOO_PHP)));
     }
 
     #[Test]
@@ -82,7 +86,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
     {
         $node = $this->stmtWithComment(self::SUPPRESSION, 5);
 
-        self::assertSame([], $this->rule->processNode($node, $this->scope('App\Service', '/app/tests/Service/FooTest.php')));
+        self::assertSame([], $this->rule->processNode($node, $this->scope(self::APP_SERVICE, '/app/tests/Service/FooTest.php')));
     }
 
     #[Test]

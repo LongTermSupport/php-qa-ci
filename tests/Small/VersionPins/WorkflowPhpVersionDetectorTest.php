@@ -17,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class WorkflowPhpVersionDetectorTest extends TestCase
 {
+    private const string PHP_MAJOR_MINOR = '8.5';
+
     private const string LOOP_CURRENT = "          PHP_VERSION=8.5\n          for V in 8.5 8.4 8.3; do\n            if [[ \"\$CONSTRAINT\" == *\"\$V\"* ]]; then PHP_VERSION=\"\$V\"; break; fi\n          done\n";
 
     private const string LOOP_STALE = "          PHP_VERSION=8.3\n          for V in 8.4 8.3 8.2; do\n            if [[ \"\$CONSTRAINT\" == *\"\$V\"* ]]; then PHP_VERSION=\"\$V\"; break; fi\n          done\n";
@@ -35,7 +37,7 @@ final class WorkflowPhpVersionDetectorTest extends TestCase
     #[Test]
     public function aLoopThatListsTheRequiredVersionAndDefaultsToItPasses(): void
     {
-        self::assertSame([], $this->detector->check(self::LOOP_CURRENT, '8.5'));
+        self::assertSame([], $this->detector->check(self::LOOP_CURRENT, self::PHP_MAJOR_MINOR));
     }
 
     #[Test]
@@ -46,20 +48,20 @@ final class WorkflowPhpVersionDetectorTest extends TestCase
                 'the PHP version detection list [8.4, 8.3, 8.2] cannot select PHP 8.5, which composer.json requires; add 8.5 to the list',
                 'the fallback PHP version is 8.3 but composer.json requires 8.5; set the default to 8.5',
             ],
-            $this->detector->check(self::LOOP_STALE, '8.5'),
+            $this->detector->check(self::LOOP_STALE, self::PHP_MAJOR_MINOR),
         );
     }
 
     #[Test]
     public function anIfElifChainThatCoversTheRequiredVersionPasses(): void
     {
-        self::assertSame([], $this->detector->check(self::CHAIN_CURRENT, '8.5'));
+        self::assertSame([], $this->detector->check(self::CHAIN_CURRENT, self::PHP_MAJOR_MINOR));
     }
 
     #[Test]
     public function anIfElifChainOnlyCountsTheElseBranchAsTheDefault(): void
     {
-        $problems = $this->detector->check(self::CHAIN_STALE, '8.5');
+        $problems = $this->detector->check(self::CHAIN_STALE, self::PHP_MAJOR_MINOR);
 
         self::assertSame(
             [
@@ -73,7 +75,7 @@ final class WorkflowPhpVersionDetectorTest extends TestCase
     #[Test]
     public function everyLoopInAFileIsJudged(): void
     {
-        self::assertCount(4, $this->detector->check(self::LOOP_STALE . self::LOOP_STALE, '8.5'));
+        self::assertCount(4, $this->detector->check(self::LOOP_STALE . self::LOOP_STALE, self::PHP_MAJOR_MINOR));
     }
 
     #[Test]
@@ -81,7 +83,7 @@ final class WorkflowPhpVersionDetectorTest extends TestCase
     {
         $yaml = "      - uses: shivammathur/setup-php@v2\n        with:\n          php-version: '8.5'\n";
 
-        self::assertSame([], $this->detector->check($yaml, '8.5'));
+        self::assertSame([], $this->detector->check($yaml, self::PHP_MAJOR_MINOR));
         self::assertFalse($this->detector->detectsPhpVersion($yaml));
         self::assertTrue($this->detector->detectsPhpVersion(self::LOOP_CURRENT));
         self::assertTrue($this->detector->detectsPhpVersion(self::CHAIN_CURRENT));

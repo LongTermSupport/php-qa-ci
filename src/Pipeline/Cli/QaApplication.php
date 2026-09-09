@@ -45,6 +45,8 @@ use Throwable;
  */
 final readonly class QaApplication
 {
+    private const string RULE = '===========================================';
+
     /**
      * @param list<string>          $argv         the arguments after the script name
      * @param array<string, string> $env
@@ -93,9 +95,9 @@ final readonly class QaApplication
         }
 
         $decoration->writeln('');
-        $decoration->writeln('===========================================');
+        $decoration->writeln(self::RULE);
         $decoration->writeln(\sprintf('%s qa %s', \Safe\gethostname(), implode(' ', $this->argv)));
-        $decoration->writeln('===========================================');
+        $decoration->writeln(self::RULE);
         $decoration->writeln('');
 
         $ci        = $env->isCi($this->stdinIsTty, $this->stdoutIsTty);
@@ -192,9 +194,9 @@ final readonly class QaApplication
         }
 
         $decoration->writeln('');
-        $decoration->writeln('===========================================');
+        $decoration->writeln(self::RULE);
         $decoration->writeln(\sprintf('%s qa %s COMPLETED', \Safe\gethostname(), implode(' ', $this->argv)));
-        $decoration->writeln('===========================================');
+        $decoration->writeln(self::RULE);
 
         return $exit;
     }

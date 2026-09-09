@@ -28,6 +28,10 @@ final class RedirectStubHooksDaemonNoticeTest extends TestCase
 {
     private const string PHPSTAN_STUB = __DIR__ . '/../../../bin/phpstan';
 
+    private const string MANAGED_NOTICE = 'is managed by php-qa-ci';
+
+    private const string DAEMON_NOTICE = 'HOOKS DAEMON DETECTED';
+
     private string $projectDir;
 
     protected function setUp(): void
@@ -48,8 +52,8 @@ final class RedirectStubHooksDaemonNoticeTest extends TestCase
         [$exitCode, $output] = $this->runStub();
 
         self::assertSame(1, $exitCode);
-        self::assertStringContainsString('is managed by php-qa-ci', $output);
-        self::assertStringContainsString('HOOKS DAEMON DETECTED', $output);
+        self::assertStringContainsString(self::MANAGED_NOTICE, $output);
+        self::assertStringContainsString(self::DAEMON_NOTICE, $output);
         self::assertStringContainsString('command_overrides', $output);
         self::assertStringContainsString('qa -t phpstan -p {file}', $output);
     }
@@ -67,8 +71,8 @@ final class RedirectStubHooksDaemonNoticeTest extends TestCase
         [$exitCode, $output] = $this->runStub();
 
         self::assertSame(1, $exitCode);
-        self::assertStringContainsString('is managed by php-qa-ci', $output);
-        self::assertStringNotContainsString('HOOKS DAEMON DETECTED', $output);
+        self::assertStringContainsString(self::MANAGED_NOTICE, $output);
+        self::assertStringNotContainsString(self::DAEMON_NOTICE, $output);
     }
 
     public function testNoNoticeWhenNoDaemonConfigExists(): void
@@ -76,8 +80,8 @@ final class RedirectStubHooksDaemonNoticeTest extends TestCase
         [$exitCode, $output] = $this->runStub();
 
         self::assertSame(1, $exitCode);
-        self::assertStringContainsString('is managed by php-qa-ci', $output);
-        self::assertStringNotContainsString('HOOKS DAEMON DETECTED', $output);
+        self::assertStringContainsString(self::MANAGED_NOTICE, $output);
+        self::assertStringNotContainsString(self::DAEMON_NOTICE, $output);
     }
 
     /**

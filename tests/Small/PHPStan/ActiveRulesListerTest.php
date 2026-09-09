@@ -62,6 +62,8 @@ final class ActiveRulesListerTest extends TestCase
 
     private const string FIXTURE_PROJECT = __DIR__ . '/../../assets/ActiveRulesLister/projectFixture';
 
+    private const string LEGACY_IGNORED_IDENTIFIER = 'class.notFound';
+
     public function testTextOutputListsRulesLanesAndProjectRecordExactly(): void
     {
         $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
@@ -72,7 +74,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertCount(2, $listing->rules);
 
         $withIdentifier = $listing->rules[0];
-        self::assertSame('phpqaci.dangerousFunctions', $withIdentifier->identifier);
+        self::assertSame(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::IDENTIFIER, $withIdentifier->identifier);
         self::assertSame(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::class, $withIdentifier->ruleClass);
         self::assertSame('No exec/eval/unserialize and similar', $withIdentifier->summary);
         self::assertSame(
@@ -121,7 +123,7 @@ final class ActiveRulesListerTest extends TestCase
 
         self::assertCount(1, $listing->projectRecord);
         $record = $listing->projectRecord[0];
-        self::assertSame('class.notFound', $record->identifier);
+        self::assertSame(self::LEGACY_IGNORED_IDENTIFIER, $record->identifier);
         self::assertSame('some/legacy/path.php', $record->path);
         self::assertSame(2, $record->count);
         self::assertSame(
@@ -130,14 +132,14 @@ final class ActiveRulesListerTest extends TestCase
         );
 
         $text = $lister->renderText($listing);
-        self::assertStringContainsString('phpqaci.dangerousFunctions', $text);
+        self::assertStringContainsString(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::IDENTIFIER, $text);
         self::assertStringContainsString('No exec/eval/unserialize and similar', $text);
         self::assertStringContainsString('FixtureProjectRule', $text);
         self::assertStringContainsString('not declared', $text);
         self::assertStringContainsString('Pipeline lanes', $text);
         self::assertStringContainsString('branchNamePolicy', $text);
         self::assertStringContainsString('Project record', $text);
-        self::assertStringContainsString('class.notFound', $text);
+        self::assertStringContainsString(self::LEGACY_IGNORED_IDENTIFIER, $text);
         self::assertStringContainsString(
             'Justification: legacy generated code, tracked for removal in TICKET-123.',
             $text,
@@ -160,7 +162,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertCount(2, $rules);
         $firstRule = $rules[0];
         self::assertIsArray($firstRule);
-        self::assertSame('phpqaci.dangerousFunctions', $firstRule['identifier']);
+        self::assertSame(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::IDENTIFIER, $firstRule['identifier']);
         $secondRule = $rules[1];
         self::assertIsArray($secondRule);
         self::assertNull($secondRule['identifier']);
@@ -170,7 +172,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertCount(1, $projectRecord);
         $firstRecord = $projectRecord[0];
         self::assertIsArray($firstRecord);
-        self::assertSame('class.notFound', $firstRecord['identifier']);
+        self::assertSame(self::LEGACY_IGNORED_IDENTIFIER, $firstRecord['identifier']);
 
         self::assertNotEmpty($decoded['pipelineLanes']);
     }

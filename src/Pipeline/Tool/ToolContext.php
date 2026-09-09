@@ -15,6 +15,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Everything a tool needs to run: the resolved configuration and the shared
  * services. Handed to every ToolInterface::run().
  *
+ * The two output streams are not interchangeable. `$output` takes everything a
+ * human reads, and in `--json` mode it is stderr so it cannot corrupt the
+ * report. `$stdout` is the real stdout and takes structured output only.
+ *
  * @api
  */
 final readonly class ToolContext
@@ -25,9 +29,7 @@ final readonly class ToolContext
         public ProcessRunnerInterface $processes,
         public PhpInvoker $php,
         public LogArchiver $logs,
-        /** Decoration output; in --json mode this is stderr. */
         public OutputInterface $output,
-        /** The real stdout, for structured output only. */
         public OutputInterface $stdout,
     ) {
     }

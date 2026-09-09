@@ -5,29 +5,30 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Config\Dto;
 
 /**
- * Every directory the pipeline reads or writes, resolved once at start-up.
+ * Every directory the pipeline reads or writes, resolved once at start-up and
+ * absolute from then on.
+ *
+ * Two roots, and confusing them is the usual mistake: `$projectRoot` is the
+ * consuming project (php-qa-ci itself when self-testing), `$libraryRoot` is
+ * php-qa-ci, which is where `$pharDir` and `$configDefaultsDir` live. Of the
+ * rest, `$binDir` is Composer's configured bin directory rather than a fixed
+ * vendor/bin, `$projectConfigDir` may not exist, and `$varDir` holds the logs,
+ * caches and generated ini files.
  *
  * @api
  */
 final readonly class ProjectPathsDto
 {
     public function __construct(
-        /** The consuming project (or php-qa-ci itself when self-testing). */
         public string $projectRoot,
-        /** The php-qa-ci library root (where bin/, configDefaults/, vendor-phar/ live). */
         public string $libraryRoot,
-        /** The project's Composer bin directory (usually vendor/bin). */
         public string $binDir,
         public string $srcDir,
         public string $testsDir,
-        /** The project's qaConfig/ directory (may not exist). */
         public string $projectConfigDir,
-        /** var/qa under the project root: logs, caches, generated ini files. */
         public string $varDir,
         public string $cacheDir,
-        /** The library's vendor-phar/ directory. */
         public string $pharDir,
-        /** The library's configDefaults/ directory. */
         public string $configDefaultsDir,
     ) {
     }

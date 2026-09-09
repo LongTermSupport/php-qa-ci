@@ -22,6 +22,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class SingleRuleReportTest extends TestCase
 {
+    private const string PHPQACI_NESTED_TERNARY = 'phpqaci.nestedTernary';
+
     private const string JSON = <<<'JSON'
         {
           "totals": {"errors": 0, "file_errors": 3},
@@ -47,7 +49,7 @@ final class SingleRuleReportTest extends TestCase
     #[Test]
     public function itListsOnlyTheFiringsOfTheRequestedRule(): void
     {
-        $firings = SingleRuleReport::fromJson(self::JSON)->firingsOf('phpqaci.nestedTernary');
+        $firings = SingleRuleReport::fromJson(self::JSON)->firingsOf(self::PHPQACI_NESTED_TERNARY);
 
         self::assertSame(
             [
@@ -67,7 +69,7 @@ final class SingleRuleReportTest extends TestCase
     #[Test]
     public function aRunWithNoFilesYieldsNothing(): void
     {
-        self::assertSame([], SingleRuleReport::fromJson('{"totals":{"errors":0,"file_errors":0},"files":[],"errors":[]}')->firingsOf('phpqaci.nestedTernary'));
+        self::assertSame([], SingleRuleReport::fromJson('{"totals":{"errors":0,"file_errors":0},"files":[],"errors":[]}')->firingsOf(self::PHPQACI_NESTED_TERNARY));
     }
 
     #[Test]
@@ -83,7 +85,7 @@ final class SingleRuleReportTest extends TestCase
     {
         $report = SingleRuleReport::fromJson(self::JSON);
 
-        $fired = $report->render('phpqaci.nestedTernary');
+        $fired = $report->render(self::PHPQACI_NESTED_TERNARY);
         self::assertStringStartsWith('phpqaci.nestedTernary FIRED (2)', $fired);
         self::assertStringContainsString('/repo/src/B.php:3', $fired);
 

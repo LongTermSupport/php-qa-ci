@@ -35,6 +35,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class YamlLintToolTest extends TestCase
 {
+    private const string CONFIG_DIR = 'config';
+
+    private const string PHP_VERSION = '8.5.10';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -52,7 +56,7 @@ final class YamlLintToolTest extends TestCase
     #[Test]
     public function aGenericProjectIsSkippedWithoutRunningAnything(): void
     {
-        $this->factory->project->mkdir('config');
+        $this->factory->project->mkdir(self::CONFIG_DIR);
 
         $result = new YamlLintTool()->run($this->factory->context());
 
@@ -79,8 +83,8 @@ final class YamlLintToolTest extends TestCase
     #[Test]
     public function aCleanLintPassesAndRunsLintYamlWithParseTagsOverTheConfigDirectory(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed('All 4 YAML files contain valid syntax.');
-        $this->factory->project->mkdir('config');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('All 4 YAML files contain valid syntax.');
+        $this->factory->project->mkdir(self::CONFIG_DIR);
         $root = $this->factory->project->path;
 
         $result = new YamlLintTool()->run($this->factory->context($this->symfonyConfig()));
@@ -98,13 +102,13 @@ final class YamlLintToolTest extends TestCase
     #[Test]
     public function onlyTheConfiguredDirectoriesThatExistArePassedInOrder(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed();
-        $this->factory->project->mkdir('config');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->project->mkdir(self::CONFIG_DIR);
         $this->factory->project->mkdir('translations');
 
         $root   = $this->factory->project->path;
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)
-            ->withYamlDirectories('config', 'missing', 'translations')
+            ->withYamlDirectories(self::CONFIG_DIR, 'missing', 'translations')
             ->build()
         ;
 
@@ -119,8 +123,8 @@ final class YamlLintToolTest extends TestCase
     #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willFail(1, 'Unable to parse at line 3');
-        $this->factory->project->mkdir('config');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Unable to parse at line 3');
+        $this->factory->project->mkdir(self::CONFIG_DIR);
 
         $result = new YamlLintTool()->run($this->factory->context($this->symfonyConfig()));
 

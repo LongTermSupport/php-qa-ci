@@ -30,6 +30,8 @@ final class ForbidDangerousFunctionsRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string PARSE_STR = 'parse_str';
+
     private ForbidDangerousFunctionsRule $rule;
 
     protected function setUp(): void
@@ -72,16 +74,16 @@ final class ForbidDangerousFunctionsRuleTest extends TestCase
     #[Test]
     public function parseStrWithoutOutputVariableIsFlagged(): void
     {
-        $errors = $this->rule->processNode(new FuncCall(new Name('parse_str'), [new Arg(new Variable('query'))]), $this->scope());
+        $errors = $this->rule->processNode(new FuncCall(new Name(self::PARSE_STR), [new Arg(new Variable('query'))]), $this->scope());
 
         self::assertCount(1, $errors);
-        self::assertStringContainsString('parse_str', $errors[0]->getMessage());
+        self::assertStringContainsString(self::PARSE_STR, $errors[0]->getMessage());
     }
 
     #[Test]
     public function parseStrWithOutputVariableIsNotFlagged(): void
     {
-        $call = new FuncCall(new Name('parse_str'), [new Arg(new Variable('query')), new Arg(new Variable('result'))]);
+        $call = new FuncCall(new Name(self::PARSE_STR), [new Arg(new Variable('query')), new Arg(new Variable('result'))]);
 
         self::assertSame([], $this->rule->processNode($call, $this->scope()));
     }

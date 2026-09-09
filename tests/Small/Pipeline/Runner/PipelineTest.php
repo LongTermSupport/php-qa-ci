@@ -57,6 +57,16 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PipelineTest extends TestCase
 {
+    private const string ALL_TESTS_PASSING = 'ALL TESTS PASSING';
+
+    private const string PHP_LINT = 'phpLint';
+
+    private const string PHPSTAN = 'phpstan';
+
+    private const string PHPLOC = 'phploc';
+
+    private const string PARAM_TYPES = 'types';
+
     private ContextFactory $factory;
 
     private FakeToolLocator $tools;
@@ -81,8 +91,8 @@ final class PipelineTest extends TestCase
 
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
-        self::assertStringContainsString('ALL TESTS PASSING', $printed);
-        $expectedOrder = ['rector', 'phpCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', 'phpLint', 'composerRequireChecker', 'markdownLinks', 'branchNamePolicy', 'phpstanIgnoreJustification', 'phpstan', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phploc'];
+        self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
+        $expectedOrder = ['rector', 'phpCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'composerRequireChecker', 'markdownLinks', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', self::PHPLOC];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'the lock is released');
@@ -109,7 +119,7 @@ final class PipelineTest extends TestCase
     #[Test]
     public function failFastStopsAtTheFirstFailureAndExitsOne(): void
     {
-        $this->tools->register(new StubTool('phpLint', ToolResultDto::failed('syntax')));
+        $this->tools->register(new StubTool(self::PHP_LINT, ToolResultDto::failed('syntax')));
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
 
         $exit = $this->pipeline()->run($context);
@@ -118,15 +128,15 @@ final class PipelineTest extends TestCase
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('[phpLint ran]', $printed);
         self::assertStringNotContainsString('[composerRequireChecker ran]', $printed);
-        self::assertStringNotContainsString('ALL TESTS PASSING', $printed);
-        self::assertSame(0, $this->tools->stub('phploc')->runs);
+        self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
+        self::assertSame(0, $this->tools->stub(self::PHPLOC)->runs);
     }
 
     #[Test]
     public function aggregateModeRunsEverythingAndListsEveryFailure(): void
     {
-        $this->tools->register(new StubTool('phpLint', ToolResultDto::failed('syntax')));
-        $this->tools->register(new StubTool('phpstan', ToolResultDto::failed('types')));
+        $this->tools->register(new StubTool(self::PHP_LINT, ToolResultDto::failed('syntax')));
+        $this->tools->register(new StubTool(self::PHPSTAN, ToolResultDto::failed(self::PARAM_TYPES)));
 
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
 
@@ -139,7 +149,7 @@ final class PipelineTest extends TestCase
         self::assertStringContainsString('Aggregate (read-only) run: 2 tool(s) FAILED', $printed);
         self::assertStringContainsString('          - phpLint', $printed);
         self::assertStringContainsString('          - phpstan', $printed);
-        self::assertStringNotContainsString('ALL TESTS PASSING', $printed);
+        self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
     }
 
     #[Test]
@@ -161,7 +171,7 @@ final class PipelineTest extends TestCase
         self::assertStringContainsString('Skipping phpstan (gate=NotQuick', $printed);
         self::assertStringContainsString('Skipping phpunit', $printed);
         self::assertStringContainsString('Skipping infection', $printed);
-        self::assertSame(0, $this->tools->stub('phpstan')->runs);
+        self::assertSame(0, $this->tools->stub(self::PHPSTAN)->runs);
     }
 
     #[Test]
@@ -177,22 +187,22 @@ final class PipelineTest extends TestCase
     #[Test]
     public function aSingleLeafToolRunsAloneAndIgnoresGates(): void
     {
-        $context = $this->factory->context($this->factory->builder(env: ['phpqaQuickTests' => '1'], readOnly: false, aggregate: false, singleTool: 'phpstan')->build());
+        $context = $this->factory->context($this->factory->builder(env: ['phpqaQuickTests' => '1'], readOnly: false, aggregate: false, singleTool: self::PHPSTAN)->build());
 
         self::assertSame(0, $this->pipeline()->run($context));
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('Running Single Tool: phpstan', $printed);
-        self::assertSame(1, $this->tools->stub('phpstan')->runs);
-        self::assertSame(0, $this->tools->stub('phpLint')->runs);
-        self::assertSame(0, $this->tools->stub('phploc')->runs);
-        self::assertStringNotContainsString('ALL TESTS PASSING', $printed);
+        self::assertSame(1, $this->tools->stub(self::PHPSTAN)->runs);
+        self::assertSame(0, $this->tools->stub(self::PHP_LINT)->runs);
+        self::assertSame(0, $this->tools->stub(self::PHPLOC)->runs);
+        self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
     }
 
     #[Test]
     public function aSingleFailingLeafToolExitsOne(): void
     {
-        $this->tools->register(new StubTool('phpstan', ToolResultDto::failed('types')));
-        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: 'phpstan')->build());
+        $this->tools->register(new StubTool(self::PHPSTAN, ToolResultDto::failed(self::PARAM_TYPES)));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::PHPSTAN)->build());
 
         self::assertSame(1, $this->pipeline()->run($context));
     }
@@ -200,7 +210,7 @@ final class PipelineTest extends TestCase
     #[Test]
     public function aPhaseRunnerRunsItsLeafToolsWithGatesAndAggregates(): void
     {
-        $this->tools->register(new StubTool('phpstan', ToolResultDto::failed('types')));
+        $this->tools->register(new StubTool(self::PHPSTAN, ToolResultDto::failed(self::PARAM_TYPES)));
         $context = $this->factory->context($this->factory->builder(env: ['phpqaQuickTests' => '1'], readOnly: true, aggregate: true, singleTool: 'allStaticAnalysisTools')->build());
 
         self::assertSame(0, $this->pipeline()->run($context), 'phpstan is gated off in quick mode, so nothing fails');
@@ -225,7 +235,7 @@ final class PipelineTest extends TestCase
     #[Test]
     public function theRetryWarningIsPrintedWhenAToolWasRetried(): void
     {
-        $this->tools->register(new StubTool('phpLint', ToolResultDto::failed('once'), ToolResultDto::passed()));
+        $this->tools->register(new StubTool(self::PHP_LINT, ToolResultDto::failed('once'), ToolResultDto::passed()));
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
 
         self::assertSame(0, $this->pipeline(retry: true)->run($context));

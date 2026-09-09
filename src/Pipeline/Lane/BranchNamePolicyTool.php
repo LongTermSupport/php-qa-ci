@@ -24,6 +24,8 @@ final readonly class BranchNamePolicyTool implements ToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.branchNamePolicy';
 
+    private const string RULE      = '==============================================================================';
+
     public function __construct(
         private BranchNamePolicyDecision $decision = new BranchNamePolicyDecision(),
         private BranchNamePolicyConfig $config = new BranchNamePolicyConfig(),
@@ -96,9 +98,9 @@ final readonly class BranchNamePolicyTool implements ToolInterface
     private function failureGuidance(ToolContext $context, string $branch, array $prefixes, bool $isPlanBranch): void
     {
         $context->writeln('');
-        $context->writeln('==============================================================================');
+        $context->writeln(self::RULE);
         $context->writeln('branchNamePolicy: DISALLOWED BRANCH');
-        $context->writeln('==============================================================================');
+        $context->writeln(self::RULE);
         $context->writeln('');
         $context->writeln('Current branch: ' . $branch);
         $context->writeln('');
@@ -125,9 +127,9 @@ final readonly class BranchNamePolicyTool implements ToolInterface
             return;
         }
 
-        $context->writeln('==============================================================================');
+        $context->writeln(self::RULE);
         $context->writeln('‼  PLAN BRANCH DETECTED — STOP AND READ');
-        $context->writeln('==============================================================================');
+        $context->writeln(self::RULE);
         $context->writeln('');
         $context->writeln('You are on a plan/* branch. Plans are atomic pieces of work and MUST NOT be the unit of a PR.');
         $context->writeln('A feature/bugfix branch may carry zero or more plans, each landing as one (or more) commit(s).');

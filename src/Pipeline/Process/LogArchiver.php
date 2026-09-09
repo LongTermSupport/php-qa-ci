@@ -16,6 +16,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class LogArchiver
 {
+    private const string RULE = '==========================================';
+
     private const int KEEP = 10;
 
     private const int WARN_ABOVE = 100;
@@ -67,12 +69,12 @@ final readonly class LogArchiver
         $total = \count(\Safe\glob($logDir . '/*.' . $extension));
         if ($total > self::WARN_ABOVE) {
             $this->output->writeln('');
-            $this->output->writeln('==========================================');
+            $this->output->writeln(self::RULE);
             $this->output->writeln('WARNING: HIGH LOG FILE COUNT');
-            $this->output->writeln('==========================================');
+            $this->output->writeln(self::RULE);
             $this->output->writeln(\sprintf('Total %s log files in %s: %d', $toolName, $logDir, $total));
             $this->output->writeln(\sprintf('Retention: %d per pattern (full suite + each -p path); consider clearing old logs.', self::KEEP));
-            $this->output->writeln('==========================================');
+            $this->output->writeln(self::RULE);
         }
     }
 

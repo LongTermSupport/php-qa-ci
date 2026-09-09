@@ -25,6 +25,8 @@ final class SensitiveParameterUsageScannerTest extends TestCase
 
     private const string PROJECT_MULTIPLE = __DIR__ . '/../../assets/sensitiveParameterUsage/projectMultiple';
 
+    private const string SRC_DIR = '/src';
+
     private SensitiveParameterUsageScanner $scanner;
 
     protected function setUp(): void
@@ -35,7 +37,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     #[Test]
     public function itFindsTheAttributeWhenAProjectUsesIt(): void
     {
-        $result = $this->scanner->scan(self::PROJECT_WITH . '/src');
+        $result = $this->scanner->scan(self::PROJECT_WITH . self::SRC_DIR);
 
         self::assertSame(1, $result->count);
         self::assertTrue($result->hasUsage());
@@ -46,7 +48,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     #[Test]
     public function itReportsZeroWhenAProjectNeverUsesTheAttribute(): void
     {
-        $result = $this->scanner->scan(self::PROJECT_WITHOUT . '/src');
+        $result = $this->scanner->scan(self::PROJECT_WITHOUT . self::SRC_DIR);
 
         self::assertSame(0, $result->count);
         self::assertFalse($result->hasUsage());
@@ -58,7 +60,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     {
         // The without-attribute fixture mentions "#[\SensitiveParameter]" in a
         // docblock. An AST-based scan must ignore it; a naive text scan would not.
-        $result = $this->scanner->scan(self::PROJECT_WITHOUT . '/src');
+        $result = $this->scanner->scan(self::PROJECT_WITHOUT . self::SRC_DIR);
 
         self::assertSame(0, $result->count);
     }
@@ -109,7 +111,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     #[Test]
     public function eachLocationIsTheAbsoluteFilePathFollowedByAColonAndLineNumber(): void
     {
-        $result = $this->scanner->scan(self::PROJECT_WITH . '/src');
+        $result = $this->scanner->scan(self::PROJECT_WITH . self::SRC_DIR);
 
         self::assertCount(1, $result->locations);
         self::assertMatchesRegularExpression('#/Authenticator\.php:\d+$#', $result->locations[0]);
@@ -125,7 +127,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     #[Test]
     public function itAggregatesEveryOccurrenceAcrossFilesAndWithinAFile(): void
     {
-        $result = $this->scanner->scan(self::PROJECT_MULTIPLE . '/src');
+        $result = $this->scanner->scan(self::PROJECT_MULTIPLE . self::SRC_DIR);
 
         self::assertSame(3, $result->count);
         self::assertCount(3, $result->locations);
@@ -150,7 +152,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     #[Test]
     public function reportedLocationsAreInDeterministicSortedOrder(): void
     {
-        $result = $this->scanner->scan(self::PROJECT_MULTIPLE . '/src');
+        $result = $this->scanner->scan(self::PROJECT_MULTIPLE . self::SRC_DIR);
 
         $sorted = $result->locations;
         sort($sorted);
@@ -167,7 +169,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
     #[Test]
     public function mainPrintsTheExactPassSummaryIncludingEachLocationLine(): void
     {
-        $location = $this->scanner->scan(self::PROJECT_WITH . '/src')->locations[0];
+        $location = $this->scanner->scan(self::PROJECT_WITH . self::SRC_DIR)->locations[0];
 
         \Safe\ob_start();
         SensitiveParameterUsageScanner::main(self::PROJECT_WITH, useCheck: true);
@@ -213,7 +215,7 @@ final class SensitiveParameterUsageScannerTest extends TestCase
         $output = \Safe\ob_get_clean();
 
         $rule         = str_repeat('=', 78);
-        $srcDirectory = self::PROJECT_WITHOUT . '/src';
+        $srcDirectory = self::PROJECT_WITHOUT . self::SRC_DIR;
         $expected     = \PHP_EOL
             . $rule . \PHP_EOL
             . 'SensitiveParameter usage check FAILED' . \PHP_EOL

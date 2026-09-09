@@ -42,6 +42,10 @@ final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
 {
     use ScopeStubTrait;
 
+    private const string BUILDER_METHOD = 'builder';
+
+    private const string PHPQACI_X = 'phpqaci.x';
+
     #[Test]
     public function getNodeTypeIsMethodCall(): void
     {
@@ -71,7 +75,7 @@ final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
     #[Test]
     public function aDifferentMethodCallIsIgnored(): void
     {
-        $call = new MethodCall(new Variable('builder'), new Identifier('build'), [new Arg(new String_('phpqaci.x'))]);
+        $call = new MethodCall(new Variable(self::BUILDER_METHOD), new Identifier('build'), [new Arg(new String_(self::PHPQACI_X))]);
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scopeInClass(ForbidLooseComparisonRule::class)));
     }
@@ -79,7 +83,7 @@ final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
     #[Test]
     public function identifierCallWithNoArgumentsIsIgnored(): void
     {
-        $call = new MethodCall(new Variable('builder'), new Identifier('identifier'), []);
+        $call = new MethodCall(new Variable(self::BUILDER_METHOD), new Identifier('identifier'), []);
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scopeInClass(ForbidLooseComparisonRule::class)));
     }
@@ -89,13 +93,13 @@ final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
     {
         // A non-rule class (a Composer plugin) — the ->identifier() convention only
         // binds inside PHPStan rules, so this is not flagged.
-        self::assertSame([], $this->getRule()->processNode($this->identifierCall(new String_('phpqaci.x')), $this->scopeInClass(PhpStanGuardPlugin::class)));
+        self::assertSame([], $this->getRule()->processNode($this->identifierCall(new String_(self::PHPQACI_X)), $this->scopeInClass(PhpStanGuardPlugin::class)));
     }
 
     #[Test]
     public function callWithNoEnclosingClassIsIgnored(): void
     {
-        self::assertSame([], $this->getRule()->processNode($this->identifierCall(new String_('phpqaci.x')), $this->scopeInClass(null)));
+        self::assertSame([], $this->getRule()->processNode($this->identifierCall(new String_(self::PHPQACI_X)), $this->scopeInClass(null)));
     }
 
     protected function getRule(): Rule
@@ -105,7 +109,7 @@ final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
 
     private function identifierCall(\PhpParser\Node\Expr $argValue): MethodCall
     {
-        return new MethodCall(new Variable('builder'), new Identifier('identifier'), [new Arg($argValue)]);
+        return new MethodCall(new Variable(self::BUILDER_METHOD), new Identifier('identifier'), [new Arg($argValue)]);
     }
 
     private function scopeInClass(?string $className): CollectedDataEmitter&NodeCallbackInvoker&Scope

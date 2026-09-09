@@ -39,6 +39,8 @@ use RuntimeException;
 #[Small]
 final class PreflightTest extends TestCase
 {
+    private const string GITIGNORE = '.gitignore';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -55,14 +57,14 @@ final class PreflightTest extends TestCase
     public function directoriesAreCreatedWithSelfExcludingGitignoresAndTheRootBlockIsAddedOnce(): void
     {
         $paths = $this->factory->paths();
-        $this->factory->project->write('.gitignore', '/vendor/');
+        $this->factory->project->write(self::GITIGNORE, '/vendor/');
 
         new DirectoryPreparer()->prepare($paths);
         new DirectoryPreparer()->prepare($paths);
 
         self::assertSame("\n*\n!.gitignore\n", $this->factory->project->read('var/qa/.gitignore'));
         self::assertSame("\n*\n!.gitignore\n", $this->factory->project->read('var/qa/cache/.gitignore'));
-        $root = $this->factory->project->read('.gitignore');
+        $root = $this->factory->project->read(self::GITIGNORE);
         self::assertStringStartsWith("/vendor/\n", $root, 'a missing trailing newline is added before the block');
         self::assertSame(1, substr_count($root, DirectoryPreparer::MARKER_START), 'the block is idempotent');
         self::assertStringContainsString('**/.qa-lock/', $root);
@@ -73,7 +75,7 @@ final class PreflightTest extends TestCase
     {
         new DirectoryPreparer()->prepare($this->factory->paths());
 
-        self::assertStringContainsString(DirectoryPreparer::MARKER_START, $this->factory->project->read('.gitignore'));
+        self::assertStringContainsString(DirectoryPreparer::MARKER_START, $this->factory->project->read(self::GITIGNORE));
     }
 
     #[Test]

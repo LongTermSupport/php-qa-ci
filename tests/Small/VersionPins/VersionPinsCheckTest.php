@@ -31,18 +31,22 @@ final class VersionPinsCheckTest extends TestCase
 
     private const string STALE = self::PROJECTS . '/stale';
 
+    private const string PHPUNIT_XML = '/qaConfig/phpunit.xml';
+
+    private const string CRC_JSON = '/qaConfig/composerRequireChecker.json';
+
     #[Test]
     public function itReturnsZeroAndPrintsTheExactOkMessageWhenEveryPinAgrees(): void
     {
         self::expectOutputString('Version pins agree with the toolchain in use (PHPUnit 13.3.2, PHP 8.5): phpunit.xml, safe scan-files, GitHub Actions workflows — OK.' . \PHP_EOL);
-        self::assertSame(0, $this->check()->run(self::CURRENT, self::CURRENT . '/qaConfig/phpunit.xml', self::CURRENT . '/qaConfig/composerRequireChecker.json'));
+        self::assertSame(0, $this->check()->run(self::CURRENT, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
     #[Test]
     public function itReturnsOneAndPrintsEveryStalePinFromAllThreeSourcesInOneBlock(): void
     {
-        $phpunit = self::STALE . '/qaConfig/phpunit.xml';
-        $crc     = self::STALE . '/qaConfig/composerRequireChecker.json';
+        $phpunit = self::STALE . self::PHPUNIT_XML;
+        $crc     = self::STALE . self::CRC_JSON;
 
         $expected = \PHP_EOL . 'ERROR — a version pin in the QA configuration does not match the toolchain in use' . \PHP_EOL
             . '----------------------------------------------------------------------------------' . \PHP_EOL
@@ -71,14 +75,14 @@ final class VersionPinsCheckTest extends TestCase
     public function invalidJsonAndANonListScanFilesAreReported(): void
     {
         $this->expectOutputRegex('#not valid JSON \(Syntax error\)#');
-        self::assertSame(1, $this->check()->run(self::CURRENT, self::CURRENT . '/qaConfig/phpunit.xml', self::STALE . '/qaConfig/invalid.json'));
+        self::assertSame(1, $this->check()->run(self::CURRENT, self::CURRENT . self::PHPUNIT_XML, self::STALE . '/qaConfig/invalid.json'));
     }
 
     #[Test]
     public function aNonListScanFilesIsReported(): void
     {
         $this->expectOutputRegex('#"scan-files" is not a list#');
-        self::assertSame(1, $this->check()->run(self::CURRENT, self::CURRENT . '/qaConfig/phpunit.xml', self::STALE . '/qaConfig/not-a-list.json'));
+        self::assertSame(1, $this->check()->run(self::CURRENT, self::CURRENT . self::PHPUNIT_XML, self::STALE . '/qaConfig/not-a-list.json'));
     }
 
     #[Test]
@@ -87,7 +91,7 @@ final class VersionPinsCheckTest extends TestCase
         $root = __DIR__ . '/../../..';
 
         $this->expectOutputRegex('#Version pins agree with the toolchain in use \(PHPUnit ' . preg_quote(Version::id(), '#') . ', PHP \d+\.\d+\)#');
-        self::assertSame(0, VersionPinsCheck::main($root, $root . '/qaConfig/phpunit.xml', $root . '/qaConfig/composerRequireChecker.json'));
+        self::assertSame(0, VersionPinsCheck::main($root, $root . self::PHPUNIT_XML, $root . self::CRC_JSON));
     }
 
     private function check(): VersionPinsCheck

@@ -27,6 +27,8 @@ final readonly class VersionPinsCheck
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.versionPins';
 
+    private const string CRC_LABEL = 'composerRequireChecker.json (';
+
     private const string WORKFLOWS_DIR = '/.github/workflows';
 
     private const string TEMPLATES_DIR = '/templates/github-actions';
@@ -109,16 +111,16 @@ final readonly class VersionPinsCheck
         try {
             $decoded = \Safe\json_decode(\Safe\file_get_contents($configPath), true);
         } catch (\Safe\Exceptions\JsonException $jsonException) {
-            return ['composerRequireChecker.json (' . $configPath . '): not valid JSON (' . $jsonException->getMessage() . ')'];
+            return [self::CRC_LABEL . $configPath . '): not valid JSON (' . $jsonException->getMessage() . ')'];
         }
 
         $scanFiles = \is_array($decoded) ? ($decoded['scan-files'] ?? []) : [];
         if (!\is_array($scanFiles)) {
-            return ['composerRequireChecker.json (' . $configPath . '): "scan-files" is not a list'];
+            return [self::CRC_LABEL . $configPath . '): "scan-files" is not a list'];
         }
 
         return array_map(
-            static fn (string $problem): string => 'composerRequireChecker.json (' . $configPath . '): ' . $problem,
+            static fn (string $problem): string => self::CRC_LABEL . $configPath . '): ' . $problem,
             $this->safeScanFilesDetector->check(array_values(array_filter($scanFiles, is_string(...))), $projectRoot, $this->phpMajorMinor),
         );
     }

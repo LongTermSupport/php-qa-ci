@@ -23,6 +23,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpStanGuardPluginTest extends TestCase
 {
+    private const string ACME_APP = 'acme/app';
+
     public static function setUpBeforeClass(): void
     {
         require_once __DIR__ . '/../../assets/ComposerPlugin/composer-stubs.php';
@@ -43,7 +45,7 @@ final class PhpStanGuardPluginTest extends TestCase
     #[Test]
     public function warnsWhenPhpStanIsADirectRequirement(): void
     {
-        $io = $this->runValidate(new FakeRootPackage('acme/app', ['phpstan/phpstan' => '^2.0']));
+        $io = $this->runValidate(new FakeRootPackage(self::ACME_APP, ['phpstan/phpstan' => '^2.0']));
 
         self::assertStringContainsString('MUST NOT be in your composer.json require', $io->allText());
         self::assertStringContainsString('composer remove phpstan/phpstan', $io->allText());
@@ -52,7 +54,7 @@ final class PhpStanGuardPluginTest extends TestCase
     #[Test]
     public function warnsWhenPhpStanIsADevRequirement(): void
     {
-        $io = $this->runValidate(new FakeRootPackage('acme/app', [], ['phpstan/phpstan' => '^2.0']));
+        $io = $this->runValidate(new FakeRootPackage(self::ACME_APP, [], ['phpstan/phpstan' => '^2.0']));
 
         self::assertStringContainsString('MUST NOT be in your composer.json require-dev', $io->allText());
         self::assertStringContainsString('composer remove --dev phpstan/phpstan', $io->allText());
@@ -61,7 +63,7 @@ final class PhpStanGuardPluginTest extends TestCase
     #[Test]
     public function isSilentWhenPhpStanIsNotADirectRequirement(): void
     {
-        $io = $this->runValidate(new FakeRootPackage('acme/app'));
+        $io = $this->runValidate(new FakeRootPackage(self::ACME_APP));
 
         self::assertSame('', $io->allText());
     }

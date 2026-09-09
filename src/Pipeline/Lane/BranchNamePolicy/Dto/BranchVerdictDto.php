@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\Dto;
 
 /**
+ * The branch-name policy's decision about one branch.
+ *
+ * `$reason` says why it passed, either the word "exempt" or the allowed prefix
+ * it matched, and is null when it failed. `$isPlanBranch` marks a plan branch,
+ * which gets the extra-loud guidance rather than the ordinary failure.
+ *
  * @internal
  */
 final readonly class BranchVerdictDto
@@ -12,9 +18,7 @@ final readonly class BranchVerdictDto
     private function __construct(
         public string $branch,
         public bool $passes,
-        /** Why it passed: "exempt" or the prefix matched; null when it failed. */
         public ?string $reason,
-        /** A plan/* branch: extra-loud guidance applies. */
         public bool $isPlanBranch,
     ) {
     }

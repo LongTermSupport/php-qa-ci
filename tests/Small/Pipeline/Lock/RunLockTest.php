@@ -25,6 +25,10 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[Small]
 final class RunLockTest extends TestCase
 {
+    private const string HOST_A = 'host-a';
+
+    private const string TOOL_UNIT = 'unit';
+
     private TempDir $project;
 
     private BufferedOutput $output;
@@ -45,11 +49,11 @@ final class RunLockTest extends TestCase
     {
         $lock = RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000));
 
-        self::assertTrue($lock->acquire('phpstan', 'src', 'host-a', 42));
+        self::assertTrue($lock->acquire('phpstan', 'src', self::HOST_A, 42));
 
         $info = $lock->current();
         self::assertNotNull($info);
-        self::assertSame('host-a', $info->hostname);
+        self::assertSame(self::HOST_A, $info->hostname);
         self::assertSame(42, $info->pid);
         self::assertSame('phpstan', $info->tool);
         self::assertSame('src', $info->path);
@@ -62,7 +66,7 @@ final class RunLockTest extends TestCase
     #[Test]
     public function aLiveLockIsRefusedWithTheHoldersDetails(): void
     {
-        RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000))->acquire('unit', '', 'host-a', 42);
+        RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000))->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
         $this->output->fetch();
 
         $second = RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000 + RunLock::STALE_AFTER_SECONDS - 1));
@@ -77,7 +81,7 @@ final class RunLockTest extends TestCase
     #[Test]
     public function aStaleLockIsRemovedAndReplaced(): void
     {
-        RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000))->acquire('unit', '', 'host-a', 42);
+        RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000))->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
         $this->output->fetch();
 
         $second = RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000 + RunLock::STALE_AFTER_SECONDS));
@@ -92,7 +96,7 @@ final class RunLockTest extends TestCase
     {
         $clock = new MutableClock(1_000_000);
         $lock  = RunLock::forProject($this->project->path, $this->output, $clock);
-        $lock->acquire('unit', '', 'h', 1);
+        $lock->acquire(self::TOOL_UNIT, '', 'h', 1);
 
         $clock->now = 1_000_300;
         $lock->touch();
@@ -108,7 +112,7 @@ final class RunLockTest extends TestCase
     {
         $clock = new MutableClock(1_000_000);
         $lock  = RunLock::forProject($this->project->path, $this->output, $clock);
-        $lock->acquire('unit', '', 'h', 1);
+        $lock->acquire(self::TOOL_UNIT, '', 'h', 1);
 
         $clock->now = 1_000_125;
 

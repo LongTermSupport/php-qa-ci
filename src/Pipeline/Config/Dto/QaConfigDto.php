@@ -11,6 +11,17 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
  * QaConfigBuilder from the environment, the project's qaConfig/qa.php and the
  * CLI; immutable from then on.
  *
+ * The four run modes are independent of each other. `$ci` is non-interactive:
+ * no prompts, no retry loops. `$readOnly` makes the mutating tools dry-run, so
+ * a pending change fails the run instead of being applied. `$aggregate` runs
+ * every tool and reports the failures together at the end. `$jsonOutput` puts
+ * the structured report on stdout and every line of decoration on stderr, and
+ * only phpstan honours it.
+ *
+ * `$singleTool` is the canonical tool name when `-t` was given and
+ * `$specifiedPath` the project-relative path when `-p` was; `$quickTests`
+ * skips PHPStan, PHPUnit and Infection entirely.
+ *
  * @api
  */
 final readonly class QaConfigDto
@@ -25,24 +36,17 @@ final readonly class QaConfigDto
     public function __construct(
         public ProjectPathsDto $paths,
         public PlatformEnum $platform,
-        /** Non-interactive: no prompts, no retry loops. */
         public bool $ci,
-        /** Mutating tools run in dry-run and a pending change fails the run. */
         public bool $readOnly,
-        /** Every tool runs and failures are reported together at the end. */
         public bool $aggregate,
-        /** Structured output on stdout, decoration on stderr (phpstan only). */
         public bool $jsonOutput,
-        /** Canonical tool name when -t was given. */
         public ?string $singleTool,
-        /** Project-relative path when -p was given. */
         public ?string $specifiedPath,
         public array $pathsToCheck,
         public array $pathsToIgnore,
         public string $phpBinPath,
         public string $memoryLimit,
         public bool $xdebugEnabled,
-        /** Skip PHPStan, PHPUnit and Infection entirely. */
         public bool $quickTests,
         public int $halfCpuThreads,
         public PhpUnitOptionsDto $phpUnit,

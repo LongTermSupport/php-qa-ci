@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ToolResultDtoTest extends TestCase
 {
+    private const string PHPSTAN = 'PHPStan';
+
     #[Test]
     public function passedAndSkippedAreSuccessesFailedAndCrashedAreNot(): void
     {
@@ -40,14 +42,14 @@ final class ToolResultDtoTest extends TestCase
     #[Test]
     public function exitCodesMapToOutcomesWithAnOptionalFailureSet(): void
     {
-        self::assertSame(ToolOutcomeEnum::Passed, ToolResultDto::fromExitCode(0, 'PHPStan')->outcome);
+        self::assertSame(ToolOutcomeEnum::Passed, ToolResultDto::fromExitCode(0, self::PHPSTAN)->outcome);
 
         $anyNonZeroFails = ToolResultDto::fromExitCode(3, 'PHP Lint');
         self::assertSame(ToolOutcomeEnum::Failed, $anyNonZeroFails->outcome);
         self::assertSame('PHP Lint failed (exit 3)', $anyNonZeroFails->summary);
 
-        self::assertSame(ToolOutcomeEnum::Failed, ToolResultDto::fromExitCode(1, 'PHPStan', 1)->outcome);
-        $crash = ToolResultDto::fromExitCode(255, 'PHPStan', 1);
+        self::assertSame(ToolOutcomeEnum::Failed, ToolResultDto::fromExitCode(1, self::PHPSTAN, 1)->outcome);
+        $crash = ToolResultDto::fromExitCode(255, self::PHPSTAN, 1);
         self::assertSame(ToolOutcomeEnum::Crashed, $crash->outcome);
         self::assertSame('PHPStan crashed (exit 255)', $crash->summary);
     }

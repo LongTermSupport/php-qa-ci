@@ -18,6 +18,8 @@ use LTS\PHPQA\Pipeline\Process\ProcessRunnerInterface;
  */
 final readonly class GitBranches
 {
+    private const string HEAD = 'HEAD';
+
     public function __construct(private ProcessRunnerInterface $processes, private string $projectRoot)
     {
     }
@@ -34,9 +36,9 @@ final readonly class GitBranches
     /** The current branch, or null when detached. */
     public function currentBranch(): ?string
     {
-        $result = $this->git('rev-parse', '--abbrev-ref', 'HEAD');
+        $result = $this->git('rev-parse', '--abbrev-ref', self::HEAD);
         $branch = trim($result->output);
-        if (!$result->succeeded() || '' === $branch || 'HEAD' === $branch) {
+        if (!$result->succeeded() || '' === $branch || self::HEAD === $branch) {
             return null;
         }
 
@@ -52,7 +54,7 @@ final readonly class GitBranches
             return substr($ref, \strlen('refs/remotes/origin/'));
         }
 
-        $remote = $this->git('ls-remote', '--symref', 'origin', 'HEAD');
+        $remote = $this->git('ls-remote', '--symref', 'origin', self::HEAD);
         if (!$remote->succeeded()) {
             return null;
         }

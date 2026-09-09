@@ -27,6 +27,10 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string WIDGET_CLASS = 'Widget';
+
+    private const string APP_DOMAIN = 'App\Domain';
+
     private RequireExplicitDIAttributeRule $rule;
 
     protected function setUp(): void
@@ -43,7 +47,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     #[Test]
     public function classWithNoDiAttributeIsFlagged(): void
     {
-        $errors = $this->rule->processNode($this->class('Widget'), $this->scope('App\Domain'));
+        $errors = $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope(self::APP_DOMAIN));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('must explicitly declare DI status', $errors[0]->getMessage());
@@ -55,7 +59,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     {
         $class = $this->class('WidgetService', ['Autoconfigure']);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
@@ -63,7 +67,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     {
         $class = $this->class('WidgetDTO', ['Exclude']);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
@@ -71,14 +75,14 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     {
         $class = $this->class('DoThing', [\Symfony\Component\Console\Attribute\AsCommand::class]);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function classWithBothAutoconfigureAndExcludeIsConflicting(): void
     {
-        $class  = $this->class('Widget', ['Autoconfigure', 'Exclude']);
-        $errors = $this->rule->processNode($class, $this->scope('App\Domain'));
+        $class  = $this->class(self::WIDGET_CLASS, ['Autoconfigure', 'Exclude']);
+        $errors = $this->rule->processNode($class, $this->scope(self::APP_DOMAIN));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('cannot have both', $errors[0]->getMessage());
@@ -90,7 +94,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     {
         $class = $this->class('AbstractWidget', [], Modifiers::ABSTRACT);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
@@ -99,14 +103,14 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
         // A class annotated #[Attribute] is a PHP attribute, never a DI service.
         $class = $this->class('MyMarker', ['Attribute']);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function classInAnAllowedNamespaceIsSkipped(): void
     {
         // className contains "Tests" → exempt without any attribute.
-        $class = $this->class('Widget');
+        $class = $this->class(self::WIDGET_CLASS);
 
         self::assertSame([], $this->rule->processNode($class, $this->scope('App\Tests\Domain')));
     }
@@ -122,7 +126,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     #[Test]
     public function hintReflectsExceptionNaming(): void
     {
-        $errors = $this->rule->processNode($this->class('PriceException'), $this->scope('App\Domain'));
+        $errors = $this->rule->processNode($this->class('PriceException'), $this->scope(self::APP_DOMAIN));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('Exceptions should use #[Exclude]', $errors[0]->getMessage());

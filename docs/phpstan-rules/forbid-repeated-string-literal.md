@@ -62,6 +62,18 @@ that class's constant rather than declaring a second one.
 
 ## What is not counted
 
+- **Anything inside a class-constant declaration.** A constant is already the single named
+  definition this rule asks for, so its own value can never be the defect. This is what
+  keeps a golden data table readable:
+
+  ```php
+  private const array GOLDEN_ALIAS_MAP = [
+      'psr'  => 'psr4Validate',
+      'psr4' => 'psr4Validate',
+      'com'  => 'composerChecks',
+  ];
+  ```
+
 - **Array keys and array-dimension indexes** (`['name' => ...]`, `$row['name']`): the
   repeated key is how an array shape is spelled, and PHPStan's array-shape typing already
   reports a misspelt key where the shape is typed.

@@ -22,6 +22,8 @@ use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
  */
 final readonly class PhpunitArguments
 {
+    private const string ENFORCE_TIME_LIMIT = '--enforce-time-limit';
+
     /**
      * @param int         $majorVersion   the probed PHPUnit major; 10+ gets the --display-* flags
      * @param string|null $paratestTarget the phpunit binary paratest delegates to, or null when not using paratest
@@ -82,18 +84,18 @@ final readonly class PhpunitArguments
                 '--stop-on-defect',
                 '--stop-on-warning',
                 '--no-coverage',
-                '--enforce-time-limit',
+                self::ENFORCE_TIME_LIMIT,
             ];
         }
 
         if (!$options->coverage) {
-            return ['--no-coverage', '--enforce-time-limit'];
+            return ['--no-coverage', self::ENFORCE_TIME_LIMIT];
         }
 
         if ($ci) {
             return [];
         }
 
-        return ['--enforce-time-limit'];
+        return [self::ENFORCE_TIME_LIMIT];
     }
 }

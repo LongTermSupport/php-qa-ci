@@ -11,6 +11,12 @@ use LTS\PHPQA\Pipeline\Tool\ToolGateEnum;
  * One row of the tool registry: what `-t` tokens select it, where it runs,
  * and how it is described.
  *
+ * `$phase` is the phase a leaf tool belongs to, the phase a phase runner runs,
+ * and null for a pseudo-tool. `$isPhaseRunner` marks the four `all*` entries,
+ * whose target is a phase rather than a leaf tool. `$target` names the
+ * canonical tool a pseudo-tool actually runs (`uniterate` runs `phpunit`).
+ * `$banner` is printed before the tool runs as part of a phase.
+ *
  * @internal
  */
 final readonly class ToolDefinitionDto
@@ -20,18 +26,12 @@ final readonly class ToolDefinitionDto
         public string $name,
         public array $aliases,
         public string $description,
-        /** The phase a leaf tool belongs to; for a phase runner, the phase it runs; null for a pseudo-tool. */
         public ?PhaseEnum $phase,
-        /** Whether -p applies to this tool. */
         public bool $supportsPaths,
         public ToolGateEnum $gate = ToolGateEnum::None,
-        /** Banner printed before the tool runs in a phase. */
         public ?string $banner = null,
-        /** True for allCS/allLints/allStatic/allTests: the target is the phase, not a leaf tool. */
         public bool $isPhaseRunner = false,
-        /** The canonical tool actually run when this token is selected (pseudo-tools only). */
         public ?string $target = null,
-        /** Whether --json is supported. */
         public bool $supportsJson = false,
     ) {
     }

@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
 #[\PHPUnit\Framework\Attributes\Small]
 final class Psr4ValidatorTest extends TestCase
 {
+    private const string COMPOSER_JSON = '/composer.json';
+
     public function testItFindsNoErrorsOnAValidProject(): void
     {
         $assetsPath  = __DIR__ . '/../assets/psr4/projectAllValid/';
@@ -25,7 +27,7 @@ final class Psr4ValidatorTest extends TestCase
         $validator   = new Psr4Validator(
             [],
             $projectRoot,
-            Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
+            Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON)
         );
         $actual   = $validator->main();
         $expected = [];
@@ -39,7 +41,7 @@ final class Psr4ValidatorTest extends TestCase
         $validator   = new Psr4Validator(
             [],
             $projectRoot,
-            Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
+            Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON)
         );
         $actual   = $validator->main();
         $expected = [];
@@ -58,7 +60,7 @@ final class Psr4ValidatorTest extends TestCase
         $validator   = new Psr4Validator(
             ['%Nested/Deep%'],
             $projectRoot,
-            Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
+            Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON)
         );
 
         self::assertSame([], $validator->main());
@@ -71,7 +73,7 @@ final class Psr4ValidatorTest extends TestCase
         $validator   = new Psr4Validator(
             ['%IgnoredStuff%'],
             $projectRoot,
-            Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
+            Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON)
         );
         $actual   = $validator->main();
         $expected = [
@@ -132,7 +134,7 @@ Magento\'s composer includes this by default, it should be removed from the psr-
         $validator   = new Psr4Validator(
             $this->loadShippedDefaultIgnoreList(),
             $projectRoot,
-            Helper::getComposerJsonDecoded($projectRoot . '/composer.json')
+            Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON)
         );
 
         self::assertSame([], $validator->main());

@@ -22,7 +22,6 @@ final readonly class PhpCsFixerTool implements ToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.phpCsFixer';
 
-    /** PHP CS Fixer's exit code for "dry-run found fixes". */
     private const int EXIT_PENDING_FIXES = 8;
 
     private const string LINT_ERROR_MARKER = 'Files that were not fixed due to errors';

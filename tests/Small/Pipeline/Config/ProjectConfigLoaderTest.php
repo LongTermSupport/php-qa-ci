@@ -28,6 +28,10 @@ use RuntimeException;
 #[Small]
 final class ProjectConfigLoaderTest extends TestCase
 {
+    private const string QA_CONFIG = '/qaConfig';
+
+    private const string QA_CONFIG_QA_PHP = 'qaConfig/qa.php';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -45,7 +49,7 @@ final class ProjectConfigLoaderTest extends TestCase
     {
         $builder = $this->factory->builder();
 
-        $result = new ProjectConfigLoader($this->factory->output)->apply($builder, $this->factory->project->path . '/qaConfig');
+        $result = new ProjectConfigLoader($this->factory->output)->apply($builder, $this->factory->project->path . self::QA_CONFIG);
 
         self::assertSame($builder, $result);
         self::assertSame('', $this->factory->output->fetch());
@@ -54,7 +58,7 @@ final class ProjectConfigLoaderTest extends TestCase
     #[Test]
     public function aQaPhpClosureAdjustsTheBuilder(): void
     {
-        $this->factory->project->write('qaConfig/qa.php', <<<'PHP_WRAP'
+        $this->factory->project->write(self::QA_CONFIG_QA_PHP, <<<'PHP_WRAP'
             <?php
             use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
             return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
@@ -62,7 +66,7 @@ final class ProjectConfigLoaderTest extends TestCase
                 ->withIgnoredPaths('tests/assets');
             PHP_WRAP);
 
-        $config = new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . '/qaConfig')->build();
+        $config = new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . self::QA_CONFIG)->build();
 
         self::assertSame(82, $config->infection->minMsi);
         self::assertSame(['tests/assets'], $config->pathsToIgnore);
@@ -75,7 +79,7 @@ final class ProjectConfigLoaderTest extends TestCase
         $this->factory->project->write('qaConfig/qaConfig.inc.bash', 'export useInfection=0');
 
         try {
-            new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . '/qaConfig');
+            new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . self::QA_CONFIG);
             self::fail('expected LegacyBashConfigException');
         } catch (LegacyBashConfigException $legacyBashConfigException) {
             self::assertStringContainsString('qaConfig.inc.bash is no longer read', $legacyBashConfigException->getMessage());
@@ -86,18 +90,18 @@ final class ProjectConfigLoaderTest extends TestCase
     #[Test]
     public function aQaPhpThatReturnsSomethingElseIsRejected(): void
     {
-        $this->factory->project->write('qaConfig/qa.php', '<?php return ["useInfection" => false];');
+        $this->factory->project->write(self::QA_CONFIG_QA_PHP, '<?php return ["useInfection" => false];');
 
         $this->expectException(RuntimeException::class);
-        new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . '/qaConfig');
+        new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . self::QA_CONFIG);
     }
 
     #[Test]
     public function aClosureThatDoesNotReturnTheBuilderIsRejected(): void
     {
-        $this->factory->project->write('qaConfig/qa.php', '<?php return static function ($qa): void { $qa->withInfection(false); };');
+        $this->factory->project->write(self::QA_CONFIG_QA_PHP, '<?php return static function ($qa): void { $qa->withInfection(false); };');
 
         $this->expectException(RuntimeException::class);
-        new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . '/qaConfig');
+        new ProjectConfigLoader($this->factory->output)->apply($this->factory->builder(), $this->factory->project->path . self::QA_CONFIG);
     }
 }

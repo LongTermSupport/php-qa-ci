@@ -24,6 +24,12 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class InfectionArgumentsTest extends TestCase
 {
+    private const string CFG_INFECTION_JSON = '/cfg/infection.json';
+
+    private const string MIN_COVERED_MSI_100 = '--min-covered-msi=100';
+
+    private const string SRC_CHANGED_PHP = '/p/src/Changed.php';
+
     private const array COMMON = [
         '--coverage=/var/qa/phpunit_logs',
         '--skip-initial-tests',
@@ -34,10 +40,10 @@ final class InfectionArgumentsTest extends TestCase
     #[Test]
     public function fullModeBuildsTheHistoricFloorInvocation(): void
     {
-        $args = new InfectionArguments()->full($this->options(), '/var/qa/phpunit_logs', '/cfg/infection.json');
+        $args = new InfectionArguments()->full($this->options(), '/var/qa/phpunit_logs', self::CFG_INFECTION_JSON);
 
         self::assertSame([...self::COMMON, '--min-msi=74', '--min-covered-msi=76', '--log-verbosity=all'], $args);
-        self::assertNotContains('--min-covered-msi=100', $args, 'the diff bar must not leak into a full run');
+        self::assertNotContains(self::MIN_COVERED_MSI_100, $args, 'the diff bar must not leak into a full run');
         foreach ($args as $arg) {
             self::assertStringStartsNotWith('--git-diff', $arg, 'a full run must not be git-diff scoped');
         }
@@ -46,9 +52,9 @@ final class InfectionArgumentsTest extends TestCase
     #[Test]
     public function diffModeScopesToChangedFilesAndEnforcesNoNewEscapes(): void
     {
-        $args = new InfectionArguments()->diff($this->options(diffBase: 'origin/main'), '/var/qa/phpunit_logs', '/cfg/infection.json', '/p/src/Changed.php');
+        $args = new InfectionArguments()->diff($this->options(diffBase: 'origin/main'), '/var/qa/phpunit_logs', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP);
 
-        self::assertSame([...self::COMMON, '--min-covered-msi=100', '/p/src/Changed.php'], $args);
+        self::assertSame([...self::COMMON, self::MIN_COVERED_MSI_100, self::SRC_CHANGED_PHP], $args);
         self::assertNotContains('--filter=/p/src/Changed.php', $args, 'the deprecated --filter form must not be used');
         self::assertNotContains('--min-msi=74', $args, 'the whole-codebase floor is meaningless on a diff');
         self::assertNotContains('--min-covered-msi=76', $args, 'the whole-codebase covered floor is dropped in diff mode');
@@ -58,7 +64,7 @@ final class InfectionArgumentsTest extends TestCase
     #[Test]
     public function positionalPathsAlwaysComeLast(): void
     {
-        $args = new InfectionArguments()->diff($this->options(diffBase: 'main', onlyCovered: true), '/c', '/cfg/infection.json', '/p/src/A.php', '/p/src/B.php');
+        $args = new InfectionArguments()->diff($this->options(diffBase: 'main', onlyCovered: true), '/c', self::CFG_INFECTION_JSON, '/p/src/A.php', '/p/src/B.php');
 
         self::assertSame(['/p/src/A.php', '/p/src/B.php'], \array_slice($args, -2));
         self::assertSame('--only-covered', $args[0]);
@@ -67,16 +73,16 @@ final class InfectionArgumentsTest extends TestCase
     #[Test]
     public function diffCoveredMsiFloorIsOverridableForEquivalentMutants(): void
     {
-        $args = new InfectionArguments()->diff($this->options(diffBase: 'origin/main', diffCoveredMsi: 95), '/c', '/cfg/infection.json', '/p/src/Changed.php');
+        $args = new InfectionArguments()->diff($this->options(diffBase: 'origin/main', diffCoveredMsi: 95), '/c', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP);
 
         self::assertContains('--min-covered-msi=95', $args);
-        self::assertNotContains('--min-covered-msi=100', $args, 'the overridden floor must REPLACE the default 100');
+        self::assertNotContains(self::MIN_COVERED_MSI_100, $args, 'the overridden floor must REPLACE the default 100');
     }
 
     #[Test]
     public function onlyCoveredIsTheFirstFlagInEitherLane(): void
     {
-        $full = new InfectionArguments()->full($this->options(onlyCovered: true), '/c', '/cfg/infection.json');
+        $full = new InfectionArguments()->full($this->options(onlyCovered: true), '/c', self::CFG_INFECTION_JSON);
 
         self::assertSame('--only-covered', $full[0]);
         self::assertSame('--coverage=/c', $full[1]);

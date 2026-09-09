@@ -27,7 +27,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
+#[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
@@ -36,6 +36,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpstanToolTest extends TestCase
 {
+    private const string NO_PROGRESS = '--no-progress';
+
+    private const string VAR_QA_PREFIX = 'var/qa/';
+
     private const string PHP_VERSION = '8.5.0';
 
     private ContextFactory $factory;
@@ -75,7 +79,7 @@ final class PhpstanToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            ['analyse', ...$config->pathsToCheck, '-c', $wrapper, '--no-progress'],
+            ['analyse', ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
             $this->toolArgs($spec),
         );
         self::assertSame(\dirname(__DIR__, 4) . '/vendor-phar/phpstan.phar', $this->script($spec));
@@ -83,7 +87,7 @@ final class PhpstanToolTest extends TestCase
         self::assertTrue($spec->streamOutput);
 
         self::assertSame("[OK] No errors\n", \Safe\file_get_contents($logDir . '/' . PhpstanTool::LOG_FILE));
-        $archived = array_filter($this->factory->project->files('var/qa/' . PhpstanTool::LOG_DIR), static fn (string $f): bool => 1 === \Safe\preg_match('/^phpstan\.\d{8}-\d{6}\.log$/', $f));
+        $archived = array_filter($this->factory->project->files(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR), static fn (string $f): bool => 1 === \Safe\preg_match('/^phpstan\.\d{8}-\d{6}\.log$/', $f));
         self::assertCount(1, $archived, 'the text log is archived with a timestamp');
         self::assertStringContainsString('Full test suite run', $printed);
         self::assertSame('', $this->factory->stdout->fetch(), 'text mode never touches the real stdout');
@@ -97,7 +101,7 @@ final class PhpstanToolTest extends TestCase
 
         new PhpstanTool()->run($this->factory->context());
 
-        self::assertStringContainsString('    - ' . $override . "\n", $this->factory->project->read('var/qa/' . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
+        self::assertStringContainsString('    - ' . $override . "\n", $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
     }
 
     #[Test]
@@ -107,7 +111,7 @@ final class PhpstanToolTest extends TestCase
 
         new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: false)->build()));
 
-        self::assertNotContains('--no-progress', $this->toolArgs($this->factory->processes->lastSpec()));
+        self::assertNotContains(self::NO_PROGRESS, $this->toolArgs($this->factory->processes->lastSpec()));
     }
 
     #[Test]
@@ -197,10 +201,10 @@ final class PhpstanToolTest extends TestCase
         self::assertFalse($spec->streamOutput);
         $args = $this->toolArgs($spec);
         self::assertContains('--error-format=json', $args);
-        self::assertContains('--no-progress', $args, 'json mode always suppresses progress, even interactively');
+        self::assertContains(self::NO_PROGRESS, $args, 'json mode always suppresses progress, even interactively');
         self::assertCount(2, $this->factory->processes->specs, 'no re-run of any kind in json mode');
 
-        $logDir = 'var/qa/' . PhpstanTool::LOG_DIR;
+        $logDir = self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR;
         self::assertSame($json, $this->factory->project->read($logDir . '/' . PhpstanTool::JSON_FILE));
         $archived = array_filter($this->factory->project->files($logDir), static fn (string $f): bool => 1 === \Safe\preg_match('/^phpstan\..*_src\.\d{8}-\d{6}\.json$/', $f));
         self::assertCount(1, $archived, 'the json report is archived under the path-specific pattern');

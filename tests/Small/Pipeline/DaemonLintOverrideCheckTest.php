@@ -22,6 +22,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class DaemonLintOverrideCheckTest extends TestCase
 {
+    private const string CLAUDE_HOOKS_DAEMON_LINT_INTEGRATION = 'Claude Hooks-Daemon Lint Integration';
+
     private const string CHECK_LIB = __DIR__ . '/../../../scripts/lib/daemon-lint-override-check.inc.bash';
 
     public function testInstructsWhenOverrideMissing(): void
@@ -70,7 +72,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
 
         $filtered = $this->filterTemplate($configFile);
 
-        self::assertStringContainsString('Claude Hooks-Daemon Lint Integration', $filtered);
+        self::assertStringContainsString(self::CLAUDE_HOOKS_DAEMON_LINT_INTEGRATION, $filtered);
         self::assertStringContainsString('qa -t phpstan -p {file}', $filtered);
         self::assertStringNotContainsString('daemon-lint-notice', $filtered, 'Marker comments must never ship');
     }
@@ -85,7 +87,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
 
         $filtered = $this->filterTemplate($configFile);
 
-        self::assertStringNotContainsString('Claude Hooks-Daemon Lint Integration', $filtered);
+        self::assertStringNotContainsString(self::CLAUDE_HOOKS_DAEMON_LINT_INTEGRATION, $filtered);
         self::assertStringContainsString('Branch and PR Conventions', $filtered, 'Rest of block must survive');
         self::assertStringContainsString('</phpqaci>', $filtered);
     }
@@ -94,7 +96,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
     {
         $filtered = $this->filterTemplate(sys_get_temp_dir() . '/no-such-daemon-config.yaml');
 
-        self::assertStringNotContainsString('Claude Hooks-Daemon Lint Integration', $filtered);
+        self::assertStringNotContainsString(self::CLAUDE_HOOKS_DAEMON_LINT_INTEGRATION, $filtered);
         self::assertStringContainsString('Branch and PR Conventions', $filtered);
     }
 

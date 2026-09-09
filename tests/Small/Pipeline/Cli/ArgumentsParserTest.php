@@ -25,6 +25,16 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ArgumentsParserTest extends TestCase
 {
+    private const string PHPSTAN = 'phpstan';
+
+    private const string STAN = 'stan';
+
+    private const string SRC_DOMAIN = 'src/Domain';
+
+    private const string SRC = 'src';
+
+    private const string JSON_OPTION = '--json';
+
     private ArgumentsParser $parser;
 
     protected function setUp(): void
@@ -45,8 +55,8 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function aToolTokenResolvesToItsCanonicalName(): void
     {
-        self::assertSame('phpstan', $this->parser->parse('-t', 'stan')->tool);
-        self::assertSame('phpstan', $this->parser->parse('-tstan')->tool);
+        self::assertSame(self::PHPSTAN, $this->parser->parse('-t', self::STAN)->tool);
+        self::assertSame(self::PHPSTAN, $this->parser->parse('-tstan')->tool);
         self::assertSame('allLintingTools', $this->parser->parse('-t', 'allLints')->tool);
     }
 
@@ -63,16 +73,16 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function pathsComeFromDashPOrASingleBareArgument(): void
     {
-        self::assertSame('src/Domain', $this->parser->parse('-t', 'stan', '-p', 'src/Domain')->path);
-        self::assertSame('src/Domain', $this->parser->parse('-t', 'stan', 'src/Domain')->path);
-        self::assertSame('src', $this->parser->parse('-psrc')->path);
+        self::assertSame(self::SRC_DOMAIN, $this->parser->parse('-t', self::STAN, '-p', self::SRC_DOMAIN)->path);
+        self::assertSame(self::SRC_DOMAIN, $this->parser->parse('-t', self::STAN, self::SRC_DOMAIN)->path);
+        self::assertSame(self::SRC, $this->parser->parse('-psrc')->path);
     }
 
     #[Test]
     public function jsonIsAcceptedAnywhereForPhpstan(): void
     {
-        self::assertTrue($this->parser->parse('--json', '-t', 'stan')->json);
-        self::assertTrue($this->parser->parse('-t', 'phpstan', '--json')->json);
+        self::assertTrue($this->parser->parse(self::JSON_OPTION, '-t', self::STAN)->json);
+        self::assertTrue($this->parser->parse('-t', self::PHPSTAN, self::JSON_OPTION)->json);
     }
 
     #[Test]
@@ -98,17 +108,17 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function unknownFlagsAndExtraArgumentsAreRefused(): void
     {
-        $this->assertUsage(['-t', 'stan', '--help'], 'Unsupported argument: --help', showUsage: false);
+        $this->assertUsage(['-t', self::STAN, '--help'], 'Unsupported argument: --help', showUsage: false);
         $this->assertUsage(['-x'], 'Unsupported argument: -x', showUsage: false);
-        $this->assertUsage(['src', 'tests'], 'Multiple paths not supported: src tests', showUsage: false);
-        $this->assertUsage(['-p', 'src', 'extra'], 'Unsupported argument: extra', showUsage: false);
+        $this->assertUsage([self::SRC, 'tests'], 'Multiple paths not supported: src tests', showUsage: false);
+        $this->assertUsage(['-p', self::SRC, 'extra'], 'Unsupported argument: extra', showUsage: false);
     }
 
     #[Test]
     public function aPathWithANonPathToolIsRefusedAndListsThePathSupportingTokens(): void
     {
         try {
-            $this->parser->parse('-t', 'cr', '-p', 'src');
+            $this->parser->parse('-t', 'cr', '-p', self::SRC);
             self::fail('expected UsageException');
         } catch (UsageException $usageException) {
             self::assertStringContainsString("Tool 'cr' does not support path-specific execution", $usageException->getMessage());
@@ -120,8 +130,8 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function jsonNeedsAToolThatSupportsIt(): void
     {
-        $this->assertUsage(['--json'], '--json requires a single tool (-t)', showUsage: false);
-        $this->assertUsage(['--json', '-t', 'unit'], "--json is not yet supported for 'phpunit'", showUsage: false);
+        $this->assertUsage([self::JSON_OPTION], '--json requires a single tool (-t)', showUsage: false);
+        $this->assertUsage([self::JSON_OPTION, '-t', 'unit'], "--json is not yet supported for 'phpunit'", showUsage: false);
     }
 
     #[Test]

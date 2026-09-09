@@ -21,6 +21,14 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string METHOD_RENDER = 'render';
+
+    private const string PARAM_ITEMS = 'items';
+
+    private const string PARAM_LIST_STRING_ITEMS = '/** @param list<string> $items */';
+
+    private const string TYPE_ARRAY = 'array';
+
     private RequireVariadicForSingleListParamRule $rule;
 
     protected function setUp(): void
@@ -36,8 +44,8 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
     public function testSingleArrayParamWithListDocblockIsFlagged(): void
     {
         $method = $this->makeMethod(
-            'render',
-            [$this->makeArrayParam('items')],
+            self::METHOD_RENDER,
+            [$this->makeArrayParam(self::PARAM_ITEMS)],
             '/** @param list<ProductEnquiryItem> $items */',
         );
 
@@ -62,9 +70,9 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
     public function testMultipleParamsAreNotFlagged(): void
     {
         $method = $this->makeMethod(
-            'render',
-            [$this->makeArrayParam('items'), $this->makeArrayParam('extra')],
-            '/** @param list<string> $items */',
+            self::METHOD_RENDER,
+            [$this->makeArrayParam(self::PARAM_ITEMS), $this->makeArrayParam('extra')],
+            self::PARAM_LIST_STRING_ITEMS,
         );
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
@@ -72,14 +80,14 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
 
     public function testZeroParamsAreNotFlagged(): void
     {
-        $method = $this->makeMethod('render', [], '/** no params */');
+        $method = $this->makeMethod(self::METHOD_RENDER, [], '/** no params */');
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }
 
     public function testNoDocblockIsNotFlagged(): void
     {
-        $method = $this->makeMethod('render', [$this->makeArrayParam('items')], null);
+        $method = $this->makeMethod(self::METHOD_RENDER, [$this->makeArrayParam(self::PARAM_ITEMS)], null);
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }
@@ -87,8 +95,8 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
     public function testArrayDocblockIsNotFlagged(): void
     {
         $method = $this->makeMethod(
-            'render',
-            [$this->makeArrayParam('items')],
+            self::METHOD_RENDER,
+            [$this->makeArrayParam(self::PARAM_ITEMS)],
             '/** @param array<string> $items */',
         );
 
@@ -98,8 +106,8 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
     public function testIterableDocblockIsNotFlagged(): void
     {
         $method = $this->makeMethod(
-            'render',
-            [$this->makeArrayParam('items')],
+            self::METHOD_RENDER,
+            [$this->makeArrayParam(self::PARAM_ITEMS)],
             '/** @param iterable<string> $items */',
         );
 
@@ -108,11 +116,11 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
 
     public function testAlreadyVariadicIsNotFlagged(): void
     {
-        $param  = new Param(new Variable('items'), null, new Identifier('array'), false, true);
+        $param  = new Param(new Variable(self::PARAM_ITEMS), null, new Identifier(self::TYPE_ARRAY), false, true);
         $method = $this->makeMethod(
-            'render',
+            self::METHOD_RENDER,
             [$param],
-            '/** @param list<string> $items */',
+            self::PARAM_LIST_STRING_ITEMS,
         );
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
@@ -120,25 +128,25 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
 
     public function testNonArrayTypeIsNotFlagged(): void
     {
-        $param  = new Param(new Variable('items'), null, new Identifier('string'));
-        $method = $this->makeMethod('render', [$param], '/** @param list<string> $items */');
+        $param  = new Param(new Variable(self::PARAM_ITEMS), null, new Identifier('string'));
+        $method = $this->makeMethod(self::METHOD_RENDER, [$param], self::PARAM_LIST_STRING_ITEMS);
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }
 
     public function testNullableArrayTypeIsNotFlagged(): void
     {
-        $nullableType = new \PhpParser\Node\NullableType(new Identifier('array'));
-        $param        = new Param(new Variable('items'), null, $nullableType);
-        $method       = $this->makeMethod('render', [$param], '/** @param list<string> $items */');
+        $nullableType = new \PhpParser\Node\NullableType(new Identifier(self::TYPE_ARRAY));
+        $param        = new Param(new Variable(self::PARAM_ITEMS), null, $nullableType);
+        $method       = $this->makeMethod(self::METHOD_RENDER, [$param], self::PARAM_LIST_STRING_ITEMS);
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }
 
     public function testUntypedParamIsNotFlagged(): void
     {
-        $param  = new Param(new Variable('items'));
-        $method = $this->makeMethod('render', [$param], '/** @param list<string> $items */');
+        $param  = new Param(new Variable(self::PARAM_ITEMS));
+        $method = $this->makeMethod(self::METHOD_RENDER, [$param], self::PARAM_LIST_STRING_ITEMS);
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }
@@ -146,8 +154,8 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
     public function testNestedGenericListIsFlagged(): void
     {
         $method = $this->makeMethod(
-            'render',
-            [$this->makeArrayParam('items')],
+            self::METHOD_RENDER,
+            [$this->makeArrayParam(self::PARAM_ITEMS)],
             '/** @param list<Type<A, B>> $items */',
         );
 
@@ -170,6 +178,6 @@ final class RequireVariadicForSingleListParamRuleTest extends TestCase
 
     private function makeArrayParam(string $name): Param
     {
-        return new Param(new Variable($name), null, new Identifier('array'));
+        return new Param(new Variable($name), null, new Identifier(self::TYPE_ARRAY));
     }
 }

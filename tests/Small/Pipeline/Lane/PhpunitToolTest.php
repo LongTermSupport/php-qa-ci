@@ -37,6 +37,21 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpunitToolTest extends TestCase
 {
+    private const string TESTS_BOOTSTRAP_PHP = 'tests/bootstrap.php';
+
+    private const string PHP = '<?php
+';
+
+    private const string PHPUNIT_LOGS_PHPUNIT_JUNIT_XML = 'var/qa/phpunit_logs/phpunit.junit.xml';
+
+    private const string PHP_BIN_PATH = '/usr/bin/php';
+
+    private const string MEMORY_LIMIT_ARG = 'memory_limit=4G';
+
+    private const string BIN_PHPUNIT = '/vendor/bin/phpunit';
+
+    private const string TESTS_UNIT = '/tests/Unit';
+
     private const string PHP_VERSION = '8.5.10';
 
     private const string VERSION_LINE = "PHPUnit 12.3.4 by Sebastian Bergmann and contributors.\n";
@@ -51,7 +66,7 @@ final class PhpunitToolTest extends TestCase
     {
         $this->factory = ContextFactory::create();
         $this->root    = $this->factory->project->path;
-        $this->factory->project->write('tests/bootstrap.php', "<?php\n");
+        $this->factory->project->write(self::TESTS_BOOTSTRAP_PHP, self::PHP);
         $this->factory->project->write('var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', '');
     }
 
@@ -63,7 +78,7 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function aCoverageRunInCiUsesTheXdebugBinaryAndTheExactArgv(): void
     {
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed("\x1B[30;42mOK\x1B[0m\nTests: 3, Assertions: 7, Failures: 0.\n");
 
         $result  = new PhpunitTool()->run($this->context($this->factory->builder(ci: true)));
@@ -73,12 +88,12 @@ final class PhpunitToolTest extends TestCase
         self::assertCount(2, $this->factory->processes->specs);
 
         $probe = $this->factory->processes->specs[0];
-        self::assertSame(['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->root . '/vendor/bin/phpunit', '--', '--version'], $probe->command);
+        self::assertSame([self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-f', $this->root . self::BIN_PHPUNIT, '--', '--version'], $probe->command);
         self::assertFalse($probe->streamOutput);
 
         $run = $this->factory->processes->specs[1];
         self::assertSame([
-            '/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->root . '/vendor/bin/phpunit', '--',
+            self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-f', $this->root . self::BIN_PHPUNIT, '--',
             '-c', $this->configPath(),
             '--strict-global-state', '--fail-on-risky', '--fail-on-warning',
             '--log-junit', $this->root . '/var/qa/phpunit_logs/phpunit.junit.xml',
@@ -100,7 +115,7 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function aNoCoverageRunStripsXdebugAndAddsTheNoCoverageFlags(): void
     {
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes
             ->willSucceed(self::PHP_VERSION)->willSucceed(self::VERSION_LINE)
             ->willSucceed(self::PHP_VERSION)->willSucceed('OK')
@@ -111,7 +126,7 @@ final class PhpunitToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $run = $this->factory->processes->lastSpec();
-        self::assertSame('/usr/bin/php', $run->command[0]);
+        self::assertSame(self::PHP_BIN_PATH, $run->command[0]);
         self::assertSame('-n', $run->command[1]);
         self::assertContains('--no-coverage', $run->command);
         self::assertContains('--enforce-time-limit', $run->command);
@@ -121,39 +136,39 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function aSpecifiedPathIsAppendedAndArchivedAsPathSpecific(): void
     {
-        $this->factory->project->write('src/Thing.php', "<?php\n");
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write('src/Thing.php', self::PHP);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
 
         $result  = new PhpunitTool()->run($this->context($this->factory->builder(specifiedPath: 'tests/Unit')));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertSame($this->root . '/tests/Unit', array_last($this->factory->processes->lastSpec()->command));
-        self::assertStringContainsString('Running PHPUnit on specified paths: ' . $this->root . '/tests/Unit', $printed);
-        self::assertStringContainsString('Path-specific run: ' . $this->root . '/tests/Unit', $printed);
+        self::assertSame($this->root . self::TESTS_UNIT, array_last($this->factory->processes->lastSpec()->command));
+        self::assertStringContainsString('Running PHPUnit on specified paths: ' . $this->root . self::TESTS_UNIT, $printed);
+        self::assertStringContainsString('Path-specific run: ' . $this->root . self::TESTS_UNIT, $printed);
     }
 
     #[Test]
     public function paratestIsPreferredWhenInstalled(): void
     {
         $this->factory->project->write('vendor/bin/paratest', "#!/usr/bin/env php\n");
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
 
         new PhpunitTool()->run($this->context($this->factory->builder()));
 
         $run = $this->factory->processes->lastSpec();
         self::assertSame($this->root . '/vendor/bin/paratest', $run->command[4]);
-        self::assertSame(['--phpunit', $this->root . '/vendor/bin/phpunit'], \array_slice($run->command, 6, 2));
-        self::assertStringContainsString('Found paratest, using this instead of standard ' . $this->root . '/vendor/bin/phpunit', $this->factory->output->fetch());
+        self::assertSame(['--phpunit', $this->root . self::BIN_PHPUNIT], \array_slice($run->command, 6, 2));
+        self::assertStringContainsString('Found paratest, using this instead of standard ' . $this->root . self::BIN_PHPUNIT, $this->factory->output->fetch());
     }
 
     #[Test]
     public function aMissingBootstrapIsSeededWithThePlaceholder(): void
     {
         \Safe\unlink($this->root . '/tests/bootstrap.php');
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
 
         new PhpunitTool()->run($this->context($this->factory->builder()));
@@ -161,7 +176,7 @@ final class PhpunitToolTest extends TestCase
 
         self::assertStringContainsString('Creating placeholder bootstrap file at ' . $this->root . '/tests/bootstrap.php', $printed);
         self::assertStringContainsString('Placeholder bootstrap file created. Please customize it for your project needs.', $printed);
-        $bootstrap = $this->factory->project->read('tests/bootstrap.php');
+        $bootstrap = $this->factory->project->read(self::TESTS_BOOTSTRAP_PHP);
         self::assertStringStartsWith("<?php\n\ndeclare(strict_types=1);\n", $bootstrap);
         self::assertStringContainsString("require dirname(__DIR__) . '/vendor/autoload.php';", $bootstrap);
         self::assertStringContainsString('REPLACE THIS FILE with your project-specific bootstrap logic.', $bootstrap);
@@ -170,12 +185,12 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function anExistingBootstrapIsLeftAlone(): void
     {
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
 
         new PhpunitTool()->run($this->context($this->factory->builder()));
 
-        self::assertSame("<?php\n", $this->factory->project->read('tests/bootstrap.php'));
+        self::assertSame(self::PHP, $this->factory->project->read(self::TESTS_BOOTSTRAP_PHP));
         self::assertStringNotContainsString('Creating placeholder bootstrap', $this->factory->output->fetch());
     }
 
@@ -196,7 +211,7 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function anEmptyTestsuitesElementMeansNoTestsRanEvenAfterACrash(): void
     {
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', "<?xml version=\"1.0\"?>\n<testsuites/>\n");
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, "<?xml version=\"1.0\"?>\n<testsuites/>\n");
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willFail(255, 'Fatal error');
 
         $result = new PhpunitTool()->run($this->context($this->factory->builder()));
@@ -209,7 +224,7 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function aTestFailureIsFailedWithTheIdentifierTrailer(): void
     {
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willFail(1, "FAILURES!\nTests: 3, Assertions: 5, Failures: 1.\n");
 
         $result  = new PhpunitTool()->run($this->context($this->factory->builder()));
@@ -225,7 +240,7 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function anErrorExitOfTwoIsAlsoAFailure(): void
     {
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willFail(2, 'ERRORS!');
 
         $result = new PhpunitTool()->run($this->context($this->factory->builder()));
@@ -236,7 +251,7 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function aCrashIsReRunWithDebugAndNeverRetried(): void
     {
-        $this->factory->project->write('var/qa/phpunit_logs/phpunit.junit.xml', self::JUNIT_WITH_TESTS);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes
             ->willSucceed(self::VERSION_LINE)
             ->willFail(255, 'PHP Fatal error: boom')
@@ -254,7 +269,7 @@ final class PhpunitToolTest extends TestCase
 
         $debug = $this->factory->processes->lastSpec();
         self::assertSame(
-            ['/usr/bin/php', '-n', '-c', $this->root . '/var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', '-d', 'memory_limit=4G', '-f', $this->root . '/vendor/bin/phpunit', '--', $this->root . '/tests', '--debug'],
+            [self::PHP_BIN_PATH, '-n', '-c', $this->root . '/var/qa/phpqa-no-xdebug.' . self::PHP_VERSION . '.ini', '-d', self::MEMORY_LIMIT_ARG, '-f', $this->root . self::BIN_PHPUNIT, '--', $this->root . '/tests', '--debug'],
             $debug->command,
         );
         self::assertSame(['qaQuickTests' => '0'], $debug->env);

@@ -24,7 +24,8 @@ final readonly class RectorTool implements ToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.rector';
 
-    /** Rector's exit code for "dry-run found changes". */
+    private const string RULE      = '------------------------------------------------------------------------------';
+
     private const int EXIT_PENDING_CHANGES = 2;
 
     public function name(): string
@@ -148,9 +149,9 @@ final readonly class RectorTool implements ToolInterface
     private function writableAdvisory(ToolContext $context): void
     {
         $context->writeln('');
-        $context->writeln('------------------------------------------------------------------------------');
+        $context->writeln(self::RULE);
         $context->writeln('Rector ran in WRITABLE mode and may have rewritten files. DO NOT FIGHT IT.');
-        $context->writeln('------------------------------------------------------------------------------');
+        $context->writeln(self::RULE);
         $context->writeln('Rector is a DETERMINISTIC, CONFIG-DRIVEN autofixer. Every edit it just made is');
         $context->writeln('intentional and part of the standard — treat it as authoritative, not as a');
         $context->writeln('suggestion to negotiate:');
@@ -169,7 +170,7 @@ final readonly class RectorTool implements ToolInterface
         $context->writeln('    feature/bugfix change so the mechanical rewrite is trivial to review.');
         $context->writeln('');
         $context->writeln('Roll with Rector. It is part of the gate, not an obstacle to it.');
-        $context->writeln('------------------------------------------------------------------------------');
+        $context->writeln(self::RULE);
         $context->writeln('');
     }
 }

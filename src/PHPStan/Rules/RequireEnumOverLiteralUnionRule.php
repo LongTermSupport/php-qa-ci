@@ -40,17 +40,17 @@ use PHPStan\Rules\RuleErrorBuilder;
  * A literal union nested inside a generic (`list<'a'|'b'>`) types the element, not
  * this scalar, and is left to the element's own declaration.
  *
+ * LITERAL_UNION matches one docblock type expression: a `|`-union of quoted
+ * string literals and/or integer literals (plus an optional `null`), optionally
+ * parenthesised and/or `?`-prefixed, anchored so a union nested in a generic
+ * never matches.
+ *
  * @implements Rule<FunctionLike>
  */
 final readonly class RequireEnumOverLiteralUnionRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.enumOverLiteralUnion';
 
-    /**
-     * One docblock type expression: a `|`-union of quoted string literals and/or
-     * integer literals (plus an optional `null`), optionally parenthesised and/or
-     * `?`-prefixed. Anchored so a union nested in a generic never matches.
-     */
     private const string LITERAL = "(?:'[^']*'|\"[^\"]*\"|-?\\d+)";
 
     private const string LITERAL_UNION = '(?:\??\(?' . self::LITERAL . '(?:\s*\|\s*(?:' . self::LITERAL . '|null))+\)?)';

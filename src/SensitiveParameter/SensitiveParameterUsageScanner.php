@@ -45,14 +45,10 @@ use SplFileInfo;
  */
 final readonly class SensitiveParameterUsageScanner
 {
-    /**
-     * Environment variable name used as the escape hatch (1 = on, 0 = off).
-     */
     public const string ESCAPE_HATCH_ENV = 'useSensitiveParameterCheck';
 
-    /**
-     * Attribute short name (last namespace segment) that marks a parameter sensitive.
-     */
+    private const string RULE            = '==============================================================================';
+
     private const string ATTRIBUTE_SHORT_NAME = 'SensitiveParameter';
 
     private Parser $parser;
@@ -199,9 +195,9 @@ final readonly class SensitiveParameterUsageScanner
     private static function buildFailureMessage(string $srcDirectory): string
     {
         return PHP_EOL
-            . '==============================================================================' . PHP_EOL
+            . self::RULE . PHP_EOL
             . 'SensitiveParameter usage check FAILED' . PHP_EOL
-            . '==============================================================================' . PHP_EOL
+            . self::RULE . PHP_EOL
             . PHP_EOL
             . 'No #[\SensitiveParameter] attribute was found anywhere in:' . PHP_EOL
             . '  ' . $srcDirectory . PHP_EOL
@@ -218,6 +214,6 @@ final readonly class SensitiveParameterUsageScanner
             . PHP_EOL
             . '    ->withSensitiveParameterCheck(false)' . PHP_EOL
             . PHP_EOL
-            . '==============================================================================' . PHP_EOL;
+            . self::RULE . PHP_EOL;
     }
 }

@@ -31,21 +31,18 @@ use Throwable;
  * identifier via RuleDocResolver where it declares one, and always lists the
  * php-qa-ci pipeline's always-on lanes alongside them.
  *
+ * One lane is deliberately not surfaced in the pipeline-lanes listing: phpstan
+ * itself, because the rules listing already covers it in far more detail, rule
+ * by rule. That is a content decision about a redundant entry, not a curated
+ * subset of which lanes count as active defences; every other registered tool
+ * is listed (toolchain-spec clause 7.1).
+ *
  * @internal
  */
 final readonly class ActiveRulesLister
 {
     private const string TAG = 'phpstan.rules.rule';
 
-    /**
-     * The one lane deliberately NOT surfaced in the pipeline-lanes listing:
-     * phpstan itself, because it is already covered — in far more detail,
-     * rule by rule — by the PHPStan rules listing above. This is a
-     * content-based decision (avoiding a redundant, less-informative
-     * duplicate entry), not a curated subset of WHICH lanes count as active
-     * defences: every other registered tool is listed (toolchain-spec
-     * clause 7.1).
-     */
     private const string PIPELINE_LANE_NAME_TO_EXCLUDE = 'phpstan';
 
     private RuleDocResolver $ruleDocResolver;

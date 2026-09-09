@@ -35,6 +35,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class TwigLintToolTest extends TestCase
 {
+    private const string PHP_VERSION = '8.5.10';
+
+    private const string SYMFONY_TWIG_BUNDLE = 'vendor/symfony/twig-bundle';
+
     private const string CONSOLE_LISTING = "Available commands:\n  lint:twig  Lint a Twig template\n";
 
     private ContextFactory $factory;
@@ -64,8 +68,8 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function aConsoleWithoutLintTwigIsSkipped(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed("Available commands:\n  cache:clear\n");
-        $this->factory->project->mkdir('vendor/symfony/twig-bundle');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed("Available commands:\n  cache:clear\n");
+        $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
 
@@ -82,7 +86,7 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function aMissingTwigBundleIsSkipped(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed(self::CONSOLE_LISTING);
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING);
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
 
@@ -94,8 +98,8 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function aCleanLintPassesAndRunsLintTwigOverTheTwigDirectories(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed(self::CONSOLE_LISTING)->willSucceed('8.5.10')->willSucceed('All 3 Twig files contain valid syntax.');
-        $this->factory->project->mkdir('vendor/symfony/twig-bundle');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING)->willSucceed(self::PHP_VERSION)->willSucceed('All 3 Twig files contain valid syntax.');
+        $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
         $root = $this->factory->project->path;
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
@@ -113,8 +117,8 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function configuredTwigDirectoriesArePassedInOrder(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed(self::CONSOLE_LISTING)->willSucceed('8.5.10')->willSucceed();
-        $this->factory->project->mkdir('vendor/symfony/twig-bundle');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING)->willSucceed(self::PHP_VERSION)->willSucceed();
+        $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
         $root   = $this->factory->project->path;
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)->withTwigDirectories('templates', 'src/Resources/views')->build();
 
@@ -129,8 +133,8 @@ final class TwigLintToolTest extends TestCase
     #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed(self::CONSOLE_LISTING)->willSucceed('8.5.10')->willFail(1, 'Unexpected token in templates/base.html.twig');
-        $this->factory->project->mkdir('vendor/symfony/twig-bundle');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed(self::CONSOLE_LISTING)->willSucceed(self::PHP_VERSION)->willFail(1, 'Unexpected token in templates/base.html.twig');
+        $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
 

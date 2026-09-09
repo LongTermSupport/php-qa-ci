@@ -35,6 +35,10 @@ final class RequireReadonlyServiceRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string WIDGET_CLASS = 'Widget';
+
+    private const string APP_DOMAIN = 'App\Domain';
+
     private RequireReadonlyServiceRule $rule;
 
     protected function setUp(): void
@@ -51,7 +55,7 @@ final class RequireReadonlyServiceRuleTest extends TestCase
     #[Test]
     public function finalMutableServiceIsFlagged(): void
     {
-        $errors = $this->rule->processNode($this->class('Widget', Modifiers::FINAL), $this->scope('App\Domain'));
+        $errors = $this->rule->processNode($this->class(self::WIDGET_CLASS, Modifiers::FINAL), $this->scope(self::APP_DOMAIN));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('should be "final readonly class"', $errors[0]->getMessage());
@@ -61,23 +65,23 @@ final class RequireReadonlyServiceRuleTest extends TestCase
     #[Test]
     public function finalReadonlyServiceIsNotFlagged(): void
     {
-        $class = $this->class('Widget', Modifiers::FINAL | Modifiers::READONLY);
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL | Modifiers::READONLY);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function nonFinalClassIsNotFlagged(): void
     {
-        self::assertSame([], $this->rule->processNode($this->class('Widget', 0), $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS, 0), $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function abstractClassIsNotFlagged(): void
     {
-        $class = $this->class('Widget', Modifiers::ABSTRACT);
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::ABSTRACT);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
@@ -85,14 +89,14 @@ final class RequireReadonlyServiceRuleTest extends TestCase
     {
         $class = $this->class('WidgetController', Modifiers::FINAL);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function classInExcludedNamespaceSegmentIsNotFlagged(): void
     {
         // FQCN App\Controller\Widget contains the "\Controller\" excluded segment.
-        $class = $this->class('Widget', Modifiers::FINAL);
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL);
 
         self::assertSame([], $this->rule->processNode($class, $this->scope('App\Controller')));
     }
@@ -100,32 +104,32 @@ final class RequireReadonlyServiceRuleTest extends TestCase
     #[Test]
     public function doctrineEntityIsNotFlagged(): void
     {
-        $class = $this->class('Widget', Modifiers::FINAL, attributeNames: ['ORM\Entity']);
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, attributeNames: ['ORM\Entity']);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function classThatExtendsAnotherIsNotFlagged(): void
     {
-        $class = $this->class('Widget', Modifiers::FINAL, extends: new Name('BaseWidget'));
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, extends: new Name('BaseWidget'));
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function classWithAMutablePropertyIsNotFlagged(): void
     {
         $property = new Property(0, [new PropertyItem('cache')]);
-        $class    = $this->class('Widget', Modifiers::FINAL, stmts: [$property]);
+        $class    = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, stmts: [$property]);
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Domain')));
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
     public function classWithNullNamespaceIsNotFlagged(): void
     {
-        self::assertSame([], $this->rule->processNode($this->class('Widget', Modifiers::FINAL), $this->scope(null)));
+        self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS, Modifiers::FINAL), $this->scope(null)));
     }
 
     /**

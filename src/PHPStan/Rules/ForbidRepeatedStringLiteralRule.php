@@ -17,10 +17,12 @@ use PHPStan\Rules\RuleErrorBuilder;
  * edit to one occurrence leaves stale siblings, and the reader cannot tell
  * what it means or whether two occurrences are meant to be equal.
  *
- * Not counted (each is a value that does not carry that hazard): array keys
- * and array-dimension indexes (the spelling of an array shape), attribute
- * arguments (declarative metadata), literals shorter than three characters or
- * made only of whitespace, and literals inside a nested class-like (counted by
+ * Not counted (each is a value that does not carry that hazard): anything
+ * inside a class-constant declaration, which is already the single named
+ * definition the rule asks for (a golden data table is the usual shape); array
+ * keys and array-dimension indexes (the spelling of an array shape); attribute
+ * arguments (declarative metadata); literals shorter than three characters or
+ * made only of whitespace; and literals inside a nested class-like (counted by
  * its own class).
  *
  * See: docs/phpstan-rules/forbid-repeated-string-literal.md

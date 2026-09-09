@@ -25,6 +25,10 @@ final readonly class ComposerChecksTool implements ToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.composerChecks';
 
+    private const string RULE      = '---------------------';
+
+    private const string COMPOSER = 'composer';
+
     public function __construct(
         /** The composer executable; found on PATH when null. */
         private ?string $composerPath = null,
@@ -49,7 +53,7 @@ final readonly class ComposerChecksTool implements ToolInterface
         $context->writeln('');
         $context->writeln('');
         $context->writeln('Checking Composer Issues - Fix Any Red Stuff (wont fail the process)');
-        $context->writeln('---------------------');
+        $context->writeln(self::RULE);
         $context->writeln('');
         if (!$context->php->withoutXdebug($composer, ['diagnose'], $root)->succeeded()) {
             $context->writeln('composer diagnose reported issues (shown above) — informational only, not failing the pipeline.');
@@ -58,7 +62,7 @@ final readonly class ComposerChecksTool implements ToolInterface
         $context->writeln('');
         $context->writeln('');
         $context->writeln('Auditing Dependencies For Known Advisories');
-        $context->writeln('---------------------');
+        $context->writeln(self::RULE);
         $context->writeln('');
         if ($context->config->useComposerAudit) {
             $audit = $context->php->withoutXdebug($composer, ['audit', '--locked', '--abandoned=report', '--no-interaction'], $root);
@@ -84,7 +88,7 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('');
             $context->writeln('');
             $context->writeln('Checking Composer Normalisation (read-only)');
-            $context->writeln('---------------------');
+            $context->writeln(self::RULE);
             $context->writeln('');
             $normalize = $context->php->withoutXdebug($composer, ['normalize', '--dry-run'], $root);
             if (!$normalize->succeeded()) {
@@ -97,7 +101,7 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('');
             $context->writeln('');
             $context->writeln('Running Composer Normalise');
-            $context->writeln('---------------------');
+            $context->writeln(self::RULE);
             $context->writeln('');
             $normalize = $context->php->withoutXdebug($composer, ['normalize'], $root);
             if (!$normalize->succeeded()) {
@@ -110,7 +114,7 @@ final readonly class ComposerChecksTool implements ToolInterface
         $context->writeln('');
         $context->writeln('');
         $context->writeln('Dumping Composer Autoloader');
-        $context->writeln('---------------------');
+        $context->writeln(self::RULE);
         $context->writeln('');
 
         $dump = $context->php->withoutXdebug($composer, ['dump-autoload'], $root);
@@ -129,9 +133,9 @@ final readonly class ComposerChecksTool implements ToolInterface
             return $this->composerPath;
         }
 
-        $found = new ExecutableFinder()->find('composer', 'composer');
+        $found = new ExecutableFinder()->find(self::COMPOSER, self::COMPOSER);
 
-        return null === $found ? 'composer' : $found;
+        return null === $found ? self::COMPOSER : $found;
     }
 
     private function auditFailedGuidance(ToolContext $context): void

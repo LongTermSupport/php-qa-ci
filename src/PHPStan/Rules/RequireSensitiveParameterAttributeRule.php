@@ -49,17 +49,18 @@ use PHPStan\Rules\RuleErrorBuilder;
  * Both the credential name patterns and the ignore-substrings are configurable
  * via the constructor (wired from neon parameters) with sensible defaults baked in.
  *
+ * Both default lists are matched case-insensitively as substrings of the
+ * parameter name. DEFAULT_NAME_PATTERNS marks a name as a credential;
+ * DEFAULT_IGNORE_SUBSTRINGS marks one as already hashed, encoded or encrypted,
+ * or as a URL or file-system path, and therefore not plaintext sensitive.
+ *
  * @implements Rule<FunctionLike>
  */
 final readonly class RequireSensitiveParameterAttributeRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.requireSensitiveParameterAttribute';
 
-    /**
-     * Default case-insensitive substrings that mark a parameter name as a credential.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     private const array DEFAULT_NAME_PATTERNS = [
         'password',
         'passwd',
@@ -72,15 +73,7 @@ final readonly class RequireSensitiveParameterAttributeRule implements Rule
         'credentials',
     ];
 
-    /**
-     * Default case-insensitive substrings that mark a name as already
-     * hashed/encoded/encrypted, a URL/URI, or a file-system path — and therefore
-     * NOT plaintext sensitive.
-     *
-     * Includes: hash, hashed, encoded, encrypted, url, uri, path.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     private const array DEFAULT_IGNORE_SUBSTRINGS = [
         'hash',
         'hashed',

@@ -33,6 +33,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpLintToolTest extends TestCase
 {
+    private const string PHP_VERSION = '8.5.10';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -50,7 +52,7 @@ final class PhpLintToolTest extends TestCase
     #[Test]
     public function aCleanLintPassesAndRunsParallelLintOverTheCheckedPaths(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed('No syntax error found');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed('No syntax error found');
         $root = $this->factory->project->path;
 
         $result = new PhpLintTool()->run($this->factory->context());
@@ -67,7 +69,7 @@ final class PhpLintToolTest extends TestCase
     #[Test]
     public function eachIgnoredPathBecomesAnExcludeUnderTheProjectRoot(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willSucceed();
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willSucceed();
         $root   = $this->factory->project->path;
         $config = $this->factory->builder()->withIgnoredPaths('tests/Asset', 'src/Generated')->build();
 
@@ -82,7 +84,7 @@ final class PhpLintToolTest extends TestCase
     #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
-        $this->factory->processes->willSucceed('8.5.10')->willFail(1, 'Parse error: syntax error');
+        $this->factory->processes->willSucceed(self::PHP_VERSION)->willFail(1, 'Parse error: syntax error');
 
         $result = new PhpLintTool()->run($this->factory->context());
 

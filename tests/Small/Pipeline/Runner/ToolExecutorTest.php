@@ -43,6 +43,10 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[Small]
 final class ToolExecutorTest extends TestCase
 {
+    private const string TOOL_LINT = 'lint';
+
+    private const string STAN = 'stan';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -58,28 +62,28 @@ final class ToolExecutorTest extends TestCase
     #[Test]
     public function aPassingToolRunsOnceAndReportsNoRetry(): void
     {
-        $locator  = new FakeToolLocator()->register(new StubTool('lint', ToolResultDto::passed()));
+        $locator  = new FakeToolLocator()->register(new StubTool(self::TOOL_LINT, ToolResultDto::passed()));
         $executor = new ToolExecutor($locator, new NonInteractiveRetryPrompt(), $this->factory->output);
 
-        $execution = $executor->execute('lint', $this->factory->context());
+        $execution = $executor->execute(self::TOOL_LINT, $this->factory->context());
 
-        self::assertSame('lint', $execution->tool);
+        self::assertSame(self::TOOL_LINT, $execution->tool);
         self::assertTrue($execution->result->isSuccess());
         self::assertFalse($execution->retried);
-        self::assertSame(1, $locator->stub('lint')->runs);
+        self::assertSame(1, $locator->stub(self::TOOL_LINT)->runs);
     }
 
     #[Test]
     public function nonInteractivelyAFailureIsFinalAndPrintsTheBanner(): void
     {
-        $locator  = new FakeToolLocator()->register(new StubTool('lint', ToolResultDto::failed('3 files')));
+        $locator  = new FakeToolLocator()->register(new StubTool(self::TOOL_LINT, ToolResultDto::failed('3 files')));
         $executor = new ToolExecutor($locator, new NonInteractiveRetryPrompt(), $this->factory->output);
 
-        $execution = $executor->execute('lint', $this->factory->context());
+        $execution = $executor->execute(self::TOOL_LINT, $this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $execution->result->outcome);
         self::assertFalse($execution->retried);
-        self::assertSame(1, $locator->stub('lint')->runs);
+        self::assertSame(1, $locator->stub(self::TOOL_LINT)->runs);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('lint Failed...', $printed);
         self::assertStringContainsString('3 files', $printed);
@@ -89,26 +93,26 @@ final class ToolExecutorTest extends TestCase
     #[Test]
     public function interactivelyAFailureIsRetriedUntilItPassesAndTheRetryIsRecorded(): void
     {
-        $locator  = new FakeToolLocator()->register(new StubTool('lint', ToolResultDto::failed('a'), ToolResultDto::failed('b'), ToolResultDto::passed()));
+        $locator  = new FakeToolLocator()->register(new StubTool(self::TOOL_LINT, ToolResultDto::failed('a'), ToolResultDto::failed('b'), ToolResultDto::passed()));
         $executor = new ToolExecutor($locator, new AlwaysRetry(), $this->factory->output);
 
-        $execution = $executor->execute('lint', $this->factory->context());
+        $execution = $executor->execute(self::TOOL_LINT, $this->factory->context());
 
         self::assertTrue($execution->result->isSuccess());
         self::assertTrue($execution->retried);
-        self::assertSame(3, $locator->stub('lint')->runs);
+        self::assertSame(3, $locator->stub(self::TOOL_LINT)->runs);
     }
 
     #[Test]
     public function aCrashIsNeverRetriedEvenInteractively(): void
     {
-        $locator  = new FakeToolLocator()->register(new StubTool('stan', ToolResultDto::crashed('boom'), ToolResultDto::passed()));
+        $locator  = new FakeToolLocator()->register(new StubTool(self::STAN, ToolResultDto::crashed('boom'), ToolResultDto::passed()));
         $executor = new ToolExecutor($locator, new AlwaysRetry(), $this->factory->output);
 
-        $execution = $executor->execute('stan', $this->factory->context());
+        $execution = $executor->execute(self::STAN, $this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $execution->result->outcome);
-        self::assertSame(1, $locator->stub('stan')->runs);
+        self::assertSame(1, $locator->stub(self::STAN)->runs);
     }
 
     #[Test]
@@ -120,10 +124,10 @@ final class ToolExecutorTest extends TestCase
         \Safe\rewind($stdin);
         $prompt = new ConsoleRetryPrompt($output, $stdin);
 
-        self::assertTrue($prompt->shouldRetry('lint'));
+        self::assertTrue($prompt->shouldRetry(self::TOOL_LINT));
         self::assertStringContainsString('invalid choice: maybe', $output->fetch());
-        self::assertFalse($prompt->shouldRetry('lint'));
-        self::assertFalse($prompt->shouldRetry('lint'), 'end of input is a no');
+        self::assertFalse($prompt->shouldRetry(self::TOOL_LINT));
+        self::assertFalse($prompt->shouldRetry(self::TOOL_LINT), 'end of input is a no');
     }
 }
 

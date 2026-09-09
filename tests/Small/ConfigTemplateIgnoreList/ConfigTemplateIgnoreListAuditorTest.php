@@ -25,11 +25,15 @@ final class ConfigTemplateIgnoreListAuditorTest extends TestCase
 
     private const string CLEAN_ASSETS      = __DIR__ . '/../../assets/configTemplateIgnoreList/clean';
 
+    private const string GENERIC_DIR = '/configDefaults/generic';
+
+    private const string IGNORE_LIST = self::GENERIC_DIR . '/psr4-validate-ignore-list.txt';
+
     public function testItReportsANamespaceLessTemplateMissingFromTheIgnoreList(): void
     {
         $auditor = new ConfigTemplateIgnoreListAuditor(
-            self::VIOLATING_ASSETS . '/configDefaults/generic',
-            self::VIOLATING_ASSETS . '/configDefaults/generic/psr4-validate-ignore-list.txt',
+            self::VIOLATING_ASSETS . self::GENERIC_DIR,
+            self::VIOLATING_ASSETS . self::IGNORE_LIST,
         );
 
         $actual = $auditor->main();
@@ -43,8 +47,8 @@ final class ConfigTemplateIgnoreListAuditorTest extends TestCase
     public function testItIsQuietWhenEveryNamespaceLessTemplateIsCovered(): void
     {
         $auditor = new ConfigTemplateIgnoreListAuditor(
-            self::CLEAN_ASSETS . '/configDefaults/generic',
-            self::CLEAN_ASSETS . '/configDefaults/generic/psr4-validate-ignore-list.txt',
+            self::CLEAN_ASSETS . self::GENERIC_DIR,
+            self::CLEAN_ASSETS . self::IGNORE_LIST,
         );
 
         self::assertSame([], $auditor->main());
@@ -56,8 +60,8 @@ final class ConfigTemplateIgnoreListAuditorTest extends TestCase
         // uncovered file, never the one the ignore list already excludes, and
         // it must never flag the namespaced class file.
         $auditor = new ConfigTemplateIgnoreListAuditor(
-            self::VIOLATING_ASSETS . '/configDefaults/generic',
-            self::VIOLATING_ASSETS . '/configDefaults/generic/psr4-validate-ignore-list.txt',
+            self::VIOLATING_ASSETS . self::GENERIC_DIR,
+            self::VIOLATING_ASSETS . self::IGNORE_LIST,
         );
 
         $actual = $auditor->main();
@@ -89,10 +93,9 @@ final class ConfigTemplateIgnoreListAuditorTest extends TestCase
      */
     public function testShippedConfigDefaultsAreFullyCoveredByTheShippedIgnoreList(): void
     {
-        $genericDir     = __DIR__ . '/../../../configDefaults/generic';
-        $ignoreListPath = $genericDir . '/psr4-validate-ignore-list.txt';
+        $repoRoot = __DIR__ . '/../../..';
 
-        $auditor = new ConfigTemplateIgnoreListAuditor($genericDir, $ignoreListPath);
+        $auditor = new ConfigTemplateIgnoreListAuditor($repoRoot . self::GENERIC_DIR, $repoRoot . self::IGNORE_LIST);
 
         self::assertSame([], $auditor->main());
     }

@@ -31,7 +31,6 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
 
     private const string TOOLCHAIN_VERSION = '0.2.0';
 
-    /** A gap opens with the document and clause it fails, e.g. "toolchain 4.1: ...". */
     private const string GAP_SHAPE = '/^(method|detector|toolchain) \d+\.\d+: \S/';
 
     public function testTheArtefactLevelDeclaresTheVersionsAndItsGaps(): void

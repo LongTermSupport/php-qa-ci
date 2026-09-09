@@ -55,15 +55,6 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.httpPrefixedEnvVars';
 
-    /**
-     * PHPStan may run several parallel worker PROCESSES (php-qa-ci's own
-     * PhpstanTool configures parallel.maximumNumberOfProcesses). Each
-     * worker gets its own PHP process and therefore its own instance of this
-     * rule, so this instance-level flag only dedupes WITHIN one worker — it
-     * cannot dedupe ACROSS workers. Accepted trade-off: at most one duplicate
-     * report per offender per worker (cosmetic — the build still fails
-     * correctly, every offender is still named), not a false negative.
-     */
     private bool $alreadyScanned = false;
 
     public function __construct(private readonly string $projectRoot)

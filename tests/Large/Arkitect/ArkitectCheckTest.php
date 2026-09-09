@@ -25,12 +25,16 @@ final class ArkitectCheckTest extends TestCase
 
     private const string ASSETS = __DIR__ . '/../../assets/arkitect';
 
+    private const string DEFAULT_RULES = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
+
+    private const string NO_VIOLATIONS = 'No violations detected';
+
     public function testValidProjectPasses(): void
     {
         [$exitCode, $output] = $this->runCheck(self::ASSETS . '/projectValid');
 
         self::assertSame(0, $exitCode, "Expected no violations, got:\n" . $output);
-        self::assertStringContainsString('No violations detected', $output);
+        self::assertStringContainsString(self::NO_VIOLATIONS, $output);
     }
 
     public function testInvalidProjectFailsAndNamesViolation(): void
@@ -50,11 +54,9 @@ final class ArkitectCheckTest extends TestCase
      */
     public function testShippedDefaultRulesAreEnforcedWhenExtended(): void
     {
-        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
-
         [$exitCode, $output] = $this->runCheck(
             self::ASSETS . '/projectExtendsDefaults',
-            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES],
         );
 
         self::assertSame(1, $exitCode, "Expected a default-rule violation, got:\n" . $output);
@@ -110,11 +112,9 @@ final class ArkitectCheckTest extends TestCase
      */
     public function testDefaultTierEnforcesEnumAndTraitSuffixes(): void
     {
-        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
-
         [$exitCode, $output] = $this->runCheck(
             self::ASSETS . '/projectExtendsDefaults',
-            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES],
         );
 
         self::assertSame(1, $exitCode, "Expected enum/trait violations, got:\n" . $output);
@@ -133,15 +133,13 @@ final class ArkitectCheckTest extends TestCase
      */
     public function testDefaultTierAcceptsAConformingDto(): void
     {
-        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
-
         [$exitCode, $output] = $this->runCheck(
             self::ASSETS . '/projectDtoValid',
-            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES],
         );
 
         self::assertSame(0, $exitCode, "Expected a conforming Dto to pass, got:\n" . $output);
-        self::assertStringContainsString('No violations detected', $output);
+        self::assertStringContainsString(self::NO_VIOLATIONS, $output);
     }
 
     /**
@@ -153,11 +151,9 @@ final class ArkitectCheckTest extends TestCase
      */
     public function testDefaultTierEnforcesTheDtoConvention(): void
     {
-        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
-
         [$exitCode, $output] = $this->runCheck(
             self::ASSETS . '/projectDtoInvalid',
-            ['PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules],
+            ['PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES],
         );
 
         self::assertSame(1, $exitCode, "Expected Dto violations, got:\n" . $output);
@@ -187,15 +183,14 @@ final class ArkitectCheckTest extends TestCase
      */
     public function testZeroConfigDefaultEntryAppliesDefaultTier(): void
     {
-        $entryConfig  = __DIR__ . '/../../../configDefaults/generic/phparkitect.php';
-        $defaultRules = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
+        $entryConfig = __DIR__ . '/../../../configDefaults/generic/phparkitect.php';
 
         [$exitCode, $output] = $this->runCheckConfig(
             $entryConfig,
             self::ASSETS . '/projectExtendsDefaults/autoload.php',
             [
                 'PHPQACI_ARKITECT_SRC_DIR'       => self::ASSETS . '/projectExtendsDefaults/src',
-                'PHPQACI_ARKITECT_RULES_DEFAULT' => $defaultRules,
+                'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
             ],
         );
 
@@ -219,7 +214,7 @@ final class ArkitectCheckTest extends TestCase
         );
 
         self::assertSame(0, $exitCode, "Expected facade-only usage to pass, got:\n" . $output);
-        self::assertStringContainsString('No violations detected', $output);
+        self::assertStringContainsString(self::NO_VIOLATIONS, $output);
     }
 
     /**

@@ -44,6 +44,13 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class BranchNamePolicyToolTest extends TestCase
 {
+    private const string DEFAULT_BRANCH = 'main';
+
+    private const string FEATURE = 'feature/';
+
+    private const string ORIGIN_MAIN = 'refs/remotes/origin/main
+';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -62,9 +69,9 @@ final class BranchNamePolicyToolTest extends TestCase
     {
         $decision = new BranchNamePolicyDecision();
 
-        self::assertSame('exempt', $decision->decide('main', ['main'], ['feature/'])->reason);
-        self::assertSame('feature/', $decision->decide('feature/x', ['main'], ['feature/', 'bugfix/'])->reason);
-        $failed = $decision->decide('plan/00001-x', ['main'], BranchNamePolicyDecision::DEFAULT_PREFIXES);
+        self::assertSame('exempt', $decision->decide(self::DEFAULT_BRANCH, [self::DEFAULT_BRANCH], [self::FEATURE])->reason);
+        self::assertSame(self::FEATURE, $decision->decide('feature/x', [self::DEFAULT_BRANCH], [self::FEATURE, 'bugfix/'])->reason);
+        $failed = $decision->decide('plan/00001-x', [self::DEFAULT_BRANCH], BranchNamePolicyDecision::DEFAULT_PREFIXES);
         self::assertFalse($failed->passes);
         self::assertTrue($failed->isPlanBranch);
         self::assertFalse($decision->decide('wip', [], [])->isPlanBranch);
@@ -88,7 +95,7 @@ final class BranchNamePolicyToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed("feature/thing\n")
-            ->willSucceed("refs/remotes/origin/main\n")
+            ->willSucceed(self::ORIGIN_MAIN)
         ;
 
         $result = new BranchNamePolicyTool()->run($this->factory->context());
@@ -126,14 +133,14 @@ final class BranchNamePolicyToolTest extends TestCase
         self::assertStringContainsString('WARNING: could not detect default branch', $printed);
         self::assertStringContainsString('Loading project overrides from', $printed);
 
-        $this->factory->processes->willSucceed("release/1.2\n")->willSucceed("refs/remotes/origin/main\n");
+        $this->factory->processes->willSucceed("release/1.2\n")->willSucceed(self::ORIGIN_MAIN);
         self::assertTrue(new BranchNamePolicyTool()->run($this->factory->context())->isSuccess());
     }
 
     #[Test]
     public function aDisallowedBranchFailsWithGuidanceAndTheIdentifier(): void
     {
-        $this->factory->processes->willSucceed("wip-stuff\n")->willSucceed("refs/remotes/origin/main\n");
+        $this->factory->processes->willSucceed("wip-stuff\n")->willSucceed(self::ORIGIN_MAIN);
 
         $result  = new BranchNamePolicyTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -148,7 +155,7 @@ final class BranchNamePolicyToolTest extends TestCase
     #[Test]
     public function aPlanBranchGetsTheExtraLoudGuidance(): void
     {
-        $this->factory->processes->willSucceed("plan/00003-x\n")->willSucceed("refs/remotes/origin/main\n");
+        $this->factory->processes->willSucceed("plan/00003-x\n")->willSucceed(self::ORIGIN_MAIN);
 
         $result = new BranchNamePolicyTool()->run($this->factory->context());
 

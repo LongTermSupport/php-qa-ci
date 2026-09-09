@@ -7,13 +7,16 @@ namespace LTS\PHPQA\Pipeline\Tool\Dto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 
 /**
+ * How one tool run ended. The summary is a single line for the aggregate
+ * report at the end of a run; the tool has already printed its own detail, so
+ * this never repeats it.
+ *
  * @api
  */
 final readonly class ToolResultDto
 {
     private function __construct(
         public ToolOutcomeEnum $outcome,
-        /** One line for the aggregate summary; the tool has already printed the detail. */
         public string $summary,
     ) {
     }

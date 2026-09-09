@@ -15,6 +15,8 @@ use Throwable;
 
 final readonly class LinksChecker
 {
+    private const string HEAD = 'HEAD';
+
     /**
      * @throws Exception
      */
@@ -270,7 +272,7 @@ final readonly class LinksChecker
         }
 
         $httpOpts = [
-            'method'           => 'HEAD',
+            'method'           => self::HEAD,
             'protocol_version' => 1.1,
             'follow_location'  => true,
             'max_redirects'    => 5,
@@ -280,7 +282,7 @@ final readonly class LinksChecker
         ];
 
         $lastError = null;
-        foreach (['HEAD', 'GET'] as $method) {
+        foreach ([self::HEAD, 'GET'] as $method) {
             $httpOpts['method'] = $method;
             $context            = stream_context_create([
                 'http'  => $httpOpts,
@@ -298,7 +300,7 @@ final readonly class LinksChecker
                     return null;
                 }
 
-                if ('HEAD' === $method && null !== $lastStatus && $lastStatus >= 400) {
+                if (self::HEAD === $method && null !== $lastStatus && $lastStatus >= 400) {
                     continue;
                 }
             } catch (Throwable $e) {

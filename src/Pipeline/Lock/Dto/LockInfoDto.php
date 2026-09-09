@@ -7,6 +7,10 @@ namespace LTS\PHPQA\Pipeline\Lock\Dto;
 use RuntimeException;
 
 /**
+ * Who holds the run lock, and since when. Both times are Unix timestamps in
+ * seconds; `$lastActivity` is what stale detection compares against, and the
+ * runner touches it before every tool so a long lane never goes stale.
+ *
  * @internal
  */
 final readonly class LockInfoDto
@@ -16,9 +20,7 @@ final readonly class LockInfoDto
         public int $pid,
         public string $tool,
         public string $path,
-        /** Unix timestamp. */
         public int $startedAt,
-        /** Unix timestamp. */
         public int $lastActivity,
     ) {
     }

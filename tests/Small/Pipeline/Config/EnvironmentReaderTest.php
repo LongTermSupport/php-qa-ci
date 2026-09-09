@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class EnvironmentReaderTest extends TestCase
 {
+    private const string COMPOSER_ALLOWED = 'true';
+
     #[Test]
     public function anAbsentOrEmptyVariableIsNull(): void
     {
@@ -39,7 +41,7 @@ final class EnvironmentReaderTest extends TestCase
     public static function provideBoolSpellings(): iterable
     {
         yield '1 is true' => ['1', false, true];
-        yield 'true is true' => ['true', false, true];
+        yield 'true is true' => [self::COMPOSER_ALLOWED, false, true];
         yield 'TRUE is true' => ['TRUE', false, true];
         yield '0 is false' => ['0', true, false];
         yield 'false is false' => ['false', true, false];
@@ -51,7 +53,7 @@ final class EnvironmentReaderTest extends TestCase
     {
         self::assertNull(new EnvironmentReader([])->boolOrNull('V'));
         self::assertFalse(new EnvironmentReader(['V' => '0'])->boolOrNull('V'));
-        self::assertTrue(new EnvironmentReader(['V' => 'true'])->boolOrNull('V'));
+        self::assertTrue(new EnvironmentReader(['V' => self::COMPOSER_ALLOWED])->boolOrNull('V'));
         self::assertNull(new EnvironmentReader(['V' => 'maybe'])->boolOrNull('V'));
     }
 
@@ -68,7 +70,7 @@ final class EnvironmentReaderTest extends TestCase
     #[Test]
     public function ciIsExplicitCiOrClaudeCodeOrNoTty(): void
     {
-        self::assertTrue(new EnvironmentReader(['CI' => 'true'])->isCi(true, true));
+        self::assertTrue(new EnvironmentReader(['CI' => self::COMPOSER_ALLOWED])->isCi(true, true));
         self::assertTrue(new EnvironmentReader(['CLAUDECODE' => '1'])->isCi(true, true));
         self::assertTrue(new EnvironmentReader([])->isCi(false, true));
         self::assertTrue(new EnvironmentReader([])->isCi(true, false));
@@ -80,8 +82,8 @@ final class EnvironmentReaderTest extends TestCase
     public function readOnlyIsExplicitQaReadonlyElseGithubActionsElseWritable(): void
     {
         self::assertTrue(new EnvironmentReader(['QA_READONLY' => '1'])->isReadOnly());
-        self::assertFalse(new EnvironmentReader(['QA_READONLY' => '0', 'GITHUB_ACTIONS' => 'true'])->isReadOnly());
-        self::assertTrue(new EnvironmentReader(['GITHUB_ACTIONS' => 'true'])->isReadOnly());
+        self::assertFalse(new EnvironmentReader(['QA_READONLY' => '0', 'GITHUB_ACTIONS' => self::COMPOSER_ALLOWED])->isReadOnly());
+        self::assertTrue(new EnvironmentReader(['GITHUB_ACTIONS' => self::COMPOSER_ALLOWED])->isReadOnly());
         self::assertFalse(new EnvironmentReader([])->isReadOnly());
     }
 

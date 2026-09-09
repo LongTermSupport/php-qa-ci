@@ -23,6 +23,12 @@ use LTS\PHPQA\Pipeline\Tool\Exception\UnknownToolException;
  */
 final readonly class ToolRegistry
 {
+    private const string PHPSTAN = 'phpstan';
+
+    private const string PHPUNIT = 'phpunit';
+
+    private const string INFECTION = 'infection';
+
     /** @var array<string, ToolDefinitionDto> keyed by canonical name, in registry order */
     private array $definitions;
 
@@ -65,13 +71,13 @@ final readonly class ToolRegistry
             new ToolDefinitionDto('markdownLinks', ['ml', 'markdown'], 'markdown validation', PhaseEnum::Linting, false, banner: 'Running Markdown Links Checker'),
             new ToolDefinitionDto('branchNamePolicy', ['bnp', 'branchNamePolicy'], 'Branch naming policy (PR convention)', PhaseEnum::StaticAnalysis, false, banner: 'Checking Branch Name Policy'),
             new ToolDefinitionDto('phpstanIgnoreJustification', ['pij', 'phpstanIgnoreJustification'], 'assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification', PhaseEnum::StaticAnalysis, false, banner: 'Checking PHPStan ignoreErrors Justifications'),
-            new ToolDefinitionDto('phpstan', ['stan', 'phpstan'], 'phpstan', PhaseEnum::StaticAnalysis, true, ToolGateEnum::NotQuick, 'Running PHPStan', supportsJson: true),
+            new ToolDefinitionDto(self::PHPSTAN, ['stan', self::PHPSTAN], self::PHPSTAN, PhaseEnum::StaticAnalysis, true, ToolGateEnum::NotQuick, 'Running PHPStan', supportsJson: true),
             new ToolDefinitionDto('phpArkitect', ['arch', 'arkitect', 'phparkitect'], 'PHPArkitect architecture rules (on by default; useArkitect=0 to disable)', PhaseEnum::StaticAnalysis, false, banner: 'Running PHPArkitect (architecture rules)'),
             new ToolDefinitionDto('sensitiveParameterUsage', ['spu', 'sensitiveparameter', 'sensitiveParameterUsage'], 'assert #[\SensitiveParameter] is used somewhere in src/', PhaseEnum::StaticAnalysis, false, banner: 'Checking SensitiveParameter Usage'),
-            new ToolDefinitionDto('phpunit', ['unit', 'phpunit'], 'phpunit', PhaseEnum::Testing, true, ToolGateEnum::NotQuick, 'Running PHPUnit Tests'),
-            new ToolDefinitionDto('infection', ['infect', 'infection'], 'infection', PhaseEnum::Testing, false, ToolGateEnum::Infection, 'Running Infection (mutation testing)'),
+            new ToolDefinitionDto(self::PHPUNIT, ['unit', self::PHPUNIT], self::PHPUNIT, PhaseEnum::Testing, true, ToolGateEnum::NotQuick, 'Running PHPUnit Tests'),
+            new ToolDefinitionDto(self::INFECTION, ['infect', self::INFECTION], self::INFECTION, PhaseEnum::Testing, false, ToolGateEnum::Infection, 'Running Infection (mutation testing)'),
             new ToolDefinitionDto('phploc', ['l', 'loc'], 'lines of code and other stats', null, true),
-            new ToolDefinitionDto('uniterate', ['uniterate'], 'phpunit iterative mode - prioritise broken tests and fail on error', null, false, target: 'phpunit'),
+            new ToolDefinitionDto('uniterate', ['uniterate'], 'phpunit iterative mode - prioritise broken tests and fail on error', null, false, target: self::PHPUNIT),
         );
     }
 

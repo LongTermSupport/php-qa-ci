@@ -17,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class SafeScanFilesDetectorTest extends TestCase
 {
+    private const string PHP_MAJOR_MINOR = '8.5';
+
     private const string FIXTURE_ROOT = __DIR__ . '/../../assets/versionPins/project/current';
 
     private const string ARRAY_84 = 'vendor/thecodingmachine/safe/generated/8.4/array.php';
@@ -35,7 +37,7 @@ final class SafeScanFilesDetectorTest extends TestCase
     #[Test]
     public function itPassesWhenEveryEntryIsTheFileSafeLoadsOnThatPhp(): void
     {
-        self::assertSame([], $this->detector->check([self::ARRAY_84, self::EXEC_82], self::FIXTURE_ROOT, '8.5'));
+        self::assertSame([], $this->detector->check([self::ARRAY_84, self::EXEC_82], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR));
     }
 
     #[Test]
@@ -54,7 +56,7 @@ final class SafeScanFilesDetectorTest extends TestCase
                 '"' . self::ARRAY_82 . '": on PHP 8.5 safe loads generated/8.4/array.php, not the 8.2 one; '
                 . 'replace the entry with "' . self::ARRAY_84 . '"',
             ],
-            $this->detector->check([self::ARRAY_82], self::FIXTURE_ROOT, '8.5'),
+            $this->detector->check([self::ARRAY_82], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR),
         );
     }
 
@@ -72,13 +74,13 @@ final class SafeScanFilesDetectorTest extends TestCase
     #[Test]
     public function itIgnoresEntriesThatAreNotSafeGeneratedFiles(): void
     {
-        self::assertSame([], $this->detector->check(['vendor/some/other/file.php', 'src/bootstrap.php'], self::FIXTURE_ROOT, '8.5'));
+        self::assertSame([], $this->detector->check(['vendor/some/other/file.php', 'src/bootstrap.php'], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR));
     }
 
     #[Test]
     public function itIgnoresASafeEntryWhoseDispatcherIsAbsent(): void
     {
-        self::assertSame([], $this->detector->check(['vendor/thecodingmachine/safe/generated/8.4/nope.php'], self::FIXTURE_ROOT, '8.5'));
+        self::assertSame([], $this->detector->check(['vendor/thecodingmachine/safe/generated/8.4/nope.php'], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR));
     }
 
     #[Test]
@@ -86,7 +88,7 @@ final class SafeScanFilesDetectorTest extends TestCase
     {
         $source = "<?php\nif (str_starts_with(PHP_VERSION, \"8.5.\")) {\n    require_once __DIR__ . '/8.4/array.php';\n}\n";
 
-        self::assertSame('8.4', $this->detector->loadedVersionDir($source, '8.5'));
+        self::assertSame('8.4', $this->detector->loadedVersionDir($source, self::PHP_MAJOR_MINOR));
         self::assertNull($this->detector->loadedVersionDir($source, '8.3'));
     }
 }

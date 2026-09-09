@@ -24,6 +24,10 @@ use Symfony\Component\Process\Process;
 #[Large]
 final class QaEntrypointTest extends TestCase
 {
+    private const string USAGE = 'Usage:';
+
+    private const string BIN = '/bin/';
+
     private const string LIBRARY_ROOT = __DIR__ . '/../../..';
 
     private const string INSTALLED_LIBRARY = 'vendor/lts/php-qa-ci';
@@ -58,7 +62,7 @@ final class QaEntrypointTest extends TestCase
         $process = $this->qa([], '-h');
 
         self::assertSame(1, $process->getExitCode());
-        self::assertStringContainsString('Usage:', $process->getErrorOutput());
+        self::assertStringContainsString(self::USAGE, $process->getErrorOutput());
         self::assertStringContainsString('stan|phpstan', $process->getErrorOutput());
         self::assertSame('', $process->getOutput());
     }
@@ -70,7 +74,7 @@ final class QaEntrypointTest extends TestCase
 
         self::assertSame(1, $process->getExitCode());
         self::assertStringContainsString('Invalid tool: nope', $process->getErrorOutput());
-        self::assertStringContainsString('Usage:', $process->getErrorOutput());
+        self::assertStringContainsString(self::USAGE, $process->getErrorOutput());
     }
 
     #[Test]
@@ -80,7 +84,7 @@ final class QaEntrypointTest extends TestCase
 
         self::assertSame(1, $process->getExitCode());
         self::assertStringContainsString("Tool 'cr' does not support path-specific execution", $process->getErrorOutput());
-        self::assertStringNotContainsString('Usage:', $process->getErrorOutput());
+        self::assertStringNotContainsString(self::USAGE, $process->getErrorOutput());
     }
 
     #[Test]
@@ -132,8 +136,8 @@ final class QaEntrypointTest extends TestCase
         $libraryRoot = \Safe\realpath(self::LIBRARY_ROOT);
 
         foreach (['qa', 'bootstrap.php'] as $script) {
-            \Safe\copy($libraryRoot . '/bin/' . $script, $installed . '/bin/' . $script);
-            \Safe\chmod($installed . '/bin/' . $script, 0o755);
+            \Safe\copy($libraryRoot . self::BIN . $script, $installed . self::BIN . $script);
+            \Safe\chmod($installed . self::BIN . $script, 0o755);
         }
 
         foreach (\Safe\scandir($libraryRoot) as $entry) {

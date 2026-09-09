@@ -29,6 +29,10 @@ final class ForbidRawSqlRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string EXECUTE_QUERY = 'executeQuery';
+
+    private const string VARIABLE_CONN = 'conn';
+
     private ForbidRawSqlRule $rule;
 
     protected function setUp(): void
@@ -46,7 +50,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     public function concatenationInABannedMethodArgumentIsFlagged(): void
     {
         // $conn->executeQuery($a . $b)
-        $call   = $this->methodCall('executeQuery', [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
+        $call   = $this->methodCall(self::EXECUTE_QUERY, [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
         $errors = $this->rule->processNode($call, $this->scope());
 
         self::assertCount(1, $errors);
@@ -75,7 +79,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     #[Test]
     public function bannedMethodWithoutConcatenationIsNotFlagged(): void
     {
-        $call = $this->methodCall('executeQuery', [new Arg(new Variable('preparedSql'))]);
+        $call = $this->methodCall(self::EXECUTE_QUERY, [new Arg(new Variable('preparedSql'))]);
 
         self::assertSame([], $this->rule->processNode($call, $this->scope()));
     }
@@ -91,7 +95,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     #[Test]
     public function dynamicMethodNameIsIgnored(): void
     {
-        $call = new MethodCall(new Variable('conn'), new Variable('method'), [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
+        $call = new MethodCall(new Variable(self::VARIABLE_CONN), new Variable('method'), [new Arg(new Concat(new Variable('a'), new Variable('b')))]);
 
         self::assertSame([], $this->rule->processNode($call, $this->scope()));
     }
@@ -101,7 +105,7 @@ final class ForbidRawSqlRuleTest extends TestCase
     {
         // $conn->executeQuery(...) first-class callable syntax — the arg is a
         // VariadicPlaceholder, which must be skipped rather than inspected.
-        $call = new MethodCall(new Variable('conn'), new Identifier('executeQuery'), [new VariadicPlaceholder()]);
+        $call = new MethodCall(new Variable(self::VARIABLE_CONN), new Identifier(self::EXECUTE_QUERY), [new VariadicPlaceholder()]);
 
         self::assertSame([], $this->rule->processNode($call, $this->scope()));
     }
@@ -111,7 +115,7 @@ final class ForbidRawSqlRuleTest extends TestCase
      */
     private function methodCall(string $method, array $args): MethodCall
     {
-        return new MethodCall(new Variable('conn'), new Identifier($method), $args);
+        return new MethodCall(new Variable(self::VARIABLE_CONN), new Identifier($method), $args);
     }
 
     private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope

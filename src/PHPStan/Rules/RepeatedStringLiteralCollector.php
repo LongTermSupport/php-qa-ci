@@ -9,6 +9,7 @@ use PhpParser\Node\Attribute;
 use PhpParser\Node\Expr\ArrayDimFetch;
 use PhpParser\Node\Expr\ArrayItem;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\ClassConst;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitorAbstract;
@@ -43,6 +44,10 @@ final class RepeatedStringLiteralCollector extends NodeVisitorAbstract
             return NodeVisitor::DONT_TRAVERSE_CHILDREN;
         }
 
+        if ($node instanceof ClassConst) {
+            return NodeVisitor::DONT_TRAVERSE_CHILDREN;
+        }
+
         if ($node instanceof ArrayItem && $node->key instanceof String_) {
             $this->arrayKeys[$node->key] = null;
         }
@@ -51,7 +56,7 @@ final class RepeatedStringLiteralCollector extends NodeVisitorAbstract
             $this->arrayKeys[$node->dim] = null;
         }
 
-        if ($node instanceof String_ && !isset($this->arrayKeys[$node]) && self::counts($node->value)) {
+        if ($node instanceof String_ && !isset($this->arrayKeys[$node]) && $this->counts($node->value)) {
             $this->occurrences[$node->value][] = $node->getStartLine();
         }
 
@@ -64,7 +69,7 @@ final class RepeatedStringLiteralCollector extends NodeVisitorAbstract
         return $this->occurrences;
     }
 
-    private static function counts(string $value): bool
+    private function counts(string $value): bool
     {
         return \strlen($value) >= ForbidRepeatedStringLiteralRule::MIN_LENGTH && '' !== trim($value);
     }

@@ -28,14 +28,20 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ToolRegistryTest extends TestCase
 {
+    private const string PHPSTAN = 'phpstan';
+
+    private const string PHPUNIT = 'phpunit';
+
+    private const string UNKNOWN_TOKEN = 'nope';
+
     #[Test]
     public function anAliasResolvesToItsCanonicalDefinition(): void
     {
         $registry = ToolRegistry::shipped();
 
-        self::assertSame('phpstan', $registry->resolve('stan')->name);
-        self::assertSame('phpstan', $registry->resolve('phpstan')->name);
-        self::assertSame('phpunit', $registry->resolve('uniterate')->target);
+        self::assertSame(self::PHPSTAN, $registry->resolve('stan')->name);
+        self::assertSame(self::PHPSTAN, $registry->resolve(self::PHPSTAN)->name);
+        self::assertSame(self::PHPUNIT, $registry->resolve('uniterate')->target);
     }
 
     #[Test]
@@ -50,7 +56,7 @@ final class ToolRegistryTest extends TestCase
     public function theUnknownToolExceptionNamesTheToken(): void
     {
         try {
-            ToolRegistry::shipped()->resolve('nope');
+            ToolRegistry::shipped()->resolve(self::UNKNOWN_TOKEN);
         } catch (UnknownToolException $unknownToolException) {
             self::assertStringContainsString('Invalid tool: nope', $unknownToolException->getMessage());
 
@@ -78,7 +84,7 @@ final class ToolRegistryTest extends TestCase
             ToolRegistry::shipped()->toolsForPhase(PhaseEnum::Testing),
         );
 
-        self::assertSame(['phpunit', 'infection'], $names);
+        self::assertSame([self::PHPUNIT, 'infection'], $names);
     }
 
     #[Test]
@@ -87,9 +93,9 @@ final class ToolRegistryTest extends TestCase
         $registry = ToolRegistry::shipped();
 
         self::assertTrue($registry->supportsPaths('stan'));
-        self::assertTrue($registry->supportsPaths('phpstan'));
+        self::assertTrue($registry->supportsPaths(self::PHPSTAN));
         self::assertFalse($registry->supportsPaths('cr'));
-        self::assertFalse($registry->supportsPaths('nope'));
+        self::assertFalse($registry->supportsPaths(self::UNKNOWN_TOKEN));
         self::assertContains('rector', $registry->pathSupportingTokens());
         self::assertNotContains('cr', $registry->pathSupportingTokens());
     }
@@ -99,7 +105,7 @@ final class ToolRegistryTest extends TestCase
     {
         $registry = ToolRegistry::shipped();
 
-        self::assertSame(ToolGateEnum::NotQuick, $registry->definition('phpstan')->gate);
+        self::assertSame(ToolGateEnum::NotQuick, $registry->definition(self::PHPSTAN)->gate);
         self::assertSame(ToolGateEnum::Infection, $registry->definition('infection')->gate);
         self::assertSame(ToolGateEnum::None, $registry->definition('phpLint')->gate);
 
@@ -118,7 +124,7 @@ final class ToolRegistryTest extends TestCase
 
         self::assertStringStartsWith('allCS', $lines[0]);
         self::assertContains(
-            \sprintf('%-26s %s', 'stan|phpstan', 'phpstan'),
+            \sprintf('%-26s %s', 'stan|phpstan', self::PHPSTAN),
             $lines,
         );
     }
@@ -128,7 +134,7 @@ final class ToolRegistryTest extends TestCase
     {
         $this->expectException(UnknownToolException::class);
 
-        ToolRegistry::shipped()->definition('nope');
+        ToolRegistry::shipped()->definition(self::UNKNOWN_TOKEN);
     }
 
     #[Test]
@@ -136,7 +142,7 @@ final class ToolRegistryTest extends TestCase
     {
         $registry = ToolRegistry::shipped();
 
-        self::assertTrue($registry->definition('phpstan')->supportsJson);
-        self::assertFalse($registry->definition('phpunit')->supportsJson);
+        self::assertTrue($registry->definition(self::PHPSTAN)->supportsJson);
+        self::assertFalse($registry->definition(self::PHPUNIT)->supportsJson);
     }
 }

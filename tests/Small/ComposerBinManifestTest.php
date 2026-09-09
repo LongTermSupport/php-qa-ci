@@ -27,7 +27,6 @@ use function Safe\scandir;
 #[Small]
 final class ComposerBinManifestTest extends TestCase
 {
-    /** Files under bin/ that are support files, not consumer-facing executables. */
     private const array NON_EXECUTABLE_SUPPORT_FILES = [
         'bootstrap.php',
         'lib-redirect-stub.inc.bash',

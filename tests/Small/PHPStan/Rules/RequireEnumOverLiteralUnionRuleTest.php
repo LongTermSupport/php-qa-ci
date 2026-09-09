@@ -33,6 +33,16 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string METHOD_BUILD = 'build';
+
+    private const string TYPE_STRING = 'string';
+
+    private const string PARAM_MODE = 'mode';
+
+    private const string PARAM_A_B_MODE = '/** @param \'a\'|\'b\' $mode */';
+
+    private const string TYPE_INT = 'int';
+
     private RequireEnumOverLiteralUnionRule $rule;
 
     protected function setUp(): void
@@ -48,7 +58,7 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
     #[DataProvider('flaggedParamDocblocks')]
     public function testLiteralUnionParamDocblockOverAScalarIsFlagged(string $docblock): void
     {
-        $method = $this->makeMethod('build', [$this->makeParam('operation', new Identifier('string'))], $docblock);
+        $method = $this->makeMethod(self::METHOD_BUILD, [$this->makeParam('operation', new Identifier(self::TYPE_STRING))], $docblock);
 
         $errors = $this->rule->processNode($method, self::scopeStub());
 
@@ -88,7 +98,7 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
     #[DataProvider('scalarNativeTypes')]
     public function testEveryScalarNativeShapeIsFlagged(Identifier|Name|NullableType|UnionType|null $nativeType): void
     {
-        $method = $this->makeMethod('build', [$this->makeParam('mode', $nativeType)], "/** @param 'a'|'b' \$mode */");
+        $method = $this->makeMethod(self::METHOD_BUILD, [$this->makeParam(self::PARAM_MODE, $nativeType)], self::PARAM_A_B_MODE);
 
         self::assertCount(1, $this->rule->processNode($method, self::scopeStub()));
     }
@@ -98,22 +108,22 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
      */
     public static function scalarNativeTypes(): iterable
     {
-        yield 'string' => [new Identifier('string')];
+        yield self::TYPE_STRING => [new Identifier(self::TYPE_STRING)];
 
-        yield 'int' => [new Identifier('int')];
+        yield self::TYPE_INT => [new Identifier(self::TYPE_INT)];
 
-        yield '?string' => [new NullableType(new Identifier('string'))];
+        yield '?string' => [new NullableType(new Identifier(self::TYPE_STRING))];
 
-        yield 'string|int' => [new UnionType([new Identifier('string'), new Identifier('int')])];
+        yield 'string|int' => [new UnionType([new Identifier(self::TYPE_STRING), new Identifier(self::TYPE_INT)])];
 
-        yield 'string|int|null' => [new UnionType([new Identifier('string'), new Identifier('int'), new Identifier('null')])];
+        yield 'string|int|null' => [new UnionType([new Identifier(self::TYPE_STRING), new Identifier(self::TYPE_INT), new Identifier('null')])];
 
         yield 'untyped (the docblock is the only type)' => [null];
     }
 
     public function testLiteralUnionReturnDocblockIsFlagged(): void
     {
-        $method = $this->makeMethod('direction', [], "/** @return 'asc'|'desc' */", new Identifier('string'));
+        $method = $this->makeMethod('direction', [], "/** @return 'asc'|'desc' */", new Identifier(self::TYPE_STRING));
 
         $errors = $this->rule->processNode($method, self::scopeStub());
 
@@ -125,8 +135,8 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
     public function testEachOffendingParamIsReportedOnce(): void
     {
         $method = $this->makeMethod(
-            'build',
-            [$this->makeParam('kind', new Identifier('string')), $this->makeParam('level', new Identifier('int'))],
+            self::METHOD_BUILD,
+            [$this->makeParam('kind', new Identifier(self::TYPE_STRING)), $this->makeParam('level', new Identifier(self::TYPE_INT))],
             "/**\n * @param 'a'|'b' \$kind\n * @param 1|2|3 \$level\n */",
         );
 
@@ -135,9 +145,9 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
 
     public function testFreeFunctionsAndClosuresAreCovered(): void
     {
-        $doc      = "/** @param 'a'|'b' \$mode */";
-        $function = new Function_('fn', ['params' => [$this->makeParam('mode', new Identifier('string'))]], ['comments' => [new Doc($doc)]]);
-        $closure  = new Closure(['params' => [$this->makeParam('mode', new Identifier('string'))]], ['comments' => [new Doc($doc)]]);
+        $doc      = self::PARAM_A_B_MODE;
+        $function = new Function_('fn', ['params' => [$this->makeParam(self::PARAM_MODE, new Identifier(self::TYPE_STRING))]], ['comments' => [new Doc($doc)]]);
+        $closure  = new Closure(['params' => [$this->makeParam(self::PARAM_MODE, new Identifier(self::TYPE_STRING))]], ['comments' => [new Doc($doc)]]);
 
         self::assertCount(1, $this->rule->processNode($function, self::scopeStub()));
         self::assertCount(1, $this->rule->processNode($closure, self::scopeStub()));
@@ -146,7 +156,7 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
     #[DataProvider('unflaggedParamDocblocks')]
     public function testDocblocksWithoutAClosedLiteralSetAreNotFlagged(string $docblock): void
     {
-        $method = $this->makeMethod('build', [$this->makeParam('operation', new Identifier('string'))], $docblock);
+        $method = $this->makeMethod(self::METHOD_BUILD, [$this->makeParam('operation', new Identifier(self::TYPE_STRING))], $docblock);
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }
@@ -179,14 +189,14 @@ final class RequireEnumOverLiteralUnionRuleTest extends TestCase
     {
         // A literal union over a non-scalar native type is PHPStan's business (it will already
         // report the docblock as incompatible); this rule is about scalars standing in for enums.
-        $method = $this->makeMethod('build', [$this->makeParam('mode', new Name('Foo'))], "/** @param 'a'|'b' \$mode */");
+        $method = $this->makeMethod(self::METHOD_BUILD, [$this->makeParam(self::PARAM_MODE, new Name('Foo'))], self::PARAM_A_B_MODE);
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }
 
     public function testNoDocblockIsNotFlagged(): void
     {
-        $method = $this->makeMethod('build', [$this->makeParam('mode', new Identifier('string'))], null);
+        $method = $this->makeMethod(self::METHOD_BUILD, [$this->makeParam(self::PARAM_MODE, new Identifier(self::TYPE_STRING))], null);
 
         self::assertSame([], $this->rule->processNode($method, self::scopeStub()));
     }

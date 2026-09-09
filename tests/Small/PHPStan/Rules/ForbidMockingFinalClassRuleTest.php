@@ -40,6 +40,10 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
 {
     use ScopeStubTrait;
 
+    private const string CREATE_MOCK = 'createMock';
+
+    private const string VARIABLE_THIS = 'this';
+
     // A final class shipped by this project (source lives in src/, not vendor/).
     private const string PROJECT_FINAL = ForbidLooseComparisonRule::class;
 
@@ -53,7 +57,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     public function createMockOnAProjectFinalClassIsFlagged(): void
     {
         $errors = $this->getRule()->processNode(
-            $this->mockCall('createMock', self::PROJECT_FINAL),
+            $this->mockCall(self::CREATE_MOCK, self::PROJECT_FINAL),
             $this->scopeResolvingTo(self::PROJECT_FINAL),
         );
 
@@ -78,7 +82,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     public function mockingAnInterfaceIsAllowed(): void
     {
         $errors = $this->getRule()->processNode(
-            $this->mockCall('createMock', Rule::class),
+            $this->mockCall(self::CREATE_MOCK, Rule::class),
             $this->scopeResolvingTo(Rule::class),
         );
 
@@ -89,7 +93,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     public function mockingAnAbstractClassIsAllowed(): void
     {
         $errors = $this->getRule()->processNode(
-            $this->mockCall('createMock', \PhpParser\NodeAbstract::class),
+            $this->mockCall(self::CREATE_MOCK, \PhpParser\NodeAbstract::class),
             $this->scopeResolvingTo(\PhpParser\NodeAbstract::class),
         );
 
@@ -100,7 +104,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     public function mockingANonFinalClassIsAllowed(): void
     {
         $errors = $this->getRule()->processNode(
-            $this->mockCall('createMock', \PhpParser\Comment::class),
+            $this->mockCall(self::CREATE_MOCK, \PhpParser\Comment::class),
             $this->scopeResolvingTo(\PhpParser\Comment::class),
         );
 
@@ -113,7 +117,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
         // Small is final, but its source lives under vendor/ — we cannot add an
         // interface to a third-party class, so the rule deliberately skips it.
         $errors = $this->getRule()->processNode(
-            $this->mockCall('createMock', \PHPUnit\Framework\Attributes\Small::class),
+            $this->mockCall(self::CREATE_MOCK, \PHPUnit\Framework\Attributes\Small::class),
             $this->scopeResolvingTo(\PHPUnit\Framework\Attributes\Small::class),
         );
 
@@ -124,7 +128,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     public function unknownClassIsSkipped(): void
     {
         $errors = $this->getRule()->processNode(
-            $this->mockCall('createMock', 'Acme\DefinitelyNotAReal\Clazz'),
+            $this->mockCall(self::CREATE_MOCK, 'Acme\DefinitelyNotAReal\Clazz'),
             $this->scopeResolvingTo('Acme\DefinitelyNotAReal\Clazz'),
         );
 
@@ -146,7 +150,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     public function dynamicFirstArgumentIsIgnored(): void
     {
         // self::createStub($var) — the argument is not a ::class fetch.
-        $call = new MethodCall(new Variable('this'), new Identifier('createMock'), [new Arg(new Variable('type'))]);
+        $call = new MethodCall(new Variable(self::VARIABLE_THIS), new Identifier(self::CREATE_MOCK), [new Arg(new Variable('type'))]);
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scopeResolvingTo(self::PROJECT_FINAL)));
     }
@@ -156,7 +160,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     {
         // self::createStub(Foo::SOME_CONST) — not the ::class magic constant.
         $fetch = new ClassConstFetch(new Name(self::PROJECT_FINAL), new Identifier('SOME_CONST'));
-        $call  = new MethodCall(new Variable('this'), new Identifier('createMock'), [new Arg($fetch)]);
+        $call  = new MethodCall(new Variable(self::VARIABLE_THIS), new Identifier(self::CREATE_MOCK), [new Arg($fetch)]);
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scopeResolvingTo(self::PROJECT_FINAL)));
     }
@@ -176,7 +180,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
         );
 
         $errors = $rule->processNode(
-            $this->mockCall('createMock', self::PROJECT_FINAL),
+            $this->mockCall(self::CREATE_MOCK, self::PROJECT_FINAL),
             $this->scopeResolvingTo(self::PROJECT_FINAL),
         );
 
@@ -195,7 +199,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
     {
         $fetch = new ClassConstFetch(new Name('\\' . $className), new Identifier('class'));
 
-        return new MethodCall(new Variable('this'), new Identifier($method), [new Arg($fetch)]);
+        return new MethodCall(new Variable(self::VARIABLE_THIS), new Identifier($method), [new Arg($fetch)]);
     }
 
     private function scopeResolvingTo(string $className): CollectedDataEmitter&NodeCallbackInvoker&Scope

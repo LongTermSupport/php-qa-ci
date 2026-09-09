@@ -72,7 +72,7 @@ final readonly class RequireConsistentMemberDocsRule implements Rule
         $errors = [];
         foreach ([self::KIND_CONSTANTS => $constants, self::KIND_PROPERTIES => $properties] as $kind => $members) {
             $error = $this->check($kind, $members);
-            if (null !== $error) {
+            if ($error instanceof \PHPStan\Rules\IdentifierRuleError) {
                 $errors[] = $error;
             }
         }
@@ -99,13 +99,13 @@ final readonly class RequireConsistentMemberDocsRule implements Rule
             $documented,
             $total,
             $kind,
-            implode(', ', array_map(self::name(...), $undocumented)),
+            implode(', ', array_map($this->name(...), $undocumented)),
         ))->line($undocumented[0]->getStartLine())->identifier(self::IDENTIFIER)->build();
     }
 
     private static function hasFreeText(?Doc $doc): bool
     {
-        if (null === $doc) {
+        if (!$doc instanceof Doc) {
             return false;
         }
 
@@ -119,7 +119,7 @@ final readonly class RequireConsistentMemberDocsRule implements Rule
         return false;
     }
 
-    private static function name(ClassConst|EnumCase|Property|Param $member): string
+    private function name(ClassConst|EnumCase|Property|Param $member): string
     {
         if ($member instanceof ClassConst) {
             return implode(', ', array_map(static fn (Node\Const_ $const): string => $const->name->toString(), $member->consts));

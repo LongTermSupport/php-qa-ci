@@ -19,6 +19,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpunitArgumentsTest extends TestCase
 {
+    private const string ENFORCE_TIME_LIMIT = '--enforce-time-limit';
+
+    private const string NO_COVERAGE = '--no-coverage';
+
     private const array BASE = [
         '-c',
         '/cfg/phpunit.xml',
@@ -54,7 +58,7 @@ final class PhpunitArgumentsTest extends TestCase
     {
         $args = $this->build(coverage: true, iterative: false, ci: false);
 
-        self::assertSame([...self::BASE, ...self::DISPLAY, '--enforce-time-limit'], $args);
+        self::assertSame([...self::BASE, ...self::DISPLAY, self::ENFORCE_TIME_LIMIT], $args);
     }
 
     #[Test]
@@ -62,7 +66,7 @@ final class PhpunitArgumentsTest extends TestCase
     {
         $args = $this->build(coverage: false, iterative: false, ci: true);
 
-        self::assertSame([...self::BASE, ...self::DISPLAY, '--no-coverage', '--enforce-time-limit'], $args);
+        self::assertSame([...self::BASE, ...self::DISPLAY, self::NO_COVERAGE, self::ENFORCE_TIME_LIMIT], $args);
     }
 
     #[Test]
@@ -78,8 +82,8 @@ final class PhpunitArgumentsTest extends TestCase
             '--stop-on-error',
             '--stop-on-defect',
             '--stop-on-warning',
-            '--no-coverage',
-            '--enforce-time-limit',
+            self::NO_COVERAGE,
+            self::ENFORCE_TIME_LIMIT,
         ], $args);
     }
 
@@ -104,7 +108,7 @@ final class PhpunitArgumentsTest extends TestCase
     {
         $args = $this->build(coverage: false, iterative: false, ci: true, paths: ['/p/tests/Unit', '/p/src/A.php']);
 
-        self::assertSame([...self::BASE, ...self::DISPLAY, '--no-coverage', '--enforce-time-limit', '/p/tests/Unit', '/p/src/A.php'], $args);
+        self::assertSame([...self::BASE, ...self::DISPLAY, self::NO_COVERAGE, self::ENFORCE_TIME_LIMIT, '/p/tests/Unit', '/p/src/A.php'], $args);
     }
 
     /**

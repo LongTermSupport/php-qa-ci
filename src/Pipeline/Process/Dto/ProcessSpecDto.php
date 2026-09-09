@@ -7,6 +7,11 @@ namespace LTS\PHPQA\Pipeline\Process\Dto;
 /**
  * Everything needed to run one external command.
  *
+ * `$timeout` is in seconds and null means no limit. `$streamOutput` echoes the
+ * output as it arrives, in addition to capturing it. `$lowPriority` runs the
+ * process tree at the lowest CPU priority, which mutation testing uses so it
+ * yields to everything else on the host.
+ *
  * @api
  */
 final readonly class ProcessSpecDto
@@ -19,11 +24,8 @@ final readonly class ProcessSpecDto
         public array $command,
         public string $cwd,
         public array $env = [],
-        /** Seconds; null for no limit. */
         public ?float $timeout = null,
-        /** Echo output as it arrives, in addition to capturing it. */
         public bool $streamOutput = true,
-        /** Run at the lowest CPU priority (mutation testing). */
         public bool $lowPriority = false,
     ) {
     }

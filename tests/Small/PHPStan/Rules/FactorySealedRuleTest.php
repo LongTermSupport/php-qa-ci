@@ -36,6 +36,8 @@ final class FactorySealedRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string SRC_CONSUMER_PHP = '/project/src/Consumer.php';
+
     public function testGetNodeType(): void
     {
         self::assertSame(New_::class, $this->rule()->getNodeType());
@@ -47,7 +49,7 @@ final class FactorySealedRuleTest extends TestCase
             new New_(new Name('SealedByPackageAttribute')),
             $this->scope(
                 resolvesTo: SealedByPackageAttribute::class,
-                file: '/project/src/Consumer.php',
+                file: self::SRC_CONSUMER_PHP,
                 enclosingClass: null,
             ),
         );
@@ -83,7 +85,7 @@ final class FactorySealedRuleTest extends TestCase
             new New_(new Name('UnsealedClass')),
             $this->scope(
                 resolvesTo: UnsealedClass::class,
-                file: '/project/src/Consumer.php',
+                file: self::SRC_CONSUMER_PHP,
                 enclosingClass: null,
             ),
         );
@@ -96,7 +98,7 @@ final class FactorySealedRuleTest extends TestCase
         // new $var — the class is not statically known, so it cannot be checked.
         $errors = $this->rule()->processNode(
             new New_(new Variable('class')),
-            $this->scope(resolvesTo: SealedByPackageAttribute::class, file: '/project/src/Consumer.php', enclosingClass: null),
+            $this->scope(resolvesTo: SealedByPackageAttribute::class, file: self::SRC_CONSUMER_PHP, enclosingClass: null),
         );
 
         self::assertSame([], $errors);

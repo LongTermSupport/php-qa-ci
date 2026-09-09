@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\Dto;
 
 /**
+ * The project's additive branch-name overrides. `$file` is the file they were
+ * read from, and is null when the project supplies none.
+ *
  * @internal
  */
 final readonly class BranchPolicyConfigDto
@@ -14,7 +17,6 @@ final readonly class BranchPolicyConfigDto
      * @param list<string> $extraExemptBranches
      */
     public function __construct(
-        /** The file the overrides were read from, or null when there is none. */
         public ?string $file,
         public array $extraAllowedPrefixes,
         public array $extraExemptBranches,

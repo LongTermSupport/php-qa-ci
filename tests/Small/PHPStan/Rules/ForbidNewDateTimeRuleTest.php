@@ -25,6 +25,12 @@ final class ForbidNewDateTimeRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string DATE_TIME = 'DateTime';
+
+    private const string APP_SERVICE = 'App\Service';
+
+    private const string SERVICE_FOO_PHP = '/app/src/Service/Foo.php';
+
     private ForbidNewDateTimeRule $rule;
 
     protected function setUp(): void
@@ -42,8 +48,8 @@ final class ForbidNewDateTimeRuleTest extends TestCase
     public function newDateTimeInProductionCodeIsFlagged(): void
     {
         $errors = $this->rule->processNode(
-            new New_(new Name('DateTime')),
-            $this->scope('App\Service', '/app/src/Service/Foo.php', 'DateTime'),
+            new New_(new Name(self::DATE_TIME)),
+            $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP, self::DATE_TIME),
         );
 
         self::assertCount(1, $errors);
@@ -56,7 +62,7 @@ final class ForbidNewDateTimeRuleTest extends TestCase
     {
         $errors = $this->rule->processNode(
             new New_(new Name('DateTimeImmutable')),
-            $this->scope('App\Service', '/app/src/Service/Foo.php', 'DateTimeImmutable'),
+            $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP, 'DateTimeImmutable'),
         );
 
         self::assertSame([], $errors);
@@ -66,8 +72,8 @@ final class ForbidNewDateTimeRuleTest extends TestCase
     public function newDateTimeInATestsNamespaceIsSkipped(): void
     {
         $errors = $this->rule->processNode(
-            new New_(new Name('DateTime')),
-            $this->scope('App\Tests\Service', '/app/src/Service/Foo.php', 'DateTime'),
+            new New_(new Name(self::DATE_TIME)),
+            $this->scope('App\Tests\Service', self::SERVICE_FOO_PHP, self::DATE_TIME),
         );
 
         self::assertSame([], $errors);
@@ -77,8 +83,8 @@ final class ForbidNewDateTimeRuleTest extends TestCase
     public function newDateTimeInATestsFilePathIsSkipped(): void
     {
         $errors = $this->rule->processNode(
-            new New_(new Name('DateTime')),
-            $this->scope('App\Service', '/app/tests/Service/FooTest.php', 'DateTime'),
+            new New_(new Name(self::DATE_TIME)),
+            $this->scope(self::APP_SERVICE, '/app/tests/Service/FooTest.php', self::DATE_TIME),
         );
 
         self::assertSame([], $errors);
@@ -90,7 +96,7 @@ final class ForbidNewDateTimeRuleTest extends TestCase
         // new $class — the class expression is not a Name and cannot be resolved.
         $errors = $this->rule->processNode(
             new New_(new Variable('class')),
-            $this->scope('App\Service', '/app/src/Service/Foo.php', 'DateTime'),
+            $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP, self::DATE_TIME),
         );
 
         self::assertSame([], $errors);

@@ -24,6 +24,8 @@ final class ForbidDeprecatedSerializableRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string SERIALIZABLE = 'Serializable';
+
     private ForbidDeprecatedSerializableRule $rule;
 
     protected function setUp(): void
@@ -40,8 +42,8 @@ final class ForbidDeprecatedSerializableRuleTest extends TestCase
     #[Test]
     public function classImplementingSerializableIsFlagged(): void
     {
-        $class  = new Class_('LegacyDto', ['implements' => [new Name('Serializable')]]);
-        $errors = $this->rule->processNode($class, $this->scopeResolvingTo('Serializable'));
+        $class  = new Class_('LegacyDto', ['implements' => [new Name(self::SERIALIZABLE)]]);
+        $errors = $this->rule->processNode($class, $this->scopeResolvingTo(self::SERIALIZABLE));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('Class LegacyDto implements the deprecated Serializable interface', $errors[0]->getMessage());
@@ -67,8 +69,8 @@ final class ForbidDeprecatedSerializableRuleTest extends TestCase
     #[Test]
     public function anonymousClassImplementingSerializableIsReportedWithAnonymousName(): void
     {
-        $class  = new Class_(null, ['implements' => [new Name('Serializable')]]);
-        $errors = $this->rule->processNode($class, $this->scopeResolvingTo('Serializable'));
+        $class  = new Class_(null, ['implements' => [new Name(self::SERIALIZABLE)]]);
+        $errors = $this->rule->processNode($class, $this->scopeResolvingTo(self::SERIALIZABLE));
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('Class anonymous implements', $errors[0]->getMessage());

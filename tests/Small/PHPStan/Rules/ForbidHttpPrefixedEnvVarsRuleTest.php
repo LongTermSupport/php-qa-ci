@@ -32,6 +32,12 @@ use PHPUnit\Framework\Attributes\Test;
 #[Medium]
 final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
 {
+    private const string DUMMY_PHP = '/dummy.php';
+
+    private const string HTTP_API_KEY = 'HTTP_API_KEY';
+
+    private const string CONFIG_SERVICES_YAML = '/offending/config/services.yaml';
+
     private const string ASSETS = __DIR__ . '/../../../assets/httpPrefixedEnvVars';
 
     private string $projectRootForTest = self::ASSETS . '/clean';
@@ -53,11 +59,11 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
         // the message text carries the TRUE offending file:line, since
         // PHPStan's own file/line metadata cannot point outside the file
         // actually being analysed (see the rule's docblock).
-        $this->analyse([self::ASSETS . '/dummy.php'], [
-            [$this->expectedMessage(self::ASSETS . '/offending/.env', 4, 'HTTP_API_KEY'), 3],
-            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 2, 'HTTP_API_KEY'), 3],
-            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 8, 'HTTP_API_KEY'), 3],
-            [$this->expectedMessage(self::ASSETS . '/offending/config/services.yaml', 9, 'HTTP_CACHE_DIR'), 3],
+        $this->analyse([self::ASSETS . self::DUMMY_PHP], [
+            [$this->expectedMessage(self::ASSETS . '/offending/.env', 4, self::HTTP_API_KEY), 3],
+            [$this->expectedMessage(self::ASSETS . self::CONFIG_SERVICES_YAML, 2, self::HTTP_API_KEY), 3],
+            [$this->expectedMessage(self::ASSETS . self::CONFIG_SERVICES_YAML, 8, self::HTTP_API_KEY), 3],
+            [$this->expectedMessage(self::ASSETS . self::CONFIG_SERVICES_YAML, 9, 'HTTP_CACHE_DIR'), 3],
         ]);
     }
 
@@ -66,7 +72,7 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
     {
         $this->projectRootForTest = self::ASSETS . '/clean';
 
-        $this->analyse([self::ASSETS . '/dummy.php'], []);
+        $this->analyse([self::ASSETS . self::DUMMY_PHP], []);
     }
 
     #[Test]
@@ -77,7 +83,7 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
         // despite it containing an HTTP_-prefixed reference.
         $this->projectRootForTest = self::ASSETS . '/nonSymfony';
 
-        $this->analyse([self::ASSETS . '/dummy.php'], []);
+        $this->analyse([self::ASSETS . self::DUMMY_PHP], []);
     }
 
     protected function getRule(): Rule
