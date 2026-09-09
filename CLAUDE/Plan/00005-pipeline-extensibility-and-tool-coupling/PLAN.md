@@ -87,6 +87,18 @@ so their effect on the mutation floor is unverified. That is Task 1.1.
       project-level extended pipeline against `src/`. Record findings and false-positive rate in
       JOURNAL/. PHAR-run PHPStan does load Composer-installed extensions — proven in 00004 via
       `vendor/phpstan/extension-installer/src/GeneratedConfig.php`.
+
+      **Sequencing constraint found in the 00004 recon**: on a library, the tool has no "this is
+      a library" flag. Its only documented mechanism is `@api` phpdoc marking entrypoints, so
+      without that sweep first it reports our entire public surface as dead — every
+      `ToolInterface` lane, every `QaConfigBuilder::with*()`, every hook signature — and the run
+      is uninterpretable rather than merely noisy. Also enable `usageExcluders.tests.enabled`,
+      or a method reached only from tests counts as dead. `--error-format removeDeadCode` exists
+      and must not be run before the sweep: it would delete public API.
+
+      This is why 3.1 sits after Phase 2 rather than beside it. Task 2.2 already has to mark the
+      construction path `@api` for the builder to be usable from a consumer, so the annotation
+      work is shared rather than duplicated.
 - [ ] ⬜ **Task 3.2**: Decide on bundling as an opt-in `withDeadCodeDetection(bool)` on the
       evidence from 3.1. Record the decision either way.
 
