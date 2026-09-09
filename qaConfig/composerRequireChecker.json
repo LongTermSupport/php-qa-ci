@@ -24,6 +24,7 @@
     "Composer\\Script\\Event",
     "Composer\\Script\\ScriptEvents",
     "Composer\\Semver\\Semver",
+    "Composer\\Util\\ProcessExecutor",
     "PHPStan\\Analyser\\NodeCallbackInvoker",
     "PHPStan\\Analyser\\Scope",
     "PHPStan\\Node\\FileNode",

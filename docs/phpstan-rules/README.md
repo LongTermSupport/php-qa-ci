@@ -56,25 +56,26 @@ file fails to parse.
 Loaded automatically via the PHPStan extension installer. Registered in
 [`rules-default.neon`](../../rules-default.neon), which is the single source of truth.
 
-| Identifier                                   | Rule                                       | What it requires                                                                                                    |
-| -------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `phpqaci.dangerousFunctions`                 | `ForbidDangerousFunctionsRule`             | [No exec/eval/unserialize and similar](forbid-dangerous-functions.md)                                               |
-| `phpqaci.emptyCatchBlock`                    | `ForbidEmptyCatchBlockRule`                | [A catch block must do something](forbid-empty-catch-block.md)                                                      |
-| `phpqaci.missingStrictTypes`                 | `RequireDeclareStrictTypesRule`            | [`declare(strict_types=1)` in every file](require-declare-strict-types.md)                                          |
-| `phpqaci.httpPrefixedEnvVars`                | `ForbidHttpPrefixedEnvVarsRule`            | [No Symfony env var named `HTTP_*`](forbid-http-prefixed-env-vars.md)                                               |
-| `phpqaci.forbiddenAttribute`                 | `ForbidAllowMockWithoutExpectationsRule`   | No `#[AllowMockObjectsWithoutExpectations]`                                                                         |
-| `phpqaci.newDateTime`                        | `ForbidNewDateTimeRule`                    | No direct `new DateTime` / `new DateTimeImmutable`                                                                  |
-| `phpqaci.emptyLanguageConstruct`             | `ForbidEmptyLanguageConstructRule`         | No `empty()`; use an explicit type-safe check                                                                       |
-| `phpqaci.looseComparison`                    | `ForbidLooseComparisonRule`                | No `==` / `!=`; use `===` / `!==`                                                                                   |
-| `phpqaci.deprecatedSerializable`             | `ForbidDeprecatedSerializableRule`         | No `Serializable`; use `__serialize()` / `__unserialize()`                                                          |
-| `phpqaci.nestedTernary`                      | `ForbidNestedTernaryRule`                  | No nested ternary expressions                                                                                       |
-| `phpqaci.unanchoredVendorSubstringCheck`     | `ForbidUnanchoredVendorSubstringCheckRule` | [Decide ownership against the project root, not a `vendor/` substring](forbid-unanchored-vendor-substring-check.md) |
-| `phpqaci.inlinePhpstanIgnore`                | `ForbidInlinePhpstanIgnoreRule`            | No inline `@phpstan-ignore`; use `ignoreErrors` in the config                                                       |
-| `phpqaci.mockFinalClass`                     | `ForbidMockingFinalClassRule`              | Mock an interface, never a final class                                                                              |
-| `phpqaci.ruleIdentifierMustBeConstant`       | `RequireRuleIdentifierConstantRule`        | A PHPStan rule's identifier must be a class constant                                                                |
-| `phpqaci.requireSensitiveParameterAttribute` | `RequireSensitiveParameterAttributeRule`   | `#[\SensitiveParameter]` on plaintext credential parameters                                                         |
-| `phpqaci.requireApiOrInternalTag`            | `RequireApiOrInternalTagRule`              | [`@api` or `@internal` on every public class-like](../tools/requireApiOrInternal.md)                                |
-| `phpqaci.apiMustNotExposeInternal`           | `ApiMustNotExposeInternalRule`             | [An `@api` type must not expose an `@internal` one](../tools/requireApiOrInternal.md)                               |
+| Identifier                                   | Rule                                           | What it requires                                                                                                     |
+| -------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `phpqaci.dangerousFunctions`                 | `ForbidDangerousFunctionsRule`                 | [No exec/eval/unserialize and similar](forbid-dangerous-functions.md)                                                |
+| `phpqaci.emptyCatchBlock`                    | `ForbidEmptyCatchBlockRule`                    | [A catch block must do something](forbid-empty-catch-block.md)                                                       |
+| `phpqaci.composerPluginNamespacedFunction`   | `ForbidNamespacedFunctionInComposerPluginRule` | [A Composer plugin calls only global functions and Composer's API](forbid-namespaced-function-in-composer-plugin.md) |
+| `phpqaci.missingStrictTypes`                 | `RequireDeclareStrictTypesRule`                | [`declare(strict_types=1)` in every file](require-declare-strict-types.md)                                           |
+| `phpqaci.httpPrefixedEnvVars`                | `ForbidHttpPrefixedEnvVarsRule`                | [No Symfony env var named `HTTP_*`](forbid-http-prefixed-env-vars.md)                                                |
+| `phpqaci.forbiddenAttribute`                 | `ForbidAllowMockWithoutExpectationsRule`       | No `#[AllowMockObjectsWithoutExpectations]`                                                                          |
+| `phpqaci.newDateTime`                        | `ForbidNewDateTimeRule`                        | No direct `new DateTime` / `new DateTimeImmutable`                                                                   |
+| `phpqaci.emptyLanguageConstruct`             | `ForbidEmptyLanguageConstructRule`             | No `empty()`; use an explicit type-safe check                                                                        |
+| `phpqaci.looseComparison`                    | `ForbidLooseComparisonRule`                    | No `==` / `!=`; use `===` / `!==`                                                                                    |
+| `phpqaci.deprecatedSerializable`             | `ForbidDeprecatedSerializableRule`             | No `Serializable`; use `__serialize()` / `__unserialize()`                                                           |
+| `phpqaci.nestedTernary`                      | `ForbidNestedTernaryRule`                      | No nested ternary expressions                                                                                        |
+| `phpqaci.unanchoredVendorSubstringCheck`     | `ForbidUnanchoredVendorSubstringCheckRule`     | [Decide ownership against the project root, not a `vendor/` substring](forbid-unanchored-vendor-substring-check.md)  |
+| `phpqaci.inlinePhpstanIgnore`                | `ForbidInlinePhpstanIgnoreRule`                | No inline `@phpstan-ignore`; use `ignoreErrors` in the config                                                        |
+| `phpqaci.mockFinalClass`                     | `ForbidMockingFinalClassRule`                  | Mock an interface, never a final class                                                                               |
+| `phpqaci.ruleIdentifierMustBeConstant`       | `RequireRuleIdentifierConstantRule`            | A PHPStan rule's identifier must be a class constant                                                                 |
+| `phpqaci.requireSensitiveParameterAttribute` | `RequireSensitiveParameterAttributeRule`       | `#[\SensitiveParameter]` on plaintext credential parameters                                                          |
+| `phpqaci.requireApiOrInternalTag`            | `RequireApiOrInternalTagRule`                  | [`@api` or `@internal` on every public class-like](../tools/requireApiOrInternal.md)                                 |
+| `phpqaci.apiMustNotExposeInternal`           | `ApiMustNotExposeInternalRule`                 | [An `@api` type must not expose an `@internal` one](../tools/requireApiOrInternal.md)                                |
 
 ## Opt in
 

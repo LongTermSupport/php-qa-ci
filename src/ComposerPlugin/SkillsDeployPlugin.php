@@ -10,6 +10,7 @@ use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
+use Composer\Util\ProcessExecutor;
 
 /**
  * Composer plugin that automatically deploys Claude Code Skills and Agents.
@@ -20,7 +21,7 @@ use Composer\Script\ScriptEvents;
  * Skills are model-invoked entry points that delegate to specialized agents.
  * Agents are task executors launched via Task tool with appropriate model sizes.
  */
-final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterface
+final readonly class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterface
 {
     public function activate(Composer $composer, IOInterface $io): void
     {
@@ -99,13 +100,16 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
             escapeshellarg($projectRoot)
         );
 
-        $output   = [];
-        $exitCode = 0;
-        \Safe\exec($command, $output, $exitCode);
+        // Composer's own process runner: a plugin cannot rely on any dependency's
+        // functions being loaded (see ForbidNamespacedFunctionInComposerPluginRule).
+        $output   = null;
+        $exitCode = new ProcessExecutor($io)->execute($command, $output);
 
         // Display output
-        foreach ($output as $line) {
-            $io->write('  ' . $line);
+        foreach (explode("\n", rtrim(\is_string($output) ? $output : '')) as $line) {
+            if ('' !== $line) {
+                $io->write('  ' . $line);
+            }
         }
 
         if (0 === $exitCode) {

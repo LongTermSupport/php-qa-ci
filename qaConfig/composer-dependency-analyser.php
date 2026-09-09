@@ -71,9 +71,9 @@ $config
     ], [ErrorType::UNUSED_DEPENDENCY])
     /*
      * Extensions the shipped tools need rather than our own code: openssl for
-     * PHIVE signature verification, tokenizer and xml for the PHARs' own
-     * parsing and report writing.
+     * PHIVE signature verification and xml for the PHARs' report writing
+     * (tokenizer is used directly, by PhpStanGuardPlugin).
      */
-    ->ignoreErrorsOnExtensions(['ext-openssl', 'ext-tokenizer', 'ext-xml'], [ErrorType::UNUSED_DEPENDENCY]);
+    ->ignoreErrorsOnExtensions(['ext-openssl', 'ext-xml'], [ErrorType::UNUSED_DEPENDENCY]);
 
 return $config;

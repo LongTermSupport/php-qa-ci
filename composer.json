@@ -70,6 +70,12 @@
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiOrInternal\\": [
         "tests/assets/PHPStan/ApiOrInternal/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ComposerPluginOutside\\": [
+        "tests/assets/PHPStan/ComposerPluginOutside/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ComposerPlugin\\": [
+        "tests/assets/PHPStan/ComposerPlugin/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ConsistentMemberDocs\\": [
         "tests/assets/PHPStan/ConsistentMemberDocs/"
       ],

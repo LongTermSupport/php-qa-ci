@@ -25,7 +25,7 @@ use Throwable;
  *
  * @see ManagedSourceGenerator
  */
-final class ManagedSourceDeployPlugin implements PluginInterface, EventSubscriberInterface
+final readonly class ManagedSourceDeployPlugin implements PluginInterface, EventSubscriberInterface
 {
     public function activate(Composer $composer, IOInterface $io): void
     {
