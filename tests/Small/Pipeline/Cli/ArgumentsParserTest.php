@@ -88,30 +88,30 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function helpRaisesAUsageErrorThatShowsTheUsage(): void
     {
-        $this->assertUsage(['-h'], '', showUsage: true);
+        $this->assertUsage('', true, '-h');
     }
 
     #[Test]
     public function anUnknownToolShowsTheUsage(): void
     {
-        $this->assertUsage(['-t', 'nope'], 'Invalid tool: nope', showUsage: true);
-        $this->assertUsage(['-t', 'psr4Validate'], 'Invalid tool: psr4Validate', showUsage: true);
+        $this->assertUsage('Invalid tool: nope', true, '-t', 'nope');
+        $this->assertUsage('Invalid tool: psr4Validate', true, '-t', 'psr4Validate');
     }
 
     #[Test]
     public function aMissingOptionValueShowsTheUsage(): void
     {
-        $this->assertUsage(['-t'], 'Option -t requires an argument', showUsage: true);
-        $this->assertUsage(['-p'], 'Option -p requires an argument', showUsage: true);
+        $this->assertUsage('Option -t requires an argument', true, '-t');
+        $this->assertUsage('Option -p requires an argument', true, '-p');
     }
 
     #[Test]
     public function unknownFlagsAndExtraArgumentsAreRefused(): void
     {
-        $this->assertUsage(['-t', self::STAN, '--help'], 'Unsupported argument: --help', showUsage: false);
-        $this->assertUsage(['-x'], 'Unsupported argument: -x', showUsage: false);
-        $this->assertUsage([self::SRC, 'tests'], 'Multiple paths not supported: src tests', showUsage: false);
-        $this->assertUsage(['-p', self::SRC, 'extra'], 'Unsupported argument: extra', showUsage: false);
+        $this->assertUsage('Unsupported argument: --help', false, '-t', self::STAN, '--help');
+        $this->assertUsage('Unsupported argument: -x', false, '-x');
+        $this->assertUsage('Multiple paths not supported: src tests', false, self::SRC, 'tests');
+        $this->assertUsage('Unsupported argument: extra', false, '-p', self::SRC, 'extra');
     }
 
     #[Test]
@@ -130,8 +130,8 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function jsonNeedsAToolThatSupportsIt(): void
     {
-        $this->assertUsage([self::JSON_OPTION], '--json requires a single tool (-t)', showUsage: false);
-        $this->assertUsage([self::JSON_OPTION, '-t', 'unit'], "--json is not yet supported for 'phpunit'", showUsage: false);
+        $this->assertUsage('--json requires a single tool (-t)', false, self::JSON_OPTION);
+        $this->assertUsage("--json is not yet supported for 'phpunit'", false, self::JSON_OPTION, '-t', 'unit');
     }
 
     #[Test]
@@ -144,8 +144,7 @@ final class ArgumentsParserTest extends TestCase
         self::assertStringContainsString('vp|versionPins', $usage);
     }
 
-    /** @param list<string> $argv */
-    private function assertUsage(array $argv, string $expectedMessage, bool $showUsage): void
+    private function assertUsage(string $expectedMessage, bool $showUsage, string ...$argv): void
     {
         try {
             $this->parser->parse(...$argv);

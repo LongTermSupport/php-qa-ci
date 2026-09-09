@@ -37,15 +37,15 @@ final class SafeScanFilesDetectorTest extends TestCase
     #[Test]
     public function itPassesWhenEveryEntryIsTheFileSafeLoadsOnThatPhp(): void
     {
-        self::assertSame([], $this->detector->check([self::ARRAY_84, self::EXEC_82], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR));
+        self::assertSame([], $this->detector->check(self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR, self::ARRAY_84, self::EXEC_82));
     }
 
     #[Test]
     public function itJudgesAgainstTheGivenPhpVersionNotTheListedOne(): void
     {
         // On 8.2 safe loads 8.2/array.php, so the 8.4 entry is the stale one there.
-        self::assertSame([], $this->detector->check([self::ARRAY_82], self::FIXTURE_ROOT, '8.2'));
-        self::assertCount(1, $this->detector->check([self::ARRAY_84], self::FIXTURE_ROOT, '8.2'));
+        self::assertSame([], $this->detector->check(self::FIXTURE_ROOT, '8.2', self::ARRAY_82));
+        self::assertCount(1, $this->detector->check(self::FIXTURE_ROOT, '8.2', self::ARRAY_84));
     }
 
     #[Test]
@@ -56,14 +56,14 @@ final class SafeScanFilesDetectorTest extends TestCase
                 '"' . self::ARRAY_82 . '": on PHP 8.5 safe loads generated/8.4/array.php, not the 8.2 one; '
                 . 'replace the entry with "' . self::ARRAY_84 . '"',
             ],
-            $this->detector->check([self::ARRAY_82], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR),
+            $this->detector->check(self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR, self::ARRAY_82),
         );
     }
 
     #[Test]
     public function itReportsAnEntryWhoseDispatcherHasNoBranchForThatPhp(): void
     {
-        $problems = $this->detector->check([self::EXEC_82], self::FIXTURE_ROOT, '8.6');
+        $problems = $this->detector->check(self::FIXTURE_ROOT, '8.6', self::EXEC_82);
 
         self::assertSame(
             ['"' . self::EXEC_82 . '": safe has no exec.php branch for PHP 8.6, so this file is never loaded on the PHP QA runs under; remove the entry'],
@@ -74,13 +74,13 @@ final class SafeScanFilesDetectorTest extends TestCase
     #[Test]
     public function itIgnoresEntriesThatAreNotSafeGeneratedFiles(): void
     {
-        self::assertSame([], $this->detector->check(['vendor/some/other/file.php', 'src/bootstrap.php'], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR));
+        self::assertSame([], $this->detector->check(self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR, 'vendor/some/other/file.php', 'src/bootstrap.php'));
     }
 
     #[Test]
     public function itIgnoresASafeEntryWhoseDispatcherIsAbsent(): void
     {
-        self::assertSame([], $this->detector->check(['vendor/thecodingmachine/safe/generated/8.4/nope.php'], self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR));
+        self::assertSame([], $this->detector->check(self::FIXTURE_ROOT, self::PHP_MAJOR_MINOR, 'vendor/thecodingmachine/safe/generated/8.4/nope.php'));
     }
 
     #[Test]

@@ -69,15 +69,15 @@ final readonly class Pipeline
             $tools = $definition->isPhaseRunner && $definition->phase instanceof PhaseEnum
                 ? $this->toolsFor($definition->phase, $config->platform)
                 : [$definition];
-            $ok = $this->runTools($tools, $context, $failed, $retried, gated: $definition->isPhaseRunner);
+            $ok = $this->runTools($context, $failed, $retried, $definition->isPhaseRunner, ...$tools);
 
-            return $this->finish($ok, $failed, $retried, $config->aggregate);
+            return $this->finish($ok, $retried, $config->aggregate, ...$failed);
         }
 
         foreach (PhaseEnum::cases() as $phase) {
             $this->banner($phase->banner(), '=');
-            if (!$this->runTools($this->toolsFor($phase, $config->platform), $context, $failed, $retried, gated: true)) {
-                return $this->finish(false, $failed, $retried, $config->aggregate);
+            if (!$this->runTools($context, $failed, $retried, true, ...$this->toolsFor($phase, $config->platform))) {
+                return $this->finish(false, $retried, $config->aggregate, ...$failed);
             }
         }
 
@@ -94,12 +94,11 @@ final readonly class Pipeline
     }
 
     /**
-     * @param list<ToolDefinitionDto> $tools
-     * @param list<string>            $failed
+     * @param list<string> $failed
      *
      * @return bool false when a tool failed in fail-fast mode
      */
-    private function runTools(array $tools, ToolContext $context, array &$failed, bool &$retried, bool $gated): bool
+    private function runTools(ToolContext $context, array &$failed, bool &$retried, bool $gated, ToolDefinitionDto ...$tools): bool
     {
         $config = $context->config;
         foreach ($tools as $tool) {
@@ -146,8 +145,7 @@ final readonly class Pipeline
         return [...$this->registry->toolsForPhase($phase), ...ToolRegistry::platformLanes($platform, $phase)];
     }
 
-    /** @param list<string> $failed */
-    private function finish(bool $ok, array $failed, bool $retried, bool $aggregate): int
+    private function finish(bool $ok, bool $retried, bool $aggregate, string ...$failed): int
     {
         if ($aggregate) {
             $ok = $this->aggregate->report(...$failed);

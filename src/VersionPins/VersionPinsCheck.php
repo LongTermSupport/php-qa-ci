@@ -121,7 +121,7 @@ final readonly class VersionPinsCheck
 
         return array_map(
             static fn (string $problem): string => self::CRC_LABEL . $configPath . '): ' . $problem,
-            $this->safeScanFilesDetector->check(array_values(array_filter($scanFiles, is_string(...))), $projectRoot, $this->phpMajorMinor),
+            $this->safeScanFilesDetector->check($projectRoot, $this->phpMajorMinor, ...array_values(array_filter($scanFiles, is_string(...)))),
         );
     }
 

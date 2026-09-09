@@ -24,16 +24,16 @@ final readonly class SafeScanFilesDetector
     private const string ENTRY_PATTERN = '#^(.*?thecodingmachine/safe/generated/)(\d+\.\d+)/([A-Za-z0-9_]+\.php)$#';
 
     /**
-     * @param list<string> $scanFiles     the `scan-files` entries, project-relative
-     * @param string       $projectRoot   directory the entries are relative to
-     * @param string       $phpMajorMinor the PHP version QA runs under, e.g. "8.5"
+     * @param string $projectRoot   directory the entries are relative to
+     * @param string $phpMajorMinor the PHP version QA runs under, e.g. "8.5"
+     * @param string ...$scanFiles  the `scan-files` entries, project-relative
      *
      * @return list<string> one message per safe entry that is not the file
      *                      safe loads on that PHP version; empty when every
      *                      safe entry is the loaded one (non-safe entries and
      *                      entries whose dispatcher is absent are not judged)
      */
-    public function check(array $scanFiles, string $projectRoot, string $phpMajorMinor): array
+    public function check(string $projectRoot, string $phpMajorMinor, string ...$scanFiles): array
     {
         $problems = [];
         foreach ($scanFiles as $entry) {

@@ -88,14 +88,13 @@ final readonly class BranchNamePolicyTool implements ToolInterface
             return ToolResultDto::passed();
         }
 
-        $this->failureGuidance($context, $branch, $prefixes, $verdict->isPlanBranch);
+        $this->failureGuidance($context, $branch, $verdict->isPlanBranch, ...$prefixes);
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed(\sprintf("branch '%s' matches no allowed prefix", $branch));
     }
 
-    /** @param list<string> $prefixes */
-    private function failureGuidance(ToolContext $context, string $branch, array $prefixes, bool $isPlanBranch): void
+    private function failureGuidance(ToolContext $context, string $branch, bool $isPlanBranch, string ...$prefixes): void
     {
         $context->writeln('');
         $context->writeln(self::RULE);

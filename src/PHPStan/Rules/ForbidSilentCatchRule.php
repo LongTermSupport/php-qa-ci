@@ -71,7 +71,7 @@ final readonly class ForbidSilentCatchRule implements Rule
 
         $varName = $node->var->name;
 
-        if ($this->variableIsUsedInBlock($node->stmts, $varName)) {
+        if ($this->variableIsUsedInBlock($varName, ...$node->stmts)) {
             return [];
         }
 
@@ -94,10 +94,7 @@ final readonly class ForbidSilentCatchRule implements Rule
         ) instanceof Node;
     }
 
-    /**
-     * @param array<Stmt> $stmts
-     */
-    private function variableIsUsedInBlock(array $stmts, string $varName): bool
+    private function variableIsUsedInBlock(string $varName, Stmt ...$stmts): bool
     {
         return $this->nodeFinder->findFirst(
             $stmts,

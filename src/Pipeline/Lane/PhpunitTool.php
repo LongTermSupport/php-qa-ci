@@ -104,7 +104,7 @@ final readonly class PhpunitTool implements ToolInterface
         $phpunitBinary = $paths->binDir . '/phpunit';
         $coverage      = $config->phpUnit->coverage;
 
-        $versionProbe = $this->invoke($context, $phpunitBinary, ['--version'], [], false);
+        $versionProbe = $this->invoke($context, $phpunitBinary, [], false, '--version');
         $major        = $this->majorVersion($versionProbe->output);
         if (null === $major) {
             $context->writeln('ERROR: could not determine the PHPUnit version from: ' . trim($versionProbe->output));
@@ -144,7 +144,7 @@ final readonly class PhpunitTool implements ToolInterface
             'phpUnitQuickTests' => $config->phpUnit->quickTests ? '1' : '0',
             'XDEBUG_MODE'       => $coverage ? 'coverage' : 'off',
         ];
-        $result   = $this->invoke($context, $script, $args, $env, true);
+        $result   = $this->invoke($context, $script, $env, true, ...$args);
         $exitCode = $result->exitCode;
         \Safe\file_put_contents($logDir . '/' . self::STDOUT_LOG, $result->output);
 
@@ -216,16 +216,17 @@ final readonly class PhpunitTool implements ToolInterface
      * The coverage path must run the Xdebug-enabled binary; every other run
      * strips Xdebug. Both apply the global memory limit.
      *
-     * @param list<string>          $args
      * @param array<string, string> $env
      */
-    private function invoke(ToolContext $context, string $script, array $args, array $env, bool $streamOutput): ProcessResultDto
+    private function invoke(ToolContext $context, string $script, array $env, bool $streamOutput, string ...$args): ProcessResultDto
     {
         $cwd = $context->config->paths->projectRoot;
 
+        $argList = array_values($args);
+
         return $context->config->phpUnit->coverage
-            ? $context->php->withXdebug($script, $args, $cwd, $env, $streamOutput)
-            : $context->php->withoutXdebug($script, $args, $cwd, $env, $streamOutput);
+            ? $context->php->withXdebug($script, $argList, $cwd, $env, $streamOutput)
+            : $context->php->withoutXdebug($script, $argList, $cwd, $env, $streamOutput);
     }
 
     private function majorVersion(string $versionOutput): ?int

@@ -68,9 +68,9 @@ final readonly class IgnoreErrorsJustificationDetector
                 continue;
             }
 
-            $entry = isset($m[2]) && '' !== trim($m[2]) ? trim($m[2]) : $this->firstMeaningfulLine($lines, $i + 1);
+            $entry = isset($m[2]) && '' !== trim($m[2]) ? trim($m[2]) : $this->firstMeaningfulLine($i + 1, ...$lines);
 
-            $fault = $this->faultIn($this->commentAbove($lines, $i));
+            $fault = $this->faultIn($this->commentAbove($i, ...$lines));
             if (null !== $fault) {
                 $findings[] = new JustificationFindingDto(line: $i + 1, entry: $entry, fault: $fault);
             }
@@ -84,8 +84,7 @@ final readonly class IgnoreErrorsJustificationDetector
         return str_starts_with(ltrim($line), '#');
     }
 
-    /** @param list<string> $lines */
-    private function firstMeaningfulLine(array $lines, int $from): string
+    private function firstMeaningfulLine(int $from, string ...$lines): string
     {
         for ($i = $from, $n = \count($lines); $i < $n; ++$i) {
             $text = trim($lines[$i]);
@@ -99,10 +98,8 @@ final readonly class IgnoreErrorsJustificationDetector
 
     /**
      * The contiguous comment lines directly above the entry, joined.
-     *
-     * @param list<string> $lines
      */
-    private function commentAbove(array $lines, int $entryIndex): string
+    private function commentAbove(int $entryIndex, string ...$lines): string
     {
         $parts = [];
         for ($i = $entryIndex - 1; $i >= 0; --$i) {
