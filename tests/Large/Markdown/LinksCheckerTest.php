@@ -201,7 +201,7 @@ reason: GitHub URLs cannot be verified anonymously'
      */
     private function createProjectWithNonFileLinks(string $baseUrl): string
     {
-        $projectDir = sys_get_temp_dir() . '/linksCheckerNonFile' . uniqid('', true);
+        $projectDir = sys_get_temp_dir() . '/linksCheckerNonFile' . bin2hex(random_bytes(8));
         \Safe\mkdir($projectDir, 0o755, true);
 
         \Safe\file_put_contents(

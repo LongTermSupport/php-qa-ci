@@ -612,7 +612,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
 
             $absolute          = $fileInfo->getPathname();
             $relative          = substr($absolute, $baseLen);
-            $hashes[$relative] = sha1($this->read($absolute)) . ':' . (is_executable($absolute) ? 'x' : '-');
+            $hashes[$relative] = hash('sha256', $this->read($absolute)) . ':' . (is_executable($absolute) ? 'x' : '-');
         }
 
         ksort($hashes);

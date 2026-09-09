@@ -36,7 +36,7 @@ final class RedirectStubHooksDaemonNoticeTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->projectDir = sys_get_temp_dir() . '/stubNotice' . uniqid('', true);
+        $this->projectDir = sys_get_temp_dir() . '/stubNotice' . bin2hex(random_bytes(8));
         \Safe\mkdir($this->projectDir . '/vendor/bin', 0o755, true);
         \Safe\file_put_contents($this->projectDir . '/composer.json', "{}\n");
     }

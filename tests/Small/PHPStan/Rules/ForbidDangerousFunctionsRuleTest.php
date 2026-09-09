@@ -51,8 +51,31 @@ final class ForbidDangerousFunctionsRuleTest extends TestCase
         $errors = $this->rule->processNode(new FuncCall(new Name('shell_exec'), [new Arg(new Variable('cmd'))]), $this->scope());
 
         self::assertCount(1, $errors);
-        self::assertStringContainsString('Dangerous function shell_exec', $errors[0]->getMessage());
+        self::assertStringContainsString('shell_exec', $errors[0]->getMessage());
+        self::assertStringContainsString('is banned', $errors[0]->getMessage());
+        self::assertStringContainsString('use Symfony Process', $errors[0]->getMessage(), 'the message names the alternative');
         self::assertSame(ForbidDangerousFunctionsRule::IDENTIFIER, $errors[0]->getIdentifier());
+    }
+
+    #[Test]
+    public function eachFunctionCarriesItsOwnReasonRatherThanOneGenericMessage(): void
+    {
+        $disclosure = $this->rule->processNode(new FuncCall(new Name('phpinfo'), []), $this->scope());
+        $loader     = $this->rule->processNode(new FuncCall(new Name('dl'), [new Arg(new Variable('ext'))]), $this->scope());
+
+        self::assertStringContainsString('cookies and session ids', $disclosure[0]->getMessage());
+        self::assertStringContainsString('shared extension', $loader[0]->getMessage());
+    }
+
+    #[Test]
+    public function theFunctionsLiftedFromSpazeAreBanned(): void
+    {
+        foreach (['pcntl_exec', 'create_function', 'highlight_file', 'show_source'] as $function) {
+            $errors = $this->rule->processNode(new FuncCall(new Name($function), [new Arg(new Variable('x'))]), $this->scope());
+
+            self::assertCount(1, $errors, $function . ' should be banned');
+            self::assertStringContainsString($function, $errors[0]->getMessage());
+        }
     }
 
     #[Test]

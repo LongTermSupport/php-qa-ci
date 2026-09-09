@@ -21,7 +21,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  * Copyright (c) 2018 Michal Špaček), whose execution-calls and dangerous-calls
  * bundles are the reference for this class. The list is carried here rather
  * than the engine imported, so that one rule owns the convention and the two
- * cannot drift; each lifted entry is marked.
+ * cannot drift; each lifted entry is marked "spaze" in the list, which maps
+ * each banned function to the reason that becomes its message.
  *
  * See: docs/phpstan-rules/forbid-dangerous-functions.md for fix documentation.
  *
@@ -31,13 +32,7 @@ final readonly class ForbidDangerousFunctionsRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.dangerousFunctions';
 
-    /**
-     * Function name to the reason it is banned, which becomes the message.
-     * Entries marked "spaze" are lifted from the MIT-licensed bundles named in
-     * the class docblock.
-     *
-     * @var array<string, string>
-     */
+    /** @var array<string, string> */
     private const array BANNED_FUNCTIONS = [
         'exec'            => 'runs a shell command; use Symfony Process',
         'shell_exec'      => 'runs a shell command, as does the backtick operator; use Symfony Process',

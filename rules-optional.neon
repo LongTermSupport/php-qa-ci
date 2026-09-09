@@ -29,6 +29,21 @@
 #   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
 #                                           should be variadic T ...$param instead
 #
+# INSECURE FUNCTIONS (lists lifted from spaze/phpstan-disallowed-calls, MIT):
+#   ForbidInsecureFunctionsRule          — broken hashes (md5/sha1, and hash* with a literal
+#                                          md5/sha1 algorithm), predictable randomness
+#                                          (rand/mt_rand/lcg_value/uniqid) and the
+#                                          unparameterised MySQL query functions. Opt-in:
+#                                          hashing for cache keys is not a defect. See
+#                                          docs/phpstan-rules/forbid-insecure-functions.md
+#
+# DEBUG OUTPUT LEFT IN PLACE:
+#   ForbidDebugOutputFunctionsRule       — var_dump, print_r and var_export when they PRINT.
+#                                          The return-string forms print_r($x, true) and
+#                                          var_export($x, true) are allowed, which is why
+#                                          this is a rule and not a grep. See
+#                                          docs/phpstan-rules/forbid-debug-output-functions.md
+#
 # REPEATED STRING LITERAL:
 #   ForbidRepeatedStringLiteralRule      — the same string literal (3+ chars) written 3+
 #                                          times in one class is an undeclared constant;
@@ -115,6 +130,8 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidRepeatedStringLiteralRule
     - LTS\PHPQA\PHPStan\Rules\RequireConsistentMemberDocsRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicOverArrayParameterRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidInsecureFunctionsRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidDebugOutputFunctionsRule
 
 parameters:
     phpqaciFactorySealed:

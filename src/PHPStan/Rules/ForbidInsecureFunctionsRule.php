@@ -27,6 +27,10 @@ use PHPStan\Rules\RuleErrorBuilder;
  * rather than importing the engine, so one rule owns the convention and the
  * two cannot drift.
  *
+ * ALGORITHM_FUNCTIONS take the algorithm as their first argument, so only the
+ * weak choices are reportable there. A variable algorithm is never reported:
+ * the value is unknown here, and guessing would report code that may be right.
+ *
  * See: docs/phpstan-rules/forbid-insecure-functions.md.
  *
  * @implements Rule<FuncCall>
@@ -41,11 +45,7 @@ final readonly class ForbidInsecureFunctionsRule implements Rule
 
     private const string SQL_ADVICE = 'use a prepared statement with bound parameters';
 
-    /**
-     * Function name to the reason it is banned.
-     *
-     * @var array<string, string>
-     */
+    /** @var array<string, string> */
     private const array BANNED_FUNCTIONS = [
         'md5'                     => self::WEAK_HASH_ADVICE,
         'sha1'                    => self::WEAK_HASH_ADVICE,
@@ -62,13 +62,7 @@ final readonly class ForbidInsecureFunctionsRule implements Rule
         'mysqli_real_query'       => self::SQL_ADVICE,
     ];
 
-    /**
-     * These take the algorithm as their first argument, so only the weak
-     * choices are reportable. Passing a variable is not reported: the value is
-     * unknown here, and guessing would report code that may be correct.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     private const array ALGORITHM_FUNCTIONS = ['hash', 'hash_file', 'hash_init'];
 
     /** @var list<string> */

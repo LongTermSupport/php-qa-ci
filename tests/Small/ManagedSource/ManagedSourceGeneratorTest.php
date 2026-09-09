@@ -28,7 +28,7 @@ final class ManagedSourceGeneratorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->projectRoot = sys_get_temp_dir() . '/phpqaci-managed-' . \Safe\getmypid() . '-' . uniqid();
+        $this->projectRoot = sys_get_temp_dir() . '/phpqaci-managed-' . \Safe\getmypid() . '-' . bin2hex(random_bytes(8));
         \Safe\mkdir($this->projectRoot, 0o755, true);
     }
 

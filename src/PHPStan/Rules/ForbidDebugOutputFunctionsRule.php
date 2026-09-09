@@ -26,7 +26,9 @@ use PHPStan\Rules\RuleErrorBuilder;
  * The list is lifted from spaze/phpstan-disallowed-calls (MIT, Copyright (c)
  * 2018 Michal Špaček), which bans these in its dangerous-calls bundle with the
  * same second-argument exemption. Carried here rather than importing the
- * engine, so one rule owns the convention and the two cannot drift.
+ * engine, so one rule owns the convention and the two cannot drift. The list
+ * below maps each banned function to whether a truthy second argument makes it
+ * return a string rather than print.
  *
  * See: docs/phpstan-rules/forbid-debug-output-functions.md.
  *
@@ -36,12 +38,7 @@ final readonly class ForbidDebugOutputFunctionsRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.debugOutputFunction';
 
-    /**
-     * Function name to whether a truthy second argument makes it return a
-     * string rather than print, which is the legitimate use.
-     *
-     * @var array<string, bool>
-     */
+    /** @var array<string, bool> */
     private const array BANNED_FUNCTIONS = [
         'var_dump'   => false,
         'print_r'    => true,
