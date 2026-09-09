@@ -81,7 +81,7 @@ final class PipelineTest extends TestCase
     }
 
     #[Test]
-    public function aFullGreenRunExecutesEveryPhasedToolInOrderThenPhplocAndExitsZero(): void
+    public function aFullGreenRunExecutesEveryPhasedToolInOrderAndExitsZero(): void
     {
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
 
@@ -90,7 +90,7 @@ final class PipelineTest extends TestCase
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
-        $expectedOrder = ['rector', 'phpCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'composerRequireChecker', 'markdownLinks', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection'];
+        $expectedOrder = ['rector', 'phpCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection'];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'the lock is released');

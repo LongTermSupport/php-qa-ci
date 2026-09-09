@@ -68,6 +68,7 @@ final readonly class ToolRegistry
             new ToolDefinitionDto('phpStrictTypes', ['st', 'stricttypes'], 'strict types validation', PhaseEnum::Linting, true, banner: "Setting Strict Types If It's Missing"),
             new ToolDefinitionDto('phpLint', ['lint', 'phplint'], 'phplint', PhaseEnum::Linting, true, banner: 'Running PHP Lint'),
             new ToolDefinitionDto('composerRequireChecker', ['cr'], 'composer require checker', PhaseEnum::Linting, false, banner: 'Running Composer Require Checker'),
+            new ToolDefinitionDto('composerDependencyAnalyser', ['cda'], 'unused, shadow and misplaced dependencies', PhaseEnum::Linting, false, banner: 'Running Composer Dependency Analyser'),
             new ToolDefinitionDto('markdownLinks', ['ml', 'markdown'], 'markdown validation', PhaseEnum::Linting, false, banner: 'Running Markdown Links Checker'),
             new ToolDefinitionDto('branchNamePolicy', ['bnp', 'branchNamePolicy'], 'Branch naming policy (PR convention)', PhaseEnum::StaticAnalysis, false, banner: 'Checking Branch Name Policy'),
             new ToolDefinitionDto('phpstanIgnoreJustification', ['pij', 'phpstanIgnoreJustification'], 'assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification', PhaseEnum::StaticAnalysis, false, banner: 'Checking PHPStan ignoreErrors Justifications'),

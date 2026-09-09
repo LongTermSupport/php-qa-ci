@@ -243,6 +243,7 @@ The file name is the tool's **canonical registry name**, not an alias:
 | `tools/phpStrictTypes.php` | strict types | `st`, `stricttypes` |
 | `tools/phpLint.php` | parallel lint | `lint`, `phplint` |
 | `tools/composerRequireChecker.php` | composer-require-checker | `cr` |
+| `tools/composerDependencyAnalyser.php` | composer-dependency-analyser | `cda` |
 | `tools/markdownLinks.php` | markdown links | `ml`, `markdown` |
 | `tools/branchNamePolicy.php` | branch name policy | `bnp` |
 | `tools/phpstanIgnoreJustification.php` | ignoreErrors justification | `pij` |

@@ -5,6 +5,7 @@
 #qaConfig/hookPre\.php#
 #qaConfig/hookPost\.php#
 #qaConfig/tools/#
+#qaConfig/composer-dependency-analyser\.php#
 #qaConfig/phparkitect\.php#
 #qaConfig/php_cs\.php#
 #qaConfig/php_cs_finder\.php#

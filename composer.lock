@@ -4,73 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7260c464d40a394276de29ad7d4970cb",
+    "content-hash": "e8651af8beaf37a00557d7ad39b1a56c",
     "packages": [
-        {
-            "name": "dogma/dogma",
-            "version": "v0.2.22",
-            "source": {
-                "type": "git",
-                "url": "https://codeberg.org/paranoiq/dogma.git",
-                "reference": "5ed8a35420ce4fc80b2952e5b4e377d834409141"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://codeberg.org/api/v1/repos/paranoiq/dogma/archive/5ed8a35420ce4fc80b2952e5b4e377d834409141.zip",
-                "reference": "5ed8a35420ce4fc80b2952e5b4e377d834409141",
-                "shasum": ""
-            },
-            "require": {
-                "ext-calendar": "*",
-                "nette/http": "~2.4|~3.0",
-                "nette/utils": "~2.4|~3.0|~4.0",
-                "php": "^7.4|^8.0"
-            },
-            "require-dev": {
-                "dogma/dogma-dev": "0.1.29",
-                "phpstan/phpstan": "1.10.2",
-                "phpstan/phpstan-strict-rules": "^1.0"
-            },
-            "suggest": {
-                "ext-dom": "for Dom (basic functionality)",
-                "ext-fileinfo": "for Io (content type and encoding detection)",
-                "ext-iconv": "for Str (converting encoding when ext-mbstring is not available)",
-                "ext-intl": "for Str and Language (advanced unicode manipulation)",
-                "ext-mbstring": "for Str (basic functionality)",
-                "ext-recode": "for Str (converting encoding when ext-mbstring and ext-iconv are not available)",
-                "symfony/polyfill-intl-icu": "for Str and Language",
-                "symfony/polyfill-intl-normalizer": "for Str",
-                "symfony/polyfill-mbstring": "for Str"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "0.2-dev"
-                }
-            },
-            "autoload": {
-                "classmap": [
-                    "src"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "BSD-3-Clause"
-            ],
-            "authors": [
-                {
-                    "name": "Vlasta Neubauer",
-                    "homepage": "https://paranoiq.cz"
-                }
-            ],
-            "description": "The incomplete standard library",
-            "homepage": "http://github.com/paranoiq/dogma",
-            "support": {
-                "issues": "https://github.com/paranoiq/dogma/issues",
-                "source": "https://github.com/paranoiq/dogma/tree/v0.2.22"
-            },
-            "time": "2023-06-22T08:25:35+00:00"
-        },
         {
             "name": "ergebnis/composer-normalize",
             "version": "2.52.0",
@@ -538,37 +473,6 @@
             "time": "2025-09-06T11:37:35+00:00"
         },
         {
-            "name": "funkyproject/reflection-file",
-            "version": "v0.1",
-            "target-dir": "Funkyproject",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/funkyproject/reflection-file.git",
-                "reference": "26968788a6f55e910e78b83b56ceb6675449c320"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/funkyproject/reflection-file/zipball/26968788a6f55e910e78b83b56ceb6675449c320",
-                "reference": "26968788a6f55e910e78b83b56ceb6675449c320",
-                "shasum": ""
-            },
-            "require-dev": {
-                "phpunit/phpunit": "4.0.*"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-0": {
-                    "Funkyproject": ""
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "support": {
-                "issues": "https://github.com/funkyproject/reflection-file/issues",
-                "source": "https://github.com/funkyproject/reflection-file/tree/master"
-            },
-            "time": "2014-04-02T16:24:49+00:00"
-        },
-        {
             "name": "justinrainbow/json-schema",
             "version": "6.12.0",
             "source": {
@@ -822,92 +726,6 @@
             "time": "2026-08-11T10:17:44+00:00"
         },
         {
-            "name": "nette/http",
-            "version": "v3.4.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/nette/http.git",
-                "reference": "ceebf08f42a3de756a0cfe74d9b88d51155774a5"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/nette/http/zipball/ceebf08f42a3de756a0cfe74d9b88d51155774a5",
-                "reference": "ceebf08f42a3de756a0cfe74d9b88d51155774a5",
-                "shasum": ""
-            },
-            "require": {
-                "nette/utils": "^4.1",
-                "php": "8.3 - 8.5"
-            },
-            "conflict": {
-                "nette/di": "<3.0.3",
-                "nette/schema": "<1.2"
-            },
-            "require-dev": {
-                "nette/di": "^3.2",
-                "nette/phpstan-rules": "^1.0",
-                "nette/security": "^3.2",
-                "nette/tester": "^2.6",
-                "phpstan/extension-installer": "^1.4@stable",
-                "phpstan/phpstan": "^2.2@stable",
-                "tracy/tracy": "^2.12"
-            },
-            "suggest": {
-                "ext-fileinfo": "to detect MIME type of uploaded files by Nette\\Http\\FileUpload",
-                "ext-gd": "to use image function in Nette\\Http\\FileUpload",
-                "ext-intl": "to support punycode by Nette\\Http\\Url",
-                "ext-session": "to use Nette\\Http\\Session"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "3.4-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Nette\\": "src"
-                },
-                "classmap": [
-                    "src/"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "BSD-3-Clause",
-                "GPL-2.0-only",
-                "GPL-3.0-only"
-            ],
-            "authors": [
-                {
-                    "name": "David Grudl",
-                    "homepage": "https://davidgrudl.com"
-                },
-                {
-                    "name": "Nette Community",
-                    "homepage": "https://nette.org/contributors"
-                }
-            ],
-            "description": "🌐 Nette Http: abstraction for HTTP request, response and session. Provides careful data sanitization and utility for URL and cookies manipulation.",
-            "homepage": "https://nette.org",
-            "keywords": [
-                "cookies",
-                "http",
-                "nette",
-                "proxy",
-                "request",
-                "response",
-                "security",
-                "session",
-                "url"
-            ],
-            "support": {
-                "issues": "https://github.com/nette/http/issues",
-                "source": "https://github.com/nette/http/tree/v3.4.1"
-            },
-            "time": "2026-08-27T03:04:37+00:00"
-        },
-        {
             "name": "nette/neon",
             "version": "v3.4.8",
             "source": {
@@ -977,97 +795,6 @@
                 "source": "https://github.com/nette/neon/tree/v3.4.8"
             },
             "time": "2026-05-11T21:34:00+00:00"
-        },
-        {
-            "name": "nette/utils",
-            "version": "v4.1.5",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/nette/utils.git",
-                "reference": "b043439dbdf954e6c28b5ea7e34b0100f83165e0"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/nette/utils/zipball/b043439dbdf954e6c28b5ea7e34b0100f83165e0",
-                "reference": "b043439dbdf954e6c28b5ea7e34b0100f83165e0",
-                "shasum": ""
-            },
-            "require": {
-                "php": "8.2 - 8.5"
-            },
-            "conflict": {
-                "nette/finder": "<3",
-                "nette/schema": "<1.2.2"
-            },
-            "require-dev": {
-                "jetbrains/phpstorm-attributes": "^1.2",
-                "nette/phpstan-rules": "^1.0",
-                "nette/tester": "^2.5",
-                "phpstan/extension-installer": "^1.4@stable",
-                "phpstan/phpstan": "^2.1@stable",
-                "tracy/tracy": "^2.9"
-            },
-            "suggest": {
-                "ext-gd": "to use Image",
-                "ext-iconv": "to use Strings::chr(), ord() and reverse()",
-                "ext-intl": "to use Strings::webalize(), toAscii(), normalize() and compare()",
-                "ext-json": "to use Nette\\Utils\\Json",
-                "ext-mbstring": "to use Strings::lower() etc...",
-                "ext-tokenizer": "to use Nette\\Utils\\Reflection::getUseStatements()"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "4.1-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Nette\\": "src"
-                },
-                "classmap": [
-                    "src/"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "BSD-3-Clause",
-                "GPL-2.0-only",
-                "GPL-3.0-only"
-            ],
-            "authors": [
-                {
-                    "name": "David Grudl",
-                    "homepage": "https://davidgrudl.com"
-                },
-                {
-                    "name": "Nette Community",
-                    "homepage": "https://nette.org/contributors"
-                }
-            ],
-            "description": "🛠  Nette Utils: lightweight utilities for string & array manipulation, image handling, safe JSON encoding/decoding, validation, slug or strong password generating etc.",
-            "homepage": "https://nette.org",
-            "keywords": [
-                "array",
-                "core",
-                "datetime",
-                "images",
-                "json",
-                "nette",
-                "paginator",
-                "password",
-                "slugify",
-                "string",
-                "unicode",
-                "utf-8",
-                "utility",
-                "validation"
-            ],
-            "support": {
-                "issues": "https://github.com/nette/utils/issues",
-                "source": "https://github.com/nette/utils/tree/v4.1.5"
-            },
-            "time": "2026-07-17T23:02:45+00:00"
         },
         {
             "name": "nikic/php-parser",
@@ -1401,6 +1128,57 @@
                 "source": "https://github.com/phpstan/extension-installer/tree/1.4.3"
             },
             "time": "2024-09-04T20:21:43+00:00"
+        },
+        {
+            "name": "phpstan/phpstan-deprecation-rules",
+            "version": "2.0.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/phpstan/phpstan-deprecation-rules.git",
+                "reference": "67bedd65c24bc72840afc45aed48b1059dd44bec"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phpstan/phpstan-deprecation-rules/zipball/67bedd65c24bc72840afc45aed48b1059dd44bec",
+                "reference": "67bedd65c24bc72840afc45aed48b1059dd44bec",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4 || ^8.0",
+                "phpstan/phpstan": "^2.1.39"
+            },
+            "require-dev": {
+                "php-parallel-lint/php-parallel-lint": "^1.2",
+                "phpstan/phpstan-phpunit": "^2.0",
+                "phpunit/phpunit": "^9.6",
+                "shipmonk/name-collision-detector": "^2.1"
+            },
+            "type": "phpstan-extension",
+            "extra": {
+                "phpstan": {
+                    "includes": [
+                        "rules.neon"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "PHPStan\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "PHPStan rules for detecting usage of deprecated classes, methods, properties, constants and traits.",
+            "keywords": [
+                "static analysis"
+            ],
+            "support": {
+                "issues": "https://github.com/phpstan/phpstan-deprecation-rules/issues",
+                "source": "https://github.com/phpstan/phpstan-deprecation-rules/tree/2.0.5"
+            },
+            "time": "2026-07-22T06:50:43+00:00"
         },
         {
             "name": "phpstan/phpstan-phpunit",
@@ -3147,54 +2925,70 @@
             "time": "2026-02-06T04:52:52+00:00"
         },
         {
-            "name": "sqlftw/sqlftw",
-            "version": "v0.1.17",
+            "name": "shipmonk/composer-dependency-analyser",
+            "version": "1.8.4",
             "source": {
                 "type": "git",
-                "url": "https://codeberg.org/paranoiq/sqlftw.git",
-                "reference": "75ad341c9687922c2f08df019781d9508ceb29a4"
+                "url": "https://github.com/shipmonk-rnd/composer-dependency-analyser.git",
+                "reference": "975e5873b519d5180b1017a5dfb43d80781abd45"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://codeberg.org/api/v1/repos/paranoiq/sqlftw/archive/75ad341c9687922c2f08df019781d9508ceb29a4.zip",
-                "reference": "75ad341c9687922c2f08df019781d9508ceb29a4",
+                "url": "https://api.github.com/repos/shipmonk-rnd/composer-dependency-analyser/zipball/975e5873b519d5180b1017a5dfb43d80781abd45",
+                "reference": "975e5873b519d5180b1017a5dfb43d80781abd45",
                 "shasum": ""
             },
             "require": {
-                "dogma/dogma": "^0.2.17",
-                "php": "^7.4|^8.0"
+                "ext-json": "*",
+                "ext-tokenizer": "*",
+                "php": "^7.2 || ^8.0"
             },
             "require-dev": {
-                "amphp/parallel-functions": "1.1.0",
-                "dogma/dogma-debug": "0.1",
-                "dogma/dogma-dev": "0.1.29",
-                "phpstan/phpstan": "1.9.15",
-                "phpstan/phpstan-strict-rules": "^1.0",
-                "rector/rector": "0.14.8"
+                "editorconfig-checker/editorconfig-checker": "^10.7.0",
+                "ergebnis/composer-normalize": "^2.19.0",
+                "ext-dom": "*",
+                "ext-libxml": "*",
+                "phpcompatibility/php-compatibility": "^9.3.5",
+                "phpstan/phpstan": "^1.12.26",
+                "phpstan/phpstan-phpunit": "^1.4.2",
+                "phpstan/phpstan-strict-rules": "^1.6.2",
+                "phpunit/phpunit": "^8.5.42 || ^9.6.23",
+                "shipmonk/name-collision-detector": "^2.1.1",
+                "slevomat/coding-standard": "^8.15.0"
             },
+            "bin": [
+                "bin/composer-dependency-analyser"
+            ],
             "type": "library",
             "autoload": {
-                "classmap": [
-                    "sources"
-                ]
+                "psr-4": {
+                    "ShipMonk\\ComposerDependencyAnalyser\\": "src/"
+                }
             },
             "notification-url": "https://packagist.org/downloads/",
             "license": [
-                "proprietary"
+                "MIT"
             ],
-            "authors": [
-                {
-                    "name": "Vlasta Neubauer",
-                    "homepage": "https://paranoiq.cz"
-                }
+            "description": "Fast detection of composer dependency issues (dead dependencies, shadow dependencies, misplaced dependencies)",
+            "keywords": [
+                "analyser",
+                "composer",
+                "composer dependency",
+                "dead code",
+                "dead dependency",
+                "detector",
+                "dev",
+                "misplaced dependency",
+                "shadow dependency",
+                "static analysis",
+                "unused code",
+                "unused dependency"
             ],
-            "description": "Complete MySQL SQL dialect lexer, parser, AST and SQL serialisation",
-            "homepage": "https://github.com/sqlftw/sqlftw",
             "support": {
-                "issues": "https://github.com/SQLFTW/sqlftw/issues",
-                "source": "https://github.com/SQLFTW/sqlftw/tree/v0.1.17"
+                "issues": "https://github.com/shipmonk-rnd/composer-dependency-analyser/issues",
+                "source": "https://github.com/shipmonk-rnd/composer-dependency-analyser/tree/1.8.4"
             },
-            "time": "2025-02-04T15:11:42+00:00"
+            "time": "2025-11-25T14:38:16+00:00"
         },
         {
             "name": "staabm/side-effects-detector",
@@ -4271,57 +4065,6 @@
         }
     ],
     "packages-dev": [
-        {
-            "name": "phpstan/phpstan-deprecation-rules",
-            "version": "2.0.5",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/phpstan/phpstan-deprecation-rules.git",
-                "reference": "67bedd65c24bc72840afc45aed48b1059dd44bec"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan-deprecation-rules/zipball/67bedd65c24bc72840afc45aed48b1059dd44bec",
-                "reference": "67bedd65c24bc72840afc45aed48b1059dd44bec",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^7.4 || ^8.0",
-                "phpstan/phpstan": "^2.1.39"
-            },
-            "require-dev": {
-                "php-parallel-lint/php-parallel-lint": "^1.2",
-                "phpstan/phpstan-phpunit": "^2.0",
-                "phpunit/phpunit": "^9.6",
-                "shipmonk/name-collision-detector": "^2.1"
-            },
-            "type": "phpstan-extension",
-            "extra": {
-                "phpstan": {
-                    "includes": [
-                        "rules.neon"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "PHPStan\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "PHPStan rules for detecting usage of deprecated classes, methods, properties, constants and traits.",
-            "keywords": [
-                "static analysis"
-            ],
-            "support": {
-                "issues": "https://github.com/phpstan/phpstan-deprecation-rules/issues",
-                "source": "https://github.com/phpstan/phpstan-deprecation-rules/tree/2.0.5"
-            },
-            "time": "2026-07-22T06:50:43+00:00"
-        },
         {
             "name": "roave/security-advisories",
             "version": "dev-master",

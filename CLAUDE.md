@@ -121,22 +121,23 @@ The pipeline runs tools in 4 distinct phases, each lane being a class under `src
 09. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
 10. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
 11. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
-12. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+12. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
+13. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 On a Symfony project the platform lanes **Twig Lint** (`twigLint`) and **Yaml Lint** (`yamlLint`) are appended to this phase. They are not `-t` selectable.
 
 ### Phase 3: Static Analysis Tools
 
-13. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-14. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
-15. **PHPStan** (`phpstan`) - Static analysis tool
-16. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
-17. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.
+14. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
+15. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+16. **PHPStan** (`phpstan`) - Static analysis tool
+17. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
+18. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.
 
 ### Phase 4: Testing Tools
 
-18. **PHPUnit** (`phpunit`) - Unit testing framework
-19. **Infection** (`infection`) - Mutation testing (requires Xdebug and coverage; `withInfection(false)` or `useInfection=0` to disable)
+19. **PHPUnit** (`phpunit`) - Unit testing framework
+20. **Infection** (`infection`) - Mutation testing (requires Xdebug and coverage; `withInfection(false)` or `useInfection=0` to disable)
 
 **Gates**: PHPStan and PHPUnit are skipped when `phpqaQuickTests=1`; Infection is skipped when quick tests are on or Infection is disabled ([ToolGateEnum](src/Pipeline/Tool/ToolGateEnum.php)). Gates apply to phase runs, not to a single tool selected with `-t`.
 
@@ -144,7 +145,7 @@ On a Symfony project the platform lanes **Twig Lint** (`twigLint`) and **Yaml Li
 
 After the "ALL TESTS PASSING" message:
 
-20. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
+21. **Post-Hook** (`qaConfig/hookPost.php`) - Runs the project's post-pipeline callable if present
 
     - Only runs if all previous tools passed
     - Common uses: generate reports, notifications, cleanup
@@ -647,6 +648,17 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
   - PSR interfaces without requiring the PSR package
 - **Safe scan-files**: the `thecodingmachine/safe` entries in the resolved `composerRequireChecker.json` are checked against the running PHP by the Version Pins lane (see [docs/tools/versionPins.md](docs/tools/versionPins.md))
 - **Details**: [docs/tools/composerRequireChecker.md](docs/tools/composerRequireChecker.md)
+
+### Composer Dependency Analyser
+
+- **Purpose**: The other direction of the dependency question — every declared package is used, every used package is declared, and neither is on the wrong side of `require` / `require-dev`
+- **Lane**: [src/Pipeline/Lane/ComposerDependencyAnalyserTool.php](src/Pipeline/Lane/ComposerDependencyAnalyserTool.php)
+- **Default**: [configDefaults/generic/composer-dependency-analyser.php](configDefaults/generic/composer-dependency-analyser.php)
+- **Why both**: Composer Require Checker traces symbols to packages, so it can only ever find a *missing* declaration. A package nothing uses emits no symbol, so it is invisible to that lane and stays installed forever. This one reads the declarations instead
+- **Reports**: unused dependency, shadow dependency, dev-dependency-in-prod, prod-dependency-only-in-dev, unknown class/function
+- **Caution**: the tool exits `1` both for findings and for its own errors, so the lane cannot tell them apart — read the output for a red `Error:` line before assuming a finding
+- **Alias**: `vendor/bin/qa -t cda`
+- **Details**: [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md)
 
 ### Markdown Links Checker
 

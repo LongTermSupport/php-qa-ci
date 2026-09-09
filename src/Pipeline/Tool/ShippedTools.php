@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Pipeline\Tool;
 
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecksTool;
+use LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool;
 use LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
@@ -51,6 +52,7 @@ final readonly class ShippedTools
             new PhpLintTool(),
             new ComposerChecksTool(),
             new ComposerRequireCheckerTool(),
+            new ComposerDependencyAnalyserTool(),
             new TwigLintTool(),
             new YamlLintTool(),
             new PhpstanTool(),
