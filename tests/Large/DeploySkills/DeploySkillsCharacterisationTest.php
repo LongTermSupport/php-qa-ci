@@ -534,7 +534,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
     // =====================================================================
 
     /**
-     * @param array<mixed> $settings
+     * @param array<array-key, mixed> $settings
      *
      * @return list<string>
      */
@@ -570,7 +570,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
         return $commands;
     }
 
-    /** @return array<mixed> */
+    /** @return array<array-key, mixed> */
     private function readJson(string $path): array
     {
         $decoded = \Safe\json_decode($this->read($path), true, 512, \JSON_THROW_ON_ERROR);

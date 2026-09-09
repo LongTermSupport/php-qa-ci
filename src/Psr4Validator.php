@@ -14,24 +14,24 @@ use SplHeap;
 
 final class Psr4Validator
 {
-    /** @var string[] */
+    /** @var list<string> */
     private array $parseErrors = [];
 
     /** @var array<string,array<int, array<string,string>>> */
     private array $psr4Errors = [];
 
-    /** @var string[] */
+    /** @var list<string> */
     private array $ignoredFiles = [];
 
-    /** @var string[] */
+    /** @var array<string, string> keyed by the missing path */
     private array $missingPaths = [];
 
     /**
      * Psr4Validator constructor.
      *
-     * @param string[]                $ignoreRegexPatterns Set of regex patterns used to exclude files or
-     *                                                     directories
-     * @param array<int|string,mixed> $decodedComposerJson
+     * @param array<array-key, string> $ignoreRegexPatterns Set of regex patterns used to exclude files or
+     *                                                      directories
+     * @param array<int|string,mixed>  $decodedComposerJson
      */
     public function __construct(private readonly array $ignoreRegexPatterns, private readonly string $pathToProjectRoot, private readonly array $decodedComposerJson)
     {

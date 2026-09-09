@@ -61,6 +61,9 @@
       "LTS\\PHPQA\\Tests\\Assets\\DeploySkills\\": [
         "tests/assets/deploySkills/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\AmbiguousArrayDoc\\": [
+        "tests/assets/PHPStan/AmbiguousArrayDoc/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ApiInternalLeak\\": [
         "tests/assets/PHPStan/ApiInternalLeak/"
       ],

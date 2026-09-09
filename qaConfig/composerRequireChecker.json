@@ -28,6 +28,7 @@
     "PHPStan\\Analyser\\Scope",
     "PHPStan\\Node\\FileNode",
     "PHPStan\\Node\\InClassNode",
+    "PHPStan\\Node\\VirtualNode",
     "PHPStan\\Reflection\\ClassReflection",
     "PHPStan\\Reflection\\ReflectionProvider",
     "PHPStan\\Rules\\Rule",

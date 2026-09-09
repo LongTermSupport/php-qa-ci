@@ -54,7 +54,7 @@ final readonly class LockInfoDto
         ], \JSON_PRETTY_PRINT) . "\n";
     }
 
-    /** @param array<mixed> $decoded */
+    /** @param array<array-key, mixed> $decoded */
     private static function string(array $decoded, string $key): string
     {
         $value = $decoded[$key] ?? null;
@@ -62,7 +62,7 @@ final readonly class LockInfoDto
         return \is_string($value) ? $value : '';
     }
 
-    /** @param array<mixed> $decoded */
+    /** @param array<array-key, mixed> $decoded */
     private static function int(array $decoded, string $key): int
     {
         $value = $decoded[$key] ?? null;

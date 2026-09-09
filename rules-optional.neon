@@ -108,6 +108,16 @@
 #                                          change). See
 #                                          docs/phpstan-rules/require-variadic-over-array-parameter.md
 #
+# AMBIGUOUS ARRAY DOCBLOCK TYPE:
+#   ForbidAmbiguousArrayDocRule          — a @param/@return/@var type written `T[]` or
+#                                          `array<T>` (one argument) states nothing about the
+#                                          keys: PHPStan resolves both to array<mixed, mixed>.
+#                                          Write `list<T>` for a list or `array<K, V>` for a
+#                                          map. The other half of the variadic rule, which
+#                                          ignores these forms precisely because they may be
+#                                          maps. See
+#                                          docs/phpstan-rules/forbid-ambiguous-array-doc.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -134,6 +144,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidRepeatedStringLiteralRule
     - LTS\PHPQA\PHPStan\Rules\RequireConsistentMemberDocsRule
     - LTS\PHPQA\PHPStan\Rules\RequireVariadicOverArrayParameterRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidAmbiguousArrayDocRule
     - LTS\PHPQA\PHPStan\Rules\ForbidInsecureFunctionsRule
     - LTS\PHPQA\PHPStan\Rules\ForbidDebugOutputFunctionsRule
 

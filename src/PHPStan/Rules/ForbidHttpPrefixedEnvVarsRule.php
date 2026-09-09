@@ -190,7 +190,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
                 // conditional-return narrowing for native preg_match); a 1 === return
                 // GUARANTEES $matches[0] is the matched string — mirrors the identical,
                 // established narrowing in Markdown/LinksChecker.php::getLinks().
-                /** @var array<string> $matches */
+                /** @var array<int|string, string> $matches */
                 $name        = substr($matches[0], 0, -1);
                 $offenders[] = [$path, $lineIndex + 1, $name];
             }

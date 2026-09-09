@@ -38,7 +38,7 @@ final readonly class BranchNamePolicyConfig
     }
 
     /**
-     * @param array<mixed> $decoded
+     * @param array<array-key, mixed> $decoded
      *
      * @return list<string>
      */

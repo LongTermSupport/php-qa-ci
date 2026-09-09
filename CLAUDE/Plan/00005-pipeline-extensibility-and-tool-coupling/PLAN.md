@@ -133,7 +133,7 @@ default pipeline is byte-for-byte the shipped one. Nothing in Phases 3–4 has b
   should default off Symfony as `twigDirectories` now does.
 - [ ] ⬜ **Task 4.2**: The "skills should be pointers" refactor. The `qa` skill is 509 lines and
   carries context belonging in `CLAUDE/` docs. `CLAUDE/prepush-verification.md` is the model.
-- [ ] ⬜ **Task 4.3**: A PHPStan rule for the other half of the `array<T>` finding: `T[]` and
+- [x] ✅ **Task 4.3**: A PHPStan rule for the other half of the `array<T>` finding: `T[]` and
   `array<T>` state nothing about keys, so a docblock meaning a list should say `list<T>`.
   This is why the variadic rule deliberately does not match `T[]`; see
   [its docs page](../../../docs/phpstan-rules/require-variadic-over-array-parameter.md).

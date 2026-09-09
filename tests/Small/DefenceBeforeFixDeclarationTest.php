@@ -66,7 +66,7 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
         }
     }
 
-    /** @return array<mixed> */
+    /** @return array<array-key, mixed> */
     private function declaration(): array
     {
         $manifest = \Safe\json_decode(\Safe\file_get_contents(self::MANIFEST), true);

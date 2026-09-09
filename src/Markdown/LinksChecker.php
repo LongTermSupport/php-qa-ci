@@ -43,7 +43,7 @@ final readonly class LinksChecker
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     private static function getFiles(string $projectRootDirectory): array
     {
@@ -54,7 +54,7 @@ final readonly class LinksChecker
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     private static function getDocsFiles(string $projectRootDirectory): array
     {
@@ -95,7 +95,7 @@ final readonly class LinksChecker
     }
 
     /**
-     * @return array<array<string>>
+     * @return list<array<int|string, string>> one match set per link: [whole, text, target]
      */
     private static function getLinks(string $file): array
     {
@@ -110,7 +110,7 @@ final readonly class LinksChecker
                 PREG_SET_ORDER
             )
         ) {
-            /** @var array<array<string>> $matches */
+            /** @var list<array<int|string, string>> $matches */
             $links = array_merge($links, $matches);
         }
 
@@ -118,8 +118,8 @@ final readonly class LinksChecker
     }
 
     /**
-     * @param string[] $link
-     * @param string[] $errors
+     * @param array<int|string, string> $link
+     * @param list<string>              $errors
      */
     private static function checkLink(
         string $projectRootDirectory,
@@ -159,8 +159,8 @@ final readonly class LinksChecker
     }
 
     /**
-     * @param string[] $link
-     * @param string[] $errors
+     * @param array<int|string, string> $link
+     * @param list<string>              $errors
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {
