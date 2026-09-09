@@ -41,8 +41,9 @@ Nothing is fetched at run time; PHARs go through PHIVE, PHPStan extensions throu
 
 ### Phase 1: No new dependencies
 
-- [ ] ⬜ **Task 1.1**: `composer audit` in `ComposerChecksTool` after diagnose: `--format=json`, fail on any advisory, print the abandoned-package list; test over a fixture lock with a known advisory.
-- [ ] ⬜ **Task 1.2**: phpstan/phpstan-deprecation-rules from `suggest` to `require`; included in `configDefaults/generic/phpstan.neon`; this repository green under it.
+- [x] ✅ **Task 1.1**: `composer audit` in `ComposerChecksTool` after diagnose: `--locked --abandoned=report`, fail on any advisory, abandoned packages reported; `withComposerAudit(false)` / `useComposerAudit=0` for an offline build.
+- [x] ✅ **Task 1.2**: phpstan/phpstan-deprecation-rules from `suggest` to `require`; registered through phpstan/extension-installer; this repository green under it.
+- [x] ✅ **Task 1.3**: `suggest` block audited against Packagist; four wrong entries removed; the manifest-decidable half enforced by `RedundantSuggestDetector` in the composerChecks lane.
 
 ### Phase 2: New lanes
 
