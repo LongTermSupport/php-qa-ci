@@ -7,7 +7,10 @@ namespace LTS\PHPQA\Pipeline\Tool\Exception;
 use InvalidArgumentException;
 
 /**
- * @internal
+ * Thrown from PipelineBuilder when a tool, an insertion point or a phase order
+ * names a phase the pipeline does not have.
+ *
+ * @api
  */
 final class UnknownPhaseException extends InvalidArgumentException
 {

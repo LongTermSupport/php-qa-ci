@@ -38,12 +38,12 @@ What does **not** change, so do not touch it:
 
 ## 1. What is being replaced
 
-| Bash-era file (refused) | PHP replacement | Section |
-| --- | --- | --- |
-| `qaConfig/qaConfig.inc.bash` | `qaConfig/qa.php` returning a closure over `QaConfigBuilder` | 4 |
-| `qaConfig/tools/<tool>.inc.bash` | `qaConfig/tools/<tool>.php` returning a `ToolInterface` | 5 |
-| `qaConfig/hookPre.bash` | `qaConfig/hookPre.php` returning a callable | 6 |
-| `qaConfig/hookPost.bash` | `qaConfig/hookPost.php` returning a callable | 6 |
+| Bash-era file (refused)          | PHP replacement                                              | Section |
+| -------------------------------- | ------------------------------------------------------------ | ------- |
+| `qaConfig/qaConfig.inc.bash`     | `qaConfig/qa.php` returning a closure over `QaConfigBuilder` | 4       |
+| `qaConfig/tools/<tool>.inc.bash` | `qaConfig/tools/<tool>.php` returning a `ToolInterface`      | 5       |
+| `qaConfig/hookPre.bash`          | `qaConfig/hookPre.php` returning a callable                  | 6       |
+| `qaConfig/hookPost.bash`         | `qaConfig/hookPost.php` returning a callable                 | 6       |
 
 Dropped with no replacement:
 
@@ -137,51 +137,51 @@ back on. Keep permanent policy in `qa.php` and leave ad-hoc switches to the envi
 
 ### 4.2 Every Bash variable and its replacement
 
-| Bash variable in `qaConfig.inc.bash` | `qa.php` method | Notes |
-| --- | --- | --- |
-| `phpqaMemoryLimit=8G` | `withMemoryLimit('8G')` | Applied to every PHP process the pipeline starts, including coverage runs. |
-| `pathsToIgnore+=( "x" )` | `withIgnoredPaths('x', ...)` | Project-relative. Appends to the current list. |
-| `pathsToIgnore=()` (reset) | none | The default list is empty; the Bash placeholder token is gone. |
-| `pathsToCheck+=( "x" )` | `withCheckedPaths('x', ...)` | Project-relative. Appends to the default `tests/` + `src/`. `-p` on the command line replaces the whole set for one run. |
-| `phpUnitCoverage=0` | `withPhpUnitCoverage(false)` | |
-| `phpUnitIterativeMode=1` | `withPhpUnitIterativeMode(true)` | The `uniterate` pseudo-tool sets this for one run. |
-| `useInfection=0` | `withInfection(false)` | |
-| `mutationScoreIndicator=82` | `withInfectionFloors(msi: 82, coveredMsi: ...)` | Both floors are set together. |
-| `coveredCodeMSI=84` | `withInfectionFloors(msi: ..., coveredMsi: 84)` | |
-| `infectionMutationScoreIndicator=82` | `withInfectionFloors(msi: 82, coveredMsi: ...)` | The Bash-era **derived** name. It has no environment equivalent; it must become the method call. |
-| `infectionCoveredCodeMSI=84` | `withInfectionFloors(msi: ..., coveredMsi: 84)` | Same. |
-| `infectionThreads=4` | `withInfectionThreads(4)` | Default is half the CPU threads. |
-| `infectionDiffBase=origin/main` | `withInfectionDiffBase('origin/main')` | |
-| `infectionDiffCoveredMsi=95` | `withInfectionDiffBase('origin/main', coveredMsi: 95)` | Set with the base. |
-| `useArkitect=0` | `withArkitect(false)` | |
-| `arkitectExcludePaths+=("x")` | `withArkitectExcludedPaths('x', ...)` | Relative to `src/`. Appends. |
-| `useSensitiveParameterCheck=0` | `withSensitiveParameterCheck(false)` | |
-| `twigDirectories` (Symfony) | `withTwigDirectories('templates', ...)` | Absolute or project-relative. Replaces the default `templates/`. |
-| `yamlDirectories` (Symfony) | `withYamlDirectories('config', ...)` | Replaces the default `config/`. |
-| *(new in 8.5)* | `withTypeCoverageFloors(returnType: 50, paramType: 40, propertyType: 60, constantType: 80, declare: 100)` | Minimum percentage of declarations carrying a native type, per kind. Every argument is optional and every floor is off unless given. Ignored in a `-p` run, deliberately — see [phpstan.md](tools/phpstan.md). |
-| *(new in 8.5)* | `withComposerAudit(false)` | Turns off `composer audit` in the composerChecks lane, which an offline build needs. `useComposerAudit=0` for one run. |
+| Bash variable in `qaConfig.inc.bash` | `qa.php` method                                                                                           | Notes                                                                                                                                                                                                          |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `phpqaMemoryLimit=8G`                | `withMemoryLimit('8G')`                                                                                   | Applied to every PHP process the pipeline starts, including coverage runs.                                                                                                                                     |
+| `pathsToIgnore+=( "x" )`             | `withIgnoredPaths('x', ...)`                                                                              | Project-relative. Appends to the current list.                                                                                                                                                                 |
+| `pathsToIgnore=()` (reset)           | none                                                                                                      | The default list is empty; the Bash placeholder token is gone.                                                                                                                                                 |
+| `pathsToCheck+=( "x" )`              | `withCheckedPaths('x', ...)`                                                                              | Project-relative. Appends to the default `tests/` + `src/`. `-p` on the command line replaces the whole set for one run.                                                                                       |
+| `phpUnitCoverage=0`                  | `withPhpUnitCoverage(false)`                                                                              |                                                                                                                                                                                                                |
+| `phpUnitIterativeMode=1`             | `withPhpUnitIterativeMode(true)`                                                                          | The `uniterate` pseudo-tool sets this for one run.                                                                                                                                                             |
+| `useInfection=0`                     | `withInfection(false)`                                                                                    |                                                                                                                                                                                                                |
+| `mutationScoreIndicator=82`          | `withInfectionFloors(msi: 82, coveredMsi: ...)`                                                           | Both floors are set together.                                                                                                                                                                                  |
+| `coveredCodeMSI=84`                  | `withInfectionFloors(msi: ..., coveredMsi: 84)`                                                           |                                                                                                                                                                                                                |
+| `infectionMutationScoreIndicator=82` | `withInfectionFloors(msi: 82, coveredMsi: ...)`                                                           | The Bash-era **derived** name. It has no environment equivalent; it must become the method call.                                                                                                               |
+| `infectionCoveredCodeMSI=84`         | `withInfectionFloors(msi: ..., coveredMsi: 84)`                                                           | Same.                                                                                                                                                                                                          |
+| `infectionThreads=4`                 | `withInfectionThreads(4)`                                                                                 | Default is half the CPU threads.                                                                                                                                                                               |
+| `infectionDiffBase=origin/main`      | `withInfectionDiffBase('origin/main')`                                                                    |                                                                                                                                                                                                                |
+| `infectionDiffCoveredMsi=95`         | `withInfectionDiffBase('origin/main', coveredMsi: 95)`                                                    | Set with the base.                                                                                                                                                                                             |
+| `useArkitect=0`                      | `withArkitect(false)`                                                                                     |                                                                                                                                                                                                                |
+| `arkitectExcludePaths+=("x")`        | `withArkitectExcludedPaths('x', ...)`                                                                     | Relative to `src/`. Appends.                                                                                                                                                                                   |
+| `useSensitiveParameterCheck=0`       | `withSensitiveParameterCheck(false)`                                                                      |                                                                                                                                                                                                                |
+| `twigDirectories` (Symfony)          | `withTwigDirectories('templates', ...)`                                                                   | Absolute or project-relative. Replaces the default `templates/`.                                                                                                                                               |
+| `yamlDirectories` (Symfony)          | `withYamlDirectories('config', ...)`                                                                      | Replaces the default `config/`.                                                                                                                                                                                |
+| *(new in 8.5)*                       | `withTypeCoverageFloors(returnType: 50, paramType: 40, propertyType: 60, constantType: 80, declare: 100)` | Minimum percentage of declarations carrying a native type, per kind. Every argument is optional and every floor is off unless given. Ignored in a `-p` run, deliberately — see [phpstan.md](tools/phpstan.md). |
+| *(new in 8.5)*                       | `withComposerAudit(false)`                                                                                | Turns off `composer audit` in the composerChecks lane, which an offline build needs. `useComposerAudit=0` for one run.                                                                                         |
 
 Variables that stay **environment-only** (no builder method; set them in CI or on the command
 line, never in `qa.php`):
 
-| Variable | Meaning |
-| --- | --- |
-| `CI` | Non-interactive: no retry prompt. Auto-on under Claude Code and without a TTY. |
-| `QA_READONLY` | Fixers dry-run and a pending change fails. Auto-on under GitHub Actions. |
-| `QA_FAIL_FAST` | Turn aggregate mode off in a read-only run. |
-| `phpqaQuickTests` | Skip PHPStan, PHPUnit and Infection. |
-| `phpUnitQuickTests` | Passed through to the test suite as before. |
-| `infectionOnlyCovered` | Infection `--only-covered`. |
-| `PHP_QA_CI_PHP_EXECUTABLE` | The PHP binary for every tool. |
+| Variable                   | Meaning                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `CI`                       | Non-interactive: no retry prompt. Auto-on under Claude Code and without a TTY. |
+| `QA_READONLY`              | Fixers dry-run and a pending change fails. Auto-on under GitHub Actions.       |
+| `QA_FAIL_FAST`             | Turn aggregate mode off in a read-only run.                                    |
+| `phpqaQuickTests`          | Skip PHPStan, PHPUnit and Infection.                                           |
+| `phpUnitQuickTests`        | Passed through to the test suite as before.                                    |
+| `infectionOnlyCovered`     | Infection `--only-covered`.                                                    |
+| `PHP_QA_CI_PHP_EXECUTABLE` | The PHP binary for every tool.                                                 |
 
 Bash variables with **no replacement** (delete the line):
 
-| Variable | Why |
-| --- | --- |
-| `phpstanConfigPath`, `phpUnitConfigPath`, `phpCsConfigPath`, `infectionConfig`, `composerRequireCheckerConfig`, `phpArkitectConfigPath`, `psr4IgnoreList` | Put the file under `qaConfig/` at its conventional name; the lookup resolves it. |
-| `varDir`, `cacheDir`, `pharDir`, `binDir`, `projectRoot`, `srcDir`, `testsDir`, `projectConfigPath` | Resolved by the pipeline; read them from `$context->config->paths` in an override or hook. |
-| `qaHalfCpuThreads`, `phpVersion`, `noXdebugConfigPath`, `phpCsCacheFile` | Internal; the pipeline computes them. |
-| `standardIFS`, `specifiedPath`, `singleToolToRun`, `useJsonOutput` | Internal CLI state; available as `$context->config->specifiedPath`, `->singleTool`, `->jsonOutput`. |
+| Variable                                                                                                                                                  | Why                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `phpstanConfigPath`, `phpUnitConfigPath`, `phpCsConfigPath`, `infectionConfig`, `composerRequireCheckerConfig`, `phpArkitectConfigPath`, `psr4IgnoreList` | Put the file under `qaConfig/` at its conventional name; the lookup resolves it.                    |
+| `varDir`, `cacheDir`, `pharDir`, `binDir`, `projectRoot`, `srcDir`, `testsDir`, `projectConfigPath`                                                       | Resolved by the pipeline; read them from `$context->config->paths` in an override or hook.          |
+| `qaHalfCpuThreads`, `phpVersion`, `noXdebugConfigPath`, `phpCsCacheFile`                                                                                  | Internal; the pipeline computes them.                                                               |
+| `standardIFS`, `specifiedPath`, `singleToolToRun`, `useJsonOutput`                                                                                        | Internal CLI state; available as `$context->config->specifiedPath`, `->singleTool`, `->jsonOutput`. |
 
 ### 4.3 Worked example
 
@@ -232,30 +232,30 @@ lane for that tool in every run, including `-t <tool>`.
 
 The file name is the tool's **canonical registry name**, not an alias:
 
-| File | Replaces | Aliases (for `-t`, not for the file name) |
-| --- | --- | --- |
-| `tools/rector.php` | Rector | `r`, `rector` |
-| `tools/phpCsFixer.php` | PHP CS Fixer | `f`, `fixer`, `csfixer` |
-| `tools/psr4Validate.php` | PSR-4 validation | `psr`, `psr4` |
-| `tools/composerChecks.php` | composer diagnose / normalize / dump-autoload | `com`, `composer` |
-| `tools/packageType.php` | package type declaration | `pt` |
-| `tools/configTemplateIgnoreList.php` | template ignore-list audit | `cti` |
-| `tools/infectionConfigSourceDirs.php` | infection.json source dirs | `icsd` |
-| `tools/versionPins.php` | version pins | `vp` |
-| `tools/phpStrictTypes.php` | strict types | `st`, `stricttypes` |
-| `tools/phpLint.php` | parallel lint | `lint`, `phplint` |
-| `tools/composerRequireChecker.php` | composer-require-checker | `cr` |
-| `tools/composerDependencyAnalyser.php` | composer-dependency-analyser | `cda` |
-| `tools/phpcpd.php` | PHPCPD copy/paste detection | `cpd`, `phpcpd` |
-| `tools/markdownLinks.php` | markdown links | `ml`, `markdown` |
-| `tools/branchNamePolicy.php` | branch name policy | `bnp` |
-| `tools/phpstanIgnoreJustification.php` | ignoreErrors justification | `pij` |
-| `tools/phpstan.php` | PHPStan | `stan`, `phpstan` |
-| `tools/phpArkitect.php` | PHPArkitect | `arch`, `arkitect`, `phparkitect` |
-| `tools/sensitiveParameterUsage.php` | SensitiveParameter usage | `spu` |
-| `tools/phpunit.php` | PHPUnit | `unit`, `phpunit` |
-| `tools/infection.php` | Infection | `infect`, `infection` |
-| `tools/twigCsFixer.php`, `tools/twigLint.php`, `tools/yamlLint.php` | Symfony platform lanes | none |
+| File                                                                | Replaces                                      | Aliases (for `-t`, not for the file name) |
+| ------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
+| `tools/rector.php`                                                  | Rector                                        | `r`, `rector`                             |
+| `tools/phpCsFixer.php`                                              | PHP CS Fixer                                  | `f`, `fixer`, `csfixer`                   |
+| `tools/psr4Validate.php`                                            | PSR-4 validation                              | `psr`, `psr4`                             |
+| `tools/composerChecks.php`                                          | composer diagnose / normalize / dump-autoload | `com`, `composer`                         |
+| `tools/packageType.php`                                             | package type declaration                      | `pt`                                      |
+| `tools/configTemplateIgnoreList.php`                                | template ignore-list audit                    | `cti`                                     |
+| `tools/infectionConfigSourceDirs.php`                               | infection.json source dirs                    | `icsd`                                    |
+| `tools/versionPins.php`                                             | version pins                                  | `vp`                                      |
+| `tools/phpStrictTypes.php`                                          | strict types                                  | `st`, `stricttypes`                       |
+| `tools/phpLint.php`                                                 | parallel lint                                 | `lint`, `phplint`                         |
+| `tools/composerRequireChecker.php`                                  | composer-require-checker                      | `cr`                                      |
+| `tools/composerDependencyAnalyser.php`                              | composer-dependency-analyser                  | `cda`                                     |
+| `tools/phpcpd.php`                                                  | PHPCPD copy/paste detection                   | `cpd`, `phpcpd`                           |
+| `tools/markdownLinks.php`                                           | markdown links                                | `ml`, `markdown`                          |
+| `tools/branchNamePolicy.php`                                        | branch name policy                            | `bnp`                                     |
+| `tools/phpstanIgnoreJustification.php`                              | ignoreErrors justification                    | `pij`                                     |
+| `tools/phpstan.php`                                                 | PHPStan                                       | `stan`, `phpstan`                         |
+| `tools/phpArkitect.php`                                             | PHPArkitect                                   | `arch`, `arkitect`, `phparkitect`         |
+| `tools/sensitiveParameterUsage.php`                                 | SensitiveParameter usage                      | `spu`                                     |
+| `tools/phpunit.php`                                                 | PHPUnit                                       | `unit`, `phpunit`                         |
+| `tools/infection.php`                                               | Infection                                     | `infect`, `infection`                     |
+| `tools/twigCsFixer.php`, `tools/twigLint.php`, `tools/yamlLint.php` | Symfony platform lanes                        | none                                      |
 
 `uniterate` and the `all*Tools` phase runners are not lanes and cannot be overridden.
 
@@ -334,55 +334,55 @@ Rules the runner enforces or relies on:
 
 Everything an override or hook may use. All properties are public and readonly.
 
-| Member | Type | Use |
-| --- | --- | --- |
-| `$context->config` | `QaConfigDto` | The resolved configuration of this run (below). |
-| `$context->config->paths` | `ProjectPathsDto` | `projectRoot`, `libraryRoot`, `binDir`, `srcDir`, `testsDir`, `projectConfigDir`, `varDir`, `cacheDir`, `pharDir`, `configDefaultsDir`. All absolute. |
-| `$context->config->pathsToCheck` | `list<string>` | Absolute paths the path-supporting tools scan (`tests/` + `src/`, or the `-p` path). |
-| `$context->config->pathsToIgnore` | `list<string>` | Project-relative excluded paths. |
-| `$context->config->ci`, `->readOnly`, `->aggregate`, `->jsonOutput` | `bool` | Run modes. |
-| `$context->config->singleTool`, `->specifiedPath` | `?string` | `-t` / `-p` as given. |
-| `$context->config->phpBinPath`, `->memoryLimit`, `->xdebugEnabled`, `->quickTests`, `->halfCpuThreads` | | Host facts. |
-| `$context->config->phpUnit` | `PhpUnitOptionsDto` | `coverage`, `quickTests`, `iterativeMode`. |
-| `$context->config->infection` | `InfectionOptionsDto` | `enabled`, `threads`, `onlyCovered`, `minMsi`, `minCoveredMsi`, `diffBase`, `diffCoveredMsi`. |
-| `$context->config->useArkitect`, `->arkitectExcludePaths`, `->useSensitiveParameterCheck`, `->twigDirectories`, `->yamlDirectories` | | Lane settings. |
-| `$context->config->platform` | `PlatformEnum` | `Generic` or `Symfony`. |
-| `$context->configPath('phpstan.neon')` | `string` | The three-level lookup; the generic path is returned even if absent. |
-| `$context->configPaths->isProjectOverride('x')` | `bool` | Whether the project supplies its own copy. |
-| `$context->php->withoutXdebug($script, $args, $cwd, $env = [], $streamOutput = true, $lowPriority = false)` | `ProcessResultDto` | Run a PHP script or PHAR with `XDEBUG_MODE=off` and the memory limit. The Bash `phpNoXdebug -f X -- args`. |
-| `$context->php->withXdebug($script, $args, $cwd, $env = [], $streamOutput = true)` | `ProcessResultDto` | Xdebug left as the host runs it, for coverage; set `XDEBUG_MODE` in `$env`. |
-| `$context->php->version()`, `->hasXdebug()` | | Host probes. |
-| `$context->processes->run(new ProcessSpecDto(command: [...], cwd: ..., env: [...], timeout: null, streamOutput: true, lowPriority: false))` | `ProcessResultDto` | Any non-PHP command. `command` is an argv list, never a string. |
-| `$context->logs->archive($toolName, $logDir, $logFileName, $pathSpecific, $pathsChecked)` | `void` | The Bash `archiveToolLog`: timestamped copy, last ten kept per pattern. |
-| `$context->logDir('mytool_logs')` | `string` | A directory under `var/qa`, created on first use. |
-| `$context->writeln($line)` | `void` | Print a line of tool output. |
-| `$context->writeIdentifier($id)` | `void` | Print the standard failure trailer. |
-| `$context->output` | `OutputInterface` | Decoration stream (stderr in `--json` mode). |
-| `$context->stdout` | `OutputInterface` | The real stdout, for structured output only. |
+| Member                                                                                                                                      | Type                  | Use                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$context->config`                                                                                                                          | `QaConfigDto`         | The resolved configuration of this run (below).                                                                                                       |
+| `$context->config->paths`                                                                                                                   | `ProjectPathsDto`     | `projectRoot`, `libraryRoot`, `binDir`, `srcDir`, `testsDir`, `projectConfigDir`, `varDir`, `cacheDir`, `pharDir`, `configDefaultsDir`. All absolute. |
+| `$context->config->pathsToCheck`                                                                                                            | `list<string>`        | Absolute paths the path-supporting tools scan (`tests/` + `src/`, or the `-p` path).                                                                  |
+| `$context->config->pathsToIgnore`                                                                                                           | `list<string>`        | Project-relative excluded paths.                                                                                                                      |
+| `$context->config->ci`, `->readOnly`, `->aggregate`, `->jsonOutput`                                                                         | `bool`                | Run modes.                                                                                                                                            |
+| `$context->config->singleTool`, `->specifiedPath`                                                                                           | `?string`             | `-t` / `-p` as given.                                                                                                                                 |
+| `$context->config->phpBinPath`, `->memoryLimit`, `->xdebugEnabled`, `->quickTests`, `->halfCpuThreads`                                      |                       | Host facts.                                                                                                                                           |
+| `$context->config->phpUnit`                                                                                                                 | `PhpUnitOptionsDto`   | `coverage`, `quickTests`, `iterativeMode`.                                                                                                            |
+| `$context->config->infection`                                                                                                               | `InfectionOptionsDto` | `enabled`, `threads`, `onlyCovered`, `minMsi`, `minCoveredMsi`, `diffBase`, `diffCoveredMsi`.                                                         |
+| `$context->config->useArkitect`, `->arkitectExcludePaths`, `->useSensitiveParameterCheck`, `->twigDirectories`, `->yamlDirectories`         |                       | Lane settings.                                                                                                                                        |
+| `$context->config->platform`                                                                                                                | `PlatformEnum`        | `Generic` or `Symfony`.                                                                                                                               |
+| `$context->configPath('phpstan.neon')`                                                                                                      | `string`              | The three-level lookup; the generic path is returned even if absent.                                                                                  |
+| `$context->configPaths->isProjectOverride('x')`                                                                                             | `bool`                | Whether the project supplies its own copy.                                                                                                            |
+| `$context->php->withoutXdebug($script, $args, $cwd, $env = [], $streamOutput = true, $lowPriority = false)`                                 | `ProcessResultDto`    | Run a PHP script or PHAR with `XDEBUG_MODE=off` and the memory limit. The Bash `phpNoXdebug -f X -- args`.                                            |
+| `$context->php->withXdebug($script, $args, $cwd, $env = [], $streamOutput = true)`                                                          | `ProcessResultDto`    | Xdebug left as the host runs it, for coverage; set `XDEBUG_MODE` in `$env`.                                                                           |
+| `$context->php->version()`, `->hasXdebug()`                                                                                                 |                       | Host probes.                                                                                                                                          |
+| `$context->processes->run(new ProcessSpecDto(command: [...], cwd: ..., env: [...], timeout: null, streamOutput: true, lowPriority: false))` | `ProcessResultDto`    | Any non-PHP command. `command` is an argv list, never a string.                                                                                       |
+| `$context->logs->archive($toolName, $logDir, $logFileName, $pathSpecific, $pathsChecked)`                                                   | `void`                | The Bash `archiveToolLog`: timestamped copy, last ten kept per pattern.                                                                               |
+| `$context->logDir('mytool_logs')`                                                                                                           | `string`              | A directory under `var/qa`, created on first use.                                                                                                     |
+| `$context->writeln($line)`                                                                                                                  | `void`                | Print a line of tool output.                                                                                                                          |
+| `$context->writeIdentifier($id)`                                                                                                            | `void`                | Print the standard failure trailer.                                                                                                                   |
+| `$context->output`                                                                                                                          | `OutputInterface`     | Decoration stream (stderr in `--json` mode).                                                                                                          |
+| `$context->stdout`                                                                                                                          | `OutputInterface`     | The real stdout, for structured output only.                                                                                                          |
 
 `ProcessResultDto` has `exitCode`, `output` (stdout and stderr interleaved) and `succeeded()`.
 
 ### 5.4 Bash helper to PHP equivalent
 
-| Bash-era helper or variable | PHP |
-| --- | --- |
-| `phpNoXdebug -f "$pharDir"/x.phar -- args` | `$context->php->withoutXdebug($context->config->paths->pharDir . '/x.phar', [args], $context->config->paths->projectRoot)` |
-| `"$phpBinPath" -f "$binDir"/phpunit -- args` with coverage | `$context->php->withXdebug($context->config->paths->binDir . '/phpunit', [args], $root, ['XDEBUG_MODE' => 'coverage'])` |
-| `configPath phpstan.neon` | `$context->configPath('phpstan.neon')` |
-| `"${pathsToCheck[@]}"` | `...$context->config->pathsToCheck` |
-| `"${pathsToIgnore[@]}"` | `$context->config->pathsToIgnore` |
-| `$qaReadOnly == true` | `$context->config->readOnly` |
-| `$CI == true` | `$context->config->ci` |
-| `$xdebugEnabled == 1` | `$context->config->xdebugEnabled` |
-| `$qaHalfCpuThreads` | `$context->config->halfCpuThreads` |
-| `reportReadOnlyWouldModify "Name" "alias"` | `ReadOnlyGuidance::wouldModify($context, 'Name', 'alias')` then `return ToolResultDto::failed(...)` |
+| Bash-era helper or variable                                                     | PHP                                                                                                                           |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `phpNoXdebug -f "$pharDir"/x.phar -- args`                                      | `$context->php->withoutXdebug($context->config->paths->pharDir . '/x.phar', [args], $context->config->paths->projectRoot)`    |
+| `"$phpBinPath" -f "$binDir"/phpunit -- args` with coverage                      | `$context->php->withXdebug($context->config->paths->binDir . '/phpunit', [args], $root, ['XDEBUG_MODE' => 'coverage'])`       |
+| `configPath phpstan.neon`                                                       | `$context->configPath('phpstan.neon')`                                                                                        |
+| `"${pathsToCheck[@]}"`                                                          | `...$context->config->pathsToCheck`                                                                                           |
+| `"${pathsToIgnore[@]}"`                                                         | `$context->config->pathsToIgnore`                                                                                             |
+| `$qaReadOnly == true`                                                           | `$context->config->readOnly`                                                                                                  |
+| `$CI == true`                                                                   | `$context->config->ci`                                                                                                        |
+| `$xdebugEnabled == 1`                                                           | `$context->config->xdebugEnabled`                                                                                             |
+| `$qaHalfCpuThreads`                                                             | `$context->config->halfCpuThreads`                                                                                            |
+| `reportReadOnlyWouldModify "Name" "alias"`                                      | `ReadOnlyGuidance::wouldModify($context, 'Name', 'alias')` then `return ToolResultDto::failed(...)`                           |
 | `archiveToolLog "Name" "$dir" "file.log" "$specifiedPath" "${pathsToCheck[@]}"` | `$context->logs->archive('Name', $dir, 'file.log', null !== $context->config->specifiedPath, $context->config->pathsToCheck)` |
-| `tryAgainOrAbort "Name"` / `qaSimpleTool` retry loops | Delete. Return `ToolResultDto::failed()`; the runner retries interactively. |
-| `exit 1` | `return ToolResultDto::failed('reason')` |
-| `return 0` (skip) | `return ToolResultDto::skipped('reason')` |
-| `echo "..."` | `$context->writeln('...')` |
-| `set +e` / `set -e` / `${PIPESTATUS[0]}` | Delete. `ProcessResultDto::$exitCode` is the tool's own code. |
-| `renice` / `oom_score_adj` | `lowPriority: true` on `withoutXdebug()` or `ProcessSpecDto`. |
+| `tryAgainOrAbort "Name"` / `qaSimpleTool` retry loops                           | Delete. Return `ToolResultDto::failed()`; the runner retries interactively.                                                   |
+| `exit 1`                                                                        | `return ToolResultDto::failed('reason')`                                                                                      |
+| `return 0` (skip)                                                               | `return ToolResultDto::skipped('reason')`                                                                                     |
+| `echo "..."`                                                                    | `$context->writeln('...')`                                                                                                    |
+| `set +e` / `set -e` / `${PIPESTATUS[0]}`                                        | Delete. `ProcessResultDto::$exitCode` is the tool's own code.                                                                 |
+| `renice` / `oom_score_adj`                                                      | `lowPriority: true` on `withoutXdebug()` or `ProcessSpecDto`.                                                                 |
 
 ### 5.5 Wrapping the shipped lane instead of replacing it
 
@@ -496,19 +496,19 @@ CI=true vendor/bin/qa -t <name>
 
 Errors you can see and what each one means:
 
-| Message (abridged) | Cause | Fix |
-| --- | --- | --- |
-| `qaConfig/qaConfig.inc.bash is no longer read: configuration is PHP now` | The Bash config still exists. | Finish section 4 and delete the file. |
-| `qaConfig/tools/<t>.inc.bash is no longer sourced: tool overrides are PHP now` | A Bash override still exists for `<t>`. | Finish section 5 for that tool and delete the file. |
-| `qaConfig/hookPre.bash is no longer run: hooks are PHP now` (or `hookPost`) | A Bash hook still exists. | Finish section 6 and delete the file. |
-| `qa.php must return a closure taking and returning a QaConfigBuilder, got <type>` | The file does not `return` a callable. | Return the closure. |
-| `qa.php must return the adjusted QaConfigBuilder, got <type>` | The closure returned `null`, `void` or `$qa` after a chain whose result was discarded. | Return the result of the `with*()` chain. |
-| `Call to undefined method ...QaConfigBuilder::withX()` | A misspelt or non-existent setting. | Use a method from the table in 4.2. |
-| `tools/<t>.php must return a LTS\PHPQA\Pipeline\Tool\ToolInterface, got <type>` | The override file returns the wrong thing. | Return an object implementing the interface. |
-| `hookPre.php must return a callable that accepts a ToolContext, got <type>` | The hook file returns the wrong thing. | Return a closure. |
-| `Invalid tool: <name>` on `-t` | The override file name is fine but `-t` needs an alias or canonical name. | Use a value from the aliases column in 5.1. |
-| `Another QA run holds the lock` | A concurrent run. | Wait; the lock goes stale after ten minutes of inactivity. Never delete `qaConfig/.qa-lock/` by hand. |
-| A fixer reports pending changes in a READ-ONLY run | Expected in CI when files need fixing. | `QA_READONLY=0 vendor/bin/qa -t fixer` (or `-t rector`), commit, re-run. |
+| Message (abridged)                                                                | Cause                                                                                  | Fix                                                                                                   |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `qaConfig/qaConfig.inc.bash is no longer read: configuration is PHP now`          | The Bash config still exists.                                                          | Finish section 4 and delete the file.                                                                 |
+| `qaConfig/tools/<t>.inc.bash is no longer sourced: tool overrides are PHP now`    | A Bash override still exists for `<t>`.                                                | Finish section 5 for that tool and delete the file.                                                   |
+| `qaConfig/hookPre.bash is no longer run: hooks are PHP now` (or `hookPost`)       | A Bash hook still exists.                                                              | Finish section 6 and delete the file.                                                                 |
+| `qa.php must return a closure taking and returning a QaConfigBuilder, got <type>` | The file does not `return` a callable.                                                 | Return the closure.                                                                                   |
+| `qa.php must return the adjusted QaConfigBuilder, got <type>`                     | The closure returned `null`, `void` or `$qa` after a chain whose result was discarded. | Return the result of the `with*()` chain.                                                             |
+| `Call to undefined method ...QaConfigBuilder::withX()`                            | A misspelt or non-existent setting.                                                    | Use a method from the table in 4.2.                                                                   |
+| `tools/<t>.php must return a LTS\PHPQA\Pipeline\Tool\ToolInterface, got <type>`   | The override file returns the wrong thing.                                             | Return an object implementing the interface.                                                          |
+| `hookPre.php must return a callable that accepts a ToolContext, got <type>`       | The hook file returns the wrong thing.                                                 | Return a closure.                                                                                     |
+| `Invalid tool: <name>` on `-t`                                                    | The override file name is fine but `-t` needs an alias or canonical name.              | Use a value from the aliases column in 5.1.                                                           |
+| `Another QA run holds the lock`                                                   | A concurrent run.                                                                      | Wait; the lock goes stale after ten minutes of inactivity. Never delete `qaConfig/.qa-lock/` by hand. |
+| A fixer reports pending changes in a READ-ONLY run                                | Expected in CI when files need fixing.                                                 | `QA_READONLY=0 vendor/bin/qa -t fixer` (or `-t rector`), commit, re-run.                              |
 
 Done when: the full read-only battery exits 0 and prints `ALL TESTS PASSING`.
 
@@ -536,7 +536,9 @@ of them exists.
 - Do not reach past the supported extension surface. The types named on this page
   (`QaConfigBuilder`, `ToolInterface`, `ToolContext`, `ToolResultDto`, `ShippedTools`,
   `ReadOnlyGuidance`, the config and process DTOs, `PhpInvoker`, `ProcessRunnerInterface`,
-  `LogArchiver`, `ConfigPathResolver`, `PlatformEnum`) are tagged `@api`; everything else under
+  `LogArchiver`, `ConfigPathResolver`, `PlatformEnum`, and the pipeline-assembly types
+  `PipelineBuilder`, `PhaseDto`, `PhaseEnum`, `ToolDefinitionDto`, `ToolGateEnum`,
+  `UnknownPhaseException`) are tagged `@api`; everything else under
   `LTS\PHPQA\Pipeline` is `@internal`, and PHPStan reports any use of an internal type from a
   consumer's own code. Keep this code under `qaConfig/`; the shipped PHPArkitect consumer
   boundary factory is available if you want the same rule at namespace level in `src/`.

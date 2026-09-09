@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Tool;
 
 /**
- * Whether a phased tool runs given the run's flags.
+ * Whether a phased tool runs given the run's flags. Named on a
+ * ToolDefinitionDto; a project-registered tool picks the gate it needs.
  *
- * @internal
+ * @api
  */
 enum ToolGateEnum
 {

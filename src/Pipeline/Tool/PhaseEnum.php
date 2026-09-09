@@ -9,9 +9,10 @@ use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
 /**
  * The four shipped phases, in execution order: code modification first so
  * every later phase validates the final state, then linting, static analysis,
- * testing. The value is the phase name a tool definition joins it by.
+ * testing. The value is the phase name a tool definition joins it by, so a
+ * project-registered tool names a shipped phase as PhaseEnum::Linting->value.
  *
- * @internal
+ * @api
  */
 enum PhaseEnum: string
 {

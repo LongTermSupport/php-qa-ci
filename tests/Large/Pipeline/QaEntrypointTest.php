@@ -112,6 +112,51 @@ final class QaEntrypointTest extends TestCase
     }
 
     #[Test]
+    public function aProjectPipelinePhpAddsAPhaseAndAToolThatDashTCanSelect(): void
+    {
+        $this->consumer->write('qaConfig/pipeline.php', <<<'PHP_WRAP'
+            <?php
+            use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
+            use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
+            use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
+            use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
+            use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
+            use LTS\PHPQA\Pipeline\Tool\ToolContext;
+            use LTS\PHPQA\Pipeline\Tool\ToolInterface;
+
+            return static fn (PipelineBuilder $pipeline): PipelineBuilder => $pipeline
+                ->withPhase(new PhaseDto('security', 'Running All Security Tools', 'allSecurityTools', ['allSec'], 'all security tools'), before: PhaseEnum::Testing->value)
+                ->withTool(
+                    new ToolDefinitionDto('securityAudit', ['sa'], 'security audit', 'security', false, banner: 'Auditing Security'),
+                    new class implements ToolInterface {
+                        public function name(): string { return 'securityAudit'; }
+                        public function identifier(): string { return 'project.securityAudit'; }
+                        public function run(ToolContext $context): ToolResultDto
+                        {
+                            $context->writeln('[securityAudit ran]');
+
+                            return ToolResultDto::passed();
+                        }
+                    },
+                );
+            PHP_WRAP);
+
+        $single = $this->qa(['QA_READONLY' => '1'], '-t', 'sa');
+        self::assertSame(0, $single->getExitCode(), $single->getOutput() . $single->getErrorOutput());
+        self::assertStringContainsString('Found project pipeline at', $single->getOutput());
+        self::assertStringContainsString('[securityAudit ran]', $single->getOutput());
+
+        $phase = $this->qa(['QA_READONLY' => '1'], '-t', 'allSec');
+        self::assertSame(0, $phase->getExitCode(), $phase->getOutput() . $phase->getErrorOutput());
+        self::assertStringContainsString('Auditing Security', $phase->getOutput());
+        self::assertStringContainsString('[securityAudit ran]', $phase->getOutput());
+
+        $help = $this->qa([], '-h');
+        self::assertStringContainsString('allSec', $help->getErrorOutput());
+        self::assertStringContainsString('security audit', $help->getErrorOutput());
+    }
+
+    #[Test]
     public function aBashEraQaConfigIsRefusedWithMigrationGuidance(): void
     {
         $this->consumer->write('qaConfig/qaConfig.inc.bash', "export useInfection=0\n");

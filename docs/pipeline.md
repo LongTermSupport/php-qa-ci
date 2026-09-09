@@ -56,6 +56,7 @@ The pre hook runs after configuration and PHAR verification, before the run lock
 - **Project paths** ([ProjectPathsResolver](../src/Pipeline/Config/ProjectPathsResolver.php)): requires `src/` and `tests/` (or `test/`); reads `config.bin-dir` from `composer.json` (default `vendor/bin`); fixes `var/qa`, `var/qa/cache`, `qaConfig/` and the library's `vendor-phar/` and `configDefaults/`.
 - **Platform detection** ([PlatformDetector](../src/Pipeline/Config/PlatformDetector.php)): Symfony via `symfony.lock`, otherwise generic. See [Platform Detection](./platform-detection.md).
 - **Xdebug probe**: whether coverage and mutation testing are available.
+- **Pipeline**: `PipelineBuilder::defaults()` is the shipped phases and tools; [PipelineConfigLoader](../src/Pipeline/Config/PipelineConfigLoader.php) applies your `qaConfig/pipeline.php`, which can add phases and tools (see [extending the pipeline](extending-the-pipeline.md)). This happens before the arguments are parsed, so `-t` can name a project-registered tool or phase.
 - **Configuration**: `QaConfigBuilder::defaults()` seeds every setting from the shipped defaults and the environment variables; [ProjectConfigLoader](../src/Pipeline/Config/ProjectConfigLoader.php) applies your `qaConfig/qa.php`; `build()` derives the dependent values (coverage needs Xdebug, Infection needs coverage). A leftover `qaConfig.inc.bash` is refused with migration guidance.
 
 ### 2. Preparation

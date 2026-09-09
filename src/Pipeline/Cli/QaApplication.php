@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Pipeline\Cli;
 use LTS\PHPQA\Pipeline\Cli\Exception\UsageException;
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
+use LTS\PHPQA\Pipeline\Config\PipelineConfigLoader;
 use LTS\PHPQA\Pipeline\Config\PlatformDetector;
 use LTS\PHPQA\Pipeline\Config\ProjectConfigLoader;
 use LTS\PHPQA\Pipeline\Config\ProjectPathsResolver;
@@ -33,9 +34,10 @@ use Symfony\Component\Console\Output\StreamOutput;
 use Throwable;
 
 /**
- * The composition root behind bin/qa: parses the command line, resolves the
- * environment and project, builds the configuration (defaults, then the
- * project's qa.php), wires the services, and runs the pipeline.
+ * The composition root behind bin/qa: resolves the project, assembles the
+ * pipeline (defaults, then the project's pipeline.php), parses the command
+ * line, builds the configuration (defaults, then the project's qa.php), wires
+ * the services, and runs the pipeline.
  *
  * All decoration goes to stdout, except in --json mode where it goes to
  * stderr so stdout carries only the structured output.
@@ -72,14 +74,24 @@ final readonly class QaApplication
         $stdout     = new StreamOutput($this->stdoutStream);
         $decoration = $json ? new StreamOutput($this->stderrStream) : $stdout;
 
-        $tools    = PipelineBuilder::defaults()->build();
+        $env = new EnvironmentReader($this->env);
+
+        // The project's pipeline.php decides what `-t` can name, so it is read
+        // before the arguments are parsed. Its output lands with the header.
+        try {
+            $paths = new ProjectPathsResolver()->resolve($this->projectRoot, $this->libraryRoot);
+            $tools = new PipelineConfigLoader($decoration)->apply(PipelineBuilder::defaults(), $paths->projectConfigDir)->build();
+        } catch (Throwable $throwable) {
+            $decoration->writeln('ERROR: ' . $throwable->getMessage());
+
+            return 1;
+        }
+
         $registry = $tools->registry;
-        $env      = new EnvironmentReader($this->env);
         $parser   = new ArgumentsParser($registry, 'vendor/bin');
 
         try {
             $request = $parser->parse(...$this->argv);
-            $paths   = new ProjectPathsResolver()->resolve($this->projectRoot, $this->libraryRoot);
             $path    = null === $request->path ? null : new PathNormaliser()->normalise($request->path, $paths->projectRoot);
         } catch (UsageException $usageException) {
             $stderr = new StreamOutput($this->stderrStream);

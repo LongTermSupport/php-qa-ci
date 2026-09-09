@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline;
 
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
+use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -23,8 +24,9 @@ use PHPUnit\Framework\TestCase;
  *   - GOLDEN_PHASE_ORDER — the ordered list of tools each phase runner invokes.
  *
  * They are derived from the registry with the same operations the CLI and
- * the runner use (resolve / tokens / toolsForPhase). Changing a golden value
- * is a deliberate behavioural change, not a refactor.
+ * the runner use (resolve / tokens / toolsForPhase), on the registry that
+ * PipelineBuilder::defaults() constructs. Changing a golden value is a
+ * deliberate behavioural change, not a refactor.
  *
  * @internal
  */
@@ -263,7 +265,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
     private function extractAliasMap(): array
     {
         $map = [];
-        foreach (ToolRegistry::shipped()->all() as $tool) {
+        foreach (PipelineBuilder::defaults()->build()->registry->all() as $tool) {
             foreach ($tool->aliases as $alias) {
                 $map[$alias] = $tool->target ?? $tool->name;
             }
@@ -276,7 +278,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
     private function extractPathClassification(): array
     {
         $classification = [];
-        foreach (ToolRegistry::shipped()->all() as $tool) {
+        foreach (PipelineBuilder::defaults()->build()->registry->all() as $tool) {
             foreach ($tool->tokens() as $token) {
                 $classification[$token] = $tool->supportsPaths;
             }
@@ -288,7 +290,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
     /** @return array<string, list<string>> */
     private function extractPhaseOrder(): array
     {
-        $registry = ToolRegistry::shipped();
+        $registry = PipelineBuilder::defaults()->build()->registry;
         $order    = [];
         foreach ($registry->all() as $runner) {
             if (!$runner->isPhaseRunner || null === $runner->phase) {
