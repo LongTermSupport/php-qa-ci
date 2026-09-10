@@ -138,6 +138,7 @@ Not PHPStan rules, but lanes of `bin/qa` that print an identifier of their own. 
 | `phpqaci.twigCsFixer`                               | `Pipeline/Lane/TwigCsFixerTool`                          | Symfony coding standards | [Twig templates meet the coding standard](../tools/twigCsFixer.md)                                                           |
 | `phpqaci.twigLint`                                  | `Pipeline/Lane/TwigLintTool`                             | Symfony linting          | [Every twig template compiles](../tools/twigLint.md)                                                                         |
 | `phpqaci.yamlLint`                                  | `Pipeline/Lane/YamlLintTool`                             | `bin/qa -t yaml`         | [Every yaml config file parses](../tools/yamlLint.md)                                                                        |
+| `phpqaci.shellCheck`                                | `Pipeline/Lane/ShellCheckTool`                           | `bin/qa -t sc`           | [Every git-tracked shell script passes ShellCheck](../tools/shellCheck.md)                                                   |
 
 ## Why this index exists
 

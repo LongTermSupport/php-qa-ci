@@ -36,6 +36,8 @@ final readonly class QaConfigDto
      * @param list<string> $yamlDirectories      absolute; `config/` on every platform, because
      *                                           yamlLint is gated on symfony/yaml rather than on
      *                                           Symfony and skips cleanly when the directory is absent
+     * @param list<string> $shellCheckGlobs      project-relative globs replacing shellCheck's default
+     *                                           discovery; empty means discover by extension and shebang
      */
     public function __construct(
         public ProjectPathsDto $paths,
@@ -62,6 +64,7 @@ final readonly class QaConfigDto
         public bool $useSensitiveParameterCheck,
         public array $twigDirectories,
         public array $yamlDirectories,
+        public array $shellCheckGlobs,
         public DeadCodeOptionsDto $deadCode,
     ) {
     }

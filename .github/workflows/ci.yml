@@ -7,32 +7,10 @@ on:
     branches: [php8.5]
 
 jobs:
-  shellcheck:
-    name: ShellCheck (severity=warning)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run ShellCheck at warning severity
-        # Fail the build on any warning-or-above finding in the Bash that
-        # remains around the PHP pipeline: the CI wrapper, the four bin/
-        # redirect stubs and their shared include, the git hook, and the
-        # maintainer scripts under scripts/ (qaConfig/ is scanned too, so a
-        # stray .bash file there is caught). Every remaining false positive
-        # carries a targeted `# shellcheck disable=SCxxxx` directive with
-        # justification. Do not lower this to -S error.
-        run: |
-          shellcheck --version
-          mapfile -t shellFiles < <(find scripts qaConfig -type f \( -name '*.bash' -o -name '*.sh' \) | sort)
-          shellcheck -S warning \
-            bin/composer-require-checker bin/infection bin/php-cs-fixer bin/phpstan \
-            bin/lib-redirect-stub.inc.bash \
-            ci.bash \
-            git-hooks/pre-commit-check-vendor-uncommitted \
-            "${shellFiles[@]}"
-
+  # ShellCheck has no job of its own: the `shellCheck` lane runs it inside
+  # bin/qa, from the pinned binary at vendor-bin/shellcheck, over every
+  # git-tracked shell file rather than a hand-maintained list. A second
+  # mechanism here could only drift from that one.
   qa:
     name: QA Pipeline
     runs-on: ubuntu-latest

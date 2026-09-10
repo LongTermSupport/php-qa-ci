@@ -25,6 +25,10 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     ->withIgnoredPaths('tests/assets')
     // Mutation-testing floors: raise as the score rises, never lower them.
     ->withInfectionFloors(msi: 60, coveredMsi: 80)
+    // Which shell files ShellCheck reads. The default is every git-tracked file
+    // with a shell extension or a shell shebang; set this only to override that,
+    // and note a list matching nothing fails the lane.
+    // ->withShellCheckGlobs('scripts/*.bash', 'bin/deploy')
     // Generated code PHPArkitect must not judge, relative to src/.
     // ->withArkitectExcludedPaths('Quote/API')
     // A project that genuinely handles no secrets may opt out of the

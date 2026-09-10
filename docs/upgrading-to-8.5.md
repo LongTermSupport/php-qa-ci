@@ -160,6 +160,7 @@ back on. Keep permanent policy in `qa.php` and leave ad-hoc switches to the envi
 | (new)                                | `withDeadCodeDetection(true)`                                                                             | Opt-in dead-code lane; needs `withDeadCodeEntryPoints(...)` or `withoutDeadCodeEntryPoints()`.                                                                                                                 |
 | `twigDirectories` (Symfony)          | `withTwigDirectories('templates', ...)`                                                                   | Absolute or project-relative. Replaces the default `templates/`.                                                                                                                                               |
 | `yamlDirectories` (Symfony)          | `withYamlDirectories('config', ...)`                                                                      | Replaces the default `config/`.                                                                                                                                                                                |
+| `shellCheckGlobs`                    | `withShellCheckGlobs('scripts/*.bash', ...)`                                                              | Project-relative globs replacing shellCheck's default discovery (git-tracked shell extension or shebang). A list matching nothing fails the lane.                                                              |
 | *(new in 8.5)*                       | `withTypeCoverageFloors(returnType: 50, paramType: 40, propertyType: 60, constantType: 80, declare: 100)` | Minimum percentage of declarations carrying a native type, per kind. Every argument is optional and every floor is off unless given. Ignored in a `-p` run, deliberately — see [phpstan.md](tools/phpstan.md). |
 | *(new in 8.5)*                       | `withComposerAudit(false)`                                                                                | Turns off `composer audit` in the composerChecks lane, which an offline build needs. `useComposerAudit=0` for one run.                                                                                         |
 
@@ -258,6 +259,7 @@ The file name is the tool's **canonical registry name**, not an alias:
 | `tools/phpunit.php`                           | PHPUnit                                       | `unit`, `phpunit`                         |
 | `tools/infection.php`                         | Infection                                     | `infect`, `infection`                     |
 | `tools/yamlLint.php`                          | Yaml Lint (when `symfony/yaml` is installed)  | `yaml`                                    |
+| `tools/shellCheck.php`                        | ShellCheck over git-tracked shell scripts     | `sc`, `shellcheck`                        |
 | `tools/twigCsFixer.php`, `tools/twigLint.php` | Twig lanes (library-gated / Symfony platform) | `twigcs` / none                           |
 
 `uniterate` and the `all*Tools` phase runners are not lanes and cannot be overridden.

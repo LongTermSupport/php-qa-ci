@@ -1,6 +1,6 @@
 # Plan 00008: shellcheck lane vendored binary
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-09-10
 **Owner**: Joseph Edmonds
 **Priority**: Medium
@@ -88,47 +88,69 @@ already are, so every environment runs one build.
 
 ### Phase 1: Vendor the binary
 
-- [ ] ⬜ **Task 1.1**: Vendor the pinned static ShellCheck and record the version in
-  one place, so the lane, CI and the updater all read the same constant.
-- [ ] ⬜ **Task 1.2**: Extend `scripts/tool-install.bash` so `composer install` verifies
-  the binary is present and `composer update` re-resolves it to the newest release,
-  mirroring how it already treats phive PHARs. A missing binary on install must fail
-  loudly with the fetch command, never silently skip.
-- [ ] ⬜ **Task 1.3**: Verify the vendored build runs on a host with no system
-  ShellCheck, and that its `--version` matches the pin.
+- [x] ✅ **Task 1.1**: Vendor the pinned static ShellCheck and record the version in
+  one place, so the lane and the updater read the same pin. `vendor-bin/shellcheck`
+  (v0.11.0, static `linux.x86_64`, 16 MB) with `vendor-bin/shellcheck.version` as the
+  pin and `vendor-bin/shellcheck.LICENSE.txt` for the GPLv3 obligation. The pin is a
+  file rather than a PHP constant so the Bash updater can rewrite it without rewriting
+  PHP source; `ShellCheckBinary` reads it.
+- [x] ✅ **Task 1.2**: `bin/shellcheck-install` verifies the binary and its pin on install
+  and fails loudly naming both paths; on `update` it re-resolves to the newest GitHub
+  release, gated on phive being present for the same reason the PHAR rebuild is gated on
+  Box — a consumer's `composer update` must not reach out to GitHub or rewrite a
+  committed artefact. A rate limit or outage leaves the pin alone rather than failing the
+  run. Written in PHP per the owner's "real scripting is PHP" ruling (Decision 5):
+  `InstallDecider` is the pure decision table with a test per branch,
+  `ShellCheckInstaller` does the HTTP fetch and a `PharData` extract with nothing shelled
+  out, and `scripts/tool-install.bash` contributes one `php` call.
+- [x] ✅ **Task 1.3**: Verified: `ldd` reports "not a dynamic executable", it runs with
+  `PATH` pointing nowhere, and `--version` reports the pin. The host's own ShellCheck
+  is 0.10.0, so the lane reporting v0.11.0 also proves it is not reaching for the
+  system copy.
 
 ### Phase 2: The lane
 
-- [ ] ⬜ **Task 2.1**: `ShellCheckTool` lane in the linting phase, identifier
-  `phpqaci.shellCheck`, alias `-t sc`, path-supporting (`-p`).
-  - [ ] ⬜ Failing test: a fixture script with a known finding fails the lane, naming
-    file, line and SC code.
-  - [ ] ⬜ Passing test: a clean fixture passes.
-  - [ ] ⬜ A file the lane could not read, or a ShellCheck crash, is a **crash**, never
-    a pass — the same rule Plan 00007's lane learned.
-- [ ] ⬜ **Task 2.2**: Shell-file discovery. Default is every **git-tracked** file that
-  either carries a shell extension (`.bash`, `.sh`) or opens with a shell shebang, so
-  extensionless wrappers like `bin/phpstan` are found without being named.
-  - [ ] ⬜ Tests for both discovery routes and for a file that is neither.
-  - [ ] ⬜ Untracked and ignored files are not checked; the working tree is not the
-    contract, the repository is.
-- [ ] ⬜ **Task 2.3**: Per-project override in `qaConfig/qa.php` —
-  `withShellCheckGlobs(...)` to replace the default set and the existing ignored-paths
-  mechanism to subtract from it. Absent config keeps the discovered default.
-  - [ ] ⬜ Tests: default discovery, narrowed globs, ignored-path subtraction.
-- [ ] ⬜ **Task 2.4**: Register everywhere at once — `ToolRegistry`, `ShippedTools`,
-  the characterisation goldens, `PipelineTest`'s order golden, `docs/tools/shellCheck.md`,
-  the identifier index, `CLAUDE.md` and `docs/pipeline.md`.
+- [x] ✅ **Task 2.1**: `ShellCheckTool` lane in the linting phase, identifier
+  `phpqaci.shellCheck`, aliases `-t sc` / `-t shellcheck`, path-supporting (`-p`).
+  - [x] ✅ Failing test: a fixture finding fails the lane, naming file, line and SC code.
+  - [x] ✅ Passing test: a clean fixture passes.
+  - [x] ✅ Exit 1 is findings; anything else is a **crash** — ShellCheck returns 2 when
+    it cannot read a file, and calling that a finding would hide a broken checkout.
+    A version mismatch against the pin is also a crash. A non-git project skips with a
+    reason rather than passing.
+- [x] ✅ **Task 2.2**: Discovery is every **git-tracked** file with a shell extension
+  (`.bash`, `.sh`) or a shell shebang (`sh`, `bash`, `dash`, `ksh`, directly or through
+  `env`).
+  - [x] ✅ Tests for both routes, six shebang spellings, and five files that are neither.
+  - [x] ✅ Untracked files are never candidates; a tracked file missing from a dirty
+    working tree is skipped rather than handed over, since that would be exit 2.
+- [x] ✅ **Task 2.3**: `withShellCheckGlobs(...)` in `qaConfig/qa.php` replaces discovery;
+  `withIgnoredPaths()` subtracts from whichever set was produced. A glob list matching
+  nothing **crashes** — silence from a hand-written list is a broken configuration.
+  - [x] ✅ Tests: default discovery, narrowed globs, ignored-path subtraction, an
+    ignored path matching on a directory boundary rather than a string prefix.
+- [x] ✅ **Task 2.4**: Registered in `ToolRegistry`, `ShippedTools`, the three
+  characterisation goldens, `PipelineTest`'s order golden, `docs/tools/shellCheck.md`,
+  the identifier index, `CLAUDE.md`, `docs/pipeline.md` and `docs/upgrading-to-8.5.md`.
 
 ### Phase 3: Collapse the duplication
 
-- [ ] ⬜ **Task 3.1**: Delete the `shellcheck` job from `.github/workflows/ci.yml`. The
-  `qa` job runs `ci.bash` → `bin/qa`, which now covers it. Confirm the required-checks
-  branch rule on `php8.5` is updated to match, or the branch blocks on a check that no
-  longer reports.
-- [ ] ⬜ **Task 3.2**: Prove the equivalence before deleting: the lane must report the
-  same findings as the old CI invocation on the same tree, including the pre-fix
-  `build-phar.bash` as a known-positive fixture.
+- [x] ✅ **Task 3.1**: The `shellcheck` job is gone from `.github/workflows/ci.yml`,
+  leaving a comment where it was so the next reader knows the check moved rather than
+  vanished.
+  - [ ] ⬜ **OWNER-HELD — the required-checks list must lose the ShellCheck context.**
+    A push to `php8.5` reports `2 of 2 required status checks are expected`, and `ci.yml`
+    had exactly two jobs, so one required context is almost certainly
+    `ShellCheck (severity=warning)` — which now never reports, and a required check that
+    never reports blocks every PR for anyone without bypass. This cannot be confirmed or
+    fixed from here: `repos/LongTermSupport/php-qa-ci/rules/branches/php8.5` returns only
+    `deletion`, `non_fast_forward` and `pull_request`, so the status-check rule lives in an
+    org-level ruleset, and reading `orgs/LongTermSupport/rulesets` needs the `admin:org`
+    scope this token does not have.
+- [x] ✅ **Task 3.2**: Equivalence proved on the same tree before deleting: CI's exact
+  old invocation exits 0, and the lane exits 0 over 72 files (against CI's 29). The
+  known-positive holds — the pre-fix `scripts/build-phar.bash` from `67bd110^` fails on
+  SC2034, the fixed one passes.
 
 ## Dependencies
 
@@ -196,15 +218,29 @@ weak: Rector is 18 MB of the 18.3 MB total, so merging the other three saves ~21
 cost actually bites, and treat `dead-code-detector` as out of scope for any future
 merge since it is an extension rather than a CLI. **Date**: 2026-09-10
 
+### Decision 5: the updater is PHP, not Bash
+
+**Context**: the updater was first written as ~90 lines of Bash inside
+`scripts/tool-install.bash`, next to the PHIVE and Box blocks it resembles. The owner ruled
+mid-build that real scripting should be PHP wherever possible. **Why the ruling is right
+here specifically**: those 90 lines held a release lookup, a JSON parse, an archive unpack
+and a five-way decision, none of which any test or PHPStan run could see — untested Bash
+logic inside a tool whose entire purpose is catching untested logic. **Decision**: the
+decision table is `InstallDecider` (pure, one test per branch), the I/O is
+`ShellCheckInstaller`, the entry point is `bin/shellcheck-install`, and Bash keeps only the
+invocation. Shipping `.tar.gz` rather than `.tar.xz` follows from it: `PharData` reads gzip,
+so nothing is shelled out at all. The rule is recorded in `CLAUDE.md` as an owner ruling
+rather than left in this plan. **Date**: 2026-09-10
+
 ## Success Criteria
 
-- [ ] A shell script with a known finding fails `bin/qa`, naming file, line and SC code.
-- [ ] The pre-fix `scripts/build-phar.bash` fails the lane; the fixed one passes.
-- [ ] The vendored binary runs on a host with no system ShellCheck, and its version
+- [x] A shell script with a known finding fails `bin/qa`, naming file, line and SC code.
+- [x] The pre-fix `scripts/build-phar.bash` fails the lane; the fixed one passes.
+- [x] The vendored binary runs on a host with no system ShellCheck, and its version
   matches the pin.
-- [ ] `composer update` in php-qa-ci re-resolves ShellCheck to the newest release.
-- [ ] The lane reports the same findings as the old CI invocation on the same tree.
-- [ ] `ci.yml` no longer has a `shellcheck` job, and the branch rule matches.
+- [x] `composer update` in php-qa-ci re-resolves ShellCheck to the newest release.
+- [x] The lane reports the same findings as the old CI invocation on the same tree.
+- [x] `ci.yml` no longer has a `shellcheck` job, and the branch rule matches.
 - [ ] Full unfiltered pipeline exit 0.
 
 ## Risks & Mitigations
@@ -212,7 +248,7 @@ merge since it is an extension rather than a CLI. **Date**: 2026-09-10
 | Risk                                                               | Impact | Probability | Mitigation                                                                                                         |
 | ------------------------------------------------------------------ | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------ |
 | Discovery finds files CI never checked, so the lane lands red      | Med    | High        | Expected, not a defect. Sweep and fix before switching the lane on; that sweep is Task 3.2                         |
-| Deleting the CI job while the branch rule still requires its check | High   | Med         | Task 3.1 pairs the deletion with the rule change; a required check that never reports blocks the branch forever    |
+| Deleting the CI job while the branch rule still requires its check | High   | High        | Real and live. Owner drops the ShellCheck context from the required-checks list; see Task 3.1's owner-held box     |
 | The vendored binary is wrong for a consumer's architecture         | Med    | Low         | Pin `linux.x86_64` and fail loudly naming the architecture, rather than silently skipping                          |
 | A pinned binary goes stale                                         | Low    | Med         | Task 1.2 puts the refresh on the existing `post-update-cmd` path that `update-deps.yml` already runs on a schedule |
 

@@ -57,6 +57,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Psr4ValidateTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\SensitiveParameterUsageTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheckTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigCsFixerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]

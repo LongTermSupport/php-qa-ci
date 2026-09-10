@@ -94,6 +94,7 @@ On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)
 13. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
 14. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
 15. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
+16. **[ShellCheck](./tools/shellCheck.md)** -- Every git-tracked shell script passes ShellCheck at `warning`, from the pinned binary the library ships
 
 On a Symfony project the platform lane **[Twig Lint](./tools/twigLint.md)** follows, appended to this phase.
 

@@ -51,8 +51,24 @@ clone required:
 PHP-QA-CI is a quality assurance pipeline for PHP projects. It orchestrates the standard PHP
 quality tools in a fixed sequence designed to fail fast and give rapid feedback. The pipeline
 itself is PHP: `bin/qa` is a PHP entrypoint and every lane is a class under `src/Pipeline/`.
-Bash survives only as thin wrappers (`ci.bash`, the `bin/` redirect stubs) and the maintainer
-scripts under `scripts/`.
+
+### Real scripting is PHP, not Bash (owner ruling, non-negotiable)
+
+**Bash is for invocation, PHP is for logic.** A shell script may locate things, set environment
+variables and hand off. The moment there is real work — branching on state, parsing a response,
+unpacking an archive, deciding between outcomes — it belongs in a class under `src/` with a thin
+`bin/` entry point, because that is the only form the test suite and PHPStan can see. Untested
+Bash logic is a blind spot inside a quality tool.
+
+The worked example is the ShellCheck updater: the decision table is
+[`InstallDecider`](src/ShellCheck/InstallDecider.php) with unit tests per branch, the I/O is
+[`ShellCheckInstaller`](src/ShellCheck/ShellCheckInstaller.php) (an HTTP fetch and a `PharData`
+extract, nothing shelled out), the entry point is `bin/shellcheck-install`, and
+`scripts/tool-install.bash` contributes one `php` call. Prefer this shape over adding to a
+`scripts/*.bash`.
+
+Bash therefore survives only as thin wrappers (`ci.bash`, the `bin/` redirect stubs) and the
+invocation shell of the maintainer scripts under `scripts/`.
 
 ## Architecture
 
@@ -144,6 +160,8 @@ On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appe
 14. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
 15. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+
+16. **ShellCheck** (`shellCheck`) - Every git-tracked shell script passes ShellCheck at `warning`, from the pinned static binary at `vendor-bin/shellcheck` (see [docs/tools/shellCheck.md](docs/tools/shellCheck.md))
 
 On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to this phase. It is not `-t` selectable.
 
@@ -763,6 +781,17 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 - **Output**: a JSON report under `var/qa/phpcpd/`, plus the summary on screen. Cannot fail the pipeline: phpcpd returns `1` for both "found clones" and its own errors, and duplication is a judgement call in any case
 - **Alias**: `vendor/bin/qa -t cpd`
 - **Details**: [docs/tools/phpcpd.md](docs/tools/phpcpd.md)
+
+### ShellCheck
+
+- **Purpose**: Lint the Bash a PHP project carries — CI wrappers, deploy scripts, git hooks, `bin/` stubs — so a green `bin/qa` means a green branch. Nothing else in the pipeline reads a shell script
+- **Lane**: [src/Pipeline/Lane/ShellCheckTool.php](src/Pipeline/Lane/ShellCheckTool.php); discovery in [src/Pipeline/Lane/ShellCheck/ShellFileFinder.php](src/Pipeline/Lane/ShellCheck/ShellFileFinder.php), the pin and paths in [src/Pipeline/Config/ShellCheckBinary.php](src/Pipeline/Config/ShellCheckBinary.php)
+- **Binary**: `vendor-bin/shellcheck`, the official static `linux.x86_64` build, pinned by `vendor-bin/shellcheck.version`. Not a PHAR (a compiled Haskell executable), but the same delivery contract: committed to git, run as-is, nothing fetched at run time. The lane crashes on a version mismatch rather than reporting a verdict from an unknown build
+- **Scope**: every git-tracked file with a shell extension (`.bash`, `.sh`) or a shell shebang, so extensionless wrappers are found without being listed. Override with `withShellCheckGlobs(...)` in `qaConfig/qa.php`; `withIgnoredPaths()` still subtracts. A glob list matching nothing fails the lane
+- **Exit codes**: `0` passes, `1` is findings, anything else is a crash — ShellCheck returns `2` when it cannot read a file
+- **Updating**: `bin/shellcheck-install update` (which `scripts/tool-install.bash update` calls, and so `composer update`) re-resolves it to the newest release — maintainer path, gated on phive being present, as the PHAR rebuild is gated on Box. Pure PHP: HTTP fetch plus `PharData`, nothing shelled out
+- **Alias**: `vendor/bin/qa -t sc`
+- **Details**: [docs/tools/shellCheck.md](docs/tools/shellCheck.md)
 
 ### Twig CS Fixer, Twig Lint and Yaml Lint
 

@@ -26,6 +26,7 @@ use LTS\PHPQA\Pipeline\Lane\PhpunitTool;
 use LTS\PHPQA\Pipeline\Lane\Psr4ValidateTool;
 use LTS\PHPQA\Pipeline\Lane\RectorTool;
 use LTS\PHPQA\Pipeline\Lane\SensitiveParameterUsageTool;
+use LTS\PHPQA\Pipeline\Lane\ShellCheckTool;
 use LTS\PHPQA\Pipeline\Lane\TwigCsFixerTool;
 use LTS\PHPQA\Pipeline\Lane\TwigLintTool;
 use LTS\PHPQA\Pipeline\Lane\VersionPinsTool;
@@ -62,6 +63,7 @@ final readonly class ShippedTools
             new TwigCsFixerTool(),
             new TwigLintTool(),
             new YamlLintTool(),
+            new ShellCheckTool(),
             new PhpstanTool(),
             new DeadCodeTool(),
             new PhpArkitectTool(),

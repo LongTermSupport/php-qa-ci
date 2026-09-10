@@ -90,6 +90,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheckTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpcpdTool::class)]

@@ -1,5 +1,7 @@
 #!/bin/bash
-cd /var/www/vhosts/green/checkout/vendor/lts/php-qa-ci/.claude/hooks
+# The hooks live beside this script, wherever the package is checked out; an
+# absolute path here only ever matched one machine.
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 echo "🧪 Running self-tests for all hooks..."
 echo "======================================"

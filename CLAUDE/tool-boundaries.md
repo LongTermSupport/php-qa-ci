@@ -70,6 +70,12 @@ Different questions, different failure guidance, different times you would run o
   registry, `ShippedTools`, the characterisation goldens, `PipelineTest`'s order golden,
   `docs/tools/<name>.md`, the identifier index, and the tool list in `CLAUDE.md` and
   `docs/pipeline.md`.
+- Add `#[UsesClass(<Name>Tool::class)]` to the five tests that walk the whole shipped set:
+  `PipelineBuilderTest`, `ShippedToolLocatorTest`, `InProcessLanesTest`,
+  `ActiveRulesListerTest` and `ActiveRulesListerSelfCheckTest`. They construct every lane,
+  so a new one makes each of them risky under `--fail-on-risky` — nineteen failures that
+  say nothing about the lane. Unit tests pass either way; only the full pipeline catches
+  it, which is one more reason it is the only proof.
 
 Extending the pipeline from a *consuming project*, rather than shipping a tool here, is a
 different question with its own document: [docs/extending-the-pipeline.md](../docs/extending-the-pipeline.md).

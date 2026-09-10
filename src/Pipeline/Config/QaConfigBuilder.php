@@ -35,6 +35,7 @@ final readonly class QaConfigBuilder
      * @param list<string>      $arkitectExcludePaths
      * @param list<string>      $twigDirectories
      * @param list<string>      $yamlDirectories
+     * @param list<string>      $shellCheckGlobs
      * @param list<string>|null $deadCodeEntryPoints  null until a project has listed them or opted out
      */
     public function __construct(
@@ -70,6 +71,7 @@ final readonly class QaConfigBuilder
         private bool $useSensitiveParameterCheck,
         private array $twigDirectories,
         private array $yamlDirectories,
+        private array $shellCheckGlobs,
         private bool $useDeadCode,
         private ?array $deadCodeEntryPoints,
     ) {
@@ -132,6 +134,7 @@ final readonly class QaConfigBuilder
             useSensitiveParameterCheck: $env->bool('useSensitiveParameterCheck', true),
             twigDirectories: [$paths->projectRoot . '/templates'],
             yamlDirectories: [$paths->projectRoot . '/config'],
+            shellCheckGlobs: [],
             useDeadCode: false,
             deadCodeEntryPoints: null,
         );
@@ -236,6 +239,19 @@ final readonly class QaConfigBuilder
     }
 
     /**
+     * Project-relative globs naming the shell files to check, replacing the
+     * lane's default discovery (every git-tracked file with a shell extension
+     * or a shell shebang). `*` crosses directory separators, so
+     * `scripts/*.bash` covers nested directories too. The ignored paths still
+     * subtract, and a list that matches nothing fails the lane rather than
+     * quietly checking nothing.
+     */
+    public function withShellCheckGlobs(string ...$globs): self
+    {
+        return $this->with(shellCheckGlobs: [...$this->shellCheckGlobs, ...array_values($globs)]);
+    }
+
+    /**
      * Dead-code detection (shipmonk/dead-code-detector through phpstan.phar).
      * Off by default. Enabling it also requires withDeadCodeEntryPoints() or
      * withoutDeadCodeEntryPoints(), because a script the detector never sees
@@ -304,6 +320,7 @@ final readonly class QaConfigBuilder
             useSensitiveParameterCheck: $this->useSensitiveParameterCheck,
             twigDirectories: $this->twigDirectories,
             yamlDirectories: $this->yamlDirectories,
+            shellCheckGlobs: $this->shellCheckGlobs,
             deadCode: new DeadCodeOptionsDto(enabled: $this->useDeadCode, entryPoints: $this->deadCodeEntryPoints ?? []),
         );
     }
@@ -325,6 +342,7 @@ final readonly class QaConfigBuilder
      * @param list<string>|null $arkitectExcludePaths
      * @param list<string>|null $twigDirectories
      * @param list<string>|null $yamlDirectories
+     * @param list<string>|null $shellCheckGlobs
      * @param list<string>|null $deadCodeEntryPoints
      */
     private function with(
@@ -346,6 +364,7 @@ final readonly class QaConfigBuilder
         ?bool $useSensitiveParameterCheck = null,
         ?array $twigDirectories = null,
         ?array $yamlDirectories = null,
+        ?array $shellCheckGlobs = null,
         ?bool $useDeadCode = null,
         ?array $deadCodeEntryPoints = null,
     ): self {
@@ -382,6 +401,7 @@ final readonly class QaConfigBuilder
             useSensitiveParameterCheck: $useSensitiveParameterCheck ?? $this->useSensitiveParameterCheck,
             twigDirectories: $twigDirectories                       ?? $this->twigDirectories,
             yamlDirectories: $yamlDirectories                       ?? $this->yamlDirectories,
+            shellCheckGlobs: $shellCheckGlobs                       ?? $this->shellCheckGlobs,
             useDeadCode: $useDeadCode                               ?? $this->useDeadCode,
             deadCodeEntryPoints: $deadCodeEntryPoints               ?? $this->deadCodeEntryPoints,
         );

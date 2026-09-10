@@ -227,3 +227,25 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
         echo -e "${GREEN}Self-built PHARs present — skipping rebuild (Box not available; not a maintainer build).${NC}"
     fi
 fi
+
+# ============================================================================
+# Phase 3: the vendored ShellCheck. Not a PHAR — a compiled Haskell executable,
+# so neither PHIVE nor Box can carry it — but the same delivery contract:
+# committed to git, run as-is by consumers, nothing fetched at run time.
+#
+# The work itself is PHP (bin/shellcheck-install): a release lookup, an archive
+# to unpack and a decision with several branches is real scripting, and in PHP
+# the branches are unit-tested rather than hoped about.
+# ============================================================================
+
+shellcheck_mode="install"
+if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
+    shellcheck_mode="update"
+    # PHIVE reads GITHUB_AUTH_TOKEN and so does the installer; borrow gh's token
+    # once, here, for both.
+    if [[ -z "${GITHUB_AUTH_TOKEN:-}" ]] && command -v gh >/dev/null && sc_gh_token="$(gh auth token 2>/dev/null)"; then
+        export GITHUB_AUTH_TOKEN="$sc_gh_token"
+    fi
+fi
+
+php "$PROJECT_ROOT/bin/shellcheck-install" "$shellcheck_mode"
