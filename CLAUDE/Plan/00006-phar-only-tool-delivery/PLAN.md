@@ -99,8 +99,9 @@ question is recorded under Non-Goals.
 - [x] ✅ **Task 3.2**: Docs sweep: `docs/phpqa-tools.md`, `docs/pipeline.md`, per-tool pages,
   CLAUDE.md's tool reference, `CLAUDE/prepush-verification.md` if the maintainer build path
   changes, and the GitHub Actions workflow that rebuilds PHARs (`update-deps.yml`).
-- [ ] ⬜ **Task 3.3**: Move both consumers to the result; accounts-api and accountsiq drop the
-  composer-normalize allow-plugins entry; full pipeline green in each.
+- [x] ✅ **Task 3.3**: Move both consumers to the result; accounts-api and accountsiq drop the
+  composer-normalize allow-plugins entry; full pipeline green in each (accounts-api 5427de7,
+  accountsiq fc98c43 on its chore branch).
 
 ## Success Criteria
 
@@ -111,7 +112,7 @@ question is recorded under Non-Goals.
 - [x] A consumer with no `allow-plugins` entry for composer-normalize passes composerChecks
   (`QaEntrypointTest`'s fixture consumer has none).
 - [x] Task 3.1's guard is red on the pre-plan lanes and green after.
-- [ ] Full unfiltered pipeline exit 0 here and in both consumers.
+- [x] Full unfiltered pipeline exit 0 here and in both consumers.
 
 ## Delivery & Milestones
 
@@ -120,3 +121,5 @@ question is recorded under Non-Goals.
      JOURNAL/00006-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
 - Plan filed after the Owner's ruling that tools ship as PHARs, built by us when upstream ships none.
+- Phase 1 delivered in 2e0d3c3; Phases 2 and 3 in d0a6573; consumers moved in accounts-api 5427de7 and accountsiq fc98c43.
+- All tasks done; closing (status Complete, move to Completed/) is the Owner's call.
