@@ -138,15 +138,19 @@ already are, so every environment runs one build.
 - [x] ✅ **Task 3.1**: The `shellcheck` job is gone from `.github/workflows/ci.yml`,
   leaving a comment where it was so the next reader knows the check moved rather than
   vanished.
-  - [ ] ⬜ **OWNER-HELD — the required-checks list must lose the ShellCheck context.**
-    A push to `php8.5` reports `2 of 2 required status checks are expected`, and `ci.yml`
-    had exactly two jobs, so one required context is almost certainly
-    `ShellCheck (severity=warning)` — which now never reports, and a required check that
-    never reports blocks every PR for anyone without bypass. This cannot be confirmed or
-    fixed from here: `repos/LongTermSupport/php-qa-ci/rules/branches/php8.5` returns only
-    `deletion`, `non_fast_forward` and `pull_request`, so the status-check rule lives in an
-    org-level ruleset, and reading `orgs/LongTermSupport/rulesets` needs the `admin:org`
-    scope this token does not have.
+  - [x] ✅ **The `ShellCheck (severity=warning)` context reports again — fixed, not removed.**
+    A push to `php8.5` reports `2 of 2 required status checks are expected`, and `ci.yml` had
+    exactly two jobs, so one required context is `ShellCheck (severity=warning)` — which after
+    the job deletion never reported, blocking every PR for anyone without bypass.
+    **Owner ruling: fix it, do not remove it.** Dropping the context from the ruleset would
+    trade a check that cannot report for no check at all, on the branch whose whole premise is
+    that a green pipeline means a green branch. So `ci.yml` carries a `shellcheck` job again —
+    but it runs `bin/qa -t shellCheck`, the shipped lane over the pinned
+    `vendor-bin/shellcheck`, not a separately-installed ShellCheck. One mechanism, invoked
+    twice; the three-way version drift this plan removed cannot come back.
+    The ruleset itself still cannot be read from here (`repos/.../rules/branches/php8.5`
+    returns only `deletion`, `non_fast_forward` and `pull_request`, so the rule is org-level
+    and `orgs/LongTermSupport/rulesets` needs `admin:org`) — but it no longer needs to be.
 - [x] ✅ **Task 3.2**: Equivalence proved on the same tree before deleting: CI's exact
   old invocation exits 0, and the lane exits 0 over 72 files (against CI's 29). The
   known-positive holds — the pre-fix `scripts/build-phar.bash` from `67bd110^` fails on
@@ -240,8 +244,8 @@ rather than left in this plan. **Date**: 2026-09-10
   matches the pin.
 - [x] `composer update` in php-qa-ci re-resolves ShellCheck to the newest release.
 - [x] The lane reports the same findings as the old CI invocation on the same tree.
-- [x] `ci.yml` no longer has a `shellcheck` job. The branch rule does **not** yet match —
-  owner-held, see Task 3.1.
+- [x] `ci.yml` no longer installs a second ShellCheck. Its `shellcheck` job runs the shipped
+  lane, so the required context reports again from one mechanism — see Task 3.1.
 - [x] Full unfiltered pipeline exit 0 (Covered Code MSI 82%).
 
 ## Risks & Mitigations
@@ -249,7 +253,7 @@ rather than left in this plan. **Date**: 2026-09-10
 | Risk                                                               | Impact | Probability | Mitigation                                                                                                         |
 | ------------------------------------------------------------------ | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------ |
 | Discovery finds files CI never checked, so the lane lands red      | Med    | High        | Expected, not a defect. Sweep and fix before switching the lane on; that sweep is Task 3.2                         |
-| Deleting the CI job while the branch rule still requires its check | High   | High        | Real and live. Owner drops the ShellCheck context from the required-checks list; see Task 3.1's owner-held box     |
+| Deleting the CI job while the branch rule still requires its check | High   | High        | Happened. Resolved by restoring the job around the shipped lane, not by weakening the rule; see Task 3.1           |
 | The vendored binary is wrong for a consumer's architecture         | Med    | Low         | Pin `linux.x86_64` and fail loudly naming the architecture, rather than silently skipping                          |
 | A pinned binary goes stale                                         | Low    | Med         | Task 1.2 puts the refresh on the existing `post-update-cmd` path that `update-deps.yml` already runs on a schedule |
 
@@ -258,5 +262,5 @@ rather than left in this plan. **Date**: 2026-09-10
 - `b191a1b` — Phases 1, 2 and 3: the vendored pinned binary, the `shellCheck` lane with
   git-tracked discovery and the glob override, the PHP updater, and the deletion of the
   duplicate CI job. Full unfiltered pipeline exit 0.
-- Remaining before this plan closes: the owner-held required-checks change on `php8.5`
-  (Task 3.1). Nothing else is outstanding.
+- The `shellcheck` CI job returns, running `bin/qa -t shellCheck` so the required context
+  reports from the shipped lane rather than a second pinned ShellCheck (Task 3.1).

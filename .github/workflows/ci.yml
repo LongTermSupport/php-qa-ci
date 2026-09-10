@@ -7,10 +7,33 @@ on:
     branches: [php8.5]
 
 jobs:
-  # ShellCheck has no job of its own: the `shellCheck` lane runs it inside
-  # bin/qa, from the pinned binary at vendor-bin/shellcheck, over every
-  # git-tracked shell file rather than a hand-maintained list. A second
-  # mechanism here could only drift from that one.
+  # This job exists to publish the `ShellCheck (severity=warning)` status
+  # context that the branch rule requires. It runs the SHIPPED LANE — the same
+  # pinned binary at vendor-bin/shellcheck, the same git-tracked discovery — so
+  # there is still exactly one ShellCheck mechanism, invoked twice. Never
+  # reintroduce a separately-installed shellcheck here: a second pin is what
+  # Plan 00008 removed, and it drifted from the lane by three versions.
+  shellcheck:
+    name: ShellCheck (severity=warning)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          extensions: json, tokenizer, mbstring
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run the shellCheck lane
+        run: bin/qa -t shellCheck
+
   qa:
     name: QA Pipeline
     runs-on: ubuntu-latest
