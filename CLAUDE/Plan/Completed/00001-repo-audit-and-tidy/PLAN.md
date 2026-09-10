@@ -1,6 +1,6 @@
 # Plan 00001 — Repo Audit & Tidy (php-qa-ci)
 
-**Status**: In Progress — Phase 4 (Implementation)
+**Status**: Complete (Phases 1-6 delivered through 2173b0a, 2ba9a81, 49b93f9; the remaining Bash-era findings were superseded when Plan 00003 replaced the Bash pipeline with PHP)
 **Mode**: IMPLEMENTATION — user authorised 2026-07-15 ("do the job, do it
 properly, no fucking about"). No warn→enforce staging: restored gates enforce
 immediately; consumer CI failing on real violations is the product working.
@@ -258,3 +258,4 @@ GATED ON USER (unchanged): pushing the local commits on php8.4 to origin.
   consumer project has had a false-green psr4 gate for ~19 months.** Also
   FS-001 (dead functions + docs of dead config var), FS-002 (dead exit-code
   capture in bin/qa single-tool path), FS-009 (triple tool-registry SSoT).
+- Closed 2026-09-10: F-IFS-1 targeted includes/options.inc.bash and infection.inc.bash, both gone with the Bash pipeline (Plan 00003); M-071/M-072 landed in Phase 6; M-077's gap is covered by tests/Small/PHPStan/Rules and tests/Small/ComposerPlugin; the php8.4 push gate is long past (php8.5 is the default branch).
