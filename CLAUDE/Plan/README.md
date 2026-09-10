@@ -12,6 +12,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00007: OPcache optimizer const-comparison crash](00007-opcache-optimizer-const-comparison-crash/PLAN.md) - In Progress — PHP 8.5.10's DFA pass leaves a const-const comparison unfolded and the VM segfaults; detector lane, preflight warning, recommended ini
 
+- [00008: shellcheck lane vendored binary](00008-shellcheck-lane-vendored-binary/PLAN.md) - Not Started — ShellCheck runs only in CI, so a green bin/qa can still be a red branch; vendor one pinned static binary, add the lane with git-tracked shebang discovery and a per-project glob override, delete the duplicate CI job
+
 ## Completed Plans
 
 - [00005: pipeline extensibility and tool coupling](Completed/00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - Complete — PipelineBuilder (consumer tools and phases from qaConfig/pipeline.php), twig/yaml lanes, the qa skill as a shim, the ambiguousArrayDoc rule, and shipmonk/dead-code-detector shipped as the opt-in deadCode lane from its own PHAR
