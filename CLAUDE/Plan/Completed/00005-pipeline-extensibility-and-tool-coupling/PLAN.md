@@ -1,6 +1,6 @@
 # Plan 00005: pipeline extensibility and tool coupling
 
-**Status**: In Progress
+**Status**: Complete (PipelineBuilder and lanes through f9ced1a; deadCode lane delivered with the 2026-09-10 commit on php8.5)
 **Created**: 2026-09-09
 **Owner**: joseph
 **Priority**: High
@@ -121,9 +121,13 @@ platform lane left), reduced the `qa` skill to a shim over `CLAUDE/qa-orchestrat
   library a false positive means deleting published API.
   ```
 
-- [ ] ⬜ **Task 3.2**: Decide on bundling as an opt-in `withDeadCodeDetection(bool)` on the
-  evidence from 3.1. Record the decision either way. **Owner's call**: the evidence and a
-  recommendation are in the journal (18:58 entry); the lane stays `-t dcd` only until then.
+- [x] ✅ **Task 3.2**: Owner's rulings (2026-09-10): bundle as opt-in `withDeadCodeDetection(bool)`,
+  tests excluder on by default, entry-point scripts recorded (`withDeadCodeEntryPoints`) or
+  explicitly opted out (`withoutDeadCodeEntryPoints`), fail fast on a library with no `@api`.
+  Shipped as the `deadCode` lane: the detector is boxed into `vendor-phar/dead-code-detector.phar`
+  (it self-registers with the extension installer, so a Composer require would switch it on for
+  every consumer) and loaded into phpstan.phar by `--autoload-file` plus a neon include. This
+  repository opts in; the ten real findings from the dogfood run are fixed.
 
 ### Phase 4: coupling and SSoT debts carried from 00004
 
@@ -141,10 +145,13 @@ platform lane left), reduced the `qa` skill to a shim over `CLAUDE/qa-orchestrat
 
 ## Success Criteria
 
-- [ ] A consuming project adds a tool and a tool group from `qaConfig/qa.php`, with no fork.
-- [ ] The default pipeline behaves identically to the one 00004 shipped.
-- [ ] `dead-code-detector` has a recorded decision backed by a dogfooding run, not an opinion.
-- [ ] Full writable battery green on `php8.5`, MSI at or above 82%, CI green.
+- [x] A consuming project adds a tool and a tool group from `qaConfig/pipeline.php`, with no fork
+  (`QaEntrypointTest` does exactly that against an installed copy).
+- [x] The default pipeline behaves identically to the one 00004 shipped; the one addition,
+  `deadCode`, is skipped with a note until a project opts in.
+- [x] `dead-code-detector` has a recorded decision backed by a dogfooding run, not an opinion.
+- [x] Full writable battery green on `php8.5`, MSI at or above 82%, CI green (CI at d0a6573 and
+  after; local battery in the 2026-09-10 journal).
 
 ## Delivery & Milestones
 

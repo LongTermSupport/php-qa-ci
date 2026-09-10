@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Config;
 
+use LogicException;
+use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
@@ -28,11 +30,12 @@ use LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto;
 final readonly class QaConfigBuilder
 {
     /**
-     * @param list<string> $pathsToCheck
-     * @param list<string> $pathsToIgnore
-     * @param list<string> $arkitectExcludePaths
-     * @param list<string> $twigDirectories
-     * @param list<string> $yamlDirectories
+     * @param list<string>      $pathsToCheck
+     * @param list<string>      $pathsToIgnore
+     * @param list<string>      $arkitectExcludePaths
+     * @param list<string>      $twigDirectories
+     * @param list<string>      $yamlDirectories
+     * @param list<string>|null $deadCodeEntryPoints  null until a project has listed them or opted out
      */
     public function __construct(
         private ProjectPathsDto $paths,
@@ -67,6 +70,8 @@ final readonly class QaConfigBuilder
         private bool $useSensitiveParameterCheck,
         private array $twigDirectories,
         private array $yamlDirectories,
+        private bool $useDeadCode,
+        private ?array $deadCodeEntryPoints,
     ) {
     }
 
@@ -127,6 +132,8 @@ final readonly class QaConfigBuilder
             useSensitiveParameterCheck: $env->bool('useSensitiveParameterCheck', true),
             twigDirectories: [$paths->projectRoot . '/templates'],
             yamlDirectories: [$paths->projectRoot . '/config'],
+            useDeadCode: false,
+            deadCodeEntryPoints: null,
         );
     }
 
@@ -228,8 +235,35 @@ final readonly class QaConfigBuilder
         return $this->with(yamlDirectories: $this->absolute(...$directories));
     }
 
+    /**
+     * Dead-code detection (shipmonk/dead-code-detector through phpstan.phar).
+     * Off by default. Enabling it also requires withDeadCodeEntryPoints() or
+     * withoutDeadCodeEntryPoints(), because a script the detector never sees
+     * has every function it calls reported dead.
+     */
+    public function withDeadCodeDetection(bool $enabled): self
+    {
+        return $this->with(useDeadCode: $enabled);
+    }
+
+    /** Absolute or project-relative PHP scripts (bin/console, bin/*) the detector analyses as entry points. */
+    public function withDeadCodeEntryPoints(string ...$files): self
+    {
+        return $this->with(deadCodeEntryPoints: [...($this->deadCodeEntryPoints ?? []), ...$this->absolute(...$files)]);
+    }
+
+    /** The explicit statement that this project has no PHP entry-point scripts outside src/ and tests/. */
+    public function withoutDeadCodeEntryPoints(): self
+    {
+        return $this->with(deadCodeEntryPoints: []);
+    }
+
     public function build(): QaConfigDto
     {
+        if ($this->useDeadCode && null === $this->deadCodeEntryPoints) {
+            throw new LogicException('withDeadCodeDetection(true) needs withDeadCodeEntryPoints(...) listing the PHP scripts under bin/ (or wherever they live), or withoutDeadCodeEntryPoints() to state there are none: an entry point the detector never sees has everything it calls reported dead.');
+        }
+
         $coverage  = $this->phpUnitCoverage && $this->xdebugEnabled;
         $infection = $this->useInfection    && $coverage;
 
@@ -270,6 +304,7 @@ final readonly class QaConfigBuilder
             useSensitiveParameterCheck: $this->useSensitiveParameterCheck,
             twigDirectories: $this->twigDirectories,
             yamlDirectories: $this->yamlDirectories,
+            deadCode: new DeadCodeOptionsDto(enabled: $this->useDeadCode, entryPoints: $this->deadCodeEntryPoints ?? []),
         );
     }
 
@@ -290,6 +325,7 @@ final readonly class QaConfigBuilder
      * @param list<string>|null $arkitectExcludePaths
      * @param list<string>|null $twigDirectories
      * @param list<string>|null $yamlDirectories
+     * @param list<string>|null $deadCodeEntryPoints
      */
     private function with(
         ?array $pathsToCheck = null,
@@ -310,6 +346,8 @@ final readonly class QaConfigBuilder
         ?bool $useSensitiveParameterCheck = null,
         ?array $twigDirectories = null,
         ?array $yamlDirectories = null,
+        ?bool $useDeadCode = null,
+        ?array $deadCodeEntryPoints = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -344,6 +382,8 @@ final readonly class QaConfigBuilder
             useSensitiveParameterCheck: $useSensitiveParameterCheck ?? $this->useSensitiveParameterCheck,
             twigDirectories: $twigDirectories                       ?? $this->twigDirectories,
             yamlDirectories: $yamlDirectories                       ?? $this->yamlDirectories,
+            useDeadCode: $useDeadCode                               ?? $this->useDeadCode,
+            deadCodeEntryPoints: $deadCodeEntryPoints               ?? $this->deadCodeEntryPoints,
         );
     }
 }

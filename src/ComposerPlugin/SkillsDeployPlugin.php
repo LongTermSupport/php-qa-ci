@@ -20,6 +20,9 @@ use Composer\Util\ProcessExecutor;
  *
  * Skills are model-invoked entry points that delegate to specialized agents.
  * Agents are task executors launched via Task tool with appropriate model sizes.
+ *
+ * @api Composer is the caller: it constructs the plugin and invokes the
+ *      PluginInterface methods and the subscribed event handlers.
  */
 final readonly class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterface
 {

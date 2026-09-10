@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Config;
 
+use LogicException;
+use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
@@ -24,6 +26,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(QaConfigDto::class)]
 #[CoversClass(PhpUnitOptionsDto::class)]
 #[CoversClass(InfectionOptionsDto::class)]
+#[CoversClass(DeadCodeOptionsDto::class)]
 #[CoversClass(ProjectPathsDto::class)]
 #[CoversClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(EnvironmentReader::class)]
@@ -166,6 +169,49 @@ final class QaConfigBuilderTest extends TestCase
         self::assertFalse($config->useSensitiveParameterCheck);
         self::assertSame([self::TEMPLATES_DIR, '/abs/views'], $config->twigDirectories);
         self::assertSame(['/p/config'], $config->yamlDirectories);
+    }
+
+    #[Test]
+    public function deadCodeDetectionIsOffByDefaultWithNoEntryPoints(): void
+    {
+        $deadCode = $this->defaults()->build()->deadCode;
+
+        self::assertFalse($deadCode->enabled);
+        self::assertSame([], $deadCode->entryPoints);
+    }
+
+    #[Test]
+    public function enablingDeadCodeDetectionWithoutAnEntryPointDecisionRefusesToBuild(): void
+    {
+        try {
+            $this->defaults()->withDeadCodeDetection(true)->build();
+            self::fail('expected LogicException');
+        } catch (LogicException $logicException) {
+            self::assertStringContainsString('withDeadCodeEntryPoints(...)', $logicException->getMessage());
+        }
+    }
+
+    #[Test]
+    public function deadCodeEntryPointsAreResolvedUnderTheProjectRootAndAccumulate(): void
+    {
+        $config = $this->defaults()
+            ->withDeadCodeDetection(true)
+            ->withDeadCodeEntryPoints('bin/console')
+            ->withDeadCodeEntryPoints('/abs/tool')
+            ->build()
+        ;
+
+        self::assertTrue($config->deadCode->enabled);
+        self::assertSame(['/p/bin/console', '/abs/tool'], $config->deadCode->entryPoints);
+    }
+
+    #[Test]
+    public function optingOutOfEntryPointsIsAnExplicitEmptyList(): void
+    {
+        $config = $this->defaults()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        self::assertTrue($config->deadCode->enabled);
+        self::assertSame([], $config->deadCode->entryPoints);
     }
 
     #[Test]

@@ -73,16 +73,6 @@ final readonly class EnvironmentReader
         return (int)$value;
     }
 
-    public function intOrNull(string $name): ?int
-    {
-        $value = $this->string($name);
-        if (null === $value || 1 !== \Safe\preg_match('/^\d+$/', $value)) {
-            return null;
-        }
-
-        return (int)$value;
-    }
-
     /**
      * Non-interactive mode: an explicit CI=true, a Claude Code session, or no
      * TTY on stdin/stdout.

@@ -10,10 +10,10 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00005: pipeline extensibility and tool coupling](00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - In Progress — a PipelineBuilder so consumers can add tools and groups; dead-code-detector evaluated by dogfooding through it; twig/variadic work in flight on a feature branch
 
 ## Completed Plans
 
+- [00005: pipeline extensibility and tool coupling](Completed/00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - Complete — PipelineBuilder (consumer tools and phases from qaConfig/pipeline.php), twig/yaml lanes, the qa skill as a shim, the ambiguousArrayDoc rule, and shipmonk/dead-code-detector shipped as the opt-in deadCode lane from its own PHAR
 - [00001: Repo Audit & Tidy](Completed/00001-repo-audit-and-tidy/PLAN.md) - Complete — six audit and remediation waves on the Bash pipeline (psr4 gate restored, dead code and docs rot removed, consumer scripts and registry SSoT); remaining Bash-era findings superseded by Plan 00003
 
 - [00006: PHAR-only tool delivery](Completed/00006-phar-only-tool-delivery/PLAN.md) - Complete — composer-normalize and parallel-lint via PHIVE, phpcpd and composer-dependency-analyser Box-built from build/<tool>/ manifests, a PHAR update path that really updates, the binDirTool rule (delivered d0a6573)

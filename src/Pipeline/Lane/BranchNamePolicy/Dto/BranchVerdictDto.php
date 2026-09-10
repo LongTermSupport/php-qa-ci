@@ -16,25 +16,24 @@ namespace LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\Dto;
 final readonly class BranchVerdictDto
 {
     private function __construct(
-        public string $branch,
         public bool $passes,
         public ?string $reason,
         public bool $isPlanBranch,
     ) {
     }
 
-    public static function exempt(string $branch): self
+    public static function exempt(): self
     {
-        return new self($branch, true, 'exempt', false);
+        return new self(true, 'exempt', false);
     }
 
-    public static function allowed(string $branch, string $prefix): self
+    public static function allowed(string $prefix): self
     {
-        return new self($branch, true, $prefix, false);
+        return new self(true, $prefix, false);
     }
 
-    public static function disallowed(string $branch, bool $isPlanBranch): self
+    public static function disallowed(bool $isPlanBranch): self
     {
-        return new self($branch, false, null, $isPlanBranch);
+        return new self(false, null, $isPlanBranch);
     }
 }

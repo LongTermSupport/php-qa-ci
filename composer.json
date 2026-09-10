@@ -25,8 +25,7 @@
     "tomasvotruba/type-coverage": "^2.3"
   },
   "require-dev": {
-    "roave/security-advisories": "dev-master",
-    "shipmonk/dead-code-detector": "^1.4"
+    "roave/security-advisories": "dev-master"
   },
   "replace": {
     "phpstan/phpstan": "*"
@@ -111,6 +110,7 @@
     "bin/rule-doc",
     "bin/rules",
     "bin/sensitive-parameter-usage",
+    "bin/single-rule-report",
     "bin/version-pins-check"
   ],
   "config": {
@@ -154,11 +154,6 @@
     "phpstan": {
       "includes": [
         "rules-default.neon"
-      ]
-    },
-    "phpstan/extension-installer": {
-      "ignore": [
-        "shipmonk/dead-code-detector"
       ]
     }
   },

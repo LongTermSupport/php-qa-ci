@@ -124,7 +124,7 @@ final readonly class ArgumentsParser
             }
         }
 
-        return new RunRequestDto($resolved, $path, $json, $selectedToken);
+        return new RunRequestDto($resolved, $path, $selectedToken);
     }
 
     public function usage(): string

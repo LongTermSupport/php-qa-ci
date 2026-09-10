@@ -21,6 +21,7 @@
 !/bin/rule-doc
 !/bin/rules
 !/bin/sensitive-parameter-usage
+!/bin/single-rule-report
 !/bin/version-pins-check
 /cache/
 /.phive-home/

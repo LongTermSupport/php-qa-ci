@@ -30,4 +30,9 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     // A project that genuinely handles no secrets may opt out of the
     // #[\SensitiveParameter] usage check.
     // ->withSensitiveParameterCheck(false)
+    // Dead-code detection (shipmonk/dead-code-detector through phpstan.phar).
+    // Enabling it requires naming the PHP entry-point scripts the detector
+    // must analyse, or stating there are none with withoutDeadCodeEntryPoints().
+    // ->withDeadCodeDetection(true)
+    // ->withDeadCodeEntryPoints('bin/console')
 ;

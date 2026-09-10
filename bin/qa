@@ -19,7 +19,7 @@ $projectRoot = \dirname($phpQaCiBootstrapAutoloadPath, 2);
 $libraryRoot = \dirname(__DIR__);
 
 $app = new QaApplication(
-    argv: array_slice($argv, 1),
+    argv: array_slice($argv ?? [], 1),
     env: EnvironmentReader::fromProcess(),
     projectRoot: $projectRoot,
     libraryRoot: $libraryRoot,

@@ -9,6 +9,7 @@ use LTS\PHPQA\Pipeline\Lane\ComposerChecksTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool;
 use LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool;
+use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
 use LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool;
@@ -60,6 +61,7 @@ final readonly class ShippedTools
             new TwigLintTool(),
             new YamlLintTool(),
             new PhpstanTool(),
+            new DeadCodeTool(),
             new PhpArkitectTool(),
             new RectorTool(),
             new PhpCsFixerTool(),

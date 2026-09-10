@@ -35,6 +35,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitectTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]

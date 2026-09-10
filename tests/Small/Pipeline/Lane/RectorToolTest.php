@@ -26,6 +26,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RectorTool::class)]
 #[UsesClass(ReadOnlyGuidance::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
 #[UsesClass(ProjectPathsDto::class)]

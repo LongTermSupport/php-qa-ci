@@ -30,6 +30,9 @@ use SplFileObject;
  * 1. Warns if a project has phpstan/phpstan in its own require or require-dev
  * 2. Validates the phar version satisfies the extension-installer's version constraint
  * 3. Provides clear instructions when issues are found
+ *
+ * @api Composer is the caller: it constructs the plugin and invokes the
+ *      PluginInterface methods and the subscribed event handlers.
  */
 final readonly class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterface
 {

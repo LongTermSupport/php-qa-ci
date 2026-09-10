@@ -51,7 +51,6 @@ final class ArgumentsParserTest extends TestCase
 
         self::assertNull($request->tool);
         self::assertNull($request->path);
-        self::assertFalse($request->json);
     }
 
     #[Test]
@@ -83,8 +82,8 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function jsonIsAcceptedAnywhereForPhpstan(): void
     {
-        self::assertTrue($this->parser->parse(self::JSON_OPTION, '-t', self::STAN)->json);
-        self::assertTrue($this->parser->parse('-t', self::PHPSTAN, self::JSON_OPTION)->json);
+        self::assertSame(self::PHPSTAN, $this->parser->parse(self::JSON_OPTION, '-t', self::STAN)->tool);
+        self::assertSame(self::PHPSTAN, $this->parser->parse('-t', self::PHPSTAN, self::JSON_OPTION)->tool);
     }
 
     #[Test]

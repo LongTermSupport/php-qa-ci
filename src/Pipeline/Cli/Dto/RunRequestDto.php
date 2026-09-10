@@ -19,7 +19,6 @@ final readonly class RunRequestDto
     public function __construct(
         public ?string $tool,
         public ?string $path,
-        public bool $json,
         public ?string $selectedToken = null,
     ) {
     }

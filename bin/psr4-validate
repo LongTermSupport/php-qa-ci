@@ -5,7 +5,7 @@ use LTS\PHPQA\Helper;
 
 require __DIR__.'/bootstrap.php';
 
-$ignoredRegexPatterns = array_slice($argv, 1);
+$ignoredRegexPatterns = array_slice($argv ?? [], 1);
 
 try {
     $errors = (new \LTS\PHPQA\Psr4Validator(

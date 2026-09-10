@@ -63,8 +63,6 @@ final class EnvironmentReaderTest extends TestCase
         self::assertSame(8, new EnvironmentReader(['N' => '8'])->int('N', 4));
         self::assertSame(4, new EnvironmentReader(['N' => '8G'])->int('N', 4));
         self::assertSame(4, new EnvironmentReader([])->int('N', 4));
-        self::assertNull(new EnvironmentReader(['N' => '-1'])->intOrNull('N'));
-        self::assertSame(12, new EnvironmentReader(['N' => '12'])->intOrNull('N'));
     }
 
     #[Test]

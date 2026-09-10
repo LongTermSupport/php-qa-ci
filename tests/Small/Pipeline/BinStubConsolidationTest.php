@@ -114,6 +114,6 @@ final class BinStubConsolidationTest extends TestCase
     {
         $contents = \Safe\file_get_contents(self::BIN_DIR . '/bootstrap.php');
         self::assertStringContainsString('curl -s http://getcomposer.org/installer | php', $contents);
-        self::assertStringContainsString('$phpQaCiBootstrapFailureMessage ??', $contents);
+        self::assertStringContainsString('isset($phpQaCiBootstrapFailureMessage)', $contents);
     }
 }

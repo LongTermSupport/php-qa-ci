@@ -31,12 +31,12 @@ final readonly class ToolExecutor
         while (true) {
             $result = $tool->run($context);
             if ($result->isSuccess()) {
-                return new ExecutionDto($name, $result, $retried);
+                return new ExecutionDto($result, $retried);
             }
 
             $this->failureBanner($name, $result->summary);
             if (ToolOutcomeEnum::Failed !== $result->outcome || !$this->prompt->shouldRetry($name)) {
-                return new ExecutionDto($name, $result, $retried);
+                return new ExecutionDto($result, $retried);
             }
 
             $retried = true;

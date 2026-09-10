@@ -27,17 +27,16 @@ Using this, you can allow your tests to take a different path, skip tests etc if
 
 declare(strict_types=1);
 
-use LTS\PHPQA\Constants;
 use PHPUnit\Framework\TestCase;
 
 final class MyTest extends TestCase
 {
+    /** The pipeline exports phpUnitQuickTests=1 into the test process on a quick run. */
+    private const string QUICK_TESTS = 'phpUnitQuickTests';
+
     protected function setUp(): void
     {
-        if (
-            isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
-            && (int) $_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
-        ) {
+        if (isset($_SERVER[self::QUICK_TESTS]) && 1 === (int) $_SERVER[self::QUICK_TESTS]) {
             return;
         }
         // unnecessary setup stuff if not doing long running tests
@@ -45,10 +44,7 @@ final class MyTest extends TestCase
 
     public function testLongRunningThing(): void
     {
-        if (
-            isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
-            && (int) $_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
-        ) {
+        if (isset($_SERVER[self::QUICK_TESTS]) && 1 === (int) $_SERVER[self::QUICK_TESTS]) {
             self::markTestSkipped('Quick tests is enabled');
         }
         // long running stuff

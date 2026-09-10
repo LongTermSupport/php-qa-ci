@@ -42,5 +42,4 @@ fi
 
 # PHP reads the run from stdin; the identifier and bootstrap path travel as
 # arguments so that neither is interpolated into code.
-phpMain="require \$argv[1]; exit(\\LTS\\PHPQA\\PHPStan\\SingleRuleReport::main(\$argv[2], (string) stream_get_contents(STDIN)));"
-exec php -r "$phpMain" -- "$binDir/bootstrap.php" "$identifier" <<< "$json"
+exec php "$binDir/single-rule-report" "$identifier" <<< "$json"

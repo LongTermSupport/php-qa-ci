@@ -6,13 +6,18 @@
  * documentation. Offline, from the installed package.
  *
  *   bin/rule-doc phpqaci.nullCoalescingFalse
+ *   bin/rule-doc --list          # every identifier the package documents
  */
 
 require __DIR__.'/bootstrap.php';
 
 $identifier = $argv[1] ?? null;
+if ('--list' === $identifier) {
+    echo implode("\n", (new \LTS\PHPQA\PHPStan\RuleDocResolver(\dirname(__DIR__)))->identifiers())."\n";
+    exit(0);
+}
 if (null === $identifier || '' === $identifier || str_starts_with($identifier, '-')) {
-    fwrite(STDERR, "Usage: bin/rule-doc <identifier>\n\n  e.g. bin/rule-doc phpqaci.nullCoalescingFalse\n");
+    fwrite(STDERR, "Usage: bin/rule-doc <identifier> | --list\n\n  e.g. bin/rule-doc phpqaci.nullCoalescingFalse\n");
     exit(2);
 }
 

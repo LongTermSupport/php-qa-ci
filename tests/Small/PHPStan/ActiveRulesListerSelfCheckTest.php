@@ -38,6 +38,7 @@ use PHPUnit\Framework\TestCase;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitectTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]

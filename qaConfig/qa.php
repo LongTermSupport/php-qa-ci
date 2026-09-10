@@ -19,4 +19,25 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     // so there is legitimately no #[\SensitiveParameter] in its src/. This is
     // exactly the escape hatch documented for downstream consumers.
     ->withSensitiveParameterCheck(false)
+    // Dead-code detection, dogfooded here first. Every PHP script under bin/
+    // is an entry point the detector would otherwise never see; bin/phpunit,
+    // bin/neon-lint and bin/php-parse are Composer proxies for packages and
+    // are not ours to analyse.
+    ->withDeadCodeDetection(true)
+    ->withDeadCodeEntryPoints(
+        'bin/bootstrap.php',
+        'bin/config-template-ignorelist-check',
+        'bin/infection-config-source-dirs-check',
+        'bin/managed-source',
+        'bin/mdlinks',
+        'bin/package-type-check',
+        'bin/phpstan-ignore-justification',
+        'bin/psr4-validate',
+        'bin/qa',
+        'bin/rule-doc',
+        'bin/rules',
+        'bin/sensitive-parameter-usage',
+        'bin/single-rule-report',
+        'bin/version-pins-check',
+    )
 ;

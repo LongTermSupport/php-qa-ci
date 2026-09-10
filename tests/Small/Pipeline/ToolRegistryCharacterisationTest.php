@@ -55,6 +55,9 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'phplint'                    => 'phpLint',
         'stan'                       => 'phpstan',
         'phpstan'                    => 'phpstan',
+        'dcd'                        => 'deadCode',
+        'deadcode'                   => 'deadCode',
+        'deadCode'                   => 'deadCode',
         'arch'                       => 'phpArkitect',
         'arkitect'                   => 'phpArkitect',
         'phparkitect'                => 'phpArkitect',
@@ -156,6 +159,9 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'vp'                         => false,
         'pt'                         => false,
         'packagetype'                => false,
+        'deadCode'                   => false,
+        'dcd'                        => false,
+        'deadcode'                   => false,
         'phpArkitect'                => false,
         'arch'                       => false,
         'arkitect'                   => false,
@@ -191,7 +197,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
             'markdownLinks',
             'yamlLint',
         ],
-        'allStaticAnalysisTools'  => ['branchNamePolicy', 'phpstanIgnoreJustification', 'phpstan', 'phpArkitect', 'sensitiveParameterUsage'],
+        'allStaticAnalysisTools'  => ['branchNamePolicy', 'phpstanIgnoreJustification', 'phpstan', 'deadCode', 'phpArkitect', 'sensitiveParameterUsage'],
         'allTestingTools'         => ['phpunit', 'infection'],
     ];
 

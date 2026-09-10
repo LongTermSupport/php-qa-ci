@@ -29,6 +29,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[CoversClass(NonInteractiveRetryPrompt::class)]
 #[CoversClass(ConsoleRetryPrompt::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
@@ -68,7 +69,6 @@ final class ToolExecutorTest extends TestCase
 
         $execution = $executor->execute(self::TOOL_LINT, $this->factory->context());
 
-        self::assertSame(self::TOOL_LINT, $execution->tool);
         self::assertTrue($execution->result->isSuccess());
         self::assertFalse($execution->retried);
         self::assertSame(1, $locator->stub(self::TOOL_LINT)->runs);

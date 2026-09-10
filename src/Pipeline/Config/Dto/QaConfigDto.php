@@ -62,6 +62,7 @@ final readonly class QaConfigDto
         public bool $useSensitiveParameterCheck,
         public array $twigDirectories,
         public array $yamlDirectories,
+        public DeadCodeOptionsDto $deadCode,
     ) {
     }
 }

@@ -692,6 +692,15 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
   - Understands PHPDoc annotations
 - **Details**: [docs/tools/phpstan.md](docs/tools/phpstan.md)
 
+### Dead Code Detection
+
+- **Purpose**: Report class members nothing reaches, tests excluded, so unused code cannot accumulate silently
+- **Lane**: [src/Pipeline/Lane/DeadCodeTool.php](src/Pipeline/Lane/DeadCodeTool.php)
+- **PHAR**: `vendor-phar/dead-code-detector.phar` (self-built from `build/dead-code-detector/`; holds the detector only, `phpstan/phpstan` is `replace`d out) loaded into `vendor-phar/phpstan.phar` via `--autoload-file` and a neon include
+- **Opt-in**: `withDeadCodeDetection(true)` in `qaConfig/qa.php`; `build()` then requires `withDeadCodeEntryPoints('bin/...')` or `withoutDeadCodeEntryPoints()`, because an unlisted entry-point script has everything it calls reported dead
+- **How it works**: writes `var/qa/deadCode/dead-code.neon` including the resolved `phpstan.neon` and the detector's `rules.neon`, analyses `src/`, `tests/` and the entry points with the tests usage excluder on; a library with no `@api` tag in `src/` fails fast, since `@api` classes are the detector's entry points
+- **Details**: [docs/tools/deadCode.md](docs/tools/deadCode.md)
+
 ### PHPArkitect
 
 - **Purpose**: Enforce architectural/structural rules — class-naming conventions, namespace layering, dependency direction — that PHPStan expresses awkwardly

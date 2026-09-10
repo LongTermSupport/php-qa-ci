@@ -15,7 +15,6 @@ use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 final readonly class ExecutionDto
 {
     public function __construct(
-        public string $tool,
         public ToolResultDto $result,
         public bool $retried,
     ) {

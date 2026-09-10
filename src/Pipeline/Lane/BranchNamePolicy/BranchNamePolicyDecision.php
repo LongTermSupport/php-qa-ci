@@ -21,15 +21,15 @@ final readonly class BranchNamePolicyDecision
     public function decide(string $branch, array $exemptBranches, string ...$allowedPrefixes): BranchVerdictDto
     {
         if (\in_array($branch, $exemptBranches, true)) {
-            return BranchVerdictDto::exempt($branch);
+            return BranchVerdictDto::exempt();
         }
 
         foreach ($allowedPrefixes as $prefix) {
             if (str_starts_with($branch, $prefix)) {
-                return BranchVerdictDto::allowed($branch, $prefix);
+                return BranchVerdictDto::allowed($prefix);
             }
         }
 
-        return BranchVerdictDto::disallowed($branch, str_starts_with($branch, 'plan/'));
+        return BranchVerdictDto::disallowed(str_starts_with($branch, 'plan/'));
     }
 }

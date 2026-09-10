@@ -1,0 +1,18 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * The PHP half of bin/phpstan-rule: a PHPStan JSON run on stdin, the rule
+ * identifier as the argument. Exit 0 when the rule did not fire, 1 when it
+ * did, 2 when the input was not a PHPStan JSON run.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+$identifier = $argv[1] ?? null;
+if (null === $identifier || '' === $identifier) {
+    fwrite(STDERR, "Usage: bin/single-rule-report <identifier> < phpstan.json\n");
+    exit(2);
+}
+
+exit(\LTS\PHPQA\PHPStan\SingleRuleReport::main($identifier, (string) stream_get_contents(STDIN)));

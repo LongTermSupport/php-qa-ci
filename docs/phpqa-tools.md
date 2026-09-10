@@ -187,6 +187,15 @@ Please see the [PHPQA PHPStan docs](./tools/phpstan.md) for full details.
 
 See the [PHPStan project page](https://github.com/phpstan/phpstan) for more information about PHPStan in general.
 
+### Dead Code Detection
+
+[DeadCodeTool](../src/Pipeline/Lane/DeadCodeTool.php) -- [docs/tools/deadCode.md](./tools/deadCode.md)
+
+Opt-in: `withDeadCodeDetection(true)` plus `withDeadCodeEntryPoints(...)` (or
+`withoutDeadCodeEntryPoints()`) in `qaConfig/qa.php`. Runs shipmonk/dead-code-detector through
+`vendor-phar/phpstan.phar`, loaded from `vendor-phar/dead-code-detector.phar` rather than from any
+Composer package, so the PHPStan gate never sees it. A member only tests reach is reported.
+
 ### PHPArkitect
 
 [PhpArkitectTool](../src/Pipeline/Lane/PhpArkitectTool.php) -- [docs/tools/phpArkitect.md](./tools/phpArkitect.md)
