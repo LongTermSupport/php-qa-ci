@@ -100,21 +100,21 @@ parts that are php-qa-ci's to deliver. The full dossier is in
 
 ### Phase 3: Upstream and follow-through
 
-- [ ] 🔄 **Task 3.1**: The upstream php-src report. **Filed by the owner under a
-  different agent/GitHub identity**, so the deliverable here is a report ready to post
-  verbatim, not the posting itself. **Delegated in full to
+- [ ] 🔄 **Task 3.1**: The upstream php-src report. **Delegated in full to
   [Plan 00009](../00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md)**,
   which owns filing and follow-through and reports back here; this plan keeps the
-  evidence and [upstream-report.md](upstream-report.md), the single copy of the text.
+  evidence and [upstream-report.md](upstream-report.md), the maintained copy of the text.
   - [x] ✅ Draft it as [upstream-report.md](upstream-report.md): title, environment, the
     dependency-free reproduction, expected vs actual, the optimizer dump, the mask
     bisect, and what was ruled out. No reference to any private repository, host or
     consumer. Since rewritten under 00009 around a *crashing* six-line reproduction.
-  - [ ] ⬜ Owner (other identity) files it at <https://github.com/php/php-src/issues>
-    — 00009 Task 2.1.
-  - [ ] ⬜ Record the issue number in `upstream-report.md` and in
-    `OpcacheDefects`' doc comment, so the next reader of the affected-range constant
-    can follow it upstream — 00009 Task 2.2.
+  - [x] ✅ Filed as <https://github.com/php/php-src/issues/23644>. The original wording
+    of this task — "filed by the owner under a different agent/GitHub identity" — was
+    superseded by the owner during 00009: this session's `LTSCommerce` identity is the
+    correct filer. See 00009 Decision 4.
+  - [x] ✅ Issue number recorded in `upstream-report.md` and in `OpcacheDefects`' class
+    doc comment, so the next reader of the affected-range constants can follow it
+    upstream — 00009 Task 2.2.
   - [ ] ⬜ When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that version,
     which retires both the lane and the advisory on newer PHP automatically
     — 00009 Task 3.3.

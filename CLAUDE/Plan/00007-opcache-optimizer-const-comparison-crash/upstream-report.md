@@ -1,22 +1,22 @@
-# Upstream php-src report, ready to file
+# Upstream php-src report
 
-**Status**: drafted, not filed. To be filed by the owner under a separate agent/GitHub
-identity (Plan 00007 Task 3.1). Record the issue number here once it exists.
+**Status**: FILED as <https://github.com/php/php-src/issues/23644>, by `LTSCommerce`.
+The owner ruled during Plan 00009 that this session's identity was the correct one,
+superseding 00007 Task 3.1's "separate agent/GitHub identity". Follow-up lives in
+[Plan 00009](../00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md)
+Phase 3.
 
-**Where**: <https://github.com/php/php-src/issues/new?template=bug_report.yml>
-
-**How php-src wants it filed** — required fields, house style, the LLM-disclosure rule
-and what a follow-up PR would need — is
+**How php-src wants a bug filed** — required fields, house style, the LLM-disclosure
+rule and what a follow-up PR would need — is
 [Plan 00009's filing guide](../00009-upstream-php-src-bug-report-opcache-const-comparison/filing-guide.md).
-Read that before pasting this.
 
-Everything below is safe to post: no private repository, host, package or consumer is
-named, and the reproduction is dependency-free.
+This file stays the maintained copy of the report. The issue is the posted copy: the
+two differ only in field order (the form puts PHP Version and Operating System after
+Description) and in the LLM-disclosure footer the issue carries. Nothing here names a
+private repository, host, package or consumer, and the reproduction is dependency-free.
 
 The three `##` sections below map onto the three fields of the issue form. Inside
-**Description**, the first three blocks are the form's own pre-filled skeleton; keep
-them in that order. `php -v` and the OS must be the filer's own if they differ from
-the values recorded here.
+**Description**, the first three blocks are the form's own pre-filled skeleton.
 
 ---
 
@@ -99,7 +99,7 @@ neighbours are declared `ZEND_VM_HOT_NOCONSTCONST_HANDLER`, so no CONST,CONST ha
 exists and the specialiser picks one that reads op1 as a TMP/VAR/CV slot. The operand is
 a constant index, so the read lands outside the frame.
 
-Backtrace (debug symbols for the same build):
+Backtrace from the original crashes, same PHP version, build with debug symbols:
 
 ```
 #0  zval_undefined_cv (var=<optimized out>) at Zend/zend_execute.c:280

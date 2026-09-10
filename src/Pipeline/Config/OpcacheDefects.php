@@ -19,7 +19,9 @@ use LTS\PHPQA\Pipeline\Config\Dto\OpcacheSettingsDto;
  * comparison with a literal and then leave the constant-vs-constant opcode
  * unfolded. The VM ships no handler for that operand pair, so the fallback
  * reads op1 as a variable slot: a segfault in zval_undefined_cv when the slot
- * is unmapped, a silent garbage comparison otherwise.
+ * is unmapped, a silent garbage comparison otherwise. Reported upstream as
+ * https://github.com/php/php-src/issues/23644 — follow that for the fix version
+ * FIRST_FIXED below is waiting on.
  *
  * @api
  */

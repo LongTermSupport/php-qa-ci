@@ -43,8 +43,9 @@ weakest part of the draft. And how php-src wants a bug filed is now written down
 - **Changing any php-qa-ci behaviour.** The lane, the advisory and the affected range
   were delivered under Plan 00007 and are not reopened here — except for the one-line
   `FIRST_FIXED` edit in Task 3.3 once upstream ships a fix.
-- **Filing under this project's identity.** 00007 Task 3.1 rules that the owner files it
-  under a separate agent/GitHub identity; this plan prepares, it does not post.
+- ~~**Filing under this project's identity.**~~ Withdrawn: the owner ruled that
+  `LTSCommerce` is the correct filer, so this plan posts as well as prepares. See
+  Decision 4.
 
 ## Context & Background
 
@@ -96,21 +97,21 @@ weakest part of the draft. And how php-src wants a bug filed is now written down
     fix PR, since "not verified" is honest and maintainers bisect for themselves.
   - [ ] ⬜ **Revisit trigger**: if Task 3.2 turns into a real fix PR, the base branch
     stops being academic and 8.4 must be verified before that PR is opened.
-- [ ] ⬜ **Task 1.6**: Re-run the duplicate search immediately before filing. Nothing
-  matched at the time of writing — `zval_undefined_cv` hits are tracing-JIT crashes,
-  `NOCONSTCONST` and "sccp constant comparison" return nothing — but the tracker moves.
+- [x] ✅ **Task 1.6**: Re-run the duplicate search immediately before filing. Nothing
+  matched: "constant comparison optimizer", "IS_NOT_IDENTICAL const" and
+  "zval_undefined_cv opcache" all return empty, the `zval_undefined_cv` crashes on the
+  tracker are tracing-JIT, and the six open `Category: Optimizer` issues are unrelated
+  (the nearest, "Unsound SCCP for partial objects with hooks", is a different defect).
 
 ### Phase 2: File it
 
-- [ ] ⬜ **Task 2.1**: Owner files the issue at
-  <https://github.com/php/php-src/issues/new?template=bug_report.yml> under the separate
-  identity, pasting the three fields from the report.
-  - [ ] ⬜ Apply the LLM-disclosure rule: any paragraph of generated *prose* addressed to
-    maintainers is quoted as such. The reproducer, dump, backtrace and bisect table are
-    measurements and are not what that rule targets.
-- [ ] ⬜ **Task 2.2**: Record the issue number in three places, so the trail runs both
-  ways: the report's status line, `OpcacheDefects`' doc comment beside the affected-range
-  constants, and 00007 Task 3.1.
+- [x] ✅ **Task 2.1**: Filed as <https://github.com/php/php-src/issues/23644>, from this
+  session under the `LTSCommerce` identity (see Decision 4).
+  - [x] ✅ Applied the LLM-disclosure rule as a quoted footer naming the prose as
+    LLM-assisted and the reproduction, dump, bisect and version details as measurements.
+- [x] ✅ **Task 2.2**: Issue number recorded in three places, so the trail runs both
+  ways: the report's status line, `OpcacheDefects`' class doc comment beside the
+  affected-range constants, and 00007 Task 3.1.
 
 ### Phase 3: Follow-through
 
@@ -162,12 +163,23 @@ anyone who can supply the source already has code execution, and no boundary is 
 only if a triager reclassifies it. Reasoning and citation in
 [filing-guide.md](filing-guide.md) section 1. **Date**: 2026-09-10
 
+### Decision 4: Filed from this session as `LTSCommerce`, not a separate identity
+
+**Context**: 00007 Task 3.1 said the report would be "filed by the owner under a
+different agent/GitHub identity", which made Phase 2 unreachable from here and left the
+plan blocked on a human step. **What changed**: the owner ruled that constraint was an
+assumption of the agent that wrote 00007, not a standing policy, and that this session's
+authenticated identity — `LTSCommerce` (Joseph Edmonds), the owner's own account — is the
+correct filer. **Decision**: file from here. The report was unchanged by this; only who
+pressed the button changed, and the LLM-disclosure footer means the account is not
+passing generated prose off as hand-written. **Date**: 2026-09-10
+
 ## Success Criteria
 
-- [ ] The issue is open on php/php-src with a reproduction a maintainer can run unchanged.
+- [x] The issue is open on php/php-src with a reproduction a maintainer can run unchanged.
 - [ ] No maintainer reply asks for something Phase 1 could have supplied — an isolated
   case, a backtrace, the ini settings, or which optimizer pass is responsible.
-- [ ] The issue number appears in the report, in `OpcacheDefects` and in 00007 Task 3.1.
+- [x] The issue number appears in the report, in `OpcacheDefects` and in 00007 Task 3.1.
 - [ ] `FIRST_FIXED` is set once upstream ships the fix, or this plan is closed with that
   one task explicitly handed back to 00007 if the wait outlives it.
 
