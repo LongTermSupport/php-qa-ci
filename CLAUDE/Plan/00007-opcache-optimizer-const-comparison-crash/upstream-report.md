@@ -73,6 +73,9 @@ int(1)
 avoids waiting for the file to age past the default two seconds, without which OPcache
 does not optimise it at all and the crash does not appear.
 
+No 3v4l.org link: `opcache.enable_cli` is `INI_SYSTEM` and defaults to `0`, so a snippet
+cannot turn the optimizer on from inside itself.
+
 ### Cause
 
 The DFA/SCCP pass proves `$x` is `null` on the branch, substitutes the constant into the

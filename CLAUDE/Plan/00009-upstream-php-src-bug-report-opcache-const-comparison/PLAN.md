@@ -80,23 +80,22 @@ weakest part of the draft. And how php-src wants a bug filed is now written down
   disclosure rule, and what a follow-up PR would have to look like.
 - [x] ✅ **Task 1.3**: Rewrite [00007's upstream-report.md](../00007-opcache-optimizer-const-comparison-crash/upstream-report.md)
   around the crashing reproduction and the form's field order.
-- [ ] ⬜ **Task 1.4**: Settle the 3v4l.org question the template raises. Establish whether
-  3v4l runs with the optimizer on; if it does, attach a link, and if it does not, say so
-  in one clause rather than omitting the field silently. Submitting the snippet to 3v4l
-  publishes it, so it needs the owner's go-ahead first — it is the same six lines the
-  issue will carry, but a third-party service is still a separate decision.
-- [ ] ⬜ **Task 1.5**: Decide what the report claims about **8.4 and master**.
-  - [ ] ⬜ Default: claim neither, exactly as the draft now does. 00007 Decision 5 closed
-    the 8.4 question on the grounds that no php-qa-ci behaviour depends on the answer and
-    maintainers bisect for themselves.
-  - [ ] ⬜ Note what has changed since that ruling: PHP-8.4 is the lowest *actively*
-    supported branch, so it is where a fix would land, and `Zend/Optimizer` has no
-    PHP-8.5 commits and no relevant master commit since 8.5.10 — so master is very
-    probably affected too. Neither is verified, and the container has one PHP and no C
-    toolchain.
-  - [ ] ⬜ If the owner wants them verified, that is a build task (install a toolchain,
-    build `PHP-8.4` and `master`, run [reproducer.php](reproducer.php) against each) and
-    it is worth its own decision, not a silent expansion of this one.
+- [x] ✅ **Task 1.4**: Settle the 3v4l.org question the template raises. **Answer: no link
+  is possible, and nothing needs publishing to establish that.** `opcache.enable_cli` is
+  `INI_SYSTEM` and defaults to `0`, so a snippet cannot enable the optimizer from inside
+  itself, and 3v4l exposes no per-run ini. The report now says so in one clause rather
+  than omitting the field silently.
+- [x] ✅ **Task 1.5**: Decide what the report claims about **8.4 and master**. **Answer:
+  claim neither, which is what the report does** — 00007 Decision 5 stands.
+  - [x] ✅ Recorded what has changed since that ruling, so a revisit is informed rather
+    than reflexive: PHP-8.4 is the lowest *actively* supported branch, so it is where a
+    fix would land, and `Zend/Optimizer` has no PHP-8.5 commit and no relevant master
+    commit since 8.5.10 — master is very probably affected too.
+  - [x] ✅ Costed the alternative: verifying means installing a C toolchain (this
+    container has none) and building two php-src branches. Not worth it unattached to a
+    fix PR, since "not verified" is honest and maintainers bisect for themselves.
+  - [ ] ⬜ **Revisit trigger**: if Task 3.2 turns into a real fix PR, the base branch
+    stops being academic and 8.4 must be verified before that PR is opened.
 - [ ] ⬜ **Task 1.6**: Re-run the duplicate search immediately before filing. Nothing
   matched at the time of writing — `zval_undefined_cv` hits are tracing-JIT crashes,
   `NOCONSTCONST` and "sccp constant comparison" return nothing — but the tracker moves.
