@@ -21,6 +21,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[Medium]
 final class ApiMustNotExposeInternalRuleTest extends RuleTestCase
 {
+    private const string API_LEAKS_VIA_RETURN_PHP = '/ApiLeaksViaReturn.php';
+
     private const string ASSETS = __DIR__ . '/../../../assets/PHPStan/ApiInternalLeak';
 
     private const string INTERNAL = \LTS\PHPQA\Tests\Assets\PHPStan\ApiInternalLeak\ExposedInternalDto::class;
@@ -33,7 +35,7 @@ final class ApiMustNotExposeInternalRuleTest extends RuleTestCase
     public function itFlagsAnApiClassReturningAnInternalType(): void
     {
         $this->analyse(
-            [self::ASSETS . '/ApiLeaksViaReturn.php'],
+            [self::ASSETS . self::API_LEAKS_VIA_RETURN_PHP],
             [[$this->leakMessage(
                 \LTS\PHPQA\Tests\Assets\PHPStan\ApiInternalLeak\ApiLeaksViaReturn::class,
                 'return type of method fetch()',
@@ -73,7 +75,7 @@ final class ApiMustNotExposeInternalRuleTest extends RuleTestCase
     {
         $this->projectType = 'project';
 
-        $this->analyse([self::ASSETS . '/ApiLeaksViaReturn.php'], []);
+        $this->analyse([self::ASSETS . self::API_LEAKS_VIA_RETURN_PHP], []);
     }
 
     #[Test]
@@ -86,7 +88,7 @@ final class ApiMustNotExposeInternalRuleTest extends RuleTestCase
         $this->enforceMode = 'always';
 
         $this->analyse(
-            [self::ASSETS . '/ApiLeaksViaReturn.php'],
+            [self::ASSETS . self::API_LEAKS_VIA_RETURN_PHP],
             [[$this->leakMessage(
                 \LTS\PHPQA\Tests\Assets\PHPStan\ApiInternalLeak\ApiLeaksViaReturn::class,
                 'return type of method fetch()',

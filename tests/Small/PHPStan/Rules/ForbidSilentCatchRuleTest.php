@@ -32,6 +32,8 @@ final class ForbidSilentCatchRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string THROWABLE = 'Throwable';
+
     private ForbidSilentCatchRule $rule;
 
     protected function setUp(): void
@@ -49,7 +51,7 @@ final class ForbidSilentCatchRuleTest extends TestCase
     public function catchWithoutVariableThatDoesNotRethrowIsFlagged(): void
     {
         // catch (Throwable) { return null; }
-        $catch  = new Catch_([new Name('Throwable')], null, [new Return_()]);
+        $catch  = new Catch_([new Name(self::THROWABLE)], null, [new Return_()]);
         $errors = $this->rule->processNode($catch, $this->scope());
 
         self::assertCount(1, $errors);
@@ -62,7 +64,7 @@ final class ForbidSilentCatchRuleTest extends TestCase
     {
         // catch (Throwable) { throw new RuntimeException(); }
         $throw = new Expression(new Throw_(new New_(new Name('RuntimeException'))));
-        $catch = new Catch_([new Name('Throwable')], null, [$throw]);
+        $catch = new Catch_([new Name(self::THROWABLE)], null, [$throw]);
 
         self::assertSame([], $this->rule->processNode($catch, $this->scope()));
     }
@@ -72,7 +74,7 @@ final class ForbidSilentCatchRuleTest extends TestCase
     {
         // catch (Throwable $e) { return $e->getMessage(); }
         $use   = new Return_(new MethodCall(new Variable('e'), new Identifier('getMessage')));
-        $catch = new Catch_([new Name('Throwable')], new Variable('e'), [$use]);
+        $catch = new Catch_([new Name(self::THROWABLE)], new Variable('e'), [$use]);
 
         self::assertSame([], $this->rule->processNode($catch, $this->scope()));
     }
@@ -81,7 +83,7 @@ final class ForbidSilentCatchRuleTest extends TestCase
     public function catchWithUnusedVariableAndNoHandlingIsFlagged(): void
     {
         // catch (Throwable $e) { return null; } — $e never referenced, no throw, no log
-        $catch = new Catch_([new Name('Throwable')], new Variable('e'), [new Return_()]);
+        $catch = new Catch_([new Name(self::THROWABLE)], new Variable('e'), [new Return_()]);
 
         self::assertCount(1, $this->rule->processNode($catch, $this->scope()));
     }
@@ -91,7 +93,7 @@ final class ForbidSilentCatchRuleTest extends TestCase
     {
         // catch (Throwable $e) { $this->logger->error('boom'); }
         $log   = new Expression(new MethodCall(new Variable('logger'), new Identifier('error'), [new Arg(new Variable('msg'))]));
-        $catch = new Catch_([new Name('Throwable')], new Variable('e'), [$log]);
+        $catch = new Catch_([new Name(self::THROWABLE)], new Variable('e'), [$log]);
 
         self::assertSame([], $this->rule->processNode($catch, $this->scope()));
     }
@@ -100,7 +102,7 @@ final class ForbidSilentCatchRuleTest extends TestCase
     public function catchWithUnusedVariableButRethrowIsNotFlagged(): void
     {
         $throw = new Expression(new Throw_(new New_(new Name('RuntimeException'))));
-        $catch = new Catch_([new Name('Throwable')], new Variable('e'), [$throw]);
+        $catch = new Catch_([new Name(self::THROWABLE)], new Variable('e'), [$throw]);
 
         self::assertSame([], $this->rule->processNode($catch, $this->scope()));
     }

@@ -24,8 +24,8 @@ php-qa-ci **owns and generates** it into a dedicated, **locked** namespace.
   files and they ship to its downstream consumers, exactly like other committed
   generated code.
 - **Lock.** The tree is generated and must never be hand-edited. `bin/managed-source check` regenerates in memory and fails if the on-disk content differs
-  (hand-edit / stale / missing) — wire it into the QA gate (e.g. a `hookPre.bash`
-  that runs `vendor/bin/managed-source check`). A consumer may additionally block
+  (hand-edit / stale / missing) — wire it into the QA gate (e.g. a `qaConfig/hookPre.php`
+  that runs `vendor/bin/managed-source check` through `$context->php`). A consumer may additionally block
   interactive edits with its own agent/editor guard.
 
 ## CLI

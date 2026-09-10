@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
-use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;
 use Rector\Config\RectorConfig;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 
 /*
- * The configuration for Rector to run on PHPUnit 10 is also good for PHPUnit 9.1 upwards
+ * PHPUnit upgrade rules are selected by PHPUnitSetList::COMPOSER_BASED, which
+ * picks the rules matching the PHPUnit version locked in the project's
+ * composer.lock; Rector exposes no versioned set constants (PHPUNIT_100 etc.).
+ * The rule CLASSES under the versioned namespaces still exist, which is why
+ * individual ones (e.g. PHPUnit100\...\ParentTestClassConstructorRector) can be
+ * skipped by class name below.
  */
 
 return static function (RectorConfig $rectorConfig): void {
@@ -24,7 +28,7 @@ return static function (RectorConfig $rectorConfig): void {
     );
 
     $rectorConfig->sets([
-        PHPUnitSetList::PHPUNIT_100,
+        PHPUnitSetList::COMPOSER_BASED,
         PHPUnitSetList::PHPUNIT_CODE_QUALITY,
         PHPUnitSetList::ANNOTATIONS_TO_ATTRIBUTES,
     ]);
@@ -46,7 +50,6 @@ return static function (RectorConfig $rectorConfig): void {
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
     ]);
-    $rectorConfig->cacheClass(MemoryCacheStorage::class);
     if (isset($_SERVER['rectorIgnorePaths'])) {
         $ignorePaths = array_filter(array_map('trim', explode("\n", $_SERVER['rectorIgnorePaths'])));
         $rectorConfig->skip($ignorePaths);

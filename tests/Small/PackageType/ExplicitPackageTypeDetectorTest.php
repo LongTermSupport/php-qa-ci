@@ -22,6 +22,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ExplicitPackageTypeDetectorTest extends TestCase
 {
+    private const string PACKAGE_TYPE_LIBRARY = 'library';
+
     private ExplicitPackageTypeDetector $detector;
 
     protected function setUp(): void
@@ -32,7 +34,7 @@ final class ExplicitPackageTypeDetectorTest extends TestCase
     #[Test]
     public function anExplicitLibraryTypeIsAccepted(): void
     {
-        self::assertNull($this->detector->check(['type' => 'library']));
+        self::assertNull($this->detector->check(['type' => self::PACKAGE_TYPE_LIBRARY]));
     }
 
     #[Test]
@@ -57,7 +59,7 @@ final class ExplicitPackageTypeDetectorTest extends TestCase
 
         self::assertIsString($message);
         self::assertStringContainsString('type', $message);
-        self::assertStringContainsString('library', $message);
+        self::assertStringContainsString(self::PACKAGE_TYPE_LIBRARY, $message);
         self::assertStringContainsString('project', $message);
     }
 
@@ -72,7 +74,7 @@ final class ExplicitPackageTypeDetectorTest extends TestCase
     public function aNonStringTypeIsRejected(): void
     {
         self::assertIsString($this->detector->check(['type' => null]));
-        self::assertIsString($this->detector->check(['type' => ['library']]));
+        self::assertIsString($this->detector->check(['type' => [self::PACKAGE_TYPE_LIBRARY]]));
     }
 
     /**

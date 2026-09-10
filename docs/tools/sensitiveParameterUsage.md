@@ -44,25 +44,24 @@ The tool scans `{projectRoot}/src` and:
 ## Escape hatch (opt-out, on by default)
 
 A small number of projects — pure tooling/QA libraries, for example — genuinely
-never receive a password, token or secret. Those projects opt out by setting the
-following in `qaConfig/qaConfig.inc.bash`:
+never receive a password, token or secret. Those projects opt out in
+`qaConfig/qa.php`:
 
-```bash
-export useSensitiveParameterCheck=0
+```php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withSensitiveParameterCheck(false);
 ```
 
-When disabled, the tool prints a skip notice and returns success.
+When disabled, the tool prints a skip notice and returns success. The standalone
+binary (`bin/sensitive-parameter-usage`) reads the `useSensitiveParameterCheck`
+environment variable instead (`0` disables it).
 
 ### Canonical worked example: php-qa-ci itself
 
 php-qa-ci is a pure QA/tooling library and handles no sensitive parameters of its
 own, so it has no `#[\SensitiveParameter]` anywhere in its `src/`. It therefore
 opts out of its own always-on check via exactly this mechanism — see
-[`qaConfig/qaConfig.inc.bash`](./../../qaConfig/qaConfig.inc.bash):
-
-```bash
-export useSensitiveParameterCheck=0
-```
+[`qaConfig/qa.php`](./../../qaConfig/qa.php).
 
 This is the reference example for how a downstream consumer opts out.
 
@@ -72,7 +71,7 @@ Because this check is always on, **every** consumer project's `bin/qa` now
 requires either:
 
 - at least one `#[\SensitiveParameter]` annotation somewhere in `src/`, or
-- the `useSensitiveParameterCheck=0` opt-out.
+- the `withSensitiveParameterCheck(false)` opt-out.
 
 Most projects should add the annotation to the relevant parameter rather than
 opt out.

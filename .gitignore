@@ -10,28 +10,29 @@
 !/bin/lib-redirect-stub.inc.bash
 !/bin/managed-source
 !/bin/mdlinks
+!/bin/opcache-optimizer-dump
 !/bin/package-type-check
 !/bin/config-template-ignorelist-check
 !/bin/php-cs-fixer
 !/bin/phpstan
 !/bin/phpstan-ignore-justification
 !/bin/phpstan-rule
-!/bin/phpunit-check-annotation
-!/bin/phpunit-runfailed-filter
 !/bin/psr4-validate
 !/bin/qa
 !/bin/rule-doc
 !/bin/rules
 !/bin/sensitive-parameter-usage
+!/bin/single-rule-report
+!/bin/version-pins-check
 /cache/
 /.phive-home/
-/build/rector-phar/vendor/
-/build/rector-phar/rector.phar
+/build/*/vendor/
+/build/*/*.phar
 
 # BEGIN php-qa-ci managed QA runtime excludes — do not edit
 # These patterns ensure QA tool runtime caches are never committed,
 # regardless of where they happen to appear in the project tree.
-# Managed by vendor/lts/php-qa-ci/includes/generic/prepareDirectories.inc.bash
+# Managed by php-qa-ci (LTS\PHPQA\Pipeline\Runner\DirectoryPreparer)
 **/.phpunit.cache/
 **/.qa-lock/
 **/.php-cs-fixer.cache

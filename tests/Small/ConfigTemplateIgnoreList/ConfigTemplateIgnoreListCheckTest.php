@@ -18,6 +18,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ConfigTemplateIgnoreListCheckTest extends TestCase
 {
+    private const string CONFIG_DEFAULTS_GENERIC = '/configDefaults/generic';
+
+    private const string GENERIC_PSR4_VALIDATE_IGNORE_LIST_TXT = '/configDefaults/generic/psr4-validate-ignore-list.txt';
+
     private const string VIOLATING_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/violating';
 
     private const string CLEAN_ASSETS      = __DIR__ . '/../../assets/configTemplateIgnoreList/clean';
@@ -25,8 +29,8 @@ final class ConfigTemplateIgnoreListCheckTest extends TestCase
     public function testItPassesAndPrintsOkWhenEverythingIsCovered(): void
     {
         $check = new ConfigTemplateIgnoreListCheck(new ConfigTemplateIgnoreListAuditor(
-            self::CLEAN_ASSETS . '/configDefaults/generic',
-            self::CLEAN_ASSETS . '/configDefaults/generic/psr4-validate-ignore-list.txt',
+            self::CLEAN_ASSETS . self::CONFIG_DEFAULTS_GENERIC,
+            self::CLEAN_ASSETS . self::GENERIC_PSR4_VALIDATE_IGNORE_LIST_TXT,
         ));
 
         self::expectOutputString('Every namespace-less configDefaults/generic template is covered by psr4-validate-ignore-list.txt.' . \PHP_EOL);
@@ -36,8 +40,8 @@ final class ConfigTemplateIgnoreListCheckTest extends TestCase
     public function testItFailsAndNamesTheUncoveredFileAndItsWouldBeFailurePath(): void
     {
         $check = new ConfigTemplateIgnoreListCheck(new ConfigTemplateIgnoreListAuditor(
-            self::VIOLATING_ASSETS . '/configDefaults/generic',
-            self::VIOLATING_ASSETS . '/configDefaults/generic/psr4-validate-ignore-list.txt',
+            self::VIOLATING_ASSETS . self::CONFIG_DEFAULTS_GENERIC,
+            self::VIOLATING_ASSETS . self::GENERIC_PSR4_VALIDATE_IGNORE_LIST_TXT,
         ));
 
         self::expectOutputRegex('/uncovered_template\.php.*qaConfig\/uncovered_template\.php/s');
@@ -47,8 +51,8 @@ final class ConfigTemplateIgnoreListCheckTest extends TestCase
     public function testFailureMessageCarriesTheIdentifierAndTheRuleDocCommand(): void
     {
         $check = new ConfigTemplateIgnoreListCheck(new ConfigTemplateIgnoreListAuditor(
-            self::VIOLATING_ASSETS . '/configDefaults/generic',
-            self::VIOLATING_ASSETS . '/configDefaults/generic/psr4-validate-ignore-list.txt',
+            self::VIOLATING_ASSETS . self::CONFIG_DEFAULTS_GENERIC,
+            self::VIOLATING_ASSETS . self::GENERIC_PSR4_VALIDATE_IGNORE_LIST_TXT,
         ));
 
         self::expectOutputRegex('/phpqaci\.configTemplateIgnoreList.*rule-doc phpqaci\.configTemplateIgnoreList/s');

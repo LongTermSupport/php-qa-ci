@@ -19,12 +19,14 @@
 # - Go to Settings → Branches
 # - Add rule for main/master branch
 # - Check "Require status checks to pass before merging"
-# - Select "PHP QA Pipeline" as required check
+# - Select the required check-run names: "Detect PHP Version", "PHP QA (<version>)"
+#   (e.g. "PHP QA (8.5)") and "Coverage Report". These are the job names;
+#   "PHP QA Pipeline" is the workflow name and is not a selectable status check.
 #
 # CUSTOMIZATION:
 # --------------
 # Project-specific QA configuration:
-# - qaConfig/qaConfig.inc.bash    - Override QA pipeline settings
+# - qaConfig/qa.php               - Override QA pipeline settings
 # - qaConfig/phpstan.neon         - PHPStan configuration
 # - qaConfig/phpunit.xml          - PHPUnit configuration  
 # - qaConfig/php_cs.php           - PHP CS Fixer rules
@@ -130,7 +132,9 @@ jobs:
             
             # Convert constraint to specific version
             # Handle different constraint formats
-            if [[ "$PHP_CONSTRAINT" == *"8.4"* ]]; then
+            if [[ "$PHP_CONSTRAINT" == *"8.5"* ]]; then
+              PHP_VERSION="8.5"
+            elif [[ "$PHP_CONSTRAINT" == *"8.4"* ]]; then
               PHP_VERSION="8.4"
             elif [[ "$PHP_CONSTRAINT" == *"8.3"* ]]; then
               PHP_VERSION="8.3"
@@ -142,15 +146,15 @@ jobs:
               PHP_VERSION="8.0"
             else
               # Default to latest stable
-              PHP_VERSION="8.4"
+              PHP_VERSION="8.5"
               echo "Could not determine version from constraint, using $PHP_VERSION"
             fi
-            
+
             echo "Using PHP version: $PHP_VERSION"
             echo "version=$PHP_VERSION" >> $GITHUB_OUTPUT
           else
-            echo "No composer.json found, using PHP 8.4"
-            echo "version=8.4" >> $GITHUB_OUTPUT
+            echo "No composer.json found, using PHP 8.5"
+            echo "version=8.5" >> $GITHUB_OUTPUT
           fi
   
   qa:

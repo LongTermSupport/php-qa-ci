@@ -18,7 +18,7 @@ PHP CS Fixer is configured through the `php_cs.php` file. The default configurat
 The default configuration includes:
 
 - `@PhpCsFixer` and `@Symfony` rule sets
-- `@PHP8x4Migration` -- PHP 8.4 migration rules
+- `@PHP8x5Migration` -- PHP 8.5 migration rules (cumulative over earlier versions)
 - `nullable_type_declaration_for_default_null_value` -- Required for PHP 8.4 compatibility (implicit nullable parameters are deprecated)
 - `nullable_type_declaration` with `question_mark` syntax
 - `declare_strict_types` -- Enforces strict types in all files
@@ -64,23 +64,23 @@ See the [PHP CS Fixer docs](https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/blob/ma
 
 ## Rector
 
-Rector is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) that bundles its own extracted phpstan, so it cannot conflict with the project's PHPStan. Maintainers rebuild it with `scripts/build-rector-phar.bash`.
+Rector is delivered as a committed, self-contained PHAR (`vendor-phar/rector.phar`) that bundles its own extracted phpstan, so it cannot conflict with the project's PHPStan. Maintainers rebuild it with `scripts/build-phar.bash rector`.
 
 The pipeline runs three Rector configurations in order:
 
 1. **rector-safe.php** -- Converts standard PHP functions to `thecodingmachine/safe` equivalents
 2. **rector-phpunit.php** -- Applies PHPUnit modernisation rules to the test directory
-3. **rector-php84.php** -- Applies PHP 8.4 migration rules (skipped if a project-specific `rector.php` exists)
+3. **rector-php85.php** -- Applies PHP 8.5 migration rules (skipped if a project-specific `rector.php` exists)
 
 ### Project-Specific Rector Configuration
 
-If you have a `rector.php` in your project root or `qaConfig/rector.php`, the pipeline will run it instead of the default PHP 8.4 rector. The safe functions and PHPUnit rectors still run.
+If you have a `rector.php` in your project root or `qaConfig/rector.php`, the pipeline will run it instead of the default PHP 8.5 rector. The safe functions and PHPUnit rectors still run.
 
 ### Customizing Rector
 
 ```bash
 # Create project-specific rector config
-cp vendor/lts/php-qa-ci/configDefaults/generic/rector-php84.php qaConfig/rector.php
+cp vendor/lts/php-qa-ci/configDefaults/generic/rector-php85.php qaConfig/rector.php
 # Edit qaConfig/rector.php to your needs
 ```
 

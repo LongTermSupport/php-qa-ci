@@ -1,0 +1,11 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+require __DIR__.'/bootstrap.php';
+
+if (!isset($argv[1], $argv[2], $argv[3]) || '' === $argv[1] || '' === $argv[2] || '' === $argv[3]) {
+    fwrite(\STDERR, "Usage: version-pins-check <project-root> <path-to-phpunit.xml> <path-to-composerRequireChecker.json>\n");
+    exit(1);
+}
+
+die(\LTS\PHPQA\VersionPins\VersionPinsCheck::main($argv[1], $argv[2], $argv[3]));

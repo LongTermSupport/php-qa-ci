@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use LTS\PHPQA\PHPStan\ActiveRulesLister;
+use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -26,12 +27,48 @@ use RuntimeException;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\ProjectRecordEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\RuleDocResolver::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecksTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\OpcacheTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitectTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanIgnoreJustificationTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\Psr4ValidateTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\SensitiveParameterUsageTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpcpdTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigCsFixerTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\ShippedTools::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(ToolRegistry::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\PhaseEnum::class)]
 #[\PHPUnit\Framework\Attributes\Small]
 final class ActiveRulesListerTest extends TestCase
 {
     private const string QA_CI_ROOT = __DIR__ . '/../../..';
 
     private const string FIXTURE_PROJECT = __DIR__ . '/../../assets/ActiveRulesLister/projectFixture';
+
+    private const string LEGACY_IGNORED_IDENTIFIER = 'class.notFound';
 
     public function testTextOutputListsRulesLanesAndProjectRecordExactly(): void
     {
@@ -43,7 +80,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertCount(2, $listing->rules);
 
         $withIdentifier = $listing->rules[0];
-        self::assertSame('phpqaci.dangerousFunctions', $withIdentifier->identifier);
+        self::assertSame(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::IDENTIFIER, $withIdentifier->identifier);
         self::assertSame(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::class, $withIdentifier->ruleClass);
         self::assertSame('No exec/eval/unserialize and similar', $withIdentifier->summary);
         self::assertSame(
@@ -84,7 +121,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertSame('linting', $lanesByName['psr4Validate']->phase);
         self::assertSame('staticAnalysis', $lanesByName['phpArkitect']->phase);
         self::assertSame('testing', $lanesByName['phpunit']->phase);
-        self::assertNull($lanesByName['phploc']->phase);
+        self::assertNull($lanesByName['uniterate']->phase);
 
         self::assertSame('useInfection', $lanesByName['infection']->optInVariable);
         self::assertSame('useArkitect', $lanesByName['phpArkitect']->optInVariable);
@@ -92,7 +129,7 @@ final class ActiveRulesListerTest extends TestCase
 
         self::assertCount(1, $listing->projectRecord);
         $record = $listing->projectRecord[0];
-        self::assertSame('class.notFound', $record->identifier);
+        self::assertSame(self::LEGACY_IGNORED_IDENTIFIER, $record->identifier);
         self::assertSame('some/legacy/path.php', $record->path);
         self::assertSame(2, $record->count);
         self::assertSame(
@@ -101,14 +138,14 @@ final class ActiveRulesListerTest extends TestCase
         );
 
         $text = $lister->renderText($listing);
-        self::assertStringContainsString('phpqaci.dangerousFunctions', $text);
+        self::assertStringContainsString(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::IDENTIFIER, $text);
         self::assertStringContainsString('No exec/eval/unserialize and similar', $text);
         self::assertStringContainsString('FixtureProjectRule', $text);
         self::assertStringContainsString('not declared', $text);
         self::assertStringContainsString('Pipeline lanes', $text);
         self::assertStringContainsString('branchNamePolicy', $text);
         self::assertStringContainsString('Project record', $text);
-        self::assertStringContainsString('class.notFound', $text);
+        self::assertStringContainsString(self::LEGACY_IGNORED_IDENTIFIER, $text);
         self::assertStringContainsString(
             'Justification: legacy generated code, tracked for removal in TICKET-123.',
             $text,
@@ -131,7 +168,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertCount(2, $rules);
         $firstRule = $rules[0];
         self::assertIsArray($firstRule);
-        self::assertSame('phpqaci.dangerousFunctions', $firstRule['identifier']);
+        self::assertSame(\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::IDENTIFIER, $firstRule['identifier']);
         $secondRule = $rules[1];
         self::assertIsArray($secondRule);
         self::assertNull($secondRule['identifier']);
@@ -141,7 +178,7 @@ final class ActiveRulesListerTest extends TestCase
         self::assertCount(1, $projectRecord);
         $firstRecord = $projectRecord[0];
         self::assertIsArray($firstRecord);
-        self::assertSame('class.notFound', $firstRecord['identifier']);
+        self::assertSame(self::LEGACY_IGNORED_IDENTIFIER, $firstRecord['identifier']);
 
         self::assertNotEmpty($decoded['pipelineLanes']);
     }
@@ -168,45 +205,21 @@ final class ActiveRulesListerTest extends TestCase
     }
 
     /**
-     * Defence against toolchain-spec clause 7.1/7.2 drift (a lane added
-     * ANYWHERE in includes/generic/toolRegistry.inc.bash's QA_TOOL_NAMES —
-     * whatever its phase — must appear in ActiveRulesLister's output without
-     * any source change here). This test parses the registry file
-     * INDEPENDENTLY of ActiveRulesLister's own parser (a small, deliberately
-     * separate regex, not a shared helper) so it cannot pass merely because
-     * both sides share a bug — it re-derives every QA_TOOL_NAMES entry from
-     * the registry text and asserts every one of them (minus phpstan, which
-     * is covered by the rule listing, not the lane listing) is present in
-     * the listing ActiveRulesLister produces.
+     * Defence against toolchain-spec clause 7.1/7.2 drift: a lane added
+     * ANYWHERE in the shipped ToolRegistry, whatever its phase, must appear in
+     * ActiveRulesLister's output without any source change here. The expected
+     * set is re-derived from the registry's leaf definitions (minus phpstan,
+     * which is covered by the rule listing, not the lane listing).
      */
     public function testEveryRegistryToolNameAppearsAsAPipelineLane(): void
     {
-        $registryPath = self::QA_CI_ROOT . '/includes/generic/toolRegistry.inc.bash';
-        self::assertFileExists($registryPath);
-        $registryContents = \Safe\file_get_contents($registryPath);
-
-        $namesMatchResult = \Safe\preg_match('/(?<!declare -A )\bQA_TOOL_NAMES=\((.*?)\n\)/s', $registryContents, $namesMatches);
-        self::assertSame(
-            1,
-            $namesMatchResult,
-            'Could not locate the QA_TOOL_NAMES indexed array in the tool registry — has its shape changed?',
-        );
-        self::assertIsArray($namesMatches);
-        self::assertArrayHasKey(1, $namesMatches);
-
         $expectedLaneNames = [];
-        foreach (explode("\n", $namesMatches[1]) as $nameLine) {
-            $withoutComment = \Safe\preg_replace('/#.*$/', '', $nameLine);
-            $nameLine       = trim(\is_string($withoutComment) ? $withoutComment : $nameLine);
-            if ('' === $nameLine) {
+        foreach (ToolRegistry::shipped()->all() as $definition) {
+            if ('phpstan' === $definition->name) {
                 continue;
             }
 
-            if ('phpstan' === $nameLine) {
-                continue;
-            }
-
-            $expectedLaneNames[] = $nameLine;
+            $expectedLaneNames[] = $definition->name;
         }
 
         self::assertNotEmpty($expectedLaneNames, 'Expected at least one registered tool in the tool registry.');
@@ -223,7 +236,7 @@ final class ActiveRulesListerTest extends TestCase
                 $expectedLaneName,
                 $laneNames,
                 \sprintf(
-                    'Tool "%s" is registered in toolRegistry.inc.bash but ActiveRulesLister did not list it as a pipeline lane.',
+                    'Tool "%s" is registered in ToolRegistry but ActiveRulesLister did not list it as a pipeline lane.',
                     $expectedLaneName,
                 ),
             );

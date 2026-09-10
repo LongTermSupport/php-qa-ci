@@ -9,8 +9,12 @@ set -euo pipefail
 # Sets up standardized branch protection with sensible defaults.
 #
 # Usage:
-#   ./setup-branch-protection.bash           # Standard protection
-#   ./setup-branch-protection.bash --harden  # Maximum protection
+#   ./setup-branch-protection.bash                    # Standard protection, default branch
+#   ./setup-branch-protection.bash --harden           # Maximum protection
+#   ./setup-branch-protection.bash --branch php8.4    # Protect a named branch instead
+#
+# The required status checks are the job names of .github/workflows/ci.yml
+# (GitHub keys Actions contexts by JOB name, not workflow name).
 #
 # ============================================================================
 
@@ -19,11 +23,27 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Check for --harden flag
 HARDEN_MODE=false
-if [[ "${1:-}" == "--harden" ]]; then
-    HARDEN_MODE=true
-fi
+BRANCH=""
+while (( $# > 0 )); do
+    case "$1" in
+        --harden) HARDEN_MODE=true ;;
+        --branch)
+            if [[ -z "${2:-}" ]]; then
+                echo -e "${RED}Error: --branch requires a branch name${NC}" >&2
+                exit 1
+            fi
+            BRANCH="$2"
+            shift
+            ;;
+        *)
+            echo -e "${RED}Error: unknown argument '$1'${NC}" >&2
+            echo "Usage: $0 [--harden] [--branch <name>]" >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
 
 # Check prerequisites
 if ! command -v gh &> /dev/null; then
@@ -44,8 +64,10 @@ if [[ -z "$REPO" ]]; then
     exit 1
 fi
 
-# Get default branch
-BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+# Default to the repository's default branch unless --branch named one
+if [[ -z "$BRANCH" ]]; then
+    BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+fi
 
 echo -e "${BLUE}Setting up branch protection for: ${REPO}/${BRANCH}${NC}"
 
@@ -141,7 +163,9 @@ def enabled_of(node):
     return bool(node)
 
 
-OUR_CONTEXT = "PHP QA Pipeline"
+# Job names from .github/workflows/ci.yml — the contexts GitHub reports for
+# Actions jobs. A stale context here would block every merge forever.
+OUR_CONTEXTS = ["QA Pipeline", "ShellCheck (severity=warning)"]
 
 # required_status_checks: preserve every existing context (both the legacy
 # `contexts` list and the newer `checks` objects), then add ours.
@@ -152,8 +176,9 @@ for check in existing_rsc.get("checks") or []:
     if ctx and ctx not in existing_contexts:
         existing_contexts.append(ctx)
 merged_contexts = list(existing_contexts)
-if OUR_CONTEXT not in merged_contexts:
-    merged_contexts.append(OUR_CONTEXT)
+for our_context in OUR_CONTEXTS:
+    if our_context not in merged_contexts:
+        merged_contexts.append(our_context)
 
 # restrictions: preserve existing push restrictions, converting GET's object
 # arrays into the login/slug arrays PUT expects.
@@ -243,16 +268,22 @@ else
     exit 1
 fi
 
-# Configure repo settings
-gh api \
+# Configure repo settings. Merge commits only: squash and rebase merges rewrite
+# the PR's commits, so `git branch -d` can never see the branch as merged.
+# The response body is not interesting on success; on failure the API message
+# is surfaced so a permissions problem is not mistaken for "unchanged".
+if gh api \
     --method PATCH \
     "/repos/${REPO}" \
     --field delete_branch_on_merge=true \
-    --field allow_squash_merge=true \
+    --field allow_squash_merge=false \
     --field allow_merge_commit=true \
-    --field allow_rebase_merge=true > /dev/null 2>&1 \
-    && echo -e "${GREEN}✓ Repository settings updated${NC}" \
-    || echo -e "${BLUE}ℹ Repository settings unchanged (may need admin rights)${NC}"
+    --field allow_rebase_merge=false > "$tmp_result" 2> "$tmp_err"; then
+    echo -e "${GREEN}✓ Repository settings updated (merge commits only, delete branch on merge)${NC}"
+else
+    echo -e "${RED}✗ Repository settings not updated (admin rights needed):${NC}"
+    cat "$tmp_err"
+fi
 
 echo -e "\n${GREEN}Done! Branch '${BRANCH}' is now protected.${NC}"
 echo -e "\nTo remove protection: ${BLUE}gh api --method DELETE /repos/${REPO}/branches/${BRANCH}/protection${NC}"

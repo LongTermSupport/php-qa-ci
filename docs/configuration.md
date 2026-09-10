@@ -23,11 +23,13 @@ vendor/bin/qa
 ```
 
 2. Set them inline when running PHPQA
+
 ```bash
 environmentVariable="value" vendor/bin/qa
 ```
 
 3. Export them as part of your CI script
+
 ```bash
 #ci.bash
 export CI=true
@@ -37,36 +39,42 @@ vendor/bin/qa
 Here are some general PHPQA environment variables you might want to set:
 
 ##### Quick tests only:
- `phpqaQuickTests`
 
- Setting this to `1` **skips whole phases**, not just slow tests: PHPStan (Phase 3) and both
- PHPUnit and Infection (Phase 4) are skipped entirely. Use it for a fast lint/style/validation
- pass. Do not confuse it with `phpUnitQuickTests`, which is narrower — it still runs PHPUnit but
- lets individual tests take a faster path (see the PHPUnit docs).
+`phpqaQuickTests`
+
+Setting this to `1` **skips whole phases**, not just slow tests: PHPStan (Phase 3) and both
+PHPUnit and Infection (Phase 4) are skipped entirely. Use it for a fast lint/style/validation
+pass. Do not confuse it with `phpUnitQuickTests`, which is narrower — it still runs PHPUnit but
+lets individual tests take a faster path (see the PHPUnit docs).
 
 ##### CI Mode:
- `CI`
 
- Will not prompt for user input.
+`CI`
+
+Will not prompt for user input.
 
 ##### Memory limit:
- `phpqaMemoryLimit`
 
- Global memory limit for all QA tools. Default: `4G`.
+`phpqaMemoryLimit`
+
+Global memory limit for all QA tools. Default: `4G`.
 
 ```bash
 # Override via environment variable
 phpqaMemoryLimit=8G vendor/bin/qa
 
-# Or in qaConfig/qaConfig.inc.bash
-export phpqaMemoryLimit=8G
+```
+
+```php
+// Or in qaConfig/qa.php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa->withMemoryLimit('8G');
 ```
 
 ## Configuration Files
 
 The bulk of the configuration is handled with configuration files under
 [configDefaults/](./../configDefaults). Only a `generic/` folder ships today — there are no
-per-platform config folders. The `configPath()` resolver still supports a platform rung
+per-platform config folders. The `ConfigPathResolver` lookup still supports a platform rung
 (`configDefaults/{platform}/`), but because no such folder exists it always falls through to
 `generic/` unless your project supplies its own override (see below).
 
@@ -82,7 +90,7 @@ files. At the moment this includes:
 - [composerRequireChecker.json](./../configDefaults/generic/composerRequireChecker.json)
 - [rector-safe.php](./../configDefaults/generic/rector-safe.php)
 - [rector-phpunit.php](./../configDefaults/generic/rector-phpunit.php)
-- [rector-php84.php](./../configDefaults/generic/rector-php84.php)
+- [rector-php85.php](./../configDefaults/generic/rector-php85.php)
 - [phparkitect.php](./../configDefaults/generic/phparkitect.php) (entry config) and its rule tiers
   [phparkitect-rules-default.php](./../configDefaults/generic/phparkitect-rules-default.php),
   [phparkitect-rules-optional.php](./../configDefaults/generic/phparkitect-rules-optional.php),
@@ -95,8 +103,8 @@ Note: the PHPStan rule bundles (`rules-default.neon`, `rules-optional.neon`,
 #### Config Overrides
 
 If no local config file exists in your project's `qaConfig` folder, PHPQA uses the config in its
-own `configDefaults/` folder. Resolution is handled by `configPath()`
-([includes/functions.inc.bash](./../includes/functions.inc.bash)) as a 3-level lookup — the first
+own `configDefaults/` folder. Resolution is handled by
+[ConfigPathResolver](./../src/Pipeline/Config/ConfigPathResolver.php) as a 3-level lookup — the first
 that exists wins:
 
 1. Your project's root `qaConfig/phpstan.neon`
@@ -124,12 +132,34 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon qaConfig/
 vim qaConfig/phpstan.neon
 ```
 
-### Global Configuration Override
+### Project configuration: `qaConfig/qa.php`
 
-If you want to make more wholesale tweaks to `qa` customisation, you can create a file in your `qaConfig` directory called `qaConfig.inc.bash`. This will be automatically detected and included, and can then override all kinds of default configuration that has occurred up to that point.
+Settings that are not a tool's own config file (memory limit, ignored paths, mutation floors,
+opt-outs) live in `qaConfig/qa.php`. The file returns a closure that receives the pipeline's
+`QaConfigBuilder`, seeded from the defaults and the environment variables above, and returns the
+adjusted builder. Every setting is a typed method, so a misspelt one fails at load time:
 
-When you run `qa`, it checks for a file located in `"$projectConfigPath/qaConfig.inc.bash"` and will include it if found.
+```php
+<?php
 
-Using this you can override as much of the standard configuration as you see fit.
+declare(strict_types=1);
 
-**_For example, the PHPQA project itself has a [qaConfig](./../qaConfig) folder which is used when PHPQA is run against itself._**
+use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
+
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withInfectionFloors(msi: 82, coveredMsi: 82)
+    ->withIgnoredPaths('tests/assets');
+```
+
+The full method list, and the mapping from the Bash-era variables, is in
+[upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at
+`templates/qaConfig-qa.php`. This repository's own [qaConfig/qa.php](./../qaConfig/qa.php) is
+the worked example.
+
+Adding tools and phases of your own is a separate file, `qaConfig/pipeline.php`, returning a
+closure over `PipelineBuilder`; see [extending the pipeline](extending-the-pipeline.md).
+
+Per-tool overrides (`qaConfig/tools/<tool>.php` returning a `ToolInterface`) and the pre/post
+hooks (`qaConfig/hookPre.php`, `qaConfig/hookPost.php` returning a callable) are described on the
+same page. A Bash-era `qaConfig.inc.bash`, `tools/*.inc.bash` or `hook*.bash` is refused with a
+message pointing at the replacement.

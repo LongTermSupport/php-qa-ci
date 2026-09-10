@@ -28,6 +28,10 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string AS_COMMAND = 'AsCommand';
+
+    private const string APP_CRON_CLEANUP = 'app:cron:cleanup';
+
     private RequireCronIntervalInDescriptionRule $rule;
 
     protected function setUp(): void
@@ -44,7 +48,7 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
     #[Test]
     public function cronCommandWithIntervalInDescriptionIsNotFlagged(): void
     {
-        $class = $this->commandClass('AsCommand', ['app:cron:cleanup', 'Clean up expired tokens. [every 1h]']);
+        $class = $this->commandClass(self::AS_COMMAND, [self::APP_CRON_CLEANUP, 'Clean up expired tokens. [every 1h]']);
 
         self::assertSame([], $this->rule->processNode($class, $this->scope()));
     }
@@ -52,7 +56,7 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
     #[Test]
     public function cronCommandWithoutIntervalIsFlagged(): void
     {
-        $class  = $this->commandClass('AsCommand', ['app:cron:cleanup', 'Clean up expired tokens.']);
+        $class  = $this->commandClass(self::AS_COMMAND, [self::APP_CRON_CLEANUP, 'Clean up expired tokens.']);
         $errors = $this->rule->processNode($class, $this->scope());
 
         self::assertCount(1, $errors);
@@ -63,7 +67,7 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
     #[Test]
     public function cronCommandWithNoDescriptionArgumentIsFlagged(): void
     {
-        $class  = $this->commandClass('AsCommand', ['app:cron:cleanup']);
+        $class  = $this->commandClass(self::AS_COMMAND, [self::APP_CRON_CLEANUP]);
         $errors = $this->rule->processNode($class, $this->scope());
 
         self::assertCount(1, $errors);
@@ -73,7 +77,7 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
     #[Test]
     public function nonCronCommandIsNotFlagged(): void
     {
-        $class = $this->commandClass('AsCommand', ['app:report:generate', 'Generate a report.']);
+        $class = $this->commandClass(self::AS_COMMAND, ['app:report:generate', 'Generate a report.']);
 
         self::assertSame([], $this->rule->processNode($class, $this->scope()));
     }
@@ -89,7 +93,7 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
     #[Test]
     public function anonymousClassIsIgnored(): void
     {
-        $class = $this->commandClass('AsCommand', ['app:cron:cleanup'], name: null);
+        $class = $this->commandClass(self::AS_COMMAND, [self::APP_CRON_CLEANUP], name: null);
 
         self::assertSame([], $this->rule->processNode($class, $this->scope()));
     }
@@ -98,8 +102,8 @@ final class RequireCronIntervalInDescriptionRuleTest extends TestCase
     public function fullyQualifiedAsCommandAttributeIsRecognised(): void
     {
         $class = $this->commandClass(
-            'Symfony\Component\Console\Attribute\AsCommand',
-            ['app:cron:cleanup', 'Clean up. [every 15m]'],
+            \Symfony\Component\Console\Attribute\AsCommand::class,
+            [self::APP_CRON_CLEANUP, 'Clean up. [every 15m]'],
         );
 
         self::assertSame([], $this->rule->processNode($class, $this->scope()));

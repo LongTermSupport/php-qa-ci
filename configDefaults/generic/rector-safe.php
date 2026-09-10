@@ -2,17 +2,20 @@
 
 declare(strict_types=1);
 
-use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;
 use Rector\Config\RectorConfig;
 
 /*
- * The configuration for Rector to run on PHPUnit 10 is also good for PHPUnit 9.1 upwards
+ * Rector config for Safe-function conversion: applies thecodingmachine/safe's
+ * (or shish/safe's) rector-migrate.php rule set, which rewrites false-returning
+ * native calls to their throwing \Safe\* equivalents. Runs at half the CPU
+ * threads, and preflights that safe is declared as a PRODUCTION dependency,
+ * because the converted code depends on it at runtime.
  */
 return static function (RectorConfig $rectorConfig): void {
     // Limit parallel processing to use only half of available CPU threads
     // to avoid overwhelming the system
     // Shared "50% of cores" parallelism default. Prefer the value the QA pipeline computes
-    // once and exports ($qaHalfCpuThreads, via halfCpuThreadCount in functions.inc.bash);
+    // once and exports (qaHalfCpuThreads, from the pipeline's environment);
     // fall back to reading /proc/cpuinfo here when Rector runs standalone (env var absent).
     $maxProcesses = (int) getenv('qaHalfCpuThreads');
     if ($maxProcesses < 1) {
@@ -93,7 +96,6 @@ return static function (RectorConfig $rectorConfig): void {
         throw new \RuntimeException('Could not find safe function rector-migrate.php. Ensure thecodingmachine/safe or shish/safe is installed via composer.');
     }
     $safeFunction($rectorConfig);
-    $rectorConfig->cacheClass(MemoryCacheStorage::class);
     if (isset($_SERVER['rectorIgnorePaths'])) {
         $ignorePaths = array_filter(array_map('trim', explode("\n", $_SERVER['rectorIgnorePaths'])));
         $rectorConfig->skip($ignorePaths);

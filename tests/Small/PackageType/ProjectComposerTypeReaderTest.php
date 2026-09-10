@@ -31,40 +31,50 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ProjectComposerTypeReaderTest extends TestCase
 {
+    private const string PACKAGE_TYPE_LIBRARY = 'library';
+
+    private const string PACKAGE_TYPE_PROJECT = 'project';
+
+    private const string ENFORCE_AUTO = 'auto';
+
+    private const string PACKAGE_TYPE_COMPOSER_PLUGIN = 'composer-plugin';
+
+    private const string ENFORCE_ALWAYS = 'always';
+
     #[Test]
     public function itReturnsAnExplicitlyDeclaredType(): void
     {
-        self::assertSame('library', new ProjectComposerTypeReader(['type' => 'library'])->effectiveType());
-        self::assertSame('project', new ProjectComposerTypeReader(['type' => 'project'])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['type' => self::PACKAGE_TYPE_LIBRARY])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_PROJECT, new ProjectComposerTypeReader(['type' => self::PACKAGE_TYPE_PROJECT])->effectiveType());
         self::assertSame('metapackage', new ProjectComposerTypeReader(['type' => 'metapackage'])->effectiveType());
     }
 
     #[Test]
     public function itNormalisesCaseAndSurroundingWhitespace(): void
     {
-        self::assertSame('library', new ProjectComposerTypeReader(['type' => '  Library '])->effectiveType());
-        self::assertSame('project', new ProjectComposerTypeReader(['type' => 'PROJECT'])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['type' => '  Library '])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_PROJECT, new ProjectComposerTypeReader(['type' => 'PROJECT'])->effectiveType());
     }
 
     #[Test]
     public function itDefaultsToLibraryWhenTheTypeIsAbsent(): void
     {
-        self::assertSame('library', new ProjectComposerTypeReader(['name' => 'acme/widget'])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['name' => 'acme/widget'])->effectiveType());
     }
 
     #[Test]
     public function itDefaultsToLibraryWhenTheTypeIsBlank(): void
     {
-        self::assertSame('library', new ProjectComposerTypeReader(['type' => ''])->effectiveType());
-        self::assertSame('library', new ProjectComposerTypeReader(['type' => '   '])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['type' => ''])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['type' => '   '])->effectiveType());
     }
 
     #[Test]
     public function itDefaultsToLibraryWhenTheTypeIsNotAString(): void
     {
-        self::assertSame('library', new ProjectComposerTypeReader(['type' => null])->effectiveType());
-        self::assertSame('library', new ProjectComposerTypeReader(['type' => ['library']])->effectiveType());
-        self::assertSame('library', new ProjectComposerTypeReader(['type' => 123])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['type' => null])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['type' => [self::PACKAGE_TYPE_LIBRARY]])->effectiveType());
+        self::assertSame(self::PACKAGE_TYPE_LIBRARY, new ProjectComposerTypeReader(['type' => 123])->effectiveType());
     }
 
     #[Test]
@@ -86,26 +96,26 @@ final class ProjectComposerTypeReaderTest extends TestCase
     public static function enforcementCases(): iterable
     {
         // auto (default): enforce iff the composer type is library.
-        yield 'auto + library — enforce'             => ['library', 'auto', true];
-        yield 'auto + project — no enforce'          => ['project', 'auto', false];
-        yield 'auto + composer-plugin — no enforce'  => ['composer-plugin', 'auto', false];
+        yield 'auto + library — enforce'             => [self::PACKAGE_TYPE_LIBRARY, self::ENFORCE_AUTO, true];
+        yield 'auto + project — no enforce'          => [self::PACKAGE_TYPE_PROJECT, self::ENFORCE_AUTO, false];
+        yield 'auto + composer-plugin — no enforce'  => [self::PACKAGE_TYPE_COMPOSER_PLUGIN, self::ENFORCE_AUTO, false];
 
         // always: enforce regardless of type — the opt-in for a package that IS a
         // consumable library but must carry a non-library type (e.g. a composer-plugin).
-        yield 'always + composer-plugin — enforce'   => ['composer-plugin', 'always', true];
-        yield 'always + project — enforce'           => ['project', 'always', true];
-        yield 'always + library — enforce'           => ['library', 'always', true];
+        yield 'always + composer-plugin — enforce'   => [self::PACKAGE_TYPE_COMPOSER_PLUGIN, self::ENFORCE_ALWAYS, true];
+        yield 'always + project — enforce'           => [self::PACKAGE_TYPE_PROJECT, self::ENFORCE_ALWAYS, true];
+        yield 'always + library — enforce'           => [self::PACKAGE_TYPE_LIBRARY, self::ENFORCE_ALWAYS, true];
 
         // never: force off regardless of type.
-        yield 'never + library — no enforce'         => ['library', 'never', false];
-        yield 'never + composer-plugin — no enforce' => ['composer-plugin', 'never', false];
+        yield 'never + library — no enforce'         => [self::PACKAGE_TYPE_LIBRARY, 'never', false];
+        yield 'never + composer-plugin — no enforce' => [self::PACKAGE_TYPE_COMPOSER_PLUGIN, 'never', false];
     }
 
     #[Test]
     public function theEnforceModeIsCaseInsensitiveAndTrimmed(): void
     {
         self::assertTrue(
-            new ProjectComposerTypeReader(['type' => 'composer-plugin'], '  ALWAYS ')->enforcesApiSurface(),
+            new ProjectComposerTypeReader(['type' => self::PACKAGE_TYPE_COMPOSER_PLUGIN], '  ALWAYS ')->enforcesApiSurface(),
         );
     }
 
@@ -113,8 +123,8 @@ final class ProjectComposerTypeReaderTest extends TestCase
     public function itDefaultsToAutoEnforcementWhenNoModeIsGiven(): void
     {
         // No enforce mode argument → auto → library enforces, non-library does not.
-        self::assertTrue(new ProjectComposerTypeReader(['type' => 'library'])->enforcesApiSurface());
-        self::assertFalse(new ProjectComposerTypeReader(['type' => 'composer-plugin'])->enforcesApiSurface());
+        self::assertTrue(new ProjectComposerTypeReader(['type' => self::PACKAGE_TYPE_LIBRARY])->enforcesApiSurface());
+        self::assertFalse(new ProjectComposerTypeReader(['type' => self::PACKAGE_TYPE_COMPOSER_PLUGIN])->enforcesApiSurface());
     }
 
     #[Test]
@@ -123,6 +133,6 @@ final class ProjectComposerTypeReaderTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageIs('Invalid phpqaciApiOrInternal.enforce value "sometimes"; expected one of: auto, always, never.');
 
-        new ProjectComposerTypeReader(['type' => 'library'], 'sometimes');
+        new ProjectComposerTypeReader(['type' => self::PACKAGE_TYPE_LIBRARY], 'sometimes');
     }
 }

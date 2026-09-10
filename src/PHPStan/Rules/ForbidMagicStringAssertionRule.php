@@ -54,27 +54,23 @@ use PHPStan\Rules\RuleErrorBuilder;
  *   $field = new FieldData(self::ORDER_ID_KEY, ...);
  *   self::assertSame(self::ORDER_ID_KEY, $field->apiKey);
  *
+ * ASSERTION_METHODS are the equality assertions whose expected value is
+ * commonly a hardcoded literal. METADATA_ACCESSORS are accessors whose string
+ * return is a structural contract rather than a domain value (Reflection,
+ * PSR-7); see {@see isStructuralMetadataOrEnumDerived}.
+ *
  * @implements Rule<CallLike>
  */
 final readonly class ForbidMagicStringAssertionRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.magicStringAssertion';
 
-    /**
-     * Equality assertions whose expected value is commonly a hardcoded literal.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     private const array ASSERTION_METHODS = ['assertSame', 'assertEquals', 'assertNotSame', 'assertNotEquals'];
 
     private const int MAX_IDENTIFIER_LENGTH = 40;
 
-    /**
-     * Metadata accessors whose string return is a structural contract, not a
-     * domain value (Reflection / PSR-7). See {@see isStructuralMetadataOrEnumDerived}.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     private const array METADATA_ACCESSORS = ['getName', 'getMethod', 'getShortName'];
 
     public function getNodeType(): string

@@ -1,0 +1,18 @@
+{
+    "name": "lts/php-qa-ci-dead-code-detector",
+    "description": "Isolated shipmonk/dead-code-detector for php-qa-ci, boxed into vendor-phar/dead-code-detector.phar and loaded into phpstan.phar through bootstrapFiles.",
+    "license": "MIT",
+    "require": {
+        "php": "^8.5",
+        "shipmonk/dead-code-detector": "@stable"
+    },
+    "replace": {
+        "phpstan/phpstan": "*"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": {
+            "*": "dist"
+        }
+    }
+}

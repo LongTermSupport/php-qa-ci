@@ -63,7 +63,7 @@ install_workflow() {
 show_customization_tips() {
     echo -e "\n${YELLOW}=== Customization Tips ===${NC}"
     echo "1. To customize QA behavior, create/modify:"
-    echo "   - qaConfig/qaConfig.inc.bash for general settings"
+    echo "   - qaConfig/qa.php for general settings"
     echo "   - qaConfig/phpstan.neon for PHPStan configuration"
     echo "   - qaConfig/phpunit.xml for PHPUnit configuration"
     echo "   - qaConfig/php_cs.php for PHP CS Fixer rules"

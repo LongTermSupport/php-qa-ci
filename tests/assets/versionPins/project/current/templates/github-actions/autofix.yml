@@ -1,0 +1,10 @@
+name: Autofix
+jobs:
+  fix:
+    steps:
+      - run: |
+          CONSTRAINT=$(jq -r '.require.php // "^8.5"' composer.json)
+          PHP_VERSION=8.5
+          for V in 8.5 8.4 8.3; do
+            if [[ "$CONSTRAINT" == *"$V"* ]]; then PHP_VERSION="$V"; break; fi
+          done

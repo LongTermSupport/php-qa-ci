@@ -1,13 +1,24 @@
 # PHP-QA-CI
 
-A comprehensive quality assurance and continuous integration pipeline for PHP 8.4+ projects (this is the `php8.4` branch; a `php8.3` branch supports PHP 8.3), written in Bash. Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
+A comprehensive quality assurance and continuous integration pipeline for PHP 8.5+ projects (this is the `php8.5` branch; `php8.4` and `php8.3` branches support PHP 8.4 and 8.3). Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
 
 This package is written for and tested on Linux.
+
+## Architecture
+
+The pipeline is PHP. `bin/qa` is a PHP entrypoint that boots `LTS\PHPQA\Pipeline\Cli\QaApplication`;
+the orchestration lives under `src/Pipeline/` with one class per lane (`src/Pipeline/Lane/*Tool.php`),
+a declarative tool registry that owns the `-t` aliases and phase order, one process runner, and one
+run lock. Consumer configuration is PHP too: `qaConfig/qa.php` returns a closure adjusting a typed
+`QaConfigBuilder`, `qaConfig/tools/<name>.php` replaces a lane, and `qaConfig/hookPre.php` /
+`hookPost.php` are callables. The environment variables (`CI`, `QA_READONLY`, `phpqaMemoryLimit`,
+`useInfection`, ...) keep their names. See [Pipeline Architecture](./docs/pipeline.md) and, for a
+project coming from the Bash-configured branches, [Upgrading to 8.5](./docs/upgrading-to-8.5.md).
 
 ## Install
 
 ```bash
-composer require --dev lts/php-qa-ci:dev-php8.4@dev
+composer require --dev lts/php-qa-ci:dev-php8.5@dev
 ```
 
 The `qa` script will be installed in your project's bin directory. By default, Composer uses `vendor/bin`, but you can configure a custom location in your `composer.json`:
@@ -34,7 +45,6 @@ Your project's `composer.json` must allow the required plugins:
 {
     "config": {
         "allow-plugins": {
-            "ergebnis/composer-normalize": true,
             "lts/php-qa-ci": true,
             "phpstan/extension-installer": true
         }
@@ -58,29 +68,35 @@ PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 
 **Phase 1 -- Code Modification:**
 
-1. Rector (safe functions, PHPUnit, PHP 8.4 upgrades)
+1. Rector (safe functions, PHPUnit, PHP 8.5 upgrades)
 2. PHP CS Fixer
 
 **Phase 2 -- Linting and Validation:**
 3\. PSR-4 Validation
 4\. Composer Checks
 5\. Package Type Declaration (always-on)
-6\. Strict Types Enforcement
-7\. PHP Lint
-8\. Composer Require Checker
-9\. Markdown Links Checker
+6\. Config Template Ignore-List Audit (always-on)
+7\. Infection Config Source Directories Check (always-on)
+8\. Version Pins Check (always-on)
+9\. Strict Types Enforcement
+10\. PHP Lint
+11\. OPcache (bytecode free of the known OPcache codegen defects)
+12\. Composer Require Checker
+13\. Markdown Links Checker
 
 **Phase 3 -- Static Analysis:**
-10\. Branch Name Policy (always-on; runs first in this phase)
-11\. PHPStan (level max)
-12\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
-13\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
+14\. Branch Name Policy (always-on; runs first in this phase)
+15\. PHPStan ignoreErrors Justification (always-on)
+16\. PHPStan (level max)
+17\. Dead Code Detection (opt-in; `withDeadCodeDetection(true)`)
+18\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
+19\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
 
 **Phase 4 -- Testing:**
-14\. PHPUnit
-15\. Infection (mutation testing, optional, requires Xdebug)
+20\. PHPUnit
+21\. Infection (mutation testing, optional, requires Xdebug)
 
-**Post-Success:** PHPLoc (stats only, not part of the pass/fail gate)
+**Post-Success:** PHPCPD (copy/paste report only, not part of the pass/fail gate)
 
 See [Pipeline Architecture](./docs/pipeline.md) for full details.
 
@@ -88,9 +104,12 @@ See [Pipeline Architecture](./docs/pipeline.md) for full details.
 
 PHP-QA-CI uses a hybrid approach to tool delivery:
 
-- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect (PHIVE key `D9C905CED1932CA2` — the trailing 16 chars of the full fingerprint `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, which is what `tool-install.bash` pins) -- delivered in `vendor-phar/`
-- **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit, parallel-lint
-- **Committed PHAR**: Rector -- shipped as `vendor-phar/rector.phar` (self-built via `scripts/build-rector-phar.bash`; it bundles its own extracted phpstan, so nothing leaks into any consuming project's composer graph)
+- **PHARs** (via [PHIVE](https://phar.io/)): PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect (PHIVE key `D9C905CED1932CA2` — the trailing 16 chars of the full fingerprint `47CD54B6398FE21B3709D0A4D9C905CED1932CA2`, which is what `scripts/tool-install.bash` pins), Twig CS Fixer, composer-normalize, parallel-lint (unsigned release asset, installed with `--force-accept-unsigned`) -- committed in `vendor-phar/`
+- **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit
+- **Self-built PHARs** (via `scripts/build-phar.bash` from `build/<tool>/` manifests): Rector (`vendor-phar/rector.phar`, bundling its own extracted phpstan so nothing leaks into any consuming project's composer graph), phpcpd, composer-dependency-analyser, dead-code-detector (a PHPStan extension loaded into phpstan.phar by the opt-in deadCode lane) -- committed in `vendor-phar/`
+- **In-process checks**: PSR-4 validation, package type, config-template audit, infection config, version pins, PHPStan ignore justification, SensitiveParameter usage, markdown links and branch policy are PHP classes the pipeline calls directly; their `bin/<check>` entrypoints remain for standalone use
+
+Every PHAR is verified present at the start of each run (`phive.xml` is a hard requirement); nothing is fetched at run time.
 
 The `phpstan/phpstan` package is in the `replace` section of `composer.json` since PHPStan is provided via PHAR. This prevents version conflicts when consuming projects also require PHPStan extensions.
 
@@ -121,13 +140,15 @@ express.**
   - any **behavioural / semantic** check — type bans, call-site shape,
     docblock-driven rules, loose comparison, nested ternary.
 
-**Single Source of Truth — never enforce one convention in both engines.** Adding
-arkitect is *not* purely additive: when a structural convention already lives in a
-PHPStan rule, **migrate** it to arkitect (and delete the PHPStan rule) rather than
-running both. Two engines enforcing one rule is a defect — duplicated failure
-messages, drift between them, and double maintenance. (The shipped Interface / Enum /
-Trait suffix convention was migrated exactly this way: it used to be the PHPStan
-`RequireTypeSuffixRule` and is now owned solely by the default arkitect tier.)
+**One owner per convention, overlap by design only.** When a structural convention
+already lives in a PHPStan rule and arkitect can express it, prefer to **migrate** it
+(and delete the PHPStan rule) so there is one place to change and one failure message.
+(The shipped Interface / Enum / Trait suffix convention was migrated exactly this way:
+it used to be the PHPStan `RequireTypeSuffixRule` and is now owned solely by the default
+arkitect tier.) Overlap between engines is not itself a defect: two tools catching the
+same class of problem is acceptable, sometimes unavoidable, as long as the two are kept
+in sync and the overlap is documented where both live. What is a defect is silent
+drift, where one engine's list is updated and the other's is not.
 
 Rules are organised in tiers (mirroring the `rules-default` / `rules-optional`
 PHPStan neon split). php-qa-ci ships each as a file returning a list of arkitect
@@ -190,10 +211,10 @@ detected source dir automatically. To go further, add `qaConfig/phparkitect.php`
 - **extend** the default tier (`require getenv('PHPQACI_ARKITECT_RULES_DEFAULT')`),
 - **opt in** to the optional / symfony tiers (their env vars),
 - **add** project-bespoke rules,
-- **replace** a tier wholesale by dropping your own `qaConfig/phparkitect-rules-*.php` (resolved ahead of the shipped copy by `configPath`).
+- **replace** a tier wholesale by dropping your own `qaConfig/phparkitect-rules-*.php` (resolved ahead of the shipped copy by the config-path lookup).
 
-Disable arkitect for a project with `export useArkitect=0` in
-`qaConfig/qaConfig.inc.bash`. Run it alone with `vendor/bin/qa -t arch`.
+Disable arkitect for a project with `->withArkitect(false)` in
+`qaConfig/qa.php` (or `useArkitect=0` in the environment for one run). Run it alone with `vendor/bin/qa -t arch`.
 
 ### Excluding generated code (at any path)
 
@@ -201,12 +222,12 @@ Generated code (a jane-php OpenAPI client, protobuf stubs, an ORM proxy dir, …
 is regenerated from a spec and **cannot be renamed** to satisfy the naming rules,
 so it must be excluded from analysis. The default config always excludes a
 directory literally named `Generated`. For generated code that lives anywhere
-else, declare the path(s) in `qaConfig/qaConfig.inc.bash`:
+else, declare the path(s) in `qaConfig/qa.php`:
 
-```bash
-# Each entry is excluded from arkitect IN ADDITION to the built-in 'Generated'.
-arkitectExcludePaths+=("Quote/API")        # excludes src/Quote/API/**
-arkitectExcludePaths+=("Generated/Client") # add as many as needed
+```php
+// Each entry is excluded from arkitect IN ADDITION to the built-in 'Generated'.
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withArkitectExcludedPaths('Quote/API', 'Generated/Client'); // excludes src/Quote/API/** etc.
 ```
 
 - **No config copy needed** — the shipped default entry config honours these, so
@@ -218,7 +239,7 @@ arkitectExcludePaths+=("Generated/Client") # add as many as needed
   `*` / `**` globs are supported (`*` within a segment, `**` across separators).
   Use forward slashes on all platforms (`Quote/API`, never `Quote\API`).
 - This narrows only the FILE SET; it never silences a rule. An entry that matches
-  nothing is a harmless no-op. Prefer it over `useArkitect=0`, which drops the
+  nothing is a harmless no-op. Prefer it over `withArkitect(false)`, which drops the
   rules for the **whole** project rather than just the generated tree.
 
 ## Custom PHPStan Rules
@@ -246,6 +267,14 @@ These rules are active automatically in every project that uses php-qa-ci — no
   class-like must be classified as exactly one of `@api` / `@internal` (no-ops for other package types)
 - **ApiMustNotExposeInternalRule** -- An `@api` class-like must not expose an `@internal` one from the
   same package through its public signature
+- **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony
+  refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and
+  `.env` files itself; auto-skips on non-Symfony projects
+- **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare
+  `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path.
+  Use `VendoredCodeDetector`
+- **ForbidInlinePhpstanIgnoreRule** -- Bans inline `@phpstan-ignore` annotations. A suppression that is
+  genuinely irreducible goes in `phpstan.neon` `ignoreErrors`, where it is visible in review
 
 `rules-default.neon` is the authoritative list of always-on rules — the above are its currently
 wired rules; consult that file if in doubt.
@@ -281,11 +310,11 @@ parameters:
 
 ### Optional rules (opt-in)
 
-Eleven additional rules ship as opt-in, split across two files:
+Fifteen additional rules ship as opt-in, split across two files:
 
-- **`rules-optional.neon`** — 7 generic rules suitable for any PHP project (5 named in its `rules:`
+- **`rules-optional.neon`** — 11 generic rules suitable for any PHP project (9 named in its `rules:`
   block plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — all 7 generic rules + 4 Symfony/Doctrine-specific rules (11 total)
+- **`rules-optional-symfony.neon`** — all 11 generic rules + 4 Symfony/Doctrine-specific rules (15 total)
 
 (A further rule, `ForbidMagicStringAssertionRule`, ships but is in **neither** bundle — it is
 experimental/high-noise and must be cherry-picked deliberately.)
@@ -339,14 +368,15 @@ strings or comments.
   is found.
 
 **Escape hatch** (opt-out, on by default) — for projects that genuinely never handle
-a sensitive parameter (e.g. pure tooling libraries). Add to `qaConfig/qaConfig.inc.bash`:
+a sensitive parameter (e.g. pure tooling libraries). Add to `qaConfig/qa.php`:
 
-```bash
-export useSensitiveParameterCheck=0
+```php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withSensitiveParameterCheck(false);
 ```
 
-php-qa-ci itself is the canonical example: it handles no secrets, so it sets this flag
-in its own `qaConfig/qaConfig.inc.bash`.
+php-qa-ci itself is the canonical example: it handles no secrets, so it sets this in its
+own [qaConfig/qa.php](qaConfig/qa.php).
 
 > **Estate-wide impact**: because this is always on, every consumer's `bin/qa` now
 > requires either at least one `#[\SensitiveParameter]` annotation or the opt-out flag
@@ -389,7 +419,7 @@ vendor/lts/php-qa-ci/scripts/setup-branch-protection.bash --harden
 
 PHP-QA-CI includes three GitHub Actions workflows in `.github/workflows/`:
 
-- **`ci.yml`** -- Runs on push/PR to `php8.4`, executes `bash ci.bash`
+- **`ci.yml`** -- Runs on push/PR to `php8.5`, executes `bash ci.bash`
 - **`qa.yml`** -- Template workflow for consuming projects (copy to your project)
 - **`update-deps.yml`** -- Weekly scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, the Rector PHAR), runs the full QA pipeline, and creates an auto-merge PR if green
 
@@ -469,6 +499,8 @@ Comprehensive documentation is available in the [./docs](./docs) folder:
 - **[Pipeline Architecture](./docs/pipeline.md)** -- Tool execution order and phases
 - **[Tools Overview](./docs/phpqa-tools.md)** -- All tools with configuration details
 - **[Configuration](./docs/configuration.md)** -- Customizing tool settings and overrides
+- **[Extending the Pipeline](./docs/extending-the-pipeline.md)** -- Adding your own tools and phases from `qaConfig/pipeline.php`
+- **[Upgrading to 8.5](./docs/upgrading-to-8.5.md)** -- Migrating a project's `qaConfig/` from the Bash-configured branches
 - **[Coding Standards](./docs/coding-standards.md)** -- PHP CS Fixer and Rector configuration
 - **[GitHub Actions Integration](./docs/github-actions.md)** -- CI/CD setup guide
 - **[Continuous Integration](./docs/ci.md)** -- General CI usage and workflows
@@ -480,6 +512,7 @@ Tool-specific documentation:
 - **[PHPUnit](./docs/tools/phpunit.md)** -- Test runner configuration and modes
 - **[Infection](./docs/tools/infection.md)** -- Mutation testing setup
 - **[Package Type](./docs/tools/packageType.md)** -- The always-on `composer.json` `type` check
+- **[Version Pins](./docs/tools/versionPins.md)** -- The always-on check that phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
 - **[Require @api / @internal](./docs/tools/requireApiOrInternal.md)** -- API-surface classification rule
 - **[SensitiveParameter Usage](./docs/tools/sensitiveParameterUsage.md)** -- The always-on `#[\SensitiveParameter]` check
 
@@ -490,11 +523,11 @@ Tool-specific documentation:
 If you are running multiple PHP versions, you can specify which one to use:
 
 ```bash
-export PHP_QA_CI_PHP_EXECUTABLE=/bin/php84
+export PHP_QA_CI_PHP_EXECUTABLE=/bin/php85
 vendor/bin/qa
 
 # Or inline:
-PHP_QA_CI_PHP_EXECUTABLE=/bin/php84 vendor/bin/qa
+PHP_QA_CI_PHP_EXECUTABLE=/bin/php85 vendor/bin/qa
 ```
 
 ### Running Specific Tools
@@ -512,8 +545,9 @@ vendor/bin/qa -t stan -p src/Domain
 
 ### Branches
 
+- `php8.5` -- Targets PHP 8.5
 - `php8.4` -- Default branch, targets PHP 8.4
-- `php8.3` -- PHP 8.3 support
+- `php8.3` -- Targets PHP 8.3
 
 ## Long Term Support
 

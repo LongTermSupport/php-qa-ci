@@ -98,7 +98,7 @@ env:
 3. Check "Require status checks to pass before merging"
 4. Select the required **check-run** names — these are the job names, not the workflow name.
    For the `php-qa-ci.yml` template they are "Detect PHP Version", "PHP QA (<version>)" (the version
-   is filled in dynamically, e.g. "PHP QA (8.4)"), and "Coverage Report". ("PHP QA Pipeline" is the
+   is filled in dynamically, e.g. "PHP QA (8.5)"), and "Coverage Report". ("PHP QA Pipeline" is the
    workflow name shown in the Actions tab, not a selectable status check.)
 
 ## Inline-Barrier (autofix → read-only gate)
@@ -175,8 +175,8 @@ cp vendor/lts/php-qa-ci/templates/github-actions/qa-autofix.yml .github/workflow
 PHP-QA-CI includes an `update-deps.yml` workflow that runs weekly to automatically update all dependencies:
 
 - Composer dependencies (`composer update`)
-- PHARs via PHIVE (`phive update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect
-- Rector PHAR rebuild (`composer update --working-dir=build/rector-phar` then `scripts/build-rector-phar.bash --force`)
+- PHARs via PHIVE (`scripts/tool-install.bash update`) -- PHPStan, PHP CS Fixer, Infection, Composer Require Checker, PHPArkitect, Twig CS Fixer, composer-normalize, parallel-lint
+- Self-built PHAR rebuild (`composer update --working-dir=build/<tool>` for each manifest, then `scripts/build-phar.bash --all --force`)
 
 If changes are detected, it runs the full QA pipeline. If QA passes, it creates a pull request with auto-merge enabled.
 
@@ -197,7 +197,7 @@ See [Continuous Integration](./ci.md) for more details on the available workflow
 
 Place configuration files in your project's `qaConfig/` directory:
 
-- `qaConfig/qaConfig.inc.bash` - Override pipeline settings
+- `qaConfig/qa.php` - Override pipeline settings (a closure adjusting the `QaConfigBuilder`)
 - `qaConfig/phpstan.neon` - PHPStan configuration
 - `qaConfig/phpunit.xml` - PHPUnit configuration
 - `qaConfig/php_cs.php` - PHP CS Fixer rules
@@ -251,7 +251,7 @@ The workflow includes:
 **"php-qa-ci not installed" error**
 
 ```bash
-composer require --dev lts/php-qa-ci:dev-php8.4@dev
+composer require --dev lts/php-qa-ci:dev-php8.5@dev
 ```
 
 **Permission denied for auto-commits**

@@ -1,0 +1,14 @@
+# drifted copy
+name: QA
+jobs:
+  detect:
+    steps:
+      - run: |
+          PHP_CONSTRAINT=$(jq -r '.require.php // "^8.5"' composer.json)
+          if [[ "$PHP_CONSTRAINT" == *"8.5"* ]]; then
+            PHP_VERSION="8.5"
+          elif [[ "$PHP_CONSTRAINT" == *"8.4"* ]]; then
+            PHP_VERSION="8.4"
+          else
+            PHP_VERSION="8.5"
+          fi

@@ -9,12 +9,17 @@ includes:
 parameters:
     excludePaths:
         - ./../tests/assets/*
-        - ./../src/ComposerPlugin/*
-        # The plugin tests exercise the src/ComposerPlugin classes excluded just
-        # above, against the runtime-only Composer\* stub surface in
-        # tests/assets/ComposerPlugin/ — the same absent-Composer-API reason, so
-        # the same exclusion. Runtime behaviour is covered by the tests themselves.
+        # The plugin tests construct the plugins, and analysing a test that
+        # instantiates a class implementing an interface absent at runtime is an
+        # internal error in PHPStan's reflection. Runtime behaviour is covered by
+        # the tests themselves; the plugins under src/ ARE analysed, via scanFiles.
         - ./../tests/Small/ComposerPlugin/*
+    # composer/composer is not a dependency (only composer-plugin-api is, and it
+    # ships no classes), so the Composer\* surface the plugins under
+    # src/ComposerPlugin/ compile against comes from the runtime-only stubs the
+    # plugin tests also load. Scanning them keeps the plugin tree analysed.
+    scanFiles:
+        - ../tests/assets/ComposerPlugin/composer-stubs.php
     level: max
     inferPrivatePropertyTypeFromConstructor: true
     ignoreErrors:

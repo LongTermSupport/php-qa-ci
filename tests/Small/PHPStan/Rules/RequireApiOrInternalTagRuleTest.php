@@ -23,6 +23,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[Medium]
 final class RequireApiOrInternalTagRuleTest extends RuleTestCase
 {
+    private const string API_OR_INTERNAL_UNCLASSIFIED_PHP = '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php';
+
     private const string MISSING_MESSAGE =
         'Class LTS\PHPQA\Tests\Assets\PHPStan\ApiOrInternal\Unclassified is part of a library\'s '
         . 'public surface but is not classified. Add exactly one of @api (a supported public '
@@ -49,7 +51,7 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
     public function itFlagsAnUnclassifiedClassInALibrary(): void
     {
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [__DIR__ . self::API_OR_INTERNAL_UNCLASSIFIED_PHP],
             [[self::MISSING_MESSAGE, 7]],
         );
     }
@@ -84,7 +86,7 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
         $this->projectType = 'project';
 
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [__DIR__ . self::API_OR_INTERNAL_UNCLASSIFIED_PHP],
             [],
         );
     }
@@ -100,7 +102,7 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
         $this->enforceMode = 'always';
 
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [__DIR__ . self::API_OR_INTERNAL_UNCLASSIFIED_PHP],
             [[self::MISSING_MESSAGE, 7]],
         );
     }
@@ -113,7 +115,7 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
         $this->enforceMode = 'never';
 
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [__DIR__ . self::API_OR_INTERNAL_UNCLASSIFIED_PHP],
             [],
         );
     }
@@ -124,7 +126,7 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
         $this->ignoredNamespacePrefixes = ['LTS\PHPQA\Tests\Assets'];
 
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [__DIR__ . self::API_OR_INTERNAL_UNCLASSIFIED_PHP],
             [],
         );
     }
@@ -140,7 +142,7 @@ final class RequireApiOrInternalTagRuleTest extends RuleTestCase
         ];
 
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/ApiOrInternal/Unclassified.php'],
+            [__DIR__ . self::API_OR_INTERNAL_UNCLASSIFIED_PHP],
             [],
         );
     }

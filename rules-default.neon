@@ -3,6 +3,18 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidEmptyCatchBlockRule
     - LTS\PHPQA\PHPStan\Rules\RequireDeclareStrictTypesRule
     - LTS\PHPQA\PHPStan\Rules\ForbidAllowMockWithoutExpectationsRule
+    # ForbidNamespacedFunctionInComposerPluginRule — a Composer plugin may call
+    # global functions and Composer's own API only: a namespaced function comes
+    # from a dependency's "files" autoload, which is not registered when the
+    # plugin activates part-way through a fresh install, so the call fails or
+    # succeeds depending on the install order of unrelated packages.
+    # docs/phpstan-rules/forbid-namespaced-function-in-composer-plugin.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidNamespacedFunctionInComposerPluginRule
+    # ForbidBinDirToolRule — a pipeline lane runs tools from vendor-phar/, never
+    # from the consumer's Composer bin dir (phpunit/paratest excepted): a
+    # Composer-installed CLI tool drags its dependency graph into every consumer.
+    # docs/phpstan-rules/forbid-bin-dir-tool.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidBinDirToolRule
     - LTS\PHPQA\PHPStan\Rules\ForbidNewDateTimeRule
     - LTS\PHPQA\PHPStan\Rules\ForbidEmptyLanguageConstructRule
     - LTS\PHPQA\PHPStan\Rules\ForbidLooseComparisonRule

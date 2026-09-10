@@ -1,0 +1,7 @@
+{
+  "name": "fixture/symfony",
+  "type": "project",
+  "config": {
+    "bin-dir": "bin/"
+  }
+}

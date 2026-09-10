@@ -55,15 +55,6 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.httpPrefixedEnvVars';
 
-    /**
-     * PHPStan may run several parallel worker PROCESSES (php-qa-ci's own
-     * phpstan.inc.bash configures parallel.maximumNumberOfProcesses). Each
-     * worker gets its own PHP process and therefore its own instance of this
-     * rule, so this instance-level flag only dedupes WITHIN one worker — it
-     * cannot dedupe ACROSS workers. Accepted trade-off: at most one duplicate
-     * report per offender per worker (cosmetic — the build still fails
-     * correctly, every offender is still named), not a false negative.
-     */
     private bool $alreadyScanned = false;
 
     public function __construct(private readonly string $projectRoot)
@@ -199,7 +190,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
                 // conditional-return narrowing for native preg_match); a 1 === return
                 // GUARANTEES $matches[0] is the matched string — mirrors the identical,
                 // established narrowing in Markdown/LinksChecker.php::getLinks().
-                /** @var array<string> $matches */
+                /** @var array<int|string, string> $matches */
                 $name        = substr($matches[0], 0, -1);
                 $offenders[] = [$path, $lineIndex + 1, $name];
             }
@@ -239,7 +230,7 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
     {
         $segments = explode(':', $expr);
 
-        return $segments[array_key_last($segments)];
+        return array_last($segments);
     }
 
     /**

@@ -10,9 +10,19 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00001: Repo Audit & Tidy](00001-repo-audit-and-tidy/PLAN.md) - In Progress
+- [00007: OPcache optimizer const-comparison crash](00007-opcache-optimizer-const-comparison-crash/PLAN.md) - In Progress — PHP 8.5.10's DFA pass leaves a const-const comparison unfolded and the VM segfaults; detector lane, preflight warning, recommended ini
 
 ## Completed Plans
+
+- [00005: pipeline extensibility and tool coupling](Completed/00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - Complete — PipelineBuilder (consumer tools and phases from qaConfig/pipeline.php), twig/yaml lanes, the qa skill as a shim, the ambiguousArrayDoc rule, and shipmonk/dead-code-detector shipped as the opt-in deadCode lane from its own PHAR
+
+- [00001: Repo Audit & Tidy](Completed/00001-repo-audit-and-tidy/PLAN.md) - Complete — six audit and remediation waves on the Bash pipeline (psr4 gate restored, dead code and docs rot removed, consumer scripts and registry SSoT); remaining Bash-era findings superseded by Plan 00003
+
+- [00006: PHAR-only tool delivery](Completed/00006-phar-only-tool-delivery/PLAN.md) - Complete — composer-normalize and parallel-lint via PHIVE, phpcpd and composer-dependency-analyser Box-built from build/<tool>/ manifests, a PHAR update path that really updates, the binDirTool rule (delivered d0a6573)
+
+- [00004: QA ecosystem lanes](Completed/00004-qa-ecosystem-lanes/PLAN.md) - Complete — composer audit, deprecation rules, composer-dependency-analyser, type-coverage, phpcpd-next, twig-cs-fixer, the spaze deny-lists lifted into our own rules, and the variadicOverArrayParameter rule (delivered 085f595, `php8.5` released and made default)
+
+- [00003: PHP pipeline rewrite](Completed/00003-php-pipeline-rewrite/PLAN.md) - Complete — Bash orchestration replaced by TDD PHP 8.5 under LTS\\PHPQA\\Pipeline; `bin/qa` is PHP, `qaConfig/qa.php` is the consumer contract (delivered 1b2c5c3)
 
 - [00002: PHAR-vendored Rector](Completed/00002-phar-vendored-rector/PLAN.md) - Complete — Rector now ships as the committed `vendor-phar/rector.phar`; `tools/rector/` and `PhiveUpdatePlugin` deleted
 

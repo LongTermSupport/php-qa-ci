@@ -20,6 +20,12 @@ use PHPUnit\Framework\Attributes\Test;
 #[Medium]
 final class RequireSensitiveParameterAttributeRuleTest extends RuleTestCase
 {
+    private const string SENSITIVE_PARAMETER_CREDENTIAL_PARAMS_PHP = '/../../../assets/PHPStan/SensitiveParameter/CredentialParams.php';
+
+    private const string LOOKS_LIKE_A_PLAINTEXT_CREDENTIAL_BUT_IS_MIS = 'looks like a plaintext credential but is missing the #[\SensitiveParameter] attribute. ';
+
+    private const string ADD_SENSITIVE_PARAMETER_SO_ITS_VALUE_IS_REDA = 'Add #[\SensitiveParameter] so its value is redacted from stack traces.';
+
     /**
      * Custom credential name patterns injected per test so the single getRule()
      * seam can serve both the default-config and custom-config cases.
@@ -32,13 +38,13 @@ final class RequireSensitiveParameterAttributeRuleTest extends RuleTestCase
     public function itFlagsPlaintextCredentialParamsMissingTheAttributeAndIgnoresTheRest(): void
     {
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/SensitiveParameter/CredentialParams.php'],
+            [__DIR__ . self::SENSITIVE_PARAMETER_CREDENTIAL_PARAMS_PHP],
             [
                 [
                     'Parameter $password of method '
                     . (\LTS\PHPQA\Tests\Assets\PHPStan\SensitiveParameter\CredentialParams::class . '::loginMissing() ')
-                    . 'looks like a plaintext credential but is missing the #[\SensitiveParameter] attribute. '
-                    . 'Add #[\SensitiveParameter] so its value is redacted from stack traces.',
+                    . self::LOOKS_LIKE_A_PLAINTEXT_CREDENTIAL_BUT_IS_MIS
+                    . self::ADD_SENSITIVE_PARAMETER_SO_ITS_VALUE_IS_REDA,
                     17,
                 ],
             ],
@@ -62,13 +68,13 @@ final class RequireSensitiveParameterAttributeRuleTest extends RuleTestCase
         // The existing CredentialParams fixture now includes these params; the only
         // error that must come back is the pre-existing $password one.
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/SensitiveParameter/CredentialParams.php'],
+            [__DIR__ . self::SENSITIVE_PARAMETER_CREDENTIAL_PARAMS_PHP],
             [
                 [
                     'Parameter $password of method '
                     . (\LTS\PHPQA\Tests\Assets\PHPStan\SensitiveParameter\CredentialParams::class . '::loginMissing() ')
-                    . 'looks like a plaintext credential but is missing the #[\SensitiveParameter] attribute. '
-                    . 'Add #[\SensitiveParameter] so its value is redacted from stack traces.',
+                    . self::LOOKS_LIKE_A_PLAINTEXT_CREDENTIAL_BUT_IS_MIS
+                    . self::ADD_SENSITIVE_PARAMETER_SO_ITS_VALUE_IS_REDA,
                     17,
                 ],
             ],
@@ -84,13 +90,13 @@ final class RequireSensitiveParameterAttributeRuleTest extends RuleTestCase
         $this->customNamePatterns = ['email'];
 
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/SensitiveParameter/CredentialParams.php'],
+            [__DIR__ . self::SENSITIVE_PARAMETER_CREDENTIAL_PARAMS_PHP],
             [
                 [
                     'Parameter $email of method '
                     . (\LTS\PHPQA\Tests\Assets\PHPStan\SensitiveParameter\CredentialParams::class . '::notify() ')
-                    . 'looks like a plaintext credential but is missing the #[\SensitiveParameter] attribute. '
-                    . 'Add #[\SensitiveParameter] so its value is redacted from stack traces.',
+                    . self::LOOKS_LIKE_A_PLAINTEXT_CREDENTIAL_BUT_IS_MIS
+                    . self::ADD_SENSITIVE_PARAMETER_SO_ITS_VALUE_IS_REDA,
                     41,
                 ],
             ],

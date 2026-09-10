@@ -27,6 +27,8 @@ final class ForbidEmptyCatchBlockRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
+    private const string THROWABLE = 'Throwable';
+
     private ForbidEmptyCatchBlockRule $rule;
 
     protected function setUp(): void
@@ -43,7 +45,7 @@ final class ForbidEmptyCatchBlockRuleTest extends TestCase
     #[Test]
     public function emptyCatchBlockIsFlagged(): void
     {
-        $catch  = new Catch_([new Name('Throwable')], new Variable('e'), []);
+        $catch  = new Catch_([new Name(self::THROWABLE)], new Variable('e'), []);
         $errors = $this->rule->processNode($catch, $this->scope());
 
         self::assertCount(1, $errors);
@@ -54,7 +56,7 @@ final class ForbidEmptyCatchBlockRuleTest extends TestCase
     #[Test]
     public function catchWithAStatementIsNotFlagged(): void
     {
-        $catch = new Catch_([new Name('Throwable')], new Variable('e'), [new Return_()]);
+        $catch = new Catch_([new Name(self::THROWABLE)], new Variable('e'), [new Return_()]);
 
         self::assertSame([], $this->rule->processNode($catch, $this->scope()));
     }
@@ -63,7 +65,7 @@ final class ForbidEmptyCatchBlockRuleTest extends TestCase
     public function catchContainingOnlyANopStatementIsNotFlaggedBecauseItHasAStatement(): void
     {
         // A Nop (from a lone comment) is still an AST statement, so count > 0.
-        $catch = new Catch_([new Name('Throwable')], new Variable('e'), [new Nop()]);
+        $catch = new Catch_([new Name(self::THROWABLE)], new Variable('e'), [new Nop()]);
 
         self::assertSame([], $this->rule->processNode($catch, $this->scope()));
     }

@@ -39,19 +39,16 @@ use SplFileInfo;
  * ESCAPE HATCH
  * ============
  * A small number of projects (e.g. pure tooling libraries — php-qa-ci itself is
- * one) genuinely never handle a sensitive parameter. They opt out by setting
- * `export useSensitiveParameterCheck=0` in qaConfig/qaConfig.inc.bash.
+ * one) genuinely never handle a sensitive parameter. They opt out with
+ * `->withSensitiveParameterCheck(false)` in qaConfig/qa.php (the standalone
+ * binary honours the `useSensitiveParameterCheck=0` environment variable).
  */
 final readonly class SensitiveParameterUsageScanner
 {
-    /**
-     * Environment variable name used as the escape hatch (1 = on, 0 = off).
-     */
     public const string ESCAPE_HATCH_ENV = 'useSensitiveParameterCheck';
 
-    /**
-     * Attribute short name (last namespace segment) that marks a parameter sensitive.
-     */
+    private const string RULE            = '==============================================================================';
+
     private const string ATTRIBUTE_SHORT_NAME = 'SensitiveParameter';
 
     private Parser $parser;
@@ -198,9 +195,9 @@ final readonly class SensitiveParameterUsageScanner
     private static function buildFailureMessage(string $srcDirectory): string
     {
         return PHP_EOL
-            . '==============================================================================' . PHP_EOL
+            . self::RULE . PHP_EOL
             . 'SensitiveParameter usage check FAILED' . PHP_EOL
-            . '==============================================================================' . PHP_EOL
+            . self::RULE . PHP_EOL
             . PHP_EOL
             . 'No #[\SensitiveParameter] attribute was found anywhere in:' . PHP_EOL
             . '  ' . $srcDirectory . PHP_EOL
@@ -213,10 +210,10 @@ final readonly class SensitiveParameterUsageScanner
             . '    public function login(string $user, #[\SensitiveParameter] string $password) {}' . PHP_EOL
             . PHP_EOL
             . 'If this project genuinely never handles a sensitive parameter, opt out by' . PHP_EOL
-            . 'adding the following to qaConfig/qaConfig.inc.bash:' . PHP_EOL
+            . 'adding the following to qaConfig/qa.php:' . PHP_EOL
             . PHP_EOL
-            . '    export ' . self::ESCAPE_HATCH_ENV . '=0' . PHP_EOL
+            . '    ->withSensitiveParameterCheck(false)' . PHP_EOL
             . PHP_EOL
-            . '==============================================================================' . PHP_EOL;
+            . self::RULE . PHP_EOL;
     }
 }

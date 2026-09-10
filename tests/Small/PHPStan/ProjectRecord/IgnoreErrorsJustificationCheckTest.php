@@ -26,6 +26,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class IgnoreErrorsJustificationCheckTest extends TestCase
 {
+    private const string QA_CONFIG_PHPSTAN_NEON = '/qaConfig/phpstan.neon';
+
     private string $root;
 
     protected function setUp(): void
@@ -48,7 +50,7 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
     public function aJustifiedRecordPasses(): void
     {
         \Safe\file_put_contents(
-            $this->root . '/qaConfig/phpstan.neon',
+            $this->root . self::QA_CONFIG_PHPSTAN_NEON,
             "parameters:\n    ignoreErrors:\n        # The generated client reaches a class that only exists at runtime;\n        # scoped to the generated directory.\n        -\n            identifier: class.notFound\n            path: ../src/Generated/*\n",
         );
 
@@ -60,7 +62,7 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
     public function theEntryCountIsPluralisedFromTheRecord(): void
     {
         \Safe\file_put_contents(
-            $this->root . '/qaConfig/phpstan.neon',
+            $this->root . self::QA_CONFIG_PHPSTAN_NEON,
             "parameters:\n    ignoreErrors:\n        # The generated client reaches a class that only exists at runtime;\n        # scoped to the generated directory.\n        - '#Class Generated\\\\Client not found#'\n        # The legacy importer builds SQL from trusted constants only, and is deleted\n        # in the next release; scoped to that one file.\n        - '#Raw SQL#'\n",
         );
 
@@ -72,7 +74,7 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
     public function anUnjustifiedRecordFailsNamingTheEntry(): void
     {
         \Safe\file_put_contents(
-            $this->root . '/qaConfig/phpstan.neon',
+            $this->root . self::QA_CONFIG_PHPSTAN_NEON,
             "parameters:\n    ignoreErrors:\n        # legacy\n        -\n            identifier: class.notFound\n",
         );
 

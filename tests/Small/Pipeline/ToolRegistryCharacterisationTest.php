@@ -4,30 +4,29 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline;
 
+use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
+use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
+use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Characterisation ("golden master") of the tool-registry behaviour that the
- * M-011 SSoT refactor must preserve byte-for-byte.
+ * Characterisation ("golden master") of the tool-registry behaviour the
+ * shipped ToolRegistry must preserve byte-for-byte.
  *
  * The GOLDEN_* constants below are the frozen behavioural contract:
  *   - GOLDEN_ALIAS_MAP  — every -t input token accepted by bin/qa and the
  *                         canonical tool name it resolves to.
- *   - GOLDEN_PATH_SUPPORT — every token classified by the path-support gate
- *                         (options.inc.bash tool_supports_paths), true = the
- *                         gate treats it as path-supporting.
+ *   - GOLDEN_PATH_SUPPORT — every token classified by the path-support gate,
+ *                         true = the gate treats it as path-supporting.
  *   - GOLDEN_PHASE_ORDER — the ordered list of tools each phase runner invokes.
  *
- * These values are asserted against whatever is the CURRENT single source of
- * truth. Before the refactor that source is the hand-written structures in
- * includes/options.inc.bash and the four includes/generic/all*Tools.inc.bash
- * files; after the refactor it is includes/generic/toolRegistry.inc.bash. The
- * golden constants do not change — only the extraction target moves, which is
- * precisely the point: the registry becomes the SSoT without altering any
- * observable resolution/classification/ordering behaviour.
+ * They are derived from the registry with the same operations the CLI and
+ * the runner use (resolve / tokens / toolsForPhase), on the registry that
+ * PipelineBuilder::defaults() constructs. Changing a golden value is a
+ * deliberate behavioural change, not a refactor.
  *
  * @internal
  */
@@ -35,8 +34,6 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ToolRegistryCharacterisationTest extends TestCase
 {
-    private const string INCLUDES_DIR = __DIR__ . '/../../../includes';
-
     /**
      * Every accepted `-t <token>` and the canonical tool it resolves to.
      *
@@ -53,10 +50,16 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'composer'                   => 'composerChecks',
         'st'                         => 'phpStrictTypes',
         'stricttypes'                => 'phpStrictTypes',
+        'twigcs'                     => 'twigCsFixer',
         'lint'                       => 'phpLint',
         'phplint'                    => 'phpLint',
+        'oc'                         => 'opcache',
+        'opcache'                    => 'opcache',
         'stan'                       => 'phpstan',
         'phpstan'                    => 'phpstan',
+        'dcd'                        => 'deadCode',
+        'deadcode'                   => 'deadCode',
+        'deadCode'                   => 'deadCode',
         'arch'                       => 'phpArkitect',
         'arkitect'                   => 'phpArkitect',
         'phparkitect'                => 'phpArkitect',
@@ -66,10 +69,12 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'infect'                     => 'infection',
         'infection'                  => 'infection',
         'cr'                         => 'composerRequireChecker',
+        'cda'                        => 'composerDependencyAnalyser',
+        'cpd'                        => 'phpcpd',
+        'phpcpd'                     => 'phpcpd',
         'ml'                         => 'markdownLinks',
         'markdown'                   => 'markdownLinks',
-        'l'                          => 'phploc',
-        'loc'                        => 'phploc',
+        'yaml'                       => 'yamlLint',
         'f'                          => 'phpCsFixer',
         'fixer'                      => 'phpCsFixer',
         'csfixer'                    => 'phpCsFixer',
@@ -89,6 +94,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'configTemplateIgnoreList'   => 'configTemplateIgnoreList',
         'icsd'                       => 'infectionConfigSourceDirs',
         'infectionConfigSourceDirs'  => 'infectionConfigSourceDirs',
+        'vp'                         => 'versionPins',
+        'versionPins'                => 'versionPins',
     ];
 
     /**
@@ -110,15 +117,18 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'phpLint'                    => true,
         'lint'                       => true,
         'phplint'                    => true,
+        'opcache'                    => true,
+        'oc'                         => true,
         'phpStrictTypes'             => true,
         'stricttypes'                => true,
         'st'                         => true,
-        'phploc'                     => true,
-        'loc'                        => true,
-        'l'                          => true,
+        'phpcpd'                     => true,
+        'cpd'                        => true,
         'phpunit'                    => true,
         'unit'                       => true,
         // NOT path-supporting
+        'twigCsFixer'                => false,
+        'twigcs'                     => false,
         'composerChecks'             => false,
         'composer'                   => false,
         'com'                        => false,
@@ -126,9 +136,13 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'infect'                     => false,
         'composerRequireChecker'     => false,
         'cr'                         => false,
+        'composerDependencyAnalyser' => false,
+        'cda'                        => false,
         'markdownLinks'              => false,
         'markdown'                   => false,
         'ml'                         => false,
+        'yamlLint'                   => false,
+        'yaml'                       => false,
         'psr4Validate'               => false,
         'psr'                        => false,
         'psr4'                       => false,
@@ -145,8 +159,13 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'cti'                        => false,
         'infectionConfigSourceDirs'  => false,
         'icsd'                       => false,
+        'versionPins'                => false,
+        'vp'                         => false,
         'pt'                         => false,
         'packagetype'                => false,
+        'deadCode'                   => false,
+        'dcd'                        => false,
+        'deadcode'                   => false,
         'phpArkitect'                => false,
         'arch'                       => false,
         'arkitect'                   => false,
@@ -167,37 +186,25 @@ final class ToolRegistryCharacterisationTest extends TestCase
      * @var array<string, list<string>>
      */
     private const array GOLDEN_PHASE_ORDER = [
-        'allCodingStandardsTools' => ['rector', 'phpCsFixer'],
+        'allCodingStandardsTools' => ['rector', 'phpCsFixer', 'twigCsFixer'],
         'allLintingTools'         => [
             'psr4Validate',
             'composerChecks',
             'packageType',
             'configTemplateIgnoreList',
             'infectionConfigSourceDirs',
+            'versionPins',
             'phpStrictTypes',
             'phpLint',
+            'opcache',
             'composerRequireChecker',
+            'composerDependencyAnalyser',
             'markdownLinks',
+            'yamlLint',
         ],
-        'allStaticAnalysisTools'  => ['branchNamePolicy', 'phpstanIgnoreJustification', 'phpstan', 'phpArkitect', 'sensitiveParameterUsage'],
+        'allStaticAnalysisTools'  => ['branchNamePolicy', 'phpstanIgnoreJustification', 'phpstan', 'deadCode', 'phpArkitect', 'sensitiveParameterUsage'],
         'allTestingTools'         => ['phpunit', 'infection'],
     ];
-
-    // ---------------------------------------------------------------------
-    // Extraction of the single source of truth — the tool registry.
-    //
-    // These derive the alias map, path classification and phase ordering from
-    // the DECLARATIVE data in includes/generic/toolRegistry.inc.bash, applying
-    // exactly the same composition the registry's own bash helpers apply
-    // (qaResolveSingleTool / qaBuildPathSupportArrays / qaToolsForPhase). The
-    // golden constants above are the frozen behavioural contract; the SSoT moved
-    // from the hand-written options/phase structures into the registry, which is
-    // the point of the refactor. (The runtime resolution path is additionally
-    // exercised end-to-end by the `bin/qa -t <alias>` smoke checks and by
-    // ToolFragmentLivenessTest.)
-    // ---------------------------------------------------------------------
-
-    private const string REGISTRY = self::INCLUDES_DIR . '/generic/toolRegistry.inc.bash';
 
     public function testAliasMapMatchesGolden(): void
     {
@@ -272,14 +279,10 @@ final class ToolRegistryCharacterisationTest extends TestCase
     /** @return array<string, string> */
     private function extractAliasMap(): array
     {
-        $aliases = $this->parseAssocArray('QA_TOOL_ALIASES');
-        $targets = $this->parseAssocArray('QA_TOOL_TARGET');
-
         $map = [];
-        foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
-            $target = $targets[$name] ?? $name;
-            foreach ($this->splitWords(\array_key_exists($name, $aliases) ? $aliases[$name] : '') as $alias) {
-                $map[$alias] = $target;
+        foreach (PipelineBuilder::defaults()->build()->registry->all() as $tool) {
+            foreach ($tool->aliases as $alias) {
+                $map[$alias] = $tool->target ?? $tool->name;
             }
         }
 
@@ -289,18 +292,10 @@ final class ToolRegistryCharacterisationTest extends TestCase
     /** @return array<string, bool> */
     private function extractPathClassification(): array
     {
-        $aliases = $this->parseAssocArray('QA_TOOL_ALIASES');
-        $paths   = $this->parseAssocArray('QA_TOOL_PATHS');
-
         $classification = [];
-        foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
-            $tokens = $this->splitWords(\array_key_exists($name, $aliases) ? $aliases[$name] : '');
-            if (!\in_array($name, $tokens, true)) {
-                array_unshift($tokens, $name);
-            }
-
-            foreach ($tokens as $token) {
-                $classification[$token] = 'yes' === ($paths[$name] ?? 'no');
+        foreach (PipelineBuilder::defaults()->build()->registry->all() as $tool) {
+            foreach ($tool->tokens() as $token) {
+                $classification[$token] = $tool->supportsPaths;
             }
         }
 
@@ -310,91 +305,19 @@ final class ToolRegistryCharacterisationTest extends TestCase
     /** @return array<string, list<string>> */
     private function extractPhaseOrder(): array
     {
-        $phaseToRunner = [
-            'codingStandards' => 'allCodingStandardsTools',
-            'linting'         => 'allLintingTools',
-            'staticAnalysis'  => 'allStaticAnalysisTools',
-            'testing'         => 'allTestingTools',
-        ];
-
-        $phases = $this->parseAssocArray('QA_TOOL_PHASE');
-
-        $order = [];
-        foreach ($this->parseIndexedArray('QA_TOOL_NAMES') as $name) {
-            if (!\array_key_exists($name, $phases)) {
+        $registry = PipelineBuilder::defaults()->build()->registry;
+        $order    = [];
+        foreach ($registry->all() as $runner) {
+            if (!$runner->isPhaseRunner || null === $runner->phase) {
                 continue;
             }
 
-            if ('' === $phases[$name]) {
-                continue;
-            }
-
-            $phase = $phases[$name];
-
-            self::assertArrayHasKey($phase, $phaseToRunner, \sprintf("Registry declares unknown phase '%s' for '%s'.", $phase, $name));
-            $order[$phaseToRunner[$phase]][] = $name;
+            $order[$runner->name] = array_map(
+                static fn (ToolDefinitionDto $tool): string => $tool->name,
+                $registry->toolsForPhase($runner->phase),
+            );
         }
 
         return $order;
-    }
-
-    /** @return list<string> */
-    private function parseIndexedArray(string $name): array
-    {
-        $body = $this->arrayBody($name);
-
-        return $this->splitWords($body);
-    }
-
-    /** @return array<string, string> */
-    private function parseAssocArray(string $name): array
-    {
-        $body = $this->arrayBody('declare -A ' . $name);
-        // Values may be quoted ([k]="v") or bare ([k]=v) in the registry.
-        \Safe\preg_match_all('/\[(\w+)\]=(?:"([^"]*)"|(\S+))/', $body, $matches, \PREG_SET_ORDER);
-        self::assertIsArray($matches);
-        $result = [];
-        foreach ($matches as $match) {
-            self::assertIsArray($match);
-            $key = $match[1] ?? null;
-            self::assertIsString($key);
-            // Quoted value in group 2, bare value in group 3; only one is present.
-            $quoted = \array_key_exists(2, $match) ? $match[2] : '';
-            $bare   = \array_key_exists(3, $match) ? $match[3] : '';
-            self::assertIsString($quoted);
-            self::assertIsString($bare);
-            $result[$key] = '' !== $quoted ? $quoted : $bare;
-        }
-
-        return $result;
-    }
-
-    private function arrayBody(string $declaration): string
-    {
-        $contents = \Safe\file_get_contents(self::REGISTRY);
-
-        // Body runs from the "=(" opener to the first ")" anchored at line start.
-        $pattern = '/' . preg_quote($declaration, '/') . '=\((?<body>.*?)^\)/ms';
-        self::assertSame(1, \Safe\preg_match($pattern, $contents, $m), \sprintf('Could not locate array %s in the registry.', $declaration));
-        self::assertIsArray($m);
-        self::assertArrayHasKey('body', $m);
-
-        return $m['body'];
-    }
-
-    /** @return list<string> */
-    private function splitWords(string $value): array
-    {
-        $words = \Safe\preg_split('/\s+/', trim($value));
-
-        $result = [];
-        foreach ($words as $word) {
-            self::assertIsString($word);
-            if ('' !== $word) {
-                $result[] = $word;
-            }
-        }
-
-        return $result;
     }
 }

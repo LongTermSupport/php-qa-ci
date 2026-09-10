@@ -26,6 +26,11 @@ use SplFileInfo;
  * Neither is visible from inside a code review of the rule itself, which is why
  * this is a mechanical check rather than a convention.
  *
+ * Every source file is scanned, not the PHPStan rules alone: a pipeline lane that
+ * prints an identifier of its own is held to the same index (toolchain
+ * specification 10.1). EXAMPLE_IDENTIFIERS lists identifiers that appear in source
+ * only as illustrative examples inside docblocks and failure messages.
+ *
  * @internal
  */
 #[\PHPUnit\Framework\Attributes\CoversNothing]
@@ -34,20 +39,11 @@ final class RuleDocumentationTest extends TestCase
 {
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
-    /**
-     * Every source file, not the PHPStan rules alone: a pipeline lane that prints
-     * an identifier of its own is held to the same index (toolchain specification 10.1).
-     */
     private const string SRC_DIR = self::REPO_ROOT . '/src';
 
     private const string INDEX = self::REPO_ROOT . '/docs/phpstan-rules/README.md';
 
-    /**
-     * Identifiers that appear in source as illustrative examples inside
-     * docblocks and failure messages, not as any rule's real identifier.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     private const array EXAMPLE_IDENTIFIERS = [
         'phpqaci.myCheck',
         'phpqaci.something',

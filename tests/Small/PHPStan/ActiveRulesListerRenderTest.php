@@ -32,6 +32,10 @@ final class ActiveRulesListerRenderTest extends TestCase
 {
     private const string QA_CI_ROOT = __DIR__ . '/../../..';
 
+    private const string CONFIG_PATH = '/fixture/qaConfig/phpstan.neon';
+
+    private const string DOC_PATH = '/docs/example.md';
+
     public function testRenderTextProducesTheExactExpectedString(): void
     {
         $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
@@ -69,7 +73,7 @@ final class ActiveRulesListerRenderTest extends TestCase
     public function testRenderTextEmptyListingsShowNoneMarkers(): void
     {
         $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
-        $listing = new ActiveDefencesListingDto('/fixture/qaConfig/phpstan.neon', [], [], []);
+        $listing = new ActiveDefencesListingDto(self::CONFIG_PATH, [], [], []);
 
         $expected = <<<'TEXT'
             Active defences (from /fixture/qaConfig/phpstan.neon)
@@ -98,19 +102,19 @@ final class ActiveRulesListerRenderTest extends TestCase
         // if JSON_UNESCAPED_SLASHES were dropped, docPath's "/" would be escaped
         // to "\/" in the raw JSON text.
         self::assertStringNotContainsString('\/', $json);
-        self::assertStringContainsString('/docs/example.md', $json);
+        self::assertStringContainsString(self::DOC_PATH, $json);
 
         $decoded = \Safe\json_decode($json, true, flags: JSON_THROW_ON_ERROR);
 
         self::assertSame(
             [
-                'configPath'    => '/fixture/qaConfig/phpstan.neon',
+                'configPath'    => self::CONFIG_PATH,
                 'rules'         => [
                     [
                         'ruleClass'  => 'My\Rule\WithEverything',
                         'identifier' => 'phpqaci.example',
                         'summary'    => 'An example summary.',
-                        'docPath'    => '/docs/example.md',
+                        'docPath'    => self::DOC_PATH,
                     ],
                     [
                         'ruleClass'  => 'My\Rule\Bare',
@@ -161,9 +165,9 @@ final class ActiveRulesListerRenderTest extends TestCase
     private function listing(): ActiveDefencesListingDto
     {
         return new ActiveDefencesListingDto(
-            '/fixture/qaConfig/phpstan.neon',
+            self::CONFIG_PATH,
             [
-                new ActiveRuleEntryDto('My\Rule\WithEverything', 'phpqaci.example', 'An example summary.', '/docs/example.md'),
+                new ActiveRuleEntryDto('My\Rule\WithEverything', 'phpqaci.example', 'An example summary.', self::DOC_PATH),
                 new ActiveRuleEntryDto('My\Rule\Bare', null, null, null),
             ],
             [

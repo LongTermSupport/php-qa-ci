@@ -1,0 +1,15 @@
+{
+    "name": "lts/php-qa-ci-rector",
+    "description": "Isolated Rector installation for php-qa-ci. Prevents phpstan/phpstan leaking into project dependencies.",
+    "license": "MIT",
+    "require": {
+        "php": "^8.5",
+        "rector/rector": "@stable"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": {
+            "*": "dist"
+        }
+    }
+}

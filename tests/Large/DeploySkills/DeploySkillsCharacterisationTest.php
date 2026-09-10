@@ -43,10 +43,22 @@ final class DeploySkillsCharacterisationTest extends TestCase
 {
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
-    /** Absolute path to the php-qa-ci repo root passed as the script's <qaci> arg. */
+    private const string PRE_COMMIT_HOOK = '/.git/hooks/pre-commit';
+
+    private const string SETTINGS_JSON = '/.claude/settings.json';
+
+    private const string PRE_TOOL_USE = 'PreToolUse';
+
+    private const string HOOK_TYPE_COMMAND = 'command';
+
+    private const string FOREIGN_HOOK = '/some/foreign/hook.py';
+
+    private const string PREVENT_DESTRUCTIVE_GIT_HOOK = '.claude/hooks/php-qa-ci__prevent-destructive-git.py';
+
+    private const string DAEMON_ONLY_SKILL_FILE = '/plan-qa.md';
+
     private string $qaciPath;
 
-    /** Absolute path to scripts/deploy-skills.bash. */
     private string $scriptPath;
 
     /** @var list<string> temp base dirs to remove in tearDown */
@@ -99,7 +111,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
         }
 
         // Git pre-commit hook: installed, executable, byte-identical to source.
-        $preCommit = $consumer . '/.git/hooks/pre-commit';
+        $preCommit = $consumer . self::PRE_COMMIT_HOOK;
         self::assertFileExists($preCommit);
         self::assertTrue(is_executable($preCommit), 'pre-commit hook is not executable');
         self::assertSame(
@@ -141,8 +153,8 @@ final class DeploySkillsCharacterisationTest extends TestCase
         $consumer = $this->newConsumer(daemon: false);
         $this->runDeploy($consumer);
 
-        $settings = $this->readJson($consumer . '/.claude/settings.json');
-        $pre      = $this->hookCommands($settings, 'PreToolUse');
+        $settings = $this->readJson($consumer . self::SETTINGS_JSON);
+        $pre      = $this->hookCommands($settings, self::PRE_TOOL_USE);
         $stop     = $this->hookCommands($settings, 'Stop');
 
         // auto-continue is the sole Stop-only hook (registered with the
@@ -190,13 +202,13 @@ final class DeploySkillsCharacterisationTest extends TestCase
     {
         $consumer = $this->newConsumer(daemon: false);
         $foreign  = "#!/bin/sh\necho \"husky or hand-rolled hook\"\n";
-        $this->write($consumer . '/.git/hooks/pre-commit', $foreign);
-        $this->chmodExec($consumer . '/.git/hooks/pre-commit');
+        $this->write($consumer . self::PRE_COMMIT_HOOK, $foreign);
+        $this->chmodExec($consumer . self::PRE_COMMIT_HOOK);
 
         $result = $this->runDeploy($consumer);
 
         self::assertSame(0, $result['exit'], 'A foreign hook must never fail the deploy.');
-        self::assertSame($foreign, $this->read($consumer . '/.git/hooks/pre-commit'), 'foreign pre-commit was clobbered');
+        self::assertSame($foreign, $this->read($consumer . self::PRE_COMMIT_HOOK), 'foreign pre-commit was clobbered');
         self::assertStringContainsString('NOT managed by php-qa-ci', $result['output']);
         self::assertStringContainsString('Refusing to overwrite a foreign hook', $result['output']);
     }
@@ -213,15 +225,15 @@ final class DeploySkillsCharacterisationTest extends TestCase
         $stale = "#!/usr/bin/env bash\n"
             . "# PHP-QA-CI-HOOK-SIGNATURE: pre-commit-check-vendor-uncommitted\n"
             . "echo 'stale old version'\n";
-        $this->write($consumer . '/.git/hooks/pre-commit', $stale);
-        $this->chmodExec($consumer . '/.git/hooks/pre-commit');
+        $this->write($consumer . self::PRE_COMMIT_HOOK, $stale);
+        $this->chmodExec($consumer . self::PRE_COMMIT_HOOK);
 
         $result = $this->runDeploy($consumer);
 
         self::assertSame(0, $result['exit']);
         self::assertSame(
             $this->read($this->qaciPath . '/git-hooks/pre-commit-check-vendor-uncommitted'),
-            $this->read($consumer . '/.git/hooks/pre-commit'),
+            $this->read($consumer . self::PRE_COMMIT_HOOK),
             'a stale marker-bearing hook must be overwritten with the shipped version',
         );
         self::assertStringContainsString('Overwriting existing git pre-commit hook', $result['output']);
@@ -238,18 +250,18 @@ final class DeploySkillsCharacterisationTest extends TestCase
         $seed = [
             'permissions' => ['allow' => ['Bash(ls:*)']],
             'hooks'       => [
-                'PreToolUse' => [
+                self::PRE_TOOL_USE => [
                     [
                         'hooks' => [
-                            ['type' => 'command', 'command' => '.claude/hooks/auto-continue.py', 'timeout' => 5],
-                            ['type' => 'command', 'command' => '.claude/hooks/prevent-destructive-git.py', 'timeout' => 5],
-                            ['type' => 'command', 'command' => '/some/foreign/hook.py', 'timeout' => 5],
+                            ['type' => self::HOOK_TYPE_COMMAND, 'command' => '.claude/hooks/auto-continue.py', 'timeout' => 5],
+                            ['type' => self::HOOK_TYPE_COMMAND, 'command' => '.claude/hooks/prevent-destructive-git.py', 'timeout' => 5],
+                            ['type' => self::HOOK_TYPE_COMMAND, 'command' => self::FOREIGN_HOOK, 'timeout' => 5],
                         ],
                     ],
                 ],
             ],
         ];
-        $this->writeJson($consumer . '/.claude/settings.json', $seed);
+        $this->writeJson($consumer . self::SETTINGS_JSON, $seed);
         // The old-named files must exist so the migration cleanup can remove them.
         $this->write($consumer . '/.claude/hooks/auto-continue.py', "#!/usr/bin/env python3\n");
         $this->write($consumer . '/.claude/hooks/prevent-destructive-git.py', "#!/usr/bin/env python3\n");
@@ -262,20 +274,20 @@ final class DeploySkillsCharacterisationTest extends TestCase
             $result['output'],
         );
 
-        $settings = $this->readJson($consumer . '/.claude/settings.json');
-        $pre      = $this->hookCommands($settings, 'PreToolUse');
+        $settings = $this->readJson($consumer . self::SETTINGS_JSON);
+        $pre      = $this->hookCommands($settings, self::PRE_TOOL_USE);
         $stop     = $this->hookCommands($settings, 'Stop');
 
         // Old un-prefixed registrations are gone.
         self::assertNotContains('.claude/hooks/auto-continue.py', $pre);
         self::assertNotContains('.claude/hooks/prevent-destructive-git.py', $pre);
         // prevent-destructive-git migrated in place (a PreToolUse hook).
-        self::assertContains('.claude/hooks/php-qa-ci__prevent-destructive-git.py', $pre);
+        self::assertContains(self::PREVENT_DESTRUCTIVE_GIT_HOOK, $pre);
         // auto-continue migrated AND relocated to Stop-only.
         self::assertContains('CLAUDE_HOOK_EVENT=Stop .claude/hooks/php-qa-ci__auto-continue.py', $stop);
         self::assertNotContains('.claude/hooks/php-qa-ci__auto-continue.py', $pre);
         // Foreign registration and unrelated keys survive untouched.
-        self::assertContains('/some/foreign/hook.py', $pre);
+        self::assertContains(self::FOREIGN_HOOK, $pre);
         self::assertSame(['allow' => ['Bash(ls:*)']], $settings['permissions'] ?? null);
 
         // The old-named hook files were cleaned up.
@@ -294,24 +306,24 @@ final class DeploySkillsCharacterisationTest extends TestCase
         $seed = [
             'permissions' => ['allow' => ['Bash(git status:*)']],
             'hooks'       => [
-                'PreToolUse' => [
-                    ['hooks' => [['type' => 'command', 'command' => '.claude/hooks/my-own-hook.py', 'timeout' => 5]]],
+                self::PRE_TOOL_USE => [
+                    ['hooks' => [['type' => self::HOOK_TYPE_COMMAND, 'command' => '.claude/hooks/my-own-hook.py', 'timeout' => 5]]],
                 ],
             ],
         ];
-        $this->writeJson($consumer . '/.claude/settings.json', $seed);
+        $this->writeJson($consumer . self::SETTINGS_JSON, $seed);
 
         $result = $this->runDeploy($consumer);
         self::assertSame(0, $result['exit'], $result['output']);
 
-        $settings = $this->readJson($consumer . '/.claude/settings.json');
-        $pre      = $this->hookCommands($settings, 'PreToolUse');
+        $settings = $this->readJson($consumer . self::SETTINGS_JSON);
+        $pre      = $this->hookCommands($settings, self::PRE_TOOL_USE);
 
         // The consumer's own hook and permissions block are untouched...
         self::assertContains('.claude/hooks/my-own-hook.py', $pre);
         self::assertSame(['allow' => ['Bash(git status:*)']], $settings['permissions'] ?? null);
         // ...and php-qa-ci's own hooks are appended alongside it.
-        self::assertContains('.claude/hooks/php-qa-ci__prevent-destructive-git.py', $pre);
+        self::assertContains(self::PREVENT_DESTRUCTIVE_GIT_HOOK, $pre);
     }
 
     // =====================================================================
@@ -326,17 +338,17 @@ final class DeploySkillsCharacterisationTest extends TestCase
 
         $seed = [
             'hooks' => [
-                'PreToolUse' => [
+                self::PRE_TOOL_USE => [
                     [
                         'hooks' => [
-                            ['type' => 'command', 'command' => '.claude/hooks/php-qa-ci__prevent-destructive-git.py', 'timeout' => 5],
-                            ['type' => 'command', 'command' => '/some/foreign/hook.py', 'timeout' => 5],
+                            ['type' => self::HOOK_TYPE_COMMAND, 'command' => self::PREVENT_DESTRUCTIVE_GIT_HOOK, 'timeout' => 5],
+                            ['type' => self::HOOK_TYPE_COMMAND, 'command' => self::FOREIGN_HOOK, 'timeout' => 5],
                         ],
                     ],
                 ],
             ],
         ];
-        $this->writeJson($consumer . '/.claude/settings.json', $seed);
+        $this->writeJson($consumer . self::SETTINGS_JSON, $seed);
 
         $result = $this->runDeploy($consumer);
         self::assertSame(0, $result['exit'], $result['output']);
@@ -348,10 +360,10 @@ final class DeploySkillsCharacterisationTest extends TestCase
         self::assertSame([], $this->deployedHookFiles($consumer), 'classic hooks must not be deployed when the daemon is present');
 
         // php-qa-ci__ registrations were removed; the foreign one is preserved.
-        $settings = $this->readJson($consumer . '/.claude/settings.json');
-        $pre      = $this->hookCommands($settings, 'PreToolUse');
-        self::assertNotContains('.claude/hooks/php-qa-ci__prevent-destructive-git.py', $pre);
-        self::assertContains('/some/foreign/hook.py', $pre);
+        $settings = $this->readJson($consumer . self::SETTINGS_JSON);
+        $pre      = $this->hookCommands($settings, self::PRE_TOOL_USE);
+        self::assertNotContains(self::PREVENT_DESTRUCTIVE_GIT_HOOK, $pre);
+        self::assertContains(self::FOREIGN_HOOK, $pre);
     }
 
     /**
@@ -378,7 +390,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
         // packaged copy does not ship at all, and one that it does.
         $skillDir = $consumer . '/.claude/skills/hooks-daemon';
         $this->makeDir($skillDir);
-        $this->write($skillDir . '/plan-qa.md', "# only the daemon ships this\n");
+        $this->write($skillDir . self::DAEMON_ONLY_SKILL_FILE, "# only the daemon ships this\n");
         $this->write($skillDir . '/SKILL.md', "# daemon's newer copy\n");
 
         $result = $this->runDeploy($consumer);
@@ -386,8 +398,8 @@ final class DeploySkillsCharacterisationTest extends TestCase
 
         self::assertStringContainsString("skill 'hooks-daemon' is present but NOT in the deploy manifest", $result['output']);
 
-        self::assertFileExists($skillDir . '/plan-qa.md', 'a file only the owner ships must not be deleted by the deploy');
-        self::assertSame("# only the daemon ships this\n", \Safe\file_get_contents($skillDir . '/plan-qa.md'));
+        self::assertFileExists($skillDir . self::DAEMON_ONLY_SKILL_FILE, 'a file only the owner ships must not be deleted by the deploy');
+        self::assertSame("# only the daemon ships this\n", \Safe\file_get_contents($skillDir . self::DAEMON_ONLY_SKILL_FILE));
         self::assertSame("# daemon's newer copy\n", \Safe\file_get_contents($skillDir . '/SKILL.md'), "the owner's copy must not be overwritten");
 
         // Every MANIFEST-listed skill still deploys — the omission is surgical,
@@ -522,7 +534,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
     // =====================================================================
 
     /**
-     * @param array<mixed> $settings
+     * @param array<array-key, mixed> $settings
      *
      * @return list<string>
      */
@@ -558,7 +570,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
         return $commands;
     }
 
-    /** @return array<mixed> */
+    /** @return array<array-key, mixed> */
     private function readJson(string $path): array
     {
         $decoded = \Safe\json_decode($this->read($path), true, 512, \JSON_THROW_ON_ERROR);
@@ -600,7 +612,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
 
             $absolute          = $fileInfo->getPathname();
             $relative          = substr($absolute, $baseLen);
-            $hashes[$relative] = sha1($this->read($absolute)) . ':' . (is_executable($absolute) ? 'x' : '-');
+            $hashes[$relative] = hash('sha256', $this->read($absolute)) . ':' . (is_executable($absolute) ? 'x' : '-');
         }
 
         ksort($hashes);

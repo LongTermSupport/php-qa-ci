@@ -27,11 +27,10 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
 {
     private const string MANIFEST = __DIR__ . '/../../composer.json';
 
-    private const string METHOD_VERSION = '1.0.0';
+    private const string METHOD_VERSION = '1.0.1';
 
     private const string TOOLCHAIN_VERSION = '0.2.0';
 
-    /** A gap opens with the document and clause it fails, e.g. "toolchain 4.1: ...". */
     private const string GAP_SHAPE = '/^(method|detector|toolchain) \d+\.\d+: \S/';
 
     public function testTheArtefactLevelDeclaresTheVersionsAndItsGaps(): void
@@ -67,7 +66,7 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
         }
     }
 
-    /** @return array<mixed> */
+    /** @return array<array-key, mixed> */
     private function declaration(): array
     {
         $manifest = \Safe\json_decode(\Safe\file_get_contents(self::MANIFEST), true);

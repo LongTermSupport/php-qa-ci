@@ -84,7 +84,7 @@ final readonly class RequireReadonlyServiceRule implements Rule
     /** @var list<string> */
     private const array EXCLUDED_INTERFACES = [
         'Psr\Log\LoggerAwareInterface',
-        'Symfony\Contracts\Service\ResetInterface',
+        \Symfony\Contracts\Service\ResetInterface::class,
     ];
 
     public function getNodeType(): string

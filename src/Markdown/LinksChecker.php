@@ -15,6 +15,8 @@ use Throwable;
 
 final readonly class LinksChecker
 {
+    private const string HEAD = 'HEAD';
+
     /**
      * @throws Exception
      */
@@ -41,7 +43,7 @@ final readonly class LinksChecker
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     private static function getFiles(string $projectRootDirectory): array
     {
@@ -52,7 +54,7 @@ final readonly class LinksChecker
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     private static function getDocsFiles(string $projectRootDirectory): array
     {
@@ -93,7 +95,7 @@ final readonly class LinksChecker
     }
 
     /**
-     * @return array<array<string>>
+     * @return list<array<int|string, string>> one match set per link: [whole, text, target]
      */
     private static function getLinks(string $file): array
     {
@@ -108,7 +110,7 @@ final readonly class LinksChecker
                 PREG_SET_ORDER
             )
         ) {
-            /** @var array<array<string>> $matches */
+            /** @var list<array<int|string, string>> $matches */
             $links = array_merge($links, $matches);
         }
 
@@ -116,8 +118,8 @@ final readonly class LinksChecker
     }
 
     /**
-     * @param string[] $link
-     * @param string[] $errors
+     * @param array<int|string, string> $link
+     * @param list<string>              $errors
      */
     private static function checkLink(
         string $projectRootDirectory,
@@ -157,8 +159,8 @@ final readonly class LinksChecker
     }
 
     /**
-     * @param string[] $link
-     * @param string[] $errors
+     * @param array<int|string, string> $link
+     * @param list<string>              $errors
      */
     private static function validateHttpLink(array $link, array &$errors, int &$return): void
     {
@@ -270,7 +272,7 @@ final readonly class LinksChecker
         }
 
         $httpOpts = [
-            'method'           => 'HEAD',
+            'method'           => self::HEAD,
             'protocol_version' => 1.1,
             'follow_location'  => true,
             'max_redirects'    => 5,
@@ -280,7 +282,7 @@ final readonly class LinksChecker
         ];
 
         $lastError = null;
-        foreach (['HEAD', 'GET'] as $method) {
+        foreach ([self::HEAD, 'GET'] as $method) {
             $httpOpts['method'] = $method;
             $context            = stream_context_create([
                 'http'  => $httpOpts,
@@ -293,12 +295,12 @@ final readonly class LinksChecker
             try {
                 $headers = @\Safe\get_headers($href, false, $context);
                 /** @var list<string> $headers */
-                $lastStatus = self::getLastStatusCode($headers);
+                $lastStatus = self::getLastStatusCode(...$headers);
                 if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
                     return null;
                 }
 
-                if ('HEAD' === $method && null !== $lastStatus && $lastStatus >= 400) {
+                if (self::HEAD === $method && null !== $lastStatus && $lastStatus >= 400) {
                     continue;
                 }
             } catch (Throwable $e) {
@@ -310,10 +312,7 @@ final readonly class LinksChecker
         return 'HTTP status: ' . ($lastStatus ?? $lastError ?? 'connection failed');
     }
 
-    /**
-     * @param array<string> $headers
-     */
-    private static function getLastStatusCode(array $headers): ?int
+    private static function getLastStatusCode(string ...$headers): ?int
     {
         $lastStatus = null;
         foreach ($headers as $header) {

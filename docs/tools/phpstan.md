@@ -4,6 +4,29 @@ Full details of how PHPStan is used with PHPQA and how you can configure it for 
 
 PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan` Composer package is in the `replace` section of `php-qa-ci`'s `composer.json`, so the PHAR is used instead of a Composer-installed binary.
 
+## How the lane runs
+
+**Identifier**: `phpqaci.phpstan`. Lane: [`PhpstanTool`](../../src/Pipeline/Lane/PhpstanTool.php).
+
+- In the full pipeline, in the static analysis phase after the ignoreErrors justification check.
+  Standalone: `vendor/bin/qa -t stan`; supports `-p <path>`.
+- The resolved `phpstan.neon` (project override or shipped default) is wrapped in a generated
+  `var/qa/phpstan_logs/phpstan-parallel.neon` that includes it and caps
+  `parallel.maximumNumberOfProcesses` at half the CPU threads, the same figure Rector and
+  Infection use. The lane prints the cap it applied.
+- The phar runs without Xdebug as `analyse <paths> -c <wrapper>`, with `--no-progress` in CI.
+- **Text mode**: the output is streamed and written to `var/qa/phpstan_logs/phpstan.log`, and a
+  timestamped copy is archived (last ten kept per full-suite or per-path pattern). Exit 1 means
+  errors were found: the lane fails with the identifier trailer, and when the output mentions
+  `alreadyNarrowedType`, `alwaysTrue`, `alwaysFalse` or `impossibleCheck` it first prints a note
+  explaining that such an error is usually a tautology left behind by stronger types, to be
+  deleted rather than silenced. An exit above 1 is a crash: the lane says so, runs PHPStan again
+  with `--debug -v` so the fatal that stopped it is visible, and is never retried.
+- **`--json` mode** (`vendor/bin/qa --json -t stan`): PHPStan runs with `--error-format=json`,
+  the report is written to `var/qa/phpstan_logs/phpstan.json`, archived, and printed unchanged on
+  the real stdout while every other line goes to stderr. Exit 1 fails, above 1 crashes, and
+  nothing is re-run.
+
 ## Configuration
 
 Default configuration is in [configDefaults/generic/phpstan.neon](./../../configDefaults/generic/phpstan.neon).
@@ -40,8 +63,37 @@ PHP-QA-CI bundles these PHPStan extensions as Composer dependencies (auto-loaded
 
 - **[phpstan-strict-rules](https://github.com/phpstan/phpstan-strict-rules)** -- Additional strict type-checking rules
 - **[phpstan-phpunit](https://github.com/phpstan/phpstan-phpunit)** -- PHPUnit-aware analysis, including proper mock object support
+- **[phpstan-deprecation-rules](https://github.com/phpstan/phpstan-deprecation-rules)** -- Reports calls to anything marked `@deprecated`
+- **[type-coverage](https://github.com/TomasVotruba/type-coverage)** -- Measures the share of declarations carrying a native type. Off until you set a floor, see below
 
 These are configured and loaded automatically. You do not need to install or configure them separately.
+
+### Type coverage
+
+Level max already demands a type on every new declaration. Type coverage answers a different
+question: on a codebase that is *not* there yet, how much of it is typed, and is that share
+going up? It is a ratchet, not a gate, so every floor is off until you set one:
+
+```php
+// qaConfig/qa.php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withTypeCoverageFloors(returnType: 65, paramType: 70, propertyType: 80, declare: 100);
+```
+
+Each argument is a percentage and each is optional; an omitted one is not measured at all. Raise
+them as you earn them. The identifiers, for `ignoreErrors` and for `rule-doc`, are
+`typeCoverage.returnTypeCoverage`, `typeCoverage.paramTypeCoverage`,
+`typeCoverage.propertyTypeCoverage`, `typeCoverage.constantTypeCoverage` and
+`typeCoverage.declareCoverage`.
+
+**It does nothing in a `-p` run, deliberately.** A percentage measured over one directory is not
+the project's coverage, so the extension refuses to report unless the whole configured project
+is being analysed. `vendor/bin/qa -t stan -p src/Domain` will therefore never show a coverage
+error, whatever the floors say. Use a full run to check them.
+
+`declare` is the share of files with `declare(strict_types=1)`. A project running the
+`phpStrictTypes` lane already requires that everywhere, so it is at 100 by construction and the
+floor is only worth setting as a belt-and-braces record of that fact.
 
 ## Custom PHPStan Rules
 
@@ -95,11 +147,11 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 11 additional opt-in rules split across two files:
+PHP-QA-CI ships 15 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 7 generic rules suitable for any PHP project (5 in its `rules:` block
+- **`rules-optional.neon`** — 11 generic rules suitable for any PHP project (9 in its `rules:` block
   plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (11 total)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (15 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -142,8 +194,9 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
     # Service classes must be declared as "final readonly class"
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
-    # Single array param annotated @param list<T> should use variadic syntax instead
-    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
+    # A method/function's LAST array param annotated @param list<T> (any param count)
+    # should use variadic syntax instead
+    - LTS\PHPQA\PHPStan\Rules\RequireVariadicOverArrayParameterRule
     # A scalar @param/@return typed as a docblock literal set ('a'|'b', 0|1) is an undeclared enum
     - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
     # Symfony: blocks user input passed directly into HTTP response headers
@@ -164,7 +217,7 @@ rules:
 | `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                       |
 | `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                |
 | `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                  |
-| `RequireVariadicForSingleListParamRule` | `rules-optional.neon`           | `array $items` annotated `@param list<T>` — use variadic syntax                |
+| `RequireVariadicOverArrayParameterRule` | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
 | `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum |
 | `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |
 | `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                          |

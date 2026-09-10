@@ -27,17 +27,16 @@ Using this, you can allow your tests to take a different path, skip tests etc if
 
 declare(strict_types=1);
 
-use LTS\PHPQA\Constants;
 use PHPUnit\Framework\TestCase;
 
 final class MyTest extends TestCase
 {
+    /** The pipeline exports phpUnitQuickTests=1 into the test process on a quick run. */
+    private const string QUICK_TESTS = 'phpUnitQuickTests';
+
     protected function setUp(): void
     {
-        if (
-            isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
-            && (int) $_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
-        ) {
+        if (isset($_SERVER[self::QUICK_TESTS]) && 1 === (int) $_SERVER[self::QUICK_TESTS]) {
             return;
         }
         // unnecessary setup stuff if not doing long running tests
@@ -45,10 +44,7 @@ final class MyTest extends TestCase
 
     public function testLongRunningThing(): void
     {
-        if (
-            isset($_SERVER[Constants::QA_QUICK_TESTS_KEY])
-            && (int) $_SERVER[Constants::QA_QUICK_TESTS_KEY] === Constants::QA_QUICK_TESTS_ENABLED
-        ) {
+        if (isset($_SERVER[self::QUICK_TESTS]) && 1 === (int) $_SERVER[self::QUICK_TESTS]) {
             self::markTestSkipped('Quick tests is enabled');
         }
         // long running stuff
@@ -140,6 +136,17 @@ composer require --dev brianium/paratest
 The `phpstan-phpunit` extension is bundled with php-qa-ci and auto-loaded via the extension installer. This allows you to properly use mocks with PHPUnit tests and keep PHPStan happy.
 
 Read the [PHPQA PHPStan docs](./phpstan.md) for more information.
+
+## How the lane runs
+
+The lane is `LTS\PHPQA\Pipeline\Lane\PhpunitTool` (identifier `phpqaci.phpunit`); the argv it builds lives in `PhpunitArguments` so every mode is unit-tested without running anything.
+
+1. A missing `tests/bootstrap.php` is seeded with a documented placeholder.
+2. The project's `vendor/bin/phpunit` is probed for its major version; `vendor/bin/paratest` is used instead when installed.
+3. With coverage on, the Xdebug-enabled PHP binary runs under `XDEBUG_MODE=coverage` (so Infection can reuse the result); otherwise Xdebug is stripped and `XDEBUG_MODE=off`. `phpUnitQuickTests` is passed through as `1`/`0`.
+4. Flags: `--strict-global-state --fail-on-risky --fail-on-warning --log-junit`, the PHPUnit 10+ `--display-*` flags, then the mode flags (iterative, no-coverage, coverage in CI, coverage interactively) and the `-p` paths.
+5. An absent or empty junit log ("no tests have been run") fails the lane. Both `phpunit.junit.xml` and `phpunit.log` are archived under `var/qa/phpunit_logs`, and the `Tests: … Assertions: …` summary line is echoed.
+6. Exit 0 passes, 1 and 2 fail (retried interactively), anything higher is a crash: the suite is re-run once with `--debug` for diagnosis and never retried.
 
 ## Infection
 

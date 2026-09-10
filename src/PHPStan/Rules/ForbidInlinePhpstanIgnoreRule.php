@@ -28,7 +28,6 @@ final readonly class ForbidInlinePhpstanIgnoreRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.inlinePhpstanIgnore';
 
-    /** Matches the PHPStan inline suppression annotation pattern */
     private const string PATTERN = '/@phpstan\x2dignore/';
 
     public function getNodeType(): string

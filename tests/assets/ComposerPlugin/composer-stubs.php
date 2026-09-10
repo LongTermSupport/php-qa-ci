@@ -141,6 +141,25 @@ namespace Composer\Script {
     }
 }
 
+namespace Composer\Util {
+    if (!\class_exists(ProcessExecutor::class, false)) {
+        final class ProcessExecutor
+        {
+            public function __construct(?\Composer\IO\IOInterface $io = null)
+            {
+            }
+
+            /** @param string|null $output */
+            public function execute(string $command, &$output = null, ?string $cwd = null): int
+            {
+                $output = '';
+
+                return 1;
+            }
+        }
+    }
+}
+
 namespace Composer\Semver {
     if (!\class_exists(Semver::class, false)) {
         final class Semver

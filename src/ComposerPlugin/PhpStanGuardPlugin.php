@@ -11,6 +11,9 @@ use Composer\Plugin\PluginInterface;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
 use Composer\Semver\Semver;
+use Composer\Util\ProcessExecutor;
+use PhpToken;
+use SplFileObject;
 
 /**
  * Composer plugin that guards against PHPStan version mismatches and duplicate installs.
@@ -27,8 +30,11 @@ use Composer\Semver\Semver;
  * 1. Warns if a project has phpstan/phpstan in its own require or require-dev
  * 2. Validates the phar version satisfies the extension-installer's version constraint
  * 3. Provides clear instructions when issues are found
+ *
+ * @api Composer is the caller: it constructs the plugin and invokes the
+ *      PluginInterface methods and the subscribed event handlers.
  */
-final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterface
+final readonly class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterface
 {
     public function activate(Composer $composer, IOInterface $io): void
     {
@@ -132,7 +138,7 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
         }
 
         // Get phar version
-        $pharVersion = $this->getPharVersion($pharPath);
+        $pharVersion = $this->getPharVersion($io, $pharPath);
         if (null === $pharVersion) {
             $io->writeError('<warning>Could not determine PHPStan phar version</warning>');
 
@@ -171,41 +177,67 @@ final class PhpStanGuardPlugin implements PluginInterface, EventSubscriberInterf
     }
 
     /**
-     * Extracts the PHPStan phar version by running it.
+     * Extracts the PHPStan phar version by running it, through Composer's own
+     * process runner: a plugin cannot rely on any dependency's functions being
+     * loaded (see ForbidNamespacedFunctionInComposerPluginRule).
      */
-    private function getPharVersion(string $pharPath): ?string
+    private function getPharVersion(IOInterface $io, string $pharPath): ?string
     {
-        $output   = [];
-        $exitCode = 0;
-        \Safe\exec('php ' . escapeshellarg($pharPath) . ' --version 2>/dev/null', $output, $exitCode);
+        $output   = null;
+        $exitCode = new ProcessExecutor($io)->execute('php ' . escapeshellarg($pharPath) . ' --version', $output);
 
-        if (0 !== $exitCode || [] === $output) {
+        if (0 !== $exitCode || !\is_string($output)) {
             return null;
         }
 
         // Output: "PHPStan - PHP Static Analysis Tool 2.1.40"
-        foreach ($output as $line) {
-            if (1 === \Safe\preg_match('/(\d+\.\d+\.\d+)/', $line, $matches)) {
-                return $matches[1];
+        foreach (explode(' ', str_replace(["\r", "\n"], ' ', $output)) as $token) {
+            if ($this->looksLikeAVersion($token)) {
+                return $token;
             }
         }
 
         return null;
     }
 
+    /** Three dotted numeric parts and nothing else, as in "2.1.40". */
+    private function looksLikeAVersion(string $token): bool
+    {
+        return '' !== $token
+            && 2                             === substr_count($token, '.')
+            && strspn($token, '0123456789.') === \strlen($token);
+    }
+
     /**
-     * Reads the version constraint from the extension-installer's GeneratedConfig.
+     * Reads the version constraint the extension-installer generated, as the
+     * string literal assigned to PHPSTAN_VERSION_CONSTRAINT in its
+     * GeneratedConfig.php. The file is tokenised rather than loaded or
+     * pattern-matched: naming the class trips PHPStan's BC-promise check, and a
+     * regex would be rewritten to a namespaced function (see
+     * ForbidNamespacedFunctionInComposerPluginRule).
      */
     private function getExtensionConstraint(string $generatedConfigPath): ?string
     {
-        $contents = \Safe\file_get_contents($generatedConfigPath);
-        if (false === $contents) {
-            return null;
+        $contents = '';
+        foreach (new SplFileObject($generatedConfigPath) as $line) {
+            if (\is_string($line)) {
+                $contents .= $line;
+            }
         }
 
-        // Match: public const PHPSTAN_VERSION_CONSTRAINT = '>=2.1.39.0-dev, <3.0.0.0-dev';
-        if (1 === \Safe\preg_match("/PHPSTAN_VERSION_CONSTRAINT\\s*=\\s*'([^']+)'/", $contents, $matches)) {
-            return $matches[1];
+        $constantSeen = false;
+        foreach (PhpToken::tokenize($contents) as $token) {
+            if ($token->is(\T_STRING) && 'PHPSTAN_VERSION_CONSTRAINT' === $token->text) {
+                $constantSeen = true;
+
+                continue;
+            }
+
+            if ($constantSeen && $token->is(\T_CONSTANT_ENCAPSED_STRING)) {
+                $value = trim($token->text, '\'"');
+
+                return '' === $value ? null : $value;
+            }
         }
 
         return null;

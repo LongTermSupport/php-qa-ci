@@ -58,7 +58,7 @@ final readonly class ForbidSilentCatchRule implements Rule
     public function processNode(Node $node, Scope $scope): array
     {
         if (null === $node->var) {
-            if ($this->blockContainsThrow($node->stmts)) {
+            if ($this->blockContainsThrow(...$node->stmts)) {
                 return [];
             }
 
@@ -71,25 +71,22 @@ final readonly class ForbidSilentCatchRule implements Rule
 
         $varName = $node->var->name;
 
-        if ($this->variableIsUsedInBlock($node->stmts, $varName)) {
+        if ($this->variableIsUsedInBlock($varName, ...$node->stmts)) {
             return [];
         }
 
-        if ($this->blockContainsThrow($node->stmts)) {
+        if ($this->blockContainsThrow(...$node->stmts)) {
             return [];
         }
 
-        if ($this->blockContainsLogging($node->stmts)) {
+        if ($this->blockContainsLogging(...$node->stmts)) {
             return [];
         }
 
         return [$this->buildError()];
     }
 
-    /**
-     * @param array<Stmt> $stmts
-     */
-    private function blockContainsThrow(array $stmts): bool
+    private function blockContainsThrow(Stmt ...$stmts): bool
     {
         return $this->nodeFinder->findFirst(
             $stmts,
@@ -97,10 +94,7 @@ final readonly class ForbidSilentCatchRule implements Rule
         ) instanceof Node;
     }
 
-    /**
-     * @param array<Stmt> $stmts
-     */
-    private function variableIsUsedInBlock(array $stmts, string $varName): bool
+    private function variableIsUsedInBlock(string $varName, Stmt ...$stmts): bool
     {
         return $this->nodeFinder->findFirst(
             $stmts,
@@ -108,10 +102,7 @@ final readonly class ForbidSilentCatchRule implements Rule
         ) instanceof Node;
     }
 
-    /**
-     * @param array<Stmt> $stmts
-     */
-    private function blockContainsLogging(array $stmts): bool
+    private function blockContainsLogging(Stmt ...$stmts): bool
     {
         return $this->nodeFinder->findFirst(
             $stmts,

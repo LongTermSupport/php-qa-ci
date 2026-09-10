@@ -25,9 +25,43 @@
 # READONLY SERVICES (enforce immutable services):
 #   RequireReadonlyServiceRule           — service classes must be "final readonly class"
 #
-# VARIADIC FOR SINGLE LIST PARAM:
-#   RequireVariadicForSingleListParamRule — single array param annotated @param list<T>
-#                                           should be variadic T ...$param instead
+# VARIADIC OVER AN ARRAY PARAMETER:
+#   RequireVariadicOverArrayParameterRule — a method's LAST parameter declared `array` whose
+#                                          element type lives only in a @param list<T> docblock
+#                                          should be T ...$param, which the engine checks at
+#                                          every call. Promoted, by-ref, map-typed, constructor,
+#                                          #[DataProvider] and supertype-bound parameters are
+#                                          excluded, because none can become a variadic. See
+#                                          docs/phpstan-rules/require-variadic-over-array-parameter.md
+#
+# INSECURE FUNCTIONS (lists lifted from spaze/phpstan-disallowed-calls, MIT):
+#   ForbidInsecureFunctionsRule          — broken hashes (md5/sha1, and hash* with a literal
+#                                          md5/sha1 algorithm), predictable randomness
+#                                          (rand/mt_rand/lcg_value/uniqid) and the
+#                                          unparameterised MySQL query functions. Opt-in:
+#                                          hashing for cache keys is not a defect. See
+#                                          docs/phpstan-rules/forbid-insecure-functions.md
+#
+# DEBUG OUTPUT LEFT IN PLACE:
+#   ForbidDebugOutputFunctionsRule       — var_dump, print_r and var_export when they PRINT.
+#                                          The return-string forms print_r($x, true) and
+#                                          var_export($x, true) are allowed, which is why
+#                                          this is a rule and not a grep. See
+#                                          docs/phpstan-rules/forbid-debug-output-functions.md
+#
+# REPEATED STRING LITERAL:
+#   ForbidRepeatedStringLiteralRule      — the same string literal (3+ chars) written 3+
+#                                          times in one class is an undeclared constant;
+#                                          array keys and attribute arguments not counted.
+#                                          See docs/phpstan-rules/forbid-repeated-string-literal.md
+#
+# MEMBER DOCS ALL-OR-NONE (per kind):
+#   RequireConsistentMemberDocsRule      — a class documents every constant or none, and
+#                                          every property (declared or promoted) or none;
+#                                          tag-only docblocks do not count; methods are not
+#                                          checked. The fix is usually deleting comments
+#                                          that restate the name. See
+#                                          docs/phpstan-rules/require-consistent-member-docs.md
 #
 # ENUM OVER A DOCBLOCK LITERAL SET:
 #   RequireEnumOverLiteralUnionRule      — a scalar @param/@return typed as 'a'|'b' (or 0|1)
@@ -58,6 +92,32 @@
 #                                          correct as PHPUnit evolves. Only calls on a PHPUnit
 #                                          type (TestCase/Assert or a subclass) are flagged.
 #
+# VARIADIC OVER A LAST ARRAY PARAMETER:
+#   RequireVariadicOverArrayParameterRule — a method/function's LAST parameter, declared
+#                                          `array` and PHPDoc-annotated as a homogeneous
+#                                          list (`list<T>`, `non-empty-list<T>`, or
+#                                          `array<T>` with no key type), could be a native
+#                                          variadic `T ...$name` instead — engine-checked at
+#                                          every call site instead of docblock-only. Skips
+#                                          promoted/by-ref/already-variadic parameters, map
+#                                          and shape docblock types, __construct (PHPStan's
+#                                          own neon DI passes one positional value per
+#                                          argument), PHPUnit data-provided methods, and any
+#                                          method that implements an interface or overrides a
+#                                          parent (the signature is not this declaration's to
+#                                          change). See
+#                                          docs/phpstan-rules/require-variadic-over-array-parameter.md
+#
+# AMBIGUOUS ARRAY DOCBLOCK TYPE:
+#   ForbidAmbiguousArrayDocRule          — a @param/@return/@var type written `T[]` or
+#                                          `array<T>` (one argument) states nothing about the
+#                                          keys: PHPStan resolves both to array<mixed, mixed>.
+#                                          Write `list<T>` for a list or `array<K, V>` for a
+#                                          map. The other half of the variadic rule, which
+#                                          ignores these forms precisely because they may be
+#                                          maps. See
+#                                          docs/phpstan-rules/forbid-ambiguous-array-doc.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -80,8 +140,13 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule
     - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
     - LTS\PHPQA\PHPStan\Rules\RequireReadonlyServiceRule
-    - LTS\PHPQA\PHPStan\Rules\RequireVariadicForSingleListParamRule
     - LTS\PHPQA\PHPStan\Rules\RequireEnumOverLiteralUnionRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidRepeatedStringLiteralRule
+    - LTS\PHPQA\PHPStan\Rules\RequireConsistentMemberDocsRule
+    - LTS\PHPQA\PHPStan\Rules\RequireVariadicOverArrayParameterRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidAmbiguousArrayDocRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidInsecureFunctionsRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidDebugOutputFunctionsRule
 
 parameters:
     phpqaciFactorySealed:

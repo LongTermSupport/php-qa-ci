@@ -34,6 +34,12 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
 {
     use ScopeStubTrait;
 
+    private const string STR_CONTAINS = 'str_contains';
+
+    private const string FILE_NAME = 'fileName';
+
+    private const string VENDOR_PREFIX = 'vendor/';
+
     #[Test]
     public function getNodeTypeIsFuncCall(): void
     {
@@ -43,7 +49,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     #[Test]
     public function strContainsWithBareVendorLiteralIsFlagged(): void
     {
-        $call   = $this->funcCall('str_contains', new Variable('fileName'), new String_('/vendor/'));
+        $call   = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new String_('/vendor/'));
         $errors = $this->getRule()->processNode($call, $this->scope());
 
         self::assertCount(1, $errors);
@@ -54,7 +60,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     #[Test]
     public function strposWithBareVendorLiteralIsFlagged(): void
     {
-        $call   = $this->funcCall('strpos', new Variable('fileName'), new String_('vendor/'));
+        $call   = $this->funcCall('strpos', new Variable(self::FILE_NAME), new String_(self::VENDOR_PREFIX));
         $errors = $this->getRule()->processNode($call, $this->scope());
 
         self::assertCount(1, $errors);
@@ -63,7 +69,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     #[Test]
     public function strStartsWithBareVendorLiteralIsFlagged(): void
     {
-        $call   = $this->funcCall('str_starts_with', new Variable('fileName'), new String_('vendor/'));
+        $call   = $this->funcCall('str_starts_with', new Variable(self::FILE_NAME), new String_(self::VENDOR_PREFIX));
         $errors = $this->getRule()->processNode($call, $this->scope());
 
         self::assertCount(1, $errors);
@@ -74,7 +80,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     {
         // $this->projectRoot . '/vendor/symfony/...' — anchored, not a bare literal arg.
         $concat = new Concat(new Variable('projectRoot'), new String_('/vendor/symfony/dotenv'));
-        $call   = $this->funcCall('str_starts_with', new Variable('fileName'), $concat);
+        $call   = $this->funcCall('str_starts_with', new Variable(self::FILE_NAME), $concat);
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scope()));
     }
@@ -82,7 +88,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     #[Test]
     public function literalWithoutVendorSubstringIsAllowed(): void
     {
-        $call = $this->funcCall('str_contains', new Variable('fileName'), new String_('/src/'));
+        $call = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new String_('/src/'));
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scope()));
     }
@@ -99,7 +105,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     public function dynamicFunctionNameIsIgnored(): void
     {
         // $fn($fileName, '/vendor/') — the callee is not a literal Name.
-        $call = new FuncCall(new Variable('fn'), [new Arg(new Variable('fileName')), new Arg(new String_('/vendor/'))]);
+        $call = new FuncCall(new Variable('fn'), [new Arg(new Variable(self::FILE_NAME)), new Arg(new String_('/vendor/'))]);
 
         self::assertSame([], $this->getRule()->processNode($call, $this->scope()));
     }
@@ -111,7 +117,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
         // str_contains($arg->value->value, 'vendor/') to implement the check
         // itself — that inspects AST literal text, not a filesystem path, so
         // it must not be flagged as an instance of the pattern it defends against.
-        $call  = $this->funcCall('str_contains', new Variable('value'), new String_('vendor/'));
+        $call  = $this->funcCall(self::STR_CONTAINS, new Variable('value'), new String_(self::VENDOR_PREFIX));
         $scope = self::scopeStub();
         $scope->method('getClassReflection')->willReturn(
             $this->createReflectionProvider()->getClass(ForbidUnanchoredVendorSubstringCheckRule::class),

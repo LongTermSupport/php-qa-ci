@@ -40,12 +40,12 @@ return static function (Config $config): void {
     $rootNamespace = 'App';
     $classSet      = ClassSet::fromDir(__DIR__ . '/../src')->excludePath('Generated');
 
-    // Honour project-declared generated paths from qaConfig/qaConfig.inc.bash, e.g.
-    //   arkitectExcludePaths+=("Quote/API")
+    // Honour project-declared generated paths from qaConfig/qa.php, e.g.
+    //   ->withArkitectExcludedPaths('Quote/API')
     // The pipeline exports them newline-delimited as PHPQACI_ARKITECT_EXCLUDE_PATHS.
     // Each entry is matched by arkitect (Arkitect\Glob::toRegex) against the path
     // RELATIVE to src/. Keeping this block means you declare generated paths in ONE
-    // place (qaConfig.inc.bash) whether or not you use this override file.
+    // place (qa.php) whether or not you use this override file.
     $extraExcludePaths = getenv('PHPQACI_ARKITECT_EXCLUDE_PATHS');
     if (false !== $extraExcludePaths && '' !== \trim($extraExcludePaths)) {
         foreach (\array_filter(\array_map('trim', \explode("\n", $extraExcludePaths))) as $excludePath) {

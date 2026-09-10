@@ -22,6 +22,8 @@ use Attribute;
  * attribute in its own (production) namespace and register that FQCN with the
  * rule — useful when the annotated classes are production code that must not
  * `use` a dev-only QA dependency. See the rule's `sealingAttributes` parameter.
+ *
+ * @api consumers annotate their own classes with it
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 final readonly class FactorySealedBy

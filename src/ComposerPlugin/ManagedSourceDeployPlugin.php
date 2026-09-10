@@ -24,8 +24,11 @@ use Throwable;
  * consumer never hand-maintains them. The QA pipeline drift-checks the tree.
  *
  * @see ManagedSourceGenerator
+ *
+ * @api Composer is the caller: it constructs the plugin and invokes the
+ *      PluginInterface methods and the subscribed event handlers.
  */
-final class ManagedSourceDeployPlugin implements PluginInterface, EventSubscriberInterface
+final readonly class ManagedSourceDeployPlugin implements PluginInterface, EventSubscriberInterface
 {
     public function activate(Composer $composer, IOInterface $io): void
     {

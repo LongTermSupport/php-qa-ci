@@ -18,6 +18,10 @@ use stdClass;
 #[Small]
 final class InfectionConfigSourceDirectoriesDetectorTest extends TestCase
 {
+    private const string SRC_DIR = 'src';
+
+    private const string REAL_FIXTURE = '/Real';
+
     private InfectionConfigSourceDirectoriesDetector $detector;
 
     private string $fixtureDir;
@@ -32,8 +36,8 @@ final class InfectionConfigSourceDirectoriesDetectorTest extends TestCase
     public function aSourceDirectoryThatResolvesToAnExistingDirectoryIsAccepted(): void
     {
         $problems = $this->detector->check(
-            ['source' => ['directories' => ['src']]],
-            $this->fixtureDir . '/Real',
+            ['source' => ['directories' => [self::SRC_DIR]]],
+            $this->fixtureDir . self::REAL_FIXTURE,
         );
 
         self::assertSame([], $problems);
@@ -43,7 +47,7 @@ final class InfectionConfigSourceDirectoriesDetectorTest extends TestCase
     public function aSourceDirectoryThatDoesNotResolveIsReportedByName(): void
     {
         $problems = $this->detector->check(
-            ['source' => ['directories' => ['src']]],
+            ['source' => ['directories' => [self::SRC_DIR]]],
             $this->fixtureDir . '/Broken',
         );
 
@@ -69,8 +73,8 @@ final class InfectionConfigSourceDirectoriesDetectorTest extends TestCase
     public function multipleDirectoriesAreEachCheckedIndependently(): void
     {
         $problems = $this->detector->check(
-            ['source' => ['directories' => ['src', 'nope', 'also-missing']]],
-            $this->fixtureDir . '/Real',
+            ['source' => ['directories' => [self::SRC_DIR, 'nope', 'also-missing']]],
+            $this->fixtureDir . self::REAL_FIXTURE,
         );
 
         self::assertCount(2, $problems);
@@ -79,19 +83,19 @@ final class InfectionConfigSourceDirectoriesDetectorTest extends TestCase
     #[Test]
     public function anAbsentSourceKeyIsIgnored(): void
     {
-        self::assertSame([], $this->detector->check([], $this->fixtureDir . '/Real'));
+        self::assertSame([], $this->detector->check([], $this->fixtureDir . self::REAL_FIXTURE));
     }
 
     #[Test]
     public function anEmptyDirectoriesListIsIgnored(): void
     {
-        self::assertSame([], $this->detector->check(['source' => ['directories' => []]], $this->fixtureDir . '/Real'));
+        self::assertSame([], $this->detector->check(['source' => ['directories' => []]], $this->fixtureDir . self::REAL_FIXTURE));
     }
 
     #[Test]
     public function aNonStringDirectoryEntryIsIgnoredRatherThanCrashing(): void
     {
-        self::assertSame([], $this->detector->check(['source' => ['directories' => [123, null]]], $this->fixtureDir . '/Real'));
+        self::assertSame([], $this->detector->check(['source' => ['directories' => [123, null]]], $this->fixtureDir . self::REAL_FIXTURE));
     }
 
     #[Test]
@@ -99,7 +103,7 @@ final class InfectionConfigSourceDirectoriesDetectorTest extends TestCase
     {
         $problems = $this->detector->check(
             ['source' => ['directories' => [123, 'nope']]],
-            $this->fixtureDir . '/Real',
+            $this->fixtureDir . self::REAL_FIXTURE,
         );
 
         self::assertCount(1, $problems);
@@ -108,7 +112,7 @@ final class InfectionConfigSourceDirectoriesDetectorTest extends TestCase
     #[Test]
     public function aSourceValueThatIsNeitherArrayNorArrayAccessibleIsRejectedWithoutCrashing(): void
     {
-        self::assertSame([], $this->detector->check(['source' => new stdClass()], $this->fixtureDir . '/Real'));
+        self::assertSame([], $this->detector->check(['source' => new stdClass()], $this->fixtureDir . self::REAL_FIXTURE));
     }
 
     #[Test]

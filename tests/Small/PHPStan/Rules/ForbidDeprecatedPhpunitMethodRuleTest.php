@@ -29,23 +29,19 @@ final class ForbidDeprecatedPhpunitMethodRuleTest extends RuleTestCase
 {
     private const string DEPRECATED_MESSAGE_PREFIX = 'Method "';
 
+    private const string DEPRECATED_MESSAGE_SUFFIX = '" is deprecated in the installed PHPUnit; '
+        . 'replace it with a non-deprecated equivalent. For expectExceptionMessage() prefer '
+        . 'expectExceptionObject(), otherwise expectExceptionMessageIs() / '
+        . 'expectExceptionMessageIsOrContains() / expectExceptionMessageMatches().';
+
     public function testItFlagsDeprecatedInstanceAndStaticCallsOnPhpunitTypesOnly(): void
     {
         $this->analyse(
             [__DIR__ . '/../../../assets/PHPStan/DeprecatedPhpunit/ConsumerTest.php'],
             [
-                [self::DEPRECATED_MESSAGE_PREFIX . 'legacyExpect()" is deprecated in the installed PHPUnit; '
-                    . 'replace it with a non-deprecated equivalent. For expectExceptionMessage() prefer '
-                    . 'expectExceptionObject(), otherwise expectExceptionMessageIs() / '
-                    . 'expectExceptionMessageIsOrContains() / expectExceptionMessageMatches().', 18],
-                [self::DEPRECATED_MESSAGE_PREFIX . 'legacyAssert()" is deprecated in the installed PHPUnit; '
-                    . 'replace it with a non-deprecated equivalent. For expectExceptionMessage() prefer '
-                    . 'expectExceptionObject(), otherwise expectExceptionMessageIs() / '
-                    . 'expectExceptionMessageIsOrContains() / expectExceptionMessageMatches().', 20],
-                [self::DEPRECATED_MESSAGE_PREFIX . 'legacyStaticAssert()" is deprecated in the installed PHPUnit; '
-                    . 'replace it with a non-deprecated equivalent. For expectExceptionMessage() prefer '
-                    . 'expectExceptionObject(), otherwise expectExceptionMessageIs() / '
-                    . 'expectExceptionMessageIsOrContains() / expectExceptionMessageMatches().', 22],
+                [self::DEPRECATED_MESSAGE_PREFIX . 'legacyExpect()' . self::DEPRECATED_MESSAGE_SUFFIX, 18],
+                [self::DEPRECATED_MESSAGE_PREFIX . 'legacyAssert()' . self::DEPRECATED_MESSAGE_SUFFIX, 20],
+                [self::DEPRECATED_MESSAGE_PREFIX . 'legacyStaticAssert()' . self::DEPRECATED_MESSAGE_SUFFIX, 22],
             ],
         );
     }

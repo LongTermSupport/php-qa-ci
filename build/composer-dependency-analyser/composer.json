@@ -1,0 +1,15 @@
+{
+    "name": "lts/php-qa-ci-composer-dependency-analyser",
+    "description": "Isolated composer-dependency-analyser installation for php-qa-ci, boxed into vendor-phar/composer-dependency-analyser.phar.",
+    "license": "MIT",
+    "require": {
+        "php": "^8.5",
+        "shipmonk/composer-dependency-analyser": "@stable"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": {
+            "*": "dist"
+        }
+    }
+}

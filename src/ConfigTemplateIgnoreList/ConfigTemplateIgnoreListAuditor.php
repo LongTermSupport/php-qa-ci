@@ -49,7 +49,7 @@ final readonly class ConfigTemplateIgnoreListAuditor
         $violations     = [];
 
         foreach ($this->namespaceLessTemplates() as $relativePath => $copyDestination) {
-            if (!$this->isCovered($copyDestination, $ignorePatterns)) {
+            if (!$this->isCovered($copyDestination, ...$ignorePatterns)) {
                 $violations[$relativePath] = $copyDestination;
             }
         }
@@ -96,8 +96,7 @@ final readonly class ConfigTemplateIgnoreListAuditor
         return 1 === \Safe\preg_match('%^\s*namespace\s+[A-Za-z_\\\][A-Za-z0-9_\\\]*\s*;%m', $contents);
     }
 
-    /** @param list<string> $ignorePatterns */
-    private function isCovered(string $copyDestination, array $ignorePatterns): bool
+    private function isCovered(string $copyDestination, string ...$ignorePatterns): bool
     {
         return array_any($ignorePatterns, static fn (string $pattern): bool => 1 === \Safe\preg_match($pattern, $copyDestination));
     }

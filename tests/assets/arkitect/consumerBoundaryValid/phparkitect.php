@@ -8,7 +8,7 @@ use Arkitect\CLI\Config;
 /*
  * Consumer fixture: applies php-qa-ci's shipped consumer API-boundary factory.
  * The factory path is provided by the PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY env
- * var (exported by includes/generic/phpArkitect.inc.bash; injected by the test).
+ * var (exported by PhpArkitectTool; injected by the test).
  *
  * Library under consumption: Acme\Widget — public @api namespace Acme\Widget\Facade;
  * internal namespace Acme\Widget\Internal (off-limits to consumers).

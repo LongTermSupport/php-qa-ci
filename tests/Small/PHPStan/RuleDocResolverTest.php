@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Small\PHPStan;
 use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
 use LTS\PHPQA\PHPStan\RuleDocResolver;
+use LTS\PHPQA\PHPStan\Rules\ForbidEmptyCatchBlockRule;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,7 +32,7 @@ final class RuleDocResolverTest extends TestCase
     #[Test]
     public function anIdentifierWithARemediationPageResolvesToThatPage(): void
     {
-        $entry = $this->resolver()->resolve('phpqaci.emptyCatchBlock');
+        $entry = $this->resolver()->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER);
 
         self::assertSame('ForbidEmptyCatchBlockRule', $entry->ruleClass);
         self::assertNotNull($entry->docPath);
@@ -79,9 +80,9 @@ final class RuleDocResolverTest extends TestCase
     #[Test]
     public function renderingAnEntryLeadsWithTheIdentifierAndIncludesThePage(): void
     {
-        $rendered = $this->resolver()->render('phpqaci.emptyCatchBlock');
+        $rendered = $this->resolver()->render(ForbidEmptyCatchBlockRule::IDENTIFIER);
 
-        self::assertStringStartsWith('phpqaci.emptyCatchBlock', $rendered);
+        self::assertStringStartsWith(ForbidEmptyCatchBlockRule::IDENTIFIER, $rendered);
         self::assertStringContainsString('ForbidEmptyCatchBlockRule', $rendered);
         self::assertStringContainsString('## The correct construction', $rendered);
     }

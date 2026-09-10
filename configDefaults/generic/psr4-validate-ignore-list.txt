@@ -1,6 +1,12 @@
 #tests/bootstrap\.php#
 #tests/phpstan-bootstrap\.php#
 #tests/Asset#
+#qaConfig/qa\.php#
+#qaConfig/hookPre\.php#
+#qaConfig/hookPost\.php#
+#qaConfig/tools/#
+#qaConfig/composer-dependency-analyser\.php#
+#qaConfig/\.twig-cs-fixer\.php#
 #qaConfig/phparkitect\.php#
 #qaConfig/php_cs\.php#
 #qaConfig/php_cs_finder\.php#
@@ -8,6 +14,6 @@
 #qaConfig/phparkitect-rules-default\.php#
 #qaConfig/phparkitect-rules-optional\.php#
 #qaConfig/phparkitect-rules-optional-symfony\.php#
-#qaConfig/rector-php84\.php#
+#qaConfig/rector-php85\.php#
 #qaConfig/rector-phpunit\.php#
 #qaConfig/rector-safe\.php#

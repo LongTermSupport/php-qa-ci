@@ -134,10 +134,10 @@ You are an expert in:
 ### Tool Categories
 **Full Pipeline**: `bin/qa` (all phases)
 **Tool Groups**: `allCS`, `allStatic`, `allTests`, `allLints`
-**Individual Tools**: `rector`, `phpCsFixer`, `phpstan`, `phpunit`, `infection`, `composerChecks`, `composerRequireChecker`, `psr4Validate`, `phpLint`, `markdownLinks`, `phploc`
+**Individual Tools**: `rector`, `phpCsFixer`, `phpstan`, `phpunit`, `infection`, `composerChecks`, `composerRequireChecker`, `psr4Validate`, `phpLint`, `markdownLinks`
 
 ### Path Support Intelligence
-**Path-Specific Tools**: phpstan, phpCsFixer, rector, phpLint, psr4Validate, phpStrictTypes, phploc, phpunit
+**Path-Specific Tools**: phpstan, phpCsFixer, rector, phpLint, psr4Validate, phpStrictTypes, phpunit
 **Project-Wide Only**: composerChecks, infection, composerRequireChecker, markdownLinks, tool groups (allCS, allStatic, etc.)
 
 ## Execution Strategy
@@ -298,7 +298,7 @@ If ANY tool fails:
 - Suggest proper fix sequence
 
 ### Configuration Issues
-- Detect missing composer plugins (`ergebnis/composer-normalize`)
+- Detect missing composer plugins (`phpstan/extension-installer`)
 - Identify path configuration problems
 - Recognize missing dependencies or wrong tool versions
 - Guide through configuration fixes

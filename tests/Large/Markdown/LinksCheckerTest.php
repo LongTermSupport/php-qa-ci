@@ -19,6 +19,10 @@ use Throwable;
 #[\PHPUnit\Framework\Attributes\Large]
 final class LinksCheckerTest extends TestCase
 {
+    private const string GH_TOKEN_VAR = 'GH_TOKEN';
+
+    private const string GITHUB_TOKEN_VAR = 'GITHUB_TOKEN';
+
     /**
      * @throws Exception
      */
@@ -96,10 +100,10 @@ result: HTTP status: 404
      */
     public function testGithubLinksAreSkippedWithoutToken(): void
     {
-        $originalGhToken     = getenv('GH_TOKEN');
-        $originalGithubToken = getenv('GITHUB_TOKEN');
-        \Safe\putenv('GH_TOKEN');
-        \Safe\putenv('GITHUB_TOKEN');
+        $originalGhToken     = getenv(self::GH_TOKEN_VAR);
+        $originalGithubToken = getenv(self::GITHUB_TOKEN_VAR);
+        \Safe\putenv(self::GH_TOKEN_VAR);
+        \Safe\putenv(self::GITHUB_TOKEN_VAR);
 
         try {
             $pathToProject    = __DIR__ . '/../../assets/linksChecker/projectWithGithubLink';
@@ -119,8 +123,8 @@ reason: GitHub URLs cannot be verified anonymously'
 ';
             self::assertResult($pathToProject, $expectedExitCode, $expectedOutput);
         } finally {
-            $this->restoreEnv('GH_TOKEN', $originalGhToken);
-            $this->restoreEnv('GITHUB_TOKEN', $originalGithubToken);
+            $this->restoreEnv(self::GH_TOKEN_VAR, $originalGhToken);
+            $this->restoreEnv(self::GITHUB_TOKEN_VAR, $originalGithubToken);
         }
     }
 
@@ -197,7 +201,7 @@ reason: GitHub URLs cannot be verified anonymously'
      */
     private function createProjectWithNonFileLinks(string $baseUrl): string
     {
-        $projectDir = sys_get_temp_dir() . '/linksCheckerNonFile' . uniqid('', true);
+        $projectDir = sys_get_temp_dir() . '/linksCheckerNonFile' . bin2hex(random_bytes(8));
         \Safe\mkdir($projectDir, 0o755, true);
 
         \Safe\file_put_contents(

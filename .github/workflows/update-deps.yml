@@ -19,16 +19,14 @@ jobs:
       # No explicit `ref:` — actions/checkout defaults to the repository's own
       # default branch for schedule/workflow_dispatch events. This keeps the
       # workflow correct when a consumer copies it verbatim: it operates on the
-      # consumer's default branch, not php-qa-ci's. (Hardcoding a branch here
-      # previously shipped `ref: php8.4` to consumers, breaking their scheduled
-      # runs at checkout.)
+      # consumer's default branch, not php-qa-ci's.
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           tools: composer:v2, phive
           coverage: xdebug
           extensions: json, tokenizer, mbstring
@@ -46,34 +44,32 @@ jobs:
             ${{ runner.os }}-composer-update-
             ${{ runner.os }}-composer-
 
-      # Step 1: Update composer dependencies
+      # Step 1: Update composer dependencies (post-update-cmd runs the PHAR update
+      # too, so the token is needed here as well)
       - name: Update composer dependencies
+        env:
+          GITHUB_AUTH_TOKEN: ${{ github.token }}
         run: composer update --no-interaction --no-progress --prefer-dist
 
-      # Step 2: Update PHARs via phive
-      - name: Import GPG keys for PHAR verification
-        run: |
-          gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \
-            C6D76C329EBADE2FB9C458CFC5095986493B4AA0 \
-            033E5F8D801A2F8D || true
-          gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys \
-            51C67305FFC2E5C0 \
-            E82B2FB314E9906E || true
-
+      # Step 2: Update PHARs. tool-install.bash update is the one place that
+      # knows the trusted keys and the unsigned entries; it re-resolves every
+      # phive.xml constraint non-interactively. (composer update above already
+      # ran it as post-update-cmd; this step makes a failure visible.)
       - name: Update PHARs via phive
-        run: |
-          phive update --copy \
-            --trust-gpg-keys C6D76C329EBADE2FB9C458CFC5095986493B4AA0,51C67305FFC2E5C0,E82B2FB314E9906E,033E5F8D801A2F8D \
-            || echo "::warning::phive update failed (GPG key server issue?) - continuing with existing PHARs"
+        env:
+          GITHUB_AUTH_TOKEN: ${{ github.token }}
+        run: bash scripts/tool-install.bash update
 
-      # Step 3: Update Rector and rebuild its committed PHAR
-      # Bump rector/rector in the build manifest (updates build/rector-phar/composer.lock),
-      # then rebuild vendor-phar/rector.phar. build-rector-phar.bash auto-downloads a
-      # pinned Box and sets phar.readonly=0 itself.
-      - name: Update Rector PHAR
+      # Step 3: Update the self-built PHARs (rector, phpcpd, composer-dependency-analyser)
+      # Bump each build/<tool>/ manifest (updates its composer.lock), then rebuild
+      # vendor-phar/<tool>.phar. build-phar.bash auto-downloads a pinned Box and
+      # sets phar.readonly=0 itself.
+      - name: Update self-built PHARs
         run: |
-          composer update --working-dir=build/rector-phar --no-interaction --no-dev
-          bash scripts/build-rector-phar.bash --force
+          for manifest in build/*/composer.json; do
+            composer update --working-dir="$(dirname "$manifest")" --no-interaction --no-dev
+          done
+          bash scripts/build-phar.bash --all --force
 
       # Step 4: Check for changes
       - name: Detect changes
@@ -104,10 +100,19 @@ jobs:
         id: summary
         run: |
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          # Summaries only: a full lock diff can exceed the GITHUB_OUTPUT size
+          # limit, and a truncated diff would be misleading. The PR's own diff
+          # tab carries the detail.
           echo "## Composer Changes" >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
-          echo '```diff' >> "$GITHUB_OUTPUT"
-          git diff composer.lock | head -100 >> "$GITHUB_OUTPUT"
+          echo '```' >> "$GITHUB_OUTPUT"
+          git diff --stat composer.json composer.lock >> "$GITHUB_OUTPUT"
+          echo '```' >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "Package versions after the update:" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo '```' >> "$GITHUB_OUTPUT"
+          composer show --direct --no-interaction >> "$GITHUB_OUTPUT"
           echo '```' >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
 
@@ -117,19 +122,24 @@ jobs:
             echo "" >> "$GITHUB_OUTPUT"
             for phar in vendor-phar/*.phar; do
               name=$(basename "$phar" .phar)
-              echo "- **$name**: $(php "$phar" --version 2>/dev/null | head -1 || echo 'version unknown')" >> "$GITHUB_OUTPUT"
+              # Only the first line of --version output is the version banner.
+              version=$(php "$phar" --version 2>/dev/null | awk 'NR==1' || true)
+              echo "- **$name**: ${version:-version unknown}" >> "$GITHUB_OUTPUT"
             done
             echo "" >> "$GITHUB_OUTPUT"
           fi
 
-          # Check for Rector changes (keyed off the build manifest lock — under
-          # reproducible builds the phar binary follows the lock).
-          if ! git diff --quiet build/rector-phar/composer.lock; then
-            echo "## Rector Changes" >> "$GITHUB_OUTPUT"
+          # Check for self-built PHAR changes (keyed off each build manifest lock —
+          # under reproducible builds the phar binary follows the lock).
+          if ! git diff --quiet build/*/composer.lock; then
+            echo "## Self-built PHAR Changes" >> "$GITHUB_OUTPUT"
             echo "" >> "$GITHUB_OUTPUT"
-            echo '```diff' >> "$GITHUB_OUTPUT"
-            git diff build/rector-phar/composer.lock | head -50 >> "$GITHUB_OUTPUT"
-            echo '```' >> "$GITHUB_OUTPUT"
+            for manifest in build/*/composer.json; do
+              name=$(basename "$(dirname "$manifest")")
+              version=$(php "vendor-phar/$name.phar" --version 2>/dev/null | awk 'NR==1' || true)
+              echo "- **$name**: ${version:-version unknown}" >> "$GITHUB_OUTPUT"
+            done
+            echo "" >> "$GITHUB_OUTPUT"
           fi
 
           echo "" >> "$GITHUB_OUTPUT"
@@ -157,6 +167,8 @@ jobs:
 
       - name: Enable auto-merge
         if: steps.create-pr.outputs.pull-request-number
-        run: gh pr merge --auto --squash "${{ steps.create-pr.outputs.pull-request-number }}"
+        # A merge commit, never a squash or rebase: both rewrite the PR's commits,
+        # so `git branch -d` can no longer see the branch as merged.
+        run: gh pr merge --auto --merge "${{ steps.create-pr.outputs.pull-request-number }}"
         env:
           GH_TOKEN: ${{ github.token }}

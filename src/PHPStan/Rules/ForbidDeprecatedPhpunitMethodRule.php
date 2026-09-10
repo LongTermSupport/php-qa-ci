@@ -141,6 +141,6 @@ final readonly class ForbidDeprecatedPhpunitMethodRule implements Rule
 
         $reflection = $this->reflectionProvider->getClass($className);
 
-        return array_any($this->phpunitClasses, static fn (string $phpunitClass): bool => $className === $phpunitClass || $reflection->isSubclassOf($phpunitClass));
+        return array_any($this->phpunitClasses, static fn (string $phpunitClass): bool => $reflection->is($phpunitClass));
     }
 }

@@ -15,7 +15,7 @@
 
 require __DIR__.'/bootstrap.php';
 
-$args = array_slice($argv, 1);
+$args = array_slice($argv ?? [], 1);
 $json = false;
 $projectRoot = null;
 foreach ($args as $arg) {

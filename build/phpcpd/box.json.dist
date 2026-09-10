@@ -1,0 +1,9 @@
+{
+    "main": "vendor/phpcpd-next/phpcpd/phpcpd",
+    "output": "phpcpd.phar",
+    "directories": ["vendor"],
+    "check-requirements": false,
+    "compactors": [],
+    "compression": "GZ",
+    "banner": false
+}

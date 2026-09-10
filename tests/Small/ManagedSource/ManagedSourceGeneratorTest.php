@@ -20,11 +20,15 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ManagedSourceGeneratorTest extends TestCase
 {
+    private const string SRC_PREFIX = 'src/';
+
+    private const string PHP_QA_CI_FACTORY_SEALED_BY_PHP = 'PhpQaCi/FactorySealedBy.php';
+
     private string $projectRoot;
 
     protected function setUp(): void
     {
-        $this->projectRoot = sys_get_temp_dir() . '/phpqaci-managed-' . \Safe\getmypid() . '-' . uniqid();
+        $this->projectRoot = sys_get_temp_dir() . '/phpqaci-managed-' . \Safe\getmypid() . '-' . bin2hex(random_bytes(8));
         \Safe\mkdir($this->projectRoot, 0o755, true);
     }
 
@@ -36,7 +40,7 @@ final class ManagedSourceGeneratorTest extends TestCase
     public function testResolveTargetTakesTheRuntimePsr4RootAndItsSrcDir(): void
     {
         $composer = [
-            'autoload'     => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']],
+            'autoload'     => ['psr-4' => ['Ballicom\AccountsIq\\' => self::SRC_PREFIX]],
             'autoload-dev' => ['psr-4' => ['Ballicom\AccountsIq\Dev\\' => 'src-dev/']],
         ];
 
@@ -60,7 +64,7 @@ final class ManagedSourceGeneratorTest extends TestCase
     {
         $files = new ManagedSourceGenerator()->managedFiles('Ballicom\AccountsIq');
 
-        self::assertArrayHasKey('PhpQaCi/FactorySealedBy.php', $files);
+        self::assertArrayHasKey(self::PHP_QA_CI_FACTORY_SEALED_BY_PHP, $files);
         $body = $files['PhpQaCi/FactorySealedBy.php'];
 
         self::assertStringContainsString('declare(strict_types=1);', $body);
@@ -74,7 +78,7 @@ final class ManagedSourceGeneratorTest extends TestCase
 
     public function testGenerateWritesTheManagedTreeAndCheckThenReportsNoDrift(): void
     {
-        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']]]);
+        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => self::SRC_PREFIX]]]);
 
         $written = new ManagedSourceGenerator()->generate($this->projectRoot);
 
@@ -86,20 +90,20 @@ final class ManagedSourceGeneratorTest extends TestCase
 
     public function testCheckReportsDriftWhenAManagedFileIsHandEdited(): void
     {
-        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']]]);
+        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => self::SRC_PREFIX]]]);
         $generator = new ManagedSourceGenerator();
         $generator->generate($this->projectRoot);
 
         \Safe\file_put_contents($this->projectRoot . '/src/PhpQaCi/FactorySealedBy.php', "<?php\n// tampered\n");
 
-        self::assertSame(['PhpQaCi/FactorySealedBy.php'], $generator->check($this->projectRoot), 'a hand edit is detected as drift');
+        self::assertSame([self::PHP_QA_CI_FACTORY_SEALED_BY_PHP], $generator->check($this->projectRoot), 'a hand edit is detected as drift');
     }
 
     public function testCheckReportsDriftWhenAManagedFileIsMissing(): void
     {
-        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => 'src/']]]);
+        $this->writeComposerJson(['autoload' => ['psr-4' => ['Ballicom\AccountsIq\\' => self::SRC_PREFIX]]]);
 
-        self::assertSame(['PhpQaCi/FactorySealedBy.php'], new ManagedSourceGenerator()->check($this->projectRoot), 'a never-generated tree is drift');
+        self::assertSame([self::PHP_QA_CI_FACTORY_SEALED_BY_PHP], new ManagedSourceGenerator()->check($this->projectRoot), 'a never-generated tree is drift');
     }
 
     /**

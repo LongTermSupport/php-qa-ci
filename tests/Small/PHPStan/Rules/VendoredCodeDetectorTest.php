@@ -23,16 +23,18 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class VendoredCodeDetectorTest extends TestCase
 {
+    private const string DEV_PROJECT = '/home/dev/project';
+
     public function testAProjectSourceFileIsNotVendored(): void
     {
-        $detector = new VendoredCodeDetector('/home/dev/project');
+        $detector = new VendoredCodeDetector(self::DEV_PROJECT);
 
         self::assertFalse($detector->isVendoredCode('/home/dev/project/src/Service.php'));
     }
 
     public function testAFileUnderTheProjectsOwnVendorDirIsVendored(): void
     {
-        $detector = new VendoredCodeDetector('/home/dev/project');
+        $detector = new VendoredCodeDetector(self::DEV_PROJECT);
 
         self::assertTrue($detector->isVendoredCode('/home/dev/project/vendor/acme/lib/src/Thing.php'));
     }
@@ -71,7 +73,7 @@ final class VendoredCodeDetectorTest extends TestCase
 
     public function testANullFileNameIsTreatedAsVendored(): void
     {
-        $detector = new VendoredCodeDetector('/home/dev/project');
+        $detector = new VendoredCodeDetector(self::DEV_PROJECT);
 
         self::assertTrue($detector->isVendoredCode(null));
     }
