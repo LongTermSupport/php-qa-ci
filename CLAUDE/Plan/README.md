@@ -10,11 +10,12 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00006: PHAR-only tool delivery](00006-phar-only-tool-delivery/PLAN.md) - In Progress — every CLI tool php-qa-ci ships is a PHAR under vendor-phar/: official PHARs through PHIVE where they exist, Box-built ones where they do not; the composer-installed tools and the composer-normalize plugin requirement go
 - [00005: pipeline extensibility and tool coupling](00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - In Progress — a PipelineBuilder so consumers can add tools and groups; dead-code-detector evaluated by dogfooding through it; twig/variadic work in flight on a feature branch
 - [00001: Repo Audit & Tidy](00001-repo-audit-and-tidy/PLAN.md) - In Progress
 
 ## Completed Plans
+
+- [00006: PHAR-only tool delivery](Completed/00006-phar-only-tool-delivery/PLAN.md) - Complete — composer-normalize and parallel-lint via PHIVE, phpcpd and composer-dependency-analyser Box-built from build/<tool>/ manifests, a PHAR update path that really updates, the binDirTool rule (delivered d0a6573)
 
 - [00004: QA ecosystem lanes](Completed/00004-qa-ecosystem-lanes/PLAN.md) - Complete — composer audit, deprecation rules, composer-dependency-analyser, type-coverage, phpcpd-next, twig-cs-fixer, the spaze deny-lists lifted into our own rules, and the variadicOverArrayParameter rule (delivered 085f595, `php8.5` released and made default)
 

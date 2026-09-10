@@ -1,6 +1,6 @@
 # Plan 00006: PHAR-only tool delivery
 
-**Status**: In Progress
+**Status**: Complete (delivered d0a6573; consumers moved in accounts-api 5427de7, accountsiq fc98c43)
 **Created**: 2026-09-09
 **Owner**: Joseph Edmonds
 **Priority**: High
@@ -123,4 +123,4 @@ question is recorded under Non-Goals.
 
 - Plan filed after the Owner's ruling that tools ship as PHARs, built by us when upstream ships none.
 - Phase 1 delivered in 2e0d3c3; Phases 2 and 3 in d0a6573; consumers moved in accounts-api 5427de7 and accountsiq fc98c43.
-- All tasks done; closing (status Complete, move to Completed/) is the Owner's call.
+- Closed per the lifecycle doc once every task and criterion was ticked.
