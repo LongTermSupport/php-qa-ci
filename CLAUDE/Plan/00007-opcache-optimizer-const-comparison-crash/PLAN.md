@@ -113,13 +113,11 @@ parts that are php-qa-ci's to deliver. The full dossier is in
     can follow it upstream.
   - [ ] ⬜ When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that version,
     which retires both the lane and the advisory on newer PHP automatically.
-- [ ] ⬜ **Task 3.2**: Verify PHP 8.4's optimizer against the same fixture and record
-  the result in the affected-version table. **Blocked on a PHP 8.4 CLI**: the
-  development host has only the affected 8.5, so the lower bound of the affected range
-  is currently an assumption (8.5.0) rather than a measurement. Needs a side-by-side
-  8.4 CLI installed by the host operator; a second runtime is a host change, not a
-  php-qa-ci one. Until then `FIRST_AFFECTED` stands as documented in `OpcacheDefects`
-  and the dossier records that 8.4 is untested rather than known-good.
+- [x] ✅ **Task 3.2**: Record 8.4 as unverified and do not measure it. Originally
+  "verify PHP 8.4's optimizer against the same fixture"; closed as not worth doing, see
+  Decision 5. `FIRST_AFFECTED` stays `8.5.0`, and `OpcacheDefects`, the dossier and the
+  upstream report all say 8.4 is unverified rather than known-good, which is the accurate
+  claim and the only one this plan needs.
 
 ## Dependencies
 
@@ -186,6 +184,31 @@ reusable and was not recorded anywhere. **Date**: 2026-09-10
 run there until an operator acts blocks unrelated work; the detector lane already
 gates the thing that matters. **Decision**: preflight prints the warning and the ini
 line and continues. **Date**: 2026-09-10
+
+### Decision 5: 8.4 is left unverified rather than measured
+
+**Context**: Task 3.2 was to compile the fixture on PHP 8.4 and pin the lower bound of
+the affected range. The development host runs only the affected 8.5, so this needs a
+second runtime installed. **Why it is not worth it**:
+
+1. **Neither answer changes any behaviour here.** The lane and the advisory gate on
+   `FIRST_AFFECTED = 8.5.0`. If 8.4 is clean, that gate is already right; if 8.4 is
+   affected, the only code that would care is a version of this lane on the `php8.4`
+   branch, and there isn't one.
+2. **There is no live 8.4 line to serve.** `php8.4` and `php8.3` are *ancestors* of
+   `php8.5` — fully contained in it, with zero commits unique to either. They are
+   historical snapshots, not parallel maintenance branches, so there is nothing to
+   back-port to and no divergence to keep in sync.
+3. **The upstream report does not need it.** "Not verified on 8.4" is a normal and
+   honest thing to state in a php-src issue; maintainers bisect versions themselves and
+   have every build to hand. Doing their bisection for them buys nothing.
+4. **A host change is the most expensive way to buy nothing.** Adding a runtime to a
+   development host to answer a question with no consequent action is a poor trade.
+
+**Decision**: close the task. Record 8.4 as unverified — which is the accurate claim —
+in `OpcacheDefects`, the dossier and the upstream report, and take the answer from
+upstream's own bisect if and when the issue is triaged. Revisit only if this lane is
+ever ported to a branch that actually targets 8.4. **Date**: 2026-09-10
 
 ## Success Criteria
 

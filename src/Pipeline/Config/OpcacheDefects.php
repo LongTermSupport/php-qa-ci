@@ -44,7 +44,8 @@ final readonly class OpcacheDefects
 
     /**
      * Verified on 8.5.10; earlier 8.5.x share the optimizer and are assumed
-     * affected. 8.4 is unverified (Plan 00007 Task 3.2).
+     * affected. 8.4 is unverified and deliberately left so: no branch here targets
+     * it, so neither answer would change this gate (Plan 00007 Decision 5).
      */
     private const string FIRST_AFFECTED = '8.5.0';
 
