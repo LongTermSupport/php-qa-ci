@@ -54,3 +54,7 @@ untracked/*
 
 # ClaudeMdInjector backup (session artifact, never commit)
 .CLAUDE.md.pre-inject
+
+# Hooks daemon sensitive_content word lists (never commit)
+*.secret
+*.secrets

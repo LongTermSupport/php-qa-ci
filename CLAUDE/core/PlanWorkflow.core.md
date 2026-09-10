@@ -242,6 +242,8 @@ Refer to detailed info in supporting docs as required
 - [ ] Criterion 1 that must be met
 - [ ] Criterion 2 that must be met
 - [ ] All QA checks passing
+- [ ] Every release-bound consequence is in the pending-release holding area
+      (or: this plan has no release-bound consequences)
 
 ## Risks & Mitigations
 
@@ -533,10 +535,43 @@ actually stops you; the cron only matters once something has already gone wrong.
 6. Document any lessons learned
 7. **Follow the Plan Completion Checklist below**
 
+### Definition of done: merged into main, never released
+
+A plan is **done when its work is fully completed, verified, and merged into
+main**. That is the whole definition. A release is **never** part of it:
+
+- Do NOT write a task, success criterion, or status line that waits on a
+  release — no "run `/release`", no "acceptance-test at release time", no
+  "release notes must mention X", no "tag and publish". A plan with such an
+  item is not `In Progress`; it is finished work with a mislabelled header.
+- A release is a **scope decision made by a human**, bundling whatever is on
+  main at that moment. It is gated on the state of main, not on any plan, and
+  no plan is gated on it. Tying the two together produces plans that sit
+  `In Progress` for weeks with nothing left to do, hide real in-flight work
+  among them, and make "is the slate clean?" unanswerable.
+- Anything a release must carry (a release-notes callout, an upgrade-guide
+  entry, a post-upgrade task, an acceptance probe) is written **into the
+  repository's pending-release holding area now**, as one of the plan's own
+  tasks — so the release picks it up mechanically. Updating that holding area
+  IS the plan's last step where one is needed; waiting for the release to
+  consume it is not. (In this project the holding area is
+  `CLAUDE/UPGRADES/UNRELEASED/`; a client project names its own.)
+
+If a plan already has a release-shaped item, strike it as out of the
+definition of done, record where its substance lives, and close the plan.
+
 ### Plan Completion Checklist
 
 When a plan is complete, follow these steps to properly close it out. Skipping steps leads to stale plan indexes and orphaned folders.
 
+0. **Holding area is current (gate — do this BEFORE flipping the status)**:
+   every release-bound consequence of this plan is already written into the
+   pending-release holding area, in whichever of its shapes applies — a
+   post-upgrade task, a truth change, a config change, a release-notes
+   callout, an upgrade-guide entry. If the plan has none, the last Success
+   Criterion says so explicitly ("no release-bound consequences"). A plan
+   whose release-bound content is still in someone's head is not done, and a
+   plan waiting for the release to consume that content is already done.
 1. **Update PLAN.md status**: Change `**Status**:` to `Complete`. Do NOT add a completion date — git history is authoritative for "when". Cite the delivery commit hash(es) in the "Delivery & Milestones" section instead.
 2. **Mark all tasks**: Change `- [ ]` to `- [x]` for all completed tasks in the plan
 3. **Move to Completed folder**: Relocate the plan directory into the archive
