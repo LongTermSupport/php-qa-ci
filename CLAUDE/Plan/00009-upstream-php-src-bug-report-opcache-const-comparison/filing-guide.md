@@ -40,11 +40,16 @@ The Description field is pre-filled with a three-block skeleton
 (`The following code:` / `Resulted in this output:` / `But I expected this output instead:`). Filling that skeleton is the house style; the extra detail (dump,
 backtrace, optimizer bisect) goes after it.
 
-**On the 3v4l.org link.** 3v4l ships the opcache extension but exposes no per-run
-ini control, so whether it runs with `opcache.enable_cli=1` and the optimizer on is
-unverified — see Task 1.3. Do not claim a 3v4l link reproduces it unless it does;
-"3v4l does not enable the optimizer, so it cannot show this" is a fine sentence to
-write instead.
+**On the 3v4l.org link.** The template asks for one "if possible", and for an OPcache
+optimizer bug it is not possible: `opcache.enable_cli` is `INI_SYSTEM`
+([runtime configuration](https://www.php.net/manual/en/opcache.configuration.php)), so a
+snippet cannot enable the optimizer from inside itself and 3v4l offers no per-run ini.
+
+A `php -n -d …` command line is the equivalent proof and a stronger one: `-d` sets an
+`INI_SYSTEM` value at startup, which is exactly the mechanism a snippet lacks, and `-n`
+demonstrates a stock build with no php.ini and no other extension loaded. Give the
+command line, and say in one clause why there is no link — do not leave the field
+silently empty, which reads as an omission rather than a finding.
 
 ## 3. House style: short, and no impact essay
 

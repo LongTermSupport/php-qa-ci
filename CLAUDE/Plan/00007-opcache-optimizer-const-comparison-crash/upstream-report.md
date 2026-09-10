@@ -69,12 +69,13 @@ But I expected this output instead:
 int(1)
 ```
 
-`-n` is there to show it needs nothing but OPcache; `file_update_protection=0` only
+That command line is the whole reproduction — a stock build, no php.ini, no extension
+beyond the built-in OPcache. `-n` is what proves that; `file_update_protection=0` only
 avoids waiting for the file to age past the default two seconds, without which OPcache
 does not optimise it at all and the crash does not appear.
 
-No 3v4l.org link: `opcache.enable_cli` is `INI_SYSTEM` and defaults to `0`, so a snippet
-cannot turn the optimizer on from inside itself.
+(No 3v4l.org link, because `opcache.enable_cli` is `INI_SYSTEM`: it can be set on the
+command line as above, but not from inside a snippet.)
 
 ### Cause
 
