@@ -1,0 +1,16 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Verifies (install mode) or refreshes (maintainer update mode) the vendored
+ * ShellCheck binary under vendor-bin/. Called by scripts/tool-install.bash on
+ * every composer install/update; the decision itself lives in
+ * LTS\PHPQA\ShellCheck\ShellCheckInstaller, where it is unit-tested.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+die(\LTS\PHPQA\ShellCheck\ShellCheckInstaller::main(
+    \dirname(__DIR__),
+    $argv[1] ?? \LTS\PHPQA\ShellCheck\ShellCheckInstaller::MODE_INSTALL,
+));
