@@ -102,17 +102,22 @@ parts that are php-qa-ci's to deliver. The full dossier is in
 
 - [ ] 🔄 **Task 3.1**: The upstream php-src report. **Filed by the owner under a
   different agent/GitHub identity**, so the deliverable here is a report ready to post
-  verbatim, not the posting itself.
+  verbatim, not the posting itself. **Delegated in full to
+  [Plan 00009](../00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md)**,
+  which owns filing and follow-through and reports back here; this plan keeps the
+  evidence and [upstream-report.md](upstream-report.md), the single copy of the text.
   - [x] ✅ Draft it as [upstream-report.md](upstream-report.md): title, environment, the
     dependency-free reproduction, expected vs actual, the optimizer dump, the mask
     bisect, and what was ruled out. No reference to any private repository, host or
-    consumer.
-  - [ ] ⬜ Owner (other identity) files it at <https://github.com/php/php-src/issues>.
+    consumer. Since rewritten under 00009 around a *crashing* six-line reproduction.
+  - [ ] ⬜ Owner (other identity) files it at <https://github.com/php/php-src/issues>
+    — 00009 Task 2.1.
   - [ ] ⬜ Record the issue number in `upstream-report.md` and in
     `OpcacheDefects`' doc comment, so the next reader of the affected-range constant
-    can follow it upstream.
+    can follow it upstream — 00009 Task 2.2.
   - [ ] ⬜ When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that version,
-    which retires both the lane and the advisory on newer PHP automatically.
+    which retires both the lane and the advisory on newer PHP automatically
+    — 00009 Task 3.3.
 - [x] ✅ **Task 3.2**: Record 8.4 as unverified and do not measure it. Originally
   "verify PHP 8.4's optimizer against the same fixture"; closed as not worth doing, see
   Decision 5. `FIRST_AFFECTED` stays `8.5.0`, and `OpcacheDefects`, the dossier and the

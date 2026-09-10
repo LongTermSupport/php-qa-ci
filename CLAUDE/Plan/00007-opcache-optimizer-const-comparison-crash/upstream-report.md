@@ -5,8 +5,18 @@ identity (Plan 00007 Task 3.1). Record the issue number here once it exists.
 
 **Where**: <https://github.com/php/php-src/issues/new?template=bug_report.yml>
 
+**How php-src wants it filed** — required fields, house style, the LLM-disclosure rule
+and what a follow-up PR would need — is
+[Plan 00009's filing guide](../00009-upstream-php-src-bug-report-opcache-const-comparison/filing-guide.md).
+Read that before pasting this.
+
 Everything below is safe to post: no private repository, host, package or consumer is
 named, and the reproduction is dependency-free.
+
+The three `##` sections below map onto the three fields of the issue form. Inside
+**Description**, the first three blocks are the form's own pre-filled skeleton; keep
+them in that order. `php -v` and the OS must be the filer's own if they differ from
+the values recorded here.
 
 ---
 
@@ -14,71 +24,78 @@ named, and the reproduction is dependency-free.
 
 Optimizer leaves a constant-vs-constant comparison unfolded, crashing the VM in `zval_undefined_cv`
 
-## PHP version
+## PHP Version
 
-8.5.10 (also expected on earlier 8.5.x; not verified on 8.4)
+```
+PHP 8.5.10 (cli) (built: Aug 28 2026 07:27:07) (NTS)
+Copyright (c) The PHP Group
+Built by Debian
+Zend Engine v4.5.10, Copyright (c) Zend Technologies
+    with Zend OPcache v8.5.10, Copyright (c), by Zend Technologies
+```
 
-## Operating system
+Not verified on 8.4 or on master.
 
-Linux x86_64 (Fedora/EL9 build, NTS)
+## Operating System
+
+Debian 12, x86_64
 
 ## Description
 
-The DFA/SCCP optimizer pass can substitute a variable it has proved constant into a later
-comparison with a literal, and then leave the resulting constant-vs-constant opcode
-unfolded. `ZEND_IS_NOT_IDENTICAL` and friends are declared
-`ZEND_VM_HOT_NOCONSTCONST_HANDLER`, so no CONST,CONST handler exists; the specialiser
-selects a handler that reads op1 as a TMP/VAR/CV slot. The operand is a constant index,
-so the read lands outside the frame: a segmentation fault when the address is unmapped, a
-silent comparison against unrelated memory when it is not.
-
-JIT is off (`opcache.jit=0`, `opcache.jit_buffer_size=0`); this is the plain VM.
-
-### Reproduction
+The following code:
 
 ```php
 <?php
-declare(strict_types=1);
-
-function f(?array $x): string
-{
-    if (null !== $x || [] !== $x) {
-        return 'out';
-    }
-
-    return 'in';
+function f($x) {
+    if (null !== $x || [] !== $x) { return 1; }
+    return 2;
 }
-
 var_dump(f(null));
 ```
 
 ```
-php -d opcache.enable_cli=1 -d opcache.opt_debug_level=0x20000 f.php
+php -n -d opcache.enable_cli=1 -d opcache.file_update_protection=0 f.php
 ```
 
-### Expected
-
-`f()` compiles to a comparison against the variable, or the comparison is folded at
-compile time. Either way no comparison opcode has two constant operands, because the VM
-has no handler for that pair.
-
-### Actual
-
-The after-optimizer dump contains:
+Resulted in this output:
 
 ```
+Segmentation fault (core dumped)
+```
+
+But I expected this output instead:
+
+```
+int(1)
+```
+
+`-n` is there to show it needs nothing but OPcache; `file_update_protection=0` only
+avoids waiting for the file to age past the default two seconds, without which OPcache
+does not optimise it at all and the crash does not appear.
+
+### Cause
+
+The DFA/SCCP pass proves `$x` is `null` on the branch, substitutes the constant into the
+later `[] !== $x`, and then leaves the resulting comparison with two constant operands.
+The after-optimizer dump (`-d opcache.opt_debug_level=0x20000`):
+
+```
+f:
 0000 CV0($x) = RECV 1
-0001 T2 = TYPE_CHECK (null) CV0($x)
-0002 JMPZ T2 0004
-0003 T2 = IS_NOT_IDENTICAL null array(...)
-0004 ...
+0001 T1 = TYPE_CHECK TYPE [bool, long, double, string, array, object, resource] CV0($x)
+0002 JMPNZ T1 0005
+0003 T1 = IS_NOT_IDENTICAL null array(...)
+0004 JMPZ T1 0006
+0005 RETURN int(1)
+0006 RETURN int(2)
 ```
 
-`op[3]` has `op1_type=IS_CONST` and `op2_type=IS_CONST`. Executing that opcode reads
-`EX_VAR(<constant index>)`.
+`op[3]` has `op1_type=IS_CONST` and `op2_type=IS_CONST`. `ZEND_IS_NOT_IDENTICAL` and its
+neighbours are declared `ZEND_VM_HOT_NOCONSTCONST_HANDLER`, so no CONST,CONST handler
+exists and the specialiser picks one that reads op1 as a TMP/VAR/CV slot. The operand is
+a constant index, so the read lands outside the frame.
 
-Observed in production as five identical segfaults in the CLI SAPI, all at the same
-instruction. Backtrace (with debug symbols for the same build):
+Backtrace (debug symbols for the same build):
 
 ```
 #0  zval_undefined_cv (var=<optimized out>) at Zend/zend_execute.c:280
@@ -97,25 +114,23 @@ zend_error_unchecked(E_WARNING, "Undefined variable $%S", cv);
 ```
 
 With `var = 0xfffff8c0` the computed address, `op_array.vars[(var >> 4) - 5]`, matched the
-faulting address in the kernel log exactly, confirming the constant operand is being read
-as a variable slot.
+faulting address in the kernel log exactly.
 
-Whether a given instance faults or merely misbehaves depends on where that address lands,
-so the silent-wrong-answer case is the more dangerous one: several ordinary idioms produce
-the same opcode and return a plausible value.
+Whether an instance faults or silently compares unrelated memory depends on where that
+address lands; some of the shapes below return a plausible value instead of crashing.
 
 ### Optimizer pass
 
 Clearing bit `0x20` of `opcache.optimization_level` (the DFA pass, which carries SCCP)
-removes the bad opcode:
+removes the bad opcode and the snippet prints `int(1)`:
 
-| `opcache.optimization_level` | comparisons left constant-vs-constant |
-| ---------------------------- | ------------------------------------- |
-| `0x7FFEBFFF` (the default)   | 1                                     |
-| `0x7FFEBFDF` (DFA cleared)   | 0                                     |
-| `0`                          | 0                                     |
+| `opcache.optimization_level` | result of the snippet |
+| ---------------------------- | --------------------- |
+| `0x7FFEBFFF` (the default)   | segfault              |
+| `0x7FFEBFDF` (DFA cleared)   | `int(1)`              |
+| `0`                          | `int(1)`              |
 
-### Other shapes that produce it
+### Other shapes that produce a constant-vs-constant comparison
 
 All with an earlier check that proves the variable's value on the branch:
 
@@ -135,6 +150,6 @@ if ($x === null || $x === []) { ... }
 
 ### Ruled out
 
-JIT (off), Xdebug (not loaded in the crashing processes), OOM (no `oom_kill` in the
-cgroup counters), and the FPM SAPI (CLI only). The crash reproduces from the snippet
-above with no extensions beyond OPcache.
+JIT (off; `-d opcache.jit=0 -d opcache.jit_buffer_size=0` changes nothing), Xdebug (`-n`
+loads no php.ini, so no extensions beyond the built-in OPcache), OOM, and the FPM SAPI
+(seen on CLI). The argument matters: `f([9])` never reaches the opcode and is fine.

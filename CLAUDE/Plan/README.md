@@ -14,6 +14,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00008: shellcheck lane vendored binary](00008-shellcheck-lane-vendored-binary/PLAN.md) - In Progress — ShellCheck runs only in CI, so a green bin/qa can still be a red branch; vendor one pinned static binary, add the lane with git-tracked shebang discovery and a per-project glob override, delete the duplicate CI job
 
+- [00009: upstream php-src bug report](00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md) - In Progress — sub-plan of 00007 Task 3.1: a six-line deterministic segfault reproducer, php-src's own filing conventions, and the follow-through that sets FIRST_FIXED
+
 ## Completed Plans
 
 - [00005: pipeline extensibility and tool coupling](Completed/00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - Complete — PipelineBuilder (consumer tools and phases from qaConfig/pipeline.php), twig/yaml lanes, the qa skill as a shim, the ambiguousArrayDoc rule, and shipmonk/dead-code-detector shipped as the opt-in deadCode lane from its own PHAR
