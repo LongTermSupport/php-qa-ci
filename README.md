@@ -80,21 +80,23 @@ PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
 8\. Version Pins Check (always-on)
 9\. Strict Types Enforcement
 10\. PHP Lint
-11\. Composer Require Checker
-12\. Markdown Links Checker
+11\. OPcache (bytecode free of the known OPcache codegen defects)
+12\. Composer Require Checker
+13\. Markdown Links Checker
 
 **Phase 3 -- Static Analysis:**
-13\. Branch Name Policy (always-on; runs first in this phase)
-14\. PHPStan ignoreErrors Justification (always-on)
-15\. PHPStan (level max)
-16\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
-17\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
+14\. Branch Name Policy (always-on; runs first in this phase)
+15\. PHPStan ignoreErrors Justification (always-on)
+16\. PHPStan (level max)
+17\. Dead Code Detection (opt-in; `withDeadCodeDetection(true)`)
+18\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
+19\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
 
 **Phase 4 -- Testing:**
-18\. PHPUnit
-19\. Infection (mutation testing, optional, requires Xdebug)
+20\. PHPUnit
+21\. Infection (mutation testing, optional, requires Xdebug)
 
-**Post-Success:** PHPLoc (stats only, not part of the pass/fail gate)
+**Post-Success:** PHPCPD (copy/paste report only, not part of the pass/fail gate)
 
 See [Pipeline Architecture](./docs/pipeline.md) for full details.
 

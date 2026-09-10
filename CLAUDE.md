@@ -60,7 +60,7 @@ scripts under `scripts/`.
 
 1. **Entrypoint**: `bin/qa` boots [src/Pipeline/Cli/QaApplication.php](src/Pipeline/Cli/QaApplication.php), the composition root that parses arguments, reads the environment, builds the configuration and runs the pipeline
 2. **Tool registry**: [src/Pipeline/Tool/ToolRegistry.php](src/Pipeline/Tool/ToolRegistry.php) is the single source of truth for tool names, `-t` aliases, phase membership and order, path support, gates and banners; the CLI usage text is derived from it. Each phase is a [PhaseDto](src/Pipeline/Tool/Dto/PhaseDto.php) that contributes its own `all*` runner
-3. **Lanes**: one `ToolInterface` class per tool under [src/Pipeline/Lane/](src/Pipeline/Lane/), wired by name in [src/Pipeline/Tool/ShippedTools.php](src/Pipeline/Tool/ShippedTools.php)
+3. **Lanes**: one `ToolInterface` class per tool under [src/Pipeline/Lane/](src/Pipeline/Lane/), wired by name in [src/Pipeline/Tool/ShippedTools.php](src/Pipeline/Tool/ShippedTools.php). **A new tool extends the public CLI/agent API** (`-t` tokens, help text, pipeline order, a stable identifier, a docs page), so whether a check is a new tool or an assertion inside an existing one is a considered decision — the test to apply is in [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md)
 4. **Pipeline builder**: [src/Pipeline/Tool/PipelineBuilder.php](src/Pipeline/Tool/PipelineBuilder.php) assembles the registry and the lane map the run uses; `defaults()` is the shipped pipeline, and immutable withers add a phase, set the phase order or add a tool without forking the registry. A project extends it from `qaConfig/pipeline.php` (see [docs/extending-the-pipeline.md](docs/extending-the-pipeline.md))
 5. **Runner**: [src/Pipeline/Runner/Pipeline.php](src/Pipeline/Runner/Pipeline.php) walks the phases and applies the gate, retry and aggregate policies; [src/Pipeline/Runner/ToolExecutor.php](src/Pipeline/Runner/ToolExecutor.php) runs one lane with the retry prompt
 6. **Configuration**: a typed, immutable [QaConfigBuilder](src/Pipeline/Config/QaConfigBuilder.php) seeded from defaults and environment variables, adjusted by the project's `qaConfig/qa.php`; config files resolve through [ConfigPathResolver](src/Pipeline/Config/ConfigPathResolver.php)
@@ -135,13 +135,15 @@ On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appe
 
 10. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
 
-11. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+11. **OPcache** (`opcache`) - Compiles every checked file through OPcache and asserts the bytecode is free of the known OPcache codegen defects (see [docs/tools/opcache.md](docs/tools/opcache.md))
 
-12. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
+12. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
 
-13. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+13. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
 
-14. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+14. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+
+15. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
 
 On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to this phase. It is not `-t` selectable.
 
@@ -632,6 +634,15 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
   - Much faster than full parsing
   - Catches parse errors before running other tools
 - **Details**: [docs/tools/phpLint.md](docs/tools/phpLint.md)
+
+### OPcache
+
+- **Purpose**: Assert the code compiles through OPcache into bytecode free of the OPcache codegen defects php-qa-ci knows about — the one class of defect no static analyser can see, because it is introduced after the source is valid
+- **Lane**: [src/Pipeline/Lane/OpcacheTool.php](src/Pipeline/Lane/OpcacheTool.php); known defects, affected ranges and the recommended `php.ini` in [src/Pipeline/Config/OpcacheDefects.php](src/Pipeline/Config/OpcacheDefects.php)
+- **How it works**: compiles each checked file with `opcache_compile_file()` through [bin/opcache-optimizer-dump](bin/opcache-optimizer-dump) (never executing it) with the optimizer's default mask set explicitly, and reads the after-optimizer opcode dump. Currently asserts no comparison opcode was left with two constant operands, which the VM has no handler for. A file that produced no dump is a crash, never a pass
+- **Start-up advisory**: the preflight warns when the running PHP is in the affected range and the responsible optimizer pass is still enabled, naming the `php.ini` line that removes the class
+- **Alias**: `vendor/bin/qa -t oc`
+- **Details**: [docs/tools/opcache.md](docs/tools/opcache.md)
 
 ### Composer Require Checker
 

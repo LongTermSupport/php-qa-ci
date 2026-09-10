@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Process;
 
+use LTS\PHPQA\Pipeline\Config\Dto\OpcacheSettingsDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 
@@ -25,6 +26,8 @@ final readonly class PhpInvoker
 
     private const array XDEBUG_OFF = [self::XDEBUG_MODE => 'off'];
 
+    private const string PROBE_DELIMITER = '|';
+
     public function __construct(
         private ProcessRunnerInterface $runner,
         private string $phpBinPath,
@@ -38,10 +41,11 @@ final readonly class PhpInvoker
      *
      * @param list<string>          $args
      * @param array<string, string> $env
+     * @param array<string, string> $ini  extra `-d` overrides, after the memory limit
      */
-    public function withoutXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true, bool $lowPriority = false): ProcessResultDto
+    public function withoutXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true, bool $lowPriority = false, array $ini = []): ProcessResultDto
     {
-        return $this->runner->run($this->specWithoutXdebug($script, $args, $cwd, $env, $streamOutput, $lowPriority));
+        return $this->runner->run($this->specWithoutXdebug($script, $args, $cwd, $env, $streamOutput, $lowPriority, $ini));
     }
 
     /**
@@ -67,11 +71,18 @@ final readonly class PhpInvoker
      *
      * @param list<string>          $args
      * @param array<string, string> $env
+     * @param array<string, string> $ini  extra `-d` overrides, after the memory limit
      */
-    public function specWithoutXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true, bool $lowPriority = false): ProcessSpecDto
+    public function specWithoutXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true, bool $lowPriority = false, array $ini = []): ProcessSpecDto
     {
+        $overrides = [];
+        foreach ($ini as $directive => $value) {
+            $overrides[] = '-d';
+            $overrides[] = $directive . '=' . $value;
+        }
+
         return new ProcessSpecDto(
-            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-f', $script, '--', ...$args],
+            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, ...$overrides, '-f', $script, '--', ...$args],
             cwd: $cwd,
             env: [...$env, ...self::XDEBUG_OFF],
             streamOutput: $streamOutput,
@@ -89,6 +100,29 @@ final readonly class PhpInvoker
     public function hasXdebug(): bool
     {
         return '1' === trim($this->probe('echo extension_loaded("xdebug") ? "1" : "0";'));
+    }
+
+    /**
+     * What the configured binary reports about OPcache, in one probe. An
+     * unreadable answer reads as "not loaded": the callers only ever use this
+     * to decide whether to warn or to compile, and neither is worth guessing at.
+     */
+    public function opcacheSettings(): OpcacheSettingsDto
+    {
+        // Two fields separated by a delimiter, not JSON: a binary that cannot
+        // answer (a crash, a fatal from a broken ini) then reads as "not
+        // loaded" without a parse that can itself fail.
+        $answer = explode(self::PROBE_DELIMITER, trim($this->probe(\sprintf(
+            'echo extension_loaded("Zend OPcache") ? "1" : "0", "%s", (string) ini_get("opcache.optimization_level");',
+            self::PROBE_DELIMITER,
+        ))), 2);
+
+        // Both fields, or neither: a partial answer is not an answer.
+        if (2 !== \count($answer)) {
+            return new OpcacheSettingsDto(false, '');
+        }
+
+        return new OpcacheSettingsDto('1' === $answer[0], $answer[1]);
     }
 
     /**

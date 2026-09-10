@@ -136,6 +136,15 @@ Very fast PHP linting process. Checks for syntax errors in your PHP files. Runs 
 
 See the [PHP Parallel Lint project page](https://github.com/php-parallel-lint/PHP-Parallel-Lint) for more information.
 
+### OPcache
+
+[OpcacheTool](../src/Pipeline/Lane/OpcacheTool.php) -- [docs/tools/opcache.md](./tools/opcache.md)
+
+Compiles every checked file through OPcache (never executing it) and asserts the bytecode is
+free of the OPcache codegen defects php-qa-ci knows about. Where the linter asks whether the
+source parses, this asks what the compiler emitted from it, which is where an optimizer defect
+turns valid source into a crash.
+
 ### Composer Require Checker
 
 [ComposerRequireCheckerTool](../src/Pipeline/Lane/ComposerRequireCheckerTool.php) -- [docs/tools/composerRequireChecker.md](./tools/composerRequireChecker.md)

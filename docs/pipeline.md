@@ -89,10 +89,11 @@ On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)
 08. **[Version Pins Check](./tools/versionPins.md)** -- Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
 09. **[Strict Types Enforcement](./tools/phpStrictTypes.md)** -- Ensures `declare(strict_types=1)`
 10. **[PHP Lint](./tools/phpLint.md)** -- Fast parallel syntax checking
-11. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
-12. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
-13. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
-14. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
+11. **[OPcache](./tools/opcache.md)** -- The bytecode the code compiles to is free of the known OPcache codegen defects
+12. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
+13. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
+14. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
+15. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
 
 On a Symfony project the platform lane **[Twig Lint](./tools/twigLint.md)** follows, appended to this phase.
 

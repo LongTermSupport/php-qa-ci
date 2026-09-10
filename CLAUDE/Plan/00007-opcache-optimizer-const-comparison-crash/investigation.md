@@ -5,13 +5,13 @@ container. It is a record of that moment, kept as written.
 
 ## Environment
 
-| Item     | Value                                                                                                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| PHP      | 8.5.10 CLI, NTS, remi build `php-cli-8.5.10-1.module_php.8.5.el9.remi.x86_64`                                             |
-| OPcache  | `opcache.enable_cli=1`, default `opcache.optimization_level` (`0x7FFFBFFF`), `opcache.jit=0`, `opcache.jit_buffer_size=0` |
-| Xdebug   | 3.5.3, `xdebug.mode=debug`, `start_with_request=yes` (not loaded in the crashing processes, see below)                    |
-| Host     | LXC container; the kernel and `systemd-coredump` are the host's                                                           |
-| Consumer | a private library whose full pipeline includes Infection with 11 threads                                                  |
+| Item     | Value                                                                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| PHP      | 8.5.10 CLI, NTS, remi build `php-cli-8.5.10-1.module_php.8.5.el9.remi.x86_64`                                                                  |
+| OPcache  | statically built in; `opcache.enable_cli=1`, default `opcache.optimization_level` (`0x7FFEBFFF`), `opcache.jit=0`, `opcache.jit_buffer_size=0` |
+| Xdebug   | 3.5.3, `xdebug.mode=debug`, `start_with_request=yes` (not loaded in the crashing processes, see below)                                         |
+| Host     | LXC container; the kernel and `systemd-coredump` are the host's                                                                                |
+| Consumer | a private library whose full pipeline includes Infection with 11 threads                                                                       |
 
 ## Symptom
 
@@ -140,9 +140,23 @@ executes whenever the getter returns null, which the killing test does.
 
 | `opcache.optimization_level`                     | bad comparisons in the mutated file |
 | ------------------------------------------------ | ----------------------------------- |
-| `0x7FFFBFFF` (default)                           | 1                                   |
-| `0x7FFFBFDF` (bit `0x20`, the DFA pass, cleared) | 0                                   |
+| `0x7FFEBFFF` (PHP's default)                     | 1                                   |
+| `0x7FFEBFDF` (bit `0x20`, the DFA pass, cleared) | 0                                   |
+| `0x7FFFBFFF` (default plus pass `0x10000`)       | 1                                   |
 | `0`                                              | 0                                   |
+
+PHP's default is `0x7FFEBFFF`, not every bit set: it ships passes `0x4000` and
+`0x10000` off. Read it from the binary rather than assuming, since the recommended
+value is derived from it:
+
+```
+php -n -r 'echo ini_get("opcache.optimization_level");'
+```
+
+The third row is the same measurement taken with `0x10000` additionally on, which
+is what an invented "all bits" mask gives. It reproduces too, so the extra pass is
+not implicated — but a detector that compiles with it is reporting bytecode no
+production host produces, which is why the lane uses the real default.
 
 ## Hand-written idioms
 

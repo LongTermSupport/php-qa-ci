@@ -100,6 +100,7 @@
     "bin/infection-config-source-dirs-check",
     "bin/managed-source",
     "bin/mdlinks",
+    "bin/opcache-optimizer-dump",
     "bin/package-type-check",
     "bin/php-cs-fixer",
     "bin/phpstan",

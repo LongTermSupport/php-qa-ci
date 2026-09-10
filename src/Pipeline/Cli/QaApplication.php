@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Pipeline\Cli;
 use LTS\PHPQA\Pipeline\Cli\Exception\UsageException;
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
+use LTS\PHPQA\Pipeline\Config\OpcacheDefects;
 use LTS\PHPQA\Pipeline\Config\PipelineConfigLoader;
 use LTS\PHPQA\Pipeline\Config\PlatformDetector;
 use LTS\PHPQA\Pipeline\Config\ProjectConfigLoader;
@@ -142,6 +143,10 @@ final readonly class QaApplication
             $decoration->writeln('Xdebug is enabled in ' . (false === $xdebugMode || '' === $xdebugMode ? 'default' : $xdebugMode) . ' mode');
         } else {
             $decoration->writeln('Xdebug is not enabled - infection and coverage not available');
+        }
+
+        foreach (OpcacheDefects::advisory($php->version(), $php->opcacheSettings()) as $line) {
+            $decoration->writeln($line);
         }
 
         if (null !== $path) {

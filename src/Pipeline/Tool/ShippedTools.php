@@ -13,6 +13,7 @@ use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
 use LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool;
+use LTS\PHPQA\Pipeline\Lane\OpcacheTool;
 use LTS\PHPQA\Pipeline\Lane\PackageTypeTool;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitectTool;
 use LTS\PHPQA\Pipeline\Lane\PhpcpdTool;
@@ -53,6 +54,7 @@ final readonly class ShippedTools
             new PhpStrictTypesTool(),
             new BranchNamePolicyTool(),
             new PhpLintTool(),
+            new OpcacheTool(),
             new ComposerChecksTool(),
             new ComposerRequireCheckerTool(),
             new ComposerDependencyAnalyserTool(),

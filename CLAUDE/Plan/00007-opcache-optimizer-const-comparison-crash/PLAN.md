@@ -62,42 +62,64 @@ parts that are php-qa-ci's to deliver. The full dossier is in
 
 ### Phase 1: Detector lane (the net)
 
-- [ ] ⬜ **Task 1.1**: Lane `optimizerConstComparison` in the linting phase that
-  compiles each checked PHP file with `opcache.enable_cli=1`, the default
-  `opcache.optimization_level`, and `opcache.opt_debug_level=0x20000`, and fails on
-  any comparison opcode with two constant operands, naming file and line.
-  - [ ] ⬜ Failing test with a fixture reproducing the shape (from the dossier).
-  - [ ] ⬜ Passing test with the original, unmutated shape.
-  - [ ] ⬜ Runs the default optimizer mask explicitly so the verdict does not depend
+- [x] ✅ **Task 1.1**: Lane `opcache` in the linting phase that compiles each checked
+  PHP file through OPcache with the default `opcache.optimization_level` and
+  `opcache.opt_debug_level=0x20000`, and fails on any comparison opcode with two
+  constant operands, naming the file, the function and its line range.
+  - [x] ✅ Failing test with a fixture reproducing the shape (from the dossier).
+  - [x] ✅ Passing test with the original, unmutated shape.
+  - [x] ✅ Runs the default optimizer mask explicitly so the verdict does not depend
     on the host's mask.
-  - [ ] ⬜ Gated on `PHP_VERSION_ID` within the affected range from Task 2.2; skipped
-    with a note outside it.
-  - [ ] ⬜ Identifier `phpqaci.optimizerConstComparison`, docs page under
-    `docs/tools/`, registry row, CLAUDE.md and README entries.
-  - [ ] ⬜ Measure runtime on a large consumer; per-file `-p` support.
-  - [ ] ⬜ Full pipeline green.
+  - [x] ✅ Gated on the affected range from Task 2.2; skipped with a note outside it,
+    and on a host whose CLI has no OPcache.
+  - [x] ✅ Identifier `phpqaci.opcache`, docs page under `docs/tools/`, registry row,
+    CLAUDE.md, README, `docs/pipeline.md` and `docs/phpqa-tools.md` entries.
+  - [x] ✅ Per-file `-p` support; 200 files per compile process.
+  - [x] ✅ Full pipeline green.
+- [x] ✅ **Task 1.2**: `opcache.file_update_protection=0` in the compile, and a crash
+  rather than a pass when a file produced no dump. Dogfooding found both: OPcache never
+  optimises, and so never dumps, a file written in the last couple of seconds, and the
+  fixers rewrite files moments before this lane runs, so a just-fixed file was passing
+  unchecked.
 
 ### Phase 2: Preflight advisory (the tripwire)
 
-- [ ] ⬜ **Task 2.1**: Preflight probe next to the Xdebug probe: on an affected PHP,
-  read `opcache.optimization_level` and `opcache.enable_cli`; if the DFA bit is set,
-  print a warning naming the bug class and the ini line
-  `opcache.optimization_level=0x7FFFBFDF`, for every SAPI on that host.
-  - [ ] ⬜ Failing tests: affected version with DFA on warns; DFA off is silent;
-    unaffected version is silent.
-  - [ ] ⬜ Warning only, never a failure: the detector lane is the gate, and a host
-    the consumer does not control must still be able to run QA.
-- [ ] ⬜ **Task 2.2**: Affected-version table as one constant with a doc comment:
-  lower bound the first version verified affected, upper bound the fix version once
-  upstream publishes it, open-ended until then. Record what was actually tested.
+- [x] ✅ **Task 2.1**: Preflight probe next to the Xdebug probe: on an affected PHP,
+  read `opcache.optimization_level` and whether OPcache is loaded; if the DFA bit is
+  set, print a warning naming the defect class and the ini line
+  computed from the host's own mask (`0x7FFEBFDF` on a default host), for every SAPI
+  on that host.
+  - [x] ✅ Failing tests: affected version with DFA on warns; DFA off is silent;
+    OPcache absent is silent; unaffected version is silent.
+  - [x] ✅ Warning only, never a failure: the lane is the gate, and a host the consumer
+    does not control must still be able to run QA.
+- [x] ✅ **Task 2.2**: Affected range as one constant pair with a doc comment in
+  `OpcacheDefects`: lower bound the first version assumed affected, upper bound the fix
+  version once upstream publishes it, open-ended until then. What was actually verified
+  is recorded in the dossier.
 
 ### Phase 3: Upstream and follow-through
 
-- [ ] ⬜ **Task 3.1**: File the upstream php-src report with the dependency-free
-  reproduction from the dossier, once the owner lifts the deferral; record the
-  issue number here and close the affected range when the fix version is known.
+- [ ] 🔄 **Task 3.1**: The upstream php-src report. **Filed by the owner under a
+  different agent/GitHub identity**, so the deliverable here is a report ready to post
+  verbatim, not the posting itself.
+  - [x] ✅ Draft it as [upstream-report.md](upstream-report.md): title, environment, the
+    dependency-free reproduction, expected vs actual, the optimizer dump, the mask
+    bisect, and what was ruled out. No reference to any private repository, host or
+    consumer.
+  - [ ] ⬜ Owner (other identity) files it at <https://github.com/php/php-src/issues>.
+  - [ ] ⬜ Record the issue number in `upstream-report.md` and in
+    `OpcacheDefects`' doc comment, so the next reader of the affected-range constant
+    can follow it upstream.
+  - [ ] ⬜ When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that version,
+    which retires both the lane and the advisory on newer PHP automatically.
 - [ ] ⬜ **Task 3.2**: Verify PHP 8.4's optimizer against the same fixture and record
-  the result in the affected-version table.
+  the result in the affected-version table. **Blocked on a PHP 8.4 CLI**: the
+  development host has only the affected 8.5, so the lower bound of the affected range
+  is currently an assumption (8.5.0) rather than a measurement. Needs a side-by-side
+  8.4 CLI installed by the host operator; a second runtime is a host change, not a
+  php-qa-ci one. Until then `FIRST_AFFECTED` stands as documented in `OpcacheDefects`
+  and the dossier records that 8.4 is untested rather than known-good.
 
 ## Dependencies
 
@@ -134,10 +156,31 @@ built now: with 3 in place a segfaulting mutant costs one false kill, and the
 **Context**: A host that has already applied the recommended ini would never compile
 the bad opcode, so a lane that inherits the host mask would go blind exactly where
 the operator did the right thing. **Decision**: the lane passes
-`-d opcache.optimization_level=0x7FFFBFFF -d opcache.enable_cli=1` itself, so it
-reports what an unmitigated production host would compile. **Date**: 2026-09-10
+`-d opcache.optimization_level=0x7FFEBFFF -d opcache.enable_cli=1` itself, so it
+reports what an unmitigated production host would compile. **The mask is PHP's own
+default, read from the binary, not one invented by setting every bit**: PHP ships
+passes `0x4000` and `0x10000` off, and dogfooding caught this lane compiling with
+`0x10000` on, i.e. reporting bytecode no production host produces. For the same
+reason the advisory clears the DFA bit from the *host's* mask rather than from the
+shipped default, so a host that turned other passes off is not told to restore them.
+**Date**: 2026-09-10
 
-### Decision 3: Warn, do not fail, on the host setting
+### Decision 3: One `opcache` tool, not a tool per defect
+
+**Context**: the first draft shipped the check as a tool named after the defect,
+`optimizerConstComparison`. **Why that was wrong**: a tool is a permanent extension of
+the public API — a `-t` token frozen by the characterisation test, a line in the CLI
+help every consumer reads, a step in every full run, a stable identifier, and a docs
+page. Paying all of that per *finding* would have meant a new tool for every future
+OPcache codegen defect, each recompiling the whole codebase. **Decision**: one lane per
+*kind of inspection*. `opcache` owns "what bytecode does this code compile to"; the
+const-comparison defect is its first assertion and the next one is another assertion in
+the same lane, over the same compile, under the same identifier. The general test for
+when a new tool IS justified is now written down in
+[CLAUDE/tool-boundaries.md](../../tool-boundaries.md), because the judgement is
+reusable and was not recorded anywhere. **Date**: 2026-09-10
+
+### Decision 4: Warn, do not fail, on the host setting
 
 **Context**: A consumer may run QA on a host it does not administer. Failing every
 run there until an operator acts blocks unrelated work; the detector lane already
@@ -146,13 +189,13 @@ line and continues. **Date**: 2026-09-10
 
 ## Success Criteria
 
-- [ ] The dossier's mutant shape fails the detector lane with file and line; the
-  original shape passes.
-- [ ] On PHP 8.5.10 with the default mask the preflight warning appears; with bit
+- [x] The dossier's mutant shape fails the lane with the file, the function and its
+  line range; the original shape passes.
+- [x] On PHP 8.5.10 with the default mask the preflight warning appears; with bit
   `0x20` cleared it does not.
-- [ ] Both are documented under `docs/tools/` with stable identifiers resolvable by
+- [x] Documented under `docs/tools/opcache.md` with a stable identifier resolvable by
   `vendor/bin/rule-doc`.
-- [ ] Full unfiltered pipeline exit 0.
+- [x] Full unfiltered pipeline exit 0.
 
 ## Risks & Mitigations
 

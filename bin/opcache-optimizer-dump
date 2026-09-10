@@ -1,0 +1,24 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Compiles each file argument through OPcache's optimizer without executing
+ * it, so the dump requested with opcache.opt_debug_level lands on stderr for
+ * the optimizerConstComparison lane to read. Exit 2 when OPcache is not
+ * loaded; a file that fails to compile is named on stderr and exit is 1.
+ */
+
+if (!\function_exists('opcache_compile_file')) {
+    fwrite(STDERR, "OPcache is not loaded\n");
+    exit(2);
+}
+
+$exit = 0;
+foreach (\array_slice($argv, 1) as $file) {
+    if (!opcache_compile_file($file)) {
+        fwrite(STDERR, 'FAILED TO COMPILE: ' . $file . "\n");
+        $exit = 1;
+    }
+}
+
+exit($exit);

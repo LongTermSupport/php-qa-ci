@@ -10,6 +10,7 @@
 !/bin/lib-redirect-stub.inc.bash
 !/bin/managed-source
 !/bin/mdlinks
+!/bin/opcache-optimizer-dump
 !/bin/package-type-check
 !/bin/config-template-ignorelist-check
 !/bin/php-cs-fixer

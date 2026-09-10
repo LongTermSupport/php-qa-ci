@@ -99,6 +99,7 @@ final readonly class ToolRegistry
                 new ToolDefinitionDto('versionPins', ['vp', 'versionPins'], 'assert phpunit.xml, safe scan-files and GitHub Actions PHP pins match the installed PHPUnit / running PHP', $linting, false, banner: 'Checking Version Pins Match The Toolchain In Use'),
                 new ToolDefinitionDto('phpStrictTypes', ['st', 'stricttypes'], 'strict types validation', $linting, true, banner: "Setting Strict Types If It's Missing"),
                 new ToolDefinitionDto('phpLint', ['lint', 'phplint'], 'phplint', $linting, true, banner: 'Running PHP Lint'),
+                new ToolDefinitionDto('opcache', ['oc', 'opcache'], 'assert the code compiles cleanly through OPcache (known OPcache defects that produce crashing or wrong bytecode)', $linting, true, banner: 'Checking The Code Compiles Cleanly Through OPcache'),
                 new ToolDefinitionDto('composerRequireChecker', ['cr'], 'composer require checker', $linting, false, banner: 'Running Composer Require Checker'),
                 new ToolDefinitionDto('composerDependencyAnalyser', ['cda'], 'unused, shadow and misplaced dependencies', $linting, false, banner: 'Running Composer Dependency Analyser'),
                 new ToolDefinitionDto('markdownLinks', ['ml', 'markdown'], 'markdown validation', $linting, false, banner: 'Running Markdown Links Checker'),
