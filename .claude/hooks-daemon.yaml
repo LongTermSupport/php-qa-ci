@@ -101,11 +101,11 @@ handlers:
       priority: 21
 
     daemon_restart_verifier: # Verifies daemon restart after code changes
-      enabled: false       # Enable for daemon development projects
+      enabled: true
       priority: 22
 
-    ask_user_question_blocker: # Blocks AskUserQuestion so Claude works autonomously (for unattended workflows)
-      enabled: false           # Enable for fully unattended operation
+    ask_user_question_blocker: # Requires an ASKING BECAUSE: prefix on every question
+      enabled: true            # Unattended ccy sessions: justify the pause or proceed
       priority: 23
 
     worktree_file_copy:    # Prevents copying files between git worktrees
@@ -128,14 +128,20 @@ handlers:
       #     - PHP
 
     tdd_enforcement:       # Enforces test-first development
-      # OFF until upstream supports a NESTED mirror root (v3.62.1 issue, see
-      # untracked/hooks-daemon-issues.md): the resolver only checks
-      # tests/{mirror} and test_path_map is flat, but this repo's tests live at
-      # tests/Small/{mirror}/ and tests/Large/{mirror}/ (PHPUnit size suites), so
-      # every new src/ file would be blocked. Re-enable once test_path_map (or
-      # layout.test_dirs) can declare tests/Small + tests/Large as mirror roots.
-      enabled: false
+      enabled: true
       priority: 32
+      options:
+        # This repo's tests live under the PHPUnit size suites, mirroring src/:
+        # src/Pipeline/Lane/PhpcpdTool.php is tested at
+        # tests/{Small,Large}/Pipeline/Lane/PhpcpdToolTest.php. Both roots are
+        # searched and both are named in a deny.
+        test_path_map:
+          - source_glob: "src/**"
+            test_dir: "tests/Small"
+            mirror: true
+          - source_glob: "src/**"
+            test_dir: "tests/Large"
+            mirror: true
 
     lsp_enforcement:       # Steers LLMs toward LSP tools instead of Grep/Bash grep
       enabled: true        # Enable when LSP is configured
@@ -151,10 +157,6 @@ handlers:
       # Plan directory is the top-level plan_workflow.directory (single source
       # of truth) — no per-handler track_plans_in_project needed.
 
-    task_tdd_advisor:      # Advises on TDD workflow for tasks
-      enabled: true        # Enable for TDD guidance
-      priority: 36
-
     gh_issue_comments:     # Requires --comments flag for gh issue view
       enabled: true
       priority: 40
@@ -162,10 +164,6 @@ handlers:
     gh_pr_comments:        # Requires --comments flag for gh pr view
       enabled: true
       priority: 40
-
-    validate_plan_number:  # Validates plan number format (001-, 002-, etc)
-      enabled: true        # Enable for projects using CLAUDE/Plan/
-      priority: 38
 
     global_npm_advisor:    # Advises against global npm installs
       enabled: true
@@ -186,10 +184,6 @@ handlers:
     plan_workflow:         # Provides guidance when creating plans
       enabled: true        # Enable for projects using CLAUDE/Plan/
       priority: 44
-
-    plan_completion_advisor: # Advises on plan completion workflow
-      enabled: true        # Enable for projects using CLAUDE/Plan/
-      priority: 48
 
     validate_instruction_content: # Blocks ephemeral content in CLAUDE.md/README.md
       enabled: true        # Enable to prevent implementation logs in instruction files
@@ -247,16 +241,12 @@ handlers:
 
   # PostToolUse handlers (run after tool execution)
   post_tool_use:
-    bash_error_detector:   # Detects bash errors and suggests corrections
-      enabled: true
-      priority: 10
-
     lint_on_edit:              # Language-aware lint validation after Write/Edit
       enabled: true            # php -l / bash -n / shellcheck after every edit
       priority: 25
 
     markdown_table_formatter:  # Auto-format markdown tables via mdformat + mdformat-gfm
-      enabled: false           # Enable for automatic markdown table alignment
+      enabled: true
       priority: 26
 
     git_hooks_executable_fixer:  # Auto-chmod +x git hooks git skipped as non-executable
@@ -277,10 +267,6 @@ handlers:
 
   # SessionStart handlers (run when session starts)
   session_start:
-    yolo_container_detection:  # Detects YOLO development environments (Docker, etc)
-      enabled: true
-      priority: 10
-
     project_handler_load_checker:  # Loud alert when project handlers fail to load (Plan 00143)
       enabled: true                 # Silent unless a project handler was skipped at startup
       priority: 50
@@ -319,28 +305,8 @@ handlers:
 
   # PreCompact handlers (run before conversation compaction)
   pre_compact:
-    transcript_archiver:  # Archives transcripts before compaction
-      enabled: false      # Enable to save conversation history
-      priority: 10
-
-    compaction_signal:  # Drops <session>.compacting for the PTY supervisor (opt-in)
-      enabled: false
-      priority: 20
-
-  # SessionEnd handlers (run when session ends)
-  session_end:
-    cleanup:  # Session cleanup operations
+    compaction_signal:  # Drops <session>.compacting for the PTY supervisor
       enabled: true
-      priority: 10
-
-  # SubagentStop handlers (run when subagent completes)
-  subagent_stop:
-    subagent_completion_logger:  # Logs subagent completion
-      enabled: false  # Enable for debugging subagent workflows
-      priority: 10
-
-    remind_prompt_library:  # Reminds about prompt library after agent work
-      enabled: false        # Enable if using prompt library system
       priority: 20
 
   # UserPromptSubmit handlers (run when user submits prompt)
@@ -354,18 +320,13 @@ handlers:
       priority: 55
 
     idle_housekeeping_advisory:  # BETA: report-first idle housekeeping (Plan 00161)
-      enabled: false             # Opt-in beta - leave off unless trying it. See docs/guides/CREATING_REPORTS.md
+      enabled: true              # See docs/guides/CREATING_REPORTS.md
       priority: 56
 
   # Other hook events
   permission_request:
     auto_approve_reads:  # Auto-approves read-only file operations
       enabled: true
-      priority: 10
-
-  notification:
-    notification_logger:  # Logs notifications
-      enabled: false      # Enable for debugging
       priority: 10
 
   stop:
@@ -377,18 +338,14 @@ handlers:
     # `nitpick` pseudo-event (see pseudo_events: at the bottom of this file).
     # Anything registered on Stop above auto_continue_stop's priority 10 never runs.
 
-    task_completion_checker:  # Checks for task completion
-      enabled: false           # Enable if using task management system
-      priority: 20
-
   # Status line handlers (format daemon-based status display)
   status_line:
     model_context:  # Shows model name and color-coded context percentage
       enabled: true
       priority: 10
 
-    context_sidecar:  # Observe-only: writes context state for the PTY supervisor (opt-in)
-      enabled: false
+    context_sidecar:  # Observe-only: writes context state for the PTY supervisor
+      enabled: true
       priority: 12
 
     environment_indicator:  # Shows 💻 desktop / 🐳 docker / 📦 podman (cached at startup)
@@ -433,9 +390,6 @@ handlers:
       enabled: true
       priority: 14
 
-    usage_tracking: # Tracks and displays usage statistics
-      enabled: true
-      priority: 60
 
 # Project-level handlers (custom handlers in .claude/hooks/handlers/)
 # Example:
@@ -450,7 +404,7 @@ handlers:
 # or deploy the mkplan scaffolding script while the plan handlers are off.
 # Uncomment and set enabled: true to turn on plan tracking. Enabling this
 # feeds the plan directory to all planning handlers (plan_number_helper,
-# markdown_organization, validate_plan_number, ...) AND deploys the CLAUDE/Plan/
+# markdown_organization, plan_qa_edit, ...) AND deploys the CLAUDE/Plan/
 # scaffold + mkplan.bash on install/upgrade. The directory here is authoritative
 # — do not duplicate it in per-handler options.
 plan_workflow:
