@@ -112,8 +112,11 @@ run_box() {
 
 build_tool() {
     local tool="$1"
-    local BUILD_DIR="$PROJECT_ROOT/build/$tool"
-    local BUILD_VENDOR="$BUILD_DIR/vendor"
+    # BUILD_DIR and BUILD_VENDOR are the documented contract for a tool's
+    # prepare.bash, which is sourced below. Exported because that is where they
+    # are read, not here.
+    local -x BUILD_DIR="$PROJECT_ROOT/build/$tool"
+    local -x BUILD_VENDOR="$BUILD_DIR/vendor"
     local BOX_CONFIG="$BUILD_DIR/box.json.dist"
     local OUTPUT_PHAR="$PHAR_DIR/$tool.phar"
 
