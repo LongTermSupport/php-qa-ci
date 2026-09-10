@@ -131,6 +131,20 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
             if [[ -z "${GITHUB_AUTH_TOKEN:-}" ]] && command -v gh >/dev/null && gh_token="$(gh auth token 2>/dev/null)"; then
                 export GITHUB_AUTH_TOKEN="$gh_token"
             fi
+            # Light pre-check: `phive outdated` reads release metadata only (no
+            # PHAR downloads) and exits 0 either way, so key on its verdict line.
+            # Skip the full re-resolve when every constraint is already at its
+            # newest release; any other outcome falls through to the real thing.
+            outdated_report="$(phive --home "$PHIVE_HOME" --no-progress outdated </dev/null 2>&1 || true)"
+            if [[ "$outdated_report" == *"no outdated phars found"* ]]; then
+                echo -e "${GREEN}PHARs already at the newest releases their constraints allow — skipping re-resolve.${NC}"
+                PHARS_UP_TO_DATE=1
+            fi
+        fi
+
+        if [[ "$MODE" == "update" && "${PHARS_UP_TO_DATE:-0}" -eq 1 ]]; then
+            rm -rf "$phive_home_for_run"
+        elif [[ "$MODE" == "update" ]]; then
             # `phive update` cannot be used here: it has no --trust-gpg-keys or
             # --force-accept-unsigned, so it needs a TTY for key import and
             # skips unsigned releases (parallel-lint) outright. `phive install`

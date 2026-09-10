@@ -73,7 +73,8 @@ question is recorded under Non-Goals.
   the `installed=` pins and re-resolves every constraint from a fresh PHIVE home with
   `--trust-gpg-keys` and `--force-accept-unsigned`, non-interactively; `update-deps.yml` calls it
   instead of the invalid `phive update --copy --trust-gpg-keys` step. Proven by a real run that
-  re-resolved all eight tools to identical bytes.
+  re-resolved all eight tools to identical bytes. A `phive outdated` pre-check skips the
+  re-resolve when nothing is newer.
 
 ### Phase 2: self-built PHARs
 
