@@ -240,8 +240,9 @@ rather than left in this plan. **Date**: 2026-09-10
   matches the pin.
 - [x] `composer update` in php-qa-ci re-resolves ShellCheck to the newest release.
 - [x] The lane reports the same findings as the old CI invocation on the same tree.
-- [x] `ci.yml` no longer has a `shellcheck` job, and the branch rule matches.
-- [ ] Full unfiltered pipeline exit 0.
+- [x] `ci.yml` no longer has a `shellcheck` job. The branch rule does **not** yet match —
+  owner-held, see Task 3.1.
+- [x] Full unfiltered pipeline exit 0 (Covered Code MSI 82%).
 
 ## Risks & Mitigations
 
@@ -254,4 +255,8 @@ rather than left in this plan. **Date**: 2026-09-10
 
 ## Delivery & Milestones
 
-- <!-- delivery commit hashes, added as phases land -->
+- `b191a1b` — Phases 1, 2 and 3: the vendored pinned binary, the `shellCheck` lane with
+  git-tracked discovery and the glob override, the PHP updater, and the deletion of the
+  duplicate CI job. Full unfiltered pipeline exit 0.
+- Remaining before this plan closes: the owner-held required-checks change on `php8.5`
+  (Task 3.1). Nothing else is outstanding.
