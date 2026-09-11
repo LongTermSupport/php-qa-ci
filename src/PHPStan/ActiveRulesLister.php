@@ -90,8 +90,15 @@ final readonly class ActiveRulesLister
         foreach ($listing->pipelineLanes as $lane) {
             $phase = $lane->phase ?? 'no phase recorded';
             $out .= \sprintf('  - %s [%s]: %s%s', $lane->name, $phase, $lane->summary, PHP_EOL);
+            // A phase runner is not a defence: it has no identifier and documents
+            // nothing of its own, so the reader is not told to go looking for a page.
+            if (null !== $lane->identifier) {
+                $out .= \sprintf('      identifier: %s%s', $lane->identifier, PHP_EOL);
+                $out .= \sprintf('      doc:        %s%s', $lane->docPath ?? 'no documentation page', PHP_EOL);
+            }
+
             if (null !== $lane->optInVariable) {
-                $out .= \sprintf('      opt-in: gated on %s%s', $lane->optInVariable, PHP_EOL);
+                $out .= \sprintf('      opt-in:     gated on %s%s', $lane->optInVariable, PHP_EOL);
             }
         }
 
@@ -144,6 +151,7 @@ final readonly class ActiveRulesLister
             'summary'       => $lane->summary,
             'phase'         => $lane->phase,
             'optInVariable' => $lane->optInVariable,
+            'docPath'       => $lane->docPath,
         ], $listing->pipelineLanes);
 
         $projectRecord = array_map(static fn (ProjectRecordEntryDto $entry): array => [
@@ -207,17 +215,40 @@ final readonly class ActiveRulesLister
                 continue;
             }
 
-            $tool    = $shipped[$definition->name] ?? null;
-            $lanes[] = new PipelineLaneDto(
+            $tool       = $shipped[$definition->name] ?? null;
+            $identifier = $tool?->identifier();
+            $lanes[]    = new PipelineLaneDto(
                 $definition->name,
-                $tool?->identifier(),
+                $identifier,
                 $definition->description,
                 $definition->phase,
                 $this->optInVariable($definition),
+                $this->laneDocPath($identifier),
             );
         }
 
         return $lanes;
+    }
+
+    /**
+     * The page a lane's identifier resolves to, or null.
+     *
+     * Unlike a rule, a lane that does not resolve is not worth a warning on STDERR:
+     * a phase runner has no identifier at all, and a lane with an identifier but no
+     * index row is a gap the listing itself reports, in the row where a reader
+     * looking for the page will actually be looking.
+     */
+    private function laneDocPath(?string $identifier): ?string
+    {
+        if (null === $identifier) {
+            return null;
+        }
+
+        try {
+            return $this->ruleDocResolver->resolve($identifier)->docPath;
+        } catch (InvalidArgumentException) {
+            return null;
+        }
     }
 
     /**

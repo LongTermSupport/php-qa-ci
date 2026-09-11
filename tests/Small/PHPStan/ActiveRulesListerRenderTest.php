@@ -56,7 +56,9 @@ final class ActiveRulesListerRenderTest extends TestCase
 
             Pipeline lanes (every lane bin/qa registers, minus phpstan — covered above):
               - laneWithPhaseAndOptIn [staticAnalysis]: Lane summary one.
-                  opt-in: gated on useLaneOne
+                  identifier: phpqaci.laneWithPhaseAndOptIn
+                  doc:        /docs/example.md
+                  opt-in:     gated on useLaneOne
               - laneWithNothing [no phase recorded]: Lane summary two.
 
             Project record (ignoreErrors):
@@ -130,6 +132,7 @@ final class ActiveRulesListerRenderTest extends TestCase
                         'summary'       => 'Lane summary one.',
                         'phase'         => 'staticAnalysis',
                         'optInVariable' => 'useLaneOne',
+                        'docPath'       => self::DOC_PATH,
                     ],
                     [
                         'name'          => 'laneWithNothing',
@@ -137,6 +140,7 @@ final class ActiveRulesListerRenderTest extends TestCase
                         'summary'       => 'Lane summary two.',
                         'phase'         => null,
                         'optInVariable' => null,
+                        'docPath'       => null,
                     ],
                 ],
                 'projectRecord' => [
@@ -171,7 +175,7 @@ final class ActiveRulesListerRenderTest extends TestCase
                 new ActiveRuleEntryDto('My\Rule\Bare', null, null, null),
             ],
             [
-                new PipelineLaneDto('laneWithPhaseAndOptIn', 'phpqaci.laneWithPhaseAndOptIn', 'Lane summary one.', 'staticAnalysis', 'useLaneOne'),
+                new PipelineLaneDto('laneWithPhaseAndOptIn', 'phpqaci.laneWithPhaseAndOptIn', 'Lane summary one.', 'staticAnalysis', 'useLaneOne', self::DOC_PATH),
                 new PipelineLaneDto('laneWithNothing', null, 'Lane summary two.', null, null),
             ],
             [

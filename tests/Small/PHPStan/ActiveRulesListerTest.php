@@ -154,6 +154,71 @@ final class ActiveRulesListerTest extends TestCase
         );
     }
 
+    /**
+     * Toolchain specification 5.1: being able to name a defence is only half of it —
+     * a reader who finds a lane in the listing must be able to get from there to the
+     * page that states the correct construction. The listing carried name, identifier,
+     * summary and phase, so a lane could be named but not read about.
+     */
+    public function testEveryListedLaneOffersADocumentationRoute(): void
+    {
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $listing = $lister->list(self::FIXTURE_PROJECT);
+
+        $lanesByName = [];
+        foreach ($listing->pipelineLanes as $lane) {
+            $lanesByName[$lane->name] = $lane;
+        }
+
+        self::assertSame(
+            \Safe\realpath(self::QA_CI_ROOT . '/docs/tools/markdownLinks.md'),
+            $lanesByName['markdownLinks']->docPath,
+            'a lane with a remediation page must resolve to it',
+        );
+        self::assertSame(
+            \Safe\realpath(self::QA_CI_ROOT . '/docs/tools/docsProse.md'),
+            $lanesByName['docsProse']->docPath,
+        );
+
+        // A phase runner is not a defence and documents nothing of its own.
+        self::assertNull($lanesByName['allLintingTools']->docPath);
+
+        $text = $lister->renderText($listing);
+        self::assertStringContainsString('docs/tools/markdownLinks.md', $text, 'the text listing must print the route');
+        self::assertStringContainsString('phpqaci.markdownLinks', $text, 'the text listing must print the identifier');
+    }
+
+    /**
+     * Toolchain specification 8.1: every identifier php-qa-ci can print must reach a
+     * page stating the correct construction. A lane that names itself on failure and
+     * then resolves to nothing leaves the reader exactly where they started.
+     *
+     * This is the defence for the class "an index row whose documentation link does not
+     * resolve, silently". It is silent by construction: the row is present and looks
+     * right, `bin/rule-doc` still prints the summary, and nothing anywhere fails — so
+     * only an assertion over the resolved path can see it.
+     */
+    public function testEveryLaneWithAnIdentifierResolvesToAnExistingPage(): void
+    {
+        $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list(self::FIXTURE_PROJECT);
+
+        $unresolved = [];
+        foreach ($listing->pipelineLanes as $lane) {
+            if (null === $lane->identifier) {
+                continue;
+            }
+
+            if (null === $lane->docPath || !is_file($lane->docPath)) {
+                $unresolved[] = \sprintf('%s (%s)', $lane->name, $lane->identifier);
+            }
+        }
+
+        self::assertSame([], $unresolved, \sprintf(
+            "every lane that can print an identifier must resolve to a page; these do not:\n  %s",
+            implode("\n  ", $unresolved),
+        ));
+    }
+
     public function testJsonOutputIsValidAndStructured(): void
     {
         $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
