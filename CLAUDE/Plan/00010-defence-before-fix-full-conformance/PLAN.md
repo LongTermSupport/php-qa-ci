@@ -124,11 +124,15 @@ most of the clause table turns green at once.
     this sub-task anticipated.
   - [x] ✅ Written and reviewed page by page against each rule's source. `bin/rules .` now
     reports no `no documentation page` row for any rule **or** lane.
-- [ ] ⬜ **Task 3.2**: Tighten the release guard (`RuleDocumentationTest`) from "an index
-  row exists" to "a page exists and states a correct construction", so 8.1 holds and
-  Task 3.1 cannot silently regress. Red first, on a rule with no page. **The lane half is
-  already done** — Task 2.2's `testEveryLaneWithAnIdentifierResolvesToAnExistingPage`
-  asserts the resolved path is a real file; this task copies that shape for rules.
+- [x] ✅ **Task 3.2**: Tighten the release guard (`RuleDocumentationTest`) from "an index row
+  exists" to "a page exists", so 8.1 holds and Task 3.1 cannot silently regress. The guard
+  reads what **source declares**, not what the neon bundles register, so it is strictly
+  stronger than `bin/rules` — it immediately found four more gaps (the Symfony tier and one
+  experimental rule) that Task 3.1's enumeration had missed. Red first, three ways,
+  committed at 30ab7e1.
+  - [ ] ⬜ **Still owed**: "and states a correct construction". The guard checks a page
+    exists, not that it is more than a restatement of the summary. Reviewing prose
+    mechanically is the hard part; the risk row for filler pages stands until it is closed.
 - [ ] ⬜ **Task 3.3**: Decide the **PHPStan native catalogue** question (detector 6.2/6.3
   as wrapped): `bin/rule-doc method.notFound` answers `Unknown rule identifier`, and
   PHPStan's own identifiers document online only.

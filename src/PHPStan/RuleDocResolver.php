@@ -140,7 +140,15 @@ final readonly class RuleDocResolver
         if (null !== $link) {
             [$summary, $target] = $link;
             if (str_ends_with($target, '.md')) {
-                $docPath = \Safe\realpath($this->repoRoot . self::DOCS_DIR . $target);
+                // Existence is checked before resolving, not discovered by the resolve
+                // failing. A row pointing at a page that is not there is a defect in THAT
+                // row, and RuleDocumentationTest is the guard that reports it; letting it
+                // raise here would take the whole resolver down with it, because entries()
+                // parses every row on any lookup. One dead link would stop bin/rule-doc
+                // answering for every other identifier — and the practitioner, who came to
+                // have a failure explained, would get "An error occurred".
+                $candidate = $this->repoRoot . self::DOCS_DIR . $target;
+                $docPath   = is_file($candidate) ? \Safe\realpath($candidate) : null;
             }
         }
 

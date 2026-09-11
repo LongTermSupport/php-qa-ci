@@ -38,10 +38,13 @@ use SplFileInfo;
 #[\PHPUnit\Framework\Attributes\Small]
 final class RuleDocumentationTest extends TestCase
 {
+    /** The package itself: this guard measures what php-qa-ci actually publishes. */
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
+    /** Scanned whole, not just the rules dir: a lane that prints an identifier is held to the same index. */
     private const string SRC_DIR = self::REPO_ROOT . '/src';
 
+    /** The one lookup a practitioner holding an identifier can perform. */
     private const string INDEX = self::REPO_ROOT . '/docs/phpstan-rules/README.md';
 
     /** A row with no link, and a row with a real page: the two outcomes the guard must tell apart. */
@@ -50,7 +53,13 @@ final class RuleDocumentationTest extends TestCase
     /** Its own root: the resolver parses every row on any lookup, so a dead link is contagious. */
     private const string DEAD_LINK_ROOT = self::REPO_ROOT . '/tests/assets/ruleDocResolverDeadLink';
 
-    /** @var list<string> */
+    /**
+     * Identifiers that appear in source only as illustrations — inside a docblock showing
+     * the sanctioned form, or a failure message telling an author what to write. No rule
+     * declares them, so the index must not carry them.
+     *
+     * @var list<string>
+     */
     private const array EXAMPLE_IDENTIFIERS = [
         'phpqaci.myCheck',
         'phpqaci.something',
