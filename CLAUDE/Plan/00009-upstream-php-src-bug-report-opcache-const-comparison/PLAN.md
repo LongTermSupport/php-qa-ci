@@ -95,8 +95,11 @@ weakest part of the draft. And how php-src wants a bug filed is now written down
   - [x] ✅ Costed the alternative: verifying means installing a C toolchain (this
     container has none) and building two php-src branches. Not worth it unattached to a
     fix PR, since "not verified" is honest and maintainers bisect for themselves.
-  - [ ] ⬜ **Revisit trigger**: if Task 3.2 turns into a real fix PR, the base branch
-    stops being academic and 8.4 must be verified before that PR is opened.
+  - [x] ✅ **Answered by upstream, as Decision 5 predicted it would be.** The maintainer's
+    verdict on the issue is "since 8.5, because of the empty array optimization in the
+    VM", and the fix PR is based at `PHP-8.5` — so 8.4 is unaffected and `FIRST_AFFECTED`
+    was right. The revisit trigger (verify 8.4 before opening a fix PR) never fired,
+    because Task 3.2 resolved to "someone else's PR".
 - [x] ✅ **Task 1.6**: Re-run the duplicate search immediately before filing. Nothing
   matched: "constant comparison optimizer", "IS_NOT_IDENTICAL const" and
   "zval_undefined_cv opcache" all return empty, the `zval_undefined_cv` crashes on the
@@ -115,16 +118,33 @@ weakest part of the draft. And how php-src wants a bug filed is now written down
 
 ### Phase 3: Follow-through
 
-- [ ] ⬜ **Task 3.1**: Watch triage and answer questions. The realistic asks are a core
-  dump, a `--enable-debug` build, or a check on another branch; Task 1.5 decides in
-  advance how much of that is already in hand.
-- [ ] ⬜ **Task 3.2**: Decide whether to attempt a fix PR, once a maintainer has said
-  where the defect actually is. Default is no. If yes, [filing-guide.md](filing-guide.md)
-  section 5 has the shape it must take: base `PHP-8.4`, `Fix GH-<n>:` title, one small
-  `.phpt` under `ext/opcache/tests/opt/`, a `NEWS` entry.
-- [ ] ⬜ **Task 3.3**: When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that
+- [x] ✅ **Task 3.1**: Watch triage and answer questions. Triaged inside a day to
+  `Bug` / `Category: Engine` / `Status: Verified`, with no question asked of us — the
+  first reply was a root-cause analysis and a patch. None of the anticipated asks (a
+  core dump, a `--enable-debug` build, a check on another branch) materialised.
+- [x] ✅ **Task 3.2**: Decide whether to attempt a fix PR. **Moot: a third party opened
+  <https://github.com/php/php-src/pull/23648> carrying the maintainer's patch, a `NEWS`
+  entry and `ext/opcache/tests/opt/gh23644.phpt` — whose first test function is our
+  reproducer verbatim.** Nothing left for us to contribute; opening a competing PR would
+  be noise.
+- [ ] 🔄 **Task 3.3**: When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that
   version, which retires the lane and the advisory on newer PHP automatically, and close
-  00007 Task 3.1.
+  00007 Task 3.1. **Blocked on a release**: PR 23648 is open and unreviewed, so the
+  8.5.x that carries it does not exist yet.
+- [x] ✅ **Task 3.4**: Correct our own account of the defect where upstream's differs.
+  The missing `NO_CONST_CONST` marker on `ZEND_IS_IDENTICAL_EMPTY_ARRAY` /
+  `ZEND_IS_NOT_IDENTICAL_EMPTY_ARRAY` is the defect; the unfolded comparison upstream
+  treats as a missed optimisation. Updated in `OpcacheDefects`' doc comment and
+  [docs/tools/opcache.md](../../../docs/tools/opcache.md). The lane's *observable* — a
+  comparison opcode with two constant operands — is unchanged and still correct.
+- [x] ✅ **Task 3.5**: Generalise the episode into standing policy, on the owner's
+  instruction: **any** PHP segfault is halt → debug → file → defend, never something to
+  retry past or route around. Written as [CLAUDE/segfault-policy.md](../../segfault-policy.md)
+  with this pair of plans as the worked archetype, and made binding from `CLAUDE.md`.
+  It carries the container caveat too: `coredumpctl` inside the container is empty by
+  design because the kernel and core pattern are the host's, so the kernel log and the
+  core must be requested from the host along with matching debug symbols. The policy is
+  repo-wide rather than 00009's, so it lives in `CLAUDE/`, not in this folder.
 
 ## Dependencies
 
@@ -177,8 +197,9 @@ passing generated prose off as hand-written. **Date**: 2026-09-10
 ## Success Criteria
 
 - [x] The issue is open on php/php-src with a reproduction a maintainer can run unchanged.
-- [ ] No maintainer reply asks for something Phase 1 could have supplied — an isolated
-  case, a backtrace, the ini settings, or which optimizer pass is responsible.
+- [x] No maintainer reply asks for something Phase 1 could have supplied — an isolated
+  case, a backtrace, the ini settings, or which optimizer pass is responsible. The first
+  reply was a root-cause analysis and a patch, not a question.
 - [x] The issue number appears in the report, in `OpcacheDefects` and in 00007 Task 3.1.
 - [ ] `FIRST_FIXED` is set once upstream ships the fix, or this plan is closed with that
   one task explicitly handed back to 00007 if the wait outlives it.

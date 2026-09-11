@@ -11,6 +11,16 @@ knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush
 `qa` skill follows),
 programme/work records in `CLAUDE/Plan/`.
 
+## Segfaults are a halt condition (binding)
+
+**A PHP segfault is never accepted, worked around, or retried past.** Any segfault —
+exit 139, or a `segfault at …` line in the host's kernel log, even under a command that
+reported success — triggers halt → debug → file → defend, in that order.
+[CLAUDE/segfault-policy.md](CLAUDE/segfault-policy.md) is the procedure, the archetype
+(the OPcache const-vs-const crash, php-src GH-23644) and the container core-dump
+caveat: `coredumpctl` inside the container is empty by design, so the kernel log and the
+core have to be requested from the host, with matching debug symbols.
+
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
 
 php-qa-ci is frequently installed **from source** into a consuming project, so

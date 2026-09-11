@@ -115,9 +115,10 @@ parts that are php-qa-ci's to deliver. The full dossier is in
   - [x] ✅ Issue number recorded in `upstream-report.md` and in `OpcacheDefects`' class
     doc comment, so the next reader of the affected-range constants can follow it
     upstream — 00009 Task 2.2.
-  - [ ] ⬜ When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that version,
+  - [ ] 🔄 When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that version,
     which retires both the lane and the advisory on newer PHP automatically
-    — 00009 Task 3.3.
+    — 00009 Task 3.3. The fix exists as <https://github.com/php/php-src/pull/23648>
+    (open, based at `PHP-8.5`); the release that carries it does not.
 - [x] ✅ **Task 3.2**: Record 8.4 as unverified and do not measure it. Originally
   "verify PHP 8.4's optimizer against the same fixture"; closed as not worth doing, see
   Decision 5. `FIRST_AFFECTED` stays `8.5.0`, and `OpcacheDefects`, the dossier and the

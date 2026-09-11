@@ -1,10 +1,20 @@
 # Upstream php-src report
 
 **Status**: FILED as <https://github.com/php/php-src/issues/23644>, by `LTSCommerce`.
-The owner ruled during Plan 00009 that this session's identity was the correct one,
-superseding 00007 Task 3.1's "separate agent/GitHub identity". Follow-up lives in
+Triaged `Bug` / `Category: Engine` / `Status: Verified`; fix proposed in
+<https://github.com/php/php-src/pull/23648>, based at `PHP-8.5`. Follow-up lives in
 [Plan 00009](../00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md)
 Phase 3.
+
+**Upstream's verdict differs from the "Cause" section below, which is left as filed.**
+The maintainer places the defect on `ZEND_IS_IDENTICAL_EMPTY_ARRAY` and
+`ZEND_IS_NOT_IDENTICAL_EMPTY_ARRAY` being the only handlers in their group declared
+without `NO_CONST_CONST`; the unfolded comparison this report leads with is, in that
+reading, a missed optimisation rather than the bug. It is also 8.5-only, because the
+empty-array comparison optimisation arrives in 8.5 — so 8.4 is unaffected, the question
+this report declined to answer. Current truth lives in `OpcacheDefects` and
+[docs/tools/opcache.md](../../../docs/tools/opcache.md); this file stays as posted,
+because rewriting it would falsify the record of what maintainers actually read.
 
 **How php-src wants a bug filed** — required fields, house style, the LLM-disclosure
 rule and what a follow-up PR would need — is

@@ -12,13 +12,20 @@ assertion here rather than another tool (see
 
 ### A comparison the optimizer left constant-vs-constant
 
-The compiler folds a comparison of two literals itself, so the VM ships no handler for that
-operand pair. On an affected PHP the optimizer's data-flow pass can nevertheless produce one:
-it proves a variable holds a constant on some branch, substitutes the constant into a later
-comparison of that variable with a literal, and then fails to fold the result. The handler the
-specialiser picks reads the first operand as a variable slot, so the comparison reads whatever
-memory that slot points at — a segmentation fault when the address is unmapped, a silent
-comparison against garbage when it is not.
+The compiler folds a comparison of two literals itself, so the VM is not expected to meet that
+operand pair. On an affected PHP the optimizer's data-flow pass produces one anyway: it proves
+a variable holds a constant on some branch, substitutes the constant into a later comparison of
+that variable with a literal, and does not fold the result. Two of the empty-array comparison
+handlers are declared without the marker that would keep a constant-vs-constant pair away from
+them, so the specialiser picks a variant that reads the first operand as a variable slot, and
+the comparison reads whatever memory that slot points at — a segmentation fault when the
+address is unmapped, a silent comparison against garbage when it is not.
+
+Upstream (php-src [GH-23644](https://github.com/php/php-src/issues/23644), Status: Verified)
+places the defect on that missing marker rather than on the unfolded comparison, which it
+treats as a missed optimisation. The distinction does not change what this lane looks for: the
+constant-vs-constant operand pair is the observable, and it is the thing that must not reach
+production bytecode.
 
 The trigger is ordinary code. A null check followed, on the same path, by a comparison of the
 same variable with an array literal is enough, and several plain idioms compile to it:

@@ -14,14 +14,24 @@ use LTS\PHPQA\Pipeline\Config\Dto\OpcacheSettingsDto;
  * code against them; this class holds the knowledge, so a further defect of
  * the same kind is a change here and an assertion there, not a new tool.
  *
- * Known defect: the DFA pass (bit 0x20 of `opcache.optimization_level`, which
- * carries SCCP) can substitute a variable it has proved constant into a later
- * comparison with a literal and then leave the constant-vs-constant opcode
- * unfolded. The VM ships no handler for that operand pair, so the fallback
- * reads op1 as a variable slot: a segfault in zval_undefined_cv when the slot
- * is unmapped, a silent garbage comparison otherwise. Reported upstream as
- * https://github.com/php/php-src/issues/23644 — follow that for the fix version
- * FIRST_FIXED below is waiting on.
+ * Known defect: a comparison opcode reaches the VM with both operands constant.
+ * The DFA pass (bit 0x20 of `opcache.optimization_level`, which carries SCCP)
+ * is how one gets there — it substitutes a variable it has proved constant into
+ * a later comparison with a literal and does not fold the result — but upstream
+ * has ruled that the missed fold is not the defect. The defect is that
+ * ZEND_IS_IDENTICAL_EMPTY_ARRAY and ZEND_IS_NOT_IDENTICAL_EMPTY_ARRAY were the
+ * only handlers in their group declared without NO_CONST_CONST, so the
+ * specialiser picks a variant that reads op1 as a variable slot: a segfault in
+ * zval_undefined_cv when the slot is unmapped, a silent garbage comparison
+ * otherwise.
+ *
+ * Reported as https://github.com/php/php-src/issues/23644 (Status: Verified);
+ * fix in https://github.com/php/php-src/pull/23648, based at PHP-8.5. Set
+ * FIRST_FIXED below to the release that carries it.
+ *
+ * Clearing the DFA bit remains the host-side mitigation, because it removes the
+ * only route we have seen to that operand pair — but it treats the symptom, and
+ * a host on a fixed PHP needs neither.
  *
  * @api
  */
@@ -45,9 +55,9 @@ final readonly class OpcacheDefects
     public const int RECOMMENDED_LEVEL = self::DEFAULT_LEVEL & ~self::DFA_PASS;
 
     /**
-     * Verified on 8.5.10; earlier 8.5.x share the optimizer and are assumed
-     * affected. 8.4 is unverified and deliberately left so: no branch here targets
-     * it, so neither answer would change this gate (Plan 00007 Decision 5).
+     * 8.4 and earlier are unaffected: the empty-array comparison optimisation
+     * the defect lives in arrives in 8.5, per the maintainer's verdict on
+     * GH-23644 and the fix PR's PHP-8.5 base.
      */
     private const string FIRST_AFFECTED = '8.5.0';
 
