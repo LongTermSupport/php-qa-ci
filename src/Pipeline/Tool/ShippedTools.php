@@ -10,6 +10,7 @@ use LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool;
 use LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool;
 use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
+use LTS\PHPQA\Pipeline\Lane\DocsProseTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
 use LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool;
@@ -52,6 +53,7 @@ final readonly class ShippedTools
             new PhpstanIgnoreJustificationTool(),
             new SensitiveParameterUsageTool(),
             new MarkdownLinksTool(),
+            new DocsProseTool(),
             new PhpStrictTypesTool(),
             new BranchNamePolicyTool(),
             new PhpLintTool(),

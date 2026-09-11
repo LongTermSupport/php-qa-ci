@@ -103,6 +103,7 @@ final readonly class ToolRegistry
                 new ToolDefinitionDto('composerRequireChecker', ['cr'], 'composer require checker', $linting, false, banner: 'Running Composer Require Checker'),
                 new ToolDefinitionDto('composerDependencyAnalyser', ['cda'], 'unused, shadow and misplaced dependencies', $linting, false, banner: 'Running Composer Dependency Analyser'),
                 new ToolDefinitionDto('markdownLinks', ['ml', 'markdown'], 'markdown validation', $linting, false, banner: 'Running Markdown Links Checker'),
+                new ToolDefinitionDto('docsProse', ['dp', 'prose', 'docsProse'], 'documentation prose describes its subject, not itself', $linting, false, banner: 'Checking Documentation Prose'),
                 new ToolDefinitionDto('yamlLint', ['yaml'], 'YAML syntax (when symfony/yaml is installed)', $linting, false, banner: 'Running Yaml Linter'),
                 new ToolDefinitionDto('shellCheck', ['sc', 'shellcheck', 'shellCheck'], 'ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships', $linting, true, banner: 'Running ShellCheck'),
                 new ToolDefinitionDto('branchNamePolicy', ['bnp', 'branchNamePolicy'], 'Branch naming policy (PR convention)', $staticAnalysis, false, banner: 'Checking Branch Name Policy'),

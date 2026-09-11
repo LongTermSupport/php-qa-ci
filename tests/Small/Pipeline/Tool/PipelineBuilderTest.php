@@ -43,6 +43,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DocsProseTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\OpcacheTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]

@@ -18,6 +18,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00010: Defence Before Fix full conformance](00010-defence-before-fix-full-conformance/PLAN.md) - In Progress — empty both `known-gaps` lists in `composer.json`, planned against upstream's clause-by-clause register entry rather than our own (understated) declaration; identity, then resolution, then enforcement
 
+- [00011: docs self-history detector](00011-docs-self-history-detector/PLAN.md) - In Progress — a Defence Before Fix execution against "a document that describes itself rather than its subject"; the `docsProse` lane (`phpqaci.docsProse`) proven red on this repo's own README before the instances are fixed
+
 ## Completed Plans
 
 - [00005: pipeline extensibility and tool coupling](Completed/00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - Complete — PipelineBuilder (consumer tools and phases from qaConfig/pipeline.php), twig/yaml lanes, the qa skill as a shim, the ambiguousArrayDoc rule, and shipmonk/dead-code-detector shipped as the opt-in deadCode lane from its own PHAR

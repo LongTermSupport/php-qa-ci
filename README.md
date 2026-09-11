@@ -116,41 +116,28 @@ export PHP_QA_CI_DISABLE_CONFIG_PUSH=true
 
 ## What It Does
 
-PHP-QA-CI orchestrates multiple PHP quality tools across four phases:
+`bin/qa` runs every tool in a fixed order, in four phases, chosen to fail as early as
+possible:
 
-**Phase 1 -- Code Modification:**
+1. **Coding standards** — the tools that *modify* code, so everything after them sees the
+   final text (Rector, PHP CS Fixer, and Twig CS Fixer on a Twig project).
+2. **Linting and validation** — cheap, broad checks that need no type inference.
+3. **Static analysis** — PHPStan, architecture rules, and the always-on policy lanes.
+4. **Testing** — PHPUnit, then Infection. Copy/paste detection runs after a green run and
+   reports only; it can never fail the pipeline.
 
-1. Rector (safe functions, PHPUnit, PHP 8.5 upgrades)
-2. PHP CS Fixer
+**The registry is the list, not this README.** Phase membership, order, `-t` aliases and
+gates all live in one place —
+[`ToolRegistry`](src/Pipeline/Tool/ToolRegistry.php) — from which the CLI help text is
+derived, and [docs/pipeline.md](./docs/pipeline.md) is its prose companion. A numbered copy
+here was maintained by hand and had already lost four lanes that run on every project.
 
-**Phase 2 -- Linting and Validation:**
-3\. PSR-4 Validation
-4\. Composer Checks
-5\. Package Type Declaration (always-on)
-6\. Config Template Ignore-List Audit (always-on)
-7\. Infection Config Source Directories Check (always-on)
-8\. Version Pins Check (always-on)
-9\. Strict Types Enforcement
-10\. PHP Lint
-11\. OPcache (bytecode free of the known OPcache codegen defects)
-12\. Composer Require Checker
-13\. Markdown Links Checker
+For the lanes active in *your* project, with their phase and identifier, ask the tool:
 
-**Phase 3 -- Static Analysis:**
-14\. Branch Name Policy (always-on; runs first in this phase)
-15\. PHPStan ignoreErrors Justification (always-on)
-16\. PHPStan (level max)
-17\. Dead Code Detection (opt-in; `withDeadCodeDetection(true)`)
-18\. PHPArkitect (architecture rules; on by default, `useArkitect=0` to disable)
-19\. SensitiveParameter Usage (always-on; `useSensitiveParameterCheck=0` to disable)
-
-**Phase 4 -- Testing:**
-20\. PHPUnit
-21\. Infection (mutation testing, optional, requires Xdebug)
-
-**Post-Success:** PHPCPD (copy/paste report only, not part of the pass/fail gate)
-
-See [Pipeline Architecture](./docs/pipeline.md) for full details.
+```bash
+vendor/bin/qa -h        # every tool and its -t alias, derived from the registry
+vendor/bin/rules .      # every defence active here, triggering none of them
+```
 
 ## Tool Delivery
 
@@ -296,112 +283,35 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
 
 ## Custom PHPStan Rules
 
-### Always-on rules (auto-loaded)
+php-qa-ci ships a bundle of PHPStan rules: one set loaded automatically in every project,
+and two opt-in sets you include deliberately.
 
-These rules are active automatically in every project that uses php-qa-ci — no configuration needed:
+**This README deliberately does not list them.** A hand-maintained copy of the rule list
+drifts from the rules that actually load, and it drifts silently — the previous version of
+this section listed seventeen always-on rules while `rules-default.neon` wired sixteen. It
+also listed *class names*, and a class name is the one string PHPStan never prints, so it
+is no use to someone holding a failure. Each question below has exactly one place that
+answers it:
 
-- **ForbidMockingFinalClassRule** -- Prevents mocking of final classes
-- **ForbidAllowMockWithoutExpectationsRule** -- Bans `#[AllowMockObjectsWithoutExpectations]`
-- **ForbidDangerousFunctionsRule** -- Bans exec/eval/unserialize and similar
-- **ForbidEmptyCatchBlockRule** -- Requires catch blocks to have a body
-- **RequireDeclareStrictTypesRule** -- Requires `declare(strict_types=1)` in all PHP files
-- **RequireSensitiveParameterAttributeRule** -- Requires `#[\SensitiveParameter]` on plaintext
-  credential parameters (names matching `password`, `secret`, `privateKey`, … with a
-  `string`/`?string`/untyped/`mixed` type). Object-typed params and already-hashed/encoded names
-  (`$hashedPassword`, `$passwordHash`) are ignored. Keeps credentials out of stack traces.
-- **ForbidNewDateTimeRule** -- Bans direct `new DateTime`/`new DateTimeImmutable`
-- **ForbidEmptyLanguageConstructRule** -- Bans `empty()` (use explicit type-safe checks)
-- **ForbidLooseComparisonRule** -- Bans `==` / `!=` (require strict `===` / `!==`)
-- **ForbidDeprecatedSerializableRule** -- Bans the deprecated `Serializable` interface
-- **ForbidNestedTernaryRule** -- Bans nested ternary expressions
-- **RequireRuleIdentifierConstantRule** -- PHPStan rule classes must expose an identifier constant
-- **RequireApiOrInternalTagRule** -- Package-type-aware: for a `type: library` project every public
-  class-like must be classified as exactly one of `@api` / `@internal` (no-ops for other package types)
-- **ApiMustNotExposeInternalRule** -- An `@api` class-like must not expose an `@internal` one from the
-  same package through its public signature
-- **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony
-  refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and
-  `.env` files itself; auto-skips on non-Symfony projects
-- **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare
-  `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path.
-  Use `VendoredCodeDetector`
-- **ForbidInlinePhpstanIgnoreRule** -- Bans inline `@phpstan-ignore` annotations. A suppression that is
-  genuinely irreducible goes in `phpstan.neon` `ignoreErrors`, where it is visible in review
+| Question                                                | Where it is answered                                                                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| What does this identifier mean and how do I fix it?     | `vendor/bin/rule-doc <identifier>`, or [docs/phpstan-rules/README.md](docs/phpstan-rules/README.md)        |
+| Which defences are active **in my project**, right now? | `vendor/bin/rules .` — reads your resolved config, triggers nothing                                        |
+| Which rules load automatically?                         | [`rules-default.neon`](rules-default.neon) — the wiring *is* the list                                      |
+| What is opt-in, and how do I enable it?                 | [docs/tools/phpstan.md](docs/tools/phpstan.md) — the bundles and the `includes:` to add                    |
+| How do I configure a rule that takes parameters?        | That rule's page, reached from its identifier                                                              |
+| How do I write my own?                                  | [CLAUDE/DefenceBeforeFix.md](CLAUDE/DefenceBeforeFix.md), then `vendor/bin/phpstan-rule` to prove it fires |
 
-`rules-default.neon` is the authoritative list of always-on rules — the above are its currently
-wired rules; consult that file if in doubt.
+Two things are worth saying here rather than by reference, because they are easy to get
+backwards:
 
-> The codebase-wide "is `#[\SensitiveParameter]` used **anywhere**?" coverage check is NOT a PHPStan
-> rule — PHPStan rules are opt-in (a consumer must include this library's rules neon), so they cannot
-> be relied on estate-wide. That check ships as an always-on pipeline tool instead. See
-> [SensitiveParameter usage check](#sensitiveparameter-usage-check-always-on).
-
-#### Configuring RequireSensitiveParameterAttributeRule
-
-The rule is wired in `rules-default.neon` from a `phpqaciSensitiveParameter` parameters block.
-Override any key in your `qaConfig/phpstan.neon` (deep-merged over the defaults):
-
-```neon
-parameters:
-    phpqaciSensitiveParameter:
-        # Case-insensitive substrings that mark a parameter NAME as a credential.
-        namePatterns:
-            - password
-            - passwd
-            - pwd
-            - passphrase
-            - secret
-            - apiSecret
-            - privateKey
-            - credential
-            - credentials
-        # Case-insensitive substrings that mark a name as already hashed/encoded
-        # (and therefore NOT plaintext sensitive).
-        ignoreSubstrings: [hash, hashed, encoded, encrypted]
-```
-
-### Optional rules (opt-in)
-
-Fifteen additional rules ship as opt-in, split across two files:
-
-- **`rules-optional.neon`** — 11 generic rules suitable for any PHP project (9 named in its `rules:`
-  block plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — all 11 generic rules + 4 Symfony/Doctrine-specific rules (15 total)
-
-(A further rule, `ForbidMagicStringAssertionRule`, ships but is in **neither** bundle — it is
-experimental/high-noise and must be cherry-picked deliberately.)
-
-To enable them, add an `includes` entry to your `qaConfig/phpstan.neon`.
-
-**Symfony projects — include the full Symfony set** (automatically picks up new rules on upgrade):
-
-```neon
-includes:
-    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
-    - ../vendor/lts/php-qa-ci/rules-optional-symfony.neon
-```
-
-**Generic PHP projects — include the generic set only**:
-
-```neon
-includes:
-    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
-    - ../vendor/lts/php-qa-ci/rules-optional.neon
-```
-
-**Cherry-pick individual rules** (full control, manual updates required):
-
-```neon
-includes:
-    - ../vendor/lts/php-qa-ci/configDefaults/generic/phpstan.neon
-
-rules:
-    - LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingEmptyStringRule
-    - LTS\PHPQA\PHPStan\Rules\ForbidSilentCatchRule
-    # ... add only what you want
-```
-
-See **[docs/tools/phpstan.md](docs/tools/phpstan.md)** for the full list of optional rules and descriptions.
+- **The always-on set is only always-on for projects that include this library's rules
+  neon.** PHPStan rules cannot be relied on estate-wide, which is why checks that must hold
+  *everywhere* ship as pipeline lanes instead — see
+  [SensitiveParameter usage check](#sensitiveparameter-usage-check-always-on) for the
+  worked example of that distinction.
+- **One rule ships in neither bundle.** `ForbidMagicStringAssertionRule` is experimental and
+  high-noise, and must be cherry-picked deliberately.
 
 ## SensitiveParameter usage check (always-on)
 
@@ -565,7 +475,7 @@ Tool-specific documentation:
 - **[Infection](./docs/tools/infection.md)** -- Mutation testing setup
 - **[Package Type](./docs/tools/packageType.md)** -- The always-on `composer.json` `type` check
 - **[Version Pins](./docs/tools/versionPins.md)** -- The always-on check that phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
-- **[Require @api / @internal](./docs/tools/requireApiOrInternal.md)** -- API-surface classification rule
+- **[API-surface classification (`@api` / `@internal`)](./docs/tools/requireApiOrInternal.md)** -- the rule that requires every public class-like in a library to be one or the other
 - **[SensitiveParameter Usage](./docs/tools/sensitiveParameterUsage.md)** -- The always-on `#[\SensitiveParameter]` check
 
 ## Other Notes

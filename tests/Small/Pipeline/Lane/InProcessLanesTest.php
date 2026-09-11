@@ -46,6 +46,7 @@ use RuntimeException;
 #[CoversClass(SensitiveParameterUsageTool::class)]
 #[CoversClass(MarkdownLinksTool::class)]
 #[CoversClass(ShippedTools::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DocsProseTool::class)]
 #[UsesClass(InfectionConfigSourceDirectoriesCheck::class)]
 #[UsesClass(\LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesDetector::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
