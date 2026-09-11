@@ -11,6 +11,29 @@ knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush
 `qa` skill follows),
 programme/work records in `CLAUDE/Plan/`.
 
+## Defence Before Fix is what this package is for (binding)
+
+php-qa-ci is the PHP reference toolchain for
+[Defence Before Fix](https://defence-before-fix.github.io/). The rule bundle, the stable
+identifiers, `bin/rules`, `bin/rule-doc`, `bin/phpstan-rule` and the justification lane are
+not features that happen to be here — they are the method's requirements, met.
+
+**Found a defect? Do not fix it yet.** Build the detector for its class first.
+[CLAUDE/DefenceBeforeFix.md](CLAUDE/DefenceBeforeFix.md) is the single source of truth for
+the procedure, what an agent may decide, and what only the Owner may. The three
+specifications are vendored verbatim under
+[remote-docs/defence-before-fix.github.io/](remote-docs/defence-before-fix.github.io/), and
+the versions this package is audited against are declared in `composer.json`
+`extra.defence-before-fix` with its known gaps. Upstream grades us clause by clause in its
+[tools register](remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md); closing the
+gaps is [Plan 00010](CLAUDE/Plan/00010-defence-before-fix-full-conformance/PLAN.md).
+
+Two consequences bind every change here. A new check is a **defence** and inherits the
+method's requirements — a stable identifier, a page stating the correct construction, and a
+place in `bin/rules`; see [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md) for whether
+it is a lane or an assertion. And a suppression, a baseline or a narrowing is an **Owner
+decision**, never a silent edit.
+
 ## Segfaults are a halt condition (binding)
 
 **A PHP segfault is never accepted, worked around, or retried past.** Any segfault —

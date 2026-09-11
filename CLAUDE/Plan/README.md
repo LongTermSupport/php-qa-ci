@@ -16,6 +16,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00009: upstream php-src bug report](00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md) - In Progress — [php-src GH-23644](https://github.com/php/php-src/issues/23644) filed and Status: Verified, fix proposed in [PR 23648](https://github.com/php/php-src/pull/23648); produced [CLAUDE/segfault-policy.md](../segfault-policy.md); only FIRST_FIXED remains, blocked on a release
 
+- [00010: Defence Before Fix full conformance](00010-defence-before-fix-full-conformance/PLAN.md) - In Progress — empty both `known-gaps` lists in `composer.json`, planned against upstream's clause-by-clause register entry rather than our own (understated) declaration; identity, then resolution, then enforcement
+
 ## Completed Plans
 
 - [00005: pipeline extensibility and tool coupling](Completed/00005-pipeline-extensibility-and-tool-coupling/PLAN.md) - Complete — PipelineBuilder (consumer tools and phases from qaConfig/pipeline.php), twig/yaml lanes, the qa skill as a shim, the ambiguousArrayDoc rule, and shipmonk/dead-code-detector shipped as the opt-in deadCode lane from its own PHAR

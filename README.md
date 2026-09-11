@@ -4,6 +4,54 @@ A comprehensive quality assurance and continuous integration pipeline for PHP 8.
 
 This package is written for and tested on Linux.
 
+## Defence Before Fix
+
+php-qa-ci is the **PHP reference toolchain for [Defence Before Fix](https://defence-before-fix.github.io/)**,
+and that is what the pipeline is *for*. Everything below — the rule bundle, the stable
+identifiers, `bin/rules`, `bin/rule-doc`, `bin/phpstan-rule`, the justification lane — exists
+to serve one method.
+
+Defence Before Fix says that when you find a defect you do not start by fixing it. You treat
+the instance as evidence of a **class**, build an automated detector that catches the whole
+class, prove it fires on the original, sweep the codebase, fix every instance it finds, and
+only then make it blocking. Static analysis is the **net**; TDD is the **filter**. The net
+means the class can never silently return; the filter means this instance is genuinely fixed
+rather than silenced.
+
+The method is specified independently of this tool, in three versioned documents — a
+[method specification](https://defence-before-fix.github.io/SPEC.html), a
+[detector specification](https://defence-before-fix.github.io/DETECTOR-SPEC.html) and a
+[toolchain specification](https://defence-before-fix.github.io/TOOLING-SPEC.html) — and the
+site maintains a [register of tools](https://defence-before-fix.github.io/tools/) graded
+clause by clause, [php-qa-ci included](https://defence-before-fix.github.io/tools/php-qa-ci.html).
+All three specifications are vendored into this package under
+[`remote-docs/defence-before-fix.github.io/`](./remote-docs/defence-before-fix.github.io/)
+with provenance, so a consuming project has them offline at the version installed.
+
+**The claim is machine-readable.** `composer.json` carries `extra.defence-before-fix`, naming
+the method and toolchain specification versions this package implements and listing every
+known gap against the clause it fails, at two levels — the artefact a consumer installs, and
+this repository as a project using it. The list is not yet empty, and the package does not
+claim unqualified conformance while it is not; closing it is
+[Plan 00010](./CLAUDE/Plan/00010-defence-before-fix-full-conformance/PLAN.md). Check the claim
+against the artefact rather than against this sentence:
+
+```bash
+# what this installed copy claims, and where it admits it falls short
+php -r 'echo json_encode(json_decode(file_get_contents("vendor/lts/php-qa-ci/composer.json"),true)["extra"]["defence-before-fix"], JSON_PRETTY_PRINT);'
+
+# every defence active in your project, without triggering any of them
+vendor/bin/rules .
+
+# what a failing identifier means and how to fix it correctly — offline
+vendor/bin/rule-doc phpqaci.nullCoalescingFalse
+```
+
+Working on a defect in a project that installs this package? Read
+[CLAUDE/DefenceBeforeFix.md](./CLAUDE/DefenceBeforeFix.md) first — it is the single source of
+truth for how the method binds work here, including what an agent may decide and what only a
+human may.
+
 ## Architecture
 
 The pipeline is PHP. `bin/qa` is a PHP entrypoint that boots `LTS\PHPQA\Pipeline\Cli\QaApplication`;
