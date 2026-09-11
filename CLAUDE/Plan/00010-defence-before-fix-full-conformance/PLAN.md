@@ -116,14 +116,14 @@ most of the clause table turns green at once.
 
 ### Phase 3: Resolution — every identifier reaches a correct construction (toolchain 4.2, 8.1)
 
-- [ ] ⬜ **Task 3.1**: Write remediation pages for the fifteen bundled PHPStan rules that
-  resolve to an index row and no page. Each states what the rule is about, why it exists,
-  and the correct construction — `docs/phpstan-rules/` house style, per method 3.6.
-  - [ ] ⬜ Enumerate the fifteen from `bin/rules .` output (`doc: no documentation page`)
-    rather than from the audit's count, which is a snapshot.
-  - [ ] ⬜ Parallelisable: one sub-agent per rule, each reading the rule source and its
-    tests. Review every page — a generated page that restates the summary is the defect
-    this task exists to remove.
+- [x] ✅ **Task 3.1**: Write remediation pages for the bundled PHPStan rules that resolve to
+  an index row and no page. Each states what the rule is about, why it exists, and the
+  correct construction — `docs/phpstan-rules/` house style, per method 3.6.
+  - [x] ✅ Enumerated from `bin/rules .` (`doc: no documentation page`) rather than the
+    audit's count: **fourteen**, not fifteen. The audit's number was a snapshot, exactly as
+    this sub-task anticipated.
+  - [x] ✅ Written and reviewed page by page against each rule's source. `bin/rules .` now
+    reports no `no documentation page` row for any rule **or** lane.
 - [ ] ⬜ **Task 3.2**: Tighten the release guard (`RuleDocumentationTest`) from "an index
   row exists" to "a page exists and states a correct construction", so 8.1 holds and
   Task 3.1 cannot silently regress. Red first, on a rule with no page. **The lane half is

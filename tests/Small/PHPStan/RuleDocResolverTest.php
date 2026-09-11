@@ -27,7 +27,16 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class RuleDocResolverTest extends TestCase
 {
+    /** The real index, so the audit tests measure what the package actually publishes. */
     private const string REPO_ROOT = __DIR__ . '/../../..';
+
+    /**
+     * A hand-built index carrying the row shapes the real one does not: a row with no
+     * link at all, and a row whose link text contains a bracketed span. Every rule this
+     * package ships is documented, so the page-less branch has no live example — and a
+     * test that borrowed one would fail the moment that rule got its page.
+     */
+    private const string FIXTURE_ROOT = __DIR__ . '/../../assets/ruleDocResolver';
 
     #[Test]
     public function anIdentifierWithARemediationPageResolvesToThatPage(): void
@@ -44,12 +53,26 @@ final class RuleDocResolverTest extends TestCase
     #[Test]
     public function anIdentifierWithoutAPageStillResolvesToItsIndexEntry(): void
     {
-        $entry = $this->resolver()->resolve('phpqaci.nestedTernary');
+        $entry = new RuleDocResolver(self::FIXTURE_ROOT)->resolve('phpqaci.fixtureNoPage');
 
-        self::assertSame('ForbidNestedTernaryRule', $entry->ruleClass);
+        self::assertSame('FixtureNoPageRule', $entry->ruleClass);
         self::assertNull($entry->docPath);
-        self::assertSame('No nested ternary expressions', $entry->summary);
-        self::assertFileExists($entry->sourcePath);
+        self::assertSame('A row whose requirement cell carries no link', $entry->summary);
+    }
+
+    /**
+     * A summary routinely quotes the construction it is about, so the link TEXT contains
+     * a bracketed span. A pattern that stops at the first `]` never reaches the `](` pair
+     * and silently resolves the row to no page, while the index looks perfectly correct.
+     */
+    #[Test]
+    public function aLinkWhoseTextContainsABracketStillResolves(): void
+    {
+        $entry = new RuleDocResolver(self::FIXTURE_ROOT)->resolve('phpqaci.fixtureNested');
+
+        self::assertNotNull($entry->docPath, 'a bracketed span in link text must not break resolution');
+        self::assertStringEndsWith('fixture-nested.md', $entry->docPath);
+        self::assertSame('`#[\Attr]` in the link text', $entry->summary);
     }
 
     #[Test]
