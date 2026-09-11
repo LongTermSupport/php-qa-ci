@@ -18,12 +18,16 @@ only then make it blocking. Static analysis is the **net**; TDD is the **filter*
 means the class can never silently return; the filter means this instance is genuinely fixed
 rather than silenced.
 
-The method is specified independently of this tool, in three versioned documents — a
-[method specification](https://defence-before-fix.github.io/SPEC.html), a
+The method is specified **separately from this tool** — same authorship, deliberately
+separate artefacts, versioned independently of each other and of php-qa-ci — in three
+documents: a [method specification](https://defence-before-fix.github.io/SPEC.html), a
 [detector specification](https://defence-before-fix.github.io/DETECTOR-SPEC.html) and a
-[toolchain specification](https://defence-before-fix.github.io/TOOLING-SPEC.html) — and the
-site maintains a [register of tools](https://defence-before-fix.github.io/tools/) graded
-clause by clause, [php-qa-ci included](https://defence-before-fix.github.io/tools/php-qa-ci.html).
+[toolchain specification](https://defence-before-fix.github.io/TOOLING-SPEC.html). The site
+also maintains a [register of tools](https://defence-before-fix.github.io/tools/) graded
+clause by clause — PHPStan, Psalm, ESLint, Semgrep, CodeQL and the rest, with
+[php-qa-ci held to the same scrutiny](https://defence-before-fix.github.io/tools/php-qa-ci.html)
+and currently failing clauses it names. A specification you can fail is worth more than one
+you wrote to pass.
 All three specifications are vendored into this package under
 [`remote-docs/defence-before-fix.github.io/`](./remote-docs/defence-before-fix.github.io/)
 with provenance, so a consuming project has them offline at the version installed.

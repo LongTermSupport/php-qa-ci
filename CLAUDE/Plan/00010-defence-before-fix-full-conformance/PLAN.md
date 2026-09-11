@@ -25,11 +25,12 @@ gap record weakens the one thing clause 9.2 actually requires of us, so reconcil
 declaration with the audit comes before fixing anything.
 
 Most of what remains is one shape of problem wearing different hats: **a defence that
-cannot name itself.** Five bundled lanes print no identifier, PHPArkitect prints prose,
-fifteen bundled rules resolve to a summary and no page, the lane listing shows
-`identifier: null`, the release guard accepts an index row instead of a page, and the
-agent block carries no rule lines. Fix identity and resolution properly and most of the
-clause table turns green at once.
+cannot name itself, or cannot explain itself once named.** PHPArkitect prints prose with
+no identifier, fifteen bundled rules resolve to a summary and no page, the lane listing
+names every lane but offers no route to read about one, the release guard accepts an index
+row instead of a page, and the agent block written into consuming projects carries no
+lines for the defences actually active there. Fix identity and resolution properly and
+most of the clause table turns green at once.
 
 ## Goals
 
@@ -45,11 +46,13 @@ clause table turns green at once.
 
 ## Non-Goals
 
-- **Changing the specifications.** Where we disagree with a clause the route is a
-  conversation upstream, not a local reinterpretation. The specs are vendored read-only
-  under `remote-docs/`.
-- **Grading ourselves.** Upstream's register entry is the scorecard. We may find gaps it
-  missed and must record them; we do not award ourselves passes it withheld.
+- **Changing a specification to fit the tool.** We own that repository too, which makes
+  this the easiest possible cheat and therefore the one to name. A clause we disagree
+  with is changed in the specification repository, on its own merits, through its
+  `ACCEPTANCE.md` cold-reader process — never as a move inside this plan. The copies
+  under `remote-docs/` are read-only captures.
+- **Grading ourselves generously.** The register entry is the scorecard. We may find gaps
+  it missed and must record them; we do not award ourselves passes it withheld.
 - **Rewriting PHPArkitect or PHPStan.** Where a wrapped detector cannot be made
   conformant, the honest outcomes are to wrap it better, to stop routing bundled
   defences through it, or to record an Owner decision — not to claim it passes.
@@ -64,28 +67,22 @@ clause table turns green at once.
 - Why the method is shaped as it is, and how it binds work in this repo:
   [CLAUDE/DefenceBeforeFix.md](../../DefenceBeforeFix.md). That file stays the single
   source of truth for the philosophy; this plan does not restate it.
-- The upstream audit was taken on branch `php8.4` at commit `e25aba4` (2026-09-08).
-  `php8.5` has moved since — the declaration now says method `1.0.1` where the audit
-  read `1.0.0`, and our list is six gaps where the audit counted eight. Task 1.1 must
-  establish what is genuinely closed versus merely undeclared.
+- The register entry was written against branch `php8.4` at commit `e25aba4`
+  (2026-09-08), and `php8.5` had already moved. Task 1.1's reconciliation, and the
+  evidence for every verdict below, is in
+  [JOURNAL/00010-Journal-26-09-11.md](JOURNAL/00010-Journal-26-09-11.md); the resulting
+  ten-entry artefact list is in `composer.json` and is the working scope.
 
 ## Tasks
 
 ### Phase 1: Make the declaration honest before making it shorter
 
-- [ ] ⬜ **Task 1.1**: Reconcile `composer.json` `known-gaps` against the upstream audit,
-  clause by clause, on the current `php8.5` tree.
-  - [ ] ⬜ For each clause upstream grades `No` or `Partial`, verify by running the
-    command upstream ran, and record: still failing, closed since the audit, or never
-    applied to this branch.
-  - [ ] ⬜ Add every confirmed gap the declaration omits. Upstream's audit names at
-    least these five that ours does not: the five lanes with no identifier (part of
-    toolchain 4.1), toolchain 5.1 (lanes listed without identifier or route), toolchain
-    6.4 (no stated defaults for the method's calibrations), toolchain 7.1 (agent block
-    carries no rule lines), and detector 7.2 (`reportIgnoresWithoutComments` not
-    configured).
-  - [ ] ⬜ Keep the `toolchain 4.1: …` clause-prefix shape `DefenceBeforeFixDeclarationTest`
-    guards, and extend that test if the reconciliation needs a shape it does not cover.
+- [x] ✅ **Task 1.1**: Reconcile `composer.json` `known-gaps` against the register entry,
+  clause by clause, on the current `php8.5` tree, by re-running the commands rather than
+  reasoning from the text. Two gaps had already closed, one half closed, four were
+  missing from our declaration; artefact list six entries → ten, project three → six.
+  Evidence and the enumerated fifteen undocumented rules:
+  [JOURNAL/00010-Journal-26-09-11.md](JOURNAL/00010-Journal-26-09-11.md).
 - [ ] ⬜ **Task 1.2**: Add a defence over the declaration itself — the gap record is a
   claim about this repository, and nothing currently detects it drifting from reality.
   Decide (per [tool-boundaries.md](../../tool-boundaries.md)) whether this is a new lane
@@ -93,18 +90,16 @@ clause table turns green at once.
 
 ### Phase 2: Identity — every defence names itself (toolchain 4.1, 5.1)
 
-- [ ] ⬜ **Task 2.1**: Give the five identifier-less lanes stable identifiers:
-  `packageType`, `phpstanIgnoreJustification`, `sensitiveParameterUsage`,
-  `branchNamePolicy`, `phpStrictTypes`. Each prints `phpqaci.<name>` on failure and
-  resolves through `bin/rule-doc`.
-  - [ ] ⬜ Red first: a test per lane asserting the identifier appears in failing output.
-  - [ ] ⬜ Audit the remaining lanes the same way rather than trusting the audit's list —
-    it was taken on another branch, and lanes have been added since (`opcache`,
-    `shellCheck`, `composerDependencyAnalyser`, `versionPins`,
-    `infectionConfigSourceDirs`, `configTemplateIgnoreList`).
-- [ ] ⬜ **Task 2.2**: Make `bin/rules` list lanes with their identifier and
-  documentation route, not `identifier: null` — this is toolchain 5.1 and falls out of
-  2.1 if the registry carries the identifier.
+- [x] ✅ **Task 2.1**: Give the identifier-less lanes stable identifiers. **Already done
+  before this plan existed**; the sweep of all thirty lanes found no defence without one.
+  Kept rather than deleted so the next reader of the register entry does not re-open it.
+  - [ ] ⬜ **Still owed**: a defence over it. Nothing fails the build when a new lane
+    ships without an identifier, which is how five of them got there — the instance was
+    fixed and the class left undefended. Fold into Task 3.2's guard, which already has to
+    walk every defence.
+- [ ] ⬜ **Task 2.2**: Give each lane a documentation route in `bin/rules`. The listing
+  carries `name, identifier, summary, phase, optInVariable` and no `docPath`, so a lane
+  can be named from the listing but not read about — the remaining half of toolchain 5.1.
 - [ ] ⬜ **Task 2.3**: Decide what to do about **PHPArkitect**, which is the hardest
   clause in the set: as wrapped it fails detector 4.3 (prose, no identifier), 5.2 (no
   single-file run) and 6.1–6.3 (no resolver for its tier), and the default tier routes
@@ -169,11 +164,15 @@ clause table turns green at once.
 - [ ] ⬜ **Task 6.1**: Empty both `known-gaps` lists, or reduce each remaining entry to a
   recorded Owner decision, and bump the declared versions to the specifications actually
   vendored under `remote-docs/`.
-- [ ] ⬜ **Task 6.2**: Ask upstream to re-audit, and record the result. The register entry
-  is maintained in the DBF repository, so this is a request, not something we can grade
-  ourselves (see Non-Goals). **Anything posted upstream needs per-post Owner
-  authorisation** — see [CLAUDE/segfault-policy.md](../../segfault-policy.md) step 3 for
-  the same constraint stated for php-src.
+- [ ] ⬜ **Task 6.2**: Re-audit and update the register entry in the DBF repository.
+  **Both repositories are first-party** (`Defence-Before-Fix` and `LongTermSupport` are
+  both Joseph Edmonds), so this is a commit we can make, not a request we file. The
+  separation is editorial discipline, not an access boundary — see Decision 4.
+  - [ ] ⬜ Re-audit by *running* the commands, as the original did, and record the
+    evidence column the register format requires.
+  - [ ] ⬜ **Per-post Owner authorisation still applies** to anything that lands in a
+    public repository — see [CLAUDE/segfault-policy.md](../../segfault-policy.md) step 3
+    for the same constraint stated for php-src.
 
 ## Dependencies
 
@@ -211,6 +210,21 @@ consumer, and declaring the native catalogue out of scope is accepting a permane
 [DefenceBeforeFix.md](../../DefenceBeforeFix.md) reserves both of those to the Owner —
 "deciding a defensible class will not be defended" and "accepting a known unfixed
 instance". **Decision**: Tasks 2.3 and 3.3 cost the options and stop; they do not choose.
+**Date**: 2026-09-11
+
+### Decision 4: First-party on both sides, and the separation is kept anyway
+
+**Context**: `Defence-Before-Fix` and `LongTermSupport` are the same author, so "upstream"
+here means another repository, not another party. Nothing stops us editing the
+specifications, the register entry or our own grade. **Why keep the separation**: the
+register grades PHPStan, Psalm, ESLint, Semgrep, CodeQL and a few dozen others, and its
+entry for php-qa-ci says it grades this tool "with the same scrutiny as every other entry".
+That sentence is the asset. A specification written to be passed by its author's tool, and
+a register that flatters it, are worth nothing to anyone — including us, since the gaps it
+found are real and we did not find them ourselves. **Decision**: treat the specification
+and the register as though they belonged to someone else. Conformance is earned by changing
+php-qa-ci, and a specification change is argued in that repository on its own merits under
+its cold-reader acceptance process. Being able to cheat is exactly why it is written down.
 **Date**: 2026-09-11
 
 ## Success Criteria
