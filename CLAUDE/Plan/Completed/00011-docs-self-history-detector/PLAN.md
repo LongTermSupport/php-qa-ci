@@ -1,6 +1,6 @@
 # Plan 00011: docs self history detector
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-09-11
 **Owner**: joseph
 **Priority**: Medium
@@ -65,8 +65,8 @@ rationale are in [clause-3.1-record.md](clause-3.1-record.md).
 ### Phase 3: Prove it red (clause 3.3)
 
 - [x] ✅ **Task 3.1**: Run the lane against this repository and record the count.
-- [ ] ⬜ **Task 3.2**: Commit the detector with the originating instances still present, so
-  the red run is individually reachable in history.
+- [x] ✅ **Task 3.2**: Commit the detector with the originating instances still present, so
+  the red run is individually reachable in history (24e2115).
 
 ### Phase 4: Sweep and fix (clause 3.4)
 
@@ -74,27 +74,29 @@ rationale are in [clause-3.1-record.md](clause-3.1-record.md).
 - [x] ✅ **Task 4.2**: Technique 2 — four sub-agents reading every document in full and
   judging prose, with no marker grepping, so the search does not inherit the detector's
   blind spots.
-- [ ] ⬜ **Task 4.3**: Fix all 3 instances, in a commit separate from the detector's.
-- [ ] ⬜ **Task 4.4**: Re-run the lane and confirm green.
+- [x] ✅ **Task 4.3**: Fix all 3 instances, in a commit separate from the detector's (d555f24).
+- [x] ✅ **Task 4.4**: Re-run the lane and confirm green.
 
 ### Phase 5: Enforce (clause 3.5)
 
-- [ ] ⬜ **Task 5.1**: Demonstrate the rule reported through `bin/qa` with the full battery
+- [x] ✅ **Task 5.1**: Demonstrate the rule reported through `bin/qa` with the full battery
   green, per [CLAUDE/prepush-verification.md](../../prepush-verification.md).
 
 ### Phase 6: Document the identifier (clause 3.6)
 
 - [x] ✅ **Task 6.1**: [docs/tools/docsProse.md](../../../docs/tools/docsProse.md) — states
   the correct construction with a before/after table, not only the forbidden one.
-- [ ] ⬜ **Task 6.2**: Add `docsProse` to `docs/pipeline.md`, `docs/phpqa-tools.md` and the
-  tool listings in `README.md` and `CLAUDE.md`.
+- [x] ✅ **Task 6.2**: Add `docsProse` to `docs/pipeline.md`, `docs/phpqa-tools.md`,
+  `docs/phpstan-rules/README.md` and `CLAUDE.md`. `README.md` needs no entry: it points at
+  `ToolRegistry` rather than carrying a lane list, which is the construction Task 4.3
+  restored.
 
 ## Success Criteria
 
-- [ ] `vendor/bin/qa -t dp` exits 0 against this repository.
-- [ ] The red commit and the fix commit are separate, in that order.
-- [ ] `vendor/bin/rule-doc phpqaci.docsProse` resolves to the remediation page.
-- [ ] The detector reports zero instances in `docs/upgrading-to-8.5.md`, the corpus's densest
+- [x] `vendor/bin/qa -t dp` exits 0 against this repository.
+- [x] The red commit and the fix commit are separate, in that order (24e2115 then d555f24).
+- [x] `vendor/bin/rule-doc phpqaci.docsProse` resolves to the remediation page.
+- [x] The detector reports zero instances in `docs/upgrading-to-8.5.md`, the corpus's densest
   concentration of legitimate past-tense prose.
 
 ## Delivery & Milestones

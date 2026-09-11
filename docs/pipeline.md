@@ -29,7 +29,7 @@ return static function (ToolContext $context): void {
 };
 ```
 
-The pre hook runs after configuration and PHAR verification, before the run lock and the first tool. The post hook runs only after every tool passed and PHPLoc has printed its statistics. To fail the whole process from a hook, throw an exception. A Bash-era `hookPre.bash` / `hookPost.bash` is refused with a message pointing at [Upgrading to 8.5](./upgrading-to-8.5.md).
+The pre hook runs after configuration and PHAR verification, before the run lock and the first tool. The post hook runs only after every tool passed and PHPCPD has printed its statistics. To fail the whole process from a hook, throw an exception. A Bash-era `hookPre.bash` / `hookPost.bash` is refused with a message pointing at [Upgrading to 8.5](./upgrading-to-8.5.md).
 
 ### Suggested Use Cases
 
@@ -93,8 +93,9 @@ On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)
 12. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
 13. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
 14. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
-15. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
-16. **[ShellCheck](./tools/shellCheck.md)** -- Every git-tracked shell script passes ShellCheck at `warning`, from the pinned binary the library ships
+15. **[Documentation Prose](./tools/docsProse.md)** -- Always-on: `README.md` and `docs/` describe their subject, not themselves
+16. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
+17. **[ShellCheck](./tools/shellCheck.md)** -- Every git-tracked shell script passes ShellCheck at `warning`, from the pinned binary the library ships
 
 On a Symfony project the platform lane **[Twig Lint](./tools/twigLint.md)** follows, appended to this phase.
 

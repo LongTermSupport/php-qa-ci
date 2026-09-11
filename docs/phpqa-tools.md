@@ -159,6 +159,12 @@ This tool runs as a **PHAR** from `vendor-phar/composer-require-checker.phar`.
 
 Checks your `README.md` file and all `*.md` files in the `docs` directory. For each link found, it ensures the link target is valid -- both internal links to project files and external links to remote web pages.
 
+### Documentation Prose
+
+[DocsProseTool](../src/Pipeline/Lane/DocsProseTool.php) -- [docs/tools/docsProse.md](./tools/docsProse.md)
+
+Reads the same corpus as the links checker and asserts each document describes **its subject** rather than **itself**: a page may say anything about the past of the thing it documents, but a sentence about what the page used to say, or a `at time of writing` currency hedge, is reported. Prose about the subject's past -- an upgrade guide, a deprecation notice -- is deliberately never reported.
+
 ### Twig Lint and Yaml Lint (Symfony only)
 
 [TwigLintTool](../src/Pipeline/Lane/TwigLintTool.php) -- [docs/tools/twigLint.md](./tools/twigLint.md);

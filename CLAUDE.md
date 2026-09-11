@@ -192,9 +192,11 @@ On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appe
 
 14. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
-15. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+15. **Documentation Prose** (`docsProse`) - Always-on: `README.md` and every `.md` under `docs/` describes its subject rather than itself (see [docs/tools/docsProse.md](docs/tools/docsProse.md))
 
-16. **ShellCheck** (`shellCheck`) - Every git-tracked shell script passes ShellCheck at `warning`, from the pinned static binary at `vendor-bin/shellcheck` (see [docs/tools/shellCheck.md](docs/tools/shellCheck.md))
+16. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+
+17. **ShellCheck** (`shellCheck`) - Every git-tracked shell script passes ShellCheck at `warning`, from the pinned static binary at `vendor-bin/shellcheck` (see [docs/tools/shellCheck.md](docs/tools/shellCheck.md))
 
 On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to this phase. It is not `-t` selectable.
 
@@ -381,7 +383,7 @@ The pipeline provides multiple extension points for customization:
 ### Built-in Hooks
 
 - `qaConfig/hookPre.php` - Runs after configuration and PHAR verification, before the lock and the first tool
-- `qaConfig/hookPost.php` - Runs after all tools complete successfully (after PHPLoc)
+- `qaConfig/hookPost.php` - Runs after all tools complete successfully (after PHPCPD)
 
 Each file returns a callable that receives the [ToolContext](src/Pipeline/Tool/ToolContext.php).
 To fail the run from a hook, throw. A Bash-era `hookPre.bash` / `hookPost.bash` is refused with

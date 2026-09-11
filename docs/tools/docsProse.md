@@ -95,4 +95,4 @@ finding reported under `phpqaci.markdownLinks` would resolve to
 
 Built under Defence Before Fix. The class, its bounds, the two independent searches and the
 sweep are recorded in
-[Plan 00011](../../CLAUDE/Plan/00011-docs-self-history-detector/clause-3.1-record.md).
+[Plan 00011](../../CLAUDE/Plan/Completed/00011-docs-self-history-detector/clause-3.1-record.md).

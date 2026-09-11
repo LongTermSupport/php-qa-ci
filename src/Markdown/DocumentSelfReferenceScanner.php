@@ -94,7 +94,7 @@ final readonly class DocumentSelfReferenceScanner
         $findings    = [];
         foreach ($this->files($projectRoot) as $file) {
             $relative = ltrim(str_replace($projectRoot, '', $file), '/');
-            foreach ($this->scanOneFile(\Safe\file_get_contents($file), $relative) as $finding) {
+            foreach ($this->scanText(\Safe\file_get_contents($file), $relative) as $finding) {
                 $findings[] = $finding;
             }
         }
@@ -103,19 +103,12 @@ final readonly class DocumentSelfReferenceScanner
     }
 
     /**
-     * Scan a single blob of markdown, for a caller that already has the text.
+     * Scan one blob of markdown. `scan()` calls this per file; a caller that
+     * already holds the text passes it directly.
      *
      * @return list<DocumentSelfReferenceFinding>
      */
     public function scanText(string $markdown, string $file = ''): array
-    {
-        return $this->scanOneFile($markdown, $file);
-    }
-
-    /**
-     * @return list<DocumentSelfReferenceFinding>
-     */
-    private function scanOneFile(string $markdown, string $file): array
     {
         $lines    = explode("\n", $this->withoutFencedBlocks($markdown));
         $findings = [];
