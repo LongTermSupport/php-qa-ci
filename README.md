@@ -129,8 +129,7 @@ possible:
 **The registry is the list, not this README.** Phase membership, order, `-t` aliases and
 gates all live in one place —
 [`ToolRegistry`](src/Pipeline/Tool/ToolRegistry.php) — from which the CLI help text is
-derived, and [docs/pipeline.md](./docs/pipeline.md) is its prose companion. A numbered copy
-here was maintained by hand and had already lost four lanes that run on every project.
+derived, and [docs/pipeline.md](./docs/pipeline.md) is its prose companion.
 
 For the lanes active in *your* project, with their phase and identifier, ask the tool:
 
@@ -287,11 +286,10 @@ php-qa-ci ships a bundle of PHPStan rules: one set loaded automatically in every
 and two opt-in sets you include deliberately.
 
 **This README deliberately does not list them.** A hand-maintained copy of the rule list
-drifts from the rules that actually load, and it drifts silently — the previous version of
-this section listed seventeen always-on rules while `rules-default.neon` wired sixteen. It
-also listed *class names*, and a class name is the one string PHPStan never prints, so it
-is no use to someone holding a failure. Each question below has exactly one place that
-answers it:
+drifts from the rules that actually load, and it drifts silently: nothing fails when the
+copy is wrong. A list of *class names* would be no better, because a class name is the one
+string PHPStan never prints, so it cannot be looked up by someone holding a failure. Each
+question below has exactly one place that answers it:
 
 | Question                                                | Where it is answered                                                                                       |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |

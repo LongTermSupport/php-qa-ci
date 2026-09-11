@@ -117,11 +117,12 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path. Use `VendoredCodeDetector`. Full guidance: [phpstan-rules/forbid-unanchored-vendor-substring-check.md](../phpstan-rules/forbid-unanchored-vendor-substring-check.md)
 - **ForbidInlinePhpstanIgnoreRule** -- Bans inline `@phpstan-ignore` annotations. A suppression that is genuinely irreducible goes in `phpstan.neon` `ignoreErrors`, where it is visible in review; inline, it silences the finding at the one place nobody looks.
 
-`rules-default.neon` is the single source of truth for the always-on set (17 rules at time of
-writing: 12 in its `rules:` block plus `ForbidMockingFinalClassRule`,
+`rules-default.neon` is the single source of truth for the always-on set. Read the whole file
+rather than just its `rules:` block: `ForbidMockingFinalClassRule`,
 `ForbidHttpPrefixedEnvVarsRule`, `RequireSensitiveParameterAttributeRule`,
-`RequireApiOrInternalTagRule`, and `ApiMustNotExposeInternalRule` registered as tagged services).
-Consult that file if in doubt.
+`RequireApiOrInternalTagRule` and `ApiMustNotExposeInternalRule` are registered further down as
+tagged services. For the set that actually loads in a given project, ask the tool:
+`vendor/bin/rules`.
 
 **To look up a rule from a failure, use the [identifier index](../phpstan-rules/README.md).** PHPStan
 prints an identifier such as `phpqaci.nullCoalescingFalse`, not a class name, and the index is keyed
@@ -211,20 +212,20 @@ rules:
 
 ### Available optional rules
 
-| Rule                                    | File                            | What it catches                                                                |
-| --------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------ |
-| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                         |
-| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                       |
-| `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                |
-| `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                  |
+| Rule                                    | File                            | What it catches                                                                                      |
+| --------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                                               |
+| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                                             |
+| `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                                      |
+| `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                                        |
 | `RequireVariadicOverArrayParameterRule` | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
-| `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum |
-| `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory |
-| `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                          |
-| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                     |
-| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon`   | Raw SQL strings instead of Doctrine DQL/ORM                                    |
-| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon`   | Symfony cron commands missing interval in description                          |
-| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon`   | Symfony services without explicit DI attributes                                |
+| `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum                       |
+| `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
+| `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |
+| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                                           |
+| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon`   | Raw SQL strings instead of Doctrine DQL/ORM                                                          |
+| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon`   | Symfony cron commands missing interval in description                                                |
+| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon`   | Symfony services without explicit DI attributes                                                      |
 
 ### Experimental rules (not in any bundle)
 
