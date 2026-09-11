@@ -20,17 +20,31 @@ use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
  */
 final readonly class RuleDocResolver
 {
+    /** The only source of identifiers: a table read at run time, never a compiled-in map. */
     private const string INDEX = '/docs/phpstan-rules/README.md';
 
+    /** Where a row's class cell is found when it is a bare class name (a bundled rule). */
     private const string RULES_DIR = '/src/PHPStan/Rules/';
 
+    /** Doc targets are written relative to the index, so they resolve against its directory. */
     private const string DOCS_DIR = '/docs/phpstan-rules/';
 
+    /** Identifier and class cells, then the rest of the row; the trailing cells vary by bundle. */
     private const string ROW_PATTERN = '/^\| `(phpqaci\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
 
+    /** Where a row's class cell is found when it is a path — how a pipeline lane names itself. */
     private const string SRC_DIR = '/src/';
 
-    private const string LINK_PATTERN = '/\[([^\]]+)\]\(([^)]+)\)/';
+    /**
+     * A markdown link whose TEXT may itself contain a bracketed span, which is
+     * routine here because a summary quotes the construction it is about —
+     * `[`#[\SensitiveParameter]` is used somewhere in src/](../tools/…md)`. A
+     * plain `[^\]]+` stops at the inner `]` and never reaches the `](` pair, so
+     * the row resolves to no page while looking perfectly correct. One level of
+     * nesting is enough for every summary we write; greedy matching is not an
+     * option, because a row carries a bundle link as well as a doc link.
+     */
+    private const string LINK_PATTERN = '/\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)]+)\)/';
 
     public function __construct(private string $repoRoot)
     {
@@ -54,6 +68,23 @@ final readonly class RuleDocResolver
     public function identifiers(): array
     {
         return array_keys($this->entries());
+    }
+
+    /**
+     * The page an identifier resolves to, or null if it resolves to no page — or
+     * is not in the index at all.
+     *
+     * Distinct from resolve() because the two callers want opposite things. A rule
+     * declaring an identifier the index does not carry is a defect worth an
+     * exception; a lane is asked about speculatively, including phase runners that
+     * are not defences and document nothing, so absence is an answer rather than an
+     * error.
+     */
+    public function docPathFor(string $identifier): ?string
+    {
+        $entry = $this->entries()[$identifier] ?? null;
+
+        return $entry?->docPath;
     }
 
     public function render(string $identifier): string

@@ -235,8 +235,8 @@ final readonly class ActiveRulesLister
      *
      * Unlike a rule, a lane that does not resolve is not worth a warning on STDERR:
      * a phase runner has no identifier at all, and a lane with an identifier but no
-     * index row is a gap the listing itself reports, in the row where a reader
-     * looking for the page will actually be looking.
+     * page is a gap the listing itself reports, in the row where a reader looking
+     * for that page will actually be looking.
      */
     private function laneDocPath(?string $identifier): ?string
     {
@@ -244,11 +244,7 @@ final readonly class ActiveRulesLister
             return null;
         }
 
-        try {
-            return $this->ruleDocResolver->resolve($identifier)->docPath;
-        } catch (InvalidArgumentException) {
-            return null;
-        }
+        return $this->ruleDocResolver->docPathFor($identifier);
     }
 
     /**

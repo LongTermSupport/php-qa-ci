@@ -97,9 +97,12 @@ most of the clause table turns green at once.
     ships without an identifier, which is how five of them got there — the instance was
     fixed and the class left undefended. Fold into Task 3.2's guard, which already has to
     walk every defence.
-- [ ] ⬜ **Task 2.2**: Give each lane a documentation route in `bin/rules`. The listing
-  carries `name, identifier, summary, phase, optInVariable` and no `docPath`, so a lane
-  can be named from the listing but not read about — the remaining half of toolchain 5.1.
+- [x] ✅ **Task 2.2**: Give each lane a documentation route in `bin/rules`. Every lane now
+  prints its identifier and the page it resolves to, and
+  `testEveryLaneWithAnIdentifierResolvesToAnExistingPage` holds it. Surfacing the route
+  found one lane resolving to nothing — `sensitiveParameterUsage`, whose index row is
+  correct but whose link text contains a bracket `RuleDocResolver` could not parse.
+  Committed red (7359454) before the fix.
 - [ ] ⬜ **Task 2.3**: Decide what to do about **PHPArkitect**, which is the hardest
   clause in the set: as wrapped it fails detector 4.3 (prose, no identifier), 5.2 (no
   single-file run) and 6.1–6.3 (no resolver for its tier), and the default tier routes
@@ -123,7 +126,9 @@ most of the clause table turns green at once.
     this task exists to remove.
 - [ ] ⬜ **Task 3.2**: Tighten the release guard (`RuleDocumentationTest`) from "an index
   row exists" to "a page exists and states a correct construction", so 8.1 holds and
-  Task 3.1 cannot silently regress. Red first, on a rule with no page.
+  Task 3.1 cannot silently regress. Red first, on a rule with no page. **The lane half is
+  already done** — Task 2.2's `testEveryLaneWithAnIdentifierResolvesToAnExistingPage`
+  asserts the resolved path is a real file; this task copies that shape for rules.
 - [ ] ⬜ **Task 3.3**: Decide the **PHPStan native catalogue** question (detector 6.2/6.3
   as wrapped): `bin/rule-doc method.notFound` answers `Unknown rule identifier`, and
   PHPStan's own identifiers document online only.
