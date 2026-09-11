@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan;
 
+use LTS\PHPQA\PHPStan\RuleDocResolver;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -42,6 +43,12 @@ final class RuleDocumentationTest extends TestCase
     private const string SRC_DIR = self::REPO_ROOT . '/src';
 
     private const string INDEX = self::REPO_ROOT . '/docs/phpstan-rules/README.md';
+
+    /** A row with no link, and a row with a real page: the two outcomes the guard must tell apart. */
+    private const string FIXTURE_ROOT = self::REPO_ROOT . '/tests/assets/ruleDocResolver';
+
+    /** Its own root: the resolver parses every row on any lookup, so a dead link is contagious. */
+    private const string DEAD_LINK_ROOT = self::REPO_ROOT . '/tests/assets/ruleDocResolverDeadLink';
 
     /** @var list<string> */
     private const array EXAMPLE_IDENTIFIERS = [
@@ -93,6 +100,51 @@ final class RuleDocumentationTest extends TestCase
         );
     }
 
+    /**
+     * The release guard, tightened from "an index row exists" to "a page exists".
+     *
+     * A row is not documentation. An identifier that resolves to a row and no page gives
+     * the practitioner the rule's own summary back — the sentence they already read in the
+     * failure — and nothing about what to write instead, which is the whole requirement of
+     * method specification clause 3.6.
+     */
+    public function testEveryDeclaredIdentifierResolvesToAPageThatExists(): void
+    {
+        $unreachable = $this->identifiersWithoutAPage(self::REPO_ROOT, ...$this->declaredIdentifiers());
+
+        self::assertSame(
+            [],
+            $unreachable,
+            "Identifiers that resolve to no remediation page:\n" . implode("\n", $unreachable)
+            . "\n\nAn index row restates the summary the failure already printed. The page is "
+            . 'where the correct construction is stated, so a row without one is not a route.',
+        );
+    }
+
+    /**
+     * The guard proven to fire, against a fixture index carrying one row with no link and
+     * one row linking to a page that does not exist. Without this, a guard that scans a
+     * clean repository is indistinguishable from a guard that cannot report anything.
+     */
+    public function testTheGuardReportsIdentifiersWhosePageIsAbsent(): void
+    {
+        self::assertSame(
+            ['phpqaci.fixtureNoPage'],
+            $this->identifiersWithoutAPage(
+                self::FIXTURE_ROOT,
+                'phpqaci.fixtureNoPage',
+                'phpqaci.fixtureLinked',
+            ),
+            'a row with no link at all must be reported, and a row with a real page must not',
+        );
+
+        self::assertSame(
+            ['phpqaci.fixtureDeadLink'],
+            $this->identifiersWithoutAPage(self::DEAD_LINK_ROOT, 'phpqaci.fixtureDeadLink'),
+            'a row linking to a page that does not exist must be reported',
+        );
+    }
+
     public function testIndexDoesNotListIdentifiersThatNoRuleDeclares(): void
     {
         $index    = \Safe\file_get_contents(self::INDEX);
@@ -112,6 +164,29 @@ final class RuleDocumentationTest extends TestCase
             $stale,
             "Index lists identifiers no rule declares (renamed or removed):\n" . implode("\n", $stale),
         );
+    }
+
+    /**
+     * Which of the given identifiers reach no page from the index at $repoRoot.
+     *
+     * Takes the root so the guard can be pointed at a fixture and shown to fire; a check
+     * that has only ever been run against a clean tree has not been tested.
+     *
+     * @return list<string>
+     */
+    private function identifiersWithoutAPage(string $repoRoot, string ...$identifiers): array
+    {
+        $resolver    = new RuleDocResolver($repoRoot);
+        $unreachable = [];
+
+        foreach ($identifiers as $identifier) {
+            $docPath = $resolver->docPathFor($identifier);
+            if (null === $docPath || !is_file($docPath)) {
+                $unreachable[] = $identifier;
+            }
+        }
+
+        return $unreachable;
     }
 
     /**

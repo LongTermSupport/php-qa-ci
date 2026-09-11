@@ -38,6 +38,9 @@ final class RuleDocResolverTest extends TestCase
      */
     private const string FIXTURE_ROOT = __DIR__ . '/../../assets/ruleDocResolver';
 
+    /** Its own root: the resolver parses every row on any lookup, so a dead link is contagious. */
+    private const string DEAD_LINK_ROOT = __DIR__ . '/../../assets/ruleDocResolverDeadLink';
+
     #[Test]
     public function anIdentifierWithARemediationPageResolvesToThatPage(): void
     {
@@ -58,6 +61,28 @@ final class RuleDocResolverTest extends TestCase
         self::assertSame('FixtureNoPageRule', $entry->ruleClass);
         self::assertNull($entry->docPath);
         self::assertSame('A row whose requirement cell carries no link', $entry->summary);
+    }
+
+    /**
+     * A row pointing at a page that is not there must resolve to no page, not take the
+     * whole resolver down with it.
+     *
+     * `entries()` parses every row on any lookup, so one dead link decides the outcome of
+     * every other identifier too: `bin/rule-doc` stops answering entirely, and the message
+     * a practitioner gets is `An error occurred`. The tool whose job is to explain a
+     * failure becomes the least explicable thing in the run.
+     *
+     * The dead link is still a defect — `RuleDocumentationTest` is the guard that reports
+     * it — but it is a defect in one row, and the resolver should say so by returning
+     * nothing for that row rather than by failing to start.
+     */
+    #[Test]
+    public function aRowLinkingToAMissingPageDoesNotBreakTheResolver(): void
+    {
+        $resolver = new RuleDocResolver(self::DEAD_LINK_ROOT);
+
+        self::assertNull($resolver->docPathFor('phpqaci.fixtureDeadLink'));
+        self::assertSame(['phpqaci.fixtureDeadLink'], $resolver->identifiers());
     }
 
     /**
