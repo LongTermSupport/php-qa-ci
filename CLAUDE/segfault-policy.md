@@ -25,7 +25,7 @@ the kernel log, even when the surrounding command reported success.
    <https://github.com/php/php-src/issues/new/choose>. How php-src wants it — public
    issue vs security advisory, required fields, house style, its LLM-disclosure rule,
    and the shape a fix PR takes — is
-   [Plan 00009's filing guide](Plan/00009-upstream-php-src-bug-report-opcache-const-comparison/filing-guide.md).
+   [Plan 00009's filing guide](Plan/Completed/00009-upstream-php-src-bug-report-opcache-const-comparison/filing-guide.md).
    **Filing is authorised per-report by the owner, never standing** — it posts publicly
    under a real identity and cannot be retracted.
 4. **DEFEND.** Where the defect class can be detected in bytecode or source, add the
@@ -36,9 +36,9 @@ the kernel log, even when the surrounding command reported success.
 
 ## The archetype
 
-[Plan 00007](Plan/00007-opcache-optimizer-const-comparison-crash/PLAN.md) is the worked
+[Plan 00007](Plan/Completed/00007-opcache-optimizer-const-comparison-crash/PLAN.md) is the worked
 example of all four steps, and
-[Plan 00009](Plan/00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md)
+[Plan 00009](Plan/Completed/00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md)
 is the filing half. Read them before starting a fresh one; the sequence is the point,
 not the specific defect.
 
@@ -51,7 +51,7 @@ Two things about it are worth carrying to the next occurrence:
 - **The first theory was wrong, and that was fine.** We reported it as the optimizer
   failing to fold a constant comparison. Upstream's verdict was that the fold is a
   missed optimisation and the actual defect is elsewhere (see
-  [the report](Plan/00007-opcache-optimizer-const-comparison-crash/upstream-report.md)
+  [the report](Plan/Completed/00007-opcache-optimizer-const-comparison-crash/upstream-report.md)
   for both). A precise reproduction with an honest account of what was measured
   survives a wrong theory; a confident theory without one does not.
 

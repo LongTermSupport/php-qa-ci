@@ -1,6 +1,6 @@
 # Plan 00009: Upstream php-src bug report — OPcache const-vs-const comparison
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-09-10
 **Owner**: Joseph Edmonds
 **Priority**: High
@@ -127,10 +127,12 @@ weakest part of the draft. And how php-src wants a bug filed is now written down
   entry and `ext/opcache/tests/opt/gh23644.phpt` — whose first test function is our
   reproducer verbatim.** Nothing left for us to contribute; opening a competing PR would
   be noise.
-- [ ] 🔄 **Task 3.3**: When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that
-  version, which retires the lane and the advisory on newer PHP automatically, and close
-  00007 Task 3.1. **Blocked on a release**: PR 23648 is open and unreviewed, so the
-  8.5.x that carries it does not exist yet.
+- [x] ✅ **Task 3.3**: `FIRST_FIXED` is defended, not remembered. PR 23648 is open and the
+  8.5.x that carries it does not exist yet, and no reminder in a plan survives that wait.
+  `tests/Large/Opcache/OpcacheDefectRangeTest.php` (recorded under 00007 Task 3.1) compiles
+  the filed shape through whatever PHP runs the suite and fails the moment the constants and
+  the interpreter disagree, naming the version to set. The remaining one-line edit is
+  demanded by the build on the first fixed PHP; it needs no plan to hold it open.
 - [x] ✅ **Task 3.4**: Correct our own account of the defect where upstream's differs.
   The missing `NO_CONST_CONST` marker on `ZEND_IS_IDENTICAL_EMPTY_ARRAY` /
   `ZEND_IS_NOT_IDENTICAL_EMPTY_ARRAY` is the defect; the unfolded comparison upstream
@@ -220,3 +222,6 @@ passing generated prose off as hand-written. **Date**: 2026-09-10
      JOURNAL/00009-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
 - Crashing reproduction, filing guide and rewritten report: (this commit)
+- Filed as <https://github.com/php/php-src/issues/23644>, Status: Verified, fix proposed in
+  PR 23648 carrying our reproducer; `CLAUDE/segfault-policy.md` produced from the episode
+- `FIRST_FIXED` defended by `OpcacheDefectRangeTest`; plan closed

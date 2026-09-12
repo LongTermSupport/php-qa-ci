@@ -41,7 +41,10 @@ to follow and no way to tell by reading. Compiling the code and looking at the o
 only reliable check, which is what this lane does.
 
 The evidence, the core dumps, the opcode dumps and the idiom matrix are recorded in
-[Plan 00007](../../CLAUDE/Plan/00007-opcache-optimizer-const-comparison-crash/investigation.md).
+[Plan 00007](../../CLAUDE/Plan/Completed/00007-opcache-optimizer-const-comparison-crash/investigation.md).
+Whether the declared affected range still matches the PHP in use is checked on every test run
+by `tests/Large/Opcache/OpcacheDefectRangeTest.php`, so a fixed release cannot leave the
+advisory firing.
 
 ## How it runs
 

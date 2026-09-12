@@ -10,15 +10,15 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00007: OPcache optimizer const-comparison crash](00007-opcache-optimizer-const-comparison-crash/PLAN.md) - In Progress — PHP 8.5.10's DFA pass leaves a const-const comparison unfolded and the VM segfaults; detector lane, preflight warning, recommended ini
-
 - [00008: shellcheck lane vendored binary](00008-shellcheck-lane-vendored-binary/PLAN.md) - In Progress — ShellCheck runs only in CI, so a green bin/qa can still be a red branch; vendor one pinned static binary, add the lane with git-tracked shebang discovery and a per-project glob override, delete the duplicate CI job
-
-- [00009: upstream php-src bug report](00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md) - In Progress — [php-src GH-23644](https://github.com/php/php-src/issues/23644) filed and Status: Verified, fix proposed in [PR 23648](https://github.com/php/php-src/pull/23648); produced [CLAUDE/segfault-policy.md](../segfault-policy.md); only FIRST_FIXED remains, blocked on a release
 
 - [00010: Defence Before Fix full conformance](00010-defence-before-fix-full-conformance/PLAN.md) - In Progress — empty both `known-gaps` lists in `composer.json`, planned against upstream's clause-by-clause register entry rather than our own (understated) declaration; identity, then resolution, then enforcement
 
 ## Completed Plans
+
+- [00009: upstream php-src bug report](Completed/00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md) - Complete — [php-src GH-23644](https://github.com/php/php-src/issues/23644) filed and Status: Verified, fix proposed in [PR 23648](https://github.com/php/php-src/pull/23648) carrying our reproducer; produced [CLAUDE/segfault-policy.md](../segfault-policy.md); `FIRST_FIXED` defended by `OpcacheDefectRangeTest` rather than awaited
+
+- [00007: OPcache optimizer const-comparison crash](Completed/00007-opcache-optimizer-const-comparison-crash/PLAN.md) - Complete — PHP 8.5's `NO_CONST_CONST` omission leaves a const-const comparison the VM segfaults on; `opcache` lane, preflight advisory, recommended ini, and a test that fails when the declared range and the running PHP disagree
 
 - [00011: docs self-history detector](Completed/00011-docs-self-history-detector/PLAN.md) - Complete — a Defence Before Fix execution against "a document that describes itself rather than its subject": the `docsProse` lane (`phpqaci.docsProse`) proven red on this repo's own README, committed red (24e2115), then the three instances fixed (d555f24)
 

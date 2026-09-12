@@ -1,6 +1,6 @@
 # Plan 00007: OPcache optimizer const-comparison crash
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-09-10
 **Owner**: Joseph Edmonds
 **Priority**: High
@@ -100,7 +100,7 @@ parts that are php-qa-ci's to deliver. The full dossier is in
 
 ### Phase 3: Upstream and follow-through
 
-- [ ] 🔄 **Task 3.1**: The upstream php-src report. **Delegated in full to
+- [x] ✅ **Task 3.1**: The upstream php-src report. **Delegated in full to
   [Plan 00009](../00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md)**,
   which owns filing and follow-through and reports back here; this plan keeps the
   evidence and [upstream-report.md](upstream-report.md), the maintained copy of the text.
@@ -115,10 +115,15 @@ parts that are php-qa-ci's to deliver. The full dossier is in
   - [x] ✅ Issue number recorded in `upstream-report.md` and in `OpcacheDefects`' class
     doc comment, so the next reader of the affected-range constants can follow it
     upstream — 00009 Task 2.2.
-  - [ ] 🔄 When a fix ships, set `FIRST_FIXED` in `OpcacheDefects` to that version,
-    which retires both the lane and the advisory on newer PHP automatically
-    — 00009 Task 3.3. The fix exists as <https://github.com/php/php-src/pull/23648>
-    (open, based at `PHP-8.5`); the release that carries it does not.
+  - [x] ✅ `FIRST_FIXED` cannot drift from reality. The fix exists as
+    <https://github.com/php/php-src/pull/23648> (open, based at `PHP-8.5`); the release that
+    carries it does not, and nothing in this repository can know when it will. So instead
+    of a reminder, `tests/Large/Opcache/OpcacheDefectRangeTest.php` compiles the filed
+    shape through the running PHP's optimizer (never executes it) and fails when the
+    constants and the interpreter disagree in either direction — the fix landing raises
+    "FIRST_FIXED is stale, set it to at most <this version>" on the first run of a fixed
+    PHP. Setting the constant is then a one-line follow-up the build demands, not a task
+    that waits on memory.
 - [x] ✅ **Task 3.2**: Record 8.4 as unverified and do not measure it. Originally
   "verify PHP 8.4's optimizer against the same fixture"; closed as not worth doing, see
   Decision 5. `FIRST_AFFECTED` stays `8.5.0`, and `OpcacheDefects`, the dossier and the
@@ -238,3 +243,5 @@ ever ported to a branch that actually targets 8.4. **Date**: 2026-09-10
 ## Delivery & Milestones
 
 - Investigation complete, dossier and plan recorded: (this commit)
+- Upstream filed as GH-23644 and verified, with a fix PR carrying our reproducer (Plan 00009)
+- The affected range defended by `OpcacheDefectRangeTest` rather than remembered; plan closed
