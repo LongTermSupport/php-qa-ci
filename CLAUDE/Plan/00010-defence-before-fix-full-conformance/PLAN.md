@@ -103,16 +103,14 @@ most of the clause table turns green at once.
   found one lane resolving to nothing — `sensitiveParameterUsage`, whose index row is
   correct but whose link text contains a bracket `RuleDocResolver` could not parse.
   Committed red (7359454) before the fix.
-- [ ] ⬜ **Task 2.3**: Decide what to do about **PHPArkitect**, which is the hardest
-  clause in the set: as wrapped it fails detector 4.3 (prose, no identifier), 5.2 (no
-  single-file run) and 6.1–6.3 (no resolver for its tier), and the default tier routes
-  bundled defences through it.
-  - [ ] ⬜ Establish whether the lane can attach identifiers to the bundled tier's rules
-    and resolve them — arkitect's own output is prose, so this likely means the lane
-    parsing violations and mapping them to tier rule identifiers.
-  - [ ] ⬜ If it cannot be made conformant, the honest alternatives are to stop routing
-    *bundled* defences through it (leaving it available for project rules) or to record
-    an Owner decision. **Owner decision either way** — this changes a shipped default.
+- [x] ✅ **Task 2.3**: **PHPArkitect stays as shipped, and its clauses are a recorded
+  Owner decision, not a pending fix** — Decision 5. As wrapped it fails detector 4.3
+  (prose, no identifier), 5.2 (no single-file run) and 6.1–6.3 (no resolver for its tier).
+  Parsing arkitect's prose into identifiers would be a second implementation of arkitect's
+  own output format, owned here and broken by every upstream wording change; dropping the
+  bundled tier would remove real structural defences to improve a scorecard. Neither is
+  worth it. The lane carries `phpqaci.phpArkitect` and resolves to its page; the tier's
+  individual rules do not, and the declaration says so.
 
 ### Phase 3: Resolution — every identifier reaches a correct construction (toolchain 4.2, 8.1)
 
@@ -133,14 +131,14 @@ most of the clause table turns green at once.
   - [ ] ⬜ **Still owed**: "and states a correct construction". The guard checks a page
     exists, not that it is more than a restatement of the summary. Reviewing prose
     mechanically is the hard part; the risk row for filler pages stands until it is closed.
-- [ ] ⬜ **Task 3.3**: Decide the **PHPStan native catalogue** question (detector 6.2/6.3
-  as wrapped): `bin/rule-doc method.notFound` answers `Unknown rule identifier`, and
-  PHPStan's own identifiers document online only.
-  - [ ] ⬜ Options to cost: ship a resolver mapping native identifiers to phpstan.org
-    pages (fails "without network access"); vendor a catalogue under `remote-docs/` and
-    resolve against it; or record an Owner decision that the native catalogue is out of
-    scope. **Owner decision**: the first is not conformance, the second is real work with
-    a staleness cost, the third is a permanent recorded gap.
+- [x] ✅ **Task 3.3**: **PHPStan's native catalogue is out of scope offline, as a recorded
+  Owner decision** — Decision 6. `bin/rule-doc method.notFound` no longer answers
+  `Unknown rule identifier`: it says the identifier is not php-qa-ci's, names the
+  phpstan.org page it belongs to, and says plainly that the catalogue is not carried
+  offline. That is an honest answer to a practitioner, not a claim of conformance —
+  detector 6.2/6.3 remain declared gaps for that detector as wrapped. Vendoring PHPStan's
+  catalogue under `remote-docs/` was costed and declined: hundreds of pages with a
+  staleness window shorter than PHPStan's release cadence.
 
 ### Phase 4: Record — no suppression route bypasses it (toolchain 4.3, 6.2)
 
@@ -235,6 +233,41 @@ and the register as though they belonged to someone else. Conformance is earned 
 php-qa-ci, and a specification change is argued in that repository on its own merits under
 its cold-reader acceptance process. Being able to cheat is exactly why it is written down.
 **Date**: 2026-09-11
+
+### Decision 5: PHPArkitect stays as shipped; its clauses are an accepted gap
+
+**Context**: the arkitect lane fails detector 4.3, 5.2 and 6.1–6.3 as wrapped, and Task 2.3
+asked whether to make it conform, stop routing bundled defences through it, or accept the
+gap. **Why accept**: conformance would mean parsing arkitect's prose output into rule
+identifiers — a second implementation of a format we do not own, broken silently by every
+upstream wording change, which is a worse defect than the one it closes. Dropping the
+bundled tier would remove real structural defences from every consumer to improve a
+scorecard, which the Non-Goals forbid. The lane itself is identified and documented; what is
+missing is per-rule identity inside it. **Decision**: keep the shipped default, keep the
+`known-gaps` entries, and word them as accepted rather than pending. Taken by the Owner's
+instruction to resolve the open blockers; reversible by reopening Task 2.3. **Date**:
+2026-09-12
+
+### Decision 6: PHPStan's native catalogue is not carried offline
+
+**Context**: `bin/rule-doc` could not say anything useful about an identifier that is not
+ours. **Why not vendor the catalogue**: phpstan.org documents hundreds of identifiers and
+changes them with every PHPStan release; a vendored copy would be stale within its own
+`remote-docs` window and would be a second maintenance burden with no defect behind it.
+**Decision**: `bin/rule-doc` names the catalogue a foreign identifier belongs to and says the
+package does not carry it offline; the detector 6.2/6.3 gap for PHPStan-as-wrapped stays
+declared. Taken by the Owner's instruction to resolve the open blockers. **Date**: 2026-09-12
+
+### Decision 7: Two link checkers are kept, and `phpqaci.forbiddenAttribute` is not renamed
+
+**Context**: both surfaced during Tasks 2.2–3.2. The hooks daemon's `pointer-resolves`
+overlaps the `markdownLinks` lane on this checkout; and `phpqaci.forbiddenAttribute` names a
+category rather than the attribute it forbids. **Decision**: the checkers answer at different
+moments for different audiences (a guardrail for the editor; the package's guarantee to every
+consumer), so both stay, and [docs/tools/markdownLinks.md](../../../docs/tools/markdownLinks.md)
+says why. The identifier stays: it is published, and a consumer may already carry it in
+`ignoreErrors`, so a rename is a breaking change with no defect behind it. Both taken by the
+Owner's instruction to resolve the open blockers. **Date**: 2026-09-12
 
 ## Success Criteria
 

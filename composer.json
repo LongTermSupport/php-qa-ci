@@ -134,24 +134,20 @@
     ],
     "defence-before-fix": {
       "known-gaps": [
-        "toolchain 4.1: the PHPArkitect lane runs only over the whole class set and has no resolver for its bundled tier, so that detector as wrapped fails detector 5.2 and 6.1 to 6.3",
-        "toolchain 4.1: PHPStan's native identifiers resolve online only and bin/rule-doc does not resolve them, so that detector as wrapped fails detector 6.2 and 6.3",
-        "toolchain 4.2: fifteen of the thirty-two bundled PHPStan rules resolve to a one-line index row and no page stating the correct construction",
+        "toolchain 4.1: accepted by Owner decision — the PHPArkitect lane is identified and documented as a lane, but the rules of its bundled tier are not individually identified or resolvable, and it has no single-file run; as wrapped that detector fails detector 5.2 and 6.1 to 6.3. Kept as shipped: parsing arkitect's prose into identifiers would re-implement a format this package does not own, and dropping the tier would remove real structural defences (Plan 00010 Decision 5)",
+        "toolchain 4.1: accepted by Owner decision — PHPStan's native identifiers are documented online only; bin/rule-doc names the phpstan.org page for one and says the catalogue is not carried offline, so that detector as wrapped fails detector 6.2 and 6.3 (Plan 00010 Decision 6)",
         "toolchain 4.3: a phparkitect-baseline.json is read silently by the PHPArkitect lane, and a PHPStan baseline included from qaConfig/phpstan.neon is not checked by the justification lane",
-        "toolchain 5.1: the defence listing gives every lane an identifier and a summary but no documentation route, so a lane cannot be read about from the listing alone",
         "toolchain 6.2: the justification lane reads qaConfig/phpstan.neon alone and not the files it includes",
         "toolchain 6.4: lane defaults are stated in docs/tools, but the toolchain states no default for the calibrations the method leaves to the project",
         "toolchain 7.1: the agent block written into a consuming project is a static template and carries no lines for the defences actually active there",
-        "toolchain 8.1: the release guard requires an index row, not a remediation page",
+        "toolchain 8.1: partially closed — the release guard requires a remediation page to exist for every identifier, but does not judge whether the page states a correct construction rather than restating the summary",
         "detector 7.2: PHPStan's reportIgnoresWithoutComments is not configured, so the inline suppression route requires no written reason and only the justification lane stands in"
       ],
       "method": "1.0.1",
       "project": {
         "known-gaps": [
-          "toolchain 4.1: the same PHPArkitect and PHPStan native-identifier gaps as the artefact, since the project runs the toolchain it ships",
-          "toolchain 4.2: the same fifteen bundled rules run on this repository and resolve to no remediation page",
+          "toolchain 4.1: accepted by Owner decision — the same PHPArkitect and PHPStan native-identifier gaps as the artefact, since the project runs the toolchain it ships",
           "toolchain 4.3: the same silent PHPArkitect baseline route is open on this repository",
-          "toolchain 5.1: this repository's own listing carries the same lanes without a documentation route",
           "toolchain 7.1: this repository's own root CLAUDE.md carries the same static block with no lines for its active defences",
           "detector 7.2: the same unconfigured reportIgnoresWithoutComments applies to this repository's own PHPStan run"
         ],

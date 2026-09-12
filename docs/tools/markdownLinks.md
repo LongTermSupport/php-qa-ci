@@ -13,8 +13,14 @@ tree navigable and catches a doc that was moved without its references being upd
 
 ## How it runs
 
-- In the full pipeline, last in the linting phase.
+- In the full pipeline, in the linting phase, immediately before
+  [Documentation Prose](docsProse.md), which reads the same files.
 - Standalone: `vendor/bin/qa -t ml` (alias `-t markdown`).
+- In this repository's own checkout, the Claude Code hooks daemon also checks links at
+  Write/Edit and commit time (`pointer-resolves`). That is a guardrail for the person
+  editing, seconds after the edit; this lane is the package's guarantee to every consumer
+  on every run. Both are kept deliberately — they answer at different moments for different
+  audiences — and this lane is the one that ships.
 - A project must have a `README.md` in its root; without one the lane fails, because the check
   has nothing to stand on.
 - GitHub URLs are skipped when no `GH_TOKEN` / `GITHUB_TOKEN` is set, since a private repository

@@ -109,6 +109,24 @@ final class RuleDocResolverTest extends TestCase
         $this->resolver()->resolve('phpqaci.noSuchRule');
     }
 
+    /**
+     * A practitioner holds one string and cannot tell whose it is. For an identifier
+     * outside php-qa-ci's prefix — PHPStan's own `method.notFound`, an extension's
+     * `shipmonk.deadMethod` — "Unknown rule identifier" is true and useless. The
+     * honest answer names the catalogue it belongs to and says plainly that this
+     * package does not carry that catalogue offline.
+     */
+    #[Test]
+    public function renderingAForeignIdentifierPointsAtItsOwnCatalogueInsteadOfFailing(): void
+    {
+        $rendered = $this->resolver()->render('method.notFound');
+
+        self::assertStringStartsWith('method.notFound', $rendered);
+        self::assertStringContainsString('https://phpstan.org/error-identifiers/method.notFound', $rendered);
+        self::assertStringContainsString('not a php-qa-ci identifier', $rendered);
+        self::assertStringContainsString('offline', $rendered);
+    }
+
     #[Test]
     public function everyPublishedIdentifierResolvesAndEveryLinkedPageExists(): void
     {

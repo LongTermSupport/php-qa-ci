@@ -6,6 +6,7 @@ namespace LTS\PHPQA\PHPStan;
 
 use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
+use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 
 /**
  * Resolves a bundled rule identifier, as printed in a PHPStan failure, to the
@@ -34,6 +35,12 @@ final readonly class RuleDocResolver
 
     /** Where a row's class cell is found when it is a path — how a pipeline lane names itself. */
     private const string SRC_DIR = '/src/';
+
+    /** Everything this package can print starts with this; anything else belongs to another catalogue. */
+    private const string OWN_PREFIX = RuleIdentifierInterface::PREFIX . '.';
+
+    /** Where PHPStan documents its own identifiers — online only, which is the recorded gap. */
+    private const string PHPSTAN_CATALOGUE = 'https://phpstan.org/error-identifiers/';
 
     /**
      * A markdown link whose TEXT may itself contain a bracketed span, which is
@@ -89,6 +96,22 @@ final readonly class RuleDocResolver
 
     public function render(string $identifier): string
     {
+        // A practitioner holds one string and cannot tell whose it is. For an
+        // identifier outside this package's prefix, "unknown" is true and useless;
+        // name the catalogue it belongs to, and say plainly that it is not carried
+        // offline — that is the recorded gap, not something to paper over.
+        if (!str_starts_with($identifier, self::OWN_PREFIX) && !isset($this->entries()[$identifier])) {
+            return \sprintf(
+                "%s\n\nThis is not a php-qa-ci identifier, so there is no remediation page for it here.\n"
+                . "If it is one of PHPStan's own, PHPStan documents it online at:\n  %s%s\n\n"
+                . "php-qa-ci does not carry PHPStan's catalogue offline; that gap is recorded in\n"
+                . "composer.json under extra.defence-before-fix.known-gaps.\n",
+                $identifier,
+                self::PHPSTAN_CATALOGUE,
+                $identifier,
+            );
+        }
+
         $entry = $this->resolve($identifier);
 
         $out = \sprintf(
