@@ -14,6 +14,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00010: Defence Before Fix full conformance](00010-defence-before-fix-full-conformance/PLAN.md) - In Progress — empty both `known-gaps` lists in `composer.json`, planned against upstream's clause-by-clause register entry rather than our own (understated) declaration; identity, then resolution, then enforcement
 
+- [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect: lock contention masquerading as a QA failure, log retention that cannot bound its directory, a managed CLAUDE.md block a formatter reflows, `bash bin/qa`, permanently-red per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to a project's own identifiers, and Infection contradicting our own advisory
+
 ## Completed Plans
 
 - [00009: upstream php-src bug report](Completed/00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md) - Complete — [php-src GH-23644](https://github.com/php/php-src/issues/23644) filed and Status: Verified, fix proposed in [PR 23648](https://github.com/php/php-src/pull/23648) carrying our reproducer; produced [CLAUDE/segfault-policy.md](../segfault-policy.md); `FIRST_FIXED` defended by `OpcacheDefectRangeTest` rather than awaited
