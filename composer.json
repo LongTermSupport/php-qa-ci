@@ -79,6 +79,12 @@
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\DeprecatedPhpunit\\": [
         "tests/assets/PHPStan/DeprecatedPhpunit/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\DevNamespaceVendored\\": [
+        "tests/assets/PHPStan/DevNamespaceVendored/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\DevNamespace\\": [
+        "tests/assets/PHPStan/DevNamespace/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\FactorySealed\\": [
         "tests/assets/PHPStan/FactorySealed/"
       ],
