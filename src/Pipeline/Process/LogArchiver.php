@@ -10,17 +10,25 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Keeps a rotated history of a tool's log: the live log stays at its known
  * name (downstream tools read it), a timestamped copy is added, and the last
  * ten copies per pattern are kept. Full-suite runs and `-p <path>` runs are
- * separate patterns so a path run never evicts a full-suite log.
+ * separate patterns so a path run never evicts a full-suite log. A cap on the
+ * tool's total archives then bounds the directory, which per-pattern retention
+ * alone cannot do.
  *
  * @api
  */
 final readonly class LogArchiver
 {
-    private const string RULE = '==========================================';
-
+    /** How much history one pattern keeps: enough to compare a few runs, not enough to hoard. */
     private const int KEEP = 10;
 
-    private const int WARN_ABOVE = 100;
+    /**
+     * Per-pattern retention cannot bound the directory. A `-p` run derives its
+     * pattern from the paths it covered, so every distinct file analysed mints
+     * a new pattern holding up to KEEP of its own — a hundred one-off path runs
+     * are a hundred patterns, each comfortably under its limit and none of them
+     * ever pruned. This cap is what actually bounds the directory.
+     */
+    public const int DIRECTORY_CAP = 100;
 
     public function __construct(private OutputInterface $output)
     {
@@ -66,16 +74,38 @@ final readonly class LogArchiver
             $this->output->writeln(\sprintf('Cleaned up %d old log(s)', \count($evicted)));
         }
 
-        $total = \count(\Safe\glob($logDir . '/*.' . $extension));
-        if ($total > self::WARN_ABOVE) {
-            $this->output->writeln('');
-            $this->output->writeln(self::RULE);
-            $this->output->writeln('WARNING: HIGH LOG FILE COUNT');
-            $this->output->writeln(self::RULE);
-            $this->output->writeln(\sprintf('Total %s log files in %s: %d', $toolName, $logDir, $total));
-            $this->output->writeln(\sprintf('Retention: %d per pattern (full suite + each -p path); consider clearing old logs.', self::KEEP));
-            $this->output->writeln(self::RULE);
+        $this->capDirectory($toolName, $logDir, $base, $extension);
+    }
+
+    /**
+     * Prune this tool's archives, oldest first, down to the cap. Only files
+     * matching the archive shape for this tool are considered, so the live log
+     * and another tool's logs in the same directory are never touched.
+     */
+    private function capDirectory(string $toolName, string $logDir, string $base, string $extension): void
+    {
+        $anyArchive = \sprintf(
+            '/^%s(\..+)?\.\d{8}-\d{6}\.%s$/',
+            preg_quote($base, '/'),
+            preg_quote($extension, '/'),
+        );
+
+        $archives = $this->matching($logDir, $anyArchive);
+        if (\count($archives) <= self::DIRECTORY_CAP) {
+            return;
         }
+
+        $pruned = \array_slice($archives, self::DIRECTORY_CAP);
+        foreach ($pruned as $old) {
+            \Safe\unlink($old);
+        }
+
+        $this->output->writeln(\sprintf(
+            'Pruned %d %s log(s): the directory cap is %d archives.',
+            \count($pruned),
+            $toolName,
+            self::DIRECTORY_CAP,
+        ));
     }
 
     /** @return list<string> newest first */
