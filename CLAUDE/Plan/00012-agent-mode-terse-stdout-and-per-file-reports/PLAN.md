@@ -1,6 +1,6 @@
 # Plan 00012: agent mode terse stdout and per file reports
 
-**Status**: In Progress
+**Status**: Delivered — awaiting the Owner decision on the PR
 **Created**: 2026-09-16
 **Owner**: Joseph Edmonds
 **Priority**: High
@@ -140,35 +140,35 @@ returns **exit 3** and writes `status: "crashed"` for the specified path.
 
 ### Phase 1: The pipeline-level contract
 
-- [ ] ⬜ **Task 1.1**: `ToolDefinitionDto::$supportsAgentMode`, `phpstan` declaring it, frozen in the registry characterisation test.
-- [ ] ⬜ **Task 1.2**: `--agent-mode` parsing and the `PHPQACI_AGENT_MODE` environment read, with the fail-fast usage errors for no tool, a phase runner, and an unsupporting tool.
-- [ ] ⬜ **Task 1.3**: `QaConfigDto::$agentMode` through `QaConfigBuilder`, and decoration routed to `NullOutput` in `QaApplication`.
+- [x] ✅ **Task 1.1**: `ToolDefinitionDto::$supportsAgentMode`, `phpstan` declaring it, frozen in the registry characterisation test.
+- [x] ✅ **Task 1.2**: `--agent-mode` parsing and the `PHPQACI_AGENT_MODE` environment read, with the fail-fast usage errors for no tool, a phase runner, and an unsupporting tool.
+- [x] ✅ **Task 1.3**: `QaConfigDto::$agentMode` through `QaConfigBuilder`, and decoration routed to `NullOutput` in `QaApplication`.
 
 ### Phase 2: The report
 
-- [ ] ⬜ **Task 2.1**: `FileReportDto` and `FileErrorDto`, serialising to the documented schema.
-- [ ] ⬜ **Task 2.2**: `PhpstanJsonParser` mapping `--error-format=json` onto per-file findings, including file-level errors with no line.
-- [ ] ⬜ **Task 2.3**: `FileReportWriter` — scope clearing, per-file writes, the index, and the path mapping that cannot collide.
+- [x] ✅ **Task 2.1**: `FileReportDto` and `FileErrorDto`, serialising to the documented schema.
+- [x] ✅ **Task 2.2**: `PhpstanJsonParser` mapping `--error-format=json` onto per-file findings, including file-level errors with no line.
+- [x] ✅ **Task 2.3**: `FileReportWriter` — scope clearing, per-file writes, the index, and the path mapping that cannot collide.
 
 ### Phase 3: The PHPStan lane and the runner
 
-- [ ] ⬜ **Task 3.1**: `PhpstanTool` agent-mode branch: JSON error format, report writing, the three-line stdout.
-- [ ] ⬜ **Task 3.2**: `Pipeline` returning exit 2 with the lock-held stdout line in agent mode, and exit 3 for a crash.
+- [x] ✅ **Task 3.1**: `PhpstanTool` agent-mode branch: JSON error format, report writing, the three-line stdout.
+- [x] ✅ **Task 3.2**: `Pipeline` returning exit 2 with the lock-held stdout line in agent mode, and exit 3 for a crash.
 
 ### Phase 4: Documentation and proof
 
-- [ ] ⬜ **Task 4.1**: `docs/agent-mode.md` — the flag, the environment variable, the capability table, the schema, the exit codes, and the `lint_on_edit` configuration a consumer applies.
-- [ ] ⬜ **Task 4.2**: Prove it end to end from a consuming project; full `CI=true bin/qa` green in this repo.
+- [x] ✅ **Task 4.1**: `docs/agent-mode.md` — the flag, the environment variable, the capability table, the schema, the exit codes, and the `lint_on_edit` configuration a consumer applies.
+- [x] ✅ **Task 4.2**: Prove it end to end from a consuming project; full `CI=true bin/qa` green in this repo.
 
 ## Success Criteria
 
-- [ ] `bin/qa --agent-mode -t phpstan -p src/Kernel.php` prints three lines or fewer and writes `var/qa/phpstan-file-reports/src/Kernel.php.json` with `error_count: 0`.
-- [ ] The same command against a file with errors reports `error_count > 0` and the same report path.
-- [ ] A green re-run over a previously red file overwrites the report with `error_count: 0`.
-- [ ] `bin/qa --agent-mode -t allCS` and `bin/qa --agent-mode -t phplint` both fail with a usage error naming the supported tools.
-- [ ] `PHPQACI_AGENT_MODE=1 bin/qa -t phpstan -p <file>` behaves identically to the flag.
-- [ ] A run blocked by the lock exits 2 and says so on stdout.
-- [ ] `CI=true bin/qa` exits 0 in this repository.
+- [x] `bin/qa --agent-mode -t phpstan -p src/Kernel.php` prints three lines or fewer and writes `var/qa/phpstan-file-reports/src/Kernel.php.json` with `error_count: 0`.
+- [x] The same command against a file with errors reports `error_count > 0` and the same report path.
+- [x] A green re-run over a previously red file overwrites the report with `error_count: 0`.
+- [x] `bin/qa --agent-mode -t allCS` and `bin/qa --agent-mode -t phplint` both fail with a usage error naming the supported tools.
+- [x] `PHPQACI_AGENT_MODE=1 bin/qa -t phpstan -p <file>` behaves identically to the flag.
+- [x] A run blocked by the lock exits 2 and says so on stdout.
+- [x] `CI=true bin/qa` exits 0 in this repository.
 
 ## Delivery & Milestones
 
@@ -176,4 +176,9 @@ returns **exit 3** and writes `status: "crashed"` for the specified path.
      "when" — do not add dates). The blow-by-blow activity log lives in
      JOURNAL/00012-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
-- <!-- milestone or delivery commit hash -->
+- `1ea85cb` — the plan, with the measured cost of the current per-edit output
+- `6bea0d2` — the pure core: report DTOs, the JSON parser, the writer, the terse stdout
+- `88c72a5` — the flag, the environment equivalent, the capability gate and the PHPStan lane
+- `a15da62` — `docs/agent-mode.md`, the consumer wiring, and conformance to the harness
+- [PR 34](https://github.com/LongTermSupport/php-qa-ci/pull/34) against `php8.5`, CI green on `a15da62`. Not merged: the Owner decides.
+- Proven end to end from a consuming project. A clean file falls from 54 lines of stdout to 2, and a file with 108 findings from 419 to 3.
