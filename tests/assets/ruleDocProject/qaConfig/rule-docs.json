@@ -1,0 +1,9 @@
+{
+    "indexes": [
+        "docs/qa-rules.md",
+        {
+            "path": "docs/extra-rules.md",
+            "rulesDir": "qaConfig/PHPStan/Rules"
+        }
+    ]
+}
