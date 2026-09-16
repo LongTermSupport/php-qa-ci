@@ -6,14 +6,26 @@
  * documentation. Offline, from the installed package.
  *
  *   bin/rule-doc phpqaci.nullCoalescingFalse
- *   bin/rule-doc --list          # every identifier the package documents
+ *   bin/rule-doc --list          # every identifier resolvable here
+ *
+ * A consuming project's own identifiers resolve too, from the indexes it
+ * declares in qaConfig/rule-docs.json -- otherwise a project's rules print
+ * identifiers its own developers cannot look up.
  */
 
 require __DIR__.'/bootstrap.php';
 
+// The consuming project is the parent of the vendor directory the autoloader
+// came from; running inside this package, that is this package, which declares
+// no project index and so changes nothing.
+$projectRoot = isset($phpQaCiBootstrapAutoloadPath) && \is_string($phpQaCiBootstrapAutoloadPath)
+    ? \dirname($phpQaCiBootstrapAutoloadPath, 2)
+    : null;
+$resolver = new \LTS\PHPQA\PHPStan\RuleDocResolver(\dirname(__DIR__), $projectRoot);
+
 $identifier = $argv[1] ?? null;
 if ('--list' === $identifier) {
-    echo implode("\n", (new \LTS\PHPQA\PHPStan\RuleDocResolver(\dirname(__DIR__)))->identifiers())."\n";
+    echo implode("\n", $resolver->identifiers())."\n";
     exit(0);
 }
 if (null === $identifier || '' === $identifier || str_starts_with($identifier, '-')) {
@@ -22,7 +34,7 @@ if (null === $identifier || '' === $identifier || str_starts_with($identifier, '
 }
 
 try {
-    echo (new \LTS\PHPQA\PHPStan\RuleDocResolver(\dirname(__DIR__)))->render($identifier);
+    echo $resolver->render($identifier);
 } catch (\InvalidArgumentException $e) {
     fwrite(STDERR, $e->getMessage()."\n");
     exit(1);

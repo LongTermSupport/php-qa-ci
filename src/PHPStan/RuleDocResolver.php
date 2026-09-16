@@ -30,8 +30,28 @@ final readonly class RuleDocResolver
     /** Doc targets are written relative to the index, so they resolve against its directory. */
     private const string DOCS_DIR = '/docs/phpstan-rules/';
 
-    /** Identifier and class cells, then the rest of the row; the trailing cells vary by bundle. */
-    private const string ROW_PATTERN = '/^\| `(phpqaci\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
+    /**
+     * Identifier and class cells, then the rest of the row; the trailing cells
+     * vary by bundle. The identifier prefix is not pinned to this package's
+     * own: a consuming project publishes its rules under its own prefix, in its
+     * own index, and the row shape is the same one.
+     */
+    private const string ROW_PATTERN = '/^\| `([A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
+
+    /** Where a project declares the indexes carrying its own identifiers. */
+    private const string PROJECT_DECLARATION = '/qaConfig/rule-docs.json';
+
+    /**
+     * Column headings that name the cell describing what a rule forbids. A
+     * project puts that cell wherever it likes and commonly ends the row with
+     * provenance instead, so reading the trailing cell answers "Plan 00032"
+     * rather than the rule. An index using none of these keeps the trailing
+     * cell, which is what this package's own index relies on.
+     */
+    private const array SUMMARY_HEADINGS = ['forbids', 'summary', 'description', 'what'];
+
+    /** Identifier and class occupy the first two cells; a trailing-cell index counts from there. */
+    private const int LEADING_CELLS = 2;
 
     /** Where a row's class cell is found when it is a path — how a pipeline lane names itself. */
     private const string SRC_DIR = '/src/';
@@ -53,7 +73,11 @@ final readonly class RuleDocResolver
      */
     private const string LINK_PATTERN = '/\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)]+)\)/';
 
-    public function __construct(private string $repoRoot)
+    /**
+     * @param string|null $projectRoot the consuming project, when there is one, so its own
+     *                                 identifiers resolve alongside this package's
+     */
+    public function __construct(private string $repoRoot, private ?string $projectRoot = null)
     {
     }
 
@@ -133,18 +157,133 @@ final readonly class RuleDocResolver
     /** @return array<string, RuleDocEntryDto> */
     private function entries(): array
     {
-        $entries = [];
-        foreach (explode("\n", \Safe\file_get_contents($this->repoRoot . self::INDEX)) as $line) {
-            $entry = $this->matchRow($line);
-            if ($entry instanceof RuleDocEntryDto) {
-                $entries[$entry->identifier] = $entry;
+        $entries = $this->entriesFrom(
+            $this->repoRoot . self::INDEX,
+            $this->repoRoot . self::DOCS_DIR,
+            $this->repoRoot . self::RULES_DIR,
+            $this->repoRoot . self::SRC_DIR,
+        );
+
+        // A project catalogue is read second and does not overwrite a shipped
+        // identifier: this package owns the phpqaci.* namespace, and a project
+        // shadowing one of ours would make a failure resolve to the wrong page.
+        foreach ($this->projectCatalogues() as $catalogue) {
+            foreach ($this->entriesFrom(...$catalogue) as $identifier => $entry) {
+                $entries[$identifier] ??= $entry;
             }
         }
 
         return $entries;
     }
 
-    private function matchRow(string $line): ?RuleDocEntryDto
+    /**
+     * Every index a project declares, as the four roots a row resolves against.
+     *
+     * The declaration is `qaConfig/rule-docs.json`: an `indexes` list whose
+     * entries are either a project-relative path to the index, or an object
+     * with that `path` plus a `rulesDir` for resolving a bare class cell. Doc
+     * links always resolve against the index's own directory, exactly as they
+     * do in this package's index.
+     *
+     * Malformed or absent declarations yield nothing rather than throwing. A
+     * practitioner runs this holding a failing identifier; taking the whole
+     * lookup down over the shape of a config file would answer nothing at all.
+     *
+     * @return list<array{string, string, string, string}>
+     */
+    private function projectCatalogues(): array
+    {
+        if (null === $this->projectRoot || !is_file($this->projectRoot . self::PROJECT_DECLARATION)) {
+            return [];
+        }
+
+        $declared = \Safe\json_decode(\Safe\file_get_contents($this->projectRoot . self::PROJECT_DECLARATION), true);
+        if (!\is_array($declared) || !isset($declared['indexes']) || !\is_array($declared['indexes'])) {
+            return [];
+        }
+
+        $catalogues = [];
+        foreach ($declared['indexes'] as $entry) {
+            $path     = \is_string($entry) ? $entry : null;
+            $rulesDir = null;
+            if (\is_array($entry)) {
+                $path     = \is_string($entry['path'] ?? null) ? $entry['path'] : null;
+                $rulesDir = \is_string($entry['rulesDir'] ?? null) ? $entry['rulesDir'] : null;
+            }
+
+            if (null === $path) {
+                continue;
+            }
+
+            $index = $this->projectRoot . '/' . ltrim($path, '/');
+            if (!is_file($index)) {
+                continue;
+            }
+
+            $rulesRoot = null === $rulesDir
+                ? \dirname($index) . '/'
+                : $this->projectRoot . '/' . trim($rulesDir, '/') . '/';
+
+            $catalogues[] = [$index, \dirname($index) . '/', $rulesRoot, $this->projectRoot . '/'];
+        }
+
+        return $catalogues;
+    }
+
+    /** @return array<string, RuleDocEntryDto> */
+    private function entriesFrom(string $index, string $docsDir, string $rulesDir, string $srcDir): array
+    {
+        $entries = [];
+
+        // Tracked per table, not per file: one index can carry several tables
+        // with different columns, and a header held across a blank line would
+        // read the next table by the previous one's shape.
+        $summaryIndex = null;
+
+        foreach (explode("\n", \Safe\file_get_contents($index)) as $line) {
+            if (!str_starts_with(ltrim($line), '|')) {
+                $summaryIndex = null;
+
+                continue;
+            }
+
+            $entry = $this->matchRow($line, $docsDir, $rulesDir, $srcDir, $summaryIndex);
+            if ($entry instanceof RuleDocEntryDto) {
+                $entries[$entry->identifier] = $entry;
+
+                continue;
+            }
+
+            $heading = $this->summaryIndexFrom($line);
+            if (null !== $heading) {
+                $summaryIndex = $heading;
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * The trailing-cell index a header row names as the summary, or null when
+     * the row is not a header or names none of the recognised headings.
+     */
+    private function summaryIndexFrom(string $line): ?int
+    {
+        $cells = array_values(array_filter(
+            array_map(trim(...), explode('|', $line)),
+            static fn (string $cell): bool => '' !== $cell,
+        ));
+
+        foreach ($cells as $position => $cell) {
+            if ($position >= self::LEADING_CELLS && \in_array(strtolower($cell), self::SUMMARY_HEADINGS, true)) {
+                return $position - self::LEADING_CELLS;
+            }
+        }
+
+        return null;
+    }
+
+    private function matchRow(string $line, string $docsDir, string $rulesDir, string $srcDir, ?int $summaryIndex): ?RuleDocEntryDto
     {
         if (1 !== \Safe\preg_match(self::ROW_PATTERN, $line, $matches) || !isset($matches[1], $matches[2], $matches[3])) {
             return null;
@@ -154,8 +293,10 @@ final readonly class RuleDocResolver
         $ruleClass  = $matches[2];
 
         $cells       = array_map(trim(...), explode('|', $matches[3]));
-        $requirement = array_last($cells);
-        $bundle      = $this->bundleFrom(...$cells);
+        $requirement = null !== $summaryIndex && isset($cells[$summaryIndex])
+            ? $cells[$summaryIndex]
+            : array_last($cells);
+        $bundle = $this->bundleFrom($summaryIndex, ...$cells);
 
         $summary = $requirement;
         $docPath = null;
@@ -170,7 +311,7 @@ final readonly class RuleDocResolver
                 // parses every row on any lookup. One dead link would stop bin/rule-doc
                 // answering for every other identifier — and the practitioner, who came to
                 // have a failure explained, would get "An error occurred".
-                $candidate = $this->repoRoot . self::DOCS_DIR . $target;
+                $candidate = $docsDir . $target;
                 $docPath   = is_file($candidate) ? \Safe\realpath($candidate) : null;
             }
         }
@@ -181,8 +322,8 @@ final readonly class RuleDocResolver
             summary: $summary,
             bundle: $bundle,
             sourcePath: str_contains($ruleClass, '/')
-                ? $this->repoRoot . self::SRC_DIR . $ruleClass . '.php'
-                : $this->repoRoot . self::RULES_DIR . $ruleClass . '.php',
+                ? $srcDir . $ruleClass . '.php'
+                : $rulesDir . $ruleClass . '.php',
             docPath: $docPath,
         );
     }
@@ -190,10 +331,19 @@ final readonly class RuleDocResolver
     /**
      * An opt-in row carries a bundle cell before the requirement; an always-on
      * row carries none and is therefore in rules-default.neon.
+     *
+     * Where a header named the summary column, that cell is removed first: a
+     * project whose summary sits in cell 0 would otherwise have its own rule
+     * description reported as the bundle it belongs to.
      */
-    private function bundleFrom(string ...$cells): string
+    private function bundleFrom(?int $summaryIndex, string ...$cells): string
     {
         $cells = array_values($cells);
+        if (null !== $summaryIndex && isset($cells[$summaryIndex])) {
+            unset($cells[$summaryIndex]);
+            $cells = array_values($cells);
+        }
+
         if (\count($cells) < 2) {
             return 'rules-default.neon';
         }

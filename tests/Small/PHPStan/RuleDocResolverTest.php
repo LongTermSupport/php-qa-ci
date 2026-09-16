@@ -41,12 +41,21 @@ final class RuleDocResolverTest extends TestCase
     /** Its own root: the resolver parses every row on any lookup, so a dead link is contagious. */
     private const string DEAD_LINK_ROOT = __DIR__ . '/../../assets/ruleDocResolverDeadLink';
 
+    /** The shipped rule these tests use as a worked example, as the index spells its class. */
+    private const string EMPTY_CATCH_RULE_CLASS = 'ForbidEmptyCatchBlockRule';
+
+    /** A project row whose summary column is not the trailing cell. */
+    private const string PROJECT_RULE = 'fixtureApp.projectRule';
+
+    /** The same, for the row that also carries a remediation link. */
+    private const string PROJECT_RULE_LINKED = 'fixtureApp.projectRuleLinked';
+
     #[Test]
     public function anIdentifierWithARemediationPageResolvesToThatPage(): void
     {
         $entry = $this->resolver()->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER);
 
-        self::assertSame('ForbidEmptyCatchBlockRule', $entry->ruleClass);
+        self::assertSame(self::EMPTY_CATCH_RULE_CLASS, $entry->ruleClass);
         self::assertNotNull($entry->docPath);
         self::assertFileExists($entry->docPath);
         self::assertStringEndsWith('docs/phpstan-rules/forbid-empty-catch-block.md', $entry->docPath);
@@ -149,7 +158,7 @@ final class RuleDocResolverTest extends TestCase
         $rendered = $this->resolver()->render(ForbidEmptyCatchBlockRule::IDENTIFIER);
 
         self::assertStringStartsWith(ForbidEmptyCatchBlockRule::IDENTIFIER, $rendered);
-        self::assertStringContainsString('ForbidEmptyCatchBlockRule', $rendered);
+        self::assertStringContainsString(self::EMPTY_CATCH_RULE_CLASS, $rendered);
         self::assertStringContainsString('## The correct construction', $rendered);
     }
 
@@ -162,6 +171,116 @@ final class RuleDocResolverTest extends TestCase
         self::assertFileExists($entry->sourcePath);
         self::assertNotNull($entry->docPath);
         self::assertStringEndsWith('docs/tools/configTemplateIgnoreListCheck.md', $entry->docPath);
+    }
+
+    #[Test]
+    public function aConsumingProjectsOwnIdentifierResolves(): void
+    {
+        // Without this a project's rule prints an identifier its own developers
+        // cannot look up: rule-doc answers "Unknown rule identifier" for every
+        // rule the project wrote, which is most of the ones they will hit.
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE);
+
+        self::assertSame('ProjectRule', $entry->ruleClass);
+        self::assertSame('A project rule with no remediation page', $entry->summary);
+    }
+
+    #[Test]
+    public function theSummaryComesFromTheNamedColumnNotTheTrailingCell(): void
+    {
+        // The fixture's columns are Identifier | Rule class | Forbids | Origin,
+        // which is what a consuming project actually writes. Reading the last
+        // cell would answer "Plan 00001" — the provenance, not the rule.
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE);
+
+        self::assertSame('A project rule with no remediation page', $entry->summary);
+        self::assertStringNotContainsString('Plan 00001', $entry->summary);
+    }
+
+    #[Test]
+    public function theRemediationLinkIsFoundInTheNamedColumnToo(): void
+    {
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE_LINKED);
+
+        self::assertSame('A project rule that links to a page', $entry->summary);
+        self::assertNotNull($entry->docPath);
+    }
+
+    #[Test]
+    public function eachTableInAFileIsReadWithItsOwnHeader(): void
+    {
+        // Two tables, different summary columns, prose between them. A header
+        // resolved once per file would give one of these the other's column.
+        $resolver = $this->projectResolver();
+
+        self::assertSame('A rule from a second catalogue', $resolver->resolve('fixtureApp.extraRule')->summary);
+        self::assertSame('A rule whose summary column comes last', $resolver->resolve('fixtureApp.lateRule')->summary);
+    }
+
+    #[Test]
+    public function anIndexWithNoRecognisedSummaryHeaderStillUsesTheTrailingCell(): void
+    {
+        // The shipped index heads its column "Requirement", which is not in the
+        // recognised set, so the fallback is what keeps this package working.
+        $entry = $this->resolver()->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER);
+
+        self::assertNotSame('', $entry->summary);
+        self::assertNotNull($entry->docPath);
+    }
+
+    #[Test]
+    public function aProjectRowsRemediationPageResolvesRelativeToItsOwnIndex(): void
+    {
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE_LINKED);
+
+        self::assertNotNull($entry->docPath);
+        self::assertFileExists($entry->docPath);
+        self::assertStringEndsWith('ruleDocProject/docs/project-rule.md', $entry->docPath);
+        self::assertStringContainsString('Project rule remediation page', $this->projectResolver()->render(self::PROJECT_RULE_LINKED));
+    }
+
+    #[Test]
+    public function aDeclaredRulesDirResolvesABareClassCellUnderTheProject(): void
+    {
+        $entry = $this->projectResolver()->resolve('fixtureApp.extraRule');
+
+        self::assertFileExists($entry->sourcePath);
+        self::assertStringEndsWith('qaConfig/PHPStan/Rules/ExtraRule.php', $entry->sourcePath);
+    }
+
+    #[Test]
+    public function thePackagesOwnIdentifiersStillResolveAlongsideAProjects(): void
+    {
+        $resolver = $this->projectResolver();
+
+        self::assertSame(self::EMPTY_CATCH_RULE_CLASS, $resolver->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER)->ruleClass);
+        self::assertContains(self::PROJECT_RULE, $resolver->identifiers());
+        self::assertContains(ForbidEmptyCatchBlockRule::IDENTIFIER, $resolver->identifiers());
+    }
+
+    #[Test]
+    public function aProjectWithNoRuleDocsFileIsUnaffected(): void
+    {
+        $resolver = new RuleDocResolver(self::REPO_ROOT, self::FIXTURE_ROOT);
+
+        self::assertSame(
+            new RuleDocResolver(self::REPO_ROOT)->identifiers(),
+            $resolver->identifiers(),
+            'declaring no project index must change nothing',
+        );
+    }
+
+    #[Test]
+    public function anIdentifierInNoCatalogueIsStillReportedAsSuch(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->projectResolver()->resolve('fixtureApp.noSuchRule');
+    }
+
+    private function projectResolver(): RuleDocResolver
+    {
+        return new RuleDocResolver(self::REPO_ROOT, __DIR__ . '/../../assets/ruleDocProject');
     }
 
     private function resolver(): RuleDocResolver

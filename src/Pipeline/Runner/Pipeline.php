@@ -27,6 +27,14 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class Pipeline
 {
+    /**
+     * Contention is not a verdict on the code. A caller that cannot tell it
+     * apart from exit 1 reports someone else's run as this project's defect,
+     * which is what a consumer's editor hook did. 75 is the conventional
+     * EX_TEMPFAIL: nothing is wrong, try again.
+     */
+    public const int EXIT_LOCK_CONTENDED = 75;
+
     public function __construct(
         private ToolRegistry $registry,
         private ToolExecutor $executor,
@@ -51,7 +59,7 @@ final readonly class Pipeline
         $lockTool = null === $config->singleTool ? 'full pipeline' : $config->singleTool;
         $lockPath = null === $config->specifiedPath ? 'whole project' : $config->specifiedPath;
         if (!$this->lock->acquire($lockTool, $lockPath, $this->hostname, $this->pid)) {
-            return $config->agentMode ? $this->reportLockHeld($context, $lockTool) : 1;
+            return $config->agentMode ? $this->reportLockHeld($context, $lockTool) : self::EXIT_LOCK_CONTENDED;
         }
 
         // A lane that throws must not leave the lock behind: the next run would

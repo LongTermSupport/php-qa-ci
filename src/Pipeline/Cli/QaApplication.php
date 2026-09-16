@@ -225,6 +225,17 @@ final readonly class QaApplication
             return 1;
         }
 
+        if (Pipeline::EXIT_LOCK_CONTENDED === $exit) {
+            // On stderr and on one line, because the caller that most needs this
+            // is an editor hook reading a pipe, not a human reading the banner.
+            new StreamOutput($this->stderrStream)->writeln(\sprintf(
+                'qa: another QA run holds the lock; nothing was checked (exit %d, not a QA failure).',
+                Pipeline::EXIT_LOCK_CONTENDED,
+            ));
+
+            return $exit;
+        }
+
         $decoration->writeln('');
         $decoration->writeln(self::RULE);
         $decoration->writeln(\sprintf('%s qa %s COMPLETED', \Safe\gethostname(), implode(' ', $this->argv)));

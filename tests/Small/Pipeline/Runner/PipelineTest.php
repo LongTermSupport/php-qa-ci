@@ -230,9 +230,21 @@ final class PipelineTest extends TestCase
         $holder  = RunLock::forProject($this->factory->project->path, $this->factory->output);
         $holder->acquire('unit', '', 'other-host', 999);
 
-        self::assertSame(1, $this->pipeline()->run($context));
+        self::assertSame(Pipeline::EXIT_LOCK_CONTENDED, $this->pipeline()->run($context));
         self::assertStringContainsString('Another QA run holds the lock', $this->factory->output->fetch());
         self::assertSame(0, $this->tools->stub('rector')->runs);
+    }
+
+    #[Test]
+    public function aGenuineToolFailureStillExitsOne(): void
+    {
+        // The other half of the contention contract: a real defect keeps exit 1,
+        // so the distinct contention code stays meaningful. That the two codes
+        // differ is guaranteed by the constant's type, not asserted here.
+        $this->tools->register(new StubTool(self::PHP_LINT, ToolResultDto::failed('a real defect')));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::PHP_LINT)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
     }
 
     #[Test]

@@ -62,6 +62,12 @@ final class PhpstanToolTest extends TestCase
 
     private const string CRASHED = 'crashed';
 
+    private const string NO_ERRORS = "[OK] No errors\n";
+
+    private const string PHAR_SCHEME = 'phar://';
+
+    private const string NEON_LIST_ITEM = '        - ';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -77,7 +83,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function aCleanRunWritesTheWrapperNeonRunsThePharAndArchivesTheLog(): void
     {
-        $this->factory->processes->willSucceed("[OK] No errors\n");
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
         $config = $this->factory->builder(ci: true)->build();
 
         $result  = new PhpstanTool()->run($this->factory->context($config));
@@ -88,7 +94,7 @@ final class PhpstanToolTest extends TestCase
 
         $logDir  = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR;
         $wrapper = $logDir . '/' . PhpstanTool::WRAPPER_NEON;
-        self::assertSame(
+        self::assertStringStartsWith(
             "includes:\n    - " . \dirname(__DIR__, 4) . "/configDefaults/generic/phpstan.neon\n\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 2\n",
             \Safe\file_get_contents($wrapper),
         );
@@ -102,11 +108,48 @@ final class PhpstanToolTest extends TestCase
         self::assertSame($this->factory->project->path, $spec->cwd);
         self::assertTrue($spec->streamOutput);
 
-        self::assertSame("[OK] No errors\n", \Safe\file_get_contents($logDir . '/' . PhpstanTool::LOG_FILE));
+        self::assertSame(self::NO_ERRORS, \Safe\file_get_contents($logDir . '/' . PhpstanTool::LOG_FILE));
         $archived = array_filter($this->factory->project->files(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR), static fn (string $f): bool => 1 === \Safe\preg_match('/^phpstan\.\d{8}-\d{6}\.log$/', $f));
         self::assertCount(1, $archived, 'the text log is archived with a timestamp');
         self::assertStringContainsString('Full test suite run', $printed);
         self::assertSame('', $this->factory->stdout->fetch(), 'text mode never touches the real stdout');
+    }
+
+    #[Test]
+    public function theWrapperLetsPhpstanDiscoverThePharToolsConfigApis(): void
+    {
+        // qaConfig/phparkitect.php and qaConfig/composer-dependency-analyser.php
+        // name classes that live only inside the matching phar, so without this
+        // every project's per-file run on those files is red for ever with
+        // class.notFound errors nobody can act on.
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
+        self::assertStringContainsString("    scanDirectories:\n", $wrapper);
+        self::assertStringContainsString(self::PHAR_SCHEME . \dirname(__DIR__, 4) . "/vendor-phar/phparkitect.phar/src\n", $wrapper);
+        self::assertStringContainsString(self::PHAR_SCHEME . \dirname(__DIR__, 4) . '/vendor-phar/composer-dependency-analyser.phar/', $wrapper);
+    }
+
+    #[Test]
+    public function theScannedDirectoriesComeFromEachPharsOwnAutoloadMap(): void
+    {
+        // Reading the phar's map rather than hardcoding its layout is what keeps
+        // this correct when a phar is rebuilt with its sources somewhere else.
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
+        foreach (['phparkitect.phar', 'composer-dependency-analyser.phar'] as $phar) {
+            $map = self::PHAR_SCHEME . \dirname(__DIR__, 4) . '/vendor-phar/' . $phar . '/vendor/composer/autoload_psr4.php';
+            self::assertFileExists($map, 'the map this lane reads must exist in the shipped phar');
+        }
+
+        foreach ($this->scannedDirectories($wrapper) as $directory) {
+            self::assertDirectoryExists($directory, 'a scanned directory that does not exist would make PHPStan crash');
+        }
     }
 
     #[Test]
@@ -164,7 +207,7 @@ final class PhpstanToolTest extends TestCase
             'type-coverage reports nothing when the analysed paths differ from the configured ones',
         );
         foreach ($config->pathsToCheck as $path) {
-            self::assertStringContainsString('        - ' . $path . "\n", \Safe\file_get_contents($wrapper));
+            self::assertStringContainsString(self::NEON_LIST_ITEM . $path . "\n", \Safe\file_get_contents($wrapper));
         }
     }
 
@@ -517,6 +560,30 @@ final class PhpstanToolTest extends TestCase
             explode("\n", trim($this->factory->stdout->fetch())),
             static fn (string $line): bool => '' !== trim($line),
         ));
+    }
+
+    /** @return list<string> */
+    private function scannedDirectories(string $wrapper): array
+    {
+        $directories = [];
+        $inside      = false;
+        foreach (explode("\n", $wrapper) as $line) {
+            if ('    scanDirectories:' === $line) {
+                $inside = true;
+
+                continue;
+            }
+
+            if ($inside) {
+                if (!str_starts_with($line, self::NEON_LIST_ITEM)) {
+                    break;
+                }
+
+                $directories[] = substr($line, \strlen(self::NEON_LIST_ITEM));
+            }
+        }
+
+        return $directories;
     }
 
     /** @return list<string> everything after the "--" separator */

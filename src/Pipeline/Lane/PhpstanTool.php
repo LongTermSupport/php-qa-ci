@@ -51,6 +51,11 @@ final readonly class PhpstanTool implements ToolInterface
 
     private const string ERRORS_FOUND = 'PHPStan found errors';
 
+    private const array PHAR_CONFIG_APIS = [
+        'phparkitect.phar'                  => 'Arkitect\\',
+        'composer-dependency-analyser.phar' => 'ShipMonk\ComposerDependencyAnalyser\\',
+    ];
+
     private const string TAUTOLOGY_PATTERN = '/alreadyNarrowedType|alwaysTrue|alwaysFalse|impossibleCheck/';
 
     private const string TAUTOLOGY_NOTE = <<<'TAUTOLOGY'
@@ -273,6 +278,14 @@ final readonly class PhpstanTool implements ToolInterface
             $context->config->halfCpuThreads,
         );
 
+        $scanDirectories = $this->pharConfigApiDirectories($context->config->paths->pharDir);
+        if ([] !== $scanDirectories) {
+            $neon .= "    scanDirectories:\n";
+            foreach ($scanDirectories as $directory) {
+                $neon .= \sprintf("        - %s\n", $directory);
+            }
+        }
+
         $config = $context->config;
         if ($config->typeCoverage->enabled()) {
             $neon .= "    type_coverage:\n";
@@ -291,6 +304,50 @@ final readonly class PhpstanTool implements ToolInterface
         \Safe\file_put_contents($wrapper, $neon);
 
         return $wrapper;
+    }
+
+    /**
+     * The source directories of the phar tools' public config APIs, so PHPStan
+     * can discover those symbols.
+     *
+     * A project's `qaConfig/phparkitect.php` and `qaConfig/composer-dependency-analyser.php`
+     * are ordinary PHP files naming classes that exist only inside the matching
+     * phar. Analysed with no way to reach those classes they produce a hundred
+     * `class.notFound` errors, so the per-file run on them is red for ever and
+     * red at nothing the consumer can fix. Scanning is discovery only: PHPStan
+     * parses the sources for symbols and executes nothing.
+     *
+     * Each phar's own Composer PSR-4 map is the source of truth, already
+     * resolved to `phar://` paths, so a rebuilt phar that moves its sources
+     * keeps working rather than silently going back to red. PHAR_CONFIG_APIS
+     * names the phars a project writes a `qaConfig/` file against, each mapped
+     * to the PSR-4 prefix its config API lives under.
+     *
+     * @return list<string>
+     */
+    private function pharConfigApiDirectories(string $pharDir): array
+    {
+        $directories = [];
+        foreach (self::PHAR_CONFIG_APIS as $phar => $prefix) {
+            $pharPath = $pharDir . '/' . $phar;
+            $map      = 'phar://' . $pharPath . '/vendor/composer/autoload_psr4.php';
+            if (!is_file($pharPath) || !is_file($map)) {
+                continue;
+            }
+
+            $loaded = require $map;
+            if (!\is_array($loaded) || !isset($loaded[$prefix]) || !\is_array($loaded[$prefix])) {
+                continue;
+            }
+
+            foreach ($loaded[$prefix] as $directory) {
+                if (\is_string($directory) && is_dir($directory)) {
+                    $directories[] = $directory;
+                }
+            }
+        }
+
+        return $directories;
     }
 
     /**
