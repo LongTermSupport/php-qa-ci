@@ -84,6 +84,15 @@ template_body = template_path.read_text()
 # Normalise: ensure template_body ends with exactly one newline (no trailing blanks).
 template_body = template_body.rstrip("\n") + "\n"
 
+# Guarantee a blank line before the closing tag. Without one the tag can end up
+# directly beneath a bullet, where a markdown formatter reads it as list
+# continuation and indents it. The block then differs from the template on the
+# next deploy, gets rewritten, and the churn is committed to whatever branch is
+# checked out -- for ever, because the formatter re-indents it again.
+head, separator, tail = template_body.rpartition(close_tag)
+if separator:
+    template_body = head.rstrip("\n") + "\n\n" + close_tag + tail
+
 open_count = target_content.count(open_tag)
 close_count = target_content.count(close_tag)
 
