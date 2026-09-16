@@ -83,7 +83,11 @@ clone required:
 
 PHP-QA-CI is a quality assurance pipeline for PHP projects. It orchestrates the standard PHP
 quality tools in a fixed sequence designed to fail fast and give rapid feedback. The pipeline
-itself is PHP: `bin/qa` is a PHP entrypoint and every lane is a class under `src/Pipeline/`.
+itself is PHP: `bin/qa` is a one-line shell shim over `bin/qa.php`, and every lane is a class
+under `src/Pipeline/`. The shim exists so `./bin/qa`, `bash bin/qa` and `sh bin/qa` all reach
+the same pipeline; a PHP file behind a `php` shebang answers only the first and gives the
+others a shell syntax error. It selects the interpreter with `PHP_QA_CI_PHP_EXECUTABLE`, the
+same variable the pipeline honours for every tool it spawns.
 
 ### Real scripting is PHP, not Bash (owner ruling, non-negotiable)
 
@@ -107,7 +111,7 @@ invocation shell of the maintainer scripts under `scripts/`.
 
 ### Core Components
 
-1. **Entrypoint**: `bin/qa` boots [src/Pipeline/Cli/QaApplication.php](src/Pipeline/Cli/QaApplication.php), the composition root that parses arguments, reads the environment, builds the configuration and runs the pipeline
+1. **Entrypoint**: `bin/qa` (a shell shim) runs `bin/qa.php`, which boots [src/Pipeline/Cli/QaApplication.php](src/Pipeline/Cli/QaApplication.php), the composition root that parses arguments, reads the environment, builds the configuration and runs the pipeline
 2. **Tool registry**: [src/Pipeline/Tool/ToolRegistry.php](src/Pipeline/Tool/ToolRegistry.php) is the single source of truth for tool names, `-t` aliases, phase membership and order, path support, gates and banners; the CLI usage text is derived from it. Each phase is a [PhaseDto](src/Pipeline/Tool/Dto/PhaseDto.php) that contributes its own `all*` runner
 3. **Lanes**: one `ToolInterface` class per tool under [src/Pipeline/Lane/](src/Pipeline/Lane/), wired by name in [src/Pipeline/Tool/ShippedTools.php](src/Pipeline/Tool/ShippedTools.php). **A new tool extends the public CLI/agent API** (`-t` tokens, help text, pipeline order, a stable identifier, a docs page), so whether a check is a new tool or an assertion inside an existing one is a considered decision — the test to apply is in [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md)
 4. **Pipeline builder**: [src/Pipeline/Tool/PipelineBuilder.php](src/Pipeline/Tool/PipelineBuilder.php) assembles the registry and the lane map the run uses; `defaults()` is the shipped pipeline, and immutable withers add a phase, set the phase order or add a tool without forking the registry. A project extends it from `qaConfig/pipeline.php` (see [docs/extending-the-pipeline.md](docs/extending-the-pipeline.md))
@@ -119,7 +123,7 @@ invocation shell of the maintainer scripts under `scripts/`.
 
 When you run `vendor/bin/qa` in your project:
 
-1. `bin/qa` locates the project's `vendor/autoload.php`; the project root is its parent directory and the library root is the directory `bin/qa` lives in
+1. `bin/qa` execs `bin/qa.php`, which locates the project's `vendor/autoload.php`; the project root is its parent directory and the library root is the directory both files live in
 2. `QaApplication` parses the arguments, reads the environment, resolves the project paths and detects the platform
 3. The configuration is built from the shipped defaults, then adjusted by `qaConfig/qa.php` if present
 4. Tools run from your project's bin directory and the library's `vendor-phar/` (never from php-qa-ci's own `vendor/`)

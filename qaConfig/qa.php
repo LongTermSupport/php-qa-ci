@@ -33,7 +33,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/package-type-check',
         'bin/phpstan-ignore-justification',
         'bin/psr4-validate',
-        'bin/qa',
+        'bin/qa.php',
         'bin/rule-doc',
         'bin/rules',
         'bin/sensitive-parameter-usage',

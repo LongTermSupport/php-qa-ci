@@ -1,33 +1,19 @@
-#!/usr/bin/env php
-<?php declare(strict_types=1);
+#!/usr/bin/env sh
+# The php-qa-ci pipeline entrypoint.
+#
+# This is a shell shim rather than the PHP file itself so that every plausible
+# way of reaching it works. A PHP file behind a `php` shebang runs correctly
+# only when executed directly; hand it to a shell -- `bash bin/qa`, which is a
+# habit no amount of documentation prevents -- and the shell reports a syntax
+# error on the `<?php` line, naming neither PHP nor this file's real nature.
+#
+# The PHP lives in qa.php next to this file. PHP_QA_CI_PHP_EXECUTABLE selects
+# the interpreter, the same variable the pipeline honours for every tool it
+# spawns, so the entrypoint and the tools cannot disagree about which PHP is
+# in use.
 
-// The php-qa-ci pipeline entrypoint (see LTS\PHPQA\Pipeline\Cli\QaApplication).
+set -eu
 
-require __DIR__.'/bootstrap.php';
+phpQaCiBin="$(dirname "$0")"
 
-use LTS\PHPQA\Pipeline\Cli\QaApplication;
-use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
-
-// bootstrap.php found the autoloader either three levels up (installed under
-// vendor/lts/php-qa-ci) or under this package's own vendor/; the project root
-// is the parent of that vendor directory.
-if (!isset($phpQaCiBootstrapAutoloadPath) || !\is_string($phpQaCiBootstrapAutoloadPath)) {
-    fwrite(\STDERR, "bootstrap.php did not report the autoloader path\n");
-    exit(1);
-}
-$projectRoot = \dirname($phpQaCiBootstrapAutoloadPath, 2);
-$libraryRoot = \dirname(__DIR__);
-
-$app = new QaApplication(
-    argv: array_slice($argv ?? [], 1),
-    env: EnvironmentReader::fromProcess(),
-    projectRoot: $projectRoot,
-    libraryRoot: $libraryRoot,
-    stdoutStream: \STDOUT,
-    stderrStream: \STDERR,
-    stdinStream: \STDIN,
-    stdinIsTty: stream_isatty(\STDIN),
-    stdoutIsTty: stream_isatty(\STDOUT),
-);
-
-exit($app->run());
+exec "${PHP_QA_CI_PHP_EXECUTABLE:-php}" "${phpQaCiBin}/qa.php" "$@"

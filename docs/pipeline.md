@@ -4,7 +4,7 @@ PHPQA runs tools in a sequence designed to fail as quickly as possible, making i
 
 The tools are organised into four phases. Code modification runs first (so later phases validate the final state of the code), followed by linting, static analysis, and testing. There is no point running static analysis on code that has not yet been auto-fixed, and no point running tests if the code has syntax errors.
 
-The pipeline is PHP. `bin/qa` boots [QaApplication](../src/Pipeline/Cli/QaApplication.php), which builds the configuration, wires the services and hands a [ToolContext](../src/Pipeline/Tool/ToolContext.php) to the [Pipeline](../src/Pipeline/Runner/Pipeline.php) runner. Each tool is a lane: one `ToolInterface` class under [src/Pipeline/Lane/](../src/Pipeline/Lane/), located by name through [ShippedToolLocator](../src/Pipeline/Runner/ShippedToolLocator.php) so a project's `qaConfig/tools/<name>.php` can replace it, and run by [ToolExecutor](../src/Pipeline/Runner/ToolExecutor.php).
+The pipeline is PHP. `bin/qa` is a shell shim over `bin/qa.php`, so `./bin/qa`, `bash bin/qa` and `sh bin/qa` all work; it boots [QaApplication](../src/Pipeline/Cli/QaApplication.php), which builds the configuration, wires the services and hands a [ToolContext](../src/Pipeline/Tool/ToolContext.php) to the [Pipeline](../src/Pipeline/Runner/Pipeline.php) runner. Each tool is a lane: one `ToolInterface` class under [src/Pipeline/Lane/](../src/Pipeline/Lane/), located by name through [ShippedToolLocator](../src/Pipeline/Runner/ShippedToolLocator.php) so a project's `qaConfig/tools/<name>.php` can replace it, and run by [ToolExecutor](../src/Pipeline/Runner/ToolExecutor.php).
 
 ## Fail-fast, aggregate and retries
 

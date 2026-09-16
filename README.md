@@ -58,7 +58,7 @@ human may.
 
 ## Architecture
 
-The pipeline is PHP. `bin/qa` is a PHP entrypoint that boots `LTS\PHPQA\Pipeline\Cli\QaApplication`;
+The pipeline is PHP. `bin/qa` is a shell shim over `bin/qa.php`, which boots `LTS\PHPQA\Pipeline\Cli\QaApplication`;
 the orchestration lives under `src/Pipeline/` with one class per lane (`src/Pipeline/Lane/*Tool.php`),
 a declarative tool registry that owns the `-t` aliases and phase order, one process runner, and one
 run lock. Consumer configuration is PHP too: `qaConfig/qa.php` returns a closure adjusting a typed

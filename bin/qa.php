@@ -1,0 +1,34 @@
+<?php declare(strict_types=1);
+
+// The php-qa-ci pipeline entrypoint (see LTS\PHPQA\Pipeline\Cli\QaApplication).
+// Reached through bin/qa, which is the executable; this file has no shebang
+// because it is only ever run as an argument to a PHP binary.
+
+require __DIR__.'/bootstrap.php';
+
+use LTS\PHPQA\Pipeline\Cli\QaApplication;
+use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
+
+// bootstrap.php found the autoloader either three levels up (installed under
+// vendor/lts/php-qa-ci) or under this package's own vendor/; the project root
+// is the parent of that vendor directory.
+if (!isset($phpQaCiBootstrapAutoloadPath) || !\is_string($phpQaCiBootstrapAutoloadPath)) {
+    fwrite(\STDERR, "bootstrap.php did not report the autoloader path\n");
+    exit(1);
+}
+$projectRoot = \dirname($phpQaCiBootstrapAutoloadPath, 2);
+$libraryRoot = \dirname(__DIR__);
+
+$app = new QaApplication(
+    argv: array_slice($argv ?? [], 1),
+    env: EnvironmentReader::fromProcess(),
+    projectRoot: $projectRoot,
+    libraryRoot: $libraryRoot,
+    stdoutStream: \STDOUT,
+    stderrStream: \STDERR,
+    stdinStream: \STDIN,
+    stdinIsTty: stream_isatty(\STDIN),
+    stdoutIsTty: stream_isatty(\STDOUT),
+);
+
+exit($app->run());
