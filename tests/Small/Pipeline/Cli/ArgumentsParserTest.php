@@ -39,11 +39,15 @@ final class ArgumentsParserTest extends TestCase
 
     private const string AGENT_OPTION = '--agent-mode';
 
+    private const string BIN_DIR = 'vendor/bin';
+
+    private const string UNIT = 'unit';
+
     private ArgumentsParser $parser;
 
     protected function setUp(): void
     {
-        $this->parser = new ArgumentsParser(ToolRegistry::shipped(), 'vendor/bin');
+        $this->parser = new ArgumentsParser(ToolRegistry::shipped(), self::BIN_DIR);
     }
 
     #[Test]
@@ -70,7 +74,7 @@ final class ArgumentsParserTest extends TestCase
 
         self::assertSame('phpunit', $request->tool);
         self::assertSame('uniterate', $request->selectedToken);
-        self::assertNull($this->parser->parse('-t', 'unit')->selectedToken);
+        self::assertNull($this->parser->parse('-t', self::UNIT)->selectedToken);
     }
 
     #[Test]
@@ -106,7 +110,7 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function theEnvironmentTurnsAgentModeOnWithoutTouchingTheCommandLine(): void
     {
-        $fromEnv = new ArgumentsParser(ToolRegistry::shipped(), 'vendor/bin', agentModeFromEnvironment: true);
+        $fromEnv = new ArgumentsParser(ToolRegistry::shipped(), self::BIN_DIR, agentModeFromEnvironment: true);
 
         $request = $fromEnv->parse('-t', self::STAN, '-p', self::SRC);
 
@@ -123,7 +127,7 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function agentModeRefusesAToolThatCannotProduceAReportRatherThanSilentlyPrintingItsUsualOutput(): void
     {
-        $this->assertUsage("--agent-mode is not supported for 'phpunit'", false, self::AGENT_OPTION, '-t', 'unit');
+        $this->assertUsage("--agent-mode is not supported for 'phpunit'", false, self::AGENT_OPTION, '-t', self::UNIT);
         $this->assertUsage("--agent-mode is not supported for 'phpLint'", false, self::AGENT_OPTION, '-t', 'lint');
     }
 
@@ -139,7 +143,7 @@ final class ArgumentsParserTest extends TestCase
         $exception = null;
 
         try {
-            $this->parser->parse(self::AGENT_OPTION, '-t', 'unit');
+            $this->parser->parse(self::AGENT_OPTION, '-t', self::UNIT);
         } catch (UsageException $usageException) {
             $exception = $usageException;
         }
@@ -151,12 +155,12 @@ final class ArgumentsParserTest extends TestCase
     #[Test]
     public function theEnvironmentVariableIsSubjectToTheSameRefusalAsTheFlag(): void
     {
-        $fromEnv = new ArgumentsParser(ToolRegistry::shipped(), 'vendor/bin', agentModeFromEnvironment: true);
+        $fromEnv = new ArgumentsParser(ToolRegistry::shipped(), self::BIN_DIR, agentModeFromEnvironment: true);
 
         $this->expectException(UsageException::class);
-        $this->expectExceptionMessage("--agent-mode is not supported for 'phpunit'");
+        $this->expectExceptionMessageIsOrContains("--agent-mode is not supported for 'phpunit'");
 
-        $fromEnv->parse('-t', 'unit');
+        $fromEnv->parse('-t', self::UNIT);
     }
 
     #[Test]
@@ -205,7 +209,7 @@ final class ArgumentsParserTest extends TestCase
     public function jsonNeedsAToolThatSupportsIt(): void
     {
         $this->assertUsage('--json requires a single tool (-t)', false, self::JSON_OPTION);
-        $this->assertUsage("--json is not yet supported for 'phpunit'", false, self::JSON_OPTION, '-t', 'unit');
+        $this->assertUsage("--json is not yet supported for 'phpunit'", false, self::JSON_OPTION, '-t', self::UNIT);
     }
 
     #[Test]

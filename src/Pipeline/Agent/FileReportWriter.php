@@ -87,7 +87,7 @@ final class FileReportWriter
         $target   = $this->reportDir . '/' . $relative . self::REPORT_SUFFIX;
         $this->mkdirFor($target);
 
-        \Safe\file_put_contents($target, \Safe\json_encode($report->withPath($relative), self::JSON_FLAGS) . "\n");
+        \Safe\file_put_contents($target, $report->withPath($relative)->toJson());
 
         $this->written[$relative] = ['path' => $relative, 'error_count' => $report->errorCount(), 'report' => $target];
 
@@ -98,12 +98,14 @@ final class FileReportWriter
      * Write the run-level index over everything written since construction, so
      * a terse stdout can name one path however many files had findings.
      *
-     * @param list<string> $globalErrors findings that belong to the run rather than to a file
+     * `$globalErrors` are the findings that belong to the run rather than to
+     * any one file.
      */
-    public function writeIndex(string $tool, AgentStatusEnum $status, int $runAt, array $globalErrors): string
+    public function writeIndex(string $tool, AgentStatusEnum $status, int $runAt, string ...$globalErrors): string
     {
-        $files = array_values($this->written);
-        $index = [
+        $globalErrors = array_values($globalErrors);
+        $files        = array_values($this->written);
+        $index        = [
             'tool'          => $tool,
             'status'        => $status->value,
             'run_at'        => gmdate(FileReportDto::TIMESTAMP_FORMAT, $runAt),

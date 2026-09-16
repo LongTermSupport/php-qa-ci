@@ -16,6 +16,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * what it thinks it read instead of opening the report and fixing what is
  * actually there.
  *
+ * Refusing an unsupported tool is NOT here. That happens in ArgumentsParser,
+ * before a run exists at all, and its message is the usage error.
+ *
  * @internal
  */
 final readonly class TerseReporter
@@ -61,19 +64,6 @@ final readonly class TerseReporter
         $this->stdout->writeln(\sprintf('%s: %s — %s', $this->heading($tool), AgentStatusEnum::Crashed->value, $reason));
         $this->stdout->writeln(self::REPORT_PREFIX . $reportPath);
         $this->stdout->writeln(self::ACTION);
-    }
-
-    /**
-     * The selected tool has no agent-mode report to give. Refusing is the
-     * point: printing its ordinary output instead would leave the caller
-     * believing a report exists when none was written.
-     *
-     * @param list<string> $supported
-     */
-    public function unsupported(string $tool, array $supported): void
-    {
-        $this->stdout->writeln(\sprintf("AGENT MODE: '%s' does not support agent mode, so no report was produced.", $tool));
-        $this->stdout->writeln('Tools that do: ' . implode(', ', $supported));
     }
 
     private function heading(string $tool): string

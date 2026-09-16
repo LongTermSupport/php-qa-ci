@@ -17,24 +17,31 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class FileErrorDtoTest extends TestCase
 {
+    private const string NOT_FOUND = 'class.notFound';
+
+    private const string MESSAGE = 'boom';
+
+    private const string TIP = 'a tip';
+
     #[Test]
     public function everyDocumentedKeyIsPresentInTheDocumentedOrder(): void
     {
-        $error = new FileErrorDto(89, 'Call to static method allClasses() on an unknown class.', 'class.notFound', 'Learn more at https://phpstan.org/');
+        $error = new FileErrorDto(89, self::MESSAGE, self::NOT_FOUND, self::TIP);
 
         self::assertSame(
-            ['line', 'message', 'identifier', 'tip'],
-            array_keys($error->jsonSerialize()),
+            '{"line":89,"message":"boom","identifier":"class.notFound","tip":"a tip"}',
+            \Safe\json_encode($error),
+            'the key order is the wire contract a consumer reads, so it is pinned on the encoded form',
         );
     }
 
     #[Test]
     public function theValuesSurviveSerialisation(): void
     {
-        $error = new FileErrorDto(89, 'boom', 'class.notFound', 'a tip');
+        $error = new FileErrorDto(89, self::MESSAGE, self::NOT_FOUND, self::TIP);
 
         self::assertSame(
-            ['line' => 89, 'message' => 'boom', 'identifier' => 'class.notFound', 'tip' => 'a tip'],
+            ['line' => 89, 'message' => self::MESSAGE, 'identifier' => self::NOT_FOUND, 'tip' => self::TIP],
             $error->jsonSerialize(),
         );
     }

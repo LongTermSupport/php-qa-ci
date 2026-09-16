@@ -43,6 +43,14 @@ final readonly class PhpstanTool implements ToolInterface
 
     public const string WRAPPER_NEON = 'phpstan-parallel.neon';
 
+    private const string PHAR = '/phpstan.phar';
+
+    private const string NO_PROGRESS = '--no-progress';
+
+    private const string CRASH_MESSAGE = 'PHPStan crashed (exit %d)';
+
+    private const string ERRORS_FOUND = 'PHPStan found errors';
+
     private const string TAUTOLOGY_PATTERN = '/alreadyNarrowedType|alwaysTrue|alwaysFalse|impossibleCheck/';
 
     private const string TAUTOLOGY_NOTE = <<<'TAUTOLOGY'
@@ -117,16 +125,16 @@ final readonly class PhpstanTool implements ToolInterface
      */
     private function runAgent(ToolContext $context, string $logDir, string ...$baseArgs): ToolResultDto
     {
-        $config = $context->config;
-        $writer = new FileReportWriter($context->logDir(self::REPORT_DIR), $config->paths->projectRoot);
-        $terse  = new TerseReporter($context->stdout);
-        $scope  = null === $config->specifiedPath ? null : $config->paths->projectRoot . '/' . $config->specifiedPath;
+        $config  = $context->config;
+        $writer  = new FileReportWriter($context->logDir(self::REPORT_DIR), $config->paths->projectRoot);
+        $terse   = new TerseReporter($context->stdout);
+        $scope   = null === $config->specifiedPath ? null : $config->paths->projectRoot . '/' . $config->specifiedPath;
         $logPath = $logDir . '/' . self::JSON_FILE;
         $runAt   = time();
 
         $result = $context->php->withoutXdebug(
-            $config->paths->pharDir . '/phpstan.phar',
-            array_values([...$baseArgs, '--no-progress', '--error-format=json']),
+            $config->paths->pharDir . self::PHAR,
+            array_values([...$baseArgs, self::NO_PROGRESS, '--error-format=json']),
             $config->paths->projectRoot,
             streamOutput: false,
         );
@@ -135,7 +143,7 @@ final readonly class PhpstanTool implements ToolInterface
         $writer->clearScope($scope);
 
         if ($result->exitCode > 1) {
-            return $this->agentCrash($writer, $terse, \sprintf('PHPStan crashed (exit %d)', $result->exitCode), $scope, $runAt, $logPath);
+            return $this->agentCrash($writer, $terse, \sprintf(self::CRASH_MESSAGE, $result->exitCode), $scope, $runAt, $logPath);
         }
 
         try {
@@ -145,17 +153,17 @@ final readonly class PhpstanTool implements ToolInterface
         }
 
         foreach ($parsed->files as $file => $errors) {
-            $writer->write(FileReportDto::forErrors($this->name(), $file, $runAt, $errors, $logPath));
+            $writer->write(FileReportDto::forErrors($this->name(), $file, $runAt, $logPath, ...$errors));
         }
 
         // A -p run naming a single file always gets a report, clean or not:
         // that write is what visibly erases the previous red one.
         if (null !== $scope && is_file($scope) && !\array_key_exists($scope, $parsed->files)) {
-            $writer->write(FileReportDto::forErrors($this->name(), $scope, $runAt, [], $logPath));
+            $writer->write(FileReportDto::forErrors($this->name(), $scope, $runAt, $logPath));
         }
 
         $status = AgentStatusEnum::forErrorCount($parsed->errorCount());
-        $index  = $writer->writeIndex($this->name(), $status, $runAt, $parsed->globalErrors);
+        $index  = $writer->writeIndex($this->name(), $status, $runAt, ...$parsed->globalErrors);
         $single = null !== $scope && is_file($scope);
         $terse->result(
             $this->name(),
@@ -165,7 +173,7 @@ final readonly class PhpstanTool implements ToolInterface
             $single ? $writer->reportPathFor($scope) : $index,
         );
 
-        return AgentStatusEnum::Clean === $status ? ToolResultDto::passed() : ToolResultDto::failed('PHPStan found errors');
+        return AgentStatusEnum::Clean === $status ? ToolResultDto::passed() : ToolResultDto::failed(self::ERRORS_FOUND);
     }
 
     /**
@@ -177,7 +185,7 @@ final readonly class PhpstanTool implements ToolInterface
     {
         $path   = $scope ?? $logPath;
         $report = $writer->write(FileReportDto::crashed($this->name(), $path, $runAt, $reason, $logPath));
-        $writer->writeIndex($this->name(), AgentStatusEnum::Crashed, $runAt, [$reason]);
+        $writer->writeIndex($this->name(), AgentStatusEnum::Crashed, $runAt, $reason);
         $terse->crashed($this->name(), $reason, $report);
 
         return ToolResultDto::crashed($reason);
@@ -187,8 +195,8 @@ final readonly class PhpstanTool implements ToolInterface
     {
         $config = $context->config;
         $result = $context->php->withoutXdebug(
-            $config->paths->pharDir . '/phpstan.phar',
-            array_values([...$baseArgs, '--no-progress', '--error-format=json']),
+            $config->paths->pharDir . self::PHAR,
+            array_values([...$baseArgs, self::NO_PROGRESS, '--error-format=json']),
             $config->paths->projectRoot,
             streamOutput: false,
         );
@@ -200,7 +208,7 @@ final readonly class PhpstanTool implements ToolInterface
         if ($result->exitCode > 1) {
             $context->writeln(\sprintf('PHPStan crashed (exit code: %d)', $result->exitCode));
 
-            return ToolResultDto::crashed(\sprintf('PHPStan crashed (exit %d)', $result->exitCode));
+            return ToolResultDto::crashed(\sprintf(self::CRASH_MESSAGE, $result->exitCode));
         }
 
         if ($result->succeeded()) {
@@ -209,14 +217,14 @@ final readonly class PhpstanTool implements ToolInterface
 
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed('PHPStan found errors');
+        return ToolResultDto::failed(self::ERRORS_FOUND);
     }
 
     private function runText(ToolContext $context, string $logDir, string ...$baseArgs): ToolResultDto
     {
         $config = $context->config;
-        $phar   = $config->paths->pharDir . '/phpstan.phar';
-        $args   = array_values($config->ci ? [...$baseArgs, '--no-progress'] : $baseArgs);
+        $phar   = $config->paths->pharDir . self::PHAR;
+        $args   = array_values($config->ci ? [...$baseArgs, self::NO_PROGRESS] : $baseArgs);
 
         $result = $context->php->withoutXdebug($phar, $args, $config->paths->projectRoot);
 
@@ -237,7 +245,7 @@ final readonly class PhpstanTool implements ToolInterface
             $context->writeln('');
             $context->php->withoutXdebug($phar, array_values([...$baseArgs, '--debug', '-v']), $config->paths->projectRoot);
 
-            return ToolResultDto::crashed(\sprintf('PHPStan crashed (exit %d)', $result->exitCode));
+            return ToolResultDto::crashed(\sprintf(self::CRASH_MESSAGE, $result->exitCode));
         }
 
         if (1 === \Safe\preg_match(self::TAUTOLOGY_PATTERN, $result->output)) {
@@ -247,7 +255,7 @@ final readonly class PhpstanTool implements ToolInterface
 
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed('PHPStan found errors');
+        return ToolResultDto::failed(self::ERRORS_FOUND);
     }
 
     /**

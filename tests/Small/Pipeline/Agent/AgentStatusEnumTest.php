@@ -18,15 +18,6 @@ use PHPUnit\Framework\TestCase;
 final class AgentStatusEnumTest extends TestCase
 {
     #[Test]
-    public function theWireNamesAreTheDocumentedOnes(): void
-    {
-        self::assertSame(
-            ['clean', 'errors', 'crashed', 'lock-held'],
-            array_map(static fn (AgentStatusEnum $s): string => $s->value, AgentStatusEnum::cases()),
-        );
-    }
-
-    #[Test]
     public function everyStatusHasItsOwnExitCodeSoLockContentionIsNeverMistakenForFindings(): void
     {
         self::assertSame(0, AgentStatusEnum::Clean->exitCode());

@@ -38,11 +38,11 @@ final readonly class FileReportDto implements JsonSerializable
      * The ordinary outcome: whatever the analyser said about this file. An
      * empty list is a clean file, which is the write that erases a previous
      * red report.
-     *
-     * @param list<FileErrorDto> $errors
      */
-    public static function forErrors(string $tool, string $path, int $runAt, array $errors, string $logPath): self
+    public static function forErrors(string $tool, string $path, int $runAt, string $logPath, FileErrorDto ...$errors): self
     {
+        $errors = array_values($errors);
+
         return new self($tool, $path, AgentStatusEnum::forErrorCount(\count($errors)), $runAt, $errors, $logPath);
     }
 
@@ -64,6 +64,12 @@ final readonly class FileReportDto implements JsonSerializable
     public function withPath(string $path): self
     {
         return new self($this->tool, $path, $this->status, $this->runAt, $this->errors, $this->logPath);
+    }
+
+    /** The wire form, as it is written to disk: pretty, slash-unescaped, newline-terminated. */
+    public function toJson(): string
+    {
+        return \Safe\json_encode($this, \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE) . "\n";
     }
 
     public function errorCount(): int

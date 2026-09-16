@@ -25,6 +25,8 @@ final class TerseReporterTest extends TestCase
 
     private const string REPORT = '/project/var/qa/phpstan-file-reports/src/Kernel.php.json';
 
+    private const string REPORT_LINE = 'REPORT: ' . self::REPORT;
+
     private BufferedOutput $stdout;
 
     private TerseReporter $reporter;
@@ -43,7 +45,7 @@ final class TerseReporterTest extends TestCase
         self::assertSame(
             [
                 'PHPSTAN AGENT MODE: 0 errors in 1 file',
-                'REPORT: ' . self::REPORT,
+                self::REPORT_LINE,
             ],
             $this->lines(),
         );
@@ -57,7 +59,7 @@ final class TerseReporterTest extends TestCase
 
         self::assertCount(3, $lines, 'agent mode is never more than three lines');
         self::assertSame('PHPSTAN AGENT MODE: 14 errors in 1 file', $lines[0]);
-        self::assertSame('REPORT: ' . self::REPORT, $lines[1]);
+        self::assertSame(self::REPORT_LINE, $lines[1]);
         self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
         self::assertStringContainsString('read', $lines[2]);
         self::assertStringContainsString('fix', $lines[2]);
@@ -102,19 +104,8 @@ final class TerseReporterTest extends TestCase
         self::assertCount(3, $lines);
         self::assertStringContainsString('crashed', $lines[0]);
         self::assertStringContainsString('PHPStan crashed (exit 255)', $lines[0]);
-        self::assertSame('REPORT: ' . self::REPORT, $lines[1]);
+        self::assertSame(self::REPORT_LINE, $lines[1]);
         self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
-    }
-
-    #[Test]
-    public function aRefusalNamesTheToolAndTheSupportedOnes(): void
-    {
-        $this->reporter->unsupported('phplint', ['phpstan']);
-        $lines = $this->lines();
-
-        self::assertStringContainsString("'phplint'", $lines[0]);
-        self::assertStringContainsString('does not support agent mode', $lines[0]);
-        self::assertStringContainsString('phpstan', implode("\n", $lines));
     }
 
     /** @return list<string> the non-empty lines written to stdout */

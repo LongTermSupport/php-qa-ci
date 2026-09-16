@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Agent;
 
+use FilesystemIterator;
 use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
 use LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto;
 use LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto;
@@ -14,6 +15,9 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 
 /**
  * @internal
@@ -32,6 +36,8 @@ final class FileReportWriterTest extends TestCase
     private const string LOG = '/var/qa/phpstan_logs/phpstan.json';
 
     private const int RUN_AT = 1_764_000_000;
+
+    private const string THING_TEST = 'tests/Unit/ThingTest.php';
 
     private TempDir $project;
 
@@ -69,7 +75,7 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function anAbsolutePathInsideTheProjectIsRecordedRelativeToTheProjectRoot(): void
     {
-        $written = $this->writer->write($this->report($this->project->path . '/' . self::KERNEL, []));
+        $written = $this->writer->write($this->report($this->project->path . '/' . self::KERNEL));
 
         self::assertSame($this->writer->reportPathFor(self::KERNEL), $written);
         self::assertSame(self::KERNEL, $this->decode($written)['path'], 'an absolute temp path would not be portable between machines');
@@ -78,7 +84,7 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function aCleanFileGetsAZeroReportSoTheAgentCanSeeTheFixLanded(): void
     {
-        $written = $this->writer->write($this->report(self::KERNEL, []));
+        $written = $this->writer->write($this->report(self::KERNEL));
 
         $decoded = $this->decode($written);
         self::assertSame(0, $decoded['error_count']);
@@ -90,7 +96,7 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function theJsonIsPrettyPrintedWithUnescapedSlashesSoJqAndAHumanBothReadItEasily(): void
     {
-        $raw = \Safe\file_get_contents($this->writer->write($this->report(self::KERNEL, [new FileErrorDto(12, 'a/b', 'x.y', null)])));
+        $raw = \Safe\file_get_contents($this->writer->write($this->report(self::KERNEL, new FileErrorDto(12, 'a/b', 'x.y', null))));
 
         self::assertStringContainsString("\n    \"tool\": \"phpstan\"", $raw);
         self::assertStringContainsString('"a/b"', $raw, 'an escaped slash would make the message hard to read');
@@ -100,8 +106,8 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function rewritingAFileReplacesItsReportRatherThanAppendingToIt(): void
     {
-        $this->writer->write($this->report(self::KERNEL, [new FileErrorDto(12, 'boom', 'x.y', null)]));
-        $written = $this->writer->write($this->report(self::KERNEL, []));
+        $this->writer->write($this->report(self::KERNEL, new FileErrorDto(12, 'boom', 'x.y', null)));
+        $written = $this->writer->write($this->report(self::KERNEL));
 
         self::assertSame(0, $this->decode($written)['error_count']);
         self::assertCount(1, $this->reportFiles());
@@ -110,8 +116,8 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function clearingTheWholeScopeRemovesEveryStaleReportSoAnAbsentOneMeansClean(): void
     {
-        $this->writer->write($this->report(self::KERNEL, [new FileErrorDto(1, 'a', null, null)]));
-        $this->writer->write($this->report('tests/Unit/ThingTest.php', [new FileErrorDto(2, 'b', null, null)]));
+        $this->writer->write($this->report(self::KERNEL, new FileErrorDto(1, 'a', null, null)));
+        $this->writer->write($this->report(self::THING_TEST, new FileErrorDto(2, 'b', null, null)));
         self::assertCount(2, $this->reportFiles());
 
         $this->writer->clearScope(null);
@@ -122,24 +128,24 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function clearingOneFilesScopeLeavesEveryOtherFilesReportAlone(): void
     {
-        $this->writer->write($this->report(self::KERNEL, [new FileErrorDto(1, 'a', null, null)]));
-        $this->writer->write($this->report('tests/Unit/ThingTest.php', [new FileErrorDto(2, 'b', null, null)]));
+        $this->writer->write($this->report(self::KERNEL, new FileErrorDto(1, 'a', null, null)));
+        $this->writer->write($this->report(self::THING_TEST, new FileErrorDto(2, 'b', null, null)));
 
         $this->writer->clearScope($this->project->path . '/' . self::KERNEL);
 
-        self::assertSame([$this->writer->reportPathFor('tests/Unit/ThingTest.php')], $this->reportFiles());
+        self::assertSame([$this->writer->reportPathFor(self::THING_TEST)], $this->reportFiles());
     }
 
     #[Test]
     public function clearingADirectoryScopeRemovesEveryReportBeneathItAndNothingOutsideIt(): void
     {
-        $this->writer->write($this->report('src/Deep/Nested/Thing.php', [new FileErrorDto(1, 'a', null, null)]));
-        $this->writer->write($this->report(self::KERNEL, [new FileErrorDto(1, 'a', null, null)]));
-        $this->writer->write($this->report('tests/Unit/ThingTest.php', [new FileErrorDto(2, 'b', null, null)]));
+        $this->writer->write($this->report('src/Deep/Nested/Thing.php', new FileErrorDto(1, 'a', null, null)));
+        $this->writer->write($this->report(self::KERNEL, new FileErrorDto(1, 'a', null, null)));
+        $this->writer->write($this->report(self::THING_TEST, new FileErrorDto(2, 'b', null, null)));
 
         $this->writer->clearScope($this->project->path . '/src');
 
-        self::assertSame([$this->writer->reportPathFor('tests/Unit/ThingTest.php')], $this->reportFiles());
+        self::assertSame([$this->writer->reportPathFor(self::THING_TEST)], $this->reportFiles());
     }
 
     #[Test]
@@ -153,10 +159,10 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function theIndexListsEveryReportTheRunWroteSoStdoutNeedsOnlyOnePath(): void
     {
-        $first  = $this->writer->write($this->report(self::KERNEL, [new FileErrorDto(1, 'a', null, null)]));
-        $second = $this->writer->write($this->report('src/Other.php', [new FileErrorDto(2, 'b', null, null), new FileErrorDto(3, 'c', null, null)]));
+        $first  = $this->writer->write($this->report(self::KERNEL, new FileErrorDto(1, 'a', null, null)));
+        $second = $this->writer->write($this->report('src/Other.php', new FileErrorDto(2, 'b', null, null), new FileErrorDto(3, 'c', null, null)));
 
-        $indexPath = $this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Errors, self::RUN_AT, ['Child process died']);
+        $indexPath = $this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Errors, self::RUN_AT, 'Child process died');
         $index     = $this->decode($indexPath);
 
         self::assertSame($this->project->path . '/var/qa/phpstan-file-reports/_index.json', $indexPath);
@@ -178,32 +184,33 @@ final class FileReportWriterTest extends TestCase
     #[Test]
     public function theIndexIsNotItselfListedAsAFileReport(): void
     {
-        $this->writer->write($this->report(self::KERNEL, []));
-        $this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Clean, self::RUN_AT, []);
+        $this->writer->write($this->report(self::KERNEL));
+        $this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Clean, self::RUN_AT);
 
-        $index = $this->decode($this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Clean, self::RUN_AT, []));
+        $index = $this->decode($this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Clean, self::RUN_AT));
 
-        self::assertSame([self::KERNEL], array_column($index['files'], 'path'));
+        $files = $index['files'];
+        self::assertIsArray($files);
+        self::assertSame([self::KERNEL], array_column($files, 'path'));
     }
 
     #[Test]
     public function clearingAScopeAlsoRemovesTheIndexSoItCannotDescribeAPreviousRun(): void
     {
-        $this->writer->write($this->report(self::KERNEL, []));
-        $this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Clean, self::RUN_AT, []);
+        $this->writer->write($this->report(self::KERNEL));
+        $this->writer->writeIndex(self::PHPSTAN, AgentStatusEnum::Clean, self::RUN_AT);
 
         $this->writer->clearScope(null);
 
         self::assertFileDoesNotExist($this->project->path . '/var/qa/phpstan-file-reports/_index.json');
     }
 
-    /** @param list<FileErrorDto> $errors */
-    private function report(string $path, array $errors): FileReportDto
+    private function report(string $path, FileErrorDto ...$errors): FileReportDto
     {
-        return FileReportDto::forErrors(self::PHPSTAN, $path, self::RUN_AT, $errors, self::LOG);
+        return FileReportDto::forErrors(self::PHPSTAN, $path, self::RUN_AT, self::LOG, ...$errors);
     }
 
-    /** @return array<string, mixed> */
+    /** @return array<array-key, mixed> */
     private function decode(string $path): array
     {
         $decoded = \Safe\json_decode(\Safe\file_get_contents($path), true);
@@ -221,8 +228,8 @@ final class FileReportWriterTest extends TestCase
         }
 
         $found = [];
-        $walk  = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
-        /** @var \SplFileInfo $item */
+        $walk  = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+        /** @var SplFileInfo $item */
         foreach ($walk as $item) {
             if ($item->isFile() && '_index.json' !== $item->getFilename()) {
                 $found[] = $item->getPathname();

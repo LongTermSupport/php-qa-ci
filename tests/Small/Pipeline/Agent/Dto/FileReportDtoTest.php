@@ -28,12 +28,20 @@ final class FileReportDtoTest extends TestCase
 
     private const string LOG = '/project/var/qa/phpstan_logs/phpstan.json';
 
+    private const int RUN_AT = 1_764_000_000;
+
+    private const string RUN_AT_ISO = '2025-11-24T16:00:00+00:00';
+
+    private const string CRASH_REASON = 'PHPStan crashed (exit 255)';
+
     #[Test]
     public function theSchemaKeysAreTheDocumentedOnesInTheDocumentedOrder(): void
     {
         self::assertSame(
-            ['tool', 'path', 'status', 'run_at', 'exit_code', 'error_count', 'errors', 'log_path'],
-            array_keys($this->clean()->jsonSerialize()),
+            '{"tool":"phpstan","path":"src/Kernel.php","status":"clean","run_at":"' . self::RUN_AT_ISO
+                . '","exit_code":0,"error_count":0,"errors":[],"log_path":"' . self::LOG . '"}',
+            \Safe\json_encode($this->clean(), \JSON_UNESCAPED_SLASHES),
+            'the key order is the wire contract a consumer reads, so it is pinned on the encoded form',
         );
     }
 
@@ -56,9 +64,10 @@ final class FileReportDtoTest extends TestCase
         $report = FileReportDto::forErrors(
             self::PHPSTAN,
             self::PATH,
-            1_764_000_000,
-            [new FileErrorDto(12, 'a', 'x.y', null), new FileErrorDto(13, 'b', null, null)],
+            self::RUN_AT,
             self::LOG,
+            new FileErrorDto(12, 'a', 'x.y', null),
+            new FileErrorDto(13, 'b', null, null),
         );
 
         self::assertSame(2, $report->errorCount());
@@ -70,7 +79,7 @@ final class FileReportDtoTest extends TestCase
     #[Test]
     public function anEmptyErrorListMakesTheReportCleanWithoutTheCallerSayingSo(): void
     {
-        $report = FileReportDto::forErrors(self::PHPSTAN, self::PATH, 1_764_000_000, [], self::LOG);
+        $report = FileReportDto::forErrors(self::PHPSTAN, self::PATH, self::RUN_AT, self::LOG);
 
         self::assertSame(AgentStatusEnum::Clean, $report->status);
         self::assertSame(0, $report->jsonSerialize()['exit_code']);
@@ -79,28 +88,28 @@ final class FileReportDtoTest extends TestCase
     #[Test]
     public function theRunTimestampIsAnIso8601StringRatherThanAUnixInteger(): void
     {
-        $report = FileReportDto::forErrors(self::PHPSTAN, self::PATH, 1_764_000_000, [], self::LOG);
+        $report = FileReportDto::forErrors(self::PHPSTAN, self::PATH, self::RUN_AT, self::LOG);
 
-        self::assertSame(gmdate('Y-m-d\TH:i:sP', 1_764_000_000), $report->jsonSerialize()['run_at']);
+        self::assertSame(self::RUN_AT_ISO, $report->jsonSerialize()['run_at']);
     }
 
     #[Test]
     public function aCrashedReportKeepsItsOwnStatusAndExitCode(): void
     {
-        $report = FileReportDto::crashed(self::PHPSTAN, self::PATH, 1_764_000_000, 'PHPStan crashed (exit 255)', self::LOG);
+        $report = FileReportDto::crashed(self::PHPSTAN, self::PATH, self::RUN_AT, self::CRASH_REASON, self::LOG);
 
         self::assertSame(AgentStatusEnum::Crashed, $report->status);
         $wire = $report->jsonSerialize();
         self::assertSame('crashed', $wire['status']);
         self::assertSame(3, $wire['exit_code']);
         self::assertSame(1, $wire['error_count']);
-        self::assertSame('PHPStan crashed (exit 255)', $wire['errors'][0]->message);
+        self::assertSame(self::CRASH_REASON, $wire['errors'][0]->message);
     }
 
     #[Test]
     public function rewritingThePathKeepsTheStatusSoACrashNeverBecomesAnOrdinaryFinding(): void
     {
-        $crashed = FileReportDto::crashed(self::PHPSTAN, '/abs/project/' . self::PATH, 1_764_000_000, 'boom', self::LOG);
+        $crashed = FileReportDto::crashed(self::PHPSTAN, '/abs/project/' . self::PATH, self::RUN_AT, 'boom', self::LOG);
 
         $moved = $crashed->withPath(self::PATH);
 
@@ -112,6 +121,6 @@ final class FileReportDtoTest extends TestCase
 
     private function clean(): FileReportDto
     {
-        return FileReportDto::forErrors(self::PHPSTAN, self::PATH, 1_764_000_000, [], self::LOG);
+        return FileReportDto::forErrors(self::PHPSTAN, self::PATH, self::RUN_AT, self::LOG);
     }
 }

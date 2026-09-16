@@ -144,6 +144,32 @@ final readonly class ArgumentsParser
         return new RunRequestDto($resolved, $path, $selectedToken, $agent);
     }
 
+    public function usage(): string
+    {
+        $lines = [
+            'Usage:',
+            $this->binDir . '/qa [-t tool to run ] [ -p path to scan ] [ --json ] [ --agent-mode ]',
+            '',
+            'Defaults to using all tools and scanning whole project based on platform',
+            '',
+            ' - use -h to see this help',
+            '',
+            ' - use -p to specify a specific path to scan',
+            '',
+            ' - use --json to get structured JSON output (supported tools only)',
+            '',
+            ' - use --agent-mode for a terse stdout plus a per-file JSON report under var/qa',
+            '   (needs -t and a supporting tool; PHPQACI_AGENT_MODE=1 is the same thing)',
+            '',
+            ' - use -t to specify a single tool:',
+        ];
+        foreach ($this->registry->usageLines() as $line) {
+            $lines[] = '     ' . $line;
+        }
+
+        return implode("\n", $lines) . "\n";
+    }
+
     /**
      * Agent mode is a single-lane reporting mode, so it needs a tool, and that
      * tool has to be one that writes the per-file reports. Anything else is
@@ -177,32 +203,6 @@ final readonly class ArgumentsParser
             $listing,
             self::AGENT_MODE_OPTION,
         ));
-    }
-
-    public function usage(): string
-    {
-        $lines = [
-            'Usage:',
-            $this->binDir . '/qa [-t tool to run ] [ -p path to scan ] [ --json ] [ --agent-mode ]',
-            '',
-            'Defaults to using all tools and scanning whole project based on platform',
-            '',
-            ' - use -h to see this help',
-            '',
-            ' - use -p to specify a specific path to scan',
-            '',
-            ' - use --json to get structured JSON output (supported tools only)',
-            '',
-            ' - use --agent-mode for a terse stdout plus a per-file JSON report under var/qa',
-            '   (needs -t and a supporting tool; PHPQACI_AGENT_MODE=1 is the same thing)',
-            '',
-            ' - use -t to specify a single tool:',
-        ];
-        foreach ($this->registry->usageLines() as $line) {
-            $lines[] = '     ' . $line;
-        }
-
-        return implode("\n", $lines) . "\n";
     }
 
     private function unsupportedArgument(string $arg): UsageException

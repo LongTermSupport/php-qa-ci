@@ -49,7 +49,7 @@ final readonly class PhpstanJsonParser
         }
 
         try {
-            $decoded = json_decode(substr($output, $start), true, 512, \JSON_THROW_ON_ERROR);
+            $decoded = \Safe\json_decode(substr($output, $start), true, 512, \JSON_THROW_ON_ERROR);
         } catch (JsonException $jsonException) {
             throw UnreadableReportException::forTool(self::TOOL, $jsonException->getMessage());
         }
@@ -86,9 +86,17 @@ final readonly class PhpstanJsonParser
                 continue;
             }
 
+            // A finding with no message is not a finding anyone can act on.
+            // Defaulting it to an empty string would put a blank line in the
+            // report and count it as work to do, so it is dropped instead.
+            $text = $this->nullableString($message, 'message');
+            if (null === $text) {
+                continue;
+            }
+
             $errors[] = new FileErrorDto(
                 $this->nullableInt($message, 'line'),
-                $this->nullableString($message, 'message') ?? '',
+                $text,
                 $this->nullableString($message, 'identifier'),
                 $this->nullableString($message, 'tip'),
             );

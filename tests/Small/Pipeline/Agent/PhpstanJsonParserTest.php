@@ -18,6 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PhpstanJsonParser::class)]
 #[UsesClass(FileErrorDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\ParsedReportDto::class)]
 #[UsesClass(UnreadableReportException::class)]
 #[Small]
 final class PhpstanJsonParserTest extends TestCase
