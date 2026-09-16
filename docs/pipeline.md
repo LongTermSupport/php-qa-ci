@@ -10,6 +10,16 @@ The pipeline is PHP. `bin/qa` boots [QaApplication](../src/Pipeline/Cli/QaApplic
 
 A writable run (the local default) is **fail-fast**: the first failing tool ends the run with exit code 1. A read-only run (`QA_READONLY=1`, and GitHub Actions by default) is **aggregate**: every tool runs, the failures are collected and reported together at the end, and the exit code is 1 if any failed. `QA_FAIL_FAST=1` forces fail-fast in a read-only run. See [Configuration](./configuration.md) for the environment variables.
 
+### Exit codes
+
+| Code | Meaning                                              |
+| ---- | ---------------------------------------------------- |
+| 0    | every tool passed                                    |
+| 1    | a tool failed, or the run could not be configured    |
+| 75   | another QA run held the lock, so nothing was checked |
+
+75 exists so a caller can tell contention from a verdict. A run that hits it also prints one line to stderr and checks nothing; retry it rather than reporting it as a failure.
+
 In an interactive run (a TTY, `CI` unset) a failed tool prints its failure banner and asks whether to try again; you can retry indefinitely until it passes. In CI mode (`CI=true`, a Claude Code session, or no TTY) the answer is always no. A tool that **crashed** (an exit code outside its documented pass/fail set) is never offered a retry. If any tool was retried, the run ends with a warning to run the whole pipeline again.
 
 ## Hooks
@@ -66,7 +76,7 @@ The pre hook runs after configuration and PHAR verification, before the run lock
 - creates `var/qa/` and `var/qa/cache/` with self-excluding `.gitignore` files and adds the managed block of QA runtime-cache excludes to the project's root `.gitignore` ([DirectoryPreparer](../src/Pipeline/Runner/DirectoryPreparer.php));
 - verifies the PHARs ([PharToolsVerifier](../src/Pipeline/Runner/PharToolsVerifier.php)): `phive.xml` is a hard requirement, and every PHAR it lists plus one committed `vendor-phar/<tool>.phar` per `build/<tool>/` manifest must be present under the library's `vendor-phar/`. Nothing is fetched at run time; PHIVE re-fetches only in the maintainer `update`/`--force` modes of `scripts/tool-install.bash`, and maintainers rebuild the self-built PHARs with `scripts/build-phar.bash`;
 - runs your project's `hookPre.php` if present;
-- acquires the run lock ([RunLock](../src/Pipeline/Lock/RunLock.php)). One run per project: a JSON lock file under `qaConfig/.qa-lock/` records host, pid, tool, path and last activity. A live holder aborts the run before any tool executes. A holder with no activity for 600 seconds is presumed dead (container restarts leave PIDs meaningless, so liveness is time-based) and its lock is removed with a note. The runner touches the lock before every tool so a long lane never goes stale, and releases it with the exit code and elapsed time at the end.
+- acquires the run lock ([RunLock](../src/Pipeline/Lock/RunLock.php)). One run per project: a JSON lock file under `qaConfig/.qa-lock/` records host, pid, tool, path and last activity. A live holder aborts the run before any tool executes, with exit code 75. A holder with no activity for 600 seconds is presumed dead (container restarts leave PIDs meaningless, so liveness is time-based) and its lock is removed with a note. The runner touches the lock before every tool so a long lane never goes stale, and releases it with the exit code and elapsed time at the end.
 
 ### 3. QA Tools (Four Phases)
 
