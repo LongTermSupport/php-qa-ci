@@ -41,12 +41,15 @@ final class RuleDocResolverTest extends TestCase
     /** Its own root: the resolver parses every row on any lookup, so a dead link is contagious. */
     private const string DEAD_LINK_ROOT = __DIR__ . '/../../assets/ruleDocResolverDeadLink';
 
+    /** The shipped rule these tests use as a worked example, as the index spells its class. */
+    private const string EMPTY_CATCH_RULE_CLASS = 'ForbidEmptyCatchBlockRule';
+
     #[Test]
     public function anIdentifierWithARemediationPageResolvesToThatPage(): void
     {
         $entry = $this->resolver()->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER);
 
-        self::assertSame('ForbidEmptyCatchBlockRule', $entry->ruleClass);
+        self::assertSame(self::EMPTY_CATCH_RULE_CLASS, $entry->ruleClass);
         self::assertNotNull($entry->docPath);
         self::assertFileExists($entry->docPath);
         self::assertStringEndsWith('docs/phpstan-rules/forbid-empty-catch-block.md', $entry->docPath);
@@ -149,7 +152,7 @@ final class RuleDocResolverTest extends TestCase
         $rendered = $this->resolver()->render(ForbidEmptyCatchBlockRule::IDENTIFIER);
 
         self::assertStringStartsWith(ForbidEmptyCatchBlockRule::IDENTIFIER, $rendered);
-        self::assertStringContainsString('ForbidEmptyCatchBlockRule', $rendered);
+        self::assertStringContainsString(self::EMPTY_CATCH_RULE_CLASS, $rendered);
         self::assertStringContainsString('## The correct construction', $rendered);
     }
 
@@ -201,7 +204,7 @@ final class RuleDocResolverTest extends TestCase
     {
         $resolver = $this->projectResolver();
 
-        self::assertSame('ForbidEmptyCatchBlockRule', $resolver->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER)->ruleClass);
+        self::assertSame(self::EMPTY_CATCH_RULE_CLASS, $resolver->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER)->ruleClass);
         self::assertContains('fixtureApp.projectRule', $resolver->identifiers());
         self::assertContains(ForbidEmptyCatchBlockRule::IDENTIFIER, $resolver->identifiers());
     }

@@ -30,30 +30,39 @@ final class WriteClaudeBlockTest extends TestCase
 {
     private const string WRITER = __DIR__ . '/../../../scripts/write-claude-block.bash';
 
+    private const string SHIPPED_TEMPLATE = __DIR__ . '/../../../templates/root-CLAUDE-phpqaci-block.md.template';
+
     private const string CLOSE_TAG = '</phpqaci>';
 
-    /** A template whose closing tag sits directly beneath a bullet -- the hazardous shape. */
     private const string TIGHT_TEMPLATE = "<phpqaci>\n\n- a bullet\n- another bullet\n</phpqaci>\n";
+
+    private const string TARGET = 'CLAUDE.md';
+
+    private const string TEMPLATE = 'template.md';
+
+    private const string HEADING = "# Project\n";
+
+    private const string HEADING_AND_PROSE = "# Project\n\nSome prose.\n";
 
     private string $workDir;
 
     protected function setUp(): void
     {
-        $this->workDir = \sys_get_temp_dir() . '/phpqaci-block-' . \bin2hex(\random_bytes(8));
+        $this->workDir = sys_get_temp_dir() . '/phpqaci-block-' . bin2hex(random_bytes(8));
         \Safe\mkdir($this->workDir, 0o755, true);
     }
 
     protected function tearDown(): void
     {
-        ShellRunner::run(\sprintf('rm -rf %s', \escapeshellarg($this->workDir)));
+        ShellRunner::run(\sprintf('rm -rf %s', escapeshellarg($this->workDir)));
     }
 
     #[Test]
     public function theClosingTagIsAlwaysPrecededByABlankLine(): void
     {
-        $target = $this->write('CLAUDE.md', "# Project\n\nSome prose.\n");
+        $target = $this->write(self::TARGET, self::HEADING_AND_PROSE);
 
-        $this->runWriter($this->write('template.md', self::TIGHT_TEMPLATE), $target);
+        $this->runWriter($this->write(self::TEMPLATE, self::TIGHT_TEMPLATE), $target);
 
         self::assertSame(
             ['- another bullet', '', self::CLOSE_TAG],
@@ -65,9 +74,9 @@ final class WriteClaudeBlockTest extends TestCase
     #[Test]
     public function theClosingTagStartsAtColumnZero(): void
     {
-        $target = $this->write('CLAUDE.md', "# Project\n");
+        $target = $this->write(self::TARGET, self::HEADING);
 
-        $this->runWriter($this->write('template.md', self::TIGHT_TEMPLATE), $target);
+        $this->runWriter($this->write(self::TEMPLATE, self::TIGHT_TEMPLATE), $target);
 
         self::assertStringContainsString("\n" . self::CLOSE_TAG . "\n", $this->read($target));
     }
@@ -75,8 +84,8 @@ final class WriteClaudeBlockTest extends TestCase
     #[Test]
     public function rewritingAnAlreadyNormalisedBlockChangesNothing(): void
     {
-        $template = $this->write('template.md', self::TIGHT_TEMPLATE);
-        $target   = $this->write('CLAUDE.md', "# Project\n\nSome prose.\n");
+        $template = $this->write(self::TEMPLATE, self::TIGHT_TEMPLATE);
+        $target   = $this->write(self::TARGET, self::HEADING_AND_PROSE);
 
         $this->runWriter($template, $target);
         $first = $this->read($target);
@@ -88,10 +97,9 @@ final class WriteClaudeBlockTest extends TestCase
     #[Test]
     public function theShippedTemplateSurvivesTheWriterUnchangedBelowItsLastBullet(): void
     {
-        $shipped = __DIR__ . '/../../../templates/root-CLAUDE-phpqaci-block.md.template';
-        $target  = $this->write('CLAUDE.md', "# Project\n");
+        $target = $this->write(self::TARGET, self::HEADING);
 
-        $this->runWriter($shipped, $target);
+        $this->runWriter(self::SHIPPED_TEMPLATE, $target);
 
         $tail = $this->tailLines($target, 2);
         self::assertSame(['', self::CLOSE_TAG], $tail);
@@ -101,9 +109,9 @@ final class WriteClaudeBlockTest extends TestCase
     {
         $result = ShellRunner::run(\sprintf(
             'bash %s %s %s',
-            \escapeshellarg(self::WRITER),
-            \escapeshellarg($template),
-            \escapeshellarg($target),
+            escapeshellarg(self::WRITER),
+            escapeshellarg($template),
+            escapeshellarg($target),
         ));
 
         self::assertSame(0, $result['exit'], 'writer failed: ' . $result['output']);
@@ -125,8 +133,8 @@ final class WriteClaudeBlockTest extends TestCase
     /** @return list<string> */
     private function tailLines(string $path, int $count): array
     {
-        $lines = \explode("\n", \rtrim($this->read($path), "\n"));
+        $lines = explode("\n", rtrim($this->read($path), "\n"));
 
-        return \array_values(\array_slice($lines, -$count));
+        return \array_slice($lines, -$count);
     }
 }

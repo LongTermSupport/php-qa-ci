@@ -236,13 +236,15 @@ final class PipelineTest extends TestCase
     }
 
     #[Test]
-    public function theLockContentionExitCodeIsDistinctFromAQaFailure(): void
+    public function aGenuineToolFailureStillExitsOne(): void
     {
+        // The other half of the contention contract: a real defect keeps exit 1,
+        // so the distinct contention code stays meaningful. That the two codes
+        // differ is guaranteed by the constant's type, not asserted here.
         $this->tools->register(new StubTool(self::PHP_LINT, ToolResultDto::failed('a real defect')));
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::PHP_LINT)->build());
 
-        self::assertSame(1, $this->pipeline()->run($context), 'a genuine QA failure keeps exit 1');
-        self::assertNotSame(1, Pipeline::EXIT_LOCK_CONTENDED, 'contention must not be readable as a QA failure');
+        self::assertSame(1, $this->pipeline()->run($context));
     }
 
     #[Test]

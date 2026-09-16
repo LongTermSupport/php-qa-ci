@@ -18,9 +18,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class LogArchiver
 {
-    /** How much history one pattern keeps: enough to compare a few runs, not enough to hoard. */
-    private const int KEEP = 10;
-
     /**
      * Per-pattern retention cannot bound the directory. A `-p` run derives its
      * pattern from the paths it covered, so every distinct file analysed mints
@@ -29,6 +26,9 @@ final readonly class LogArchiver
      * ever pruned. This cap is what actually bounds the directory.
      */
     public const int DIRECTORY_CAP = 100;
+
+    /** How much history one pattern keeps: enough to compare a few runs, not enough to hoard. */
+    private const int KEEP = 10;
 
     public function __construct(private OutputInterface $output)
     {
