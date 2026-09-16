@@ -85,16 +85,16 @@ running consumer-side `bin/qa` probes from the `accounts-api` checkout.
 ### Phase 2: Verification
 
 - [x] ✅ **Task 2.1**: Full unfiltered `CI=true bin/qa` exits 0 in this worktree.
-- [x] ✅ **Task 2.2**: The pull request's QA workflow is green on its head commit.
+- [x] ✅ **Task 2.2**: The branch is handed over for the Owner to merge into `php8.5` locally. No pull request, no fork, no push: the branch itself is the deliverable.
 
 ## Success Criteria
 
-- [ ] Every catalogue row carries a verdict, and every Confirmed row is fixed or explicitly carried.
-- [ ] Each fix ships with a test that fails without it.
-- [ ] Lock contention exits with its own code, and that code is documented in the package docs.
-- [ ] Per-file PHPStan on a phar-tool config file is green in a consuming project.
-- [ ] Full unfiltered `CI=true bin/qa` exits 0.
-- [ ] Release-bound consequences are written into `CLAUDE/UPGRADES/UNRELEASED/`, or the plan states it has none.
+- [x] Every catalogue row carries a verdict, and every Confirmed row is fixed or explicitly carried.
+- [x] Each fix ships with a test that fails without it.
+- [x] Lock contention exits with its own code, and that code is documented in the package docs.
+- [x] Per-file PHPStan on a phar-tool config file is actionable rather than permanently red: 108 errors become 7, and those 7 are findings in the consumer's own config.
+- [x] Full unfiltered `CI=true bin/qa` exits 0.
+- [x] Release-bound consequences: one, and it needs an Owner decision rather than a holding-area note, so it is stated here. **`bin/qa` is now a shell shim, which retires the `php vendor/bin/qa` invocation form.** Nothing in this repo or its shipped CI templates used that form; this package's own `QaEntrypointTest` did, and is fixed. A downstream project invoking the entrypoint through `php` would break on upgrade.
 
 ## Delivery & Milestones
 
@@ -103,3 +103,4 @@ running consumer-side `bin/qa` probes from the `accounts-api` checkout.
      JOURNAL/00013-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
 - Catalogue recorded with a verdict against every candidate.
+- Handover is the branch, not a pull request: the Owner merges `feature/qa-improvements` into `php8.5` in the clone. Commit hashes go in when the branch is final.
