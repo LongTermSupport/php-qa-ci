@@ -41,6 +41,18 @@ final readonly class RuleDocResolver
     /** Where a project declares the indexes carrying its own identifiers. */
     private const string PROJECT_DECLARATION = '/qaConfig/rule-docs.json';
 
+    /**
+     * Column headings that name the cell describing what a rule forbids. A
+     * project puts that cell wherever it likes and commonly ends the row with
+     * provenance instead, so reading the trailing cell answers "Plan 00032"
+     * rather than the rule. An index using none of these keeps the trailing
+     * cell, which is what this package's own index relies on.
+     */
+    private const array SUMMARY_HEADINGS = ['forbids', 'summary', 'description', 'what'];
+
+    /** Identifier and class occupy the first two cells; a trailing-cell index counts from there. */
+    private const int LEADING_CELLS = 2;
+
     /** Where a row's class cell is found when it is a path — how a pipeline lane names itself. */
     private const string SRC_DIR = '/src/';
 
@@ -222,17 +234,56 @@ final readonly class RuleDocResolver
     private function entriesFrom(string $index, string $docsDir, string $rulesDir, string $srcDir): array
     {
         $entries = [];
+
+        // Tracked per table, not per file: one index can carry several tables
+        // with different columns, and a header held across a blank line would
+        // read the next table by the previous one's shape.
+        $summaryIndex = null;
+
         foreach (explode("\n", \Safe\file_get_contents($index)) as $line) {
-            $entry = $this->matchRow($line, $docsDir, $rulesDir, $srcDir);
+            if (!str_starts_with(ltrim($line), '|')) {
+                $summaryIndex = null;
+
+                continue;
+            }
+
+            $entry = $this->matchRow($line, $docsDir, $rulesDir, $srcDir, $summaryIndex);
             if ($entry instanceof RuleDocEntryDto) {
                 $entries[$entry->identifier] = $entry;
+
+                continue;
+            }
+
+            $heading = $this->summaryIndexFrom($line);
+            if (null !== $heading) {
+                $summaryIndex = $heading;
             }
         }
 
         return $entries;
     }
 
-    private function matchRow(string $line, string $docsDir, string $rulesDir, string $srcDir): ?RuleDocEntryDto
+    /**
+     * The trailing-cell index a header row names as the summary, or null when
+     * the row is not a header or names none of the recognised headings.
+     */
+    private function summaryIndexFrom(string $line): ?int
+    {
+        $cells = array_values(array_filter(
+            array_map(trim(...), explode('|', $line)),
+            static fn (string $cell): bool => '' !== $cell,
+        ));
+
+        foreach ($cells as $position => $cell) {
+            if ($position >= self::LEADING_CELLS && \in_array(strtolower($cell), self::SUMMARY_HEADINGS, true)) {
+                return $position - self::LEADING_CELLS;
+            }
+        }
+
+        return null;
+    }
+
+    private function matchRow(string $line, string $docsDir, string $rulesDir, string $srcDir, ?int $summaryIndex): ?RuleDocEntryDto
     {
         if (1 !== \Safe\preg_match(self::ROW_PATTERN, $line, $matches) || !isset($matches[1], $matches[2], $matches[3])) {
             return null;
@@ -242,8 +293,10 @@ final readonly class RuleDocResolver
         $ruleClass  = $matches[2];
 
         $cells       = array_map(trim(...), explode('|', $matches[3]));
-        $requirement = array_last($cells);
-        $bundle      = $this->bundleFrom(...$cells);
+        $requirement = null !== $summaryIndex && isset($cells[$summaryIndex])
+            ? $cells[$summaryIndex]
+            : array_last($cells);
+        $bundle = $this->bundleFrom($summaryIndex, ...$cells);
 
         $summary = $requirement;
         $docPath = null;
@@ -278,10 +331,19 @@ final readonly class RuleDocResolver
     /**
      * An opt-in row carries a bundle cell before the requirement; an always-on
      * row carries none and is therefore in rules-default.neon.
+     *
+     * Where a header named the summary column, that cell is removed first: a
+     * project whose summary sits in cell 0 would otherwise have its own rule
+     * description reported as the bundle it belongs to.
      */
-    private function bundleFrom(string ...$cells): string
+    private function bundleFrom(?int $summaryIndex, string ...$cells): string
     {
         $cells = array_values($cells);
+        if (null !== $summaryIndex && isset($cells[$summaryIndex])) {
+            unset($cells[$summaryIndex]);
+            $cells = array_values($cells);
+        }
+
         if (\count($cells) < 2) {
             return 'rules-default.neon';
         }

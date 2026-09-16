@@ -180,6 +180,49 @@ final class RuleDocResolverTest extends TestCase
     }
 
     #[Test]
+    public function theSummaryComesFromTheNamedColumnNotTheTrailingCell(): void
+    {
+        // The fixture's columns are Identifier | Rule class | Forbids | Origin,
+        // which is what a consuming project actually writes. Reading the last
+        // cell would answer "Plan 00001" — the provenance, not the rule.
+        $entry = $this->projectResolver()->resolve('fixtureApp.projectRule');
+
+        self::assertSame('A project rule with no remediation page', $entry->summary);
+        self::assertStringNotContainsString('Plan 00001', $entry->summary);
+    }
+
+    #[Test]
+    public function theRemediationLinkIsFoundInTheNamedColumnToo(): void
+    {
+        $entry = $this->projectResolver()->resolve('fixtureApp.projectRuleLinked');
+
+        self::assertSame('A project rule that links to a page', $entry->summary);
+        self::assertNotNull($entry->docPath);
+    }
+
+    #[Test]
+    public function eachTableInAFileIsReadWithItsOwnHeader(): void
+    {
+        // Two tables, different summary columns, prose between them. A header
+        // resolved once per file would give one of these the other's column.
+        $resolver = $this->projectResolver();
+
+        self::assertSame('A rule from a second catalogue', $resolver->resolve('fixtureApp.extraRule')->summary);
+        self::assertSame('A rule whose summary column comes last', $resolver->resolve('fixtureApp.lateRule')->summary);
+    }
+
+    #[Test]
+    public function anIndexWithNoRecognisedSummaryHeaderStillUsesTheTrailingCell(): void
+    {
+        // The shipped index heads its column "Requirement", which is not in the
+        // recognised set, so the fallback is what keeps this package working.
+        $entry = $this->resolver()->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER);
+
+        self::assertNotSame('', $entry->summary);
+        self::assertNotNull($entry->docPath);
+    }
+
+    #[Test]
     public function aProjectRowsRemediationPageResolvesRelativeToItsOwnIndex(): void
     {
         $entry = $this->projectResolver()->resolve('fixtureApp.projectRuleLinked');

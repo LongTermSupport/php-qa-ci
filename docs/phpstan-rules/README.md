@@ -41,10 +41,14 @@ resolves them alongside this package's:
 }
 ```
 
-Paths are project-relative. A row uses the same shape as the table below: the identifier in the
-first cell, the rule class in the second, and the **last** cell as the summary, optionally carrying
-a markdown link to a remediation page. Links resolve against the index's own directory. `rulesDir`
-is where a bare class cell is found; without it, the index's own directory is used.
+Paths are project-relative. A row puts the identifier in the first cell and the rule class in the
+second. The summary comes from the column your header names `Forbids`, `Summary`, `Description` or
+`What` (any case); with none of those present, the last cell is used, which is what the table below
+relies on. So a project ending its rows with provenance — `Identifier | Rule class | Forbids | Origin` — needs no reshuffling. Each table is read with its own header, so one file can hold several.
+
+The summary cell may carry a markdown link to a remediation page, resolved against the index's own
+directory. `rulesDir` is where a bare class cell is found; without it, the index's own directory is
+used.
 
 A project cannot shadow a `phpqaci.*` identifier: the shipped index is read first and wins, so a
 failure always resolves to the page that describes the rule that produced it.
