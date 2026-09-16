@@ -155,6 +155,13 @@ returns **exit 3** and writes `status: "crashed"` for the specified path.
 - [x] ✅ **Task 3.1**: `PhpstanTool` agent-mode branch: JSON error format, report writing, the three-line stdout.
 - [x] ✅ **Task 3.2**: `Pipeline` returning exit 2 with the lock-held stdout line in agent mode, and exit 3 for a crash.
 
+### Phase 5: The PHPArkitect lane
+
+- [x] ✅ **Task 5.1**: `ArkitectJsonParser` over the phar's native `--format=json`, anchored on `totalViolations` so the banner and progress bar cannot break the parse.
+- [x] ✅ **Task 5.2**: `ClassFileLocator` — PHPArkitect reports classes, the report is keyed by file, and the autoloader is deliberately not consulted.
+- [x] ✅ **Task 5.3**: `PhpArkitectTool` agent-mode branch, with the `_rules/<slug>.json` fallback for a class the class set cannot place.
+- [x] ✅ **Task 5.4**: Capability on the registry entry; `docs/agent-mode.md` states that arch agent mode is whole-project because `-p` does not reach the lane.
+
 ### Phase 4: Documentation and proof
 
 - [x] ✅ **Task 4.1**: `docs/agent-mode.md` — the flag, the environment variable, the capability table, the schema, the exit codes, and the `lint_on_edit` configuration a consumer applies.
@@ -169,6 +176,8 @@ returns **exit 3** and writes `status: "crashed"` for the specified path.
 - [x] `PHPQACI_AGENT_MODE=1 bin/qa -t phpstan -p <file>` behaves identically to the flag.
 - [x] A run blocked by the lock exits 2 and says so on stdout.
 - [x] `CI=true bin/qa` exits 0 in this repository.
+- [x] `bin/qa --agent-mode -t arch` prints three lines or fewer, reports each violation against the file declaring the violating class, and clears the tree on a green re-run.
+- [x] A violating class the class set cannot place lands in `var/qa/arch-file-reports/_rules/<slug>.json` rather than being lost.
 
 ## Delivery & Milestones
 

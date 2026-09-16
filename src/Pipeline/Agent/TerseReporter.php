@@ -31,13 +31,17 @@ final readonly class TerseReporter
     {
     }
 
-    /** The ordinary outcome: a count, the report to read, and the instruction when it is not clean. */
-    public function result(string $tool, AgentStatusEnum $status, int $errors, int $files, string $reportPath): void
+    /**
+     * The ordinary outcome: a count, the report to read, and the instruction
+     * when it is not clean. `$noun` names what was counted, because a lane
+     * that reports architecture violations should not call them errors.
+     */
+    public function result(string $tool, AgentStatusEnum $status, int $errors, int $files, string $reportPath, string $noun = 'error'): void
     {
         $this->stdout->writeln(\sprintf(
             '%s: %s in %s',
             $this->heading($tool),
-            $this->plural($errors, 'error'),
+            $this->plural($errors, $noun),
             $this->plural($files, 'file'),
         ));
         $this->stdout->writeln(self::REPORT_PREFIX . $reportPath);

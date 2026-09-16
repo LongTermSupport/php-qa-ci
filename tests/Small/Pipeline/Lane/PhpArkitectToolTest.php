@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitectTool;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -22,6 +23,15 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpArkitectTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\AgentStatusEnum::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\ArkitectJsonParser::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\ClassFileLocator::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\ParsedArchReportDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Exception\UnreadableReportException::class)]
+#[UsesClass(FileReportWriter::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\TerseReporter::class)]
 #[UsesClass(ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -41,6 +51,16 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpArkitectToolTest extends TestCase
 {
+    private const string CLASS_NAMESPACE = 'App';
+
+    private const string CLASS_SHORT_NAME = 'BadlyNamed';
+
+    private const string CLASS_FILE = 'src/BadlyNamed.php';
+
+    private const string MISSING_SUFFIX_MESSAGE = 'a name suffix is missing';
+
+    private const string DEEP_CLASS_FILE = 'src/Deep/BadlyNamed.php';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -197,6 +217,187 @@ final class PhpArkitectToolTest extends TestCase
         self::assertSame('phpArkitect', $tool->name());
         self::assertSame('phpqaci.phpArkitect', $tool->identifier());
         self::assertSame(PhpArkitectTool::IDENTIFIER, $tool->identifier());
+    }
+
+    #[Test]
+    public function agentModeAsksArkitectForJsonAndKeepsStdoutToThreeLines(): void
+    {
+        $this->violatingClass(self::CLASS_FILE, self::CLASS_NAMESPACE, self::CLASS_SHORT_NAME);
+        $this->factory->processes->willFail(1, $this->report(['App\BadlyNamed' => [self::MISSING_SUFFIX_MESSAGE]]));
+
+        $result = new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+        $lines  = $this->stdoutLines();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertCount(3, $lines);
+        self::assertSame('PHPARKITECT AGENT MODE: 1 violation in 1 file', $lines[0]);
+        self::assertStringEndsWith(FileReportWriter::INDEX_FILE, $lines[1]);
+        self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
+        self::assertContains('--format=json', $this->toolArgs($this->factory->processes->lastSpec()));
+    }
+
+    #[Test]
+    public function aViolatingClassIsReportedAgainstTheFileThatDeclaresIt(): void
+    {
+        $this->violatingClass(self::DEEP_CLASS_FILE, 'App\Deep', self::CLASS_SHORT_NAME);
+        $this->factory->processes->willFail(1, $this->report(['App\Deep\BadlyNamed' => [self::MISSING_SUFFIX_MESSAGE, 'and it should be final']]));
+
+        new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        $report = $this->decode($this->reportPath(self::DEEP_CLASS_FILE));
+        self::assertSame('phpArkitect', $report['tool']);
+        self::assertSame(self::DEEP_CLASS_FILE, $report['path']);
+        self::assertSame('errors', $report['status']);
+        self::assertSame(2, $report['error_count']);
+        $errors = $report['errors'];
+        self::assertIsArray($errors);
+        $first = $errors[0];
+        self::assertIsArray($first);
+        self::assertSame(self::MISSING_SUFFIX_MESSAGE, $first['message']);
+        self::assertNull($first['line'], 'PHPArkitect reports per class and gives no line');
+    }
+
+    #[Test]
+    public function aClassTheSetCannotResolveFallsBackToAPerRuleReportRatherThanBeingLost(): void
+    {
+        $this->factory->processes->willFail(1, $this->report(['Vendor\Absent' => [self::MISSING_SUFFIX_MESSAGE]]));
+
+        new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        $fallback = $this->reportsDir() . '/' . PhpArkitectTool::RULE_FALLBACK_DIR . '/a-name-suffix-is-missing.json';
+        $report   = $this->decode($fallback);
+        self::assertSame(1, $report['error_count']);
+        $errors = $report['errors'];
+        self::assertIsArray($errors);
+        $first = $errors[0];
+        self::assertIsArray($first);
+        $message = $first['message'];
+        self::assertIsString($message);
+        self::assertSame(
+            'Vendor\Absent ' . self::MISSING_SUFFIX_MESSAGE,
+            $message,
+            'the class name leads the message, because the report is named for the rule and would not otherwise say what broke it',
+        );
+        $tip = $first['tip'];
+        self::assertIsString($tip);
+        self::assertStringContainsString('grouped by rule', $tip);
+    }
+
+    #[Test]
+    public function aCleanAgentRunClearsEveryStaleReportSoAnAbsentOneMeansClean(): void
+    {
+        $this->violatingClass(self::CLASS_FILE, self::CLASS_NAMESPACE, self::CLASS_SHORT_NAME);
+        $this->factory->processes->willFail(1, $this->report(['App\BadlyNamed' => [self::MISSING_SUFFIX_MESSAGE]]));
+        new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+        self::assertFileExists($this->reportPath(self::CLASS_FILE));
+        $this->factory->stdout->fetch();
+
+        $this->factory->processes->willSucceed('{"totalViolations": 0, "details": []}');
+
+        $result = new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertFileDoesNotExist($this->reportPath(self::CLASS_FILE));
+        self::assertSame('PHPARKITECT AGENT MODE: 0 violations in 0 files', $this->stdoutLines()[0]);
+    }
+
+    #[Test]
+    public function agentModeNeverPrintsTheIdentifierTrailerToStdout(): void
+    {
+        $this->violatingClass(self::CLASS_FILE, self::CLASS_NAMESPACE, self::CLASS_SHORT_NAME);
+        $this->factory->processes->willFail(1, $this->report(['App\BadlyNamed' => [self::MISSING_SUFFIX_MESSAGE]]));
+
+        new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        self::assertStringNotContainsString(PhpArkitectTool::IDENTIFIER, $this->factory->stdout->fetch());
+    }
+
+    #[Test]
+    public function anAgentModeCrashIsReportedAsCrashedWithoutTheHumanTroubleshootingEssay(): void
+    {
+        $this->factory->processes->willFail(255, "PHP Fatal error: bad config\n");
+
+        $result = new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('crashed', $this->stdoutLines()[0]);
+        self::assertStringNotContainsString('composer dump-autoload', $this->factory->stdout->fetch());
+    }
+
+    #[Test]
+    public function unreadableOutputInAgentModeIsACrashRatherThanAGreen(): void
+    {
+        $this->factory->processes->willSucceed("not json at all\n");
+
+        $result = new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+    }
+
+    #[Test]
+    public function agentModeStillHonoursTheDisableSwitch(): void
+    {
+        $result = new PhpArkitectTool()->run($this->factory->context($this->factory->builder(agentMode: true)->withArkitect(false)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+    }
+
+    private function agentConfig(): \LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto
+    {
+        return $this->factory->builder(agentMode: true)->build();
+    }
+
+    /**
+     * A PHPArkitect --format=json report, wrapped in the banner and trailer the phar really prints.
+     *
+     * @param array<string, list<string>> $violationsByClass
+     */
+    private function report(array $violationsByClass): string
+    {
+        $details = [];
+        $total   = 0;
+        foreach ($violationsByClass as $fqcn => $messages) {
+            $details[$fqcn] = array_map(static fn (string $m): array => ['error' => $m], $messages);
+            $total += \count($messages);
+        }
+
+        return "PHPArkitect 1.3.0.0\n\nanalyze class set\n 10/10 [====] 100%\n\n"
+            . \Safe\json_encode(['totalViolations' => $total, 'details' => $details])
+            . "\n⚠️ violations detected!\n";
+    }
+
+    private function violatingClass(string $relative, string $namespace, string $shortName): void
+    {
+        $this->factory->project->write($relative, "<?php\n\ndeclare(strict_types=1);\n\nnamespace " . $namespace . ";\n\ninterface " . $shortName . "\n{\n}\n");
+    }
+
+    private function reportsDir(): string
+    {
+        return $this->factory->project->path . '/var/qa/' . PhpArkitectTool::REPORT_DIR;
+    }
+
+    private function reportPath(string $projectRelative): string
+    {
+        return $this->reportsDir() . '/' . $projectRelative . '.json';
+    }
+
+    /** @return array<array-key, mixed> */
+    private function decode(string $path): array
+    {
+        self::assertFileExists($path);
+        $decoded = \Safe\json_decode(\Safe\file_get_contents($path), true);
+        self::assertIsArray($decoded);
+
+        return $decoded;
+    }
+
+    /** @return list<string> the non-empty lines agent mode put on the real stdout */
+    private function stdoutLines(): array
+    {
+        return array_values(array_filter(
+            explode("\n", trim($this->factory->stdout->fetch())),
+            static fn (string $line): bool => '' !== trim($line),
+        ));
     }
 
     /** @return list<string> everything after the "--" separator */

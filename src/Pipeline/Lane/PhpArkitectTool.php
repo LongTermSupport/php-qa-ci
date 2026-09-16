@@ -5,6 +5,14 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
+use LTS\PHPQA\Pipeline\Agent\ArkitectJsonParser;
+use LTS\PHPQA\Pipeline\Agent\ClassFileLocator;
+use LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto;
+use LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto;
+use LTS\PHPQA\Pipeline\Agent\Exception\UnreadableReportException;
+use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
+use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -21,11 +29,30 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  */
 final readonly class PhpArkitectTool implements ToolInterface
 {
+    /** The stable identifier a failing run prints, resolved by `bin/rule-doc`. */
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.phpArkitect';
 
+    /** The per-tool directory under `var/qa` holding both the log and the archive. */
     public const string LOG_DIR = 'phparkitect_logs';
 
+    /** The human console transcript of the last run. */
     public const string LOG_FILE = 'phparkitect.log';
+
+    /** The raw `--format=json` report of the last agent-mode run. */
+    public const string JSON_FILE = 'phparkitect.json';
+
+    /** The per-file agent-mode report tree under `var/qa`. */
+    public const string REPORT_DIR = 'arch-file-reports';
+
+    /**
+     * Where a violation goes when its class cannot be traced to a file. Named
+     * by rule rather than by class, so the one report gathers every class that
+     * broke the same rule instead of scattering them.
+     */
+    public const string RULE_FALLBACK_DIR = '_rules';
+
+    /** How much of a rule text a fallback slug keeps; the texts run to a full sentence. */
+    private const int SLUG_MAX_LENGTH = 80;
 
     public function name(): string
     {
@@ -57,6 +84,11 @@ final readonly class PhpArkitectTool implements ToolInterface
 
         $paths  = $config->paths;
         $logDir = $context->logDir(self::LOG_DIR);
+
+        if ($config->agentMode) {
+            return $this->runAgent($context, $entryConfig);
+        }
+
         $result = $context->php->withoutXdebug(
             $paths->pharDir . '/phparkitect.phar',
             [
@@ -92,6 +124,112 @@ final readonly class PhpArkitectTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed('PHPArkitect found rule violations');
+    }
+
+    /**
+     * Agent mode: the same architecture check, reported for a machine.
+     *
+     * PHPArkitect matches rules against CLASSES and reports neither a path nor
+     * a line, so each violating class is traced back to the file that declares
+     * it through the class set. A class the set cannot place still has to be
+     * reported, so it falls back to a report named for the rule it broke,
+     * carrying the class name in the message.
+     *
+     * The whole tree is cleared first. `-p` does not reach this lane — the
+     * paths live inside the entry config — so an agent-mode arch run is always
+     * whole-project, and clearing everything is exactly the right scope.
+     */
+    private function runAgent(ToolContext $context, string $entryConfig): ToolResultDto
+    {
+        $config  = $context->config;
+        $paths   = $config->paths;
+        $writer  = new FileReportWriter($context->logDir(self::REPORT_DIR), $paths->projectRoot);
+        $terse   = new TerseReporter($context->stdout);
+        $logPath = $context->logDir(self::LOG_DIR) . '/' . self::JSON_FILE;
+        $runAt   = time();
+
+        $result = $context->php->withoutXdebug(
+            $paths->pharDir . '/phparkitect.phar',
+            [
+                'check',
+                '--config=' . $entryConfig,
+                '--autoload=' . $paths->projectRoot . '/vendor/autoload.php',
+                '--no-interaction',
+                '--format=json',
+            ],
+            $paths->projectRoot,
+            $this->environment($context),
+            streamOutput: false,
+        );
+        \Safe\file_put_contents($logPath, $result->stdout);
+
+        $writer->clearScope(null);
+
+        if ($result->exitCode > 1) {
+            return $this->agentCrash($writer, $terse, \sprintf('PHPArkitect crashed (exit %d)', $result->exitCode), $runAt, $logPath);
+        }
+
+        try {
+            $parsed = new ArkitectJsonParser()->parse($result->stdout);
+        } catch (UnreadableReportException $unreadableReportException) {
+            return $this->agentCrash($writer, $terse, $unreadableReportException->getMessage(), $runAt, $logPath);
+        }
+
+        $locator = new ClassFileLocator($paths->srcDir);
+        $byFile  = [];
+        foreach ($parsed->classes as $fqcn => $violations) {
+            $target = $locator->locate($fqcn) ?? $this->fallbackPath($violations[0]->message);
+            foreach ($violations as $violation) {
+                $byFile[$target][] = $this->attribute($violation, $fqcn, null !== $locator->locate($fqcn));
+            }
+        }
+
+        foreach ($byFile as $target => $violations) {
+            $writer->write(FileReportDto::forErrors($this->name(), $target, $runAt, $logPath, ...$violations));
+        }
+
+        $status = AgentStatusEnum::forErrorCount($parsed->violationCount());
+        $index  = $writer->writeIndex($this->name(), $status, $runAt);
+        $terse->result($this->name(), $status, $parsed->violationCount(), \count($byFile), $index, 'violation');
+
+        return AgentStatusEnum::Clean === $status ? ToolResultDto::passed() : ToolResultDto::failed('PHPArkitect found rule violations');
+    }
+
+    /**
+     * A located violation keeps its message as PHPArkitect wrote it. An
+     * unlocated one gains the class name, because the report it is going into
+     * is named for the rule and would otherwise not say what broke it.
+     */
+    private function attribute(FileErrorDto $violation, string $fqcn, bool $located): FileErrorDto
+    {
+        return $located
+            ? $violation
+            : new FileErrorDto(null, $fqcn . ' ' . $violation->message, null, 'The class could not be traced to a file in the class set; this report is grouped by rule instead.');
+    }
+
+    /** `_rules/<slug>.json`, the slug derived from the rule text so the name is stable across runs. */
+    private function fallbackPath(string $message): string
+    {
+        $words = [];
+        foreach (\Safe\preg_split('/[^A-Za-z0-9]+/', strtolower($message), -1, \PREG_SPLIT_NO_EMPTY) as $word) {
+            if (\is_string($word)) {
+                $words[] = $word;
+            }
+        }
+
+        // Rule texts carry their whole "because ..." clause, so the slug is
+        // capped: a stable, readable name matters more than a complete one.
+        return self::RULE_FALLBACK_DIR . '/' . substr(implode('-', $words), 0, self::SLUG_MAX_LENGTH);
+    }
+
+    /** The check did not produce a verdict. Recorded against the log, since no class is implicated. */
+    private function agentCrash(FileReportWriter $writer, TerseReporter $terse, string $reason, int $runAt, string $logPath): ToolResultDto
+    {
+        $report = $writer->write(FileReportDto::crashed($this->name(), self::RULE_FALLBACK_DIR . '/crash', $runAt, $reason, $logPath));
+        $writer->writeIndex($this->name(), AgentStatusEnum::Crashed, $runAt, $reason);
+        $terse->crashed($this->name(), $reason, $report);
+
+        return ToolResultDto::crashed($reason);
     }
 
     /**

@@ -19,8 +19,10 @@ use RuntimeException;
  */
 final class UnreadableReportException extends RuntimeException
 {
+    private const string TEMPLATE = '%s produced output agent mode could not read as a report: %s';
+
     public static function forTool(string $tool, string $reason): self
     {
-        return new self(\sprintf('%s produced output agent mode could not read as a report: %s', $tool, $reason));
+        return new self(\sprintf(self::TEMPLATE, $tool, $reason));
     }
 }

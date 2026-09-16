@@ -43,6 +43,7 @@ false, so a tool supports agent mode only by saying so.
 | Tool                        | Agent mode | What happens when it is selected                  |
 | --------------------------- | ---------- | ------------------------------------------------- |
 | `phpstan`                   | Supported  | Terse stdout, per-file JSON reports, an index     |
+| `phpArkitect` (`arch`)      | Supported  | The same, whole-project: see below                |
 | Every other shipped lane    | Refused    | A usage error naming the supporting tools, exit 1 |
 | Every phase runner (`all*`) | Refused    | A usage error, exit 1                             |
 | No `-t` at all              | Refused    | A usage error, exit 1                             |
@@ -55,6 +56,36 @@ had written. `vendor/bin/qa --agent-mode` with no `-t` prints the supporting too
 A consuming project that registers its own lane through `qaConfig/pipeline.php` opts in the
 same way, by constructing its `ToolDefinitionDto` with `supportsAgentMode: true` and writing
 the reports itself.
+
+### PHPArkitect's differences
+
+The arch lane honours the same contract, with two differences that come from what PHPArkitect
+reports rather than from any choice made here.
+
+**It is always whole-project.** PHPArkitect's paths to scan live inside the entry config, not on
+the command line, so the lane does not support `-p` in any mode. `vendor/bin/qa --agent-mode -t arch`
+analyses the configured class set and reports every violating file; there is no way to scope it to
+one file.
+
+**Reports are keyed by the file that declares the violating class.** PHPArkitect matches rules
+against classes and gives neither a path nor a line, so each violating class is traced back to its
+file through the class set: an index of short names, disambiguated by the namespace read out of the
+file. This deliberately does not consult the autoloader — the lane is designed to run without a
+complete one, and resolving a class through a loader would execute project code. `line` is
+therefore always null in an arch report.
+
+A class the class set cannot place still has to be reported. It falls back to a report named for
+the **rule** it broke, at `var/qa/arch-file-reports/_rules/<slug>.json`, with the class name
+prepended to each message and a `tip` saying why it is grouped that way. One report then gathers
+every unplaceable class that broke the same rule, rather than scattering them.
+
+```bash
+# the files to open, after an arch run
+jq -r '.files[] | .report' var/qa/arch-file-reports/_index.json
+
+# anything that could not be traced to a file
+ls var/qa/arch-file-reports/_rules/ 2>/dev/null
+```
 
 ## Exit codes
 
@@ -75,10 +106,11 @@ stdout says the analysis did not happen.
 ## The report
 
 One file per analysed source file, at the source file's own project-relative path with
-`.json` appended:
+`.json` appended, under a directory named for the tool:
 
 ```text
 src/Kernel.php  ->  var/qa/phpstan-file-reports/src/Kernel.php.json
+src/Kernel.php  ->  var/qa/arch-file-reports/src/Kernel.php.json
 ```
 
 The extension is kept, so `Thing.php` and `Thing.phtml` cannot collide, and the mapping reads
