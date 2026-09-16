@@ -84,8 +84,8 @@ running consumer-side `bin/qa` probes from the `accounts-api` checkout.
 
 ### Phase 2: Verification
 
-- [ ] ⬜ **Task 2.1**: Full unfiltered `CI=true bin/qa` exits 0 in this worktree.
-- [ ] ⬜ **Task 2.2**: Each pull request's QA workflow is green on its head commit.
+- [x] ✅ **Task 2.1**: Full unfiltered `CI=true bin/qa` exits 0 in this worktree.
+- [ ] ⬜ **Task 2.2**: The pull request's QA workflow is green on its head commit.
 
 ## Success Criteria
 
