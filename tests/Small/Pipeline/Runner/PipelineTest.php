@@ -230,9 +230,19 @@ final class PipelineTest extends TestCase
         $holder  = RunLock::forProject($this->factory->project->path, $this->factory->output);
         $holder->acquire('unit', '', 'other-host', 999);
 
-        self::assertSame(1, $this->pipeline()->run($context));
+        self::assertSame(Pipeline::EXIT_LOCK_CONTENDED, $this->pipeline()->run($context));
         self::assertStringContainsString('Another QA run holds the lock', $this->factory->output->fetch());
         self::assertSame(0, $this->tools->stub('rector')->runs);
+    }
+
+    #[Test]
+    public function theLockContentionExitCodeIsDistinctFromAQaFailure(): void
+    {
+        $this->tools->register(new StubTool(self::PHP_LINT, ToolResultDto::failed('a real defect')));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::PHP_LINT)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context), 'a genuine QA failure keeps exit 1');
+        self::assertNotSame(1, Pipeline::EXIT_LOCK_CONTENDED, 'contention must not be readable as a QA failure');
     }
 
     #[Test]

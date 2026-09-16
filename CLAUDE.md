@@ -151,7 +151,7 @@ Before any tool runs, `QaApplication` and `Pipeline` perform these steps in orde
 
 09. **Pre-hook** ([HookRunner](src/Pipeline/Runner/HookRunner.php)) - runs `qaConfig/hookPre.php` if present
 
-10. **Run lock** ([RunLock](src/Pipeline/Lock/RunLock.php)) - one run per project. A JSON lock file under `qaConfig/.qa-lock/` records host, pid, tool, path and last activity. A live holder aborts the run (exit 1) before any tool executes; a holder quiet for longer than the stale window (600 seconds) is presumed dead, removed with a note, and the lock is taken. The runner touches the lock before every tool so a long lane never goes stale. Liveness is time-based, not PID-based, because container restarts make PIDs meaningless
+10. **Run lock** ([RunLock](src/Pipeline/Lock/RunLock.php)) - one run per project. A JSON lock file under `qaConfig/.qa-lock/` records host, pid, tool, path and last activity. A live holder aborts the run (exit 75, `Pipeline::EXIT_LOCK_CONTENDED`, distinct from a QA failure and accompanied by one line on stderr) before any tool executes; a holder quiet for longer than the stale window (600 seconds) is presumed dead, removed with a note, and the lock is taken. The runner touches the lock before every tool so a long lane never goes stale. Liveness is time-based, not PID-based, because container restarts make PIDs meaningless
 
 Only after all preflight steps complete does tool execution begin.
 
