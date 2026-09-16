@@ -185,8 +185,7 @@ final readonly class RuleDocResolver
             return [];
         }
 
-        /** @var mixed $declared */
-        $declared = json_decode(\Safe\file_get_contents($this->projectRoot . self::PROJECT_DECLARATION), true);
+        $declared = \Safe\json_decode(\Safe\file_get_contents($this->projectRoot . self::PROJECT_DECLARATION), true);
         if (!\is_array($declared) || !isset($declared['indexes']) || !\is_array($declared['indexes'])) {
             return [];
         }

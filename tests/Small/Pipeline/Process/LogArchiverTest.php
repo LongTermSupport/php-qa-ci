@@ -27,6 +27,8 @@ final class LogArchiverTest extends TestCase
 
     private const string TIMESTAMP = '20260908-120000';
 
+    private const string ARCHIVE_AT_TIMESTAMP = 'phpstan.20260908-120000.log';
+
     private TempDir $logDir;
 
     private BufferedOutput $output;
@@ -49,8 +51,8 @@ final class LogArchiverTest extends TestCase
 
         new LogArchiver($this->output)->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, false, ['/p/src'], self::TIMESTAMP);
 
-        self::assertSame(['phpstan.20260908-120000.log', self::PHPSTAN_LOG], $this->logDir->files());
-        self::assertSame(self::LIVE_LOG, $this->logDir->read('phpstan.20260908-120000.log'));
+        self::assertSame([self::ARCHIVE_AT_TIMESTAMP, self::PHPSTAN_LOG], $this->logDir->files());
+        self::assertSame(self::LIVE_LOG, $this->logDir->read(self::ARCHIVE_AT_TIMESTAMP));
         self::assertStringContainsString("Full test suite run\nLog: phpstan.20260908-120000.log\n", $this->output->fetch());
     }
 
@@ -112,7 +114,7 @@ final class LogArchiverTest extends TestCase
 
         $remaining = $this->logDir->files();
         self::assertContains(self::PHPSTAN_LOG, $remaining, 'the live log is never an archive and is never pruned');
-        self::assertContains('phpstan.20260908-120000.log', $remaining, 'the archive this run just wrote survives');
+        self::assertContains(self::ARCHIVE_AT_TIMESTAMP, $remaining, 'the archive this run just wrote survives');
         self::assertNotContains('phpstan.path_001.20260101-000000.log', $remaining, 'the oldest archives go first');
         self::assertCount(
             LogArchiver::DIRECTORY_CAP + 1,

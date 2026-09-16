@@ -34,8 +34,8 @@ final readonly class PhpstanTool implements ToolInterface
     public const string WRAPPER_NEON = 'phpstan-parallel.neon';
 
     private const array PHAR_CONFIG_APIS = [
-        'phparkitect.phar'                 => 'Arkitect\\',
-        'composer-dependency-analyser.phar' => 'ShipMonk\\ComposerDependencyAnalyser\\',
+        'phparkitect.phar'                  => 'Arkitect\\',
+        'composer-dependency-analyser.phar' => 'ShipMonk\ComposerDependencyAnalyser\\',
     ];
 
     private const string TAUTOLOGY_PATTERN = '/alreadyNarrowedType|alwaysTrue|alwaysFalse|impossibleCheck/';
@@ -235,7 +235,6 @@ final readonly class PhpstanTool implements ToolInterface
                 continue;
             }
 
-            /** @var mixed $loaded */
             $loaded = require $map;
             if (!\is_array($loaded) || !isset($loaded[$prefix]) || !\is_array($loaded[$prefix])) {
                 continue;

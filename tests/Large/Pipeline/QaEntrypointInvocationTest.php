@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Pipeline;
 
+use Iterator;
 use LTS\PHPQA\Tests\Assets\DeploySkills\ShellRunner;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,17 +31,11 @@ final class QaEntrypointInvocationTest extends TestCase
 {
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
-    /** @return list<array{string}> */
-    public static function invocations(): array
-    {
-        return [['./bin/qa'], ['bash bin/qa'], ['sh bin/qa']];
-    }
-
     #[Test]
     #[DataProvider('invocations')]
     public function everyInvocationFormReachesThePipeline(string $invocation): void
     {
-        $result = ShellRunner::run($invocation . ' -h', \realpath(self::REPO_ROOT));
+        $result = ShellRunner::run($invocation . ' -h', \Safe\realpath(self::REPO_ROOT));
 
         self::assertStringContainsString(
             'use -t to specify a single tool',
@@ -50,10 +45,18 @@ final class QaEntrypointInvocationTest extends TestCase
         self::assertStringNotContainsString('syntax error', $result['output']);
     }
 
+    /** @return Iterator<string, array{string}> */
+    public static function invocations(): Iterator
+    {
+        yield 'as an executable' => ['./bin/qa'];
+        yield 'through bash'     => ['bash bin/qa'];
+        yield 'through sh'       => ['sh bin/qa'];
+    }
+
     #[Test]
     public function theShimAndThePhpEntrypointAgree(): void
     {
-        $root = \realpath(self::REPO_ROOT);
+        $root = \Safe\realpath(self::REPO_ROOT);
 
         $viaShim = ShellRunner::run('bash bin/qa -h', $root);
         $viaPhp  = ShellRunner::run('php bin/qa.php -h', $root);
@@ -65,7 +68,7 @@ final class QaEntrypointInvocationTest extends TestCase
     #[Test]
     public function theShimHonoursThePipelinesOwnPhpExecutableVariable(): void
     {
-        $root = \realpath(self::REPO_ROOT);
+        $root = \Safe\realpath(self::REPO_ROOT);
 
         $result = ShellRunner::run('PHP_QA_CI_PHP_EXECUTABLE=/definitely/not/a/php bash bin/qa -h', $root);
 

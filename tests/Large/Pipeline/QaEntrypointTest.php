@@ -209,7 +209,7 @@ final class QaEntrypointTest extends TestCase
         $this->consumer->mkdir(self::INSTALLED_LIBRARY . '/bin');
         $libraryRoot = \Safe\realpath(self::LIBRARY_ROOT);
 
-        foreach (['qa', 'bootstrap.php'] as $script) {
+        foreach (['qa', 'qa.php', 'bootstrap.php'] as $script) {
             \Safe\copy($libraryRoot . self::BIN . $script, $installed . self::BIN . $script);
             \Safe\chmod($installed . self::BIN . $script, 0o755);
         }
@@ -232,7 +232,9 @@ final class QaEntrypointTest extends TestCase
     private function qa(array $env, string ...$args): Process
     {
         $process = new Process(
-            ['php', $this->consumer->path . '/' . self::INSTALLED_LIBRARY . '/bin/qa', ...$args],
+            // Run the shim as the executable it is, which is how a consumer
+            // reaches it. Prefixing `php` would hand a shell script to PHP.
+            [$this->consumer->path . '/' . self::INSTALLED_LIBRARY . '/bin/qa', ...$args],
             $this->consumer->path,
             ['CI' => 'true', ...$env],
             null,
