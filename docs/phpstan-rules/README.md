@@ -26,6 +26,29 @@ It prints the rule class, bundle and summary, followed by the remediation page w
 An identifier this index does not carry is an error, which is the point: every identifier the
 package can print must resolve here, and `tests/Small/PHPStan/RuleDocResolverTest.php` audits that.
 
+## Your own rules in the same lookup
+
+A project that ships its own PHPStan rules prints its own identifiers, and those are the ones its
+developers hit most. Declare where they are documented in `qaConfig/rule-docs.json` and `rule-doc`
+resolves them alongside this package's:
+
+```json
+{
+  "indexes": [
+    "docs/qa-rules.md",
+    { "path": "docs/arch-rules.md", "rulesDir": "qaConfig/PHPStan/Rules" }
+  ]
+}
+```
+
+Paths are project-relative. A row uses the same shape as the table below: the identifier in the
+first cell, the rule class in the second, and the **last** cell as the summary, optionally carrying
+a markdown link to a remediation page. Links resolve against the index's own directory. `rulesDir`
+is where a bare class cell is found; without it, the index's own directory is used.
+
+A project cannot shadow a `phpqaci.*` identifier: the shipped index is read first and wins, so a
+failure always resolves to the page that describes the rule that produced it.
+
 To check whether one rule fires on one path, with the project's own configuration:
 
 ```bash

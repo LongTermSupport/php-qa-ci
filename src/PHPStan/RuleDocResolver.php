@@ -30,8 +30,16 @@ final readonly class RuleDocResolver
     /** Doc targets are written relative to the index, so they resolve against its directory. */
     private const string DOCS_DIR = '/docs/phpstan-rules/';
 
-    /** Identifier and class cells, then the rest of the row; the trailing cells vary by bundle. */
-    private const string ROW_PATTERN = '/^\| `(phpqaci\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
+    /**
+     * Identifier and class cells, then the rest of the row; the trailing cells
+     * vary by bundle. The identifier prefix is not pinned to this package's
+     * own: a consuming project publishes its rules under its own prefix, in its
+     * own index, and the row shape is the same one.
+     */
+    private const string ROW_PATTERN = '/^\| `([A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
+
+    /** Where a project declares the indexes carrying its own identifiers. */
+    private const string PROJECT_DECLARATION = '/qaConfig/rule-docs.json';
 
     /** Where a row's class cell is found when it is a path — how a pipeline lane names itself. */
     private const string SRC_DIR = '/src/';
@@ -53,7 +61,11 @@ final readonly class RuleDocResolver
      */
     private const string LINK_PATTERN = '/\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)]+)\)/';
 
-    public function __construct(private string $repoRoot)
+    /**
+     * @param string|null $projectRoot the consuming project, when there is one, so its own
+     *                                 identifiers resolve alongside this package's
+     */
+    public function __construct(private string $repoRoot, private ?string $projectRoot = null)
     {
     }
 
@@ -133,9 +145,86 @@ final readonly class RuleDocResolver
     /** @return array<string, RuleDocEntryDto> */
     private function entries(): array
     {
+        $entries = $this->entriesFrom(
+            $this->repoRoot . self::INDEX,
+            $this->repoRoot . self::DOCS_DIR,
+            $this->repoRoot . self::RULES_DIR,
+            $this->repoRoot . self::SRC_DIR,
+        );
+
+        // A project catalogue is read second and does not overwrite a shipped
+        // identifier: this package owns the phpqaci.* namespace, and a project
+        // shadowing one of ours would make a failure resolve to the wrong page.
+        foreach ($this->projectCatalogues() as $catalogue) {
+            foreach ($this->entriesFrom(...$catalogue) as $identifier => $entry) {
+                $entries[$identifier] ??= $entry;
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Every index a project declares, as the four roots a row resolves against.
+     *
+     * The declaration is `qaConfig/rule-docs.json`: an `indexes` list whose
+     * entries are either a project-relative path to the index, or an object
+     * with that `path` plus a `rulesDir` for resolving a bare class cell. Doc
+     * links always resolve against the index's own directory, exactly as they
+     * do in this package's index.
+     *
+     * Malformed or absent declarations yield nothing rather than throwing. A
+     * practitioner runs this holding a failing identifier; taking the whole
+     * lookup down over the shape of a config file would answer nothing at all.
+     *
+     * @return list<array{string, string, string, string}>
+     */
+    private function projectCatalogues(): array
+    {
+        if (null === $this->projectRoot || !is_file($this->projectRoot . self::PROJECT_DECLARATION)) {
+            return [];
+        }
+
+        /** @var mixed $declared */
+        $declared = json_decode(\Safe\file_get_contents($this->projectRoot . self::PROJECT_DECLARATION), true);
+        if (!\is_array($declared) || !isset($declared['indexes']) || !\is_array($declared['indexes'])) {
+            return [];
+        }
+
+        $catalogues = [];
+        foreach ($declared['indexes'] as $entry) {
+            $path     = \is_string($entry) ? $entry : null;
+            $rulesDir = null;
+            if (\is_array($entry)) {
+                $path     = \is_string($entry['path'] ?? null) ? $entry['path'] : null;
+                $rulesDir = \is_string($entry['rulesDir'] ?? null) ? $entry['rulesDir'] : null;
+            }
+
+            if (null === $path) {
+                continue;
+            }
+
+            $index = $this->projectRoot . '/' . ltrim($path, '/');
+            if (!is_file($index)) {
+                continue;
+            }
+
+            $rulesRoot = null === $rulesDir
+                ? \dirname($index) . '/'
+                : $this->projectRoot . '/' . trim($rulesDir, '/') . '/';
+
+            $catalogues[] = [$index, \dirname($index) . '/', $rulesRoot, $this->projectRoot . '/'];
+        }
+
+        return $catalogues;
+    }
+
+    /** @return array<string, RuleDocEntryDto> */
+    private function entriesFrom(string $index, string $docsDir, string $rulesDir, string $srcDir): array
+    {
         $entries = [];
-        foreach (explode("\n", \Safe\file_get_contents($this->repoRoot . self::INDEX)) as $line) {
-            $entry = $this->matchRow($line);
+        foreach (explode("\n", \Safe\file_get_contents($index)) as $line) {
+            $entry = $this->matchRow($line, $docsDir, $rulesDir, $srcDir);
             if ($entry instanceof RuleDocEntryDto) {
                 $entries[$entry->identifier] = $entry;
             }
@@ -144,7 +233,7 @@ final readonly class RuleDocResolver
         return $entries;
     }
 
-    private function matchRow(string $line): ?RuleDocEntryDto
+    private function matchRow(string $line, string $docsDir, string $rulesDir, string $srcDir): ?RuleDocEntryDto
     {
         if (1 !== \Safe\preg_match(self::ROW_PATTERN, $line, $matches) || !isset($matches[1], $matches[2], $matches[3])) {
             return null;
@@ -170,7 +259,7 @@ final readonly class RuleDocResolver
                 // parses every row on any lookup. One dead link would stop bin/rule-doc
                 // answering for every other identifier — and the practitioner, who came to
                 // have a failure explained, would get "An error occurred".
-                $candidate = $this->repoRoot . self::DOCS_DIR . $target;
+                $candidate = $docsDir . $target;
                 $docPath   = is_file($candidate) ? \Safe\realpath($candidate) : null;
             }
         }
@@ -181,8 +270,8 @@ final readonly class RuleDocResolver
             summary: $summary,
             bundle: $bundle,
             sourcePath: str_contains($ruleClass, '/')
-                ? $this->repoRoot . self::SRC_DIR . $ruleClass . '.php'
-                : $this->repoRoot . self::RULES_DIR . $ruleClass . '.php',
+                ? $srcDir . $ruleClass . '.php'
+                : $rulesDir . $ruleClass . '.php',
             docPath: $docPath,
         );
     }
