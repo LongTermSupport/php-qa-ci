@@ -32,13 +32,6 @@ final class QaEntrypointInvocationTest extends TestCase
 
     private const string USAGE_MARKER = 'use -t to specify a single tool';
 
-    /** @return Iterator<string, array{string}> */
-    public static function invocations(): Iterator
-    {
-        yield 'as an executable'      => ['./bin/qa'];
-        yield 'handed to a PHP binary' => ['php bin/qa'];
-    }
-
     #[Test]
     #[DataProvider('invocations')]
     public function everyShippedInvocationFormReachesThePipeline(string $invocation): void
@@ -52,12 +45,19 @@ final class QaEntrypointInvocationTest extends TestCase
         );
     }
 
+    /** @return Iterator<string, array{string}> */
+    public static function invocations(): Iterator
+    {
+        yield 'as an executable'      => ['./bin/qa'];
+        yield 'handed to a PHP binary' => ['php bin/qa'];
+    }
+
     #[Test]
     public function theEntrypointIsPhpAndSaysSoInItsShebang(): void
     {
         // The property the Composer bin proxy depends on: Composer reads the
         // shebang to decide whether to generate a PHP proxy or a shell one.
-        $first = \strtok(\Safe\file_get_contents(self::REPO_ROOT . '/bin/qa'), "\n");
+        $first = strtok(\Safe\file_get_contents(self::REPO_ROOT . '/bin/qa'), "\n");
 
         self::assertIsString($first);
         self::assertStringContainsString('php', $first);
