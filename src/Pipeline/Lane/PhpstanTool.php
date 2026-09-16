@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
+use LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto;
+use LTS\PHPQA\Pipeline\Agent\Exception\UnreadableReportException;
+use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
+use LTS\PHPQA\Pipeline\Agent\PhpstanJsonParser;
+use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
@@ -17,7 +23,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * threads, the same figure Rector and Infection use. Exit 1 means PHPStan ran
  * and found errors; anything above is a crash, which in text mode is re-run
  * with --debug so the fatal that stopped it is visible. In --json mode the
- * report goes to the real stdout untouched and nothing is retried.
+ * report goes to the real stdout untouched and nothing is retried. In agent
+ * mode the same JSON is turned into one report file per analysed source file
+ * and stdout is held to a count, a path and an instruction.
  *
  * @internal
  */
@@ -30,6 +38,8 @@ final readonly class PhpstanTool implements ToolInterface
     public const string LOG_FILE = 'phpstan.log';
 
     public const string JSON_FILE = 'phpstan.json';
+
+    public const string REPORT_DIR = 'phpstan-file-reports';
 
     public const string WRAPPER_NEON = 'phpstan-parallel.neon';
 
@@ -84,11 +94,93 @@ final readonly class PhpstanTool implements ToolInterface
         $pathArgs = $this->pathsBelongInConfig($config) ? [] : $config->pathsToCheck;
         $baseArgs = ['analyse', ...$pathArgs, '-c', $wrapper];
 
+        if ($config->agentMode) {
+            return $this->runAgent($context, $logDir, ...$baseArgs);
+        }
+
         if ($config->jsonOutput) {
             return $this->runJson($context, $logDir, ...$baseArgs);
         }
 
         return $this->runText($context, $logDir, ...$baseArgs);
+    }
+
+    /**
+     * Agent mode: the same analysis, reported for a machine. The findings go
+     * into one JSON file per source file and stdout gets a count, a path and
+     * an instruction.
+     *
+     * The scope is cleared before anything is written, which is the only
+     * reliable way to make an absent report mean "clean": PHPStan's JSON names
+     * the files that HAVE errors and says nothing about the rest, so without
+     * the clear a fixed file would keep yesterday's red report for ever.
+     */
+    private function runAgent(ToolContext $context, string $logDir, string ...$baseArgs): ToolResultDto
+    {
+        $config = $context->config;
+        $writer = new FileReportWriter($context->logDir(self::REPORT_DIR), $config->paths->projectRoot);
+        $terse  = new TerseReporter($context->stdout);
+        $scope  = null === $config->specifiedPath ? null : $config->paths->projectRoot . '/' . $config->specifiedPath;
+        $logPath = $logDir . '/' . self::JSON_FILE;
+        $runAt   = time();
+
+        $result = $context->php->withoutXdebug(
+            $config->paths->pharDir . '/phpstan.phar',
+            array_values([...$baseArgs, '--no-progress', '--error-format=json']),
+            $config->paths->projectRoot,
+            streamOutput: false,
+        );
+        \Safe\file_put_contents($logPath, $result->stdout);
+
+        $writer->clearScope($scope);
+
+        if ($result->exitCode > 1) {
+            return $this->agentCrash($writer, $terse, \sprintf('PHPStan crashed (exit %d)', $result->exitCode), $scope, $runAt, $logPath);
+        }
+
+        try {
+            $parsed = new PhpstanJsonParser()->parse($result->stdout);
+        } catch (UnreadableReportException $unreadableReportException) {
+            return $this->agentCrash($writer, $terse, $unreadableReportException->getMessage(), $scope, $runAt, $logPath);
+        }
+
+        foreach ($parsed->files as $file => $errors) {
+            $writer->write(FileReportDto::forErrors($this->name(), $file, $runAt, $errors, $logPath));
+        }
+
+        // A -p run naming a single file always gets a report, clean or not:
+        // that write is what visibly erases the previous red one.
+        if (null !== $scope && is_file($scope) && !\array_key_exists($scope, $parsed->files)) {
+            $writer->write(FileReportDto::forErrors($this->name(), $scope, $runAt, [], $logPath));
+        }
+
+        $status = AgentStatusEnum::forErrorCount($parsed->errorCount());
+        $index  = $writer->writeIndex($this->name(), $status, $runAt, $parsed->globalErrors);
+        $single = null !== $scope && is_file($scope);
+        $terse->result(
+            $this->name(),
+            $status,
+            $parsed->errorCount(),
+            $single ? 1 : $parsed->fileCount(),
+            $single ? $writer->reportPathFor($scope) : $index,
+        );
+
+        return AgentStatusEnum::Clean === $status ? ToolResultDto::passed() : ToolResultDto::failed('PHPStan found errors');
+    }
+
+    /**
+     * The analyser did not produce a verdict. Recorded against the analysed
+     * file when there is one, so the agent's next read of that report finds
+     * the reason rather than a stale green.
+     */
+    private function agentCrash(FileReportWriter $writer, TerseReporter $terse, string $reason, ?string $scope, int $runAt, string $logPath): ToolResultDto
+    {
+        $path   = $scope ?? $logPath;
+        $report = $writer->write(FileReportDto::crashed($this->name(), $path, $runAt, $reason, $logPath));
+        $writer->writeIndex($this->name(), AgentStatusEnum::Crashed, $runAt, [$reason]);
+        $terse->crashed($this->name(), $reason, $report);
+
+        return ToolResultDto::crashed($reason);
     }
 
     private function runJson(ToolContext $context, string $logDir, string ...$baseArgs): ToolResultDto

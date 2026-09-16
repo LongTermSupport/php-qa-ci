@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Runner;
 
+use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
+use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
+use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
+use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -47,7 +51,7 @@ final readonly class Pipeline
         $lockTool = null === $config->singleTool ? 'full pipeline' : $config->singleTool;
         $lockPath = null === $config->specifiedPath ? 'whole project' : $config->specifiedPath;
         if (!$this->lock->acquire($lockTool, $lockPath, $this->hostname, $this->pid)) {
-            return 1;
+            return $config->agentMode ? $this->reportLockHeld($context, $lockTool) : 1;
         }
 
         // A lane that throws must not leave the lock behind: the next run would
@@ -68,6 +72,10 @@ final readonly class Pipeline
         $config  = $context->config;
         $failed  = [];
         $retried = false;
+
+        if ($config->agentMode && null !== $config->singleTool) {
+            return $this->runAgentTool($context, $config->singleTool);
+        }
 
         if (null !== $config->singleTool) {
             $definition = $this->registry->definition($config->singleTool);
@@ -97,6 +105,38 @@ final readonly class Pipeline
         $this->retryWarning($retried);
 
         return 0;
+    }
+
+    /**
+     * One lane, no banner, no retry, and the agent-mode exit code rather than
+     * the pipeline's pass/fail pair. The lane has already written its report
+     * and its terse stdout; all that is left is to say which of the four
+     * outcomes it was in a way a calling hook can branch on.
+     */
+    private function runAgentTool(ToolContext $context, string $tool): int
+    {
+        $this->lock->touch();
+        $outcome = $this->executor->execute($tool, $context)->result->outcome;
+
+        return match ($outcome) {
+            ToolOutcomeEnum::Crashed => AgentStatusEnum::Crashed->exitCode(),
+            ToolOutcomeEnum::Failed  => AgentStatusEnum::Errors->exitCode(),
+            default                  => AgentStatusEnum::Clean->exitCode(),
+        };
+    }
+
+    /**
+     * Another run holds the lock, so nothing was analysed. Agent mode says so
+     * on stdout and with its own exit code, because the alternative — the
+     * generic failure 1 with the explanation on a discarded decoration stream
+     * — is indistinguishable from the file being full of errors.
+     */
+    private function reportLockHeld(ToolContext $context, string $tool): int
+    {
+        $holder = $this->lock->current();
+        new TerseReporter($context->stdout)->lockHeld($tool, $holder instanceof LockInfoDto ? $holder->describe() : 'holder unknown');
+
+        return AgentStatusEnum::LockHeld->exitCode();
     }
 
     /**

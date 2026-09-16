@@ -58,7 +58,7 @@ final readonly class RunLock
             if ($idle < self::STALE_AFTER_SECONDS) {
                 $this->output->writeln('');
                 $this->output->writeln('[QA Lock] Another QA run holds the lock:');
-                $this->output->writeln(\sprintf('[QA Lock]   host %s, pid %d, tool "%s", path "%s"', $existing->hostname, $existing->pid, $existing->tool, $existing->path));
+                $this->output->writeln('[QA Lock]   ' . $existing->describe());
                 $this->output->writeln(\sprintf('[QA Lock]   started %s, last activity %ds ago (stale after %ds)', date(self::TIME_FORMAT, $existing->startedAt), $idle, self::STALE_AFTER_SECONDS));
                 $this->output->writeln('[QA Lock] Wait for it to finish, or remove ' . $this->lockFile() . ' if you are sure it is dead.');
 

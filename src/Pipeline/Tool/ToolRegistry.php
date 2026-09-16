@@ -108,7 +108,7 @@ final readonly class ToolRegistry
                 new ToolDefinitionDto('shellCheck', ['sc', 'shellcheck', 'shellCheck'], 'ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships', $linting, true, banner: 'Running ShellCheck'),
                 new ToolDefinitionDto('branchNamePolicy', ['bnp', 'branchNamePolicy'], 'Branch naming policy (PR convention)', $staticAnalysis, false, banner: 'Checking Branch Name Policy'),
                 new ToolDefinitionDto('phpstanIgnoreJustification', ['pij', 'phpstanIgnoreJustification'], 'assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification', $staticAnalysis, false, banner: 'Checking PHPStan ignoreErrors Justifications'),
-                new ToolDefinitionDto(self::PHPSTAN, ['stan', self::PHPSTAN], self::PHPSTAN, $staticAnalysis, true, ToolGateEnum::NotQuick, 'Running PHPStan', supportsJson: true),
+                new ToolDefinitionDto(self::PHPSTAN, ['stan', self::PHPSTAN], self::PHPSTAN, $staticAnalysis, true, ToolGateEnum::NotQuick, 'Running PHPStan', supportsJson: true, supportsAgentMode: true),
                 new ToolDefinitionDto('deadCode', ['dcd', 'deadcode', 'deadCode'], 'dead-code detection through phpstan.phar (opt-in: withDeadCodeDetection(true) in qaConfig/qa.php)', $staticAnalysis, false, ToolGateEnum::NotQuick, 'Running Dead Code Detection'),
                 new ToolDefinitionDto('phpArkitect', ['arch', 'arkitect', 'phparkitect'], 'PHPArkitect architecture rules (on by default; useArkitect=0 to disable)', $staticAnalysis, false, banner: 'Running PHPArkitect (architecture rules)'),
                 new ToolDefinitionDto('sensitiveParameterUsage', ['spu', 'sensitiveparameter', 'sensitiveParameterUsage'], 'assert #[\SensitiveParameter] is used somewhere in src/', $staticAnalysis, false, banner: 'Checking SensitiveParameter Usage'),
@@ -203,6 +203,19 @@ final readonly class ToolRegistry
         }
 
         return $tokens;
+    }
+
+    /** @return list<string> the canonical name of every tool that can produce an agent-mode report, in registry order */
+    public function agentModeTools(): array
+    {
+        $names = [];
+        foreach ($this->definitions as $tool) {
+            if ($tool->supportsAgentMode) {
+                $names[] = $tool->name;
+            }
+        }
+
+        return $names;
     }
 
     /** @return list<string> one "%-26s %s" line per tool for the usage text */

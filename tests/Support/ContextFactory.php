@@ -65,6 +65,7 @@ final readonly class ContextFactory
         bool $readOnly = true,
         bool $aggregate = true,
         bool $jsonOutput = false,
+        bool $agentMode = false,
         ?string $singleTool = null,
         ?string $specifiedPath = null,
         bool $xdebug = true,
@@ -81,6 +82,7 @@ final readonly class ContextFactory
             readOnly: $readOnly,
             aggregate: $aggregate,
             jsonOutput: $jsonOutput,
+            agentMode: $agentMode,
             singleTool: $singleTool,
             specifiedPath: $specifiedPath,
         );

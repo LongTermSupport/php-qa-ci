@@ -30,6 +30,7 @@ use LTS\PHPQA\Pipeline\Runner\ShippedToolLocator;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
 use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
 use Throwable;
@@ -71,11 +72,22 @@ final readonly class QaApplication
 
     public function run(): int
     {
-        $json       = \in_array('--json', $this->argv, true);
-        $stdout     = new StreamOutput($this->stdoutStream);
-        $decoration = $json ? new StreamOutput($this->stderrStream) : $stdout;
+        $env    = new EnvironmentReader($this->env);
+        $json   = \in_array('--json', $this->argv, true);
+        $stdout = new StreamOutput($this->stdoutStream);
 
-        $env = new EnvironmentReader($this->env);
+        // Agent mode's caller is a hook that injects the whole stream into an
+        // agent's context after every edit, so the decoration is not diverted
+        // to stderr as --json does, it is thrown away. That one routing
+        // decision removes the preamble, the mode announcements, the phase and
+        // tool banners, the lock banners and the log-count warning without any
+        // of them needing to know agent mode exists.
+        $agentMode  = \in_array(ArgumentsParser::AGENT_MODE_OPTION, $this->argv, true) || $env->bool(ArgumentsParser::AGENT_MODE_ENV, false);
+        $decoration = match (true) {
+            $agentMode => new NullOutput(),
+            $json      => new StreamOutput($this->stderrStream),
+            default    => $stdout,
+        };
 
         // The project's pipeline.php decides what `-t` can name, so it is read
         // before the arguments are parsed. Its output lands with the header.
@@ -89,13 +101,15 @@ final readonly class QaApplication
         }
 
         $registry = $tools->registry;
-        $parser   = new ArgumentsParser($registry, 'vendor/bin');
+        $parser   = new ArgumentsParser($registry, 'vendor/bin', $env->bool(ArgumentsParser::AGENT_MODE_ENV, false));
 
         try {
             $request = $parser->parse(...$this->argv);
             $path    = null === $request->path ? null : new PathNormaliser()->normalise($request->path, $paths->projectRoot);
         } catch (UsageException $usageException) {
-            $stderr = new StreamOutput($this->stderrStream);
+            // In agent mode stdout is the only channel the caller reads, so a
+            // refusal goes there rather than to a stderr nobody is watching.
+            $stderr = $agentMode ? $stdout : new StreamOutput($this->stderrStream);
             if ('' !== $usageException->getMessage()) {
                 $stderr->writeln($usageException->getMessage());
             }
@@ -164,6 +178,7 @@ final readonly class QaApplication
             readOnly: $readOnly,
             aggregate: $aggregate,
             jsonOutput: $json,
+            agentMode: $request->agentMode,
             singleTool: $request->tool,
             specifiedPath: $path,
         );

@@ -262,6 +262,7 @@ final class QaConfigBuilderTest extends TestCase
             readOnly: true,
             aggregate: true,
             jsonOutput: false,
+            agentMode: false,
             singleTool: null,
             specifiedPath: $specifiedPath,
         );

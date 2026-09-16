@@ -22,8 +22,15 @@ use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
  */
 final readonly class ArgumentsParser
 {
-    public function __construct(private ToolRegistry $registry, private string $binDir)
-    {
+    public const string AGENT_MODE_OPTION = '--agent-mode';
+
+    public const string AGENT_MODE_ENV = 'PHPQACI_AGENT_MODE';
+
+    public function __construct(
+        private ToolRegistry $registry,
+        private string $binDir,
+        private bool $agentModeFromEnvironment = false,
+    ) {
     }
 
     /** @param string ...$argv the arguments after the script name */
@@ -31,6 +38,7 @@ final readonly class ArgumentsParser
     {
         $argv  = array_values($argv);
         $json  = false;
+        $agent = $this->agentModeFromEnvironment;
         $tool  = null;
         $path  = null;
         $bare  = [];
@@ -40,6 +48,11 @@ final readonly class ArgumentsParser
             switch ($arg) {
                 case '--json':
                     $json = true;
+
+                    break;
+
+                case self::AGENT_MODE_OPTION:
+                    $agent = true;
 
                     break;
 
@@ -124,14 +137,53 @@ final readonly class ArgumentsParser
             }
         }
 
-        return new RunRequestDto($resolved, $path, $selectedToken);
+        if ($agent) {
+            $this->assertAgentModeIsPossible($resolved);
+        }
+
+        return new RunRequestDto($resolved, $path, $selectedToken, $agent);
+    }
+
+    /**
+     * Agent mode is a single-lane reporting mode, so it needs a tool, and that
+     * tool has to be one that writes the per-file reports. Anything else is
+     * refused here rather than degraded to ordinary output further down: a
+     * caller that asked for a report and got a console transcript instead has
+     * no way to tell that from a tool with nothing to say.
+     */
+    private function assertAgentModeIsPossible(?string $resolved): void
+    {
+        $supported = $this->registry->agentModeTools();
+        $listing   = "\nTools with --agent-mode support:\n" . implode("\n", array_map(static fn (string $t): string => '  ' . $t, $supported)) . "\n";
+
+        if (null === $resolved) {
+            throw UsageException::plain(\sprintf(
+                "\nERROR: %s requires a single tool (-t)\n  Example: %s/qa %s -t phpstan -p src/Kernel.php\n%s",
+                self::AGENT_MODE_OPTION,
+                $this->binDir,
+                self::AGENT_MODE_OPTION,
+                $listing,
+            ));
+        }
+
+        if ($this->registry->definition($resolved)->supportsAgentMode) {
+            return;
+        }
+
+        throw UsageException::plain(\sprintf(
+            "\nERROR: %s is not supported for '%s'\n\nThat tool writes no per-file report, so agent mode would have nothing to point you at.\n%s\nRun it without %s, or select a tool above.\n",
+            self::AGENT_MODE_OPTION,
+            $resolved,
+            $listing,
+            self::AGENT_MODE_OPTION,
+        ));
     }
 
     public function usage(): string
     {
         $lines = [
             'Usage:',
-            $this->binDir . '/qa [-t tool to run ] [ -p path to scan ] [ --json ]',
+            $this->binDir . '/qa [-t tool to run ] [ -p path to scan ] [ --json ] [ --agent-mode ]',
             '',
             'Defaults to using all tools and scanning whole project based on platform',
             '',
@@ -140,6 +192,9 @@ final readonly class ArgumentsParser
             ' - use -p to specify a specific path to scan',
             '',
             ' - use --json to get structured JSON output (supported tools only)',
+            '',
+            ' - use --agent-mode for a terse stdout plus a per-file JSON report under var/qa',
+            '   (needs -t and a supporting tool; PHPQACI_AGENT_MODE=1 is the same thing)',
             '',
             ' - use -t to specify a single tool:',
         ];
