@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
+use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\BinaryOp\Concat;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Identifier;
@@ -57,7 +58,11 @@ final readonly class ForbidRawSqlRule implements Rule
         }
 
         foreach ($node->args as $arg) {
-            if ($arg instanceof Node\VariadicPlaceholder) {
+            // Narrow POSITIVELY to Arg. The placeholder a first-class callable
+            // produces has been spelt more than one way across php-parser
+            // versions, so excluding one name by instanceof leaves whichever
+            // other name is current unnarrowed — and ->value undefined on it.
+            if (!$arg instanceof Arg) {
                 continue;
             }
 
