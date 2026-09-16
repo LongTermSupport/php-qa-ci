@@ -42,6 +42,12 @@ final readonly class LockInfoDto
         );
     }
 
+    /** One line naming the holder, for a caller with no room for the full lock banner. */
+    public function describe(): string
+    {
+        return \sprintf('host %s, pid %d, tool "%s", path "%s"', $this->hostname, $this->pid, $this->tool, $this->path);
+    }
+
     public function toJson(): string
     {
         return \Safe\json_encode([

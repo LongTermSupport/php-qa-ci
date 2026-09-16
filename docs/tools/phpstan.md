@@ -26,6 +26,11 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   the report is written to `var/qa/phpstan_logs/phpstan.json`, archived, and printed unchanged on
   the real stdout while every other line goes to stderr. Exit 1 fails, above 1 crashes, and
   nothing is re-run.
+- **Agent mode** (`vendor/bin/qa --agent-mode -t stan -p src/Kernel.php`): the same
+  `--error-format=json` report, turned into one JSON file per analysed source file under
+  `var/qa/phpstan-file-reports/`, with stdout held to a count, a report path and an
+  instruction. The lane is the only one that supports it. See
+  [Agent Mode](../agent-mode.md) for the schema, the exit codes and the hook wiring.
 
 ## Configuration
 

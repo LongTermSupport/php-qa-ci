@@ -37,11 +37,17 @@ final class ArgumentsParserTest extends TestCase
 
     private const string JSON_OPTION = '--json';
 
+    private const string AGENT_OPTION = '--agent-mode';
+
+    private const string BIN_DIR = 'vendor/bin';
+
+    private const string UNIT = 'unit';
+
     private ArgumentsParser $parser;
 
     protected function setUp(): void
     {
-        $this->parser = new ArgumentsParser(ToolRegistry::shipped(), 'vendor/bin');
+        $this->parser = new ArgumentsParser(ToolRegistry::shipped(), self::BIN_DIR);
     }
 
     #[Test]
@@ -68,7 +74,7 @@ final class ArgumentsParserTest extends TestCase
 
         self::assertSame('phpunit', $request->tool);
         self::assertSame('uniterate', $request->selectedToken);
-        self::assertNull($this->parser->parse('-t', 'unit')->selectedToken);
+        self::assertNull($this->parser->parse('-t', self::UNIT)->selectedToken);
     }
 
     #[Test]
@@ -84,6 +90,77 @@ final class ArgumentsParserTest extends TestCase
     {
         self::assertSame(self::PHPSTAN, $this->parser->parse(self::JSON_OPTION, '-t', self::STAN)->tool);
         self::assertSame(self::PHPSTAN, $this->parser->parse('-t', self::PHPSTAN, self::JSON_OPTION)->tool);
+    }
+
+    #[Test]
+    public function agentModeIsAcceptedAnywhereForPhpstan(): void
+    {
+        self::assertTrue($this->parser->parse(self::AGENT_OPTION, '-t', self::STAN)->agentMode);
+        self::assertTrue($this->parser->parse('-t', self::PHPSTAN, '-p', self::SRC, self::AGENT_OPTION)->agentMode);
+        self::assertSame(self::SRC, $this->parser->parse(self::AGENT_OPTION, '-t', self::STAN, '-p', self::SRC)->path);
+    }
+
+    #[Test]
+    public function agentModeIsOffUnlessAskedFor(): void
+    {
+        self::assertFalse($this->parser->parse('-t', self::STAN)->agentMode);
+        self::assertFalse($this->parser->parse()->agentMode);
+    }
+
+    #[Test]
+    public function theEnvironmentTurnsAgentModeOnWithoutTouchingTheCommandLine(): void
+    {
+        $fromEnv = new ArgumentsParser(ToolRegistry::shipped(), self::BIN_DIR, agentModeFromEnvironment: true);
+
+        $request = $fromEnv->parse('-t', self::STAN, '-p', self::SRC);
+
+        self::assertTrue($request->agentMode, 'a hook sets the variable rather than rewriting the command it runs');
+        self::assertSame(self::PHPSTAN, $request->tool);
+    }
+
+    #[Test]
+    public function agentModeNeedsASingleToolBecauseAWholePipelineHasNoTerseReport(): void
+    {
+        $this->assertUsage('--agent-mode requires a single tool (-t)', false, self::AGENT_OPTION);
+    }
+
+    #[Test]
+    public function agentModeRefusesAToolThatCannotProduceAReportRatherThanSilentlyPrintingItsUsualOutput(): void
+    {
+        $this->assertUsage("--agent-mode is not supported for 'phpunit'", false, self::AGENT_OPTION, '-t', self::UNIT);
+        $this->assertUsage("--agent-mode is not supported for 'phpLint'", false, self::AGENT_OPTION, '-t', 'lint');
+    }
+
+    #[Test]
+    public function agentModeRefusesAPhaseRunner(): void
+    {
+        $this->assertUsage("--agent-mode is not supported for 'allCodingStandardsTools'", false, self::AGENT_OPTION, '-t', 'allCS');
+    }
+
+    #[Test]
+    public function theRefusalNamesTheToolsThatDoSupportAgentMode(): void
+    {
+        $exception = null;
+
+        try {
+            $this->parser->parse(self::AGENT_OPTION, '-t', self::UNIT);
+        } catch (UsageException $usageException) {
+            $exception = $usageException;
+        }
+
+        self::assertInstanceOf(UsageException::class, $exception);
+        self::assertStringContainsString(self::PHPSTAN, $exception->getMessage());
+    }
+
+    #[Test]
+    public function theEnvironmentVariableIsSubjectToTheSameRefusalAsTheFlag(): void
+    {
+        $fromEnv = new ArgumentsParser(ToolRegistry::shipped(), self::BIN_DIR, agentModeFromEnvironment: true);
+
+        $this->expectException(UsageException::class);
+        $this->expectExceptionMessageIsOrContains("--agent-mode is not supported for 'phpunit'");
+
+        $fromEnv->parse('-t', self::UNIT);
     }
 
     #[Test]
@@ -132,7 +209,7 @@ final class ArgumentsParserTest extends TestCase
     public function jsonNeedsAToolThatSupportsIt(): void
     {
         $this->assertUsage('--json requires a single tool (-t)', false, self::JSON_OPTION);
-        $this->assertUsage("--json is not yet supported for 'phpunit'", false, self::JSON_OPTION, '-t', 'unit');
+        $this->assertUsage("--json is not yet supported for 'phpunit'", false, self::JSON_OPTION, '-t', self::UNIT);
     }
 
     #[Test]
@@ -140,7 +217,8 @@ final class ArgumentsParserTest extends TestCase
     {
         $usage = $this->parser->usage();
 
-        self::assertStringStartsWith("Usage:\nvendor/bin/qa [-t tool to run ] [ -p path to scan ] [ --json ]", $usage);
+        self::assertStringStartsWith("Usage:\nvendor/bin/qa [-t tool to run ] [ -p path to scan ] [ --json ] [ --agent-mode ]", $usage);
+        self::assertStringContainsString('PHPQACI_AGENT_MODE=1', $usage);
         self::assertStringContainsString(\sprintf('     %-26s %s', 'allCS', 'all coding standards tools'), $usage);
         self::assertStringContainsString('vp|versionPins', $usage);
     }

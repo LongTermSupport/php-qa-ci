@@ -16,7 +16,10 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
  * a pending change fails the run instead of being applied. `$aggregate` runs
  * every tool and reports the failures together at the end. `$jsonOutput` puts
  * the structured report on stdout and every line of decoration on stderr, and
- * only phpstan honours it.
+ * only phpstan honours it. `$agentMode` discards the decoration entirely and
+ * puts a count, a report path and an instruction on stdout, with the findings
+ * themselves in per-file JSON under `var/qa`; the CLI has already refused the
+ * run if the selected tool cannot produce one.
  *
  * `$singleTool` is the canonical tool name when `-t` was given and
  * `$specifiedPath` the project-relative path when `-p` was; `$quickTests`
@@ -46,6 +49,7 @@ final readonly class QaConfigDto
         public bool $readOnly,
         public bool $aggregate,
         public bool $jsonOutput,
+        public bool $agentMode,
         public ?string $singleTool,
         public ?string $specifiedPath,
         public array $pathsToCheck,

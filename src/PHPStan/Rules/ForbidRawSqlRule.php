@@ -57,7 +57,10 @@ final readonly class ForbidRawSqlRule implements Rule
         }
 
         foreach ($node->args as $arg) {
-            if ($arg instanceof Node\VariadicPlaceholder) {
+            // Narrowed positively rather than by excluding the placeholder
+            // classes: only Arg carries a ->value, and the parser has added a
+            // second placeholder type before now.
+            if (!$arg instanceof Node\Arg) {
                 continue;
             }
 

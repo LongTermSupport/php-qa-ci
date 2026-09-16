@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
 use LTS\PHPQA\Pipeline\Lane\PhpstanTool;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -19,6 +20,14 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpstanTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\AgentStatusEnum::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\ParsedReportDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\Exception\UnreadableReportException::class)]
+#[UsesClass(FileReportWriter::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\PhpstanJsonParser::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Agent\TerseReporter::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -44,6 +53,14 @@ final class PhpstanToolTest extends TestCase
     private const string ANALYSE = 'analyse';
 
     private const string SRC = 'src';
+
+    private const string KERNEL = 'src/Kernel.php';
+
+    private const string CLEAN_REPORT = '{"totals":{"errors":0,"file_errors":0},"files":{},"errors":[]}';
+
+    private const string PHP_OPEN = "<?php\n";
+
+    private const string CRASHED = 'crashed';
 
     private ContextFactory $factory;
 
@@ -234,7 +251,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function jsonModeWritesOnlyTheProcessStdoutSoStderrNoiseNeverCorruptsTheReport(): void
     {
-        $json  = '{"totals":{"errors":0,"file_errors":0},"files":{},"errors":[]}';
+        $json  = self::CLEAN_REPORT;
         $noise = "PHP Warning:  Module \"xml\" is already loaded in Unknown on line 0\n";
         $this->factory->processes->willReturn(new ProcessResultDto(0, $noise . $json, $json));
         $config = $this->factory->builder(jsonOutput: true, specifiedPath: self::SRC)->build();
@@ -298,6 +315,155 @@ final class PhpstanToolTest extends TestCase
     }
 
     #[Test]
+    public function agentModeAsksPhpstanForJsonAndKeepsStdoutToThreeLines(): void
+    {
+        $file = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $this->factory->processes->willFail(1, $this->reportFor($file, 2));
+        $config = $this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build();
+
+        $result = new PhpstanTool()->run($this->factory->context($config));
+        $lines  = $this->stdoutLines();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertCount(3, $lines);
+        self::assertSame('PHPSTAN AGENT MODE: 2 errors in 1 file', $lines[0]);
+        self::assertSame('REPORT: ' . $this->reportPath(self::KERNEL), $lines[1]);
+        self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
+        self::assertContains('--error-format=json', $this->toolArgs($this->factory->processes->lastSpec()));
+    }
+
+    #[Test]
+    public function agentModeWritesThePerFileReportAtThePathThatMirrorsTheSourceFile(): void
+    {
+        $file = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $this->factory->processes->willFail(1, $this->reportFor($file, 1));
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        $report = $this->decode($this->reportPath(self::KERNEL));
+        self::assertSame('phpstan', $report['tool']);
+        self::assertSame(self::KERNEL, $report['path']);
+        self::assertSame('errors', $report['status']);
+        self::assertSame(1, $report['error_count']);
+        self::assertSame(1, $report['exit_code']);
+        $errors = $report['errors'];
+        self::assertIsArray($errors);
+        $first = $errors[0];
+        self::assertIsArray($first);
+        self::assertSame(11, $first['line']);
+        self::assertSame('missingType.return', $first['identifier']);
+        $logPath = $report['log_path'];
+        self::assertIsString($logPath);
+        self::assertStringEndsWith(PhpstanTool::JSON_FILE, $logPath);
+    }
+
+    #[Test]
+    public function aCleanAgentRunWritesZeroForTheAnalysedFileSoAFixedErrorCannotStayRed(): void
+    {
+        $file = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+
+        $this->factory->processes->willFail(1, $this->reportFor($file, 3));
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        self::assertSame(3, $this->decode($this->reportPath(self::KERNEL))['error_count']);
+        $this->factory->stdout->fetch();
+
+        $this->factory->processes->willSucceed(self::CLEAN_REPORT);
+
+        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        $report = $this->decode($this->reportPath(self::KERNEL));
+        self::assertSame(0, $report['error_count']);
+        self::assertSame('clean', $report['status']);
+        self::assertSame([], $report['errors']);
+        self::assertSame('PHPSTAN AGENT MODE: 0 errors in 1 file', $this->stdoutLines()[0]);
+    }
+
+    #[Test]
+    public function aWholeProjectAgentRunWritesOneReportPerFailingFileAndPointsAtTheIndex(): void
+    {
+        $kernel = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $other  = $this->factory->project->write('src/Other.php', self::PHP_OPEN);
+        $json   = '{"totals":{"errors":0,"file_errors":3},"files":{'
+            . '"' . $kernel . '":{"errors":2,"messages":[{"message":"a","line":1,"identifier":"i.a"},{"message":"b","line":2,"identifier":"i.b"}]},'
+            . '"' . $other . '":{"errors":1,"messages":[{"message":"c","line":3,"identifier":"i.c"}]}'
+            . '},"errors":[]}';
+        $this->factory->processes->willFail(1, $json);
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
+
+        self::assertSame(2, $this->decode($this->reportPath(self::KERNEL))['error_count']);
+        self::assertSame(1, $this->decode($this->reportPath('src/Other.php'))['error_count']);
+
+        $lines = $this->stdoutLines();
+        self::assertSame('PHPSTAN AGENT MODE: 3 errors in 2 files', $lines[0]);
+        self::assertStringEndsWith(FileReportWriter::INDEX_FILE, $lines[1], 'one index path serves however many files had findings');
+
+        $index = $this->decode($this->reportsDir() . '/' . FileReportWriter::INDEX_FILE);
+        self::assertSame(2, $index['file_count']);
+        self::assertSame(3, $index['error_count']);
+    }
+
+    #[Test]
+    public function aWholeProjectAgentRunClearsEveryStaleReportBeforeWritingItsOwn(): void
+    {
+        $kernel = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $this->factory->processes->willFail(1, $this->reportFor($kernel, 1));
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
+        self::assertFileExists($this->reportPath(self::KERNEL));
+        $this->factory->stdout->fetch();
+
+        $this->factory->processes->willSucceed(self::CLEAN_REPORT);
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
+
+        self::assertFileDoesNotExist($this->reportPath(self::KERNEL), 'an absent report must mean clean, so the stale one has to go');
+        self::assertSame('PHPSTAN AGENT MODE: 0 errors in 0 files', $this->stdoutLines()[0]);
+    }
+
+    #[Test]
+    public function agentModeNeverPrintsTheTautologyNoteOrTheIdentifierTrailerToStdout(): void
+    {
+        $file = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $json = '{"totals":{"errors":0,"file_errors":1},"files":{"' . $file . '":{"errors":1,"messages":[{"message":"always true","line":4,"identifier":"method.alreadyNarrowedType"}]}},"errors":[]}';
+        $this->factory->processes->willFail(1, $json);
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        $printed = $this->factory->stdout->fetch();
+        self::assertStringNotContainsString('possible tautology', $printed);
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function anAgentModeCrashIsReportedAsCrashedWithNoDebugReRun(): void
+    {
+        $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $this->factory->processes->willFail(255, "PHP Fatal error: boom\n");
+
+        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertCount(1, $this->factory->processes->specs, 'a crash in agent mode is reported, not re-run for a human to watch');
+
+        $report = $this->decode($this->reportPath(self::KERNEL));
+        self::assertSame(self::CRASHED, $report['status']);
+        self::assertSame(3, $report['exit_code']);
+        self::assertStringContainsString(self::CRASHED, $this->stdoutLines()[0]);
+    }
+
+    #[Test]
+    public function unreadableOutputInAgentModeIsACrashRatherThanAGreen(): void
+    {
+        $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $this->factory->processes->willSucceed("not json at all\n");
+
+        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(self::CRASHED, $this->decode($this->reportPath(self::KERNEL))['status']);
+    }
+
+    #[Test]
     public function nameAndIdentifierAreStable(): void
     {
         $tool = new PhpstanTool();
@@ -305,6 +471,52 @@ final class PhpstanToolTest extends TestCase
         self::assertSame('phpstan', $tool->name());
         self::assertSame('phpqaci.phpstan', $tool->identifier());
         self::assertSame(PhpstanTool::IDENTIFIER, $tool->identifier());
+    }
+
+    /** A PHPStan JSON report placing $count findings against one absolute file path. */
+    private function reportFor(string $absolutePath, int $count): string
+    {
+        $messages = [];
+        for ($i = 0; $i < $count; ++$i) {
+            $messages[] = \sprintf('{"message":"Method foo%d() has no return type specified.","line":%d,"ignorable":true,"identifier":"missingType.return"}', $i, 11 + $i);
+        }
+
+        return \sprintf(
+            '{"totals":{"errors":0,"file_errors":%d},"files":{"%s":{"errors":%d,"messages":[%s]}},"errors":[]}',
+            $count,
+            $absolutePath,
+            $count,
+            implode(',', $messages),
+        );
+    }
+
+    private function reportsDir(): string
+    {
+        return $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::REPORT_DIR;
+    }
+
+    private function reportPath(string $projectRelative): string
+    {
+        return $this->reportsDir() . '/' . $projectRelative . '.json';
+    }
+
+    /** @return array<array-key, mixed> */
+    private function decode(string $path): array
+    {
+        self::assertFileExists($path);
+        $decoded = \Safe\json_decode(\Safe\file_get_contents($path), true);
+        self::assertIsArray($decoded);
+
+        return $decoded;
+    }
+
+    /** @return list<string> the non-empty lines agent mode put on the real stdout */
+    private function stdoutLines(): array
+    {
+        return array_values(array_filter(
+            explode("\n", trim($this->factory->stdout->fetch())),
+            static fn (string $line): bool => '' !== trim($line),
+        ));
     }
 
     /** @return list<string> everything after the "--" separator */

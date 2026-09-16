@@ -67,11 +67,13 @@ function phpQaCiDaemonLintOverrideCheck() {
           options:
             command_overrides:
               PHP:
-                extended: "qa -t phpstan -p {file}"
+                extended: "env PHPQACI_AGENT_MODE=1 qa -t phpstan -p {file}"
 
   Then restart the daemon (/hooks-daemon restart). The daemon resolves the
   bare 'qa' against the project bin dirs, and php-qa-ci accepts the absolute
-  {file} path for per-file analysis.
+  {file} path for per-file analysis. PHPQACI_AGENT_MODE=1 holds the injected
+  output to a count plus a report path (docs/agent-mode.md); drop it if you
+  want the full console transcript on every edit.
   ------------------------------------------------------------------------
 NOTICE
     return 0

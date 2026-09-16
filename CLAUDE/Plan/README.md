@@ -10,6 +10,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00012: agent mode terse stdout and per file reports](00012-agent-mode-terse-stdout-and-per-file-reports/PLAN.md) - In Progress — every agent edit pays 54 console lines for a one-line verdict; `--agent-mode` / `PHPQACI_AGENT_MODE` makes stdout a count plus a report path, and moves the substance into stable per-file JSON under `var/qa/phpstan-file-reports/`, with a fail-fast refusal for any tool that does not support it
+
 - [00008: shellcheck lane vendored binary](00008-shellcheck-lane-vendored-binary/PLAN.md) - In Progress — ShellCheck runs only in CI, so a green bin/qa can still be a red branch; vendor one pinned static binary, add the lane with git-tracked shebang discovery and a per-project glob override, delete the duplicate CI job
 
 - [00010: Defence Before Fix full conformance](00010-defence-before-fix-full-conformance/PLAN.md) - In Progress — empty both `known-gaps` lists in `composer.json`, planned against upstream's clause-by-clause register entry rather than our own (understated) declaration; identity, then resolution, then enforcement

@@ -17,6 +17,12 @@ use LTS\PHPQA\Pipeline\Tool\ToolGateEnum;
  * pseudo-tool actually runs (`uniterate` runs `phpunit`). `$banner` is printed
  * before the tool runs as part of a phase.
  *
+ * `$supportsAgentMode` declares that the lane can write the per-file JSON
+ * reports `--agent-mode` promises. It defaults to false and the CLI refuses
+ * the run for a tool that leaves it so, because a lane that quietly printed
+ * its ordinary output instead would leave the caller waiting for a report
+ * nothing had written.
+ *
  * A consuming project constructs one to register its own tool through
  * PipelineBuilder::withTool().
  *
@@ -36,6 +42,7 @@ final readonly class ToolDefinitionDto
         public bool $isPhaseRunner = false,
         public ?string $target = null,
         public bool $supportsJson = false,
+        public bool $supportsAgentMode = false,
     ) {
     }
 

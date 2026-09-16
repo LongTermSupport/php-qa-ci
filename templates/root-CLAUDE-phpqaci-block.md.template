@@ -46,6 +46,17 @@ strength of individual steps alone: finish with one full unfiltered run (single-
 after all editing is done) and report ITS exit code. Prefer delegating that run to the
 `php-qa-ci_full-pipeline-runner` agent.
 
+## php-qa-ci — Agent Mode (terse per-file QA)
+
+`bin/qa --agent-mode -t phpstan -p <file>` (or `PHPQACI_AGENT_MODE=1` with the same
+command) replaces the console transcript with two or three lines — a count, a report
+path, and an instruction — and writes the findings to
+`var/qa/phpstan-file-reports/<file>.json`. Read that JSON and fix what it lists; do not
+work from the summary, which carries counts only. Exit 2 means another QA run held the
+lock and NOTHING was analysed, so it is never a green. Only `phpstan` supports it today;
+any other tool refuses the run rather than printing its usual output. Full contract:
+`vendor/lts/php-qa-ci/docs/agent-mode.md`.
+
 ## php-qa-ci — Go With the Tools
 
 Every rule php-qa-ci ships is deliberate: the point of a shared harness is that all
@@ -96,11 +107,13 @@ handlers:
       options:
         command_overrides:
           PHP:
-            extended: "qa -t phpstan -p {file}"
+            extended: "env PHPQACI_AGENT_MODE=1 qa -t phpstan -p {file}"
 ```
 
 (The daemon resolves the bare `qa` against the project bin dirs; `-p` accepts the
-absolute `{file}` path.) After editing, restart the daemon (`/hooks-daemon restart`).
+absolute `{file}` path. `PHPQACI_AGENT_MODE=1` is what keeps the injected output to
+two or three lines instead of fifty — see the agent-mode section above; drop it for the
+full console transcript.) After editing, restart the daemon (`/hooks-daemon restart`).
 If you see `R-LINT-FAILURE` on a PHP edit that per-file `bin/qa -t phpstan -p <file>`
 reports clean, this missing override is the first thing to check — composer
 install/update also prints an `ACTION REQUIRED` notice when it detects the gap.
