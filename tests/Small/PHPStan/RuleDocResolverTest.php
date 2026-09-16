@@ -44,6 +44,12 @@ final class RuleDocResolverTest extends TestCase
     /** The shipped rule these tests use as a worked example, as the index spells its class. */
     private const string EMPTY_CATCH_RULE_CLASS = 'ForbidEmptyCatchBlockRule';
 
+    /** A project row whose summary column is not the trailing cell. */
+    private const string PROJECT_RULE = 'fixtureApp.projectRule';
+
+    /** The same, for the row that also carries a remediation link. */
+    private const string PROJECT_RULE_LINKED = 'fixtureApp.projectRuleLinked';
+
     #[Test]
     public function anIdentifierWithARemediationPageResolvesToThatPage(): void
     {
@@ -173,7 +179,7 @@ final class RuleDocResolverTest extends TestCase
         // Without this a project's rule prints an identifier its own developers
         // cannot look up: rule-doc answers "Unknown rule identifier" for every
         // rule the project wrote, which is most of the ones they will hit.
-        $entry = $this->projectResolver()->resolve('fixtureApp.projectRule');
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE);
 
         self::assertSame('ProjectRule', $entry->ruleClass);
         self::assertSame('A project rule with no remediation page', $entry->summary);
@@ -185,7 +191,7 @@ final class RuleDocResolverTest extends TestCase
         // The fixture's columns are Identifier | Rule class | Forbids | Origin,
         // which is what a consuming project actually writes. Reading the last
         // cell would answer "Plan 00001" — the provenance, not the rule.
-        $entry = $this->projectResolver()->resolve('fixtureApp.projectRule');
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE);
 
         self::assertSame('A project rule with no remediation page', $entry->summary);
         self::assertStringNotContainsString('Plan 00001', $entry->summary);
@@ -194,7 +200,7 @@ final class RuleDocResolverTest extends TestCase
     #[Test]
     public function theRemediationLinkIsFoundInTheNamedColumnToo(): void
     {
-        $entry = $this->projectResolver()->resolve('fixtureApp.projectRuleLinked');
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE_LINKED);
 
         self::assertSame('A project rule that links to a page', $entry->summary);
         self::assertNotNull($entry->docPath);
@@ -225,12 +231,12 @@ final class RuleDocResolverTest extends TestCase
     #[Test]
     public function aProjectRowsRemediationPageResolvesRelativeToItsOwnIndex(): void
     {
-        $entry = $this->projectResolver()->resolve('fixtureApp.projectRuleLinked');
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE_LINKED);
 
         self::assertNotNull($entry->docPath);
         self::assertFileExists($entry->docPath);
         self::assertStringEndsWith('ruleDocProject/docs/project-rule.md', $entry->docPath);
-        self::assertStringContainsString('Project rule remediation page', $this->projectResolver()->render('fixtureApp.projectRuleLinked'));
+        self::assertStringContainsString('Project rule remediation page', $this->projectResolver()->render(self::PROJECT_RULE_LINKED));
     }
 
     #[Test]
@@ -248,7 +254,7 @@ final class RuleDocResolverTest extends TestCase
         $resolver = $this->projectResolver();
 
         self::assertSame(self::EMPTY_CATCH_RULE_CLASS, $resolver->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER)->ruleClass);
-        self::assertContains('fixtureApp.projectRule', $resolver->identifiers());
+        self::assertContains(self::PROJECT_RULE, $resolver->identifiers());
         self::assertContains(ForbidEmptyCatchBlockRule::IDENTIFIER, $resolver->identifiers());
     }
 
