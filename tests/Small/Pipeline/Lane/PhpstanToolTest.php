@@ -71,7 +71,7 @@ final class PhpstanToolTest extends TestCase
 
         $logDir  = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR;
         $wrapper = $logDir . '/' . PhpstanTool::WRAPPER_NEON;
-        self::assertSame(
+        self::assertStringStartsWith(
             "includes:\n    - " . \dirname(__DIR__, 4) . "/configDefaults/generic/phpstan.neon\n\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 2\n",
             \Safe\file_get_contents($wrapper),
         );
@@ -90,6 +90,67 @@ final class PhpstanToolTest extends TestCase
         self::assertCount(1, $archived, 'the text log is archived with a timestamp');
         self::assertStringContainsString('Full test suite run', $printed);
         self::assertSame('', $this->factory->stdout->fetch(), 'text mode never touches the real stdout');
+    }
+
+    #[Test]
+    public function theWrapperLetsPhpstanDiscoverThePharToolsConfigApis(): void
+    {
+        // qaConfig/phparkitect.php and qaConfig/composer-dependency-analyser.php
+        // name classes that live only inside the matching phar, so without this
+        // every project's per-file run on those files is red for ever with
+        // class.notFound errors nobody can act on.
+        $this->factory->processes->willSucceed("[OK] No errors\n");
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
+        self::assertStringContainsString("    scanDirectories:\n", $wrapper);
+        self::assertStringContainsString('phar://' . \dirname(__DIR__, 4) . "/vendor-phar/phparkitect.phar/src\n", $wrapper);
+        self::assertStringContainsString('phar://' . \dirname(__DIR__, 4) . '/vendor-phar/composer-dependency-analyser.phar/', $wrapper);
+    }
+
+    #[Test]
+    public function theScannedDirectoriesComeFromEachPharsOwnAutoloadMap(): void
+    {
+        // Reading the phar's map rather than hardcoding its layout is what keeps
+        // this correct when a phar is rebuilt with its sources somewhere else.
+        $this->factory->processes->willSucceed("[OK] No errors\n");
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
+        foreach (['phparkitect.phar', 'composer-dependency-analyser.phar'] as $phar) {
+            $map = 'phar://' . \dirname(__DIR__, 4) . '/vendor-phar/' . $phar . '/vendor/composer/autoload_psr4.php';
+            self::assertFileExists($map, 'the map this lane reads must exist in the shipped phar');
+        }
+
+        foreach ($this->scannedDirectories($wrapper) as $directory) {
+            self::assertDirectoryExists($directory, 'a scanned directory that does not exist would make PHPStan crash');
+        }
+    }
+
+    /** @return list<string> */
+    private function scannedDirectories(string $wrapper): array
+    {
+        $directories = [];
+        $inside      = false;
+        foreach (explode("\n", $wrapper) as $line) {
+            if ('    scanDirectories:' === $line) {
+                $inside = true;
+
+                continue;
+            }
+
+            if ($inside) {
+                if (!str_starts_with($line, '        - ')) {
+                    break;
+                }
+
+                $directories[] = substr($line, \strlen('        - '));
+            }
+        }
+
+        return $directories;
     }
 
     #[Test]
