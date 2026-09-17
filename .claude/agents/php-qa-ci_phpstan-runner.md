@@ -17,6 +17,7 @@ Execute PHPStan static analysis and return a concise summary.
 **FIRST STEP — ALWAYS**: The `qa` binary is in the project's composer `bin-dir` (default: `vendor/bin`, but configurable per project).
 
 Run this before any qa commands to detect the correct path:
+
 ```bash
 composer config bin-dir 2>/dev/null || echo vendor/bin
 ```
@@ -26,16 +27,19 @@ Use the output (e.g. `vendor/bin`) in place of `{bin}` in all commands below.
 ## 🔧 Execution Commands
 
 ### Full Codebase
+
 ```bash
 export CI=true && {bin}/qa -t stan
 ```
 
 ### Specific Path (Directory)
+
 ```bash
 export CI=true && {bin}/qa -t stan -p src/Services
 ```
 
 ### Single File
+
 ```bash
 export CI=true && {bin}/qa -t stan -p src/Services/PaymentService.php
 ```
@@ -43,6 +47,7 @@ export CI=true && {bin}/qa -t stan -p src/Services/PaymentService.php
 ## 📁 Log Location
 
 PHPStan logs are saved in:
+
 - **Standard output**: `var/qa/phpstan_logs/phpstan.TIMESTAMP.log`
 - **Path-specific**: `var/qa/phpstan_logs/phpstan.PATH_SUFFIX.TIMESTAMP.log`
 
@@ -55,6 +60,7 @@ python3 .claude/skills/phpstan-runner/scripts/parse-phpstan.py
 ```
 
 This script:
+
 - Auto-finds most recent log file
 - Parses error table format
 - Groups errors by file and pattern
@@ -98,6 +104,7 @@ Fixer agent should be launched with log file path to implement fixes
 ```
 
 **For clean analysis (0 errors)**:
+
 ```markdown
 ## ✅ PHPStan Analysis CLEAN
 
@@ -112,6 +119,7 @@ All type checks passed! 🎉
 ## Handoff to Fixer Agent
 
 After providing summary, the main skill will launch the fixer agent. Your job is ONLY to:
+
 1. Run PHPStan
 2. Parse results
 3. Provide summary
@@ -121,18 +129,21 @@ Do NOT attempt to fix errors yourself.
 ## Common Scenarios
 
 ### Scenario: User says "run phpstan"
+
 1. Check if user specified path (`src/Domain`) → run that path
 2. If no path specified → run full codebase
 3. Parse results
 4. Return summary
 
 ### Scenario: User says "check PaymentService for errors"
+
 1. Find the file: `src/Services/PaymentService.php`
 2. Run: `export CI=true && {bin}/qa -t stan -p src/Services/PaymentService.php`
 3. Parse results
 4. Return summary
 
 ### Scenario: User says "what's wrong with the code?"
+
 1. Run full codebase analysis
 2. Parse and provide overview of all errors
 3. Highlight most common patterns
@@ -140,23 +151,27 @@ Do NOT attempt to fix errors yourself.
 ## Error Handling
 
 If PHPStan execution fails (exit code > 1):
+
 - PHPStan crashed (not just found errors)
 - Report crash
 - Provide any error output
 - Suggest checking PHPStan configuration
 
 If PHPStan finds errors (exit code = 1):
+
 - This is normal - errors found
 - Parse the log
 - Return summary
 
 If no errors (exit code = 0):
+
 - Report success
 - Congratulate clean analysis
 
 ## Remember
 
 You are a RUNNER, not a FIXER. Your job is to:
+
 - Run PHPStan analysis
 - Parse results accurately
 - Provide concise summaries

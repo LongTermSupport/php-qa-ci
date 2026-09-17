@@ -24,6 +24,7 @@ This skill delegates to the php-qa-ci_phpunit-fixer agent (sonnet model).
 ### When User Says: "Fix the test failures"
 
 1. Launch fixer agent:
+
    ```
    Use Task tool:
      description: "Fix PHPUnit test failures"
@@ -32,11 +33,13 @@ This skill delegates to the php-qa-ci_phpunit-fixer agent (sonnet model).
    ```
 
 2. Receive fixer output with:
+
    - Errors found and grouped by pattern
    - Fixes applied
    - Files modified
 
 3. If no log found:
+
    - Suggest using phpunit-runner skill to generate log first
 
 ### When User Provides Specific Log Path
@@ -52,6 +55,7 @@ This skill delegates to the php-qa-ci_phpunit-fixer agent (sonnet model).
 ### Escalation Triggers
 
 Launch opus model or ask human when:
+
 - Fixer agent reports business logic questions (test vs code expectations)
 - Same error pattern persists after 2 fix attempts
 - User asks for explanation rather than fixes
@@ -59,6 +63,7 @@ Launch opus model or ask human when:
 ## Fixer Agent Reference
 
 The phpunit-fixer agent (sonnet model) handles:
+
 - Auto-discovery of most recent JUnit XML log
 - Error parsing and pattern grouping
 - Fix implementation for common patterns
@@ -69,11 +74,13 @@ See `.claude/agents/php-qa-ci_phpunit-fixer.md` for agent implementation details
 ## When to Use This Skill vs phpunit-runner
 
 - **Use phpunit-fixer** when:
+
   - Tests were already run manually
   - You have a specific log file to analyze
   - You only want to analyze/fix, not run tests
 
 - **Use phpunit-runner** when:
+
   - You want to run tests AND fix failures
   - You want the full run→fix→run cycle
   - Tests haven't been run yet

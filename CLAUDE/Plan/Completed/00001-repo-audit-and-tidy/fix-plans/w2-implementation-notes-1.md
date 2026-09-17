@@ -60,8 +60,7 @@ Axis: BASH-CORE. Branch: php8.4. Landed by the bash-core wave-2 agent.
   `composerChecks.inc.bash`.
 - **M-049** — `branchNamePolicy.inc.bash`: the err-log tempfile is now created
   under `${varDir:-$projectRoot/var/qa}` instead of shared `/tmp`, and the
-  end-of-run cleanup removes ONLY this run's file (no more `rm -f
-  /tmp/branchNamePolicy.*.err` shared glob). The captured git-probe diagnostics
+  end-of-run cleanup removes ONLY this run's file (no more `rm -f /tmp/branchNamePolicy.*.err` shared glob). The captured git-probe diagnostics
   are now surfaced (`cat` to stderr) when the log is non-empty, so genuine git
   failures are no longer swallowed.
 - **M-051** — `yamlLint.inc.bash`: fixed the `yamlLintExistCode` → `yamlLintExitCode`

@@ -5,14 +5,14 @@ Nothing committed. The Bash fragments are untouched.
 
 ## Files
 
-| File | Purpose |
-| --- | --- |
-| `src/Pipeline/Lane/TwigLintTool.php` | `LTS\PHPQA\Pipeline\Lane\TwigLintTool`, name `twigLint`, identifier `phpqaci.twigLint` |
-| `src/Pipeline/Lane/YamlLintTool.php` | `LTS\PHPQA\Pipeline\Lane\YamlLintTool`, name `yamlLint`, identifier `phpqaci.yamlLint` |
-| `tests/Small/Pipeline/Lane/TwigLintToolTest.php` | 7 tests |
-| `tests/Small/Pipeline/Lane/YamlLintToolTest.php` | 6 tests |
-| `docs/tools/twigLint.md` | lane doc, shape of `docs/tools/phpStrictTypes.md` |
-| `docs/tools/yamlLint.md` | lane doc |
+| File                                             | Purpose                                                                                |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `src/Pipeline/Lane/TwigLintTool.php`             | `LTS\PHPQA\Pipeline\Lane\TwigLintTool`, name `twigLint`, identifier `phpqaci.twigLint` |
+| `src/Pipeline/Lane/YamlLintTool.php`             | `LTS\PHPQA\Pipeline\Lane\YamlLintTool`, name `yamlLint`, identifier `phpqaci.yamlLint` |
+| `tests/Small/Pipeline/Lane/TwigLintToolTest.php` | 7 tests                                                                                |
+| `tests/Small/Pipeline/Lane/YamlLintToolTest.php` | 6 tests                                                                                |
+| `docs/tools/twigLint.md`                         | lane doc, shape of `docs/tools/phpStrictTypes.md`                                      |
+| `docs/tools/yamlLint.md`                         | lane doc                                                                               |
 
 ## Behaviour
 

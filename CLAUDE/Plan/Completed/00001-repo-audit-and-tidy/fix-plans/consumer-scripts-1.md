@@ -45,29 +45,29 @@ judgement calls.
 
 Three ownership classes. Every artefact php-qa-ci writes into a consumer belongs to exactly one.
 
-| Class | Meaning | Overwrite policy | Idempotency guarantee |
-|---|---|---|---|
-| **OWNED** | php-qa-ci fully controls the file; consumers must NOT hand-edit — customise via `qaConfig/` only. | Overwrite every run, but **write-only-if-changed** (compare bytes first). | Re-run = no-op unless php-qa-ci shipped a new version. Local edits are (by contract) discarded — this is the documented deal. |
-| **SEED-ONCE** | php-qa-ci provides a starting point the consumer then owns and edits. | Write **only if absent**; never touch an existing file. | Re-run = no-op. Consumer edits always preserved. |
-| **SHARED / delimited-merge** | A consumer-owned file in which php-qa-ci owns only specific keys/blocks. | Merge touching **only** php-qa-ci's portion; never remove or reorder foreign keys. Write-only-if-changed. | Re-run = no-op. Foreign content always preserved. |
+| Class                        | Meaning                                                                                           | Overwrite policy                                                                                          | Idempotency guarantee                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **OWNED**                    | php-qa-ci fully controls the file; consumers must NOT hand-edit — customise via `qaConfig/` only. | Overwrite every run, but **write-only-if-changed** (compare bytes first).                                 | Re-run = no-op unless php-qa-ci shipped a new version. Local edits are (by contract) discarded — this is the documented deal. |
+| **SEED-ONCE**                | php-qa-ci provides a starting point the consumer then owns and edits.                             | Write **only if absent**; never touch an existing file.                                                   | Re-run = no-op. Consumer edits always preserved.                                                                              |
+| **SHARED / delimited-merge** | A consumer-owned file in which php-qa-ci owns only specific keys/blocks.                          | Merge touching **only** php-qa-ci's portion; never remove or reorder foreign keys. Write-only-if-changed. | Re-run = no-op. Foreign content always preserved.                                                                             |
 
 ### 2.1 Per-artefact ownership table
 
-| Artefact | Consumer target | Class | Policy under helper | Finding |
-|---|---|---|---|---|
-| Skills | `.claude/skills/<name>/` | **OWNED** | `install_owned_tree` — rsync-equivalent, remove-then-copy only when source differs | M-015 |
-| Agents (bundled) | `.claude/agents/*.md` | **OWNED** | `install_owned_file` | M-015 |
-| `php-qa-specialist.md` (generated) | `.claude/agents/php-qa-specialist.md` | **OWNED** | `install_owned_file` (rendered to a temp, then owned-install) | M-019 |
-| Classic hooks (`.py`) | `.claude/hooks/php-qa-ci__*.py` | **OWNED** (daemon-gated: deployed only when `DAEMON_DETECTED=false`) | `install_owned_file`, guarded by daemon check | M-014 |
-| Git pre-commit hook | `.git/hooks/pre-commit` | **SHARED / signature** | `install_signed` — overwrite iff target carries our `PHP-QA-CI-HOOK-SIGNATURE` marker or is absent; else skip+warn | model (already correct) |
-| `settings.json` hook entries | `.claude/settings.json` | **SHARED / merge** | python merge; touch only `php-qa-ci__` commands; never other keys; write-only-if-changed | M-014 |
-| `hooks-daemon.yaml` required handlers | `.claude/hooks-daemon.yaml` | **SHARED / merge** | python merge; add/fix only the 4 required handler keys; never remove foreign handlers | (already correct) |
-| `CLAUDE.md` `<phpqaci>` block | `CLAUDE.md` | **SHARED / delimited** | `write-claude-block.bash` (already the gold standard) | model (already correct) |
-| `composer.json` `autoload-dev` `QaConfig\` | `composer.json` | **SHARED / merge** | python; add key only if missing; write-only-if-changed | (already correct) |
-| `qaConfig/PHPStan/CLAUDE.md` | consumer `qaConfig/PHPStan/` | **SEED-ONCE** | `install_seed` | (already correct) |
-| `src/PHPStan/CLAUDE.md` guardrail | consumer `src/PHPStan/` | **SEED-ONCE** | `install_seed` | (already correct) |
-| GitHub workflow `qa.yml` | `.github/workflows/qa.yml` | **SEED-ONCE** | `install_seed` (drop the interactive `read -p` — hangs if ever auto-run) | M-063 vicinity |
-| Branch protection (remote) | GitHub branches API | **SHARED / merge** | GET → merge required contexts → diff → PUT | M-017 |
+| Artefact                                   | Consumer target                       | Class                                                                | Policy under helper                                                                                                | Finding                 |
+| ------------------------------------------ | ------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| Skills                                     | `.claude/skills/<name>/`              | **OWNED**                                                            | `install_owned_tree` — rsync-equivalent, remove-then-copy only when source differs                                 | M-015                   |
+| Agents (bundled)                           | `.claude/agents/*.md`                 | **OWNED**                                                            | `install_owned_file`                                                                                               | M-015                   |
+| `php-qa-specialist.md` (generated)         | `.claude/agents/php-qa-specialist.md` | **OWNED**                                                            | `install_owned_file` (rendered to a temp, then owned-install)                                                      | M-019                   |
+| Classic hooks (`.py`)                      | `.claude/hooks/php-qa-ci__*.py`       | **OWNED** (daemon-gated: deployed only when `DAEMON_DETECTED=false`) | `install_owned_file`, guarded by daemon check                                                                      | M-014                   |
+| Git pre-commit hook                        | `.git/hooks/pre-commit`               | **SHARED / signature**                                               | `install_signed` — overwrite iff target carries our `PHP-QA-CI-HOOK-SIGNATURE` marker or is absent; else skip+warn | model (already correct) |
+| `settings.json` hook entries               | `.claude/settings.json`               | **SHARED / merge**                                                   | python merge; touch only `php-qa-ci__` commands; never other keys; write-only-if-changed                           | M-014                   |
+| `hooks-daemon.yaml` required handlers      | `.claude/hooks-daemon.yaml`           | **SHARED / merge**                                                   | python merge; add/fix only the 4 required handler keys; never remove foreign handlers                              | (already correct)       |
+| `CLAUDE.md` `<phpqaci>` block              | `CLAUDE.md`                           | **SHARED / delimited**                                               | `write-claude-block.bash` (already the gold standard)                                                              | model (already correct) |
+| `composer.json` `autoload-dev` `QaConfig\` | `composer.json`                       | **SHARED / merge**                                                   | python; add key only if missing; write-only-if-changed                                                             | (already correct)       |
+| `qaConfig/PHPStan/CLAUDE.md`               | consumer `qaConfig/PHPStan/`          | **SEED-ONCE**                                                        | `install_seed`                                                                                                     | (already correct)       |
+| `src/PHPStan/CLAUDE.md` guardrail          | consumer `src/PHPStan/`               | **SEED-ONCE**                                                        | `install_seed`                                                                                                     | (already correct)       |
+| GitHub workflow `qa.yml`                   | `.github/workflows/qa.yml`            | **SEED-ONCE**                                                        | `install_seed` (drop the interactive `read -p` — hangs if ever auto-run)                                           | M-063 vicinity          |
+| Branch protection (remote)                 | GitHub branches API                   | **SHARED / merge**                                                   | GET → merge required contexts → diff → PUT                                                                         | M-017                   |
 
 **The three genuinely-correct sites today** (git-hook signature, CLAUDE.md block writer, seed-once PHPStan
 scaffolds) become the reference implementations the helper generalises; the three broken sites (skills/agents,
@@ -114,6 +114,7 @@ This directly discharges audit §5 item 3 ("converge on one shared helper … a 
 Effort key: S = mechanical, no design · M = design + code · L = structural. Blast radius = consumer impact.
 
 ### WP-S1 — Hygiene quick-wins batch (front-loaded, no design)
+
 - **Closes:** M-013, M-021, M-063, M-064, M-065, M-066, M-067, M-068, M-069, M-070
 - **Files:** `git-hooks/pre-commit-check-vendor-uncommitted`, `composerScripts/installUpdateInfection.bash` (delete), `scripts/install-github-actions.bash`, `scripts/setup-branch-protection.bash`, `scripts/tool-install.bash`, `scripts/deploy-skills.bash`, `ci.bash`
 - **Change sketch:**
@@ -145,6 +146,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** per-file git revert; each item is independent.
 
 ### WP-S2 — Close the register/undo window (interrupt safety) — do NOT wait for decomposition
+
 - **Closes:** M-014, M-073 (deploy-skills instances)
 - **Files:** `scripts/deploy-skills.bash`
 - **Change sketch:** gate the Phase-2 registration block (`:212-325`, currently guarded only on `-d "$HOOKS_SOURCE"`)
@@ -161,6 +163,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** revert the one-line guard; teardown path still self-heals as before.
 
 ### WP-S3 — Ownership model + shared helper (foundational)
+
 - **Closes:** M-016 (and the machinery M-015/M-019/M-069 build on)
 - **Files:** new `scripts/lib/consumer-write.inc.bash` + one shared python merge helper; docs stub in
   `scripts/lib/README.md` naming the three classes.
@@ -175,6 +178,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** delete the library; nothing depends on it yet.
 
 ### WP-S4 — Migrate OWNED artefacts onto the helper + version single-source
+
 - **Closes:** M-015, M-019, M-020
 - **Files:** `scripts/deploy-skills.bash`, `scripts/setup-claude-qa-agent.bash`; doc note in the deployed skills/agents
 - **Change sketch:**
@@ -192,6 +196,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** revert call sites to direct `cp`; helper stays.
 
 ### WP-S5 — Fix `setup-claude-qa-agent.bash` path detection
+
 - **Closes:** M-018
 - **Files:** `scripts/setup-claude-qa-agent.bash`
 - **Change sketch:** replace the hardcoded `PROJECT_ROOT="${SCRIPT_DIR}/../../../.."` (`:9`) with the composer.json
@@ -205,6 +210,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** revert to the fixed-path assumption.
 
 ### WP-S6 — Branch-protection GET-merge-PUT
+
 - **Closes:** M-017
 - **Files:** `scripts/setup-branch-protection.bash`
 - **Change sketch:** before the `PUT` (`:112-118`), `gh api GET …/protection` into a temp; merge php-qa-ci's
@@ -221,6 +227,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** revert; document the captured-prior-state backup as the manual restore path.
 
 ### WP-S7 — Fixture consumer project + idempotency/interrupt test suite
+
 - **Closes:** M-072 (test-coverage precondition); verification vehicle for WP-S2/S4/S5
 - **Files:** new `tests/…/consumer-deploy/` fixture skeleton + a bash/bats harness
 - **Change sketch:** build a minimal fixture consumer under a test-fixtures path (a `composer.json` requiring
@@ -243,6 +250,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** N/A (additive).
 
 ### WP-S8 — Consolidate the four `bin/*` redirect stubs
+
 - **Closes:** M-071
 - **Files:** `bin/composer-require-checker`, `bin/infection`, `bin/php-cs-fixer`, `bin/phpstan`
 - **Change sketch:** extract the shared 8-of-11 lines (the `COMPOSER_RUNTIME_BIN_DIR` → project-root walk-up →
@@ -255,6 +263,7 @@ Effort key: S = mechanical, no design · M = design + code · L = structural. Bl
 - **Rollback:** revert to four standalone stubs.
 
 ### WP-S9 — Decompose `deploy-skills.bash` (structural) — AFTER S3 + S7
+
 - **Closes:** M-072
 - **Files:** `scripts/deploy-skills.bash` → thin orchestrator + `scripts/deploy/phase-*.bash`
 - **Change sketch:** split the 7 responsibilities into per-phase scripts sourced by a thin orchestrator, all
@@ -291,6 +300,7 @@ WP-S8 (stub consol)  ─ independent (coord w/ bash-refactor)
   refactor.
 
 **Handoffs (named, not duplicated):**
+
 - → `bash-refactor-1.md` (**M-028**): that plan owns the repo-wide `shellcheck` + `bats` CI gate. All WP-S1/S3/S7/S8
   tests **register into that gate** — this plan does not build a separate CI mechanism.
 - → `bash-refactor-1.md` (**M-053 / project-root walk-up**): `bin/qa`'s composer-proxy self-parse and the WP-S8
@@ -308,14 +318,14 @@ location must be agreed with bash-refactor before WP-S3/WP-S8 to avoid two paral
 
 ## 6. Decisions for the user
 
-| # | Finding | Decision | Recommendation |
-|---|---|---|---|
-| **D1** | M-015 | Are php-qa-ci-provided **skills/agents** OWNED (overwrite freely, "never hand-edit") or protected by a signature/backup like the git hook? | **OWNED.** Matches the repo's stated philosophy ("everything is overridable via `qaConfig/`, not by editing the vendored file"). Signature-protecting skills invites divergent local forks that silently miss updates. Document the contract; route through `install_owned_*` (WP-S4). |
-| **D2** | M-017 | Branch protection: **GET-merge-PUT** (preserve unmodeled settings) or keep the wholesale PUT but **document it as destructive** + capture prior state? | **GET-merge-PUT** (WP-S6). It is the only option that doesn't silently drop a repo's existing checks/restrictions. Add `--dry-run` + prior-state backup as the safety net. |
-| **D3** | M-020 | Daemon version references disagree (`v2.2.0` clone vs `v3.9.0+` venv). Pin **one constant**, or **drop the tag** and point at install docs? | **Single constant** `DAEMON_INSTALL_REF` referenced in both places (WP-S4), or drop the tag entirely — either removes the self-contradiction. Prefer the constant so the "not detected" path installs a version the rest of the script can actually use. |
-| **D4** | M-018/M-019 | `setup-claude-qa-agent.bash` overlaps `deploy-skills`' agent deployment. Fix its path (WP-S5) **and keep it**, or **fold** its binary-detection into the OWNED agent template and retire the standalone script? | **Fold + retire** if `php-qa-specialist.md` is a bundled agent (then `deploy-skills` owns it end-to-end). If it must stay standalone (maintainer tool), fix the path per WP-S5. Confirm whether any consumer/doc invokes it directly before retiring. |
-| **D5** | M-060 | Orphaned, unregistered `.claude/hooks/php-qa-ci__check-vendor-uncommitted.py` — **document + wire** it, or **delete**? | **Delete**, pending a diff against `git-hooks/pre-commit-check-vendor-uncommitted` — it appears to duplicate that hook's job while being unwired and undocumented. If the diff shows it is the intended *daemon-handler* port (not a dupe), wire + document it instead. Cross-plan: the file is DOCS-axis but couples to the M-013 git-hook, so decide it alongside WP-S1. |
-| **D6** | M-063 | `check_php_version()` — **delete** the dead computation or **wire** it into a workflow matrix? | **Delete** (WP-S1). The shipped workflow template is version-agnostic; wiring adds surface for no current benefit. |
+| #      | Finding     | Decision                                                                                                                                                                                                        | Recommendation                                                                                                                                                                                                                                                                                                                                                             |
+| ------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1** | M-015       | Are php-qa-ci-provided **skills/agents** OWNED (overwrite freely, "never hand-edit") or protected by a signature/backup like the git hook?                                                                      | **OWNED.** Matches the repo's stated philosophy ("everything is overridable via `qaConfig/`, not by editing the vendored file"). Signature-protecting skills invites divergent local forks that silently miss updates. Document the contract; route through `install_owned_*` (WP-S4).                                                                                     |
+| **D2** | M-017       | Branch protection: **GET-merge-PUT** (preserve unmodeled settings) or keep the wholesale PUT but **document it as destructive** + capture prior state?                                                          | **GET-merge-PUT** (WP-S6). It is the only option that doesn't silently drop a repo's existing checks/restrictions. Add `--dry-run` + prior-state backup as the safety net.                                                                                                                                                                                                 |
+| **D3** | M-020       | Daemon version references disagree (`v2.2.0` clone vs `v3.9.0+` venv). Pin **one constant**, or **drop the tag** and point at install docs?                                                                     | **Single constant** `DAEMON_INSTALL_REF` referenced in both places (WP-S4), or drop the tag entirely — either removes the self-contradiction. Prefer the constant so the "not detected" path installs a version the rest of the script can actually use.                                                                                                                   |
+| **D4** | M-018/M-019 | `setup-claude-qa-agent.bash` overlaps `deploy-skills`' agent deployment. Fix its path (WP-S5) **and keep it**, or **fold** its binary-detection into the OWNED agent template and retire the standalone script? | **Fold + retire** if `php-qa-specialist.md` is a bundled agent (then `deploy-skills` owns it end-to-end). If it must stay standalone (maintainer tool), fix the path per WP-S5. Confirm whether any consumer/doc invokes it directly before retiring.                                                                                                                      |
+| **D5** | M-060       | Orphaned, unregistered `.claude/hooks/php-qa-ci__check-vendor-uncommitted.py` — **document + wire** it, or **delete**?                                                                                          | **Delete**, pending a diff against `git-hooks/pre-commit-check-vendor-uncommitted` — it appears to duplicate that hook's job while being unwired and undocumented. If the diff shows it is the intended *daemon-handler* port (not a dupe), wire + document it instead. Cross-plan: the file is DOCS-axis but couples to the M-013 git-hook, so decide it alongside WP-S1. |
+| **D6** | M-063       | `check_php_version()` — **delete** the dead computation or **wire** it into a workflow matrix?                                                                                                                  | **Delete** (WP-S1). The shipped workflow template is version-agnostic; wiring adds surface for no current benefit.                                                                                                                                                                                                                                                         |
 
 ---
 

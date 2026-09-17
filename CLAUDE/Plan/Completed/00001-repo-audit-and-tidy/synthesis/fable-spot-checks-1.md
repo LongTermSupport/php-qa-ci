@@ -8,6 +8,7 @@ was verified directly against code by Fable, not taken from agent output.
 ## Verified findings
 
 ### FS-001 [MAJOR] Dead functions in functions.inc.bash (~100 lines)
+
 - `checkForUncommittedChanges()` (functions.inc.bash:108-174) and
   `phpunitReRunFailedOrFull()` (:176-209) have ZERO callers anywhere in
   bin/, includes/, scripts/ (grep verified 2026-07-15).
@@ -19,6 +20,7 @@ was verified directly against code by Fable, not taken from agent output.
   's'=skip branch returns without `cd $originalDir`) — irrelevant once deleted.
 
 ### FS-002 [MAJOR] bin/qa:229-230 — `exitCode=$?` after `runTool` is dead under set -e
+
 - `runTool "$singleToolToRun"` then `exitCode=$?`. With `set -e` active, a
   non-zero runTool aborts the script at line 229 (plain statement, not a
   condition), so line 230 can only ever capture 0. Non-aggregate single-tool
@@ -28,12 +30,15 @@ was verified directly against code by Fable, not taken from agent output.
   pattern already used inside tool fragments).
 
 ### FS-003 [MINOR] CLAUDE.md claims `scripts/phive-install.bash`; reality is `scripts/tool-install.bash`
+
 - CLAUDE.md preflight step 8: "If phive.xml exists, runs scripts/phive-install.bash".
   bin/qa:197 runs `$qaDir/../scripts/tool-install.bash` unconditionally.
   No phive-install.bash exists in scripts/.
 
 ### FS-004 [MAJOR] CLAUDE.md pipeline description omits entire subsystems
+
 bin/qa contains, undocumented in CLAUDE.md's "How It Works"/phases:
+
 - locking system (lock.inc.bash, 565 lines; acquireLock/releaseLock, bin/qa:208-219)
 - timing instrumentation (timing.inc.bash, 307 lines)
 - read-only mode `qaReadOnly`/`QA_READONLY` (bin/qa:97-109) — documented only
@@ -44,26 +49,30 @@ bin/qa contains, undocumented in CLAUDE.md's "How It Works"/phases:
 - `--json` output mode (bin/qa:14-25, fd-3 plumbing; useJsonOutput in phpstan)
 - branchNamePolicy, packageType, sensitiveParameterUsage exist as tools;
   CLAUDE.md phase lists have wrong/duplicated numbering (Phase 3 numbered
-  10/11/12, Phase 4 restarts at 11) and don't match the all*Tools order —
+  10/11/12, Phase 4 restarts at 11) and don't match the all\*Tools order —
   docs-core agent to produce the authoritative diff.
 
 ### FS-005 [MINOR] bin/qa:31 fragile composer-proxy parsing
+
 `qaDir="$(cd $binDir/$(grep -Po "[^']+php-qa-ci[^']+" $binDir/qa) && pwd)"` —
 scrapes its own composer bin proxy with a regex keyed to the literal string
 'php-qa-ci' inside single quotes. Breaks if composer changes proxy format or
 package is forked/renamed. Unquoted expansions throughout this block.
 
 ### FS-006 [INFO] Naming: `$DIR` (options.inc.bash:2) vs `$qaDir` (bin/qa)
+
 Two names for essentially the same anchor (includes/ dir vs bin/ dir), both
 used across fragments (runTool uses $DIR). Confusing for maintainers; works.
 
 ### FS-007 [INFO] phpNoXdebug leaks `set -x` semantics + marker files
+
 - functions.inc.bash:92-96 toggles set -x/+x around every tool invocation —
   noisy by design, but also means callers' trace state is clobbered.
 - archiveToolLog creates `.warned_high_count_$$` marker files that are never
   cleaned up (one per PID per logDir, accumulates in var/qa).
 
 ### FS-008 [CRITICAL] PSR-4 validation is a silent no-op since 2023-12-18 (false green)
+
 - includes/generic/psr4Validate.inc.bash is 0 bytes. Sourcing an empty file
   succeeds, so `runToolGuarded psr4Validate` (allLintingTools.inc.bash:7) and
   `bin/qa -t psr4` both report SUCCESS while validating nothing.
@@ -83,6 +92,7 @@ used across fragments (runTool uses $DIR). Confusing for maintainers; works.
   class = "empty fragment sources clean").
 
 ### FS-009 [MAJOR] options.inc.bash triple-registry SSoT violation
+
 The tool registry is maintained in THREE parallel structures that must be kept
 in sync by hand: usage() text (:24-60), PATH_SUPPORTING_TOOLS /
 NON_PATH_SUPPORTING_TOOLS arrays (:85-114), and the alias case map (:164-195).
@@ -91,6 +101,7 @@ that are now wrong (psr4Validate marked ✓ path-supporting; it's an empty file)
 Any new tool needs 3-4 hand edits; drift is structural, not accidental.
 
 ### FS-010 [CRITICAL] strict-types gate never checks .php files (find precedence bug) — Fable-found, missed by both bash agents
+
 - phpStrictTypes.inc.bash:4-7: `find $d -name '*.php' -o -name '*.phtml' -exec grep -L 'strict_types' {} \;`
   parses as `-name '*.php' -o ( -name '*.phtml' -a -exec … )`. Because an
   -exec action is present, find suppresses the default -print for the bare
@@ -107,6 +118,7 @@ Any new tool needs 3-4 hand edits; drift is structural, not accidental.
   no CI guard and unguarded `sed -i` in the same fragment (BQ-002/AR-007).
 
 ### FS-011 [MAJOR] AR-001/002 derive-before-override class — VERIFIED by Fable
+
 - Source order confirmed: `runTool setConfig` at bin/qa:162; project
   qaConfig.inc.bash sourced at bin/qa:177 (later).
 - setConfig.inc.bash derivations that consume project-overridable vars BEFORE
@@ -129,6 +141,7 @@ Any new tool needs 3-4 hand edits; drift is structural, not accidental.
   section documents skipUncommittedChangesCheck (dead, FS-001).
 
 ## Positive observations (for balance)
+
 - The newer code (detectReadOnly, runToolGuarded, qaReportAggregate,
   reportReadOnlyWouldModify, infection.inc.bash, phpArkitect.inc.bash) is
   well-commented, deliberate about errexit interactions, and documents its own
@@ -139,6 +152,7 @@ Any new tool needs 3-4 hand edits; drift is structural, not accidental.
   correctly under set -e (assignment exit status) — checked, not a bug.
 
 ## Arbitration notes (to apply when grading agent reports)
+
 - php-src-map-1.md (haiku) — graded on arrival: useful inventory, but carries
   two errors to fix in synthesis: (a) summary claims "All 11 bin/ scripts are
   ... called by the QA pipeline", contradicted by its own orphan table (and by

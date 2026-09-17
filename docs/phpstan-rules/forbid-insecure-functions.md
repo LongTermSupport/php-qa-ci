@@ -7,11 +7,11 @@
 Three families of function, none of which is dangerous in itself, but each of which is the wrong
 tool the moment security depends on it:
 
-| Family | Functions | Why |
-| --- | --- | --- |
-| Broken hashes | `md5`, `sha1`, `md5_file`, `sha1_file`, and `hash`/`hash_file`/`hash_init` called with a literal `md5` or `sha1` algorithm | Both are collision-broken. Neither is a password hash under any circumstances |
-| Predictable randomness | `rand`, `mt_rand`, `lcg_value`, `uniqid` | Seeded and reproducible. Anything a token, id or nonce depends on is guessable |
-| Unparameterised SQL | `mysql_query`, `mysql_unbuffered_query`, `mysqli_query`, `mysqli_multi_query`, `mysqli_real_query` | They take a finished SQL string, so the only way to include a value is to concatenate it |
+| Family                 | Functions                                                                                                                  | Why                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Broken hashes          | `md5`, `sha1`, `md5_file`, `sha1_file`, and `hash`/`hash_file`/`hash_init` called with a literal `md5` or `sha1` algorithm | Both are collision-broken. Neither is a password hash under any circumstances            |
+| Predictable randomness | `rand`, `mt_rand`, `lcg_value`, `uniqid`                                                                                   | Seeded and reproducible. Anything a token, id or nonce depends on is guessable           |
+| Unparameterised SQL    | `mysql_query`, `mysql_unbuffered_query`, `mysqli_query`, `mysqli_multi_query`, `mysqli_real_query`                         | They take a finished SQL string, so the only way to include a value is to concatenate it |
 
 ## Why it is opt-in
 

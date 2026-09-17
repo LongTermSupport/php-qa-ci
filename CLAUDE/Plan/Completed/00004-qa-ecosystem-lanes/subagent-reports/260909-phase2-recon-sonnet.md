@@ -9,6 +9,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
 ## Tool A: shipmonk/composer-dependency-analyser
 
 1. **Latest version / PHP compat**
+
    - Packagist p2 (`https://repo.packagist.org/p2/shipmonk/composer-dependency-analyser.json`):
      latest stable **`1.8.4`**, released `2025-11-25T14:38:16+00:00`.
    - `require.php` = **`^7.2 || ^8.0`** — no upper bound, so **PHP 8.5 compatible**.
@@ -17,18 +18,19 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
    - `ext-json`, `ext-tokenizer` required. Zero Composer dependencies.
 
 2. **PHIVE PHAR?** **No.**
+
    - Not present in `https://phar.io/data/repositories.xml` (grepped the full file, no
      `shipmonk`/`dependency-analyser` alias).
    - GitHub org is `shipmonk-rnd` (confirmed via GitHub search API, not `shipmonk`). Its latest
      release (tag `1.8.4`, `https://api.github.com/repos/shipmonk-rnd/composer-dependency-analyser/releases/latest`)
      has **no attached assets** — no `.phar`/`.phar.asc`.
-   - Conclusion: install as a **Composer dependency** (`composer require --dev
-     shipmonk/composer-dependency-analyser`), not via PHIVE/`vendor-phar/`.
+   - Conclusion: install as a **Composer dependency** (`composer require --dev shipmonk/composer-dependency-analyser`), not via PHIVE/`vendor-phar/`.
 
 3. **Executable**: `bin/composer-dependency-analyser` (from `bin` field in `composer.json`) →
    lands at `vendor/bin/composer-dependency-analyser` in a consumer project.
 
 4. **Config file**:
+
    - Class: `ShipMonk\ComposerDependencyAnalyser\Config\Configuration` (namespace
      `ShipMonk\ComposerDependencyAnalyser\Config`).
    - Default filename: **`composer-dependency-analyser.php`** in cwd, auto-loaded if present.
@@ -47,6 +49,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
      `->ignoreErrors()`, etc.)
 
 5. **Exit codes** (verified from source, `A-bin.php` + `A-ConsoleFormatter.php`):
+
    - Entry point `bin/composer-dependency-analyser` (fetched from
      `https://raw.githubusercontent.com/shipmonk-rnd/composer-dependency-analyser/master/bin/composer-dependency-analyser`):
      - `InvalidCliException | InvalidConfigException | InvalidPathException` → prints red error to
@@ -61,6 +64,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
 
 6. **CLI flags** (verified from README `A-README.md` lines 82-97, cross-checked against no
    separate `--help` fetch since GitHub release had no binary to run):
+
    - `--composer-json path/to/composer.json` — custom path to composer.json
    - `--dump-usages symfony/console` — show usages of package(s), `*` wildcard supported
    - `--config path/to/config.php` — custom config path
@@ -78,12 +82,13 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
 ## Tool B: tomasvotruba/type-coverage
 
 1. **Latest version / constraints / PHP compat**
+
    - Packagist p2 (`https://repo.packagist.org/p2/tomasvotruba/type-coverage.json`): latest
      stable **`2.3.6`**, released `2026-08-29T08:21:40+00:00` (actively maintained — release one
      week before this recon).
-   - `require.php` = **`^8.4`** → PHP 8.5 falls inside `^8.4` (>=8.4 <9.0), so **PHP 8.5
+   - `require.php` = **`^8.4`** → PHP 8.5 falls inside `^8.4` (>=8.4 \<9.0), so **PHP 8.5
      compatible**. Note this is a break from the README's claim of "PHP 7.2+" (`B-README.md` line
-     78) — that line describes an older baseline; the installed `2.3.6`'s actual `composer.json`
+     78\) — that line describes an older baseline; the installed `2.3.6`'s actual `composer.json`
      constraint is `^8.4`.
    - `require.phpstan/phpstan` = **`^2.2`**.
    - Also requires `webmozart/assert: ^1.11 || ^2.1`.
@@ -92,6 +97,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
    `config/extension.neon`, fetched from
    `https://raw.githubusercontent.com/TomasVotruba/type-coverage/main/config/extension.neon` —
    this is ground truth, more authoritative than the README prose):
+
    - Canonical (long-form) keys under `parameters.type_coverage`:
      - `return_type` (float|int, default `99`)
      - `param_type` (float|int, default `99`)
@@ -121,6 +127,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
      ```
 
 3. **PHPStan error identifiers**:
+
    - Fetched all 5 rule classes under `src/Rules/` (`ParamTypeCoverageRule`,
      `ReturnTypeCoverageRule`, `PropertyTypeCoverageRule`, `ConstantTypeCoverageRule`,
      `DeclareCoverageRule`).
@@ -136,9 +143,9 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
      rule has a stable `identifier:` you could match on in `phpstan.neon`.
 
 4. **phpstan/extension-installer requirement**:
+
    - **Not a hard `require`.** It's only in the package's own `require-dev` (its dev environment),
-     and it self-registers via the standard `extra.phpstan.includes` composer.json key: `"extra":
-     {"phpstan": {"includes": ["config/extension.neon"]}}`.
+     and it self-registers via the standard `extra.phpstan.includes` composer.json key: `"extra": {"phpstan": {"includes": ["config/extension.neon"]}}`.
    - If the consuming project has `phpstan/extension-installer` installed, the neon auto-includes.
    - Otherwise (as php-qa-ci already does for its other PHPStan config), the neon must be included
      manually:
@@ -159,6 +166,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
    `https://repo.packagist.org/p2/phpcpd-next/phpcpd.json`; the older candidates
    `qossmic/phpcpd`, `phpcpd/phpcpd` returned 404; `systemsdk/phpcpd` also exists as a maintained
    fork but was not the name the team asked to verify as "phpcpd-next" — see note below).
+
    - GitHub repo: `https://github.com/phpcpd-next/phpcpd` — "a maintained, dependency-free
      successor to the archived `sebastianbergmann/phpcpd`" (README line 9-10).
    - Latest version **`v1.4`**, released `2026-08-23T08:27:19+00:00` — actively maintained (2.5
@@ -172,18 +180,19 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
      is ever abandoned.)
 
 2. **PHIVE PHAR?** **No** (for `phpcpd-next/phpcpd`).
+
    - `phar.io/data/repositories.xml` only has one `phpcpd` alias, and it maps to the **abandoned**
      `sebastian/phpcpd` (`composer="sebastian/phpcpd"`, via `https://phar.phpunit.de/phive.xml`) —
      confirmed by grep of the full 189-line file. There is no `phpcpd-next` alias.
    - Latest GitHub release (`v1.4`,
      `https://api.github.com/repos/phpcpd-next/phpcpd/releases/latest`) was checked and its
      `assets` field is empty — **no `.phar`/`.phar.asc` attached**.
-   - Conclusion: install as a **Composer dependency**: `composer require --dev
-     phpcpd-next/phpcpd`. (README also documents `composer global require` and building from
+   - Conclusion: install as a **Composer dependency**: `composer require --dev phpcpd-next/phpcpd`. (README also documents `composer global require` and building from
      source as alternatives, but no PHAR download.)
 
 3. **Executable**: `bin/composer-dependency-analyser`-style bin field installs the binary as
    **`phpcpd`** (drop-in name compatible with the old tool) → lands at `vendor/bin/phpcpd`.
+
    - Key flags (verified against README's literal `--help` dump, `C-README.md` lines 505-542):
      - `--min-lines <N>` (default: **5**)
      - `--min-tokens <N>` (default: **70**)
@@ -200,6 +209,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
 4. **Exit codes** (verified from README lines 115-116, 183-187 — could not fetch a `.phar` to
    verify against source since none is distributed, but the README is explicit and internally
    consistent with the "CI-ready... meaningful exit codes" feature bullet):
+
    - **`0`** — no clones found (clean).
    - **`1`** — clones found **or** on error (the README states both cases share code 1: "exits
      with status 1 when clones are found (or on error)"). No distinct crash code is documented.
@@ -219,6 +229,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
 ## Tool D: vincentlanglet/twig-cs-fixer
 
 1. **Latest version / constraints / PHP compat**
+
    - Packagist p2 (`https://repo.packagist.org/p2/vincentlanglet/twig-cs-fixer.json`): latest
      stable **`4.1.1`**, released `2026-09-08T21:26:25+00:00` — released the day before this
      recon, extremely actively maintained.
@@ -228,6 +239,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
      (all wide ranges spanning 5.4 through 8.0), `webmozart/assert`, `composer-runtime-api ^2.0.0`.
 
 2. **PHIVE PHAR?** **Yes.**
+
    - Confirmed present in `https://phar.io/data/repositories.xml`:
      ```xml
      <phar alias="twig-cs-fixer" composer="vincentlanglet/twig-cs-fixer">
@@ -238,7 +250,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
    - Latest GitHub release (tag `4.1.1`) has both assets attached:
      `twig-cs-fixer.phar` and `twig-cs-fixer.phar.asc`
      (`https://github.com/VincentLanglet/Twig-CS-Fixer/releases/download/4.1.1/twig-cs-fixer.phar`
-     [+ `.phar.asc`]).
+     \[+ `.phar.asc`\]).
    - **Signing key**: README states (`D-README.md` line 42-43): "The PHAR files are signed with a
      public key which can be queried at `keys.openpgp.org` with the id
      **`AC0E7FD8858D80003AA88FF8DEBB71EDE9601234`**" — a full 40-hex-character fingerprint (not
@@ -246,6 +258,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
 
 3. **Executable / CLI invocation** (verified from source,
    `src/Console/Command/TwigCsFixerCommand.php`):
+
    - `bin` field → `vendor/bin/twig-cs-fixer`.
    - Command `const NAME = 'lint'`, with `setAliases(['check', 'fix'])`.
    - **Check-only / dry-run**: `vendor/bin/twig-cs-fixer lint /path/to/code` (or the `check`
@@ -260,6 +273,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
    in the project root, must `return` a `TwigCsFixer\Config\Config` instance (docs,
    `D-configuration.md` lines 18-20). PHP format (a plain PHP script, same convention as
    `php_cs.php` / `rector.php` in this project). Minimal working example (docs lines 22-42):
+
    ```php
    <?php
 
@@ -274,6 +288,7 @@ alongside the original scratch copy of this report in `/workspace/untracked/scra
 
 5. **Exit codes** (verified from source,
    `src/Console/Command/TwigCsFixerCommand.php::execute()`):
+
    - **`self::SUCCESS`** (Symfony `Command::SUCCESS` = `0`) — `0 === $report->getTotalErrors()`.
    - **`self::FAILURE`** (Symfony `Command::FAILURE` = `1`) — `$report->getTotalErrors() > 0`.
      **Important**: this is checked *after* the linter runs, including in `fix` mode — if some

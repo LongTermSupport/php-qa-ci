@@ -6,11 +6,11 @@ until Phase 5.
 
 ## Classes
 
-| Lane                  | Class                                      | `name()`     | Identifier           |
-| --------------------- | ------------------------------------------ | ------------ | -------------------- |
-| rector.inc.bash       | `src/Pipeline/Lane/RectorTool.php`         | `rector`     | `phpqaci.rector`     |
-| phpCsFixer.inc.bash   | `src/Pipeline/Lane/PhpCsFixerTool.php`     | `phpCsFixer` | `phpqaci.phpCsFixer` |
-| (shared helper)       | `src/Pipeline/Lane/ReadOnlyGuidance.php`   | n/a          | n/a                  |
+| Lane                | Class                                    | `name()`     | Identifier           |
+| ------------------- | ---------------------------------------- | ------------ | -------------------- |
+| rector.inc.bash     | `src/Pipeline/Lane/RectorTool.php`       | `rector`     | `phpqaci.rector`     |
+| phpCsFixer.inc.bash | `src/Pipeline/Lane/PhpCsFixerTool.php`   | `phpCsFixer` | `phpqaci.phpCsFixer` |
+| (shared helper)     | `src/Pipeline/Lane/ReadOnlyGuidance.php` | n/a          | n/a                  |
 
 `ReadOnlyGuidance::wouldModify(ToolContext $context, string $toolName, string $qaTarget): void`
 prints the `reportReadOnlyWouldModify` block from `includes/functions.inc.bash` line for line
@@ -31,8 +31,7 @@ output only via `ToolContext`, identifier trailer on every non-passing path, no 
   `<root>/rector.php` and `<root>/qaConfig/rector.php` that exists (pathsToCheck), else
   `PHP 8.5` (`configPath('rector-php85.php')`, pathsToCheck). When a project rector ran the
   "Skipping standard PHP 8.5 Rector…" line is printed.
-- argv per pass: `process --autoload-file <root>/vendor/autoload.php --config <cfg>
-  --clear-cache [--dry-run] <paths…>`; cwd `<root>`; env
+- argv per pass: `process --autoload-file <root>/vendor/autoload.php --config <cfg> --clear-cache [--dry-run] <paths…>`; cwd `<root>`; env
   `rectorIgnorePaths` = newline-joined `pathsToIgnore` (empty string when none).
 - Read-only: 0 passed; 2 → guidance (`Rector ('<label>')`, target `rector`) then failed; other
   → "failed with exit code N (a genuine error, not a pending-change diff)" then crashed.
@@ -42,9 +41,7 @@ output only via `ToolContext`, identifier trailer on every non-passing path, no 
 
 ### PhpCsFixerTool behaviour
 
-- Phar `$paths->pharDir/php-cs-fixer.phar`; argv `--config=<configPath('php_cs.php')>
-  --cache-file=<varDir>/cache/php_cs.cache --allow-risky=yes --show-progress=dots
-  --path-mode=intersection -vvv fix [--dry-run] <pathsToCheck…>`; cwd `<root>`.
+- Phar `$paths->pharDir/php-cs-fixer.phar`; argv `--config=<configPath('php_cs.php')> --cache-file=<varDir>/cache/php_cs.cache --allow-risky=yes --show-progress=dots --path-mode=intersection -vvv fix [--dry-run] <pathsToCheck…>`; cwd `<root>`.
 - Output is streamed and written to `<varDir>/php-cs-fixer-output.log` (varDir created if
   absent).
 - "Files that were not fixed due to errors" in the output → the ERROR block (wording
@@ -65,11 +62,11 @@ output only via `ToolContext`, identifier trailer on every non-passing path, no 
 
 ## Tests (tests/Small/Pipeline/Lane/)
 
-| Test class              | Tests | Covers                                                                                                                                                      |
-| ----------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RectorToolTest`        | 10    | exact argv of the three shipped passes and the two project-rector passes, `--dry-run` only in read-only, cwd + env per pass, empty env, exit 2/1 read-only, non-zero writable (fails, no advisory), advisory only in writable, missing phar crashes with no process, name/identifier |
-| `PhpCsFixerToolTest`    | 9     | exact argv in both modes, log file written, exit 8/1 read-only, exit 8 writable fails, lint-error crash with exit 0 (read-only) and exit 8 (writable), name/identifier |
-| `ReadOnlyGuidanceTest`  | 2     | tool name and `-t <target>` substituted, block delimiters                                                                                                    |
+| Test class             | Tests | Covers                                                                                                                                                                                                                                                                               |
+| ---------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RectorToolTest`       | 10    | exact argv of the three shipped passes and the two project-rector passes, `--dry-run` only in read-only, cwd + env per pass, empty env, exit 2/1 read-only, non-zero writable (fails, no advisory), advisory only in writable, missing phar crashes with no process, name/identifier |
+| `PhpCsFixerToolTest`   | 9     | exact argv in both modes, log file written, exit 8/1 read-only, exit 8 writable fails, lint-error crash with exit 0 (read-only) and exit 8 (writable), name/identifier                                                                                                               |
+| `ReadOnlyGuidanceTest` | 2     | tool name and `-t <target>` substituted, block delimiters                                                                                                                                                                                                                            |
 
 Total 21 tests, 104 assertions, all green:
 

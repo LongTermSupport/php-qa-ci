@@ -74,8 +74,8 @@ Nothing is fetched at run time; PHARs go through PHIVE, PHPStan extensions throu
 - [x] Every approved tool has a lane or extension, a test, an identifier, an index row and a docs page.
 - [x] The read-only battery passes on this repository with every new lane on — via CI on `085f595`.
 - [x] Each review item has a recorded decision. Two of those decisions were "not now": the
-      extensible pipeline and dead-code-detector both moved to plan 00005, the first by Owner
-      instruction so a stable `php8.5` could ship, the second because it depends on the first.
+  extensible pipeline and dead-code-detector both moved to plan 00005, the first by Owner
+  instruction so a stable `php8.5` could ship, the second because it depends on the first.
 
 ## Delivery & Milestones
 

@@ -19,6 +19,7 @@ Read and understand the project's documentation (CLAUDE.md, related .md files) a
 ## How the php-qa-ci Skills/Agents System Works
 
 **Design:**
+
 - Main context invokes `qa` skill
 - `qa` skill invokes `phpstan-runner` or `phpunit-runner` skills
 - Runner skills launch cheap haiku AGENTS (php-qa-ci_phpstan-runner, php-qa-ci_phpunit-runner)
@@ -37,12 +38,14 @@ The specialized php-qa-ci agents MUST be able to run `{bin}/qa` commands. They a
 Read the project documentation (start with CLAUDE.md) and look for instructions that would conflict with the above design.
 
 **Common conflicts:**
+
 1. Blanket restrictions like "NEVER run QA tools in subagents"
 2. "Only the main agent should run bin/qa"
 3. "Subagents should only write code, not run tools"
 4. Similar instructions that don't distinguish between general-purpose agents and specialized QA agents
 
 **What's NOT a conflict:**
+
 - Instructions about general-purpose agents not running QA tools (that's fine!)
 - Instructions about Task tool usage for non-QA purposes
 - Database restrictions, coding standards, etc.
@@ -50,6 +53,7 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
 ## Your Process
 
 1. **Read project documentation**:
+
    ```
    [Read] CLAUDE.md
    [Read] CLAUDE/*.md (if exists)
@@ -57,17 +61,20 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
    ```
 
 2. **Understand and analyze**:
+
    - Read the documentation with full context
    - Understand the intent behind any restrictions
    - Identify if restrictions apply to ALL agents or just general-purpose ones
 
 3. **Detect conflicts**:
+
    - Do any instructions forbid agents from running QA tools?
    - Are these blanket restrictions or specific to certain agent types?
    - Would these prevent php-qa-ci agents from functioning?
 
 4. **Report findings**:
    If conflicts found, report in this format:
+
    ```
    ❌ CONFLICTS DETECTED
 
@@ -104,6 +111,7 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
    ```
 
    If NO conflicts:
+
    ```
    ✅ NO CONFLICTS DETECTED
 
@@ -129,6 +137,7 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
 ## Example Scenarios
 
 **Scenario 1: Clear blanket restriction**
+
 ```
 CLAUDE.md contains:
 "NEVER - run QA tools in subagents"
@@ -140,6 +149,7 @@ exception for specialized QA agents.
 ```
 
 **Scenario 2: Restriction with context**
+
 ```
 CLAUDE.md contains:
 "General-purpose subagents should not run QA tools. Use specialized
@@ -152,6 +162,7 @@ this restriction doesn't apply to them.
 ```
 
 **Scenario 3: No QA-related restrictions**
+
 ```
 CLAUDE.md contains only database policies, coding standards, etc.
 

@@ -8,10 +8,10 @@ fragments are untouched (they leave in Phase 5). Nothing is committed and
 
 ## Classes and identifiers
 
-| Lane      | Tool class                                  | Identifier            | Pure helpers                                                                                                    |
-| --------- | ------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------- |
-| phpunit   | `LTS\PHPQA\Pipeline\Lane\PhpunitTool`       | `phpqaci.phpunit`     | `Lane\Phpunit\PhpunitArguments`                                                                                 |
-| infection | `LTS\PHPQA\Pipeline\Lane\InfectionTool`     | `phpqaci.infection`   | `Lane\Infection\InfectionArguments`, `Lane\Infection\InfectionDiffFilter`, `Lane\Infection\Dto\InfectionDiffFilterDto` |
+| Lane      | Tool class                              | Identifier          | Pure helpers                                                                                                           |
+| --------- | --------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| phpunit   | `LTS\PHPQA\Pipeline\Lane\PhpunitTool`   | `phpqaci.phpunit`   | `Lane\Phpunit\PhpunitArguments`                                                                                        |
+| infection | `LTS\PHPQA\Pipeline\Lane\InfectionTool` | `phpqaci.infection` | `Lane\Infection\InfectionArguments`, `Lane\Infection\InfectionDiffFilter`, `Lane\Infection\Dto\InfectionDiffFilterDto` |
 
 Files (all new, absolute):
 
@@ -55,13 +55,13 @@ Docs: a "How the lane runs" section appended to `docs/tools/phpunit.md`
 
 ## InfectionDiffModeTest cases ported
 
-| Large test case                                             | PHP unit test                                                                                    |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| testFullModeBuildsTheHistoricFloorInvocation                | `InfectionArgumentsTest::fullModeBuildsTheHistoricFloorInvocation`                               |
-| testDiffModeScopesToChangedFilesAndEnforcesNoNewEscapes     | `InfectionArgumentsTest::diffModeScopesToChangedFilesAndEnforcesNoNewEscapes`                    |
-| testDiffCoveredMsiFloorIsOverridableForEquivalentMutants    | `InfectionArgumentsTest::diffCoveredMsiFloorIsOverridableForEquivalentMutants` + `InfectionToolTest::anOverriddenDiffFloorReachesInfectionAndSilencesTheAdvisory` |
-| testDiffModeRefusesADirtyWorkingTree                        | `InfectionToolTest::diffModeRefusesADirtyWorkingTree`                                            |
-| testDiffModeAcceptsACleanTree                               | `InfectionToolTest::diffModeAcceptsACleanTreeAndScopesToTheCommittedChange`                      |
+| Large test case                                               | PHP unit test                                                                                                                                                                                                    |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| testFullModeBuildsTheHistoricFloorInvocation                  | `InfectionArgumentsTest::fullModeBuildsTheHistoricFloorInvocation`                                                                                                                                               |
+| testDiffModeScopesToChangedFilesAndEnforcesNoNewEscapes       | `InfectionArgumentsTest::diffModeScopesToChangedFilesAndEnforcesNoNewEscapes`                                                                                                                                    |
+| testDiffCoveredMsiFloorIsOverridableForEquivalentMutants      | `InfectionArgumentsTest::diffCoveredMsiFloorIsOverridableForEquivalentMutants` + `InfectionToolTest::anOverriddenDiffFloorReachesInfectionAndSilencesTheAdvisory`                                                |
+| testDiffModeRefusesADirtyWorkingTree                          | `InfectionToolTest::diffModeRefusesADirtyWorkingTree`                                                                                                                                                            |
+| testDiffModeAcceptsACleanTree                                 | `InfectionToolTest::diffModeAcceptsACleanTreeAndScopesToTheCommittedChange`                                                                                                                                      |
 | testDiffFilterIsComputedFromCommittedHistoryNotTheWorkingTree | `InfectionDiffFilterTest::theGitDiffIsAThreeDotDiffOfCommittedHistoryRelativeToTheCwd` + `theFilterIsExactlyTheCommittedChangeAbsolutisedAgainstTheCwd`, and the exact git argv assertion in `InfectionToolTest` |
 
 The Large test drove real git; the unit tests pin the exact `git` argv and the

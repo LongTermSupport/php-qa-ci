@@ -31,8 +31,7 @@ The process output is streamed and also written to `var/qa/php-cs-fixer-output.l
   and crashes the lane, which is never retried.
 - **Writable run**: fixes are applied. Any non-zero exit fails the lane, and an interactive run
   offers a retry.
-- **Lint errors** in either mode: when the output reports `Files that were not fixed due to
-  errors`, a scanned file could not be parsed. The lane crashes regardless of the exit code, because
+- **Lint errors** in either mode: when the output reports `Files that were not fixed due to errors`, a scanned file could not be parsed. The lane crashes regardless of the exit code, because
   the fixer cannot check or fix a file it cannot parse.
 
 ## How to fix a failure

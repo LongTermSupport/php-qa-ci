@@ -50,12 +50,12 @@ their own PHAR.
 
 ### Tests passed (real php-qa-ci configs, dry-run)
 
-| Test | Result |
-|---|---|
-| Boot: `rector-fixed.phar --version` | ✅ `Rector 2.5.7` |
+| Test                                                                                                                              | Result                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Boot: `rector-fixed.phar --version`                                                                                               | ✅ `Rector 2.5.7`                                                                                                                 |
 | `process` with `configDefaults/generic/rector-php84.php` over a single file (loads `LevelSetList`/`SetList` from inside the phar) | ✅ correctly applied `ExplicitNullableParamTypeRector` (`string $x = null` → `?string $x = null`) + `NewlineAfterStatementRector` |
-| **Read-only exit code** on a would-change dry-run | ✅ **exit 2** (the exact contract `rector.inc.bash:63-70` depends on) |
-| **Parallel worker respawn from the phar** — 40-file corpus (> job size 16) | ✅ all 40 changed, exit 2, no worker-spawn fatal (workers re-exec `PHP_BINARY rector.phar … worker …` from argv[0] correctly) |
+| **Read-only exit code** on a would-change dry-run                                                                                 | ✅ **exit 2** (the exact contract `rector.inc.bash:63-70` depends on)                                                             |
+| **Parallel worker respawn from the phar** — 40-file corpus (> job size 16)                                                        | ✅ all 40 changed, exit 2, no worker-spawn fatal (workers re-exec `PHP_BINARY rector.phar … worker …` from argv[0] correctly)     |
 
 ## What this means for the plan
 

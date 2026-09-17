@@ -9,16 +9,19 @@ This directory contains Claude Code hooks that are **automatically deployed** to
 When a project installs or updates `lts/php-qa-ci`, hooks are automatically deployed through:
 
 1. **Composer Plugin**: `/src/ComposerPlugin/SkillsDeployPlugin.php`
+
    - Subscribes to `POST_INSTALL_CMD` and `POST_UPDATE_CMD` events
    - Runs automatically after `composer install` or `composer update`
 
 2. **Deployment Script**: `/scripts/deploy-skills.bash`
+
    - Copies all `.py` files from this directory to project's `.claude/hooks/`
    - Makes them executable with `chmod +x`
    - Registers them in project's `.claude/settings.json` under `PreToolUse` hooks
    - Ensures proper timeout configuration (5 seconds default)
 
 3. **Target Location**: `{project-root}/.claude/hooks/`
+
    - All hooks are copied to this directory
    - Existing hooks are preserved (no overwrite of project-specific hooks)
    - Registration is idempotent - hooks won't be registered twice
@@ -36,17 +39,20 @@ vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 ### Required Pattern for New Hooks: `php-qa-ci__` Prefix
 
 **IMPORTANT**: All hooks deployed from this package should follow the naming pattern:
+
 ```
 php-qa-ci__<descriptive-name>.py
 ```
 
 This prefix clearly identifies the hook's source and helps users distinguish between:
+
 - Hooks deployed by php-qa-ci (e.g., `php-qa-ci__auto-continue.py`)
 - Project-specific hooks (e.g., `project-validate-schema.py`)
 
 ### Current Hook Names
 
 All hooks now use the `php-qa-ci__` prefix:
+
 - `php-qa-ci__auto-continue.py`
 - `php-qa-ci__prevent-destructive-git.py`
 - `php-qa-ci__discourage-git-stash.py`
@@ -57,6 +63,7 @@ All hooks now use the `php-qa-ci__` prefix:
 ### Automatic Migration from Legacy Names
 
 The deployment script automatically migrates old hook names to new ones:
+
 - Old: `.claude/hooks/auto-continue.py` → New: `.claude/hooks/php-qa-ci__auto-continue.py`
 - Old: `.claude/hooks/prevent-destructive-git.py` → New: `.claude/hooks/php-qa-ci__prevent-destructive-git.py`
 - And so on for all hooks...
@@ -70,6 +77,7 @@ Projects with old hook names will be automatically migrated on the next composer
 When adding new hooks to this directory:
 
 1. **Use the prefix pattern**: Name your hook `php-qa-ci__<feature-name>.py`
+
    ```bash
    # Correct naming
    php-qa-ci__validate-phpstan-level.py
@@ -85,6 +93,7 @@ When adding new hooks to this directory:
 3. **Include fail-open behavior**: Hooks should allow operations on error
 
 4. **Test locally first**:
+
    ```bash
    # Test with sample input
    echo '{"tool_name": "Bash", "tool_input": {...}}' | python3 php-qa-ci__my-hook.py
@@ -104,6 +113,7 @@ When adding new hooks to this directory:
 ## Hook Documentation Reference
 
 For detailed information about what each hook does:
+
 - **README.md** in this directory - Comprehensive guide for all hooks
 - Individual hook source files - Comments explain specific behavior
 
@@ -128,6 +138,7 @@ echo "Exit code: $?"
 ```
 
 Expected results:
+
 - **Allow**: Empty JSON `{}` with exit code 0
 - **Block**: JSON with `permissionDecision: deny` and exit code 0
 
@@ -138,13 +149,16 @@ Expected results:
 Projects can override deployed hooks by:
 
 1. **Modifying in place**: Edit `.claude/hooks/<hook-name>.py` directly
+
    - **Warning**: Changes will be overwritten on next `composer update`
 
 2. **Disabling specific hooks**: Remove from `.claude/settings.json`
+
    - Edit the `hooks.PreToolUse[0].hooks` array
    - Remove the hook entry you want to disable
 
 3. **Creating project-specific variants**:
+
    - Copy the hook with a new name (e.g., `project-prevent-destructive-git.py`)
    - Modify as needed
    - Register in `.claude/settings.json`
@@ -164,10 +178,12 @@ To modify hooks for all consuming projects:
 ## Integration with Skills and Agents
 
 Hooks are deployed alongside:
+
 - **Skills**: Model-invoked entry points in `.claude/skills/`
 - **Agents**: Task executors in `.claude/agents/`
 
 All three components work together to provide:
+
 - **Guardrails** (hooks) - Prevent harmful operations
 - **Automation** (skills) - Streamline workflows
 - **Specialized Execution** (agents) - Handle complex tasks
@@ -179,11 +195,13 @@ All three components work together to provide:
 If hooks aren't deployed after `composer install/update`:
 
 1. Check plugin is registered:
+
    ```bash
    composer config allow-plugins.lts/php-qa-ci-plugin
    ```
 
 2. Manually run deployment:
+
    ```bash
    vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
    ```
@@ -193,17 +211,21 @@ If hooks aren't deployed after `composer install/update`:
 If hooks aren't running:
 
 1. Check they're executable:
+
    ```bash
    ls -l .claude/hooks/*.py
    ```
+
    All should show `-rwxr-xr-x`
 
 2. Check registration in `.claude/settings.json`:
+
    ```bash
    cat .claude/settings.json | grep -A20 '"hooks"'
    ```
 
 3. Try running hook manually:
+
    ```bash
    echo '{}' | python3 .claude/hooks/php-qa-ci__auto-continue.py
    ```
@@ -248,6 +270,7 @@ If hooks fail with Python errors:
 ```
 
 **Common Error**: Using `hookSpecificOutput` for Stop events causes:
+
 ```
 Stop hook error: JSON validation failed: Hook JSON output validation failed
 ```

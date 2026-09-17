@@ -9,6 +9,7 @@ fetch_method: https-get
 ---
 
 <!DOCTYPE html>
+
 <html lang="en-GB">
 <head>
   <meta charset="utf-8">
@@ -32,7 +33,6 @@ fetch_method: https-get
 {"@context":"https://schema.org","@type":"WebPage","author":{"@type":"Person","name":"Joseph Edmonds"},"description":"A phase that runs before a defect is fixed. The method, detector and toolchain specifications.","headline":"Defence Before Fix: Method Specification","url":"https://defence-before-fix.github.io/SPEC.html"}</script>
 <!-- End Jekyll SEO tag -->
 
-  
 <link rel="canonical" href="https://defence-before-fix.github.io/SPEC.html">
 <script type="application/ld+json">
 {
@@ -62,12 +62,12 @@ fetch_method: https-get
 }
 </script>
 
-  <link rel="stylesheet" href="/assets/css/site.css">
+<link rel="stylesheet" href="/assets/css/site.css">
   <link rel="alternate" type="text/markdown" href="/raw/SPEC.md" title="Raw markdown">
   <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
 </head>
 <body>
-  
+
 <header class="site-header">
   <p class="site-title"><a href="/">Defence Before Fix (DBF)</a></p>
   <nav aria-label="Site">
@@ -79,8 +79,8 @@ fetch_method: https-get
     <a href="/PROVENANCE.html">Provenance</a>
     <a href="/CHANGELOG.html">Changelog</a>
     <a href="/defence-before-fix-project-prompt.md">Agents</a>
-    
-  </nav>
+
+</nav>
   <p class="site-byline agent-line">Agents: read <a href="/defence-before-fix-project-prompt.md">the project prompt</a>
     (raw markdown), or start from <a href="/llms.txt">llms.txt</a>.
     This page as <a href="/raw/SPEC.md">raw markdown</a>.</p>
@@ -88,7 +88,7 @@ fetch_method: https-get
     <a href="https://edmondscommerce.co.uk">Edmonds Commerce</a>. First published 22 February 2026.</p>
 </header>
 
-  <main>
+<main>
     <h1 id="defence-before-fix-method-specification">Defence Before Fix: Method Specification</h1>
 
 <p><strong>Version</strong>: 1.0.1, published 2026-09-08
@@ -1242,57 +1242,57 @@ This appendix restates sections 3 and 4; where the two differ, the sections gove
 <blockquote>
   <p>When you find a <a href="#defect">Defect</a> of any kind, do not fix it yet.</p>
 
-  <p>First work out what <a href="#class">Class</a> it belongs to: the pattern, style, idiom or configuration that allowed
+<p>First work out what <a href="#class">Class</a> it belongs to: the pattern, style, idiom or configuration that allowed
 it. Do not decide in advance whether that is possible, attempt it. If you cannot write a <a href="#rule">Rule</a>
 for it, say so and fix the <a href="#defect">Defect</a> conventionally.</p>
 
-  <p>Write a custom <a href="#rule">Rule</a> that detects the <a href="#class">Class</a>, in a tool that reads code rather than running it.
+<p>Write a custom <a href="#rule">Rule</a> that detects the <a href="#class">Class</a>, in a tool that reads code rather than running it.
 Draw it so that it catches more than the single <a href="#instance">Instance</a> you started from, but never so broadly
 that it matches code which does not carry the <a href="#hazard">Hazard</a>.</p>
 
-  <p>Do not trust the <a href="#rule">Rule</a> as your only way of finding <a href="#instance">Instances</a>. Search independently as well, by
+<p>Do not trust the <a href="#rule">Rule</a> as your only way of finding <a href="#instance">Instances</a>. Search independently as well, by
 text search and by reading the code, and check the <a href="#rule">Rule</a> catches what you found by hand. Make that
 search a thorough one rather than a gesture, because everything downstream rests on it. If your
 own search turns up <a href="#instance">Instances</a> the <a href="#rule">Rule</a> missed, widen the <a href="#rule">Rule</a> until it catches them; the search
 wins, not the <a href="#rule">Rule</a>. If it turns up nothing new, then one <a href="#instance">Instance</a> is a supported conclusion rather
 than a guess.</p>
 
-  <p>The <a href="#hazard">Hazard</a> is whatever harm the <a href="#class">Class</a> does, and it need not be a failure. Error hiding counts.
+<p>The <a href="#hazard">Hazard</a> is whatever harm the <a href="#class">Class</a> does, and it need not be a failure. Error hiding counts.
 So does something merely sloppy that makes the code harder to reason about safely.</p>
 
-  <p>Prove the <a href="#rule">Rule</a> fires before you trust it. It must catch the originating <a href="#defect">Defect</a>. If the pattern
+<p>Prove the <a href="#rule">Rule</a> fires before you trust it. It must catch the originating <a href="#defect">Defect</a>. If the pattern
 is not present in the codebase, because it was already fixed or because you are defending
 against it pre-emptively, prove the <a href="#rule">Rule</a> against <a href="#fixture">Fixture</a> code that demonstrates the pattern and
 keep that <a href="#fixture">Fixture</a> as the <a href="#rule">Rule</a>’s test.</p>
 
-  <p>Then run the <a href="#rule">Rule</a> everywhere the pattern can occur, which usually means one language but never
+<p>Then run the <a href="#rule">Rule</a> everywhere the pattern can occur, which usually means one language but never
 just the component the bug was reported in, and report the <a href="#instance">Instance</a> count. Catching far more
 <a href="#instance">Instances</a> than you expected is success, not evidence the <a href="#rule">Rule</a> is too broad. Only ever narrow a
 <a href="#rule">Rule</a> to exclude code that does not carry the <a href="#hazard">Hazard</a>; never to make the number smaller.</p>
 
-  <p>Fix every <a href="#instance">Instance</a>. Examine each one; where the same answer is genuinely right for all of them,
+<p>Fix every <a href="#instance">Instance</a>. Examine each one; where the same answer is genuinely right for all of them,
 applying it to all of them is correct. Never satisfy the <a href="#rule">Rule</a> whilst leaving the <a href="#hazard">Hazard</a> in place,
 and never suppress the <a href="#rule">Rule</a> at the call site.</p>
 
-  <p>You do not have the authority to <a href="#baseline">Baseline</a>, to suppress an <a href="#instance">Instance</a>, or to leave a known <a href="#instance">Instance</a>
+<p>You do not have the authority to <a href="#baseline">Baseline</a>, to suppress an <a href="#instance">Instance</a>, or to leave a known <a href="#instance">Instance</a>
 unfixed, however large the count turns out to be. Those belong to whoever owns the codebase, and
 the standing answer is no unless a human has already agreed and documented an <a href="#exception">Exception</a> for this
 project. If you hit one, finish everything else, then report the count and what fixing it would
 take, and leave the <a href="#rule">Rule</a> unmerged rather than merging it weakened.</p>
 
-  <p>If you are unsure whether code you want to exclude carries the <a href="#hazard">Hazard</a>, you are suppressing it, so
+<p>If you are unsure whether code you want to exclude carries the <a href="#hazard">Hazard</a>, you are suppressing it, so
 refer it upwards rather than deciding. Narrow only where you are confident.</p>
 
-  <p>Otherwise, just do the work. Fixing <a href="#instance">Instances</a> is cheap for you, and reaching for an <a href="#exception">Exception</a> is
+<p>Otherwise, just do the work. Fixing <a href="#instance">Instances</a> is cheap for you, and reaching for an <a href="#exception">Exception</a> is
 almost always a shortcut rather than a real obstacle.</p>
 
-  <p>Make the <a href="#rule">Rule</a> a permanent part of the project’s quality checks, failing rather than <a href="#warning">Warning</a>. Write
+<p>Make the <a href="#rule">Rule</a> a permanent part of the project’s quality checks, failing rather than <a href="#warning">Warning</a>. Write
 its failure <a href="#message">Message</a> terse, carrying a stable <a href="#identifier">Identifier</a> that resolves to documentation shipped
 with the project saying what the <a href="#rule">Rule</a> is about, why it exists and how to fix a violation
 correctly. Check you can run the <a href="#rule">Rule</a> yourself and read its output, because if you cannot, nor can
 the next <a href="#agent">Agent</a>.</p>
 
-  <p>Only then fix the original <a href="#defect">Defect</a> in the normal way, with a test that reproduces it.</p>
+<p>Only then fix the original <a href="#defect">Defect</a> in the normal way, with a test that reproduces it.</p>
 </blockquote>
 
 <h2 id="changelog">Changelog</h2>
@@ -1321,9 +1321,8 @@ the next <a href="#agent">Agent</a>.</p>
 
 <!-- Term link definitions -->
 
+</main>
 
-  </main>
-  
 <footer class="site-footer">
   <p>Method specification 1.0.1, detector specification 1.0.0 and
     toolchain specification 0.2.0, published 8 September 2026. Source and history at

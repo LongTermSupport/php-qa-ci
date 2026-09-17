@@ -34,41 +34,41 @@ one — see BQ-004.
 
 ## 1. Executive scorecard
 
-| File | Lines | Real shellcheck issues | Manual findings | Grade | Note |
-|---|---:|---:|---:|:--:|---|
-| `bin/qa` | 352 | SC2086×9, SC2145×2, SC2206×2, SC2046×1 | 3 | C | Entry point; unquoted `$qaDir`/`$@` throughout, relies on IFS hack |
-| `includes/functions.inc.bash` | 582 | SC2207×2, SC2086 several | 4 | C+ | 2 large dead functions; good `runToolGuarded`/`archiveToolLog` |
-| `includes/options.inc.bash` | 220 | SC2086 (printf `$arg`) ×~6 | 2 | B | Solid arg parsing; stale PATH-support tables |
-| `includes/generic/allCodingStandardsTools.inc.bash` | 15 | 0 | 0 | A | Clean |
-| `includes/generic/allLintingTools.inc.bash` | 59 | 0 | 2 | C | `runTool packageType` breaks aggregate; calls no-op tools |
-| `includes/generic/allStaticAnalysisTools.inc.bash` | 35 | 0 | 0 | A | Clean |
-| `includes/generic/allTestingTools.inc.bash` | 30 | 0 | 1 | B | Dead TRAVIS/phpenv branch |
-| `includes/generic/branchNamePolicy.inc.bash` | 267 | ~0 | 1 | A- | **Model file**: function-wrapped, `return`-based, documented |
-| `includes/generic/composerChecks.inc.bash` | 44 | SC2046×4 (`$(which composer)`) | 1 | C | Unquoted command-sub; `set +e` never balanced back inside diagnose block |
-| `includes/generic/composerRequireChecker.inc.bash` | 117 | SC2086×2 | 1 | B- | ~60 lines commented-out dead block |
-| `includes/generic/infection.inc.bash` | 269 | minimal | 1 | A- | Complex but justified & documented; only bash file with a test |
-| `includes/generic/lock.inc.bash` | 565 | SC2155 heavy | 2 | C+ | ~100 lines dead (toolStart/Complete/Failed never called) |
-| `includes/generic/markdownLinks.inc.bash` | 22 | SC2086 | 0 | B | Pattern-C retry |
-| `includes/generic/packageType.inc.bash` | 28 | 0 | 0 | A | Clean if-condition retry |
-| `includes/generic/phpArkitect.inc.bash` | 122 | SC2068×2 | 0 | B+ | Good Pattern-B retry, well documented |
-| `includes/generic/phpCsFixer.inc.bash` | 84 | SC2068×2 | 0 | B | Dual read-only/writable, clean |
-| `includes/generic/phpLint.inc.bash` | 24 | SC2207, SC2068 | 1 | C | Needless `eval`; unquoted array to tool |
-| `includes/generic/phpStrictTypes.inc.bash` | 22 | SC2086 (`$f`, `$d`) ×several | 2 | **D** | **No-op in CI**; `sed -i` on unquoted user paths |
-| `includes/generic/phploc.inc.bash` | 4 | SC2068 | 0 | B | Trivial |
-| `includes/generic/phpstan.inc.bash` | 111 | SC2068×3 | 1 | B- | `eval` on crash path; otherwise strong Pattern-B |
-| `includes/generic/phpunit.inc.bash` | 204 | SC2068×3 | 1 | B- | Long but justified; unquoted `${pathArgs[@]}` |
-| `includes/generic/phpunitAnnotations.inc.bash` | 17 | 0 | 1 | **D** | **Entirely commented out** — a no-op advertised as a check |
-| `includes/generic/prepareDirectories.inc.bash` | 53 | 0 | 0 | A | Idempotent managed-block, clean |
-| `includes/generic/psr4Validate.inc.bash` | 0 | — | 1 | **F** | **0 bytes — PSR-4 validation never runs** |
-| `includes/generic/rector.inc.bash` | 106 | minimal | 0 | A- | `runRectorConfig` fn, dual-mode, documented |
-| `includes/generic/sensitiveParameterUsage.inc.bash` | 44 | 0 | 0 | A | Clean if-condition retry |
-| `includes/generic/setConfig.inc.bash` | 100 | SC2155 | 1 | B- | reads `psr4IgnoreList` nothing consumes |
-| `includes/generic/setPaths.inc.bash` | 21 | SC2206×2 | 0 | B | Unquoted `+=($testsDir)` |
-| `includes/generic/timing.inc.bash` | 307 | SC2155 | 0 | B+ | Cohesive jq/ETA module, testable |
-| `includes/symfony/allLintingTools.inc.bash` | 21 | 0 | 0 | B | Fine |
-| `includes/symfony/setConfig.inc.bash` | 9 | 0 | 0 | A | Fine |
-| `includes/symfony/twigLint.inc.bash` | 17 | SC2068 | 1 | C+ | Unquoted `${twigDirectories[@]}`, no dir-exists guard |
-| `includes/symfony/yamlLint.inc.bash` | 12 | SC2068 | 1 | C | Same + `yamlLintExistCode` typo |
+| File                                                | Lines |                 Real shellcheck issues | Manual findings | Grade | Note                                                                     |
+| --------------------------------------------------- | ----: | -------------------------------------: | --------------: | :---: | ------------------------------------------------------------------------ |
+| `bin/qa`                                            |   352 | SC2086×9, SC2145×2, SC2206×2, SC2046×1 |               3 |   C   | Entry point; unquoted `$qaDir`/`$@` throughout, relies on IFS hack       |
+| `includes/functions.inc.bash`                       |   582 |               SC2207×2, SC2086 several |               4 |  C+   | 2 large dead functions; good `runToolGuarded`/`archiveToolLog`           |
+| `includes/options.inc.bash`                         |   220 |             SC2086 (printf `$arg`) ×~6 |               2 |   B   | Solid arg parsing; stale PATH-support tables                             |
+| `includes/generic/allCodingStandardsTools.inc.bash` |    15 |                                      0 |               0 |   A   | Clean                                                                    |
+| `includes/generic/allLintingTools.inc.bash`         |    59 |                                      0 |               2 |   C   | `runTool packageType` breaks aggregate; calls no-op tools                |
+| `includes/generic/allStaticAnalysisTools.inc.bash`  |    35 |                                      0 |               0 |   A   | Clean                                                                    |
+| `includes/generic/allTestingTools.inc.bash`         |    30 |                                      0 |               1 |   B   | Dead TRAVIS/phpenv branch                                                |
+| `includes/generic/branchNamePolicy.inc.bash`        |   267 |                                     ~0 |               1 |  A-   | **Model file**: function-wrapped, `return`-based, documented             |
+| `includes/generic/composerChecks.inc.bash`          |    44 |         SC2046×4 (`$(which composer)`) |               1 |   C   | Unquoted command-sub; `set +e` never balanced back inside diagnose block |
+| `includes/generic/composerRequireChecker.inc.bash`  |   117 |                               SC2086×2 |               1 |  B-   | ~60 lines commented-out dead block                                       |
+| `includes/generic/infection.inc.bash`               |   269 |                                minimal |               1 |  A-   | Complex but justified & documented; only bash file with a test           |
+| `includes/generic/lock.inc.bash`                    |   565 |                           SC2155 heavy |               2 |  C+   | ~100 lines dead (toolStart/Complete/Failed never called)                 |
+| `includes/generic/markdownLinks.inc.bash`           |    22 |                                 SC2086 |               0 |   B   | Pattern-C retry                                                          |
+| `includes/generic/packageType.inc.bash`             |    28 |                                      0 |               0 |   A   | Clean if-condition retry                                                 |
+| `includes/generic/phpArkitect.inc.bash`             |   122 |                               SC2068×2 |               0 |  B+   | Good Pattern-B retry, well documented                                    |
+| `includes/generic/phpCsFixer.inc.bash`              |    84 |                               SC2068×2 |               0 |   B   | Dual read-only/writable, clean                                           |
+| `includes/generic/phpLint.inc.bash`                 |    24 |                         SC2207, SC2068 |               1 |   C   | Needless `eval`; unquoted array to tool                                  |
+| `includes/generic/phpStrictTypes.inc.bash`          |    22 |           SC2086 (`$f`, `$d`) ×several |               2 | **D** | **No-op in CI**; `sed -i` on unquoted user paths                         |
+| `includes/generic/phploc.inc.bash`                  |     4 |                                 SC2068 |               0 |   B   | Trivial                                                                  |
+| `includes/generic/phpstan.inc.bash`                 |   111 |                               SC2068×3 |               1 |  B-   | `eval` on crash path; otherwise strong Pattern-B                         |
+| `includes/generic/phpunit.inc.bash`                 |   204 |                               SC2068×3 |               1 |  B-   | Long but justified; unquoted `${pathArgs[@]}`                            |
+| `includes/generic/phpunitAnnotations.inc.bash`      |    17 |                                      0 |               1 | **D** | **Entirely commented out** — a no-op advertised as a check               |
+| `includes/generic/prepareDirectories.inc.bash`      |    53 |                                      0 |               0 |   A   | Idempotent managed-block, clean                                          |
+| `includes/generic/psr4Validate.inc.bash`            |     0 |                                      — |               1 | **F** | **0 bytes — PSR-4 validation never runs**                                |
+| `includes/generic/rector.inc.bash`                  |   106 |                                minimal |               0 |  A-   | `runRectorConfig` fn, dual-mode, documented                              |
+| `includes/generic/sensitiveParameterUsage.inc.bash` |    44 |                                      0 |               0 |   A   | Clean if-condition retry                                                 |
+| `includes/generic/setConfig.inc.bash`               |   100 |                                 SC2155 |               1 |  B-   | reads `psr4IgnoreList` nothing consumes                                  |
+| `includes/generic/setPaths.inc.bash`                |    21 |                               SC2206×2 |               0 |   B   | Unquoted `+=($testsDir)`                                                 |
+| `includes/generic/timing.inc.bash`                  |   307 |                                 SC2155 |               0 |  B+   | Cohesive jq/ETA module, testable                                         |
+| `includes/symfony/allLintingTools.inc.bash`         |    21 |                                      0 |               0 |   B   | Fine                                                                     |
+| `includes/symfony/setConfig.inc.bash`               |     9 |                                      0 |               0 |   A   | Fine                                                                     |
+| `includes/symfony/twigLint.inc.bash`                |    17 |                                 SC2068 |               1 |  C+   | Unquoted `${twigDirectories[@]}`, no dir-exists guard                    |
+| `includes/symfony/yamlLint.inc.bash`                |    12 |                                 SC2068 |               1 |   C   | Same + `yamlLintExistCode` typo                                          |
 
 Grade key: A excellent, B good, C acceptable-with-issues, D serious problem,
 F broken.
@@ -92,6 +92,7 @@ runToolGuarded psr4Validate     # sources an EMPTY file → no-op
 `runTool`/`runToolGuarded` locate the tool by sourcing `…/psr4Validate.inc.bash`.
 The file exists but is empty, so sourcing it is a successful no-op that *always
 passes*. Yet:
+
 - `bin/psr4-validate` exists and is a real, tested binary (`tests/assets/psr4`).
 - `options.inc.bash` advertises `-t psr|psr4` and lists it as path-supporting.
 - `setConfig.inc.bash:32-33` resolves the ignore list and `readarray`s it into
@@ -102,6 +103,7 @@ dead across the whole estate, and `vendor/bin/qa -t psr4` reports success while
 doing nothing. This is the single highest-impact finding.
 
 *Fix sketch:* restore the fragment to invoke the binary, e.g.
+
 ```bash
 psr4ExitCode=99
 while ((psr4ExitCode > 0)); do
@@ -112,6 +114,7 @@ while ((psr4ExitCode > 0)); do
   fi
 done
 ```
+
 (honour `psr4IgnoreListPath`). If the check is intentionally retired, delete the
 call, the option mappings, and the `setConfig` readarray instead of leaving a
 silent stub.
@@ -136,6 +139,7 @@ done
 ```
 
 Two defects in one file:
+
 1. **No CI guard.** Every other interactive point in the codebase funnels
    through `tryAgainOrAbort`/`checkForUncommittedChanges`, which short-circuit
    when `CI != false`. This file calls `read` directly. Under CI/Claude/GitHub
@@ -182,6 +186,7 @@ later tools (strict-types, lint, require-checker, markdown) from running.
 `phpstan.inc.bash:59,61,75` · `phpunit.inc.bash` (`${pathArgs[@]}`, `${extraConfigs[@]}`, `${paratestConfig[@]}`) · `phploc.inc.bash:2` · `phpCsFixer.inc.bash` (`${pathsToCheck[@]}`) · `twigLint.inc.bash:8` · `yamlLint.inc.bash:5` · `setPaths.inc.bash:15-16`
 
 Representative (phpstan):
+
 ```bash
 analyse ${pathsToCheck[@]} \
 ```
@@ -225,6 +230,7 @@ uncommitted-changes gate before the mutating Phase-1 tools) or delete them.
 These three functions maintain the lock JSON's `.current_tool` and `.tools[]`
 audit trail, but nothing calls them (`grep` across `includes/`+`bin/` finds only
 the definitions). Consequences that ship today:
+
 - `.current_tool` is written `""` at acquire and never updated, so
   `displayLockStatus` (192) can never print "Currently running: …".
 - The entire `.tools[]` timeline the JSON schema implies is always empty.
@@ -321,15 +327,16 @@ should just be `"${pathsToCheck[@]}"`.
 The `exitCode=99; while … tryAgainOrAbort` idiom is reimplemented **11 times**
 in five distinct variants with real divergences:
 
-| Variant | Files | Exit capture | Log archive | Crash special-case | errexit handling |
-|---|---|---|---|---|---|
-| **A** if-condition | `packageType`, `sensitiveParameterUsage` | `if tool; then 0; else $?` | no | no | clean (no `set +e`) |
-| **B** PIPESTATUS+archive | `phpstan`, `phpunit`, `phpArkitect` | `${PIPESTATUS[0]}` after `tee` | **yes** (`archiveToolLog`) | **yes** (`>1`, `>2`, `>1`) | `set +e` / `if` mix |
-| **C** set +e wrap | `phpLint`, `markdownLinks`, `composerRequireChecker`, `twigLint`, `yamlLint` | `code=$?` after `set +e` | no | no | `set +e … set -e` around loop |
-| **D** dual read-only/writable | `rector` (`runRectorConfig` fn), `phpCsFixer` | `if tool; then … else $?` | no | tool-specific dry-run codes (2, 8) | clean |
-| **E** subshell guard | `runToolGuarded` (functions.inc) | `(runTool)` subshell | no | no | contains `exit` |
+| Variant                       | Files                                                                        | Exit capture                   | Log archive                | Crash special-case                 | errexit handling              |
+| ----------------------------- | ---------------------------------------------------------------------------- | ------------------------------ | -------------------------- | ---------------------------------- | ----------------------------- |
+| **A** if-condition            | `packageType`, `sensitiveParameterUsage`                                     | `if tool; then 0; else $?`     | no                         | no                                 | clean (no `set +e`)           |
+| **B** PIPESTATUS+archive      | `phpstan`, `phpunit`, `phpArkitect`                                          | `${PIPESTATUS[0]}` after `tee` | **yes** (`archiveToolLog`) | **yes** (`>1`, `>2`, `>1`)         | `set +e` / `if` mix           |
+| **C** set +e wrap             | `phpLint`, `markdownLinks`, `composerRequireChecker`, `twigLint`, `yamlLint` | `code=$?` after `set +e`       | no                         | no                                 | `set +e … set -e` around loop |
+| **D** dual read-only/writable | `rector` (`runRectorConfig` fn), `phpCsFixer`                                | `if tool; then … else $?`      | no                         | tool-specific dry-run codes (2, 8) | clean                         |
+| **E** subshell guard          | `runToolGuarded` (functions.inc)                                             | `(runTool)` subshell           | no                         | no                                 | contains `exit`               |
 
 Divergences that matter:
+
 - Only **B** archives logs — a phpLint/composerRequireChecker failure leaves no
   rotated artefact.
 - Crash-code thresholds are per-tool magic numbers (`phpstan >1`, `phpunit >2`,
@@ -366,17 +373,17 @@ orthogonal and stays.
 
 ## 4. Dead-code inventory
 
-| Item | Location | Status |
-|---|---|---|
-| PSR-4 validator body | `psr4Validate.inc.bash` | **0 bytes** — check never runs (BQ-001) |
-| `psr4IgnoreList` readarray | `setConfig.inc.bash:33` | populated, never consumed |
-| `phpunitAnnotations` body | `phpunitAnnotations.inc.bash` | 100% commented out (BQ-007) |
-| `checkForUncommittedChanges()` | `functions.inc.bash:108-174` | defined, never called (BQ-005) |
-| `phpunitReRunFailedOrFull()` | `functions.inc.bash:176-209` | defined, never called (BQ-005) |
-| `toolStart/toolComplete/toolFailed()` | `lock.inc.bash:408-508` | defined, never called (BQ-006) |
-| Auto-fix suggestion block | `composerRequireChecker.inc.bash` | ~60 commented lines (BQ-012) |
-| TRAVIS / `phpenv config-rm` | `allTestingTools.inc.bash:16-19` | unreachable in supported CI (BQ-010) |
-| `#pathsToCheck+=($binDir)` | `setPaths.inc.bash:17` | commented residue |
+| Item                                  | Location                          | Status                                  |
+| ------------------------------------- | --------------------------------- | --------------------------------------- |
+| PSR-4 validator body                  | `psr4Validate.inc.bash`           | **0 bytes** — check never runs (BQ-001) |
+| `psr4IgnoreList` readarray            | `setConfig.inc.bash:33`           | populated, never consumed               |
+| `phpunitAnnotations` body             | `phpunitAnnotations.inc.bash`     | 100% commented out (BQ-007)             |
+| `checkForUncommittedChanges()`        | `functions.inc.bash:108-174`      | defined, never called (BQ-005)          |
+| `phpunitReRunFailedOrFull()`          | `functions.inc.bash:176-209`      | defined, never called (BQ-005)          |
+| `toolStart/toolComplete/toolFailed()` | `lock.inc.bash:408-508`           | defined, never called (BQ-006)          |
+| Auto-fix suggestion block             | `composerRequireChecker.inc.bash` | ~60 commented lines (BQ-012)            |
+| TRAVIS / `phpenv config-rm`           | `allTestingTools.inc.bash:16-19`  | unreachable in supported CI (BQ-010)    |
+| `#pathsToCheck+=($binDir)`            | `setPaths.inc.bash:17`            | commented residue                       |
 
 Roughly **300+ lines** (psr4 excluded as it's absent, not present-dead) are dead
 or no-op across the tree.

@@ -8,6 +8,7 @@ and the bash entries in `bin/` (`composer-require-checker`, `infection`, `php-cs
 `bin/qa` explicitly excluded, covered elsewhere).
 
 **Method**:
+
 1. `shellcheck -x` (v0.9.0) against every bash file.
 2. Manual review: correctness, quoting, `set -e`/error handling, destructive operations against
    consumer projects, hardcoded paths/versions/URLs, duplication.
@@ -23,19 +24,19 @@ deep bash-review scope per instructions.
 
 ## 2. Per-File Scorecard
 
-| File | Lines | Purpose | Shellcheck | Findings | Grade |
-|---|---|---|---|---|---|
-| `ci.bash` | 27 | Local/CI entrypoint: sets env, runs `bin/qa`, tees log | 4 (1 warn dead-var, 1 warn masked-return, 1 info unquoted, 1 error SC2145) | 3 | C |
-| `composerScripts/installUpdateInfection.bash` | 54 | Legacy manual Infection PHAR installer | 4 (same boilerplate as ci.bash) | 4 (incl. dead-code + unverified-download) | F |
-| `scripts/ci-push-ssh-deploy-bundle.bash` | 69 | Bundles project SSH deploy keys into a GH Actions secret | clean | 1 (documented, self-flagged duplication) | A |
-| `scripts/deploy-skills.bash` | 705 | 7-phase consumer-project provisioner (skills/agents/hooks/git-hook/daemon-config/PHPStan-scaffold/CLAUDE.md) | 1 warn (SC2115) | 6 | D+ |
-| `scripts/install-github-actions.bash` | 145 | Installs `.github/workflows/qa.yml` into consumer repo | clean | 2 | B |
-| `scripts/setup-branch-protection.bash` | 131 | Applies GitHub branch-protection rules via `gh api` | 3 (SC2015, SC2002, + a benign parser warning) | 3 | C |
-| `scripts/setup-claude-qa-agent.bash` | 323 | Generates `.claude/agents/php-qa-specialist.md` | clean | 3 | C |
-| `scripts/tool-install.bash` | 145 | PHIVE PHAR + isolated-Rector installer, wired to composer events | clean | 2 | B+ |
-| `scripts/write-claude-block.bash` | 139 | Idempotent tag-delimited block injector for `CLAUDE.md` | clean | 0 | A |
-| `git-hooks/pre-commit-check-vendor-uncommitted` | 222 | Pre-commit hook blocking dirty/out-of-sync vendor git deps | 3 (info/style) | 2 (1 confirmed logic bug) | B- |
-| `bin/composer-require-checker`, `bin/infection`, `bin/php-cs-fixer`, `bin/phpstan` | ~11 each | Redirect stubs telling the user to use `qa -t …` | clean | 1 (duplication, shared across 4 files) | B |
+| File                                                                               | Lines    | Purpose                                                                                                      | Shellcheck                                                                 | Findings                                  | Grade |
+| ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | ----------------------------------------- | ----- |
+| `ci.bash`                                                                          | 27       | Local/CI entrypoint: sets env, runs `bin/qa`, tees log                                                       | 4 (1 warn dead-var, 1 warn masked-return, 1 info unquoted, 1 error SC2145) | 3                                         | C     |
+| `composerScripts/installUpdateInfection.bash`                                      | 54       | Legacy manual Infection PHAR installer                                                                       | 4 (same boilerplate as ci.bash)                                            | 4 (incl. dead-code + unverified-download) | F     |
+| `scripts/ci-push-ssh-deploy-bundle.bash`                                           | 69       | Bundles project SSH deploy keys into a GH Actions secret                                                     | clean                                                                      | 1 (documented, self-flagged duplication)  | A     |
+| `scripts/deploy-skills.bash`                                                       | 705      | 7-phase consumer-project provisioner (skills/agents/hooks/git-hook/daemon-config/PHPStan-scaffold/CLAUDE.md) | 1 warn (SC2115)                                                            | 6                                         | D+    |
+| `scripts/install-github-actions.bash`                                              | 145      | Installs `.github/workflows/qa.yml` into consumer repo                                                       | clean                                                                      | 2                                         | B     |
+| `scripts/setup-branch-protection.bash`                                             | 131      | Applies GitHub branch-protection rules via `gh api`                                                          | 3 (SC2015, SC2002, + a benign parser warning)                              | 3                                         | C     |
+| `scripts/setup-claude-qa-agent.bash`                                               | 323      | Generates `.claude/agents/php-qa-specialist.md`                                                              | clean                                                                      | 3                                         | C     |
+| `scripts/tool-install.bash`                                                        | 145      | PHIVE PHAR + isolated-Rector installer, wired to composer events                                             | clean                                                                      | 2                                         | B+    |
+| `scripts/write-claude-block.bash`                                                  | 139      | Idempotent tag-delimited block injector for `CLAUDE.md`                                                      | clean                                                                      | 0                                         | A     |
+| `git-hooks/pre-commit-check-vendor-uncommitted`                                    | 222      | Pre-commit hook blocking dirty/out-of-sync vendor git deps                                                   | 3 (info/style)                                                             | 2 (1 confirmed logic bug)                 | B-    |
+| `bin/composer-require-checker`, `bin/infection`, `bin/php-cs-fixer`, `bin/phpstan` | ~11 each | Redirect stubs telling the user to use `qa -t …`                                                             | clean                                                                      | 1 (duplication, shared across 4 files)    | B     |
 
 **Coverage**: 12 files/groups reviewed, all in scope. 100% shellchecked. `bin/qa` intentionally
 skipped per instructions.
@@ -161,8 +162,7 @@ copy-pasted.
 echo "$PROTECTION_JSON" | gh api --method PUT ... "/repos/${REPO}/branches/${BRANCH}/protection" --input -
 ```
 
-This unconditionally **replaces** the entire branch-protection ruleset (`contexts: ["PHP QA
-Pipeline"]` is hardcoded, `restrictions: null`, etc.) with no attempt to read and merge the existing
+This unconditionally **replaces** the entire branch-protection ruleset (`contexts: ["PHP QA Pipeline"]` is hardcoded, `restrictions: null`, etc.) with no attempt to read and merge the existing
 configuration first, no dry-run, no confirmation prompt. If a repo already has additional required
 status checks, extra restricted users/teams, or other protections configured outside this script's
 model, they are silently dropped. The script does document a manual undo command at the end, but
@@ -210,8 +210,7 @@ consistency.
 
 **BS-008 — `scripts/deploy-skills.bash:587` vs `:390,410` — self-contradictory daemon version guidance within the same file**
 
-The "daemon not detected" fallback instructions tell the user to `git clone -b v2.2.0
-.../claude-code-hooks-daemon.git` (line 587), while ~200 lines earlier the same script's own
+The "daemon not detected" fallback instructions tell the user to `git clone -b v2.2.0 .../claude-code-hooks-daemon.git` (line 587), while ~200 lines earlier the same script's own
 YAML-enforcement fallback says "install/upgrade the daemon (v3.9.0+)" for the fingerprinted-venv
 feature it depends on (lines 390, 410). A user following the "not detected" path literally installs a
 version the rest of the same script already assumes is too old to work correctly.
@@ -257,7 +256,7 @@ aggregate is a script doing config-file surgery across `settings.json`, `hooks-d
 `composer.json`, `CLAUDE.md`, and the filesystem, all in one place with no unit tests. See §5.
 
 **BS-022 — `scripts/deploy-skills.bash` Phase 2's bare `python3` invocations (lines 145, 232, 516,
-639) have no `command -v python3` guard**, unlike Phase 4's YAML step, which carefully resolves a
+639\) have no `command -v python3` guard**, unlike Phase 4's YAML step, which carefully resolves a
 daemon-venv-specific interpreter and explicitly refuses to fall back to system Python. Given `set -e`,
 a missing `python3` here aborts the whole deployment (partially applied — reinforces BS-002's
 half-state risk) with a bare "command not found" rather than the informative errors the script uses
@@ -265,19 +264,19 @@ everywhere else.
 
 ## 4. Risk Section — Operations That Write Into CONSUMER Projects
 
-| Script | Consumer-side target | Guarded? | Failure mode if interrupted/wrong |
-|---|---|---|---|
-| `deploy-skills.bash` | `.claude/skills/*`, `.claude/agents/*.md` | **No** — unconditional `rm -rf` + `cp` (BS-003) | Local customisations silently destroyed on every `composer update` |
-| `deploy-skills.bash` | `.claude/settings.json` (hook registrations) | Partial — idempotent JSON merge, but registration/deregistration split across two phases (BS-002) | Dangling hook registrations pointing at undeployed files if the run is interrupted between phases |
-| `deploy-skills.bash` | `.git/hooks/pre-commit` | **Yes** — signature check before overwrite | None identified — this is the model the other write sites should follow |
-| `deploy-skills.bash` | `.claude/hooks-daemon.yaml` | Partial — only reachable with a daemon-venv Python; silently skips (with a warning) otherwise | Required handlers stay unenforced in that environment; no data loss |
-| `deploy-skills.bash` | `composer.json` (autoload-dev) | Partial — checks for existing key before adding | Full-file `json.dumps` re-serialization; low risk of formatting churn, no data loss |
-| `deploy-skills.bash` | `CLAUDE.md` | **Yes** — delegates to `write-claude-block.bash`, which fails loudly on multiple/malformed blocks rather than corrupt | Best-guarded write path in the whole script |
-| `setup-branch-protection.bash` | GitHub repo branch-protection API (remote, not filesystem) | **No** — wholesale `PUT`, no diff against existing config (BS-005) | Silently drops any pre-existing protection settings the script doesn't model |
-| `setup-claude-qa-agent.bash` | `.claude/agents/php-qa-specialist.md` | **No** — unconditional overwrite (BS-007) | Manual customisation silently destroyed |
-| `install-github-actions.bash` | `.github/workflows/qa.yml` | **Yes** — prompts before overwrite | Good model, but interactive-only (`read -p`) — will hang/behave oddly if ever run non-interactively |
-| `ci-push-ssh-deploy-bundle.bash` | GitHub repo secret `CI_SSH_DEPLOY_BUNDLE` (remote) | N/A (secret is fully replaced by design, re-runnable by construction) | None — this is the intended idempotent behaviour, well-documented |
-| `git-hooks/pre-commit-check-vendor-uncommitted` | Nothing written; read-only gate | N/A | BS-001 corrupts its own diagnostic output, not consumer state |
+| Script                                          | Consumer-side target                                       | Guarded?                                                                                                              | Failure mode if interrupted/wrong                                                                   |
+| ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `deploy-skills.bash`                            | `.claude/skills/*`, `.claude/agents/*.md`                  | **No** — unconditional `rm -rf` + `cp` (BS-003)                                                                       | Local customisations silently destroyed on every `composer update`                                  |
+| `deploy-skills.bash`                            | `.claude/settings.json` (hook registrations)               | Partial — idempotent JSON merge, but registration/deregistration split across two phases (BS-002)                     | Dangling hook registrations pointing at undeployed files if the run is interrupted between phases   |
+| `deploy-skills.bash`                            | `.git/hooks/pre-commit`                                    | **Yes** — signature check before overwrite                                                                            | None identified — this is the model the other write sites should follow                             |
+| `deploy-skills.bash`                            | `.claude/hooks-daemon.yaml`                                | Partial — only reachable with a daemon-venv Python; silently skips (with a warning) otherwise                         | Required handlers stay unenforced in that environment; no data loss                                 |
+| `deploy-skills.bash`                            | `composer.json` (autoload-dev)                             | Partial — checks for existing key before adding                                                                       | Full-file `json.dumps` re-serialization; low risk of formatting churn, no data loss                 |
+| `deploy-skills.bash`                            | `CLAUDE.md`                                                | **Yes** — delegates to `write-claude-block.bash`, which fails loudly on multiple/malformed blocks rather than corrupt | Best-guarded write path in the whole script                                                         |
+| `setup-branch-protection.bash`                  | GitHub repo branch-protection API (remote, not filesystem) | **No** — wholesale `PUT`, no diff against existing config (BS-005)                                                    | Silently drops any pre-existing protection settings the script doesn't model                        |
+| `setup-claude-qa-agent.bash`                    | `.claude/agents/php-qa-specialist.md`                      | **No** — unconditional overwrite (BS-007)                                                                             | Manual customisation silently destroyed                                                             |
+| `install-github-actions.bash`                   | `.github/workflows/qa.yml`                                 | **Yes** — prompts before overwrite                                                                                    | Good model, but interactive-only (`read -p`) — will hang/behave oddly if ever run non-interactively |
+| `ci-push-ssh-deploy-bundle.bash`                | GitHub repo secret `CI_SSH_DEPLOY_BUNDLE` (remote)         | N/A (secret is fully replaced by design, re-runnable by construction)                                                 | None — this is the intended idempotent behaviour, well-documented                                   |
+| `git-hooks/pre-commit-check-vendor-uncommitted` | Nothing written; read-only gate                            | N/A                                                                                                                   | BS-001 corrupts its own diagnostic output, not consumer state                                       |
 
 **Overall pattern**: the script that gets the write-safety story right (`write-claude-block.bash`,
 plus the git-hook signature check inside `deploy-skills.bash`) is the exception, not the rule. Three
@@ -289,8 +288,7 @@ helper — this is the same problem solved three different ways (once well, twic
 
 1. **`bin/composer-require-checker`, `bin/infection`, `bin/php-cs-fixer`, `bin/phpstan`** (BS-020):
    extract the shared `COMPOSER_RUNTIME_BIN_DIR` → project-root → `qaCmd` derivation (8 of 11 lines in
-   each file) into one sourced helper or a single parameterised script (`bin/_qa-redirect-stub.bash
-   "$0-name" "phpstan -p src/Service"`), keeping only the tool-specific echo lines per file.
+   each file) into one sourced helper or a single parameterised script (`bin/_qa-redirect-stub.bash "$0-name" "phpstan -p src/Service"`), keeping only the tool-specific echo lines per file.
 
 2. **`ci.bash` and `composerScripts/installUpdateInfection.bash`** share near-identical boilerplate
    (`readonly DIR=...`, `cd $DIR`, `standardIFS`, the `$(hostname) $0 $@` banner) — moot for the
@@ -318,6 +316,7 @@ helper — this is the same problem solved three different ways (once well, twic
 ## 6. Coverage Statement
 
 All files listed in the assigned scope were read in full and shellchecked, except:
+
 - `bin/qa` — explicitly excluded per instructions (covered elsewhere).
 - `scripts/parse-junit-logs.py` — Python, sanity-only (`ast.parse` succeeded, 579 lines, not
   shellchecked or manually reviewed beyond that, per instructions).

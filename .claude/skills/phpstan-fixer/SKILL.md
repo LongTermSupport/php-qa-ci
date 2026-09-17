@@ -24,6 +24,7 @@ This skill delegates to the php-qa-ci_phpstan-fixer agent (sonnet model).
 ### When User Says: "Fix the PHPStan errors"
 
 1. Launch fixer agent:
+
    ```
    Use Task tool:
      description: "Fix PHPStan errors"
@@ -32,11 +33,13 @@ This skill delegates to the php-qa-ci_phpstan-fixer agent (sonnet model).
    ```
 
 2. Receive fixer output with:
+
    - Errors found and grouped by pattern
    - Fixes applied
    - Files modified
 
 3. If no log found:
+
    - Suggest using phpstan-runner skill to generate log first
 
 ### When User Provides Specific Log Path
@@ -52,6 +55,7 @@ This skill delegates to the php-qa-ci_phpstan-fixer agent (sonnet model).
 ### Escalation Triggers
 
 Launch opus model or ask human when:
+
 - Fixer agent reports architecture questions (type hierarchies, design patterns)
 - Same error pattern persists after 2 fix attempts
 - User asks for explanation rather than fixes
@@ -59,6 +63,7 @@ Launch opus model or ask human when:
 ## Fixer Agent Reference
 
 The phpstan-fixer agent (sonnet model) handles:
+
 - Auto-discovery of most recent PHPStan log
 - Error parsing and pattern grouping
 - Fix implementation for common PHPStan patterns
@@ -69,11 +74,13 @@ See `.claude/agents/php-qa-ci_phpstan-fixer.md` for agent implementation details
 ## When to Use This Skill vs phpstan-runner
 
 - **Use phpstan-fixer** when:
+
   - PHPStan was already run manually
   - You have a specific log file to analyze
   - You only want to analyze/fix, not run analysis
 
 - **Use phpstan-runner** when:
+
   - You want to run PHPStan AND fix errors
   - You want the full run→fix→run cycle
   - PHPStan hasn't been run yet

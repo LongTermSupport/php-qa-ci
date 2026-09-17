@@ -5,11 +5,11 @@
 An always-on check that every version pin in the project's QA configuration matches the toolchain
 actually in use. One lane covers three pins:
 
-| Pin | Compared against | Detector |
-| --- | --- | --- |
-| phpunit.xml's `xsi:noNamespaceSchemaLocation` URL and any `SYMFONY_PHPUNIT_VERSION` `<server>`/`<env>` pin | the installed PHPUnit major (`PHPUnit\Runner\Version::id()`) | [`PhpUnitConfigDetector`](../../src/VersionPins/PhpUnitConfigDetector.php) |
-| composer-require-checker `scan-files` entries under `thecodingmachine/safe/generated/<x.y>/` | the generated file safe's own dispatcher loads on the running PHP | [`SafeScanFilesDetector`](../../src/VersionPins/SafeScanFilesDetector.php) |
-| the PHP version lists and fallback defaults in GitHub Actions workflows (`.github/workflows/`, `templates/github-actions/`) | the major.minor in `composer.json`'s `require.php` | [`WorkflowPhpVersionDetector`](../../src/VersionPins/WorkflowPhpVersionDetector.php) |
+| Pin                                                                                                                         | Compared against                                                  | Detector                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| phpunit.xml's `xsi:noNamespaceSchemaLocation` URL and any `SYMFONY_PHPUNIT_VERSION` `<server>`/`<env>` pin                  | the installed PHPUnit major (`PHPUnit\Runner\Version::id()`)      | [`PhpUnitConfigDetector`](../../src/VersionPins/PhpUnitConfigDetector.php)           |
+| composer-require-checker `scan-files` entries under `thecodingmachine/safe/generated/<x.y>/`                                | the generated file safe's own dispatcher loads on the running PHP | [`SafeScanFilesDetector`](../../src/VersionPins/SafeScanFilesDetector.php)           |
+| the PHP version lists and fallback defaults in GitHub Actions workflows (`.github/workflows/`, `templates/github-actions/`) | the major.minor in `composer.json`'s `require.php`                | [`WorkflowPhpVersionDetector`](../../src/VersionPins/WorkflowPhpVersionDetector.php) |
 
 ## What it is about
 

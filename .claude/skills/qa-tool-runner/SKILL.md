@@ -35,6 +35,7 @@ This skill delegates to generic agents via the Task tool:
 ### When running a specific tool (e.g., "run rector", "run fixer")
 
 1. Launch generic runner agent:
+
    ```
    Use Task tool:
      description: "Run {tool} via qa pipeline"
@@ -45,16 +46,19 @@ This skill delegates to generic agents via the Task tool:
 2. Parse agent output for status
 
 3. If self-fixing tool and files were modified:
+
    - Re-run to check stability (max 5 iterations)
    - Stop when no more files are modified
 
 4. If report-only tool:
+
    - Return results to orchestrator
    - No auto-fix available
 
 ### When running full pipeline ("run full qa", "run all tools")
 
 1. Launch full pipeline runner agent:
+
    ```
    Use Task tool:
      description: "Run full QA pipeline"
@@ -78,22 +82,22 @@ Max 5 iterations. If still modifying files after 5 runs, escalate.
 
 ### Tool Classification
 
-| Tool | Type | Auto-Cycle? |
-|------|------|-------------|
-| rector | Self-fixing | Yes - re-run until stable |
-| fixer | Self-fixing | Yes - re-run until stable |
-| phplint | Report-only | No - report and stop |
-| infection | Report-only | No - report and stop |
-| stricttypes | Report-only | No - report and stop |
-| psr4 | Report-only | No - report and stop |
-| composer | Report-only | No - report and stop |
-| markdown | Report-only | No - report and stop |
-| loc | Report-only | No - report and stop |
-| allStatic | Mixed | No - report per-tool results |
-| allCs | Self-fixing | Yes - re-run until stable |
-| allTests | Mixed | No - report results |
-| allLints | Report-only | No - report and stop |
-| (full pipeline) | Mixed | No - report per-tool results |
+| Tool            | Type        | Auto-Cycle?                  |
+| --------------- | ----------- | ---------------------------- |
+| rector          | Self-fixing | Yes - re-run until stable    |
+| fixer           | Self-fixing | Yes - re-run until stable    |
+| phplint         | Report-only | No - report and stop         |
+| infection       | Report-only | No - report and stop         |
+| stricttypes     | Report-only | No - report and stop         |
+| psr4            | Report-only | No - report and stop         |
+| composer        | Report-only | No - report and stop         |
+| markdown        | Report-only | No - report and stop         |
+| loc             | Report-only | No - report and stop         |
+| allStatic       | Mixed       | No - report per-tool results |
+| allCs           | Self-fixing | Yes - re-run until stable    |
+| allTests        | Mixed       | No - report results          |
+| allLints        | Report-only | No - report and stop         |
+| (full pipeline) | Mixed       | No - report per-tool results |
 
 ## Escalation Triggers
 

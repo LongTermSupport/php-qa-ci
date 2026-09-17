@@ -164,8 +164,8 @@ proven against the real php-qa-ci configs).
   removes).
 - ✅ T2.3 Document the **canonical build environment** (review §7.4): the phar is
   built by `build-rector-phar.bash` on a maintainer machine OR CI with pinned Box
-  + `phar.readonly=0`; reproducible-build settings mean any maintainer produces
-  the same phar for the same manifest.
+  - `phar.readonly=0`; reproducible-build settings mean any maintainer produces
+    the same phar for the same manifest.
 
 ### Phase 3 — Wire the phar in; delete the plugin (NO phive.xml entry)
 
