@@ -126,6 +126,20 @@ services:
             projectRoot: %currentWorkingDirectory%
         tags:
             - phpstan.rules.rule
+    # ForbidDevNamespaceInProductionSourceRule — a `Dev` namespace or path segment
+    # under a composer `autoload` root is dev-only code declared as shipped code:
+    # it installs into every production deployment and every consumer. The roots
+    # are read from the analysed project's own composer.json, so `src/` is never
+    # assumed. docs/phpstan-rules/forbid-dev-namespace-in-production-source.md
+    - LTS\PHPQA\PackageType\AutoloadRootReader
+    -
+        class: LTS\PHPQA\PHPStan\Rules\DevCodeInShippedRootDetector
+        arguments:
+            projectRoot: %currentWorkingDirectory%
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidDevNamespaceInProductionSourceRule
+        tags:
+            - phpstan.rules.rule
     -
         class: LTS\PHPQA\PHPStan\Rules\RequireSensitiveParameterAttributeRule
         arguments:
