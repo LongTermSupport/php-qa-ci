@@ -64,21 +64,21 @@ Two `cd`s split the run into a **config phase** (cwd=`qaDir`, so
 
 ### 1.2 Module inventory
 
-| Module | Kind | Responsibility |
-|---|---|---|
-| `bin/qa` | orchestrator | boot, phase sequencing, lock lifecycle, single-tool dispatch |
-| `options.inc.bash` | parser | `-t`/`-p`/`--json`, alias→canonical map, **hardcoded** path-support gate |
-| `functions.inc.bash` | shared lib | `runTool`, `configPath`, `phpNoXdebug`, retry/aggregate/read-only helpers, `archiveToolLog`, dir finders |
-| `setPaths.inc.bash` | config | testsDir/srcDir/binDir + pathsToCheck/Ignore |
-| `setConfig.inc.bash` | config | ~30 tool vars, `configPath` resolution, CI re-derive |
-| `prepareDirectories.inc.bash` | config | var/qa scaffolding, managed root `.gitignore` block |
-| `timing.inc.bash` | infra | ETA / historical timing (JSON store) |
-| `lock.inc.bash` | infra | single-run lock, heartbeat, master-log tee, per-tool tracking (**dead**) |
-| `all*Tools.inc.bash` (×4) | phase groups | `runToolGuarded` sequences |
-| `includes/generic/<tool>.inc.bash` (×17) | leaf runners | one tool each |
-| `includes/symfony/*` | platform overlay | setConfig extend, twig/yaml lint, allLinting extend |
-| `src/ComposerPlugin/*` (×4) | composer hooks | phive/rector install, skills deploy, phpstan guard, managed-source deploy |
-| `src/PHPStan/Rules/*` (~30) | PHP | the actual custom static-analysis rules (shipped via `rules-default.neon`) |
+| Module                                   | Kind             | Responsibility                                                                                           |
+| ---------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------- |
+| `bin/qa`                                 | orchestrator     | boot, phase sequencing, lock lifecycle, single-tool dispatch                                             |
+| `options.inc.bash`                       | parser           | `-t`/`-p`/`--json`, alias→canonical map, **hardcoded** path-support gate                                 |
+| `functions.inc.bash`                     | shared lib       | `runTool`, `configPath`, `phpNoXdebug`, retry/aggregate/read-only helpers, `archiveToolLog`, dir finders |
+| `setPaths.inc.bash`                      | config           | testsDir/srcDir/binDir + pathsToCheck/Ignore                                                             |
+| `setConfig.inc.bash`                     | config           | ~30 tool vars, `configPath` resolution, CI re-derive                                                     |
+| `prepareDirectories.inc.bash`            | config           | var/qa scaffolding, managed root `.gitignore` block                                                      |
+| `timing.inc.bash`                        | infra            | ETA / historical timing (JSON store)                                                                     |
+| `lock.inc.bash`                          | infra            | single-run lock, heartbeat, master-log tee, per-tool tracking (**dead**)                                 |
+| `all*Tools.inc.bash` (×4)                | phase groups     | `runToolGuarded` sequences                                                                               |
+| `includes/generic/<tool>.inc.bash` (×17) | leaf runners     | one tool each                                                                                            |
+| `includes/symfony/*`                     | platform overlay | setConfig extend, twig/yaml lint, allLinting extend                                                      |
+| `src/ComposerPlugin/*` (×4)              | composer hooks   | phive/rector install, skills deploy, phpstan guard, managed-source deploy                                |
+| `src/PHPStan/Rules/*` (~30)              | PHP              | the actual custom static-analysis rules (shipped via `rules-default.neon`)                               |
 
 ### 1.3 Sourced-fragment execution model (the real contract)
 
@@ -87,9 +87,7 @@ Every tool runner is **`source`d** into the running shell by `runTool`
 mutable global namespace** across ~30 files. The implicit contract a runner must
 honour — nowhere written down — is:
 
-- **May read** (set upstream): `projectRoot qaDir binDir srcDir testsDir
-  pathsToCheck pathsToIgnore specifiedPath CI qaReadOnly qaAggregate
-  xdebugEnabled phpBinPath pharDir varDir cacheDir standardIFS DIR platform`
+- **May read** (set upstream): `projectRoot qaDir binDir srcDir testsDir pathsToCheck pathsToIgnore specifiedPath CI qaReadOnly qaAggregate xdebugEnabled phpBinPath pharDir varDir cacheDir standardIFS DIR platform`
   plus its own `<tool>ConfigPath` and feature flags.
 - **May set / mutate**: `hasBeenRestarted` (retry signal read by `bin/qa:326`),
   `qaFailedTools` (via `runToolGuarded`), and any number of un-namespaced locals
@@ -114,6 +112,7 @@ mutates `composer.json` (normalize) ignoring read-only mode.
 ### 1.4 `runTool` resolution order
 
 `runTool <name>` (`functions.inc.bash:20`) sources the **first** of:
+
 1. `$projectConfigPath/tools/<name>.inc.bash` (project override)
 2. `$DIR/../includes/$platform/<name>.inc.bash` (platform)
 3. `$DIR/../includes/generic/<name>.inc.bash` (generic)
@@ -124,15 +123,15 @@ generic aggregate). `configPath <rel>` (`functions.inc.bash:66`) resolves config
 
 ### 1.5 Config cascade
 
-| Layer | Source | When (relative to override) |
-|---|---|---|
-| 1. Built-in defaults | `setConfig.inc.bash` `${x:-default}` | **before** override |
-| 2. Platform defaults | `includes/symfony/setConfig.inc.bash` (wraps generic) | before override |
-| 3. Tool config files | `configDefaults/{generic,symfony}/*` via `configPath` | resolved before override |
-| 4. Project var overrides | `qaConfig/qaConfig.inc.bash` | **`bin/qa:177` — AFTER setConfig** |
-| 5. Project config files | `qaConfig/*` via `configPath` | wins at file-resolution time |
-| 6. Project tool overrides | `qaConfig/tools/<tool>.inc.bash` | wins at `runTool` time |
-| 7. Env vars | ambient | seed layer 1 via `${x:-}` |
+| Layer                     | Source                                                | When (relative to override)        |
+| ------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| 1. Built-in defaults      | `setConfig.inc.bash` `${x:-default}`                  | **before** override                |
+| 2. Platform defaults      | `includes/symfony/setConfig.inc.bash` (wraps generic) | before override                    |
+| 3. Tool config files      | `configDefaults/{generic,symfony}/*` via `configPath` | resolved before override           |
+| 4. Project var overrides  | `qaConfig/qaConfig.inc.bash`                          | **`bin/qa:177` — AFTER setConfig** |
+| 5. Project config files   | `qaConfig/*` via `configPath`                         | wins at file-resolution time       |
+| 6. Project tool overrides | `qaConfig/tools/<tool>.inc.bash`                      | wins at `runTool` time             |
+| 7. Env vars               | ambient                                               | seed layer 1 via `${x:-}`          |
 
 Layers = **7**. The ordering hazard is that layer-1 *derivations* are computed at
 `bin/qa:162`, but the project's own values (layer 4) are not sourced until
@@ -143,6 +142,7 @@ Layers = **7**. The ordering hazard is that layer-1 *derivations* are computed a
 ## 2. Configuration ordering findings (the “disjointed” root cause)
 
 ### AR-001 (High) — Derived-before-override renamed vars (a *class* of bug)
+
 `setConfig` runs (`bin/qa:162`) **before** `qaConfig.inc.bash` is sourced
 (`bin/qa:177`). Any variable that `setConfig` derives into a **different name**
 from a project-settable var is frozen at the generic default:
@@ -156,6 +156,7 @@ The workaround masks the bug for infection only; the pattern is fragile and any
 future `foo=${projectVar:-…}` in `setConfig` will silently ignore the project.
 
 ### AR-002 (High) — `useInfection` / `phpUnitCoverage` staleness (same class, unguarded)
+
 `setConfig` computes `useInfection` (`:68–72`) from `phpUnitCoverage`/`xdebugEnabled`
 **before** the override. A project that sets `phpUnitCoverage=0` (or `useInfection`)
 in `qaConfig.inc.bash` changes the input **after** the decision is frozen —
@@ -163,6 +164,7 @@ in `qaConfig.inc.bash` changes the input **after** the decision is frozen —
 downstream, so the mismatch is live. Same root cause as AR-001, no safety net.
 
 ### AR-003 (Medium) — CI detected/derived in three places
+
 CI is set in `bin/qa:81–95` (explicit/CLAUDECODE/no-TTY), **re-derived** in
 `setConfig:96–100` (CLAUDECODE again), and read by `functions.inc.bash`
 (`tryAgainOrAbort`, `checkForUncommittedChanges`, …) and `phpunit.inc.bash`
@@ -171,6 +173,7 @@ redundant given `bin/qa` already set it, and drift between them would change
 prompting behaviour.
 
 ### AR-013 (Low) — Documented default drift
+
 `CLAUDE.md` states `phpUnitCoverage=${phpUnitCoverage:-0}`; the code is
 `:-1` (`setConfig:54`). Coverage is therefore ON by default (then zeroed if no
 xdebug), contradicting the documentation consumers read.
@@ -184,27 +187,27 @@ Legend: ✓ has it · ✗ lacks it · — N/A · ⚠ present but broken/partial.
 “R/O” = honours `qaReadOnly`. “Logs” = uses `archiveToolLog`. “-p” = reads
 `pathsToCheck`. “Cfg” = overridable via `configPath`/`qaConfig`.
 
-| Runner | Retry | CI-safe | R/O | Logs | -p | JSON | Cfg | errexit idiom |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|---|
-| rector | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | if-cond capture |
-| phpCsFixer | ✓ | ✓ | ✓ | ⚠ writes log, no rotation | ✓ | ✗ | ✓ | if-cond capture |
-| psr4Validate | ✗ | — | — | ✗ | ⚠ listed, unused | ✗ | ✓ | **EMPTY FILE** |
-| composerChecks | ✗ | ✓ | ✗ **mutates** | ✗ | ✗ | ✗ | ✗ | set +e/set -e |
-| packageType | ✓ | ✓ | — | ✗ | ✗ | ✗ | ✗ | if-cond capture |
-| phpStrictTypes | ✗ | ✗ **`read`** | ✗ **`sed -i`** | ✗ | ✓ | ✗ | ✗ | none |
-| phpLint | ✓ | ✓ | — | ✗ | ✓ | ✗ | ✗ | set +e/set -e |
-| phpunitAnnotations | — | — | — | ✗ | ✗ | ✗ | ✗ | **ALL COMMENTED** |
-| composerRequireChecker | ✓ | ✓ | — | ✗ | ✗ | ✗ | ✓ | set +e/set -e |
-| markdownLinks | ✓ | ✓ | — | ✗ | ✗ hardcoded | ✗ | ✗ | set +e/set -e |
-| branchNamePolicy | ✗ | ✓ | — | ✗ | ✗ | ✗ | ✓ yaml | **fn-wrapped `_bnp_run`** |
-| phpstan | ✓ | ✓ | — | ✓ | ✓ | ✓ | ✓ | tee + PIPESTATUS |
-| phpArkitect | ✓ | ✓ | — | ✓ | ✗ config-internal | ✗ | ✓ | tee + PIPESTATUS |
-| sensitiveParameterUsage | ✓ | ✓ | — | ✗ | ✗ | ✗ | ✗ env | if-cond capture |
-| phpunit | ✓ | ✓ | — | ✓ ×2 | ✓ | ✗ | ✓ | set +e/set -x |
-| infection | ✓ | ✓ | — refuses dirty tree | ✗ consumes | ⚠ diff-filter | ✗ | ✓ | if-cond capture |
-| phploc | ✗ | — | — | ✗ | ✓ | ✗ | ✗ | none |
-| twigLint (sf) | ✓ | ✓ | — | ✗ | ⚠ twigDirectories | ✗ | ✗ | set +e/set -e |
-| yamlLint (sf) | ✓ | ✓ | — | ✗ | ⚠ yamlDirectories | ✗ | ✗ | set +e/set -e |
+| Runner                  | Retry |   CI-safe    |         R/O          |           Logs            |        -p         | JSON |  Cfg   | errexit idiom             |
+| ----------------------- | :---: | :----------: | :------------------: | :-----------------------: | :---------------: | :--: | :----: | ------------------------- |
+| rector                  |   ✓   |      ✓       |          ✓           |             ✗             |         ✓         |  ✗   |   ✓    | if-cond capture           |
+| phpCsFixer              |   ✓   |      ✓       |          ✓           | ⚠ writes log, no rotation |         ✓         |  ✗   |   ✓    | if-cond capture           |
+| psr4Validate            |   ✗   |      —       |          —           |             ✗             | ⚠ listed, unused  |  ✗   |   ✓    | **EMPTY FILE**            |
+| composerChecks          |   ✗   |      ✓       |    ✗ **mutates**     |             ✗             |         ✗         |  ✗   |   ✗    | set +e/set -e             |
+| packageType             |   ✓   |      ✓       |          —           |             ✗             |         ✗         |  ✗   |   ✗    | if-cond capture           |
+| phpStrictTypes          |   ✗   | ✗ **`read`** |    ✗ **`sed -i`**    |             ✗             |         ✓         |  ✗   |   ✗    | none                      |
+| phpLint                 |   ✓   |      ✓       |          —           |             ✗             |         ✓         |  ✗   |   ✗    | set +e/set -e             |
+| phpunitAnnotations      |   —   |      —       |          —           |             ✗             |         ✗         |  ✗   |   ✗    | **ALL COMMENTED**         |
+| composerRequireChecker  |   ✓   |      ✓       |          —           |             ✗             |         ✗         |  ✗   |   ✓    | set +e/set -e             |
+| markdownLinks           |   ✓   |      ✓       |          —           |             ✗             |    ✗ hardcoded    |  ✗   |   ✗    | set +e/set -e             |
+| branchNamePolicy        |   ✗   |      ✓       |          —           |             ✗             |         ✗         |  ✗   | ✓ yaml | **fn-wrapped `_bnp_run`** |
+| phpstan                 |   ✓   |      ✓       |          —           |             ✓             |         ✓         |  ✓   |   ✓    | tee + PIPESTATUS          |
+| phpArkitect             |   ✓   |      ✓       |          —           |             ✓             | ✗ config-internal |  ✗   |   ✓    | tee + PIPESTATUS          |
+| sensitiveParameterUsage |   ✓   |      ✓       |          —           |             ✗             |         ✗         |  ✗   | ✗ env  | if-cond capture           |
+| phpunit                 |   ✓   |      ✓       |          —           |           ✓ ×2            |         ✓         |  ✗   |   ✓    | set +e/set -x             |
+| infection               |   ✓   |      ✓       | — refuses dirty tree |        ✗ consumes         |   ⚠ diff-filter   |  ✗   |   ✓    | if-cond capture           |
+| phploc                  |   ✗   |      —       |          —           |             ✗             |         ✓         |  ✗   |   ✗    | none                      |
+| twigLint (sf)           |   ✓   |      ✓       |          —           |             ✗             | ⚠ twigDirectories |  ✗   |   ✗    | set +e/set -e             |
+| yamlLint (sf)           |   ✓   |      ✓       |          —           |             ✗             | ⚠ yamlDirectories |  ✗   |   ✗    | set +e/set -e             |
 
 **What the matrix shows:** every column is a patchwork. Five distinct errexit
 idioms; log archival in 3 of 19; read-only in 2 of 19 (with 2 more that *should*
@@ -222,8 +225,7 @@ phpLint, requireChecker, markdownLinks, twig/yaml), `tee`+`PIPESTATUS`
 (branchNamePolicy). Each is a chance to get errexit wrong; the divergence is pure
 accident of authorship, not design.
 
-**AR-005 (High) — `psr4Validate.inc.bash` is a 0-byte no-op.** `runToolGuarded
-psr4Validate` (`allLintingTools:7`) sources an empty file, so **PSR-4 validation
+**AR-005 (High) — `psr4Validate.inc.bash` is a 0-byte no-op.** `runToolGuarded psr4Validate` (`allLintingTools:7`) sources an empty file, so **PSR-4 validation
 never runs**, despite `bin/psr4-validate` existing, being in `composer.json`
 `bin`, being listed as a PATH_SUPPORTING_TOOL (`options.inc.bash:90`), and being
 documented as an active phase in `CLAUDE.md`. Silent loss of a gate across every
@@ -242,9 +244,7 @@ aborts under errexit on the first `read` EOF — never the intended “report th
 missing files” behaviour. It is also a mutating tool that bypasses the read-only
 contract rector/fixer carefully honour, and it uses forbidden `sed -i`.
 
-**AR-008 (Medium) — `composerChecks` mutates in read-only runs.** `composer
-normalize` (`composerChecks.inc.bash`) rewrites `composer.json`, and `composer
-dump-autoload` rewrites generated autoload files, with **no `qaReadOnly` gate**.
+**AR-008 (Medium) — `composerChecks` mutates in read-only runs.** `composer normalize` (`composerChecks.inc.bash`) rewrites `composer.json`, and `composer dump-autoload` rewrites generated autoload files, with **no `qaReadOnly` gate**.
 A read-only verification run (the CI gate) can therefore still change tracked
 files — the exact leak read-only mode exists to prevent.
 
@@ -279,18 +279,18 @@ source-everything model.
 
 ## 4. Cross-cutting concerns — where each lives, who opted in
 
-| Concern | Home | Adopters | Gaps |
-|---|---|---|---|
-| Read-only (`--dry-run`) | `detectReadOnly`, `reportReadOnlyWouldModify` (functions) | rector, phpCsFixer | **composerChecks, phpStrictTypes mutate anyway** (AR-007/8) |
-| Retry / abort | `tryAgainOrAbort` (functions) | 12 of 19 runners | branchNamePolicy, composerChecks, phpStrictTypes, phploc, dead ones opt out |
-| Aggregate (collect failures) | `runToolGuarded`/`qaReportAggregate` | the 4 `all*Tools` groups | single-tool path only aggregates for meta-targets |
-| Log archival / rotation | `archiveToolLog` (functions) | phpstan, phpArkitect, phpunit | phpCsFixer logs but never rotates; rest don’t log |
-| Xdebug toggling | `phpNoXdebug` wrapper + `XDEBUG_MODE` | global; phpunit/infection special-case | coverage phpunit bypasses wrapper (AR-011) |
-| Memory limit | `phpNoXdebug -d memory_limit` | everything through the wrapper | coverage phpunit bypasses it (AR-011) |
-| Path filtering | `pathsToCheck` global + `options` gate | 8 runners read it | duplicated, drifted gate (AR-010) |
-| Timing / ETA | `timing.inc.bash` + lock | acquire/release only | per-tool dead; full-run never recorded (AR-009) |
-| Locking / heartbeat | `lock.inc.bash` | `bin/qa` lifecycle | per-tool tracking dead (AR-009) |
-| JSON output | `useJsonOutput` + fd3 | phpstan only | validated-exclusive in options |
+| Concern                      | Home                                                      | Adopters                               | Gaps                                                                        |
+| ---------------------------- | --------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| Read-only (`--dry-run`)      | `detectReadOnly`, `reportReadOnlyWouldModify` (functions) | rector, phpCsFixer                     | **composerChecks, phpStrictTypes mutate anyway** (AR-007/8)                 |
+| Retry / abort                | `tryAgainOrAbort` (functions)                             | 12 of 19 runners                       | branchNamePolicy, composerChecks, phpStrictTypes, phploc, dead ones opt out |
+| Aggregate (collect failures) | `runToolGuarded`/`qaReportAggregate`                      | the 4 `all*Tools` groups               | single-tool path only aggregates for meta-targets                           |
+| Log archival / rotation      | `archiveToolLog` (functions)                              | phpstan, phpArkitect, phpunit          | phpCsFixer logs but never rotates; rest don’t log                           |
+| Xdebug toggling              | `phpNoXdebug` wrapper + `XDEBUG_MODE`                     | global; phpunit/infection special-case | coverage phpunit bypasses wrapper (AR-011)                                  |
+| Memory limit                 | `phpNoXdebug -d memory_limit`                             | everything through the wrapper         | coverage phpunit bypasses it (AR-011)                                       |
+| Path filtering               | `pathsToCheck` global + `options` gate                    | 8 runners read it                      | duplicated, drifted gate (AR-010)                                           |
+| Timing / ETA                 | `timing.inc.bash` + lock                                  | acquire/release only                   | per-tool dead; full-run never recorded (AR-009)                             |
+| Locking / heartbeat          | `lock.inc.bash`                                           | `bin/qa` lifecycle                     | per-tool tracking dead (AR-009)                                             |
+| JSON output                  | `useJsonOutput` + fd3                                     | phpstan only                           | validated-exclusive in options                                              |
 
 The takeaway: each cross-cutting concern has a **home in `functions.inc.bash`**,
 but adoption is opt-in per runner and mostly partial. The infrastructure to be
@@ -395,6 +395,7 @@ only.
 ## 7. Is bash still a reasonable substrate for *this* architecture?
 
 **Evidence it strains:**
+
 - The retry/read-only/aggregate machinery already fights the language: aggregate
   mode needs a **subshell** solely to contain a runner’s `exit`
   (`functions.inc.bash:351`); five different errexit idioms exist because
@@ -409,6 +410,7 @@ only.
   imperative top-to-bottom sourcing with no declarative resolution phase.
 
 **Evidence it still fits:**
+
 - The core job is genuinely “run external binaries in order, in the right cwd,
   with env vars” — bash’s home turf; `phpNoXdebug` and `configPath` are concise.
 - PHARs + `phpNoXdebug` process control is natural in shell and awkward in PHP.

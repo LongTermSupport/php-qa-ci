@@ -111,6 +111,7 @@ this; quantify the actual size in the spike and note it as an accepted cost
 ## Automation to keep Rector current
 
 Building manually rots. Two options (detailed in the phive-distribution research):
+
 - a maintainer `make`/script target invoked in the existing `update` mode; or
 - a scheduled GitHub Actions workflow that rebuilds on new Rector releases,
   (optionally) signs, and commits/attaches the phar.

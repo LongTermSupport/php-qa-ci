@@ -42,11 +42,11 @@ something was left. The lane says so rather than reporting it as a plain failure
 
 ### Exit codes
 
-| Code | Meaning | Lane outcome |
-| --- | --- | --- |
-| 0 | clean | passed |
-| 1 | violations present | failed |
-| 2 | config error or unhandled throwable | **crashed** — never retried |
+| Code | Meaning                             | Lane outcome                |
+| ---- | ----------------------------------- | --------------------------- |
+| 0    | clean                               | passed                      |
+| 1    | violations present                  | failed                      |
+| 2    | config error or unhandled throwable | **crashed** — never retried |
 
 Unlike the two Composer analysis lanes, this contract is unambiguous: a finding and a crash are
 different codes, so the lane can classify them correctly.

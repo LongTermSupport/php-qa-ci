@@ -4,6 +4,7 @@
 > Saved verbatim by the coordinator. Verdict: **APPROVE-WITH-CHANGES** (3 small
 > must-fixes remain). Coordinator independently verified the three new claims
 > against code before folding into PLAN.md iteration 3:
+>
 > - `PhiveUpdatePlugin` does nothing but rector isolation (grep: only
 >   `ensureIsolatedTools`→rector; docblock line 72 "no phive needed") → delete entirely.
 > - `PhpStanGuardPlugin.php:20,61` carry stale isolated-sub-project references.
@@ -14,14 +15,14 @@
 
 ## Must-fix audit
 
-| # | Iteration-1 must-fix | Status | Justification |
-|---|---|---|---|
-| 1 | Name `PhiveUpdatePlugin` + its test; correct problem statement; silent-skip missing dir | **RESOLVED** (with a new issue, see (b)) | Problem §"TWO writers" now names the plugin as primary cause with correct lines; T3.3/T3.4 are named tasks. The plugin-fate ambiguity T3.3 creates is tracked as new issue (b). |
-| 2 | phive.xml contradiction: keep rector out, verify separately, exclude from `rm`, update via build script | **RESOLVED** | "Biggest risks" states the deletion hazard; Key finding 4 and T3.2 implement the required design; T5.2 defers the phive.xml entry to a sister repo with a real source. |
-| 3 | Pin the build input; don't delete the lock without a successor | **RESOLVED** | T2.1 relocates the manifest to `build/rector-phar/` as build-input-only and preserves the prepush rationale; T4.3 updates that doc. |
-| 4 | Widen the spike | **PARTIALLY RESOLVED** | T1.3 adopts every mechanic, but the golden-master's stated purpose ("catches the silent stubs-rector skip") is false for the chosen corpus (New issue (c)), and iteration-1's "assess whether --autoload-file loading real PHPUnit makes the stubs moot; document either way" was dropped. |
-| 5 | Named task for `update-deps.yml` | **RESOLVED** | T4.2 cites both line ranges and the replacement. |
-| 6 | Decide php8.3 branch strategy + PHP floor | **RESOLVED** | TX.1 sequences the decision before Phase 4 and links it to the manifest floor + Box check-requirements. |
+| #   | Iteration-1 must-fix                                                                                    | Status                                   | Justification                                                                                                                                                                                                                                                                              |
+| --- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Name `PhiveUpdatePlugin` + its test; correct problem statement; silent-skip missing dir                 | **RESOLVED** (with a new issue, see (b)) | Problem §"TWO writers" now names the plugin as primary cause with correct lines; T3.3/T3.4 are named tasks. The plugin-fate ambiguity T3.3 creates is tracked as new issue (b).                                                                                                            |
+| 2   | phive.xml contradiction: keep rector out, verify separately, exclude from `rm`, update via build script | **RESOLVED**                             | "Biggest risks" states the deletion hazard; Key finding 4 and T3.2 implement the required design; T5.2 defers the phive.xml entry to a sister repo with a real source.                                                                                                                     |
+| 3   | Pin the build input; don't delete the lock without a successor                                          | **RESOLVED**                             | T2.1 relocates the manifest to `build/rector-phar/` as build-input-only and preserves the prepush rationale; T4.3 updates that doc.                                                                                                                                                        |
+| 4   | Widen the spike                                                                                         | **PARTIALLY RESOLVED**                   | T1.3 adopts every mechanic, but the golden-master's stated purpose ("catches the silent stubs-rector skip") is false for the chosen corpus (New issue (c)), and iteration-1's "assess whether --autoload-file loading real PHPUnit makes the stubs moot; document either way" was dropped. |
+| 5   | Named task for `update-deps.yml`                                                                        | **RESOLVED**                             | T4.2 cites both line ranges and the replacement.                                                                                                                                                                                                                                           |
+| 6   | Decide php8.3 branch strategy + PHP floor                                                               | **RESOLVED**                             | TX.1 sequences the decision before Phase 4 and links it to the manifest floor + Box check-requirements.                                                                                                                                                                                    |
 
 ## New issues
 

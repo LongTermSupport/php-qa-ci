@@ -5,24 +5,24 @@ Subagent report for Plan 00003 (PHP pipeline rewrite). Nothing committed; no `in
 
 ## Classes
 
-| Lane                     | Class                                                     | `name()`                 | Identifier                        |
-| ------------------------ | --------------------------------------------------------- | ------------------------ | --------------------------------- |
-| phpLint.inc.bash         | `src/Pipeline/Lane/PhpLintTool.php`                       | `phpLint`                | `phpqaci.phpLint`                 |
-| composerChecks.inc.bash  | `src/Pipeline/Lane/ComposerChecksTool.php`                | `composerChecks`         | `phpqaci.composerChecks`          |
-| composerRequireChecker   | `src/Pipeline/Lane/ComposerRequireCheckerTool.php`        | `composerRequireChecker` | `phpqaci.composerRequireChecker`  |
-| phploc.inc.bash          | `src/Pipeline/Lane/PhplocTool.php`                        | `phploc`                 | `phpqaci.phploc`                  |
+| Lane                    | Class                                              | `name()`                 | Identifier                       |
+| ----------------------- | -------------------------------------------------- | ------------------------ | -------------------------------- |
+| phpLint.inc.bash        | `src/Pipeline/Lane/PhpLintTool.php`                | `phpLint`                | `phpqaci.phpLint`                |
+| composerChecks.inc.bash | `src/Pipeline/Lane/ComposerChecksTool.php`         | `composerChecks`         | `phpqaci.composerChecks`         |
+| composerRequireChecker  | `src/Pipeline/Lane/ComposerRequireCheckerTool.php` | `composerRequireChecker` | `phpqaci.composerRequireChecker` |
+| phploc.inc.bash         | `src/Pipeline/Lane/PhplocTool.php`                 | `phploc`                 | `phpqaci.phploc`                 |
 
 All `final readonly`, `IDENTIFIER` built from `RuleIdentifierInterface::PREFIX`, output only
 via `ToolContext`, identifier trailer on every failure path.
 
 ## Tests (tests/Small/Pipeline/Lane/)
 
-| Test class                       | Tests | Covers                                                                                                   |
-| -------------------------------- | ----- | -------------------------------------------------------------------------------------------------------- |
-| `PhpLintToolTest`                | 4     | exact argv over pathsToCheck, `--exclude <root>/<ignore>` per ignore, failure + identifier                |
+| Test class                       | Tests | Covers                                                                                                                                                                                                    |
+| -------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PhpLintToolTest`                | 4     | exact argv over pathsToCheck, `--exclude <root>/<ignore>` per ignore, failure + identifier                                                                                                                |
 | `ComposerChecksToolTest`         | 10    | read-only (`normalize --dry-run`) vs writable (`normalize`), informational diagnose, allow-plugins fail, would-modify guidance with `-t com`, failing normalize / dump-autoload, composer located on PATH |
-| `ComposerRequireCheckerToolTest` | 4     | exact argv incl. `--config-file=<shipped default>`, project `qaConfig/` override wins, HOW TO FIX guidance + identifier |
-| `PhplocToolTest`                 | 4     | skipped when `vendor/bin/phploc` absent (no process spawned), argv over pathsToCheck, non-zero exit still passes |
+| `ComposerRequireCheckerToolTest` | 4     | exact argv incl. `--config-file=<shipped default>`, project `qaConfig/` override wins, HOW TO FIX guidance + identifier                                                                                   |
+| `PhplocToolTest`                 | 4     | skipped when `vendor/bin/phploc` absent (no process spawned), argv over pathsToCheck, non-zero exit still passes                                                                                          |
 
 Total 22 tests, 68 assertions, all green:
 

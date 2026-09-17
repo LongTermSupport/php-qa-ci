@@ -77,9 +77,13 @@ that class's constant rather than declaring a second one.
 - **Array keys and array-dimension indexes** (`['name' => ...]`, `$row['name']`): the
   repeated key is how an array shape is spelled, and PHPStan's array-shape typing already
   reports a misspelt key where the shape is typed.
+
 - **Attribute arguments** (`#[Group('slow')]`): declarative metadata read by tooling.
+
 - **Literals shorter than three characters, or whitespace only** (`', '`, `'/'`, `"\n"`).
+
 - **Fewer than three occurrences**: two is as often coincidence as identity.
+
 - **A nested class-like** is counted by its own class, not by the one enclosing it.
 
 ## If you believe an instance is legitimate

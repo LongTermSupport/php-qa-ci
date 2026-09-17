@@ -6,8 +6,7 @@ Scope owned: M-011 (tool-registry SSoT), M-010 (shared tool driver), M-053
 
 Binding process inputs: `fix-plans/bash-refactor-1.md` (WP-B3 registry/driver
 design, WP-B5 M-053), `fix-plans/risk-and-verification-2.md` (no warn→enforce
-staging; characterisation-test-first; contract preservation), `synthesis/
-findings-master-1.md` rows M-010/M-011/M-053/M-071/M-072,
+staging; characterisation-test-first; contract preservation), `synthesis/ findings-master-1.md` rows M-010/M-011/M-053/M-071/M-072,
 `audits/architecture-1.md` (AR-004/010/012 consolidation rationale).
 
 ## Commits (in order)
@@ -28,17 +27,17 @@ New file `includes/generic/toolRegistry.inc.bash` is PURE DATA + PURE FUNCTIONS,
 sourced early by `options.inc.bash` (before `functions.inc.bash`), and safe to
 source standalone. Per canonical tool it declares:
 
-| Field (assoc array) | Purpose |
-|---|---|
-| `QA_TOOL_NAMES` (ordered) | authoritative order → usage listing + phase order |
-| `QA_TOOL_ALIASES[name]` | accepted `-t` input tokens (the old `case` arms) |
-| `QA_TOOL_TARGET[name]` | `singleToolToRun` value on selection (default = name; only `uniterate`→`phpunit`) |
-| `QA_TOOL_ONSELECT[name]` | side-effect assignment `VAR=VALUE` (only `uniterate`→`phpUnitIterativeMode=1`), applied via `printf -v` (no `eval`) |
-| `QA_TOOL_PATHS[name]` | `yes`/`no` path-support, applied to name + all aliases |
-| `QA_TOOL_PHASE[name]` | `codingStandards`/`linting`/`staticAnalysis`/`testing` |
-| `QA_TOOL_GATE[name]` | `notQuick` (phpstan, phpunit) / `infection` (phpqaQuickTests + useInfection) |
-| `QA_TOOL_BANNER[name]` | phase banner label |
-| `QA_TOOL_USAGE[name]` | `DISPLAY::DESCRIPTION` for the generated `-h` list |
+| Field (assoc array)       | Purpose                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `QA_TOOL_NAMES` (ordered) | authoritative order → usage listing + phase order                                                                   |
+| `QA_TOOL_ALIASES[name]`   | accepted `-t` input tokens (the old `case` arms)                                                                    |
+| `QA_TOOL_TARGET[name]`    | `singleToolToRun` value on selection (default = name; only `uniterate`→`phpunit`)                                   |
+| `QA_TOOL_ONSELECT[name]`  | side-effect assignment `VAR=VALUE` (only `uniterate`→`phpUnitIterativeMode=1`), applied via `printf -v` (no `eval`) |
+| `QA_TOOL_PATHS[name]`     | `yes`/`no` path-support, applied to name + all aliases                                                              |
+| `QA_TOOL_PHASE[name]`     | `codingStandards`/`linting`/`staticAnalysis`/`testing`                                                              |
+| `QA_TOOL_GATE[name]`      | `notQuick` (phpstan, phpunit) / `infection` (phpqaQuickTests + useInfection)                                        |
+| `QA_TOOL_BANNER[name]`    | phase banner label                                                                                                  |
+| `QA_TOOL_USAGE[name]`     | `DISPLAY::DESCRIPTION` for the generated `-h` list                                                                  |
 
 Everything derives from it:
 
@@ -72,8 +71,7 @@ the registered tool set from the registry (its old `singleToolToRun="…"` regex
 no longer exists) and still asserts every tool resolves to a real fragment.
 
 Irregularities deliberately PRESERVED (they are the contract): a canonical name
-is a valid `-t` input only when it appears in its own alias list (e.g. `-t
-phpstan` works, `-t psr4Validate` does not); `uniterate` resolves to `phpunit`
+is a valid `-t` input only when it appears in its own alias list (e.g. `-t phpstan` works, `-t psr4Validate` does not); `uniterate` resolves to `phpunit`
 and is classified non-path even though `phpunit` is path-supporting.
 
 ### Register claim check
@@ -93,13 +91,13 @@ failure exits 1 (no infinite loop).
 
 Migrated (pure simplifications, identical behaviour):
 
-| Fragment | Before | Note |
-|---|---|---|
-| `psr4Validate` | if-condition retry loop | — |
-| `packageType` | if-condition retry loop | — |
-| `sensitiveParameterUsage` | if-condition retry loop (inside the opt-out gate) | gate kept |
-| `phpLint` | manual errexit toggling | also closes the SC2068 unquoted-array hazard (M-025) via correctly quoted expansion |
-| `markdownLinks` | manual errexit toggling (inside the README guard) | guard kept |
+| Fragment                  | Before                                            | Note                                                                                |
+| ------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `psr4Validate`            | if-condition retry loop                           | —                                                                                   |
+| `packageType`             | if-condition retry loop                           | —                                                                                   |
+| `sensitiveParameterUsage` | if-condition retry loop (inside the opt-out gate) | gate kept                                                                           |
+| `phpLint`                 | manual errexit toggling                           | also closes the SC2068 unquoted-array hazard (M-025) via correctly quoted expansion |
+| `markdownLinks`           | manual errexit toggling (inside the README guard) | guard kept                                                                          |
 
 Deliberately NOT migrated (genuinely bespoke control flow — migration would
 change observable behaviour, which the brief forbids): `rector`, `phpCsFixer`
@@ -155,8 +153,7 @@ already owned by the consumer-scripts plan (`consumer-scripts-1.md` WP-S8/WP-S9)
 where W4 explicitly recorded them as "skipped per instruction"
 (`w4-implementation-notes-1.md`).
 
-- **M-071** (consolidate the four `bin/{composer-require-checker,infection,
-  php-cs-fixer,phpstan}` redirect stubs, WP-S8): touches `bin/*` stubs, not
+- **M-071** (consolidate the four `bin/{composer-require-checker,infection, php-cs-fixer,phpstan}` redirect stubs, WP-S8): touches `bin/*` stubs, not
   `bin/qa`; coupled to a shared project-root walk-up helper whose location the
   plan says to agree with the bash-core (M-053) work before it lands. Left to the
   scripts wave to keep that coordination single-owned and to avoid composer
@@ -201,6 +198,7 @@ exist. This wave delivered M-053, the shared piece of that cluster it does own.
 ## Doc-staleness handoffs (this wave changed structure; docs owned elsewhere)
 
 Not edited here (per ownership). For a docs follow-up:
+
 - The registry is now the SSoT for `-t` aliases and path support — any doc that
   re-lists them (README, docs read-only/aggregate/`--json` path-support notes)
   should point at `includes/generic/toolRegistry.inc.bash` (bash-refactor-1 H-7).

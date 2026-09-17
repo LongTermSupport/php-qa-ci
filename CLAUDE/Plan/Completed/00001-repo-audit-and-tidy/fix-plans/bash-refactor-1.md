@@ -14,14 +14,14 @@ This plan covers the BASH-CORE (`bin/qa` + `includes/**`) and ARCH findings, plu
 the two PROCESS findings that gate them (M-028 test harness, and the shellcheck
 gate). It maps the six mandatory conditions from the verdict onto concrete work:
 
-| Verdict condition | Delivered by |
-|---|---|
-| C1 shellcheck gate | WP-B0 |
-| C2 shared driver + declarative metadata | WP-B3 |
-| C3 gate-liveness invariant | WP-B3 (design below) |
-| C4 orchestration test harness | WP-B0 |
-| C5 hygiene sweep with the refactor | WP-B5 (+ per-tool in WP-B3) |
-| C6 keep pushing semantics to PHP | WP-B1 (annotations/psr4 already in `src/`), WP-B3 (drivers stay thin) |
+| Verdict condition                       | Delivered by                                                          |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| C1 shellcheck gate                      | WP-B0                                                                 |
+| C2 shared driver + declarative metadata | WP-B3                                                                 |
+| C3 gate-liveness invariant              | WP-B3 (design below)                                                  |
+| C4 orchestration test harness           | WP-B0                                                                 |
+| C5 hygiene sweep with the refactor      | WP-B5 (+ per-tool in WP-B3)                                           |
+| C6 keep pushing semantics to PHP        | WP-B1 (annotations/psr4 already in `src/`), WP-B3 (drivers stay thin) |
 
 ---
 
@@ -52,10 +52,10 @@ have caught M-001/M-002/M-003, before any code that changes behaviour.
 
 Two viable options, both already precedented or trivial here:
 
-| Option | What it is | Pros | Cons |
-|---|---|---|---|
-| **A. PHPUnit-shells-out** (recommended) | Extend the existing `tests/Large/**` pattern (`InfectionDiffModeTest`): a PHP test `exec`s `bash <fragment>` / `bin/qa -t <tool>` in a stubbed temp environment and asserts on captured argv / exit code / output. | Zero new dependency; already proven in-repo (`InfectionDiffModeTest`, `Arkitect`, `Markdown` Large tests); runs inside the phpunit gate the project already ships; contributors already know PHPUnit; black-box integration shape is exactly what the silent-pass and driver tests need ("did the binary actually get invoked?"). | Coarser than function-level unit tests; each test pays subprocess start-up cost (mitigated by `#[Large]` grouping). |
-| **B. bats-core** | A bash-native test runner; source a fragment, call a function, assert. | Finer-grained unit tests of individual bash functions; idiomatic for bash. | New tool to install/pin/PHIVE and to teach; a *second* test substrate alongside PHPUnit; CI must learn it; nothing in-repo uses it today. |
+| Option                                  | What it is                                                                                                                                                                                                         | Pros                                                                                                                                                                                                                                                                                                                              | Cons                                                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. PHPUnit-shells-out** (recommended) | Extend the existing `tests/Large/**` pattern (`InfectionDiffModeTest`): a PHP test `exec`s `bash <fragment>` / `bin/qa -t <tool>` in a stubbed temp environment and asserts on captured argv / exit code / output. | Zero new dependency; already proven in-repo (`InfectionDiffModeTest`, `Arkitect`, `Markdown` Large tests); runs inside the phpunit gate the project already ships; contributors already know PHPUnit; black-box integration shape is exactly what the silent-pass and driver tests need ("did the binary actually get invoked?"). | Coarser than function-level unit tests; each test pays subprocess start-up cost (mitigated by `#[Large]` grouping).                       |
+| **B. bats-core**                        | A bash-native test runner; source a fragment, call a function, assert.                                                                                                                                             | Finer-grained unit tests of individual bash functions; idiomatic for bash.                                                                                                                                                                                                                                                        | New tool to install/pin/PHIVE and to teach; a *second* test substrate alongside PHPUnit; CI must learn it; nothing in-repo uses it today. |
 
 **Recommendation: Option A as the primary harness.** The load-bearing tests here
 are integration-shaped (boot sequence, config cascade ordering, "tool X invokes
@@ -120,6 +120,7 @@ and is what unblocks WP-B1.
 First code changes after the harness. Each turns a B0 spec test from RED to GREEN.
 
 ### B1.1 M-001 — restore PSR-4 validation
+
 `includes/generic/psr4Validate.inc.bash` (currently 0 bytes) is restored to invoke
 the real, tested `bin/psr4-validate`, honouring the ignore list that
 `setConfig.inc.bash:32-33` already resolves into `psr4IgnoreList` (today a dead
@@ -173,7 +174,9 @@ history so a future opt-in restore is cheap. **Decision owner: maintainer** — 
 is a product/standards call, not a mechanical one.
 
 ### B1.3 M-003 + M-004 — strict-types gate
+
 `includes/generic/phpStrictTypes.inc.bash`:
+
 - **M-003 find precedence:** group the name tests so `-print` (implicit) applies to
   both extensions: `find "$d" \( -name '*.php' -o -name '*.phtml' \) -exec grep -L 'strict_types' {} \;`.
   Today the bare `*.php` branch is consumed by `-exec`'s implicit suppression of
@@ -188,6 +191,7 @@ is a product/standards call, not a mechanical one.
   Quote `"$d"`/`"$f"` throughout.
 
 ### B1.4 M-024 — packageType aggregate leak
+
 `includes/generic/allLintingTools.inc.bash:23`: change `runTool packageType` to
 `runToolGuarded packageType` so a failing package-type check is contained in the
 subshell and recorded in `qaFailedTools` instead of `exit 1`-ing the whole run in
@@ -225,11 +229,11 @@ but the project's `qaConfig.inc.bash` is not sourced until `bin/qa:177`. Any val
 
 Three candidate mechanisms:
 
-| Mechanism | Sketch | Verdict |
-|---|---|---|
-| Move override sourcing before `setConfig` | source `qaConfig.inc.bash` at ~`:160` | Rejected: `setConfig` also resolves `projectConfigPath`, `varDir`, `configPath` that the override legitimately reads; moving the override earlier breaks overrides that depend on those seeds. |
-| **Split `setConfig` into seed + derive** (recommended) | `setConfig` seeds raw defaults + `configPath` resolution only (no dependent derivations); a new `deriveConfig` step runs AFTER the override and computes `useInfection`, the xdebug/coverage coupling, `infectionMutationScoreIndicator`, `infectionCoveredCodeMSI`, etc. | Chosen: one clear "derive after override" seam; smallest behavioural delta; keeps all var names/defaults identical. |
-| Lazy derivation at point-of-use | each derived value recomputed where consumed (as `infection.inc.bash` already does for MSI) | Rejected as the general fix: scatters policy across runners, doesn't generalise, and multiplies the exact workaround the audit flagged as fragile. |
+| Mechanism                                              | Sketch                                                                                                                                                                                                                                                                    | Verdict                                                                                                                                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Move override sourcing before `setConfig`              | source `qaConfig.inc.bash` at ~`:160`                                                                                                                                                                                                                                     | Rejected: `setConfig` also resolves `projectConfigPath`, `varDir`, `configPath` that the override legitimately reads; moving the override earlier breaks overrides that depend on those seeds. |
+| **Split `setConfig` into seed + derive** (recommended) | `setConfig` seeds raw defaults + `configPath` resolution only (no dependent derivations); a new `deriveConfig` step runs AFTER the override and computes `useInfection`, the xdebug/coverage coupling, `infectionMutationScoreIndicator`, `infectionCoveredCodeMSI`, etc. | Chosen: one clear "derive after override" seam; smallest behavioural delta; keeps all var names/defaults identical.                                                                            |
+| Lazy derivation at point-of-use                        | each derived value recomputed where consumed (as `infection.inc.bash` already does for MSI)                                                                                                                                                                               | Rejected as the general fix: scatters policy across runners, doesn't generalise, and multiplies the exact workaround the audit flagged as fragile.                                             |
 
 ### B2.2 Ordering diagram
 
@@ -251,6 +255,7 @@ PROPOSED:
 ```
 
 ### B2.3 Scope
+
 - Move ONLY the dependent derivations from `setConfig.inc.bash` (lines ~68–72
   `useInfection`, ~57–60 `phpUnitCoverage`↔xdebug, ~81–83 MSI) into `deriveConfig`;
   leave raw `${x:-default}` seeds in `setConfig`.
@@ -292,17 +297,17 @@ A single registry (`includes/generic/toolRegistry.inc.bash`, overridable per
 project via `qaConfig/toolRegistry.inc.bash`) declares, per canonical tool name, a
 record with these fields:
 
-| Field | Values | Purpose |
-|---|---|---|
-| `name` | canonical (e.g. `phpstan`) | key |
-| `aliases` | space list (`stan`) | feeds the options alias map (kills M-011 sync) |
-| `pathSupport` | `yes` \| `no` | feeds `tool_supports_paths` (kills M-010 array) |
-| `readOnlyBehaviour` | `none` \| `dryRun` \| `reportMutate` | rector/fixer=`dryRun`; composerChecks/phpStrictTypes=`reportMutate`; else `none` |
-| `retryPolicy` | `none` \| `retry` \| `crash:<N>` | `crash:1` phpstan/arkitect, `crash:2` phpunit |
-| `logArchival` | `none` \| `<logDir>:<logFile>` | drives `archiveToolLog` uniformly |
-| `jsonSupport` | `none` \| `native` | phpstan=`native` |
-| `timing` | `on` \| `off` | drives toolStart/Complete/Failed (M-023 wire) |
-| `command` | fragment provides a `buildToolCommand` hook | the only thing a migrated fragment must supply |
+| Field               | Values                                      | Purpose                                                                          |
+| ------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `name`              | canonical (e.g. `phpstan`)                  | key                                                                              |
+| `aliases`           | space list (`stan`)                         | feeds the options alias map (kills M-011 sync)                                   |
+| `pathSupport`       | `yes` \| `no`                               | feeds `tool_supports_paths` (kills M-010 array)                                  |
+| `readOnlyBehaviour` | `none` \| `dryRun` \| `reportMutate`        | rector/fixer=`dryRun`; composerChecks/phpStrictTypes=`reportMutate`; else `none` |
+| `retryPolicy`       | `none` \| `retry` \| `crash:<N>`            | `crash:1` phpstan/arkitect, `crash:2` phpunit                                    |
+| `logArchival`       | `none` \| `<logDir>:<logFile>`              | drives `archiveToolLog` uniformly                                                |
+| `jsonSupport`       | `none` \| `native`                          | phpstan=`native`                                                                 |
+| `timing`            | `on` \| `off`                               | drives toolStart/Complete/Failed (M-023 wire)                                    |
+| `command`           | fragment provides a `buildToolCommand` hook | the only thing a migrated fragment must supply                                   |
 
 Bash impl: one associative array per field keyed by tool name (bash 4+, already
 assumed), populated in the registry file. `options.inc.bash` DERIVES its alias
@@ -351,15 +356,15 @@ The legacy `runTool` handles any not-yet-migrated tool; the `all*Tools` groups
 call a dispatch that routes migrated names to `runToolDriven` and the rest to the
 legacy path. Order:
 
-1. `phploc` — trivial, no retry, no logs (also lands the M-081 `failurePolicy=never` guarantee, D-3).
-2. `packageType`, `sensitiveParameterUsage` — clean if-condition (Pattern A).
-3. `psr4Validate` — freshly restored in B1; simple retry.
-4. `phpLint`, `markdownLinks`, `composerRequireChecker` — Pattern C (`set +e`); driver removes the toggle and the `eval`/IFS laundering (M-026).
-5. `phpStrictTypes` — post-B1; now CI-safe and `reportMutate`.
-6. `twigLint`, `yamlLint` (symfony) — Pattern C; fixes M-051 typo + dir guard en route.
-7. `phpstan`, `phpArkitect` — Pattern B (tee + PIPESTATUS + archive + crash code); driver absorbs the crash-banner + `eval` crash path (M-026), quoting (M-025).
-8. `phpunit` — Pattern B ×2 logs; fold in the coverage memory-limit fix (AR-011/M-047).
-9. `rector`, `phpCsFixer` — dual read-only; thin `dryRun` specialisation over the driver.
+01. `phploc` — trivial, no retry, no logs (also lands the M-081 `failurePolicy=never` guarantee, D-3).
+02. `packageType`, `sensitiveParameterUsage` — clean if-condition (Pattern A).
+03. `psr4Validate` — freshly restored in B1; simple retry.
+04. `phpLint`, `markdownLinks`, `composerRequireChecker` — Pattern C (`set +e`); driver removes the toggle and the `eval`/IFS laundering (M-026).
+05. `phpStrictTypes` — post-B1; now CI-safe and `reportMutate`.
+06. `twigLint`, `yamlLint` (symfony) — Pattern C; fixes M-051 typo + dir guard en route.
+07. `phpstan`, `phpArkitect` — Pattern B (tee + PIPESTATUS + archive + crash code); driver absorbs the crash-banner + `eval` crash path (M-026), quoting (M-025).
+08. `phpunit` — Pattern B ×2 logs; fold in the coverage memory-limit fix (AR-011/M-047).
+09. `rector`, `phpCsFixer` — dual read-only; thin `dryRun` specialisation over the driver.
 10. `composerChecks` — add the missing read-only gate (AR-008/M-027) as it migrates to `reportMutate`.
 11. `branchNamePolicy` — bespoke `_bnp_run` fn-wrapped; wrap thinly, sets `toolRan=1`.
 12. `infection` — most complex; migrate LAST. Its existing `InfectionDiffModeTest`
@@ -399,6 +404,7 @@ until at least one tool routes to it.
 Split by dependency:
 
 ### B4a — pure deletes (after B0, independent of B3)
+
 - **M-022:** delete `checkForUncommittedChanges()` (`functions.inc.bash:108-174`,
   carries a live interactive `git add -A; git commit` and its own bug) and
   `phpunitReRunFailedOrFull()` (`:176-209`). Both have zero callers.
@@ -415,6 +421,7 @@ Split by dependency:
 - Delete the `#pathsToCheck+=($binDir)` commented residue in `setPaths.inc.bash`.
 
 ### B4b — M-023 per-tool lock/timing (DECISION D-2; depends on B3)
+
 `toolStart`/`toolComplete`/`toolFailed` (`lock.inc.bash:408-508`) are never called;
 `recordCommandTiming` keys on the lock's empty `tool` field so full-run timings are
 never recorded. Two open sub-questions from the master register must be settled by
@@ -522,20 +529,21 @@ non-tool files (lock/timing/bin/qa) sweep can run any time after B0.
 
 ## Decision list for the user
 
-| # | Decision | Options | Recommendation | Owner |
-|---|---|---|---|---|
-| D-1 | M-002 PHPUnit annotations | A restore-modernised · B formally retire (remove fragment+call+bin+src+options+docs) | **B (retire)** — inert long enough that nothing depends on it; restoring can newly fail consumer suites for a convention attributes/PHPStan now cover. Preserve bin+src in history for opt-in. | Maintainer (product/standards call) |
-| D-2 | M-023 per-tool lock/timing | Wire via driver · Delete functions+JSON fields | **Wire** (driver gives the call site; makes ETA real), after one instrumented run confirms full-run timings are unrecorded; else delete. | Maintainer, post-instrumented-run |
-| D-3 | M-081 phploc "cannot fail" | Make it code-guaranteed · Docs-only correction | **Code-guaranteed** — give phploc `failurePolicy=never` in the driver so the documented claim becomes true. | Maintainer |
-| D-4 | Test harness | PHPUnit-shells-out · bats-core | **PHPUnit-shells-out** — zero new dep, already proven in-repo, integration shape fits; defer bats unless micro-unit coverage is later wanted. | Maintainer |
-| D-5 | M-009 ordering mechanism | Move override earlier · **Split setConfig seed/derive** · Lazy at point-of-use | **Split seed/derive** — smallest behavioural delta, one clear "derive after override" seam, identical names/defaults. | Maintainer |
-| D-6 | Release-2 behaviour change | Silent · Flags + communicated version bump | **Flags (`usePsr4Validate`, strict-types opt-out) + explicit changelog/version bump** so consumers can update-through and stage. | Maintainer (release policy) |
+| #   | Decision                   | Options                                                                              | Recommendation                                                                                                                                                                                 | Owner                               |
+| --- | -------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| D-1 | M-002 PHPUnit annotations  | A restore-modernised · B formally retire (remove fragment+call+bin+src+options+docs) | **B (retire)** — inert long enough that nothing depends on it; restoring can newly fail consumer suites for a convention attributes/PHPStan now cover. Preserve bin+src in history for opt-in. | Maintainer (product/standards call) |
+| D-2 | M-023 per-tool lock/timing | Wire via driver · Delete functions+JSON fields                                       | **Wire** (driver gives the call site; makes ETA real), after one instrumented run confirms full-run timings are unrecorded; else delete.                                                       | Maintainer, post-instrumented-run   |
+| D-3 | M-081 phploc "cannot fail" | Make it code-guaranteed · Docs-only correction                                       | **Code-guaranteed** — give phploc `failurePolicy=never` in the driver so the documented claim becomes true.                                                                                    | Maintainer                          |
+| D-4 | Test harness               | PHPUnit-shells-out · bats-core                                                       | **PHPUnit-shells-out** — zero new dep, already proven in-repo, integration shape fits; defer bats unless micro-unit coverage is later wanted.                                                  | Maintainer                          |
+| D-5 | M-009 ordering mechanism   | Move override earlier · **Split setConfig seed/derive** · Lazy at point-of-use       | **Split seed/derive** — smallest behavioural delta, one clear "derive after override" seam, identical names/defaults.                                                                          | Maintainer                          |
+| D-6 | Release-2 behaviour change | Silent · Flags + communicated version bump                                           | **Flags (`usePsr4Validate`, strict-types opt-out) + explicit changelog/version bump** so consumers can update-through and stage.                                                               | Maintainer (release policy)         |
 
 ---
 
 ## Out-of-scope (and docs handoff points)
 
 **Out of scope for this plan** (separate plans own them):
+
 - BASH-SCRIPTS (`scripts/deploy-skills.bash`, `setup-*.bash`, `tool-install.bash`,
   `ci.bash`, `git-hooks/*`, `installUpdateInfection.bash`; M-013–M-021, M-063–M-073,
   M-060 orphan hook). Consumer-write safety is that plan's theme (g).
@@ -543,6 +551,7 @@ non-tool files (lock/timing/bin/qa) sweep can run any time after B0.
 - PHP-layer tests (M-077 composer plugins + PHPStan rules; M-060 hook doc).
 
 **Handoff points — where THIS plan's code decisions unblock the docs plan:**
+
 - **H-1 (D-1 M-002):** restore-vs-retire determines CLAUDE.md phase list, README
   tool list, `docs/phpqa-tools.md`, `docs/tools/`, and the options usage text
   (also resolves M-031 phase numbering, M-032, M-059).

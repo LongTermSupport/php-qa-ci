@@ -24,6 +24,7 @@ Leverage php-qa-ci's composer-plugin architecture to automatically deploy and ma
 ### Claude Skills Architecture (Launched Oct 2025)
 
 **Key Findings:**
+
 - Skills are **model-invoked** - Claude autonomously decides when to use them
 - Located in `.claude/skills/` (project) or `~/.claude/skills/` (personal)
 - Each skill is a directory with `SKILL.md` containing YAML frontmatter + instructions
@@ -31,6 +32,7 @@ Leverage php-qa-ci's composer-plugin architecture to automatically deploy and ma
 - Token-efficient: Only frontmatter loaded initially (~dozens of tokens), full content loaded when invoked
 
 **Frontmatter Format:**
+
 ```yaml
 ---
 name: skill-name
@@ -40,6 +42,7 @@ allowed-tools: Read, Bash, Grep  # Optional: restrict tools
 ```
 
 **Best Practices:**
+
 - **Specificity**: Description must clearly state WHAT and WHEN
 - **Focus**: One capability per skill
 - **Discovery**: Claude matches user intent to description automatically
@@ -47,12 +50,14 @@ allowed-tools: Read, Bash, Grep  # Optional: restrict tools
 ### Composer Plugin Capabilities
 
 **Key Findings:**
+
 - Composer plugins execute during install/update lifecycle
 - `post-install-cmd` and `post-update-cmd` scripts available
 - Plugins can write files to project root (common for scaffolding)
 - Security: Plugin code runs with user permissions, must be trusted
 
 **php-qa-ci Current State:**
+
 - Already implements `ComposerPlugin` interface
 - Has `PhiveUpdatePlugin` class
 - Uses `post-install-cmd` hook for PHIVE setup
@@ -130,12 +135,12 @@ Report installed skills and agents
 
 #### Model Size Strategy
 
-| Agent Type | Model Size | Purpose | When to Use |
-|-----------|------------|---------|-------------|
-| **Runner** | `haiku` (simple) | Execute tool + parse output + summarize | Running tests/analysis - simple, fast task |
-| **Fixer** | `sonnet` (standard) | Analyze errors + implement fixes | Fixing most errors - standard complexity |
-| **Stubborn Fixer** | `opus` (powerful) | Deep analysis + complex fixes | When standard fixer fails repeatedly |
-| **Human Escalation** | N/A | Ask for help | When powerful model can't fix or user confirmation needed |
+| Agent Type           | Model Size          | Purpose                                 | When to Use                                               |
+| -------------------- | ------------------- | --------------------------------------- | --------------------------------------------------------- |
+| **Runner**           | `haiku` (simple)    | Execute tool + parse output + summarize | Running tests/analysis - simple, fast task                |
+| **Fixer**            | `sonnet` (standard) | Analyze errors + implement fixes        | Fixing most errors - standard complexity                  |
+| **Stubborn Fixer**   | `opus` (powerful)   | Deep analysis + complex fixes           | When standard fixer fails repeatedly                      |
+| **Human Escalation** | N/A                 | Ask for help                            | When powerful model can't fix or user confirmation needed |
 
 #### Run → Fix → Run Cycle
 
@@ -174,6 +179,7 @@ Skill: Escalate to user or launch with opus model
 #### Agent Communication Protocol
 
 **Runner → Fixer Handoff:**
+
 ```markdown
 SUMMARY: 5 test failures detected
 LOG FILE: var/qa/phpunit_logs/phpunit.junit.20251103-120621.xml
@@ -184,6 +190,7 @@ RECOMMENDATION: Fix TypeError pattern first (most common)
 ```
 
 **Fixer → Runner Handoff:**
+
 ```markdown
 FIXES APPLIED:
   - Fixed 3 TypeError issues in PaymentServiceTest
@@ -195,6 +202,7 @@ NEXT STEP: Re-run tests to verify fixes
 ```
 
 **Stubborn Fix Escalation:**
+
 ```markdown
 ESCALATION: Standard fixer unable to resolve after 2 attempts
 ERROR: AssertionFailure in calculateTotal test
@@ -239,6 +247,7 @@ Pass summary + log location to php-qa-ci_phpunit-fixer agent.
 **Purpose**: Entry point for running PHPUnit tests. Delegates execution to specialized agents using Task tool with run→fix→run cycle.
 
 **SKILL.md Frontmatter:**
+
 ```yaml
 ---
 name: phpunit-runner
@@ -255,6 +264,7 @@ allowed-tools: Task
 ```
 
 **SKILL.md Content Structure:**
+
 ```markdown
 # PHPUnit Runner Skill
 
@@ -271,41 +281,43 @@ This skill delegates to specialized agents via the Task tool:
 ### When User Says: "Run tests"
 
 1. Launch runner agent:
-   ```
-   Use Task tool:
-     subagent_type: "general-purpose"
-     model: "haiku"
-     prompt: "You are the php-qa-ci_phpunit-runner agent. Read .claude/agents/php-qa-ci_phpunit-runner.md for instructions. Run tests and return summary."
-   ```
+```
+
+Use Task tool:
+subagent_type: "general-purpose"
+model: "haiku"
+prompt: "You are the php-qa-ci_phpunit-runner agent. Read .claude/agents/php-qa-ci_phpunit-runner.md for instructions. Run tests and return summary."
+
+````
 
 2. Receive runner output with log location
 
 3. If failures detected:
-   - Launch fixer agent:
-     ```
-     Use Task tool:
-       subagent_type: "general-purpose"
-       model: "sonnet"
-       prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Fix errors in log: {log_path}"
-     ```
+- Launch fixer agent:
+  ```
+  Use Task tool:
+    subagent_type: "general-purpose"
+    model: "sonnet"
+    prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Fix errors in log: {log_path}"
+  ```
 
 4. After fixes applied, re-run via runner agent
 
 5. Repeat cycle until:
-   - All tests pass → Success
-   - Same errors persist 2+ times → Escalate to opus or human
-   - User intervention needed → Ask user
+- All tests pass → Success
+- Same errors persist 2+ times → Escalate to opus or human
+- User intervention needed → Ask user
 
 ### When User Says: "Fix the test failures"
 
 1. Check if recent log exists in var/qa/phpunit_logs/
 
 2. If log found:
-   - Launch fixer agent directly with log path
+- Launch fixer agent directly with log path
 
 3. If no log:
-   - Launch runner agent first to generate log
-   - Then launch fixer agent
+- Launch runner agent first to generate log
+- Then launch fixer agent
 
 ### Escalation Triggers
 
@@ -333,9 +345,10 @@ The phpunit-fixer agent (sonnet model) handles:
 - Verification that fixes resolve issues
 
 See `.claude/agents/php-qa-ci_phpunit-fixer.md` for agent implementation details.
-```
+````
 
 **scripts/parse-junit.py**: (Moved from project, enhanced)
+
 ```python
 #!/usr/bin/env python3
 """
@@ -357,6 +370,7 @@ Provides LLM-optimized output format.
 **Purpose**: Entry point for analyzing and fixing existing PHPUnit test failures without running tests. Delegates to fixer agent.
 
 **SKILL.md Frontmatter:**
+
 ```yaml
 ---
 name: phpunit-fixer
@@ -373,6 +387,7 @@ allowed-tools: Task
 ```
 
 **SKILL.md Content Structure:**
+
 ```markdown
 # PHPUnit Fixer Skill
 
@@ -385,30 +400,34 @@ This skill delegates to the php-qa-ci_phpunit-fixer agent (sonnet model):
 ### When User Says: "Fix the test failures"
 
 1. Launch fixer agent to find and analyze most recent log:
-   ```
-   Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Find most recent test log and fix failures."
-   ```
+```
+
+Use Task tool:
+subagent_type: "general-purpose"
+model: "sonnet"
+prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Find most recent test log and fix failures."
+
+```
 
 2. Receive fixer output with:
-   - Errors found and grouped by pattern
-   - Fixes applied
-   - Files modified
+- Errors found and grouped by pattern
+- Fixes applied
+- Files modified
 
 3. If no log found:
-   - Suggest using phpunit-runner skill to generate log first
+- Suggest using phpunit-runner skill to generate log first
 
 ### When User Provides Specific Log Path
 
 1. Launch fixer agent with explicit log path:
-   ```
-   Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Fix failures in log: {user_provided_path}"
-   ```
+```
+
+Use Task tool:
+subagent_type: "general-purpose"
+model: "sonnet"
+prompt: "You are the php-qa-ci_phpunit-fixer agent. Read .claude/agents/php-qa-ci_phpunit-fixer.md. Fix failures in log: {user_provided_path}"
+
+```
 
 ### Escalation Triggers
 
@@ -429,6 +448,7 @@ See `.claude/agents/php-qa-ci_phpunit-fixer.md` for agent implementation details
 ```
 
 **scripts/analyze-junit.py**:
+
 ```python
 #!/usr/bin/env python3
 """
@@ -449,6 +469,7 @@ Does NOT run tests.
 **Purpose**: Entry point for running PHPStan static analysis. Delegates execution to specialized agents using Task tool with run→fix→run cycle.
 
 **SKILL.md Frontmatter:**
+
 ```yaml
 ---
 name: phpstan-runner
@@ -465,6 +486,7 @@ allowed-tools: Task
 ```
 
 **SKILL.md Content Structure:**
+
 ```markdown
 # PHPStan Runner Skill
 
@@ -481,41 +503,43 @@ This skill delegates to specialized agents via the Task tool:
 ### When User Says: "Run PHPStan"
 
 1. Launch runner agent:
-   ```
-   Use Task tool:
-     subagent_type: "general-purpose"
-     model: "haiku"
-     prompt: "You are the php-qa-ci_phpstan-runner agent. Read .claude/agents/php-qa-ci_phpstan-runner.md for instructions. Run PHPStan and return summary."
-   ```
+```
+
+Use Task tool:
+subagent_type: "general-purpose"
+model: "haiku"
+prompt: "You are the php-qa-ci_phpstan-runner agent. Read .claude/agents/php-qa-ci_phpstan-runner.md for instructions. Run PHPStan and return summary."
+
+````
 
 2. Receive runner output with log location
 
 3. If errors detected:
-   - Launch fixer agent:
-     ```
-     Use Task tool:
-       subagent_type: "general-purpose"
-       model: "sonnet"
-       prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Fix errors in log: {log_path}"
-     ```
+- Launch fixer agent:
+  ```
+  Use Task tool:
+    subagent_type: "general-purpose"
+    model: "sonnet"
+    prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Fix errors in log: {log_path}"
+  ```
 
 4. After fixes applied, re-run via runner agent
 
 5. Repeat cycle until:
-   - Analysis passes → Success
-   - Same errors persist 2+ times → Escalate to opus or human
-   - User intervention needed → Ask user
+- Analysis passes → Success
+- Same errors persist 2+ times → Escalate to opus or human
+- User intervention needed → Ask user
 
 ### When User Says: "Fix the PHPStan errors"
 
 1. Check if recent log exists in var/qa/phpstan_logs/
 
 2. If log found:
-   - Launch fixer agent directly with log path
+- Launch fixer agent directly with log path
 
 3. If no log:
-   - Launch runner agent first to generate log
-   - Then launch fixer agent
+- Launch runner agent first to generate log
+- Then launch fixer agent
 
 ### Escalation Triggers
 
@@ -542,9 +566,10 @@ The phpstan-fixer agent (sonnet model) handles:
 - Verification that fixes resolve issues
 
 See `.claude/agents/php-qa-ci_phpstan-fixer.md` for agent implementation details.
-```
+````
 
 **scripts/parse-phpstan.py**: (New, optimized for LLM)
+
 ```python
 #!/usr/bin/env python3
 """
@@ -658,6 +683,7 @@ if __name__ == '__main__':
 **Purpose**: Entry point for analyzing and fixing existing PHPStan errors without running analysis. Delegates to fixer agent.
 
 **SKILL.md Frontmatter:**
+
 ```yaml
 ---
 name: phpstan-fixer
@@ -674,6 +700,7 @@ allowed-tools: Task
 ```
 
 **SKILL.md Content Structure:**
+
 ```markdown
 # PHPStan Fixer Skill
 
@@ -686,30 +713,34 @@ This skill delegates to the php-qa-ci_phpstan-fixer agent (sonnet model):
 ### When User Says: "Fix the PHPStan errors"
 
 1. Launch fixer agent to find and analyze most recent log:
-   ```
-   Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Find most recent PHPStan log and fix errors."
-   ```
+```
+
+Use Task tool:
+subagent_type: "general-purpose"
+model: "sonnet"
+prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Find most recent PHPStan log and fix errors."
+
+```
 
 2. Receive fixer output with:
-   - Errors found and grouped by pattern
-   - Fixes applied
-   - Files modified
+- Errors found and grouped by pattern
+- Fixes applied
+- Files modified
 
 3. If no log found:
-   - Suggest using phpstan-runner skill to generate log first
+- Suggest using phpstan-runner skill to generate log first
 
 ### When User Provides Specific Log Path
 
 1. Launch fixer agent with explicit log path:
-   ```
-   Use Task tool:
-     subagent_type: "general-purpose"
-     model: "sonnet"
-     prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Fix errors in log: {user_provided_path}"
-   ```
+```
+
+Use Task tool:
+subagent_type: "general-purpose"
+model: "sonnet"
+prompt: "You are the php-qa-ci_phpstan-fixer agent. Read .claude/agents/php-qa-ci_phpstan-fixer.md. Fix errors in log: {user_provided_path}"
+
+```
 
 ### Escalation Triggers
 
@@ -730,6 +761,7 @@ See `.claude/agents/php-qa-ci_phpstan-fixer.md` for agent implementation details
 ```
 
 **scripts/analyze-phpstan.py**:
+
 ```python
 #!/usr/bin/env python3
 """
@@ -751,6 +783,7 @@ Does NOT run PHPStan.
 **Purpose**: Orchestrate full QA pipeline (Rector → PHP-CS-Fixer → PHPStan → PHPUnit → Infection)
 
 **SKILL.md Frontmatter:**
+
 ```yaml
 ---
 name: qa-pipeline
@@ -767,6 +800,7 @@ allowed-tools: Bash, Read, Glob
 ### 4. Composer Plugin Implementation
 
 **src/ComposerPlugin/SkillsDeployPlugin.php**:
+
 ```php
 <?php
 
@@ -853,6 +887,7 @@ final class SkillsDeployPlugin implements PluginInterface, EventSubscriberInterf
 ```
 
 **scripts/deploy-skills.bash**:
+
 ```bash
 #!/usr/bin/env bash
 
@@ -927,6 +962,7 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 ```
 
 **Update composer.json**:
+
 ```json
 {
   "extra": {
@@ -941,6 +977,7 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 ## Benefits
 
 ### For Users
+
 - **Zero Configuration**: Skills & agents auto-deploy on `composer install/update`
 - **Intelligent Assistance**: Claude delegates to specialized agents with appropriate model sizes
 - **Automated Fix Cycles**: Run→fix→run cycle continues until tests pass
@@ -949,6 +986,7 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 - **Up-to-date**: Skills & agents update with php-qa-ci package
 
 ### For Developers
+
 - **DRY Principle**: Parser scripts and agent logic maintained in one place
 - **Version Control**: Skills & agents versioned with php-qa-ci
 - **Team Consistency**: Everyone gets same Claude capabilities
@@ -956,6 +994,7 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 - **Clear Separation**: Skills (entry points) vs Agents (executors)
 
 ### For QA Pipeline
+
 - **Better Error Analysis**: LLM-optimized parsers provide actionable feedback
 - **Faster Debugging**: Haiku model handles simple tasks quickly
 - **Intelligent Fixing**: Sonnet model handles most fixes, opus for stubborn issues
@@ -964,16 +1003,18 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 - **Extensible**: Easy to add new skills/agents for other tools
 
 ### For Cost Management
+
 - **Model Size Strategy**:
   - 90% of runs use haiku (fastest, cheapest)
   - 90% of fixes use sonnet (balanced cost/capability)
-  - <10% escalate to opus or human (only when necessary)
+  - \<10% escalate to opus or human (only when necessary)
 - **Token Efficiency**: Agent communication protocol uses concise summaries
 - **Parallel Execution**: Multiple simple agents can run concurrently
 
 ## Implementation Roadmap
 
 ### Phase 1: Foundation (Week 1)
+
 - [ ] Create `skills/` and `agents/` directory structure in php-qa-ci
 - [ ] Implement `SkillsDeployPlugin` composer plugin
 - [ ] Implement `deploy-skills.bash` script (copy skills + agents)
@@ -981,75 +1022,94 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 - [ ] Test basic skill and agent deployment
 
 ### Phase 2: PHPUnit Runner Skill + Agent (Week 2)
+
 **Skill: phpunit-runner** (entry point):
+
 - [ ] Write SKILL.md with Task tool delegation pattern
 - [ ] Document run→fix→run cycle
 - [ ] Document escalation triggers
 
 **Agent: php-qa-ci_phpunit-runner** (haiku model):
+
 - [ ] Move parse-junit-logs.py to skills/phpunit-runner/scripts/
 - [ ] Enhance parser with runtime estimation
 - [ ] Write agent .md file with execution instructions
 - [ ] Test runner agent invocation via Task tool
 
 **Integration**:
+
 - [ ] Test skill → runner agent → fixer agent cycle
 - [ ] Verify haiku model usage for runner
 - [ ] Verify sonnet model usage for fixer
 
 ### Phase 3: PHPUnit Fixer Skill + Agent (Week 2)
+
 **Skill: phpunit-fixer** (entry point):
+
 - [ ] Write SKILL.md with Task tool delegation pattern
 - [ ] Document log-only workflow (no test execution)
 
 **Agent: php-qa-ci_phpunit-fixer** (sonnet model):
+
 - [ ] Create analyze-junit.py parser
 - [ ] Write agent .md file with fix patterns
 - [ ] Add common error pattern fixes
 - [ ] Test with existing logs
 
 **Integration**:
+
 - [ ] Test fixer skill → fixer agent direct invocation
 - [ ] Test runner skill → fixer agent handoff
 - [ ] Verify fixes trigger re-run via runner agent
 
 ### Phase 4: PHPStan Runner Skill + Agent (Week 3)
+
 **Skill: phpstan-runner** (entry point):
+
 - [ ] Write SKILL.md with Task tool delegation pattern
 - [ ] Document run→fix→run cycle for PHPStan
 
 **Agent: php-qa-ci_phpstan-runner** (haiku model):
+
 - [ ] Create parse-phpstan.py parser
 - [ ] Write agent .md file with execution instructions
 - [ ] Test runner agent invocation
 
 **Integration**:
+
 - [ ] Test skill → runner agent → fixer agent cycle
 - [ ] Verify model sizes (haiku for runner, sonnet for fixer)
 
 ### Phase 5: PHPStan Fixer Skill + Agent (Week 3)
+
 **Skill: phpstan-fixer** (entry point):
+
 - [ ] Write SKILL.md with Task tool delegation pattern
 - [ ] Document log-only workflow
 
 **Agent: php-qa-ci_phpstan-fixer** (sonnet model):
+
 - [ ] Create analyze-phpstan.py parser
 - [ ] Write agent .md file with common error patterns
 - [ ] Test with existing logs
 
 **Integration**:
+
 - [ ] Test fixer skill → fixer agent direct invocation
 - [ ] Test runner skill → fixer agent handoff
 - [ ] Verify fixes trigger re-run
 
 ### Phase 6: QA Pipeline Skill + Agent (Week 4)
+
 **FUTURE**: Full pipeline orchestration
+
 - [ ] Design multi-tool orchestration (Rector → CS → PHPStan → PHPUnit)
 - [ ] Write SKILL.md for pipeline skill
 - [ ] Write agent .md for pipeline orchestration
 - [ ] Test full pipeline scenarios with sub-agent delegation
 
 ### Phase 7: Polish & Documentation (Week 5)
+
 - [ ] Update php-qa-ci README with skills & agents documentation
 - [ ] Create SKILLS.md in php-qa-ci with skill catalog
 - [ ] Create AGENTS.md with agent descriptions
@@ -1061,16 +1121,19 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 ## Testing Strategy
 
 ### Unit Tests
+
 - Test SkillsDeployPlugin event subscription
 - Test deploy-skills.bash with mock directories
 - Test parser scripts with fixture data
 
 ### Integration Tests
+
 - Test full deployment in fresh project
 - Test skill invocation scenarios
 - Test skill updates on composer update
 
 ### User Acceptance Tests
+
 - Test "run the tests" invokes phpunit-runner
 - Test "fix phpstan errors" invokes phpstan-runner
 - Test skill deactivation when not needed
@@ -1085,12 +1148,14 @@ ls -1 "$AGENTS_TARGET" 2>/dev/null || echo "  (none)"
 ## Migration Path
 
 ### For Existing Projects
+
 1. Run `composer update lts/php-qa-ci`
 2. Skills auto-deploy to `.claude/skills/`
 3. Existing project files untouched
 4. `.gitignore` updated automatically
 
 ### For New Projects
+
 1. `composer require --dev lts/php-qa-ci`
 2. Skills deployed during installation
 3. Ready to use immediately
@@ -1132,6 +1197,7 @@ This proposal leverages cutting-edge Claude Code Skills architecture (Nov 2025) 
 **Progressive Rollout:**
 
 The phased approach allows for incremental development and validation:
+
 - **Weeks 1-2**: Foundation + PHPUnit skills/agents (immediate value)
 - **Week 3**: PHPStan skills/agents (static analysis automation)
 - **Week 4**: Full QA pipeline orchestration (future enhancement)

@@ -4,10 +4,10 @@ Subagent report for Plan 00003 (PHP pipeline rewrite). Nothing committed.
 
 ## Classes
 
-| Lane        | Class                                        | Name          | Identifier             |
-| ----------- | -------------------------------------------- | ------------- | ---------------------- |
-| PHPStan     | `LTS\PHPQA\Pipeline\Lane\PhpstanTool`        | `phpstan`     | `phpqaci.phpstan`      |
-| PHPArkitect | `LTS\PHPQA\Pipeline\Lane\PhpArkitectTool`    | `phpArkitect` | `phpqaci.phpArkitect`  |
+| Lane        | Class                                     | Name          | Identifier            |
+| ----------- | ----------------------------------------- | ------------- | --------------------- |
+| PHPStan     | `LTS\PHPQA\Pipeline\Lane\PhpstanTool`     | `phpstan`     | `phpqaci.phpstan`     |
+| PHPArkitect | `LTS\PHPQA\Pipeline\Lane\PhpArkitectTool` | `phpArkitect` | `phpqaci.phpArkitect` |
 
 Files:
 

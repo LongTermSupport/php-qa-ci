@@ -17,13 +17,13 @@ and keeps widening the surface a security advisory can land on.
 
 This lane closes that direction. It reads the same `composer.json` and reports:
 
-| Finding | Meaning |
-| --- | --- |
-| Unused dependency | declared, but no scanned file uses it |
-| Shadow dependency | used, but only installed because something else depends on it |
-| Dev dependency in prod | production code uses a `require-dev` package |
-| Prod dependency only in dev | in `require`, but only tests use it |
-| Unknown class / function | the symbol could not be autoloaded, so nothing about it was checked |
+| Finding                     | Meaning                                                             |
+| --------------------------- | ------------------------------------------------------------------- |
+| Unused dependency           | declared, but no scanned file uses it                               |
+| Shadow dependency           | used, but only installed because something else depends on it       |
+| Dev dependency in prod      | production code uses a `require-dev` package                        |
+| Prod dependency only in dev | in `require`, but only tests use it                                 |
+| Unknown class / function    | the symbol could not be autoloaded, so nothing about it was checked |
 
 The last row is the one worth understanding: an unknown symbol is not a pass, it is an
 *unanswered question*. Left unconfigured it grows until the report is noise.

@@ -64,8 +64,8 @@ Seriously tidy it up **without breaking anything**. Three problem axes:
 ### Phase 1 — Parallel audits (agents write directly to audits/)
 
 - ✅ T1.1 Docs-rot audit: CLAUDE.md + README.md → audits/docs-rot-core-1.md (sonnet; graded A-, 6 CRIT; sample-verified 3/3)
-- ✅ T1.2 Docs-rot audit: docs/, CLAUDE/*.md, templates, misc READMEs → audits/docs-rot-secondary-1.md (sonnet; graded A, 8 CRIT; Laravel fabrication cluster confirmed)
-- ✅ T1.3 Bash quality audit: bin/qa + includes/** → audits/bash-quality-1.md (opus; graded A-, 2 CRIT / 6 MAJOR; missed FS-002 & FS-010 — covered by Fable)
+- ✅ T1.2 Docs-rot audit: docs/, CLAUDE/\*.md, templates, misc READMEs → audits/docs-rot-secondary-1.md (sonnet; graded A, 8 CRIT; Laravel fabrication cluster confirmed)
+- ✅ T1.3 Bash quality audit: bin/qa + includes/\*\* → audits/bash-quality-1.md (opus; graded A-, 2 CRIT / 6 MAJOR; missed FS-002 & FS-010 — covered by Fable)
 - ✅ T1.4 Bash quality audit: scripts/, ci.bash, git-hooks, composerScripts → audits/bash-scripts-1.md (sonnet; graded A-, 22 findings, 0 CRITICAL / 8 MAJOR)
 - ✅ T1.5 Architecture/cohesion audit → audits/architecture-1.md (opus; graded A; key insight: derive-before-override config-ordering bug CLASS; recommends driver+metadata consolidation over rewrite)
 - ✅ T1.6 PHP src map + bin entry-point inventory → audits/php-src-map-1.md (haiku; graded — see synthesis/fable-spot-checks-1.md arbitration notes)
@@ -126,7 +126,7 @@ lesson from the W4 collision applied).
   orchestrator + 7 scripts/lib/ modules; behaviour identity verified
   (stdout/tree/perms). Fable follow-ups before commit: fixer gates (rector×3 +
   fixer + phpstan — 16 errors incl. TWO runtime-breaking Safe conversions:
-  Safe\mkdir/chmod return void, so `mkdir||fail` and assertTrue(chmod)
+  Safe\\mkdir/chmod return void, so `mkdir||fail` and assertTrue(chmod)
   became always-fail; rewritten as bare statements, harness re-proven green);
   DeployProcessRunner autoloading moved from require_once to an autoload-dev
   entry (fixture-namespace precedent). NOTE: a concurrent unassigned
@@ -146,8 +146,8 @@ lesson from the W4 collision applied).
   Zero src/ bugs found. Fable follow-ups before/after commit: fixer-gate
   fixpoint applied; agent's report arrived late (after my independent
   verification and commit) and corroborated everything. Post-commit unlock
-  (7e88223): tests/Small/ComposerPlugin/* added to PHPStan excludePaths (same
-  absent-Composer-API rationale as src/ComposerPlugin/*), enabling the agent's
+  (7e88223): tests/Small/ComposerPlugin/\* added to PHPStan excludePaths (same
+  absent-Composer-API rationale as src/ComposerPlugin/\*), enabling the agent's
   preserved BEHAVIORAL PhpStanGuardPlugin test (warning paths + silence) in
   place of the wiring-only version. Follow-up open: behavioral tests for the
   other 3 plugins (stubs already ship CapturingIO/FakeRootPackage).
@@ -176,6 +176,7 @@ lesson from the W4 collision applied).
   (29) is the top remaining file — future wave candidate.
 
 Findings surfaced by the T6.5 full-pipeline verification (2026-07-15):
+
 - FIXED — qaConfig/infection.json (repo's own) resolved its source dir
   config-relative to qaConfig/src (nonexistent) and its logs likewise; never
   caught because CI has no Xdebug so infection is always skipped there.
@@ -198,11 +199,12 @@ Findings surfaced by the T6.5 full-pipeline verification (2026-07-15):
   aggregate runs in such containers report a false composerChecks failure.
 
 Open findings from Phase 6 (not yet actioned):
+
 - F-IFS-1 (flagged by shellcheck-sweep, deliberately not changed mid-sweep):
-  bin/qa captures standardIFS BEFORE setting IFS=$'\n\t', but
+  bin/qa captures standardIFS BEFORE setting IFS=$'\\n\\t', but
   includes/options.inc.bash (sourced after) re-captures standardIFS from the
   already-modified IFS — so infection.inc.bash's `IFS=$standardIFS` "restore"
-  is a no-op (restores \n\t, not the shell default). Restoring the intended
+  is a no-op (restores \\n\\t, not the shell default). Restoring the intended
   behaviour would change Infection's word-splitting — needs its own focused
   slot with testing, not a drive-by fix.
 - Production CI incidents 2026-07-15 (all resolved; lessons in

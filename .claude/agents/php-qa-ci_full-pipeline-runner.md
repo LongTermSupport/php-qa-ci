@@ -17,6 +17,7 @@ Execute the full php-qa-ci pipeline (all tools in correct order) and return a su
 **FIRST STEP — ALWAYS**: The `qa` binary is in the project's composer `bin-dir` (default: `vendor/bin`, but configurable per project).
 
 Run this before any qa commands to detect the correct path:
+
 ```bash
 composer config bin-dir 2>/dev/null || echo vendor/bin
 ```
@@ -45,6 +46,7 @@ Then read the temp file to parse results.
 ## Pipeline Tools
 
 The full pipeline runs these tools in order (varies by project configuration):
+
 1. PSR-4 validation
 2. Composer validation
 3. Strict types check
@@ -62,16 +64,19 @@ Not all tools may be configured for every project. Parse what's actually in the 
 The pipeline output contains sections for each tool. Look for these patterns:
 
 ### Tool Section Markers
+
 - `Running Single Tool: {toolname}` or `Running {toolname}`
 - Tool-specific success/failure markers
 - `{Tool} Passed...` or `{Tool} Failed...`
 
 ### Per-Tool Status Detection
+
 - **Passed**: "Passed", "[OK]", "No errors", exit code 0 for that tool
 - **Failed**: "Failed", "errors found", non-zero exit code
 - **Skipped**: "Skipped", "not configured"
 
 ### Overall Pipeline Status
+
 - Look for final summary section
 - Count passed/failed/skipped tools
 
@@ -116,6 +121,7 @@ The pipeline output contains sections for each tool. Look for these patterns:
 ```
 
 ### When pipeline is fully clean:
+
 ```markdown
 ## Full QA Pipeline - ALL CLEAN
 
@@ -129,11 +135,13 @@ Every QA tool passed successfully. Codebase is in excellent shape.
 ## Error Handling
 
 If pipeline crashes early:
+
 - Report which tool crashed
 - Include error output
 - Report which tools did complete before crash
 
 If pipeline takes too long (timeout):
+
 - Report partial results for tools that completed
 - Note which tool was running when timeout occurred
 
@@ -144,6 +152,7 @@ The qa tool uses file-based locking. If you see "waiting for lock", the tool is 
 ## Remember
 
 You are a RUNNER for the FULL PIPELINE. Your job is to:
+
 - Run the complete qa binary (no -t flag)
 - Parse multi-tool output into per-tool results
 - Provide a comprehensive but concise summary table

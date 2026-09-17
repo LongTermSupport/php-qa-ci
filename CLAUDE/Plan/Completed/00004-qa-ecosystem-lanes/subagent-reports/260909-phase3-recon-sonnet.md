@@ -25,19 +25,19 @@ files. Raw dumps cached under `/workspace/untracked/scratch/spaze/` and
 
 Exact neon parameter keys, each a list of structured entries:
 
-| Key | Detects |
-|---|---|
-| `disallowedMethodCalls` | `$object->method()` calls |
-| `disallowedStaticCalls` | `Class::method()` |
-| `disallowedFunctionCalls` | `function()` (also covers language constructs treated as functions: `die()`, `echo()`, `empty()`, `eval()`, `exit()`, `isset()`, `print()`, `unset()`; naive `new ClassName()` is expressed as `disallowedMethodCalls` on `Class::__construct`) |
-| `disallowedConstants` | constants, incl. class constants (split into `class:`/`constant:`) |
-| `disallowedNamespaces` / `disallowedClasses` (alias) | class/namespace usage |
-| `disallowedSuperglobals` | `$GLOBALS`, `$_POST`, etc. |
-| `disallowedAttributes` | attribute usage, e.g. `#[Entity(...)]` |
-| `disallowedEnums` | enum cases (split into `enum:`/`case:`) |
-| `disallowedControlStructures` | `if`/`else`/loops/`require`/`include`/`goto` etc. |
-| `disallowedKeywords` | currently only `global` |
-| `disallowedProperties` | instance/static/enum properties |
+| Key                                                  | Detects                                                                                                                                                                                                                                         |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `disallowedMethodCalls`                              | `$object->method()` calls                                                                                                                                                                                                                       |
+| `disallowedStaticCalls`                              | `Class::method()`                                                                                                                                                                                                                               |
+| `disallowedFunctionCalls`                            | `function()` (also covers language constructs treated as functions: `die()`, `echo()`, `empty()`, `eval()`, `exit()`, `isset()`, `print()`, `unset()`; naive `new ClassName()` is expressed as `disallowedMethodCalls` on `Class::__construct`) |
+| `disallowedConstants`                                | constants, incl. class constants (split into `class:`/`constant:`)                                                                                                                                                                              |
+| `disallowedNamespaces` / `disallowedClasses` (alias) | class/namespace usage                                                                                                                                                                                                                           |
+| `disallowedSuperglobals`                             | `$GLOBALS`, `$_POST`, etc.                                                                                                                                                                                                                      |
+| `disallowedAttributes`                               | attribute usage, e.g. `#[Entity(...)]`                                                                                                                                                                                                          |
+| `disallowedEnums`                                    | enum cases (split into `enum:`/`case:`)                                                                                                                                                                                                         |
+| `disallowedControlStructures`                        | `if`/`else`/loops/`require`/`include`/`goto` etc.                                                                                                                                                                                               |
+| `disallowedKeywords`                                 | currently only `global`                                                                                                                                                                                                                         |
+| `disallowedProperties`                               | instance/static/enum properties                                                                                                                                                                                                                 |
 
 Also confirmed via `extension.neon`'s `parametersSchema`: the same 11 keys plus
 `allowInRootDir` (deprecated alias of `filesRootDir`).
@@ -101,18 +101,18 @@ Our rule (`/workspace/src/PHPStan/Rules/ForbidDangerousFunctionsRule.php`, ident
 
 Per-function coverage by spaze's shipped lists:
 
-| Our banned function | Covered by spaze shipped list? |
-|---|---|
-| `exec` | Yes — `disallowed-execution-calls.neon` |
-| `shell_exec` | Yes — `disallowed-execution-calls.neon` (also bans backtick operator, which ours does not) |
-| `system` | Yes — `disallowed-execution-calls.neon` |
-| `passthru` | Yes — `disallowed-execution-calls.neon` |
-| `proc_open` | Yes — `disallowed-execution-calls.neon` |
-| `popen` | Yes — `disallowed-execution-calls.neon` |
-| `eval` | Yes — `disallowed-dangerous-calls.neon` |
-| `extract` | Yes — `disallowed-dangerous-calls.neon` |
-| `unserialize` | **Not covered by any shipped list.** |
-| `parse_str` | **Not covered by any shipped list.** |
+| Our banned function | Covered by spaze shipped list?                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `exec`              | Yes — `disallowed-execution-calls.neon`                                                    |
+| `shell_exec`        | Yes — `disallowed-execution-calls.neon` (also bans backtick operator, which ours does not) |
+| `system`            | Yes — `disallowed-execution-calls.neon`                                                    |
+| `passthru`          | Yes — `disallowed-execution-calls.neon`                                                    |
+| `proc_open`         | Yes — `disallowed-execution-calls.neon`                                                    |
+| `popen`             | Yes — `disallowed-execution-calls.neon`                                                    |
+| `eval`              | Yes — `disallowed-dangerous-calls.neon`                                                    |
+| `extract`           | Yes — `disallowed-dangerous-calls.neon`                                                    |
+| `unserialize`       | **Not covered by any shipped list.**                                                       |
+| `parse_str`         | **Not covered by any shipped list.**                                                       |
 
 **What spaze catches that ours does not** (well beyond function calls): method/static calls,
 constants, namespaces/classes, superglobals, attributes, enums, control structures, keywords,

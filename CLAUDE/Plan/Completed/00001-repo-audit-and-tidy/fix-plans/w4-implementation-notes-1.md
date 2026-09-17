@@ -17,22 +17,22 @@ Sourced by `deploy-skills.bash`, `install-github-actions.bash`, `setup-claude-qa
 
 ### Per-item
 
-| M-ID | File | Change |
-|---|---|---|
-| M-021 | `composerScripts/installUpdateInfection.bash` | Deleted (dead; the whole `composerScripts/` dir is now gone). |
-| M-060 | `.claude/hooks/php-qa-ci__check-vendor-uncommitted.py` | Deleted (duplicate — see decision below). |
-| M-015/16/19 | `deploy-skills.bash`, `setup-claude-qa-agent.bash`, `install-github-actions.bash` | Routed through the owned-install helpers; agents/skills/hooks/git-hook/qa.yml overwrite unconditionally with an informational notice. |
-| M-017 | `setup-branch-protection.bash` | GET current protection → merge modeled fields (preserve existing contexts + push restrictions, normalise GET/PUT schema asymmetry) → diff summary → PUT. 404 ⇒ fresh PUT. |
-| M-018 | `setup-claude-qa-agent.bash` | `PROJECT_ROOT` resolved dynamically (explicit arg → composer.json walk-up requiring `lts/php-qa-ci` → historic 4-up fallback) instead of hardcoded vendor depth. |
-| M-020 | `deploy-skills.bash` | Single `readonly DAEMON_INSTALL_REF="v3.9.0"` used by the "not detected" clone, consistent with the YAML enforcement path's v3.9.0+ assumption. |
-| M-063/M-064 | `install-github-actions.bash` | Deleted unused `check_php_version()`; that also removed the single-quoted inline-PHP path interpolation (M-064) since it lived inside that function. |
-| M-065 | `setup-branch-protection.bash` | `mktemp` temps + `trap … EXIT` (no predictable `/tmp/protection-result.txt`); SC2015 replaced with if/else; useless-cat removed. |
-| M-066/M-067 | `tool-install.bash` | phive invocation built as an args array (no `eval`); `command -v phive` replaces `which phive 1>&2`. |
-| M-068 | `git-hooks/pre-commit-check-vendor-uncommitted` | `${repo_dir#"$PROJECT_ROOT"/}` (SC2295). |
-| M-069 | `deploy-skills.bash` | `${VAR:?}` guards on the skills remove-then-copy (via helper) and the Phase-4 hook removal. |
-| M-070 | `ci.bash` | `cd "$DIR"`; `"$0 $*"` banners (SC2145); dead `standardIFS` removed. |
-| M-073 | `deploy-skills.bash` | System `python3` checked ONCE up front; missing ⇒ clear error + exit 1 before any mutation. |
-| M-007 | `.github/workflows/update-deps.yml` | Dropped hardcoded `ref: php8.4`; checkout now defaults to the repo's own default branch, so a consumer's copied file works verbatim. |
+| M-ID        | File                                                                              | Change                                                                                                                                                                    |
+| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M-021       | `composerScripts/installUpdateInfection.bash`                                     | Deleted (dead; the whole `composerScripts/` dir is now gone).                                                                                                             |
+| M-060       | `.claude/hooks/php-qa-ci__check-vendor-uncommitted.py`                            | Deleted (duplicate — see decision below).                                                                                                                                 |
+| M-015/16/19 | `deploy-skills.bash`, `setup-claude-qa-agent.bash`, `install-github-actions.bash` | Routed through the owned-install helpers; agents/skills/hooks/git-hook/qa.yml overwrite unconditionally with an informational notice.                                     |
+| M-017       | `setup-branch-protection.bash`                                                    | GET current protection → merge modeled fields (preserve existing contexts + push restrictions, normalise GET/PUT schema asymmetry) → diff summary → PUT. 404 ⇒ fresh PUT. |
+| M-018       | `setup-claude-qa-agent.bash`                                                      | `PROJECT_ROOT` resolved dynamically (explicit arg → composer.json walk-up requiring `lts/php-qa-ci` → historic 4-up fallback) instead of hardcoded vendor depth.          |
+| M-020       | `deploy-skills.bash`                                                              | Single `readonly DAEMON_INSTALL_REF="v3.9.0"` used by the "not detected" clone, consistent with the YAML enforcement path's v3.9.0+ assumption.                           |
+| M-063/M-064 | `install-github-actions.bash`                                                     | Deleted unused `check_php_version()`; that also removed the single-quoted inline-PHP path interpolation (M-064) since it lived inside that function.                      |
+| M-065       | `setup-branch-protection.bash`                                                    | `mktemp` temps + `trap … EXIT` (no predictable `/tmp/protection-result.txt`); SC2015 replaced with if/else; useless-cat removed.                                          |
+| M-066/M-067 | `tool-install.bash`                                                               | phive invocation built as an args array (no `eval`); `command -v phive` replaces `which phive 1>&2`.                                                                      |
+| M-068       | `git-hooks/pre-commit-check-vendor-uncommitted`                                   | `${repo_dir#"$PROJECT_ROOT"/}` (SC2295).                                                                                                                                  |
+| M-069       | `deploy-skills.bash`                                                              | `${VAR:?}` guards on the skills remove-then-copy (via helper) and the Phase-4 hook removal.                                                                               |
+| M-070       | `ci.bash`                                                                         | `cd "$DIR"`; `"$0 $*"` banners (SC2145); dead `standardIFS` removed.                                                                                                      |
+| M-073       | `deploy-skills.bash`                                                              | System `python3` checked ONCE up front; missing ⇒ clear error + exit 1 before any mutation.                                                                               |
+| M-007       | `.github/workflows/update-deps.yml`                                               | Dropped hardcoded `ref: php8.4`; checkout now defaults to the repo's own default branch, so a consumer's copied file works verbatim.                                      |
 
 ## Decisions & evidence
 
@@ -125,8 +125,7 @@ and documents TWO deliberate non-OWNED exceptions in its header:
 
 - **FLAG 2 — GitHub Actions workflow is SEED-ONCE, not OWNED.** The consumer docs contract is
   "customise this workflow" (matrix/triggers/secrets are per-project and cannot be expressed via
-  `qaConfig/`), so php-qa-ci must not own or re-sync it. New `install_seed_once <src> <dst>
-  [label]`: write only when absent; if present, leave untouched and print one info line pointing
+  `qaConfig/`), so php-qa-ci must not own or re-sync it. New `install_seed_once <src> <dst> [label]`: write only when absent; if present, leave untouched and print one info line pointing
   at the template for a manual re-sync. `install-github-actions.bash` now calls it (no prompt, no
   diff-check overwrite).
 

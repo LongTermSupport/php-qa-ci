@@ -82,9 +82,12 @@ behaviour, so none of them is reported:
 
 - The parameter is **promoted** (visibility or `readonly`) — PHP does not allow a promoted
   property to be variadic.
+
 - The parameter is **by-reference** (`&$x`) or **already variadic**.
+
 - The **signature already has a variadic**, so its one slot is spent and nothing else in that
   signature is convertible.
+
 - **The parameter itself, or any parameter after it, carries a default.** Two separate
   language limits, both fatal to the conversion.
 
@@ -102,19 +105,24 @@ behaviour, so none of them is reported:
   optional and implicitly empty, and there is no syntax for `string ...$items = ['a']`, so
   converting would silently drop a non-empty default and change what a caller passing
   nothing receives.
+
 - The docblock type is anything other than `list<T>` / `non-empty-list<T>` — including
   `array<T>` and `T[]` (see above), a **map** (`array<K, V>`), an `iterable<K, V>`, a
   **shape/object-like array** (`array{name: string}`), or **no `@param` entry** at all.
+
 - The native declared type is not `array` — an `iterable` parameter accepts a `Traversable`
   too, so a list docblock does not make it convertible.
+
 - The method is **`__construct`** — PHPStan's own neon DI container passes each
   `arguments:` entry as one positional value. A variadic constructor would silently
   re-interpret that one array argument as the first element of a spread instead of the
   whole list.
+
 - The method carries **`#[DataProvider]`** or **`#[DataProviderExternal]`** — PHPUnit
   passes each data-provider row's elements as separate arguments to the test method, so a
   `list<string>` element in a row is ONE argument, and a variadic parameter would change
   what the row means.
+
 - The method **implements an interface method or overrides a parent method** — the
   signature belongs to the supertype, not to this declaration. The interface's or parent
   class's own declaration is still checked, since nothing constrains *its* signature.

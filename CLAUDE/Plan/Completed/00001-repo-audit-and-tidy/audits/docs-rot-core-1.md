@@ -10,6 +10,7 @@
 ## 1. Table of Contents by Severity
 
 ### CRITICAL (6)
+
 - DC-001 — PSR-4 Validation is a **silent no-op**; the wiring script is a 0-byte file
 - DC-002 — PHPUnit Annotations Check is a **silent no-op**; the wiring script is fully commented out
 - DC-003 — "Configuration Cascade" describes a `configDefaults.inc.bash` file and per-platform `configDefaults/{platform}/` dirs that **do not exist**
@@ -18,6 +19,7 @@
 - DC-006 — PHIVE install step cites a **non-existent script** (`scripts/phive-install.bash`) and inverts the actual conditional logic
 
 ### MAJOR (7)
+
 - DC-007 — README undercounts opt-in PHPStan rules (claims 6+4=10; actual is 8+4=12)
 - DC-008 — README's "Always-on rules" list omits 8 of the ~14 rules actually wired in `rules-default.neon`
 - DC-009 — README says "three Composer plugins"; **four** are registered (`ManagedSourceDeployPlugin` omitted)
@@ -27,11 +29,13 @@
 - DC-013 — The `qaReadOnly` / `QA_READONLY` / aggregate-mode subsystem is completely undocumented in both root docs
 
 ### MINOR (3)
+
 - DC-014 — README's consolidated "Docs" list omits 2 of the 6 files actually in `docs/tools/`
 - DC-015 — An orphaned, unregistered hook file exists (`php-qa-ci__check-vendor-uncommitted.py`) that CLAUDE.md's "Included Hooks" list doesn't mention
 - DC-016 — PHPLoc "cannot fail the pipeline" claim is not clearly guaranteed by the code (SPECULATIVE)
 
 ### INFO (1)
+
 - DC-017 — Install instructions are internally consistent but not verified against a live registry (SPECULATIVE)
 
 ---
@@ -40,7 +44,7 @@
 
 ### DC-001 — CRITICAL — PSR-4 Validation is a silent no-op
 
-**Doc location**: `CLAUDE.md:84` (phase list, "PSR-4 Validation (`psr4Validate`)") and `CLAUDE.md:431-436` ("### PSR-4 Validate" tool section); also `README.md:65` ("3\. PSR-4 Validation").
+**Doc location**: `CLAUDE.md:84` (phase list, "PSR-4 Validation (`psr4Validate`)") and `CLAUDE.md:431-436` ("### PSR-4 Validate" tool section); also `README.md:65` ("3. PSR-4 Validation").
 
 **Quoted claim**: "**PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure" / "How it works: Reads composer.json autoload definitions, checks each PHP file's namespace matches its directory location."
 
@@ -81,14 +85,17 @@
 **Doc location**: `CLAUDE.md:146` (Key Configuration Variables code block).
 
 **Quoted claim**:
+
 ```bash
 phpUnitCoverage=${phpUnitCoverage:-0}
 ```
 
 **Actual behaviour**: `includes/generic/setConfig.inc.bash:54`:
+
 ```bash
 phpUnitCoverage=${phpUnitCoverage:-1}
 ```
+
 The real default is **`1` (coverage ON)**, not `0`. This is not cosmetic — it determines whether every default run pays the Xdebug coverage cost and whether Infection has coverage available to consume without a separate generation pass (see `includes/generic/infection.inc.bash`'s coverage-reuse logic, which assumes the phpunit step already produced coverage in the full-pipeline case).
 
 **Suggested correction**: Change the documented default to `1` and note the auto-downgrade to `0` when Xdebug is unavailable (`setConfig.inc.bash:56-60`).
@@ -138,6 +145,7 @@ The real default is **`1` (coverage ON)**, not `0`. This is not cosmetic — it 
 **Quoted claim**: Lists exactly 6 rules: `ForbidMockingFinalClassRule`, `ForbidAllowMockWithoutExpectationsRule`, `ForbidDangerousFunctionsRule`, `ForbidEmptyCatchBlockRule`, `RequireDeclareStrictTypesRule`, `RequireSensitiveParameterAttributeRule`.
 
 **Actual behaviour**: `rules-default.neon` wires up all 6 of those (verified), but also wires up, unconditionally and without opt-in:
+
 - `ForbidNewDateTimeRule`
 - `ForbidEmptyLanguageConstructRule`
 - `ForbidLooseComparisonRule`
@@ -160,6 +168,7 @@ That's 8 additional always-on rules — roughly doubling the actual always-on ru
 **Quoted claim**: "PHP-QA-CI registers three Composer plugins: - **PhiveUpdatePlugin**... - **SkillsDeployPlugin**... - **PhpStanGuardPlugin**...".
 
 **Actual behaviour**: `composer.json`'s `extra.class` array registers **four** plugin classes:
+
 ```json
 "class": [
   "LTS\\PHPQA\\ComposerPlugin\\PhiveUpdatePlugin",
@@ -168,6 +177,7 @@ That's 8 additional always-on rules — roughly doubling the actual always-on ru
   "LTS\\PHPQA\\ComposerPlugin\\ManagedSourceDeployPlugin"
 ]
 ```
+
 `src/ComposerPlugin/` contains 4 matching `.php` files. `ManagedSourceDeployPlugin` is not a stub — it's the plugin backing the entire "Managed Source" feature CLAUDE.md documents separately (`CLAUDE.md`'s "## Managed Source" section, `CLAUDE/managed-source.md`), and it is explicitly gated by the same `PHP_QA_CI_DISABLE_CONFIG_PUSH` env var README documents two sections earlier (`README.md:390-407`) for `SkillsDeployPlugin` — i.e. README already half-documents this plugin's behaviour without naming it.
 
 **Suggested correction**: "registers four Composer plugins", add `ManagedSourceDeployPlugin` to the list with a one-line description and a link to `CLAUDE/managed-source.md`.
@@ -179,6 +189,7 @@ That's 8 additional always-on rules — roughly doubling the actual always-on ru
 **Doc location**: `CLAUDE.md:92-101` (Phase 3 and Phase 4 headings).
 
 **Quoted claim**:
+
 ```
 ### Phase 3: Static Analysis Tools
 10. PHPStan (`phpstan`) - Static analysis tool

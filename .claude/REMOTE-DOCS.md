@@ -7,13 +7,13 @@ Documentation captured from upstream and stored locally, so it can be read
 and grepped without a network round trip. Each entry names the local file
 and the URL it came from.
 
-Capture a new page:  `bin/hooks-daemon remote-docs add <url>`
-Refresh everything:  `bin/hooks-daemon remote-docs refresh --all`
+Capture a new page: `bin/hooks-daemon remote-docs add <url>`
+Refresh everything: `bin/hooks-daemon remote-docs refresh --all`
 
-| Document | Source | Captured | Fresh until |
-| -------- | ------ | -------- | ----------- |
-| `defence-before-fix.github.io/DETECTOR-SPEC.md` | https://defence-before-fix.github.io/DETECTOR-SPEC.html | 2026-09-11 | 2026-12-10 |
-| `defence-before-fix.github.io/SPEC.md` | https://defence-before-fix.github.io/SPEC.html | 2026-09-11 | 2026-12-10 |
-| `defence-before-fix.github.io/TOOLING-SPEC.md` | https://defence-before-fix.github.io/TOOLING-SPEC.html | 2026-09-11 | 2026-12-10 |
-| `defence-before-fix.github.io/defence-before-fix-project-prompt.md` | https://defence-before-fix.github.io/defence-before-fix-project-prompt.md | 2026-09-08 | 2026-12-07 |
-| `defence-before-fix.github.io/tools/php-qa-ci.md` | https://defence-before-fix.github.io/tools/php-qa-ci.html | 2026-09-11 | 2026-12-10 |
+| Document                                                            | Source                                                                    | Captured   | Fresh until |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------- | ----------- |
+| `defence-before-fix.github.io/DETECTOR-SPEC.md`                     | https://defence-before-fix.github.io/DETECTOR-SPEC.html                   | 2026-09-11 | 2026-12-10  |
+| `defence-before-fix.github.io/SPEC.md`                              | https://defence-before-fix.github.io/SPEC.html                            | 2026-09-11 | 2026-12-10  |
+| `defence-before-fix.github.io/TOOLING-SPEC.md`                      | https://defence-before-fix.github.io/TOOLING-SPEC.html                    | 2026-09-11 | 2026-12-10  |
+| `defence-before-fix.github.io/defence-before-fix-project-prompt.md` | https://defence-before-fix.github.io/defence-before-fix-project-prompt.md | 2026-09-08 | 2026-12-07  |
+| `defence-before-fix.github.io/tools/php-qa-ci.md`                   | https://defence-before-fix.github.io/tools/php-qa-ci.html                 | 2026-09-11 | 2026-12-10  |

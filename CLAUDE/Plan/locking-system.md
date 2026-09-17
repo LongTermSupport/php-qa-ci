@@ -4,6 +4,7 @@
 > The locking/timing system this describes is implemented and in production use
 > (`includes/generic/lock.inc.bash`, `timing.inc.bash`, wired run-level in `bin/qa`), but two
 > parts of this document no longer match the code:
+>
 > - **Git tracking of `timing-data.json`**: the system now writes a `.gitignore` containing
 >   `*` in the lock directory, so **nothing** there is tracked (timing data varies per machine
 >   and created merge noise). Ignore any guidance here about committing `timing-data.json`.
@@ -32,9 +33,9 @@
 [✓] Test concurrent execution prevention
 [✓] Test timing data collection with path normalization
 [✓] Test ETA display
-[ ] Test cross-container behavior (desktop/yolo) - requires multi-container environment
-[ ] Update README.md with lock system documentation
-[ ] Add troubleshooting guide
+\[ \] Test cross-container behavior (desktop/yolo) - requires multi-container environment
+\[ \] Update README.md with lock system documentation
+\[ \] Add troubleshooting guide
 
 ## Critical Implementation Notes
 
@@ -43,12 +44,14 @@
 **Decision**: This system targets Linux with GNU coreutils only.
 
 **Rationale**:
+
 - Primary use case is Linux development environments (desktop, containers)
 - GNU `date -d` is required for ISO 8601 timestamp parsing
 - BSD/macOS systems have incompatible date command syntax
 - All target containers run on same Linux host (shared system clock)
 
 **Implementation**:
+
 ```bash
 # In initLockSystem() - fail fast if not GNU date
 if ! date -d "2025-01-01" +%s >/dev/null 2>&1; then
@@ -63,6 +66,7 @@ fi
 **Problem**: Without normalization, paths like `tests/Db`, `tests/Db/`, `./tests/Db` create separate timing data entries.
 
 **Solution**: Explicit normalization function:
+
 ```bash
 normalizePathForKey() {
     local path="$1"
@@ -81,6 +85,7 @@ normalizePathForKey() {
 ```
 
 **Usage in calculateEta()**:
+
 ```bash
 calculateEta() {
     local tool="$1"
@@ -104,6 +109,7 @@ calculateEta() {
 The global exec redirect operates at file descriptor level, NOT pipe level. Individual tool scripts using `tool 2>&1 | tee log` still capture correct exit codes via `${PIPESTATUS[0]}`.
 
 **Test confirmed**:
+
 ```bash
 exec > >(tee -a master.log) 2>&1
 false 2>&1 | tee tool.log
@@ -123,6 +129,7 @@ exitCode=${PIPESTATUS[0]}  # Correctly captures 1
 **Original Plan**: Acquire lock after `prepareDirectories` (line 150)
 
 **Problem**: This is BEFORE preflight steps:
+
 - PHIVE install (line 156)
 - Pre-hook execution (line 161)
 
@@ -146,6 +153,7 @@ acquireLock "$singleToolToRun" "$specifiedPath" || exit 1
 ## Summary
 
 Implement a file-level locking system for php-qa-ci to prevent concurrent QA tool execution across any project using the library. The system will:
+
 - Use lock files in `$projectRoot/qaConfig/.qa-lock/` directory (shared across containers)
 - Track command execution times in `timing-data.json` for accurate ETAs
 - Calculate ETAs based on historical data
@@ -160,12 +168,14 @@ Implement a file-level locking system for php-qa-ci to prevent concurrent QA too
 **Primary Lock File**: `$projectRoot/qaConfig/.qa-lock/qa-running.lock`
 
 **Why qaConfig?**
+
 - Can be shared between containers (desktop/yolo/lxc)
 - Not in var/ (which might be environment-specific)
 - Dedicated directory for lock-related files keeps things organized
 - Works for any project using php-qa-ci
 
 **Directory Structure**:
+
 ```
 $projectRoot/
 └── qaConfig/
@@ -217,6 +227,7 @@ $projectRoot/
 ```
 
 **Fields**:
+
 - `pid`: Process ID (informational only, not used for stale detection across containers)
 - `hostname`: Distinguish between containers/machines (informational)
 - `timestamp`: Lock acquisition time (ISO 8601)
@@ -233,6 +244,7 @@ $projectRoot/
 - `tools`: Array of tool execution records
 
 **Tool Record Fields**:
+
 - `name`: Tool name (e.g., "rector", "phpstan", "phpunit")
 - `started`: When tool started (ISO 8601)
 - `completed`: When tool finished (ISO 8601, omitted if still running)
@@ -244,10 +256,12 @@ $projectRoot/
 **Purpose**: Capture complete output of entire QA run including all tools
 
 **Location**: `$varDir/qa-run.YYYYMMDD-HHMMSS.log`
+
 - Where `$varDir` = `$projectRoot/var/qa/` (already set by QA pipeline)
 - Results in: `./var/qa/qa-run.YYYYMMDD-HHMMSS.log`
 
 **Why Master Logging**:
+
 - Provides complete audit trail of QA execution
 - Useful for debugging when tools fail
 - Referenced in lock file for easy access
@@ -272,6 +286,7 @@ export QA_MASTER_LOG
 ```
 
 **How It Works**:
+
 1. `exec >` redirects file descriptor 1 (stdout) for entire process
 2. `>(tee -a "$QA_MASTER_LOG")` is process substitution creating a pipe to `tee`
 3. `tee -a` appends to log file AND outputs to stdout (so user still sees everything)
@@ -280,6 +295,7 @@ export QA_MASTER_LOG
 6. Individual tools can still use their own `tee` commands (they just add another layer)
 
 **Benefits**:
+
 - ✅ Zero code changes needed in individual tool scripts
 - ✅ Captures EVERYTHING (tool output, debug messages, errors)
 - ✅ User still sees all output in real-time
@@ -287,6 +303,7 @@ export QA_MASTER_LOG
 - ✅ Master log is timestamped (won't overwrite previous runs)
 
 **Example Flow**:
+
 ```
 bin/qa runs:
   ├─ exec > >(tee qa-run.log) 2>&1  # Master logging starts
@@ -303,12 +320,14 @@ bin/qa runs:
 ```
 
 **Archive Policy**:
+
 - Keep last 10 master logs only (consistent with tool logs)
 - Automatically prune old logs when creating new master log
 - Uses same rotation logic as `archiveToolLog` function
 - NOT tracked in git (in `var/` directory)
 
 **Automatic Rotation Implementation**:
+
 ```bash
 # In initLockSystem() or when creating master log
 
@@ -371,11 +390,13 @@ This ensures disk usage stays bounded and mirrors the behavior of individual too
 ```
 
 **Command Key Format**: `{tool}:{pathType}:{normalizedPath}`
+
 - `tool`: Tool name (unit, phpstan, fixer) or pipeline phase (allStaticAnalysisTools)
 - `pathType`: "full-suite", "folder", or "file"
 - `normalizedPath`: Normalized path (empty for full-suite, folder path for folders)
 
 **Data Retention**:
+
 - Keep last 10 executions per command key
 - Recalculate average after each new execution
 - Prune old data when saving
@@ -428,14 +449,17 @@ Since PIDs are not unique across container boundaries (desktop/yolo/lxc have sep
 **Stale Lock Conditions** (ANY of these triggers stale detection):
 
 1. **Activity Timeout**: `last_activity` + 10 minutes < current time
+
    - Process should update `last_activity` every minute via heartbeat
    - If 10 minutes pass with no update, process is dead/stuck
 
 2. **ETA Timeout**: `eta_completion` + grace period < current time
+
    - Grace period: 10 minutes (allows for variance in execution time)
    - If way past expected completion, something went wrong
 
 **Implementation**:
+
 ```bash
 isStaleLock() {
     local lockFile="$1"
@@ -548,12 +572,14 @@ stopHeartbeat() {
 ### User-Facing Messages
 
 **When Lock Acquired Successfully**:
+
 ```
 [QA Lock] Acquired lock at 14:30:00
 [QA Lock] Estimated completion: 14:32:00 (2 minutes)
 ```
 
 **When Lock Already Held**:
+
 ```
 [QA Lock] Cannot start - another QA process is running
 [QA Lock] Process: ./bin/qa -t unit -p tests/Module
@@ -563,6 +589,7 @@ stopHeartbeat() {
 ```
 
 **When Stale Lock Detected**:
+
 ```
 [QA Lock] Detected stale lock from previous process
 [QA Lock] Started: 14:20:00 by developer on desktop-dev
@@ -572,6 +599,7 @@ stopHeartbeat() {
 ```
 
 OR (if ETA-based detection):
+
 ```
 [QA Lock] Detected stale lock from previous process
 [QA Lock] Started: 14:20:00 by developer on yolo-container
@@ -581,6 +609,7 @@ OR (if ETA-based detection):
 ```
 
 **On Successful Completion**:
+
 ```
 [QA Lock] Released lock at 14:32:15
 [QA Lock] Execution took 2 minutes 15 seconds
@@ -604,18 +633,21 @@ Created automatically by `initLockSystem()` function:
 ```
 
 **Why this approach is better**:
+
 - Self-contained within lock directory
 - No modification to project .gitignore needed
 - Clear ownership (lock system manages its own git rules)
 - Automatically created when lock directory is initialized
 
 **MUST be tracked** (committed to project git):
+
 ```
 qaConfig/.qa-lock/.gitignore       # Auto-generated, tracks lock system git rules
 qaConfig/.qa-lock/timing-data.json # Historical timing data
 ```
 
 **MUST NOT be tracked** (handled by .gitignore above):
+
 ```
 qaConfig/.qa-lock/*.lock           # Active lock files
 ```
@@ -627,6 +659,7 @@ qaConfig/.qa-lock/*.lock           # Active lock files
 **Purpose**: Core locking functionality
 
 **Functions**:
+
 - `initLockSystem()` - Initialize lock directory, .gitignore, and files
   - Creates `$projectRoot/qaConfig/.qa-lock/` directory if needed
   - Creates `.gitignore` inside directory (if not exists)
@@ -655,6 +688,7 @@ qaConfig/.qa-lock/*.lock           # Active lock files
   - Keeps tool record for debugging
 
 **Global Variables**:
+
 - `QA_LOCK_DIR` - Lock directory path
 - `QA_LOCK_FILE` - Lock file path
 - `QA_LOCK_ACQUIRED` - Flag indicating if we hold lock
@@ -666,6 +700,7 @@ qaConfig/.qa-lock/*.lock           # Active lock files
 **Purpose**: Command timing tracking and ETA calculation
 
 **Functions**:
+
 - `initTimingData()` - Initialize timing data file (create if doesn't exist)
 - `calculateEta()` - Calculate ETA for command
 - `recordCommandTiming()` - Record successful execution time
@@ -675,12 +710,15 @@ qaConfig/.qa-lock/*.lock           # Active lock files
 - `formatTimestamp()` - Format timestamp for display
 
 **Global Variables**:
+
 - `TIMING_DATA_FILE` - Timing data JSON file path
 - `QA_COMMAND_KEY` - Current command key
 - `QA_ETA_SECONDS` - Calculated ETA
 
 **Bootstrap Behavior**:
+
 - If `timing-data.json` doesn't exist, create with empty structure:
+
 ```json
 {
   "metadata": {
@@ -690,12 +728,14 @@ qaConfig/.qa-lock/*.lock           # Active lock files
   "commands": {}
 }
 ```
+
 - First run of any command uses 15-minute default ETA
 - Subsequent runs use accumulated timing data
 
 ### Integration Points in `bin/qa`
 
 **After line 150 (after prepareDirectories)**:
+
 ```bash
 # Source lock system
 source "${qaDir}/includes/generic/lock.inc.bash"
@@ -707,12 +747,14 @@ acquireLock "$singleToolToRun" "$specifiedPath" || exit 1
 ```
 
 **After line 207 (after all tools complete)**:
+
 ```bash
 # Record timing and release lock
 releaseLock "$?"  # Pass exit code
 ```
 
 **Trap setup (early in script, after initial variables)**:
+
 ```bash
 # Set up cleanup trap
 trap 'stopHeartbeat; releaseLock 1' EXIT ERR INT TERM
@@ -780,10 +822,12 @@ This approach is more explicit but requires changes at each tool call site.
 **Rule**: If `-p` argument ends with a file extension, treat as file
 
 **Examples**:
+
 - `-p tests/Unit/SomeTest.php` → `pathType="file"`, `ETA=30s`
 - `-p src/Service/SomeService.php` → `pathType="file"`, `ETA=30s`
 
 **Implementation**:
+
 ```bash
 if [[ "$path" =~ \.[a-zA-Z0-9]+$ ]]; then
     pathType="file"
@@ -795,10 +839,12 @@ fi
 **Rule**: If `-p` argument is a directory, track timing data
 
 **Examples**:
+
 - `-p tests/Unit` → `pathType="folder"`, track timing, key: `unit:folder:tests/Unit`
 - `-p src/Service` → `pathType="folder"`, track timing, key: `phpstan:folder:src/Service`
 
 **Path Normalization**:
+
 - Remove trailing slashes
 - Remove leading `./`
 - Store relative to project root
@@ -808,6 +854,7 @@ fi
 **Rule**: No `-p` argument means full suite execution
 
 **Examples**:
+
 - `./bin/qa -t unit` → `pathType="full-suite"`, key: `unit:full-suite`
 - `./bin/qa` → `pathType="full-suite"`, key: `allTestingTools:full-suite`
 
@@ -816,15 +863,18 @@ fi
 ### Lock Acquisition Failures
 
 **Scenario 1: Lock file already exists (not stale)**
+
 - Display lock status message
 - Show expected completion time
 - Exit with code 1
 
 **Scenario 2: Cannot create lock directory**
+
 - Display error message
 - Exit with code 1
 
 **Scenario 3: Cannot write lock file**
+
 - Display error message
 - Clean up partial lock directory
 - Exit with code 1
@@ -832,15 +882,18 @@ fi
 ### Lock Release Failures
 
 **Scenario 1: Lock file doesn't exist**
+
 - Log warning (shouldn't happen)
 - Continue normally
 
 **Scenario 2: Cannot write timing data**
+
 - Log warning
 - Remove lock file anyway
 - Continue normally
 
 **Scenario 3: Cannot remove lock file**
+
 - Log error
 - Manual cleanup required
 - Exit with warning message
@@ -850,16 +903,19 @@ fi
 ### Container-Agnostic Stale Detection
 
 **Time-Based Detection Only**:
+
 - No reliance on PIDs (which are container-specific)
 - Works across desktop/yolo/lxc container boundaries
 - Two independent checks (activity timeout AND eta timeout)
 
 **Activity Timeout**:
+
 - Background heartbeat updates `last_activity` every 60 seconds
 - 10-minute timeout after last activity
 - Detects dead/stuck processes reliably
 
 **ETA Timeout**:
+
 - 10-minute grace period after expected completion
 - Handles variance in execution time
 - Prevents premature lock removal
@@ -867,12 +923,14 @@ fi
 ### Heartbeat Mechanism
 
 **Background Process**:
+
 - Updates `last_activity` every minute
 - Runs as child process of main QA script
 - Automatically cleaned up when parent exits
 - Terminates when lock file removed
 
 **Reliability**:
+
 - If main process dies, heartbeat stops updating
 - After 10 minutes, lock becomes stale
 - Works regardless of how process died (kill -9, crash, etc.)
@@ -880,12 +938,14 @@ fi
 ### Atomic Operations
 
 **Lock File Creation**:
+
 - Use `mv` for atomic lock file creation
 - Create temp file first, then move into place
 - Prevents partial lock files
 - Race condition safe
 
 **Lock File Updates** (heartbeat):
+
 - Create temp file with updated timestamp
 - Atomically replace original with `mv`
 - Prevents corruption during updates
@@ -897,6 +957,7 @@ trap 'stopHeartbeat; releaseLock 1; exit 1' EXIT ERR INT TERM
 ```
 
 Ensures lock cleanup on:
+
 - Normal exit
 - Error exit
 - Ctrl+C (SIGINT)
@@ -909,12 +970,14 @@ Ensures lock cleanup on:
 ### Manual Testing
 
 1. **Basic lock acquisition/release**:
+
    ```bash
    ./bin/qa -t unit
    # Verify lock created, released on completion
    ```
 
 2. **Concurrent execution prevention**:
+
    ```bash
    ./bin/qa -t unit &
    sleep 1
@@ -923,6 +986,7 @@ Ensures lock cleanup on:
    ```
 
 3. **Stale lock detection**:
+
    ```bash
    # Manually create old lock file with past timestamps
    # Run QA tool
@@ -930,6 +994,7 @@ Ensures lock cleanup on:
    ```
 
 4. **File vs folder path handling**:
+
    ```bash
    ./bin/qa -t unit -p tests/Unit/SomeTest.php
    # Should use 30s ETA
@@ -939,6 +1004,7 @@ Ensures lock cleanup on:
    ```
 
 5. **Timing data collection**:
+
    ```bash
    ./bin/qa -t unit -p tests/Unit
    # Run multiple times
@@ -947,6 +1013,7 @@ Ensures lock cleanup on:
    ```
 
 6. **Cross-container testing**:
+
    ```bash
    # On desktop: Start long-running test
    ./bin/qa -t unit &
@@ -971,6 +1038,7 @@ Ensures lock cleanup on:
 ## Rollout Plan
 
 ### Phase 1: Implementation
+
 1. Create `includes/generic/lock.inc.bash` with all lock functions
 2. Create `includes/generic/timing.inc.bash` with timing functions
 3. Modify `bin/qa` for integration (source modules, acquire/release lock)
@@ -979,7 +1047,9 @@ Ensures lock cleanup on:
 6. Commit and push to php-qa-ci repository
 
 ### Phase 2: Project Adoption
+
 Projects using php-qa-ci will:
+
 1. Run `composer update lts/php-qa-ci` to pull in changes
 2. Run `./bin/qa` once to initialize lock system
    - Creates `qaConfig/.qa-lock/` directory
@@ -991,12 +1061,14 @@ Projects using php-qa-ci will:
 4. No manual .gitignore edits needed!
 
 ### Phase 3: Testing Across Projects
+
 1. Test on multiple projects using php-qa-ci
 2. Verify lock behavior is consistent
 3. Verify timing data tracks independently per project
 4. Test cross-container behavior for each project's setup
 
 ### Phase 4: Documentation
+
 1. Update `README.md` with lock system overview
 2. Create `docs/locking-system.md` with detailed documentation
 3. Document lock file location and behavior
@@ -1010,6 +1082,7 @@ Projects using php-qa-ci will:
 ### Risk 1: Stale locks blocking work
 
 **Mitigation**:
+
 - Conservative grace periods (10 minutes for both activity and ETA)
 - Dual detection (activity timeout AND eta timeout)
 - Clear error messages with resolution steps
@@ -1018,6 +1091,7 @@ Projects using php-qa-ci will:
 ### Risk 2: Cross-container PID conflicts
 
 **Mitigation**:
+
 - ✅ **Solved**: No PID-based stale detection
 - Time-based detection works across all containers
 - Hostname included for informational purposes only
@@ -1026,6 +1100,7 @@ Projects using php-qa-ci will:
 ### Risk 3: Corrupted timing data
 
 **Mitigation**:
+
 - Validate JSON before reading
 - Fall back to defaults on parse errors
 - Rebuild from empty if corrupted
@@ -1034,6 +1109,7 @@ Projects using php-qa-ci will:
 ### Risk 4: Lock directory permissions
 
 **Mitigation**:
+
 - Check write permissions before lock
 - Create directory with appropriate permissions
 - Clear error messages on permission failures
@@ -1041,6 +1117,7 @@ Projects using php-qa-ci will:
 ### Risk 5: Shared library updates breaking projects
 
 **Mitigation**:
+
 - Lock system is opt-in (initializes on first run)
 - Backwards compatible (doesn't break existing usage)
 - Self-contained (all changes in php-qa-ci repo)

@@ -32,8 +32,8 @@ Infection has been configured to require both a minimum MSI and covered MSI to b
 By default these are set to 60% for MSI, and 80% for covered MSI. These values can be overwritten by using environment
 variables. To do this, simply export the following before running qa:
 
- * `mutationScoreIndicator` to set the MSI level
- * `coveredCodeMSI` to set the covered MSI level
+- `mutationScoreIndicator` to set the MSI level
+- `coveredCodeMSI` to set the covered MSI level
 
 See the following page for more information on MSIs being used in CI [https://infection.github.io/guide/using-with-ci.html](https://infection.github.io/guide/using-with-ci.html)
 
@@ -49,7 +49,6 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
 You can see that this is being done in the phpqa project itself in its own [qaConfig/qa.php](./../../qaConfig/qa.php). For a single run the `mutationScoreIndicator` and `coveredCodeMSI` environment variables still work.
 
 #### Disabling Infection
-
 
 If you would like to disable infection, simply export the environment variable `useInfection` with the value `0`:
 

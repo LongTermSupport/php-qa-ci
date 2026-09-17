@@ -9,6 +9,7 @@ fetch_method: https-get
 ---
 
 <!DOCTYPE html>
+
 <html lang="en-GB">
 <head>
   <meta charset="utf-8">
@@ -32,7 +33,6 @@ fetch_method: https-get
 {"@context":"https://schema.org","@type":"WebPage","author":{"@type":"Person","name":"Joseph Edmonds"},"description":"A phase that runs before a defect is fixed. The method, detector and toolchain specifications.","headline":"php-qa-ci and Defence Before Fix","url":"https://defence-before-fix.github.io/tools/php-qa-ci.html"}</script>
 <!-- End Jekyll SEO tag -->
 
-  
 <link rel="canonical" href="https://defence-before-fix.github.io/tools/php-qa-ci.html">
 <script type="application/ld+json">
 {
@@ -62,11 +62,11 @@ fetch_method: https-get
 }
 </script>
 
-  <link rel="stylesheet" href="/assets/css/site.css">
+<link rel="stylesheet" href="/assets/css/site.css">
   <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
 </head>
 <body>
-  
+
 <header class="site-header">
   <p class="site-title"><a href="/">Defence Before Fix (DBF)</a></p>
   <nav aria-label="Site">
@@ -78,15 +78,15 @@ fetch_method: https-get
     <a href="/PROVENANCE.html">Provenance</a>
     <a href="/CHANGELOG.html">Changelog</a>
     <a href="/defence-before-fix-project-prompt.md">Agents</a>
-    
-  </nav>
+
+</nav>
   <p class="site-byline agent-line">Agents: read <a href="/defence-before-fix-project-prompt.md">the project prompt</a>
     (raw markdown), or start from <a href="/llms.txt">llms.txt</a>.</p>
   <p class="site-byline">By <a href="https://ltscommerce.dev">Joseph Edmonds</a> of
     <a href="https://edmondscommerce.co.uk">Edmonds Commerce</a>. First published 22 February 2026.</p>
 </header>
 
-  <main>
+<main>
     <h1 id="php-qa-ci">php-qa-ci</h1>
 
 <table class="tool-grades">
@@ -95,12 +95,15 @@ fetch_method: https-get
     <tr><th scope="row">Kind</th><td>toolchain</td></tr>
     <tr><th scope="row"><a href="/tools/#grades">Readiness</a></th><td>🟢</td></tr>
     <tr><th scope="row"><a href="/DETECTOR-SPEC.html#8-conformance">Detector conformance</a></th><td>🟡</td></tr>
-    
-    <tr><th scope="row"><a href="/TOOLING-SPEC.html#9-conformance">Toolchain conformance</a></th><td>🟡</td></tr>
-    <tr><th scope="row"><a href="/TOOLING-SPEC.html#91-a-project-that-ships-a-detector-or-a-toolchain-has-two-levels-of-conformance-graded-separately">Project conformance</a></th><td>🟡</td></tr>
-    
-    <tr><th scope="row">Checked</th><td>2026-09-08, branch php8.4 at commit e25aba4, declaration merged at 4d9b2ba</td></tr>
-  </tbody>
+
+```
+<tr><th scope="row"><a href="/TOOLING-SPEC.html#9-conformance">Toolchain conformance</a></th><td>🟡</td></tr>
+<tr><th scope="row"><a href="/TOOLING-SPEC.html#91-a-project-that-ships-a-detector-or-a-toolchain-has-two-levels-of-conformance-graded-separately">Project conformance</a></th><td>🟡</td></tr>
+
+<tr><th scope="row">Checked</th><td>2026-09-08, branch php8.4 at commit e25aba4, declaration merged at 4d9b2ba</td></tr>
+```
+
+</tbody>
 </table>
 
 <p>php-qa-ci is a Composer plugin that wraps PHPStan, PHPArkitect, PHPUnit, PHP CS Fixer, Rector, Infection and a set of its own lanes behind one <code class="language-plaintext highlighter-rouge">bin/qa</code> entry point, ships a bundle of PHPStan rules with their documentation, and writes an agent-facing block into the consuming project. It is the PHP reference toolchain for this method, and this page grades it with the same scrutiny as every other entry (<a href="https://github.com/LongTermSupport/php-qa-ci">repository</a>).</p>
@@ -358,8 +361,8 @@ fetch_method: https-get
 
 <p>Install the plugin, write the rule under <code class="language-plaintext highlighter-rouge">rules:</code> with a <code class="language-plaintext highlighter-rouge">phpqaci</code>-style identifier constant, prove it with <code class="language-plaintext highlighter-rouge">bin/phpstan-rule</code> on a fixture, sweep with <code class="language-plaintext highlighter-rouge">bin/qa -t phpstan</code>, and add the documentation page so <code class="language-plaintext highlighter-rouge">bin/rule-doc</code> resolves it to a correct construction and not only to a summary. Run <code class="language-plaintext highlighter-rouge">bin/rules .</code> first on any project you arrive at: the listing and the justified exceptions are the record the method tells you to read before guessing. Treat a PHPArkitect violation as a defence with no identifier, keep <code class="language-plaintext highlighter-rouge">phparkitect-baseline.json</code> out of the repository, and put any PHPStan baseline entries in <code class="language-plaintext highlighter-rouge">qaConfig/phpstan.neon</code> itself so the justification lane sees them.</p>
 
-  </main>
-  
+</main>
+
 <footer class="site-footer">
   <p>Method specification 1.0.1, detector specification 1.0.0 and
     toolchain specification 0.2.0, published 8 September 2026. Source and history at

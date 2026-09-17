@@ -9,6 +9,7 @@ fetch_method: https-get
 ---
 
 <!DOCTYPE html>
+
 <html lang="en-GB">
 <head>
   <meta charset="utf-8">
@@ -32,7 +33,6 @@ fetch_method: https-get
 {"@context":"https://schema.org","@type":"WebPage","author":{"@type":"Person","name":"Joseph Edmonds"},"description":"A phase that runs before a defect is fixed. The method, detector and toolchain specifications.","headline":"Defence Before Fix: Toolchain Specification","url":"https://defence-before-fix.github.io/TOOLING-SPEC.html"}</script>
 <!-- End Jekyll SEO tag -->
 
-  
 <link rel="canonical" href="https://defence-before-fix.github.io/TOOLING-SPEC.html">
 <script type="application/ld+json">
 {
@@ -62,12 +62,12 @@ fetch_method: https-get
 }
 </script>
 
-  <link rel="stylesheet" href="/assets/css/site.css">
+<link rel="stylesheet" href="/assets/css/site.css">
   <link rel="alternate" type="text/markdown" href="/raw/TOOLING-SPEC.md" title="Raw markdown">
   <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
 </head>
 <body>
-  
+
 <header class="site-header">
   <p class="site-title"><a href="/">Defence Before Fix (DBF)</a></p>
   <nav aria-label="Site">
@@ -79,8 +79,8 @@ fetch_method: https-get
     <a href="/PROVENANCE.html">Provenance</a>
     <a href="/CHANGELOG.html">Changelog</a>
     <a href="/defence-before-fix-project-prompt.md">Agents</a>
-    
-  </nav>
+
+</nav>
   <p class="site-byline agent-line">Agents: read <a href="/defence-before-fix-project-prompt.md">the project prompt</a>
     (raw markdown), or start from <a href="/llms.txt">llms.txt</a>.
     This page as <a href="/raw/TOOLING-SPEC.md">raw markdown</a>.</p>
@@ -88,7 +88,7 @@ fetch_method: https-get
     <a href="https://edmondscommerce.co.uk">Edmonds Commerce</a>. First published 22 February 2026.</p>
 </header>
 
-  <main>
+<main>
     <h1 id="defence-before-fix-toolchain-specification">Defence Before Fix: Toolchain Specification</h1>
 
 <p><strong>Version</strong>: 0.2.0, published 2026-09-08
@@ -304,41 +304,45 @@ resolver of its own. The <a href="/SPEC.html#detector">Detector</a> together wit
     <p><strong>How the wrapped pair is judged.</strong> Start from the gap, not from what the <a href="/SPEC.html#detector">Detector</a> does
 well:</p>
 
-    <table>
-      <thead>
-        <tr>
-          <th>The <a href="/SPEC.html#detector">Detector</a>’s gap</th>
-          <th>What the <a href="/SPEC.html#toolchain">Toolchain</a> adds</th>
-          <th>This clause</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Resolves none of its <a href="/SPEC.html#identifier">Identifiers</a> offline</td>
-          <td>A resolver keyed on the <a href="/SPEC.html#identifier">Identifier</a>, covering all of them</td>
-          <td>Holds</td>
-        </tr>
-        <tr>
-          <td>Two <a href="/DETECTOR-SPEC.html#bundled-rule">Bundled rules</a> have no documentation</td>
-          <td>Nothing for those two</td>
-          <td>Fails</td>
-        </tr>
-        <tr>
-          <td>Two <a href="/DETECTOR-SPEC.html#bundled-rule">Bundled rules</a> have no documentation</td>
-          <td>Its own documentation for those two, resolved by <a href="/SPEC.html#identifier">Identifier</a></td>
-          <td>Holds</td>
-        </tr>
-      </tbody>
-    </table>
+```
+<table>
+  <thead>
+    <tr>
+      <th>The <a href="/SPEC.html#detector">Detector</a>’s gap</th>
+      <th>What the <a href="/SPEC.html#toolchain">Toolchain</a> adds</th>
+      <th>This clause</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolves none of its <a href="/SPEC.html#identifier">Identifiers</a> offline</td>
+      <td>A resolver keyed on the <a href="/SPEC.html#identifier">Identifier</a>, covering all of them</td>
+      <td>Holds</td>
+    </tr>
+    <tr>
+      <td>Two <a href="/DETECTOR-SPEC.html#bundled-rule">Bundled rules</a> have no documentation</td>
+      <td>Nothing for those two</td>
+      <td>Fails</td>
+    </tr>
+    <tr>
+      <td>Two <a href="/DETECTOR-SPEC.html#bundled-rule">Bundled rules</a> have no documentation</td>
+      <td>Its own documentation for those two, resolved by <a href="/SPEC.html#identifier">Identifier</a></td>
+      <td>Holds</td>
+    </tr>
+  </tbody>
+</table>
 
-    <p>Behind the table is one question. With the wrapping in place, does the <a href="/SPEC.html#detector">Detector</a>
+<p>Behind the table is one question. With the wrapping in place, does the <a href="/SPEC.html#detector">Detector</a>
+```
+
 meet every MUST of sections 4 to 7 of the <a href="/DETECTOR-SPEC.html">detector specification</a>,
 exercised as its clause 8.1 describes? If yes, this clause holds. If no, it fails, however
 much else the <a href="/SPEC.html#detector">Detector</a> does well, and whether or not a clause below names the same gap
 again. Wrapping can add a mechanism; it cannot excuse a gap. The <a href="/SPEC.html#detector">Detector</a>’s own verdict
 under that document is unchanged by the wrapping. Satisfying most of that document is not
 <a href="/SPEC.html#conform">Conformance</a> to it, any more than satisfying most of this one is.</p>
-  </li>
+
+</li>
   <li>
     <p><strong>What cannot be wrapped.</strong> A <a href="/SPEC.html#detector">Detector</a> that cannot host a bespoke <a href="/SPEC.html#rule">Rule</a> at all
 cannot be wrapped into <a href="/SPEC.html#conform">Conformance</a>, and no <a href="/SPEC.html#defence">Defence</a> is routed through it.
@@ -674,9 +678,8 @@ does not have to build them alone.</p>
 
 <!-- Term link definitions -->
 
+</main>
 
-  </main>
-  
 <footer class="site-footer">
   <p>Method specification 1.0.1, detector specification 1.0.0 and
     toolchain specification 0.2.0, published 8 September 2026. Source and history at

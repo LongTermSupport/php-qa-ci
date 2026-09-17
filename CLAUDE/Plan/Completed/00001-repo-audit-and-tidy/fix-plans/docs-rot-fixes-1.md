@@ -14,13 +14,13 @@ M-054..M-062, M-080..M-084) plus theme clusters (b) fabrications and (c) missing
 The docs estate has **structural duplication, not just individual drift**. The same fact is
 hand-authored in 2-4 places that evolve independently:
 
-| Fact | Duplicated in | Findings |
-|---|---|---|
+| Fact                                 | Duplicated in                                                              | Findings                                                                                                      |
+| ------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Platform detection (Symfony/generic) | `docs/platform-detection.md`, `docs/pipeline.md`, `CLAUDE.md`, `README.md` | M-005 — all 4 share one fabricated "Laravel" claim, a single origin that propagated, not 4 independent errors |
-| Phase/tool inventory + ordering | `CLAUDE.md`, `README.md`, `docs/pipeline.md`, `docs/phpqa-tools.md` | M-031, M-032, M-033, M-034 |
-| PHPStan rule counts/lists | `README.md`, `docs/tools/phpstan.md` | M-029 |
-| Composer plugin count | `README.md` (sole location, but drifted from `composer.json`) | M-030 |
-| Config cascade mechanism | `CLAUDE.md`, `docs/configuration.md` | M-006 |
+| Phase/tool inventory + ordering      | `CLAUDE.md`, `README.md`, `docs/pipeline.md`, `docs/phpqa-tools.md`        | M-031, M-032, M-033, M-034                                                                                    |
+| PHPStan rule counts/lists            | `README.md`, `docs/tools/phpstan.md`                                       | M-029                                                                                                         |
+| Composer plugin count                | `README.md` (sole location, but drifted from `composer.json`)              | M-030                                                                                                         |
+| Config cascade mechanism             | `CLAUDE.md`, `docs/configuration.md`                                       | M-006                                                                                                         |
 
 Every one of these is a **hand-synced SSoT violation**: nobody owns the fact, so nobody notices
 when one copy drifts. This mirrors M-011 in the bash layer (tool registry hand-synced 3-4 ways) —
@@ -64,14 +64,14 @@ Assign exactly one SSoT per fact, everything else links to it instead of restati
 
 ### 1.3 DS verdict actions (delete / merge / archive)
 
-| Doc | DS verdict | Action | WP |
-|---|---|---|---|
-| `docs/platform-detection.md` | ROTTEN | **Rewrite** (fabrication only; subsystem is real and needs a doc) — becomes the sole SSoT per §1.2 | WP-D3 |
-| `CLAUDE/Plan/skills-deployment-system-2025-11.md` | ROTTEN | **Archive-with-disclaimer** into `CLAUDE/Plan/Superseded/` — 705-line real script vs 70-line stale example, not worth a full rewrite in this pass | WP-D13 |
-| `docs/_config.yml` | DELETE-CANDIDATE | **Delete** — confirmed dead (no Pages workflow, `gh api .../pages` → 404, single commit, no Jekyll scaffolding) | WP-D13 |
-| `CLAUDE/ANALYSIS/timing-schema-analysis.md` | OBSOLETE-ARCHIVE (borderline DELETE) | **Delete** — zero repo references, reviews a stale draft whose line citations don't resolve against the current doc, 4/5 concerns never acted on | WP-D13 |
-| `CLAUDE/Plan/worktree-git-env-fix.md` | OBSOLETE-ARCHIVE | **Move** to `CLAUDE/Plan/Completed/` — implemented exactly as described, clean historical record | WP-D13 |
-| `CLAUDE/Plan/locking-system.md` | DRIFTED (2 stale claims) | **Relocate + fix** — this is the *only* documentation of a live, run-aborting subsystem; living under `Plan/` mislabels it as a proposal. Move to `CLAUDE/locking-system.md`, fix DS-006/DS-007 | WP-D11 (gated) |
+| Doc                                               | DS verdict                           | Action                                                                                                                                                                                          | WP             |
+| ------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `docs/platform-detection.md`                      | ROTTEN                               | **Rewrite** (fabrication only; subsystem is real and needs a doc) — becomes the sole SSoT per §1.2                                                                                              | WP-D3          |
+| `CLAUDE/Plan/skills-deployment-system-2025-11.md` | ROTTEN                               | **Archive-with-disclaimer** into `CLAUDE/Plan/Superseded/` — 705-line real script vs 70-line stale example, not worth a full rewrite in this pass                                               | WP-D13         |
+| `docs/_config.yml`                                | DELETE-CANDIDATE                     | **Delete** — confirmed dead (no Pages workflow, `gh api .../pages` → 404, single commit, no Jekyll scaffolding)                                                                                 | WP-D13         |
+| `CLAUDE/ANALYSIS/timing-schema-analysis.md`       | OBSOLETE-ARCHIVE (borderline DELETE) | **Delete** — zero repo references, reviews a stale draft whose line citations don't resolve against the current doc, 4/5 concerns never acted on                                                | WP-D13         |
+| `CLAUDE/Plan/worktree-git-env-fix.md`             | OBSOLETE-ARCHIVE                     | **Move** to `CLAUDE/Plan/Completed/` — implemented exactly as described, clean historical record                                                                                                | WP-D13         |
+| `CLAUDE/Plan/locking-system.md`                   | DRIFTED (2 stale claims)             | **Relocate + fix** — this is the *only* documentation of a live, run-aborting subsystem; living under `Plan/` mislabels it as a proposal. Move to `CLAUDE/locking-system.md`, fix DS-006/DS-007 | WP-D11 (gated) |
 
 ---
 
@@ -240,8 +240,7 @@ Each WP lists: scope (files), M-IDs closed, exact old→new corrections with evi
 - **Corrections**:
   - `docs/tools/phpunit.md:87-92` claims coverage mode makes PHPUnit "fail on the first error"
     and "not enforce any time limits." Both are wrong: `--stop-on-*` only applies in the separate
-    `phpUnitIterativeMode` branch (code comment: `# Note: Removed stop-on-failure flags to allow
-    full test runs in CI`, i.e. deliberately reverted); `--enforce-time-limit` is only skipped in
+    `phpUnitIterativeMode` branch (code comment: `# Note: Removed stop-on-failure flags to allow full test runs in CI`, i.e. deliberately reverted); `--enforce-time-limit` is only skipped in
     the **CI**+coverage branch — local-dev+coverage still enforces it. Rewrite both claims to
     match `includes/generic/phpunit.inc.bash`.
   - `docs/coding-standards.md:21` names the ruleset `@PHP84Migration`; the real key
@@ -269,8 +268,7 @@ Each WP lists: scope (files), M-IDs closed, exact old→new corrections with evi
 
 - **Scope**: `docs/github-actions.md`
 - **Closes**: M-007 (doc-side only — see DANGER)
-- **Correction (doc-only, do now)**: `:181-185` instructs `cp
-  vendor/lts/php-qa-ci/.github/workflows/update-deps.yml .github/workflows/update-deps.yml`. That
+- **Correction (doc-only, do now)**: `:181-185` instructs `cp vendor/lts/php-qa-ci/.github/workflows/update-deps.yml .github/workflows/update-deps.yml`. That
   file hardcodes `ref: php8.4` (php-qa-ci's own dogfooding branch) with no templated/dynamic
   branch resolution, unlike `qa-autofix.yml` which resolves
   `github.event.repository.default_branch`. Following the instruction as written ships a workflow
@@ -307,8 +305,7 @@ Each WP lists: scope (files), M-IDs closed, exact old→new corrections with evi
   `CLAUDE/Plan/Superseded/` directories
 - **Closes**: M-039, M-060, M-061, M-062, M-084
 - **Actions**:
-  - **Delete** `docs/_config.yml` — confirmed dead: no GitHub Pages workflow, `gh api
-    repos/.../pages` → 404, single commit, no Jekyll scaffolding (`Gemfile`, `index.md`,
+  - **Delete** `docs/_config.yml` — confirmed dead: no GitHub Pages workflow, `gh api repos/.../pages` → 404, single commit, no Jekyll scaffolding (`Gemfile`, `index.md`,
     `_layouts/` all absent).
   - **Delete** `CLAUDE/ANALYSIS/timing-schema-analysis.md` — zero repo references anywhere; its
     own line-number citations ("line 680-683" etc.) don't resolve against the current 1083-line
@@ -366,21 +363,21 @@ Each WP lists: scope (files), M-IDs closed, exact old→new corrections with evi
 Pure-truth corrections first (zero code dependency), grouped to avoid re-touching the same file
 twice; code-decision-dependent WPs last, explicitly gated.
 
-1. **WP-D8** — CI-repro self-contradiction (highest real-world harm, trivial fix)
-2. **WP-D3** — Laravel fabrication cluster (cheap, high-visibility, one root cause)
-3. **WP-D1** — Pipeline phase/tool inventory consolidation (foundational — WP-D2/WP-D6 touch the
-   same root docs, land after numbering is stable)
-4. **WP-D2** — Config cascade + config variables
-5. **WP-D4** — PHPStan/PHPArkitect rule counts
-6. **WP-D5** — Composer plugin count + doc-list completeness
-7. **WP-D6** — PHIVE install description + PHP version requirement
-8. **WP-D7** — Tool-specific corrections (infection/phpunit/coding-standards/github-actions)
-9. **WP-D9** — update-deps.yml doc-only interim warning (full fix flagged cross-plan)
+01. **WP-D8** — CI-repro self-contradiction (highest real-world harm, trivial fix)
+02. **WP-D3** — Laravel fabrication cluster (cheap, high-visibility, one root cause)
+03. **WP-D1** — Pipeline phase/tool inventory consolidation (foundational — WP-D2/WP-D6 touch the
+    same root docs, land after numbering is stable)
+04. **WP-D2** — Config cascade + config variables
+05. **WP-D4** — PHPStan/PHPArkitect rule counts
+06. **WP-D5** — Composer plugin count + doc-list completeness
+07. **WP-D6** — PHIVE install description + PHP version requirement
+08. **WP-D7** — Tool-specific corrections (infection/phpunit/coding-standards/github-actions)
+09. **WP-D9** — update-deps.yml doc-only interim warning (full fix flagged cross-plan)
 10. **WP-D10** — Branch-policy fabricated fallback list
 11. **WP-D13** — Dead/orphan doc cleanup, deletions, archival convention
 
-   —— code-decision gate: the following cannot start until the named M-ID is resolved by the
-   bash-refactor plan ——
+—— code-decision gate: the following cannot start until the named M-ID is resolved by the
+bash-refactor plan ——
 
 12. **WP-D11** — Locking/timing subsystem promotion + fix — **gated on M-023** (wire
     `toolStart`/`toolComplete`/`toolFailed` into `runTool`, or formally retire them)
@@ -392,13 +389,13 @@ twice; code-decision-dependent WPs last, explicitly gated.
 
 ### DANGER — explicit code-decision dependency list
 
-| M-ID | Decision needed | Owner | Blocks |
-|---|---|---|---|
-| **M-001** | Restore `psr4Validate.inc.bash` wiring, or formally retire PSR-4 validation | bash-refactor-1.md | WP-D12 |
-| **M-002** | Re-enable `phpunitAnnotations.inc.bash`, or formally retire the check | bash-refactor-1.md | WP-D12 |
-| **M-023** | Wire `toolStart`/`toolComplete`/`toolFailed` into `runTool`, or delete the dead functions | bash-refactor-1.md | WP-D11 |
-| **M-041** | Confirm `phpUnitCoverage` default `1` is intentional (soft — strong corroborating evidence from `infection.inc.bash`'s coverage-reuse assumption; does not block WP-D2, but if later found accidental, reverting the default is a code decision, not a doc fix) | bash-refactor-1.md (confirm only) | none (informational) |
-| **M-007** (not in the prompt's list, added here) | Create a templated, dynamically-branched `templates/github-actions/update-deps.yml` | consumer-scripts-1.md / bash-refactor-1.md | WP-D9's full resolution (doc-only interim fix ships now) |
+| M-ID                                             | Decision needed                                                                                                                                                                                                                                                 | Owner                                      | Blocks                                                   |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------- |
+| **M-001**                                        | Restore `psr4Validate.inc.bash` wiring, or formally retire PSR-4 validation                                                                                                                                                                                     | bash-refactor-1.md                         | WP-D12                                                   |
+| **M-002**                                        | Re-enable `phpunitAnnotations.inc.bash`, or formally retire the check                                                                                                                                                                                           | bash-refactor-1.md                         | WP-D12                                                   |
+| **M-023**                                        | Wire `toolStart`/`toolComplete`/`toolFailed` into `runTool`, or delete the dead functions                                                                                                                                                                       | bash-refactor-1.md                         | WP-D11                                                   |
+| **M-041**                                        | Confirm `phpUnitCoverage` default `1` is intentional (soft — strong corroborating evidence from `infection.inc.bash`'s coverage-reuse assumption; does not block WP-D2, but if later found accidental, reverting the default is a code decision, not a doc fix) | bash-refactor-1.md (confirm only)          | none (informational)                                     |
+| **M-007** (not in the prompt's list, added here) | Create a templated, dynamically-branched `templates/github-actions/update-deps.yml`                                                                                                                                                                             | consumer-scripts-1.md / bash-refactor-1.md | WP-D9's full resolution (doc-only interim fix ships now) |
 
 ---
 

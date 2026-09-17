@@ -8,10 +8,12 @@ Claude Code hooks are Python scripts that intercept and can modify tool calls ma
 
 ## Available Hooks
 
-### 1. php-qa-ci__auto-continue.py ✅ RECOMMENDED
+### 1. php-qa-ci\_\_auto-continue.py ✅ RECOMMENDED
+
 **Purpose**: Reduces confirmation prompts by automatically detecting when Claude asks "would you like me to..." and you respond with "yes".
 
 **How it works**:
+
 - Monitors `UserPromptSubmit` event
 - Detects common confirmation patterns in Claude's last message
 - If you respond with "yes", "continue", "proceed", etc., it injects auto-continue context
@@ -21,10 +23,12 @@ Claude Code hooks are Python scripts that intercept and can modify tool calls ma
 
 ---
 
-### 2. php-qa-ci__prevent-destructive-git.py ✅ CRITICAL
+### 2. php-qa-ci\_\_prevent-destructive-git.py ✅ CRITICAL
+
 **Purpose**: Blocks git commands that permanently destroy uncommitted changes.
 
 **Blocked commands**:
+
 - `git reset --hard` - Destroys all uncommitted changes
 - `git checkout <path>` - Overwrites files with repo version
 - `git checkout .` - Overwrites all files
@@ -33,6 +37,7 @@ Claude Code hooks are Python scripts that intercept and can modify tool calls ma
 - `git stash drop/clear` - Destroys stashed changes
 
 **Allowed commands**:
+
 - `git reset --soft` - Safe, keeps changes
 - `git checkout <branch>` - Safe, switches branches
 - `git restore --staged` - Safe, only unstages
@@ -41,16 +46,19 @@ Claude Code hooks are Python scripts that intercept and can modify tool calls ma
 
 ---
 
-### 3. php-qa-ci__discourage-git-stash.py ⚠️ OPTIONAL
+### 3. php-qa-ci\_\_discourage-git-stash.py ⚠️ OPTIONAL
+
 **Purpose**: Blocks git stash usage (with escape hatch) to encourage better workflows.
 
 **Why block stash?**:
+
 - Stashes can be forgotten and lost
 - Not part of git graph (can become orphaned)
 - `git stash drop/clear` permanently destroys work
 - Usually indicates workflow problems
 
 **Better alternatives**:
+
 - `git commit -m "WIP: description"` - Proper version control
 - `git checkout -b experiment/feature` - New branch for experiments
 - `git worktree add` - Parallel work isolation
@@ -61,30 +69,35 @@ Claude Code hooks are Python scripts that intercept and can modify tool calls ma
 
 ---
 
-### 4. php-qa-ci__block-plan-time-estimates.py ⚠️ OPTIONAL
+### 4. php-qa-ci\_\_block-plan-time-estimates.py ⚠️ OPTIONAL
+
 **Purpose**: Prevents time estimates and completion dates from being written to plan documents.
 
 **Philosophy**: Plans should focus on WHAT and HOW, never WHEN or how long.
 
 **Blocked patterns**:
+
 - "Estimated Effort: X hours"
 - "Target Completion: YYYY-MM-DD"
 - "Timeline" sections with durations
 - Phase estimates ("Phase 1: 2 hours")
 
 **Configuration**:
+
 ```bash
 # Customize which directories are checked
 export PLAN_DIRECTORY_PATTERNS="CLAUDE/Plan/,docs/plans/,.claude/plans/"
 ```
 
 **Default checked paths**:
+
 - `CLAUDE/Plan/`
 - `CLAUDE/plan/`
 - `.claude/plans/`
 - `docs/plans/`
 
 **Escape hatch**: Add comment in markdown:
+
 ```markdown
 <!-- \*\*Estimated [^:]*\*\*: .*?(?:hours?|minutes?|days?|weeks?) match is a false positive for time estimate blocking hook -->
 ```
@@ -93,10 +106,12 @@ export PLAN_DIRECTORY_PATTERNS="CLAUDE/Plan/,docs/plans/,.claude/plans/"
 
 ---
 
-### 5. php-qa-ci__validate-claude-readme-content.py ⚠️ OPTIONAL
+### 5. php-qa-ci\_\_validate-claude-readme-content.py ⚠️ OPTIONAL
+
 **Purpose**: Ensures CLAUDE.md and README.md contain instructions, not logs/research/summaries.
 
 **Blocked patterns**:
+
 - Implementation logs ("Created X", "Modified Y")
 - Status indicators ("✅ Complete", "🟢 Working")
 - Timestamps and dates
@@ -106,6 +121,7 @@ export PLAN_DIRECTORY_PATTERNS="CLAUDE/Plan/,docs/plans/,.claude/plans/"
 - "All done" completion indicators
 
 **Allowed content**:
+
 - Clear, actionable instructions
 - Context about directory/module purpose
 - Guidelines and conventions
@@ -117,12 +133,14 @@ export PLAN_DIRECTORY_PATTERNS="CLAUDE/Plan/,docs/plans/,.claude/plans/"
 
 ---
 
-### 6. php-qa-ci__enforce-markdown-organization.py ⚠️ OPTIONAL
-**Purpose**: Enforces strict organization rules for where *.md files can be written.
+### 6. php-qa-ci\_\_enforce-markdown-organization.py ⚠️ OPTIONAL
+
+**Purpose**: Enforces strict organization rules for where \*.md files can be written.
 
 **Philosophy**: Prevents documentation from littering the filesystem. Everything has its place.
 
 **Allowed locations**:
+
 - `CLAUDE/Plan/*` or `CLAUDE/plan/*` - Plan-specific documentation (convention)
 - `CLAUDE/` (root only) - Generic LLM documentation
 - `docs/` - Human-facing documentation
@@ -132,12 +150,14 @@ export PLAN_DIRECTORY_PATTERNS="CLAUDE/Plan/,docs/plans/,.claude/plans/"
 - `CLAUDE.md` / `README.md` - Allowed anywhere
 
 **Blocked locations** (except CLAUDE.md/README.md):
+
 - `.claude/hooks/` - No docs, scripts only
 - Root directory - Prevents clutter
 
 **Skills documentation**: Allows any .md files in `.claude/skills/*/` but warns if not SKILL.md. This lets you add implementation notes, guides, etc.
 
 **Configuration**:
+
 ```bash
 # Customize project root detection
 export PROJECT_ROOT_INDICATORS="composer.json,package.json,.git"
@@ -160,6 +180,7 @@ vendor/lts/php-qa-ci/scripts/deploy-skills.bash vendor/lts/php-qa-ci .
 ```
 
 This will:
+
 1. Copy all hooks to `.claude/hooks/`
 2. Make them executable
 3. Register them in `.claude/settings.json`
@@ -250,6 +271,7 @@ All hooks **fail open** - if the hook encounters an error, it allows the operati
 ### Manual Testing
 
 Create test input:
+
 ```json
 {
   "tool_name": "Bash",
@@ -260,12 +282,14 @@ Create test input:
 ```
 
 Test hook:
+
 ```bash
 python3 .claude/hooks/php-qa-ci__prevent-destructive-git.py < test-input.json
 echo "Exit code: $?"
 ```
 
 Expected:
+
 - Allow: `{}` and exit code 0
 - Block: JSON with `permissionDecision: deny` and exit code 0
 
@@ -283,11 +307,13 @@ Expected:
 ### Hook Not Running
 
 **Check registration**:
+
 ```bash
 cat .claude/settings.json | grep -A20 '"hooks"'
 ```
 
 Should show:
+
 ```json
 {
   "hooks": {
@@ -305,6 +331,7 @@ Should show:
 ```
 
 **Check permissions**:
+
 ```bash
 ls -l .claude/hooks/*.py
 ```
@@ -315,12 +342,14 @@ All should be executable (`-rwxr-xr-x`).
 
 Each hook has escape hatches:
 
-**php-qa-ci__discourage-git-stash.py**:
+**php-qa-ci\_\_discourage-git-stash.py**:
+
 ```bash
 git stash  # I HAVE ABSOLUTELY CONFIRMED THAT STASH IS THE ONLY OPTION
 ```
 
-**php-qa-ci__block-plan-time-estimates.py**:
+**php-qa-ci\_\_block-plan-time-estimates.py**:
+
 ```markdown
 <!-- \*\*Estimated [^:]*\*\*: match is a false positive -->
 ```
@@ -336,15 +365,16 @@ Hooks fail open - check Claude Code output for Python errors. Fix Python syntax/
 ### Recommended Default Set
 
 Deploy these by default in all projects:
+
 1. `php-qa-ci__auto-continue.py` - QoL improvement, no downside
 2. `php-qa-ci__prevent-destructive-git.py` - Critical safety, prevents data loss
 
 ### Optional Based on Team Standards
 
 Deploy these based on team preferences:
-3. `php-qa-ci__discourage-git-stash.py` - If team wants to discourage stash
-4. `php-qa-ci__block-plan-time-estimates.py` - If "no time estimates" is a standard
-5. `php-qa-ci__validate-claude-readme-content.py` - If instruction-only docs is a standard
+3\. `php-qa-ci__discourage-git-stash.py` - If team wants to discourage stash
+4\. `php-qa-ci__block-plan-time-estimates.py` - If "no time estimates" is a standard
+5\. `php-qa-ci__validate-claude-readme-content.py` - If instruction-only docs is a standard
 
 ### Custom Hooks
 
@@ -363,6 +393,7 @@ To add custom hooks to php-qa-ci:
 If you have old-format hooks (using `sys.argv`), see the migration guide:
 
 **Old format** (deprecated):
+
 ```python
 if __name__ == '__main__':
     if len(sys.argv) >= 5:
@@ -370,6 +401,7 @@ if __name__ == '__main__':
 ```
 
 **New format** (correct):
+
 ```python
 if __name__ == "__main__":
     main()  # Reads JSON from stdin
@@ -390,15 +422,15 @@ For full migration guide, see `/untracked/claude-code-hook-format-migration.md` 
 
 ## Summary Table
 
-| Hook | Default? | Purpose | Risk Level |
-|------|----------|---------|------------|
-| php-qa-ci__auto-continue.py | ✅ YES | Reduce confirmations | None |
-| php-qa-ci__prevent-destructive-git.py | ✅ YES | Prevent data loss | None |
-| php-qa-ci__discourage-git-stash.py | ⚠️ OPTIONAL | Discourage git stash | Low (has escape hatch) |
-| php-qa-ci__block-plan-time-estimates.py | ⚠️ OPTIONAL | No time estimates in plans | Low (configurable paths) |
-| php-qa-ci__validate-claude-readme-content.py | ⚠️ OPTIONAL | Instructions only in docs | Medium (may block valid content) |
-| php-qa-ci__enforce-markdown-organization.py | ⚠️ OPTIONAL | Enforce doc organization | Medium (opinionated structure) |
+| Hook                                           | Default?    | Purpose                    | Risk Level                       |
+| ---------------------------------------------- | ----------- | -------------------------- | -------------------------------- |
+| php-qa-ci\_\_auto-continue.py                  | ✅ YES      | Reduce confirmations       | None                             |
+| php-qa-ci\_\_prevent-destructive-git.py        | ✅ YES      | Prevent data loss          | None                             |
+| php-qa-ci\_\_discourage-git-stash.py           | ⚠️ OPTIONAL | Discourage git stash       | Low (has escape hatch)           |
+| php-qa-ci\_\_block-plan-time-estimates.py      | ⚠️ OPTIONAL | No time estimates in plans | Low (configurable paths)         |
+| php-qa-ci\_\_validate-claude-readme-content.py | ⚠️ OPTIONAL | Instructions only in docs  | Medium (may block valid content) |
+| php-qa-ci\_\_enforce-markdown-organization.py  | ⚠️ OPTIONAL | Enforce doc organization   | Medium (opinionated structure)   |
 
 **Recommendation**: Always deploy the first two, evaluate others based on team standards.
 
-**Note on php-qa-ci__enforce-markdown-organization.py**: This hook enforces directory conventions (CLAUDE/, docs/, untracked/). If blocked incorrectly, raise with a human to review project structure.
+**Note on php-qa-ci\_\_enforce-markdown-organization.py**: This hook enforces directory conventions (CLAUDE/, docs/, untracked/). If blocked incorrectly, raise with a human to review project structure.

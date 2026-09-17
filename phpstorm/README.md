@@ -11,7 +11,6 @@ The [XML file](./PHPQA_Code_Style_Scheme.xml) is just the code style edit itself
 
 The second [jar file](./fileTemplates.jar) is a templates export file. It will set sane defaults for PHP and Bash files
 
-
 ## Importing Settings
 
 See https://www.jetbrains.com/help/phpstorm/exporting-and-importing-settings.html

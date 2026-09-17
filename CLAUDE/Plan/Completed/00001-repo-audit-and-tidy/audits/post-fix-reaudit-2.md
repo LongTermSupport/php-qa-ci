@@ -36,6 +36,7 @@ the wave work; it needs a follow-up commit.
 ### MAJOR
 
 #### R-01 — M-053 "fix" still fails on the real (split) composer bin-proxy format; docstring claim is false
+
 **Files:** `bin/qa:29-63` (the `COMPOSER_RUNTIME_BIN_DIR` branch, M-053 rework in 9836f21)
 
 The new parse resolves `qaDir` by scanning the proxy's single-quoted path
@@ -60,11 +61,13 @@ directory" and exits 1.**
 
 This split format is not hypothetical — it is exactly what this repo's own
 Composer-generated proxies use. `bin/phpunit:122`:
+
 ```
 return include __DIR__ . '/..'.'/vendor/phpunit/phpunit/phpunit';
 ```
 
 **Reproduction** (faithful mock built to match the real bin/phpunit proxy format):
+
 - Split proxy (`'/..'.'/lts/php-qa-ci/bin/qa'`): new parse → `qaDir=''` → **exit 1**.
 - Non-split proxy (`'/../lts/php-qa-ci/bin/qa'`, single fragment): new parse →
   resolves correctly. So the fix only handles the *non-split* form.
@@ -98,12 +101,15 @@ two-shape test.
 ### MINOR
 
 #### R-02 — `install_signed` ownership detection is content-wide; `-f` vs `-e` asymmetry with `install_seed_once`
+
 **File:** `scripts/lib/consumer-write.inc.bash:71-87` (and `:94-104`)
 
 `install_signed` decides "this hook is ours, overwrite it" with:
+
 ```bash
 if [[ ! -f "$dst" ]] || grep -q "$marker" "$dst"; then install_owned_file ...
 ```
+
 `grep -q` matches the marker **anywhere** in the file, including comments. A
 foreign `.git/hooks/pre-commit` that merely *mentions* the string
 `PHP-QA-CI-HOOK-SIGNATURE` (a comment, a copied snippet) is mis-classified as
@@ -126,11 +132,12 @@ written. Non-blocking.
 ### INFO
 
 #### R-03 — duplicate "Running Single Tool" banner
-`includes/options.inc.bash:142` and `bin/qa:260` both echo `Running Single Tool:
-$singleToolToRun`. Purely cosmetic — verified the tool executes once (single PASS
+
+`includes/options.inc.bash:142` and `bin/qa:260` both echo `Running Single Tool: $singleToolToRun`. Purely cosmetic — verified the tool executes once (single PASS
 line in the live smoke). Drop one.
 
 #### R-04 — `src/` PHPStan rules & Composer plugins still unit-untested (M-077 unchanged)
+
 Out of my bash/docs remit but noted for completeness: the 4 Composer plugins and
 the rule classes under `src/PHPStan/Rules/` remain without dedicated unit tests.
 M-077 was INFO on the master register and was not slated for a wave; no change.
@@ -142,23 +149,23 @@ M-077 was INFO on the master register and was not slated for a wave; no change.
 Every previously-flagged claim I re-checked against HEAD is now correct. Notable
 verifications (each confirmed against code, not audit text):
 
-| ID | Claim re-verified | HEAD status |
-|---|---|---|
-| M-001 | PSR-4 fragment restored, guarded | `psr4Validate.inc.bash` uses `qaSimpleTool`; `ToolFragmentLivenessTest` asserts every fragment has executable code — **fixed + guarded** |
-| M-002 | PHPUnit-annotations gate retired | fragment + `bin/phpunit-check-annotation` + `src/CheckAnnotations.php` all **deleted**, no orphans, not in registry |
-| M-003 | strict-types `find` precedence | `find … -type f \( -name '*.php' -o -name '*.phtml' \)` — **both scanned** |
-| M-004 | strict-types CI/read-only guards | `qaReadOnly` branch present — **fixed** |
-| M-009 | derive-before-override | `bin/qa`: `setConfig`(191) → source override(211) → `deriveDependentConfig`(221) — **fixed** |
-| M-012 | single-tool exit capture | `if runTool …; then exitCode=0; else exitCode=$?` — **fixed** |
-| M-013 | vendor hook `IFS='\|\|\|'` | now `IFS='\|'` for the tab-split + `${rest%%\|\|\|*}` for the triple-pipe, with a warning comment — **fixed** |
-| M-024 | packageType bypasses guard | runs via `runToolGuarded` in `qaRunPhase` — **fixed** |
-| M-025/M-026 | array quoting / `eval` | `phpLint.inc.bash` quoted arrays via `qaSimpleTool`, no `eval` — **fixed** |
-| M-027/M-048 | composerChecks read-only + quoting | `normalize --dry-run` gated on `qaReadOnly`; `"$(which composer)"` quoted — **fixed** |
-| M-005 | Laravel fabrication | CLAUDE.md: "There is no Laravel/`artisan` detection" — **fixed** |
-| M-006 | phantom config cascade | CLAUDE.md: "no `configDefaults.inc.bash` … beyond `generic/`" — **fixed** |
-| M-029 | PHPStan rule counts | 14 always-on (10 `rules:` + 4 tagged services) and 12 opt-in (8 generic auto-loaded + 4 symfony; the 13th, `ForbidMagicStringAssertionRule`, is a documented non-auto-loaded cherry-pick) — **counts accurate** |
-| M-030 | "four Composer plugins" | README says four; `composer.json` registers exactly four — **fixed** |
-| M-031/M-040/M-041/M-042 | phase numbering / PHIVE-install / coverage default / PHP version | all corrected in CLAUDE.md — **fixed** |
+| ID                      | Claim re-verified                                                | HEAD status                                                                                                                                                                                                     |
+| ----------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M-001                   | PSR-4 fragment restored, guarded                                 | `psr4Validate.inc.bash` uses `qaSimpleTool`; `ToolFragmentLivenessTest` asserts every fragment has executable code — **fixed + guarded**                                                                        |
+| M-002                   | PHPUnit-annotations gate retired                                 | fragment + `bin/phpunit-check-annotation` + `src/CheckAnnotations.php` all **deleted**, no orphans, not in registry                                                                                             |
+| M-003                   | strict-types `find` precedence                                   | `find … -type f \( -name '*.php' -o -name '*.phtml' \)` — **both scanned**                                                                                                                                      |
+| M-004                   | strict-types CI/read-only guards                                 | `qaReadOnly` branch present — **fixed**                                                                                                                                                                         |
+| M-009                   | derive-before-override                                           | `bin/qa`: `setConfig`(191) → source override(211) → `deriveDependentConfig`(221) — **fixed**                                                                                                                    |
+| M-012                   | single-tool exit capture                                         | `if runTool …; then exitCode=0; else exitCode=$?` — **fixed**                                                                                                                                                   |
+| M-013                   | vendor hook `IFS='\|\|\|'`                                       | now `IFS='\|'` for the tab-split + `${rest%%\|\|\|*}` for the triple-pipe, with a warning comment — **fixed**                                                                                                   |
+| M-024                   | packageType bypasses guard                                       | runs via `runToolGuarded` in `qaRunPhase` — **fixed**                                                                                                                                                           |
+| M-025/M-026             | array quoting / `eval`                                           | `phpLint.inc.bash` quoted arrays via `qaSimpleTool`, no `eval` — **fixed**                                                                                                                                      |
+| M-027/M-048             | composerChecks read-only + quoting                               | `normalize --dry-run` gated on `qaReadOnly`; `"$(which composer)"` quoted — **fixed**                                                                                                                           |
+| M-005                   | Laravel fabrication                                              | CLAUDE.md: "There is no Laravel/`artisan` detection" — **fixed**                                                                                                                                                |
+| M-006                   | phantom config cascade                                           | CLAUDE.md: "no `configDefaults.inc.bash` … beyond `generic/`" — **fixed**                                                                                                                                       |
+| M-029                   | PHPStan rule counts                                              | 14 always-on (10 `rules:` + 4 tagged services) and 12 opt-in (8 generic auto-loaded + 4 symfony; the 13th, `ForbidMagicStringAssertionRule`, is a documented non-auto-loaded cherry-pick) — **counts accurate** |
+| M-030                   | "four Composer plugins"                                          | README says four; `composer.json` registers exactly four — **fixed**                                                                                                                                            |
+| M-031/M-040/M-041/M-042 | phase numbering / PHIVE-install / coverage default / PHP version | all corrected in CLAUDE.md — **fixed**                                                                                                                                                                          |
 
 I specifically tried to break M-029 (my first grep suggested 13 opt-in rules) and
 found the docs correct once the experimental cherry-pick rule is excluded — the
@@ -171,6 +178,7 @@ docs count only auto-loaded rules, which is the right denominator.
 1. **W5 tool registry vs pre-refactor state.** Diffed `toolRegistry.inc.bash`
    against `git show d824341^:includes/options.inc.bash` and the four
    `all*Tools.inc.bash` phase files:
+
    - Alias map: all 22 `-t` case arms reproduced exactly (incl. `uniterate` →
      `phpunit` + `phpUnitIterativeMode=1` via `ONSELECT`, applied with `printf -v`,
      not `eval`).
@@ -178,8 +186,8 @@ docs count only auto-loaded rules, which is the right denominator.
    - Phase order: identical sequences for all four phases.
    - The `notQuick`/`infection` gates faithfully encode the pre-refactor
      `if phpqaQuickTests==1 … else` / `if useInfection==1` conditionals.
-   The `ToolRegistryCharacterisationTest` is **genuine golden data** (hard-coded
-   `GOLDEN_*` constants, independent extraction), not a tautology.
+     The `ToolRegistryCharacterisationTest` is **genuine golden data** (hard-coded
+     `GOLDEN_*` constants, independent extraction), not a tautology.
 
 2. **W5 shared driver `qaSimpleTool` vs the five migrated fragments' historic
    loops.** `psr4Validate`, `phpLint`, `markdownLinks`, `packageType`,

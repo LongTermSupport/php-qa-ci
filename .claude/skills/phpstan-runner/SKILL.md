@@ -28,6 +28,7 @@ This skill delegates to specialized agents via the Task tool:
 ### When User Says: "Run PHPStan"
 
 1. Launch runner agent:
+
    ```
    Use Task tool:
      description: "Run PHPStan analysis"
@@ -38,6 +39,7 @@ This skill delegates to specialized agents via the Task tool:
 2. Receive runner output with log location
 
 3. If errors detected:
+
    - Launch fixer agent:
      ```
      Use Task tool:
@@ -49,6 +51,7 @@ This skill delegates to specialized agents via the Task tool:
 4. After fixes applied, re-run via runner agent
 
 5. Repeat cycle until:
+
    - Analysis passes → Success
    - Same errors persist 2+ times → Escalate to opus or human
    - User intervention needed → Ask user
@@ -58,15 +61,18 @@ This skill delegates to specialized agents via the Task tool:
 1. Check if recent log exists in var/qa/phpstan_logs/
 
 2. If log found:
+
    - Launch fixer agent directly with log path
 
 3. If no log:
+
    - Launch runner agent first to generate log
    - Then launch fixer agent
 
 ### Escalation Triggers
 
 Launch opus model or ask human when:
+
 - Fixer agent reports "cannot fix" for same error 2+ times
 - Architecture questions arise (design patterns, type hierarchies)
 - User explicitly requests explanation of errors
@@ -74,6 +80,7 @@ Launch opus model or ask human when:
 ## Runner Agent Reference
 
 The phpstan-runner agent (haiku model) handles:
+
 - PHPStan execution with proper configuration
 - Log parsing for error patterns
 - Concise summary generation
@@ -83,6 +90,7 @@ See `.claude/agents/php-qa-ci_phpstan-runner.md` for agent implementation detail
 ## Fixer Agent Reference
 
 The phpstan-fixer agent (sonnet model) handles:
+
 - Log file discovery and parsing
 - Error grouping by pattern
 - Fix implementation for common PHPStan issues
