@@ -46,6 +46,17 @@ return static function (RectorConfig $rectorConfig): void {
     // contradict each other on correct code with no fix that satisfies both. PHPStan is the stronger
     // guarantee, so we keep it and drop the redundant-cast-adding rule.
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\StringCastAssertStringContainsStringRector::class]);
+    // FlipAssertRector moves a scalar/constant argument to the left on the premise that it is the
+    // "expected" half of an expected/actual pair. That premise holds for assertSame() and friends, but
+    // assertStringContainsString() takes (needle, haystack) — there is no expected/actual pair, and the
+    // haystack is very often the constant. A correct assertStringContainsString($needle, self::HAYSTACK)
+    // is rewritten to assertStringContainsString(self::HAYSTACK, $needle), which asserts the haystack
+    // occurs inside the needle: the assertion is INVERTED, not restyled, silently, on code that was
+    // right. Rector offers no per-method scoping (the method list is a private const on a rule that is
+    // not configurable), so the whole rule goes rather than one method, and the expected-left
+    // normalisation for assertSame() is lost with it. A silently inverted assertion is the worse of
+    // the two, since it fails on correct code and can pass on wrong code.
+    $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\FlipAssertRector::class]);
     $rectorConfig->rules([
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
