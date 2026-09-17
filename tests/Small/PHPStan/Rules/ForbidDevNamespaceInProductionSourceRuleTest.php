@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PackageType\AutoloadRootReader;
+use LTS\PHPQA\PHPStan\Rules\DevCodeInShippedRootDetector;
 use LTS\PHPQA\PHPStan\Rules\ForbidDevNamespaceInProductionSourceRule;
 use LTS\PHPQA\PHPStan\Rules\VendoredCodeDetector;
 use PHPStan\Rules\Rule;
@@ -25,6 +26,8 @@ final class ForbidDevNamespaceInProductionSourceRuleTest extends RuleTestCase
     private const string FIXTURE_NAMESPACE = 'LTS\PHPQA\Tests\Assets\PHPStan\DevNamespace\\';
 
     private const string FIXTURE_DIRECTORY = 'tests/assets/PHPStan/DevNamespace/';
+
+    private const string NESTED_DEV_FIXTURE = 'Command/Dev/SandboxPushCommand.php';
 
     private const string ADVICE = ' is dev-only code (a Dev segment) yet lives under the shipped composer autoload root "'
         . self::FIXTURE_NAMESPACE
@@ -51,7 +54,7 @@ final class ForbidDevNamespaceInProductionSourceRuleTest extends RuleTestCase
     {
         $this->analyse(
             [
-                $this->fixture('Command/Dev/SandboxPushCommand.php'),
+                $this->fixture(self::NESTED_DEV_FIXTURE),
                 $this->fixture('Dev/ToolRunner.php'),
             ],
             [
@@ -72,7 +75,7 @@ final class ForbidDevNamespaceInProductionSourceRuleTest extends RuleTestCase
 
         $this->analyse(
             [
-                $this->fixture('Command/Dev/SandboxPushCommand.php'),
+                $this->fixture(self::NESTED_DEV_FIXTURE),
                 $this->fixture('Dev/ToolRunner.php'),
             ],
             [],
@@ -90,8 +93,8 @@ final class ForbidDevNamespaceInProductionSourceRuleTest extends RuleTestCase
     {
         // Anchored at the fixture's own root, `vendor/Dev/PackagedTool.php` is
         // vendored code: the analysed project cannot move a file it does not own.
-        $vendoredRoot      = $this->repositoryRoot() . '/tests/assets/PHPStan/DevNamespaceVendored';
-        $this->projectRoot = $vendoredRoot;
+        $vendoredRoot       = $this->repositoryRoot() . '/tests/assets/PHPStan/DevNamespaceVendored';
+        $this->projectRoot  = $vendoredRoot;
         $this->composerJson = [
             'autoload' => [
                 'psr-4' => [
@@ -108,15 +111,14 @@ final class ForbidDevNamespaceInProductionSourceRuleTest extends RuleTestCase
     {
         $this->composerJson = ['name' => 'acme/widget'];
 
-        $this->analyse([$this->fixture('Command/Dev/SandboxPushCommand.php')], []);
+        $this->analyse([$this->fixture(self::NESTED_DEV_FIXTURE)], []);
     }
 
     protected function getRule(): Rule
     {
         return new ForbidDevNamespaceInProductionSourceRule(
-            new AutoloadRootReader($this->composerJson),
+            new DevCodeInShippedRootDetector(new AutoloadRootReader($this->composerJson), $this->projectRoot),
             new VendoredCodeDetector($this->projectRoot),
-            $this->projectRoot,
         );
     }
 

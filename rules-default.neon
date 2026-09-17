@@ -133,9 +133,11 @@ services:
     # assumed. docs/phpstan-rules/forbid-dev-namespace-in-production-source.md
     - LTS\PHPQA\PackageType\AutoloadRootReader
     -
-        class: LTS\PHPQA\PHPStan\Rules\ForbidDevNamespaceInProductionSourceRule
+        class: LTS\PHPQA\PHPStan\Rules\DevCodeInShippedRootDetector
         arguments:
             projectRoot: %currentWorkingDirectory%
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidDevNamespaceInProductionSourceRule
         tags:
             - phpstan.rules.rule
     -

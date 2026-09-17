@@ -21,11 +21,15 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class AutoloadRootReaderTest extends TestCase
 {
+    private const string SRC_DIR = 'src/';
+
+    private const string LIB_DIR = 'lib/';
+
     /** @var array<int|string, mixed> the layout every first-party library here uses */
     private const array LIBRARY_LAYOUT = [
         'autoload'     => [
             'psr-4' => [
-                'Acme\Widget\\' => 'src/',
+                'Acme\Widget\\' => self::SRC_DIR,
             ],
         ],
         'autoload-dev' => [
@@ -41,7 +45,7 @@ final class AutoloadRootReaderTest extends TestCase
     public function itReadsTheShippedPsr4Roots(): void
     {
         self::assertSame(
-            ['Acme\Widget\\' => ['src/']],
+            ['Acme\Widget\\' => [self::SRC_DIR]],
             new AutoloadRootReader(self::LIBRARY_LAYOUT)->productionRoots(),
         );
     }
@@ -65,12 +69,12 @@ final class AutoloadRootReaderTest extends TestCase
         $reader = new AutoloadRootReader([
             'autoload' => [
                 'psr-4' => [
-                    'Acme\Widget\\' => ['src/', 'lib/'],
+                    'Acme\Widget\\' => [self::SRC_DIR, self::LIB_DIR],
                 ],
             ],
         ]);
 
-        self::assertSame(['Acme\Widget\\' => ['src/', 'lib/']], $reader->productionRoots());
+        self::assertSame(['Acme\Widget\\' => [self::SRC_DIR, self::LIB_DIR]], $reader->productionRoots());
     }
 
     #[Test]
@@ -86,7 +90,7 @@ final class AutoloadRootReaderTest extends TestCase
     public function aSectionWithoutPsr4ReadsAsNoRoots(): void
     {
         $reader = new AutoloadRootReader([
-            'autoload'     => ['classmap' => ['src/']],
+            'autoload'     => ['classmap' => [self::SRC_DIR]],
             'autoload-dev' => ['files' => ['tests/bootstrap.php']],
         ]);
 
@@ -100,17 +104,17 @@ final class AutoloadRootReaderTest extends TestCase
         $reader = new AutoloadRootReader([
             'autoload' => [
                 'psr-4' => [
-                    'Acme\Widget\\' => 'src/',
+                    'Acme\Widget\\' => self::SRC_DIR,
                     ''              => 'blank/',
-                    'Acme\Broken\\' => ['lib/', 42],
+                    'Acme\Broken\\' => [self::LIB_DIR, 42],
                 ],
             ],
         ]);
 
         self::assertSame(
             [
-                'Acme\Widget\\' => ['src/'],
-                'Acme\Broken\\' => ['lib/'],
+                'Acme\Widget\\' => [self::SRC_DIR],
+                'Acme\Broken\\' => [self::LIB_DIR],
             ],
             $reader->productionRoots(),
         );
