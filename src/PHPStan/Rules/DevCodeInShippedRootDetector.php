@@ -57,11 +57,11 @@ final readonly class DevCodeInShippedRootDetector
         }
 
         foreach ($this->rootReader->productionRoots() as $prefix => $directories) {
-            if (!$this->isUnderRoot($className, $fileName, $prefix, $directories)) {
+            if (!$this->isUnderRoot($className, $fileName, $prefix, ...$directories)) {
                 continue;
             }
 
-            if ($this->carriesDevSegment($className, $fileName, $prefix, $directories)) {
+            if ($this->carriesDevSegment($className, $fileName, $prefix, ...$directories)) {
                 return $prefix;
             }
         }
@@ -75,39 +75,21 @@ final readonly class DevCodeInShippedRootDetector
      */
     private function isDeclaredDevOnly(string $className, ?string $fileName): bool
     {
-        foreach ($this->rootReader->devRoots() as $prefix => $directories) {
-            if ($this->isUnderRoot($className, $fileName, $prefix, $directories)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->rootReader->devRoots(), fn (array $directories, string $prefix): bool => $this->isUnderRoot($className, $fileName, $prefix, ...$directories));
     }
 
-    /**
-     * @param list<string> $directories
-     */
-    private function isUnderRoot(string $className, ?string $fileName, string $prefix, array $directories): bool
+    private function isUnderRoot(string $className, ?string $fileName, string $prefix, string ...$directories): bool
     {
         if (str_starts_with($className, $prefix)) {
             return true;
         }
 
-        foreach ($directories as $directory) {
-            if (null !== $this->relativeToRoot($fileName, $directory)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($directories, fn (string $directory): bool => null !== $this->relativeToRoot($fileName, $directory));
     }
 
-    /**
-     * @param list<string> $directories
-     */
-    private function carriesDevSegment(string $className, ?string $fileName, string $prefix, array $directories): bool
+    private function carriesDevSegment(string $className, ?string $fileName, string $prefix, string ...$directories): bool
     {
-        if ($this->containsDevSegment($this->namespaceSegments($className, $prefix))) {
+        if ($this->containsDevSegment(...$this->namespaceSegments($className, $prefix))) {
             return true;
         }
 
@@ -117,7 +99,7 @@ final readonly class DevCodeInShippedRootDetector
                 continue;
             }
 
-            if ($this->containsDevSegment($this->pathSegments($relative))) {
+            if ($this->containsDevSegment(...$this->pathSegments($relative))) {
                 return true;
             }
         }
@@ -125,10 +107,7 @@ final readonly class DevCodeInShippedRootDetector
         return false;
     }
 
-    /**
-     * @param list<string> $segments
-     */
-    private function containsDevSegment(array $segments): bool
+    private function containsDevSegment(string ...$segments): bool
     {
         return \in_array(self::DEV_SEGMENT, $segments, true);
     }
@@ -143,7 +122,7 @@ final readonly class DevCodeInShippedRootDetector
         }
 
         return $this->allButLast(
-            explode(self::NAMESPACE_SEPARATOR, substr($className, \strlen($prefix))),
+            ...explode(self::NAMESPACE_SEPARATOR, substr($className, \strlen($prefix))),
         );
     }
 
@@ -152,18 +131,16 @@ final readonly class DevCodeInShippedRootDetector
      */
     private function pathSegments(string $relativePath): array
     {
-        return $this->allButLast(explode(self::PATH_SEPARATOR, $relativePath));
+        return $this->allButLast(...explode(self::PATH_SEPARATOR, $relativePath));
     }
 
     /**
      * Drops the trailing name (the class's short name, or the file's basename) and
      * any empty segment a doubled or leading separator produced.
      *
-     * @param list<string> $segments
-     *
      * @return list<string>
      */
-    private function allButLast(array $segments): array
+    private function allButLast(string ...$segments): array
     {
         array_pop($segments);
 

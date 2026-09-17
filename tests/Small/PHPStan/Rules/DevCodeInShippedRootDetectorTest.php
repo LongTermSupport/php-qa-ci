@@ -9,6 +9,7 @@ use LTS\PHPQA\PHPStan\Rules\DevCodeInShippedRootDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -21,16 +22,28 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(DevCodeInShippedRootDetector::class)]
+#[UsesClass(AutoloadRootReader::class)]
 #[Small]
 final class DevCodeInShippedRootDetectorTest extends TestCase
 {
+    /** A root that need not exist: the decision is string work and reads no filesystem. */
     private const string PROJECT_ROOT = '/project';
 
+    /** The prefix every assertion expects back, because naming the guilty root is the answer. */
     private const string SHIPPED_PREFIX = 'Acme\Widget\\';
 
+    /** The directory that prefix maps to, so a path can be built that is genuinely under it. */
     private const string SHIPPED_DIR = 'src/';
 
-    /** @var array<int|string, mixed> the first-party layout AFTER the move: a declared Dev tree */
+    /** The class the two layouts disagree about: dev-only in one, shipped in the other. */
+    private const string DEV_CLASS = 'Acme\Widget\Dev\ToolRunner';
+
+    /**
+     * The first-party layout AFTER the move: a declared Dev tree, so the same class
+     * that is a defect under PRE_MOVE_LAYOUT is correct here.
+     *
+     * @var array<int|string, mixed>
+     */
     private const array LIBRARY_LAYOUT = [
         'autoload'     => [
             'psr-4' => [
@@ -81,7 +94,7 @@ final class DevCodeInShippedRootDetectorTest extends TestCase
         self::assertSame(
             self::SHIPPED_PREFIX,
             $this->detector(self::PRE_MOVE_LAYOUT)->shippedRootCarryingDevCode(
-                'Acme\Widget\Dev\ToolRunner',
+                self::DEV_CLASS,
                 '/project/src/Dev/ToolRunner.php',
             ),
         );
@@ -108,7 +121,7 @@ final class DevCodeInShippedRootDetectorTest extends TestCase
         // alone is enough to place the class under the shipped root.
         self::assertSame(
             self::SHIPPED_PREFIX,
-            $this->detector(self::PRE_MOVE_LAYOUT)->shippedRootCarryingDevCode('Acme\Widget\Dev\ToolRunner', null),
+            $this->detector(self::PRE_MOVE_LAYOUT)->shippedRootCarryingDevCode(self::DEV_CLASS, null),
         );
     }
 
@@ -143,7 +156,7 @@ final class DevCodeInShippedRootDetectorTest extends TestCase
     {
         self::assertNull(
             $this->detector()->shippedRootCarryingDevCode(
-                'Acme\Widget\Dev\ToolRunner',
+                self::DEV_CLASS,
                 '/project/src-dev/ToolRunner.php',
             ),
         );
@@ -199,7 +212,7 @@ final class DevCodeInShippedRootDetectorTest extends TestCase
         $detector = $this->detector(['name' => 'acme/widget']);
 
         self::assertNull(
-            $detector->shippedRootCarryingDevCode('Acme\Widget\Dev\ToolRunner', '/project/src/Dev/ToolRunner.php'),
+            $detector->shippedRootCarryingDevCode(self::DEV_CLASS, '/project/src/Dev/ToolRunner.php'),
         );
     }
 
