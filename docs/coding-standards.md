@@ -90,3 +90,22 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/rector-php85.php qaConfig/rector.
 # Via the QA pipeline
 vendor/bin/qa -t rector
 ```
+
+## Dev-only code lives under `autoload-dev`
+
+Maintainer tooling -- fixture capture, sandbox pushers, spec generators -- is not shipped code,
+so it does not live under a composer `autoload` root. The convention is a `src-dev/` tree mapped
+to a `Dev` namespace under `autoload-dev`, tests moving with it, and any runtime registration
+scoped to the dev environment:
+
+```json
+{
+    "autoload": { "psr-4": { "App\\": "src/" } },
+    "autoload-dev": { "psr-4": { "App\\Dev\\": "src-dev/" } }
+}
+```
+
+Left under `autoload`, the same classes install into every production deployment and every
+consumer, bringing their dependencies and their audit surface with them. `phpqaci.devNamespaceInProductionSource`
+enforces this; the hazard and the move are in
+[its rule page](phpstan-rules/forbid-dev-namespace-in-production-source.md).
