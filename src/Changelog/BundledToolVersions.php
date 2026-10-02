@@ -90,13 +90,23 @@ final readonly class BundledToolVersions
                 continue;
             }
 
-            if (1    === \Safe\preg_match('/\sname="([^"]+)"/', $tag, $name) && isset($name[1])
-                                                                             && 1 === \Safe\preg_match('/\sinstalled="([^"]+)"/', $tag, $installed) && isset($installed[1])) {
-                $versions[$name[1]] = $installed[1];
+            $name      = $this->attribute($tag, 'name');
+            $installed = $this->attribute($tag, 'installed');
+            if (null !== $name && null !== $installed) {
+                $versions[$name] = $installed;
             }
         }
 
         return $versions;
+    }
+
+    private function attribute(string $tag, string $attribute): ?string
+    {
+        if (1 !== \Safe\preg_match('/\s' . $attribute . '="([^"]+)"/', $tag, $matches) || !isset($matches[1])) {
+            return null;
+        }
+
+        return $matches[1];
     }
 
     /**
