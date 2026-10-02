@@ -65,6 +65,12 @@ $config
      * PHIVE signature verification and xml for the PHARs' report writing
      * (tokenizer is used directly, by PhpStanGuardPlugin).
      */
-    ->ignoreErrorsOnExtensions(['ext-openssl', 'ext-xml'], [ErrorType::UNUSED_DEPENDENCY]);
+    ->ignoreErrorsOnExtensions(['ext-openssl', 'ext-xml'], [ErrorType::UNUSED_DEPENDENCY])
+    /*
+     * posix is called through \Safe\posix_kill (RunningProcesses), which the
+     * scan credits to thecodingmachine/safe; the wrapper still needs the
+     * extension at run time.
+     */
+    ->ignoreErrorsOnExtensions(['ext-posix'], [ErrorType::UNUSED_DEPENDENCY]);
 
 return $config;
