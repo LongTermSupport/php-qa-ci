@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Changelog;
 
+use Closure;
 use LTS\PHPQA\Changelog\Dto\ChangelogCheckResultDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogDocumentDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogHeadingBlockDto;
@@ -20,10 +21,14 @@ use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
  *
  *  1. CHANGELOG.md's `## Unreleased` section is valid (ChangelogParser).
  *  2. Coverage: when a watched path changed in the range
- *     (ChangelogRangeResolver), the section gained an entry, or a commit in
+ *     (ChangelogRangeResolver), the record gained an entry, or a commit in
  *     the range carries a valid `Changelog: none — <reason>` trailer.
  *  3. A runtime requirement added or re-constrained in composer.json is
  *     recorded under `### Changed — breaking`.
+ *
+ * The record is `## Unreleased` plus any version section the range base does
+ * not have (ReleasedSections::since()), so the merged release pull request
+ * passes before its tag exists.
  *
  * History it cannot read fails the check with the fetch that would supply it;
  * it never passes on no evidence.
@@ -47,6 +52,7 @@ final readonly class ChangelogCheck
         private ChangelogRangeResolver $ranges = new ChangelogRangeResolver(),
         private ChangelogTrailers $trailers = new ChangelogTrailers(),
         private ComposerRequirementChanges $requirements = new ComposerRequirementChanges(),
+        private ReleasedSections $released = new ReleasedSections(),
     ) {
     }
 
@@ -73,8 +79,19 @@ final readonly class ChangelogCheck
             $range    = $this->ranges->resolve($git, $branches, $env, $composer ?? '{}');
             $report[] = 'Range: ' . $range->description . '.';
 
+            $baseRead      = false;
+            $baseChangelog = null;
+            $base          = static function () use (&$baseRead, &$baseChangelog, $git, $range): ?string {
+                if (!$baseRead) {
+                    $baseChangelog = $git->fileAt($range->base, self::CHANGELOG);
+                    $baseRead      = true;
+                }
+
+                return $baseChangelog;
+            };
+
             $problems = [];
-            $coverage = $this->coverage($head, $git, $range, $watched);
+            $coverage = $this->coverage($head, $changelog, $base, $git, $range, $watched);
             if (str_contains($coverage, "\n")) {
                 $problems[] = $coverage;
             } else {
@@ -82,7 +99,7 @@ final readonly class ChangelogCheck
             }
 
             $requirementChanges = $this->requirements->between($git->fileAt($range->base, self::COMPOSER_JSON), $composer);
-            if ([] !== $requirementChanges && !$head->block(ChangelogHeadingEnum::ChangedBreaking) instanceof ChangelogHeadingBlockDto) {
+            if ([] !== $requirementChanges && !$this->recordsBreaking($head, $changelog, $base)) {
                 $problems[] = \sprintf(
                     'composer.json "require" changed %s (%s), and "%s" has no "### %s" entry: a new or tightened requirement breaks every consumer that cannot meet it, so record it there.',
                     $range->description,
@@ -93,7 +110,7 @@ final readonly class ChangelogCheck
             }
 
             return new ChangelogCheckResultDto($report, $problems);
-        } catch (ChangelogHistoryException|ChangelogReleaseException $exception) {
+        } catch (ChangelogHistoryException|ChangelogReleaseException|InvalidChangelogException $exception) {
             return new ChangelogCheckResultDto($report, [$exception->getMessage()]);
         }
     }
@@ -116,8 +133,38 @@ final readonly class ChangelogCheck
         );
     }
 
-    /** One report line when the range is covered; a multi-line problem when it is not. */
-    private function coverage(ChangelogDocumentDto $head, ChangelogGit $git, ChangelogRangeDto $range, WatchedPaths $watched): string
+    /**
+     * The blocks that record the range's changes: `## Unreleased`, plus every
+     * version section the base does not have (released, not yet tagged).
+     *
+     * @return list<ChangelogHeadingBlockDto>
+     */
+    private function recorded(ChangelogDocumentDto $head, string $changelog, ?string $baseChangelog): array
+    {
+        $blocks = $head->blocks;
+        foreach ($this->released->since($changelog, $baseChangelog) as $section) {
+            array_push($blocks, ...$section->blocks);
+        }
+
+        return $blocks;
+    }
+
+    /** @param Closure(): ?string $base the base's CHANGELOG.md, read once and only when needed */
+    private function recordsBreaking(ChangelogDocumentDto $head, string $changelog, Closure $base): bool
+    {
+        if ($head->block(ChangelogHeadingEnum::ChangedBreaking) instanceof ChangelogHeadingBlockDto) {
+            return true;
+        }
+
+        return array_any($this->recorded($head, $changelog, $base()), static fn (ChangelogHeadingBlockDto $block): bool => ChangelogHeadingEnum::ChangedBreaking === $block->heading);
+    }
+
+    /**
+     * One report line when the range is covered; a multi-line problem when it is not.
+     *
+     * @param Closure(): ?string $base the base's CHANGELOG.md, read once and only when needed
+     */
+    private function coverage(ChangelogDocumentDto $head, string $changelog, Closure $base, ChangelogGit $git, ChangelogRangeDto $range, WatchedPaths $watched): string
     {
         $changed        = $git->changedFiles($range->base);
         $watchedChanged = $watched->matching(...$changed);
@@ -125,7 +172,8 @@ final readonly class ChangelogCheck
             return \sprintf('%s changed, none of them watched (%s): no entry needed.', $this->files(\count($changed)), implode(', ', $watched->paths()));
         }
 
-        $gained = $this->gainedEntries($head, $git->fileAt($range->base, self::CHANGELOG));
+        $baseChangelog = $base();
+        $gained        = $this->gainedEntries($baseChangelog, ...$this->recorded($head, $changelog, $baseChangelog));
         if ($gained > 0) {
             return \sprintf(
                 '%s changed; recorded by %d new "%s" %s.',
@@ -172,24 +220,25 @@ final readonly class ChangelogCheck
     }
 
     /**
-     * Entries in the section now that were not in it at the base. An
+     * Recorded entries that were not in the base's `## Unreleased`. An
      * unreadable base section falls back to "entries its text does not
      * contain", so a base that was itself invalid still measures something.
      */
-    private function gainedEntries(ChangelogDocumentDto $head, ?string $baseChangelog): int
+    private function gainedEntries(?string $baseChangelog, ChangelogHeadingBlockDto ...$recorded): int
     {
+        $entries = array_merge(...array_map(static fn (ChangelogHeadingBlockDto $block): array => $block->entries, $recorded));
         if (null === $baseChangelog) {
-            return \count($head->entries());
+            return \count($entries);
         }
 
         $base = $this->parser->parseOrNull($baseChangelog);
         if (!$base instanceof ChangelogDocumentDto) {
-            return \count(array_filter($head->entries(), static fn (string $entry): bool => !str_contains($baseChangelog, $entry)));
+            return \count(array_filter($entries, static fn (string $entry): bool => !str_contains($baseChangelog, $entry)));
         }
 
         $remaining = $base->entries();
         $gained    = 0;
-        foreach ($head->entries() as $entry) {
+        foreach ($entries as $entry) {
             $index = array_search($entry, $remaining, true);
             if (false === $index) {
                 ++$gained;

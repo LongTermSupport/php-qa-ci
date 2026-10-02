@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Changelog;
 
+use LTS\PHPQA\Changelog\BundledToolVersions;
 use LTS\PHPQA\Changelog\ChangelogCheck;
 use LTS\PHPQA\Changelog\ChangelogEntryAdder;
 use LTS\PHPQA\Changelog\ChangelogGit;
@@ -17,6 +18,7 @@ use LTS\PHPQA\Changelog\Dto\ReleasedSectionDto;
 use LTS\PHPQA\Changelog\Exception\ChangelogHistoryException;
 use LTS\PHPQA\Changelog\Exception\ChangelogReleaseException;
 use LTS\PHPQA\Changelog\Exception\InvalidChangelogException;
+use LTS\PHPQA\Changelog\ReleasedSections;
 use LTS\PHPQA\Changelog\ReleaseNotesRenderer;
 use LTS\PHPQA\Changelog\ReleaseVersionCalculator;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
@@ -50,6 +52,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(InvalidChangelogException::class)]
 #[UsesClass(ReleaseNotesRenderer::class)]
 #[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(ReleasedSections::class)]
+#[UsesClass(BundledToolVersions::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(SymfonyProcessRunner::class)]
@@ -72,6 +76,16 @@ final class ChangelogReleaseCommandTest extends TestCase
     private const string NOTES = 'notes';
 
     private const string VERSION = '85.1.0';
+
+    private const string PENDING_TAGS = 'pending-tags';
+
+    private const string ADD_TOOL_UPDATES = 'add-tool-updates';
+
+    private const string TAG_LIST = 'git tag --list';
+
+    private const string PHPSTAN_PIN = '<phar name="phpstan" installed="2.2.16"/>';
+
+    private const string EXTRA = 'extra';
 
     private TempDir $project;
 
@@ -103,7 +117,7 @@ final class ChangelogReleaseCommandTest extends TestCase
 
         self::assertSame(0, $this->invoke(self::NEXT_VERSION));
         self::assertSame("85.1.0\n", $this->stdout->fetch());
-        self::assertSame(['git tag --list'], $this->processes->commandLines());
+        self::assertSame([self::TAG_LIST], $this->processes->commandLines());
     }
 
     #[Test]
@@ -186,6 +200,74 @@ final class ChangelogReleaseCommandTest extends TestCase
     }
 
     #[Test]
+    public function pendingTagsNamesEachUntaggedReleaseAndTheCommitThatWroteItOldestFirst(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n\n## 85.2.0 — 2026-10-16\n\n### Fixed\n\n- Two.\n\n## 85.1.0 — 2026-10-09\n\n### Added\n\n- One.\n\n" . substr(self::EMPTY, \strlen("# Changelog\n\n## Unreleased\n\n")));
+        $this->processes->willSucceed("85.0.0\n")->willSucceed("aaa111\n")->willSucceed("bbb222\n");
+
+        self::assertSame(0, $this->invoke(self::PENDING_TAGS));
+        self::assertSame("85.1.0 aaa111\n85.2.0 bbb222\n", $this->stdout->fetch());
+        self::assertSame([
+            self::TAG_LIST,
+            "git log -n1 --format=%H '-S## 85.1.0 — 2026-10-09' HEAD -- CHANGELOG.md",
+            "git log -n1 --format=%H '-S## 85.2.0 — 2026-10-16' HEAD -- CHANGELOG.md",
+        ], $this->processes->commandLines());
+    }
+
+    #[Test]
+    public function pendingTagsPrintsNothingWhenEveryReleaseIsTagged(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
+        $this->processes->willSucceed("85.0.0\n");
+
+        self::assertSame(0, $this->invoke(self::PENDING_TAGS));
+        self::assertSame('', $this->stdout->fetch());
+        self::assertSame([self::TAG_LIST], $this->processes->commandLines());
+    }
+
+    #[Test]
+    public function pendingTagsRefusesAReleaseNoCommitWrote(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
+        $this->processes->willSucceed("84.9.0\n")->willSucceed("\n");
+
+        self::assertSame(1, $this->invoke(self::PENDING_TAGS));
+        self::assertSame('', $this->stdout->fetch());
+        self::assertStringContainsString('no commit reachable from HEAD wrote "## 85.0.0 — 2026-09-01" into CHANGELOG.md; commit the release before tagging it', $this->stderr->fetch());
+    }
+
+    #[Test]
+    public function addToolUpdatesRecordsEveryPinnedVersionThatMovedSinceHead(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
+        $this->project->write('phive.xml', self::PHPSTAN_PIN);
+        $this->project->write('build/rector/composer.json', '{"require": {"rector/rector": "@stable"}}');
+        $this->project->write('build/rector/composer.lock', '{"packages": [{"name": "rector/rector", "version": "2.6.6"}]}');
+        $this->processes
+            ->willSucceed()->willSucceed('<phar name="phpstan" installed="2.2.15"/>')
+            ->willFail(128)
+            ->willSucceed()->willSucceed('{"require": {"rector/rector": "@stable"}}')
+            ->willSucceed()->willSucceed('{"packages": [{"name": "rector/rector", "version": "2.6.6"}]}')
+        ;
+
+        self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
+        self::assertStringContainsString("## Unreleased\n\n### Changed\n\n- **Bundled tool versions updated** by the weekly dependency update: phpstan 2.2.15 → 2.2.16.\n\n## 85.0.0", $this->project->read(ChangelogCheck::CHANGELOG));
+        self::assertSame('git cat-file -e HEAD:build/rector/composer.lock', $this->processes->commandLines()[5]);
+    }
+
+    #[Test]
+    public function addToolUpdatesAddsNothingWhenNoVersionMoved(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
+        $this->project->write('phive.xml', self::PHPSTAN_PIN);
+        $this->processes->willSucceed()->willSucceed(self::PHPSTAN_PIN)->willFail(128);
+
+        self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
+        self::assertSame(self::EMPTY, $this->project->read(ChangelogCheck::CHANGELOG));
+        self::assertSame("No bundled tool version differs from HEAD; nothing to record.\n", $this->stderr->fetch());
+    }
+
+    #[Test]
     public function addEntryWritesTheEntryUnderItsHeading(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
@@ -208,7 +290,7 @@ final class ChangelogReleaseCommandTest extends TestCase
     #[Test]
     public function anUnknownCommandOrTheWrongArgumentCountPrintsTheUsage(): void
     {
-        foreach ([[], ['bogus'], [self::NEXT_VERSION, 'extra'], [self::APPLY, self::VERSION], [self::NOTES], [self::ADD_ENTRY, 'fixed']] as $arguments) {
+        foreach ([[], ['bogus'], [self::NEXT_VERSION, self::EXTRA], [self::APPLY, self::VERSION], [self::NOTES], [self::ADD_ENTRY, 'fixed'], [self::PENDING_TAGS, self::EXTRA], [self::ADD_TOOL_UPDATES, self::EXTRA]] as $arguments) {
             self::assertSame(1, $this->invoke(...$arguments), implode(' ', $arguments));
             self::assertStringContainsString('Usage: changelog-release <command>', $this->stderr->fetch());
         }

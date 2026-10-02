@@ -16,9 +16,11 @@ use LTS\PHPQA\Changelog\Dto\ChangelogDocumentDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogHeadingBlockDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogRangeDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogTrailerVerdictDto;
+use LTS\PHPQA\Changelog\Dto\ReleasedSectionDto;
 use LTS\PHPQA\Changelog\Exception\ChangelogHistoryException;
 use LTS\PHPQA\Changelog\Exception\ChangelogReleaseException;
 use LTS\PHPQA\Changelog\Exception\InvalidChangelogException;
+use LTS\PHPQA\Changelog\ReleasedSections;
 use LTS\PHPQA\Changelog\ReleaseVersionCalculator;
 use LTS\PHPQA\Changelog\WatchedPaths;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
@@ -52,6 +54,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ChangelogReleaseException::class)]
 #[UsesClass(InvalidChangelogException::class)]
 #[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(ReleasedSections::class)]
+#[UsesClass(ReleasedSectionDto::class)]
 #[UsesClass(WatchedPaths::class)]
 #[UsesClass(EnvironmentReader::class)]
 #[UsesClass(GitBranches::class)]
@@ -73,6 +77,14 @@ final class ChangelogCheckTest extends TestCase
     private const string RESOLVED = "abc\n";
 
     private const string BASE = "base1\n";
+
+    private const string RECORDED_ONE = '1 watched file changed; recorded by 1 new "## Unreleased" entry.';
+
+    private const string CHANGED_SOURCE = "src/A.php\0";
+
+    private const string COMPOSER_WITH_PCNTL = '{"require": {"php": "^8.5", "ext-pcntl": "*"}}';
+
+    private const string CHANGED_COMPOSER = "composer.json\0";
 
     private const string COMPOSER_JSON = 'composer.json';
 
@@ -144,7 +156,7 @@ final class ChangelogCheckTest extends TestCase
         self::assertSame([
             'CHANGELOG.md "## Unreleased" is valid: 2 entries, the next release bumps the patch.',
             'Range: since the merge base with origin/php8.5 (base1).',
-            '1 watched file changed; recorded by 1 new "## Unreleased" entry.',
+            self::RECORDED_ONE,
         ], $result->report);
     }
 
@@ -166,11 +178,11 @@ final class ChangelogCheckTest extends TestCase
     public function anUnparseableBaseChangelogCountsEntriesItsTextDoesNotContain(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::WITH_ENTRY);
-        $this->featureBranch("src/A.php\0");
+        $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed("# Changelog\n\n- Old fix.\n");
         $this->composerUnchanged();
 
-        self::assertSame('1 watched file changed; recorded by 1 new "## Unreleased" entry.', $this->check()->report[2]);
+        self::assertSame(self::RECORDED_ONE, $this->check()->report[2]);
     }
 
     #[Test]
@@ -218,7 +230,7 @@ final class ChangelogCheckTest extends TestCase
     public function aValidTrailerStandsInForAnEntry(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
-        $this->featureBranch("src/A.php\0");
+        $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed("none — internal refactor only\n");
         $this->composerUnchanged();
 
@@ -245,8 +257,8 @@ final class ChangelogCheckTest extends TestCase
     public function aChangedRequirementWithoutABreakingEntryFails(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::WITH_ENTRY);
-        $this->project->write(self::COMPOSER_JSON, '{"require": {"php": "^8.5", "ext-pcntl": "*"}}');
-        $this->featureBranch("composer.json\0");
+        $this->project->write(self::COMPOSER_JSON, self::COMPOSER_WITH_PCNTL);
+        $this->featureBranch(self::CHANGED_COMPOSER);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
 
@@ -262,8 +274,8 @@ final class ChangelogCheckTest extends TestCase
     public function aChangedRequirementWithABreakingEntryPasses(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n### Changed — breaking\n\n- Requires ext-pcntl.\n");
-        $this->project->write(self::COMPOSER_JSON, '{"require": {"php": "^8.5", "ext-pcntl": "*"}}');
-        $this->featureBranch("composer.json\0");
+        $this->project->write(self::COMPOSER_JSON, self::COMPOSER_WITH_PCNTL);
+        $this->featureBranch(self::CHANGED_COMPOSER);
         $this->processes->willFail(128);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
 
@@ -292,6 +304,47 @@ final class ChangelogCheckTest extends TestCase
 
         self::assertFalse($result->passed());
         self::assertStringContainsString('no 85.N.N release tag', $result->problems[0]);
+    }
+
+    #[Test]
+    public function aSectionReleasedSinceTheBaseRecordsTheChangeBeforeItIsTagged(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n\n## 85.1.0 — 2026-10-09\n\n### Fixed\n\n- A fix.\n\n## 85.0.0 — 2026-10-02\n\n### Added\n\n- First.\n");
+        $this->featureBranch(self::CHANGED_SOURCE);
+        $this->processes->willSucceed()->willSucceed("# Changelog\n\n## Unreleased\n\n## 85.0.0 — 2026-10-02\n\n### Added\n\n- First.\n");
+        $this->composerUnchanged();
+
+        $result = $this->check();
+
+        self::assertSame([], $result->problems);
+        self::assertSame(self::RECORDED_ONE, $result->report[2]);
+    }
+
+    #[Test]
+    public function aBreakingEntryInASectionReleasedSinceTheBaseCoversARequirementChange(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n## 85.1.0 — 2026-10-09\n\n### Changed — breaking\n\n- Requires ext-pcntl.\n");
+        $this->project->write(self::COMPOSER_JSON, self::COMPOSER_WITH_PCNTL);
+        $this->featureBranch(self::CHANGED_COMPOSER);
+        $this->processes->willSucceed()->willSucceed("## Unreleased\n");
+        $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+
+        $result = $this->check();
+
+        self::assertSame([], $result->problems);
+        self::assertCount(11, $this->processes->specs, 'the base CHANGELOG.md is read once, for both checks');
+    }
+
+    #[Test]
+    public function anInvalidReleasedSectionFailsTheCheck(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n## 85.1.0 — 2026-10-09\n\nLoose text.\n");
+        $this->featureBranch(self::CHANGED_SOURCE);
+        $this->processes->willSucceed()->willSucceed("## Unreleased\n");
+
+        $result = $this->check();
+
+        self::assertSame(['CHANGELOG.md is invalid:' . "\n" . '  - line 5: text outside a "###" heading: "Loose text."'], $result->problems);
     }
 
     private function featureBranch(string $changedFiles): void

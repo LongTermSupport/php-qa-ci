@@ -78,6 +78,18 @@ final readonly class ChangelogGit
     }
 
     /**
+     * The newest commit reachable from HEAD that added or removed $text in
+     * $path, or null when none did. Merge commits are not diffed, so for a
+     * merged pull request this is the commit on the branch that wrote it.
+     */
+    public function commitChanging(string $text, string $path): ?string
+    {
+        $sha = trim($this->required('log', '-n1', '--format=%H', '-S' . $text, 'HEAD', '--', $path)->stdout);
+
+        return '' === $sha ? null : $sha;
+    }
+
+    /**
      * The `Changelog:` trailer value of every commit in $base..HEAD that has one.
      *
      * @return list<string>
