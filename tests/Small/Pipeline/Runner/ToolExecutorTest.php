@@ -88,7 +88,7 @@ final class ToolExecutorTest extends TestCase
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('lint Failed...', $printed);
         self::assertStringContainsString('3 files', $printed);
-        self::assertStringContainsString('Defence Before Fix: https://defence-before-fix.github.io/', $printed);
+        self::assertStringContainsString("        Defence Before Fix (DBF): https://defence-before-fix.github.io/ - agent prompt: https://defence-before-fix.github.io/defence-before-fix-project-prompt.md\n", $printed);
     }
 
     #[Test]
