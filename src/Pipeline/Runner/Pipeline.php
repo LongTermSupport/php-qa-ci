@@ -62,8 +62,9 @@ final readonly class Pipeline
             return $config->agentMode ? $this->reportLockHeld($context, $lockTool) : self::EXIT_LOCK_CONTENDED;
         }
 
-        // A lane that throws must not leave the lock behind: the next run would
-        // wait out the stale window for a holder that no longer exists.
+        // A lane that throws must not leave a holder record behind for the next
+        // run to report. A signal never reaches this finally; RunInterruptHandler
+        // releases the lock on that path.
         $exitCode = 1;
 
         try {
@@ -123,7 +124,6 @@ final readonly class Pipeline
      */
     private function runAgentTool(ToolContext $context, string $tool): int
     {
-        $this->lock->touch();
         $outcome = $this->executor->execute($tool, $context)->result->outcome;
 
         return match ($outcome) {
@@ -168,7 +168,6 @@ final readonly class Pipeline
                 $this->banner($tool->banner, '-');
             }
 
-            $this->lock->touch();
             $execution = $this->executor->execute($tool->name, $context);
             $retried   = $retried || $execution->retried;
             if ($execution->result->isSuccess()) {

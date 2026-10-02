@@ -4,31 +4,42 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lock;
 
+use JsonException;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
+use RuntimeException;
+use Safe\Exceptions\FilesystemException;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * One run at a time per project. A JSON lock file under qaConfig/.qa-lock/
- * records who holds it and when it last showed activity; a holder that has
- * been quiet for longer than the stale window is presumed dead (container
- * restarts leave PIDs meaningless, so liveness is time-based, not PID-based).
+ * One run at a time per project: an exclusive flock on
+ * qaConfig/.qa-lock/qa-running.lock, held for the life of the run. The lock
+ * file's JSON names the holder for a human; the flock is the lock. Liveness is
+ * "can the flock be taken", never a pid or a clock.
+ *
+ * Two mechanisms, two concerns. RunInterruptHandler releases the lock
+ * gracefully (and stops the child tools) on a catchable signal; the flock is
+ * the guarantee for every death no handler sees (SIGKILL, the OOM killer, a
+ * container stop), because the kernel drops it with the process.
  *
  * @internal
  */
-final readonly class RunLock
+final class RunLock
 {
-    public const int STALE_AFTER_SECONDS = 600;
-
-    private const string TIME_FORMAT     = 'H:i:s';
+    private const string TIME_FORMAT = 'H:i:s';
 
     private const string LOCK_FILE = 'qa-running.lock';
 
     private const string GITIGNORE = "# QA lock directory: runtime state only, never tracked.\n*\n";
 
+    private const string OPEN_MODE = 'c+e';
+
+    /** @var resource|null the open lock file while this run holds the flock */
+    private mixed $handle = null;
+
     public function __construct(
-        private string $lockDir,
-        private OutputInterface $output,
-        private ClockInterface $clock = new SystemClock(),
+        private readonly string $lockDir,
+        private readonly OutputInterface $output,
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -38,8 +49,8 @@ final readonly class RunLock
     }
 
     /**
-     * Acquire the lock, or report the live holder and return false. A stale
-     * lock is removed with a note and then acquired.
+     * Take the flock, or report the holder and return false. A record left by
+     * a run that died without releasing is noted and overwritten.
      */
     public function acquire(string $tool, string $path, string $hostname, int $pid): bool
     {
@@ -52,55 +63,58 @@ final readonly class RunLock
             \Safe\file_put_contents($gitignore, self::GITIGNORE);
         }
 
-        $existing = $this->current();
-        if ($existing instanceof LockInfoDto) {
-            $idle = $this->clock->now() - $existing->lastActivity;
-            if ($idle < self::STALE_AFTER_SECONDS) {
-                $this->output->writeln('');
-                $this->output->writeln('[QA Lock] Another QA run holds the lock:');
-                $this->output->writeln('[QA Lock]   ' . $existing->describe());
-                $this->output->writeln(\sprintf('[QA Lock]   started %s, last activity %ds ago (stale after %ds)', date(self::TIME_FORMAT, $existing->startedAt), $idle, self::STALE_AFTER_SECONDS));
-                $this->output->writeln('[QA Lock] Wait for it to finish, or remove ' . $this->lockFile() . ' if you are sure it is dead.');
+        // 'c' creates without truncating, so a contender can read the holder's
+        // record. 'e' is close-on-exec: a child tool that inherited the
+        // descriptor would keep the flock alive after this process died.
+        $handle = \Safe\fopen($this->lockFile(), self::OPEN_MODE);
+        if (!$this->flock($handle)) {
+            \Safe\fclose($handle);
+            $this->reportHolder();
 
-                return false;
-            }
-
-            $this->output->writeln(\sprintf('[QA Lock] Removing stale lock (no activity for %ds, held by pid %d on %s).', $idle, $existing->pid, $existing->hostname));
-            \Safe\unlink($this->lockFile());
+            return false;
         }
 
+        $this->handle = $handle;
+        $this->reportAbandonedRecord();
+
         $now = $this->clock->now();
-        $this->write(new LockInfoDto($hostname, $pid, $tool, $path, $now, $now));
+        \Safe\ftruncate($handle, 0);
+        \Safe\rewind($handle);
+        \Safe\fwrite($handle, new LockInfoDto($hostname, $pid, $tool, $path, $now)->toJson());
+        \Safe\fflush($handle);
         $this->output->writeln(\sprintf('[QA Lock] Acquired at %s', date(self::TIME_FORMAT, $now)));
 
         return true;
     }
 
-    /** Record activity so the lock does not go stale during a long tool. */
-    public function touch(): void
-    {
-        $existing = $this->current();
-        if (!$existing instanceof LockInfoDto) {
-            return;
-        }
-
-        $this->write(new LockInfoDto($existing->hostname, $existing->pid, $existing->tool, $existing->path, $existing->startedAt, $this->clock->now()));
-    }
-
+    /**
+     * Clear the record and drop the flock. Idempotent, and a no-op for a run
+     * that never acquired, so the interrupt handler and the pipeline's
+     * `finally` can both call it and a contender can never free a holder's
+     * lock. The lock is freed before anything is printed.
+     */
     public function release(int $exitCode): void
     {
-        $existing = $this->current();
-        if (!$existing instanceof LockInfoDto) {
+        $handle = $this->handle;
+        if (null === $handle) {
             return;
         }
 
-        \Safe\unlink($this->lockFile());
-        $elapsed = $this->clock->now() - $existing->startedAt;
+        $this->handle = null;
+        $holder       = $this->current();
+        \Safe\ftruncate($handle, 0);
+        \Safe\flock($handle, \LOCK_UN);
+        \Safe\fclose($handle);
+
+        $now = $this->clock->now();
         $this->output->writeln('');
-        $this->output->writeln(\sprintf('[QA Lock] Released at %s (exit %d)', date(self::TIME_FORMAT, $this->clock->now()), $exitCode));
-        $this->output->writeln(\sprintf('[QA Lock] Execution took %s', self::formatDuration($elapsed)));
+        $this->output->writeln(\sprintf('[QA Lock] Released at %s (exit %d)', date(self::TIME_FORMAT, $now), $exitCode));
+        if ($holder instanceof LockInfoDto) {
+            $this->output->writeln(\sprintf('[QA Lock] Execution took %s', self::formatDuration($now - $holder->startedAt)));
+        }
     }
 
+    /** The holder record, or null when there is none (or none written yet). */
     public function current(): ?LockInfoDto
     {
         $file = $this->lockFile();
@@ -108,7 +122,9 @@ final readonly class RunLock
             return null;
         }
 
-        return LockInfoDto::fromJson(\Safe\file_get_contents($file));
+        $json = \Safe\file_get_contents($file);
+
+        return '' === $json ? null : LockInfoDto::fromJson($json);
     }
 
     public function lockFile(): string
@@ -131,8 +147,65 @@ final readonly class RunLock
         return \sprintf('%d hours %d minutes', intdiv($minutes, 60), $minutes % 60);
     }
 
-    private function write(LockInfoDto $info): void
+    /**
+     * Non-blocking exclusive flock: false when another open file holds it,
+     * any other failure thrown.
+     *
+     * @param resource $handle
+     */
+    private function flock(mixed $handle): bool
     {
-        \Safe\file_put_contents($this->lockFile(), $info->toJson());
+        $wouldBlock = 0;
+
+        try {
+            \Safe\flock($handle, \LOCK_EX | \LOCK_NB, $wouldBlock);
+        } catch (FilesystemException $filesystemException) {
+            if (1 === $wouldBlock) {
+                return false;
+            }
+
+            throw $filesystemException;
+        }
+
+        return true;
+    }
+
+    private function reportHolder(): void
+    {
+        $this->output->writeln('');
+        $this->output->writeln('[QA Lock] Another QA run holds the lock:');
+        $this->output->writeln('[QA Lock]   ' . $this->describeRecord('holder details not written yet', static fn (LockInfoDto $holder): string => \sprintf(
+            '%s, started %s',
+            $holder->describe(),
+            date(self::TIME_FORMAT, $holder->startedAt),
+        )));
+        $this->output->writeln('[QA Lock] Wait for it to finish. The lock is an flock, so it frees itself however that run ends.');
+    }
+
+    private function reportAbandonedRecord(): void
+    {
+        if ('' === \Safe\file_get_contents($this->lockFile())) {
+            return;
+        }
+
+        $this->output->writeln('[QA Lock] A previous run ended without releasing the lock (killed?); taking it over from ' . $this->describeRecord('', static fn (LockInfoDto $holder): string => $holder->describe()));
+    }
+
+    /**
+     * The record as one line for a banner. The record is information only, so
+     * an unreadable one is described, never fatal: a half-written record from
+     * a run killed mid-write must not block the runs after it.
+     *
+     * @param callable(LockInfoDto): string $describe
+     */
+    private function describeRecord(string $whenEmpty, callable $describe): string
+    {
+        try {
+            $holder = $this->current();
+        } catch (JsonException|RuntimeException $unreadable) {
+            return \sprintf('an unreadable holder record in %s (%s)', $this->lockFile(), $unreadable->getMessage());
+        }
+
+        return $holder instanceof LockInfoDto ? $describe($holder) : $whenEmpty;
     }
 }

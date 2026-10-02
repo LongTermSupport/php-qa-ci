@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
+use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Runner\AggregateReport;
 use LTS\PHPQA\Pipeline\Runner\DirectoryPreparer;
@@ -46,7 +47,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto::class)]
+#[UsesClass(LockInfoDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lock\SystemClock::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
@@ -101,7 +102,7 @@ final class PipelineTest extends TestCase
         $expectedOrder = ['rector', 'phpCsFixer', 'twigCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'versionPins', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
-        self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'the lock is released');
+        self::assertNull($this->lockRecord(), 'the lock is released');
         self::assertFileExists($this->factory->project->path . '/var/qa/cache/.gitignore', 'directories are prepared');
     }
 
@@ -285,7 +286,17 @@ final class PipelineTest extends TestCase
             self::assertSame('the lane crashed', $runtimeException->getMessage());
         }
 
-        self::assertFileDoesNotExist($this->factory->project->path . '/qaConfig/.qa-lock/qa-running.lock', 'a crash inside the locked section must not leave the lock behind');
+        self::assertNull($this->lockRecord(), 'a crash inside the locked section must not leave the lock behind');
+    }
+
+    /**
+     * The holder record, which only release() clears. Whether the flock is
+     * free proves nothing here: the pipeline's RunLock is garbage once run()
+     * returns, and closing its file drops the flock either way.
+     */
+    private function lockRecord(): ?LockInfoDto
+    {
+        return RunLock::forProject($this->factory->project->path, $this->factory->output)->current();
     }
 
     private function pipeline(bool $retry = false): Pipeline

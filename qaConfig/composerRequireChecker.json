@@ -57,6 +57,8 @@
     "vendor/thecodingmachine/safe/generated/8.1/dir.php",
     "vendor/thecodingmachine/safe/generated/8.4/info.php",
     "vendor/thecodingmachine/safe/generated/8.4/network.php",
-    "vendor/thecodingmachine/safe/generated/8.4/outcontrol.php"
+    "vendor/thecodingmachine/safe/generated/8.4/outcontrol.php",
+    "vendor/thecodingmachine/safe/generated/8.5/pcntl.php",
+    "vendor/thecodingmachine/safe/generated/8.4/posix.php"
   ]
 }

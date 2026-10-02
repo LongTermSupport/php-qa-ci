@@ -18,6 +18,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\LogArchiver;
 use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Process\ProcessRunnerInterface;
+use LTS\PHPQA\Pipeline\Process\RunningProcesses;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Pipeline\Runner\AggregateReport;
 use LTS\PHPQA\Pipeline\Runner\ConsoleRetryPrompt;
@@ -26,6 +27,7 @@ use LTS\PHPQA\Pipeline\Runner\HookRunner;
 use LTS\PHPQA\Pipeline\Runner\NonInteractiveRetryPrompt;
 use LTS\PHPQA\Pipeline\Runner\PharToolsVerifier;
 use LTS\PHPQA\Pipeline\Runner\Pipeline;
+use LTS\PHPQA\Pipeline\Runner\RunInterruptHandler;
 use LTS\PHPQA\Pipeline\Runner\ShippedToolLocator;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
 use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
@@ -89,6 +91,29 @@ final readonly class QaApplication
             default    => $stdout,
         };
 
+        // Installed before the first child process starts and for the rest of
+        // the run, so an interrupt at any point stops the tools and frees the lock.
+        $children   = new RunningProcesses();
+        $lock       = RunLock::forProject($this->projectRoot, $decoration);
+        $interrupts = new RunInterruptHandler($lock, $children, $decoration);
+        $interrupts->install();
+
+        try {
+            return $this->runInterruptible($env, $json, $agentMode, $stdout, $decoration, $children, $lock);
+        } finally {
+            $interrupts->uninstall();
+        }
+    }
+
+    private function runInterruptible(
+        EnvironmentReader $env,
+        bool $json,
+        bool $agentMode,
+        OutputInterface $stdout,
+        OutputInterface $decoration,
+        RunningProcesses $children,
+        RunLock $lock,
+    ): int {
         // The project's pipeline.php decides what `-t` can name, so it is read
         // before the arguments are parsed. Its output lands with the header.
         try {
@@ -132,7 +157,7 @@ final readonly class QaApplication
         $aggregate = $env->isAggregate($readOnly);
         $this->announceModes($decoration, $env, $ci, $readOnly, $aggregate);
 
-        $processes = new SymfonyProcessRunner($decoration);
+        $processes = new SymfonyProcessRunner($decoration, $children);
         $phpBin    = $env->string('PHP_QA_CI_PHP_EXECUTABLE') ?? 'php';
         $memory    = $env->string('phpqaMemoryLimit')         ?? '4G';
         $php       = new PhpInvoker($processes, $phpBin, $memory, $paths->varDir);
@@ -206,7 +231,7 @@ final readonly class QaApplication
                     $ci ? new NonInteractiveRetryPrompt() : new ConsoleRetryPrompt($decoration, $this->stdinStream),
                     $decoration,
                 ),
-                lock: RunLock::forProject($paths->projectRoot, $decoration),
+                lock: $lock,
                 hooks: new HookRunner(),
                 directories: new DirectoryPreparer(),
                 phars: new PharToolsVerifier(),

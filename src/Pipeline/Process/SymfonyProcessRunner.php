@@ -14,14 +14,17 @@ use Symfony\Component\Process\Process;
  * as it arrives and capturing it for the caller (the equivalent of
  * `cmd 2>&1 | tee`), with stdout also captured on its own so structured
  * output (PHPStan --json) is never polluted by stderr. The command line is
- * echoed first so a log shows exactly what ran.
+ * echoed first so a log shows exactly what ran. The child is registered in
+ * $running while it runs, so an interrupted run can stop it.
  *
  * @internal
  */
 final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
 {
-    public function __construct(private OutputInterface $output)
-    {
+    public function __construct(
+        private OutputInterface $output,
+        private RunningProcesses $running = new RunningProcesses(),
+    ) {
     }
 
     public function run(ProcessSpecDto $spec): ProcessResultDto
@@ -35,16 +38,22 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
 
         $captured = '';
         $stdout   = '';
-        $process->run(function (string $type, string $buffer) use ($spec, &$captured, &$stdout): void {
-            $captured .= $buffer;
-            if (Process::OUT === $type) {
-                $stdout .= $buffer;
-            }
+        $this->running->add($process);
 
-            if ($spec->streamOutput) {
-                $this->output->write($buffer, false, OutputInterface::OUTPUT_RAW);
-            }
-        });
+        try {
+            $process->run(function (string $type, string $buffer) use ($spec, &$captured, &$stdout): void {
+                $captured .= $buffer;
+                if (Process::OUT === $type) {
+                    $stdout .= $buffer;
+                }
+
+                if ($spec->streamOutput) {
+                    $this->output->write($buffer, false, OutputInterface::OUTPUT_RAW);
+                }
+            });
+        } finally {
+            $this->running->remove($process);
+        }
 
         return new ProcessResultDto($process->getExitCode() ?? 1, $captured, $stdout);
     }

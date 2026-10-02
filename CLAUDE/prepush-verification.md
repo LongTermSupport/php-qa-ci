@@ -34,8 +34,8 @@ sub-agent: a sub-agent runs `-t`/`-p` lanes and hands its commit back (why, and 
 daemon enforces it: [qa-orchestration.md](qa-orchestration.md)).
 
 `bin/qa` takes the project's run lock; if it reports another QA run holding the
-lock, wait for that run to finish (the lock goes stale after ten minutes of
-inactivity) rather than deleting the lock file.
+lock, that run is alive (the lock is an flock, freed the moment its holder dies),
+so wait for it to finish rather than deleting the lock file.
 
 ## The gate, run once, against the COMMITTED tree
 

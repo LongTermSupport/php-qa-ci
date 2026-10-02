@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Pipeline;
 
+use LTS\PHPQA\Tests\Support\FixtureConsumer;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
@@ -13,10 +14,8 @@ use Symfony\Component\Process\Process;
 
 /**
  * Characterisation of the PHP entrypoint end-to-end: the real script, the real
- * argument parsing and usage text, over a throwaway consumer project that has
- * php-qa-ci installed under vendor/lts/php-qa-ci. Running against a fixture
- * consumer (never this repository) keeps the test off this repository's run
- * lock, so it cannot collide with a concurrent bin/qa here.
+ * argument parsing and usage text, over a throwaway consumer project
+ * (FixtureConsumer) that has php-qa-ci installed under vendor/lts/php-qa-ci.
  *
  * @internal
  */
@@ -26,35 +25,25 @@ final class QaEntrypointTest extends TestCase
 {
     private const string USAGE = 'Usage:';
 
-    private const string BIN = '/bin/';
-
     private const string LIBRARY_ROOT = __DIR__ . '/../../..';
 
-    private const string INSTALLED_LIBRARY = 'vendor/lts/php-qa-ci';
+    private const string INSTALLED_LIBRARY = FixtureConsumer::INSTALLED_LIBRARY;
 
-    private const string AUTOLOAD = '/vendor/autoload.php';
+    private const string AUTOLOAD = FixtureConsumer::AUTOLOAD;
+
+    private FixtureConsumer $fixture;
 
     private TempDir $consumer;
 
     protected function setUp(): void
     {
-        $this->consumer = TempDir::create('qa-entrypoint');
-        $this->installLibraryIntoConsumer();
-        $this->consumer->write('composer.json', <<<'JSON'
-            {
-              "name": "fixture/consumer",
-              "type": "project",
-              "require": { "php": "^8.5" },
-              "autoload": { "psr-4": { "Fixture\\": "src/" } }
-            }
-            JSON);
-        $this->consumer->write('src/Thing.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Fixture;\n\nfinal class Thing {}\n");
-        $this->consumer->mkdir('tests');
+        $this->fixture  = FixtureConsumer::create('qa-entrypoint');
+        $this->consumer = $this->fixture->dir;
     }
 
     protected function tearDown(): void
     {
-        $this->consumer->remove();
+        $this->fixture->remove();
     }
 
     #[Test]
@@ -195,49 +184,10 @@ final class QaEntrypointTest extends TestCase
         return $process->getOutput();
     }
 
-    /**
-     * PHP resolves __DIR__ through symlinks, so a symlinked library would find
-     * THIS repository's autoloader and treat this repository as the project.
-     * The consumer therefore gets a real bin/ directory holding copies of the
-     * entrypoint and its bootstrap, a vendor/autoload.php that delegates to the
-     * real one, and symlinks for everything else the pipeline reads from the
-     * library root (configDefaults, vendor-phar, phive.xml, ...).
-     */
-    private function installLibraryIntoConsumer(): void
-    {
-        $installed = $this->consumer->mkdir(self::INSTALLED_LIBRARY);
-        $this->consumer->mkdir(self::INSTALLED_LIBRARY . '/bin');
-        $libraryRoot = \Safe\realpath(self::LIBRARY_ROOT);
-
-        foreach (['qa', 'bootstrap.php'] as $script) {
-            \Safe\copy($libraryRoot . self::BIN . $script, $installed . self::BIN . $script);
-            \Safe\chmod($installed . self::BIN . $script, 0o755);
-        }
-
-        foreach (\Safe\scandir($libraryRoot) as $entry) {
-            if (!\is_string($entry) || \in_array($entry, ['.', '..', 'bin', '.git', 'vendor', 'var', 'untracked'], true)) {
-                continue;
-            }
-
-            \Safe\symlink($libraryRoot . '/' . $entry, $installed . '/' . $entry);
-        }
-
-        $this->consumer->write('vendor/autoload.php', \sprintf(
-            "<?php\n\ndeclare(strict_types=1);\n\nreturn require %s;\n",
-            var_export($libraryRoot . self::AUTOLOAD, true),
-        ));
-    }
-
     /** @param array<string, string> $env */
     private function qa(array $env, string ...$args): Process
     {
-        $process = new Process(
-            ['php', $this->consumer->path . '/' . self::INSTALLED_LIBRARY . '/bin/qa', ...$args],
-            $this->consumer->path,
-            ['CI' => 'true', ...$env],
-            null,
-            120,
-        );
+        $process = $this->fixture->qa($env, ...$args);
         $process->run();
 
         return $process;

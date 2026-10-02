@@ -15,6 +15,23 @@ belong here.
   caller that treated any non-zero exit as "QA failed" now sees contention as its
   own outcome, and should retry rather than report a defect.
 
+- **`ext-pcntl` and `ext-posix` are required.** The run handles SIGINT, SIGTERM,
+  SIGHUP and SIGQUIT itself and stops its tools' worker processes (see Fixed
+  below), which needs both. A host without them is told at `composer install`
+  rather than left with runs that cannot clean up after Ctrl-C.
+
+### Fixed
+
+- **An interrupted run no longer locks out every run after it.** Ctrl-C, `kill`,
+  a closed terminal or an agent harness stopping the task used to kill PHP before
+  the lock was released, leaving the running tool (and PHPStan's parallel workers)
+  orphaned and every following run refused for up to ten minutes. The run now stops
+  its running tool and everything that tool started, releases the lock and exits
+  128 + the signal number (130 for Ctrl-C, 143 for SIGTERM). The
+  lock itself is now an `flock`, which the kernel frees however the holder dies, even
+  SIGKILL or the OOM killer, so the ten-minute stale window is gone: a holder that
+  is reported is a live one.
+
 ### Added
 
 - **The hooks daemon keeps the full pipeline with the coordinating session.** Where the

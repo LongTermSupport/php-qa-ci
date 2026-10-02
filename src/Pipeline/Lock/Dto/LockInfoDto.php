@@ -7,9 +7,8 @@ namespace LTS\PHPQA\Pipeline\Lock\Dto;
 use RuntimeException;
 
 /**
- * Who holds the run lock, and since when. Both times are Unix timestamps in
- * seconds; `$lastActivity` is what stale detection compares against, and the
- * runner touches it before every tool so a long lane never goes stale.
+ * Who holds the run lock, and since when (a Unix timestamp in seconds). It is
+ * the record a contender prints, not the lock: the flock is.
  *
  * @internal
  */
@@ -21,7 +20,6 @@ final readonly class LockInfoDto
         public string $tool,
         public string $path,
         public int $startedAt,
-        public int $lastActivity,
     ) {
     }
 
@@ -38,7 +36,6 @@ final readonly class LockInfoDto
             tool: self::string($decoded, 'tool'),
             path: self::string($decoded, 'path'),
             startedAt: self::int($decoded, 'started_at'),
-            lastActivity: self::int($decoded, 'last_activity'),
         );
     }
 
@@ -51,12 +48,11 @@ final readonly class LockInfoDto
     public function toJson(): string
     {
         return \Safe\json_encode([
-            'hostname'      => $this->hostname,
-            'pid'           => $this->pid,
-            'tool'          => $this->tool,
-            'path'          => $this->path,
-            'started_at'    => $this->startedAt,
-            'last_activity' => $this->lastActivity,
+            'hostname'   => $this->hostname,
+            'pid'        => $this->pid,
+            'tool'       => $this->tool,
+            'path'       => $this->path,
+            'started_at' => $this->startedAt,
         ], \JSON_PRETTY_PRINT) . "\n";
     }
 
