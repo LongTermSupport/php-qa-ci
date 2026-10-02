@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Declares the Claude Code hooks daemon's subagent_full_qa_blocker in a
+ * consuming project. scripts/deploy-skills.bash calls it on every composer
+ * install/update; it can be re-run by hand. The decision and the edit live in
+ * LTS\PHPQA\HooksDaemon\FullQaBlockerConfigurator, where they are unit-tested.
+ *
+ * Usage: hooks-daemon-full-qa-blocker [<project-root> [<hooks-daemon.yaml>]]
+ */
+
+require __DIR__.'/bootstrap.php';
+
+$projectRoot = $argv[1] ?? \LTS\PHPQA\Helper::getProjectRootDirectory();
+
+die(\LTS\PHPQA\HooksDaemon\FullQaBlockerConfigurator::main(
+    $projectRoot,
+    $argv[2] ?? $projectRoot.'/.claude/hooks-daemon.yaml',
+));
