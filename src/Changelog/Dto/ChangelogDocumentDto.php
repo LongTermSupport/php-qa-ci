@@ -53,11 +53,6 @@ final readonly class ChangelogDocumentDto
         return ReleaseBumpEnum::Patch;
     }
 
-    public function isBreaking(): bool
-    {
-        return array_any($this->blocks, static fn (ChangelogHeadingBlockDto $block): bool => $block->heading->isBreaking());
-    }
-
     /** @return list<string> every entry's text, continuation lines included */
     public function entries(): array
     {

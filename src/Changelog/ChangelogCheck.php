@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Changelog;
 
 use LTS\PHPQA\Changelog\Dto\ChangelogCheckResultDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogDocumentDto;
+use LTS\PHPQA\Changelog\Dto\ChangelogHeadingBlockDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogRangeDto;
 use LTS\PHPQA\Changelog\Exception\ChangelogHistoryException;
 use LTS\PHPQA\Changelog\Exception\ChangelogReleaseException;
@@ -81,7 +82,7 @@ final readonly class ChangelogCheck
             }
 
             $requirementChanges = $this->requirements->between($git->fileAt($range->base, self::COMPOSER_JSON), $composer);
-            if ([] !== $requirementChanges && !$head->block(ChangelogHeadingEnum::ChangedBreaking) instanceof Dto\ChangelogHeadingBlockDto) {
+            if ([] !== $requirementChanges && !$head->block(ChangelogHeadingEnum::ChangedBreaking) instanceof ChangelogHeadingBlockDto) {
                 $problems[] = \sprintf(
                     'composer.json "require" changed %s (%s), and "%s" has no "### %s" entry: a new or tightened requirement breaks every consumer that cannot meet it, so record it there.',
                     $range->description,

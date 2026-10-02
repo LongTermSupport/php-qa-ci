@@ -13,5 +13,5 @@ die(\LTS\PHPQA\Changelog\ChangelogReleaseCommand::main(
     $changelogReleaseRoot,
     new \Symfony\Component\Console\Output\StreamOutput(\STDOUT),
     new \Symfony\Component\Console\Output\StreamOutput(\STDERR),
-    ...array_slice($argv, 1),
+    ...array_slice($argv ?? [], 1),
 ));

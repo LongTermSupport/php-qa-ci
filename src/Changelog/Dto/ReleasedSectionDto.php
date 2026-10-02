@@ -22,9 +22,4 @@ final readonly class ReleasedSectionDto
         public array $blocks,
     ) {
     }
-
-    public function isBreaking(): bool
-    {
-        return array_any($this->blocks, static fn ($block) => $block->heading->isBreaking());
-    }
 }

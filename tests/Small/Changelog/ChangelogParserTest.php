@@ -40,7 +40,6 @@ final class ChangelogParserTest extends TestCase
 
         self::assertFalse($document->isEmpty());
         self::assertSame(ReleaseBumpEnum::Minor, $document->bump());
-        self::assertTrue($document->isBreaking());
         self::assertSame(4, $document->unreleasedIndex);
         self::assertSame(17, $document->sectionEnd);
         self::assertSame(["- **Exit 75.** A contended\n  lock no longer exits 1.", '- Second entry.', '* A fix.'], $document->entries());
@@ -57,21 +56,19 @@ final class ChangelogParserTest extends TestCase
     }
 
     #[Test]
-    public function fixesAndSecurityAloneArePatchAndNotBreaking(): void
+    public function fixesAndSecurityAloneArePatch(): void
     {
         $document = $this->parse("## Unreleased\n\n### Fixed\n\n- A fix.\n\n### Security\n\n- A patch.\n");
 
         self::assertSame(ReleaseBumpEnum::Patch, $document->bump());
-        self::assertFalse($document->isBreaking());
     }
 
     #[Test]
-    public function removedAloneIsBreaking(): void
+    public function aMinorHeadingAfterPatchHeadingsMakesTheReleaseMinor(): void
     {
-        $document = $this->parse("## Unreleased\n\n### Removed\n\n- Gone.\n");
+        $document = $this->parse("## Unreleased\n\n### Fixed\n\n- A fix.\n\n### Removed\n\n- Gone.\n");
 
         self::assertSame(ReleaseBumpEnum::Minor, $document->bump());
-        self::assertTrue($document->isBreaking());
     }
 
     #[Test]
@@ -81,7 +78,6 @@ final class ChangelogParserTest extends TestCase
 
         self::assertTrue($document->isEmpty());
         self::assertNull($document->bump());
-        self::assertFalse($document->isBreaking());
         self::assertSame([], $document->entries());
         self::assertSame(7, $document->sectionEnd);
     }
@@ -207,7 +203,6 @@ final class ChangelogParserTest extends TestCase
         self::assertCount(1, $section->blocks);
         self::assertSame(ChangelogHeadingEnum::Added, $section->blocks[0]->heading);
         self::assertSame(['- An old feature.'], $section->blocks[0]->entries);
-        self::assertFalse($section->isBreaking());
     }
 
     #[Test]
@@ -215,7 +210,7 @@ final class ChangelogParserTest extends TestCase
     {
         $markdown = "## Unreleased\n\n## 85.10.0 — 2026-09-02\n\n### Removed\n\n- Gone.\n\n## 85.1.0 — 2026-09-01\n\n### Fixed\n\n- Fix.\n";
 
-        self::assertTrue(new ChangelogParser()->release($markdown, '85.10.0')->isBreaking());
+        self::assertSame('85.10.0 — 2026-09-02', new ChangelogParser()->release($markdown, '85.10.0')->title);
         self::assertSame('85.1.0 — 2026-09-01', new ChangelogParser()->release($markdown, '85.1.0')->title);
     }
 
