@@ -1,8 +1,9 @@
 # Defence Before Fix — Net and Filter
 
 This document is the single source of truth for the **Defence Before Fix** philosophy.
-The `defence-before-fix` skill orchestrates the workflow; this doc states *why* it is
-shaped the way it is, and the rules that keep a "green" honest.
+The method itself is run by the Defence Before Fix plugin's `dbf` skill (or, without the
+plugin, from the agent prompt below); this doc states how this toolchain applies it, *why* it
+is shaped the way it is, and the rules that keep a "green" honest.
 
 Reference (the specification for the method): https://defence-before-fix.github.io/
 Agent prompt (read once before fixing any defect): https://defence-before-fix.github.io/defence-before-fix-project-prompt.md
@@ -159,8 +160,9 @@ the versions this package is audited against, and every gap naming its clause.
 ## Cross-Reference
 
 - Identifier index: `docs/phpstan-rules/README.md` (start here when a rule fires).
-- Workflow skill: `.claude/skills/defence-before-fix/SKILL.md` (model-invoked; the
-  4-phase ANALYSE → DETECT → TDD → FIX ratchet).
+- Workflow skill: `.claude/skills/defence-before-fix/SKILL.md` (a pointer: it defers the
+  method to the Defence Before Fix plugin's `dbf` skill or the agent prompt, and lists the
+  php-qa-ci tools used while following it).
 - Rule authoring: `qaConfig/PHPStan/CLAUDE.md` (deployed into each project) and the
   `php-qa-ci_phpstan-rule-creator` agent.
 - Project root signpost: the auto-generated `<phpqaci>...</phpqaci>` block in the project

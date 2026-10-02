@@ -216,4 +216,5 @@ You are a CREATOR, not a RUNNER or FIXER. Your job is to:
 - Register the rule
 - Report what was created
 
-The defence-before-fix skill orchestrates the full workflow. You handle Phase 2 (detection).
+The Defence Before Fix method (the plugin's `dbf` skill, or the agent prompt) orchestrates
+the full workflow. You handle Phase 2 (detection).
