@@ -49,6 +49,8 @@ final class InfectionToolTest extends TestCase
 
     private const string INFECTION = 'infection';
 
+    private const string COVERED_FLOOR_ARG = '--min-covered-msi=76';
+
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4'];
 
     private ContextFactory $factory;
@@ -99,7 +101,7 @@ final class InfectionToolTest extends TestCase
             '--threads=4',
             '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
             '--min-msi=74',
-            '--min-covered-msi=76',
+            self::COVERED_FLOOR_ARG,
             '--log-verbosity=all',
         ], $phar->command);
         self::assertTrue($phar->lowPriority);
@@ -232,7 +234,7 @@ final class InfectionToolTest extends TestCase
             '--skip-initial-tests',
             '--threads=4',
             '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
-            '--min-covered-msi=76',
+            self::COVERED_FLOOR_ARG,
             $this->root . '/src/Committed.php',
         ], \array_slice($phar->command, 6));
         self::assertTrue($phar->lowPriority);
@@ -247,7 +249,7 @@ final class InfectionToolTest extends TestCase
         new InfectionTool()->run($this->context($this->diffBuilder(['infectionDiffCoveredMsi' => '95'])));
 
         self::assertContains('--min-covered-msi=95', $this->factory->processes->lastSpec()->command);
-        self::assertNotContains('--min-covered-msi=76', $this->factory->processes->lastSpec()->command);
+        self::assertNotContains(self::COVERED_FLOOR_ARG, $this->factory->processes->lastSpec()->command);
     }
 
     #[Test]

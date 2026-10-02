@@ -89,6 +89,11 @@ the release and its tag. The full rules are in
   SIGKILL or the OOM killer, so the ten-minute stale window is gone: a holder that
   is reported is a live one.
 
+- **An interrupted run waits for the workers it kills.** A tool worker that
+  ignores SIGTERM is sent SIGKILL after the grace period, and the run now waits
+  (up to two seconds) for it to be gone before releasing the lock, so the next
+  run cannot start beside a worker that is still exiting.
+
 ## 85.0.0 — 2026-10-02
 
 ### Changed — breaking

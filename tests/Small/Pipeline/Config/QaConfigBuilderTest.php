@@ -237,7 +237,7 @@ final class QaConfigBuilderTest extends TestCase
         $refused = [
             'mutationScoreIndicator / withInfectionFloors(msi) is 100'                  => $this->defaults()->withInfectionFloors(msi: 100, coveredMsi: 80),
             'coveredCodeMSI / withInfectionFloors(coveredMsi) is 100'                   => $this->defaults()->withInfectionFloors(msi: 60, coveredMsi: 100),
-            'infectionDiffCoveredMsi / withInfectionDiffBase(ref, coveredMsi) is 100' => $this->defaults()->withInfectionDiffBase(self::DIFF_BASE, 100),
+            'infectionDiffCoveredMsi / withInfectionDiffBase(ref, coveredMsi) is 100'   => $this->defaults()->withInfectionDiffBase(self::DIFF_BASE, 100),
             'is 101; an MSI floor must be below 100'                                    => $this->defaults()->withInfectionFloors(msi: 60, coveredMsi: 101),
         ];
         foreach ($refused as $named => $builder) {
