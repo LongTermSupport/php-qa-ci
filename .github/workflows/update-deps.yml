@@ -88,25 +88,25 @@ jobs:
             git diff --stat
           fi
 
-      # Step 5: Record the update in CHANGELOG.md. A rebuilt or re-fetched PHAR or
-      # binary is a change every consumer receives, so the changelog lane in the
-      # QA run requires an entry for it, and the release it triggers is decided
-      # by that entry. A composer.lock-only update ships nothing to a consumer.
+      # Step 5: Record the update in CHANGELOG.md. A re-fetched or rebuilt tool is
+      # a change every consumer receives, so the changelog lane in the QA run
+      # requires an entry for it, and the release it leads to is decided by that
+      # entry. The entry names each tool whose pinned version moved; an update
+      # that moved none (composer.lock alone) ships nothing and records nothing.
       - name: Record the bundled tool updates in the changelog
         if: steps.changes.outputs.changed == 'true'
-        run: |
-          if git diff --quiet -- phive.xml vendor-phar/ vendor-bin/ build/; then
-            echo "Only composer.lock moved; nothing a consumer receives changed."
-          else
-            updated="$(git diff --name-only -- vendor-phar/ vendor-bin/ | paste -sd ' ' -)"
-            php bin/changelog-release add-entry changed "**Bundled tool versions updated** by the weekly dependency update: ${updated}."
-          fi
+        run: php bin/changelog-release add-tool-updates
 
-      # Step 6: Run full QA pipeline (only if changes detected)
+      # Step 6: Run full QA pipeline (only if changes detected). Writable, unlike
+      # every other CI run: an updated Rector or PHP CS Fixer brings new rules,
+      # and this job exists to take them, so they are applied and land in the
+      # pull request for review instead of failing it. CI on php8.5 re-checks the
+      # merged result read-only.
       - name: Run QA Pipeline
         if: steps.changes.outputs.changed == 'true'
         env:
           CI: true
+          QA_READONLY: 0
           skipUncommittedChangesCheck: 1
           phpUnitQuickTests: 0
           phpUnitCoverage: 0
@@ -182,11 +182,3 @@ jobs:
             This PR was created automatically by the [update-deps](${{ github.server_url }}/${{ github.repository }}/actions/workflows/update-deps.yml) workflow.
           labels: dependencies,automated
           commit-message: 'chore(deps): update all dependencies'
-
-      - name: Enable auto-merge
-        if: steps.create-pr.outputs.pull-request-number
-        # A merge commit, never a squash or rebase: both rewrite the PR's commits,
-        # so `git branch -d` can no longer see the branch as merged.
-        run: gh pr merge --auto --merge "${{ steps.create-pr.outputs.pull-request-number }}"
-        env:
-          GH_TOKEN: ${{ github.token }}

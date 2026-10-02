@@ -26,7 +26,7 @@ final readonly class ChangelogParser
 {
     public const string UNRELEASED_HEADING = '## Unreleased';
 
-    private const string SECTION_PREFIX = '## ';
+    public const string SECTION_PREFIX = '## ';
 
     private const string HEADING_PREFIX = '### ';
 

@@ -32,9 +32,15 @@ final readonly class ChangelogReleaseCommand
           apply <version> <date>      release "## Unreleased" as "## <version> — <date>" (YYYY-MM-DD)
                                       under a fresh, empty "## Unreleased"
           notes <version>             print the tag annotation for a released version
+          pending-tags                print "<version> <commit>" for every released section on the line
+                                      newer than its newest tag, oldest first: the commit is the one
+                                      that wrote the section, and is what the tag must point at
           add-entry <heading> <text>  add "- <text>" under a heading of "## Unreleased"; the heading
                                       is its label or slug (added, changed, changed-breaking,
                                       deprecated, removed, fixed, security)
+          add-tool-updates            add a "Changed" entry naming every bundled tool whose pinned
+                                      version differs from HEAD's (phive.xml, the ShellCheck pin,
+                                      build/*/composer.lock); add nothing when none moved
 
         TXT;
 
@@ -78,6 +84,14 @@ final readonly class ChangelogReleaseCommand
             return $this->nextVersion();
         }
 
+        if (1 === \count($arguments) && 'pending-tags' === $arguments[0]) {
+            return $this->pendingTags();
+        }
+
+        if (1 === \count($arguments) && 'add-tool-updates' === $arguments[0]) {
+            return $this->addToolUpdates();
+        }
+
         if (2 === \count($arguments) && 'notes' === $arguments[0]) {
             return $this->notes($arguments[1]);
         }
@@ -108,6 +122,23 @@ final readonly class ChangelogReleaseCommand
         return 0;
     }
 
+    private function pendingTags(): int
+    {
+        $changelog = $this->changelog();
+        $major     = $this->calculator->lineMajor($this->read('composer.json'));
+        foreach (new ReleasedSections($this->parser, $this->calculator)->untagged($changelog, $major, ...$this->git->tags()) as $version) {
+            $heading = ChangelogParser::SECTION_PREFIX . $this->parser->release($changelog, $version)->title;
+            $commit  = $this->git->commitChanging($heading, ChangelogCheck::CHANGELOG) ?? throw new ChangelogReleaseException(\sprintf(
+                'no commit reachable from HEAD wrote "%s" into %s; commit the release before tagging it',
+                $heading,
+                ChangelogCheck::CHANGELOG,
+            ));
+            $this->stdout->write($version . ' ' . $commit . "\n", false, OutputInterface::OUTPUT_RAW);
+        }
+
+        return 0;
+    }
+
     private function apply(string $version, string $date): int
     {
         $released = new ChangelogReleaseWriter()->apply($this->parser->parse($this->changelog()), $version, $date);
@@ -132,6 +163,29 @@ final readonly class ChangelogReleaseCommand
         $this->error(\sprintf('%s: added an entry under "### %s".', ChangelogCheck::CHANGELOG, $heading->value));
 
         return 0;
+    }
+
+    private function addToolUpdates(): int
+    {
+        $tools       = new BundledToolVersions();
+        $directories = [];
+        foreach (\Safe\glob($this->projectRoot . '/build/*/composer.json') as $manifest) {
+            if (\is_string($manifest)) {
+                $directories[] = basename(\dirname($manifest));
+            }
+        }
+
+        $before      = $tools->read(fn (string $path): ?string => $this->git->fileAt('HEAD', $path), ...$directories);
+        $after       = $tools->read(fn (string $path): ?string => is_file($this->projectRoot . '/' . $path) ? $this->read($path) : null, ...$directories);
+
+        $entry = $tools->entry($before, $after);
+        if (null === $entry) {
+            $this->error('No bundled tool version differs from HEAD; nothing to record.');
+
+            return 0;
+        }
+
+        return $this->addEntry(ChangelogHeadingEnum::Changed->value, $entry);
     }
 
     private function usage(): int

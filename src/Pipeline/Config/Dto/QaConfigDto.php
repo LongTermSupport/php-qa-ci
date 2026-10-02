@@ -72,8 +72,8 @@ final readonly class QaConfigDto
         public array $yamlDirectories,
         public array $shellCheckGlobs,
         public DeadCodeOptionsDto $deadCode,
-        public bool $useChangelogCheck,
-        public array $changelogWatchedPaths,
+        public bool $useChangelogCheck = false,
+        public array $changelogWatchedPaths = [],
     ) {
     }
 }

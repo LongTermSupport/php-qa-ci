@@ -167,6 +167,15 @@ final class ChangelogGitTest extends TestCase
     }
 
     #[Test]
+    public function theCommitChangingATextIsTheNewestPickaxeHitOrNull(): void
+    {
+        $this->processes->willSucceed("abc123\n")->willSucceed("\n");
+        self::assertSame('abc123', $this->git->commitChanging('## 85.1.0 — 2026-10-09', 'CHANGELOG.md'));
+        self::assertNull($this->git->commitChanging('## 85.2.0', 'CHANGELOG.md'));
+        self::assertSame("git log -n1 --format=%H '-S## 85.1.0 — 2026-10-09' HEAD -- CHANGELOG.md", $this->processes->commandLines()[0]);
+    }
+
+    #[Test]
     public function trailersAreTheChangelogValuesOfEveryCommitInTheRange(): void
     {
         $this->processes->willSucceed("none — tests only\n\n\nnone\n");

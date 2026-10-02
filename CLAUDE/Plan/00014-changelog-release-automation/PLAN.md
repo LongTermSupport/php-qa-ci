@@ -10,9 +10,9 @@
 Releases on the `php8.5` line are cut by hand today, and nothing ties a change to a changelog
 entry, so a consumer cannot tell from a tag what moved or whether it can break them. This plan
 makes `CHANGELOG.md` the single input for releasing: every change to a path a consumer receives
-must be recorded under `## Unreleased` (or explicitly declared invisible), and CI turns a green
-push to `php8.5` into a release commit plus an annotated tag, with the version derived from the
-headings used.
+must be recorded under `## Unreleased` (or explicitly declared invisible), a green push to
+`php8.5` keeps a release pull request open for the next version (derived from the headings used),
+and merging it publishes the GitHub Release and its tag.
 
 The building blocks are written and covered by tests on branch
 `feature/changelog-release-automation`. What is left is the full-pipeline proof, the owner
@@ -27,9 +27,13 @@ decisions below, the merge, the one-time repository setup and watching the first
   section releases nothing; an unknown, duplicated or empty heading, or text outside a heading,
   is invalid and fails rather than guessing. Tag notes flag BREAKING when `Changed — breaking`
   or `Removed` is present.
-- **Bot commits**: the CI release job commits the changelog rewrite to `php8.5` itself
-  (`Release <version> [skip ci]`), tags it and pushes both atomically, using a write deploy key
-  that bypasses the PR rule.
+- **Release pull request, not bot commits** (revised 2026-10-02 at the owner's request to follow
+  standard practice): `.github/workflows/release.yml`, separate from CI and run on its green
+  completion, keeps a `Release <version>` pull request open from `chore/release-php8.5`; merging
+  it is the release, and CI on the merge publishes the GitHub Release with
+  `gh release create --target <the commit that wrote the section>`. `GITHUB_TOKEN` does all of
+  it: no deploy key, no secret, no ruleset bypass, no bot commits on `php8.5`. This supersedes
+  the earlier deploy-key design.
 - **Enforcement**: a changed watched path needs a new Unreleased entry or a
   `Changelog: none — <reason>` commit trailer; a new or tightened `composer.json` requirement
   needs a `Changed — breaking` entry.
@@ -39,7 +43,8 @@ decisions below, the merge, the one-time repository setup and watching the first
 - `bin/changelog-release` (`next-version`, `apply`, `notes`, `add-entry`) drives every release.
 - The opt-in `changelog` lane (`phpqaci.changelog`) is enabled on php-qa-ci itself and fails a
   branch whose consumer-facing changes are not recorded.
-- A green push to `php8.5` produces a release commit and an annotated tag with no human step.
+- A green push to `php8.5` opens or refreshes the release pull request; merging it publishes the
+  release and its tag with no further step.
 - The weekly dependency update records its own changelog entry, so it passes the lane.
 
 ## Non-Goals
@@ -68,48 +73,52 @@ decisions below, the merge, the one-time repository setup and watching the first
 
 ### Phase 2: Prove and decide
 
+- [x] **Task 2.0**: Release redesign to the release pull request pattern: `ReleasedSections`,
+  `pending-tags`, the lane counting a released-but-untagged section as the record,
+  `release.yml`, `ci.yml` without the release job, docs (`c9252e6`, `fb9aa95`, `a88c069`)
 - [ ] **Task 2.1**: Infection in diff mode against `origin/php8.5`
   (`infectionDiffBase=origin/php8.5 bin/qa -t infection`) — the run was interrupted before it
   reported
 - [ ] **Task 2.2**: Full unfiltered `CI=true bin/qa` in the worktree, exit 0, then the read-only
   gate from `CLAUDE/prepush-verification.md`
-- [ ] **Task 2.3**: Owner decision — five Unreleased entries already shipped in `85.0.0` (lock
-  contention exit 75, `rule-doc` project indexes, per-file PHPStan on phar configs, log
-  retention, the managed-block blank line). Move them into a `## 85.0.0 — 2026-10-02` section
-  before the first automated release, or let `85.1.0` repeat them
-- [ ] **Task 2.4**: Owner decision — should the consumer workflow template
-  (`templates/github-actions/php-qa-ci.yml`, kept identical to `.github/workflows/qa.yml`)
-  default to `fetch-depth: 0` so a consumer can enable the lane without editing it
-- [ ] **Task 2.5**: Owner decision — `update-deps` records the changed PHAR paths, not their
-  versions; add a subcommand that writes versions into the entry, or leave versions in the PR
-  body
-- [ ] **Task 2.6**: Owner decision — `QaConfigDto` (`@api`) gained two required constructor
-  parameters; recorded as `Added` because only the builder constructs it. Confirm, or reclassify
-  as `Changed — breaking`
+Tasks 2.3 to 2.6 were settled on the owner's instruction to apply common sense:
+
+- [x] **Task 2.3**: The five entries the `85.0.0` tag shipped moved, verbatim, into
+  `## 85.0.0 — 2026-10-02` (`a88c069`)
+- [x] **Task 2.4**: The consumer template's `qa` job always checks out with `fetch-depth: 0`
+  (`fb9aa95`)
+- [x] **Task 2.5**: `changelog-release add-tool-updates` writes the moved versions into the
+  entry, read from the pins rather than `--version` banners (`c9252e6`, `fb9aa95`)
+- [x] **Task 2.6**: The two `QaConfigDto` parameters default to off, so the change is genuinely
+  additive and `Added` is right (`c9252e6`)
 
 ### Phase 3: Land and switch on
 
 - [ ] **Task 3.1**: Merge `feature/changelog-release-automation` into `php8.5` with `--no-ff`
-- [ ] **Task 3.2**: One-time repository setup, per `CLAUDE/releases.md`: deploy key with write
-  access, Actions secret `RELEASE_DEPLOY_KEY`, "Deploy keys" added to the `protect` ruleset's
-  bypass list. Until this is done every push shows a red `release` job; `qa` is unaffected
-- [ ] **Task 3.3**: Push `php8.5`; watch the first run: `qa` green, `release` commits
-  `Release 85.1.0 [skip ci]`, tags `85.1.0` with the notes, and the release commit triggers no
-  CI run of its own
+- [x] **Task 3.2**: No setup needed: Actions may already open pull requests, no ruleset targets
+  tags or requires status checks (checked 2026-10-02; recorded in `CLAUDE/releases.md`)
+- [ ] **Task 3.3**: Push `php8.5`; watch the first run: CI green, `release.yml` opens
+  `Release 85.1.0`. Merge it; CI on the merge is green and `release.yml` publishes the
+  `85.1.0` GitHub Release at the release commit
 - [ ] **Task 3.4**: Confirm Packagist lists `85.1.0`, and that a fresh install with
   `^85.1` / `~85.1.0` resolves it
 - [ ] **Task 3.5**: Diagnose the weekly `Update Dependencies` workflow, which failed on its last
-  two scheduled runs before this work, and confirm its first run after the merge passes the lane
+  two scheduled runs before this work, and confirm its first run after the merge passes the lane.
+  Diagnosed: both failed at QA, read-only by default in Actions, on pending changes from a newer
+  Rector; the auto-merge step after it could never succeed (`allow_auto_merge: false`). Fixed:
+  the QA run is writable (`QA_READONLY: 0`) so new rules land in the PR, and the auto-merge step
+  is gone; the owner merges the PR. Still to confirm on the first scheduled run
 
 ## Success Criteria
 
 - [ ] The full pipeline exits 0 on the branch, and the read-only gate passes on the committed tree
 - [ ] A branch changing a watched path with no entry and no reasoned trailer fails the
   `changelog` lane in a real run
-- [ ] The first green push after the merge yields a release commit and a matching annotated tag
-  without any manual step
+- [ ] The first green push after the merge opens the release pull request, and merging it yields
+  the GitHub Release and tag at the release commit without any further step
 - [ ] A push that only touches unwatched paths and adds no entry releases nothing
 
 ## Delivery & Milestones
 
 - Build commits: `924ff84`, `0efcfe3`, `9c05551`, `e1c02b7`, `61a637e`, `841fc4f`, `84adb38`
+- Release pull request redesign and decisions: `c9252e6`, `fb9aa95`, `a88c069`

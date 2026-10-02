@@ -1,0 +1,131 @@
+name: Release
+
+# Releases php8.5 from CHANGELOG.md with a release pull request, the pattern
+# release-please and changesets use, except that the changelog is written by
+# hand (and enforced by the changelog lane) rather than derived from commit
+# messages:
+#
+#  1. CI goes green on a push to php8.5 whose "## Unreleased" has entries: open,
+#     or refresh, the release pull request from chore/release-php8.5. It moves
+#     the entries into "## <version> — <date>"; nothing is released yet.
+#  2. Merging that pull request is the decision to release. CI goes green on the
+#     merge and this workflow publishes a GitHub Release, whose tag is cut at
+#     the commit that wrote the section. Packagist reads the tag.
+#
+# The decisions are bin/changelog-release's; this file is plumbing. It needs no
+# secret and bypasses no branch protection: GITHUB_TOKEN opens the pull request
+# and creates the release. How it fits together: CLAUDE/releases.md.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [php8.5]
+
+permissions: {}
+
+concurrency:
+  group: release-php8.5
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout php8.5 with history and tags
+        uses: actions/checkout@v4
+        with:
+          ref: php8.5
+          fetch-depth: 0
+
+      # Only the commit CI verified is acted on. When php8.5 has moved on, the
+      # run for the newer push does the work (the concurrency group queues it).
+      - name: Act only on the verified commit
+        id: head
+        env:
+          VERIFIED: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" = "${VERIFIED}" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::php8.5 has moved past ${VERIFIED}; the run for the newer push releases it."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup PHP
+        if: steps.head.outputs.current == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          coverage: none
+
+      # The release CLI needs the autoloader only; --no-scripts keeps the
+      # install from writing anything into the working tree.
+      - name: Install dependencies
+        if: steps.head.outputs.current == 'true'
+        run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
+
+      # A merged release pull request leaves a version section with no tag.
+      # `gh release create --target` cuts the tag and publishes the release in
+      # one call, so a re-run never finds a tag without its release.
+      - name: Publish every merged release
+        if: steps.head.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          php bin/changelog-release pending-tags > "${RUNNER_TEMP}/pending-tags.txt"
+          while read -r version commit; do
+            php bin/changelog-release notes "${version}" > "${RUNNER_TEMP}/notes-${version}.md"
+            gh release create "${version}" --target "${commit}" --title "${version}" \
+              --notes-file "${RUNNER_TEMP}/notes-${version}.md"
+            echo "::notice::Released ${version} at ${commit}."
+          done < "${RUNNER_TEMP}/pending-tags.txt"
+          git fetch --tags --quiet origin
+
+      - name: Work out the next release
+        id: next
+        if: steps.head.outputs.current == 'true'
+        run: echo "version=$(php bin/changelog-release next-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Write the release into the changelog
+        if: steps.next.outputs.version != ''
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          php bin/changelog-release apply "${VERSION}" "$(date -u +%Y-%m-%d)"
+          {
+            echo "Merging this pull request releases **${VERSION}**: CI on the merge publishes the GitHub Release and its tag. Until then, every green push to \`php8.5\` refreshes it."
+            echo
+            php bin/changelog-release notes "${VERSION}"
+          } > "${RUNNER_TEMP}/release-pr.md"
+
+      - name: Open or refresh the release pull request
+        if: steps.next.outputs.version != ''
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: chore/release-php8.5
+          base: php8.5
+          add-paths: CHANGELOG.md
+          commit-message: Release ${{ steps.next.outputs.version }}
+          title: Release ${{ steps.next.outputs.version }}
+          body-path: ${{ runner.temp }}/release-pr.md
+          delete-branch: true
+
+      # "## Unreleased" emptied by hand leaves nothing for an open release pull
+      # request to release.
+      - name: Close a release pull request with nothing left to release
+        if: steps.head.outputs.current == 'true' && steps.next.outputs.version == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open="$(gh pr list --head chore/release-php8.5 --state open --json number --jq '.[].number')"
+          for number in ${open}; do
+            gh pr close "${number}" --delete-branch --comment '"## Unreleased" has no entries any more, so there is nothing to release.'
+          done
