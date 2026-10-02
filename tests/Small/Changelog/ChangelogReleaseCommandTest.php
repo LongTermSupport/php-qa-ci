@@ -299,6 +299,14 @@ final class ChangelogReleaseCommandTest extends TestCase
     }
 
     #[Test]
+    public function theUsageEndsWithOneNewlineAndNoBlankLine(): void
+    {
+        $this->invoke('bogus');
+
+        self::assertMatchesRegularExpression('/\S\n\z/', $this->stderr->fetch());
+    }
+
+    #[Test]
     public function mainWiresTheRealProcessRunner(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);

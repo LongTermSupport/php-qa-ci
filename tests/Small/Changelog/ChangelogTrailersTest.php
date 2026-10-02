@@ -40,6 +40,8 @@ final class ChangelogTrailersTest extends TestCase
         yield 'a hyphen'         => ['none - CI workflow tidy'];
         yield 'any case'         => ['None — internal refactor, no behaviour change'];
         yield 'no space at dash' => ['none—docs only'];
+        yield 'surrounding space' => ["  none — tests only\t"];
+        yield 'exactly the minimum reason' => ['none — docs fix'];
     }
 
     #[Test]
@@ -60,6 +62,7 @@ final class ChangelogTrailersTest extends TestCase
         yield 'one short word'    => ['none — wip'];
         yield 'one long word'     => ['none — refactoring'];
         yield 'short two words'   => ['none — a b'];
+        yield 'one char too few'  => ['none — doc fix'];
         yield 'not none'          => ['yes — added it'];
         yield 'no dash'           => ['none tests only'];
     }

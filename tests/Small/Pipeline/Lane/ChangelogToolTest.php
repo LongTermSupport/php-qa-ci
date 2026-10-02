@@ -48,6 +48,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ChangelogTrailerVerdictDto::class)]
 #[UsesClass(InvalidChangelogException::class)]
 #[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleasedSections::class)]
 #[UsesClass(WatchedPaths::class)]
 #[UsesClass(GitBranches::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
@@ -70,6 +71,14 @@ use PHPUnit\Framework\TestCase;
 final class ChangelogToolTest extends TestCase
 {
     private const string CHANGELOG = "# Changelog\n\n## Unreleased\n\n### Fixed\n\n- A fix.\n";
+
+    private const string NOT_SHALLOW = "false\n";
+
+    private const string RESOLVED = "abc\n";
+
+    private const string MERGE_BASE = "base1\n";
+
+    private const string EMPTY_COMPOSER = "{}\n";
 
     private ContextFactory $factory;
 
@@ -105,15 +114,15 @@ final class ChangelogToolTest extends TestCase
     {
         $this->factory->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
         $this->factory->processes
-            ->willSucceed("false\n")
+            ->willSucceed(self::NOT_SHALLOW)
             ->willSucceed("refs/remotes/origin/main\n")
             ->willSucceed("feature/x\n")
-            ->willSucceed("abc\n")
-            ->willSucceed("base1\n")
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
             ->willSucceed("tests/ATest.php\0")
             ->willSucceed()
             ->willSucceed()
-            ->willSucceed("{}\n")
+            ->willSucceed(self::EMPTY_COMPOSER)
         ;
 
         $result  = new ChangelogTool(new EnvironmentReader([]))->run($this->factory->context($this->enabled()));
@@ -144,22 +153,64 @@ final class ChangelogToolTest extends TestCase
     }
 
     #[Test]
+    public function theFailureBannerSetsTheProblemsApartFromTheReport(): void
+    {
+        $this->factory->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\nStray.\n");
+
+        new ChangelogTool(new EnvironmentReader([]))->run($this->factory->context($this->enabled()));
+
+        $rule = str_repeat('=', 78);
+        self::assertStringContainsString(
+            "[changelog] CHANGELOG.md \"## Unreleased\" is invalid.\n"
+            . "\n"
+            . $rule . "\n"
+            . "changelog: CHANGELOG.md DOES NOT RECORD THIS CHANGE CORRECTLY\n"
+            . $rule . "\n"
+            . "\n"
+            . "  - line 3: text outside a \"###\" heading: \"Stray.\"\n"
+            . "\n"
+            . "Allowed headings and what each releases as: docs/tools/changelog.md\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function theInjectedEnvironmentDecidesTheRange(): void
+    {
+        $this->factory->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
+        $this->factory->processes
+            ->willSucceed(self::NOT_SHALLOW)
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
+            ->willSucceed("tests/ATest.php\0")
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::EMPTY_COMPOSER)
+        ;
+
+        $result = new ChangelogTool(new EnvironmentReader(['GITHUB_BASE_REF' => 'release-train']))->run($this->factory->context($this->enabled()));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('[changelog] Range: since the merge base with origin/release-train (base1).', $this->factory->output->fetch());
+    }
+
+    #[Test]
     public function aMultiLineProblemKeepsItsLinesIndentedUnderItsBullet(): void
     {
         $this->factory->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
         $this->factory->processes
-            ->willSucceed("false\n")
+            ->willSucceed(self::NOT_SHALLOW)
             ->willSucceed("refs/remotes/origin/main\n")
             ->willSucceed("feature/x\n")
-            ->willSucceed("abc\n")
-            ->willSucceed("base1\n")
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
             ->willSucceed("src/A.php\0")
             ->willSucceed()
             ->willSucceed()
             ->willSucceed(self::CHANGELOG)
             ->willSucceed()
             ->willSucceed()
-            ->willSucceed("{}\n")
+            ->willSucceed(self::EMPTY_COMPOSER)
         ;
 
         $result  = new ChangelogTool(new EnvironmentReader([]))->run($this->factory->context($this->enabled()));

@@ -90,6 +90,38 @@ final class ChangelogReleaseWriterTest extends TestCase
     }
 
     #[Test]
+    public function anExistingSectionIsRecognisedWhateverItsLineEnding(): void
+    {
+        $this->expectException(ChangelogReleaseException::class);
+        $this->expectExceptionMessageIsOrContains('CHANGELOG.md already has a "## 85.0.0" section');
+
+        $this->apply("## Unreleased\r\n\r\n### Fixed\r\n\r\n- A fix.\r\n\r\n## 85.0.0\r\n\r\n### Fixed\r\n\r\n- Older fix.\r\n", '85.0.0');
+    }
+
+    #[Test]
+    public function aVersionThatPrefixesAnExistingOneIsStillNew(): void
+    {
+        $older    = "## 85.1.10 — 2026-09-01\n\n### Fixed\n\n- Older fix.\n";
+        $released = $this->apply(self::HEAD . self::BODY . "\n" . $older, '85.1.1');
+
+        self::assertSame(self::HEAD . "## 85.1.1 — 2026-10-02\n\n" . self::BODY . "\n" . $older, $released);
+    }
+
+    #[Test]
+    #[DataProvider('realDates')]
+    public function aRealDateIsAccepted(string $date): void
+    {
+        self::assertStringContainsString('## 85.1.0 — ' . $date . "\n", $this->apply(self::HEAD . self::BODY, self::VERSION, $date));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function realDates(): Iterator
+    {
+        yield 'a day past the twelfth' => ['2026-10-31'];
+        yield 'a leap day'             => ['2028-02-29'];
+    }
+
+    #[Test]
     #[DataProvider('malformedArguments')]
     public function aMalformedVersionOrDateIsRefused(string $version, string $date, string $message): void
     {
@@ -106,7 +138,7 @@ final class ChangelogReleaseWriterTest extends TestCase
             yield $name => [$version, self::DATE, \sprintf(self::BAD_VERSION, $version)];
         }
 
-        foreach (['a slashed date' => '2026/10/02', 'no such day' => '2026-02-30', 'a short year' => '26-10-02'] as $name => $date) {
+        foreach (['a slashed date' => '2026/10/02', 'no such day' => '2026-02-30', 'a short year' => '26-10-02', 'not a leap year' => '2026-02-29'] as $name => $date) {
             yield $name => [self::VERSION, $date, \sprintf(self::BAD_DATE, $date)];
         }
     }

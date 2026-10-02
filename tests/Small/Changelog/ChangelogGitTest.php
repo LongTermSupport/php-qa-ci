@@ -67,6 +67,30 @@ final class ChangelogGitTest extends TestCase
     }
 
     #[Test]
+    public function theFailureMessageQuotesGitsOutputWithoutItsTrailingNewline(): void
+    {
+        $this->processes->willFail(128, "fatal: not a git repository\n");
+
+        try {
+            $this->git->tags();
+        } catch (ChangelogHistoryException $changelogHistoryException) {
+            self::assertSame('`git tag --list` failed (exit 128): fatal: not a git repository', $changelogHistoryException->getMessage());
+
+            return;
+        }
+
+        self::fail('expected a history problem');
+    }
+
+    #[Test]
+    public function linesAreTrimmedAndWhitespaceOnlyLinesDropped(): void
+    {
+        $this->processes->willSucceed("84.0.0\r\n  \r\n 85.0.0 \r\n");
+
+        self::assertSame(['84.0.0', '85.0.0'], $this->git->tags());
+    }
+
+    #[Test]
     public function aShallowCloneSaysSo(): void
     {
         $this->processes->willSucceed("true\n")->willSucceed("false\n")->willFail(128);
@@ -90,10 +114,11 @@ final class ChangelogGitTest extends TestCase
     #[Test]
     public function theMergeBaseIsTheTrimmedShaOrNull(): void
     {
-        $this->processes->willSucceed(self::BASE . "\n")->willFail(1);
+        $this->processes->willSucceed(self::BASE . "\n")->willFail(1)->willSucceed("\n");
 
         self::assertSame(self::BASE, $this->git->mergeBase(self::REMOTE_BRANCH));
         self::assertNull($this->git->mergeBase(self::REMOTE_BRANCH));
+        self::assertNull($this->git->mergeBase(self::REMOTE_BRANCH), 'a successful but empty answer is no merge base');
         self::assertSame('git merge-base HEAD origin/php8.5', $this->processes->commandLines()[0]);
     }
 
@@ -107,6 +132,14 @@ final class ChangelogGitTest extends TestCase
             'git diff --name-only -z --no-renames abc123 --',
             'git ls-files -z --others --exclude-standard',
         ], $this->processes->commandLines());
+    }
+
+    #[Test]
+    public function everyUntrackedFileIsAddedAndTheResultIsAList(): void
+    {
+        $this->processes->willSucceed("src/A.php\0src/B.php\0")->willSucceed("src/A.php\0src/New.php\0src/Other.php\0");
+
+        self::assertSame(['src/A.php', 'src/B.php', 'src/New.php', 'src/Other.php'], $this->git->changedFiles(self::BASE));
     }
 
     #[Test]

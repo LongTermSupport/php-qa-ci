@@ -31,7 +31,9 @@ final class ChangelogParserTest extends TestCase
 {
     private const string PREAMBLE = "# Changelog\n\nIntro text.\n\n";
 
-    private const string RELEASED = "## 85.0.0 — 2026-09-01\n\n### Added\n\n- An old feature.\n";
+    private const string ENTRY_ONE = '- One.';
+
+    private const string RELEASED ="## 85.0.0 — 2026-09-01\n\n### Added\n\n- An old feature.\n";
 
     #[Test]
     public function aValidSectionYieldsItsHeadingsEntriesAndBump(): void
@@ -181,7 +183,7 @@ final class ChangelogParserTest extends TestCase
     {
         $parser = new ChangelogParser();
 
-        self::assertSame(['- One.'], $parser->parseOrNull("## Unreleased\n\n### Fixed\n\n- One.\n")?->entries());
+        self::assertSame([self::ENTRY_ONE], $parser->parseOrNull("## Unreleased\n\n### Fixed\n\n- One.\n")?->entries());
         self::assertNull($parser->parseOrNull("## Unreleased\n\n### Fixed\n"));
         self::assertNull($parser->parseOrNull("# Changelog\n"));
     }
@@ -230,6 +232,104 @@ final class ChangelogParserTest extends TestCase
         $this->expectExceptionMessageIsOrContains('line 3: the "## 85.1.0 — 2026-09-01" section has no entries');
 
         new ChangelogParser()->release("## Unreleased\n\n## 85.1.0 — 2026-09-01\n\n", '85.1.0');
+    }
+
+    #[Test]
+    public function aHeadingMayFollowItsSectionLineWithNoBlankLineBetween(): void
+    {
+        $document = $this->parse("## Unreleased\n### Fixed\n- One.\n");
+
+        self::assertSame([self::ENTRY_ONE], $document->entries());
+        self::assertSame(1, $document->blocks[0]->headingIndex);
+        self::assertSame(2, $document->blocks[0]->lastIndex);
+    }
+
+    #[Test]
+    public function aSectionDirectlyFollowedByTheNextSectionIsEmpty(): void
+    {
+        $document = $this->parse("## Unreleased\n## 85.0.0 — 2026-09-01\n\n### Fixed\n\n- Old.\n");
+
+        self::assertTrue($document->isEmpty());
+        self::assertSame(1, $document->sectionEnd);
+    }
+
+    #[Test]
+    public function aWhitespaceOnlyLineIsBlank(): void
+    {
+        $document = $this->parse("## Unreleased\n   \n### Fixed\n\n- One.\n \t \n- Two.\n");
+
+        self::assertSame([self::ENTRY_ONE, '- Two.'], $document->entries());
+    }
+
+    #[Test]
+    public function trailingWhitespaceIsDroppedFromEntriesAndTheirContinuations(): void
+    {
+        $document = $this->parse("## Unreleased\n\n### Fixed\n\n- One,  \n  continued.\t\n- Two. \n");
+
+        self::assertSame(["- One,\n  continued.", '- Two.'], $document->entries());
+    }
+
+    #[Test]
+    public function aWindowsLineEndedFileParsesAsItsUnixEquivalent(): void
+    {
+        $document = $this->parse("## Unreleased\r\n\r\n### Fixed\r\n\r\n- One.\r\n");
+
+        self::assertSame([self::ENTRY_ONE], $document->entries());
+        self::assertSame(ChangelogHeadingEnum::Fixed, $document->blocks[0]->heading);
+    }
+
+    #[Test]
+    public function aProblemQuotesItsLineWithoutTrailingWhitespace(): void
+    {
+        self::assertSame(
+            [
+                'line 3: text outside a "###" heading: "Prose."',
+                'line 7: "#### Detail" is not an allowed heading; only "###" headings belong in the section',
+                'line 8: under "### Fixed" but not a "- " list entry: "Lazy text."',
+            ],
+            $this->problems("## Unreleased\n\nProse.  \n\n### Fixed\n\n#### Detail \t\nLazy text.   \n- One.\n"),
+        );
+    }
+
+    #[Test]
+    public function problemsAfterAnUnknownHeadingAreStillReported(): void
+    {
+        self::assertSame(
+            [
+                'line 3: "### Bogus" is not an allowed heading; use one of: Changed — breaking, Removed, Added, Changed, Deprecated, Fixed, Security',
+                'line 9: under "### Fixed" but not a "- " list entry: "Stray."',
+            ],
+            $this->problems("## Unreleased\n\n### Bogus\n\n- Ignored.\n\n### Fixed\n\nStray.\n- One.\n"),
+        );
+    }
+
+    #[Test]
+    public function aRepeatedHeadingIsReportedOnceAndItsEntriesAreNotJudged(): void
+    {
+        self::assertSame(
+            ['line 7: "### Fixed" repeats the heading at line 3', 'line 9: "### Fixed" repeats the heading at line 3'],
+            $this->problems("## Unreleased\n\n### Fixed\n\n- One.\n\n### Fixed\n\n### Fixed\n\nNot an entry, but under a repeated heading.\n"),
+        );
+    }
+
+    #[Test]
+    public function aReleasedSectionHeadingMayCarryTrailingWhitespace(): void
+    {
+        $section = new ChangelogParser()->release("## Unreleased\n\n## 85.0.0 — 2026-09-01  \n### Fixed\n- A fix.\n", '85.0.0');
+
+        self::assertSame('85.0.0 — 2026-09-01', $section->title);
+        self::assertSame(['- A fix.'], $section->blocks[0]->entries);
+    }
+
+    #[Test]
+    public function aReleasedVersionDoesNotMatchALongerVersionItPrefixes(): void
+    {
+        $markdown = "## Unreleased\n\n## 85.1.10 — 2026-09-03\n\n### Fixed\n\n- Tenth.\n\n## 85.1.1 — 2026-09-01\n\n### Fixed\n\n- First.\n";
+
+        $section = new ChangelogParser()->release($markdown, '85.1.1');
+
+        self::assertSame('85.1.1 — 2026-09-01', $section->title);
+        self::assertSame(['- First.'], $section->blocks[0]->entries);
     }
 
     private function parse(string $markdown): ChangelogDocumentDto

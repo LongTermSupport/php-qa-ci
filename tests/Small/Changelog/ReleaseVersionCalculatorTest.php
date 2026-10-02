@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Safe\Exceptions\JsonException;
 
 /**
  * @internal
@@ -78,12 +79,19 @@ final class ReleaseVersionCalculatorTest extends TestCase
     }
 
     #[Test]
-    public function aComposerJsonThatDoesNotParseFailsLoudly(): void
+    public function aComposerJsonThatDoesNotParseFailsLoudlyWithTheParseErrorAsItsCause(): void
     {
-        $this->expectException(ChangelogReleaseException::class);
-        $this->expectExceptionMessageIsOrContains('composer.json is not valid JSON: ');
+        try {
+            new ReleaseVersionCalculator()->lineMajor('{"require": ');
+        } catch (ChangelogReleaseException $changelogReleaseException) {
+            self::assertSame('composer.json is not valid JSON: Syntax error', $changelogReleaseException->getMessage());
+            self::assertSame(0, $changelogReleaseException->getCode());
+            self::assertInstanceOf(JsonException::class, $changelogReleaseException->getPrevious());
 
-        new ReleaseVersionCalculator()->lineMajor('{"require": ');
+            return;
+        }
+
+        self::fail('expected the calculator to refuse an unparseable composer.json');
     }
 
     #[Test]
