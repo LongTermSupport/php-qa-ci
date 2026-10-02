@@ -147,6 +147,20 @@ final class InProcessLanesTest extends TestCase
     }
 
     #[Test]
+    public function everyLeafToolTheRegistryNamesHasAShippedLane(): void
+    {
+        $shipped = ShippedTools::all();
+
+        foreach (ToolRegistry::shipped()->all() as $definition) {
+            if ($definition->isPhaseRunner || null !== $definition->target) {
+                continue;
+            }
+
+            self::assertArrayHasKey($definition->name, $shipped, $definition->name . ' is registered but no lane ships under that name');
+        }
+    }
+
+    #[Test]
     public function psr4ValidatePassesOnAConformingTreeAndFailsWithTheIdentifierOnADriftedOne(): void
     {
         $this->factory->project->write('src/Good.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Fixture;\n\nfinal class Good {}\n");

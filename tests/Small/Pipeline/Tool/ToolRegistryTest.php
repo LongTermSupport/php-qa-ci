@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Tool;
 
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
+use LTS\PHPQA\Pipeline\Tool\Exception\UnknownPhaseException;
 use LTS\PHPQA\Pipeline\Tool\Exception\UnknownToolException;
 use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use LTS\PHPQA\Pipeline\Tool\ToolGateEnum;
@@ -24,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ToolRegistry::class)]
 #[CoversClass(ToolDefinitionDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(UnknownToolException::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(UnknownPhaseException::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(ToolGateEnum::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(PhaseEnum::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
@@ -35,6 +37,8 @@ final class ToolRegistryTest extends TestCase
     private const string PHPUNIT = 'phpunit';
 
     private const string UNKNOWN_TOKEN = 'nope';
+
+    private const string CHANGELOG = 'changelog';
 
     #[Test]
     public function anAliasResolvesToItsCanonicalDefinition(): void
@@ -137,6 +141,41 @@ final class ToolRegistryTest extends TestCase
         $this->expectException(UnknownToolException::class);
 
         ToolRegistry::shipped()->definition(self::UNKNOWN_TOKEN);
+    }
+
+    #[Test]
+    public function theChangelogLaneIsALintingToolSelectedByItsTwoTokensWithoutPaths(): void
+    {
+        $registry = ToolRegistry::shipped();
+
+        self::assertSame(self::CHANGELOG, $registry->resolve('cl')->name);
+        self::assertSame(self::CHANGELOG, $registry->resolve(self::CHANGELOG)->name);
+        self::assertSame(PhaseEnum::Linting->value, $registry->definition(self::CHANGELOG)->phase);
+        self::assertFalse($registry->supportsPaths('cl'));
+        self::assertFalse($registry->supportsPaths(self::CHANGELOG));
+    }
+
+    #[Test]
+    public function aToolNamingAPhaseTheRegistryLacksIsRefused(): void
+    {
+        $this->expectException(UnknownPhaseException::class);
+        $this->expectExceptionMessageIsOrContains('Unknown phase: nowhere (known: ' . PhaseEnum::Linting->value . ')');
+
+        new ToolRegistry([PhaseEnum::Linting->phase()], [new ToolDefinitionDto('stray', ['s'], 'a tool in no known phase', 'nowhere', false)]);
+    }
+
+    #[Test]
+    public function allListsThePhaseRunnersThenTheToolsInOrder(): void
+    {
+        $registry = new ToolRegistry(
+            [PhaseEnum::Linting->phase()],
+            [new ToolDefinitionDto('lintA', ['a'], 'a', PhaseEnum::Linting->value, false), new ToolDefinitionDto('pseudo', ['p'], 'p', null, false)],
+        );
+
+        self::assertSame(
+            ['allLintingTools', 'lintA', 'pseudo'],
+            array_map(static fn (ToolDefinitionDto $tool): string => $tool->name, $registry->all()),
+        );
     }
 
     #[Test]
