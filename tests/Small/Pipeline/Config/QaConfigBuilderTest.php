@@ -200,6 +200,7 @@ final class QaConfigBuilderTest extends TestCase
             ->withArkitectExcludedPaths('Generated')
             ->withYamlDirectories('cfg')
             ->withShellCheckGlobs('scripts/*.bash', 'ci.bash')
+            ->withShellCheckGlobs('bin/*')
             ->withDeadCodeDetection(true)
             ->withDeadCodeEntryPoints('bin/console', 'bin/tool')
             ->build()
@@ -216,7 +217,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(100, $config->typeCoverage->declare);
         self::assertSame([self::ARKITECT_EXCLUDED, 'Legacy', 'Generated'], $config->arkitectExcludePaths);
         self::assertSame(['/p/cfg'], $config->yamlDirectories);
-        self::assertSame(['scripts/*.bash', 'ci.bash'], $config->shellCheckGlobs);
+        self::assertSame(['scripts/*.bash', 'ci.bash', 'bin/*'], $config->shellCheckGlobs);
         self::assertSame(['/p/bin/console', '/p/bin/tool'], $config->deadCode->entryPoints);
     }
 
