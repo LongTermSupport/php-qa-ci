@@ -409,7 +409,9 @@ This will:
 
 - Copy hooks to `.claude/hooks/`
 - Register them in `.claude/settings.json`
-- Detect and configure hooks-daemon if present (see hooks-daemon documentation for installation)
+- Detect and configure hooks-daemon if present (see hooks-daemon documentation for installation),
+  including its `subagent_full_qa_blocker` from daemon v3.67.0, which keeps the full pipeline with
+  the coordinating session ([docs/hooks-daemon-full-qa-blocker.md](./docs/hooks-daemon-full-qa-blocker.md))
 - Migrate from legacy classic hooks if found
 
 ### Included Hooks
@@ -461,6 +463,7 @@ Comprehensive documentation is available in the [./docs](./docs) folder:
 - **[Configuration](./docs/configuration.md)** -- Customizing tool settings and overrides
 - **[Extending the Pipeline](./docs/extending-the-pipeline.md)** -- Adding your own tools and phases from `qaConfig/pipeline.php`
 - **[Agent Mode](./docs/agent-mode.md)** -- `--agent-mode` / `PHPQACI_AGENT_MODE`: terse stdout plus a per-file JSON report, for a linting hook that feeds an agent
+- **[Hooks daemon: full-QA blocker](./docs/hooks-daemon-full-qa-blocker.md)** -- Which `qa` runs a sub-agent is denied, why, and how the daemon config is written
 - **[Upgrading to 8.5](./docs/upgrading-to-8.5.md)** -- Migrating a project's `qaConfig/` from the Bash-configured branches
 - **[Coding Standards](./docs/coding-standards.md)** -- PHP CS Fixer and Rector configuration
 - **[GitHub Actions Integration](./docs/github-actions.md)** -- CI/CD setup guide

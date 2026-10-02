@@ -17,19 +17,26 @@ Every execution goes through the project's `qa` entry point in its composer bin 
 the pipeline's configuration, caching and log rotation. A full-codebase run is single-threaded:
 one executor at a time, after all editing has finished.
 
-The main context never runs the tool itself. Runner skills launch cheap agents that execute
-the tool and return a summary, so tool output stays out of the expensive context.
+The main context never runs a single lane itself. Runner skills launch cheap agents that
+execute the lane and return a summary, so tool output stays out of the expensive context.
+
+The full pipeline is the exception, and the other way round: it is the coordinating
+session's gate, so the main session runs it, once, after all editing has finished, in the
+background with its output redirected to a log (`CI=true {bin}/qa > var/qa/full-pipeline.log 2>&1`).
+No sub-agent runs it; where the hooks daemon is installed, php-qa-ci configures the daemon
+to deny a sub-agent's attempt ([docs/hooks-daemon-full-qa-blocker.md](../docs/hooks-daemon-full-qa-blocker.md)).
+The exit code is the verdict, and a cheap agent summarises the log when it is not 0.
 
 ## Routing: which skill runs and fixes each tool
 
-| Tool (`-t` token)                                               | Runner skill     | Runner agent                     | Fix path                                                                       |
-| --------------------------------------------------------------- | ---------------- | -------------------------------- | ------------------------------------------------------------------------------ |
-| `phpstan` / `stan`                                              | `phpstan-runner` | `php-qa-ci_phpstan-runner`       | `phpstan-fixer` skill (sonnet agent)                                           |
-| `phpunit` / `unit`, `allTests`                                  | `phpunit-runner` | `php-qa-ci_phpunit-runner`       | `phpunit-fixer` skill (sonnet agent)                                           |
-| `rector`, `fixer`, `allCS`                                      | `qa-tool-runner` | `php-qa-ci_qa-tool-runner`       | self-fixing: re-run until nothing changes                                      |
-| `allStatic`                                                     | `qa-tool-runner` | `php-qa-ci_qa-tool-runner`       | PHPStan errors → `phpstan-fixer`; rest report-only                             |
-| any other single lane (`lint`, `psr4`, `com`, `infection`, ...) | `qa-tool-runner` | `php-qa-ci_qa-tool-runner`       | report-only                                                                    |
-| full pipeline (no `-t`)                                         | `qa-tool-runner` | `php-qa-ci_full-pipeline-runner` | per-lane: fix each failing lane by its own row, then re-run the whole pipeline |
+| Tool (`-t` token)                                               | Runner skill     | Runner agent                                                                        | Fix path                                                                       |
+| --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `phpstan` / `stan`                                              | `phpstan-runner` | `php-qa-ci_phpstan-runner`                                                          | `phpstan-fixer` skill (sonnet agent)                                           |
+| `phpunit` / `unit`, `allTests`                                  | `phpunit-runner` | `php-qa-ci_phpunit-runner`                                                          | `phpunit-fixer` skill (sonnet agent)                                           |
+| `rector`, `fixer`, `allCS`                                      | `qa-tool-runner` | `php-qa-ci_qa-tool-runner`                                                          | self-fixing: re-run until nothing changes                                      |
+| `allStatic`                                                     | `qa-tool-runner` | `php-qa-ci_qa-tool-runner`                                                          | PHPStan errors → `phpstan-fixer`; rest report-only                             |
+| any other single lane (`lint`, `psr4`, `com`, `infection`, ...) | `qa-tool-runner` | `php-qa-ci_qa-tool-runner`                                                          | report-only                                                                    |
+| full pipeline (no `-t`)                                         | `qa-tool-runner` | none: the main session runs it; `php-qa-ci_full-pipeline-runner` summarises the log | per-lane: fix each failing lane by its own row, then re-run the whole pipeline |
 
 Every lane a runner can be pointed at, with its aliases, is listed by `qa -h` in the project;
 `vendor/bin/rules` lists the identifiers. A lane's own page under `docs/tools/` explains what

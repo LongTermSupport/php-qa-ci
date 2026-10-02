@@ -29,9 +29,11 @@ Read and understand the project's documentation (CLAUDE.md, related .md files) a
 - Fixer skills launch cheap sonnet AGENTS (php-qa-ci_phpstan-fixer, php-qa-ci_phpunit-fixer)
 - Fixer agents implement fixes and run `{bin}/qa -t allCs` on changed files
 - Cycle repeats: run → fix → run → fix until clean
+- The full unfiltered pipeline (`{bin}/qa` with no `-t`) is the exception: the main
+  (coordinating) session runs it itself, and no agent does
 
 **Key Requirement:**
-The specialized php-qa-ci agents MUST be able to run `{bin}/qa` commands. They are not "general purpose" agents - they are specialized QA agents designed for this specific purpose.
+The specialized php-qa-ci agents MUST be able to run `{bin}/qa -t <tool>` commands. They are not "general purpose" agents - they are specialized QA agents designed for this specific purpose.
 
 ## What You're Looking For
 
@@ -47,6 +49,11 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
 **What's NOT a conflict:**
 
 - Instructions about general-purpose agents not running QA tools (that's fine!)
+- Instructions that reserve the FULL pipeline (`{bin}/qa` with no `-t`, `CI=true {bin}/qa`)
+  to the main or coordinating session. That is php-qa-ci's own rule, and the hooks
+  daemon's `subagent_full_qa_blocker` enforces it. The OPPOSITE is a conflict: an
+  instruction telling a sub-agent to run the full pipeline itself (for example as its
+  proof of done) will be denied wherever the daemon is configured
 - Instructions about Task tool usage for non-QA purposes
 - Database restrictions, coding standards, etc.
 

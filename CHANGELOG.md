@@ -17,6 +17,16 @@ belong here.
 
 ### Added
 
+- **The hooks daemon keeps the full pipeline with the coordinating session.** Where the
+  Claude Code hooks daemon is v3.67.0 or later, composer install/update declares its
+  `subagent_full_qa_blocker` in `.claude/hooks-daemon.yaml`: a sub-agent's bare `qa` run
+  (or `-p src`, `-p tests`, `-p .`) is denied, single lanes and path-scoped runs are not.
+  The edit keeps every comment, leaves a disabled or project-written block alone, and is
+  written only after the daemon's `config-validate` accepts it. The deployed guidance
+  follows: the coordinating session runs the full pipeline itself, in the background, and
+  `php-qa-ci_full-pipeline-runner` now summarises its log instead of running it. See
+  [docs/hooks-daemon-full-qa-blocker.md](docs/hooks-daemon-full-qa-blocker.md).
+
 - **`rule-doc` resolves a consuming project's own rule identifiers.** Declare the
   indexes in `qaConfig/rule-docs.json`. The summary comes from the column headed
   `Forbids`, `Summary`, `Description` or `What`, falling back to the trailing

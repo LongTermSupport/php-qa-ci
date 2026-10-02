@@ -501,6 +501,13 @@ This will:
 
 **Migration**: Projects with old hook names (without `php-qa-ci__` prefix) will be automatically migrated during `composer install/update`. The deployment script updates `.claude/settings.json` to reference the new hook names.
 
+**Hooks daemon full-QA blocker**: with the hooks daemon at v3.67.0 or later, the deploy's
+daemon phase also declares `subagent_full_qa_blocker`, so a sub-agent's full pipeline run is
+denied and the full gate stays with the coordinating session. The logic is
+[src/HooksDaemon/](src/HooksDaemon/) behind `bin/hooks-daemon-full-qa-blocker`; what counts as
+full, why, and how the config edit keeps comments is
+[docs/hooks-daemon-full-qa-blocker.md](docs/hooks-daemon-full-qa-blocker.md).
+
 ## Managed Source
 
 php-qa-ci can generate small PHP artefacts into a consumer's own production

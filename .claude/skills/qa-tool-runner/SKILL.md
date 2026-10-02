@@ -1,17 +1,17 @@
 ---
 name: qa-tool-runner
 description: |
-  Run any php-qa-ci tool or the full pipeline via generic agent delegation. Use for tools
-  that lack a specialized runner skill (rector, fixer, infection, phplint, etc.)
-  or to run the full unfiltered {bin}/qa pipeline.
+  Run any php-qa-ci tool, or the full pipeline. Use for tools that lack a specialized
+  runner skill (rector, fixer, infection, phplint, etc.) or to run the full unfiltered
+  {bin}/qa pipeline.
 
-  Delegates to:
-  - php-qa-ci_qa-tool-runner agent (haiku) for individual tools
-  - php-qa-ci_full-pipeline-runner agent (haiku) for full pipeline
+  - Individual tools: delegated to the php-qa-ci_qa-tool-runner agent (haiku)
+  - Full pipeline: run by the main session itself in the background, never by a
+    sub-agent; the php-qa-ci_full-pipeline-runner agent (haiku) only summarises its log
 
   Self-fixing tools (rector, fixer) are automatically re-run until stable.
   Report-only tools (infection, phplint, etc.) run once and report.
-allowed-tools: Task
+allowed-tools: Task, Bash
 ---
 
 # Generic QA Tool Runner Skill
@@ -25,10 +25,9 @@ This skill runs any php-qa-ci tool that doesn't have a specialized runner skill 
 
 ## Agent Delegation Strategy
 
-This skill delegates to generic agents via the Task tool:
-
 1. **php-qa-ci_qa-tool-runner agent (haiku)** - Runs any single `{bin}/qa -t {tool}`
-2. **php-qa-ci_full-pipeline-runner agent (haiku)** - Runs full `{bin}/qa` (all tools)
+2. **The main session itself** - Runs the full `{bin}/qa` (all tools); the
+   **php-qa-ci_full-pipeline-runner agent (haiku)** reads its log and summarises it
 
 ## Workflow
 
@@ -57,16 +56,31 @@ This skill delegates to generic agents via the Task tool:
 
 ### When running full pipeline ("run full qa", "run all tools")
 
-1. Launch full pipeline runner agent:
+The full pipeline is the coordinator's gate, so it is never delegated: a sub-agent's run
+is denied wherever the hooks daemon's `subagent_full_qa_blocker` is configured
+(`docs/hooks-daemon-full-qa-blocker.md`). Run it only after every editing agent has
+finished.
+
+1. Run it in the main session, in the background, with the output in a log:
+
+   ```
+   Use Bash tool (run_in_background: true):
+     command: "CI=true {bin}/qa > var/qa/full-pipeline.log 2>&1"
+   ```
+
+2. Exit code 0 is a clean pipeline; report it. Exit 75 means another run held the lock
+   and nothing was checked: wait for it and run again.
+
+3. Any other exit code: have the log summarised rather than reading it here:
 
    ```
    Use Task tool:
-     description: "Run full QA pipeline"
+     description: "Summarise full QA pipeline log"
      subagent_type: "php-qa-ci_full-pipeline-runner"
-     prompt: "Run the full php-qa-ci pipeline: export CI=true && {bin}/qa"
+     prompt: "Summarise var/qa/full-pipeline.log (exit code {code})"
    ```
 
-2. Return comprehensive per-tool summary to orchestrator
+4. Return the per-tool summary to the orchestrator
 
 ### Self-Fixing Tool Cycling
 
