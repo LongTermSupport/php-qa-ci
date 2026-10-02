@@ -1,8 +1,9 @@
 # Releases and the changelog
 
 php-qa-ci releases itself. Nobody picks a version number and nobody tags by hand: the
-changelog decides the version, and CI cuts the tag once a push to `php8.5` is green. This file is
-the single source of truth for how that works and what a change has to carry for it to work.
+changelog decides the version, CI keeps a release pull request open for it, and merging that pull
+request is the release. This file is the single source of truth for how that works and what a
+change has to carry for it to work.
 The rules of the changelog format and the lane that enforces them are in
 [docs/tools/changelog.md](../docs/tools/changelog.md); the version scheme consumers see is under
 [Branches and versions](../README.md#branches-and-versions).
@@ -52,75 +53,55 @@ consumer's build, output or install can differ, it needs an entry.
 
 ## How a release happens
 
+This is the release pull request pattern of release-please and changesets. The difference is that
+the changelog is written by hand, and enforced by the lane, rather than derived from commit
+messages. The workflow is `.github/workflows/release.yml`; every decision in it is a
+`bin/changelog-release` subcommand.
+
 1. A branch lands on `php8.5` (in this estate: merged locally by the lead, pushed by the owner,
    per the consuming project's `lts/*` workflow).
-2. CI's `qa` job runs the full pipeline. On `php8.5` the changelog lane judges everything since
-   the latest `85.N.N` tag, so a merge that slipped through without an entry fails here.
-3. When `qa` is green, the `release` job in `.github/workflows/ci.yml` runs
-   `bin/changelog-release next-version`. Empty output means `## Unreleased` has no entries and
-   nothing is released.
-4. Otherwise it runs `apply <version> <today>` and `notes <version>`, commits `CHANGELOG.md`
-   alone as `github-actions[bot]` with the message `Release <version> [skip ci]`, tags that commit
-   with an annotated tag whose message is the notes, and pushes branch and tag with
-   `git push --atomic`, over the `RELEASE_DEPLOY_KEY` deploy key.
+2. CI (`.github/workflows/ci.yml`) runs the full pipeline. On `php8.5` the changelog lane judges
+   everything since the latest `85.N.N` tag, so a merge that slipped through without an entry
+   fails here.
+3. When CI is green, `release.yml` runs (`workflow_run`). `next-version` gives the version
+   `## Unreleased` releases as; empty output means there are no entries and nothing to do. Otherwise
+   it runs `apply <version> <today>` and opens, or force-refreshes, the pull request
+   `Release <version>` from `chore/release-php8.5`, whose only change is `CHANGELOG.md` and whose
+   body is the release notes. Every later green push refreshes it, so it always releases
+   everything recorded so far.
+4. **Merging the release pull request is the decision to release.** Merge it like any other
+   (`gh pr merge <n> --merge`); nothing else is required, and nothing is released until then.
+5. CI runs on the merge. The lane counts the new version section as the record of everything
+   since the last tag, so it passes. `release.yml` then runs `pending-tags`, which names each
+   version section newer than the newest tag together with the commit that wrote it, and runs
+   `gh release create <version> --target <commit>` with `notes <version>` as the notes. That one
+   call creates the tag and the GitHub Release, so a re-run never finds one without the other.
+   Packagist reads the tag.
 
-The job releases only the commit its own run verified. When `php8.5` has moved on in the
-meantime, it stops with a notice and the run for the newer push releases everything, including
-this push's entries. Runs are serialised by the `release-php8.5` concurrency group and never
-cancelled. Because the push is atomic, a rejected push leaves neither a stray tag nor a stray
-commit on the remote; re-running the job is safe.
+The workflow acts only on the commit CI verified. When `php8.5` has moved on, it stops with a
+notice and the run for the newer push does the work. Runs are serialised by the `release-php8.5`
+concurrency group and never cancelled. The tag points at the commit that wrote the version
+section, not at the merge, so a release contains exactly what its notes describe, even when
+`php8.5` gained commits between the pull request's last refresh and its merge (their entries
+stay under `## Unreleased` for the next release).
+
+If `## Unreleased` is emptied by hand while a release pull request is open, the next green push
+closes the pull request.
 
 The version is the PHP line from `composer.json` (`^8.5` is `85`), then a minor or patch bump
 over the newest `85.N.N` tag. Bumping the PHP requirement on this branch would therefore move to a
 new line; that is a new branch (`php8.6`), not a release of this one.
 
-## One-time owner setup
+## Repository settings it relies on
 
-The release job cannot push until the owner has done this once. Nothing here is done by an
-agent: each step grants write access to the repository.
+The workflow needs no secret and bypasses no branch protection: `GITHUB_TOKEN` opens the pull
+request and creates the release, and the owner's merge is the only write to `php8.5`. It relies
+on three settings, all already in place:
 
-1. Generate a key pair, with no passphrase (CI cannot type one):
-
-   ```bash
-   ssh-keygen -t ed25519 -N '' -C 'php-qa-ci release job' -f php-qa-ci-release
-   ```
-
-2. Add the public key as a deploy key **with write access**. In the UI: repository
-   **Settings → Deploy keys → Add deploy key**, title `release job`, paste
-   `php-qa-ci-release.pub`, tick **Allow write access**. Or:
-
-   ```bash
-   gh repo deploy-key add php-qa-ci-release.pub --repo LongTermSupport/php-qa-ci \
-     --title 'release job' --allow-write
-   ```
-
-3. Store the private key as the Actions secret `RELEASE_DEPLOY_KEY`. In the UI: **Settings →
-   Secrets and variables → Actions → New repository secret**. Or:
-
-   ```bash
-   gh secret set RELEASE_DEPLOY_KEY --repo LongTermSupport/php-qa-ci < php-qa-ci-release
-   ```
-
-4. Let deploy keys bypass the `protect` ruleset (id `18472656`: deletion, non-fast-forward and
-   the pull-request rule on the default branch), which would otherwise reject the bot's direct
-   push. In the UI: **Settings → Rules → Rulesets → protect → Bypass list → Add bypass → Deploy
-   keys**, bypass mode **Always allow**, then **Save changes**. Or, keeping every other field of
-   the ruleset as it is:
-
-   ```bash
-   gh api repos/LongTermSupport/php-qa-ci/rulesets/18472656 \
-     | jq '{name, target, enforcement, conditions, rules,
-            bypass_actors: ((.bypass_actors // []) + [{actor_id: null, actor_type: "DeployKey", bypass_mode: "always"}])}' \
-     | gh api repos/LongTermSupport/php-qa-ci/rulesets/18472656 --method PUT --input -
-   gh api repos/LongTermSupport/php-qa-ci/rulesets/18472656 --jq '.bypass_actors'
-   ```
-
-   The other ruleset, `protect-default-branch` (id `23328934`), has no pull-request rule, and
-   the bot's push is a fast-forward, so it needs no change. If it ever gains a pull-request or
-   required-status-check rule, give it the same bypass.
-
-5. Delete both key files from the machine they were generated on. The deploy key and the secret
-   are the only copies needed; a lost key is replaced by repeating steps 1 to 3.
-
-Until this is done, the `release` job fails on its first step with a message naming this file,
-and `qa` is unaffected.
+- **Settings → Actions → General → Workflow permissions**: "Allow GitHub Actions to create and
+  approve pull requests" is on (`gh api repos/LongTermSupport/php-qa-ci/actions/permissions/workflow`
+  shows `can_approve_pull_request_reviews: true`).
+- No ruleset targets tags, so `GITHUB_TOKEN` may create `85.N.N`.
+- No ruleset requires status checks on `php8.5`. A pull request opened with `GITHUB_TOKEN`
+  starts no workflow, so the release pull request carries no CI run of its own; a required check
+  would block it from merging. CI on the merge commit is what verifies it.

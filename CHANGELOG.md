@@ -17,19 +17,14 @@ cut from it is decided by them: `### Changed — breaking`, `### Removed`,
 `### Added`, `### Changed` and `### Deprecated` release a new minor version;
 `### Fixed` and `### Security` alone release a patch. The major is the PHP line
 (`85` for the `php8.5` branch), so a breaking change moves the minor: read the
-BREAKING entries before taking one. CI cuts the release and its tag when a push
-to the branch is green. The full rules are in
+BREAKING entries before taking one. A green push to the branch opens a release
+pull request moving `## Unreleased` into a version section; merging it publishes
+the release and its tag. The full rules are in
 [docs/tools/changelog.md](docs/tools/changelog.md).
 
 ## Unreleased
 
 ### Changed — breaking
-
-- **Lock contention exits 75, not 1.** A run that cannot take the run lock has
-  checked nothing, so it no longer reports the same code as a failing tool. 75 is
-  the conventional `EX_TEMPFAIL`, and the run also prints one line to stderr. A
-  caller that treated any non-zero exit as "QA failed" now sees contention as its
-  own outcome, and should retry rather than report a defect.
 
 - **`ext-pcntl` and `ext-posix` are required.** The run handles SIGINT, SIGTERM,
   SIGHUP and SIGQUIT itself and stops its tools' worker processes (see Fixed
@@ -38,12 +33,14 @@ to the branch is green. The full rules are in
 
 ### Added
 
-- **Releases are cut automatically from this changelog.** When CI on a push to
-  `php8.5` is green, a release job moves `## Unreleased` into a dated version
-  section, tags that commit `85.<minor>.<patch>` with the section as the tag's
-  annotation, and pushes both. `bin/changelog-release` does the work
-  (`next-version`, `apply`, `notes`, `add-entry`) and is available to consuming
-  projects too. See [docs/tools/changelog.md](docs/tools/changelog.md).
+- **Releases are cut from this changelog.** When CI on a push to `php8.5` is
+  green, a release pull request moves `## Unreleased` into a dated
+  `85.<minor>.<patch>` section, and is refreshed by every later green push.
+  Merging it is the release: CI on the merge publishes a GitHub Release, whose
+  tag Packagist reads, with the section as its notes. `bin/changelog-release`
+  does the work (`next-version`, `apply`, `notes`, `pending-tags`, `add-entry`,
+  `add-tool-updates`) and is available to consuming projects too. See
+  [docs/tools/changelog.md](docs/tools/changelog.md).
 
 - **A `changelog` lane (`-t cl`, `phpqaci.changelog`), opt-in.**
   `withChangelogCheck(true)` and `withChangelogWatchedPaths(...)` in
@@ -64,12 +61,12 @@ to the branch is green. The full rules are in
   `php-qa-ci_full-pipeline-runner` now summarises its log instead of running it. See
   [docs/hooks-daemon-full-qa-blocker.md](docs/hooks-daemon-full-qa-blocker.md).
 
-- **`rule-doc` resolves a consuming project's own rule identifiers.** Declare the
-  indexes in `qaConfig/rule-docs.json`. The summary comes from the column headed
-  `Forbids`, `Summary`, `Description` or `What`, falling back to the trailing
-  cell, so a project ending its rows with provenance needs no reshuffling. The
-  shipped index is read first, so a project cannot shadow a `phpqaci.*`
-  identifier. See [docs/phpstan-rules/README.md](docs/phpstan-rules/README.md).
+### Changed
+
+- **The GitHub Actions template checks out full history.** The `qa` job in
+  `templates/github-actions/php-qa-ci.yml` always uses `fetch-depth: 0`, so
+  switching the `changelog` lane on needs no workflow edit. A large repository
+  pays a slower checkout.
 
 ### Fixed
 
@@ -82,6 +79,27 @@ to the branch is green. The full rules are in
   lock itself is now an `flock`, which the kernel frees however the holder dies, even
   SIGKILL or the OOM killer, so the ten-minute stale window is gone: a holder that
   is reported is a live one.
+
+## 85.0.0 — 2026-10-02
+
+### Changed — breaking
+
+- **Lock contention exits 75, not 1.** A run that cannot take the run lock has
+  checked nothing, so it no longer reports the same code as a failing tool. 75 is
+  the conventional `EX_TEMPFAIL`, and the run also prints one line to stderr. A
+  caller that treated any non-zero exit as "QA failed" now sees contention as its
+  own outcome, and should retry rather than report a defect.
+
+### Added
+
+- **`rule-doc` resolves a consuming project's own rule identifiers.** Declare the
+  indexes in `qaConfig/rule-docs.json`. The summary comes from the column headed
+  `Forbids`, `Summary`, `Description` or `What`, falling back to the trailing
+  cell, so a project ending its rows with provenance needs no reshuffling. The
+  shipped index is read first, so a project cannot shadow a `phpqaci.*`
+  identifier. See [docs/phpstan-rules/README.md](docs/phpstan-rules/README.md).
+
+### Fixed
 
 - **Per-file PHPStan on a phar tool's config file is actionable.** The wrapper
   neon lists each phar's config-API sources under `scanDirectories`, so

@@ -540,10 +540,10 @@ version number: `85.0.0` is the first php-qa-ci release for PHP 8.5, not PHP 8.5
 major is spoken for, a breaking change in php-qa-ci itself (a new requirement, a lane that now
 fails what it passed) moves the minor.
 
-Tags are cut automatically: when CI on a push to `php8.5` is green, the release job turns the
-changelog's `## Unreleased` entries into the next version's section and tags it, with that
-section as the tag's annotation. Every consumer-visible change carries an entry, so the
-changelog is the complete list of what a release changes.
+Releases come from the changelog: when CI on a push to `php8.5` is green, a release pull request
+turns `## Unreleased` into the next version's section, and merging it publishes a GitHub Release
+and its tag with that section as the notes. Every consumer-visible change carries an entry, so
+the changelog is the complete list of what a release changes.
 
 Choose the constraint by how much change you want to take without reading about it first:
 

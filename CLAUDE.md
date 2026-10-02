@@ -49,9 +49,9 @@ core have to be requested from the host, with matching debug symbols.
 Versions are never chosen and tags are never cut by hand. Every change to a path a consumer
 receives carries an entry under `## Unreleased` in `CHANGELOG.md` (or, when no consumer could
 notice it, a `Changelog: none — <reason>` commit trailer), the `changelog` lane fails the build
-otherwise, and CI tags the release once a push to `php8.5` is green.
+otherwise, and a green push to `php8.5` opens a release pull request whose merge is the release.
 [CLAUDE/releases.md](CLAUDE/releases.md) is the procedure: which heading a change belongs under,
-the trailer, how the release job works, and the one-time owner setup it needs.
+the trailer, how the release pull request works, and the repository settings it relies on.
 
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
 
@@ -693,7 +693,7 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 - **Lane**: [src/Pipeline/Lane/ChangelogTool.php](src/Pipeline/Lane/ChangelogTool.php) (logic under [src/Changelog/](src/Changelog/), git through the process runner)
 - **Purpose**: `CHANGELOG.md`'s `## Unreleased` section uses only the allowed headings, each once and non-empty; every change to a watched path since the merge base (a branch or pull request) or the last `<line>.N.N` tag (the default branch) is recorded there or carries a `Changelog: none — <reason>` trailer; a new or tightened `composer.json` requirement is recorded under `Changed — breaking`. Missing history fails rather than passes
 - **Opt-in**: `withChangelogCheck(true)` and `withChangelogWatchedPaths(...)` in `qaConfig/qa.php` (or `useChangelogCheck=1`); php-qa-ci enables it on itself
-- **Release CLI**: `bin/changelog-release next-version | apply <version> <date> | notes <version> | add-entry <heading> <text>`, which the CI release job drives ([CLAUDE/releases.md](CLAUDE/releases.md))
+- **Release CLI**: `bin/changelog-release next-version | apply <version> <date> | notes <version> | pending-tags | add-entry <heading> <text> | add-tool-updates`, which `.github/workflows/release.yml` drives ([CLAUDE/releases.md](CLAUDE/releases.md))
 - **Alias**: `vendor/bin/qa -t cl`
 - **Identifier**: `phpqaci.changelog`
 - **Details**: [docs/tools/changelog.md](docs/tools/changelog.md)

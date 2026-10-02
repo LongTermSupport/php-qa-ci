@@ -20,7 +20,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     // exactly the escape hatch documented for downstream consumers.
     ->withSensitiveParameterCheck(false)
     // Every change a consuming project can notice is recorded in CHANGELOG.md,
-    // which is also what the release job reads to cut the next tag
+    // which is also what the release workflow reads to cut the next release
     // (CLAUDE/releases.md). The watched paths are what ships to, or is
     // deployed into, a consumer; tests/, docs/, CLAUDE/ and this qaConfig/ are
     // not. The .claude/ entries follow scripts/lib/deploy-manifest.inc.bash.

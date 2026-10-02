@@ -59,11 +59,13 @@ The section ends at the next `##` heading. Released sections below it are not ch
 
    The changed files are those that differ between that base and the working tree, plus untracked
    files, so a local run judges what a commit would ship. When any of them falls under a watched
-   path, the section must have gained an entry since the base, or a commit in the range must carry
-   the trailer `Changelog: none — <reason>`.
+   path, the record must have gained an entry since the base, or a commit in the range must carry
+   the trailer `Changelog: none — <reason>`. The record is `## Unreleased` plus any version
+   section the base does not have: between a release being written and being tagged, its entries
+   are no longer under `## Unreleased`, but they still record the changes.
 
 3. **A new or tightened runtime requirement is recorded as breaking.** When `composer.json`'s
-   `require` gained a package or changed a constraint since the base, `## Unreleased` must have a
+   `require` gained a package or changed a constraint since the base, the record must have a
    `### Changed — breaking` entry. A consumer that cannot meet the requirement cannot install the
    release. A removed requirement and `require-dev` changes are not breaking; a `composer.json`
    absent at the base has no earlier contract to break.
@@ -133,12 +135,14 @@ no release yet tags `<major>.0.0` first.
 `$(changelog-release next-version)` is exactly a version or empty; everything a person reads goes
 to stderr. Exit 0 on success, 1 on any refusal.
 
-| Command                      | Does                                                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `next-version`               | prints the version `## Unreleased` releases as; nothing when the section has no entries               |
-| `apply <version> <date>`     | moves the section into `## <version> — <YYYY-MM-DD>` under a fresh, empty `## Unreleased`             |
-| `notes <version>`            | prints the tag annotation: the title, a `BREAKING:` line first when needed, then the entries          |
-| `add-entry <heading> <text>` | adds `- <text>` under a heading (its label or slug: `changed-breaking`, `fixed`, ...), in table order |
+| Command                      | Does                                                                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `next-version`               | prints the version `## Unreleased` releases as; nothing when the section has no entries                                                   |
+| `apply <version> <date>`     | moves the section into `## <version> — <YYYY-MM-DD>` under a fresh, empty `## Unreleased`                                                 |
+| `notes <version>`            | prints the release notes: the title, a `BREAKING:` line first when needed, then the entries                                               |
+| `pending-tags`               | prints `<version> <commit>` for each version section newer than the line's newest tag, oldest first; the commit is the one that wrote it |
+| `add-entry <heading> <text>` | adds `- <text>` under a heading (its label or slug: `changed-breaking`, `fixed`, ...), in table order                                     |
+| `add-tool-updates`           | adds a `Changed` entry naming each bundled tool whose pinned version differs from `HEAD`'s; nothing when none moved                       |
 
 The version is `<major>.<minor>.<patch>`. The major is the PHP line written without the dot, read
 from `composer.json`'s `require.php`, which must be a single `^X.Y` constraint (`^8.5` is line
@@ -146,7 +150,10 @@ from `composer.json`'s `require.php`, which must be a single `^X.Y` constraint (
 tag matching `<major>.N.N` exactly, compared numerically; a line with no tag starts at
 `<major>.0.0`. `apply` leaves every byte outside the section as it was, and refuses an empty
 section or a version that already has a section. `notes` writes headings as underlined text, not
-`###`, because git's default tag-message cleanup deletes lines that start with `#`.
+`###`, so the notes also survive as an annotated tag's message, whose default cleanup deletes
+lines that start with `#`. `pending-tags` refuses a version section no commit has written yet.
+`add-tool-updates` reads php-qa-ci's own pins (`phive.xml`'s `installed`, the ShellCheck version
+file, `build/*/composer.lock`), never a tool's `--version` banner.
 
 How php-qa-ci itself uses these in CI is in
 [CLAUDE/releases.md](../../CLAUDE/releases.md); the version scheme for consumers is under
@@ -173,5 +180,7 @@ it.
 - Releasing: [`ChangelogReleaseCommand`](../../src/Changelog/ChangelogReleaseCommand.php) behind
   `bin/changelog-release`, with [`ReleaseVersionCalculator`](../../src/Changelog/ReleaseVersionCalculator.php),
   [`ChangelogReleaseWriter`](../../src/Changelog/ChangelogReleaseWriter.php),
-  [`ReleaseNotesRenderer`](../../src/Changelog/ReleaseNotesRenderer.php) and
+  [`ReleaseNotesRenderer`](../../src/Changelog/ReleaseNotesRenderer.php),
+  [`ReleasedSections`](../../src/Changelog/ReleasedSections.php),
+  [`BundledToolVersions`](../../src/Changelog/BundledToolVersions.php) and
   [`ChangelogEntryAdder`](../../src/Changelog/ChangelogEntryAdder.php).
