@@ -11,6 +11,9 @@
 readonly platformGeneric="generic"
 readonly platformSymfony="symfony"
 
+# The one line every failure path prints, naming the method behind the gate.
+readonly qaDefenceBeforeFixLine="Defence Before Fix (DBF): https://defence-before-fix.github.io/ - agent prompt: https://defence-before-fix.github.io/defence-before-fix-project-prompt.md"
+
 function detectPlatform() {
   if [[ -f $projectRoot/symfony.lock ]]; then
     echo $platformSymfony
@@ -208,7 +211,7 @@ function tryAgainOrAbort() {
 
         $toolname Failed...
 
-        Defence Before Fix: https://defence-before-fix.github.io/
+        $qaDefenceBeforeFixLine
 
     ==================================================
 
@@ -221,7 +224,7 @@ function tryAgainOrAbort() {
 
         $toolname Failed...
 
-        Defence Before Fix: https://defence-before-fix.github.io/
+        $qaDefenceBeforeFixLine
 
         would you like to try again? (y/n)
 
@@ -421,7 +424,7 @@ function qaReportAggregate() {
     echo "          - $failedTool"
   done
   echo "
-        Defence Before Fix: https://defence-before-fix.github.io/
+        $qaDefenceBeforeFixLine
 
         Each tool's full output is above. Fix every item, then re-run.
         (This run did not fail fast: all tools ran so you see every problem.)

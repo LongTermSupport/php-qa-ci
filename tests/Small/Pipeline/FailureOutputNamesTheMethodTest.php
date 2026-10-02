@@ -24,7 +24,8 @@ final class FailureOutputNamesTheMethodTest extends TestCase
 {
     private const string FUNCTIONS = __DIR__ . '/../../../includes/functions.inc.bash';
 
-    private const string METHOD_LINE = 'Defence Before Fix: https://defence-before-fix.github.io/';
+    private const string METHOD_LINE = 'Defence Before Fix (DBF): https://defence-before-fix.github.io/'
+        . ' - agent prompt: https://defence-before-fix.github.io/defence-before-fix-project-prompt.md';
 
     public function testTryAgainOrAbortInCiPrintsTheMethodLineAndExitsOne(): void
     {
