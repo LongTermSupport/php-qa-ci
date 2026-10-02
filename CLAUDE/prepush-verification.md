@@ -29,7 +29,9 @@ the same rules; the only difference is that the fixers report instead of fixing.
 
 While iterating, `bin/qa -t <tool>` runs one lane, and `bin/qa -t allStatic` /
 `-t allLints` / `-t allCS` / `-t allTests` run a phase. Use those for speed and the
-full `bin/qa` at checkpoints.
+full `bin/qa` at checkpoints. The full `bin/qa` is run by the coordinating session, never a
+sub-agent: a sub-agent runs `-t`/`-p` lanes and hands its commit back (why, and how the hooks
+daemon enforces it: [qa-orchestration.md](qa-orchestration.md)).
 
 `bin/qa` takes the project's run lock; if it reports another QA run holding the
 lock, wait for that run to finish (the lock goes stale after ten minutes of

@@ -43,8 +43,17 @@ NO `-t` flag, run end to end, exit 0. Single steps (`-t allCS`, `-t stan`, `-t p
 per-file `-p`) exist for fast iteration on hot areas only — they are working tools, not
 evidence. Never declare work complete, close a plan/task, or report "QA green" on the
 strength of individual steps alone: finish with one full unfiltered run (single-threaded,
-after all editing is done) and report ITS exit code. Prefer delegating that run to the
-`php-qa-ci_full-pipeline-runner` agent.
+after all editing is done) and report ITS exit code.
+
+**The full run belongs to the coordinating (main) session, never a sub-agent.** Run it
+yourself in the background so its output stays out of context —
+`CI=true bin/qa > var/qa/full-pipeline.log 2>&1` with Bash `run_in_background` — and
+take the exit code as the verdict; on a failure, hand the log path to the
+`php-qa-ci_full-pipeline-runner` agent for a per-lane summary. A sub-agent runs targeted
+QA only (`bin/qa -t <tool> -p <path>`, `bin/qa --agent-mode -t phpstan -p <file>`),
+commits, and hands the commit back. Where the Claude Code hooks daemon (v3.67.0+) is
+installed, composer install/update configures its `subagent_full_qa_blocker` to deny a
+sub-agent's full run: `vendor/lts/php-qa-ci/docs/hooks-daemon-full-qa-blocker.md`.
 
 ## php-qa-ci — Agent Mode (terse per-file QA)
 
@@ -75,14 +84,19 @@ When QA runs inside an orchestrated workflow (Workflow tool, agent fan-outs), th
 phase MUST use the deployed php-qa-ci machinery — never hand-rolled tool invocations:
 
 - **Run→fix cycling via the dedicated sub-agents**: `php-qa-ci_qa-tool-runner` /
-  `php-qa-ci_phpstan-runner` / `php-qa-ci_phpunit-runner` to execute (they wrap
-  `bin/qa`), and `php-qa-ci_phpstan-fixer` / `php-qa-ci_phpunit-fixer` to remediate.
-  Cycle run→fix→run until green or escalation — never stop after one fix.
+  `php-qa-ci_phpstan-runner` / `php-qa-ci_phpunit-runner` to execute single lanes
+  (they wrap `bin/qa -t <tool>`), and `php-qa-ci_phpstan-fixer` /
+  `php-qa-ci_phpunit-fixer` to remediate. Cycle run→fix→run until green or
+  escalation — never stop after one fix.
 - **Every execution goes through `bin/qa`** (`-t allCS`, `-t stan`, `-t allStatic`,
   `-t phpunit`) — never invoke phars/binaries directly.
-- **Concurrency**: full-codebase `bin/qa` runs are SINGLE-THREADED — exactly one QA
-  executor at a time, as a barrier stage after all editing agents finish. Parallel
-  agents may only use per-file mode (`bin/qa -t stan -p <file>`).
+- **The full pipeline is the coordinator's gate**: the coordinating session runs
+  `CI=true bin/qa` itself, once, as a barrier after every editing agent has finished
+  (see "Full Pipeline Is the Proof" above). No sub-agent runs it; with the hooks daemon
+  configured, a sub-agent's attempt is denied.
+- **Concurrency**: full-codebase `bin/qa -t <tool>` runs are SINGLE-THREADED too —
+  one QA executor at a time. Parallel agents may only use per-file mode
+  (`bin/qa -t stan -p <file>`).
 - **Fixers never suppress**: no baselines, no `@phpstan-ignore`, no loosened
   assertions — fix causes, or stop and report honestly.
 - **Audit the green**: after a fix cycle reports green, run

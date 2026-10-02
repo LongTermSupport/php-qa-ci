@@ -55,7 +55,9 @@ Launch the documentation-conflict check once per session:
 Detect the tool (and an optional `-p <path>`) from the request, then invoke the runner skill
 the procedure's routing table names for it — `phpstan-runner`, `phpunit-runner` or
 `qa-tool-runner` — through the Skill tool. **Never run the tool with Bash from this skill**;
-the runner skills launch cheap agents so tool output stays out of the main context.
+the runner skills launch cheap agents so tool output stays out of the main context. The full
+pipeline is the one run no agent makes: `qa-tool-runner` has the main session run it in the
+background, as the procedure says, and only the log summary is delegated.
 
 Cycle exactly as the procedure's loop says: runner → fixer (or re-run, for a self-fixing lane)
 → runner, with no pause, until clean or an escalation trigger fires.

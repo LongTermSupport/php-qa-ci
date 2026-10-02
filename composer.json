@@ -102,6 +102,7 @@
   "bin": [
     "bin/composer-require-checker",
     "bin/config-template-ignorelist-check",
+    "bin/hooks-daemon-full-qa-blocker",
     "bin/infection",
     "bin/infection-config-source-dirs-check",
     "bin/managed-source",

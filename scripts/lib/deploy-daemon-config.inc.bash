@@ -2,9 +2,11 @@
 #
 # Sourced by scripts/deploy-skills.bash. Relies on orchestrator-established
 # variables: DAEMON_DETECTED, DAEMON_CONFIG, PYTHON3_YAML, HOOKS_TARGET,
-# SETTINGS_FILE, DAEMON_INSTALL_REF. When the daemon is present this enforces the
-# required handler config (via the daemon venv python) and removes classic hooks
-# + their settings.json registrations; otherwise it prints the install guidance.
+# SETTINGS_FILE, DAEMON_INSTALL_REF, QACI_PATH, PROJECT_ROOT. When the daemon is
+# present this enforces the required handler config (via the daemon venv python),
+# declares subagent_full_qa_blocker (via bin/hooks-daemon-full-qa-blocker) and
+# removes classic hooks + their settings.json registrations; otherwise it prints
+# the install guidance.
 
 # ============================================================================
 # Phase 4: hooks-daemon Config Enforcement
@@ -138,6 +140,18 @@ PYTHON_DAEMON_CONFIG
     # shellcheck source=scripts/lib/daemon-lint-override-check.inc.bash
     source "$QACI_PATH/scripts/lib/daemon-lint-override-check.inc.bash"
     phpQaCiDaemonLintOverrideCheck "$DAEMON_CONFIG"
+
+    # subagent_full_qa_blocker (daemon v3.67.0+): the full pipeline is the
+    # coordinating session's gate, so a sub-agent's run is denied. Runs after
+    # the enforcement above, which may rewrite the file. The version gate, the
+    # comment-preserving edit and the config-validate check are PHP
+    # (LTS\PHPQA\HooksDaemon\FullQaBlockerConfigurator); none of it may fail
+    # the deploy.
+    echo ""
+    echo "🛡️  hooks-daemon subagent_full_qa_blocker (full pipeline reserved for the coordinating session)..."
+    if ! "${PHP_BINARY:-php}" "$QACI_PATH/bin/hooks-daemon-full-qa-blocker" "$PROJECT_ROOT" "$DAEMON_CONFIG"; then
+        echo "  ⚠️  subagent_full_qa_blocker step failed (see above) — continuing deployment" >&2
+    fi
 
     # ========================================================================
     # Remove classic hooks - daemon provides all functionality now

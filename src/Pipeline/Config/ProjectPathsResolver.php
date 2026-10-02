@@ -33,7 +33,7 @@ final readonly class ProjectPathsResolver
         return new ProjectPathsDto(
             projectRoot: $projectRoot,
             libraryRoot: $libraryRoot,
-            binDir: $projectRoot . '/' . $this->composerBinDir($projectRoot),
+            binDir: $projectRoot . '/' . new ComposerBinDirReader()->read($projectRoot),
             srcDir: $srcDir,
             testsDir: $testsDir,
             projectConfigDir: $projectRoot . '/qaConfig',
@@ -53,26 +53,5 @@ final readonly class ProjectPathsResolver
         }
 
         throw ProjectLayoutException::missingDirectory('tests', $projectRoot);
-    }
-
-    private function composerBinDir(string $projectRoot): string
-    {
-        $composerJson = $projectRoot . '/composer.json';
-        if (!is_file($composerJson)) {
-            throw ProjectLayoutException::missingComposerJson($projectRoot);
-        }
-
-        $composer = \Safe\json_decode(\Safe\file_get_contents($composerJson), true);
-        if (!\is_array($composer)) {
-            throw ProjectLayoutException::missingComposerJson($projectRoot);
-        }
-
-        $config = $composer['config'] ?? null;
-        $binDir = \is_array($config) ? ($config['bin-dir'] ?? null) : null;
-        if (\is_string($binDir) && '' !== $binDir) {
-            return trim($binDir, '/');
-        }
-
-        return 'vendor/bin';
     }
 }
