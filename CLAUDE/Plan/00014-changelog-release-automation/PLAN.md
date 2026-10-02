@@ -77,10 +77,12 @@ decisions below, the merge, the one-time repository setup and watching the first
   `pending-tags`, the lane counting a released-but-untagged section as the record,
   `release.yml`, `ci.yml` without the release job, docs (`c9252e6`, `fb9aa95`, `a88c069`)
 - [ ] **Task 2.1**: Infection in diff mode against `origin/php8.5`
-  (`infectionDiffBase=origin/php8.5 bin/qa -t infection`) — the run was interrupted before it
-  reported
-- [ ] **Task 2.2**: Full unfiltered `CI=true bin/qa` in the worktree, exit 0, then the read-only
-  gate from `CLAUDE/prepush-verification.md`
+  (`infectionDiffBase=origin/php8.5 bin/qa -t infection`). Covered MSI 86% → 93% with new tests
+  (merge `8383295`); still under the 100% floor. Owner decision on the remaining 91: about 40
+  are equivalent mutants in branch code, and 52 sit on pre-existing `ToolRegistry` lines 91–119,
+  which `ToolRegistryCharacterisationTest` asserts but, being `#[CoversNothing]`, never credits
+- [x] **Task 2.2**: Full unfiltered `CI=true bin/qa` exit 0 (1466 tests, full-mode Infection
+  85% covered MSI), then `QA_READONLY=1 CI=true bin/qa` on the committed tree: every tool passed
 Tasks 2.3 to 2.6 were settled on the owner's instruction to apply common sense:
 
 - [x] **Task 2.3**: The five entries the `85.0.0` tag shipped moved, verbatim, into
@@ -111,7 +113,7 @@ Tasks 2.3 to 2.6 were settled on the owner's instruction to apply common sense:
 
 ## Success Criteria
 
-- [ ] The full pipeline exits 0 on the branch, and the read-only gate passes on the committed tree
+- [x] The full pipeline exits 0 on the branch, and the read-only gate passes on the committed tree
 - [ ] A branch changing a watched path with no entry and no reasoned trailer fails the
   `changelog` lane in a real run
 - [ ] The first green push after the merge opens the release pull request, and merging it yields
