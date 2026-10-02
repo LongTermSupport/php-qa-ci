@@ -1,8 +1,9 @@
 # Defence Before Fix — Net and Filter
 
 This document is the single source of truth for the **Defence Before Fix** philosophy.
-The `defence-before-fix` skill orchestrates the workflow; this doc states *why* it is
-shaped the way it is, and the rules that keep a "green" honest.
+The method itself is run by the Defence Before Fix plugin's `dbf` skill (or, without the
+plugin, from the agent prompt below); this doc states how this toolchain applies it, *why* it
+is shaped the way it is, and the rules that keep a "green" honest.
 
 Reference (the specification for the method): https://defence-before-fix.github.io/
 Agent prompt, vendored with provenance (read once before fixing any defect):
@@ -17,8 +18,7 @@ The versions this package is audited against are declared in `composer.json`
 ## The procedure: six clauses, in order
 
 This is the method specification's section 3 as it applies here. Clause numbers are the
-specification's. A remediation Conforms only when all six are followed for that defect;
-the skill (`.claude/skills/defence-before-fix/SKILL.md`) is a shim onto this section.
+specification's. A remediation Conforms only when all six are followed for that defect.
 
 **Before clause 3.1: do not fix the defect yet.** The instance is evidence of a class.
 
@@ -304,8 +304,9 @@ the versions this package is audited against, and every gap naming its clause.
 ## Cross-Reference
 
 - Identifier index: `docs/phpstan-rules/README.md` (start here when a rule fires).
-- Workflow skill: `.claude/skills/defence-before-fix/SKILL.md` (model-invoked shim onto
-  "The procedure" above; forces the vendored agent prompt and this document to be read first).
+- Workflow skill: `.claude/skills/defence-before-fix/SKILL.md` (a pointer: it defers the
+  method to the Defence Before Fix plugin's `dbf` skill or the agent prompt, and lists the
+  php-qa-ci tools used while following it).
 - Rule authoring: `qaConfig/PHPStan/CLAUDE.md` (deployed into each project) and the
   `php-qa-ci_phpstan-rule-creator` agent.
 - Project root signpost: the auto-generated `<phpqaci>...</phpqaci>` block in the project
