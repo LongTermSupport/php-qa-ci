@@ -104,8 +104,10 @@ Tasks 2.3 to 2.6 were settled on the owner's instruction to apply common sense:
   `^85.1` / `~85.1.0` resolves it
 - [ ] **Task 3.5**: Diagnose the weekly `Update Dependencies` workflow, which failed on its last
   two scheduled runs before this work, and confirm its first run after the merge passes the lane.
-  Lead: the repository has `allow_auto_merge: false`, so its `gh pr merge --auto` step cannot
-  succeed
+  Diagnosed: both failed at QA, read-only by default in Actions, on pending changes from a newer
+  Rector; the auto-merge step after it could never succeed (`allow_auto_merge: false`). Fixed:
+  the QA run is writable (`QA_READONLY: 0`) so new rules land in the PR, and the auto-merge step
+  is gone; the owner merges the PR. Still to confirm on the first scheduled run
 
 ## Success Criteria
 
