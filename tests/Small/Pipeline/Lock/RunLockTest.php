@@ -17,6 +17,11 @@ use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
+ * Two RunLock instances in one process open the lock file separately, so their
+ * flocks contend exactly as two processes' would. Each holder is kept in a
+ * variable for as long as it must hold: a RunLock that is destroyed closes its
+ * file, and the kernel drops the flock with it.
+ *
  * @internal
  */
 #[CoversClass(RunLock::class)]
@@ -27,7 +32,13 @@ final class RunLockTest extends TestCase
 {
     private const string HOST_A = 'host-a';
 
+    private const string HOST_B = 'host-b';
+
     private const string TOOL_UNIT = 'unit';
+
+    private const string TOOL_STAN = 'stan';
+
+    private const string LOCK_FILE = 'qaConfig/.qa-lock/qa-running.lock';
 
     private TempDir $project;
 
@@ -45,9 +56,9 @@ final class RunLockTest extends TestCase
     }
 
     #[Test]
-    public function acquiringWritesTheLockFileAndAGitignoreUnderQaConfig(): void
+    public function acquiringWritesTheHolderRecordAndAGitignoreUnderQaConfig(): void
     {
-        $lock = RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000));
+        $lock = $this->lockAt(1_000_000);
 
         self::assertTrue($lock->acquire('phpstan', 'src', self::HOST_A, 42));
 
@@ -58,57 +69,67 @@ final class RunLockTest extends TestCase
         self::assertSame('phpstan', $info->tool);
         self::assertSame('src', $info->path);
         self::assertSame(1_000_000, $info->startedAt);
-        self::assertSame(1_000_000, $info->lastActivity);
         self::assertStringContainsString('never tracked', $this->project->read('qaConfig/.qa-lock/.gitignore'));
         self::assertStringContainsString('[QA Lock] Acquired', $this->output->fetch());
     }
 
     #[Test]
-    public function aLiveLockIsRefusedWithTheHoldersDetails(): void
+    public function aHeldLockIsRefusedWithTheHoldersPidAndStartTime(): void
     {
-        RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000))->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+        $holder = $this->lockAt(1_000_000);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
         $this->output->fetch();
 
-        $second = RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000 + RunLock::STALE_AFTER_SECONDS - 1));
+        $second = $this->lockAt(1_000_000 + 86_400);
 
-        self::assertFalse($second->acquire('stan', '', 'host-b', 43));
+        self::assertFalse($second->acquire(self::TOOL_STAN, '', self::HOST_B, 43), 'a holder is live for as long as it holds the flock, however long that is');
         $printed = $this->output->fetch();
         self::assertStringContainsString('Another QA run holds the lock', $printed);
         self::assertStringContainsString('host host-a, pid 42, tool "unit"', $printed);
-        self::assertSame(42, $second->current()?->pid, 'the live lock is left in place');
+        self::assertStringContainsString('started ' . date('H:i:s', 1_000_000), $printed);
+        self::assertSame(42, $second->current()?->pid, 'the holder record is left in place');
     }
 
     #[Test]
-    public function aStaleLockIsRemovedAndReplaced(): void
+    public function aHolderThatHasNotWrittenItsRecordYetIsStillRefused(): void
     {
-        RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000))->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
-        $this->output->fetch();
+        $holder = $this->flockDirectly();
 
-        $second = RunLock::forProject($this->project->path, $this->output, $this->clockAt(1_000_000 + RunLock::STALE_AFTER_SECONDS));
+        self::assertFalse($this->lockAt(1)->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        self::assertStringContainsString('holder details not written yet', $this->output->fetch());
 
-        self::assertTrue($second->acquire('stan', '', 'host-b', 43));
-        self::assertStringContainsString('Removing stale lock (no activity for 600s', $this->output->fetch());
-        self::assertSame(43, $second->current()?->pid);
+        \Safe\fclose($holder);
     }
 
     #[Test]
-    public function touchUpdatesLastActivityOnly(): void
+    public function aRecordLeftByARunThatDiedIsTakenOverWithANote(): void
     {
-        $clock = new MutableClock(1_000_000);
-        $lock  = RunLock::forProject($this->project->path, $this->output, $clock);
-        $lock->acquire(self::TOOL_UNIT, '', 'h', 1);
+        $this->project->write(self::LOCK_FILE, new LockInfoDto(self::HOST_A, 42, self::TOOL_UNIT, '', 1_000_000)->toJson());
 
-        $clock->now = 1_000_300;
-        $lock->touch();
+        $lock = $this->lockAt(1_000_010);
 
-        $info = $lock->current();
-        self::assertNotNull($info);
-        self::assertSame(1_000_000, $info->startedAt);
-        self::assertSame(1_000_300, $info->lastActivity);
+        self::assertTrue($lock->acquire(self::TOOL_STAN, '', self::HOST_B, 43), 'nobody holds the flock, so the record is history, not a holder');
+        $printed = $this->output->fetch();
+        self::assertStringContainsString('ended without releasing the lock', $printed);
+        self::assertStringContainsString('host host-a, pid 42', $printed);
+        self::assertSame(43, $lock->current()?->pid);
     }
 
     #[Test]
-    public function releaseRemovesTheLockAndReportsTheDuration(): void
+    public function anUnreadableRecordNeverBlocksTheNextRun(): void
+    {
+        $this->project->write(self::LOCK_FILE, '{"half a record');
+
+        $lock = $this->lockAt(1);
+
+        self::assertTrue($lock->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        self::assertStringContainsString('unreadable holder record', $this->output->fetch());
+        self::assertSame(43, $lock->current()?->pid);
+    }
+
+    #[Test]
+    public function releaseFreesTheLockAndReportsTheDuration(): void
     {
         $clock = new MutableClock(1_000_000);
         $lock  = RunLock::forProject($this->project->path, $this->output, $clock);
@@ -118,17 +139,54 @@ final class RunLockTest extends TestCase
 
         $lock->release(1);
 
-        self::assertNull($lock->current());
-        self::assertStringContainsString('Released at', $this->output->fetch());
-        self::assertFileDoesNotExist($lock->lockFile());
+        self::assertNull($lock->current(), 'the holder record is cleared');
+        $printed = $this->output->fetch();
+        self::assertStringContainsString('Released at', $printed);
+        self::assertStringContainsString('(exit 1)', $printed);
+        self::assertStringContainsString('2 minutes 5 seconds', $printed);
+
+        $next = $this->lockAt(1_000_200);
+        self::assertTrue($next->acquire(self::TOOL_STAN, '', 'h', 2));
+        self::assertStringNotContainsString('ended without releasing', $this->output->fetch(), 'a clean release leaves nothing to take over');
     }
 
     #[Test]
-    public function touchAndReleaseWithoutALockAreNoOps(): void
+    public function releaseIsIdempotentSoTheSignalHandlerAndFinallyCanBothCallIt(): void
     {
-        $lock = RunLock::forProject($this->project->path, $this->output, $this->clockAt(1));
+        $lock = $this->lockAt(1);
+        $lock->acquire(self::TOOL_UNIT, '', 'h', 1);
 
-        $lock->touch();
+        $this->output->fetch();
+
+        $lock->release(143);
+        $lock->release(1);
+
+        self::assertSame(1, substr_count($this->output->fetch(), 'Released at'));
+    }
+
+    #[Test]
+    public function releaseByARunThatNeverAcquiredLeavesTheHolderAlone(): void
+    {
+        $holder = $this->lockAt(1);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
+        $contender = $this->lockAt(2);
+        $contender->acquire(self::TOOL_STAN, '', self::HOST_B, 43);
+
+        $this->output->fetch();
+
+        $contender->release(130);
+
+        self::assertSame('', $this->output->fetch());
+        self::assertSame(42, $contender->current()?->pid);
+        self::assertFalse($this->lockAt(3)->acquire(self::TOOL_STAN, '', 'host-c', 44), 'the holder still holds the flock');
+    }
+
+    #[Test]
+    public function releaseWithoutALockIsANoOp(): void
+    {
+        $lock = $this->lockAt(1);
+
         $lock->release(0);
 
         self::assertNull($lock->current());
@@ -162,9 +220,29 @@ final class RunLockTest extends TestCase
         self::assertEqualsWithDelta(time(), new SystemClock()->now(), 2);
     }
 
+    private function lockAt(int $now): RunLock
+    {
+        return RunLock::forProject($this->project->path, $this->output, $this->clockAt($now));
+    }
+
     private function clockAt(int $now): ClockInterface
     {
         return new MutableClock($now);
+    }
+
+    /**
+     * Another process's view of the lock between taking the flock and writing
+     * its record: held, and empty.
+     *
+     * @return resource
+     */
+    private function flockDirectly(): mixed
+    {
+        $this->project->mkdir('qaConfig/.qa-lock');
+        $handle = \Safe\fopen($this->project->path . '/' . self::LOCK_FILE, 'c+');
+        \Safe\flock($handle, \LOCK_EX | \LOCK_NB);
+
+        return $handle;
     }
 }
 

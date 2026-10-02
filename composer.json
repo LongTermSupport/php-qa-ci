@@ -8,6 +8,8 @@
     "ext-filter": "*",
     "ext-json": "*",
     "ext-openssl": "*",
+    "ext-pcntl": "*",
+    "ext-posix": "*",
     "ext-tokenizer": "*",
     "ext-xml": "*",
     "composer-plugin-api": "^2.0",

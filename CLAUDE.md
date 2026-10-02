@@ -151,7 +151,7 @@ Before any tool runs, `QaApplication` and `Pipeline` perform these steps in orde
 
 09. **Pre-hook** ([HookRunner](src/Pipeline/Runner/HookRunner.php)) - runs `qaConfig/hookPre.php` if present
 
-10. **Run lock** ([RunLock](src/Pipeline/Lock/RunLock.php)) - one run per project. A JSON lock file under `qaConfig/.qa-lock/` records host, pid, tool, path and last activity. A live holder aborts the run (exit 75, `Pipeline::EXIT_LOCK_CONTENDED`, distinct from a QA failure and accompanied by one line on stderr) before any tool executes; a holder quiet for longer than the stale window (600 seconds) is presumed dead, removed with a note, and the lock is taken. The runner touches the lock before every tool so a long lane never goes stale. Liveness is time-based, not PID-based, because container restarts make PIDs meaningless
+10. **Run lock** ([RunLock](src/Pipeline/Lock/RunLock.php)) - one run per project: an exclusive `flock` on `qaConfig/.qa-lock/qa-running.lock`, held for the whole run, with a JSON record of host, pid, tool, path and start time in the file for humans. A holder aborts the run (exit 75, `Pipeline::EXIT_LOCK_CONTENDED`, distinct from a QA failure and accompanied by one line on stderr) before any tool executes. Liveness is "can the flock be taken": the kernel drops it when the holder dies however it dies (SIGKILL, OOM, a container stop), and the next run takes over a leftover record with a note. A catchable interrupt (SIGINT, SIGTERM, SIGHUP, SIGQUIT) is the graceful path: [RunInterruptHandler](src/Pipeline/Runner/RunInterruptHandler.php), installed by `QaApplication` for the whole run, stops the running child tools and their own descendants (read from `/proc` by [ProcessTree](src/Pipeline/Process/ProcessTree.php), so PHPStan's workers go too), releases the lock and exits 128 + the signal number. This is why `ext-pcntl` and `ext-posix` are required
 
 Only after all preflight steps complete does tool execution begin.
 
@@ -233,7 +233,7 @@ After the "ALL TESTS PASSING" message:
 ### Final Steps
 
 - **Retry Warning** - If any tools were retried during the run, displays a warning
-- **Lock release** - the lock file is removed and the elapsed time printed
+- **Lock release** - the holder record is cleared, the flock dropped and the elapsed time printed
 - **Completion Message** - Shows hostname and completion status
 
 ## Configuration System
