@@ -39,6 +39,10 @@ final class QaConfigBuilderTest extends TestCase
 
     private const string TEMPLATES_DIR = '/p/templates';
 
+    private const string EXPECTED_LOGIC_EXCEPTION = 'expected LogicException';
+
+    private const string SRC_WATCHED = 'src/';
+
     #[Test]
     public function defaultsMirrorThePipelineDefaults(): void
     {
@@ -185,7 +189,7 @@ final class QaConfigBuilderTest extends TestCase
     {
         try {
             $this->defaults()->withDeadCodeDetection(true)->build();
-            self::fail('expected LogicException');
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
         } catch (LogicException $logicException) {
             self::assertStringContainsString('withDeadCodeEntryPoints(...)', $logicException->getMessage());
         }
@@ -212,6 +216,47 @@ final class QaConfigBuilderTest extends TestCase
 
         self::assertTrue($config->deadCode->enabled);
         self::assertSame([], $config->deadCode->entryPoints);
+    }
+
+    #[Test]
+    public function theChangelogCheckIsOffByDefaultWithNothingWatched(): void
+    {
+        $config = $this->defaults()->build();
+
+        self::assertFalse($config->useChangelogCheck);
+        self::assertSame([], $config->changelogWatchedPaths);
+    }
+
+    #[Test]
+    public function enablingTheChangelogCheckWithoutWatchedPathsRefusesToBuild(): void
+    {
+        try {
+            $this->defaults()->withChangelogCheck(true)->build();
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertStringContainsString('withChangelogWatchedPaths(...)', $logicException->getMessage());
+        }
+
+        try {
+            $this->defaults(env: new EnvironmentReader(['useChangelogCheck' => '1']))->build();
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertStringContainsString('useChangelogCheck=1', $logicException->getMessage());
+        }
+    }
+
+    #[Test]
+    public function changelogWatchedPathsAccumulateAndTheEnvironmentCanSwitchTheCheckOn(): void
+    {
+        $config = $this->defaults(env: new EnvironmentReader(['useChangelogCheck' => 'true']))
+            ->withChangelogWatchedPaths(self::SRC_WATCHED, 'composer.json')
+            ->withChangelogWatchedPaths('bin/')
+            ->build()
+        ;
+
+        self::assertTrue($config->useChangelogCheck);
+        self::assertSame([self::SRC_WATCHED, 'composer.json', 'bin/'], $config->changelogWatchedPaths);
+        self::assertFalse($this->defaults()->withChangelogWatchedPaths(self::SRC_WATCHED)->withChangelogCheck(false)->build()->useChangelogCheck);
     }
 
     #[Test]

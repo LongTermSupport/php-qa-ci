@@ -84,7 +84,7 @@ final class ChangelogGitTest extends TestCase
 
         self::assertTrue($this->git->resolves(self::REMOTE_BRANCH));
         self::assertFalse($this->git->resolves('origin/nope'));
-        self::assertSame(['git rev-parse --verify --quiet \'origin/php8.5^{commit}\'', 'git rev-parse --verify --quiet \'origin/nope^{commit}\''], $this->processes->commandLines());
+        self::assertSame(["git rev-parse --verify --quiet 'origin/php8.5^{commit}'", "git rev-parse --verify --quiet 'origin/nope^{commit}'"], $this->processes->commandLines());
     }
 
     #[Test]
@@ -139,6 +139,6 @@ final class ChangelogGitTest extends TestCase
         $this->processes->willSucceed("none — tests only\n\n\nnone\n");
 
         self::assertSame(['none — tests only', 'none'], $this->git->trailers(self::BASE));
-        self::assertSame(['git log \'--format=%(trailers:key=Changelog,valueonly)\' abc123..HEAD'], $this->processes->commandLines());
+        self::assertSame(["git log '--format=%(trailers:key=Changelog,valueonly)' abc123..HEAD"], $this->processes->commandLines());
     }
 }

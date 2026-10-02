@@ -4,6 +4,7 @@
 /vendor/
 /bin/*
 !/bin/bootstrap.php
+!/bin/changelog-release
 !/bin/composer-require-checker
 !/bin/hooks-daemon-full-qa-blocker
 !/bin/infection

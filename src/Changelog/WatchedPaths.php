@@ -50,12 +50,6 @@ final readonly class WatchedPaths
 
     private function watches(string $file): bool
     {
-        foreach ($this->paths as $path) {
-            if (str_ends_with($path, '/') ? str_starts_with($file, $path) : fnmatch($path, $file)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->paths, static fn (string $path): bool => str_ends_with($path, '/') ? str_starts_with($file, $path) : fnmatch($path, $file));
     }
 }

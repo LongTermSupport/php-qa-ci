@@ -102,6 +102,7 @@
     }
   },
   "bin": [
+    "bin/changelog-release",
     "bin/composer-require-checker",
     "bin/config-template-ignorelist-check",
     "bin/hooks-daemon-full-qa-blocker",

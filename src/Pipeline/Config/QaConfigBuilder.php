@@ -36,7 +36,8 @@ final readonly class QaConfigBuilder
      * @param list<string>      $twigDirectories
      * @param list<string>      $yamlDirectories
      * @param list<string>      $shellCheckGlobs
-     * @param list<string>|null $deadCodeEntryPoints  null until a project has listed them or opted out
+     * @param list<string>|null $deadCodeEntryPoints   null until a project has listed them or opted out
+     * @param list<string>      $changelogWatchedPaths
      */
     public function __construct(
         private ProjectPathsDto $paths,
@@ -75,6 +76,8 @@ final readonly class QaConfigBuilder
         private array $shellCheckGlobs,
         private bool $useDeadCode,
         private ?array $deadCodeEntryPoints,
+        private bool $useChangelogCheck,
+        private array $changelogWatchedPaths,
     ) {
     }
 
@@ -140,6 +143,8 @@ final readonly class QaConfigBuilder
             shellCheckGlobs: [],
             useDeadCode: false,
             deadCodeEntryPoints: null,
+            useChangelogCheck: $env->bool('useChangelogCheck', false),
+            changelogWatchedPaths: [],
         );
     }
 
@@ -277,10 +282,32 @@ final readonly class QaConfigBuilder
         return $this->with(deadCodeEntryPoints: []);
     }
 
+    /**
+     * The changelog lane: CHANGELOG.md's `## Unreleased` section is valid, and
+     * every change to a watched path is recorded there (or carries a
+     * `Changelog: none — <reason>` trailer). Off by default; enabling it also
+     * requires withChangelogWatchedPaths(), because a lane watching nothing
+     * would pass every change unexamined.
+     */
+    public function withChangelogCheck(bool $enabled): self
+    {
+        return $this->with(useChangelogCheck: $enabled);
+    }
+
+    /** Project-relative paths a consuming project can notice: `dir/` for a tree, else a file or an fnmatch glob. */
+    public function withChangelogWatchedPaths(string ...$paths): self
+    {
+        return $this->with(changelogWatchedPaths: [...$this->changelogWatchedPaths, ...array_values($paths)]);
+    }
+
     public function build(): QaConfigDto
     {
         if ($this->useDeadCode && null === $this->deadCodeEntryPoints) {
             throw new LogicException('withDeadCodeDetection(true) needs withDeadCodeEntryPoints(...) listing the PHP scripts under bin/ (or wherever they live), or withoutDeadCodeEntryPoints() to state there are none: an entry point the detector never sees has everything it calls reported dead.');
+        }
+
+        if ($this->useChangelogCheck && [] === $this->changelogWatchedPaths) {
+            throw new LogicException('withChangelogCheck(true) (or useChangelogCheck=1) needs withChangelogWatchedPaths(...) naming the paths a consuming project can notice (src/, bin/, composer.json, ...): a changelog lane watching nothing would pass every change unexamined.');
         }
 
         $coverage  = $this->phpUnitCoverage && $this->xdebugEnabled;
@@ -326,6 +353,8 @@ final readonly class QaConfigBuilder
             yamlDirectories: $this->yamlDirectories,
             shellCheckGlobs: $this->shellCheckGlobs,
             deadCode: new DeadCodeOptionsDto(enabled: $this->useDeadCode, entryPoints: $this->deadCodeEntryPoints ?? []),
+            useChangelogCheck: $this->useChangelogCheck,
+            changelogWatchedPaths: $this->changelogWatchedPaths,
         );
     }
 
@@ -348,6 +377,7 @@ final readonly class QaConfigBuilder
      * @param list<string>|null $yamlDirectories
      * @param list<string>|null $shellCheckGlobs
      * @param list<string>|null $deadCodeEntryPoints
+     * @param list<string>|null $changelogWatchedPaths
      */
     private function with(
         ?array $pathsToCheck = null,
@@ -371,6 +401,8 @@ final readonly class QaConfigBuilder
         ?array $shellCheckGlobs = null,
         ?bool $useDeadCode = null,
         ?array $deadCodeEntryPoints = null,
+        ?bool $useChangelogCheck = null,
+        ?array $changelogWatchedPaths = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -409,6 +441,8 @@ final readonly class QaConfigBuilder
             shellCheckGlobs: $shellCheckGlobs                       ?? $this->shellCheckGlobs,
             useDeadCode: $useDeadCode                               ?? $this->useDeadCode,
             deadCodeEntryPoints: $deadCodeEntryPoints               ?? $this->deadCodeEntryPoints,
+            useChangelogCheck: $useChangelogCheck                   ?? $this->useChangelogCheck,
+            changelogWatchedPaths: $changelogWatchedPaths           ?? $this->changelogWatchedPaths,
         );
     }
 }

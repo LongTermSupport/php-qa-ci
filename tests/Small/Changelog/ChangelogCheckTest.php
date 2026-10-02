@@ -245,7 +245,7 @@ final class ChangelogCheckTest extends TestCase
     public function aChangedRequirementWithoutABreakingEntryFails(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::WITH_ENTRY);
-        $this->project->write(self::COMPOSER_JSON,'{"require": {"php": "^8.5", "ext-pcntl": "*"}}');
+        $this->project->write(self::COMPOSER_JSON, '{"require": {"php": "^8.5", "ext-pcntl": "*"}}');
         $this->featureBranch("composer.json\0");
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
@@ -262,7 +262,7 @@ final class ChangelogCheckTest extends TestCase
     public function aChangedRequirementWithABreakingEntryPasses(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n### Changed — breaking\n\n- Requires ext-pcntl.\n");
-        $this->project->write(self::COMPOSER_JSON,'{"require": {"php": "^8.5", "ext-pcntl": "*"}}');
+        $this->project->write(self::COMPOSER_JSON, '{"require": {"php": "^8.5", "ext-pcntl": "*"}}');
         $this->featureBranch("composer.json\0");
         $this->processes->willFail(128);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);

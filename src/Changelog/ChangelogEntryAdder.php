@@ -28,7 +28,7 @@ final readonly class ChangelogEntryAdder
         $lines = $document->lines;
 
         $existing = $document->block($heading);
-        if (null !== $existing) {
+        if ($existing instanceof Dto\ChangelogHeadingBlockDto) {
             array_splice($lines, $existing->lastIndex + 1, 0, ['', $entry]);
 
             return implode("\n", $lines);

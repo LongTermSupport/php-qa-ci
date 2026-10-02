@@ -30,17 +30,19 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 final readonly class QaConfigDto
 {
     /**
-     * @param list<string> $pathsToCheck         absolute paths the path-supporting tools scan
-     * @param list<string> $pathsToIgnore        project-relative paths excluded from scans
-     * @param list<string> $arkitectExcludePaths src-relative paths excluded from PHPArkitect
-     * @param list<string> $twigDirectories      absolute; `templates/` on every platform, because
-     *                                           twigCsFixer is gated on Twig rather than on Symfony
-     *                                           and skips cleanly when the directory is absent
-     * @param list<string> $yamlDirectories      absolute; `config/` on every platform, because
-     *                                           yamlLint is gated on symfony/yaml rather than on
-     *                                           Symfony and skips cleanly when the directory is absent
-     * @param list<string> $shellCheckGlobs      project-relative globs replacing shellCheck's default
-     *                                           discovery; empty means discover by extension and shebang
+     * @param list<string> $pathsToCheck          absolute paths the path-supporting tools scan
+     * @param list<string> $pathsToIgnore         project-relative paths excluded from scans
+     * @param list<string> $arkitectExcludePaths  src-relative paths excluded from PHPArkitect
+     * @param list<string> $twigDirectories       absolute; `templates/` on every platform, because
+     *                                            twigCsFixer is gated on Twig rather than on Symfony
+     *                                            and skips cleanly when the directory is absent
+     * @param list<string> $yamlDirectories       absolute; `config/` on every platform, because
+     *                                            yamlLint is gated on symfony/yaml rather than on
+     *                                            Symfony and skips cleanly when the directory is absent
+     * @param list<string> $shellCheckGlobs       project-relative globs replacing shellCheck's default
+     *                                            discovery; empty means discover by extension and shebang
+     * @param list<string> $changelogWatchedPaths project-relative paths whose changes need a changelog
+     *                                            entry; never empty when $useChangelogCheck is on
      */
     public function __construct(
         public ProjectPathsDto $paths,
@@ -70,6 +72,8 @@ final readonly class QaConfigDto
         public array $yamlDirectories,
         public array $shellCheckGlobs,
         public DeadCodeOptionsDto $deadCode,
+        public bool $useChangelogCheck,
+        public array $changelogWatchedPaths,
     ) {
     }
 }

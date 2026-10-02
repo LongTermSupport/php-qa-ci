@@ -50,6 +50,34 @@ final readonly class ChangelogParser
         return [] === $problems ? $document : null;
     }
 
+    /** The `## <version> — <date>` section a release wrote. */
+    public function release(string $markdown, string $version): ReleasedSectionDto
+    {
+        $lines  = explode("\n", $markdown);
+        $prefix = self::SECTION_PREFIX . $version;
+        foreach ($lines as $index => $line) {
+            $line = rtrim($line);
+            if ($prefix !== $line && !str_starts_with($line, $prefix . ' ')) {
+                continue;
+            }
+
+            $problems = [];
+            $end      = $this->sectionEnd($index, ...$lines);
+            $blocks   = $this->blocks($index + 1, $end, $problems, ...$lines);
+            if ([] === $blocks && [] === $problems) {
+                $problems[] = \sprintf('line %d: the "%s" section has no entries', $index + 1, $line);
+            }
+
+            if ([] !== $problems) {
+                throw InvalidChangelogException::withProblems(...$problems);
+            }
+
+            return new ReleasedSectionDto(substr($line, \strlen(self::SECTION_PREFIX)), $lines, $blocks);
+        }
+
+        throw InvalidChangelogException::withProblems(\sprintf('no "%s" section', $prefix));
+    }
+
     /**
      * @param list<string> $problems accumulator, by reference
      */
@@ -81,34 +109,6 @@ final readonly class ChangelogParser
         $blocks = $this->blocks($start + 1, $end, $problems, ...$lines);
 
         return new ChangelogDocumentDto($lines, $start, $end, $blocks);
-    }
-
-    /** The `## <version> — <date>` section a release wrote. */
-    public function release(string $markdown, string $version): ReleasedSectionDto
-    {
-        $lines  = explode("\n", $markdown);
-        $prefix = self::SECTION_PREFIX . $version;
-        foreach ($lines as $index => $line) {
-            $line = rtrim($line);
-            if ($prefix !== $line && !str_starts_with($line, $prefix . ' ')) {
-                continue;
-            }
-
-            $problems = [];
-            $end      = $this->sectionEnd($index, ...$lines);
-            $blocks   = $this->blocks($index + 1, $end, $problems, ...$lines);
-            if ([] === $blocks && [] === $problems) {
-                $problems[] = \sprintf('line %d: the "%s" section has no entries', $index + 1, $line);
-            }
-
-            if ([] !== $problems) {
-                throw InvalidChangelogException::withProblems(...$problems);
-            }
-
-            return new ReleasedSectionDto(substr($line, \strlen(self::SECTION_PREFIX)), $lines, $blocks);
-        }
-
-        throw InvalidChangelogException::withProblems(\sprintf('no "%s" section', $prefix));
     }
 
     private function sectionEnd(int $start, string ...$lines): int

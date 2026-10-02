@@ -1,0 +1,17 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+require __DIR__.'/bootstrap.php';
+
+$changelogReleaseRoot = getcwd();
+if (false === $changelogReleaseRoot) {
+    fwrite(\STDERR, "changelog-release: cannot read the working directory; run it from the project root.\n");
+    exit(1);
+}
+
+die(\LTS\PHPQA\Changelog\ChangelogReleaseCommand::main(
+    $changelogReleaseRoot,
+    new \Symfony\Component\Console\Output\StreamOutput(\STDOUT),
+    new \Symfony\Component\Console\Output\StreamOutput(\STDERR),
+    ...array_slice($argv, 1),
+));

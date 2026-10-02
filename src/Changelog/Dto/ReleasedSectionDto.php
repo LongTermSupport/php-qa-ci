@@ -25,12 +25,6 @@ final readonly class ReleasedSectionDto
 
     public function isBreaking(): bool
     {
-        foreach ($this->blocks as $block) {
-            if ($block->heading->isBreaking()) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->blocks, static fn ($block) => $block->heading->isBreaking());
     }
 }

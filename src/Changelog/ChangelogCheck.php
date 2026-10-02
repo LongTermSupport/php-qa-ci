@@ -81,7 +81,7 @@ final readonly class ChangelogCheck
             }
 
             $requirementChanges = $this->requirements->between($git->fileAt($range->base, self::COMPOSER_JSON), $composer);
-            if ([] !== $requirementChanges && null === $head->block(ChangelogHeadingEnum::ChangedBreaking)) {
+            if ([] !== $requirementChanges && !$head->block(ChangelogHeadingEnum::ChangedBreaking) instanceof Dto\ChangelogHeadingBlockDto) {
                 $problems[] = \sprintf(
                     'composer.json "require" changed %s (%s), and "%s" has no "### %s" entry: a new or tightened requirement breaks every consumer that cannot meet it, so record it there.',
                     $range->description,
@@ -182,7 +182,7 @@ final readonly class ChangelogCheck
         }
 
         $base = $this->parser->parseOrNull($baseChangelog);
-        if (null === $base) {
+        if (!$base instanceof ChangelogDocumentDto) {
             return \count(array_filter($head->entries(), static fn (string $entry): bool => !str_contains($baseChangelog, $entry)));
         }
 

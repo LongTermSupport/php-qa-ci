@@ -55,13 +55,7 @@ final readonly class ChangelogDocumentDto
 
     public function isBreaking(): bool
     {
-        foreach ($this->blocks as $block) {
-            if ($block->heading->isBreaking()) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->blocks, static fn (ChangelogHeadingBlockDto $block): bool => $block->heading->isBreaking());
     }
 
     /** @return list<string> every entry's text, continuation lines included */
