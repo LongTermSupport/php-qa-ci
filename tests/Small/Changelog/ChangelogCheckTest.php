@@ -90,6 +90,8 @@ final class ChangelogCheckTest extends TestCase
 
     private const string NOT_SHALLOW = "false\n";
 
+    private const string EMPTY_BASE_CHANGELOG = "## Unreleased\n";
+
     private TempDir $project;
 
     private FakeProcessRunner $processes;
@@ -397,7 +399,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n## 85.1.0 — 2026-10-09\n\n### Changed — breaking\n\n- Requires ext-pcntl.\n");
         $this->project->write(self::COMPOSER_JSON, self::COMPOSER_WITH_PCNTL);
         $this->featureBranch(self::CHANGED_COMPOSER);
-        $this->processes->willSucceed()->willSucceed("## Unreleased\n");
+        $this->processes->willSucceed()->willSucceed(self::EMPTY_BASE_CHANGELOG);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
 
         $result = $this->check();
@@ -407,11 +409,37 @@ final class ChangelogCheckTest extends TestCase
     }
 
     #[Test]
+    public function aBreakingEntryInAReleasedSectionCountsBesideOtherUnreleasedHeadings(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n### Fixed\n\n- A fix.\n\n## 85.1.0 — 2026-10-09\n\n### Added\n\n- A feature.\n\n### Changed — breaking\n\n- Requires ext-pcntl.\n");
+        $this->project->write(self::COMPOSER_JSON, self::COMPOSER_WITH_PCNTL);
+        $this->featureBranch(self::CHANGED_COMPOSER);
+        $this->processes->willSucceed()->willSucceed(self::EMPTY_BASE_CHANGELOG);
+        $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+
+        self::assertSame([], $this->check()->problems);
+    }
+
+    #[Test]
+    public function anUnreleasedBreakingEntryNeedsNoReadOfTheBaseChangelog(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n### Changed — breaking\n\n- Requires ext-pcntl.\n");
+        $this->project->write(self::COMPOSER_JSON, self::COMPOSER_WITH_PCNTL);
+        $this->featureBranch(self::CHANGED_COMPOSER);
+        $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+
+        $result = $this->check(new WatchedPaths('src/'));
+
+        self::assertSame([], $result->problems);
+        self::assertNotContains('git cat-file -e base1:CHANGELOG.md', $this->processes->commandLines());
+    }
+
+    #[Test]
     public function anInvalidReleasedSectionFailsTheCheck(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n## 85.1.0 — 2026-10-09\n\nLoose text.\n");
         $this->featureBranch(self::CHANGED_SOURCE);
-        $this->processes->willSucceed()->willSucceed("## Unreleased\n");
+        $this->processes->willSucceed()->willSucceed(self::EMPTY_BASE_CHANGELOG);
 
         $result = $this->check();
 
@@ -436,7 +464,7 @@ final class ChangelogCheckTest extends TestCase
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
     }
 
-    private function check(): ChangelogCheckResultDto
+    private function check(?WatchedPaths $watched = null): ChangelogCheckResultDto
     {
         $root = $this->project->path;
 
@@ -445,7 +473,7 @@ final class ChangelogCheckTest extends TestCase
             new ChangelogGit($this->processes, $root),
             new GitBranches($this->processes, $root),
             new EnvironmentReader([]),
-            new WatchedPaths('src/', self::COMPOSER_JSON),
+            $watched ?? new WatchedPaths('src/', self::COMPOSER_JSON),
         );
     }
 }

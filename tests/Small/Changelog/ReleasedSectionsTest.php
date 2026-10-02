@@ -55,6 +55,23 @@ final class ReleasedSectionsTest extends TestCase
     }
 
     #[Test]
+    public function aWindowsLineEndedVersionHeadingIsAVersionSection(): void
+    {
+        self::assertSame([self::V851, self::V850], new ReleasedSections()->versions("## Unreleased\r\n\r\n## 85.1.0\r\n\r\n## 85.0.0 — 2026-10-02\r\n"));
+    }
+
+    #[Test]
+    public function sinceIsAListWhereverTheNewSectionsSit(): void
+    {
+        $markdown = self::RELEASED . "\n## 84.9.0 — 2026-09-30\n\n### Fixed\n\n- A backported fix.\n";
+
+        $since = new ReleasedSections()->since($markdown, self::RELEASED);
+
+        self::assertSame([0], array_keys($since));
+        self::assertSame('84.9.0 — 2026-09-30', $since[0]->title);
+    }
+
+    #[Test]
     public function sinceIsEverySectionTheBaseDoesNotHave(): void
     {
         $since = new ReleasedSections()->since(self::RELEASED, self::BASE);

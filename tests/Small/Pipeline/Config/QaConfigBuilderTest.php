@@ -321,6 +321,44 @@ final class QaConfigBuilderTest extends TestCase
     }
 
     #[Test]
+    public function aConfigConstructedWithoutTheChangelogSettingsHasTheLaneOff(): void
+    {
+        $built  = $this->defaults()->withChangelogCheck(true)->withChangelogWatchedPaths(self::SRC_WATCHED)->build();
+        $config = new QaConfigDto(
+            paths: $built->paths,
+            platform: $built->platform,
+            ci: $built->ci,
+            readOnly: $built->readOnly,
+            aggregate: $built->aggregate,
+            jsonOutput: $built->jsonOutput,
+            agentMode: $built->agentMode,
+            singleTool: $built->singleTool,
+            specifiedPath: $built->specifiedPath,
+            pathsToCheck: $built->pathsToCheck,
+            pathsToIgnore: $built->pathsToIgnore,
+            phpBinPath: $built->phpBinPath,
+            memoryLimit: $built->memoryLimit,
+            xdebugEnabled: $built->xdebugEnabled,
+            quickTests: $built->quickTests,
+            halfCpuThreads: $built->halfCpuThreads,
+            phpUnit: $built->phpUnit,
+            infection: $built->infection,
+            useComposerAudit: $built->useComposerAudit,
+            typeCoverage: $built->typeCoverage,
+            useArkitect: $built->useArkitect,
+            arkitectExcludePaths: $built->arkitectExcludePaths,
+            useSensitiveParameterCheck: $built->useSensitiveParameterCheck,
+            twigDirectories: $built->twigDirectories,
+            yamlDirectories: $built->yamlDirectories,
+            shellCheckGlobs: $built->shellCheckGlobs,
+            deadCode: $built->deadCode,
+        );
+
+        self::assertFalse($config->useChangelogCheck);
+        self::assertSame([], $config->changelogWatchedPaths);
+    }
+
+    #[Test]
     public function everyPlatformGetsTheTwigAndYamlDirectoriesByDefault(): void
     {
         foreach (PlatformEnum::cases() as $platform) {
