@@ -18,6 +18,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect: lock contention masquerading as a QA failure, log retention that cannot bound its directory, a managed CLAUDE.md block a formatter reflows, `bash bin/qa`, permanently-red per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to a project's own identifiers, and Infection contradicting our own advisory
 
+- [00014: changelog release automation](00014-changelog-release-automation/PLAN.md) - In Progress — `CHANGELOG.md` becomes the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` is released by a CI bot commit and annotated tag, minor or patch only because the major is the PHP line
+
 ## Completed Plans
 
 - [00009: upstream php-src bug report](Completed/00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md) - Complete — [php-src GH-23644](https://github.com/php/php-src/issues/23644) filed and Status: Verified, fix proposed in [PR 23648](https://github.com/php/php-src/pull/23648) carrying our reproducer; produced [CLAUDE/segfault-policy.md](../segfault-policy.md); `FIRST_FIXED` defended by `OpcacheDefectRangeTest` rather than awaited
