@@ -48,6 +48,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ChangelogTrailerVerdictDto::class)]
 #[UsesClass(InvalidChangelogException::class)]
 #[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleasedSections::class)]
 #[UsesClass(WatchedPaths::class)]
 #[UsesClass(GitBranches::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
