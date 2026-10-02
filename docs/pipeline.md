@@ -97,15 +97,16 @@ On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)
 06. **[Config Template Ignore-List Audit](./tools/configTemplateIgnoreListCheck.md)** -- Always-on self-check: every namespace-less `configDefaults/generic/` template is covered by `psr4-validate-ignore-list.txt`
 07. **[Infection Config Source Directories Check](./tools/infectionConfigSourceDirs.md)** -- Always-on: infection.json's `source.directories` must resolve to real directories
 08. **[Version Pins Check](./tools/versionPins.md)** -- Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
-09. **[Strict Types Enforcement](./tools/phpStrictTypes.md)** -- Ensures `declare(strict_types=1)`
-10. **[PHP Lint](./tools/phpLint.md)** -- Fast parallel syntax checking
-11. **[OPcache](./tools/opcache.md)** -- The bytecode the code compiles to is free of the known OPcache codegen defects
-12. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
-13. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
-14. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
-15. **[Documentation Prose](./tools/docsProse.md)** -- Always-on: `README.md` and `docs/` describe their subject, not themselves
-16. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
-17. **[ShellCheck](./tools/shellCheck.md)** -- Every git-tracked shell script passes ShellCheck at `warning`, from the pinned binary the library ships
+09. **[Changelog](./tools/changelog.md)** -- Opt-in: `CHANGELOG.md`'s `## Unreleased` section is valid and records every change to the watched paths
+10. **[Strict Types Enforcement](./tools/phpStrictTypes.md)** -- Ensures `declare(strict_types=1)`
+11. **[PHP Lint](./tools/phpLint.md)** -- Fast parallel syntax checking
+12. **[OPcache](./tools/opcache.md)** -- The bytecode the code compiles to is free of the known OPcache codegen defects
+13. **[Composer Require Checker](./tools/composerRequireChecker.md)** -- Missing dependency detection (runs as PHAR)
+14. **[Composer Dependency Analyser](./tools/composerDependencyAnalyser.md)** -- Unused, shadow and misplaced dependencies: the other direction of the same question
+15. **[Markdown Links Checker](./tools/markdownLinks.md)** -- Link validation in documentation
+16. **[Documentation Prose](./tools/docsProse.md)** -- Always-on: `README.md` and `docs/` describe their subject, not themselves
+17. **[Yaml Lint](./tools/yamlLint.md)** -- Every YAML file under the yaml directories parses (when `symfony/yaml` is installed)
+18. **[ShellCheck](./tools/shellCheck.md)** -- Every git-tracked shell script passes ShellCheck at `warning`, from the pinned binary the library ships
 
 On a Symfony project the platform lane **[Twig Lint](./tools/twigLint.md)** follows, appended to this phase.
 

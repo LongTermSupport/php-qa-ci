@@ -118,6 +118,18 @@ loads on the running PHP, and GitHub Actions workflows' PHP version detection ag
 standalone alias `-t vp`. Identifier `phpqaci.versionPins`. See
 [tools/versionPins.md](./tools/versionPins.md).
 
+### Changelog
+
+[ChangelogTool](../src/Pipeline/Lane/ChangelogTool.php)
+
+Opt-in check (`withChangelogCheck(true)` plus `withChangelogWatchedPaths(...)`) that
+`CHANGELOG.md`'s `## Unreleased` section uses only the allowed headings, and that every change
+to a watched path since the merge base (on a branch) or the last release tag (on the default
+branch) is recorded there or carries a `Changelog: none — <reason>` trailer. A new or tightened
+`composer.json` requirement needs a `### Changed — breaking` entry. Runs immediately after the
+Version Pins Check; standalone alias `-t cl`. Identifier `phpqaci.changelog`. See
+[tools/changelog.md](./tools/changelog.md).
+
 ### Strict Types Enforcement
 
 [PhpStrictTypesTool](../src/Pipeline/Lane/PhpStrictTypesTool.php) -- [docs/tools/phpStrictTypes.md](./tools/phpStrictTypes.md)

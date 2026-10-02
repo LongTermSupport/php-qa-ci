@@ -485,6 +485,7 @@ Tool-specific documentation:
 - **[Infection](./docs/tools/infection.md)** -- Mutation testing setup
 - **[Package Type](./docs/tools/packageType.md)** -- The always-on `composer.json` `type` check
 - **[Version Pins](./docs/tools/versionPins.md)** -- The always-on check that phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use
+- **[Changelog](./docs/tools/changelog.md)** -- The opt-in check that `CHANGELOG.md` records every consumer-visible change, and `bin/changelog-release`, which cuts releases from it
 - **[API-surface classification (`@api` / `@internal`)](./docs/tools/requireApiOrInternal.md)** -- the rule that requires every public class-like in a library to be one or the other
 - **[SensitiveParameter Usage](./docs/tools/sensitiveParameterUsage.md)** -- The always-on `#[\SensitiveParameter]` check
 
@@ -525,20 +526,36 @@ Each supported PHP minor has its own long-lived branch:
 
 Releases are tagged per branch, and **the major version is the PHP line written without
 the dot**: `85.x.y` is cut from `php8.5` and requires PHP 8.5, `84.x.y` is cut from `php8.4`.
-The minor and patch numbers are php-qa-ci's own, so `85.1.0` is a feature release on the PHP 8.5
-line and `85.0.1` a fix.
+The minor and patch numbers are php-qa-ci's own:
 
-The PHP line is the major version because it is the one change that breaks a consumer: the
+- **minor** (`85.1.0`): new features **and breaking changes**. A release whose
+  [CHANGELOG.md](CHANGELOG.md) section has a `Changed — breaking` or `Removed` heading is a minor
+  release, and its tag notes open with a `BREAKING:` line.
+- **patch** (`85.0.1`): fixes and security fixes only.
+
+The PHP line is the major version because it is the one change that breaks every consumer: the
 `php8.5` branch requires PHP 8.5 and runs PHP 8.5 rule sets, so moving between lines is always a
 deliberate upgrade. Writing it as `85` rather than `8.5` keeps the tag from reading as a PHP
-version number: `85.0.0` is the first php-qa-ci release for PHP 8.5, not PHP 8.5.0.
+version number: `85.0.0` is the first php-qa-ci release for PHP 8.5, not PHP 8.5.0. Since the
+major is spoken for, a breaking change in php-qa-ci itself (a new requirement, a lane that now
+fails what it passed) moves the minor.
 
-Pin a tag for a fixed, reproducible toolchain, or track the branch to receive every merge:
+Tags are cut automatically: when CI on a push to `php8.5` is green, the release job turns the
+changelog's `## Unreleased` entries into the next version's section and tags it, with that
+section as the tag's annotation. Every consumer-visible change carries an entry, so the
+changelog is the complete list of what a release changes.
+
+Choose the constraint by how much change you want to take without reading about it first:
 
 ```bash
-composer require --dev lts/php-qa-ci:^85.0   # tagged releases on the PHP 8.5 line
-composer require --dev lts/php-qa-ci:dev-php8.5@dev   # the branch head
+composer require --dev 'lts/php-qa-ci:~85.1.0'     # fixes only: 85.1.x, never 85.2.0
+composer require --dev 'lts/php-qa-ci:^85.1'       # fixes, features AND breaking minors on the line
+composer require --dev lts/php-qa-ci:dev-php8.5@dev  # the branch head, every merge
 ```
+
+`~85.N.0` takes only non-breaking updates. `^85.N` also accepts every new minor, which can carry
+a breaking change, so read the `BREAKING` entries in [CHANGELOG.md](CHANGELOG.md) (or the tag's
+notes) before taking a minor.
 
 A tag is also the version a Defence Before Fix conformance declaration names, since a moving
 branch cannot be held to one.

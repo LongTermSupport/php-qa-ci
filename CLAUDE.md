@@ -44,6 +44,15 @@ reported success — triggers halt → debug → file → defend, in that order.
 caveat: `coredumpctl` inside the container is empty by design, so the kernel log and the
 core have to be requested from the host, with matching debug symbols.
 
+## Releases come from the changelog (binding)
+
+Versions are never chosen and tags are never cut by hand. Every change to a path a consumer
+receives carries an entry under `## Unreleased` in `CHANGELOG.md` (or, when no consumer could
+notice it, a `Changelog: none — <reason>` commit trailer), the `changelog` lane fails the build
+otherwise, and CI tags the release once a push to `php8.5` is green.
+[CLAUDE/releases.md](CLAUDE/releases.md) is the procedure: which heading a change belongs under,
+the trailer, how the release job works, and the one-time owner setup it needs.
+
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
 
 php-qa-ci is frequently installed **from source** into a consuming project, so
@@ -180,23 +189,25 @@ On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appe
 
 08. **Version Pins Check** (`versionPins`) - Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use (see [docs/tools/versionPins.md](docs/tools/versionPins.md))
 
-09. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+09. **Changelog** (`changelog`) - Opt-in: `CHANGELOG.md`'s `## Unreleased` section is valid and records every change to the watched paths; php-qa-ci enables it on itself (see [docs/tools/changelog.md](docs/tools/changelog.md))
 
-10. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+10. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
 
-11. **OPcache** (`opcache`) - Compiles every checked file through OPcache and asserts the bytecode is free of the known OPcache codegen defects (see [docs/tools/opcache.md](docs/tools/opcache.md))
+11. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
 
-12. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+12. **OPcache** (`opcache`) - Compiles every checked file through OPcache and asserts the bytecode is free of the known OPcache codegen defects (see [docs/tools/opcache.md](docs/tools/opcache.md))
 
-13. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
+13. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
 
-14. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+14. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
 
-15. **Documentation Prose** (`docsProse`) - Always-on: `README.md` and every `.md` under `docs/` describes its subject rather than itself (see [docs/tools/docsProse.md](docs/tools/docsProse.md))
+15. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
-16. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+16. **Documentation Prose** (`docsProse`) - Always-on: `README.md` and every `.md` under `docs/` describes its subject rather than itself (see [docs/tools/docsProse.md](docs/tools/docsProse.md))
 
-17. **ShellCheck** (`shellCheck`) - Every git-tracked shell script passes ShellCheck at `warning`, from the pinned static binary at `vendor-bin/shellcheck` (see [docs/tools/shellCheck.md](docs/tools/shellCheck.md))
+17. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+
+18. **ShellCheck** (`shellCheck`) - Every git-tracked shell script passes ShellCheck at `warning`, from the pinned static binary at `vendor-bin/shellcheck` (see [docs/tools/shellCheck.md](docs/tools/shellCheck.md))
 
 On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to this phase. It is not `-t` selectable.
 
@@ -304,6 +315,7 @@ are the accepted boolean spellings. Defaults:
 | (none)                                          | all floors off       | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
 | `useArkitect`                                   | `1`                  | `withArkitect(bool)`                                                                                               |
 | `useSensitiveParameterCheck`                    | `1`                  | `withSensitiveParameterCheck(bool)`                                                                                |
+| `useChangelogCheck`                             | `0`                  | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                                         |
 | `CI`                                            | `false`              | (none: interactivity)                                                                                              |
 
 ### Memory Configuration
@@ -675,6 +687,16 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 - **Alias**: `vendor/bin/qa -t vp`
 - **Identifier**: `phpqaci.versionPins`
 - **Details**: [docs/tools/versionPins.md](docs/tools/versionPins.md)
+
+### Changelog
+
+- **Lane**: [src/Pipeline/Lane/ChangelogTool.php](src/Pipeline/Lane/ChangelogTool.php) (logic under [src/Changelog/](src/Changelog/), git through the process runner)
+- **Purpose**: `CHANGELOG.md`'s `## Unreleased` section uses only the allowed headings, each once and non-empty; every change to a watched path since the merge base (a branch or pull request) or the last `<line>.N.N` tag (the default branch) is recorded there or carries a `Changelog: none — <reason>` trailer; a new or tightened `composer.json` requirement is recorded under `Changed — breaking`. Missing history fails rather than passes
+- **Opt-in**: `withChangelogCheck(true)` and `withChangelogWatchedPaths(...)` in `qaConfig/qa.php` (or `useChangelogCheck=1`); php-qa-ci enables it on itself
+- **Release CLI**: `bin/changelog-release next-version | apply <version> <date> | notes <version> | add-entry <heading> <text>`, which the CI release job drives ([CLAUDE/releases.md](CLAUDE/releases.md))
+- **Alias**: `vendor/bin/qa -t cl`
+- **Identifier**: `phpqaci.changelog`
+- **Details**: [docs/tools/changelog.md](docs/tools/changelog.md)
 
 ### PHP Strict Types
 
