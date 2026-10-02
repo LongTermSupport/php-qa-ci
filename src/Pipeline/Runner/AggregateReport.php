@@ -41,7 +41,7 @@ final readonly class AggregateReport
         }
 
         $this->output->writeln('');
-        $this->output->writeln('        Defence Before Fix: https://defence-before-fix.github.io/');
+        $this->output->writeln('        ' . ToolExecutor::DEFENCE_BEFORE_FIX_LINE);
         $this->output->writeln('');
         $this->output->writeln("        Each tool's full output is above. Fix every item, then re-run.");
         $this->output->writeln('        (This run did not fail fast: all tools ran so you see every problem.)');

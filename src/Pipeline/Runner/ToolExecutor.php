@@ -17,6 +17,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class ToolExecutor
 {
+    /** Every failure banner's pointer to the method and its agent prompt; callers add the indentation. */
+    public const string DEFENCE_BEFORE_FIX_LINE = 'Defence Before Fix (DBF): https://defence-before-fix.github.io/ - agent prompt: https://defence-before-fix.github.io/defence-before-fix-project-prompt.md';
+
     public function __construct(
         private ToolLocatorInterface $tools,
         private RetryPromptInterface $prompt,
@@ -54,7 +57,7 @@ final readonly class ToolExecutor
         }
 
         $this->output->writeln('');
-        $this->output->writeln('        Defence Before Fix: https://defence-before-fix.github.io/');
+        $this->output->writeln('        ' . self::DEFENCE_BEFORE_FIX_LINE);
         $this->output->writeln('');
         $this->output->writeln('    ==================================================');
         $this->output->writeln('');
