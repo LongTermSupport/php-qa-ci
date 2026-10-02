@@ -100,7 +100,7 @@ final readonly class YamlLines
         }
 
         $rest = substr($trimmed, \strlen($prefix));
-        if ('' !== $rest && !ctype_space($rest[0])) {
+        if ('' !== $rest && !\in_array($rest[0], [' ', "\t"], true)) {
             return null;
         }
 

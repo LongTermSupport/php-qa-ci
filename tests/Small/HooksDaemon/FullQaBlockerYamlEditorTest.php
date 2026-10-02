@@ -343,6 +343,15 @@ final class FullQaBlockerYamlEditorTest extends TestCase
     }
 
     #[Test]
+    public function aTabMaySeparateAKeyFromItsValue(): void
+    {
+        $result = $this->apply("handlers:\t{}\n");
+
+        self::assertSame(YamlEditOutcomeEnum::Inserted, $result->outcome);
+        self::assertSame($this->section() . "\n", $result->yaml);
+    }
+
+    #[Test]
     public function aKeyGluedToMoreTextIsADifferentKey(): void
     {
         $yaml = "handlers:x: 1\n";
