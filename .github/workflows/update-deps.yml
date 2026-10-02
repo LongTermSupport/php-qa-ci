@@ -19,9 +19,13 @@ jobs:
       # No explicit `ref:` — actions/checkout defaults to the repository's own
       # default branch for schedule/workflow_dispatch events. This keeps the
       # workflow correct when a consumer copies it verbatim: it operates on the
-      # consumer's default branch, not php-qa-ci's.
+      # consumer's default branch, not php-qa-ci's. Full history and tags: the
+      # changelog lane in the QA run below judges everything since the last
+      # release tag, and fails on a shallow clone.
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -84,7 +88,21 @@ jobs:
             git diff --stat
           fi
 
-      # Step 5: Run full QA pipeline (only if changes detected)
+      # Step 5: Record the update in CHANGELOG.md. A rebuilt or re-fetched PHAR or
+      # binary is a change every consumer receives, so the changelog lane in the
+      # QA run requires an entry for it, and the release it triggers is decided
+      # by that entry. A composer.lock-only update ships nothing to a consumer.
+      - name: Record the bundled tool updates in the changelog
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          if git diff --quiet -- phive.xml vendor-phar/ vendor-bin/ build/; then
+            echo "Only composer.lock moved; nothing a consumer receives changed."
+          else
+            updated="$(git diff --name-only -- vendor-phar/ vendor-bin/ | paste -sd ' ' -)"
+            php bin/changelog-release add-entry changed "**Bundled tool versions updated** by the weekly dependency update: ${updated}."
+          fi
+
+      # Step 6: Run full QA pipeline (only if changes detected)
       - name: Run QA Pipeline
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -94,7 +112,7 @@ jobs:
           phpUnitCoverage: 0
         run: bash ci.bash
 
-      # Step 6: Generate PR summary
+      # Step 7: Generate PR summary
       - name: Generate update summary
         if: steps.changes.outputs.changed == 'true'
         id: summary
@@ -147,7 +165,7 @@ jobs:
           echo "QA pipeline passed with these changes." >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      # Step 7: Create PR (only if QA passed — this step is skipped if ci.bash failed)
+      # Step 8: Create PR (only if QA passed — this step is skipped if ci.bash failed)
       - name: Create Pull Request
         if: steps.changes.outputs.changed == 'true'
         id: create-pr

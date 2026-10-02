@@ -16,8 +16,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Full history and tags: the changelog lane judges everything since the
+      # merge base (pull request) or the last release tag (push), and fails on
+      # a shallow clone rather than passing on no evidence.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -32,3 +37,92 @@ jobs:
 
       - name: Run QA Pipeline
         run: bash ci.bash
+
+  # Cuts a release from CHANGELOG.md once a push to php8.5 is green: the
+  # "## Unreleased" entries become a dated version section, that commit is
+  # tagged with the release notes, and both are pushed together. The logic is
+  # bin/changelog-release; this job only invokes it and does the git plumbing.
+  # The push uses the RELEASE_DEPLOY_KEY deploy key, which the php8.5 ruleset
+  # lets bypass the pull-request rule (one-time setup: CLAUDE/releases.md).
+  release:
+    name: Release
+    needs: qa
+    if: github.event_name == 'push' && github.ref == 'refs/heads/php8.5'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-php8.5
+      cancel-in-progress: false
+    permissions:
+      contents: read
+
+    steps:
+      - name: Require the release deploy key
+        env:
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: |
+          if [ -z "${RELEASE_DEPLOY_KEY}" ]; then
+            echo "::error::The RELEASE_DEPLOY_KEY secret is not set, so the release cannot be pushed. See CLAUDE/releases.md, one-time owner setup."
+            exit 1
+          fi
+
+      - name: Checkout php8.5 with history and the deploy key
+        uses: actions/checkout@v4
+        with:
+          ref: php8.5
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      # Only the commit this run verified is released. When php8.5 has moved on,
+      # the run for the newer push releases it (the concurrency group queues it).
+      - name: Release only the verified commit
+        id: head
+        run: |
+          if [ "$(git rev-parse HEAD)" = "${GITHUB_SHA}" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::php8.5 has moved past ${GITHUB_SHA}; the run for the newer push releases it."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup PHP
+        if: steps.head.outputs.current == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          coverage: none
+
+      # The release CLI needs the autoloader only; --no-scripts keeps the
+      # install from writing anything into the working tree.
+      - name: Install dependencies
+        if: steps.head.outputs.current == 'true'
+        run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
+
+      - name: Work out the next version
+        id: next
+        if: steps.head.outputs.current == 'true'
+        run: |
+          version="$(php bin/changelog-release next-version)"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if [ -z "${version}" ]; then
+            echo "::notice::\"## Unreleased\" has no entries; no release is due."
+          fi
+
+      - name: Release the changelog section and write the notes
+        if: steps.next.outputs.version != ''
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          php bin/changelog-release apply "${VERSION}" "$(date -u +%Y-%m-%d)"
+          php bin/changelog-release notes "${VERSION}" > "${RUNNER_TEMP}/release-notes.txt"
+
+      - name: Commit, tag and push atomically
+        if: steps.next.outputs.version != ''
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --message "Release ${VERSION} [skip ci]" -- CHANGELOG.md
+          git tag --annotate --cleanup=verbatim --file "${RUNNER_TEMP}/release-notes.txt" "${VERSION}"
+          git push --atomic origin HEAD:php8.5 "refs/tags/${VERSION}"
