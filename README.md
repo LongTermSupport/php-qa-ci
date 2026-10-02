@@ -11,6 +11,11 @@ and that is what the pipeline is *for*. Everything below — the rule bundle, th
 identifiers, `bin/rules`, `bin/rule-doc`, `bin/phpstan-rule`, the justification lane — exists
 to serve one method.
 
+Defence Before Fix (DBF) is a phase that runs before a defect is fixed: the instance is
+treated as evidence of a class, and the defence that detects the class is built and seen to
+fire before the fix is made. A failing run prints a one-line pointer to the specification and to its
+[agent prompt](https://defence-before-fix.github.io/defence-before-fix-project-prompt.md).
+
 Defence Before Fix says that when you find a defect you do not start by fixing it. You treat
 the instance as evidence of a **class**, build an automated detector that catches the whole
 class, prove it fires on the original, sweep the codebase, fix every instance it finds, and
