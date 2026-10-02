@@ -1,0 +1,6 @@
+# php8.5 is the default branch; php8.4 and php8.3 are maintained PHP-version
+# lines that receive merged PRs, so their own push runs must not fail the
+# PR branch-naming policy.
+extra_exempt_branches:
+  - php8.4
+  - php8.3
