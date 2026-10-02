@@ -60,8 +60,7 @@ final class ComposerRequirementChangesTest extends TestCase
     {
         $changes = new ComposerRequirementChanges()->between('{', $this->composer(['php' => self::PHP]));
 
-        self::assertCount(1, $changes);
-        self::assertStringStartsWith('composer.json does not parse on one side of the range, so its requirements cannot be compared (', $changes[0]);
+        self::assertSame(['composer.json does not parse on one side of the range, so its requirements cannot be compared (Syntax error)'], $changes);
     }
 
     /** @param array<string, string> $require */

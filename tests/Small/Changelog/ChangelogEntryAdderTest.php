@@ -34,6 +34,8 @@ final class ChangelogEntryAdderTest extends TestCase
 
     private const string UNRELEASED = "## Unreleased\n";
 
+    private const string PATCHED = 'Patched.';
+
     #[Test]
     public function anEntryGoesAfterTheLastEntryOfAnExistingHeading(): void
     {
@@ -53,9 +55,34 @@ final class ChangelogEntryAdderTest extends TestCase
     #[Test]
     public function aMissingHeadingThatRanksLastIsAppendedToTheSection(): void
     {
-        $added = $this->add("## Unreleased\n\n### Added\n\n- New.\n\n" . self::OLDER, ChangelogHeadingEnum::Security, 'Patched.');
+        $added = $this->add("## Unreleased\n\n### Added\n\n- New.\n\n" . self::OLDER, ChangelogHeadingEnum::Security, self::PATCHED);
 
         self::assertSame("## Unreleased\n\n### Added\n\n- New.\n\n### Security\n\n- Patched.\n\n" . self::OLDER, $added);
+    }
+
+    #[Test]
+    public function aHeadingAppendedToASectionWithNoTrailingBlankLineFollowsItsLastEntry(): void
+    {
+        $added = $this->add("## Unreleased\n\n### Added\n\n- New.\n" . self::OLDER, ChangelogHeadingEnum::Security, self::PATCHED);
+
+        self::assertSame("## Unreleased\n\n### Added\n\n- New.\n\n### Security\n\n- Patched.\n\n" . self::OLDER, $added);
+    }
+
+    #[Test]
+    public function aHeadingAppendedAtTheEndOfAFileWithNoFinalNewlineFollowsItsLastEntry(): void
+    {
+        self::assertSame(
+            "## Unreleased\n\n### Added\n\n- New.\n\n### Security\n\n- Patched.",
+            $this->add("## Unreleased\n\n### Added\n\n- New.", ChangelogHeadingEnum::Security, self::PATCHED),
+        );
+    }
+
+    #[Test]
+    public function whitespaceOnlyLinesAtTheEndOfTheSectionCountAsBlank(): void
+    {
+        $added = $this->add("## Unreleased\n\n### Added\n\n- New.\n   \n" . self::OLDER, ChangelogHeadingEnum::Security, self::PATCHED);
+
+        self::assertSame("## Unreleased\n\n### Added\n\n- New.\n\n### Security\n\n- Patched.\n   \n" . self::OLDER, $added);
     }
 
     #[Test]

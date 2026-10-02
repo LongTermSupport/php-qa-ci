@@ -58,6 +58,14 @@ final class ReleaseNotesRendererTest extends TestCase
     }
 
     #[Test]
+    public function headingsWrittenWithoutBlankLinesKeepEveryEntryUnderItsOwnHeading(): void
+    {
+        $notes = $this->render("## Unreleased\n\n## 85.0.2 — 2026-10-04\n### Fixed\n- A fix.\n### Security\n- Patched.\n", '85.0.2');
+
+        self::assertSame("85.0.2 — 2026-10-04\n\nFixed\n-----\n\n- A fix.\n\nSecurity\n--------\n\n- Patched.\n", $notes);
+    }
+
+    #[Test]
     public function noLineOfTheNotesStartsWithAHashThatGitWouldStripAsAComment(): void
     {
         $notes = $this->render("## Unreleased\n\n## 85.1.0 — 2026-10-02\n\n### Changed — breaking\n\n- Exit 75.\n\n### Fixed\n\n- A fix.\n", '85.1.0');

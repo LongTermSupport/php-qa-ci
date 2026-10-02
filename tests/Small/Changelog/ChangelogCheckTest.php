@@ -78,6 +78,8 @@ final class ChangelogCheckTest extends TestCase
 
     private const string NOT_SHALLOW = "false\n";
 
+    private const string ONE_WATCHED_FILE = "src/A.php\0";
+
     private TempDir $project;
 
     private FakeProcessRunner $processes;
@@ -166,7 +168,7 @@ final class ChangelogCheckTest extends TestCase
     public function anUnparseableBaseChangelogCountsEntriesItsTextDoesNotContain(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::WITH_ENTRY);
-        $this->featureBranch("src/A.php\0");
+        $this->featureBranch(self::ONE_WATCHED_FILE);
         $this->processes->willSucceed()->willSucceed("# Changelog\n\n- Old fix.\n");
         $this->composerUnchanged();
 
@@ -215,10 +217,81 @@ final class ChangelogCheckTest extends TestCase
     }
 
     #[Test]
+    public function exactlyTheListedNumberOfFilesIsShownWhole(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
+        $files = '';
+        for ($index = 1; $index <= 20; ++$index) {
+            $files .= 'src/F' . $index . ".php\0";
+        }
+
+        $this->featureBranch($files);
+        $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed();
+        $this->composerUnchanged();
+
+        $problem = $this->check()->problems[0];
+
+        self::assertStringContainsString("\n    src/F20.php\n", $problem);
+        self::assertStringNotContainsString('more', $problem);
+    }
+
+    #[Test]
+    public function theRemedyNamesTheCommandFirstAndTheTrailerSecond(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
+        $this->featureBranch(self::ONE_WATCHED_FILE);
+        $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed();
+        $this->composerUnchanged();
+
+        self::assertStringEndsWith(
+            "\n    src/A.php"
+            . "\n  Record the change under the right heading of \"## Unreleased\" in CHANGELOG.md (vendor/bin/changelog-release add-entry <heading> \"<text>\"),"
+            . "\n  or, when no consuming project could notice it, give one commit in the range the trailer"
+            . "\n    Changelog: none — <why no consuming project could notice>",
+            $this->check()->problems[0],
+        );
+    }
+
+    #[Test]
+    public function everyNewEntryCountsWhereverItSitsAmongTheOldOnes(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n\n### Fixed\n\n- Old fix.\n\n- New fix.\n\n- Another new fix.\n");
+        $this->featureBranch(self::ONE_WATCHED_FILE);
+        $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG);
+        $this->composerUnchanged();
+
+        self::assertSame('1 watched file changed; recorded by 2 new "## Unreleased" entries.', $this->check()->report[2]);
+    }
+
+    #[Test]
+    public function anUnparseableBaseChangelogCountsOnlyTheEntriesItsTextLacks(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n\n### Fixed\n\n- Old fix.\n\n- New fix.\n\n- Another new fix.\n");
+        $this->featureBranch(self::ONE_WATCHED_FILE);
+        $this->processes->willSucceed()->willSucceed("# Changelog\n\n- Old fix.\n");
+        $this->composerUnchanged();
+
+        self::assertSame('1 watched file changed; recorded by 2 new "## Unreleased" entries.', $this->check()->report[2]);
+    }
+
+    #[Test]
+    public function anEmptySectionIsValidAndDuesNoRelease(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n");
+        $this->featureBranch("tests/ATest.php\0");
+        $this->composerUnchanged();
+
+        $result = $this->check();
+
+        self::assertTrue($result->passed());
+        self::assertSame('CHANGELOG.md "## Unreleased" is valid: no entries, no release is due.', $result->report[0]);
+    }
+
+    #[Test]
     public function aValidTrailerStandsInForAnEntry(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
-        $this->featureBranch("src/A.php\0");
+        $this->featureBranch(self::ONE_WATCHED_FILE);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed("none — internal refactor only\n");
         $this->composerUnchanged();
 
