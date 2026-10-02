@@ -27,6 +27,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     ->withDeadCodeEntryPoints(
         'bin/bootstrap.php',
         'bin/config-template-ignorelist-check',
+        'bin/hooks-daemon-full-qa-blocker',
         'bin/infection-config-source-dirs-check',
         'bin/managed-source',
         'bin/mdlinks',
