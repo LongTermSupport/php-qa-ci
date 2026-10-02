@@ -4,6 +4,10 @@ A comprehensive quality assurance and continuous integration pipeline for PHP 8.
 
 This package is written for and tested on Linux.
 
+Defence Before Fix (DBF) is a phase that runs before a defect is fixed: the instance is treated as evidence of a class, and the defence that detects the class is built and seen to fire before the fix is made. Specification: https://defence-before-fix.github.io/
+
+A failing run prints a one-line pointer to the specification and its agent prompt. How php-qa-ci applies the method is set out in [CLAUDE/DefenceBeforeFix.md](CLAUDE/DefenceBeforeFix.md).
+
 ## Install
 
 ```bash
