@@ -88,19 +88,14 @@ jobs:
             git diff --stat
           fi
 
-      # Step 5: Record the update in CHANGELOG.md. A rebuilt or re-fetched PHAR or
-      # binary is a change every consumer receives, so the changelog lane in the
-      # QA run requires an entry for it, and the release it triggers is decided
-      # by that entry. A composer.lock-only update ships nothing to a consumer.
+      # Step 5: Record the update in CHANGELOG.md. A re-fetched or rebuilt tool is
+      # a change every consumer receives, so the changelog lane in the QA run
+      # requires an entry for it, and the release it leads to is decided by that
+      # entry. The entry names each tool whose pinned version moved; an update
+      # that moved none (composer.lock alone) ships nothing and records nothing.
       - name: Record the bundled tool updates in the changelog
         if: steps.changes.outputs.changed == 'true'
-        run: |
-          if git diff --quiet -- phive.xml vendor-phar/ vendor-bin/ build/; then
-            echo "Only composer.lock moved; nothing a consumer receives changed."
-          else
-            updated="$(git diff --name-only -- vendor-phar/ vendor-bin/ | paste -sd ' ' -)"
-            php bin/changelog-release add-entry changed "**Bundled tool versions updated** by the weekly dependency update: ${updated}."
-          fi
+        run: php bin/changelog-release add-tool-updates
 
       # Step 6: Run full QA pipeline (only if changes detected)
       - name: Run QA Pipeline

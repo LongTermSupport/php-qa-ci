@@ -163,18 +163,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      # Step 1: Checkout the repository code
-      - name: Checkout code (with full history for auto-fixes)
-        if: env.AUTO_COMMIT_FIXES == 'true'
+      # Step 1: Checkout the repository code. Full history and tags: auto-fixes
+      # commit on top of it, and the opt-in changelog lane judges everything
+      # since the merge base or the last release tag, failing on a shallow clone.
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # Need full history to create proper commits
           fetch-depth: 0
-      
-      - name: Checkout code (shallow clone)
-        if: env.AUTO_COMMIT_FIXES != 'true'
-        uses: actions/checkout@v4
-        # Default depth of 1 is fine when not auto-committing
       
       # Step 2: Setup PHP with the detected version
       - name: Setup PHP
