@@ -14,6 +14,9 @@ A failing run prints a one-line pointer to the specification and its agent promp
 composer require --dev lts/php-qa-ci:dev-php8.4@dev
 ```
 
+To pin a tagged release instead, require `^84.0`; how versions are numbered is set out in
+[Branches and versions](#branches-and-versions).
+
 The `qa` script will be installed in your project's bin directory. By default, Composer uses `vendor/bin`, but you can configure a custom location in your `composer.json`:
 
 ```json
@@ -514,10 +517,33 @@ vendor/bin/qa -t fixer
 vendor/bin/qa -t stan -p src/Domain
 ```
 
-### Branches
+### Branches and versions
 
-- `php8.4` -- Default branch, targets PHP 8.4
-- `php8.3` -- PHP 8.3 support
+Each supported PHP minor has its own long-lived branch:
+
+- `php8.5` -- Default branch, targets PHP 8.5
+- `php8.4` -- Targets PHP 8.4 (this branch)
+- `php8.3` -- Targets PHP 8.3
+
+Releases are tagged per branch, and **the major version is the PHP line written without
+the dot**: `84.x.y` is cut from `php8.4` and supports PHP 8.4, `85.x.y` is cut from `php8.5`.
+The minor and patch numbers are php-qa-ci's own, so `84.1.0` is a feature release on the PHP 8.4
+line and `84.0.1` a fix.
+
+The PHP line is the major version because it is the one change that breaks a consumer: each
+branch carries the rule sets and tool versions for its own PHP version, so moving between lines
+is always a deliberate upgrade. Writing it as `84` rather than `8.4` keeps the tag from reading
+as a PHP version number: `84.0.0` is the first php-qa-ci release for PHP 8.4, not PHP 8.4.0.
+
+Pin a tag for a fixed, reproducible toolchain, or track the branch to receive every merge:
+
+```bash
+composer require --dev lts/php-qa-ci:^84.0   # tagged releases on the PHP 8.4 line
+composer require --dev lts/php-qa-ci:dev-php8.4@dev   # the branch head
+```
+
+A tag is also the version a Defence Before Fix conformance declaration names, since a moving
+branch cannot be held to one.
 
 ## Long Term Support
 
