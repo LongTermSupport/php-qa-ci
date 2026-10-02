@@ -29,6 +29,8 @@ use LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto;
  */
 final readonly class QaConfigBuilder
 {
+    private const int MSI_CEILING = 100;
+
     /**
      * @param list<string>      $pathsToCheck
      * @param list<string>      $pathsToIgnore
@@ -65,7 +67,7 @@ final readonly class QaConfigBuilder
         private int $minMsi,
         private int $minCoveredMsi,
         private ?string $infectionDiffBase,
-        private int $infectionDiffCoveredMsi,
+        private ?int $infectionDiffCoveredMsi,
         private bool $useComposerAudit,
         private TypeCoverageOptionsDto $typeCoverage,
         private bool $useArkitect,
@@ -132,7 +134,7 @@ final readonly class QaConfigBuilder
             minMsi: $env->int('mutationScoreIndicator', 60),
             minCoveredMsi: $env->int('coveredCodeMSI', 80),
             infectionDiffBase: $env->string('infectionDiffBase'),
-            infectionDiffCoveredMsi: $env->int('infectionDiffCoveredMsi', 100),
+            infectionDiffCoveredMsi: $env->intOrNull('infectionDiffCoveredMsi'),
             useComposerAudit: $env->bool('useComposerAudit', true),
             typeCoverage: new TypeCoverageOptionsDto(),
             useArkitect: $env->bool('useArkitect', true),
@@ -193,7 +195,8 @@ final readonly class QaConfigBuilder
         return $this->with(infectionThreads: max(1, $threads));
     }
 
-    public function withInfectionDiffBase(?string $gitRef, int $coveredMsi = 100): self
+    /** The diff-mode floor defaults to the covered-code floor withInfectionFloors() sets. */
+    public function withInfectionDiffBase(?string $gitRef, ?int $coveredMsi = null): self
     {
         return $this->with(infectionDiffBase: $gitRef, infectionDiffCoveredMsi: $coveredMsi);
     }
@@ -310,6 +313,13 @@ final readonly class QaConfigBuilder
             throw new LogicException('withChangelogCheck(true) (or useChangelogCheck=1) needs withChangelogWatchedPaths(...) naming the paths a consuming project can notice (src/, bin/, composer.json, ...): a changelog lane watching nothing would pass every change unexamined.');
         }
 
+        $diffCoveredMsi = $this->infectionDiffCoveredMsi ?? $this->minCoveredMsi;
+        foreach (['mutationScoreIndicator / withInfectionFloors(msi)' => $this->minMsi, 'coveredCodeMSI / withInfectionFloors(coveredMsi)' => $this->minCoveredMsi, 'infectionDiffCoveredMsi / withInfectionDiffBase(ref, coveredMsi)' => $diffCoveredMsi] as $setting => $floor) {
+            if ($floor >= self::MSI_CEILING) {
+                throw new LogicException(\sprintf('%s is %d; an MSI floor must be below %d. Real code has equivalent mutants no test can kill, so a 100%% floor can only be met by suppressing mutants or contorting code. 90 to 95 is a healthy gate.', $setting, $floor, self::MSI_CEILING));
+            }
+        }
+
         $coverage  = $this->phpUnitCoverage && $this->xdebugEnabled;
         $infection = $this->useInfection    && $coverage;
 
@@ -342,7 +352,7 @@ final readonly class QaConfigBuilder
                 minMsi: $this->minMsi,
                 minCoveredMsi: $this->minCoveredMsi,
                 diffBase: $this->infectionDiffBase,
-                diffCoveredMsi: $this->infectionDiffCoveredMsi,
+                diffCoveredMsi: $diffCoveredMsi,
             ),
             useComposerAudit: $this->useComposerAudit,
             typeCoverage: $this->typeCoverage,

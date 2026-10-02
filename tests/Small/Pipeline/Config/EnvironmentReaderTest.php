@@ -66,6 +66,16 @@ final class EnvironmentReaderTest extends TestCase
     }
 
     #[Test]
+    public function intOrNullIsTheDigitsOrNull(): void
+    {
+        self::assertSame(8, new EnvironmentReader(['N' => '8'])->intOrNull('N'));
+        self::assertSame(0, new EnvironmentReader(['N' => '0'])->intOrNull('N'));
+        self::assertNull(new EnvironmentReader(['N' => '8G'])->intOrNull('N'));
+        self::assertNull(new EnvironmentReader(['N' => '-1'])->intOrNull('N'));
+        self::assertNull(new EnvironmentReader([])->intOrNull('N'));
+    }
+
+    #[Test]
     public function ciIsExplicitCiOrClaudeCodeOrNoTty(): void
     {
         self::assertTrue(new EnvironmentReader(['CI' => self::COMPOSER_ALLOWED])->isCi(true, true));

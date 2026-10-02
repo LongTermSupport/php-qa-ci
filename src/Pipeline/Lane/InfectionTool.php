@@ -40,26 +40,6 @@ final readonly class InfectionTool implements ToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.infection';
 
-    private const string ADVISORY_100 = <<<'TEXT'
-
-        ------------------------------------------------------------------------------
-        Infection: a 100% MSI floor is in force for this run.
-        ------------------------------------------------------------------------------
-        100% is a fine target WHILE it is honestly achievable — but it is usually not a
-        good idea to hold it as a permanent goal. Real code contains provably EQUIVALENT
-        mutants (semantically identical mutations no test can ever kill), so at some point
-        100 becomes unreachable without one of two DISHONEST moves:
-          - excluding/suppressing the mutant (hides a real signal), or
-          - contorting production or test code just to please Infection (pure tech debt).
-        Neither is acceptable. If 100 stops being honestly achievable, the correct course
-        is to LOWER the floor a few points — 95 is good, 90 is fine — via
-          infectionDiffCoveredMsi=95   (diff lane)   or
-          ->withInfectionFloors(msi, coveredMsi)    (full lane, qaConfig/qa.php)
-        An honest 90+% MSI is a healthy gate; a forced 100% is diminishing-returns busywork.
-        ------------------------------------------------------------------------------
-
-        TEXT;
-
     public function __construct(
         private InfectionArguments $arguments = new InfectionArguments(),
         private InfectionDiffFilter $diffFilter = new InfectionDiffFilter(),
@@ -123,10 +103,6 @@ final readonly class InfectionTool implements ToolInterface
 
             $context->writeln('Infection: diff mode — mutating only the changed files: ' . $filter->display());
             $positionalPaths = $filter->positionalPaths;
-        }
-
-        if ($this->hundredFloorInForce($context)) {
-            $context->output->write(self::ADVISORY_100);
         }
 
         $configPath = $context->configPath('infection.json');
@@ -225,16 +201,6 @@ final readonly class InfectionTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed(\sprintf('Infection (coverage generation) failed (phpunit exit %d)', $result->exitCode));
-    }
-
-    private function hundredFloorInForce(ToolContext $context): bool
-    {
-        $options = $context->config->infection;
-        if (null !== $options->diffBase) {
-            return 100 === $options->diffCoveredMsi;
-        }
-
-        return 100 === $options->minMsi || 100 === $options->minCoveredMsi;
     }
 
     private function git(ToolContext $context, string ...$args): ProcessResultDto

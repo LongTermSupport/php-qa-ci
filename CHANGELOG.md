@@ -31,6 +31,15 @@ the release and its tag. The full rules are in
   below), which needs both. A host without them is told at `composer install`
   rather than left with runs that cannot clean up after Ctrl-C.
 
+- **An Infection MSI floor of 100 or more is refused, and diff mode no longer
+  defaults to 100.** Real code has equivalent mutants no test can kill, so a
+  100% floor is only ever met by suppressing mutants or contorting code. The
+  configuration now fails to build when `mutationScoreIndicator`,
+  `coveredCodeMSI` or `infectionDiffCoveredMsi` (or the matching
+  `withInfectionFloors()` / `withInfectionDiffBase()` argument) is 100 or more;
+  set 90 to 95 instead. Diff mode, which used to demand 100, now holds changed
+  files to the covered-MSI floor unless given its own.
+
 ### Added
 
 - **Releases are cut from this changelog.** When CI on a push to `php8.5` is

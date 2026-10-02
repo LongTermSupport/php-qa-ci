@@ -70,7 +70,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(60, $config->infection->minMsi);
         self::assertSame(80, $config->infection->minCoveredMsi);
         self::assertNull($config->infection->diffBase);
-        self::assertSame(100, $config->infection->diffCoveredMsi);
+        self::assertSame(80, $config->infection->diffCoveredMsi, 'the diff floor follows the covered-code floor');
         self::assertTrue($config->useComposerAudit);
         self::assertTrue($config->useArkitect);
         self::assertTrue($config->useSensitiveParameterCheck);
@@ -211,7 +211,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertTrue($config->phpUnit->iterativeMode);
         self::assertFalse($config->infection->enabled);
         self::assertSame(self::DIFF_BASE, $config->infection->diffBase);
-        self::assertSame(100, $config->infection->diffCoveredMsi);
+        self::assertSame(80, $config->infection->diffCoveredMsi);
         self::assertSame(90, $config->typeCoverage->returnType);
         self::assertNull($config->typeCoverage->paramType);
         self::assertSame(100, $config->typeCoverage->declare);
@@ -219,6 +219,42 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(['/p/cfg'], $config->yamlDirectories);
         self::assertSame(['scripts/*.bash', 'ci.bash', 'bin/*'], $config->shellCheckGlobs);
         self::assertSame(['/p/bin/console', '/p/bin/tool'], $config->deadCode->entryPoints);
+    }
+
+    #[Test]
+    public function theDiffFloorFollowsTheProjectsCoveredFloorUnlessGivenItsOwn(): void
+    {
+        $following = $this->defaults()->withInfectionFloors(msi: 70, coveredMsi: 85)->withInfectionDiffBase(self::DIFF_BASE)->build();
+        self::assertSame(85, $following->infection->diffCoveredMsi);
+
+        $own = $this->defaults(env: new EnvironmentReader(['infectionDiffCoveredMsi' => '92']))->withInfectionFloors(msi: 70, coveredMsi: 85)->build();
+        self::assertSame(92, $own->infection->diffCoveredMsi);
+    }
+
+    #[Test]
+    public function aHundredPercentFloorIsRefused(): void
+    {
+        $refused = [
+            'mutationScoreIndicator / withInfectionFloors(msi) is 100'                  => $this->defaults()->withInfectionFloors(msi: 100, coveredMsi: 80),
+            'coveredCodeMSI / withInfectionFloors(coveredMsi) is 100'                   => $this->defaults()->withInfectionFloors(msi: 60, coveredMsi: 100),
+            'infectionDiffCoveredMsi / withInfectionDiffBase(ref, coveredMsi) is 100' => $this->defaults()->withInfectionDiffBase(self::DIFF_BASE, 100),
+            'is 101; an MSI floor must be below 100'                                    => $this->defaults()->withInfectionFloors(msi: 60, coveredMsi: 101),
+        ];
+        foreach ($refused as $named => $builder) {
+            try {
+                $builder->build();
+                self::fail('a floor of 100 or more must be refused: ' . $named);
+            } catch (LogicException $logicException) {
+                self::assertStringContainsString($named, $logicException->getMessage());
+                self::assertStringContainsString('equivalent mutants', $logicException->getMessage());
+            }
+        }
+    }
+
+    #[Test]
+    public function ninetyNineIsAFloor(): void
+    {
+        self::assertSame(99, $this->defaults()->withInfectionFloors(msi: 99, coveredMsi: 99)->build()->infection->minCoveredMsi);
     }
 
     #[Test]

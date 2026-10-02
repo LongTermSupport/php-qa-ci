@@ -310,7 +310,7 @@ are the accepted boolean spellings. Defaults:
 | `useInfection`                                  | `1`                  | `withInfection(bool)`                                                                                              |
 | `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`          | `withInfectionFloors(int, int)`                                                                                    |
 | `infectionThreads`                              | half the CPU threads | `withInfectionThreads(int)`                                                                                        |
-| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / `100`        | `withInfectionDiffBase(?string, int)`                                                                              |
+| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                                        |
 | `useComposerAudit`                              | `1`                  | `withComposerAudit(bool)`                                                                                          |
 | (none)                                          | all floors off       | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
 | `useArkitect`                                   | `1`                  | `withArkitect(bool)`                                                                                               |

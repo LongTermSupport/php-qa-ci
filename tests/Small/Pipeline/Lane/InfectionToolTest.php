@@ -89,7 +89,6 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('reusing the coverage produced by the phpunit step this run', $printed);
-        self::assertStringNotContainsString('100% MSI floor', $printed);
 
         $phar = $this->factory->processes->lastSpec();
         self::assertSame([
@@ -176,20 +175,6 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
-    public function aHundredPercentFullFloorPrintsTheAdvisory(): void
-    {
-        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed();
-
-        new InfectionTool()->run($this->context($this->factory->builder(env: ['mutationScoreIndicator' => '90', 'coveredCodeMSI' => '100'])));
-        $printed = $this->factory->output->fetch();
-
-        self::assertStringContainsString('Infection: a 100% MSI floor is in force for this run.', $printed);
-        self::assertStringContainsString('An honest 90+% MSI is a healthy gate; a forced 100% is diminishing-returns busywork.', $printed);
-        self::assertStringContainsString('->withInfectionFloors(msi, coveredMsi)    (full lane, qaConfig/qa.php)', $printed);
-    }
-
-    #[Test]
     public function diffModeRefusesADirtyWorkingTree(): void
     {
         $this->factory->processes->willSucceed("?? src/Dirty.php\n");
@@ -240,7 +225,6 @@ final class InfectionToolTest extends TestCase
         self::assertSame($this->root, $this->factory->processes->specs[1]->cwd);
         self::assertStringContainsString("scoping mutation to source files changed against 'origin/main' (committed history only)", $printed);
         self::assertStringContainsString('mutating only the changed files: src/Committed.php', $printed);
-        self::assertStringContainsString('Infection: a 100% MSI floor is in force for this run.', $printed, 'the default diff floor of 100 triggers the advisory');
 
         $phar = $this->factory->processes->lastSpec();
         self::assertSame([
@@ -248,24 +232,22 @@ final class InfectionToolTest extends TestCase
             '--skip-initial-tests',
             '--threads=4',
             '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
-            '--min-covered-msi=100',
+            '--min-covered-msi=76',
             $this->root . '/src/Committed.php',
         ], \array_slice($phar->command, 6));
         self::assertTrue($phar->lowPriority);
     }
 
     #[Test]
-    public function anOverriddenDiffFloorReachesInfectionAndSilencesTheAdvisory(): void
+    public function anOverriddenDiffFloorReachesInfection(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes->willSucceed('')->willSucceed("src/Changed.php\n")->willSucceed();
 
         new InfectionTool()->run($this->context($this->diffBuilder(['infectionDiffCoveredMsi' => '95'])));
-        $printed = $this->factory->output->fetch();
 
         self::assertContains('--min-covered-msi=95', $this->factory->processes->lastSpec()->command);
-        self::assertNotContains('--min-covered-msi=100', $this->factory->processes->lastSpec()->command);
-        self::assertStringNotContainsString('100% MSI floor', $printed);
+        self::assertNotContains('--min-covered-msi=76', $this->factory->processes->lastSpec()->command);
     }
 
     #[Test]
