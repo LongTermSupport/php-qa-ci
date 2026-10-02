@@ -64,7 +64,7 @@ final class ChangelogReleaseCliTest extends TestCase
             'composer.json'      => "{\"require\": {\"php\": \"^8.5\"}}\n",
             self::CHANGELOG_FILE => self::CHANGELOG,
         ]);
-        $this->sandbox->git(self::TAG,'85.0.0');
+        $this->sandbox->git(self::TAG, '85.0.0');
     }
 
     protected function tearDown(): void
@@ -91,9 +91,9 @@ final class ChangelogReleaseCliTest extends TestCase
 
         $this->sandbox->root->write('notes.txt', $notes->getOutput());
         $this->sandbox->git('commit', '-am', 'Release 85.1.0 [skip ci]');
-        $this->sandbox->git(self::TAG,'-a', self::VERSION, '-F', $this->sandbox->root->path . '/notes.txt');
+        $this->sandbox->git(self::TAG, '-a', self::VERSION, '-F', $this->sandbox->root->path . '/notes.txt');
 
-        self::assertSame(rtrim($notes->getOutput()), rtrim($this->sandbox->git(self::TAG,'-l', '--format=%(contents)', self::VERSION)));
+        self::assertSame(rtrim($notes->getOutput()), rtrim($this->sandbox->git(self::TAG, '-l', '--format=%(contents)', self::VERSION)));
 
         $after = $this->cli(self::NEXT_VERSION);
         self::assertSame('', $after->getOutput());
@@ -105,7 +105,7 @@ final class ChangelogReleaseCliTest extends TestCase
     {
         $this->cli('apply', self::VERSION, '2026-10-02');
         $this->sandbox->git('commit', '-am', 'Release 85.1.0');
-        $this->sandbox->git(self::TAG,self::VERSION);
+        $this->sandbox->git(self::TAG, self::VERSION);
 
         $add = $this->cli('add-entry', 'security', 'Bundled tool versions updated.');
         self::assertSame(0, $add->getExitCode(), $add->getErrorOutput());

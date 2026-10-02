@@ -57,7 +57,7 @@ final class ChangelogCheckGitTest extends TestCase
             'tests/ATest.php'    => self::PHP_FILE,
         ]);
         $this->sandbox->git('tag', '85.0.0');
-        $this->sandbox->git(self::CHECKOUT,'-b', self::FEATURE);
+        $this->sandbox->git(self::CHECKOUT, '-b', self::FEATURE);
     }
 
     protected function tearDown(): void
@@ -128,7 +128,7 @@ final class ChangelogCheckGitTest extends TestCase
     #[Test]
     public function theDefaultBranchIsJudgedFromTheLatestReleaseTag(): void
     {
-        $this->sandbox->git(self::CHECKOUT,GitSandbox::DEFAULT_BRANCH);
+        $this->sandbox->git(self::CHECKOUT, GitSandbox::DEFAULT_BRANCH);
         $this->sandbox->commit(self::SOURCE, "<?php\n// on the default branch\n");
 
         $failed = $this->check();
@@ -155,7 +155,7 @@ final class ChangelogCheckGitTest extends TestCase
     public function aDefaultBranchWithNoReleaseTagFails(): void
     {
         $this->sandbox->git('tag', '-d', '85.0.0');
-        $this->sandbox->git(self::CHECKOUT,GitSandbox::DEFAULT_BRANCH);
+        $this->sandbox->git(self::CHECKOUT, GitSandbox::DEFAULT_BRANCH);
 
         self::assertStringContainsString('no 85.N.N release tag is in this clone', $this->check()->problems[0]);
     }
