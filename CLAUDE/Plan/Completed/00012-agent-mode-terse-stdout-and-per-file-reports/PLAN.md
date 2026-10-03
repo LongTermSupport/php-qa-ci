@@ -1,6 +1,6 @@
 # Plan 00012: agent mode terse stdout and per file reports
 
-**Status**: Delivered — awaiting the Owner decision on the PR
+**Status**: Complete (merged into php8.5 as 3e0c970)
 **Created**: 2026-09-16
 **Owner**: Joseph Edmonds
 **Priority**: High

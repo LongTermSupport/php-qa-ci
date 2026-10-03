@@ -1,6 +1,6 @@
 # Plan 00013: qa pipeline defect sweep
 
-**Status**: 🔄 In Progress (Phases 1 and 2 done; Phase 3 is two carried follow-ons)
+**Status**: In Progress (Phases 1 and 2 done; Phase 3 is two carried follow-ons)
 **Created**: 2026-09-16
 **Owner**: Joseph Edmonds
 **Priority**: Medium

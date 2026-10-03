@@ -5,10 +5,6 @@ on:
     branches: [php8.5]
   pull_request:
     branches: [php8.5]
-  # release.yml dispatches this on the release pull request's branch: a pull
-  # request opened with GITHUB_TOKEN starts no workflow, and php8.5 requires
-  # the "QA Pipeline" check, which this run reports on the branch's head commit.
-  workflow_dispatch:
 
 jobs:
   # ShellCheck has no job of its own: the `shellCheck` lane runs it inside

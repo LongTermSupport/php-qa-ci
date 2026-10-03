@@ -1,0 +1,44 @@
+name: Approve the held CI run
+description: >-
+  GitHub holds the pull_request CI run of a pull request opened or pushed with
+  GITHUB_TOKEN (conclusion action_required) until someone with write access
+  approves it, and a required check is satisfied only by that run: a run of the
+  same commit from another event does not count. This waits for the CI run on
+  the pull request's head commit and approves it when it is held; one that was
+  not held is left to run. The calling job needs `actions: write`.
+
+inputs:
+  head-sha:
+    description: The pull request's head commit, e.g. create-pull-request's pull-request-head-sha output.
+    required: true
+  token:
+    description: A token with actions write access.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Approve the held CI run
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ github.repository }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+      run: |
+        set -euo pipefail
+        for attempt in $(seq 1 30); do
+          runs="$(gh run list --workflow ci.yml --event pull_request --commit "${HEAD_SHA}" --json databaseId,conclusion --jq '.[] | "\(.databaseId) \(.conclusion)"')"
+          if [ -n "${runs}" ]; then
+            while read -r id conclusion; do
+              if [ "${conclusion}" = "action_required" ]; then
+                gh api --method POST "repos/${GH_REPO}/actions/runs/${id}/approve"
+                echo "::notice::Approved CI run ${id} for ${HEAD_SHA}."
+              fi
+            done <<< "${runs}"
+            exit 0
+          fi
+          echo "Waiting for the CI run on ${HEAD_SHA} (attempt ${attempt})."
+          sleep 10
+        done
+        echo "::error::No CI run appeared for ${HEAD_SHA}; approve it from the pull request's Checks tab."
+        exit 1
