@@ -53,6 +53,19 @@ final class RuleDocumentationTest extends TestCase
     /** Its own root: the resolver parses every row on any lookup, so a dead link is contagious. */
     private const string DEAD_LINK_ROOT = self::REPO_ROOT . '/tests/assets/ruleDocResolverDeadLink';
 
+    /** A page with no construction section, one that restates the summary, and one that states it. */
+    private const string CONSTRUCTION_FIXTURE_ROOT = self::REPO_ROOT . '/tests/assets/ruleDocResolverConstruction';
+
+    /** A rule page names the construction; a lane page names the fix for its failure. */
+    private const string CONSTRUCTION_HEADING = '/^## (?:The correct construction|How to fix(?: it| a failure| a violation)?)[ \t]*$/m';
+
+    /**
+     * Distinct words the section adds beyond the summary. A sentence pointing at the
+     * linter's output and saying "fix it" stays under; one stating what correct looks like
+     * clears it.
+     */
+    private const int CONSTRUCTION_MIN_WORDS = 15;
+
     /**
      * Identifiers that appear in source only as illustrations — inside a docblock showing
      * the sanctioned form, or a failure message telling an author what to write. No rule
@@ -154,6 +167,50 @@ final class RuleDocumentationTest extends TestCase
         );
     }
 
+    /**
+     * Toolchain specification 8.1, tightened from "a page exists" to "the page states the
+     * correct construction".
+     *
+     * A page that describes the defence, how the lane runs and where the class lives, and
+     * stops there, has answered every question except the one the practitioner arrived
+     * with. So each page carries a construction section, and that section says more than
+     * the summary the failure already printed.
+     */
+    public function testEveryDeclaredIdentifiersPageStatesACorrectConstruction(): void
+    {
+        $unstated = $this->pagesStatingNoConstruction(self::REPO_ROOT, ...$this->declaredIdentifiers());
+
+        self::assertSame(
+            [],
+            $unstated,
+            "Pages that do not state the correct construction:\n" . implode("\n", $unstated)
+            . "\n\nEach page needs a `## The correct construction` (a rule) or `## How to fix a "
+            . 'failure` (a lane) section saying what to write instead, in more than the words '
+            . 'of the summary the failure already printed.',
+        );
+    }
+
+    /**
+     * The construction guard proven to fire: a page with no construction section, a page
+     * whose section only restates the summary, and a page that states one.
+     */
+    public function testTheGuardReportsPagesThatStateNoConstruction(): void
+    {
+        self::assertSame(
+            [
+                'phpqaci.fixtureNoSection: no construction section',
+                'phpqaci.fixtureRestated: the construction section adds 4 words to the summary, fewer than '
+                    . self::CONSTRUCTION_MIN_WORDS,
+            ],
+            $this->pagesStatingNoConstruction(
+                self::CONSTRUCTION_FIXTURE_ROOT,
+                'phpqaci.fixtureNoSection',
+                'phpqaci.fixtureRestated',
+                'phpqaci.fixtureConstructed',
+            ),
+        );
+    }
+
     public function testIndexDoesNotListIdentifiersThatNoRuleDeclares(): void
     {
         $index    = \Safe\file_get_contents(self::INDEX);
@@ -196,6 +253,66 @@ final class RuleDocumentationTest extends TestCase
         }
 
         return $unreachable;
+    }
+
+    /**
+     * Which of the given identifiers resolve to a page that states no correct construction,
+     * each with the reason. Identifiers with no page at all are the other guard's finding.
+     *
+     * @return list<string>
+     */
+    private function pagesStatingNoConstruction(string $repoRoot, string ...$identifiers): array
+    {
+        $resolver = new RuleDocResolver($repoRoot);
+        $unstated = [];
+
+        foreach ($identifiers as $identifier) {
+            $entry = $resolver->resolve($identifier);
+            if (null === $entry->docPath || !is_file($entry->docPath)) {
+                continue;
+            }
+
+            $sections = \Safe\preg_split(self::CONSTRUCTION_HEADING, \Safe\file_get_contents($entry->docPath), 2);
+            if (!\is_array($sections) || !isset($sections[1]) || !\is_string($sections[1])) {
+                $unstated[] = $identifier . ': no construction section';
+
+                continue;
+            }
+
+            $section = \Safe\preg_split('/^## /m', $sections[1], 2);
+            $body    = \is_array($section) && isset($section[0]) && \is_string($section[0]) ? $section[0] : '';
+            $added   = \count(array_diff($this->distinctWords($body), $this->distinctWords($entry->summary)));
+            if ($added < self::CONSTRUCTION_MIN_WORDS) {
+                $unstated[] = \sprintf(
+                    '%s: the construction section adds %d words to the summary, fewer than %d',
+                    $identifier,
+                    $added,
+                    self::CONSTRUCTION_MIN_WORDS,
+                );
+            }
+        }
+
+        return $unstated;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function distinctWords(string $text): array
+    {
+        $words = \Safe\preg_split('/[^A-Za-z]+/', strtolower($text), -1, PREG_SPLIT_NO_EMPTY);
+        if (!\is_array($words)) {
+            return [];
+        }
+
+        $distinct = [];
+        foreach ($words as $word) {
+            if (\is_string($word)) {
+                $distinct[$word] = true;
+            }
+        }
+
+        return array_keys($distinct);
     }
 
     /**
