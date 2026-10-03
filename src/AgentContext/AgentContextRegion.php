@@ -42,16 +42,14 @@ final readonly class AgentContextRegion
     /** @return array{int, int}|null the region's start offset and the offset just past its END */
     private function bounds(string $document): ?array
     {
-        if (1 !== substr_count($document, self::START) || 1 !== substr_count($document, self::END)) {
+        $aroundStart = explode(self::START, $document);
+        if (2 !== \count($aroundStart) || str_contains($aroundStart[0], self::END) || 1 !== substr_count($aroundStart[1], self::END)) {
             return null;
         }
 
-        $start = strpos($document, self::START);
-        $end   = strpos($document, self::END);
-        if (false === $start || false === $end || $end < $start) {
-            return null;
-        }
+        $start = \strlen($aroundStart[0]);
+        $inner = explode(self::END, $aroundStart[1])[0];
 
-        return [$start, $end + \strlen(self::END)];
+        return [$start, $start + \strlen(self::START) + \strlen($inner) + \strlen(self::END)];
     }
 }

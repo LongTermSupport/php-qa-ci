@@ -109,6 +109,25 @@ final class NeonIncludeChainTest extends TestCase
         }
     }
 
+    /** A sibling directory whose name merely starts with the project root's is still outside it. */
+    #[Test]
+    public function aFileBesideTheProjectSharingItsNamePrefixIsShownByItsAbsolutePath(): void
+    {
+        $sibling = $this->dir->path . 'x';
+        $shared  = $sibling . '/shared.neon';
+        \Safe\mkdir($sibling);
+
+        try {
+            \Safe\file_put_contents($shared, "parameters:\n    level: 5\n");
+            $this->dir->write(self::ENTRY, \sprintf("includes:\n    - %s\n", $shared));
+
+            self::assertSame([\Safe\realpath($shared), self::ENTRY], $this->displays($this->chain()));
+        } finally {
+            \Safe\unlink($shared);
+            \Safe\rmdir($sibling);
+        }
+    }
+
     #[Test]
     public function phpstansOwnConfigurationIsNotFollowed(): void
     {

@@ -43,6 +43,8 @@ final class IgnoreErrorsJustificationDetectorTest extends TestCase
                 - src
         NEON;
 
+    private const string NO_JUSTIFICATION = 'no justification: add a comment directly above the entry naming the hazard accepted and why it is acceptable at this path';
+
     private const string UNJUSTIFIED = <<<'NEON'
         parameters:
             ignoreErrors:
@@ -77,6 +79,73 @@ final class IgnoreErrorsJustificationDetectorTest extends TestCase
         self::assertStringContainsString('too short', $findings[2]->fault);
     }
 
+    /**
+     * What names each entry: the inline text after the dash with its padding
+     * trimmed, else the first line of its body that is neither blank nor a
+     * comment, else nothing for a bare dash that ends the file.
+     */
+    #[Test]
+    public function eachEntryIsNamedByItsInlineTextOrItsFirstMeaningfulBodyLine(): void
+    {
+        $neon = "parameters:\n    ignoreErrors:\n        - '#Raw SQL#'   \n        -\n            # matched literally\n            message: '#Undefined#'\n        -\n\n            identifier: a.b\n        -\n";
+
+        self::assertSame(
+            [
+                [3, "'#Raw SQL#'", self::NO_JUSTIFICATION],
+                [4, "message: '#Undefined#'", self::NO_JUSTIFICATION],
+                [7, 'identifier: a.b', self::NO_JUSTIFICATION],
+                [10, '', self::NO_JUSTIFICATION],
+            ],
+            $this->findings($neon),
+        );
+    }
+
+    /**
+     * A whitespace-only line ends neither the list nor the comment above an
+     * entry; any other line between them does, so an entry never borrows the
+     * comment of the entry above it.
+     */
+    #[Test]
+    public function onlyTheCommentDirectlyAboveAnEntryJustifiesIt(): void
+    {
+        $neon = "parameters:\n    ignoreErrors:\n        # The legacy importer builds SQL from trusted constants only; scoped to it.\n  \n        - '#Raw SQL#'\n        - '#Undefined#'\n";
+
+        self::assertSame([[6, "'#Undefined#'", self::NO_JUSTIFICATION]], $this->findings($neon));
+    }
+
+    /** Comment lines are joined with single spaces, each stripped of its `#` and padding, and bare `#` lines add nothing. */
+    #[Test]
+    public function theCommentIsJoinedFromItsLinesBeforeItIsJudged(): void
+    {
+        $neon = "parameters:\n    ignoreErrors:\n        #\n        #   legacy\n        #\n        - '#a#'\n        # too\n        # short\n        - '#b#'\n";
+
+        self::assertSame(
+            [
+                [6, "'#a#'", 'the justification "legacy" could be pasted onto any entry unchanged; name the hazard accepted and the scope'],
+                [9, "'#b#'", 'the justification "too short" is too short to name a hazard and a scope'],
+            ],
+            $this->findings($neon),
+        );
+    }
+
+    #[Test]
+    public function aJustificationOfExactlyTheMinimumLengthIsLongEnough(): void
+    {
+        $enough   = str_pad('The importer builds SQL from constants', IgnoreErrorsJustificationDetector::MIN_LENGTH, '!');
+        $tooShort = substr($enough, 1);
+
+        self::assertSame(
+            [[6, "'#b#'", \sprintf('the justification "%s" is too short to name a hazard and a scope', $tooShort)]],
+            $this->findings("parameters:\n    ignoreErrors:\n        # " . $enough . "\n        - '#a#'\n        # " . $tooShort . "\n        - '#b#'\n"),
+        );
+    }
+
+    #[Test]
+    public function anIgnoreErrorsKeyOnTheFirstLineIsRead(): void
+    {
+        self::assertSame(1, new IgnoreErrorsJustificationDetector()->entryCount("ignoreErrors:\n    - '#a#'\n"));
+    }
+
     #[Test]
     public function aFileWithoutIgnoreErrorsHasNothingToCheck(): void
     {
@@ -96,5 +165,14 @@ final class IgnoreErrorsJustificationDetectorTest extends TestCase
 
         self::assertSame(2, new IgnoreErrorsJustificationDetector()->entryCount($neon));
         self::assertSame(0, new IgnoreErrorsJustificationDetector()->entryCount("parameters:\n    ignoreErrors: ['#a#', '#b#']\n"));
+    }
+
+    /** @return list<array{int, string, string}> each finding as [line, entry, fault] */
+    private function findings(string $neon): array
+    {
+        return array_map(
+            static fn (JustificationFindingDto $finding): array => [$finding->line, $finding->entry, $finding->fault],
+            new IgnoreErrorsJustificationDetector()->check($neon),
+        );
     }
 }
