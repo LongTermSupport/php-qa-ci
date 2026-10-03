@@ -142,10 +142,13 @@ most of the clause table turns green at once.
 
 ### Phase 4: Record — no suppression route bypasses it (toolchain 4.3, 6.2)
 
-- [ ] ⬜ **Task 4.1**: Close the `phparkitect-baseline.json` route. A baseline generated
+- [x] ✅ **Task 4.1**: Close the `phparkitect-baseline.json` route. A baseline generated
   once is read silently on every later run — upstream reproduced `Baseline file found` /
   `No violations detected` on a fixture holding a violation. The lane must refuse it, or
-  surface it in the record and the listing. Red first, with that fixture.
+  surface it in the record and the listing. Red first, with that fixture. The lane passes
+  `--skip-baseline` in both modes (phparkitect resolves the baseline from the CLI only, so
+  nothing else can turn it back on) and names a present file as not read (red `e96d215`).
+  Toolchain 4.3 closed at both levels
 - [x] ✅ **Task 4.2**: Make the `phpstanIgnoreJustification` lane read the **whole
   resolved neon chain**, not `qaConfig/phpstan.neon` alone, so an `ignoreErrors` entry or
   a baseline reached through an `includes:` cannot escape justification. This is one gap
