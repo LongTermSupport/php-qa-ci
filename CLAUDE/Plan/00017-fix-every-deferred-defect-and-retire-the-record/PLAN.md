@@ -80,7 +80,7 @@ backported proactively; the rest stay known `php8.4` issues until someone report
 
 - [x] `qaConfig/defect-record.neon` does not exist and nothing refers to it
 - [x] `qaConfig/phpstan.neon` has no `ignoreErrors`, and `composer.json` declares no `known-gaps`
-- [ ] Both battery runs pass on `php8.5`, and on `php8.4` for its fixes
+- [ ] Both battery runs pass on `php8.5` (done), and on `php8.4` for its fixes (with Task 5.3, on hold)
 - [x] Issues cannot be opened without a release line
 
 ## Delivery & Milestones
