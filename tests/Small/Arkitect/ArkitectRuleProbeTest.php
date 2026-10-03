@@ -61,6 +61,8 @@ final class ArkitectRuleProbeTest extends TestCase
 {
     private const string INTERFACE_BECAUSE = 'an Interface suffix makes the symbol kind obvious at every use site';
 
+    private const string INTERFACE_MESSAGE = 'should have a name that matches *Interface because ' . self::INTERFACE_BECAUSE;
+
     private const string ENUM_BECAUSE = 'an Enum suffix makes the symbol kind obvious at every use site';
 
     private const string FIXTURE_DIR = 'tests/Fixtures/Arkitect';
@@ -95,7 +97,7 @@ final class ArkitectRuleProbeTest extends TestCase
     public function itFiresWhenAViolationCarriesTheBecauseClause(): void
     {
         $this->factory->processes->willFail(1, $this->pharOutput([
-            self::GATEWAY_FQCN => ['should have a name that matches *Interface because ' . self::INTERFACE_BECAUSE],
+            self::GATEWAY_FQCN => [self::INTERFACE_MESSAGE],
         ]));
 
         $result = $this->probe()->probe(self::INTERFACE_BECAUSE, $this->path(self::FIXTURE_DIR));
@@ -110,7 +112,7 @@ final class ArkitectRuleProbeTest extends TestCase
     public function aViolationOfAnotherRuleIsNotAFiring(): void
     {
         $this->factory->processes->willFail(1, $this->pharOutput([
-            self::GATEWAY_FQCN => ['should have a name that matches *Interface because ' . self::INTERFACE_BECAUSE],
+            self::GATEWAY_FQCN => [self::INTERFACE_MESSAGE],
         ]));
 
         $result = $this->probe()->probe(self::ENUM_BECAUSE, $this->path(self::FIXTURE_DIR));
@@ -138,8 +140,8 @@ final class ArkitectRuleProbeTest extends TestCase
     public function aFilePathCountsOnlyTheClassesThatFileDeclares(): void
     {
         $this->factory->processes->willFail(1, $this->pharOutput([
-            self::GATEWAY_FQCN => ['should have a name that matches *Interface because ' . self::INTERFACE_BECAUSE],
-            self::LEDGER_FQCN  => ['should have a name that matches *Interface because ' . self::INTERFACE_BECAUSE],
+            self::GATEWAY_FQCN => [self::INTERFACE_MESSAGE],
+            self::LEDGER_FQCN  => [self::INTERFACE_MESSAGE],
         ]));
 
         $result = $this->probe()->probe(self::INTERFACE_BECAUSE, $this->path(self::LEDGER_FILE));
@@ -196,10 +198,13 @@ final class ArkitectRuleProbeTest extends TestCase
     {
         $this->factory->processes->willFail(255, 'PHP Fatal error: the entry config threw');
 
-        $this->expectException(ProbeFailedException::class);
-        $this->expectExceptionMessage('the entry config threw');
-
-        $this->probe()->probe(self::INTERFACE_BECAUSE, $this->path(self::FIXTURE_DIR));
+        try {
+            $this->probe()->probe(self::INTERFACE_BECAUSE, $this->path(self::FIXTURE_DIR));
+            self::fail('A crashed run must not produce a verdict');
+        } catch (ProbeFailedException $probeFailedException) {
+            self::assertStringContainsString('exit 255', $probeFailedException->getMessage());
+            self::assertStringContainsString('the entry config threw', $probeFailedException->getMessage());
+        }
     }
 
     #[Test]
@@ -237,7 +242,7 @@ final class ArkitectRuleProbeTest extends TestCase
     public function aFiringRendersTheClassItsFileAndTheMessage(): void
     {
         $this->factory->processes->willFail(1, $this->pharOutput([
-            self::GATEWAY_FQCN => ['should have a name that matches *Interface because ' . self::INTERFACE_BECAUSE],
+            self::GATEWAY_FQCN => [self::INTERFACE_MESSAGE],
         ]));
 
         $rendered = $this->probe()->probe(self::INTERFACE_BECAUSE, $this->path(self::FIXTURE_DIR))->render();
@@ -295,7 +300,7 @@ final class ArkitectRuleProbeTest extends TestCase
         }
 
         return "PHPArkitect 1.3.1.0\n\n 1/1 [====] 100%\n\n"
-            . \Safe\json_encode(['totalViolations' => $total, 'details' => [] === $details ? [] : $details], \JSON_PRETTY_PRINT)
+            . \Safe\json_encode(['totalViolations' => $total, 'details' => $details], \JSON_PRETTY_PRINT)
             . "\n" . (0 === $total ? 'NO VIOLATIONS' : $total . ' violations detected!') . "\n";
     }
 }

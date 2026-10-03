@@ -63,19 +63,6 @@ final class ArkitectRuleProbeTest extends TestCase
         $this->var->remove();
     }
 
-    /** @return iterable<string, array{string, string, string}> because clause, violating file, conforming file */
-    public static function provideEveryRuleTheProjectEnforces(): iterable
-    {
-        yield 'default: interface suffix' => [self::INTERFACE_BECAUSE, 'Gateway.php', 'GatewayInterface.php'];
-        yield 'default: enum suffix' => ['an Enum suffix makes the symbol kind obvious at every use site', 'Colour.php', 'ColourEnum.php'];
-        yield 'default: trait suffix' => ['a Trait suffix makes the symbol kind obvious at every use site', 'Loggable.php', 'LoggableTrait.php'];
-        yield 'default: Dto namespace implies suffix' => ['a Dto namespace holds data transfer objects', 'Dto/Address.php', self::CONFORMING_DTO];
-        yield 'default: Dto suffix implies namespace' => ['keeping every Dto in a Dto namespace', 'Model/PostcodeDto.php', self::CONFORMING_DTO];
-        yield 'default: Dto is final' => ['a Dto is a value carrier, not an extension point', 'Dto/OpenDto.php', self::CONFORMING_DTO];
-        yield 'default: Dto is readonly' => ['a readonly Dto cannot be mutated after construction', 'Dto/MutableDto.php', self::CONFORMING_DTO];
-        yield 'project: controller suffix' => ['a Controller suffix tells routing code apart from the services it calls', 'Controller/Home.php', 'Controller/HomeController.php'];
-    }
-
     /** The premise: nothing in the project's own src/ violates any rule, so the lane alone cannot show a rule works. */
     #[Test]
     public function theProjectItselfHasNoInstanceOfAnyRule(): void
@@ -111,6 +98,19 @@ final class ArkitectRuleProbeTest extends TestCase
         self::assertFalse($result->fired(), $result->render());
     }
 
+    /** @return iterable<string, array{string, string, string}> because clause, violating file, conforming file */
+    public static function provideEveryRuleTheProjectEnforces(): iterable
+    {
+        yield 'default: interface suffix' => [self::INTERFACE_BECAUSE, 'Gateway.php', 'GatewayInterface.php'];
+        yield 'default: enum suffix' => ['an Enum suffix makes the symbol kind obvious at every use site', 'Colour.php', 'ColourEnum.php'];
+        yield 'default: trait suffix' => ['a Trait suffix makes the symbol kind obvious at every use site', 'Loggable.php', 'LoggableTrait.php'];
+        yield 'default: Dto namespace implies suffix' => ['a Dto namespace holds data transfer objects', 'Dto/Address.php', self::CONFORMING_DTO];
+        yield 'default: Dto suffix implies namespace' => ['keeping every Dto in a Dto namespace', 'Model/PostcodeDto.php', self::CONFORMING_DTO];
+        yield 'default: Dto is final' => ['a Dto is a value carrier, not an extension point', 'Dto/OpenDto.php', self::CONFORMING_DTO];
+        yield 'default: Dto is readonly' => ['a readonly Dto cannot be mutated after construction', 'Dto/MutableDto.php', self::CONFORMING_DTO];
+        yield 'project: controller suffix' => ['a Controller suffix tells routing code apart from the services it calls', 'Controller/Home.php', 'Controller/HomeController.php'];
+    }
+
     /** A directory probe reports every class in it that broke the rule. */
     #[Test]
     public function aDirectoryProbeReportsEveryFiringInIt(): void
@@ -131,7 +131,8 @@ final class ArkitectRuleProbeTest extends TestCase
         $this->expectException(ProbeFailedException::class);
 
         $this->probe(srcDir: $this->var->path . '/no-such-src', projectConfigDir: $this->var->path . '/no-qaConfig')
-            ->probe(self::INTERFACE_BECAUSE, self::VIOLATING . '/Gateway.php');
+            ->probe(self::INTERFACE_BECAUSE, self::VIOLATING . '/Gateway.php')
+        ;
     }
 
     /**
@@ -208,7 +209,7 @@ final class ArkitectRuleProbeTest extends TestCase
     private function runCommand(string ...$args): array
     {
         $result = new SymfonyProcessRunner(new NullOutput())->run(new ProcessSpecDto(
-            command: [\PHP_BINARY, self::ROOT . '/bin/arkitect-rule', ...$args],
+            command: [\PHP_BINARY, self::ROOT . '/bin/arkitect-rule', ...array_values($args)],
             cwd: \Safe\realpath(self::ROOT),
             streamOutput: false,
         ));

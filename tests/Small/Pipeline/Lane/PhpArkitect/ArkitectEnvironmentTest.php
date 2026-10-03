@@ -26,6 +26,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ArkitectEnvironmentTest extends TestCase
 {
+    private const string SRC_DIR = '/project/src';
+
     private TempDir $project;
 
     protected function setUp(): void
@@ -44,11 +46,11 @@ final class ArkitectEnvironmentTest extends TestCase
         $override = $this->project->write('qaConfig/phparkitect-rules-default.php', "<?php\n");
         $defaults = \dirname(__DIR__, 5) . '/configDefaults';
 
-        $env = new ArkitectEnvironment()->variables($this->resolver($defaults), '/project/src', 'Quote/API', 'Generated/Client');
+        $env = new ArkitectEnvironment()->variables($this->resolver($defaults), self::SRC_DIR, 'Quote/API', 'Generated/Client');
 
         self::assertSame(
             [
-                'PHPQACI_ARKITECT_SRC_DIR'                => '/project/src',
+                'PHPQACI_ARKITECT_SRC_DIR'                => self::SRC_DIR,
                 'PHPQACI_ARKITECT_RULES_DEFAULT'          => $override,
                 'PHPQACI_ARKITECT_RULES_OPTIONAL'         => $defaults . '/generic/phparkitect-rules-optional.php',
                 'PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY' => $defaults . '/generic/phparkitect-rules-optional-symfony.php',
@@ -62,7 +64,7 @@ final class ArkitectEnvironmentTest extends TestCase
     #[Test]
     public function noExcludePathsExportsAnEmptyValue(): void
     {
-        $env = new ArkitectEnvironment()->variables($this->resolver(\dirname(__DIR__, 5) . '/configDefaults'), '/project/src');
+        $env = new ArkitectEnvironment()->variables($this->resolver(\dirname(__DIR__, 5) . '/configDefaults'), self::SRC_DIR);
 
         self::assertSame('', $env['PHPQACI_ARKITECT_EXCLUDE_PATHS']);
     }

@@ -24,6 +24,17 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Added
+
+- **`vendor/bin/arkitect-rule <because> <path>` proves a PHPArkitect rule
+  fires.** It runs the project's own rules (its resolved entry config, tiers and
+  environment, no baseline) over one fixture file or directory instead of their
+  class sets, and reports whether the rule with that `because` clause fired: exit
+  1 with each class, 0 when it did not, 2 when there is no verdict. A rule with
+  no instance in `src/` can now be seen to fire before a green arch run is
+  trusted. See
+  [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires).
+
 ### Changed
 
 - **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.

@@ -78,7 +78,8 @@ the rule anyway and record the mechanism gap in `composer.json` `known-gaps`.
   the project's exceptions (`bin/rules`).
 - **Confirm the rule was loaded** before trusting any green run: `bin/rules` lists it, or it
   fires on a fixture in the same run. `bin/phpstan-rule <identifier> <path>` is the
-  single-rule harness for PHPStan rules.
+  single-rule harness for PHPStan rules; `bin/arkitect-rule <because> <path>` is the one for
+  PHPArkitect rules, which have no identifier and are named by their `because` clause.
 - A rule about how code is written will match its own source; that match is not an instance.
 - Rules are software: build them test-first where the Detector makes that practical.
 
@@ -264,7 +265,8 @@ identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
   to the rule's documentation, offline. `bin/phpstan-rule <identifier> <path>` is the single-rule
   harness: it runs one path under the project's own config and says whether that rule fired. Use
   the harness to prove a new rule sees its target before trusting a green full run; a green run
-  proves nothing unless the rule was loaded and looked.
+  proves nothing unless the rule was loaded and looked. `bin/arkitect-rule <because> <path>` is
+  the same harness for PHPArkitect, documented in `docs/tools/phpArkitect.md`.
 - `bin/rules [project-root] [--json]` lists every defence active in a project — its resolved
   `phpstan.neon` rules and those the extension installer delivers, the pipeline lanes, and the
   project record — WITHOUT running PHPStan, so an agent arriving cold can learn the standards
