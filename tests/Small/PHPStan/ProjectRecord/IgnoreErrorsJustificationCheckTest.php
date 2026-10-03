@@ -81,4 +81,52 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
         $this->expectOutputRegex('/qaConfig\/phpstan.neon:4.*paste/s');
         self::assertSame(1, new IgnoreErrorsJustificationCheck()->run($this->root));
     }
+
+    #[Test]
+    public function anUnjustifiedEntryInAnIncludedBaselineFailsNamingTheIncludedFile(): void
+    {
+        \Safe\file_put_contents($this->root . self::QA_CONFIG_PHPSTAN_NEON, "includes:\n    - phpstan-baseline.neon\n\nparameters:\n    level: max\n");
+        \Safe\file_put_contents(
+            $this->root . '/qaConfig/phpstan-baseline.neon',
+            "parameters:\n\tignoreErrors:\n\t\t-\n\t\t\tmessage: '#^Call to an undefined method#'\n\t\t\tcount: 1\n\t\t\tpath: ../src/Foo.php\n",
+        );
+
+        $this->expectOutputRegex('/qaConfig\/phpstan-baseline.neon:3  message:.*no justification/s');
+        self::assertSame(1, new IgnoreErrorsJustificationCheck()->run($this->root));
+    }
+
+    #[Test]
+    public function everyFileInTheChainIsCountedWhenAllAreJustified(): void
+    {
+        \Safe\file_put_contents(
+            $this->root . self::QA_CONFIG_PHPSTAN_NEON,
+            "includes:\n    - ../config/phpstan-generated.neon\n\nparameters:\n    ignoreErrors:\n        # The legacy importer builds SQL from trusted constants only, and is deleted\n        # in the next release; scoped to that one file.\n        - '#Raw SQL#'\n",
+        );
+        \Safe\mkdir($this->root . '/config');
+        \Safe\file_put_contents(
+            $this->root . '/config/phpstan-generated.neon',
+            "parameters:\n    ignoreErrors:\n        # The generated client reaches a class that only exists at runtime;\n        # scoped to the generated directory.\n        -\n            identifier: class.notFound\n            path: ../src/Generated/*\n",
+        );
+
+        $this->expectOutputString('PHPStan project record: 2 ignoreErrors entries, all justified, across 2 files.' . \PHP_EOL);
+        self::assertSame(0, new IgnoreErrorsJustificationCheck()->run($this->root));
+    }
+
+    #[Test]
+    public function anEntryWrittenInlineCannotEscapeTheCheck(): void
+    {
+        \Safe\file_put_contents($this->root . self::QA_CONFIG_PHPSTAN_NEON, "parameters:\n    ignoreErrors: ['#Raw SQL#', '#Undefined#']\n");
+
+        $this->expectOutputRegex('/qaConfig\/phpstan.neon  2 ignoreErrors entries are written in a form.*each as a `-` item/s');
+        self::assertSame(1, new IgnoreErrorsJustificationCheck()->run($this->root));
+    }
+
+    #[Test]
+    public function anIncludeThatCannotBeFollowedFails(): void
+    {
+        \Safe\file_put_contents($this->root . self::QA_CONFIG_PHPSTAN_NEON, "includes:\n    - missing.neon\n");
+
+        $this->expectOutputRegex('/qaConfig\/phpstan.neon includes missing.neon, which does not exist/');
+        self::assertSame(1, new IgnoreErrorsJustificationCheck()->run($this->root));
+    }
 }
