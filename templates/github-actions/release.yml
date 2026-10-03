@@ -27,10 +27,11 @@ name: Release
 #   templates/github-actions/release.yml               -> .github/workflows/release.yml
 #   templates/github-actions/approve-held-ci/action.yml -> .github/actions/approve-held-ci/action.yml
 #
-# `workflows:` below names the workflows whose green push run releases: CI,
-# and the names php-qa-ci's QA templates carry (PHP QA Pipeline, QA). If the
-# project's QA workflow has another name, or more than one of these runs on a
-# push to the default branch, list only the one that gates a release.
+# `workflows:` below names the workflows that gate a release: CI, and the
+# names php-qa-ci's QA templates carry (PHP QA Pipeline, QA). Every one of
+# them that runs on the pushed commit must be green, so the run of the last to
+# finish is the one that releases. A QA workflow with another name goes in
+# `workflows:` and in GATING_WORKFLOWS, which must hold the same list.
 #
 # Repository settings it relies on: docs/github-actions.md, "Release
 # automation".
@@ -63,6 +64,9 @@ jobs:
     env:
       BRANCH: ${{ github.event.workflow_run.head_branch }}
       RELEASE_BRANCH: chore/release-${{ github.event.workflow_run.head_branch }}
+      # The workflows under on.workflow_run, as JSON. Every run of one of them
+      # on the verified commit must have succeeded before anything is released.
+      GATING_WORKFLOWS: '["CI", "PHP QA Pipeline", "QA"]'
 
     steps:
       - name: Checkout the default branch with history and tags
@@ -71,19 +75,38 @@ jobs:
           ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 0
 
-      # Only the commit CI verified is acted on. When the branch has moved on,
-      # the run for the newer push does the work (the concurrency group queues it).
+      # Only the commit CI verified is acted on, and only once every gating
+      # workflow that ran on it is green. When the branch has moved on, the run
+      # for the newer push does the work (the concurrency group queues it); while
+      # another gating workflow is still running, its completion does.
       - name: Act only on the verified commit
         id: head
         env:
           VERIFIED: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$(git rev-parse HEAD)" = "${VERIFIED}" ]; then
-            echo "current=true" >> "$GITHUB_OUTPUT"
-          else
+          if [ "$(git rev-parse HEAD)" != "${VERIFIED}" ]; then
             echo "::notice::${BRANCH} has moved past ${VERIFIED}; the run for the newer push releases it."
             echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${VERIFIED}&event=push&per_page=100" > "${RUNNER_TEMP}/runs.json"
+          # The newest run of each gating workflow on the commit: name, status, conclusion.
+          jq -r --argjson gating "${GATING_WORKFLOWS}" '
+            [.workflow_runs[] | select(.name as $n | $gating | index($n) != null)]
+            | group_by(.name) | map(max_by(.created_at))[]
+            | "\(.name)\t\(.status)\t\(.conclusion // "")"' "${RUNNER_TEMP}/runs.json" > "${RUNNER_TEMP}/gating.tsv"
+          current=true
+          while IFS=$'\t' read -r name status conclusion; do
+            if [ "${status}" != "completed" ]; then
+              echo "::notice::${name} is still running on ${VERIFIED}; its completion releases."
+              current=false
+            elif [ "${conclusion}" != "success" ]; then
+              echo "::warning::${name} concluded ${conclusion} on ${VERIFIED}; nothing is released from it."
+              current=false
+            fi
+          done < "${RUNNER_TEMP}/gating.tsv"
+          echo "current=${current}" >> "$GITHUB_OUTPUT"
 
       - name: Detect PHP version from composer.json
         id: php

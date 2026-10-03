@@ -226,9 +226,10 @@ runs them.
   a release.
 - **A QA workflow that runs on a push to the default branch.** The release starts when a
   workflow named `CI`, `PHP QA Pipeline` (the `php-qa-ci.yml` template) or `QA` (the
-  `qa-autofix.yml` template) completes green on such a push. A QA workflow with another name, or
-  more than one of these running on that push, means editing `workflows:` in `release.yml` to
-  the one that gates a release. The `php-qa-ci.yml` template triggers on `main`, `master` and
+  `qa-autofix.yml` template) completes green on such a push, and acts only once every one of them
+  that ran on the commit is green, so two gating workflows cannot release on a split verdict. A QA
+  workflow with another name goes in `release.yml`'s `workflows:` and in its `GATING_WORKFLOWS`,
+  which must hold the same list. The `php-qa-ci.yml` template triggers on `main`, `master` and
   `develop`; another default branch goes on its `push` and `pull_request` lists.
 - **A release tag to measure from.** On the default branch the changelog lane judges everything
   since the newest release tag, and fails without one. Tag the release the project continues
