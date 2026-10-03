@@ -104,6 +104,7 @@
     }
   },
   "bin": [
+    "bin/arkitect-rule",
     "bin/changelog-release",
     "bin/composer-require-checker",
     "bin/config-template-ignorelist-check",

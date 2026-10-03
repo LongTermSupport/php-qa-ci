@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 
 use function Safe\file_get_contents;
 use function Safe\json_decode;
@@ -52,6 +53,29 @@ final class ComposerBinManifestTest extends TestCase
 
         self::assertSame([], $undeclared, 'Executables in bin/ not declared in composer.json "bin" (consumers cannot see them)');
         self::assertSame([], $missing, 'composer.json "bin" entries with no file under bin/');
+    }
+
+    /**
+     * bin/ is ignored wholesale (`/bin/*`, for the dev dependencies' proxies)
+     * and each shipped entry is re-included by name. A new entry that is
+     * declared and present but not re-included passes the test above in the
+     * working tree and never reaches the repository, so every consumer
+     * install then prints "Skipped installation of bin".
+     */
+    #[Test]
+    public function noDeclaredEntryIsIgnoredByGit(): void
+    {
+        $root     = \dirname(__DIR__, 2);
+        $composer = json_decode(file_get_contents($root . '/composer.json'), true);
+        self::assertIsArray($composer);
+        self::assertIsArray($composer['bin'] ?? null);
+        self::assertContainsOnlyString($composer['bin']);
+
+        $process = new Process(['git', 'check-ignore', '--', ...array_values($composer['bin'])], $root);
+        $process->run();
+
+        // check-ignore exits 1 when no path is ignored, 0 when one is, 128 on error.
+        self::assertSame(1, $process->getExitCode(), "composer.json \"bin\" entries ignored by git (add a !/bin/<name> line to .gitignore):\n" . $process->getOutput() . $process->getErrorOutput());
     }
 
     /**
