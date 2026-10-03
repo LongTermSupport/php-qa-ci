@@ -76,28 +76,38 @@ decisions below, the merge, the one-time repository setup and watching the first
 - [x] **Task 2.0**: Release redesign to the release pull request pattern: `ReleasedSections`,
   `pending-tags`, the lane counting a released-but-untagged section as the record,
   `release.yml`, `ci.yml` without the release job, docs (`c9252e6`, `fb9aa95`, `a88c069`)
+
 - [x] **Task 2.1**: Infection in diff mode against `origin/php8.5`: 91% covered MSI, passing.
   Owner ruling: never a 100% floor. The diff-mode default of 100 (from the Bash port) is gone,
   diff mode follows the covered floor, and `build()` refuses any MSI floor of 100 or more
   (`a338cdc`). The flaky `RunningProcessesTest` was a real race, fixed in `stopAll()` (`84d2235`)
+
 - [x] **Task 2.2**: Full unfiltered `CI=true bin/qa` exit 0 (1466 tests, full-mode Infection
   85% covered MSI), then `QA_READONLY=1 CI=true bin/qa` on the committed tree: every tool passed
-Tasks 2.3 to 2.6 were settled on the owner's instruction to apply common sense:
+  Tasks 2.3 to 2.6 were settled on the owner's instruction to apply common sense:
 
 - [x] **Task 2.3**: The five entries the `85.0.0` tag shipped moved, verbatim, into
   `## 85.0.0 — 2026-10-02` (`a88c069`)
+
 - [x] **Task 2.4**: The consumer template's `qa` job always checks out with `fetch-depth: 0`
   (`fb9aa95`)
+
 - [x] **Task 2.5**: `changelog-release add-tool-updates` writes the moved versions into the
   entry, read from the pins rather than `--version` banners (`c9252e6`, `fb9aa95`)
+
 - [x] **Task 2.6**: The two `QaConfigDto` parameters default to off, so the change is genuinely
   additive and `Added` is right (`c9252e6`)
 
 ### Phase 3: Land and switch on
 
-- [ ] **Task 3.1**: Merge `feature/changelog-release-automation` into `php8.5` with `--no-ff`
-- [x] **Task 3.2**: No setup needed: Actions may already open pull requests, no ruleset targets
-  tags or requires status checks (checked 2026-10-02; recorded in `CLAUDE/releases.md`)
+- [x] **Task 3.1**: Merge `feature/changelog-release-automation` into `php8.5` with `--no-ff`
+  (`ca6b529`)
+- [x] **Task 3.2**: Repository settings: Actions may open pull requests and no ruleset targets
+  tags. Classic branch protection on `php8.5` requires "QA Pipeline" and the stale
+  "ShellCheck (severity=warning)", which nothing reports. A pull request opened with
+  `GITHUB_TOKEN` starts no workflows, so `release.yml` dispatches CI on the release branch
+  (`4b97873`, merged `adae4f3`). Recorded in `CLAUDE/releases.md`. Removing the stale check is
+  the owner's setting
 - [ ] **Task 3.3**: Push `php8.5`; watch the first run: CI green, `release.yml` opens
   `Release 85.1.0`. Merge it; CI on the merge is green and `release.yml` publishes the
   `85.1.0` GitHub Release at the release commit
