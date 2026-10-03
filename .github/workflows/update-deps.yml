@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -181,3 +182,12 @@ jobs:
             This PR was created automatically by the [update-deps](${{ github.server_url }}/${{ github.repository }}/actions/workflows/update-deps.yml) workflow.
           labels: dependencies,automated
           commit-message: 'chore(deps): update all dependencies'
+
+      # The pull request's CI run is held because GITHUB_TOKEN pushed it, and
+      # php8.5 requires its "QA Pipeline" check.
+      - name: Approve CI on the pull request
+        if: steps.create-pr.outputs.pull-request-operation == 'created' || steps.create-pr.outputs.pull-request-operation == 'updated'
+        uses: ./.github/actions/approve-held-ci
+        with:
+          head-sha: ${{ steps.create-pr.outputs.pull-request-head-sha }}
+          token: ${{ github.token }}
