@@ -96,12 +96,20 @@ new line; that is a new branch (`php8.6`), not a release of this one.
 
 The workflow needs no secret and bypasses no branch protection: `GITHUB_TOKEN` opens the pull
 request and creates the release, and the owner's merge is the only write to `php8.5`. It relies
-on three settings, all already in place:
+on these settings:
 
 - **Settings → Actions → General → Workflow permissions**: "Allow GitHub Actions to create and
   approve pull requests" is on (`gh api repos/LongTermSupport/php-qa-ci/actions/permissions/workflow`
   shows `can_approve_pull_request_reviews: true`).
 - No ruleset targets tags, so `GITHUB_TOKEN` may create `85.N.N`.
-- No ruleset requires status checks on `php8.5`. A pull request opened with `GITHUB_TOKEN`
-  starts no workflow, so the release pull request carries no CI run of its own; a required check
-  would block it from merging. CI on the merge commit is what verifies it.
+- `php8.5`'s classic branch protection requires the status checks `QA Pipeline` and
+  `ShellCheck (severity=warning)`, and is not enforced on admins
+  (`gh api repos/LongTermSupport/php-qa-ci/branches/php8.5/protection`). A pull request opened or
+  pushed with `GITHUB_TOKEN` starts no workflow, so `release.yml` dispatches CI
+  (`gh workflow run ci.yml --ref chore/release-php8.5`) whenever it opens or updates the release
+  pull request; that run reports `QA Pipeline` on its head commit.
+- `ShellCheck (severity=warning)` is reported by nothing: ShellCheck runs inside `bin/qa` as the
+  `shellCheck` lane, and the job that once reported that check is gone. Until the context is
+  removed from the branch protection (Settings → Branches → `php8.5` → required status checks),
+  no pull request can be merged except by an admin, which includes the release pull request
+  (`gh pr merge <n> --merge --admin`).
