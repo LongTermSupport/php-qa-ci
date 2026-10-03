@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use Nette\Neon\Neon;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Defence for the class "a toolchain that does not run its own defences on itself".
+ * Defence for the class "a toolchain that does not run its own defences on itself":
+ * neither by leaving its rule sets out, nor by silencing what they find.
  *
  * The bundled rules reach every consuming project through the PHPStan extension
  * installer, which reads extra.phpstan.includes from each INSTALLED package. It
@@ -52,6 +54,25 @@ final class SelfCheckRunsBundledRulesTest extends TestCase
             $missing,
             'qaConfig/phpstan.neon must include every bundled rule set, otherwise php-qa-ci is the one '
             . 'project in which its own rules never run. Add each missing file under includes:.',
+        );
+    }
+
+    /**
+     * The self-check is the project that defends every other project, so a
+     * finding in its own code is fixed, never silenced: an ignoreErrors entry
+     * here is a Baseline, which this repository does not keep.
+     */
+    public function testTheSelfCheckSilencesNoFinding(): void
+    {
+        $config = Neon::decodeFile(self::SELF_CHECK_CONFIG);
+        self::assertIsArray($config);
+        $parameters = $config['parameters'] ?? [];
+        self::assertIsArray($parameters);
+
+        self::assertArrayNotHasKey(
+            'ignoreErrors',
+            $parameters,
+            'qaConfig/phpstan.neon must not ignore any PHPStan error: fix the finding instead.',
         );
     }
 }
