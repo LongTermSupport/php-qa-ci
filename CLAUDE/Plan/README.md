@@ -10,17 +10,17 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00008: shellcheck lane vendored binary](00008-shellcheck-lane-vendored-binary/PLAN.md) - In Progress — ShellCheck runs only in CI, so a green bin/qa can still be a red branch; vendor one pinned static binary, add the lane with git-tracked shebang discovery and a per-project glob override, delete the duplicate CI job
-
 - [00010: Defence Before Fix full conformance](00010-defence-before-fix-full-conformance/PLAN.md) - In Progress — empty both `known-gaps` lists in `composer.json`, planned against upstream's clause-by-clause register entry rather than our own (understated) declaration; identity, then resolution, then enforcement
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
-- [00015: release automation for consumers](00015-release-automation-for-consumers/PLAN.md) - Not Started — ship the changelog-driven release workflow as a template any project can adopt, semantic versioning by default (breaking moves the major), with php-qa-ci's locked major as an override in its own `qaConfig/qa.php`
+- [00015: release automation for consumers](00015-release-automation-for-consumers/PLAN.md) - In Progress — ship the changelog-driven release workflow as a template any project can adopt, semantic versioning by default (breaking moves the major), with php-qa-ci's locked major as an override in its own `qaConfig/qa.php`
 
-- [00016: method 1.1.0 and the deferred-defect record](00016-method-1-1-0-deferred-defect-record/PLAN.md) - Not Started — method 1.1.0 requires a deferred defect to be recorded where the project's decisions are enumerable; give projects that record in `bin/rules` and the agent summary, then declare 1.1.0
+- [00016: method 1.1.0 and the deferred-defect record](00016-method-1-1-0-deferred-defect-record/PLAN.md) - In Progress — method 1.1.0 requires a deferred defect to be recorded where the project's decisions are enumerable; give projects that record in `bin/rules` and the agent summary, then declare 1.1.0
 
 ## Completed Plans
+
+- [00008: shellcheck lane vendored binary](Completed/00008-shellcheck-lane-vendored-binary/PLAN.md) - Complete — the `shellCheck` lane runs a vendored, pinned static ShellCheck over every git-tracked shell script, so a green `bin/qa` is a green branch; the duplicate CI job is gone and `php8.5` requires `QA Pipeline` alone (delivered b191a1b)
 
 - [00014: changelog release automation](Completed/00014-changelog-release-automation/PLAN.md) - Complete — `CHANGELOG.md` is the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` opens a release pull request whose merge publishes the release (85.1.0 shipped this way; merged ffa598e)
 

@@ -1,6 +1,6 @@
 # Plan 00008: shellcheck lane vendored binary
 
-**Status**: In Progress
+**Status**: Complete (b191a1b; the branch rule confirmed requiring `QA Pipeline` alone)
 **Created**: 2026-09-10
 **Owner**: Joseph Edmonds
 **Priority**: Medium
@@ -138,8 +138,9 @@ already are, so every environment runs one build.
 - [x] ✅ **Task 3.1**: The `shellcheck` job is gone from `.github/workflows/ci.yml`,
   leaving a comment where it was so the next reader knows the check moved rather than
   vanished.
-  - [ ] ⬜ **OWNER-HELD — the branch rule must be corrected to require the checks that
-    exist**, which is `QA Pipeline` alone. The pipeline IS the check; ShellCheck is a lane
+  - [x] ✅ **OWNER-HELD — the branch rule must be corrected to require the checks that
+    exist**, which is `QA Pipeline` alone. Done: `php8.5`'s required status checks are
+    `QA Pipeline` alone (read from `branches/php8.5/protection/required_status_checks`). The pipeline IS the check; ShellCheck is a lane
     inside it. Do not add a CI job whose only purpose is to publish the stale context —
     that recreates the second mechanism this plan removed, and buys a duplicate
     `composer install` per run to satisfy a rule that is simply out of date. Fix the rule.
@@ -168,7 +169,7 @@ already are, so every environment runs one build.
 
 ### Decision 1: A new tool is justified
 
-**Context**: [CLAUDE/tool-boundaries.md](../../tool-boundaries.md) requires a new tool to
+**Context**: [CLAUDE/tool-boundaries.md](../../../tool-boundaries.md) requires a new tool to
 answer yes to all three questions. **The answers**:
 
 1. *Does it answer a question no existing tool asks?* Yes — nothing in the pipeline
@@ -244,8 +245,8 @@ rather than left in this plan. **Date**: 2026-09-10
   matches the pin.
 - [x] `composer update` in php-qa-ci re-resolves ShellCheck to the newest release.
 - [x] The lane reports the same findings as the old CI invocation on the same tree.
-- [x] `ci.yml` no longer has a `shellcheck` job. The branch rule does **not** yet match —
-  owner-held, see Task 3.1.
+- [x] `ci.yml` no longer has a `shellcheck` job, and the branch rule requires `QA Pipeline`
+  alone.
 - [x] Full unfiltered pipeline exit 0 (Covered Code MSI 82%).
 
 ## Risks & Mitigations
@@ -253,7 +254,7 @@ rather than left in this plan. **Date**: 2026-09-10
 | Risk                                                               | Impact | Probability | Mitigation                                                                                                         |
 | ------------------------------------------------------------------ | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------ |
 | Discovery finds files CI never checked, so the lane lands red      | Med    | High        | Expected, not a defect. Sweep and fix before switching the lane on; that sweep is Task 3.2                         |
-| Deleting the CI job while the branch rule still requires its check | High   | High        | Real and live. Owner drops the ShellCheck context from the required-checks list; see Task 3.1's owner-held box     |
+| Deleting the CI job while the branch rule still requires its check | High   | High        | Closed: the required-checks list is `QA Pipeline` alone; see Task 3.1                                              |
 | The vendored binary is wrong for a consumer's architecture         | Med    | Low         | Pin `linux.x86_64` and fail loudly naming the architecture, rather than silently skipping                          |
 | A pinned binary goes stale                                         | Low    | Med         | Task 1.2 puts the refresh on the existing `post-update-cmd` path that `update-deps.yml` already runs on a schedule |
 
