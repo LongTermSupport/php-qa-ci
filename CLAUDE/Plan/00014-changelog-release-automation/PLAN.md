@@ -76,11 +76,10 @@ decisions below, the merge, the one-time repository setup and watching the first
 - [x] **Task 2.0**: Release redesign to the release pull request pattern: `ReleasedSections`,
   `pending-tags`, the lane counting a released-but-untagged section as the record,
   `release.yml`, `ci.yml` without the release job, docs (`c9252e6`, `fb9aa95`, `a88c069`)
-- [ ] **Task 2.1**: Infection in diff mode against `origin/php8.5`
-  (`infectionDiffBase=origin/php8.5 bin/qa -t infection`). Covered MSI 86% → 93% with new tests
-  (merge `8383295`); still under the 100% floor. Owner decision on the remaining 91: about 40
-  are equivalent mutants in branch code, and 52 sit on pre-existing `ToolRegistry` lines 91–119,
-  which `ToolRegistryCharacterisationTest` asserts but, being `#[CoversNothing]`, never credits
+- [x] **Task 2.1**: Infection in diff mode against `origin/php8.5`: 91% covered MSI, passing.
+  Owner ruling: never a 100% floor. The diff-mode default of 100 (from the Bash port) is gone,
+  diff mode follows the covered floor, and `build()` refuses any MSI floor of 100 or more
+  (`a338cdc`). The flaky `RunningProcessesTest` was a real race, fixed in `stopAll()` (`84d2235`)
 - [x] **Task 2.2**: Full unfiltered `CI=true bin/qa` exit 0 (1466 tests, full-mode Infection
   85% covered MSI), then `QA_READONLY=1 CI=true bin/qa` on the committed tree: every tool passed
 Tasks 2.3 to 2.6 were settled on the owner's instruction to apply common sense:
