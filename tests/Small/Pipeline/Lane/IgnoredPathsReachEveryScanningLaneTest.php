@@ -83,6 +83,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         'phpcpd'         => 'reports duplication across the checked paths',
         'phpstan'        => 'analyses the checked paths',
         'deadCode'       => 'analyses src/ and tests/ through phpstan.phar',
+        'phpArkitect'    => 'checks the classes under the source dir against the architecture rules',
     ];
 
     /**
@@ -91,7 +92,6 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
      * names the lane's source file, so the Owner sees it.
      */
     private const array KNOWN_GAPS = [
-        'phpArkitect' => 'arkitect excludes by an unanchored glob, so an ignored directory would also drop every same-named directory deeper in src/',
         'infection'   => "mutates infection.json's source directories, and Infection takes no exclusion on the command line",
     ];
 
@@ -204,6 +204,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
             'phpcpd'         => ['phpcpd', self::REACHES, $asIs, $succeeds],
             'phpstan'        => ['phpstan', self::REACHES, $asIs, $succeeds],
             'deadCode'       => ['deadCode', self::REACHES, $deadCode, $succeeds],
+            'phpArkitect'    => ['phpArkitect', self::REACHES, $asIs, $succeeds],
         ];
     }
 
