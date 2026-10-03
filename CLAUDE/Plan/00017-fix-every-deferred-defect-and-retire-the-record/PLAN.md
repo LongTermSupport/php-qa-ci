@@ -61,9 +61,9 @@ backported proactively; the rest stay known `php8.4` issues until someone report
 
 ### Phase 4: the declared known gaps
 
-- [ ] 🔄 **Task 4.1**: Identify each PHPArkitect tier rule, resolvable by `bin/rule-doc`, with a single-file run (red committed, fix pending)
+- [x] ✅ **Task 4.1**: Identify each PHPArkitect tier rule, resolvable by `bin/rule-doc`, with a single-file run
 - [x] ✅ **Task 4.2**: Carry PHPStan's native identifier catalogue offline for `bin/rule-doc`
-- [ ] ⬜ **Task 4.3**: Remove the `known-gaps` entries and the decisions they cite
+- [x] ✅ **Task 4.3**: Remove the `known-gaps` entries and the decisions they cite
 
 ### Phase 4b: defects found while working (fixed, red first)
 
@@ -72,16 +72,16 @@ backported proactively; the rest stay known `php8.4` issues until someone report
 
 ### Phase 5: release lines
 
-- [ ] ⬜ **Task 5.1**: `CLAUDE.md` and `README.md` state the ruling: `php8.5` is current, `php8.4` takes a fix when a `php8.4` project reports a bug, `php8.3` is dead
-- [ ] ⬜ **Task 5.2**: An issue form whose release line is required, held to the live branches by a test
-- [ ] ⬜ **Task 5.3**: Backport #36 (FlipAssertRector inverts assertions) to `php8.4` and release it (on hold for the Owner)
+- [x] ✅ **Task 5.1**: `CLAUDE.md` and `README.md` state the ruling: `php8.5` is current, `php8.4` takes a fix when a `php8.4` project reports a bug, `php8.3` is dead
+- [x] ✅ **Task 5.2**: An issue form whose release line is required, held to the live branches by a test
+- [ ] ⏸️ **Task 5.3**: Backport #36 (FlipAssertRector inverts assertions) to `php8.4` and release it (on hold for the Owner)
 
 ## Success Criteria
 
-- [ ] `qaConfig/defect-record.neon` does not exist and nothing refers to it
-- [ ] `qaConfig/phpstan.neon` has no `ignoreErrors`, and `composer.json` declares no `known-gaps`
+- [x] `qaConfig/defect-record.neon` does not exist and nothing refers to it
+- [x] `qaConfig/phpstan.neon` has no `ignoreErrors`, and `composer.json` declares no `known-gaps`
 - [ ] Both battery runs pass on `php8.5`, and on `php8.4` for its fixes
-- [ ] Issues cannot be opened without a release line
+- [x] Issues cannot be opened without a release line
 
 ## Delivery & Milestones
 
