@@ -95,6 +95,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheckTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\AnalysedPathsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ChangelogTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool::class)]

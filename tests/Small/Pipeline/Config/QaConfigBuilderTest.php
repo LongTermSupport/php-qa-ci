@@ -53,6 +53,10 @@ final class QaConfigBuilderTest extends TestCase
 
     private const string ARKITECT_EXCLUDED = 'Quote/API';
 
+    private const string UNANALYSED_DIR = 'migrations';
+
+    private const string UNANALYSED_REASON ='Symfony container configuration, linted by lint:container';
+
     #[Test]
     public function defaultsMirrorThePipelineDefaults(): void
     {
@@ -392,6 +396,70 @@ final class QaConfigBuilderTest extends TestCase
 
         self::assertFalse($config->useChangelogCheck);
         self::assertSame([], $config->changelogWatchedPaths);
+    }
+
+    #[Test]
+    public function nothingIsDeclaredUnanalysedByDefault(): void
+    {
+        self::assertSame([], $this->defaults()->build()->unanalysedPaths);
+    }
+
+    #[Test]
+    public function unanalysedPathsAccumulateNormalisedAndKeepTheirReasons(): void
+    {
+        $config = $this->defaults()
+            ->withUnanalysedPath('config/', self::UNANALYSED_REASON)
+            ->withUnanalysedPath('./rector.php', 'Rector configuration, loaded by Rector itself')
+            ->build()
+        ;
+
+        self::assertSame(
+            ['config' => self::UNANALYSED_REASON, 'rector.php' => 'Rector configuration, loaded by Rector itself'],
+            $config->unanalysedPaths,
+        );
+    }
+
+    /**
+     * The reason is an argument rather than a comment so it cannot be left
+     * out, and is printed on every run beside the path it excuses.
+     */
+    #[Test]
+    public function anUnanalysedPathIsRefusedWithoutAReasonOfAtLeastTwoWords(): void
+    {
+        foreach (['', '   ', 'legacy'] as $reason) {
+            try {
+                $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, $reason);
+                self::fail(self::EXPECTED_LOGIC_EXCEPTION . ' for reason "' . $reason . '"');
+            } catch (LogicException $logicException) {
+                self::assertStringContainsString("withUnanalysedPath('migrations'", $logicException->getMessage());
+            }
+        }
+    }
+
+    #[Test]
+    public function theProjectRootOrAPathLeavingItCannotBeDeclaredUnanalysed(): void
+    {
+        foreach (['', '.', './', '/', '../shared', 'config/../src'] as $path) {
+            try {
+                $this->defaults()->withUnanalysedPath($path, self::UNANALYSED_REASON);
+                self::fail(self::EXPECTED_LOGIC_EXCEPTION . ' for path "' . $path . '"');
+            } catch (LogicException $logicException) {
+                self::assertStringContainsString('withUnanalysedPath(', $logicException->getMessage());
+            }
+        }
+    }
+
+    #[Test]
+    public function aPathDeclaredUnanalysedTwiceIsRefused(): void
+    {
+        $once = $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, self::UNANALYSED_REASON);
+
+        try {
+            $once->withUnanalysedPath(self::UNANALYSED_DIR . '/', self::UNANALYSED_REASON);
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertStringContainsString('declared unanalysed twice', $logicException->getMessage());
+        }
     }
 
     #[Test]

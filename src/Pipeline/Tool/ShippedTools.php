@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Tool;
 
+use LTS\PHPQA\Pipeline\Lane\AnalysedPathsTool;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool;
 use LTS\PHPQA\Pipeline\Lane\ChangelogTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecksTool;
@@ -50,6 +51,7 @@ final readonly class ShippedTools
             new PackageTypeTool(),
             new ConfigTemplateIgnoreListTool(),
             new InfectionConfigSourceDirsTool(),
+            new AnalysedPathsTool(),
             new VersionPinsTool(),
             new ChangelogTool(),
             new PhpstanIgnoreJustificationTool(),
