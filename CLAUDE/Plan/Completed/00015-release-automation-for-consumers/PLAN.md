@@ -1,6 +1,6 @@
 # Plan 00015: release automation for consumers
 
-**Status**: In Progress
+**Status**: Complete (merged 0f83ba1; released as 85.3.0 at cb5b4eb)
 **Created**: 2026-10-03
 **Owner**: joseph
 **Priority**: Medium
@@ -71,7 +71,7 @@ repository declares for itself.
 
 - [x] ✅ **Task 4.1**: A Large test drives the release flow end to end in a scratch repository
   under both policies.
-- [ ] ⬜ **Task 4.2**: The next php-qa-ci release goes through the template copy with the
+- [x] ✅ **Task 4.2**: The next php-qa-ci release goes through the template copy with the
   override and produces the version the locked-major policy names.
 
 ## Success Criteria
@@ -80,7 +80,7 @@ repository declares for itself.
   carries a `Changed — breaking` entry, and `1.5.0` when it carries only `Added`.
 - [x] php-qa-ci releases `85.N+1.0` for a breaking change, as today.
 - [x] `.github/workflows/release.yml` and the template cannot drift without a test failing.
-- [ ] The full battery passes.
+- [x] The full battery passes.
 
 ## Technical Decisions
 
@@ -121,3 +121,7 @@ more than one of them on that push, edits that one line.
 - Plan filed
 - Phases 1–3 and Task 4.1: `b0ec234` (red tests), `140e1ec` (the versioning policy), `06b271f`
   (the workflow templates and documentation)
+- Merged to `php8.5` in `0f83ba1`; full battery, writable and read-only, green on the merge
+- Task 4.2: 85.3.0 released through the template copy under the locked-major override — release
+  pull request #48, release commit `cb5b4eb`; the first attempt exposed `bin/changelog-release`
+  at mode 644, fixed red-first in `1f8c5c4` / `fe2feff` (merged `ed44be0`)

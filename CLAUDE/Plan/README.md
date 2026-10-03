@@ -14,9 +14,9 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
-- [00015: release automation for consumers](00015-release-automation-for-consumers/PLAN.md) - In Progress — ship the changelog-driven release workflow as a template any project can adopt, semantic versioning by default (breaking moves the major), with php-qa-ci's locked major as an override in its own `qaConfig/qa.php`
-
 ## Completed Plans
+
+- [00015: release automation for consumers](Completed/00015-release-automation-for-consumers/PLAN.md) - Complete — the changelog-driven release workflow ships as `templates/github-actions/release.yml`, semantic versioning by default (breaking moves the major), with php-qa-ci's locked major an override in its own `qaConfig/qa.php`; 85.3.0 released through the template copy (merged 0f83ba1, released cb5b4eb)
 
 - [00016: method 1.1.0 and the deferred-defect record](Completed/00016-method-1-1-0-deferred-defect-record/PLAN.md) - Complete — `qaConfig/defect-record.neon` records deferred defects and no-pattern conclusions, read and validated by the justification lane, listed by `bin/rules` and carried into the agent summary; the declaration states method 1.1.0 at both levels (delivered c2941a1)
 
