@@ -39,6 +39,8 @@ final class ActiveDefencesSummaryTest extends TestCase
 
     private const string PHASE = 'linting';
 
+    private const string PHPSTAN_NEON = self::ROOT . '/qaConfig/phpstan.neon';
+
     private const string HEADER = AgentContextRegion::START . "\n"
         . "## php-qa-ci — Active defences\n\n"
         . "Generated from this project's active configuration by `rules --write-agent-summary`; do not\n"
@@ -53,7 +55,7 @@ final class ActiveDefencesSummaryTest extends TestCase
     public function everyDefenceIsOneLineWithItsIdentifierAndPage(): void
     {
         $listing = new ActiveDefencesListingDto(
-            self::ROOT . '/qaConfig/phpstan.neon',
+            self::PHPSTAN_NEON,
             [
                 new ActiveRuleEntryDto('LTS\Rules\Dangerous', 'phpqaci.dangerousFunctions', 'No exec/eval/unserialize and similar', self::ROOT . '/vendor/lts/php-qa-ci/docs/phpstan-rules/forbid-dangerous-functions.md'),
                 new ActiveRuleEntryDto('App\PHPStan\OwnRule', null, null, null),
@@ -97,7 +99,7 @@ final class ActiveDefencesSummaryTest extends TestCase
     public function aProjectRootGivenWithATrailingSlashStillShortensThePage(): void
     {
         $listing = new ActiveDefencesListingDto(
-            self::ROOT . '/qaConfig/phpstan.neon',
+            self::PHPSTAN_NEON,
             [new ActiveRuleEntryDto('LTS\Rules\Dangerous', 'phpqaci.dangerousFunctions', 'No exec/eval/unserialize and similar', self::ROOT . '/docs/rule.md')],
             [],
             [],
@@ -173,7 +175,7 @@ final class ActiveDefencesSummaryTest extends TestCase
     private function listingWith(DefectRecordDto $record): ActiveDefencesListingDto
     {
         return new ActiveDefencesListingDto(
-            self::ROOT . '/qaConfig/phpstan.neon',
+            self::PHPSTAN_NEON,
             [],
             [new PipelineLaneDto('changelog', 'phpqaci.changelog', 'CHANGELOG.md records every consumer-facing change', self::PHASE, null)],
             [],
