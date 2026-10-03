@@ -58,6 +58,7 @@ the release and its tag. The full rules are in
   no instance in `src/` can now be seen to fire before a green arch run is
   trusted. See
   [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires).
+
 - **A defect record: `qaConfig/defect-record.neon`.** Method specification
   1.1.0 requires a defect found and not fixed now, and the conclusion that no
   pattern exists, to be recorded where the project's decisions are enumerable.
@@ -69,6 +70,7 @@ the release and its tag. The full rules are in
   misspelt field. A project without the file passes as before; its `CLAUDE.md`
   region gains a line saying where a deferred defect goes. Format:
   `vendor/bin/rule-doc phpqaci.phpstanIgnoreJustification`.
+
 - **Releases follow a versioning policy declared in `qaConfig/qa.php`.**
   `withReleaseVersionPolicy()` takes
   `ReleaseVersionPolicy::semanticVersioning()`, the default, whose first release
@@ -122,6 +124,11 @@ the release and its tag. The full rules are in
   path is skipped. An exclusion repeated in a project's own `phpstan.neon`,
   `php_cs_finder.php` or `psr4-validate-ignore-list.txt` can be dropped.
   PHPArkitect and Infection still need their own setting.
+- **Rector no longer warns "This skipped rule is never registered" on every
+  run.** The shipped `rector-php85.php` skipped
+  `NullToStrictStringFuncCallArgRector`, which Rector 2.6.7 registers in no set,
+  so the skip did nothing except print a warning naming a file the project does
+  not own. The skip is gone; the rule stays out because no set registers it.
 
 ## 85.2.0 — 2026-10-03
 
