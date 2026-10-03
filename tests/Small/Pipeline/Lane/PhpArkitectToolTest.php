@@ -94,9 +94,11 @@ final class PhpArkitectToolTest extends TestCase
                 '--config=' . $defaults . '/phparkitect.php',
                 '--autoload=' . $this->factory->project->path . '/vendor/autoload.php',
                 '--no-interaction',
+                '--skip-baseline',
             ],
             $this->toolArgs($spec),
         );
+        self::assertStringNotContainsString(PhpArkitectTool::BASELINE_FILE, $printed, 'no baseline, nothing to say about one');
         self::assertSame($this->factory->project->path, $spec->cwd);
         self::assertTrue($spec->streamOutput);
         self::assertSame(
@@ -234,6 +236,28 @@ final class PhpArkitectToolTest extends TestCase
         self::assertStringEndsWith(FileReportWriter::INDEX_FILE, $lines[1]);
         self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
         self::assertContains('--format=json', $this->toolArgs($this->factory->processes->lastSpec()));
+        self::assertContains('--skip-baseline', $this->toolArgs($this->factory->processes->lastSpec()));
+    }
+
+    /**
+     * phparkitect reads phparkitect-baseline.json from the working directory whenever it
+     * exists, and a violation listed there is reported as no violation at all: a
+     * suppression outside the project record. The lane never lets it be read, and says
+     * so when one is present, so a project relying on one finds out why it now fails.
+     */
+    #[Test]
+    public function aBaselineFileIsNeverReadAndIsNamedWhenPresent(): void
+    {
+        $this->factory->project->write(PhpArkitectTool::BASELINE_FILE, '{"violations": []}');
+        $this->factory->processes->willFail(1, "App\\Foo violates ...\n");
+
+        $result  = new PhpArkitectTool()->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertContains('--skip-baseline', $this->toolArgs($this->factory->processes->lastSpec()));
+        self::assertStringContainsString('PHPArkitect: phparkitect-baseline.json is not read.', $printed);
+        self::assertStringContainsString('qaConfig/qa.php', $printed);
     }
 
     #[Test]
