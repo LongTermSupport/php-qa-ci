@@ -147,7 +147,7 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
         $major    = $this->group(self::GAP_SHAPE, $gap, 2);
         $minor    = $this->group(self::GAP_SHAPE, $gap, 3);
         $status   = $this->group(self::GAP_SHAPE, $gap, 4);
-        if (null === $document || null === $major || null === $minor || null === $status) {
+        if (\in_array(null, [$document, $major, $minor, $status], true)) {
             return 'no clause';
         }
 
@@ -188,7 +188,7 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
                 }
 
                 if (!$stillReal) {
-                    return $decision . '\'s gap is closed; remove it from known-gaps';
+                    return $decision . "'s gap is closed; remove it from known-gaps";
                 }
             }
         }
@@ -217,13 +217,8 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
             ...$this->files(self::PLAN_DIR . '/' . $plan . '-*/*.md'),
             ...$this->files(self::PLAN_DIR . '/Completed/' . $plan . '-*/*.md'),
         ];
-        foreach ($files as $file) {
-            if (null !== $this->group('/^#{2,3} Decision ' . $number . ':/m', \Safe\file_get_contents($file), 0)) {
-                return true;
-            }
-        }
 
-        return false;
+        return array_any($files, fn (string $file): bool => null !== $this->group('/^#{2,3} Decision ' . $number . ':/m', \Safe\file_get_contents($file), 0));
     }
 
     /**
@@ -247,13 +242,8 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
     {
         $tiers = $this->files(self::REPO_ROOT . '/configDefaults/generic/phparkitect-rules-*.php');
         self::assertNotSame([], $tiers, 'The bundled PHPArkitect tiers are not where the probe looks.');
-        foreach ($tiers as $tier) {
-            if (str_contains(\Safe\file_get_contents($tier), 'phpqaci.')) {
-                return false;
-            }
-        }
 
-        return true;
+        return array_all($tiers, static fn (string $tier): bool => !str_contains(\Safe\file_get_contents($tier), 'phpqaci.'));
     }
 
     /** Decision 6: a PHPStan identifier still resolves only to the online catalogue. */

@@ -79,7 +79,7 @@ final readonly class InstalledPhpstanExtensions
     private function vendorDir(string $projectRoot): string
     {
         $manifest = $projectRoot . '/composer.json';
-        $decoded  = is_file($manifest) ? json_decode(\Safe\file_get_contents($manifest), true) : null;
+        $decoded  = is_file($manifest) ? \Safe\json_decode(\Safe\file_get_contents($manifest), true) : null;
         $config   = \is_array($decoded) ? ($decoded['config'] ?? null) : null;
         $vendor   = \is_array($config) && \is_string($config['vendor-dir'] ?? null) ? $config['vendor-dir'] : 'vendor';
 
