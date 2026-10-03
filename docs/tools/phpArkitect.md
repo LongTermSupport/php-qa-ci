@@ -43,9 +43,22 @@ guide.
   | `PHPQACI_ARKITECT_RULES_OPTIONAL`         | resolved `phparkitect-rules-optional.php`                   |
   | `PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY` | resolved `phparkitect-rules-optional-symfony.php`           |
   | `PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY`  | resolved `phparkitect-consumer-api-boundary.php`            |
+  | `PHPQACI_ARKITECT_CLASS_SET`              | resolved `phparkitect-class-set.php`                        |
+  | `PHPQACI_ARKITECT_IGNORED_PATHS`          | `withIgnoredPaths()`, absolute, newline-delimited           |
   | `PHPQACI_ARKITECT_EXCLUDE_PATHS`          | `arkitectExcludePaths`, newline-delimited, empty when unset |
 
   Each `resolved` file honours a `qaConfig/` override of the same name.
+
+- The class set comes from
+  [`phparkitect-class-set.php`](../../configDefaults/generic/phparkitect-class-set.php), a
+  factory both the default entry config and the template call with the source directory. It
+  leaves out `Generated`, each `withArkitectExcludedPaths()` glob (matched anywhere below `src/`,
+  as arkitect matches it) and each `withIgnoredPaths()` path, anchored: ignoring `src/Legacy`
+  drops `src/Legacy/` and keeps `src/Domain/Legacy/`.
+
+- A project entry config that does not build its class set from `PHPQACI_ARKITECT_CLASS_SET`
+  fails the lane while one of the ignored paths is under the source directory, naming them,
+  since arkitect would check those classes. Arkitect does not run.
 
 - The output is written to `var/qa/phparkitect_logs/phparkitect.log` and a timestamped copy is
   archived alongside it (last ten kept).

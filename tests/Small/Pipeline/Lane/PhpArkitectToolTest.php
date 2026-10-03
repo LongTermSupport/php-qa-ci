@@ -114,6 +114,8 @@ final class PhpArkitectToolTest extends TestCase
                 'PHPQACI_ARKITECT_RULES_OPTIONAL'          => $defaults . '/phparkitect-rules-optional.php',
                 'PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY'  => $defaults . '/phparkitect-rules-optional-symfony.php',
                 'PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY'   => $defaults . '/phparkitect-consumer-api-boundary.php',
+                'PHPQACI_ARKITECT_CLASS_SET'               => $defaults . '/phparkitect-class-set.php',
+                'PHPQACI_ARKITECT_IGNORED_PATHS'           => '',
                 'PHPQACI_ARKITECT_EXCLUDE_PATHS'           => "Quote/API\nGenerated/Client",
                 'XDEBUG_MODE'                              => 'off',
             ],

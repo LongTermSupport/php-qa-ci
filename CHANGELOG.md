@@ -25,6 +25,22 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- **BREAKING**: the `phpArkitect` lane fails, without running arkitect, when the project's own
+  `qaConfig/phparkitect.php` builds its class set by hand while a `withIgnoredPaths()` entry is
+  under the source directory, since those classes would still be checked. Build the class set
+  from the shipped factory instead, `(require getenv('PHPQACI_ARKITECT_CLASS_SET'))($srcDir)`, as
+  `templates/qaConfig-phparkitect.php` now does; it applies `Generated` and
+  `withArkitectExcludedPaths()` as before.
+
+### Fixed
+
+- The `phpArkitect` lane honours `withIgnoredPaths()`. The shipped class-set factory
+  (`configDefaults/generic/phparkitect-class-set.php`, exported as `PHPQACI_ARKITECT_CLASS_SET`)
+  drops each ignored path anchored at the source directory, so ignoring `src/Legacy` no longer
+  leaves `src/Legacy/` checked, and does not drop `src/Domain/Legacy/` either.
+
 ## 85.3.0 — 2026-10-03
 
 ### Changed — breaking

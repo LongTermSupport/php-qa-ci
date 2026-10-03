@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
 use LTS\PHPQA\Pipeline\Agent\ArkitectJsonParser;
 use LTS\PHPQA\Pipeline\Agent\ClassFileLocator;
@@ -95,6 +96,20 @@ final readonly class PhpArkitectTool implements ToolInterface
 
         $paths  = $config->paths;
         $logDir = $context->logDir(self::LOG_DIR);
+
+        $unhonoured = $this->ignoredSourcePathsTheEntryConfigWouldCheck($context, $entryConfig);
+        if ([] !== $unhonoured) {
+            $context->writeln(\sprintf('PHPArkitect: %s builds its own class set, so these ignored paths would still be checked:', $entryConfig));
+            foreach ($unhonoured as $path) {
+                $context->writeln('             ' . substr($path, \strlen(rtrim($paths->projectRoot, '/')) + 1));
+            }
+
+            $context->writeln(\sprintf('             Build it from the shipped factory instead: (require getenv(\'%s\'))($srcDir).', ArkitectEnvironment::CLASS_SET));
+            $context->writeln('             templates/qaConfig-phparkitect.php shows the line. See docs/tools/phpArkitect.md.');
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::failed('the project entry config does not honour withIgnoredPaths()');
+        }
 
         if (is_file($paths->projectRoot . '/' . self::BASELINE_FILE)) {
             $context->writeln(\sprintf('PHPArkitect: %s is not read. A baseline hides violations outside the project record:', self::BASELINE_FILE));
@@ -262,7 +277,32 @@ final readonly class PhpArkitectTool implements ToolInterface
         return new ArkitectEnvironment()->variables(
             $context->configPaths,
             $context->config->paths->srcDir,
+            IgnoredPaths::of($context->config),
             ...$context->config->arkitectExcludePaths,
         );
+    }
+
+    /**
+     * The ignored paths under the source dir, when the entry config is the
+     * project's own and does not build its class set from the shipped factory.
+     * Such a config was written before the factory existed, and arkitect would
+     * check everything under those paths.
+     *
+     * @return list<string> absolute paths
+     */
+    private function ignoredSourcePathsTheEntryConfigWouldCheck(ToolContext $context, string $entryConfig): array
+    {
+        $paths = $context->config->paths;
+        if (!str_starts_with($entryConfig, rtrim($paths->projectConfigDir, '/') . '/')
+            || str_contains(\Safe\file_get_contents($entryConfig), ArkitectEnvironment::CLASS_SET)) {
+            return [];
+        }
+
+        $srcDir = rtrim($paths->srcDir, '/');
+
+        return array_values(array_filter(
+            IgnoredPaths::of($context->config)->absolute,
+            static fn (string $ignored): bool => $ignored === $srcDir || str_starts_with($ignored, $srcDir . '/'),
+        ));
     }
 }

@@ -25,33 +25,31 @@ declare(strict_types=1);
  * Where a rule belongs (arkitect vs PHPStan):
  *   [README "Where does a rule belong"](../README.md#where-does-a-rule-belong--phparkitect-or-phpstan)
  *
- * Paths are defined HERE: ClassSet::fromDir(...). __DIR__ is qaConfig/, so
- * '/../src' is the project src/. The pipeline passes --autoload for you.
+ * Paths are defined HERE: the class-set factory is handed the source dir.
+ * __DIR__ is qaConfig/, so '/../src' is the project src/. The pipeline passes
+ * --autoload for you.
  */
 
-use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\HaveNameMatching;
 use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
 
 return static function (Config $config): void {
-    // Adjust to your project. Exclude generated code (cannot be renamed).
+    // Adjust to your project.
     $rootNamespace = 'App';
-    $classSet      = ClassSet::fromDir(__DIR__ . '/../src')->excludePath('Generated');
 
-    // Honour project-declared generated paths from qaConfig/qa.php, e.g.
-    //   ->withArkitectExcludedPaths('Quote/API')
-    // The pipeline exports them newline-delimited as PHPQACI_ARKITECT_EXCLUDE_PATHS.
-    // Each entry is matched by arkitect (Arkitect\Glob::toRegex) against the path
-    // RELATIVE to src/. Keeping this block means you declare generated paths in ONE
-    // place (qa.php) whether or not you use this override file.
-    $extraExcludePaths = getenv('PHPQACI_ARKITECT_EXCLUDE_PATHS');
-    if (false !== $extraExcludePaths && '' !== \trim($extraExcludePaths)) {
-        foreach (\array_filter(\array_map('trim', \explode("\n", $extraExcludePaths))) as $excludePath) {
-            $classSet = $classSet->excludePath($excludePath);
-        }
+    // The class set comes from the shipped factory. It leaves out 'Generated'
+    // (generated code cannot be renamed), each ->withArkitectExcludedPaths() glob
+    // and each ->withIgnoredPaths() path under src/, so exclusions are declared in
+    // ONE place, qaConfig/qa.php. Build it any other way and the arch lane fails
+    // while a path under src/ is ignored, since those classes would be checked.
+    $classSetFactory = getenv('PHPQACI_ARKITECT_CLASS_SET');
+    if (false === $classSetFactory || '' === $classSetFactory) {
+        throw new \RuntimeException('PHPQACI_ARKITECT_CLASS_SET is not set. Run via "vendor/bin/qa -t arch", which exports it.');
     }
+
+    $classSet = (require $classSetFactory)(__DIR__ . '/../src');
 
     // Resolve a shipped tier from the path the pipeline exports. Env var only —
     // no hard-coded vendor layout. Run via `vendor/bin/qa -t arch`; a bare
