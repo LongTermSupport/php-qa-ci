@@ -167,10 +167,16 @@ most of the clause table turns green at once.
 
 ### Phase 5: Agent context and defaults (toolchain 6.4, 7.1)
 
-- [ ] ⬜ **Task 5.1**: Put the active defences into the agent block the plugin writes into
+- [x] ✅ **Task 5.1**: Put the active defences into the agent block the plugin writes into
   each consuming project's `CLAUDE.md`. It currently carries a pointer and no rule lines,
   which is toolchain 7.1 graded `No`. `bin/rules --json` already produces the data; the
   work is rendering it, bounding its size, and keeping it fresh on install/update.
+  `ActiveDefencesSummary` renders one line per defence into a marked region
+  (`AgentContextRegion`), written by `bin/rules --write-agent-summary` from the deploy and
+  into this repository's own `CLAUDE.md`, held current by `AgentContextIsCurrentTest`.
+  Found on the way: `bin/rules` read none of what `phpstan/extension-installer` delivers,
+  which in a consumer is every bundled rule (red `e3aa01b`); it now does, by package.
+  Toolchain 7.1 closed at both levels
 - [ ] ⬜ **Task 5.2**: State the toolchain's own defaults for what the method leaves to
   the project (toolchain 6.4) — the sweep scope, what counts as generated or vendored,
   and the calibrations. Where `docs/tools/` states a lane default already, link rather

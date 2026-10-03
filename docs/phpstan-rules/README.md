@@ -66,17 +66,28 @@ To list every defence active in a project — WITHOUT running PHPStan — use `b
 
 ```bash
 vendor/bin/rules [project-root] [--json]
+vendor/bin/rules [project-root] --agent-summary
+vendor/bin/rules [project-root] --write-agent-summary=CLAUDE.md
 ```
 
-It resolves the project's `phpstan.neon` (following `includes:` recursively, the project's own
-override if present, else the shipped default), and prints: every rule class under `rules:` and
-every `phpstan.rules.rule`-tagged service, each with its identifier, summary and doc route where
-one is declared (a rule with no `IDENTIFIER` constant is still listed, marked as such rather than
-dropped); the php-qa-ci pipeline's always-on lanes (`branchNamePolicy`, `packageType`,
-`sensitiveParameterUsage`, `phpArkitect`); and the project record — every `ignoreErrors` entry,
-with any `#` comment directly above it in the source recovered as its justification. `--json`
-emits the same data structured. Exit non-zero only if the config cannot be resolved or a neon
-file fails to parse.
+It resolves the project's `phpstan.neon` (following `includes:` the way the justification lane
+does, the project's own override if present, else the shipped default) and the configuration
+`phpstan/extension-installer` hands PHPStan — every installed package's `extra.phpstan.includes`,
+which is how the bundled tiers reach a consuming project. It prints: every rule class under
+`rules:`, every `phpstan.rules.rule`-tagged service and every rule tagged behind a parameter
+(`conditionalTags`, listed as active without evaluating the parameter), each with its identifier,
+summary and doc route where one is declared, and the package that delivered it (a rule with no
+`IDENTIFIER` constant is still listed, marked as such rather than dropped); every pipeline lane;
+and the project record — every `ignoreErrors` entry, with any `#` comment directly above it in
+the source recovered as its justification. `--json` emits the same data structured. Exit
+non-zero if the config cannot be resolved, a neon file fails to parse, or an include cannot be
+followed.
+
+`--agent-summary` prints the same defences as an agent should load them: one line each, with its
+identifier and page, and rules without an identifier gathered into one line per package.
+`--write-agent-summary=<file>` writes that into the `<!-- phpqaci-active-defences:start -->` …
+`end` region of `<file>`, and fails when the file has no single such region. Composer
+install/update writes it into the project's `CLAUDE.md` block this way.
 
 ## Always on
 

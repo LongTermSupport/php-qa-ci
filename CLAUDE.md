@@ -34,6 +34,84 @@ place in `bin/rules`; see [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md)
 it is a lane or an assertion. And a suppression, a baseline or a narrowing is an **Owner
 decision**, never a silent edit.
 
+<!-- phpqaci-active-defences:start -->
+## php-qa-ci — Active defences
+
+Generated from this project's active configuration by `rules --write-agent-summary`; do not
+edit. Each line is a standing rule the pipeline enforces; `rule-doc <identifier>` (Composer bin
+dir) prints its page offline.
+
+- `phpqaci.dangerousFunctions` — No exec/eval/unserialize and similar (`docs/phpstan-rules/forbid-dangerous-functions.md`)
+- `phpqaci.emptyCatchBlock` — A catch block must do something (`docs/phpstan-rules/forbid-empty-catch-block.md`)
+- `phpqaci.missingStrictTypes` — `declare(strict_types=1)` in every file (`docs/phpstan-rules/require-declare-strict-types.md`)
+- `phpqaci.forbiddenAttribute` — No `#[AllowMockObjectsWithoutExpectations]` (`docs/phpstan-rules/forbid-allow-mock-without-expectations.md`)
+- `phpqaci.composerPluginNamespacedFunction` — A Composer plugin calls only global functions and Composer's API (`docs/phpstan-rules/forbid-namespaced-function-in-composer-plugin.md`)
+- `phpqaci.binDirTool` — Tools run from `vendor-phar/`, not the Composer bin dir (`docs/phpstan-rules/forbid-bin-dir-tool.md`)
+- `phpqaci.newDateTime` — No direct `new DateTime` / `new DateTimeImmutable` (`docs/phpstan-rules/forbid-new-date-time.md`)
+- `phpqaci.emptyLanguageConstruct` — No `empty()`; use an explicit type-safe check (`docs/phpstan-rules/forbid-empty-language-construct.md`)
+- `phpqaci.looseComparison` — No `==` / `!=`; use `===` / `!==` (`docs/phpstan-rules/forbid-loose-comparison.md`)
+- `phpqaci.deprecatedSerializable` — No `Serializable`; use `__serialize()` / `__unserialize()` (`docs/phpstan-rules/forbid-deprecated-serializable.md`)
+- `phpqaci.nestedTernary` — No nested ternary expressions (`docs/phpstan-rules/forbid-nested-ternary.md`)
+- `phpqaci.ruleIdentifierMustBeConstant` — A PHPStan rule's identifier must be a class constant (`docs/phpstan-rules/require-rule-identifier-constant.md`)
+- `phpqaci.unanchoredVendorSubstringCheck` — Decide ownership against the project root, not a `vendor/` substring (`docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md`)
+- `phpqaci.inlinePhpstanIgnore` — No inline `@phpstan-ignore`; use `ignoreErrors` in the config (`docs/phpstan-rules/forbid-inline-phpstan-ignore.md`)
+- `phpqaci.mockFinalClass` — Mock an interface, never a final class (`docs/phpstan-rules/forbid-mocking-final-class.md`)
+- `phpqaci.httpPrefixedEnvVars` — No Symfony env var named `HTTP_*` (`docs/phpstan-rules/forbid-http-prefixed-env-vars.md`)
+- `phpqaci.devNamespaceInProductionSource` — Dev-only code belongs under `autoload-dev` (`docs/phpstan-rules/forbid-dev-namespace-in-production-source.md`)
+- `phpqaci.requireSensitiveParameterAttribute` — `#[\SensitiveParameter]` on plaintext credential parameters (`docs/phpstan-rules/require-sensitive-parameter-attribute.md`)
+- `phpqaci.requireApiOrInternalTag` — `@api` or `@internal` on every public class-like (`docs/tools/requireApiOrInternal.md`)
+- `phpqaci.apiMustNotExposeInternal` — An `@api` type must not expose an `@internal` one (`docs/tools/requireApiOrInternal.md`)
+- `phpqaci.nullCoalescingEmptyString` — No `?? ''` (`docs/phpstan-rules/forbid-null-coalescing-empty-string.md`)
+- `phpqaci.nullCoalescingFalse` — No `?? false` (`docs/phpstan-rules/forbid-null-coalescing-false.md`)
+- `phpqaci.silentCatch` — A catch block must reference the exception it caught (`docs/phpstan-rules/forbid-silent-catch.md`)
+- `phpqaci.readonlyService` — A service class must be `final readonly` (`docs/phpstan-rules/require-readonly-service.md`)
+- `phpqaci.enumOverLiteralUnion` — A docblock literal set is an undeclared enum (`docs/phpstan-rules/require-enum-over-literal-union.md`)
+- `phpqaci.repeatedStringLiteral` — A string literal repeated three times in a class is an undeclared constant (`docs/phpstan-rules/forbid-repeated-string-literal.md`)
+- `phpqaci.consistentMemberDocs` — A class's constants, and its properties, are documented all or none (`docs/phpstan-rules/require-consistent-member-docs.md`)
+- `phpqaci.variadicOverArrayParameter` — A parameter typed `list<T>` in a docblock should be a native variadic, moved last if it is not already (`docs/phpstan-rules/require-variadic-over-array-parameter.md`)
+- `phpqaci.ambiguousArrayDoc` — A docblock array type must state its keys: `list<T>` or `array<K, V>`, never `T[]` or `array<T>` (`docs/phpstan-rules/forbid-ambiguous-array-doc.md`)
+- `phpqaci.insecureFunction` — No broken hashes, predictable randomness or unparameterised SQL (`docs/phpstan-rules/forbid-insecure-functions.md`)
+- `phpqaci.debugOutputFunction` — No var_dump/print_r/var_export left printing (`docs/phpstan-rules/forbid-debug-output-functions.md`)
+- `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
+- `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
+- `typeCoverage.paramTypeCoverage` — a rule from `tomasvotruba/type-coverage`
+- `typeCoverage.returnTypeCoverage` — a rule from `tomasvotruba/type-coverage`
+- `typeCoverage.propertyTypeCoverage` — a rule from `tomasvotruba/type-coverage`
+- `typeCoverage.constantTypeCoverage` — a rule from `tomasvotruba/type-coverage`
+- `typeCoverage.declareCoverage` — a rule from `tomasvotruba/type-coverage`
+- `phpstan/phpstan-deprecation-rules` — 2 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `phpstan/phpstan-phpunit` — 14 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `phpstan/phpstan-strict-rules` — 45 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `tomasvotruba/type-coverage` — 9 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `phpqaci.rector` — Rector (`docs/tools/rector.md`)
+- `phpqaci.phpCsFixer` — PHP-CS-Fixer (`docs/tools/phpCsFixer.md`)
+- `phpqaci.twigCsFixer` — Twig coding standards (when twig/twig is installed) (`docs/tools/twigCsFixer.md`)
+- `phpqaci.psr4Validate` — psr4 validation (`docs/tools/psr4Validate.md`)
+- `phpqaci.composerChecks` — composer validation (`docs/tools/composerChecks.md`)
+- `phpqaci.packageType` — assert composer.json declares an explicit package type (library/project/...) (`docs/tools/packageType.md`)
+- `phpqaci.configTemplateIgnoreList` — audit configDefaults/generic templates against psr4-validate-ignore-list.txt (`docs/tools/configTemplateIgnoreListCheck.md`)
+- `phpqaci.infectionConfigSourceDirectoriesMustExist` — assert infection.json's source.directories resolve to real directories (`docs/tools/infectionConfigSourceDirs.md`)
+- `phpqaci.versionPins` — assert phpunit.xml, safe scan-files and GitHub Actions PHP pins match the installed PHPUnit / running PHP (`docs/tools/versionPins.md`)
+- `phpqaci.changelog` — CHANGELOG.md Unreleased is valid and records every change to the watched paths (opt-in: useChangelogCheck=1 or withChangelogCheck(true)) (`docs/tools/changelog.md`; opt-in: `useChangelogCheck`)
+- `phpqaci.phpStrictTypes` — strict types validation (`docs/tools/phpStrictTypes.md`)
+- `phpqaci.phpLint` — phplint (`docs/tools/phpLint.md`)
+- `phpqaci.opcache` — assert the code compiles cleanly through OPcache (known OPcache defects that produce crashing or wrong bytecode) (`docs/tools/opcache.md`)
+- `phpqaci.composerRequireChecker` — composer require checker (`docs/tools/composerRequireChecker.md`)
+- `phpqaci.composerDependencyAnalyser` — unused, shadow and misplaced dependencies (`docs/tools/composerDependencyAnalyser.md`)
+- `phpqaci.markdownLinks` — markdown validation (`docs/tools/markdownLinks.md`)
+- `phpqaci.docsProse` — documentation prose describes its subject, not itself (`docs/tools/docsProse.md`)
+- `phpqaci.yamlLint` — YAML syntax (when symfony/yaml is installed) (`docs/tools/yamlLint.md`)
+- `phpqaci.shellCheck` — ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships (`docs/tools/shellCheck.md`)
+- `phpqaci.branchNamePolicy` — Branch naming policy (PR convention) (`CLAUDE/branch-policy.md`)
+- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification (`docs/tools/phpstanIgnoreJustification.md`)
+- `phpqaci.deadCode` — dead-code detection through phpstan.phar (opt-in: withDeadCodeDetection(true) in qaConfig/qa.php) (`docs/tools/deadCode.md`)
+- `phpqaci.phpArkitect` — PHPArkitect architecture rules (on by default; useArkitect=0 to disable) (`docs/tools/phpArkitect.md`; opt-in: `useArkitect`)
+- `phpqaci.sensitiveParameterUsage` — assert #[\SensitiveParameter] is used somewhere in src/ (`docs/tools/sensitiveParameterUsage.md`)
+- `phpqaci.phpunit` — phpunit (`docs/tools/phpunit.md`)
+- `phpqaci.infection` — infection (`docs/tools/infection.md`; opt-in: `useInfection`)
+- `phpqaci.phpcpd` — copy/paste detection, informational (`docs/tools/phpcpd.md`)
+<!-- phpqaci-active-defences:end -->
+
 ## Segfaults are a halt condition (binding)
 
 **A PHP segfault is never accepted, worked around, or retried past.** Any segfault —
@@ -300,23 +378,23 @@ real stdout and every line of decoration to stderr.
 Environment variables are read once by `EnvironmentReader`; `"1"`/`"true"` and `"0"`/`"false"`
 are the accepted boolean spellings. Defaults:
 
-| Variable                                        | Default              | Builder method                                                                                                     |
-| ----------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                | (none: PHP binary for every tool)                                                                                  |
-| `phpqaQuickTests`                               | `0`                  | (none: skips PHPStan, PHPUnit and Infection)                                                                       |
-| `phpUnitQuickTests`                             | `0`                  | (none: passed through to the test suite)                                                                           |
-| `phpUnitCoverage`                               | `1`                  | `withPhpUnitCoverage(bool)`                                                                                        |
-| `phpUnitIterativeMode`                          | `0`                  | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                                     |
-| `useInfection`                                  | `1`                  | `withInfection(bool)`                                                                                              |
-| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`          | `withInfectionFloors(int, int)`                                                                                    |
-| `infectionThreads`                              | half the CPU threads | `withInfectionThreads(int)`                                                                                        |
-| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                                        |
-| `useComposerAudit`                              | `1`                  | `withComposerAudit(bool)`                                                                                          |
-| (none)                                          | all floors off       | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
-| `useArkitect`                                   | `1`                  | `withArkitect(bool)`                                                                                               |
-| `useSensitiveParameterCheck`                    | `1`                  | `withSensitiveParameterCheck(bool)`                                                                                |
-| `useChangelogCheck`                             | `0`                  | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                                         |
-| `CI`                                            | `false`              | (none: interactivity)                                                                                              |
+| Variable                                        | Default               | Builder method                                                                                                     |
+| ----------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                 | (none: PHP binary for every tool)                                                                                  |
+| `phpqaQuickTests`                               | `0`                   | (none: skips PHPStan, PHPUnit and Infection)                                                                       |
+| `phpUnitQuickTests`                             | `0`                   | (none: passed through to the test suite)                                                                           |
+| `phpUnitCoverage`                               | `1`                   | `withPhpUnitCoverage(bool)`                                                                                        |
+| `phpUnitIterativeMode`                          | `0`                   | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                                     |
+| `useInfection`                                  | `1`                   | `withInfection(bool)`                                                                                              |
+| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`           | `withInfectionFloors(int, int)`                                                                                    |
+| `infectionThreads`                              | half the CPU threads  | `withInfectionThreads(int)`                                                                                        |
+| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                                         |
+| `useComposerAudit`                              | `1`                   | `withComposerAudit(bool)`                                                                                          |
+| (none)                                          | all floors off        | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
+| `useArkitect`                                   | `1`                   | `withArkitect(bool)`                                                                                               |
+| `useSensitiveParameterCheck`                    | `1`                   | `withSensitiveParameterCheck(bool)`                                                                                |
+| `useChangelogCheck`                             | `0`                   | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                                         |
+| `CI`                                            | `false`               | (none: interactivity)                                                                                              |
 
 ### Memory Configuration
 

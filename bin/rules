@@ -9,22 +9,42 @@
  * invoking PHPStan.
  *
  *   bin/rules [project-root] [--json]
+ *   bin/rules [project-root] --agent-summary
+ *   bin/rules [project-root] --write-agent-summary=<file>
  *
+ * --agent-summary prints the one-line-per-defence section an agent loads
+ * (toolchain specification 7.1); --write-agent-summary replaces the generated
+ * region of <file> with it (7.2), and fails when <file> has no single region.
  * project-root defaults to the current working directory.
  */
 
 require __DIR__.'/bootstrap.php';
 
+use LTS\PHPQA\AgentContext\ActiveDefencesSummary;
+use LTS\PHPQA\AgentContext\AgentContextRegion;
+
+const WRITE_AGENT_SUMMARY = '--write-agent-summary=';
+
 $args = array_slice($argv ?? [], 1);
 $json = false;
+$agentSummary = false;
+$writeTarget = null;
 $projectRoot = null;
 foreach ($args as $arg) {
     if ('--json' === $arg) {
         $json = true;
         continue;
     }
+    if ('--agent-summary' === $arg) {
+        $agentSummary = true;
+        continue;
+    }
+    if (str_starts_with($arg, WRITE_AGENT_SUMMARY)) {
+        $writeTarget = substr($arg, strlen(WRITE_AGENT_SUMMARY));
+        continue;
+    }
     if (str_starts_with($arg, '-')) {
-        fwrite(STDERR, "Usage: bin/rules [project-root] [--json]\n");
+        fwrite(STDERR, "Usage: bin/rules [project-root] [--json | --agent-summary | --write-agent-summary=<file>]\n");
         exit(2);
     }
     $projectRoot = $arg;
@@ -44,6 +64,25 @@ try {
 } catch (\InvalidArgumentException|\RuntimeException $e) {
     fwrite(STDERR, $e->getMessage()."\n");
     exit(1);
+}
+
+if ($agentSummary || null !== $writeTarget) {
+    $section = new ActiveDefencesSummary()->render($listing, \Safe\realpath($projectRoot));
+    if (null === $writeTarget) {
+        echo $section."\n";
+        exit(0);
+    }
+
+    $document = \Safe\file_get_contents($writeTarget);
+    $updated  = new AgentContextRegion()->replace($document, $section);
+    if (null === $updated) {
+        fwrite(STDERR, sprintf("%s has no single %s … %s region to write the active defences into.\n", $writeTarget, AgentContextRegion::START, AgentContextRegion::END));
+        exit(1);
+    }
+    if ($updated !== $document) {
+        \Safe\file_put_contents($writeTarget, $updated);
+    }
+    exit(0);
 }
 
 echo $json ? $lister->renderJson($listing)."\n" : $lister->renderText($listing);

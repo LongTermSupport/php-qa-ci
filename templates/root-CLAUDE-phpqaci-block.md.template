@@ -36,6 +36,13 @@ lists every defence active in this project.
 
 **Detailed docs** (read in vendor): `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`.
 
+<!-- phpqaci-active-defences:start -->
+## php-qa-ci — Active defences
+
+The list of the defences active in this project could not be generated on the last composer
+install/update. Run `vendor/bin/rules` to list them.
+<!-- phpqaci-active-defences:end -->
+
 ## php-qa-ci — Full Pipeline Is the Proof
 
 **QA is NOT passing until the full unfiltered pipeline passes**: `CI=true bin/qa` with

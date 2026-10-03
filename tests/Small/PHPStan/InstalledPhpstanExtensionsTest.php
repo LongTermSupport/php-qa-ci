@@ -28,6 +28,10 @@ final class InstalledPhpstanExtensionsTest extends TestCase
 
     private const string ACME = 'acme/rules';
 
+    private const string EMPTY_RULES = "rules: []\n";
+
+    private const string RULES_NEON = 'rules.neon';
+
     private TempDir $project;
 
     protected function setUp(): void
@@ -43,14 +47,14 @@ final class InstalledPhpstanExtensionsTest extends TestCase
     #[Test]
     public function everyInstalledExtensionsIncludesResolveFromItsInstallPath(): void
     {
-        $this->project->write('vendor/acme/rules/rules.neon', "rules: []\n");
+        $this->project->write('vendor/acme/rules/rules.neon', self::EMPTY_RULES);
         $this->project->write('vendor/acme/rules/conf/extension.neon', "parameters: []\n");
-        $this->project->write('vendor/lts/php-qa-ci/rules-default.neon', "rules: []\n");
+        $this->project->write('vendor/lts/php-qa-ci/rules-default.neon', self::EMPTY_RULES);
         $this->generatedConfig([
-            self::ACME         => ['../../../acme/rules', ['rules.neon', 'conf/extension.neon']],
+            self::ACME         => ['../../../acme/rules', [self::RULES_NEON, 'conf/extension.neon']],
             'lts/php-qa-ci'    => ['../../../lts/php-qa-ci', ['rules-default.neon']],
             'no/includes'      => ['../../../no/includes', null],
-            'gone/package'     => ['../../../gone/package', ['rules.neon']],
+            'gone/package'     => ['../../../gone/package', [self::RULES_NEON]],
         ]);
 
         $vendor = \Safe\realpath($this->project->path . '/vendor');
@@ -73,8 +77,8 @@ final class InstalledPhpstanExtensionsTest extends TestCase
     public function aCustomVendorDirIsHonoured(): void
     {
         $this->project->write('composer.json', '{"config": {"vendor-dir": "lib"}}');
-        $this->project->write('lib/acme/rules/rules.neon', "rules: []\n");
-        $this->generatedConfig([self::ACME => ['../../../acme/rules', ['rules.neon']]], 'lib/phpstan/extension-installer/src/GeneratedConfig.php');
+        $this->project->write('lib/acme/rules/rules.neon', self::EMPTY_RULES);
+        $this->generatedConfig([self::ACME => ['../../../acme/rules', [self::RULES_NEON]]], 'lib/phpstan/extension-installer/src/GeneratedConfig.php');
 
         self::assertSame(
             [self::ACME => [\Safe\realpath($this->project->path . '/lib') . '/acme/rules/rules.neon']],

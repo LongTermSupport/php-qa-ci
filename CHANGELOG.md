@@ -45,6 +45,15 @@ the release and its tag. The full rules are in
   where a project has excluded that rule, an inline ignore must name an
   identifier and give a reason in parentheses.
 
+### Added
+
+- **The `CLAUDE.md` block lists the defences active in the project.** Composer
+  install/update writes one line per active defence into the `<phpqaci>` block,
+  with its identifier and page, generated from the project's own configuration
+  by `vendor/bin/rules --write-agent-summary`; `--agent-summary` prints it.
+  Rules without an identifier are gathered into one line per package, so the
+  section stays short.
+
 ### Fixed
 
 - **The GitHub Actions templates work with any bin-dir and fetch nothing.**
@@ -60,6 +69,12 @@ the release and its tag. The full rules are in
 - **`bin/rules` no longer hangs on a cyclic include** or fails on PHPStan's own
   `%rootDir%` configuration: it walks `includes:` the way the justification lane
   does, and names an include it cannot follow.
+
+- **`bin/rules` lists the rules `phpstan/extension-installer` delivers.** In a
+  consuming project the bundled tiers arrive that way, so the listing showed
+  none of them; it now reads the installer's configuration, names the package
+  each rule came from, and counts rules registered behind a parameter
+  (`conditionalTags`), as `phpstan-strict-rules` registers all of its.
 
 ## 85.1.0 — 2026-10-03
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan;
 
 use PhpParser\ConstExprEvaluator;
-use PhpParser\Node\Const_;
 use PhpParser\Node\Stmt\ClassConst;
 use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
@@ -66,7 +65,7 @@ final readonly class InstalledPhpstanExtensions
         $ast = new ParserFactory()->createForNewestSupportedVersion()->parse(\Safe\file_get_contents($file)) ?? [];
         foreach (new NodeFinder()->findInstanceOf($ast, ClassConst::class) as $constant) {
             foreach ($constant->consts as $const) {
-                if ($const instanceof Const_ && 'EXTENSIONS' === $const->name->toString()) {
+                if ('EXTENSIONS' === $const->name->toString()) {
                     $value = new ConstExprEvaluator()->evaluateDirectly($const->value);
 
                     return \is_array($value) ? $value : [];

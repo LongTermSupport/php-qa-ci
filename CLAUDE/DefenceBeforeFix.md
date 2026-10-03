@@ -264,8 +264,11 @@ identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
   the harness to prove a new rule sees its target before trusting a green full run; a green run
   proves nothing unless the rule was loaded and looked.
 - `bin/rules [project-root] [--json]` lists every defence active in a project — its resolved
-  `phpstan.neon` rules, the always-on pipeline lanes, and the project record — WITHOUT running
-  PHPStan, so an agent arriving cold can learn the standards without violating them first.
+  `phpstan.neon` rules and those the extension installer delivers, the pipeline lanes, and the
+  project record — WITHOUT running PHPStan, so an agent arriving cold can learn the standards
+  without violating them first. `--write-agent-summary=CLAUDE.md` puts the same list, one line
+  per defence, into the generated region of `CLAUDE.md`; composer install/update does that in
+  every consuming project, and `AgentContextIsCurrentTest` keeps this repository's own current.
 
 ## The net has to be cast over itself
 

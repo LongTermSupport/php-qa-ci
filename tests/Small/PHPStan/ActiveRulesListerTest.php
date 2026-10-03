@@ -298,7 +298,7 @@ final class ActiveRulesListerTest extends TestCase
                 'vendor/phpstan/extension-installer/src/GeneratedConfig.php',
                 "<?php\nnamespace PHPStan\\ExtensionInstaller;\nfinal class GeneratedConfig\n{\n    public const EXTENSIONS = ['acme/rules' => ['relative_install_path' => '../../../acme/rules', 'extra' => ['includes' => ['rules.neon', 'more.neon']]]];\n}\n",
             );
-            $project->write('vendor/acme/rules/more.neon', "rules:\n    - Acme\\Rules\\OtherRule\n");
+            $project->write('vendor/acme/rules/more.neon', "conditionalTags:\n    Acme\\Rules\\OtherRule:\n        phpstan.rules.rule: %acme.otherRule%\n    Acme\\Rules\\NotARule:\n        phpstan.broker.dynamicMethodReturnTypeExtension: true\n");
 
             $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list($project->path);
         } finally {
