@@ -139,6 +139,33 @@ final class GitHubActionsTemplatesTest extends TestCase
         self::assertSame([], $this->executedLinesIn(self::APPROVE_TEMPLATE, '#ci\.yml#'), 'The action is told which workflow to approve; it must not assume one.');
     }
 
+    /**
+     * Defence for "a release published while another gating workflow is red on the same commit".
+     * The template runs when ANY workflow it lists completes, so a project running two of them on
+     * its default branch would release on the first green one. The job therefore holds the same
+     * list in GATING_WORKFLOWS and acts only when every listed run for the verified commit has
+     * succeeded; the run of the last one to finish does the work.
+     */
+    #[Test]
+    public function theReleaseTemplateReleasesOnlyWhenEveryGatingWorkflowIsGreenOnTheCommit(): void
+    {
+        $template = \Safe\file_get_contents(self::RELEASE_TEMPLATE);
+
+        self::assertSame(1, \Safe\preg_match('/^    workflows: \[([^\]]+)\]$/m', $template, $trigger), 'on.workflow_run.workflows must be a one-line list.');
+        self::assertSame(1, \Safe\preg_match("/^      GATING_WORKFLOWS: '(\\[[^']+\\])'\$/m", $template, $gating), 'The release job must declare GATING_WORKFLOWS as a JSON list.');
+        if (!isset($trigger[1], $gating[1])) {
+            self::fail('Both lists must be captured.');
+        }
+
+        self::assertSame(
+            array_map(trim(...), explode(',', $trigger[1])),
+            \Safe\json_decode($gating[1], true, 2, \JSON_THROW_ON_ERROR),
+            'GATING_WORKFLOWS must name exactly the workflows that trigger the release, or a red one is never consulted.',
+        );
+        self::assertNotSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#actions/runs\?head_sha=\$\{VERIFIED\}#'), 'A step must read every workflow run for the verified commit.');
+        self::assertNotSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#GATING_WORKFLOWS#'), 'That step must judge the runs of the GATING_WORKFLOWS.');
+    }
+
     /** @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern */
     private function executedLinesIn(string $file, string $pattern): array
     {
