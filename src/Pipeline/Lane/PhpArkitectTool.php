@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
-use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
 use LTS\PHPQA\Pipeline\Agent\ArkitectJsonParser;
 use LTS\PHPQA\Pipeline\Agent\ClassFileLocator;
@@ -14,6 +13,7 @@ use LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto;
 use LTS\PHPQA\Pipeline\Agent\Exception\UnreadableReportException;
 use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
 use LTS\PHPQA\Pipeline\Agent\TerseReporter;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;

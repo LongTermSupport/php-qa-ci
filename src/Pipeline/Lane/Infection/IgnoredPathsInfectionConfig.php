@@ -49,8 +49,8 @@ final readonly class IgnoredPathsInfectionConfig
 
     /**
      * @return array<array-key, mixed>|null the derived config, or null when no ignored
-     *                           path is under a source directory, so the
-     *                           config is used as it is
+     *                                      path is under a source directory, so the
+     *                                      config is used as it is
      *
      * @throws JsonException when the config is not a JSON object
      */

@@ -62,12 +62,14 @@ final class AnalysedPathsToolTest extends TestCase
 
     private const string PHP = "<?php\n\ndeclare(strict_types=1);\n";
 
+    private const string ROOT_SCRIPT = 'rector.php';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        foreach ([self::SRC_FILE, self::TEST_FILE, self::SERVICES, 'vendor/acme/lib/A.php', 'rector.php'] as $file) {
+        foreach ([self::SRC_FILE, self::TEST_FILE, self::SERVICES, 'vendor/acme/lib/A.php', self::ROOT_SCRIPT] as $file) {
             $this->factory->project->write($file, self::PHP);
         }
 
@@ -109,7 +111,7 @@ final class AnalysedPathsToolTest extends TestCase
     #[Test]
     public function aRootLevelFileIsNamedByItself(): void
     {
-        $this->tracked(self::SRC_FILE, 'rector.php');
+        $this->tracked(self::SRC_FILE, self::ROOT_SCRIPT);
 
         $result = new AnalysedPathsTool()->run($this->factory->context());
 
@@ -206,9 +208,9 @@ final class AnalysedPathsToolTest extends TestCase
     #[Test]
     public function anIgnoredFileThatExistsIsNotStale(): void
     {
-        $this->tracked(self::SRC_FILE, 'rector.php');
-        $this->factory->project->write('rector.php', "<?php\n");
-        $config = $this->factory->builder()->withIgnoredPaths('rector.php')->build();
+        $this->tracked(self::SRC_FILE, self::ROOT_SCRIPT);
+        $this->factory->project->write(self::ROOT_SCRIPT, "<?php\n");
+        $config = $this->factory->builder()->withIgnoredPaths(self::ROOT_SCRIPT)->build();
 
         self::assertSame(ToolOutcomeEnum::Passed, new AnalysedPathsTool()->run($this->factory->context($config))->outcome);
     }
