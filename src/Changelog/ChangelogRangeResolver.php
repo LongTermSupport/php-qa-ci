@@ -16,8 +16,9 @@ use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
  *   than the default: the merge base of HEAD with the target branch, taken
  *   from `origin/<branch>` when the clone has it, else the local branch.
  * - The default branch, including GitHub's detached checkout of a push to it
- *   (GITHUB_REF_NAME): the latest release tag on the line composer.json names,
- *   because everything since that release is what the next one will ship.
+ *   (GITHUB_REF_NAME): the newest release tag under the project's
+ *   ReleaseVersionPolicy, because everything since that release is what the
+ *   next one will ship.
  *
  * Any answer the history cannot give (no default branch, a detached HEAD
  * outside a pull request, a branch or tag the clone lacks, no merge base) is a
@@ -29,12 +30,13 @@ final readonly class ChangelogRangeResolver
 {
     private const string FETCH_ALL = '`fetch-depth: 0` on actions/checkout';
 
-    public function __construct(private ReleaseVersionCalculator $calculator = new ReleaseVersionCalculator())
-    {
-    }
-
-    public function resolve(ChangelogGit $git, GitBranches $branches, EnvironmentReader $env, string $composerJson): ChangelogRangeDto
-    {
+    public function resolve(
+        ChangelogGit $git,
+        GitBranches $branches,
+        EnvironmentReader $env,
+        string $composerJson,
+        ReleaseVersionPolicy $policy = new ReleaseVersionPolicy(),
+    ): ChangelogRangeDto {
         $pullRequestTarget = $env->string('GITHUB_BASE_REF');
         if (null !== $pullRequestTarget) {
             return $this->sinceBranchPoint($git, $pullRequestTarget);
@@ -46,7 +48,7 @@ final readonly class ChangelogRangeResolver
 
         $current = $branches->currentBranch();
         if ($default === $current || (null === $current && $default === $env->string('GITHUB_REF_NAME'))) {
-            return $this->sinceLastRelease($git, $composerJson);
+            return $this->sinceLastRelease($git, $policy->line($composerJson));
         }
 
         if (null === $current) {
@@ -79,13 +81,13 @@ final readonly class ChangelogRangeResolver
         ));
     }
 
-    private function sinceLastRelease(ChangelogGit $git, string $composerJson): ChangelogRangeDto
+    private function sinceLastRelease(ChangelogGit $git, ReleaseLine $line): ChangelogRangeDto
     {
-        $major = $this->calculator->lineMajor($composerJson);
-        $tag   = $this->calculator->latestOnLine($major, ...$git->tags()) ?? throw new ChangelogHistoryException(\sprintf(
-            'no %1$d.N.N release tag is in this clone, so the changes since the last release cannot be found; fetch the tags (`git fetch --tags`, or %2$s), or tag the first release %1$d.0.0',
-            $major,
+        $tag = $line->latestTag(...$git->tags()) ?? throw new ChangelogHistoryException(\sprintf(
+            'no %s release tag is in this clone, so the changes since the last release cannot be found; fetch the tags (`git fetch --tags`, or %s), or tag the first release %s',
+            $line->describe(),
             self::FETCH_ALL,
+            $line->tagOf($line->firstVersion()),
         ));
 
         return new ChangelogRangeDto($tag, 'since the last release tag ' . $tag);

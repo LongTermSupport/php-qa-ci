@@ -1,6 +1,6 @@
 # Plan 00015: release automation for consumers
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-10-03
 **Owner**: joseph
 **Priority**: Medium
@@ -41,45 +41,45 @@ repository declares for itself.
 
 ### Phase 1: A versioning policy
 
-- [ ] ⬜ **Task 1.1**: Red first: tests for the semantic-versioning policy (each heading's bump,
+- [x] ✅ **Task 1.1**: Red first: tests for the semantic-versioning policy (each heading's bump,
   the 0.x rule, the first release with no tag, a tag prefix such as `v`, tags of other shapes
   ignored) and for the locked-major policy (today's behaviour, major given explicitly or from the
   PHP requirement).
-- [ ] ⬜ **Task 1.2**: Generalise `ReleaseVersionCalculator` and `ReleaseBumpEnum` behind the
+- [x] ✅ **Task 1.2**: Generalise `ReleaseVersionCalculator` and `ReleaseBumpEnum` behind the
   policy; `bin/changelog-release` (`next-version`, `apply`, `pending-tags`, `notes`) reads the
   policy from the project's configuration.
-- [ ] ⬜ **Task 1.3**: The policy is a typed `with*()` setting on `QaConfigBuilder`, default
+- [x] ✅ **Task 1.3**: The policy is a typed `with*()` setting on `QaConfigBuilder`, default
   semantic versioning; php-qa-ci's `qaConfig/qa.php` declares the locked major from the PHP line.
 
 ### Phase 2: The shipped workflow
 
-- [ ] ⬜ **Task 2.1**: `templates/github-actions/release.yml`: the default branch and the release
+- [x] ✅ **Task 2.1**: `templates/github-actions/release.yml`: the default branch and the release
   branch from the repository rather than `php8.5`, the bin dir from `composer config bin-dir`,
   the held-CI approval included.
-- [ ] ⬜ **Task 2.2**: Ship the approve-held-ci composite action as a template alongside it.
-- [ ] ⬜ **Task 2.3**: This repository's `.github/workflows/release.yml` and its action become
+- [x] ✅ **Task 2.2**: Ship the approve-held-ci composite action as a template alongside it.
+- [x] ✅ **Task 2.3**: This repository's `.github/workflows/release.yml` and its action become
   copies of the templates, with a test failing on any drift.
 
 ### Phase 3: Documentation
 
-- [ ] ⬜ **Task 3.1**: `docs/github-actions.md` and `docs/tools/changelog.md`: adopting the
+- [x] ✅ **Task 3.1**: `docs/github-actions.md` and `docs/tools/changelog.md`: adopting the
   release workflow, the repository settings it needs, the two policies and the override.
-- [ ] ⬜ **Task 3.2**: `CLAUDE/releases.md` names the locked-major override as this repository's
+- [x] ✅ **Task 3.2**: `CLAUDE/releases.md` names the locked-major override as this repository's
   choice and points at the shipped mechanism.
 
 ### Phase 4: Prove it
 
-- [ ] ⬜ **Task 4.1**: A Large test drives the release flow end to end in a scratch repository
+- [x] ✅ **Task 4.1**: A Large test drives the release flow end to end in a scratch repository
   under both policies.
 - [ ] ⬜ **Task 4.2**: The next php-qa-ci release goes through the template copy with the
   override and produces the version the locked-major policy names.
 
 ## Success Criteria
 
-- [ ] A project with no versioning setting releases `2.0.0` after `1.4.2` when `## Unreleased`
+- [x] A project with no versioning setting releases `2.0.0` after `1.4.2` when `## Unreleased`
   carries a `Changed — breaking` entry, and `1.5.0` when it carries only `Added`.
-- [ ] php-qa-ci releases `85.N+1.0` for a breaking change, as today.
-- [ ] `.github/workflows/release.yml` and the template cannot drift without a test failing.
+- [x] php-qa-ci releases `85.N+1.0` for a breaking change, as today.
+- [x] `.github/workflows/release.yml` and the template cannot drift without a test failing.
 - [ ] The full battery passes.
 
 ## Technical Decisions
@@ -97,6 +97,21 @@ watched paths are already configured there.
 convention a consumer expects, so adopting the workflow never surprises them; php-qa-ci opts into
 the exception explicitly, in its own configuration.
 
+### Decision 3: The first semantic release is `0.1.0`, configurable
+
+**Context**: a project with no release tag needs a first version. **Decision**: `0.1.0`, the
+start semver.org suggests for initial development, overridable with
+`ReleaseVersionPolicy::semanticVersioning(firstVersion: '1.0.0')`. A locked major starts at
+`<major>.0.0`, as before.
+
+### Decision 4: The release starts on the QA workflow php-qa-ci's templates name
+
+**Context**: a `workflow_run` trigger lists workflow names and cannot take an expression, and a
+consumer's QA workflow is named after whichever template it copied. **Decision**: `workflows:`
+lists `CI`, `PHP QA Pipeline` and `QA`, and the job runs only for a green push to the
+repository's default branch, so the template copies unchanged; a project with another name, or
+more than one of them on that push, edits that one line.
+
 ## Delivery & Milestones
 
 <!-- Curated milestones + delivery commit hashes only (git is the SSoT for
@@ -104,3 +119,5 @@ the exception explicitly, in its own configuration.
      JOURNAL/00015-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
 - Plan filed
+- Phases 1–3 and Task 4.1: `b0ec234` (red tests), `140e1ec` (the versioning policy), `06b271f`
+  (the workflow templates and documentation)

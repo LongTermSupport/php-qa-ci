@@ -544,7 +544,9 @@ fails what it passed) moves the minor.
 Releases come from the changelog: when CI on a push to `php8.5` is green, a release pull request
 turns `## Unreleased` into the next version's section, and merging it publishes a GitHub Release
 and its tag with that section as the notes. Every consumer-visible change carries an entry, so
-the changelog is the complete list of what a release changes.
+the changelog is the complete list of what a release changes. The same release workflow ships for
+your own project, with semantic versioning by default:
+[Release automation](docs/github-actions.md#release-automation).
 
 Choose the constraint by how much change you want to take without reading about it first:
 

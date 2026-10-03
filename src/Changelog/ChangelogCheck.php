@@ -56,8 +56,15 @@ final readonly class ChangelogCheck
     ) {
     }
 
-    public function check(string $projectRoot, ChangelogGit $git, GitBranches $branches, EnvironmentReader $env, WatchedPaths $watched): ChangelogCheckResultDto
-    {
+    /** @param ReleaseVersionPolicy $policy which tags are releases, and so where the default branch's range starts */
+    public function check(
+        string $projectRoot,
+        ChangelogGit $git,
+        GitBranches $branches,
+        EnvironmentReader $env,
+        WatchedPaths $watched,
+        ReleaseVersionPolicy $policy = new ReleaseVersionPolicy(),
+    ): ChangelogCheckResultDto {
         $changelog = $this->read($projectRoot . '/' . self::CHANGELOG);
         if (null === $changelog) {
             return new ChangelogCheckResultDto([], ['no ' . self::CHANGELOG . ' in the project root']);
@@ -76,7 +83,7 @@ final readonly class ChangelogCheck
             }
 
             $composer = $this->read($projectRoot . '/' . self::COMPOSER_JSON);
-            $range    = $this->ranges->resolve($git, $branches, $env, $composer ?? '{}');
+            $range    = $this->ranges->resolve($git, $branches, $env, $composer ?? '{}', $policy);
             $report[] = 'Range: ' . $range->description . '.';
 
             $baseRead      = false;
@@ -119,6 +126,7 @@ final readonly class ChangelogCheck
     {
         $count = \count($head->entries());
         $bump  = match ($head->bump()) {
+            ReleaseBumpEnum::Major => 'the next release is breaking',
             ReleaseBumpEnum::Minor => 'the next release bumps the minor',
             ReleaseBumpEnum::Patch => 'the next release bumps the patch',
             null                   => 'no release is due',

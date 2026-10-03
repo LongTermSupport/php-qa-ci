@@ -8,9 +8,10 @@ use InvalidArgumentException;
 
 /**
  * The headings an `## Unreleased` section may use, in canonical order, and
- * what each does to the next version: a feature or a breaking change bumps
- * the minor (the major is the PHP line), a fix or a security fix the patch.
- * Any other heading makes the changelog invalid rather than being guessed at.
+ * what each asks of the next version: a breaking change or a removal the
+ * major, a feature or a change the minor, a fix or a security fix the patch
+ * (the ReleaseVersionPolicy decides what the major means). Any other heading
+ * makes the changelog invalid rather than being guessed at.
  *
  * @api
  */
@@ -19,8 +20,9 @@ enum ChangelogHeadingEnum: string
     public function bump(): ReleaseBumpEnum
     {
         return match ($this) {
-            self::Fixed, self::Security => ReleaseBumpEnum::Patch,
-            default                     => ReleaseBumpEnum::Minor,
+            self::ChangedBreaking, self::Removed => ReleaseBumpEnum::Major,
+            self::Fixed, self::Security          => ReleaseBumpEnum::Patch,
+            default                              => ReleaseBumpEnum::Minor,
         };
     }
 

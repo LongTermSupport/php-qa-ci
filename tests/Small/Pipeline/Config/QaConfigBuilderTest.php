@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Config;
 
 use LogicException;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
@@ -30,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ProjectPathsDto::class)]
 #[CoversClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(EnvironmentReader::class)]
+#[UsesClass(ReleaseVersionPolicy::class)]
 #[Small]
 final class QaConfigBuilderTest extends TestCase
 {
@@ -329,6 +331,16 @@ final class QaConfigBuilderTest extends TestCase
     }
 
     #[Test]
+    public function releasesFollowSemanticVersioningUnlessTheProjectDeclaresOtherwise(): void
+    {
+        self::assertEquals(ReleaseVersionPolicy::semanticVersioning(), $this->defaults()->build()->releaseVersionPolicy);
+
+        $locked = ReleaseVersionPolicy::lockedMajorFromPhpRequirement();
+        self::assertSame($locked, $this->defaults()->withReleaseVersionPolicy($locked)->build()->releaseVersionPolicy);
+        self::assertSame($locked, $this->defaults()->withReleaseVersionPolicy(ReleaseVersionPolicy::semanticVersioning('v'))->withReleaseVersionPolicy($locked)->build()->releaseVersionPolicy);
+    }
+
+    #[Test]
     public function enablingTheChangelogCheckWithoutWatchedPathsRefusesToBuild(): void
     {
         try {
@@ -396,6 +408,7 @@ final class QaConfigBuilderTest extends TestCase
 
         self::assertFalse($config->useChangelogCheck);
         self::assertSame([], $config->changelogWatchedPaths);
+        self::assertEquals(ReleaseVersionPolicy::semanticVersioning(), $config->releaseVersionPolicy);
     }
 
     #[Test]

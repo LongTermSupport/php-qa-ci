@@ -54,6 +54,7 @@ final readonly class ChangelogTool implements ToolInterface
             new GitBranches($context->processes, $root),
             $this->environment ?? new EnvironmentReader(EnvironmentReader::fromProcess()),
             new WatchedPaths(...$config->changelogWatchedPaths),
+            $config->releaseVersionPolicy,
         );
 
         foreach ($result->report as $line) {

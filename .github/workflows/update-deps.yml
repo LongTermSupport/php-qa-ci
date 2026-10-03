@@ -198,3 +198,4 @@ jobs:
         with:
           head-sha: ${{ steps.create-pr.outputs.pull-request-head-sha }}
           token: ${{ github.token }}
+          workflow: ci.yml

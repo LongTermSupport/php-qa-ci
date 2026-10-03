@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Config\Dto;
 
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 
 /**
@@ -23,7 +24,9 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
  *
  * `$singleTool` is the canonical tool name when `-t` was given and
  * `$specifiedPath` the project-relative path when `-p` was; `$quickTests`
- * skips PHPStan, PHPUnit and Infection entirely.
+ * skips PHPStan, PHPUnit and Infection entirely. `$releaseVersionPolicy` is
+ * how releases are numbered, which the changelog lane needs to find the last
+ * release tag.
  *
  * @api
  */
@@ -77,6 +80,7 @@ final readonly class QaConfigDto
         public bool $useChangelogCheck = false,
         public array $changelogWatchedPaths = [],
         public array $unanalysedPaths = [],
+        public ReleaseVersionPolicy $releaseVersionPolicy = new ReleaseVersionPolicy(),
     ) {
     }
 }

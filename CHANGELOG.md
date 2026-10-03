@@ -16,8 +16,9 @@ no consumer could notice says so instead, with the trailer
 cut from it is decided by them: `### Changed — breaking`, `### Removed`,
 `### Added`, `### Changed` and `### Deprecated` release a new minor version;
 `### Fixed` and `### Security` alone release a patch. The major is the PHP line
-(`85` for the `php8.5` branch), so a breaking change moves the minor: read the
-BREAKING entries before taking one. A green push to the branch opens a release
+(`85` for the `php8.5` branch, the locked-major policy `qaConfig/qa.php`
+declares), so a breaking change moves the minor: read the BREAKING entries
+before taking one. A green push to the branch opens a release
 pull request moving `## Unreleased` into a version section; merging it publishes
 the release and its tag. The full rules are in
 [docs/tools/changelog.md](docs/tools/changelog.md).
@@ -34,6 +35,18 @@ the release and its tag. The full rules are in
   declare the exception with `withUnanalysedPath('<path>', '<reason>')`, whose
   reason is required and printed on every run. See
   [docs/tools/analysedPaths.md](docs/tools/analysedPaths.md).
+- **`bin/changelog-release` and the `changelog` lane follow semantic versioning
+  unless the project declares otherwise.** A `### Changed — breaking` or
+  `### Removed` entry now releases the next major (the next minor while the
+  major is 0), and every plain `X.Y.Z` tag counts as a release, so the lane on
+  the default branch measures from the newest one. A project that relied on the
+  major being its PHP line declares
+  `withReleaseVersionPolicy(ReleaseVersionPolicy::lockedMajorFromPhpRequirement())`
+  in `qaConfig/qa.php` and keeps today's versions. `pending-tags` prints the tag
+  name, prefix included, rather than the version. `ReleaseVersionCalculator` is
+  replaced by `ReleaseVersionPolicy` and `ReleaseLine`, `ReleaseBumpEnum` gains
+  `Major`, and `ReleasedSections::untagged()` takes a `ReleaseLine`. See
+  [docs/tools/changelog.md](docs/tools/changelog.md#versioning-policies).
 
 ### Added
 
@@ -56,6 +69,24 @@ the release and its tag. The full rules are in
   misspelt field. A project without the file passes as before; its `CLAUDE.md`
   region gains a line saying where a deferred defect goes. Format:
   `vendor/bin/rule-doc phpqaci.phpstanIgnoreJustification`.
+- **Releases follow a versioning policy declared in `qaConfig/qa.php`.**
+  `withReleaseVersionPolicy()` takes
+  `ReleaseVersionPolicy::semanticVersioning()`, the default, whose first release
+  is `0.1.0` unless given another; `lockedMajor(<int>)`, which never moves the
+  major; or `lockedMajorFromPhpRequirement()`, the major being composer.json's
+  PHP line (`^8.5` is `85`). Each takes a tag prefix such as `v`; a tag of any
+  other shape is not a release. `notes` accepts the tag as well as the version.
+
+- **A release workflow ships for consuming projects.**
+  `templates/github-actions/release.yml` and
+  `templates/github-actions/approve-held-ci/action.yml`, copied unchanged into
+  `.github/`, give a project the release pull request php-qa-ci releases itself
+  with: a green push to the default branch opens or refreshes
+  `chore/release-<branch>`, and merging it publishes the GitHub Release and its
+  tag. The branch comes from the repository, the CLI from
+  `composer config bin-dir`, the version from the project's release policy.
+  Setup and the repository settings it needs are in
+  [docs/github-actions.md](docs/github-actions.md#release-automation).
 
 ### Changed
 
@@ -80,8 +111,6 @@ the release and its tag. The full rules are in
   They are now v7, v6, v7, v8 and v3. `actions/download-artifact@v8` fails on a
   digest mismatch where v4 only warned. A project that copied the templates
   should copy them again.
-
-> > > > > > > agent-a234aa19507b7e520-7ef8a3e5
 
 ## 85.2.0 — 2026-10-03
 

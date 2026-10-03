@@ -13,11 +13,12 @@ use LTS\PHPQA\Changelog\Dto\ReleasedSectionDto;
  * `## Unreleased` into a version section, then the release workflow tags the
  * commit that did so. Between the two, those entries are recorded but not
  * yet released, so the changelog lane counts a section the range base lacks
- * as recorded (since()), and the release workflow tags every section newer
- * than the line's newest tag (untagged()).
+ * as recorded (since()), and the release workflow tags every release newer
+ * than the newest release tag (untagged()).
  *
  * A heading counts only as `## X.Y.Z` alone or followed by a space; `v85.1.0`,
- * `85.1` and `85.1.0-rc1` are not releases, as for tags.
+ * `85.1` and `85.1.0-rc1` are not releases, as for tags. A version heading
+ * never carries the tag prefix.
  *
  * @api
  */
@@ -25,10 +26,8 @@ final readonly class ReleasedSections
 {
     private const string VERSION_HEADING = '/^## (\d+\.\d+\.\d+)(?: |$)/';
 
-    public function __construct(
-        private ChangelogParser $parser = new ChangelogParser(),
-        private ReleaseVersionCalculator $calculator = new ReleaseVersionCalculator(),
-    ) {
+    public function __construct(private ChangelogParser $parser = new ChangelogParser())
+    {
     }
 
     /** @return list<string> the version of every version section, in file order */
@@ -60,17 +59,17 @@ final readonly class ReleasedSections
     }
 
     /**
-     * The versions on line $major newer than its newest tag, oldest first:
-     * the releases still to be tagged.
+     * The versions $line releases that are newer than its newest release tag,
+     * oldest first: the releases still to be tagged.
      *
      * @return list<string>
      */
-    public function untagged(string $markdown, int $major, string ...$tags): array
+    public function untagged(string $markdown, ReleaseLine $line, string ...$tags): array
     {
-        $latest   = $this->calculator->latestOnLine($major, ...$tags);
+        $latest   = $line->latestVersion(...$tags);
         $untagged = array_values(array_filter(
             $this->versions($markdown),
-            static fn (string $version): bool => str_starts_with($version, $major . '.')
+            static fn (string $version): bool => $line->isRelease($version)
                 && (null === $latest || version_compare($version, $latest, '>')),
         ));
         usort($untagged, $this->older(...));

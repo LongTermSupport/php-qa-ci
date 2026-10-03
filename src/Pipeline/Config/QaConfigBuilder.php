@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Config;
 
 use LogicException;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
@@ -85,6 +86,7 @@ final readonly class QaConfigBuilder
         private ?array $deadCodeEntryPoints,
         private bool $useChangelogCheck,
         private array $changelogWatchedPaths,
+        private ReleaseVersionPolicy $releaseVersionPolicy,
         private array $unanalysedPaths = [],
     ) {
     }
@@ -153,6 +155,7 @@ final readonly class QaConfigBuilder
             deadCodeEntryPoints: null,
             useChangelogCheck: $env->bool('useChangelogCheck', false),
             changelogWatchedPaths: [],
+            releaseVersionPolicy: ReleaseVersionPolicy::semanticVersioning(),
         );
     }
 
@@ -339,6 +342,17 @@ final readonly class QaConfigBuilder
         return $this->with(unanalysedPaths: $declared);
     }
 
+    /**
+     * How bin/changelog-release numbers releases, and so which tags the
+     * changelog lane counts as releases. Semantic versioning unless set;
+     * ReleaseVersionPolicy::lockedMajor() and lockedMajorFromPhpRequirement()
+     * keep the major fixed, so a breaking change moves the minor.
+     */
+    public function withReleaseVersionPolicy(ReleaseVersionPolicy $policy): self
+    {
+        return $this->with(releaseVersionPolicy: $policy);
+    }
+
     public function build(): QaConfigDto
     {
         if ($this->useDeadCode && null === $this->deadCodeEntryPoints) {
@@ -402,6 +416,7 @@ final readonly class QaConfigBuilder
             useChangelogCheck: $this->useChangelogCheck,
             changelogWatchedPaths: $this->changelogWatchedPaths,
             unanalysedPaths: $this->unanalysedPaths,
+            releaseVersionPolicy: $this->releaseVersionPolicy,
         );
     }
 
@@ -471,6 +486,7 @@ final readonly class QaConfigBuilder
         ?bool $useChangelogCheck = null,
         ?array $changelogWatchedPaths = null,
         ?array $unanalysedPaths = null,
+        ?ReleaseVersionPolicy $releaseVersionPolicy = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -512,6 +528,7 @@ final readonly class QaConfigBuilder
             useChangelogCheck: $useChangelogCheck                   ?? $this->useChangelogCheck,
             changelogWatchedPaths: $changelogWatchedPaths           ?? $this->changelogWatchedPaths,
             unanalysedPaths: $unanalysedPaths                       ?? $this->unanalysedPaths,
+            releaseVersionPolicy: $releaseVersionPolicy             ?? $this->releaseVersionPolicy,
         );
     }
 }
