@@ -196,6 +196,72 @@ explicit `ref:`), so the copied file works as-is — no branch edit is required.
 
 See [Continuous Integration](./ci.md) for more details on the available workflows.
 
+## Release automation
+
+Releases cut from `CHANGELOG.md`, the way php-qa-ci releases itself: nobody picks a version and
+nobody tags by hand. A green push to the default branch opens, or refreshes, a release pull
+request from `chore/release-<default branch>` that moves `## Unreleased` into the next version's
+section; merging it publishes a GitHub Release, and its tag, at the commit that wrote the
+section. The version comes from the headings used and the project's
+[versioning policy](tools/changelog.md#versioning-policies): semantic versioning unless
+`qaConfig/qa.php` declares otherwise.
+
+### Install
+
+```bash
+mkdir -p .github/workflows .github/actions/approve-held-ci
+cp vendor/lts/php-qa-ci/templates/github-actions/release.yml .github/workflows/release.yml
+cp vendor/lts/php-qa-ci/templates/github-actions/approve-held-ci/action.yml .github/actions/approve-held-ci/action.yml
+```
+
+Both files copy unchanged: the branch comes from the repository's default branch, the release
+CLI from `composer config bin-dir`, the PHP version from `composer.json`. php-qa-ci's own
+`release.yml` and action are identical copies of these templates, so every php-qa-ci release
+runs them.
+
+### What the project needs
+
+- **A `CHANGELOG.md` with an `## Unreleased` section**, and the
+  [changelog lane](tools/changelog.md#enabling-it) switched on, so no unrecorded change reaches
+  a release.
+- **A QA workflow that runs on a push to the default branch.** The release starts when a
+  workflow named `CI`, `PHP QA Pipeline` (the `php-qa-ci.yml` template) or `QA` (the
+  `qa-autofix.yml` template) completes green on such a push. A QA workflow with another name, or
+  more than one of these running on that push, means editing `workflows:` in `release.yml` to
+  the one that gates a release. The `php-qa-ci.yml` template triggers on `main`, `master` and
+  `develop`; another default branch goes on its `push` and `pull_request` lists.
+- **A release tag to measure from.** On the default branch the changelog lane judges everything
+  since the newest release tag, and fails without one. Tag the release the project continues
+  from (`git tag 1.4.2 && git push origin 1.4.2`), or, for a project never released, `0.0.0` on
+  the commit its history starts from.
+- **A versioning policy, if not semantic versioning.** A breaking change releases the next major
+  by default; `withReleaseVersionPolicy()` in `qaConfig/qa.php` sets a tag prefix such as `v` or
+  locks the major, as php-qa-ci does.
+
+### Repository settings it relies on
+
+The workflow needs no secret and bypasses no branch protection: `GITHUB_TOKEN` opens the pull
+request and creates the release, and a maintainer's merge is the only write to the default
+branch.
+
+- **Settings → Actions → General → Workflow permissions**: "Allow GitHub Actions to create and
+  approve pull requests" is on
+  (`gh api repos/<owner>/<repo>/actions/permissions/workflow` shows
+  `can_approve_pull_request_reviews: true`).
+- No ruleset targets tags, so `GITHUB_TOKEN` may create the release tag.
+- Branch protection on the default branch requires the QA check (strict, so the branch is up to
+  date) and, recommended, one approving review: the maintainer's look at the release pull request
+  before merging it (`gh pr review <n> --approve`, then `gh pr merge <n> --merge`).
+- GitHub holds the `pull_request` CI run of a pull request opened or pushed with `GITHUB_TOKEN`
+  (conclusion `action_required`), and only that run satisfies a required check: a run of the
+  same commit from another event does not. `release.yml` therefore calls the `approve-held-ci`
+  action after opening or updating the release pull request; it waits for the run of the
+  workflow that started the release and approves it, which `actions: write` allows. If that step
+  fails, approve the run from the pull request's Checks tab.
+
+`changelog-release`, the CLI every step calls, is described in
+[docs/tools/changelog.md](tools/changelog.md#releasing-from-the-section).
+
 ## Customization
 
 ### Project-Specific QA Configuration

@@ -50,6 +50,17 @@ the release and its tag. The full rules are in
   PHP line (`^8.5` is `85`). Each takes a tag prefix such as `v`; a tag of any
   other shape is not a release. `notes` accepts the tag as well as the version.
 
+- **A release workflow ships for consuming projects.**
+  `templates/github-actions/release.yml` and
+  `templates/github-actions/approve-held-ci/action.yml`, copied unchanged into
+  `.github/`, give a project the release pull request php-qa-ci releases itself
+  with: a green push to the default branch opens or refreshes
+  `chore/release-<branch>`, and merging it publishes the GitHub Release and its
+  tag. The branch comes from the repository, the CLI from
+  `composer config bin-dir`, the version from the project's release policy.
+  Setup and the repository settings it needs are in
+  [docs/github-actions.md](docs/github-actions.md#release-automation).
+
 ### Changed
 
 - **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.

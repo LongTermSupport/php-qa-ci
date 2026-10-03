@@ -186,9 +186,10 @@ lines that start with `#`. `pending-tags` refuses a version section no commit ha
 `add-tool-updates` reads php-qa-ci's own pins (`phive.xml`'s `installed`, the ShellCheck version
 file, `build/*/composer.lock`), never a tool's `--version` banner.
 
-How php-qa-ci itself uses these in CI is in
-[CLAUDE/releases.md](../../CLAUDE/releases.md); the version scheme for consumers is under
-[Branches and versions](../../README.md#branches-and-versions).
+The shipped GitHub Actions workflow that drives these commands, and the repository settings it
+needs, are under [Release automation](../github-actions.md#release-automation). How php-qa-ci
+itself uses them is in [CLAUDE/releases.md](../../CLAUDE/releases.md); php-qa-ci's own version
+scheme is under [Branches and versions](../../README.md#branches-and-versions).
 
 ## Why a lane of its own
 
