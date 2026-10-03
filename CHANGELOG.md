@@ -89,6 +89,14 @@ the release and its tag. The full rules are in
   fails a page whose fix section is missing or only restates the summary, so
   toolchain 8.1 is no longer a known gap in `extra.defence-before-fix`.
 
+- **The default `phpunit.xml` validates against PHPUnit 13.4.** It set
+  `executionOrder="depends,random"`, which PHPUnit 13.4 no longer accepts, so
+  every run printed two test runner deprecations and PHPUnit 14 would stop
+  running it. It now sets `executionOrder="random"`; dependencies are still
+  resolved, which is PHPUnit's default. The schema URL and
+  `SYMFONY_PHPUNIT_VERSION` move to 13.4. A project with its own copy of the
+  file makes the same change.
+
 ## 85.1.0 — 2026-10-03
 
 ### Changed — breaking

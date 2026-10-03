@@ -28,6 +28,7 @@ use PHPUnit\Framework\TestCase;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(RuleDocResolver::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesCheck::class)]
