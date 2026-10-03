@@ -40,6 +40,10 @@ Two kinds of declaration fail too. A declaration matching **no PHP file** is sta
 silently excuse PHP added at that path later. A declaration **inside a checked path** is false,
 because that PHP is analysed regardless.
 
+An **ignored path** naming a path where nothing exists fails as stale for the same reason: every
+scanning lane would skip whatever is added there later. An ignored path that exists passes
+whatever it holds, since ignored paths routinely hold fixtures that are not PHP.
+
 ## How it runs
 
 - In the full pipeline, in the linting phase, after the infection.json source directories check.
@@ -78,7 +82,7 @@ Declare the narrowest path that is true: a single file rather than its directory
 file is the exception. A declaration is an exclusion from every rule the project runs, so it is an
 owner's decision, reviewed like any other suppression.
 
-For a **stale** declaration, delete it. For a **contradicted** one, delete it as well; to stop a
+For a **stale** declaration or ignored path, delete it. For a **contradicted** one, delete it as well; to stop a
 tool reading part of a checked path, use `withIgnoredPaths()` or the tool's own exclude setting.
 
 ## Worked example

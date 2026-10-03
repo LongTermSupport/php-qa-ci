@@ -33,6 +33,11 @@ the release and its tag. The full rules are in
   from the shipped factory instead, `(require getenv('PHPQACI_ARKITECT_CLASS_SET'))($srcDir)`, as
   `templates/qaConfig-phparkitect.php` now does; it applies `Generated` and
   `withArkitectExcludedPaths()` as before.
+- **BREAKING**: the `analysedPaths` lane fails a `withIgnoredPaths()` entry that names a path
+  where nothing exists, as it already failed a `withUnanalysedPath()` that excuses nothing: the
+  exclusion outlived what it excluded, and would hide whatever is added there later from every
+  scanning lane. Remove the entry. An ignored directory a build step generates must exist before
+  the pipeline runs.
 
 ### Fixed
 
