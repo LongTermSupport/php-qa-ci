@@ -16,6 +16,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
+- [00015: release automation for consumers](00015-release-automation-for-consumers/PLAN.md) - Not Started — ship the changelog-driven release workflow as a template any project can adopt, semantic versioning by default (breaking moves the major), with php-qa-ci's locked major as an override in its own `qaConfig/qa.php`
+
 ## Completed Plans
 
 - [00014: changelog release automation](Completed/00014-changelog-release-automation/PLAN.md) - Complete — `CHANGELOG.md` is the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` opens a release pull request whose merge publishes the release (85.1.0 shipped this way; merged ffa598e)
