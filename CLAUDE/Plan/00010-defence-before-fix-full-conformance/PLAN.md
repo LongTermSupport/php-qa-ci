@@ -249,3 +249,5 @@ Seven decisions, each with its context and reasoning: [DECISIONS.md](DECISIONS.m
      JOURNAL/00010-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
 - Plan filed, specs and register entry vendored with provenance: (this commit)
+- Phases 1 to 5 and Task 6.1 merged into php8.5 as e8d9ac8; released as `85.2.0` (BREAKING)
+  at the release commit 60e45ff. Task 6.2's publication awaits the Owner
