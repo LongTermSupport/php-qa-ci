@@ -302,9 +302,24 @@ The declaration carries two levels, graded separately, because they have differe
   other; most hold at both, because the project runs the artefact it ships.
 
 Every entry in either `known-gaps` list opens with the document and clause it fails, in the shape
-`toolchain 4.1: ...`, `detector 6.2: ...` or `method 3.6: ...`, followed by one sentence stating
-the gap. `tests/Small/DefenceBeforeFixDeclarationTest.php` guards the shape: both levels present,
-the versions this package is audited against, and every gap naming its clause.
+`toolchain 4.1: ...`, `detector 6.2: ...` or `method 3.6: ...`, then its status and one sentence
+stating the gap. The status is one of two:
+
+- `accepted by Owner decision — ... (Plan NNNNN Decision N)`: the Owner has decided to live with
+  the gap, and the cited plan records that decision under a `Decision N:` heading.
+- `open — ... (Plan NNNNN)`: the gap is being closed, by the cited active plan.
+
+`tests/Small/DefenceBeforeFixDeclarationTest.php` holds the declaration to the repository:
+
+- both levels are present, at the versions vendored under `remote-docs/`, so a refreshed
+  specification fails the build until the declaration is re-audited;
+- every gap names a clause the declared document has, and has one of the two statuses;
+- an accepted gap's decision is recorded, and has a probe in the test showing the gap is still
+  real, so closing it fails the build until the entry goes;
+- an open gap's plan is still active.
+
+A new accepted gap therefore needs its decision written down and its probe added to
+`gapIsStillReal()` in the same change.
 
 ## Cross-Reference
 

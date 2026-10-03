@@ -150,7 +150,7 @@
       "method": "1.0.1",
       "project": {
         "known-gaps": [
-          "toolchain 4.1: accepted by Owner decision — the same PHPArkitect and PHPStan native-identifier gaps as the artefact, since the project runs the toolchain it ships"
+          "toolchain 4.1: accepted by Owner decision — the same PHPArkitect and PHPStan native-identifier gaps as the artefact, since the project runs the toolchain it ships (Plan 00010 Decisions 5 and 6)"
         ],
         "method": "1.0.1",
         "toolchain": "0.2.0"

@@ -83,10 +83,14 @@ most of the clause table turns green at once.
   missing from our declaration; artefact list six entries → ten, project three → six.
   Evidence and the enumerated fifteen undocumented rules:
   [JOURNAL/00010-Journal-26-09-11.md](JOURNAL/00010-Journal-26-09-11.md).
-- [ ] ⬜ **Task 1.2**: Add a defence over the declaration itself — the gap record is a
+- [x] ✅ **Task 1.2**: Add a defence over the declaration itself — the gap record is a
   claim about this repository, and nothing currently detects it drifting from reality.
   Decide (per [tool-boundaries.md](../../tool-boundaries.md)) whether this is a new lane
-  or an assertion inside an existing one; the likely answer is an assertion.
+  or an assertion inside an existing one; the likely answer is an assertion. An assertion,
+  in `DefenceBeforeFixDeclarationTest`: the declaration describes this repository, not a
+  consumer's, so it is not a lane. Versions read from the vendored specifications; each
+  gap's clause must exist; each gap is accepted (citing a recorded decision with a probe
+  that the gap is still real) or open (citing an active plan). Red at 09457a7.
 
 ### Phase 2: Identity — every defence names itself (toolchain 4.1, 5.1)
 
@@ -187,15 +191,20 @@ most of the clause table turns green at once.
 
 ### Phase 6: Claim it
 
-- [ ] ⬜ **Task 6.1**: Empty both `known-gaps` lists, or reduce each remaining entry to a
+- [x] ✅ **Task 6.1**: Empty both `known-gaps` lists, or reduce each remaining entry to a
   recorded Owner decision, and bump the declared versions to the specifications actually
-  vendored under `remote-docs/`.
+  vendored under `remote-docs/`. Three entries remain, all toolchain 4.1, each citing
+  Decision 5 or 6; the vendored versions (method 1.0.1, toolchain 0.2.0) already matched
+  and are now read from the vendored files by the Task 1.2 guard. Per toolchain 9.2 a
+  non-empty record is not a claim of conformance, so the declaration still claims none.
 - [ ] ⬜ **Task 6.2**: Re-audit and update the register entry in the DBF repository.
   **Both repositories are first-party** (`Defence-Before-Fix` and `LongTermSupport` are
   both Joseph Edmonds), so this is a commit we can make, not a request we file. The
   separation is editorial discipline, not an access boundary — see Decision 4.
-  - [ ] ⬜ Re-audit by *running* the commands, as the original did, and record the
-    evidence column the register format requires.
+  - [x] ✅ Re-audit by *running* the commands, as the original did, and record the
+    evidence column the register format requires: [REAUDIT.md](REAUDIT.md), unpublished.
+    Ten of twelve rows re-grade `Yes`; detector 6.2/6.3 and toolchain 4.1 stay `Partial`
+    under Decisions 5 and 6.
   - [ ] ⬜ **Per-post Owner authorisation still applies** to anything that lands in a
     public repository — see [CLAUDE/segfault-policy.md](../../segfault-policy.md) step 3
     for the same constraint stated for php-src.
@@ -212,13 +221,13 @@ Seven decisions, each with its context and reasoning: [DECISIONS.md](DECISIONS.m
 
 ## Success Criteria
 
-- [ ] Every clause upstream grades `No` or `Partial` is either graded `Yes` by the same
+- [x] Every clause upstream grades `No` or `Partial` is either graded `Yes` by the same
   evidence, or carries a recorded Owner decision in `known-gaps`.
-- [ ] `bin/rules .` shows an identifier and a documentation route for every rule **and**
+- [x] `bin/rules .` shows an identifier and a documentation route for every rule **and**
   every lane, with no `doc: no documentation page` rows.
-- [ ] `bin/rule-doc <identifier>` resolves every identifier php-qa-ci can print to a page
+- [x] `bin/rule-doc <identifier>` resolves every identifier php-qa-ci can print to a page
   stating a correct construction, offline.
-- [ ] A baseline — PHPArkitect's or PHPStan's, at the top level or through an
+- [x] A baseline — PHPArkitect's or PHPStan's, at the top level or through an
   `includes:` — cannot suppress a finding without appearing in the record and the
   listing.
 - [ ] The full battery passes ([prepush-verification.md](../../prepush-verification.md)).
