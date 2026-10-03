@@ -45,6 +45,16 @@ the release and its tag. The full rules are in
   that kept a record should fix each entry, or file it as an issue on the upstream project where
   the code is not its own, then delete the file.
 
+### Added
+
+- `vendor/bin/rule-doc` resolves PHPStan's own identifiers, and those of the extensions php-qa-ci
+  installs, offline, the way it resolves its own: `rule-doc argument.type` prints PHPStan's page
+  for it (code example, why it is reported, how to fix it) rather than a phpstan.org URL. The pages
+  are PHPStan's, carried in `vendor-docs/phpstan/` and refreshed with the shipped phpstan.phar by
+  `bin/phpstan-docs-install` during a maintainer `composer update`. The type-coverage extension
+  publishes no pages, so `docs/phpstan-extension-rules/` holds one for each of its identifiers. An
+  identifier none of these carry still names its phpstan.org page.
+
 ### Fixed
 
 - The `phpArkitect` lane honours `withIgnoredPaths()`. The shipped class-set factory

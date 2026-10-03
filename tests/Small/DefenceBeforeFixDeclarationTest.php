@@ -271,13 +271,10 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
         return array_all($tiers, static fn (string $tier): bool => !str_contains(\Safe\file_get_contents($tier), 'phpqaci.'));
     }
 
-    /** Decision 6: a PHPStan identifier still resolves only to the online catalogue. */
+    /** Decision 6: a PHPStan identifier still resolves to no page on disk, only to the online catalogue. */
     private function phpstanCatalogueIsOnlineOnly(): bool
     {
-        return str_contains(
-            new RuleDocResolver(self::REPO_ROOT)->render(self::NATIVE_IDENTIFIER),
-            'https://phpstan.org/error-identifiers/' . self::NATIVE_IDENTIFIER,
-        );
+        return null === new RuleDocResolver(self::REPO_ROOT)->foreignDocPath(self::NATIVE_IDENTIFIER);
     }
 
     /** Why a vendored copy is not the published text, or null when its front matter records a verbatim capture. */

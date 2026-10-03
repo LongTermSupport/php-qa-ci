@@ -42,9 +42,17 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
 ## How to fix a failure
 
 Each error names its file, line and identifier. Look the identifier up before changing anything:
-a `phpqaci.*` identifier is one of this package's rules, and `vendor/bin/rule-doc <identifier>`
-prints its page, offline, with the construction to write instead; any other identifier is
-PHPStan's own or an extension's, documented at `https://phpstan.org/error-identifiers/`.
+`vendor/bin/rule-doc <identifier>` prints its page, offline, with the construction to write
+instead. That covers every identifier the shipped toolchain prints:
+
+- a `phpqaci.*` identifier is one of this package's rules;
+- PHPStan's own and its first-party extensions' (`argument.type`, `phpunit.assertEmpty`) come
+  from PHPStan's own pages, carried in `vendor-docs/phpstan/` alongside the shipped phar;
+- the type-coverage extension's come from [pages this package writes](../phpstan-extension-rules/README.md),
+  because that extension publishes none.
+
+An identifier from an extension php-qa-ci does not ship resolves to none of these, and
+`rule-doc` names `https://phpstan.org/error-identifiers/` instead.
 
 Then change the code so the error has nothing to report: declare the type the value really
 has, narrow it with a check where it enters (a parameter, a decoded payload, a `mixed` return),

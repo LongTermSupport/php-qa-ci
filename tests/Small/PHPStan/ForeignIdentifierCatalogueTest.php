@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
 use LTS\PHPQA\PHPStan\RuleDocResolver;
+use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,9 +32,11 @@ use SplFileInfo;
  */
 #[CoversClass(RuleDocResolver::class)]
 #[UsesClass(RuleDocEntryDto::class)]
+#[UsesClass(PhpstanDocsCatalogue::class)]
 #[Small]
 final class ForeignIdentifierCatalogueTest extends TestCase
 {
+    /** This package, which is both the library and the project under test here. */
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
     /** The installed extensions whose rules php-qa-ci delivers to every consumer. */
@@ -54,7 +57,7 @@ final class ForeignIdentifierCatalogueTest extends TestCase
 
         self::assertStringStartsWith('argument.type', $rendered);
         self::assertStringContainsString('## How to fix it', $rendered);
-        self::assertStringContainsString('PHPStan ' . $this->installedPhpstanVersion(), $rendered);
+        self::assertStringContainsString('alongside phpstan.phar ' . $this->installedPhpstanVersion(), $rendered);
     }
 
     #[Test]
@@ -74,13 +77,33 @@ final class ForeignIdentifierCatalogueTest extends TestCase
         self::assertSame([], $unresolved, 'these identifiers resolve to no page on disk');
     }
 
+    /**
+     * What the shipped phar can print, read out of the phar itself: its own
+     * source is the one list that moves exactly when the phar does.
+     */
+    #[Test]
+    public function everyIdentifierTheShippedPhpstanDeclaresResolvesToAPage(): void
+    {
+        $resolver = new RuleDocResolver(self::REPO_ROOT);
+        $phar     = 'phar://' . \Safe\realpath(self::REPO_ROOT . '/vendor-phar/phpstan.phar') . '/src';
+
+        $identifiers = $this->identifiersIn($phar);
+        $unresolved  = array_values(array_filter(
+            $identifiers,
+            static fn (string $identifier): bool => null === $resolver->foreignDocPath($identifier),
+        ));
+
+        self::assertGreaterThan(300, \count($identifiers), 'the phar yielded too few identifiers to have been read correctly');
+        self::assertSame([], $unresolved, 'phpstan.phar can print these identifiers, and they resolve to no page on disk');
+    }
+
     #[Test]
     public function theCarriedCatalogueIsAtTheInstalledPhpstanVersion(): void
     {
         self::assertSame(
             $this->installedPhpstanVersion(),
-            trim(\Safe\file_get_contents(self::REPO_ROOT . '/vendor-docs/phpstan/version')),
-            'vendor-docs/phpstan/ is not at the version of vendor-phar/phpstan.phar: run bin/phpstan-docs-install update',
+            new PhpstanDocsCatalogue(self::REPO_ROOT)->carriedVersion(),
+            'vendor-docs/phpstan/ was not taken alongside vendor-phar/phpstan.phar: run bin/phpstan-docs-install update',
         );
     }
 
@@ -102,10 +125,10 @@ final class ForeignIdentifierCatalogueTest extends TestCase
 
     private function installedPhpstanVersion(): string
     {
-        $phive = \Safe\file_get_contents(self::REPO_ROOT . '/phive.xml');
-        self::assertSame(1, \Safe\preg_match('/<phar name="phpstan"[^>]*installed="([^"]+)"/', $phive, $match));
+        $installed = new PhpstanDocsCatalogue(self::REPO_ROOT)->installedPhpstanVersion();
+        self::assertNotNull($installed, 'phive.xml records no installed phpstan.phar');
 
-        return $match[1];
+        return $installed;
     }
 
     /** @return list<string> */
@@ -113,22 +136,37 @@ final class ForeignIdentifierCatalogueTest extends TestCase
     {
         $identifiers = [];
         foreach (self::EXTENSION_SOURCES as $source) {
-            $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::REPO_ROOT . '/' . $source));
-            foreach ($files as $file) {
-                if (!$file instanceof SplFileInfo || 'php' !== $file->getExtension()) {
-                    continue;
-                }
+            $identifiers = [...$identifiers, ...$this->identifiersIn(self::REPO_ROOT . '/' . $source)];
+        }
 
-                \Safe\preg_match_all(self::LITERAL_IDENTIFIER, \Safe\file_get_contents($file->getPathname()), $matches);
-                foreach ($matches[1] as $identifier) {
+        $identifiers = array_values(array_unique($identifiers));
+        sort($identifiers);
+
+        return $identifiers;
+    }
+
+    /** @return list<string> every literal identifier in the PHP files under $directory */
+    private function identifiersIn(string $directory): array
+    {
+        $identifiers = [];
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
+            if (!$file instanceof SplFileInfo || 'php' !== $file->getExtension()) {
+                continue;
+            }
+
+            \Safe\preg_match_all(self::LITERAL_IDENTIFIER, \Safe\file_get_contents($file->getPathname()), $matches);
+            $found = $matches[1] ?? [];
+            if (!\is_array($found)) {
+                continue;
+            }
+
+            foreach ($found as $identifier) {
+                if (\is_string($identifier)) {
                     $identifiers[$identifier] = true;
                 }
             }
         }
 
-        $identifiers = array_keys($identifiers);
-        sort($identifiers);
-
-        return $identifiers;
+        return array_keys($identifiers);
     }
 }
