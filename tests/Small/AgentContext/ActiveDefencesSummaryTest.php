@@ -95,6 +95,30 @@ final class ActiveDefencesSummaryTest extends TestCase
         );
     }
 
+    /**
+     * The region is written in the markdown formatter's canonical form, so a
+     * formatter run over the document (the hooks daemon formats CLAUDE.md
+     * after every edit) leaves it as generated: a blank line inside each
+     * marker, and a summary's backslash escaped where it is text and left
+     * alone where it is code.
+     */
+    #[Test]
+    public function theRegionIsInTheMarkdownFormattersCanonicalForm(): void
+    {
+        $listing = new ActiveDefencesListingDto(
+            self::PHPSTAN_NEON,
+            [],
+            [new PipelineLaneDto('spu', 'phpqaci.spu', 'assert #[\SensitiveParameter] is used, as `#[\SensitiveParameter]` in code', self::PHASE, null)],
+            [],
+        );
+
+        $region = new ActiveDefencesSummary()->render($listing, self::ROOT);
+
+        self::assertStringStartsWith(AgentContextRegion::START . "\n\n## ", $region);
+        self::assertStringEndsWith("\n\n" . AgentContextRegion::END, $region);
+        self::assertStringContainsString('- `phpqaci.spu` — assert #[\\\SensitiveParameter] is used, as `#[\SensitiveParameter]` in code', $region);
+    }
+
     #[Test]
     public function aProjectRootGivenWithATrailingSlashStillShortensThePage(): void
     {
