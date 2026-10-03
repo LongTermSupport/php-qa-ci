@@ -72,4 +72,20 @@ final class ActiveDefencesSummaryTest extends TestCase
             new ActiveDefencesSummary()->render($listing, self::ROOT),
         );
     }
+
+    #[Test]
+    public function aProjectRootGivenWithATrailingSlashStillShortensThePage(): void
+    {
+        $listing = new ActiveDefencesListingDto(
+            self::ROOT . '/qaConfig/phpstan.neon',
+            [new ActiveRuleEntryDto('LTS\Rules\Dangerous', 'phpqaci.dangerousFunctions', 'No exec/eval/unserialize and similar', self::ROOT . '/docs/rule.md')],
+            [],
+            [],
+        );
+
+        self::assertStringContainsString(
+            "\n- `phpqaci.dangerousFunctions` — No exec/eval/unserialize and similar (`docs/rule.md`)\n",
+            new ActiveDefencesSummary()->render($listing, self::ROOT . '/'),
+        );
+    }
 }
