@@ -10,17 +10,17 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00012: agent mode terse stdout and per file reports](00012-agent-mode-terse-stdout-and-per-file-reports/PLAN.md) - In Progress — every agent edit pays 54 console lines for a one-line verdict; `--agent-mode` / `PHPQACI_AGENT_MODE` makes stdout a count plus a report path, and moves the substance into stable per-file JSON under `var/qa/phpstan-file-reports/`, with a fail-fast refusal for any tool that does not support it
-
 - [00008: shellcheck lane vendored binary](00008-shellcheck-lane-vendored-binary/PLAN.md) - In Progress — ShellCheck runs only in CI, so a green bin/qa can still be a red branch; vendor one pinned static binary, add the lane with git-tracked shebang discovery and a per-project glob override, delete the duplicate CI job
 
 - [00010: Defence Before Fix full conformance](00010-defence-before-fix-full-conformance/PLAN.md) - In Progress — empty both `known-gaps` lists in `composer.json`, planned against upstream's clause-by-clause register entry rather than our own (understated) declaration; identity, then resolution, then enforcement
 
-- [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect: lock contention masquerading as a QA failure, log retention that cannot bound its directory, a managed CLAUDE.md block a formatter reflows, `bash bin/qa`, permanently-red per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to a project's own identifiers, and Infection contradicting our own advisory
+- [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
-- [00014: changelog release automation](00014-changelog-release-automation/PLAN.md) - In Progress — `CHANGELOG.md` becomes the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` is released by a CI bot commit and annotated tag, minor or patch only because the major is the PHP line
+- [00014: changelog release automation](00014-changelog-release-automation/PLAN.md) - In Progress — `CHANGELOG.md` is the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` opens a release pull request whose merge publishes the release (85.1.0 shipped this way)
 
 ## Completed Plans
+
+- [00012: agent mode terse stdout and per file reports](Completed/00012-agent-mode-terse-stdout-and-per-file-reports/PLAN.md) - Complete — `--agent-mode` / `PHPQACI_AGENT_MODE` makes stdout a count plus a report path, with the findings in per-file JSON under `var/qa/`, for PHPStan and PHPArkitect (merged 3e0c970)
 
 - [00009: upstream php-src bug report](Completed/00009-upstream-php-src-bug-report-opcache-const-comparison/PLAN.md) - Complete — [php-src GH-23644](https://github.com/php/php-src/issues/23644) filed and Status: Verified, fix proposed in [PR 23648](https://github.com/php/php-src/pull/23648) carrying our reproducer; produced [CLAUDE/segfault-policy.md](../segfault-policy.md); `FIRST_FIXED` defended by `OpcacheDefectRangeTest` rather than awaited
 
@@ -44,10 +44,9 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 _None yet — abandoned plans move to [Cancelled/](Cancelled/) with a matching row here._
 
-## Loose docs at plan root (pre-existing, flagged by plan-qa)
+## Legacy loose docs
 
-`locking-system.md`, `skills-deployment-system-2025-11.md`,
-`worktree-git-env-fix.md` predate the plan-workflow being enabled. They are
-knowledge docs, not plan folders; relocating them (into a plan folder or
-`docs/`) is tracked as housekeeping — left in place for now to avoid breaking
-inbound references without review.
+[Completed/legacy-loose-docs/](Completed/legacy-loose-docs/) holds three documents that predate
+the numbered plans: the Bash-era locking design (superseded by `RunLock` in Plan 00003), the
+skills-deployment proposal (superseded by `scripts/deploy-skills.bash`), and the worktree
+pre-commit fix (delivered in b82b293b). Historical only.
