@@ -145,6 +145,12 @@ otherwise, and a green push to `php8.5` opens a release pull request whose merge
 [CLAUDE/releases.md](CLAUDE/releases.md) is the procedure: which heading a change belongs under,
 the trailer, how the release pull request works, and the repository settings it relies on.
 
+## Work happens on `php8.5` only (binding, Owner decision)
+
+Every change, fix and release is made on `php8.5`. The `php8.4` and `php8.3` branches are left
+as they are: nothing is backported to them and no issue waits on them. A defect found on an
+older line that `php8.5` does not have needs no action; one `php8.5` has is fixed there alone.
+
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
 
 php-qa-ci is frequently installed **from source** into a consuming project, so
