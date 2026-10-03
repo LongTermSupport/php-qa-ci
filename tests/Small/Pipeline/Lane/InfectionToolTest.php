@@ -51,6 +51,8 @@ final class InfectionToolTest extends TestCase
 
     private const string COVERED_FLOOR_ARG = '--min-covered-msi=76';
 
+    private const string SRC_DIR = '/src';
+
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4'];
 
     private ContextFactory $factory;
@@ -186,7 +188,7 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome, 'a dirty src/tests tree must REFUSE the diff lane');
         self::assertCount(1, $this->factory->processes->specs, 'nothing expensive runs after the refusal');
-        self::assertSame(['git', 'status', '--porcelain', '--', $this->root . '/src', $this->root . '/tests'], $this->factory->processes->specs[0]->command);
+        self::assertSame(['git', 'status', '--porcelain', '--', $this->root . self::SRC_DIR, $this->root . '/tests'], $this->factory->processes->specs[0]->command);
         self::assertFalse($this->factory->processes->specs[0]->streamOutput);
         self::assertStringContainsString('REFUSED', $printed);
         self::assertStringContainsString('src/Dirty.php', $printed);
@@ -220,7 +222,7 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['git', '--no-pager', 'diff', 'origin/main...HEAD', '--diff-filter=AM', '--name-only', '--relative', '--', $this->root . '/src'],
+            ['git', '--no-pager', 'diff', 'origin/main...HEAD', '--diff-filter=AM', '--name-only', '--relative', '--', $this->root . self::SRC_DIR],
             $this->factory->processes->specs[1]->command,
             'the filter is computed from committed history (three-dot diff), never the working tree',
         );
@@ -266,6 +268,27 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
+    public function anEmptyDiffSkipsBeforeAnyCoverageIsGenerated(): void
+    {
+        $this->factory->processes->willSucceed('')->willSucceed('')->willSucceed('');
+
+        $result  = new InfectionTool()->run($this->context($this->diffBuilder(singleTool: self::INFECTION)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame(
+            [
+                'git status --porcelain -- ' . $this->root . '/src ' . $this->root . '/tests',
+                'git --no-pager diff origin/main...HEAD --diff-filter=AM --name-only --relative -- ' . $this->root . self::SRC_DIR,
+            ],
+            $this->factory->processes->commandLines(),
+            'with nothing to mutate, the lane must not spend a coverage run first',
+        );
+        self::assertStringNotContainsString('generating fresh coverage', $printed);
+        self::assertStringContainsString('there are no new mutants to check. SKIPPING.', $printed);
+    }
+
+    #[Test]
     public function aFailingGitDiffFailsTheLane(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
@@ -290,9 +313,9 @@ final class InfectionToolTest extends TestCase
     }
 
     /** @param array<string, string> $extraEnv */
-    private function diffBuilder(array $extraEnv = []): QaConfigBuilder
+    private function diffBuilder(array $extraEnv = [], ?string $singleTool = null): QaConfigBuilder
     {
-        return $this->factory->builder(env: [...self::FLOORS, 'infectionDiffBase' => 'origin/main', ...$extraEnv]);
+        return $this->factory->builder(env: [...self::FLOORS, 'infectionDiffBase' => 'origin/main', ...$extraEnv], singleTool: $singleTool);
     }
 
     private function context(QaConfigBuilder $builder): ToolContext

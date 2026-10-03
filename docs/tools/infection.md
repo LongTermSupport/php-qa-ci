@@ -82,6 +82,6 @@ The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infecti
 
 1. Without Xdebug there is no coverage, so the lane skips.
 2. Diff mode (`infectionDiffBase` set) first refuses a dirty tree under `src/` or `tests/` (`git status --porcelain`): the verdict must be reproducible from committed history alone.
-3. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
-4. Diff mode scopes mutation to the PHP files from `git diff <base>...HEAD --diff-filter=AM --name-only --relative -- src`, passed to Infection as positional absolute paths. An empty list skips; a failing `git diff` fails.
+3. Diff mode then scopes mutation to the PHP files from `git diff <base>...HEAD --diff-filter=AM --name-only --relative -- src`, passed to Infection as positional absolute paths. An empty list skips before any coverage is generated, so a docs-only or config-only change costs no test run; a failing `git diff` fails.
+4. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
 5. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, then either `--min-msi --min-covered-msi --log-verbosity=all` (full) or `--min-covered-msi=<infectionDiffCoveredMsi>` and the paths (diff). Any non-zero exit fails.

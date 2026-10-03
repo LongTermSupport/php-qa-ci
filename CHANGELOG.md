@@ -28,6 +28,15 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.
 
+### Fixed
+
+- **A diff-scoped Infection run with nothing to mutate no longer generates
+  coverage first.** With `infectionDiffBase` set, the lane resolves the
+  changed-file list before any coverage run, so a docs-only or config-only
+  change skips at once instead of spending a full Xdebug PHPUnit run and then
+  reporting nothing to mutate. When there are changed source files, coverage
+  is reused or generated exactly as before.
+
 ## 85.2.0 — 2026-10-03
 
 ### Changed — breaking
