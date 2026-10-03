@@ -15,6 +15,7 @@ use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
 use LTS\PHPQA\Pipeline\Lane\DocsProseTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
+use LTS\PHPQA\Pipeline\Lane\MarkdownFormatTool;
 use LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool;
 use LTS\PHPQA\Pipeline\Lane\OpcacheTool;
 use LTS\PHPQA\Pipeline\Lane\PackageTypeTool;
@@ -67,6 +68,7 @@ final readonly class ShippedTools
             new ComposerDependencyAnalyserTool(),
             new PhpcpdTool(),
             new TwigCsFixerTool(),
+            new MarkdownFormatTool(),
             new TwigLintTool(),
             new YamlLintTool(),
             new ShellCheckTool(),

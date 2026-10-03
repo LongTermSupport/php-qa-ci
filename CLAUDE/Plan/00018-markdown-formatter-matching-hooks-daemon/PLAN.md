@@ -40,24 +40,25 @@ hand-coding canonical form.
 ### Phase 1: decide the engine (Owner decision)
 
 - [x] ✅ **Task 1.1**: Engine decided: delegate to the daemon's own `format-markdown` (option c); options, reasoning and limits in [DECISIONS.md](DECISIONS.md) Decision 1
-- [x] 🚫 **Task 1.2**: Differential corpus: not needed, agreement is by construction (Decision 1); the edge fixtures move to the lane tests in Task 2.1
+- [x] 🚫 **Task 1.2**: Differential corpus: not needed, agreement is by construction (Decision 1)
 
 ### Phase 2: the daemon formatter adapter (Defence Before Fix: red first)
 
-- [ ] ⬜ **Task 2.1**: Red: tests for locating the daemon (`.claude/hooks-daemon/bin/hooks-daemon`, project or parent), running `format-markdown` and `format-markdown --check`, and skipping with a notice when it is absent; edge fixtures (tables with escaped pipes, nested and numbered lists, front matter, thematic breaks, `\S`, HTML comment region markers) must come back intact
-- [ ] ⬜ **Task 2.2**: The adapter, under `src/` with a thin `bin/` entry point
-- [ ] ⬜ **Task 2.3**: Prove the generated active-defences region is already canonical (the lane over `CLAUDE.md` finds nothing to change); no generator calls the daemon, since CI has none
+- [x] ✅ **Task 2.1**: Red `2c4f183`: the daemon locator (project, or above it up to the work-tree root) and the lane (`format-markdown`, `--check` read-only, skip without the daemon); the edge fixtures are dropped, since the lane formats nothing itself (Decision 2)
+- [x] ✅ **Task 2.2**: `HooksDaemonCliLocator`; no `bin/` entry point, since the daemon's CLI is already the standalone command (Decision 2)
+- [x] ✅ **Task 2.3**: The lane over `CLAUDE.md` changes nothing: the generated region is already canonical; no generator calls the daemon
 
 ### Phase 3: the lane
 
-- [ ] ⬜ **Task 3.1**: Red, then a `markdownFormat` lane over `README.md`, `docs/`, `CLAUDE.md` and `CLAUDE/`, writable applies and read-only fails with the pending diff; identifier, index row and page as every lane has
-- [ ] ⬜ **Task 3.2**: Consumer documentation and CHANGELOG entry
+- [x] ✅ **Task 3.1**: `markdownFormat` (`-t mdf`), coding-standards phase, `withMarkdownFormatPaths()` defaulting to `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/`, `CLAUDE/`; identifier, index row and page; tool-boundary record in Decision 2
+- [x] ✅ **Task 3.2**: `docs/tools/markdownFormat.md`, `CLAUDE.md`, `docs/pipeline.md`, `docs/upgrading-to-8.5.md` and the CHANGELOG entry
+- [ ] ⬜ **Task 3.3**: Both battery runs pass, then a daemon restart changes no tracked markdown file
 
 ## Success Criteria
 
-- [ ] The lane's output is the daemon's (it runs the daemon's code)
+- [x] The lane's output is the daemon's (it runs the daemon's code)
 - [ ] A daemon restart after a full `bin/qa` run changes no tracked markdown file
-- [ ] Without the daemon the lane skips with a notice naming why
+- [x] Without the daemon the lane skips with a notice naming why
 
 ## Delivery & Milestones
 

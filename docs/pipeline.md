@@ -86,8 +86,8 @@ The phase order and the `-t` aliases are owned by [ToolRegistry](../src/Pipeline
 
 1. **[Rector](./tools/rector.md)** -- Automated refactoring (safe functions, PHPUnit, PHP 8.5 upgrades)
 2. **[PHP CS Fixer](./tools/phpCsFixer.md)** -- Code style fixing (runs as PHAR)
-
-On a Symfony project the platform lane **[Twig CS Fixer](./tools/twigCsFixer.md)** is appended to this phase; it modifies templates, which is why it belongs here rather than with Twig Lint.
+3. **[Twig CS Fixer](./tools/twigCsFixer.md)** -- Twig coding standards, when `twig/twig` is installed; it modifies templates, which is why it belongs here rather than with Twig Lint
+4. **[Markdown Format](./tools/markdownFormat.md)** -- Markdown in the hooks daemon's format, by the daemon's own formatter; skipped without the daemon
 
 #### Phase 2: Linting and Validation
 

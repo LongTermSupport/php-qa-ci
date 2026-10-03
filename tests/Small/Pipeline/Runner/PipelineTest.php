@@ -100,7 +100,7 @@ final class PipelineTest extends TestCase
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
-        $expectedOrder = ['rector', 'phpCsFixer', 'twigCsFixer', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
+        $expectedOrder = ['rector', 'phpCsFixer', 'twigCsFixer', 'markdownFormat', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertNull($this->lockRecord(), 'the lock is released');

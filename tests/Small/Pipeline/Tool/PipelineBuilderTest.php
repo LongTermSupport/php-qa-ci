@@ -62,6 +62,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\AnalysedPathsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ChangelogTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigCsFixerTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownFormatTool::class)]
+#[UsesClass(\LTS\PHPQA\HooksDaemon\HooksDaemonCliLocator::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
