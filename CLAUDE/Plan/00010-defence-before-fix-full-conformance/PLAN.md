@@ -230,7 +230,7 @@ Seven decisions, each with its context and reasoning: [DECISIONS.md](DECISIONS.m
 - [x] A baseline — PHPArkitect's or PHPStan's, at the top level or through an
   `includes:` — cannot suppress a finding without appearing in the record and the
   listing.
-- [ ] The full battery passes ([prepush-verification.md](../../prepush-verification.md)).
+- [x] The full battery passes ([prepush-verification.md](../../prepush-verification.md)).
 
 ## Risks & Mitigations
 
