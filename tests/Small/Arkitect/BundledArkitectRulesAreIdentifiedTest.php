@@ -41,7 +41,7 @@ final class BundledArkitectRulesAreIdentifiedTest extends TestCase
     {
         $unidentified = [];
         foreach ($this->clausesByTier() as $tier => $clauses) {
-            self::assertSame(substr_count(\Safe\file_get_contents($tier), 'Rule::allClasses()'), \count($clauses), $tier . ': a rule whose because clause this test cannot read');
+            self::assertCount(substr_count(\Safe\file_get_contents($tier), 'Rule::allClasses()'), $clauses, $tier . ': a rule whose because clause this test cannot read');
             foreach ($clauses as $clause) {
                 if (1 !== \Safe\preg_match(self::IDENTIFIER, $clause)) {
                     $unidentified[] = basename($tier) . ': ' . $clause;
