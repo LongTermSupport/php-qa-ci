@@ -93,10 +93,12 @@ most of the clause table turns green at once.
 - [x] ✅ **Task 2.1**: Give the identifier-less lanes stable identifiers. **Already done
   before this plan existed**; the sweep of all thirty lanes found no defence without one.
   Kept rather than deleted so the next reader of the register entry does not re-open it.
-  - [ ] ⬜ **Still owed**: a defence over it. Nothing fails the build when a new lane
+  - [x] ✅ **Still owed**: a defence over it. Nothing fails the build when a new lane
     ships without an identifier, which is how five of them got there — the instance was
-    fixed and the class left undefended. Fold into Task 3.2's guard, which already has to
-    walk every defence.
+    fixed and the class left undefended. `EveryLaneNamesItselfTest`: every registry entry
+    that is neither a phase runner nor another tool's mode has a shipped implementation with
+    a `phpqaci.` identifier, proved on a fabricated registry with an unimplemented lane and
+    a foreign identifier.
 - [x] ✅ **Task 2.2**: Give each lane a documentation route in `bin/rules`. Every lane now
   prints its identifier and the page it resolves to, and
   `testEveryLaneWithAnIdentifierResolvesToAnExistingPage` holds it. Surfacing the route
