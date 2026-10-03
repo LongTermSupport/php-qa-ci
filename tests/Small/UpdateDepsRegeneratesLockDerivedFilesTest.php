@@ -53,8 +53,8 @@ final class UpdateDepsRegeneratesLockDerivedFilesTest extends TestCase
     /** The guard proven to fire: a workflow without the step, and one running it too late. */
     public function testTheGuardReportsAMissingOrLateRegeneration(): void
     {
-        $update    = "      - run: composer update --no-interaction\n";
-        $detect    = "      - name: Detect changes\n";
+        $update     = "      - run: composer update --no-interaction\n";
+        $detect     = "      - name: Detect changes\n";
         $regenerate = "      - run: php bin/rules . --write-agent-summary=CLAUDE.md\n";
 
         self::assertSame(['CLAUDE.md: not regenerated'], $this->unregenerated($update . $detect));
