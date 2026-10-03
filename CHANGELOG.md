@@ -24,6 +24,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.2.0 — 2026-10-03
+
 ### Changed — breaking
 
 - **Suppressions reached through `includes:` must be justified too.** The
