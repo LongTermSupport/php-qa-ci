@@ -24,6 +24,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.1.0 — 2026-10-03
+
 ### Changed — breaking
 
 - **`ext-pcntl` and `ext-posix` are required.** The run handles SIGINT, SIGTERM,
