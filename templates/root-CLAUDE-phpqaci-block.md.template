@@ -31,7 +31,8 @@ prove it fires, sweep, fix every instance, enforce, then fix the original with a
 <https://defence-before-fix.github.io/defence-before-fix-project-prompt.md>
 (method specification: <https://defence-before-fix.github.io/raw/SPEC.md>). Toolchain
 commands: `vendor/bin/phpstan-rule <identifier> <path>` proves one rule on one path
-(`vendor/bin/arkitect-rule <because> <path>` for a PHPArkitect rule, named by its `because`),
+(`vendor/bin/arkitect-rule <identifier> <path>` for a PHPArkitect rule; a rule of your own
+without an identifier is named by its `because` clause),
 `vendor/bin/rule-doc <identifier>` resolves a printed identifier offline, `vendor/bin/rules`
 lists every defence active in this project. A defect you find is fixed now; one whose code
 is upstream is filed as an issue on that project and linked from the commit, and a

@@ -38,9 +38,11 @@ final readonly class RuleDocResolver
      * Identifier and class cells, then the rest of the row; the trailing cells
      * vary by bundle. The identifier prefix is not pinned to this package's
      * own: a consuming project publishes its rules under its own prefix, in its
-     * own index, and the row shape is the same one.
+     * own index, and the row shape is the same one. A class cell given as a
+     * path may leave src/ (`../configDefaults/generic/phparkitect-rules-default`),
+     * which is how a bundled PHPArkitect rule names the tier file declaring it.
      */
-    private const string ROW_PATTERN = '/^\| `([A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
+    private const string ROW_PATTERN = '/^\| `([A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/.\-]+)` +\|(.*)\|\s*$/';
 
     /** Where a project declares the indexes carrying its own identifiers. */
     private const string PROJECT_DECLARATION = '/qaConfig/rule-docs.json';
@@ -382,14 +384,16 @@ final readonly class RuleDocResolver
             }
         }
 
+        $sourcePath = str_contains($ruleClass, '/')
+            ? $srcDir . $ruleClass . '.php'
+            : $rulesDir . $ruleClass . '.php';
+
         return new RuleDocEntryDto(
             identifier: $identifier,
             ruleClass: $ruleClass,
             summary: $summary,
             bundle: $bundle,
-            sourcePath: str_contains($ruleClass, '/')
-                ? $srcDir . $ruleClass . '.php'
-                : $rulesDir . $ruleClass . '.php',
+            sourcePath: is_file($sourcePath) ? \Safe\realpath($sourcePath) : $sourcePath,
             docPath: $docPath,
         );
     }

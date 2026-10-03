@@ -72,7 +72,8 @@ guide.
 
 ## How to fix a failure
 
-Read the violation list: each line names the class, the rule and the reason the rule gives.
+Read the violation list: each line names the class, the rule and the reason the rule gives. A
+bundled rule's reason ends in its identifier; `vendor/bin/rule-doc <identifier>` prints its page.
 Rename or move the class to satisfy the convention. For generated code that cannot be renamed,
 declare its path in `qaConfig/qa.php`:
 
@@ -107,7 +108,10 @@ vendor/bin/arkitect-rule 'controllers must be named consistently' tests/Fixtures
   `withArkitectExcludedPaths` does not apply to the probed path.
 - **Naming the rule.** PHPArkitect gives a rule no identifier: its `because` clause is the only
   name it has, and every violation it prints ends in that clause. The first argument is matched
-  as text against those messages, so give the whole clause, or enough of it to be unique.
+  as text against those messages. Each bundled rule ends its clause with its identifier,
+  `[phpqaci.interfaceSuffix]`, so give that
+  ([the bundled rules](../phpstan-rules/README.md#phparkitect-rules) lists them); for a
+  project's own rule give the whole clause, or enough of it to be unique.
 - **The path.** A directory probes every class in it; a file probes the classes that file
   declares, which lets a violating and a conforming subject share a directory.
 - **Exit codes.** `0` the rule did not fire, `1` it fired (each class, its file and the message

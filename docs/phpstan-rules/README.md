@@ -186,6 +186,27 @@ Not PHPStan rules, but lanes of `bin/qa` that print an identifier of their own. 
 | `phpqaci.yamlLint`                                  | `Pipeline/Lane/YamlLintTool`                             | `bin/qa -t yaml`         | [Every yaml config file parses](../tools/yamlLint.md)                                                                        |
 | `phpqaci.shellCheck`                                | `Pipeline/Lane/ShellCheckTool`                           | `bin/qa -t sc`           | [Every git-tracked shell script passes ShellCheck](../tools/shellCheck.md)                                                   |
 
+## PHPArkitect rules
+
+Not PHPStan rules, but the rules of the PHPArkitect tiers this package bundles, which the
+`phpArkitect` lane runs. Each ends its `because` clause with its identifier, so the identifier
+is printed with every violation and selects the rule for `vendor/bin/arkitect-rule <identifier> <path>`.
+The second cell names the tier file declaring the rule.
+
+| Identifier                      | Tier file                                                      | Tier             | What it requires                                                                            |
+| ------------------------------- | -------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------- |
+| `phpqaci.interfaceSuffix`       | `../configDefaults/generic/phparkitect-rules-default`          | default          | [An interface's name ends in `Interface`](../arkitect-rules/default.md)                     |
+| `phpqaci.enumSuffix`            | `../configDefaults/generic/phparkitect-rules-default`          | default          | [An enum's name ends in `Enum`](../arkitect-rules/default.md)                               |
+| `phpqaci.traitSuffix`           | `../configDefaults/generic/phparkitect-rules-default`          | default          | [A trait's name ends in `Trait`](../arkitect-rules/default.md)                              |
+| `phpqaci.dtoNamespaceHoldsDtos` | `../configDefaults/generic/phparkitect-rules-default`          | default          | [A class in a `Dto` namespace has a name ending in `Dto`](../arkitect-rules/default.md)     |
+| `phpqaci.dtoInDtoNamespace`     | `../configDefaults/generic/phparkitect-rules-default`          | default          | [A class whose name ends in `Dto` lives in a `Dto` namespace](../arkitect-rules/default.md) |
+| `phpqaci.dtoFinal`              | `../configDefaults/generic/phparkitect-rules-default`          | default          | [A `*Dto` class is `final`](../arkitect-rules/default.md)                                   |
+| `phpqaci.dtoReadonly`           | `../configDefaults/generic/phparkitect-rules-default`          | default          | [A `*Dto` class is `readonly`](../arkitect-rules/default.md)                                |
+| `phpqaci.exceptionSuffix`       | `../configDefaults/generic/phparkitect-rules-optional`         | optional         | [Every `\Throwable` class has a name ending in `Exception`](../arkitect-rules/optional.md)  |
+| `phpqaci.abstractPrefix`        | `../configDefaults/generic/phparkitect-rules-optional`         | optional         | [An abstract class's name starts with `Abstract`](../arkitect-rules/optional.md)            |
+| `phpqaci.commandSuffix`         | `../configDefaults/generic/phparkitect-rules-optional-symfony` | optional-symfony | [A console command's name ends in `Command`](../arkitect-rules/optional-symfony.md)         |
+| `phpqaci.subscriberSuffix`      | `../configDefaults/generic/phparkitect-rules-optional-symfony` | optional-symfony | [An event subscriber's name ends in `Subscriber`](../arkitect-rules/optional-symfony.md)    |
+
 ## Why this index exists
 
 A rule that blocks a build without explaining itself teaches nobody anything, and the explanation

@@ -58,6 +58,11 @@ the release and its tag. The full rules are in
   `bin/phpstan-docs-install` during a maintainer `composer update`. The type-coverage extension
   publishes no pages, so `docs/phpstan-extension-rules/` holds one for each of its identifiers. An
   identifier none of these carry still names its phpstan.org page.
+- Every rule of the bundled PHPArkitect tiers carries an identifier, ending its `because` clause
+  (`[phpqaci.interfaceSuffix]`), so a `phpArkitect` violation names the rule that fired.
+  `vendor/bin/rule-doc <identifier>` prints its page (`docs/arkitect-rules/`) and
+  `vendor/bin/arkitect-rule <identifier> <path>` runs that one rule on one path. A consumer
+  matching arkitect output on the old clause text still matches: the identifier is appended.
 
 ### Fixed
 

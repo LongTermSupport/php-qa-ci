@@ -24,10 +24,11 @@ the procedure, what an agent may decide, and what only the Owner may. The three
 specifications are vendored verbatim under
 [remote-docs/defence-before-fix.github.io/](remote-docs/defence-before-fix.github.io/), and
 the versions this package is audited against are declared in `composer.json`
-`extra.defence-before-fix` with its known gaps. Upstream grades us clause by clause in its
-[tools register](remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md);
-[Plan 00010](CLAUDE/Plan/Completed/00010-defence-before-fix-full-conformance/PLAN.md) closed
-every gap that was not an Owner decision, and its DECISIONS.md records the ones that remain.
+`extra.defence-before-fix` with its known gaps, of which there are none at either level. Upstream
+grades us clause by clause in its
+[tools register](remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md). A gap found is
+closed, not accepted: `DefenceBeforeFixDeclarationTest` fails an accepted gap whose probe shows
+it closed.
 
 Two consequences bind every change here. A new check is a **defence** and inherits the
 method's requirements — a stable identifier, a page stating the correct construction, and a

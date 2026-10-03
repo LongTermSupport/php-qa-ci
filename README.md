@@ -40,10 +40,8 @@ with provenance, so a consuming project has them offline at the version installe
 **The claim is machine-readable.** `composer.json` carries `extra.defence-before-fix`, naming
 the method and toolchain specification versions this package implements and listing every
 known gap against the clause it fails, at two levels — the artefact a consumer installs, and
-this repository as a project using it. The list is not yet empty, and the package does not
-claim unqualified conformance while it is not; each remaining entry is an Owner decision recorded
-in [Plan 00010](./CLAUDE/Plan/Completed/00010-defence-before-fix-full-conformance/DECISIONS.md). Check the claim
-against the artefact rather than against this sentence:
+this repository as a project using it. Both lists are empty. Check the claim against the
+artefact rather than against this sentence:
 
 ```bash
 # what this installed copy claims, and where it admits it falls short
@@ -257,7 +255,7 @@ detected source dir automatically. To go further, add `qaConfig/phparkitect.php`
 - **extend** the default tier (`require getenv('PHPQACI_ARKITECT_RULES_DEFAULT')`),
 - **opt in** to the optional / symfony tiers (their env vars),
 - **add** project-bespoke rules, and prove each one fires on a fixture with
-  `vendor/bin/arkitect-rule <because> <path>` (see [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires)),
+  `vendor/bin/arkitect-rule '<because clause>' <path>` (a bundled rule by its identifier; see [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires)),
 - **replace** a tier wholesale by dropping your own `qaConfig/phparkitect-rules-*.php` (resolved ahead of the shipped copy by the config-path lookup).
 
 Disable arkitect for a project with `->withArkitect(false)` in
