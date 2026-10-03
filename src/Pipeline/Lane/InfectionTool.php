@@ -32,7 +32,8 @@ use SplFileInfo;
  * Without Xdebug there is no coverage and the lane skips. In diff mode
  * (a configured base ref) the lane refuses a dirty src/tests tree, scopes
  * mutation to the PHP files committed on this branch and enforces the diff
- * covered-MSI floor; an empty diff skips. The phar runs at low CPU priority.
+ * covered-MSI floor; an empty diff skips before any coverage is generated.
+ * The phar runs at low CPU priority.
  *
  * @internal
  */
@@ -68,11 +69,14 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::skipped('Xdebug not enabled');
         }
 
+        $positionalPaths = [];
         if (null !== $options->diffBase) {
-            $preflight = $this->assertCleanTreeForDiffMode($context);
-            if ($preflight instanceof ToolResultDto) {
-                return $preflight;
+            $scope = $this->resolveDiffScope($context, $options->diffBase);
+            if ($scope instanceof ToolResultDto) {
+                return $scope;
             }
+
+            $positionalPaths = $scope;
         }
 
         $logsDir        = $paths->varDir . '/phpunit_logs';
@@ -80,29 +84,6 @@ final readonly class InfectionTool implements ToolInterface
         $coverage       = $this->ensureCoverage($context, $coverageXmlDir, $logsDir);
         if ($coverage instanceof ToolResultDto) {
             return $coverage;
-        }
-
-        $positionalPaths = [];
-        if (null !== $options->diffBase) {
-            $context->writeln(\sprintf("Infection: diff mode — scoping mutation to source files changed against '%s' (committed history only).", $options->diffBase));
-            $diff = $this->git($context, ...$this->diffFilter->gitDiffArguments($options->diffBase, $paths->srcDir));
-            if (!$diff->succeeded()) {
-                $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (exit %d) — cannot determine the changed files for diff mode.", $options->diffBase, $diff->exitCode));
-                $context->writeln("           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first).");
-                $context->writeIdentifier(self::IDENTIFIER);
-
-                return ToolResultDto::failed('Infection diff mode: git diff failed');
-            }
-
-            $filter = $this->diffFilter->fromGitDiffOutput($diff->output, $paths->projectRoot);
-            if ($filter->isEmpty()) {
-                $context->writeln(\sprintf("Infection: diff mode — no committed PHP source changes against '%s'; there are no new mutants to check. SKIPPING.", $options->diffBase));
-
-                return ToolResultDto::skipped('no committed PHP source changes to mutate');
-            }
-
-            $context->writeln('Infection: diff mode — mutating only the changed files: ' . $filter->display());
-            $positionalPaths = $filter->positionalPaths;
         }
 
         $configPath = $context->configPath('infection.json');
@@ -128,6 +109,45 @@ final readonly class InfectionTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed(\sprintf('Infection failed (exit %d)', $result->exitCode));
+    }
+
+    /**
+     * Everything diff mode decides before coverage is paid for: the clean-tree
+     * refusal and the changed-file list. Returns the lane's result when it ends
+     * here (refused, git failed, nothing to mutate), otherwise the positional
+     * paths Infection mutates.
+     *
+     * @return list<string>|ToolResultDto
+     */
+    private function resolveDiffScope(ToolContext $context, string $diffBase): array|ToolResultDto
+    {
+        $preflight = $this->assertCleanTreeForDiffMode($context);
+        if ($preflight instanceof ToolResultDto) {
+            return $preflight;
+        }
+
+        $paths = $context->config->paths;
+        $context->writeln(\sprintf("Infection: diff mode — scoping mutation to source files changed against '%s' (committed history only).", $diffBase));
+        $diff = $this->git($context, ...$this->diffFilter->gitDiffArguments($diffBase, $paths->srcDir));
+        if (!$diff->succeeded()) {
+            $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (exit %d) — cannot determine the changed files for diff mode.", $diffBase, $diff->exitCode));
+            $context->writeln("           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first).");
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::failed('Infection diff mode: git diff failed');
+        }
+
+        $filter = $this->diffFilter->fromGitDiffOutput($diff->output, $paths->projectRoot);
+        if ($filter->isEmpty()) {
+            $context->writeln(\sprintf("Infection: diff mode — no committed PHP source changes against '%s'; there are no new mutants to check. SKIPPING.", $diffBase));
+            $context->writeln('           Nothing to mutate, so no coverage run is started.');
+
+            return ToolResultDto::skipped('no committed PHP source changes to mutate');
+        }
+
+        $context->writeln('Infection: diff mode — mutating only the changed files: ' . $filter->display());
+
+        return $filter->positionalPaths;
     }
 
     /**
