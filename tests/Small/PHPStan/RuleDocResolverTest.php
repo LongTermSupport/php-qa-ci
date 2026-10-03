@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
 use LTS\PHPQA\PHPStan\RuleDocResolver;
 use LTS\PHPQA\PHPStan\Rules\ForbidEmptyCatchBlockRule;
+use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -24,6 +25,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(RuleDocResolver::class)]
 #[UsesClass(RuleDocEntryDto::class)]
+#[UsesClass(PhpstanDocsCatalogue::class)]
 #[Small]
 final class RuleDocResolverTest extends TestCase
 {

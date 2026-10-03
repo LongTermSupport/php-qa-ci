@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PhpstanDocs;
 
+use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsFetcherInterface;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsInstaller;
@@ -26,6 +27,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 #[CoversClass(PhpstanDocsInstaller::class)]
 #[UsesClass(PhpstanDocsCatalogue::class)]
+#[UsesClass(TemporaryDirectory::class)]
 #[Small]
 final class PhpstanDocsInstallerTest extends TestCase
 {
