@@ -16,9 +16,9 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00015: release automation for consumers](00015-release-automation-for-consumers/PLAN.md) - In Progress — ship the changelog-driven release workflow as a template any project can adopt, semantic versioning by default (breaking moves the major), with php-qa-ci's locked major as an override in its own `qaConfig/qa.php`
 
-- [00016: method 1.1.0 and the deferred-defect record](00016-method-1-1-0-deferred-defect-record/PLAN.md) - In Progress — method 1.1.0 requires a deferred defect to be recorded where the project's decisions are enumerable; give projects that record in `bin/rules` and the agent summary, then declare 1.1.0
-
 ## Completed Plans
+
+- [00016: method 1.1.0 and the deferred-defect record](Completed/00016-method-1-1-0-deferred-defect-record/PLAN.md) - Complete — `qaConfig/defect-record.neon` records deferred defects and no-pattern conclusions, read and validated by the justification lane, listed by `bin/rules` and carried into the agent summary; the declaration states method 1.1.0 at both levels (delivered c2941a1)
 
 - [00008: shellcheck lane vendored binary](Completed/00008-shellcheck-lane-vendored-binary/PLAN.md) - Complete — the `shellCheck` lane runs a vendored, pinned static ShellCheck over every git-tracked shell script, so a green `bin/qa` is a green branch; the duplicate CI job is gone and `php8.5` requires `QA Pipeline` alone (delivered b191a1b)
 

@@ -1,6 +1,6 @@
 # Plan 00016: method 1.1.0 and the deferred-defect record
 
-**Status**: In Progress
+**Status**: Complete (c2941a1, merged 00ce4e0)
 **Created**: 2026-10-03
 **Owner**: joseph
 **Priority**: High
@@ -104,7 +104,8 @@ the verbatim capture mode, found while doing this plan, whose code is not in thi
 
 - [x] `bin/rules .` lists the deferred-defect record, and a fixture entry appears in its JSON.
 - [x] `composer.json` declares method 1.1.0 at both levels, matching the vendored specification.
-- [ ] The full battery passes. The coordinating session runs it.
+- [x] The full battery passes: the writable and the read-only `bin/qa` both exit 0 on the
+  merged branch.
 
 ## Delivery & Milestones
 
@@ -113,4 +114,5 @@ the verbatim capture mode, found while doing this plan, whose code is not in thi
      JOURNAL/00016-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
 - Plan filed
-- Red: a6ece89. Phases 1 and 2 implemented in the commit after it.
+- Red: a6ece89. Phases 1 and 2 implemented in c2941a1, merged into the sweep branch as 00ce4e0.
+- Full battery green, writable and read-only, on `bugfix/known-defects-sweep`.
