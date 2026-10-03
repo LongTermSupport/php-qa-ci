@@ -57,6 +57,12 @@ rules:
 # every consumer via `bin/qa`. See README "SensitiveParameter usage check".
 # ─────────────────────────────────────────────────────────────────────────────
 parameters:
+    # Detector specification 7.2: an inline ignore must give its reason. The
+    # inlinePhpstanIgnore rule above already forbids inline ignores; this is
+    # the line behind it for a path where a project excludes that rule. An
+    # inline ignore without a `(reason)` is reported as ignore.noComment, and
+    # the line-wide forms as ignore.allLineErrors.
+    reportIgnoresWithoutComments: true
     phpqaciSensitiveParameter:
         namePatterns:
             - password

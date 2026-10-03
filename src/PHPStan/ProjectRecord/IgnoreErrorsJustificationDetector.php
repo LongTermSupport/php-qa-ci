@@ -26,7 +26,32 @@ final readonly class IgnoreErrorsJustificationDetector
     /** @return list<JustificationFindingDto> */
     public function check(string $neon): array
     {
-        $lines     = explode("\n", $neon);
+        $lines    = explode("\n", $neon);
+        $findings = [];
+        foreach ($this->entries(...$lines) as $i => $entry) {
+            $fault = $this->faultIn($this->commentAbove($i, ...$lines));
+            if (null !== $fault) {
+                $findings[] = new JustificationFindingDto(line: $i + 1, entry: $entry, fault: $fault);
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * How many ignoreErrors entries are written as `-` items, the only form
+     * a justification comment can sit above. NEON may decode more: the rest
+     * are written in a form this detector cannot read.
+     */
+    public function entryCount(string $neon): int
+    {
+        return \count($this->entries(...explode("\n", $neon)));
+    }
+
+    /** @return array<int, string> each entry's first meaningful line, keyed by the index of its `-` line */
+    private function entries(string ...$lines): array
+    {
+        $lines     = array_values($lines);
         $start     = null;
         $keyIndent = 0;
         foreach ($lines as $i => $line) {
@@ -42,7 +67,7 @@ final readonly class IgnoreErrorsJustificationDetector
             return [];
         }
 
-        $findings   = [];
+        $entries    = [];
         $itemIndent = null;
         for ($i = $start + 1, $n = \count($lines); $i < $n; ++$i) {
             $line = $lines[$i];
@@ -68,15 +93,10 @@ final readonly class IgnoreErrorsJustificationDetector
                 continue;
             }
 
-            $entry = isset($m[2]) && '' !== trim($m[2]) ? trim($m[2]) : $this->firstMeaningfulLine($i + 1, ...$lines);
-
-            $fault = $this->faultIn($this->commentAbove($i, ...$lines));
-            if (null !== $fault) {
-                $findings[] = new JustificationFindingDto(line: $i + 1, entry: $entry, fault: $fault);
-            }
+            $entries[$i] = isset($m[2]) && '' !== trim($m[2]) ? trim($m[2]) : $this->firstMeaningfulLine($i + 1, ...$lines);
         }
 
-        return $findings;
+        return $entries;
     }
 
     private function isComment(string $line): bool

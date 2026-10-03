@@ -9,6 +9,8 @@ use LTS\PHPQA\PHPStan\Dto\ActiveDefencesListingDto;
 use LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto;
 use LTS\PHPQA\PHPStan\Dto\PipelineLaneDto;
 use LTS\PHPQA\PHPStan\Dto\ProjectRecordEntryDto;
+use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
+use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\ShippedTools;
 use LTS\PHPQA\Pipeline\Tool\ToolGateEnum;
@@ -26,7 +28,9 @@ use Throwable;
  * Lists the PHPStan-driven defences active in a project, and its project
  * record (ignoreErrors), WITHOUT running PHPStan. Resolves the project's
  * phpstan.neon the same way the pipeline's ConfigPathResolver does, follows
- * `includes:` recursively, collects every class under `rules:`
+ * `includes:` through {@see NeonIncludeChain} (the walk the justification lane
+ * uses, so the record listed is the record checked; an include that cannot be
+ * followed is an error), collects every class under `rules:`
  * and every `phpstan.rules.rule`-tagged service, resolves each rule's
  * identifier via RuleDocResolver where it declares one, and always lists the
  * php-qa-ci pipeline's always-on lanes alongside them.
@@ -47,8 +51,11 @@ final readonly class ActiveRulesLister
 
     private RuleDocResolver $ruleDocResolver;
 
-    public function __construct(private string $qaCiRoot)
-    {
+    public function __construct(
+        private string $qaCiRoot,
+        private NeonIncludeChain $includeChain = new NeonIncludeChain(),
+        private InstalledPhpstanExtensions $installedExtensions = new InstalledPhpstanExtensions(),
+    ) {
         $this->ruleDocResolver = new RuleDocResolver($this->qaCiRoot);
     }
 
@@ -58,9 +65,20 @@ final readonly class ActiveRulesLister
 
         $ruleClasses        = [];
         $ignoreErrorEntries = [];
-        $this->collectFromNeonTree($configPath, $ruleClasses, $ignoreErrorEntries);
-
+        $seen               = [];
+        $this->collectFromNeonTree($configPath, $projectRoot, $ruleClasses, $ignoreErrorEntries, $seen);
         $rules = array_map($this->resolveRuleEntry(...), $ruleClasses);
+
+        foreach ($this->installedExtensions->includes($projectRoot) as $package => $includes) {
+            foreach ($includes as $include) {
+                $extensionRules = [];
+                $this->collectFromNeonTree($include, $projectRoot, $extensionRules, $ignoreErrorEntries, $seen);
+                foreach ($extensionRules as $ruleClass) {
+                    $entry   = $this->resolveRuleEntry($ruleClass);
+                    $rules[] = new ActiveRuleEntryDto($entry->ruleClass, $entry->identifier, $entry->summary, $entry->docPath, $package);
+                }
+            }
+        }
 
         $lanes = $this->pipelineLanes();
 
@@ -79,8 +97,14 @@ final readonly class ActiveRulesLister
         foreach ($listing->rules as $rule) {
             $identifier = $rule->identifier ?? 'not declared';
             $summary    = $rule->summary    ?? 'no summary (no IDENTIFIER constant declared)';
-            $docRoute   = $rule->docPath    ?? 'no documentation page';
+            $docRoute   = $rule->docPath    ?? (null === $rule->package
+                ? 'no documentation page'
+                : \sprintf('documented by %s; its findings carry PHPStan identifiers, which bin/rule-doc routes', $rule->package));
             $out .= \sprintf('  - %s%s', $rule->ruleClass, PHP_EOL);
+            if (null !== $rule->package) {
+                $out .= \sprintf('      from:       %s (phpstan/extension-installer)%s', $rule->package, PHP_EOL);
+            }
+
             $out .= \sprintf('      identifier: %s%s', $identifier, PHP_EOL);
             $out .= \sprintf('      summary:    %s%s', $summary, PHP_EOL);
             $out .= \sprintf('      doc:        %s%s', $docRoute, PHP_EOL);
@@ -143,6 +167,7 @@ final readonly class ActiveRulesLister
             'identifier' => $rule->identifier,
             'summary'    => $rule->summary,
             'docPath'    => $rule->docPath,
+            'package'    => $rule->package,
         ], $listing->rules);
 
         $lanes = array_map(static fn (PipelineLaneDto $lane): array => [
@@ -269,36 +294,36 @@ final readonly class ActiveRulesLister
     /**
      * @param list<string>                $ruleClasses        accumulator, by reference
      * @param list<ProjectRecordEntryDto> $ignoreErrorEntries accumulator, by reference
+     * @param array<string, true>         $seen               files already read, by reference, so a file
+     *                                                        reached twice contributes once
      */
-    private function collectFromNeonTree(string $neonPath, array &$ruleClasses, array &$ignoreErrorEntries): void
+    private function collectFromNeonTree(string $neonPath, string $projectRoot, array &$ruleClasses, array &$ignoreErrorEntries, array &$seen): void
     {
-        if (!is_file($neonPath)) {
-            throw new RuntimeException(\sprintf('Neon file not found: %s', $neonPath));
+        $chain = $this->includeChain->resolve($neonPath, $projectRoot);
+        if ([] !== $chain->problems) {
+            throw new RuntimeException('Cannot read the PHPStan configuration in full: ' . implode('; ', $chain->problems));
         }
 
-        $raw = \Safe\file_get_contents($neonPath);
-
-        try {
-            $decoded = Neon::decode($raw);
-        } catch (Throwable $throwable) {
-            throw new RuntimeException(\sprintf('Failed to parse neon file %s: %s', $neonPath, $throwable->getMessage()), 0, $throwable);
-        }
-
-        if (!\is_array($decoded)) {
-            return;
-        }
-
-        $dir = \dirname($neonPath);
-
-        foreach ((array)($decoded['includes'] ?? []) as $include) {
-            if (!\is_string($include)) {
+        foreach ($chain->files as $file) {
+            if (isset($seen[$file->path])) {
                 continue;
             }
 
-            $includePath = $this->resolveIncludePath($dir, $include);
-            $this->collectFromNeonTree($includePath, $ruleClasses, $ignoreErrorEntries);
+            $seen[$file->path] = true;
+            $decoded           = Neon::decode($file->neon);
+            if (\is_array($decoded)) {
+                $this->collectFromNeon($decoded, $file->neon, $ruleClasses, $ignoreErrorEntries);
+            }
         }
+    }
 
+    /**
+     * @param array<array-key, mixed>     $decoded
+     * @param list<string>                $ruleClasses        accumulator, by reference
+     * @param list<ProjectRecordEntryDto> $ignoreErrorEntries accumulator, by reference
+     */
+    private function collectFromNeon(array $decoded, string $raw, array &$ruleClasses, array &$ignoreErrorEntries): void
+    {
         foreach ((array)($decoded['rules'] ?? []) as $ruleClass) {
             if (\is_string($ruleClass)) {
                 $ruleClasses[] = $ruleClass;
@@ -316,20 +341,20 @@ final readonly class ActiveRulesLister
             }
         }
 
+        // A rule tagged behind a parameter (phpstan-strict-rules registers every rule
+        // this way) is listed as active: the condition is not evaluated, because that
+        // needs PHPStan's merged parameters, and such switches default to on.
+        foreach ((array)($decoded['conditionalTags'] ?? []) as $ruleClass => $tags) {
+            if (\is_string($ruleClass) && \is_array($tags) && \array_key_exists(self::TAG, $tags)) {
+                $ruleClasses[] = $ruleClass;
+            }
+        }
+
         $parameters      = (array)($decoded['parameters'] ?? []);
         $ignoreErrorsRaw = (array)($parameters['ignoreErrors'] ?? []);
         foreach ($ignoreErrorsRaw as $ignoreError) {
             $ignoreErrorEntries[] = $this->parseIgnoreError($ignoreError, $raw);
         }
-    }
-
-    private function resolveIncludePath(string $includingDir, string $include): string
-    {
-        if (str_starts_with($include, '/')) {
-            return $include;
-        }
-
-        return $includingDir . '/' . $include;
     }
 
     private function parseIgnoreError(mixed $entry, string $rawNeonText): ProjectRecordEntryDto
@@ -411,6 +436,12 @@ final readonly class ActiveRulesLister
         $identifier = $this->identifierConstantOf($ruleClass);
         if (null === $identifier) {
             return new ActiveRuleEntryDto($ruleClass, null, null, null);
+        }
+
+        // An extension's own identifier is documented by that extension, not
+        // indexed here, so its absence from the index is expected rather than a gap.
+        if (!str_starts_with($identifier, RuleIdentifierInterface::PREFIX . '.')) {
+            return new ActiveRuleEntryDto($ruleClass, $identifier, null, null);
         }
 
         try {

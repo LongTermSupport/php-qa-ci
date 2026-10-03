@@ -87,7 +87,9 @@ the rule anyway and record the mechanism gap in `composer.json` `known-gaps`.
 - Run the rule everywhere the pattern can occur — every language and component, not just the
   one that reported — and **record the instance count before fixing anything**. Absent a
   recorded project decision, sweep all first-party source and exclude generated and vendored
-  code, and record that as the decision. The rule's own fixtures are never instances.
+  code, and record that as the decision. The rule's own fixtures are never instances. What
+  that means in a php-qa-ci project, with the other judgements the method leaves open, is
+  [docs/defence-before-fix-defaults.md](../docs/defence-before-fix-defaults.md).
 - **Corroborate the count** by the independent search from 3.1. If the search finds instances
   the rule missed, the rule is too narrow: widen it. The search is the authority.
 - **Fix every instance.** Each fix addresses the hazard, never the rule: no change that turns
@@ -264,8 +266,11 @@ identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
   the harness to prove a new rule sees its target before trusting a green full run; a green run
   proves nothing unless the rule was loaded and looked.
 - `bin/rules [project-root] [--json]` lists every defence active in a project — its resolved
-  `phpstan.neon` rules, the always-on pipeline lanes, and the project record — WITHOUT running
-  PHPStan, so an agent arriving cold can learn the standards without violating them first.
+  `phpstan.neon` rules and those the extension installer delivers, the pipeline lanes, and the
+  project record — WITHOUT running PHPStan, so an agent arriving cold can learn the standards
+  without violating them first. `--write-agent-summary=CLAUDE.md` puts the same list, one line
+  per defence, into the generated region of `CLAUDE.md`; composer install/update does that in
+  every consuming project, and `AgentContextIsCurrentTest` keeps this repository's own current.
 
 ## The net has to be cast over itself
 
@@ -297,9 +302,24 @@ The declaration carries two levels, graded separately, because they have differe
   other; most hold at both, because the project runs the artefact it ships.
 
 Every entry in either `known-gaps` list opens with the document and clause it fails, in the shape
-`toolchain 4.1: ...`, `detector 6.2: ...` or `method 3.6: ...`, followed by one sentence stating
-the gap. `tests/Small/DefenceBeforeFixDeclarationTest.php` guards the shape: both levels present,
-the versions this package is audited against, and every gap naming its clause.
+`toolchain 4.1: ...`, `detector 6.2: ...` or `method 3.6: ...`, then its status and one sentence
+stating the gap. The status is one of two:
+
+- `accepted by Owner decision — ... (Plan NNNNN Decision N)`: the Owner has decided to live with
+  the gap, and the cited plan records that decision under a `Decision N:` heading.
+- `open — ... (Plan NNNNN)`: the gap is being closed, by the cited active plan.
+
+`tests/Small/DefenceBeforeFixDeclarationTest.php` holds the declaration to the repository:
+
+- both levels are present, at the versions vendored under `remote-docs/`, so a refreshed
+  specification fails the build until the declaration is re-audited;
+- every gap names a clause the declared document has, and has one of the two statuses;
+- an accepted gap's decision is recorded, and has a probe in the test showing the gap is still
+  real, so closing it fails the build until the entry goes;
+- an open gap's plan is still active.
+
+A new accepted gap therefore needs its decision written down and its probe added to
+`gapIsStillReal()` in the same change.
 
 ## Cross-Reference
 

@@ -1,9 +1,0 @@
-services:
-    - not-an-array-entry
-    -
-        tags:
-            - phpstan.rules.rule
-    -
-        class: LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule
-        tags:
-            - phpstan.rules.rule

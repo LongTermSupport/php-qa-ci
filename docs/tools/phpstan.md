@@ -32,6 +32,19 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   instruction. The lane is the only one that supports it. See
   [Agent Mode](../agent-mode.md) for the schema, the exit codes and the hook wiring.
 
+## How to fix a failure
+
+Each error names its file, line and identifier. Look the identifier up before changing anything:
+a `phpqaci.*` identifier is one of this package's rules, and `vendor/bin/rule-doc <identifier>`
+prints its page, offline, with the construction to write instead; any other identifier is
+PHPStan's own or an extension's, documented at `https://phpstan.org/error-identifiers/`.
+
+Then change the code so the error has nothing to report: declare the type the value really
+has, narrow it with a check where it enters (a parameter, a decoded payload, a `mixed` return),
+or delete a condition that the types have already made always true. The tips at the end of this
+page cover the frequent cases. An `ignoreErrors` entry is a recorded owner decision with its own
+justification, described under "Suppressing Errors", not a way to make a change pass.
+
 ## Configuration
 
 Default configuration is in [configDefaults/generic/phpstan.neon](./../../configDefaults/generic/phpstan.neon).
@@ -266,6 +279,21 @@ too short to name a hazard and a scope, or a phrase that would fit any entry unc
 `needed for now`, `false positive` and the like). The check cannot tell whether a sentence is true;
 that is the reviewer's judgement, which is why the entries are kept in one file where a vacuous
 reason sits next to its neighbours.
+
+The record is `qaConfig/phpstan.neon` **and every file it reaches through `includes:`**, because an
+entry in an included file suppresses findings just the same. A generated baseline
+(`phpstan --generate-baseline`) is therefore not a way round it: its entries carry no comments and
+fail like any other. The lane also fails when part of the chain cannot be read:
+
+- an entry written inline (`ignoreErrors: ['#...#']`), which leaves no line for its comment;
+- an include that does not exist, or that uses a `%parameter%` other than
+  `%currentWorkingDirectory%` (`%rootDir%`, PHPStan's own configuration, is not followed);
+- a `.php` include that sets `ignoreErrors` or `includes`, since PHP has no place for the comment.
+
+Inline ignore comments are forbidden by the default tier's `phpqaci.inlinePhpstanIgnore`. Behind
+it, `rules-default.neon` turns on PHPStan's `reportIgnoresWithoutComments`, so where a project
+has excluded that rule for a path, an inline ignore still has to name its identifier and give a
+reason in parentheses (`ignore.noComment`, `ignore.allLineErrors` otherwise).
 
 ```neon
 parameters:

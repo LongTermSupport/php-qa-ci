@@ -1,0 +1,5 @@
+includes:
+    - phpstan.neon
+
+rules:
+    - LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule

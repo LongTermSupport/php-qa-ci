@@ -88,4 +88,13 @@ final class IgnoreErrorsJustificationDetectorTest extends TestCase
     {
         self::assertSame([], new IgnoreErrorsJustificationDetector()->check("parameters:\n    ignoreErrors: []\n"));
     }
+
+    #[Test]
+    public function theEntryCountIsTheItemsNotEveryDashUnderThem(): void
+    {
+        $neon = "parameters:\n    ignoreErrors:\n        -\n            identifier: a.b\n            paths:\n                - ../src/A.php\n                - ../src/B.php\n        - '#plain#'\n    level: max\n";
+
+        self::assertSame(2, new IgnoreErrorsJustificationDetector()->entryCount($neon));
+        self::assertSame(0, new IgnoreErrorsJustificationDetector()->entryCount("parameters:\n    ignoreErrors: ['#a#', '#b#']\n"));
+    }
 }

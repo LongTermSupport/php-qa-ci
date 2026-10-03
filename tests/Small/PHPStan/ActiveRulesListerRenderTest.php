@@ -53,6 +53,11 @@ final class ActiveRulesListerRenderTest extends TestCase
                   identifier: not declared
                   summary:    no summary (no IDENTIFIER constant declared)
                   doc:        no documentation page
+              - Vendor\Rule\Delivered
+                  from:       vendor/rules (phpstan/extension-installer)
+                  identifier: not declared
+                  summary:    no summary (no IDENTIFIER constant declared)
+                  doc:        documented by vendor/rules; its findings carry PHPStan identifiers, which bin/rule-doc routes
 
             Pipeline lanes (every lane bin/qa registers, minus phpstan — covered above):
               - laneWithPhaseAndOptIn [staticAnalysis]: Lane summary one.
@@ -117,12 +122,21 @@ final class ActiveRulesListerRenderTest extends TestCase
                         'identifier' => 'phpqaci.example',
                         'summary'    => 'An example summary.',
                         'docPath'    => self::DOC_PATH,
+                        'package'    => null,
                     ],
                     [
                         'ruleClass'  => 'My\Rule\Bare',
                         'identifier' => null,
                         'summary'    => null,
                         'docPath'    => null,
+                        'package'    => null,
+                    ],
+                    [
+                        'ruleClass'  => 'Vendor\Rule\Delivered',
+                        'identifier' => null,
+                        'summary'    => null,
+                        'docPath'    => null,
+                        'package'    => 'vendor/rules',
                     ],
                 ],
                 'pipelineLanes' => [
@@ -173,6 +187,7 @@ final class ActiveRulesListerRenderTest extends TestCase
             [
                 new ActiveRuleEntryDto('My\Rule\WithEverything', 'phpqaci.example', 'An example summary.', self::DOC_PATH),
                 new ActiveRuleEntryDto('My\Rule\Bare', null, null, null),
+                new ActiveRuleEntryDto('Vendor\Rule\Delivered', null, null, null, 'vendor/rules'),
             ],
             [
                 new PipelineLaneDto('laneWithPhaseAndOptIn', 'phpqaci.laneWithPhaseAndOptIn', 'Lane summary one.', 'staticAnalysis', 'useLaneOne', self::DOC_PATH),

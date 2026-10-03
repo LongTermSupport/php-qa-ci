@@ -51,6 +51,16 @@ final readonly class PhpArkitectTool implements ToolInterface
      */
     public const string RULE_FALLBACK_DIR = '_rules';
 
+    /**
+     * The baseline phparkitect reads from its working directory whenever it exists.
+     * The lane always passes `--skip-baseline`: what a baseline lists is reported as no
+     * violation, which is a suppression outside the project record.
+     */
+    public const string BASELINE_FILE = 'phparkitect-baseline.json';
+
+    /** The phparkitect flag that stops it reading {@see self::BASELINE_FILE}. */
+    private const string SKIP_BASELINE = '--skip-baseline';
+
     /** How much of a rule text a fallback slug keeps; the texts run to a full sentence. */
     private const int SLUG_MAX_LENGTH = 80;
 
@@ -85,6 +95,12 @@ final readonly class PhpArkitectTool implements ToolInterface
         $paths  = $config->paths;
         $logDir = $context->logDir(self::LOG_DIR);
 
+        if (is_file($paths->projectRoot . '/' . self::BASELINE_FILE)) {
+            $context->writeln(\sprintf('PHPArkitect: %s is not read. A baseline hides violations outside the project record:', self::BASELINE_FILE));
+            $context->writeln('             fix what it lists, or record a deliberate exception in qaConfig/qa.php');
+            $context->writeln('             (withArkitectExcludedPaths) or a project rule tier under qaConfig/. See docs/tools/phpArkitect.md.');
+        }
+
         if ($config->agentMode) {
             return $this->runAgent($context, $entryConfig);
         }
@@ -96,6 +112,7 @@ final readonly class PhpArkitectTool implements ToolInterface
                 '--config=' . $entryConfig,
                 '--autoload=' . $paths->projectRoot . '/vendor/autoload.php',
                 '--no-interaction',
+                self::SKIP_BASELINE,
             ],
             $paths->projectRoot,
             $this->environment($context),
@@ -155,6 +172,7 @@ final readonly class PhpArkitectTool implements ToolInterface
                 '--config=' . $entryConfig,
                 '--autoload=' . $paths->projectRoot . '/vendor/autoload.php',
                 '--no-interaction',
+                self::SKIP_BASELINE,
                 '--format=json',
             ],
             $paths->projectRoot,

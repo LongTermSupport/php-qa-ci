@@ -73,6 +73,11 @@ The path is relative to `src/`. To extend, replace or opt into the optional tier
 `qaConfig/phparkitect.php`; the
 [README PHPArkitect section](../../README.md#phparkitect-architecture-rules) covers every option.
 
+A `phparkitect-baseline.json` (what `phparkitect generate-baseline` writes) is never read: the
+lane runs `--skip-baseline`, and says so when the file is present. A baseline reports the
+violations it lists as no violation at all, so it would be an exception nobody can see in the
+project record. Fix what it lists, or declare the exception as above.
+
 ## Implementation
 
 - Lane: [`PhpArkitectTool`](../../src/Pipeline/Lane/PhpArkitectTool.php).

@@ -61,6 +61,10 @@ final class PhpArkitectToolTest extends TestCase
 
     private const string DEEP_CLASS_FILE = 'src/Deep/BadlyNamed.php';
 
+    private const string SKIP_BASELINE = '--skip-baseline';
+
+    private const string VIOLATION_OUTPUT = "App\\Foo violates ...\n";
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -94,9 +98,11 @@ final class PhpArkitectToolTest extends TestCase
                 '--config=' . $defaults . '/phparkitect.php',
                 '--autoload=' . $this->factory->project->path . '/vendor/autoload.php',
                 '--no-interaction',
+                self::SKIP_BASELINE,
             ],
             $this->toolArgs($spec),
         );
+        self::assertStringNotContainsString(PhpArkitectTool::BASELINE_FILE, $printed, 'no baseline, nothing to say about one');
         self::assertSame($this->factory->project->path, $spec->cwd);
         self::assertTrue($spec->streamOutput);
         self::assertSame(
@@ -147,7 +153,7 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function ruleViolationsFailWithTheIdentifier(): void
     {
-        $this->factory->processes->willFail(1, "App\\Foo violates ...\n");
+        $this->factory->processes->willFail(1, self::VIOLATION_OUTPUT);
 
         $result  = new PhpArkitectTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -155,7 +161,7 @@ final class PhpArkitectToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString(PhpArkitectTool::IDENTIFIER, $printed);
         self::assertStringNotContainsString('crashed', $printed);
-        self::assertSame("App\\Foo violates ...\n", $this->factory->project->read('var/qa/' . PhpArkitectTool::LOG_DIR . '/' . PhpArkitectTool::LOG_FILE));
+        self::assertSame(self::VIOLATION_OUTPUT, $this->factory->project->read('var/qa/' . PhpArkitectTool::LOG_DIR . '/' . PhpArkitectTool::LOG_FILE));
     }
 
     #[Test]
@@ -234,6 +240,28 @@ final class PhpArkitectToolTest extends TestCase
         self::assertStringEndsWith(FileReportWriter::INDEX_FILE, $lines[1]);
         self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
         self::assertContains('--format=json', $this->toolArgs($this->factory->processes->lastSpec()));
+        self::assertContains(self::SKIP_BASELINE, $this->toolArgs($this->factory->processes->lastSpec()));
+    }
+
+    /**
+     * phparkitect reads phparkitect-baseline.json from the working directory whenever it
+     * exists, and a violation listed there is reported as no violation at all: a
+     * suppression outside the project record. The lane never lets it be read, and says
+     * so when one is present, so a project relying on one finds out why it now fails.
+     */
+    #[Test]
+    public function aBaselineFileIsNeverReadAndIsNamedWhenPresent(): void
+    {
+        $this->factory->project->write(PhpArkitectTool::BASELINE_FILE, '{"violations": []}');
+        $this->factory->processes->willFail(1, self::VIOLATION_OUTPUT);
+
+        $result  = new PhpArkitectTool()->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertContains(self::SKIP_BASELINE, $this->toolArgs($this->factory->processes->lastSpec()));
+        self::assertStringContainsString('PHPArkitect: phparkitect-baseline.json is not read.', $printed);
+        self::assertStringContainsString('qaConfig/qa.php', $printed);
     }
 
     #[Test]
