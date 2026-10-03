@@ -19,6 +19,38 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     // so there is legitimately no #[\SensitiveParameter] in its src/. This is
     // exactly the escape hatch documented for downstream consumers.
     ->withSensitiveParameterCheck(false)
+    // Every change a consuming project can notice is recorded in CHANGELOG.md,
+    // which is also what the release workflow reads to cut the next release
+    // (CLAUDE/releases.md). The watched paths are what ships to, or is
+    // deployed into, a consumer; tests/, docs/, CLAUDE/ and this qaConfig/ are
+    // not. The .claude/ entries follow scripts/lib/deploy-manifest.inc.bash.
+    ->withChangelogCheck(true)
+    ->withChangelogWatchedPaths(
+        'src/',
+        'bin/',
+        'configDefaults/',
+        'templates/',
+        'scripts/',
+        'git-hooks/',
+        'phpstorm/',
+        'vendor-phar/',
+        'vendor-bin/',
+        'build/',
+        'phive.xml',
+        'composer.json',
+        'rules-*.neon',
+        '.claude/agents/php-qa-ci_*',
+        '.claude/hooks/php-qa-ci__*',
+        '.claude/skills/branch-policy/',
+        '.claude/skills/defence-before-fix/',
+        '.claude/skills/gh-links/',
+        '.claude/skills/phpstan-fixer/',
+        '.claude/skills/phpstan-runner/',
+        '.claude/skills/phpunit-fixer/',
+        '.claude/skills/phpunit-runner/',
+        '.claude/skills/qa/',
+        '.claude/skills/qa-tool-runner/',
+    )
     // Dead-code detection, dogfooded here first. Every PHP script under bin/
     // is an entry point the detector would otherwise never see; bin/phpunit,
     // bin/neon-lint and bin/php-parse are Composer proxies for packages and
@@ -26,6 +58,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     ->withDeadCodeDetection(true)
     ->withDeadCodeEntryPoints(
         'bin/bootstrap.php',
+        'bin/changelog-release',
         'bin/config-template-ignorelist-check',
         'bin/hooks-daemon-full-qa-blocker',
         'bin/infection-config-source-dirs-check',

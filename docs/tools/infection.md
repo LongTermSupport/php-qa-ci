@@ -48,6 +48,10 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
 
 You can see that this is being done in the phpqa project itself in its own [qaConfig/qa.php](./../../qaConfig/qa.php). For a single run the `mutationScoreIndicator` and `coveredCodeMSI` environment variables still work.
 
+Diff mode (`infectionDiffBase`, or `withInfectionDiffBase()`) holds the changed files to the covered-MSI floor above unless given its own (`infectionDiffCoveredMsi`, or the second argument).
+
+Every floor must be below 100: the configuration refuses 100 or more. Real code has equivalent mutants, mutations no test can tell from the original, so a 100% floor is met only by suppressing mutants or contorting code. 90 to 95 is a healthy gate.
+
 #### Disabling Infection
 
 If you would like to disable infection, simply export the environment variable `useInfection` with the value `0`:
@@ -65,5 +69,4 @@ The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infecti
 2. Diff mode (`infectionDiffBase` set) first refuses a dirty tree under `src/` or `tests/` (`git status --porcelain`): the verdict must be reproducible from committed history alone.
 3. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
 4. Diff mode scopes mutation to the PHP files from `git diff <base>...HEAD --diff-filter=AM --name-only --relative -- src`, passed to Infection as positional absolute paths. An empty list skips; a failing `git diff` fails.
-5. A 100% floor in force prints the "lower it honestly to 95" advisory.
-6. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, then either `--min-msi --min-covered-msi --log-verbosity=all` (full) or `--min-covered-msi=<infectionDiffCoveredMsi>` and the paths (diff). Any non-zero exit fails.
+5. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, then either `--min-msi --min-covered-msi --log-verbosity=all` (full) or `--min-covered-msi=<infectionDiffCoveredMsi>` and the paths (diff). Any non-zero exit fails.

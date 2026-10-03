@@ -102,6 +102,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'infectionConfigSourceDirs'  => 'infectionConfigSourceDirs',
         'vp'                         => 'versionPins',
         'versionPins'                => 'versionPins',
+        'cl'                         => 'changelog',
+        'changelog'                  => 'changelog',
     ];
 
     /**
@@ -173,6 +175,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'icsd'                       => false,
         'versionPins'                => false,
         'vp'                         => false,
+        'changelog'                  => false,
+        'cl'                         => false,
         'pt'                         => false,
         'packagetype'                => false,
         'deadCode'                   => false,
@@ -206,6 +210,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
             'configTemplateIgnoreList',
             'infectionConfigSourceDirs',
             'versionPins',
+            'changelog',
             'phpStrictTypes',
             'phpLint',
             'opcache',

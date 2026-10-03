@@ -63,6 +63,17 @@ final readonly class EnvironmentReader
         };
     }
 
+    /** A whole number, or null when the variable is absent or is not one. */
+    public function intOrNull(string $name): ?int
+    {
+        $value = $this->string($name);
+        if (null === $value || 1 !== \Safe\preg_match('/^\d+$/', $value)) {
+            return null;
+        }
+
+        return (int)$value;
+    }
+
     public function int(string $name, int $default): int
     {
         $value = $this->string($name);

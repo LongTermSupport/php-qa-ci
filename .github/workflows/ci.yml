@@ -16,8 +16,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Full history and tags: the changelog lane judges everything since the
+      # merge base (pull request) or the last release tag (push), and fails on
+      # a shallow clone rather than passing on no evidence.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -30,5 +35,7 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
 
+      # A green push to php8.5 starts .github/workflows/release.yml.
       - name: Run QA Pipeline
         run: bash ci.bash
+

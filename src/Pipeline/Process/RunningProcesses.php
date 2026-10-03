@@ -17,7 +17,15 @@ use Symfony\Component\Process\Process;
  */
 final class RunningProcesses
 {
+    /** How often a wait re-checks whether the processes it is waiting on are gone. */
     private const int POLL_MICROSECONDS = 10_000;
+
+    /**
+     * SIGKILL is delivered asynchronously: posix_kill() returns before the
+     * process has gone. A process in uninterruptible sleep can take a while,
+     * so the wait for it is bounded.
+     */
+    private const float KILL_WAIT_SECONDS = 2.0;
 
     /** @var array<int, Process> keyed by object id */
     private array $processes = [];
@@ -41,7 +49,8 @@ final class RunningProcesses
      * it, then forget them all. A tool's own children (PHPStan's workers,
      * paratest's runners) outlive it otherwise, so the whole tree is read
      * first, while it can still be traced from the child, and sent SIGTERM;
-     * whatever outlives the grace period is sent SIGKILL.
+     * whatever outlives the grace period is sent SIGKILL, and is waited for,
+     * so that on return nothing is left to hold the run's resources.
      *
      * @return int how many registered children were still running
      */
@@ -71,10 +80,14 @@ final class RunningProcesses
             usleep(self::POLL_MICROSECONDS);
         }
 
-        foreach ($descendants as $pid) {
-            if ($this->tree->isAlive($pid)) {
-                $this->signal($pid, \SIGKILL);
-            }
+        $killed = array_values(array_filter($descendants, $this->tree->isAlive(...)));
+        foreach ($killed as $pid) {
+            $this->signal($pid, \SIGKILL);
+        }
+
+        $deadline = microtime(true) + self::KILL_WAIT_SECONDS;
+        while ($this->anyAlive([], ...$killed) && microtime(true) < $deadline) {
+            usleep(self::POLL_MICROSECONDS);
         }
 
         foreach ($children as $child) {

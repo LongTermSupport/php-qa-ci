@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Tool;
 
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool;
+use LTS\PHPQA\Pipeline\Lane\ChangelogTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecksTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool;
@@ -50,6 +51,7 @@ final readonly class ShippedTools
             new ConfigTemplateIgnoreListTool(),
             new InfectionConfigSourceDirsTool(),
             new VersionPinsTool(),
+            new ChangelogTool(),
             new PhpstanIgnoreJustificationTool(),
             new SensitiveParameterUsageTool(),
             new MarkdownLinksTool(),

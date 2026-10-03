@@ -92,6 +92,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheckTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ChangelogTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpcpdTool::class)]
@@ -142,6 +143,20 @@ final class InProcessLanesTest extends TestCase
             }
 
             self::assertStringStartsWith('phpqaci.', $tool->identifier());
+        }
+    }
+
+    #[Test]
+    public function everyLeafToolTheRegistryNamesHasAShippedLane(): void
+    {
+        $shipped = ShippedTools::all();
+
+        foreach (ToolRegistry::shipped()->all() as $definition) {
+            if ($definition->isPhaseRunner || null !== $definition->target) {
+                continue;
+            }
+
+            self::assertArrayHasKey($definition->name, $shipped, $definition->name . ' is registered but no lane ships under that name');
         }
     }
 
