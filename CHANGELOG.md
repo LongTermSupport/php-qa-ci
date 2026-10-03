@@ -16,17 +16,119 @@ no consumer could notice says so instead, with the trailer
 cut from it is decided by them: `### Changed — breaking`, `### Removed`,
 `### Added`, `### Changed` and `### Deprecated` release a new minor version;
 `### Fixed` and `### Security` alone release a patch. The major is the PHP line
-(`85` for the `php8.5` branch), so a breaking change moves the minor: read the
-BREAKING entries before taking one. A green push to the branch opens a release
+(`85` for the `php8.5` branch, the locked-major policy `qaConfig/qa.php`
+declares), so a breaking change moves the minor: read the BREAKING entries
+before taking one. A green push to the branch opens a release
 pull request moving `## Unreleased` into a version section; merging it publishes
 the release and its tag. The full rules are in
 [docs/tools/changelog.md](docs/tools/changelog.md).
 
 ## Unreleased
 
+### Changed — breaking
+
+- **PHP outside the checked paths fails the run until it is classified.** The
+  new always-on `analysedPaths` lane (`-t ap`) lists the project's PHP through
+  git and names each directory that is neither under a checked path nor
+  declared in `qaConfig/qa.php`; `vendor/` and `var/` are excluded by default.
+  Analyse code the project maintains with `withCheckedPaths('config')`, or
+  declare the exception with `withUnanalysedPath('<path>', '<reason>')`, whose
+  reason is required and printed on every run. See
+  [docs/tools/analysedPaths.md](docs/tools/analysedPaths.md).
+- **`bin/changelog-release` and the `changelog` lane follow semantic versioning
+  unless the project declares otherwise.** A `### Changed — breaking` or
+  `### Removed` entry now releases the next major (the next minor while the
+  major is 0), and every plain `X.Y.Z` tag counts as a release, so the lane on
+  the default branch measures from the newest one. A project that relied on the
+  major being its PHP line declares
+  `withReleaseVersionPolicy(ReleaseVersionPolicy::lockedMajorFromPhpRequirement())`
+  in `qaConfig/qa.php` and keeps today's versions. `pending-tags` prints the tag
+  name, prefix included, rather than the version. `ReleaseVersionCalculator` is
+  replaced by `ReleaseVersionPolicy` and `ReleaseLine`, `ReleaseBumpEnum` gains
+  `Major`, and `ReleasedSections::untagged()` takes a `ReleaseLine`. See
+  [docs/tools/changelog.md](docs/tools/changelog.md#versioning-policies).
+
+### Added
+
+- **`vendor/bin/arkitect-rule <because> <path>` proves a PHPArkitect rule
+  fires.** It runs the project's own rules (its resolved entry config, tiers and
+  environment, no baseline) over one fixture file or directory instead of their
+  class sets, and reports whether the rule with that `because` clause fired: exit
+  1 with each class, 0 when it did not, 2 when there is no verdict. A rule with
+  no instance in `src/` can now be seen to fire before a green arch run is
+  trusted. See
+  [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires).
+
+- **A defect record: `qaConfig/defect-record.neon`.** Method specification
+  1.1.0 requires a defect found and not fixed now, and the conclusion that no
+  pattern exists, to be recorded where the project's decisions are enumerable.
+  Write them under `deferred` (defect, class where apparent, found, deferredBy)
+  and `noPattern` (defect, found, conclusion, two or more techniques).
+  `vendor/bin/rules` lists the record in text and in JSON (`defectRecord`), the
+  active-defences region of `CLAUDE.md` carries it, and the
+  `phpstanIgnoreJustification` lane fails on an entry it cannot read, such as a
+  misspelt field. A project without the file passes as before; its `CLAUDE.md`
+  region gains a line saying where a deferred defect goes. Format:
+  `vendor/bin/rule-doc phpqaci.phpstanIgnoreJustification`.
+
+- **Releases follow a versioning policy declared in `qaConfig/qa.php`.**
+  `withReleaseVersionPolicy()` takes
+  `ReleaseVersionPolicy::semanticVersioning()`, the default, whose first release
+  is `0.1.0` unless given another; `lockedMajor(<int>)`, which never moves the
+  major; or `lockedMajorFromPhpRequirement()`, the major being composer.json's
+  PHP line (`^8.5` is `85`). Each takes a tag prefix such as `v`; a tag of any
+  other shape is not a release. `notes` accepts the tag as well as the version.
+
+- **A release workflow ships for consuming projects.**
+  `templates/github-actions/release.yml` and
+  `templates/github-actions/approve-held-ci/action.yml`, copied unchanged into
+  `.github/`, give a project the release pull request php-qa-ci releases itself
+  with: a green push to the default branch opens or refreshes
+  `chore/release-<branch>`, and merging it publishes the GitHub Release and its
+  tag. The branch comes from the repository, the CLI from
+  `composer config bin-dir`, the version from the project's release policy.
+  Setup and the repository settings it needs are in
+  [docs/github-actions.md](docs/github-actions.md#release-automation).
+
 ### Changed
 
 - **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.
+- **The Defence Before Fix declaration moves to method specification 1.1.0.**
+  `composer.json` `extra.defence-before-fix` states method 1.1.0 at both the
+  artefact and the project level, with no new known gap.
+
+### Fixed
+
+- **A diff-scoped Infection run with nothing to mutate no longer generates
+  coverage first.** With `infectionDiffBase` set, the lane resolves the
+  changed-file list before any coverage run, so a docs-only or config-only
+  change skips at once instead of spending a full Xdebug PHPUnit run and then
+  reporting nothing to mutate. When there are changed source files, coverage
+  is reused or generated exactly as before.
+- **The GitHub Actions templates run on Node 24.** `templates/github-actions/`
+  pinned `actions/checkout`, `actions/cache`, `actions/upload-artifact` and
+  `actions/download-artifact` at v4 and `marocchino/sticky-pull-request-comment`
+  at v2, all on the deprecated Node 20 runtime, so every run printed a
+  deprecation annotation and the steps stop running once GitHub removes Node 20.
+  They are now v7, v6, v7, v8 and v3. `actions/download-artifact@v8` fails on a
+  digest mismatch where v4 only warned. A project that copied the templates
+  should copy them again.
+- **`withIgnoredPaths()` reaches every lane that scans the checked paths.**
+  PHPStan, Dead Code Detection, PHP CS Fixer, PHP Strict Types, PHPCPD and
+  PSR-4 Validation scanned the ignored paths anyway, so a project following the
+  docs had its fixtures' deliberate violations reported and had to repeat each
+  path in every tool's own config. PHPStan and Dead Code Detection now exclude
+  them from the report (`excludePaths.analyse`, so their classes stay
+  discoverable), PHP CS Fixer filters them out of whatever finder the project's
+  config uses, and the rest skip them; a `-p` PHPStan run inside an ignored
+  path is skipped. An exclusion repeated in a project's own `phpstan.neon`,
+  `php_cs_finder.php` or `psr4-validate-ignore-list.txt` can be dropped.
+  PHPArkitect and Infection still need their own setting.
+- **Rector no longer warns "This skipped rule is never registered" on every
+  run.** The shipped `rector-php85.php` skipped
+  `NullToStrictStringFuncCallArgRector`, which Rector 2.6.7 registers in no set,
+  so the skip did nothing except print a warning naming a file the project does
+  not own. The skip is gone; the rule stays out because no set registers it.
 
 ## 85.2.0 — 2026-10-03
 

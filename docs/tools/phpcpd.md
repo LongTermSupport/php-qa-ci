@@ -21,7 +21,10 @@ report at all.
 
 - After the "ALL TESTS PASSING" banner, before the project's `hookPost.php`.
 - Standalone: `vendor/bin/qa -t cpd`.
-- Runs the shipped `vendor-phar/phpcpd.phar` (self-built from `build/phpcpd/`).
+- Runs the shipped `vendor-phar/phpcpd.phar` (self-built from `build/phpcpd/`) over the checked
+  paths, with one `--exclude` per `withIgnoredPaths()` path. phpcpd excludes any path that
+  contains the value, so a directory is passed with a trailing slash and never drops a sibling
+  sharing its prefix.
 - A JSON report is written to `var/qa/phpcpd/phpcpd.json` on every run, so the numbers can be
   tracked over time by something outside the pipeline even though nothing here acts on them.
 

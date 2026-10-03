@@ -15,6 +15,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `bin/changelog-release`: the release steps CI runs, and the entry a
  * workflow adds, over the project's CHANGELOG.md. Run from the project root.
+ * Versions follow the ReleaseVersionPolicy the project declares in
+ * qaConfig/qa.php (semantic versioning unless it declares otherwise).
  *
  * Only a result goes to stdout (the version, the notes); everything a human
  * reads goes to stderr, so `$(changelog-release next-version)` is exactly the
@@ -27,14 +29,16 @@ final readonly class ChangelogReleaseCommand
     public const string USAGE = <<<'TXT'
         Usage: changelog-release <command> [arguments]   (run from the project root)
 
-          next-version                print the version "## Unreleased" releases as on the PHP line
-                                      composer.json names; print nothing when it has no entries
+          next-version                print the version "## Unreleased" releases as under the project's
+                                      release policy (qaConfig/qa.php; semantic versioning unless it
+                                      declares otherwise); print nothing when it has no entries
           apply <version> <date>      release "## Unreleased" as "## <version> — <date>" (YYYY-MM-DD)
                                       under a fresh, empty "## Unreleased"
-          notes <version>             print the tag annotation for a released version
-          pending-tags                print "<version> <commit>" for every released section on the line
-                                      newer than its newest tag, oldest first: the commit is the one
-                                      that wrote the section, and is what the tag must point at
+          notes <version|tag>         print the tag annotation for a released version
+          pending-tags                print "<tag> <commit>" for every released section newer than the
+                                      newest release tag, oldest first: the tag carries the policy's
+                                      prefix, and the commit is the one that wrote the section, which
+                                      is what the tag must point at
           add-entry <heading> <text>  add "- <text>" under a heading of "## Unreleased"; the heading
                                       is its label or slug (added, changed, changed-breaking,
                                       deprecated, removed, fixed, security)
@@ -44,21 +48,30 @@ final readonly class ChangelogReleaseCommand
 
         TXT;
 
+    private const string COMPOSER_JSON = 'composer.json';
+
     public function __construct(
         private string $projectRoot,
         private ChangelogGit $git,
         private OutputInterface $stdout,
         private OutputInterface $stderr,
+        private ReleaseVersionPolicy $policy = new ReleaseVersionPolicy(),
         private ChangelogParser $parser = new ChangelogParser(),
-        private ReleaseVersionCalculator $calculator = new ReleaseVersionCalculator(),
     ) {
     }
 
     public static function main(string $projectRoot, OutputInterface $stdout, OutputInterface $stderr, string ...$arguments): int
     {
         $git = new ChangelogGit(new SymfonyProcessRunner(new NullOutput()), $projectRoot);
+        try {
+            $policy = new ReleaseVersionPolicyLoader()->load($projectRoot);
+        } catch (ChangelogReleaseException $changelogReleaseException) {
+            $stderr->write($changelogReleaseException->getMessage() . "\n", false, OutputInterface::OUTPUT_RAW);
 
-        return new self($projectRoot, $git, $stdout, $stderr)->run(...$arguments);
+            return 1;
+        }
+
+        return new self($projectRoot, $git, $stdout, $stderr, $policy)->run(...$arguments);
     }
 
     public function run(string ...$arguments): int
@@ -116,8 +129,7 @@ final readonly class ChangelogReleaseCommand
             return 0;
         }
 
-        $major = $this->calculator->lineMajor($this->read('composer.json'));
-        $this->stdout->write($this->calculator->next($major, $bump, ...$this->git->tags()) . "\n", false, OutputInterface::OUTPUT_RAW);
+        $this->stdout->write($this->line()->next($bump, ...$this->git->tags()) . "\n", false, OutputInterface::OUTPUT_RAW);
 
         return 0;
     }
@@ -125,15 +137,15 @@ final readonly class ChangelogReleaseCommand
     private function pendingTags(): int
     {
         $changelog = $this->changelog();
-        $major     = $this->calculator->lineMajor($this->read('composer.json'));
-        foreach (new ReleasedSections($this->parser, $this->calculator)->untagged($changelog, $major, ...$this->git->tags()) as $version) {
+        $line      = $this->line();
+        foreach (new ReleasedSections($this->parser)->untagged($changelog, $line, ...$this->git->tags()) as $version) {
             $heading = ChangelogParser::SECTION_PREFIX . $this->parser->release($changelog, $version)->title;
             $commit  = $this->git->commitChanging($heading, ChangelogCheck::CHANGELOG) ?? throw new ChangelogReleaseException(\sprintf(
                 'no commit reachable from HEAD wrote "%s" into %s; commit the release before tagging it',
                 $heading,
                 ChangelogCheck::CHANGELOG,
             ));
-            $this->stdout->write($version . ' ' . $commit . "\n", false, OutputInterface::OUTPUT_RAW);
+            $this->stdout->write($line->tagOf($version) . ' ' . $commit . "\n", false, OutputInterface::OUTPUT_RAW);
         }
 
         return 0;
@@ -148,8 +160,9 @@ final readonly class ChangelogReleaseCommand
         return 0;
     }
 
-    private function notes(string $version): int
+    private function notes(string $versionOrTag): int
     {
+        $version = $this->line()->versionOfTag($versionOrTag) ?? $versionOrTag;
         $section = $this->parser->release($this->changelog(), $version);
         $this->stdout->write(new ReleaseNotesRenderer()->render($section), false, OutputInterface::OUTPUT_RAW);
 
@@ -193,6 +206,14 @@ final readonly class ChangelogReleaseCommand
         $this->error(rtrim(self::USAGE));
 
         return 1;
+    }
+
+    /** The releases the policy cuts; composer.json is read only when it exists, and only the PHP-line policy needs it. */
+    private function line(): ReleaseLine
+    {
+        $composerJson = is_file($this->projectRoot . '/' . self::COMPOSER_JSON) ? $this->read(self::COMPOSER_JSON) : '{}';
+
+        return $this->policy->line($composerJson);
     }
 
     private function changelog(): string

@@ -90,6 +90,7 @@ dir) prints its page offline.
 - `phpqaci.packageType` — assert composer.json declares an explicit package type (library/project/...) (`docs/tools/packageType.md`)
 - `phpqaci.configTemplateIgnoreList` — audit configDefaults/generic templates against psr4-validate-ignore-list.txt (`docs/tools/configTemplateIgnoreListCheck.md`)
 - `phpqaci.infectionConfigSourceDirectoriesMustExist` — assert infection.json's source.directories resolve to real directories (`docs/tools/infectionConfigSourceDirs.md`)
+- `phpqaci.analysedPaths` — every PHP directory is under a checked path or declared unanalysed with a reason (`docs/tools/analysedPaths.md`)
 - `phpqaci.versionPins` — assert phpunit.xml, safe scan-files and GitHub Actions PHP pins match the installed PHPUnit / running PHP (`docs/tools/versionPins.md`)
 - `phpqaci.changelog` — CHANGELOG.md Unreleased is valid and records every change to the watched paths (opt-in: useChangelogCheck=1 or withChangelogCheck(true)) (`docs/tools/changelog.md`; opt-in: `useChangelogCheck`)
 - `phpqaci.phpStrictTypes` — strict types validation (`docs/tools/phpStrictTypes.md`)
@@ -102,13 +103,25 @@ dir) prints its page offline.
 - `phpqaci.yamlLint` — YAML syntax (when symfony/yaml is installed) (`docs/tools/yamlLint.md`)
 - `phpqaci.shellCheck` — ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships (`docs/tools/shellCheck.md`)
 - `phpqaci.branchNamePolicy` — Branch naming policy (PR convention) (`CLAUDE/branch-policy.md`)
-- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification (`docs/tools/phpstanIgnoreJustification.md`)
+- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification, and qaConfig/defect-record.neon reads in full (`docs/tools/phpstanIgnoreJustification.md`)
 - `phpqaci.deadCode` — dead-code detection through phpstan.phar (opt-in: withDeadCodeDetection(true) in qaConfig/qa.php) (`docs/tools/deadCode.md`)
 - `phpqaci.phpArkitect` — PHPArkitect architecture rules (on by default; useArkitect=0 to disable) (`docs/tools/phpArkitect.md`; opt-in: `useArkitect`)
 - `phpqaci.sensitiveParameterUsage` — assert #[\SensitiveParameter] is used somewhere in src/ (`docs/tools/sensitiveParameterUsage.md`)
 - `phpqaci.phpunit` — phpunit (`docs/tools/phpunit.md`)
 - `phpqaci.infection` — infection (`docs/tools/infection.md`; opt-in: `useInfection`)
 - `phpqaci.phpcpd` — copy/paste detection, informational (`docs/tools/phpcpd.md`)
+
+### Deferred defects
+
+Recorded in `qaConfig/defect-record.neon`; whether a deferred one stays unfixed is the Owner's
+decision, and the attempt at a Defence is owed when its fix is taken up.
+
+- Deferred — hooks-daemon `remote-docs refresh --all` re-captures a document recorded `fidelity: verbatim` as a conversion unless `--verbatim` is passed, so the documented refresh replaced the vendored specifications with extractions (class: a refresh that does not preserve the capture mode the stored document records; found: the hooks daemon, refreshing remote-docs/defence-before-fix.github.io/ in Plan 00016; deferred by: undecided; recorded for the Owner by the Plan 00016 agent, since the code is not in this repository)
+- Deferred — hooks-daemon v3.63.0 `tdd_enforcement` resolves the expected test file against the main checkout, not the worktree the write targets, so it denies a new src/ file in a worktree whose test is already committed there (class: a path resolved against the session root rather than the root of the checkout the path is in; found: the hooks daemon, during the Plan 00015 and Plan 00016 worktree agents; deferred by: undecided; recorded for the Owner, since the code is not in this repository and no upstream release fixes it)
+- Deferred — hooks-daemon v3.63.0 markdown formatter reformats a file holding merge-conflict markers, turning `>>>>>>>` into a blockquote line that conflict-marker checks no longer match (class: a formatter run on a file in an unresolved merge state; found: CHANGELOG.md, resolving the Plan 00016 merge into bugfix/known-defects-sweep; deferred by: undecided; fixed upstream in hooks-daemon v3.68.0 (the formatter leaves a conflicted file untouched, and conflict_marker_commit_gate denies the commit), pending the Owner upgrading the daemon)
+- Deferred — the phpArkitect lane does not honour withIgnoredPaths(), so a path a project ignores under src/ is still checked against the architecture rules (class: a lane that scans the checked paths drops the project's ignored paths; found: src/Pipeline/Lane/PhpArkitectTool.php; deferred by: undecided; arkitect excludes only by ClassSet::excludePath(), an unanchored glob, so passing src/Legacy would also drop every directory named Legacy deeper in src/. withArkitectExcludedPaths() remains the knob until the Owner accepts that or arkitect gains an anchored exclusion)
+- Deferred — the infection lane does not honour withIgnoredPaths(), so mutants in a path a project ignores under src/ still count against the MSI floors (class: a lane that scans the checked paths drops the project's ignored paths; found: src/Pipeline/Lane/InfectionTool.php; deferred by: undecided; Infection takes no exclusion on the command line, and a rewritten infection.json would have to re-anchor every relative path in it. source.excludes in infection.json remains the knob)
+- Deferred — a withIgnoredPaths() entry that matches nothing goes unreported, so a stale exclusion outlives the code it excluded (class: a declared exclusion that matches nothing, which the analysedPaths lane catches for withUnanalysedPath() but not for withIgnoredPaths(); found: qaConfig/qa.php; deferred by: undecided; failing on a missing ignored path would also fail a project whose ignored directory is generated by a build step, as the documented src/Generated example is, so the detector is an Owner decision)
 <!-- phpqaci-active-defences:end -->
 
 ## Segfaults are a halt condition (binding)
@@ -264,34 +277,36 @@ On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appe
 
 07. **Infection Config Source Directories Check** (`infectionConfigSourceDirs`) - Always-on: infection.json's `source.directories` entries must resolve, relative to infection.json's own directory, to real directories (see [docs/tools/infectionConfigSourceDirs.md](docs/tools/infectionConfigSourceDirs.md))
 
-08. **Version Pins Check** (`versionPins`) - Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use (see [docs/tools/versionPins.md](docs/tools/versionPins.md))
+08. **Analysed Paths** (`analysedPaths`) - Always-on: every PHP directory is under a checked path or declared unanalysed with `withUnanalysedPath()` and a reason (see [docs/tools/analysedPaths.md](docs/tools/analysedPaths.md))
 
-09. **Changelog** (`changelog`) - Opt-in: `CHANGELOG.md`'s `## Unreleased` section is valid and records every change to the watched paths; php-qa-ci enables it on itself (see [docs/tools/changelog.md](docs/tools/changelog.md))
+09. **Version Pins Check** (`versionPins`) - Always-on: phpunit.xml, safe scan-files and GitHub Actions PHP pins match the toolchain in use (see [docs/tools/versionPins.md](docs/tools/versionPins.md))
 
-10. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
+10. **Changelog** (`changelog`) - Opt-in: `CHANGELOG.md`'s `## Unreleased` section is valid and records every change to the watched paths; php-qa-ci enables it on itself (see [docs/tools/changelog.md](docs/tools/changelog.md))
 
-11. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
+11. **Strict Types Enforcement** (`phpStrictTypes`) - Ensures `declare(strict_types=1)` in all PHP files
 
-12. **OPcache** (`opcache`) - Compiles every checked file through OPcache and asserts the bytecode is free of the known OPcache codegen defects (see [docs/tools/opcache.md](docs/tools/opcache.md))
+12. **PHP Lint** (`phpLint`) - Fast parallel syntax checking
 
-13. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
+13. **OPcache** (`opcache`) - Compiles every checked file through OPcache and asserts the bytecode is free of the known OPcache codegen defects (see [docs/tools/opcache.md](docs/tools/opcache.md))
 
-14. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
+14. **Composer Require Checker** (`composerRequireChecker`) - Checks for missing dependencies
 
-15. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
+15. **Composer Dependency Analyser** (`composerDependencyAnalyser`) - Checks for unused, shadow and misplaced dependencies (see [docs/tools/composerDependencyAnalyser.md](docs/tools/composerDependencyAnalyser.md))
 
-16. **Documentation Prose** (`docsProse`) - Always-on: `README.md` and every `.md` under `docs/` describes its subject rather than itself (see [docs/tools/docsProse.md](docs/tools/docsProse.md))
+16. **Markdown Links Checker** (`markdownLinks`) - Validates links in markdown files
 
-17. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+17. **Documentation Prose** (`docsProse`) - Always-on: `README.md` and every `.md` under `docs/` describes its subject rather than itself (see [docs/tools/docsProse.md](docs/tools/docsProse.md))
 
-18. **ShellCheck** (`shellCheck`) - Every git-tracked shell script passes ShellCheck at `warning`, from the pinned static binary at `vendor-bin/shellcheck` (see [docs/tools/shellCheck.md](docs/tools/shellCheck.md))
+18. **Yaml Lint** (`yamlLint`) - Every YAML file under the yaml directories parses; gated on `symfony/yaml` being installed, not on the platform (see [docs/tools/yamlLint.md](docs/tools/yamlLint.md))
+
+19. **ShellCheck** (`shellCheck`) - Every git-tracked shell script passes ShellCheck at `warning`, from the pinned static binary at `vendor-bin/shellcheck` (see [docs/tools/shellCheck.md](docs/tools/shellCheck.md))
 
 On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to this phase. It is not `-t` selectable.
 
 ### Phase 3: Static Analysis Tools
 
 15. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope, and `qaConfig/defect-record.neon` (deferred defects and no-pattern conclusions) must read in full (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
 17. **PHPStan** (`phpstan`) - Static analysis tool
 18. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
 19. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.
@@ -755,6 +770,15 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 - **Purpose**: every entry in infection.json's `source.directories` resolves, relative to infection.json's own directory, to a real directory
 - **Identifier**: `phpqaci.infectionConfigSourceDirs`
 - **Details**: [docs/tools/infectionConfigSourceDirs.md](docs/tools/infectionConfigSourceDirs.md)
+
+### Analysed Paths
+
+- **Lane**: [src/Pipeline/Lane/AnalysedPathsTool.php](src/Pipeline/Lane/AnalysedPathsTool.php); the decision in [src/Pipeline/Lane/AnalysedPaths/AnalysedPathsAudit.php](src/Pipeline/Lane/AnalysedPaths/AnalysedPathsAudit.php)
+- **Purpose**: every `.php` file git lists (tracked, or untracked and not ignored) is under a checked path, an ignored path, `vendor/` or `var/`, or a path declared with `withUnanalysedPath('<path>', '<reason>')` in `qaConfig/qa.php`; PHP outside the checked paths is otherwise never seen by any rule. A stale declaration, or one inside a checked path, also fails. Skipped on a `-p` run
+- **Worked example**: php-qa-ci's own [qaConfig/qa.php](qaConfig/qa.php)
+- **Alias**: `vendor/bin/qa -t ap`
+- **Identifier**: `phpqaci.analysedPaths`
+- **Details**: [docs/tools/analysedPaths.md](docs/tools/analysedPaths.md)
 
 ### Version Pins Check
 

@@ -106,6 +106,15 @@ Always-on check that every entry in infection.json's `source.directories` resolv
 infection.json's own directory, to a real directory. Identifier `phpqaci.infectionConfigSourceDirs`.
 See [tools/infectionConfigSourceDirs.md](./tools/infectionConfigSourceDirs.md).
 
+### Analysed Paths
+
+[AnalysedPathsTool](../src/Pipeline/Lane/AnalysedPathsTool.php)
+
+Always-on check that every PHP file in the project is under a checked path, or declared
+unanalysed with `withUnanalysedPath('<path>', '<reason>')`, so PHP outside `src/` and `tests/`
+cannot escape every rule unnoticed. Standalone alias `-t ap`. Identifier
+`phpqaci.analysedPaths`. See [tools/analysedPaths.md](./tools/analysedPaths.md).
+
 ### Version Pins Check
 
 [VersionPinsTool](../src/Pipeline/Lane/VersionPinsTool.php)

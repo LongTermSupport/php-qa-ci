@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use FilesystemIterator;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -14,10 +15,12 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 
 /**
- * Every .php / .phtml file under the checked paths must declare
- * strict_types. A read-only run lists the offenders and fails; a writable run
- * adds the declaration to the opening tag and reports each fixed file, and
- * fails only for a file with no opening tag to fix.
+ * Every .php / .phtml file under the checked paths, outside the ignored
+ * paths, must declare strict_types. A file under an ignored path is neither
+ * reported nor rewritten: a fixture is data. A read-only run lists the
+ * offenders and fails; a writable run adds the declaration to the opening tag
+ * and reports each fixed file, and fails only for a file with no opening tag
+ * to fix.
  *
  * @internal
  */
@@ -40,9 +43,10 @@ final readonly class PhpStrictTypesTool implements ToolInterface
     public function run(ToolContext $context): ToolResultDto
     {
         $missing = [];
+        $ignored = IgnoredPaths::of($context->config);
         foreach ($context->config->pathsToCheck as $path) {
             foreach ($this->phpFiles($path) as $file) {
-                if (!str_contains(\Safe\file_get_contents($file), 'strict_types')) {
+                if (!$ignored->contains($file) && !str_contains(\Safe\file_get_contents($file), 'strict_types')) {
                     $missing[] = $file;
                 }
             }

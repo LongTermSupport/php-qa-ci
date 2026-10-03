@@ -7,12 +7,13 @@ declare(strict_types=1);
 // Use the actual working directory instead.
 $projectRoot = getcwd() ?: $projectRoot;
 
+// tests/assets is not excluded here: it is in qa.php's withIgnoredPaths(), and
+// the phpCsFixer lane takes the ignored paths out of whatever finder this is.
 return (new PhpCsFixer\Finder())
     ->in($projectRoot)
     ->exclude(
         [
             'var',
-            'tests/assets',
         ]
     )
     ->ignoreVCSIgnored(true)

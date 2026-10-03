@@ -3,7 +3,8 @@
 **Identifier**: `phpqaci.phpStrictTypes`
 
 An always-on check that every `.php` and `.phtml` file under the checked paths contains a
-`declare(strict_types=1)`.
+`declare(strict_types=1)`. A file under a `withIgnoredPaths()` path is neither reported nor
+rewritten: a fixture missing the declaration on purpose stays as written.
 
 ## What it is about
 

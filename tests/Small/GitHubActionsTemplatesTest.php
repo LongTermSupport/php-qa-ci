@@ -34,6 +34,12 @@ final class GitHubActionsTemplatesTest extends TestCase
 
     private const string PIPELINE_TEMPLATE = self::TEMPLATES . '/php-qa-ci.yml';
 
+    private const string RELEASE_TEMPLATE = self::TEMPLATES . '/release.yml';
+
+    private const string APPROVE_TEMPLATE = self::TEMPLATES . '/approve-held-ci/action.yml';
+
+    private const string REPOSITORY = __DIR__ . '/../..';
+
     #[Test]
     public function everyTemplateFindsTheQaEntryPointThroughTheComposerBinDir(): void
     {
@@ -81,6 +87,96 @@ final class GitHubActionsTemplatesTest extends TestCase
             \Safe\file_get_contents(self::PIPELINE_TEMPLATE),
             'A run on GitHub Actions is read-only by default, so the fixers write nothing and AUTO_COMMIT_FIXES has nothing to commit unless the QA step is writable.',
         );
+    }
+
+    /**
+     * php-qa-ci releases itself through the workflow it ships, so every
+     * php-qa-ci release proves the template; a fix made to one copy only
+     * would leave consumers on the version that was not proven.
+     */
+    #[Test]
+    public function thisRepositoryReleasesThroughTheShippedReleaseWorkflow(): void
+    {
+        self::assertSame(
+            \Safe\file_get_contents(self::RELEASE_TEMPLATE),
+            \Safe\file_get_contents(self::REPOSITORY . '/.github/workflows/release.yml'),
+            '.github/workflows/release.yml must be an identical copy of templates/github-actions/release.yml: edit the template and copy it.',
+        );
+    }
+
+    #[Test]
+    public function thisRepositoryApprovesHeldRunsWithTheShippedAction(): void
+    {
+        self::assertSame(
+            \Safe\file_get_contents(self::APPROVE_TEMPLATE),
+            \Safe\file_get_contents(self::REPOSITORY . '/.github/actions/approve-held-ci/action.yml'),
+            '.github/actions/approve-held-ci/action.yml must be an identical copy of templates/github-actions/approve-held-ci/action.yml: edit the template and copy it.',
+        );
+    }
+
+    #[Test]
+    public function theReleaseTemplateNamesNoBranchOfItsOwn(): void
+    {
+        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#php8\.\d|\b(?:main|master)\b#'), 'The release branch is the repository default branch, read from the event, so the template copies unchanged into any repository.');
+    }
+
+    #[Test]
+    public function theReleaseTemplateRunsTheReleaseCliFromTheComposerBinDir(): void
+    {
+        $template = \Safe\file_get_contents(self::RELEASE_TEMPLATE);
+
+        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#\bbin/changelog-release#'), 'Run the release CLI from "$(composer config bin-dir)": a consumer has it in vendor/bin, php-qa-ci in bin.');
+        self::assertStringContainsString('"$(composer config bin-dir)/changelog-release"', $template);
+    }
+
+    #[Test]
+    public function theReleaseTemplateApprovesTheHeldRunOfTheWorkflowThatGatedIt(): void
+    {
+        $template = \Safe\file_get_contents(self::RELEASE_TEMPLATE);
+
+        self::assertStringContainsString('uses: ./.github/actions/approve-held-ci', $template);
+        self::assertStringContainsString('workflow: ${{ github.event.workflow_run.path }}', $template);
+        self::assertSame([], $this->executedLinesIn(self::APPROVE_TEMPLATE, '#ci\.yml#'), 'The action is told which workflow to approve; it must not assume one.');
+    }
+
+    /**
+     * Defence for "a release published while another gating workflow is red on the same commit".
+     * The template runs when ANY workflow it lists completes, so a project running two of them on
+     * its default branch would release on the first green one. The job therefore holds the same
+     * list in GATING_WORKFLOWS and acts only when every listed run for the verified commit has
+     * succeeded; the run of the last one to finish does the work.
+     */
+    #[Test]
+    public function theReleaseTemplateReleasesOnlyWhenEveryGatingWorkflowIsGreenOnTheCommit(): void
+    {
+        $template = \Safe\file_get_contents(self::RELEASE_TEMPLATE);
+
+        self::assertSame(1, \Safe\preg_match('/^    workflows: \[([^\]]+)\]$/m', $template, $trigger), 'on.workflow_run.workflows must be a one-line list.');
+        self::assertSame(1, \Safe\preg_match("/^      GATING_WORKFLOWS: '(\\[[^']+\\])'\$/m", $template, $gating), 'The release job must declare GATING_WORKFLOWS as a JSON list.');
+        if (!isset($trigger[1], $gating[1])) {
+            self::fail('Both lists must be captured.');
+        }
+
+        self::assertSame(
+            array_map(trim(...), explode(',', $trigger[1])),
+            \Safe\json_decode($gating[1], true, 2, \JSON_THROW_ON_ERROR),
+            'GATING_WORKFLOWS must name exactly the workflows that trigger the release, or a red one is never consulted.',
+        );
+        self::assertNotSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#actions/runs\?head_sha=\$\{VERIFIED\}#'), 'A step must read every workflow run for the verified commit.');
+        self::assertNotSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#GATING_WORKFLOWS#'), 'That step must judge the runs of the GATING_WORKFLOWS.');
+    }
+
+    /** @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern */
+    private function executedLinesIn(string $file, string $pattern): array
+    {
+        $hits = [];
+        foreach (explode("\n", \Safe\file_get_contents($file)) as $index => $line) {
+            if (!str_starts_with(ltrim($line), '#') && 1 === \Safe\preg_match($pattern, $line)) {
+                $hits[] = \sprintf('%d: %s', $index + 1, trim($line));
+            }
+        }
+
+        return $hits;
     }
 
     /** @return list<string> "<file>:<line>: <text>" for every non-comment line matching $pattern */

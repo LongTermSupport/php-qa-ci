@@ -13,6 +13,7 @@ use LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto;
 use LTS\PHPQA\Pipeline\Agent\Exception\UnreadableReportException;
 use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
 use LTS\PHPQA\Pipeline\Agent\TerseReporter;
+use LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -251,21 +252,17 @@ final readonly class PhpArkitectTool implements ToolInterface
     }
 
     /**
-     * What the entry config reads: the detected source dir, the resolved rule
-     * tiers (each honouring a qaConfig/ override), the consumer API-boundary
-     * factory and the project's extra exclude paths, newline-delimited.
+     * What the entry config reads, built where `bin/arkitect-rule` builds it
+     * too, so a probed rule is the rule this lane enforces.
      *
      * @return array<string, string>
      */
     private function environment(ToolContext $context): array
     {
-        return [
-            'PHPQACI_ARKITECT_SRC_DIR'                => $context->config->paths->srcDir,
-            'PHPQACI_ARKITECT_RULES_DEFAULT'          => $context->configPath('phparkitect-rules-default.php'),
-            'PHPQACI_ARKITECT_RULES_OPTIONAL'         => $context->configPath('phparkitect-rules-optional.php'),
-            'PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY' => $context->configPath('phparkitect-rules-optional-symfony.php'),
-            'PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY'  => $context->configPath('phparkitect-consumer-api-boundary.php'),
-            'PHPQACI_ARKITECT_EXCLUDE_PATHS'          => implode("\n", $context->config->arkitectExcludePaths),
-        ];
+        return new ArkitectEnvironment()->variables(
+            $context->configPaths,
+            $context->config->paths->srcDir,
+            ...$context->config->arkitectExcludePaths,
+        );
     }
 }

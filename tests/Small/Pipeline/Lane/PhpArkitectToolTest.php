@@ -33,6 +33,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(FileReportWriter::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\TerseReporter::class)]
 #[UsesClass(ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
@@ -48,6 +49,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
 #[UsesClass(ToolContext::class)]
 #[UsesClass(ToolOutcomeEnum::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class PhpArkitectToolTest extends TestCase
 {

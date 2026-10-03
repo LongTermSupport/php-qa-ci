@@ -10,7 +10,8 @@ use LTS\PHPQA\Changelog\Dto\ChangelogHeadingBlockDto;
 use LTS\PHPQA\Changelog\Dto\ReleasedSectionDto;
 use LTS\PHPQA\Changelog\Exception\InvalidChangelogException;
 use LTS\PHPQA\Changelog\ReleasedSections;
-use LTS\PHPQA\Changelog\ReleaseVersionCalculator;
+use LTS\PHPQA\Changelog\ReleaseLine;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,7 +27,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ChangelogHeadingBlockDto::class)]
 #[UsesClass(ReleasedSectionDto::class)]
 #[UsesClass(InvalidChangelogException::class)]
-#[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(ReleaseLine::class)]
+#[UsesClass(ReleaseVersionPolicy::class)]
 #[Small]
 final class ReleasedSectionsTest extends TestCase
 {
@@ -37,6 +39,8 @@ final class ReleasedSectionsTest extends TestCase
     private const string V851 = '85.1.0';
 
     private const string V852 = '85.2.0';
+
+    private const string V150 = '1.5.0';
 
     private const string RELEASED = "# Changelog\n\nIntro.\n\n## Unreleased\n\n## 85.1.0 — 2026-10-09\n\n### Fixed\n\n- A fix.\n\n### Changed — breaking\n\n- A new requirement.\n\n## 85.0.0 — 2026-10-02\n\n### Added\n\n- The first release.\n";
 
@@ -104,9 +108,9 @@ final class ReleasedSectionsTest extends TestCase
     {
         $markdown = "## Unreleased\n\n## 85.2.0 — c\n\n### Added\n\n- C.\n\n## 85.1.0 — b\n\n### Added\n\n- B.\n\n## 85.0.0 — a\n\n### Added\n\n- A.\n";
 
-        self::assertSame([self::V851, self::V852], new ReleasedSections()->untagged($markdown, 85, '84.3.0', self::V850));
-        self::assertSame([self::V852], new ReleasedSections()->untagged($markdown, 85, self::V851, self::V850));
-        self::assertSame([], new ReleasedSections()->untagged($markdown, 85, self::V852));
+        self::assertSame([self::V851, self::V852], new ReleasedSections()->untagged($markdown, $this->line85(), '84.3.0', self::V850));
+        self::assertSame([self::V852], new ReleasedSections()->untagged($markdown, $this->line85(), self::V851, self::V850));
+        self::assertSame([], new ReleasedSections()->untagged($markdown, $this->line85(), self::V852));
     }
 
     #[Test]
@@ -114,7 +118,7 @@ final class ReleasedSectionsTest extends TestCase
     {
         $markdown = "## Unreleased\n\n## 85.0.0 — a\n\n### Added\n\n- A.\n\n## 84.7.0 — z\n\n### Added\n\n- Z.\n";
 
-        self::assertSame([self::V850], new ReleasedSections()->untagged($markdown, 85, '84.6.0'));
+        self::assertSame([self::V850], new ReleasedSections()->untagged($markdown, $this->line85(), '84.6.0'));
     }
 
     #[Test]
@@ -122,6 +126,29 @@ final class ReleasedSectionsTest extends TestCase
     {
         $markdown = "## Unreleased\n\n## 85.10.0 — b\n\n### Added\n\n- B.\n\n## 85.9.0 — a\n\n### Added\n\n- A.\n";
 
-        self::assertSame(['85.10.0'], new ReleasedSections()->untagged($markdown, 85, '85.9.0'));
+        self::assertSame(['85.10.0'], new ReleasedSections()->untagged($markdown, $this->line85(), '85.9.0'));
+    }
+
+    #[Test]
+    public function underSemanticVersioningEveryVersionNewerThanTheNewestTagIsUntagged(): void
+    {
+        $markdown = "## Unreleased\n\n## 2.0.0 — c\n\n### Removed\n\n- C.\n\n## 1.5.0 — b\n\n### Added\n\n- B.\n\n## 1.4.2 — a\n\n### Fixed\n\n- A.\n";
+        $line     = ReleaseVersionPolicy::semanticVersioning()->line('{}');
+
+        self::assertSame([self::V150, '2.0.0'], new ReleasedSections()->untagged($markdown, $line, '1.4.2', 'v9.0.0'));
+        self::assertSame(['1.4.2', self::V150, '2.0.0'], new ReleasedSections()->untagged($markdown, $line));
+    }
+
+    #[Test]
+    public function aTagPrefixIsStrippedBeforeTheComparison(): void
+    {
+        $markdown = "## Unreleased\n\n## 1.5.0 — b\n\n### Added\n\n- B.\n\n## 1.4.2 — a\n\n### Fixed\n\n- A.\n";
+
+        self::assertSame([self::V150], new ReleasedSections()->untagged($markdown, ReleaseVersionPolicy::semanticVersioning('v')->line('{}'), 'v1.4.2', self::V150));
+    }
+
+    private function line85(): ReleaseLine
+    {
+        return ReleaseVersionPolicy::lockedMajor(85)->line('{}');
     }
 }

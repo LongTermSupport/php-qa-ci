@@ -41,7 +41,7 @@ final class ChangelogParserTest extends TestCase
         $document = $this->parse(self::PREAMBLE . "## Unreleased\n\n### Changed — breaking\n\n- **Exit 75.** A contended\n  lock no longer exits 1.\n\n- Second entry.\n\n### Fixed\n\n* A fix.\n\n" . self::RELEASED);
 
         self::assertFalse($document->isEmpty());
-        self::assertSame(ReleaseBumpEnum::Minor, $document->bump());
+        self::assertSame(ReleaseBumpEnum::Major, $document->bump());
         self::assertSame(4, $document->unreleasedIndex);
         self::assertSame(17, $document->sectionEnd);
         self::assertSame(["- **Exit 75.** A contended\n  lock no longer exits 1.", '- Second entry.', '* A fix.'], $document->entries());
@@ -68,9 +68,17 @@ final class ChangelogParserTest extends TestCase
     #[Test]
     public function aMinorHeadingAfterPatchHeadingsMakesTheReleaseMinor(): void
     {
-        $document = $this->parse("## Unreleased\n\n### Fixed\n\n- A fix.\n\n### Removed\n\n- Gone.\n");
+        $document = $this->parse("## Unreleased\n\n### Fixed\n\n- A fix.\n\n### Deprecated\n\n- Going.\n");
 
         self::assertSame(ReleaseBumpEnum::Minor, $document->bump());
+    }
+
+    #[Test]
+    public function aBreakingHeadingAnywhereMakesTheReleaseMajor(): void
+    {
+        $document = $this->parse("## Unreleased\n\n### Added\n\n- New.\n\n### Fixed\n\n- A fix.\n\n### Removed\n\n- Gone.\n");
+
+        self::assertSame(ReleaseBumpEnum::Major, $document->bump());
     }
 
     #[Test]

@@ -36,6 +36,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector::class)]
 #[UsesClass(\LTS\PHPQA\Helper::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class ComposerChecksToolTest extends TestCase
 {

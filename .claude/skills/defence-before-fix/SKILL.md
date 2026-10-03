@@ -39,7 +39,11 @@ Paths are for a consuming project; in the php-qa-ci repository itself drop
 `vendor/lts/php-qa-ci/`, and the bin directory is `bin/` rather than `vendor/bin/`.
 
 - `vendor/bin/rules [--json]` lists the active defences: PHPStan rules from the resolved
-  `phpstan.neon`, the always-on pipeline lanes, and the project's `ignoreErrors` record.
+  `phpstan.neon`, the always-on pipeline lanes, the project's `ignoreErrors` record, and its
+  defect record.
+- A defect found and not fixed now, and a conclusion that no pattern exists, are recorded in
+  `qaConfig/defect-record.neon`; its format is on the page
+  `vendor/bin/rule-doc phpqaci.phpstanIgnoreJustification` prints.
 - `vendor/bin/rule-doc <identifier>` resolves an identifier printed in a failure to its
   documentation page; `--list` prints every identifier resolvable in the project. A
   project's own identifiers resolve through the indexes it declares in
@@ -54,6 +58,8 @@ Paths are for a consuming project; in the php-qa-ci repository itself drop
   `qaConfig/PHPStan/CLAUDE.md`. The `php-qa-ci_phpstan-rule-creator` agent writes them;
   example rules for common patterns are in `examples/` beside this file.
 - Structural conventions are PHPArkitect rules in `qaConfig/phparkitect.php`, not PHPStan.
+  `vendor/bin/arkitect-rule <because> <path>` runs those rules over one fixture path and
+  reports whether the rule with that `because` clause fired there (exit 1) or not (exit 0).
 - Which QA command to run, and when, is defined once in
   `vendor/lts/php-qa-ci/CLAUDE/prepush-verification.md`.
 - How this toolchain applies the method, and which decisions belong to the Owner, is in

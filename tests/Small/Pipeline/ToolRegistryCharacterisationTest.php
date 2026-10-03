@@ -103,6 +103,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'vp'                         => 'versionPins',
         'versionPins'                => 'versionPins',
         'cl'                         => 'changelog',
+        'ap'                         => 'analysedPaths',
+        'analysedPaths'              => 'analysedPaths',
         'changelog'                  => 'changelog',
     ];
 
@@ -177,6 +179,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'vp'                         => false,
         'changelog'                  => false,
         'cl'                         => false,
+        'analysedPaths'              => false,
+        'ap'                         => false,
         'pt'                         => false,
         'packagetype'                => false,
         'deadCode'                   => false,
@@ -209,6 +213,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
             'packageType',
             'configTemplateIgnoreList',
             'infectionConfigSourceDirs',
+            'analysedPaths',
             'versionPins',
             'changelog',
             'phpStrictTypes',

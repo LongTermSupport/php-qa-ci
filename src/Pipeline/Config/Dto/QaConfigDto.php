@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Config\Dto;
 
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 
 /**
@@ -23,26 +24,30 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
  *
  * `$singleTool` is the canonical tool name when `-t` was given and
  * `$specifiedPath` the project-relative path when `-p` was; `$quickTests`
- * skips PHPStan, PHPUnit and Infection entirely.
+ * skips PHPStan, PHPUnit and Infection entirely. `$releaseVersionPolicy` is
+ * how releases are numbered, which the changelog lane needs to find the last
+ * release tag.
  *
  * @api
  */
 final readonly class QaConfigDto
 {
     /**
-     * @param list<string> $pathsToCheck          absolute paths the path-supporting tools scan
-     * @param list<string> $pathsToIgnore         project-relative paths excluded from scans
-     * @param list<string> $arkitectExcludePaths  src-relative paths excluded from PHPArkitect
-     * @param list<string> $twigDirectories       absolute; `templates/` on every platform, because
-     *                                            twigCsFixer is gated on Twig rather than on Symfony
-     *                                            and skips cleanly when the directory is absent
-     * @param list<string> $yamlDirectories       absolute; `config/` on every platform, because
-     *                                            yamlLint is gated on symfony/yaml rather than on
-     *                                            Symfony and skips cleanly when the directory is absent
-     * @param list<string> $shellCheckGlobs       project-relative globs replacing shellCheck's default
-     *                                            discovery; empty means discover by extension and shebang
-     * @param list<string> $changelogWatchedPaths project-relative paths whose changes need a changelog
-     *                                            entry; never empty when $useChangelogCheck is on
+     * @param list<string>          $pathsToCheck          absolute paths the path-supporting tools scan
+     * @param list<string>          $pathsToIgnore         project-relative paths excluded from scans
+     * @param list<string>          $arkitectExcludePaths  src-relative paths excluded from PHPArkitect
+     * @param list<string>          $twigDirectories       absolute; `templates/` on every platform, because
+     *                                                     twigCsFixer is gated on Twig rather than on Symfony
+     *                                                     and skips cleanly when the directory is absent
+     * @param list<string>          $yamlDirectories       absolute; `config/` on every platform, because
+     *                                                     yamlLint is gated on symfony/yaml rather than on
+     *                                                     Symfony and skips cleanly when the directory is absent
+     * @param list<string>          $shellCheckGlobs       project-relative globs replacing shellCheck's default
+     *                                                     discovery; empty means discover by extension and shebang
+     * @param list<string>          $changelogWatchedPaths project-relative paths whose changes need a changelog
+     *                                                     entry; never empty when $useChangelogCheck is on
+     * @param array<string, string> $unanalysedPaths       project-relative path => the reason the PHP beneath
+     *                                                     it is deliberately not analysed
      */
     public function __construct(
         public ProjectPathsDto $paths,
@@ -74,6 +79,8 @@ final readonly class QaConfigDto
         public DeadCodeOptionsDto $deadCode,
         public bool $useChangelogCheck = false,
         public array $changelogWatchedPaths = [],
+        public array $unanalysedPaths = [],
+        public ReleaseVersionPolicy $releaseVersionPolicy = new ReleaseVersionPolicy(),
     ) {
     }
 }

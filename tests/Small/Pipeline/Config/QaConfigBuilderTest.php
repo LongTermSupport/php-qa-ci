@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Config;
 
 use LogicException;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
@@ -30,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ProjectPathsDto::class)]
 #[CoversClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(EnvironmentReader::class)]
+#[UsesClass(ReleaseVersionPolicy::class)]
 #[Small]
 final class QaConfigBuilderTest extends TestCase
 {
@@ -52,6 +54,10 @@ final class QaConfigBuilderTest extends TestCase
     private const string ASSETS_DIR = 'tests/assets';
 
     private const string ARKITECT_EXCLUDED = 'Quote/API';
+
+    private const string UNANALYSED_DIR = 'migrations';
+
+    private const string UNANALYSED_REASON ='Symfony container configuration, linted by lint:container';
 
     #[Test]
     public function defaultsMirrorThePipelineDefaults(): void
@@ -325,6 +331,16 @@ final class QaConfigBuilderTest extends TestCase
     }
 
     #[Test]
+    public function releasesFollowSemanticVersioningUnlessTheProjectDeclaresOtherwise(): void
+    {
+        self::assertEquals(ReleaseVersionPolicy::semanticVersioning(), $this->defaults()->build()->releaseVersionPolicy);
+
+        $locked = ReleaseVersionPolicy::lockedMajorFromPhpRequirement();
+        self::assertSame($locked, $this->defaults()->withReleaseVersionPolicy($locked)->build()->releaseVersionPolicy);
+        self::assertSame($locked, $this->defaults()->withReleaseVersionPolicy(ReleaseVersionPolicy::semanticVersioning('v'))->withReleaseVersionPolicy($locked)->build()->releaseVersionPolicy);
+    }
+
+    #[Test]
     public function enablingTheChangelogCheckWithoutWatchedPathsRefusesToBuild(): void
     {
         try {
@@ -392,6 +408,71 @@ final class QaConfigBuilderTest extends TestCase
 
         self::assertFalse($config->useChangelogCheck);
         self::assertSame([], $config->changelogWatchedPaths);
+        self::assertEquals(ReleaseVersionPolicy::semanticVersioning(), $config->releaseVersionPolicy);
+    }
+
+    #[Test]
+    public function nothingIsDeclaredUnanalysedByDefault(): void
+    {
+        self::assertSame([], $this->defaults()->build()->unanalysedPaths);
+    }
+
+    #[Test]
+    public function unanalysedPathsAccumulateNormalisedAndKeepTheirReasons(): void
+    {
+        $config = $this->defaults()
+            ->withUnanalysedPath('config/', self::UNANALYSED_REASON)
+            ->withUnanalysedPath('./rector.php', 'Rector configuration, loaded by Rector itself')
+            ->build()
+        ;
+
+        self::assertSame(
+            ['config' => self::UNANALYSED_REASON, 'rector.php' => 'Rector configuration, loaded by Rector itself'],
+            $config->unanalysedPaths,
+        );
+    }
+
+    /**
+     * The reason is an argument rather than a comment so it cannot be left
+     * out, and is printed on every run beside the path it excuses.
+     */
+    #[Test]
+    public function anUnanalysedPathIsRefusedWithoutAReasonOfAtLeastTwoWords(): void
+    {
+        foreach (['', '   ', 'legacy'] as $reason) {
+            try {
+                $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, $reason);
+                self::fail(self::EXPECTED_LOGIC_EXCEPTION . ' for reason "' . $reason . '"');
+            } catch (LogicException $logicException) {
+                self::assertStringContainsString("withUnanalysedPath('migrations'", $logicException->getMessage());
+            }
+        }
+    }
+
+    #[Test]
+    public function theProjectRootOrAPathLeavingItCannotBeDeclaredUnanalysed(): void
+    {
+        foreach (['', '.', './', '/', '../shared', 'config/../src'] as $path) {
+            try {
+                $this->defaults()->withUnanalysedPath($path, self::UNANALYSED_REASON);
+                self::fail(self::EXPECTED_LOGIC_EXCEPTION . ' for path "' . $path . '"');
+            } catch (LogicException $logicException) {
+                self::assertStringContainsString('withUnanalysedPath(', $logicException->getMessage());
+            }
+        }
+    }
+
+    #[Test]
+    public function aPathDeclaredUnanalysedTwiceIsRefused(): void
+    {
+        $once = $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, self::UNANALYSED_REASON);
+
+        try {
+            $once->withUnanalysedPath(self::UNANALYSED_DIR . '/', self::UNANALYSED_REASON);
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertStringContainsString('declared unanalysed twice', $logicException->getMessage());
+        }
     }
 
     #[Test]

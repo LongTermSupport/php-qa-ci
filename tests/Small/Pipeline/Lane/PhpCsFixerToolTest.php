@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\IgnoredPathsConfig;
 use LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool;
 use LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
@@ -28,6 +30,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(IgnoredPaths::class)]
+#[UsesClass(IgnoredPathsConfig::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
@@ -36,6 +40,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
 #[UsesClass(ToolContext::class)]
 #[UsesClass(ToolOutcomeEnum::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class PhpCsFixerToolTest extends TestCase
 {
@@ -159,6 +164,24 @@ final class PhpCsFixerToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertStringContainsString('ERROR: PHP CS Fixer encountered linting errors that prevented fixing files', $printed);
+    }
+
+    #[Test]
+    public function withIgnoredPathsTheFixerRunsAGeneratedConfigWrappingTheResolvedOne(): void
+    {
+        $this->factory->processes->willSucceed();
+        $config  = $this->factory->builder(readOnly: true)->withIgnoredPaths('tests/assets')->build();
+        $context = $this->factory->context($config);
+
+        new PhpCsFixerTool()->run($context);
+
+        $wrapper = $config->paths->varDir . '/' . PhpCsFixerTool::IGNORED_PATHS_CONFIG;
+        self::assertSame('--config=' . $wrapper, $this->toolArgs()[0]);
+        self::assertSame(
+            new IgnoredPathsConfig()->source($context->configPath('php_cs.php'), IgnoredPaths::of($config)),
+            \Safe\file_get_contents($wrapper),
+        );
+        self::assertSame([...\array_slice($this->expectedArgs($context), 1), '--dry-run', ...$config->pathsToCheck], \array_slice($this->toolArgs(), 1));
     }
 
     #[Test]

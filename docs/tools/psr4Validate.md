@@ -20,7 +20,10 @@ the tree.
 - Standalone: `vendor/bin/qa -t psr4` (alias `-t psr`).
 - Ignore patterns: one PHP regex per line in `psr4-validate-ignore-list.txt`, the project's
   `qaConfig/` copy first, else the shipped `configDefaults/generic/` default. Files whose
-  project-relative path matches a pattern are not checked.
+  real (absolute) path matches a pattern are not checked.
+- Every `withIgnoredPaths()` path adds one more pattern, anchored to its real path, so it skips
+  the path and what is below it and never a sibling sharing its prefix. A fixture tree in the
+  ignored paths needs no entry in the ignore list.
 
 ## How to fix a failure
 

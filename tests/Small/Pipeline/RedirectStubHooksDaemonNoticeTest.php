@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline;
 
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
@@ -32,13 +33,21 @@ final class RedirectStubHooksDaemonNoticeTest extends TestCase
 
     private const string DAEMON_NOTICE = 'HOOKS DAEMON DETECTED';
 
+    private TempDir $project;
+
     private string $projectDir;
 
     protected function setUp(): void
     {
-        $this->projectDir = sys_get_temp_dir() . '/stubNotice' . bin2hex(random_bytes(8));
+        $this->project    = TempDir::create('stubNotice');
+        $this->projectDir = $this->project->path;
         \Safe\mkdir($this->projectDir . '/vendor/bin', 0o755, true);
         \Safe\file_put_contents($this->projectDir . '/composer.json', "{}\n");
+    }
+
+    protected function tearDown(): void
+    {
+        $this->project->remove();
     }
 
     public function testNoticePrintedWhenDaemonConfigLacksTheLintOverride(): void

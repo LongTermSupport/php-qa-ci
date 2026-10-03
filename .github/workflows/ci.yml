@@ -20,7 +20,7 @@ jobs:
       # merge base (pull request) or the last release tag (push), and fails on
       # a shallow clone rather than passing on no evidence.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

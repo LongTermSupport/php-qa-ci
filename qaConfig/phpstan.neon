@@ -7,8 +7,9 @@ includes:
     - ../rules-optional.neon
 
 parameters:
+    # tests/assets is not listed: it is in qa.php's withIgnoredPaths(), which the
+    # phpstan lane writes into its wrapper neon as an excludePaths entry.
     excludePaths:
-        - ./../tests/assets/*
         # The plugin tests construct the plugins, and analysing a test that
         # instantiates a class implementing an interface absent at runtime is an
         # internal error in PHPStan's reflection. Runtime behaviour is covered by

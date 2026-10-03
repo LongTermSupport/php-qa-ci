@@ -24,7 +24,7 @@ jobs:
       # changelog lane in the QA run below judges everything since the last
       # release tag, and fails on a shallow clone.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -41,7 +41,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-update-${{ hashFiles('**/composer.lock') }}
@@ -198,3 +198,4 @@ jobs:
         with:
           head-sha: ${{ steps.create-pr.outputs.pull-request-head-sha }}
           token: ${{ github.token }}
+          workflow: ci.yml

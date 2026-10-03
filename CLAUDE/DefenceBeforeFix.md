@@ -8,7 +8,9 @@ is shaped the way it is, and the rules that keep a "green" honest.
 Reference (the specification for the method): https://defence-before-fix.github.io/
 Agent prompt, vendored with provenance (read once before fixing any defect):
 [remote-docs/defence-before-fix.github.io/defence-before-fix-project-prompt.md](../remote-docs/defence-before-fix.github.io/defence-before-fix-project-prompt.md)
-(refresh with `.claude/hooks-daemon/bin/hooks-daemon remote-docs refresh --all`; the
+(refresh with `.claude/hooks-daemon/bin/hooks-daemon remote-docs refresh --all --verbatim`;
+without `--verbatim` the copies are re-captured as conversions, which
+`DefenceBeforeFixDeclarationTest` rejects; the
 specification governs where the two differ).
 Original publication (the article): https://ltscommerce.dev/articles/defence-before-fix-static-analysis
 
@@ -78,7 +80,8 @@ the rule anyway and record the mechanism gap in `composer.json` `known-gaps`.
   the project's exceptions (`bin/rules`).
 - **Confirm the rule was loaded** before trusting any green run: `bin/rules` lists it, or it
   fires on a fixture in the same run. `bin/phpstan-rule <identifier> <path>` is the
-  single-rule harness for PHPStan rules.
+  single-rule harness for PHPStan rules; `bin/arkitect-rule <because> <path>` is the one for
+  PHPArkitect rules, which have no identifier and are named by their `because` clause.
 - A rule about how code is written will match its own source; that match is not an instance.
 - Rules are software: build them test-first where the Detector makes that practical.
 
@@ -152,6 +155,14 @@ the codebase is permitted to keep.
   weakened. A rule MAY merge at full width with one matched case recorded as a known instance
   awaiting the Owner; a remediation MAY span several changes provided the rule is not Blocking
   until every instance is fixed.
+- **A defect you do not fix now is written down, not mentioned.** Method specification section 2:
+  a Defect found and not fixed now goes in `qaConfig/defect-record.neon` under `deferred`, naming
+  its class where one is already apparent; the one-sentence conclusion that no pattern exists
+  goes there under `noPattern`, with the two techniques tried, as well as with the fix. That
+  file is the project's defect record: `bin/rules` lists it and the agent summary in
+  `CLAUDE.md` carries it, so the Owner sees what is waiting. A report in conversation is not a
+  record. Its format is the
+  [lane page](../docs/tools/phpstanIgnoreJustification.md#the-defect-record).
 - Do not add or change the conformance declaration in `composer.json` on your own authority;
   report what you found.
 
@@ -264,10 +275,11 @@ identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
   to the rule's documentation, offline. `bin/phpstan-rule <identifier> <path>` is the single-rule
   harness: it runs one path under the project's own config and says whether that rule fired. Use
   the harness to prove a new rule sees its target before trusting a green full run; a green run
-  proves nothing unless the rule was loaded and looked.
+  proves nothing unless the rule was loaded and looked. `bin/arkitect-rule <because> <path>` is
+  the same harness for PHPArkitect, documented in `docs/tools/phpArkitect.md`.
 - `bin/rules [project-root] [--json]` lists every defence active in a project — its resolved
-  `phpstan.neon` rules and those the extension installer delivers, the pipeline lanes, and the
-  project record — WITHOUT running PHPStan, so an agent arriving cold can learn the standards
+  `phpstan.neon` rules and those the extension installer delivers, the pipeline lanes, the
+  project record and the defect record — WITHOUT running PHPStan, so an agent arriving cold can learn the standards
   without violating them first. `--write-agent-summary=CLAUDE.md` puts the same list, one line
   per defence, into the generated region of `CLAUDE.md`; composer install/update does that in
   every consuming project, and `AgentContextIsCurrentTest` keeps this repository's own current.

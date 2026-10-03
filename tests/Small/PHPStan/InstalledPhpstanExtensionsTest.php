@@ -32,6 +32,12 @@ final class InstalledPhpstanExtensionsTest extends TestCase
 
     private const string RULES_NEON = 'rules.neon';
 
+    private const string ACME_RULES_FILE = 'vendor/acme/rules/rules.neon';
+
+    private const string ACME_INSTALL_PATH = '../../../acme/rules';
+
+    private const string ACME_RULES_UNDER_VENDOR = '/acme/rules/rules.neon';
+
     private TempDir $project;
 
     protected function setUp(): void
@@ -47,20 +53,20 @@ final class InstalledPhpstanExtensionsTest extends TestCase
     #[Test]
     public function everyInstalledExtensionsIncludesResolveFromItsInstallPath(): void
     {
-        $this->project->write('vendor/acme/rules/rules.neon', self::EMPTY_RULES);
+        $this->project->write(self::ACME_RULES_FILE, self::EMPTY_RULES);
         $this->project->write('vendor/acme/rules/conf/extension.neon', "parameters: []\n");
         $this->project->write('vendor/lts/php-qa-ci/rules-default.neon', self::EMPTY_RULES);
         $this->generatedConfig([
-            self::ACME         => ['../../../acme/rules', [self::RULES_NEON, 'conf/extension.neon']],
+            self::ACME         => [self::ACME_INSTALL_PATH, [self::RULES_NEON, 'conf/extension.neon']],
             'lts/php-qa-ci'    => ['../../../lts/php-qa-ci', ['rules-default.neon']],
             'no/includes'      => ['../../../no/includes', null],
             'gone/package'     => ['../../../gone/package', [self::RULES_NEON]],
         ]);
 
-        $vendor = \Safe\realpath($this->project->path . '/vendor');
+        $vendor = $this->vendorDir();
         self::assertSame(
             [
-                self::ACME      => [$vendor . '/acme/rules/rules.neon', $vendor . '/acme/rules/conf/extension.neon'],
+                self::ACME      => [$vendor . self::ACME_RULES_UNDER_VENDOR, $vendor . '/acme/rules/conf/extension.neon'],
                 'lts/php-qa-ci' => [$vendor . '/lts/php-qa-ci/rules-default.neon'],
             ],
             new InstalledPhpstanExtensions()->includes($this->project->path),
@@ -78,10 +84,10 @@ final class InstalledPhpstanExtensionsTest extends TestCase
     {
         $this->project->write('composer.json', '{"config": {"vendor-dir": "lib"}}');
         $this->project->write('lib/acme/rules/rules.neon', self::EMPTY_RULES);
-        $this->generatedConfig([self::ACME => ['../../../acme/rules', [self::RULES_NEON]]], 'lib/phpstan/extension-installer/src/GeneratedConfig.php');
+        $this->generatedConfig([self::ACME => [self::ACME_INSTALL_PATH, [self::RULES_NEON]]], 'lib/phpstan/extension-installer/src/GeneratedConfig.php');
 
         self::assertSame(
-            [self::ACME => [\Safe\realpath($this->project->path . '/lib') . '/acme/rules/rules.neon']],
+            [self::ACME => [\Safe\realpath($this->project->path . '/lib') . self::ACME_RULES_UNDER_VENDOR]],
             new InstalledPhpstanExtensions()->includes($this->project->path),
         );
     }
@@ -92,6 +98,55 @@ final class InstalledPhpstanExtensionsTest extends TestCase
         $this->project->write(self::GENERATED, "<?php\nnamespace PHPStan\\ExtensionInstaller;\nfinal class GeneratedConfig\n{\n    public const NOT_INSTALLED = [];\n}\n");
 
         self::assertSame([], new InstalledPhpstanExtensions()->includes($this->project->path));
+    }
+
+    #[Test]
+    public function aComposerConfigWithoutAVendorDirFallsBackToVendor(): void
+    {
+        $this->project->write('composer.json', '{"config": {"sort-packages": true}}');
+        $this->project->write(self::ACME_RULES_FILE, self::EMPTY_RULES);
+        $this->generatedConfig([self::ACME => [self::ACME_INSTALL_PATH, [self::RULES_NEON]]]);
+
+        self::assertSame(
+            [self::ACME => [$this->vendorDir() . self::ACME_RULES_UNDER_VENDOR]],
+            new InstalledPhpstanExtensions()->includes($this->project->path),
+        );
+    }
+
+    /**
+     * Each malformed entry is skipped on its own fault, even where following
+     * it would land on a real file: a package keyed by a number, and an
+     * install path that is not a string (here 7, and a "7" directory exists).
+     * An `extra` with no includes contributes nothing, without reading the
+     * missing key (failOnWarning makes that read a failure).
+     */
+    #[Test]
+    public function aMalformedExtensionEntryIsSkipped(): void
+    {
+        $this->project->write(self::ACME_RULES_FILE, self::EMPTY_RULES);
+        $this->project->write('vendor/phpstan/extension-installer/src/7/rules.neon', self::EMPTY_RULES);
+
+        $install = var_export(self::ACME_INSTALL_PATH, true);
+        $valid   = "array ('relative_install_path' => " . $install . ", 'extra' => array ('includes' => array ('rules.neon')))";
+        $this->project->write(
+            self::GENERATED,
+            "<?php\nnamespace PHPStan\\ExtensionInstaller;\nfinal class GeneratedConfig\n{\n    public const EXTENSIONS = array (\n"
+            . '  0 => ' . $valid . ",\n"
+            . "  'numeric/path' => array ('relative_install_path' => 7, 'extra' => array ('includes' => array ('rules.neon'))),\n"
+            . "  'no/includes' => array ('relative_install_path' => " . $install . ", 'extra' => array ('phpstan' => array ())),\n"
+            . "  'acme/kept' => " . $valid . ",\n"
+            . "    );\n}\n",
+        );
+
+        self::assertSame(
+            ['acme/kept' => [$this->vendorDir() . self::ACME_RULES_UNDER_VENDOR]],
+            new InstalledPhpstanExtensions()->includes($this->project->path),
+        );
+    }
+
+    private function vendorDir(): string
+    {
+        return \Safe\realpath($this->project->path . '/vendor');
     }
 
     /** @param array<string, array{string, list<string>|null}> $extensions name => [relative install path, includes] */

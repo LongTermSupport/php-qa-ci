@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Config;
 
 use LogicException;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
@@ -29,17 +30,22 @@ use LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto;
  */
 final readonly class QaConfigBuilder
 {
+    /** Every MSI floor must sit below this; build() says why. */
     private const int MSI_CEILING = 100;
 
+    /** A one-word reason ("legacy", "generated") names a category, not a decision. */
+    private const int MIN_REASON_WORDS = 2;
+
     /**
-     * @param list<string>      $pathsToCheck
-     * @param list<string>      $pathsToIgnore
-     * @param list<string>      $arkitectExcludePaths
-     * @param list<string>      $twigDirectories
-     * @param list<string>      $yamlDirectories
-     * @param list<string>      $shellCheckGlobs
-     * @param list<string>|null $deadCodeEntryPoints   null until a project has listed them or opted out
-     * @param list<string>      $changelogWatchedPaths
+     * @param list<string>          $pathsToCheck
+     * @param list<string>          $pathsToIgnore
+     * @param list<string>          $arkitectExcludePaths
+     * @param list<string>          $twigDirectories
+     * @param list<string>          $yamlDirectories
+     * @param list<string>          $shellCheckGlobs
+     * @param list<string>|null     $deadCodeEntryPoints   null until a project has listed them or opted out
+     * @param list<string>          $changelogWatchedPaths
+     * @param array<string, string> $unanalysedPaths       project-relative path => reason
      */
     public function __construct(
         private ProjectPathsDto $paths,
@@ -80,6 +86,8 @@ final readonly class QaConfigBuilder
         private ?array $deadCodeEntryPoints,
         private bool $useChangelogCheck,
         private array $changelogWatchedPaths,
+        private ReleaseVersionPolicy $releaseVersionPolicy,
+        private array $unanalysedPaths = [],
     ) {
     }
 
@@ -147,6 +155,7 @@ final readonly class QaConfigBuilder
             deadCodeEntryPoints: null,
             useChangelogCheck: $env->bool('useChangelogCheck', false),
             changelogWatchedPaths: [],
+            releaseVersionPolicy: ReleaseVersionPolicy::semanticVersioning(),
         );
     }
 
@@ -303,6 +312,47 @@ final readonly class QaConfigBuilder
         return $this->with(changelogWatchedPaths: [...$this->changelogWatchedPaths, ...array_values($paths)]);
     }
 
+    /**
+     * A project-relative directory or file whose PHP is deliberately not
+     * analysed, and why. The analysedPaths lane fails on PHP that is neither
+     * under a checked path nor declared here, so this is how a project says
+     * "not analysed, on purpose". The reason is required, of at least two
+     * words, and printed beside the path on every run: it is the record of
+     * the decision. Prefer withCheckedPaths() for code the project maintains.
+     */
+    public function withUnanalysedPath(string $path, string $reason): self
+    {
+        $normalised = $this->projectRelative($path);
+        $call       = \sprintf("withUnanalysedPath('%s', ...)", $path);
+        if (null === $normalised) {
+            throw new LogicException($call . ' must name a directory or file inside the project: the project root, or a path leaving it, would excuse PHP nobody has looked at.');
+        }
+
+        if (\count(\Safe\preg_split('/\s+/', trim($reason), -1, PREG_SPLIT_NO_EMPTY)) < self::MIN_REASON_WORDS) {
+            throw new LogicException($call . ' needs a reason of at least two words: it is printed beside the path on every run, and is the only record of why this PHP is not analysed.');
+        }
+
+        if (isset($this->unanalysedPaths[$normalised])) {
+            throw new LogicException(\sprintf("withUnanalysedPath('%s', ...): the path is declared unanalysed twice; keep one declaration and one reason.", $normalised));
+        }
+
+        $declared              = $this->unanalysedPaths;
+        $declared[$normalised] = trim($reason);
+
+        return $this->with(unanalysedPaths: $declared);
+    }
+
+    /**
+     * How bin/changelog-release numbers releases, and so which tags the
+     * changelog lane counts as releases. Semantic versioning unless set;
+     * ReleaseVersionPolicy::lockedMajor() and lockedMajorFromPhpRequirement()
+     * keep the major fixed, so a breaking change moves the minor.
+     */
+    public function withReleaseVersionPolicy(ReleaseVersionPolicy $policy): self
+    {
+        return $this->with(releaseVersionPolicy: $policy);
+    }
+
     public function build(): QaConfigDto
     {
         if ($this->useDeadCode && null === $this->deadCodeEntryPoints) {
@@ -365,7 +415,28 @@ final readonly class QaConfigBuilder
             deadCode: new DeadCodeOptionsDto(enabled: $this->useDeadCode, entryPoints: $this->deadCodeEntryPoints ?? []),
             useChangelogCheck: $this->useChangelogCheck,
             changelogWatchedPaths: $this->changelogWatchedPaths,
+            unanalysedPaths: $this->unanalysedPaths,
+            releaseVersionPolicy: $this->releaseVersionPolicy,
         );
+    }
+
+    /**
+     * $path without a leading `./` or `/` or a trailing `/`, or null when it
+     * names the project root or steps outside it.
+     */
+    private function projectRelative(string $path): ?string
+    {
+        $normalised = trim(trim($path), '/');
+        while (str_starts_with($normalised, './')) {
+            $normalised = ltrim(substr($normalised, 2), '/');
+        }
+
+        $segments = explode('/', $normalised);
+        if ('' === $normalised || '.' === $normalised || \in_array('..', $segments, true)) {
+            return null;
+        }
+
+        return $normalised;
     }
 
     /** @return list<string> */
@@ -380,14 +451,15 @@ final readonly class QaConfigBuilder
     }
 
     /**
-     * @param list<string>|null $pathsToCheck
-     * @param list<string>|null $pathsToIgnore
-     * @param list<string>|null $arkitectExcludePaths
-     * @param list<string>|null $twigDirectories
-     * @param list<string>|null $yamlDirectories
-     * @param list<string>|null $shellCheckGlobs
-     * @param list<string>|null $deadCodeEntryPoints
-     * @param list<string>|null $changelogWatchedPaths
+     * @param list<string>|null          $pathsToCheck
+     * @param list<string>|null          $pathsToIgnore
+     * @param list<string>|null          $arkitectExcludePaths
+     * @param list<string>|null          $twigDirectories
+     * @param list<string>|null          $yamlDirectories
+     * @param list<string>|null          $shellCheckGlobs
+     * @param list<string>|null          $deadCodeEntryPoints
+     * @param list<string>|null          $changelogWatchedPaths
+     * @param array<string, string>|null $unanalysedPaths
      */
     private function with(
         ?array $pathsToCheck = null,
@@ -413,6 +485,8 @@ final readonly class QaConfigBuilder
         ?array $deadCodeEntryPoints = null,
         ?bool $useChangelogCheck = null,
         ?array $changelogWatchedPaths = null,
+        ?array $unanalysedPaths = null,
+        ?ReleaseVersionPolicy $releaseVersionPolicy = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -453,6 +527,8 @@ final readonly class QaConfigBuilder
             deadCodeEntryPoints: $deadCodeEntryPoints               ?? $this->deadCodeEntryPoints,
             useChangelogCheck: $useChangelogCheck                   ?? $this->useChangelogCheck,
             changelogWatchedPaths: $changelogWatchedPaths           ?? $this->changelogWatchedPaths,
+            releaseVersionPolicy: $releaseVersionPolicy             ?? $this->releaseVersionPolicy,
+            unanalysedPaths: $unanalysedPaths                       ?? $this->unanalysedPaths,
         );
     }
 }

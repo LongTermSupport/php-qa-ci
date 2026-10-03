@@ -10,6 +10,7 @@ use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck;
 use LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationDetector;
 use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,13 +35,20 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
 {
     private const string QA_CONFIG_PHPSTAN_NEON = '/qaConfig/phpstan.neon';
 
+    private TempDir $dir;
+
     private string $root;
 
     protected function setUp(): void
     {
-        $this->root = \Safe\tempnam(sys_get_temp_dir(), 'phpqa-record-');
-        \Safe\unlink($this->root);
+        $this->dir  = TempDir::create('phpqa-record');
+        $this->root = $this->dir->path;
         \Safe\mkdir($this->root . '/qaConfig', 0o755, true);
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dir->remove();
     }
 
     #[Test]
@@ -85,6 +93,26 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
         );
 
         $this->expectOutputRegex('/qaConfig\/phpstan.neon:4.*paste/s');
+        self::assertSame(1, new IgnoreErrorsJustificationCheck()->run($this->root));
+    }
+
+    /** The failure report in full: banner, every fault of every file in order, then the remedy. */
+    #[Test]
+    public function aFailingRecordPrintsEveryFaultBetweenTheBannerAndTheRemedy(): void
+    {
+        \Safe\file_put_contents($this->root . self::QA_CONFIG_PHPSTAN_NEON, "parameters:\n    ignoreErrors:\n        - '#Raw SQL#'\n        - '#Undefined#'\n");
+        $noJustification = '    no justification: add a comment directly above the entry naming the hazard accepted and why it is acceptable at this path' . \PHP_EOL;
+
+        $this->expectOutputString(
+            \PHP_EOL . 'ERROR — ignoreErrors entries without a usable justification' . \PHP_EOL
+            . '------------------------------------------------------------' . \PHP_EOL
+            . "qaConfig/phpstan.neon:3  '#Raw SQL#'" . \PHP_EOL . $noJustification
+            . "qaConfig/phpstan.neon:4  '#Undefined#'" . \PHP_EOL . $noJustification
+            . \PHP_EOL . 'Every ignoreErrors entry is an exception the project has decided to keep. Write, directly'
+            . ' above it, what the rule would report there and why that is acceptable at that path, in a'
+            . ' sentence that fits no other entry. The record is qaConfig/phpstan.neon and every file it'
+            . ' includes. See docs/tools/phpstan.md, "Suppressing Errors".' . \PHP_EOL,
+        );
         self::assertSame(1, new IgnoreErrorsJustificationCheck()->run($this->root));
     }
 

@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Large\Markdown;
 
 use Exception;
 use LTS\PHPQA\Markdown\LinksChecker;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
@@ -22,6 +23,16 @@ final class LinksCheckerTest extends TestCase
     private const string GH_TOKEN_VAR = 'GH_TOKEN';
 
     private const string GITHUB_TOKEN_VAR = 'GITHUB_TOKEN';
+
+    /** @var list<TempDir> */
+    private array $tempDirs = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tempDirs as $dir) {
+            $dir->remove();
+        }
+    }
 
     /**
      * @throws Exception
@@ -201,8 +212,9 @@ reason: GitHub URLs cannot be verified anonymously'
      */
     private function createProjectWithNonFileLinks(string $baseUrl): string
     {
-        $projectDir = sys_get_temp_dir() . '/linksCheckerNonFile' . bin2hex(random_bytes(8));
-        \Safe\mkdir($projectDir, 0o755, true);
+        $dir              = TempDir::create('linksCheckerNonFile');
+        $this->tempDirs[] = $dir;
+        $projectDir       = $dir->path;
 
         \Safe\file_put_contents(
             $projectDir . '/README.md',

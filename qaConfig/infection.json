@@ -6,7 +6,6 @@
       "../src"
     ],
     "excludes": [
-      "/TestDox/",
       "/ComposerPlugin/"
     ]
   },

@@ -57,6 +57,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
@@ -65,6 +66,11 @@ use RuntimeException;
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\JustificationFindingDto::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordCheck::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordReader::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\Dto\DefectRecordDto::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\Dto\NoPatternConclusionDto::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationDetector::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
@@ -95,6 +101,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheckTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\AnalysedPathsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ChangelogTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool::class)]
@@ -105,9 +112,12 @@ use RuntimeException;
 #[UsesClass(ToolRegistry::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
 #[UsesClass(PhaseEnum::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class InProcessLanesTest extends TestCase
 {
+    private const string BAD_CLASS = "<?php\n\ndeclare(strict_types=1);\n\nnamespace Wrong\\Place;\n\nfinal class Bad {}\n";
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -169,17 +179,33 @@ final class InProcessLanesTest extends TestCase
         $this->factory->project->write('src/Good.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Fixture;\n\nfinal class Good {}\n");
         $this->assertPasses(new Psr4ValidateTool(), 'No errors found');
 
-        $this->factory->project->write('src/Bad.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Wrong\\Place;\n\nfinal class Bad {}\n");
+        $this->factory->project->write('src/Bad.php', self::BAD_CLASS);
         $this->assertFails(new Psr4ValidateTool(), 'PSR-4 Errors', Psr4ValidateTool::IDENTIFIER);
     }
 
     #[Test]
     public function psr4ValidateHonoursTheIgnoreListFromQaConfig(): void
     {
-        $this->factory->project->write('src/Bad.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Wrong\\Place;\n\nfinal class Bad {}\n");
+        $this->factory->project->write('src/Bad.php', self::BAD_CLASS);
         $this->factory->project->write('qaConfig/psr4-validate-ignore-list.txt', "#src/Bad\\.php#\n\n");
 
         $this->assertPasses(new Psr4ValidateTool(), 'No errors found');
+    }
+
+    #[Test]
+    public function psr4ValidateSkipsTheIgnoredPathsButNotASiblingSharingTheirPrefix(): void
+    {
+        $this->factory->project->write('src/Legacy/Bad.php', self::BAD_CLASS);
+        // src/Gone exists nowhere: an ignored path a checkout lacks is not an error.
+        $config = $this->factory->builder()->withIgnoredPaths('src/Legacy', 'src/Gone')->build();
+
+        $result = new Psr4ValidateTool()->run($this->factory->context($config));
+        self::assertTrue($result->isSuccess(), $this->factory->output->fetch());
+
+        $this->factory->project->write('src/LegacyExtra/Bad.php', self::BAD_CLASS);
+        $result = new Psr4ValidateTool()->run($this->factory->context($config));
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString('src/LegacyExtra/Bad.php', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -223,6 +249,21 @@ final class InProcessLanesTest extends TestCase
 
         $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    ignoreErrors:\n        - '#unjustified#'\n");
         $this->assertFails(new PhpstanIgnoreJustificationTool(), 'without a usable justification', PhpstanIgnoreJustificationTool::IDENTIFIER);
+    }
+
+    /**
+     * The defect record is the other half of the project record (method specification
+     * section 2, 1.1.0): the same lane fails when it cannot be read, so a misspelt field
+     * fails the build instead of dropping the entry from bin/rules.
+     */
+    #[Test]
+    public function phpstanIgnoreJustificationReadsTheDefectRecord(): void
+    {
+        $this->factory->project->write('qaConfig/defect-record.neon', "deferred:\n    - {defect: x, found: src/A.php, deferredBy: Owner}\n");
+        $this->assertPasses(new PhpstanIgnoreJustificationTool(), 'Defect record: 1 deferred defect');
+
+        $this->factory->project->write('qaConfig/defect-record.neon', "deferred:\n    - {defect: x, found: src/A.php, deferedBy: Owner}\n");
+        $this->assertFails(new PhpstanIgnoreJustificationTool(), 'has an unknown field "deferedBy"', PhpstanIgnoreJustificationTool::IDENTIFIER);
     }
 
     #[Test]

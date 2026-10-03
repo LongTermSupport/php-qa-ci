@@ -209,7 +209,7 @@ most of the clause table turns green at once.
     public repository — see [CLAUDE/segfault-policy.md](../../segfault-policy.md) step 3
     for the same constraint stated for php-src. Authorised by the Owner.
   - [ ] 🔄 Publish: a pull request against the register's `next` branch, opened once
-    [Plan 00016](../00016-method-1-1-0-deferred-defect-record/PLAN.md) has moved the declaration
+    [Plan 00016](../Completed/00016-method-1-1-0-deferred-defect-record/PLAN.md) has moved the declaration
     to the published method 1.1.0, so the entry grades the claim php-qa-ci actually makes.
 
 ## Dependencies
