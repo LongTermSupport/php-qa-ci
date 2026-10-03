@@ -19,8 +19,8 @@ use LTS\PHPQA\Changelog\Exception\ChangelogHistoryException;
 use LTS\PHPQA\Changelog\Exception\ChangelogReleaseException;
 use LTS\PHPQA\Changelog\Exception\InvalidChangelogException;
 use LTS\PHPQA\Changelog\ReleasedSections;
-use LTS\PHPQA\Changelog\ReleaseNotesRenderer;
 use LTS\PHPQA\Changelog\ReleaseLine;
+use LTS\PHPQA\Changelog\ReleaseNotesRenderer;
 use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Changelog\ReleaseVersionPolicyLoader;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
@@ -91,6 +91,8 @@ final class ChangelogReleaseCommandTest extends TestCase
     private const string NOTES = 'notes';
 
     private const string VERSION = '85.1.0';
+
+    private const string V850 = '85.0.0';
 
     private const string PENDING_TAGS = 'pending-tags';
 
@@ -177,7 +179,7 @@ final class ChangelogReleaseCommandTest extends TestCase
 
         self::assertSame(0, $this->invokeUnder($policy, self::NOTES, 'v85.0.0'));
         self::assertSame(self::OLD_NOTES, $this->stdout->fetch());
-        self::assertSame(0, $this->invokeUnder($policy, self::NOTES, '85.0.0'));
+        self::assertSame(0, $this->invokeUnder($policy, self::NOTES, self::V850));
         self::assertSame(self::OLD_NOTES, $this->stdout->fetch());
     }
 
@@ -185,7 +187,9 @@ final class ChangelogReleaseCommandTest extends TestCase
     public function mainReleasesByThePolicyInQaConfig(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
-        $this->project->write('qaConfig/qa.php', "<?php\nreturn static fn (\\LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder \$qa) => \$qa->withReleaseVersionPolicy(\\LTS\\PHPQA\\Changelog\\ReleaseVersionPolicy::semanticVersioning('v'));\n");
+        $this->project->write('qaConfig/qa.php', '<?php
+return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withReleaseVersionPolicy(' . ReleaseVersionPolicy::class . '::semanticVersioning(\'v\'));
+');
 
         self::assertSame(0, ChangelogReleaseCommand::main($this->project->path, $this->stdout, $this->stderr, self::NOTES, 'v85.0.0'), $this->stderr->fetch());
         self::assertSame(self::OLD_NOTES, $this->stdout->fetch());
@@ -197,7 +201,7 @@ final class ChangelogReleaseCommandTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
         $this->project->write('qaConfig/qa.php', "<?php\nreturn 1;\n");
 
-        self::assertSame(1, ChangelogReleaseCommand::main($this->project->path, $this->stdout, $this->stderr, self::NOTES, '85.0.0'));
+        self::assertSame(1, ChangelogReleaseCommand::main($this->project->path, $this->stdout, $this->stderr, self::NOTES, self::V850));
         self::assertStringContainsString('cannot read the release policy from qaConfig/qa.php', $this->stderr->fetch());
         self::assertSame('', $this->stdout->fetch());
     }
@@ -268,7 +272,7 @@ final class ChangelogReleaseCommandTest extends TestCase
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
 
-        self::assertSame(0, $this->invoke(self::NOTES, '85.0.0'));
+        self::assertSame(0, $this->invoke(self::NOTES, self::V850));
         self::assertSame("85.0.0 — 2026-09-01\n\nFixed\n-----\n\n- Old.\n", $this->stdout->fetch());
     }
 

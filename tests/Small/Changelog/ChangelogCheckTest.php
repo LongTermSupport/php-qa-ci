@@ -76,6 +76,8 @@ final class ChangelogCheckTest extends TestCase
 
     private const string ORIGIN_HEAD = "refs/remotes/origin/php8.5\n";
 
+    private const string DEFAULT_BRANCH = "php8.5\n";
+
     private const string RESOLVED = "abc\n";
 
     private const string BASE = "base1\n";
@@ -358,13 +360,13 @@ final class ChangelogCheckTest extends TestCase
     }
 
     #[Test]
-    public function aMissingComposerJsonCanOnlyBeMeasuredOnABranch(): void
+    public function underThePhpLinePolicyAMissingComposerJsonCanOnlyBeMeasuredOnABranch(): void
     {
         \Safe\unlink($this->project->path . '/composer.json');
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
-        $this->processes->willSucceed(self::NOT_SHALLOW)->willSucceed(self::ORIGIN_HEAD)->willSucceed("php8.5\n");
+        $this->processes->willSucceed(self::NOT_SHALLOW)->willSucceed(self::ORIGIN_HEAD)->willSucceed(self::DEFAULT_BRANCH);
 
-        $result = $this->check();
+        $result = $this->check(policy: ReleaseVersionPolicy::lockedMajorFromPhpRequirement());
 
         self::assertSame(['composer.json has no require.php, so it names no release line'], $result->problems);
     }
@@ -373,12 +375,12 @@ final class ChangelogCheckTest extends TestCase
     public function aHistoryProblemFailsTheCheck(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
-        $this->processes->willSucceed(self::NOT_SHALLOW)->willSucceed(self::ORIGIN_HEAD)->willSucceed("php8.5\n")->willSucceed("84.0.0\n");
+        $this->processes->willSucceed(self::NOT_SHALLOW)->willSucceed(self::ORIGIN_HEAD)->willSucceed(self::DEFAULT_BRANCH)->willSucceed("v84.0.0\n");
 
         $result = $this->check();
 
         self::assertFalse($result->passed());
-        self::assertStringContainsString('no 85.N.N release tag', $result->problems[0]);
+        self::assertStringContainsString('no X.Y.Z release tag', $result->problems[0]);
     }
 
     #[Test]
@@ -474,8 +476,9 @@ final class ChangelogCheckTest extends TestCase
         $this->processes
             ->willSucceed(self::NOT_SHALLOW)
             ->willSucceed(self::ORIGIN_HEAD)
-            ->willSucceed("php8.5\n")
+            ->willSucceed(self::DEFAULT_BRANCH)
             ->willSucceed($tags)
+            ->willSucceed()
             ->willSucceed()
         ;
         $this->composerUnchanged();

@@ -57,7 +57,9 @@ final class ReleasePullRequestFlowTest extends TestCase
             'composer.json'      => self::COMPOSER,
             self::CHANGELOG_FILE => "# Changelog\n\n## Unreleased\n",
             self::SOURCE         => "<?php\n",
-            'qaConfig/qa.php'    => "<?php\nreturn static fn (\\LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder \$qa) => \$qa->withReleaseVersionPolicy(\\LTS\\PHPQA\\Changelog\\ReleaseVersionPolicy::lockedMajorFromPhpRequirement());\n",
+            'qaConfig/qa.php'    => '<?php
+return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withReleaseVersionPolicy(' . ReleaseVersionPolicy::class . '::lockedMajorFromPhpRequirement());
+',
         ]);
         $this->sandbox->git('tag', '85.0.0');
     }

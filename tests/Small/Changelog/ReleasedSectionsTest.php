@@ -40,6 +40,8 @@ final class ReleasedSectionsTest extends TestCase
 
     private const string V852 = '85.2.0';
 
+    private const string V150 = '1.5.0';
+
     private const string RELEASED = "# Changelog\n\nIntro.\n\n## Unreleased\n\n## 85.1.0 — 2026-10-09\n\n### Fixed\n\n- A fix.\n\n### Changed — breaking\n\n- A new requirement.\n\n## 85.0.0 — 2026-10-02\n\n### Added\n\n- The first release.\n";
 
     #[Test]
@@ -133,8 +135,8 @@ final class ReleasedSectionsTest extends TestCase
         $markdown = "## Unreleased\n\n## 2.0.0 — c\n\n### Removed\n\n- C.\n\n## 1.5.0 — b\n\n### Added\n\n- B.\n\n## 1.4.2 — a\n\n### Fixed\n\n- A.\n";
         $line     = ReleaseVersionPolicy::semanticVersioning()->line('{}');
 
-        self::assertSame(['1.5.0', '2.0.0'], new ReleasedSections()->untagged($markdown, $line, '1.4.2', 'v9.0.0'));
-        self::assertSame(['1.4.2', '1.5.0', '2.0.0'], new ReleasedSections()->untagged($markdown, $line));
+        self::assertSame([self::V150, '2.0.0'], new ReleasedSections()->untagged($markdown, $line, '1.4.2', 'v9.0.0'));
+        self::assertSame(['1.4.2', self::V150, '2.0.0'], new ReleasedSections()->untagged($markdown, $line));
     }
 
     #[Test]
@@ -142,7 +144,7 @@ final class ReleasedSectionsTest extends TestCase
     {
         $markdown = "## Unreleased\n\n## 1.5.0 — b\n\n### Added\n\n- B.\n\n## 1.4.2 — a\n\n### Fixed\n\n- A.\n";
 
-        self::assertSame(['1.5.0'], new ReleasedSections()->untagged($markdown, ReleaseVersionPolicy::semanticVersioning('v')->line('{}'), 'v1.4.2', '1.5.0'));
+        self::assertSame([self::V150], new ReleasedSections()->untagged($markdown, ReleaseVersionPolicy::semanticVersioning('v')->line('{}'), 'v1.4.2', self::V150));
     }
 
     private function line85(): ReleaseLine

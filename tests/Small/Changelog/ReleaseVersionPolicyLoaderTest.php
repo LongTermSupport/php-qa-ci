@@ -83,7 +83,9 @@ final class ReleaseVersionPolicyLoaderTest extends TestCase
     #[Test]
     public function thePolicyTheProjectDeclaresIsThePolicyItReleasesBy(): void
     {
-        $this->project->write(self::QA_PHP, "<?php\nreturn static fn (\\LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder \$qa) => \$qa->withReleaseVersionPolicy(\\LTS\\PHPQA\\Changelog\\ReleaseVersionPolicy::lockedMajor(7, 'v'));\n");
+        $this->project->write(self::QA_PHP, '<?php
+return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withReleaseVersionPolicy(' . ReleaseVersionPolicy::class . '::lockedMajor(7, \'v\'));
+');
 
         self::assertEquals(ReleaseVersionPolicy::lockedMajor(7, 'v'), new ReleaseVersionPolicyLoader()->load($this->project->path));
     }

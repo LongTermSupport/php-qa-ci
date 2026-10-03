@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Changelog;
 
+use LogicException;
 use LTS\PHPQA\Changelog\ChangelogCheck;
 use LTS\PHPQA\Changelog\ChangelogGit;
 use LTS\PHPQA\Changelog\Dto\ChangelogCheckResultDto;
@@ -45,6 +46,10 @@ final class ReleasePolicyFlowTest extends TestCase
 
     private const string PENDING_TAGS = 'pending-tags';
 
+    private const string CHANGED_SOURCE = "<?php\n// changed\n";
+
+    private const string TAG = 'tag';
+
     private const string BREAKING = "# Changelog\n\n## Unreleased\n\n### Removed\n\n- The old flag.\n\n### Fixed\n\n- A fix.\n";
 
     private const string ADDED = "# Changelog\n\n## Unreleased\n\n### Added\n\n- A feature.\n";
@@ -62,7 +67,7 @@ final class ReleasePolicyFlowTest extends TestCase
     public function aProjectWithNoSettingReleasesABreakingChangeAsTheNextMajor(): void
     {
         $sandbox = $this->project('1.4.2');
-        $sandbox->commit(self::SOURCE, "<?php\n// changed\n");
+        $sandbox->commit(self::SOURCE, self::CHANGED_SOURCE);
         $sandbox->commit(self::CHANGELOG_FILE, self::BREAKING);
 
         self::assertSame("2.0.0\n", $this->cli(self::NEXT_VERSION)->getOutput());
@@ -74,7 +79,7 @@ final class ReleasePolicyFlowTest extends TestCase
         self::assertSame('Range: since the last release tag 1.4.2.', $merged->report[1]);
         self::assertSame('2.0.0 ' . $commit . "\n", $this->cli(self::PENDING_TAGS)->getOutput());
 
-        $sandbox->git('tag', '2.0.0', $commit);
+        $sandbox->git(self::TAG, '2.0.0', $commit);
         self::assertSame('', $this->cli(self::PENDING_TAGS)->getOutput());
         self::assertSame('Range: since the last release tag 2.0.0.', $this->check()->report[1]);
     }
@@ -99,8 +104,8 @@ final class ReleasePolicyFlowTest extends TestCase
     public function aTagPrefixIsCarriedOntoTheTagAndNotIntoTheVersion(): void
     {
         $sandbox = $this->project('v1.4.2', "semanticVersioning('v')");
-        $sandbox->git('tag', '7.0.0');
-        $sandbox->commit(self::SOURCE, "<?php\n// changed\n");
+        $sandbox->git(self::TAG, '7.0.0');
+        $sandbox->commit(self::SOURCE, self::CHANGED_SOURCE);
         $sandbox->commit(self::CHANGELOG_FILE, self::FIXED);
 
         self::assertSame("1.4.3\n", $this->cli(self::NEXT_VERSION)->getOutput());
@@ -119,8 +124,8 @@ final class ReleasePolicyFlowTest extends TestCase
     public function aLockedMajorReleasesABreakingChangeAsTheNextMinor(): void
     {
         $sandbox = $this->project('85.2.0', 'lockedMajorFromPhpRequirement()');
-        $sandbox->git('tag', '86.0.0');
-        $sandbox->commit(self::SOURCE, "<?php\n// changed\n");
+        $sandbox->git(self::TAG, '86.0.0');
+        $sandbox->commit(self::SOURCE, self::CHANGED_SOURCE);
         $sandbox->commit(self::CHANGELOG_FILE, self::BREAKING);
 
         self::assertSame("85.3.0\n", $this->cli(self::NEXT_VERSION)->getOutput());
@@ -141,14 +146,16 @@ final class ReleasePolicyFlowTest extends TestCase
         ];
         if (null !== $policy) {
             $files[self::QA_PHP] = \sprintf(
-                "<?php\nreturn static fn (\\LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder \$qa) => \$qa->withReleaseVersionPolicy(\\LTS\\PHPQA\\Changelog\\ReleaseVersionPolicy::%s);\n",
+                '<?php
+return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withReleaseVersionPolicy(' . \LTS\PHPQA\Changelog\ReleaseVersionPolicy::class . '::%s);
+',
                 $policy,
             );
         }
 
         $this->sandbox = GitSandbox::create($files);
         if (null !== $tag) {
-            $this->sandbox->git('tag', $tag);
+            $this->sandbox->git(self::TAG, $tag);
         }
 
         return $this->sandbox;
@@ -159,6 +166,7 @@ final class ReleasePolicyFlowTest extends TestCase
     {
         $sandbox = $this->sandbox();
         $sandbox->git('checkout', '-b', 'chore/release-' . GitSandbox::DEFAULT_BRANCH);
+
         $apply = $this->cli('apply', $version, '2026-10-09');
         self::assertSame(0, $apply->getExitCode(), $apply->getErrorOutput());
         $sandbox->git('commit', '-am', 'Release ' . $version);
@@ -196,6 +204,6 @@ final class ReleasePolicyFlowTest extends TestCase
 
     private function sandbox(): GitSandbox
     {
-        return $this->sandbox ?? throw new \LogicException('no project yet');
+        return $this->sandbox ?? throw new LogicException('no project yet');
     }
 }

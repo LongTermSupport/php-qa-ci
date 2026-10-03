@@ -16,13 +16,39 @@ no consumer could notice says so instead, with the trailer
 cut from it is decided by them: `### Changed — breaking`, `### Removed`,
 `### Added`, `### Changed` and `### Deprecated` release a new minor version;
 `### Fixed` and `### Security` alone release a patch. The major is the PHP line
-(`85` for the `php8.5` branch), so a breaking change moves the minor: read the
-BREAKING entries before taking one. A green push to the branch opens a release
+(`85` for the `php8.5` branch, the locked-major policy `qaConfig/qa.php`
+declares), so a breaking change moves the minor: read the BREAKING entries
+before taking one. A green push to the branch opens a release
 pull request moving `## Unreleased` into a version section; merging it publishes
 the release and its tag. The full rules are in
 [docs/tools/changelog.md](docs/tools/changelog.md).
 
 ## Unreleased
+
+### Changed — breaking
+
+- **`bin/changelog-release` and the `changelog` lane follow semantic versioning
+  unless the project declares otherwise.** A `### Changed — breaking` or
+  `### Removed` entry now releases the next major (the next minor while the
+  major is 0), and every plain `X.Y.Z` tag counts as a release, so the lane on
+  the default branch measures from the newest one. A project that relied on the
+  major being its PHP line declares
+  `withReleaseVersionPolicy(ReleaseVersionPolicy::lockedMajorFromPhpRequirement())`
+  in `qaConfig/qa.php` and keeps today's versions. `pending-tags` prints the tag
+  name, prefix included, rather than the version. `ReleaseVersionCalculator` is
+  replaced by `ReleaseVersionPolicy` and `ReleaseLine`, `ReleaseBumpEnum` gains
+  `Major`, and `ReleasedSections::untagged()` takes a `ReleaseLine`. See
+  [docs/tools/changelog.md](docs/tools/changelog.md#versioning-policies).
+
+### Added
+
+- **Releases follow a versioning policy declared in `qaConfig/qa.php`.**
+  `withReleaseVersionPolicy()` takes
+  `ReleaseVersionPolicy::semanticVersioning()`, the default, whose first release
+  is `0.1.0` unless given another; `lockedMajor(<int>)`, which never moves the
+  major; or `lockedMajorFromPhpRequirement()`, the major being composer.json's
+  PHP line (`^8.5` is `85`). Each takes a tag prefix such as `v`; a tag of any
+  other shape is not a release. `notes` accepts the tag as well as the version.
 
 ### Changed
 

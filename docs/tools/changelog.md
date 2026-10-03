@@ -13,18 +13,20 @@ from.
 `## Unreleased` appears exactly once and holds only `###` headings from this list, each at most
 once and each with at least one entry:
 
-| Heading                  | What belongs there                                                         | Next release |
-| ------------------------ | -------------------------------------------------------------------------- | ------------ |
-| `### Changed — breaking` | a change a consuming project must act on: a new requirement, a new failure | minor        |
-| `### Removed`            | a lane, option, command or file a consumer could have relied on is gone    | minor        |
-| `### Added`              | a new lane, option, command or rule                                        | minor        |
-| `### Changed`            | a behaviour change a consumer can notice but need not act on               | minor        |
-| `### Deprecated`         | something that still works and will be removed                             | minor        |
-| `### Fixed`              | a defect corrected                                                         | patch        |
-| `### Security`           | a vulnerability corrected                                                  | patch        |
+| Heading                  | What belongs there                                                         | Asks for |
+| ------------------------ | -------------------------------------------------------------------------- | -------- |
+| `### Changed — breaking` | a change a consuming project must act on: a new requirement, a new failure | major    |
+| `### Removed`            | a lane, option, command or file a consumer could have relied on is gone    | major    |
+| `### Added`              | a new lane, option, command or rule                                        | minor    |
+| `### Changed`            | a behaviour change a consumer can notice but need not act on               | minor    |
+| `### Deprecated`         | something that still works and will be removed                             | minor    |
+| `### Fixed`              | a defect corrected                                                         | patch    |
+| `### Security`           | a vulnerability corrected                                                  | patch    |
 
-The major version is not on the list: it is the PHP line the branch targets, so a breaking change
-moves the minor. A section with no entries means no release is due.
+The release takes the largest bump any heading asks for, and the project's
+[versioning policy](#versioning-policies) decides what a major means: the next major under
+semantic versioning, the next minor under a locked major. A section with no entries means no
+release is due.
 
 An entry is a `- ` list item; a line that continues it is indented. Anything else is refused
 rather than interpreted: a heading not in the table (`### Improved`, `#### Detail`), a heading
@@ -54,8 +56,7 @@ The section ends at the next `##` heading. Released sections below it are not ch
    - on a branch, or in a pull request build (`GITHUB_BASE_REF`), everything since the merge base
      of `HEAD` with the target branch (`origin/<branch>` when the clone has it);
    - on the default branch, including GitHub's checkout of a push to it, everything since the
-     latest release tag on the line `composer.json` names (see
-     [Releasing from the section](#releasing-from-the-section)).
+     newest release tag under the project's [versioning policy](#versioning-policies).
 
    The changed files are those that differ between that base and the working tree, plus untracked
    files, so a local run judges what a commit would ship. When any of them falls under a watched
@@ -92,8 +93,41 @@ switches the lane on too, but the watched paths still come from `qaConfig/qa.php
 lane with none refuses to build the configuration, because a lane watching nothing would pass
 every change unexamined.
 
-On the default branch the lane needs a `<major>.N.N` release tag (see below), so a project with
-no release yet tags `<major>.0.0` first.
+On the default branch the lane needs a release tag to measure from, so a project with no release
+yet tags the one it continues from, or its first: `0.1.0` under semantic versioning,
+`<major>.0.0` under a locked major, with the policy's prefix.
+
+## Versioning policies
+
+`withReleaseVersionPolicy()` in `qaConfig/qa.php` decides how a release is numbered, and so which
+tags count as releases. Both `bin/changelog-release` and the lane read it.
+
+| Policy                                                     | A breaking entry releases           | First release        |
+| ---------------------------------------------------------- | ----------------------------------- | -------------------- |
+| `ReleaseVersionPolicy::semanticVersioning()` (the default) | the next major; next minor on `0.x` | `0.1.0`, or as given |
+| `ReleaseVersionPolicy::lockedMajor(3)`                     | the next minor                      | `3.0.0`              |
+| `ReleaseVersionPolicy::lockedMajorFromPhpRequirement()`    | the next minor                      | `<PHP line>.0.0`     |
+
+```php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
+    ->withReleaseVersionPolicy(ReleaseVersionPolicy::semanticVersioning(tagPrefix: 'v', firstVersion: '1.0.0'));
+```
+
+- **Semantic versioning** is what a consumer of a library expects: after `1.4.2`, a
+  `### Changed — breaking` or `### Removed` entry releases `2.0.0`, `### Added` alone releases
+  `1.5.0`, and fixes alone `1.4.3`. While the major is `0` a breaking change moves the minor.
+- **A locked major** is the override, for a project whose major means something else. php-qa-ci
+  declares `lockedMajorFromPhpRequirement()`: the major is the PHP line `composer.json`'s
+  `require.php` names, written without the dot (`^8.5` is `85`, and anything but a single `^X.Y`
+  constraint is refused), so its releases run `85.2.0`, `85.3.0`, and a new PHP line is a new
+  branch.
+- **A tag prefix** (`tagPrefix: 'v'`) is part of the tag and never of the version: the section
+  is `## 1.5.0`, the tag `v1.5.0`.
+
+A release is a plain `X.Y.Z` with no leading zeros, and under a locked major one on that major;
+tags are compared numerically. Any other tag (`1.5`, `1.5.0-rc1`, `v1.5.0` without the `v`
+prefix, another major) is ignored, so a project adopting the policy with tags of another shape
+sets the prefix to match them.
 
 ## How it runs
 
@@ -135,20 +169,17 @@ no release yet tags `<major>.0.0` first.
 `$(changelog-release next-version)` is exactly a version or empty; everything a person reads goes
 to stderr. Exit 0 on success, 1 on any refusal.
 
-| Command                      | Does                                                                                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `next-version`               | prints the version `## Unreleased` releases as; nothing when the section has no entries                                                   |
-| `apply <version> <date>`     | moves the section into `## <version> — <YYYY-MM-DD>` under a fresh, empty `## Unreleased`                                                 |
-| `notes <version>`            | prints the release notes: the title, a `BREAKING:` line first when needed, then the entries                                               |
-| `pending-tags`               | prints `<version> <commit>` for each version section newer than the line's newest tag, oldest first; the commit is the one that wrote it |
-| `add-entry <heading> <text>` | adds `- <text>` under a heading (its label or slug: `changed-breaking`, `fixed`, ...), in table order                                     |
-| `add-tool-updates`           | adds a `Changed` entry naming each bundled tool whose pinned version differs from `HEAD`'s; nothing when none moved                       |
+| Command                      | Does                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `next-version`               | prints the version `## Unreleased` releases as; nothing when the section has no entries                                               |
+| `apply <version> <date>`     | moves the section into `## <version> — <YYYY-MM-DD>` under a fresh, empty `## Unreleased`                                             |
+| `notes <version>`            | prints the release notes: the title, a `BREAKING:` line first when needed, then the entries; takes the tag as well                    |
+| `pending-tags`               | prints `<tag> <commit>` for each version section newer than the newest release tag, oldest first; the commit is the one that wrote it |
+| `add-entry <heading> <text>` | adds `- <text>` under a heading (its label or slug: `changed-breaking`, `fixed`, ...), in table order                                 |
+| `add-tool-updates`           | adds a `Changed` entry naming each bundled tool whose pinned version differs from `HEAD`'s; nothing when none moved                   |
 
-The version is `<major>.<minor>.<patch>`. The major is the PHP line written without the dot, read
-from `composer.json`'s `require.php`, which must be a single `^X.Y` constraint (`^8.5` is line
-`85`; anything else is refused rather than guessed). The minor and patch move on from the newest
-tag matching `<major>.N.N` exactly, compared numerically; a line with no tag starts at
-`<major>.0.0`. `apply` leaves every byte outside the section as it was, and refuses an empty
+The version is `<major>.<minor>.<patch>`, moved on from the newest release tag by the
+[versioning policy](#versioning-policies). `apply` leaves every byte outside the section as it was, and refuses an empty
 section or a version that already has a section. `notes` writes headings as underlined text, not
 `###`, so the notes also survive as an annotated tag's message, whose default cleanup deletes
 lines that start with `#`. `pending-tags` refuses a version section no commit has written yet.
@@ -178,7 +209,10 @@ it.
   [`ComposerRequirementChanges`](../../src/Changelog/ComposerRequirementChanges.php).
 - The lane: [`ChangelogTool`](../../src/Pipeline/Lane/ChangelogTool.php).
 - Releasing: [`ChangelogReleaseCommand`](../../src/Changelog/ChangelogReleaseCommand.php) behind
-  `bin/changelog-release`, with [`ReleaseVersionCalculator`](../../src/Changelog/ReleaseVersionCalculator.php),
+  `bin/changelog-release`, with [`ReleaseVersionPolicy`](../../src/Changelog/ReleaseVersionPolicy.php),
+  [`ReleaseLine`](../../src/Changelog/ReleaseLine.php),
+  [`ReleaseVersionPolicyLoader`](../../src/Changelog/ReleaseVersionPolicyLoader.php) (which reads
+  the policy from `qaConfig/qa.php`),
   [`ChangelogReleaseWriter`](../../src/Changelog/ChangelogReleaseWriter.php),
   [`ReleaseNotesRenderer`](../../src/Changelog/ReleaseNotesRenderer.php),
   [`ReleasedSections`](../../src/Changelog/ReleasedSections.php),

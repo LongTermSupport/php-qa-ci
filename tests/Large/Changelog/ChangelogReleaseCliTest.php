@@ -32,10 +32,14 @@ final class ChangelogReleaseCliTest extends TestCase
 
     private const string TAG = 'tag';
 
+    private const string COMMIT = 'commit';
+
     private const string QA_PHP = 'qaConfig/qa.php';
 
-    /** php-qa-ci's own release policy: the major is the PHP line, so a breaking change moves the minor. */
-    private const string LOCKED_MAJOR = "<?php\nreturn static fn (\\LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder \$qa) => \$qa->withReleaseVersionPolicy(\\LTS\\PHPQA\\Changelog\\ReleaseVersionPolicy::lockedMajorFromPhpRequirement());\n";
+    // php-qa-ci's own release policy: the major is the PHP line, so a breaking change moves the minor.
+    private const string LOCKED_MAJOR = '<?php
+return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withReleaseVersionPolicy(' . \LTS\PHPQA\Changelog\ReleaseVersionPolicy::class . '::lockedMajorFromPhpRequirement());
+';
 
     private const string CHANGELOG = <<<'MD'
         # Changelog
@@ -96,7 +100,7 @@ final class ChangelogReleaseCliTest extends TestCase
         self::assertStringStartsWith("85.1.0 — 2026-10-02\n\nBREAKING: ", $notes->getOutput());
 
         $this->sandbox->root->write('notes.txt', $notes->getOutput());
-        $this->sandbox->git('commit', '-am', 'Release 85.1.0 [skip ci]');
+        $this->sandbox->git(self::COMMIT, '-am', 'Release 85.1.0 [skip ci]');
         $this->sandbox->git(self::TAG, '-a', self::VERSION, '-F', $this->sandbox->root->path . '/notes.txt');
 
         self::assertSame(rtrim($notes->getOutput()), rtrim($this->sandbox->git(self::TAG, '-l', '--format=%(contents)', self::VERSION)));
@@ -110,7 +114,7 @@ final class ChangelogReleaseCliTest extends TestCase
     public function anEntryAddedFromTheCommandLineDecidesThePatchRelease(): void
     {
         $this->cli('apply', self::VERSION, '2026-10-02');
-        $this->sandbox->git('commit', '-am', 'Release 85.1.0');
+        $this->sandbox->git(self::COMMIT, '-am', 'Release 85.1.0');
         $this->sandbox->git(self::TAG, self::VERSION);
 
         $add = $this->cli('add-entry', 'security', 'Bundled tool versions updated.');
@@ -137,7 +141,7 @@ final class ChangelogReleaseCliTest extends TestCase
     public function withoutTheOverrideTheSameBreakingEntryReleasesANewMajor(): void
     {
         $this->sandbox->git('rm', '-q', self::QA_PHP);
-        $this->sandbox->git('commit', '-m', 'Release by semantic versioning');
+        $this->sandbox->git(self::COMMIT, '-m', 'Release by semantic versioning');
 
         self::assertSame("86.0.0\n", $this->cli(self::NEXT_VERSION)->getOutput());
     }

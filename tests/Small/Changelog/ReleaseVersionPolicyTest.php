@@ -36,20 +36,40 @@ final class ReleaseVersionPolicyTest extends TestCase
 
     private const string LATEST = '1.4.2';
 
-    private const array LOCKED_TAGS = ['84.0.0', '85.0.0', '85.2.0', '85.10.1', '85.9.9', 'v85.11.0', '85.12', '85.13.0-rc1', '850.1.0', '86.0.0', 'foo'];
+    private const string V100 = '1.0.0';
+
+    private const string V200 = '2.0.0';
+
+    private const string V150 = '1.5.0';
+
+    private const string FIRST = '0.1.0';
+
+    private const string FOO = 'foo';
+
+    private const string TAG_142 = 'v1.4.2';
+
+    private const string V140 = '1.4.0';
+
+    private const string V1100 = '1.10.0';
+
+    private const string V8500 = '85.0.0';
+
+    private const string V8700 = '87.0.0';
+
+    private const array LOCKED_TAGS = ['84.0.0', self::V8500, '85.2.0', '85.10.1', '85.9.9', 'v85.11.0', '85.12', '85.13.0-rc1', '850.1.0', '86.0.0', self::FOO];
 
     #[Test]
     #[DataProvider('semanticBumps')]
     public function semanticVersioningMovesThePartTheChangeAsksFor(ReleaseBumpEnum $bump, string $next): void
     {
-        self::assertSame($next, $this->semver()->next($bump, '1.0.0', self::LATEST, '1.3.9'));
+        self::assertSame($next, $this->semver()->next($bump, self::V100, self::LATEST, '1.3.9'));
     }
 
     /** @return Iterator<string, array{ReleaseBumpEnum, string}> */
     public static function semanticBumps(): Iterator
     {
-        yield 'a breaking change moves the major' => [ReleaseBumpEnum::Major, '2.0.0'];
-        yield 'a feature moves the minor'         => [ReleaseBumpEnum::Minor, '1.5.0'];
+        yield 'a breaking change moves the major' => [ReleaseBumpEnum::Major, self::V200];
+        yield 'a feature moves the minor'         => [ReleaseBumpEnum::Minor, self::V150];
         yield 'a fix moves the patch'             => [ReleaseBumpEnum::Patch, '1.4.3'];
     }
 
@@ -73,22 +93,21 @@ final class ReleaseVersionPolicyTest extends TestCase
     {
         $line = $this->semver();
 
-        self::assertSame('0.1.0', ReleaseVersionPolicy::FIRST_VERSION);
         foreach (ReleaseBumpEnum::cases() as $bump) {
-            self::assertSame('0.1.0', $line->next($bump), $bump->name);
-            self::assertSame('0.1.0', $line->next($bump, 'foo', 'v9.9.9'), $bump->name);
+            self::assertSame(self::FIRST, $line->next($bump), $bump->name);
+            self::assertSame(self::FIRST, $line->next($bump, self::FOO, 'v9.9.9'), $bump->name);
         }
 
-        self::assertSame('0.1.0', $line->firstVersion());
+        self::assertSame(self::FIRST, $line->firstVersion());
     }
 
     #[Test]
     public function theFirstSemanticReleaseIsConfigurable(): void
     {
-        $line = ReleaseVersionPolicy::semanticVersioning(firstVersion: '1.0.0')->line(self::NO_COMPOSER);
+        $line = ReleaseVersionPolicy::semanticVersioning(firstVersion: self::V100)->line(self::NO_COMPOSER);
 
-        self::assertSame('1.0.0', $line->next(ReleaseBumpEnum::Patch));
-        self::assertSame('1.5.0', $line->next(ReleaseBumpEnum::Minor, self::LATEST));
+        self::assertSame(self::V100, $line->next(ReleaseBumpEnum::Patch));
+        self::assertSame(self::V150, $line->next(ReleaseBumpEnum::Minor, self::LATEST));
     }
 
     #[Test]
@@ -96,10 +115,10 @@ final class ReleaseVersionPolicyTest extends TestCase
     {
         $line = ReleaseVersionPolicy::semanticVersioning('v')->line(self::NO_COMPOSER);
 
-        self::assertSame('1.5.0', $line->next(ReleaseBumpEnum::Minor, 'v1.4.2', '7.0.0', 'v1.4.3-rc1'));
-        self::assertSame('v1.4.2', $line->latestTag('v1.4.2', '7.0.0', 'v1.3.0'));
-        self::assertSame('v1.5.0', $line->tagOf('1.5.0'));
-        self::assertSame('1.4.2', $line->versionOfTag('v1.4.2'));
+        self::assertSame(self::V150, $line->next(ReleaseBumpEnum::Minor, self::TAG_142, '7.0.0', 'v1.4.3-rc1'));
+        self::assertSame(self::TAG_142, $line->latestTag(self::TAG_142, '7.0.0', 'v1.3.0'));
+        self::assertSame('v1.5.0', $line->tagOf(self::V150));
+        self::assertSame('1.4.2', $line->versionOfTag(self::TAG_142));
         self::assertNull($line->versionOfTag('1.4.2'));
         self::assertSame('v0.1.0', $line->tagOf($line->firstVersion()));
     }
@@ -109,9 +128,9 @@ final class ReleaseVersionPolicyTest extends TestCase
     {
         $line = $this->semver();
 
-        self::assertSame('1.4.0', $line->latestTag('v2.0.0', '1.4.0'));
+        self::assertSame(self::V140, $line->latestTag('v2.0.0', self::V140));
         self::assertNull($line->versionOfTag('v2.0.0'));
-        self::assertSame('1.4.0', $line->tagOf('1.4.0'));
+        self::assertSame(self::V140, $line->tagOf(self::V140));
     }
 
     #[Test]
@@ -119,14 +138,14 @@ final class ReleaseVersionPolicyTest extends TestCase
     {
         $line = $this->semver();
 
-        foreach (['1.4', '1.4.2-rc1', '1.4.2+build', '01.4.2', '1.04.2', 'release-1.4.2', 'foo', '', '1.4.2.0'] as $notARelease) {
+        foreach (['1.4', '1.4.2-rc1', '1.4.2+build', '01.4.2', '1.04.2', 'release-1.4.2', self::FOO, '', '1.4.2.0'] as $notARelease) {
             self::assertFalse($line->isRelease($notARelease), $notARelease);
             self::assertNull($line->versionOfTag($notARelease), $notARelease);
         }
 
         self::assertTrue($line->isRelease('0.0.0'));
         self::assertTrue($line->isRelease('10.20.30'));
-        self::assertNull($line->latestTag('1.4', '1.5.0-rc1', 'foo'));
+        self::assertNull($line->latestTag('1.4', '1.5.0-rc1', self::FOO));
     }
 
     #[Test]
@@ -134,9 +153,9 @@ final class ReleaseVersionPolicyTest extends TestCase
     {
         $line = $this->semver();
 
-        self::assertSame('1.10.0', $line->latestTag('1.9.0', '1.10.0', '1.2.0'));
-        self::assertSame('1.10.1', $line->next(ReleaseBumpEnum::Patch, '1.9.9', '1.10.0'));
-        self::assertSame('2.0.0', $line->latestTag('1.10.0', '2.0.0', '1.99.99'));
+        self::assertSame(self::V1100, $line->latestTag('1.9.0', self::V1100, '1.2.0'));
+        self::assertSame('1.10.1', $line->next(ReleaseBumpEnum::Patch, '1.9.9', self::V1100));
+        self::assertSame(self::V200, $line->latestTag(self::V1100, self::V200, '1.99.99'));
     }
 
     #[Test]
@@ -159,18 +178,18 @@ final class ReleaseVersionPolicyTest extends TestCase
         self::assertFalse($line->isRelease('86.0.0'));
         self::assertFalse($line->isRelease('84.9.0'));
         self::assertFalse($line->isRelease('850.1.0'));
-        self::assertTrue($line->isRelease('85.0.0'));
+        self::assertTrue($line->isRelease(self::V8500));
         self::assertSame('85.0.10', $line->latestTag('85.0.9', '85.0.10', '85.0.2', '86.1.0'));
     }
 
     #[Test]
     public function theFirstReleaseOnALockedLineIsItsDotZero(): void
     {
-        $line = ReleaseVersionPolicy::lockedMajor(86)->line(self::NO_COMPOSER);
+        $line = ReleaseVersionPolicy::lockedMajor(87)->line(self::NO_COMPOSER);
 
-        self::assertSame('86.0.0', $line->next(ReleaseBumpEnum::Major, ...self::LOCKED_TAGS));
-        self::assertSame('86.0.0', $line->next(ReleaseBumpEnum::Patch));
-        self::assertSame('86.0.0', $line->firstVersion());
+        self::assertSame(self::V8700, $line->next(ReleaseBumpEnum::Major, ...self::LOCKED_TAGS));
+        self::assertSame(self::V8700, $line->next(ReleaseBumpEnum::Patch));
+        self::assertSame(self::V8700, $line->firstVersion());
     }
 
     #[Test]
@@ -205,7 +224,7 @@ final class ReleaseVersionPolicyTest extends TestCase
     {
         $line = ReleaseVersionPolicy::lockedMajorFromPhpRequirement()->line(self::PHP_85);
 
-        self::assertSame('85.3.0', $line->next(ReleaseBumpEnum::Major, '85.0.0', '85.1.0', '85.2.0'));
+        self::assertSame('85.3.0', $line->next(ReleaseBumpEnum::Major, self::V8500, '85.1.0', '85.2.0'));
     }
 
     #[Test]
@@ -265,8 +284,8 @@ final class ReleaseVersionPolicyTest extends TestCase
     #[Test]
     public function onlyThePhpDerivedPolicyReadsComposerJson(): void
     {
-        self::assertSame('2.0.0', ReleaseVersionPolicy::semanticVersioning()->line('not json')->next(ReleaseBumpEnum::Major, self::LATEST));
-        self::assertSame('85.0.0', ReleaseVersionPolicy::lockedMajor(85)->line('not json')->firstVersion());
+        self::assertSame(self::V200, ReleaseVersionPolicy::semanticVersioning()->line('not json')->next(ReleaseBumpEnum::Major, self::LATEST));
+        self::assertSame(self::V8500, ReleaseVersionPolicy::lockedMajor(85)->line('not json')->firstVersion());
     }
 
     #[Test]
@@ -277,7 +296,7 @@ final class ReleaseVersionPolicyTest extends TestCase
         self::assertEquals(ReleaseVersionPolicy::semanticVersioning(), $default);
         self::assertSame('', $default->tagPrefix);
         self::assertNull($default->line(self::NO_COMPOSER)->lockedMajor);
-        self::assertSame('2.0.0', $default->line(self::NO_COMPOSER)->next(ReleaseBumpEnum::Major, self::LATEST));
+        self::assertSame(self::V200, $default->line(self::NO_COMPOSER)->next(ReleaseBumpEnum::Major, self::LATEST));
     }
 
     #[Test]

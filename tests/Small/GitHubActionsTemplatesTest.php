@@ -117,7 +117,7 @@ final class GitHubActionsTemplatesTest extends TestCase
     #[Test]
     public function theReleaseTemplateNamesNoBranchOfItsOwn(): void
     {
-        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#php8\\.\\d|\\b(?:main|master)\\b#'), 'The release branch is the repository default branch, read from the event, so the template copies unchanged into any repository.');
+        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#php8\.\d|\b(?:main|master)\b#'), 'The release branch is the repository default branch, read from the event, so the template copies unchanged into any repository.');
     }
 
     #[Test]
@@ -125,7 +125,7 @@ final class GitHubActionsTemplatesTest extends TestCase
     {
         $template = \Safe\file_get_contents(self::RELEASE_TEMPLATE);
 
-        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#\\bbin/changelog-release#'), 'Run the release CLI from "$(composer config bin-dir)": a consumer has it in vendor/bin, php-qa-ci in bin.');
+        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#\bbin/changelog-release#'), 'Run the release CLI from "$(composer config bin-dir)": a consumer has it in vendor/bin, php-qa-ci in bin.');
         self::assertStringContainsString('"$(composer config bin-dir)/changelog-release"', $template);
     }
 
@@ -136,7 +136,7 @@ final class GitHubActionsTemplatesTest extends TestCase
 
         self::assertStringContainsString('uses: ./.github/actions/approve-held-ci', $template);
         self::assertStringContainsString('workflow: ${{ github.event.workflow_run.path }}', $template);
-        self::assertSame([], $this->executedLinesIn(self::APPROVE_TEMPLATE, '#ci\\.yml#'), 'The action is told which workflow to approve; it must not assume one.');
+        self::assertSame([], $this->executedLinesIn(self::APPROVE_TEMPLATE, '#ci\.yml#'), 'The action is told which workflow to approve; it must not assume one.');
     }
 
     /** @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern */

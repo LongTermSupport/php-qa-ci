@@ -7,6 +7,7 @@ declare(strict_types=1);
  * this repository. The canonical worked example of qaConfig/qa.php.
  */
 
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 
 return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
@@ -51,6 +52,10 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         '.claude/skills/qa/',
         '.claude/skills/qa-tool-runner/',
     )
+    // The exception to semantic versioning: the major is the PHP line this
+    // branch targets (`^8.5` is 85), so it never moves and a breaking change
+    // releases the next minor. A new PHP line is a new branch, not a release.
+    ->withReleaseVersionPolicy(ReleaseVersionPolicy::lockedMajorFromPhpRequirement())
     // Dead-code detection, dogfooded here first. Every PHP script under bin/
     // is an entry point the detector would otherwise never see; bin/phpunit,
     // bin/neon-lint and bin/php-parse are Composer proxies for packages and

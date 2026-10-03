@@ -80,6 +80,8 @@ final class ChangelogToolTest extends TestCase
 
     private const string MERGE_BASE = "base1\n";
 
+    private const string ORIGIN_MAIN = "refs/remotes/origin/main\n";
+
     private const string EMPTY_COMPOSER = "{}\n";
 
     private ContextFactory $factory;
@@ -117,7 +119,7 @@ final class ChangelogToolTest extends TestCase
         $this->factory->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
         $this->factory->processes
             ->willSucceed(self::NOT_SHALLOW)
-            ->willSucceed("refs/remotes/origin/main\n")
+            ->willSucceed(self::ORIGIN_MAIN)
             ->willSucceed("feature/x\n")
             ->willSucceed(self::RESOLVED)
             ->willSucceed(self::MERGE_BASE)
@@ -202,7 +204,7 @@ final class ChangelogToolTest extends TestCase
         $this->factory->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
         $this->factory->processes
             ->willSucceed(self::NOT_SHALLOW)
-            ->willSucceed("refs/remotes/origin/main\n")
+            ->willSucceed(self::ORIGIN_MAIN)
             ->willSucceed("feature/x\n")
             ->willSucceed(self::RESOLVED)
             ->willSucceed(self::MERGE_BASE)
@@ -242,9 +244,10 @@ final class ChangelogToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed(self::NOT_SHALLOW)
-            ->willSucceed("refs/remotes/origin/main\n")
+            ->willSucceed(self::ORIGIN_MAIN)
             ->willSucceed("main\n")
             ->willSucceed("85.1.0\n86.0.0\n")
+            ->willSucceed()
             ->willSucceed()
             ->willSucceed()
             ->willSucceed(self::EMPTY_COMPOSER)

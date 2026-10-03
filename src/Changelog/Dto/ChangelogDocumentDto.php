@@ -37,16 +37,17 @@ final readonly class ChangelogDocumentDto
         return [] === $this->blocks;
     }
 
-    /** What the section does to the next version: null when it is empty. */
+    /** The largest bump any of the section's headings asks for: null when it is empty. */
     public function bump(): ?ReleaseBumpEnum
     {
         if ($this->isEmpty()) {
             return null;
         }
 
-        foreach ($this->blocks as $block) {
-            if (ReleaseBumpEnum::Minor === $block->heading->bump()) {
-                return ReleaseBumpEnum::Minor;
+        $bumps = array_map(static fn (ChangelogHeadingBlockDto $block): ReleaseBumpEnum => $block->heading->bump(), $this->blocks);
+        foreach ([ReleaseBumpEnum::Major, ReleaseBumpEnum::Minor] as $bump) {
+            if (\in_array($bump, $bumps, true)) {
+                return $bump;
             }
         }
 

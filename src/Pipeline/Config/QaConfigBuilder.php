@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Config;
 
 use LogicException;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
@@ -80,6 +81,7 @@ final readonly class QaConfigBuilder
         private ?array $deadCodeEntryPoints,
         private bool $useChangelogCheck,
         private array $changelogWatchedPaths,
+        private ReleaseVersionPolicy $releaseVersionPolicy,
     ) {
     }
 
@@ -147,6 +149,7 @@ final readonly class QaConfigBuilder
             deadCodeEntryPoints: null,
             useChangelogCheck: $env->bool('useChangelogCheck', false),
             changelogWatchedPaths: [],
+            releaseVersionPolicy: ReleaseVersionPolicy::semanticVersioning(),
         );
     }
 
@@ -303,6 +306,17 @@ final readonly class QaConfigBuilder
         return $this->with(changelogWatchedPaths: [...$this->changelogWatchedPaths, ...array_values($paths)]);
     }
 
+    /**
+     * How bin/changelog-release numbers releases, and so which tags the
+     * changelog lane counts as releases. Semantic versioning unless set;
+     * ReleaseVersionPolicy::lockedMajor() and lockedMajorFromPhpRequirement()
+     * keep the major fixed, so a breaking change moves the minor.
+     */
+    public function withReleaseVersionPolicy(ReleaseVersionPolicy $policy): self
+    {
+        return $this->with(releaseVersionPolicy: $policy);
+    }
+
     public function build(): QaConfigDto
     {
         if ($this->useDeadCode && null === $this->deadCodeEntryPoints) {
@@ -365,6 +379,7 @@ final readonly class QaConfigBuilder
             deadCode: new DeadCodeOptionsDto(enabled: $this->useDeadCode, entryPoints: $this->deadCodeEntryPoints ?? []),
             useChangelogCheck: $this->useChangelogCheck,
             changelogWatchedPaths: $this->changelogWatchedPaths,
+            releaseVersionPolicy: $this->releaseVersionPolicy,
         );
     }
 
@@ -413,6 +428,7 @@ final readonly class QaConfigBuilder
         ?array $deadCodeEntryPoints = null,
         ?bool $useChangelogCheck = null,
         ?array $changelogWatchedPaths = null,
+        ?ReleaseVersionPolicy $releaseVersionPolicy = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -453,6 +469,7 @@ final readonly class QaConfigBuilder
             deadCodeEntryPoints: $deadCodeEntryPoints               ?? $this->deadCodeEntryPoints,
             useChangelogCheck: $useChangelogCheck                   ?? $this->useChangelogCheck,
             changelogWatchedPaths: $changelogWatchedPaths           ?? $this->changelogWatchedPaths,
+            releaseVersionPolicy: $releaseVersionPolicy             ?? $this->releaseVersionPolicy,
         );
     }
 }
