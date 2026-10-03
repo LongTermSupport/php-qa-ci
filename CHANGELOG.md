@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.3.0 — 2026-10-03
+
 ### Changed — breaking
 
 - **PHP outside the checked paths fails the run until it is classified.** The
