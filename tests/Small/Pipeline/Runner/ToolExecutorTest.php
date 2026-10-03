@@ -42,6 +42,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(ToolOutcomeEnum::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class ToolExecutorTest extends TestCase
 {

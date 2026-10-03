@@ -112,6 +112,7 @@ use RuntimeException;
 #[UsesClass(ToolRegistry::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
 #[UsesClass(PhaseEnum::class)]
+#[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class InProcessLanesTest extends TestCase
 {
