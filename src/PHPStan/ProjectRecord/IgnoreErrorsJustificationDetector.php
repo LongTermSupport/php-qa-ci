@@ -51,25 +51,26 @@ final readonly class IgnoreErrorsJustificationDetector
     /** @return array<int, string> each entry's first meaningful line, keyed by the index of its `-` line */
     private function entries(string ...$lines): array
     {
-        $lines     = array_values($lines);
-        $start     = null;
-        $keyIndent = 0;
-        foreach ($lines as $i => $line) {
-            if (1 === \Safe\preg_match('/^(\s*)ignoreErrors:\s*$/', $line, $m) && isset($m[1])) {
-                $start     = $i;
-                $keyIndent = \strlen($m[1]);
-
-                break;
+        for ($i = 0, $n = \count($lines); $i < $n; ++$i) {
+            if (1 === \Safe\preg_match('/^(\s*)ignoreErrors:\s*$/', $lines[$i], $m)) {
+                /** @var array{string, string} $m the one group always participates in a match */
+                return $this->itemsUnder($i, \strlen($m[1]), ...$lines);
             }
         }
 
-        if (null === $start) {
-            return [];
-        }
+        return [];
+    }
 
+    /**
+     * The `-` items directly under the ignoreErrors key on line $keyLine.
+     *
+     * @return array<int, string>
+     */
+    private function itemsUnder(int $keyLine, int $keyIndent, string ...$lines): array
+    {
         $entries    = [];
         $itemIndent = null;
-        for ($i = $start + 1, $n = \count($lines); $i < $n; ++$i) {
+        for ($i = $keyLine + 1, $n = \count($lines); $i < $n; ++$i) {
             $line = $lines[$i];
             if ('' === trim($line)) {
                 continue;
@@ -84,7 +85,7 @@ final readonly class IgnoreErrorsJustificationDetector
                 break;
             }
 
-            if (1 !== \Safe\preg_match('/^\s*-(\s+(.*))?$/', $line, $m)) {
+            if (1 !== \Safe\preg_match('/^\s*-(?:\s+|$)(.*)$/', $line, $m)) {
                 continue;
             }
 
@@ -93,7 +94,9 @@ final readonly class IgnoreErrorsJustificationDetector
                 continue;
             }
 
-            $entries[$i] = isset($m[2]) && '' !== trim($m[2]) ? trim($m[2]) : $this->firstMeaningfulLine($i + 1, ...$lines);
+            /** @var array{string, string} $m the one group always participates in a match: '' for a bare `-` */
+            $inline      = trim($m[1]);
+            $entries[$i] = '' !== $inline ? $inline : $this->firstMeaningfulLine($i + 1, ...$lines);
         }
 
         return $entries;
@@ -122,8 +125,7 @@ final readonly class IgnoreErrorsJustificationDetector
     private function commentAbove(int $entryIndex, string ...$lines): string
     {
         $parts = [];
-        for ($i = $entryIndex - 1; $i >= 0; --$i) {
-            $line = $lines[$i];
+        foreach (array_reverse(\array_slice($lines, 0, $entryIndex)) as $line) {
             if ('' === trim($line)) {
                 continue;
             }
