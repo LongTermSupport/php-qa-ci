@@ -10,6 +10,7 @@ use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck;
 use LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationDetector;
 use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,13 +35,20 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
 {
     private const string QA_CONFIG_PHPSTAN_NEON = '/qaConfig/phpstan.neon';
 
+    private TempDir $dir;
+
     private string $root;
 
     protected function setUp(): void
     {
-        $this->root = \Safe\tempnam(sys_get_temp_dir(), 'phpqa-record-');
-        \Safe\unlink($this->root);
+        $this->dir  = TempDir::create('phpqa-record');
+        $this->root = $this->dir->path;
         \Safe\mkdir($this->root . '/qaConfig', 0o755, true);
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dir->remove();
     }
 
     #[Test]

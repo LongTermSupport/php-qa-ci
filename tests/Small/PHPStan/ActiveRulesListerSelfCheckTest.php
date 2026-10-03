@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use LTS\PHPQA\PHPStan\ActiveRulesLister;
 use LTS\PHPQA\PHPStan\RuleDocResolver;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -76,6 +77,15 @@ use PHPUnit\Framework\TestCase;
 final class ActiveRulesListerSelfCheckTest extends TestCase
 {
     private const string QA_CI_ROOT = __DIR__ . '/../../..';
+    /** @var list<TempDir> */
+    private array $tempDirs = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tempDirs as $dir) {
+            $dir->remove();
+        }
+    }
 
     public function testEveryIndexedRuleRegisteredInThisPackageAppearsInTheListing(): void
     {
@@ -135,7 +145,9 @@ final class ActiveRulesListerSelfCheckTest extends TestCase
      */
     private function fixtureProjectFor(string $bundlePath): string
     {
-        $tmpDir = sys_get_temp_dir() . '/active-rules-lister-selfcheck-' . bin2hex(random_bytes(8));
+        $dir              = TempDir::create('active-rules-lister-selfcheck');
+        $this->tempDirs[] = $dir;
+        $tmpDir           = $dir->path;
         \Safe\mkdir($tmpDir . '/qaConfig', 0o755, true);
         \Safe\file_put_contents(
             $tmpDir . '/qaConfig/phpstan.neon',

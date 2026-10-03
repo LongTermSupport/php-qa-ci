@@ -17,7 +17,9 @@ use RuntimeException;
  * anything has resolved sys_get_temp_dir()), so a leak is attributable even
  * when other processes write to the shared one. After every test the directory
  * must be empty again; when the run ends, every test that left something is
- * listed on stderr and the process exits 1.
+ * listed on stderr and the process exits 1. A file the process still holds open
+ * is in use rather than left behind, so a test that leaves a handle open on a
+ * plain file until the run ends is not caught.
  *
  * An extension cannot fail a test through PHPUnit's public API, so the verdict
  * is the exit code, given from a shutdown function after PHPUnit's own report.
@@ -45,7 +47,7 @@ final readonly class TempLeakExtension implements Extension
         $ledger = new TempLeakLedger($directory, self::PHPSTAN_RULE_TEST_CACHE);
         $facade->registerSubscriber(new TempLeakSubscriber($ledger));
         register_shutdown_function(static function () use ($ledger, $directory): void {
-            $ledger->sweep('the run, outside any test');
+            $ledger->sweep('the run, outside any test', ...TempLeakSubscriber::openFiles());
             $ledger->clear();
             \Safe\rmdir($directory);
             if ([] === $ledger->leaks()) {

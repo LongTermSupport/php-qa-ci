@@ -30,9 +30,17 @@ final class TempLeakLedger
         $this->retained = array_values($retained);
     }
 
-    public function sweep(string $test): void
+    /**
+     * @param string ...$inUse absolute paths the process still holds open; such an entry is
+     *                         in use (PHP's phar extension keeps a decompressed entry there
+     *                         until the process exits), so it is neither charged nor swept
+     */
+    public function sweep(string $test, string ...$inUse): void
     {
-        $left = array_values(array_diff($this->entries(), $this->retained));
+        $left = array_values(array_filter(
+            array_diff($this->entries(), $this->retained),
+            fn (string $entry): bool => !\in_array($this->directory . '/' . $entry, $inUse, true),
+        ));
         if ([] === $left) {
             return;
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline;
 
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
@@ -25,6 +26,18 @@ final class DaemonLintOverrideCheckTest extends TestCase
     private const string CLAUDE_HOOKS_DAEMON_LINT_INTEGRATION = 'Claude Hooks-Daemon Lint Integration';
 
     private const string CHECK_LIB = __DIR__ . '/../../../scripts/lib/daemon-lint-override-check.inc.bash';
+
+    private TempDir $dir;
+
+    protected function setUp(): void
+    {
+        $this->dir = TempDir::create('daemon-lint-check');
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dir->remove();
+    }
 
     public function testInstructsWhenOverrideMissing(): void
     {
@@ -58,7 +71,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
 
     public function testNoOutputForMissingConfigFile(): void
     {
-        [$exitCode, $output] = $this->runCheck(sys_get_temp_dir() . '/no-such-daemon-config.yaml');
+        [$exitCode, $output] = $this->runCheck($this->dir->path . '/no-such-daemon-config.yaml');
 
         self::assertSame(0, $exitCode);
         self::assertSame('', $output);
@@ -94,7 +107,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
 
     public function testTemplateFilterStripsLintSectionWhenNoDaemonConfig(): void
     {
-        $filtered = $this->filterTemplate(sys_get_temp_dir() . '/no-such-daemon-config.yaml');
+        $filtered = $this->filterTemplate($this->dir->path . '/no-such-daemon-config.yaml');
 
         self::assertStringNotContainsString(self::CLAUDE_HOOKS_DAEMON_LINT_INTEGRATION, $filtered);
         self::assertStringContainsString('Branch and PR Conventions', $filtered);
@@ -102,16 +115,13 @@ final class DaemonLintOverrideCheckTest extends TestCase
 
     private function writeConfig(string $yaml): string
     {
-        $configFile = \Safe\tempnam(sys_get_temp_dir(), 'daemonLintCheck');
-        \Safe\file_put_contents($configFile, $yaml);
-
-        return $configFile;
+        return $this->dir->write('hooks-daemon.yaml', $yaml);
     }
 
     private function filterTemplate(string $configFile): string
     {
         $template = __DIR__ . '/../../../templates/root-CLAUDE-phpqaci-block.md.template';
-        $outFile  = \Safe\tempnam(sys_get_temp_dir(), 'daemonLintFiltered');
+        $outFile  = $this->dir->path . '/filtered.md';
 
         $harness = <<<'BASH'
             set -euo pipefail
@@ -119,8 +129,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
             phpQaCiFilterClaudeBlockTemplate "$2" "$3" "$4"
             BASH;
 
-        $harnessFile = \Safe\tempnam(sys_get_temp_dir(), 'daemonLintFilterHarness');
-        \Safe\file_put_contents($harnessFile, $harness . "\n");
+        $harnessFile = $this->dir->write('filter-harness.bash', $harness . "\n");
 
         $cmd = \sprintf(
             'bash %s %s %s %s %s 2>&1',
@@ -134,7 +143,6 @@ final class DaemonLintOverrideCheckTest extends TestCase
         $output   = [];
         $exitCode = 0;
         \Safe\exec($cmd, $output, $exitCode);
-        \Safe\unlink($harnessFile);
 
         self::assertSame(
             0,
@@ -142,10 +150,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
             'Template filter must not fail: ' . implode("\n", array_filter($output ?? [], is_string(...))),
         );
 
-        $filtered = \Safe\file_get_contents($outFile);
-        \Safe\unlink($outFile);
-
-        return $filtered;
+        return \Safe\file_get_contents($outFile);
     }
 
     /**
@@ -159,8 +164,7 @@ final class DaemonLintOverrideCheckTest extends TestCase
             phpQaCiDaemonLintOverrideCheck "$2"
             BASH;
 
-        $harnessFile = \Safe\tempnam(sys_get_temp_dir(), 'daemonLintHarness');
-        \Safe\file_put_contents($harnessFile, $harness . "\n");
+        $harnessFile = $this->dir->write('check-harness.bash', $harness . "\n");
 
         $cmd = \sprintf(
             'bash %s %s %s 2>&1',
@@ -172,7 +176,6 @@ final class DaemonLintOverrideCheckTest extends TestCase
         $output   = [];
         $exitCode = 0;
         \Safe\exec($cmd, $output, $exitCode);
-        \Safe\unlink($harnessFile);
 
         $exitCode ??= 0;
         $outputLines = [];

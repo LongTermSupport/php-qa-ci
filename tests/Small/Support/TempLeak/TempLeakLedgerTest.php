@@ -58,6 +58,22 @@ final class TempLeakLedgerTest extends TestCase
         self::assertSame(['.', '..'], \Safe\scandir($this->directory->path));
     }
 
+    /**
+     * A file the process still holds open is in use, not left behind: PHP's phar extension
+     * decompresses an entry into the temp directory and deletes it when the process exits.
+     */
+    #[Test]
+    public function aFileStillHeldOpenIsNeitherChargedNorSwept(): void
+    {
+        $ledger = new TempLeakLedger($this->directory->path);
+        $open   = $this->directory->write('phpAbc123', 'decompressed entry');
+
+        $ledger->sweep('FooTest::readsAPhar', $open);
+
+        self::assertSame([], $ledger->leaks());
+        self::assertFileExists($open);
+    }
+
     /** A cache a test harness keeps on purpose survives each test, and goes when the run does. */
     #[Test]
     public function aRetainedEntryIsNeitherChargedNorSweptUntilTheRunEnds(): void
