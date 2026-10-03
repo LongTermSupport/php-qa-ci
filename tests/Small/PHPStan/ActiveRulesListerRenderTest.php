@@ -203,9 +203,9 @@ final class ActiveRulesListerRenderTest extends TestCase
                         'justification' => null,
                     ],
                 ],
-                'defectRecord' => [
-                    'path'     => self::RECORD_PATH,
-                    'deferred' => [
+                'defectRecord'  => [
+                    'path'      => self::RECORD_PATH,
+                    'deferred'  => [
                         [
                             'defect'     => 'The cache key omits the locale.',
                             'class'      => 'A cache key built from a subset of its inputs.',

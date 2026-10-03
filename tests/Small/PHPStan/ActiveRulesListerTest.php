@@ -33,6 +33,11 @@ use RuntimeException;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesCheck::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordCheck::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordReader::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\Dto\DefectRecordDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\Dto\NoPatternConclusionDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecksTool::class)]
@@ -256,8 +261,8 @@ final class ActiveRulesListerTest extends TestCase
 
         self::assertSame(
             [
-                'path'     => self::FIXTURE_PROJECT . '/qaConfig/defect-record.neon',
-                'deferred' => [
+                'path'      => self::FIXTURE_PROJECT . '/qaConfig/defect-record.neon',
+                'deferred'  => [
                     [
                         'defect'     => "The fixture's cache key omits the locale.",
                         'class'      => 'A cache key built from a subset of the inputs the value depends on.',

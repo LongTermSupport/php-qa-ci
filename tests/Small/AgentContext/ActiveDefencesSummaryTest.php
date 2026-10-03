@@ -118,9 +118,9 @@ final class ActiveDefencesSummaryTest extends TestCase
             . self::RECORD_HEADING
             . "Recorded in `qaConfig/defect-record.neon`; whether a deferred one stays unfixed is the Owner's\n"
             . "decision, and the attempt at a Defence is owed when its fix is taken up.\n\n"
-            . "- Deferred — The cache key omits the locale. (class: A cache key built from a subset of its inputs.; found: `src/Cache/KeyBuilder.php`; deferred by: Owner)\n"
-            . "- Deferred — A timeout is swallowed. (class: none apparent yet; found: `src/Http/Retry.php`; deferred by: Owner, pending the client rewrite)\n"
-            . "- No pattern — The total was rounded twice. (found: `src/Invoice/Total.php`; No pattern exists.)\n"
+            . "- Deferred — The cache key omits the locale. (class: A cache key built from a subset of its inputs.; found: src/Cache/KeyBuilder.php; deferred by: Owner)\n"
+            . "- Deferred — A timeout is swallowed. (class: none apparent yet; found: src/Http/Retry.php; deferred by: Owner, pending the client rewrite)\n"
+            . "- No pattern — The total was rounded twice. (found: src/Invoice/Total.php; No pattern exists.)\n"
             . AgentContextRegion::END,
             new ActiveDefencesSummary()->render($this->listingWith($record), self::ROOT),
         );

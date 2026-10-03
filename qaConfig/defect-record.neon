@@ -1,0 +1,18 @@
+# php-qa-ci's defect record (method specification section 2): a Defect found
+# and not fixed now goes under `deferred`, and the conclusion that a Defect is
+# no Instance of a detectable pattern goes under `noPattern`. `bin/rules` lists
+# both beside the defences and the ignoreErrors record, and the active-defences
+# region of CLAUDE.md carries them. Whether a deferred Defect stays unfixed is
+# the Owner's decision. The format is in docs/tools/phpstanIgnoreJustification.md.
+#
+# Quote a value that contains `,` `:` `(` `[` `{` or `#`: NEON reads them as
+# syntax, and the phpstanIgnoreJustification lane fails on what it cannot read.
+
+deferred:
+    -
+        # This repository's side is fixed: the documented command carries
+        # --verbatim, and DefenceBeforeFixDeclarationTest fails on a converted copy.
+        defect: 'hooks-daemon `remote-docs refresh --all` re-captures a document recorded `fidelity: verbatim` as a conversion unless `--verbatim` is passed, so the documented refresh replaced the vendored specifications with extractions'
+        class: 'a refresh that does not preserve the capture mode the stored document records'
+        found: 'the hooks daemon, refreshing remote-docs/defence-before-fix.github.io/ in Plan 00016'
+        deferredBy: 'undecided; recorded for the Owner by the Plan 00016 agent, since the code is not in this repository'

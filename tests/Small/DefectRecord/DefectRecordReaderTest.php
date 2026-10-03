@@ -78,7 +78,7 @@ final class DefectRecordReaderTest extends TestCase
                     defect: The cache key omits the locale.
                     class: A cache key built from a subset of the inputs the value depends on.
                     found: src/Cache/KeyBuilder.php
-                    deferredBy: Owner, pending the cache rewrite
+                    deferredBy: 'Owner, pending the cache rewrite'
                 -
                     defect: A timeout is swallowed in the retry loop.
                     found: src/Http/Retry.php
@@ -87,10 +87,10 @@ final class DefectRecordReaderTest extends TestCase
                 -
                     defect: The invoice total was rounded twice.
                     found: src/Invoice/Total.php
-                    conclusion: No pattern exists; a text search and a reading of every rounding caller found nothing alike.
+                    conclusion: 'No pattern exists; a text search and a reading of every rounding caller found nothing alike.'
                     techniques:
-                        - a text search for round( over src/
-                        - reading every caller of Money::round()
+                        - 'a text search for round( over src/'
+                        - 'reading every caller of Money::round()'
             NEON);
 
         $record = new DefectRecordReader()->read($this->project->path);
@@ -116,7 +116,26 @@ final class DefectRecordReaderTest extends TestCase
         );
     }
 
-    /** @return iterable<string, array{string, list<string>}> */
+    /** @param list<non-empty-string> $expected */
+    #[Test]
+    #[DataProvider('malformedRecords')]
+    public function aMalformedRecordIsAProblemNotASilentGap(string $neon, array $expected): void
+    {
+        $this->project->write(self::RECORD, $neon);
+
+        $record = new DefectRecordReader()->read($this->project->path);
+
+        self::assertCount(\count($expected), $record->problems, implode("\n", $record->problems));
+        foreach ($expected as $index => $problem) {
+            self::assertArrayHasKey($index, $record->problems);
+            self::assertStringStartsWith($problem, $record->problems[$index]);
+        }
+
+        self::assertSame([], $record->deferred, 'a malformed entry is not listed as if it were well-formed');
+        self::assertSame([], $record->noPattern);
+    }
+
+    /** @return iterable<string, array{string, list<non-empty-string>}> */
     public static function malformedRecords(): iterable
     {
         yield 'not NEON' => ["deferred:\n  - defect: [unclosed\n", ['qaConfig/defect-record.neon is not valid NEON']];
@@ -170,23 +189,5 @@ final class DefectRecordReaderTest extends TestCase
             "noPattern:\n    -\n        defect: x\n        found: src/A.php\n        conclusion: none\n        techniques: [a, b]\n        deferredBy: Owner\n",
             ['qaConfig/defect-record.neon: noPattern #1 has an unknown field "deferredBy"; its fields are defect, found, conclusion and techniques'],
         ];
-    }
-
-    /** @param list<string> $expected */
-    #[Test]
-    #[DataProvider('malformedRecords')]
-    public function aMalformedRecordIsAProblemNotASilentGap(string $neon, array $expected): void
-    {
-        $this->project->write(self::RECORD, $neon);
-
-        $record = new DefectRecordReader()->read($this->project->path);
-
-        self::assertCount(\count($expected), $record->problems, implode("\n", $record->problems));
-        foreach ($expected as $index => $problem) {
-            self::assertStringStartsWith($problem, $record->problems[$index] ?? '');
-        }
-
-        self::assertSame([], $record->deferred, 'a malformed entry is not listed as if it were well-formed');
-        self::assertSame([], $record->noPattern);
     }
 }

@@ -113,7 +113,7 @@ On a Symfony project the platform lane **[Twig Lint](./tools/twigLint.md)** foll
 #### Phase 3: Static Analysis
 
 15. **Branch Name Policy** -- Always-on: enforces the PR branch-naming convention (runs first in this phase); see [branch-policy.md](../CLAUDE/branch-policy.md)
-16. **[PHPStan ignoreErrors Justification](./tools/phpstanIgnoreJustification.md)** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment
+16. **[PHPStan ignoreErrors Justification](./tools/phpstanIgnoreJustification.md)** -- Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` carries a justifying comment, and the defect record `qaConfig/defect-record.neon` reads in full
 17. **[PHPStan](./tools/phpstan.md)** -- Static analysis at level max (runs as PHAR), optionally with the [type-coverage](./tools/phpstan.md) floors
 18. **[Dead Code Detection](./tools/deadCode.md)** -- Opt-in (`withDeadCodeDetection(true)`): shipmonk/dead-code-detector through phpstan.phar, loaded from its own PHAR; tests excluder on, entry-point scripts declared
 19. **[PHPArkitect](./tools/phpArkitect.md)** -- Architecture rules; on by default (`withArkitect(false)` to disable, runs as PHAR)

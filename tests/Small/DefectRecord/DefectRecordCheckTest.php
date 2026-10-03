@@ -84,7 +84,7 @@ final class DefectRecordCheckTest extends TestCase
         try {
             $exit = new DefectRecordCheck()->run($this->project->path);
         } finally {
-            $printed = (string)ob_get_clean();
+            $printed = \Safe\ob_get_clean();
         }
 
         self::assertSame(1, $exit);

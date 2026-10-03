@@ -32,7 +32,10 @@ prove it fires, sweep, fix every instance, enforce, then fix the original with a
 (method specification: <https://defence-before-fix.github.io/raw/SPEC.md>). Toolchain
 commands: `vendor/bin/phpstan-rule <identifier> <path>` proves one rule on one path,
 `vendor/bin/rule-doc <identifier>` resolves a printed identifier offline, `vendor/bin/rules`
-lists every defence active in this project. Where the method leaves a judgement to the project
+lists every defence active in this project. A defect you find and do not fix now, and a
+conclusion that no pattern exists, go in `qaConfig/defect-record.neon` (format:
+`vendor/bin/rule-doc phpqaci.phpstanIgnoreJustification`), never only in your output; the
+Owner decides whether it stays unfixed. Where the method leaves a judgement to the project
 and this project has recorded nothing (the Owner, the sweep scope, where fixtures go, the
 calibrations), proceed on php-qa-ci's stated defaults and say so:
 `vendor/lts/php-qa-ci/docs/defence-before-fix-defaults.md`.
