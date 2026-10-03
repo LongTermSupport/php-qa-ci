@@ -16,3 +16,17 @@ deferred:
         class: 'a refresh that does not preserve the capture mode the stored document records'
         found: 'the hooks daemon, refreshing remote-docs/defence-before-fix.github.io/ in Plan 00016'
         deferredBy: 'undecided; recorded for the Owner by the Plan 00016 agent, since the code is not in this repository'
+    -
+        # Met by both Plan 00015 and Plan 00016 agents, each working in a worktree;
+        # they wrote the source by shell after its test existed.
+        defect: 'hooks-daemon v3.63.0 `tdd_enforcement` resolves the expected test file against the main checkout, not the worktree the write targets, so it denies a new src/ file in a worktree whose test is already committed there'
+        class: 'a path resolved against the session root rather than the root of the checkout the path is in'
+        found: 'the hooks daemon, during the Plan 00015 and Plan 00016 worktree agents'
+        deferredBy: 'undecided; recorded for the Owner, since the code is not in this repository and no upstream release fixes it'
+    -
+        # The changelog lane fails on the result (line N: under "### Fixed" but
+        # not a "- " list entry), so it cannot reach a push through the battery.
+        defect: 'hooks-daemon v3.63.0 markdown formatter reformats a file holding merge-conflict markers, turning `>>>>>>>` into a blockquote line that conflict-marker checks no longer match'
+        class: 'a formatter run on a file in an unresolved merge state'
+        found: 'CHANGELOG.md, resolving the Plan 00016 merge into bugfix/known-defects-sweep'
+        deferredBy: 'undecided; fixed upstream in hooks-daemon v3.68.0 (the formatter leaves a conflicted file untouched, and conflict_marker_commit_gate denies the commit), pending the Owner upgrading the daemon'
