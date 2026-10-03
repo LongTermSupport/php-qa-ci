@@ -12,7 +12,6 @@ use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
-use ReflectionParameter;
 use Symfony\Component\Process\Process;
 
 /**
@@ -48,7 +47,6 @@ final class TypeCoverageFloorsAreHonouredTest extends TestCase
     {
         $floors = [];
         foreach (new ReflectionMethod(QaConfigBuilder::class, 'withTypeCoverageFloors')->getParameters() as $parameter) {
-            self::assertInstanceOf(ReflectionParameter::class, $parameter);
             $floors[$parameter->getName()] = 50;
         }
 

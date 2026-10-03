@@ -389,23 +389,23 @@ real stdout and every line of decoration to stderr.
 Environment variables are read once by `EnvironmentReader`; `"1"`/`"true"` and `"0"`/`"false"`
 are the accepted boolean spellings. Defaults:
 
-| Variable                                        | Default               | Builder method                                                                                                     |
-| ----------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                 | (none: PHP binary for every tool)                                                                                  |
-| `phpqaQuickTests`                               | `0`                   | (none: skips PHPStan, PHPUnit and Infection)                                                                       |
-| `phpUnitQuickTests`                             | `0`                   | (none: passed through to the test suite)                                                                           |
-| `phpUnitCoverage`                               | `1`                   | `withPhpUnitCoverage(bool)`                                                                                        |
-| `phpUnitIterativeMode`                          | `0`                   | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                                     |
-| `useInfection`                                  | `1`                   | `withInfection(bool)`                                                                                              |
-| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`           | `withInfectionFloors(int, int)`                                                                                    |
-| `infectionThreads`                              | half the CPU threads  | `withInfectionThreads(int)`                                                                                        |
-| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                                         |
-| `useComposerAudit`                              | `1`                   | `withComposerAudit(bool)`                                                                                          |
-| (none)                                          | all floors off        | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
-| `useArkitect`                                   | `1`                   | `withArkitect(bool)`                                                                                               |
-| `useSensitiveParameterCheck`                    | `1`                   | `withSensitiveParameterCheck(bool)`                                                                                |
-| `useChangelogCheck`                             | `0`                   | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                                         |
-| `CI`                                            | `false`               | (none: interactivity)                                                                                              |
+| Variable                                        | Default               | Builder method                                                                                      |
+| ----------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- |
+| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                 | (none: PHP binary for every tool)                                                                   |
+| `phpqaQuickTests`                               | `0`                   | (none: skips PHPStan, PHPUnit and Infection)                                                        |
+| `phpUnitQuickTests`                             | `0`                   | (none: passed through to the test suite)                                                            |
+| `phpUnitCoverage`                               | `1`                   | `withPhpUnitCoverage(bool)`                                                                         |
+| `phpUnitIterativeMode`                          | `0`                   | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                      |
+| `useInfection`                                  | `1`                   | `withInfection(bool)`                                                                               |
+| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`           | `withInfectionFloors(int, int)`                                                                     |
+| `infectionThreads`                              | half the CPU threads  | `withInfectionThreads(int)`                                                                         |
+| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                          |
+| `useComposerAudit`                              | `1`                   | `withComposerAudit(bool)`                                                                           |
+| (none)                                          | all floors off        | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType)` |
+| `useArkitect`                                   | `1`                   | `withArkitect(bool)`                                                                                |
+| `useSensitiveParameterCheck`                    | `1`                   | `withSensitiveParameterCheck(bool)`                                                                 |
+| `useChangelogCheck`                             | `0`                   | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                          |
+| `CI`                                            | `false`               | (none: interactivity)                                                                               |
 
 ### Memory Configuration
 

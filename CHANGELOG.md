@@ -44,6 +44,10 @@ the release and its tag. The full rules are in
   the `phpstanIgnoreJustification` lane checks only the `ignoreErrors` justifications. A project
   that kept a record should fix each entry, or file it as an issue on the upstream project where
   the code is not its own, then delete the file.
+- **BREAKING**: `withTypeCoverageFloors()` has no `declare` argument. type-coverage 2.4 stopped
+  measuring the share of files declaring `strict_types`, and printed a deprecation on stderr while
+  the floor went unenforced. Remove `declare:` from the call; the `phpStrictTypes` lane already
+  requires the declaration in every file.
 
 ### Added
 

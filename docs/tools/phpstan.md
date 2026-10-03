@@ -110,23 +110,21 @@ going up? It is a ratchet, not a gate, so every floor is off until you set one:
 ```php
 // qaConfig/qa.php
 return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
-    ->withTypeCoverageFloors(returnType: 65, paramType: 70, propertyType: 80, declare: 100);
+    ->withTypeCoverageFloors(returnType: 65, paramType: 70, propertyType: 80, constantType: 90);
 ```
 
 Each argument is a percentage and each is optional; an omitted one is not measured at all. Raise
 them as you earn them. The identifiers, for `ignoreErrors` and for `rule-doc`, are
 `typeCoverage.returnTypeCoverage`, `typeCoverage.paramTypeCoverage`,
-`typeCoverage.propertyTypeCoverage`, `typeCoverage.constantTypeCoverage` and
-`typeCoverage.declareCoverage`.
+`typeCoverage.propertyTypeCoverage` and `typeCoverage.constantTypeCoverage`.
 
 **It does nothing in a `-p` run, deliberately.** A percentage measured over one directory is not
 the project's coverage, so the extension refuses to report unless the whole configured project
 is being analysed. `vendor/bin/qa -t stan -p src/Domain` will therefore never show a coverage
 error, whatever the floors say. Use a full run to check them.
 
-`declare` is the share of files with `declare(strict_types=1)`. A project running the
-`phpStrictTypes` lane already requires that everywhere, so it is at 100 by construction and the
-floor is only worth setting as a belt-and-braces record of that fact.
+There is no floor for files declaring `strict_types`: the extension no longer measures it, and
+the `phpStrictTypes` lane requires the declaration in every file.
 
 ## Custom PHPStan Rules
 

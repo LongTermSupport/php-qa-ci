@@ -201,7 +201,7 @@ final class QaConfigBuilderTest extends TestCase
             ->withPhpUnitIterativeMode(true)
             ->withInfection(false)
             ->withInfectionDiffBase(self::DIFF_BASE)
-            ->withTypeCoverageFloors(returnType: 90, declare: 100)
+            ->withTypeCoverageFloors(returnType: 90, constantType: 100)
             ->withArkitectExcludedPaths(self::ARKITECT_EXCLUDED, 'Legacy')
             ->withArkitectExcludedPaths('Generated')
             ->withYamlDirectories('cfg')
@@ -220,7 +220,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(80, $config->infection->diffCoveredMsi);
         self::assertSame(90, $config->typeCoverage->returnType);
         self::assertNull($config->typeCoverage->paramType);
-        self::assertSame(100, $config->typeCoverage->declare);
+        self::assertSame(100, $config->typeCoverage->constantType);
         self::assertSame([self::ARKITECT_EXCLUDED, 'Legacy', 'Generated'], $config->arkitectExcludePaths);
         self::assertSame(['/p/cfg'], $config->yamlDirectories);
         self::assertSame(['scripts/*.bash', 'ci.bash', 'bin/*'], $config->shellCheckGlobs);
