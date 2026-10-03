@@ -282,6 +282,40 @@ final class ActiveRulesListerTest extends TestCase
         );
     }
 
+    /**
+     * In a consuming project the bundled tiers arrive through phpstan/extension-installer,
+     * not through an include in its phpstan.neon. A listing that read only the neon tree
+     * listed none of them there. A file reached both ways is read once.
+     */
+    public function testRulesTheExtensionInstallerDeliversAreListedWithTheirPackage(): void
+    {
+        $project = \LTS\PHPQA\Tests\Support\TempDir::create('phpqa-lister-installer');
+
+        try {
+            $project->write('vendor/acme/rules/rules.neon', "rules:\n    - LTS\\PHPQA\\PHPStan\\Rules\\ForbidDangerousFunctionsRule\n    - Acme\\Rules\\NoIdentifierRule\n");
+            $project->write('qaConfig/phpstan.neon', "includes:\n    - ../vendor/acme/rules/rules.neon\n\nrules:\n    - LTS\\PHPQA\\Tests\\Assets\\ActiveRulesLister\\FixtureProjectRule\n");
+            $project->write(
+                'vendor/phpstan/extension-installer/src/GeneratedConfig.php',
+                "<?php\nnamespace PHPStan\\ExtensionInstaller;\nfinal class GeneratedConfig\n{\n    public const EXTENSIONS = ['acme/rules' => ['relative_install_path' => '../../../acme/rules', 'extra' => ['includes' => ['rules.neon', 'more.neon']]]];\n}\n",
+            );
+            $project->write('vendor/acme/rules/more.neon', "rules:\n    - Acme\\Rules\\OtherRule\n");
+
+            $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list($project->path);
+        } finally {
+            $project->remove();
+        }
+
+        self::assertSame(
+            [
+                \LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::class . ' ',
+                'Acme\Rules\NoIdentifierRule ',
+                \LTS\PHPQA\Tests\Assets\ActiveRulesLister\FixtureProjectRule::class . ' ',
+                'Acme\Rules\OtherRule acme/rules',
+            ],
+            array_map(static fn (\LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto $rule): string => $rule->ruleClass . ' ' . $rule->package, $listing->rules),
+        );
+    }
+
     public function testAnIncludeThatCannotBeFollowedIsAnError(): void
     {
         try {
