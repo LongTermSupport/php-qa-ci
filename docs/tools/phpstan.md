@@ -277,6 +277,11 @@ fail like any other. The lane also fails when part of the chain cannot be read:
   `%currentWorkingDirectory%` (`%rootDir%`, PHPStan's own configuration, is not followed);
 - a `.php` include that sets `ignoreErrors` or `includes`, since PHP has no place for the comment.
 
+Inline ignore comments are forbidden by the default tier's `phpqaci.inlinePhpstanIgnore`. Behind
+it, `rules-default.neon` turns on PHPStan's `reportIgnoresWithoutComments`, so where a project
+has excluded that rule for a path, an inline ignore still has to name its identifier and give a
+reason in parentheses (`ignore.noComment`, `ignore.allLineErrors` otherwise).
+
 ```neon
 parameters:
     ignoreErrors:

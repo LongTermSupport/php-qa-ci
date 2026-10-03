@@ -157,9 +157,11 @@ most of the clause table turns green at once.
   cannot follow; a second escape found on the way, entries written inline as a flow list,
   is caught by comparing the decoded count with the `-` items read. 6.2 closed; 4.3 keeps
   only the PHPArkitect baseline (Task 4.1)
-- [ ] ⬜ **Task 4.3**: Configure PHPStan's `reportIgnoresWithoutComments` (detector 7.2,
+- [x] ✅ **Task 4.3**: Configure PHPStan's `reportIgnoresWithoutComments` (detector 7.2,
   graded `No`), or record why the justification lane standing in for it is sufficient.
-  Prefer configuring it: defence in depth costs nothing here.
+  Prefer configuring it: defence in depth costs nothing here. On in `rules-default.neon`, so
+  it reaches every consumer the bundled tier reaches, behind `inlinePhpstanIgnore` (red
+  `5672d30`). No finding on this repository. Detector 7.2 closed at both levels
 
 ### Phase 5: Agent context and defaults (toolchain 6.4, 7.1)
 
