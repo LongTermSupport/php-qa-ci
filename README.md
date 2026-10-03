@@ -41,8 +41,8 @@ with provenance, so a consuming project has them offline at the version installe
 the method and toolchain specification versions this package implements and listing every
 known gap against the clause it fails, at two levels — the artefact a consumer installs, and
 this repository as a project using it. The list is not yet empty, and the package does not
-claim unqualified conformance while it is not; closing it is
-[Plan 00010](./CLAUDE/Plan/00010-defence-before-fix-full-conformance/PLAN.md). Check the claim
+claim unqualified conformance while it is not; each remaining entry is an Owner decision recorded
+in [Plan 00010](./CLAUDE/Plan/Completed/00010-defence-before-fix-full-conformance/DECISIONS.md). Check the claim
 against the artefact rather than against this sentence:
 
 ```bash

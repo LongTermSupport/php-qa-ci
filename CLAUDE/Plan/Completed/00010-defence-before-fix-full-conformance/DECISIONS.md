@@ -27,7 +27,7 @@ would fail the build on gaps not yet closed. So identity (Phase 2), then resolut
 **Context**: both could be "closed" by narrowing what we claim to route. **Why it is the
 Owner's**: dropping the bundled arkitect tier changes a shipped default for every
 consumer, and declaring the native catalogue out of scope is accepting a permanent gap.
-[DefenceBeforeFix.md](../../DefenceBeforeFix.md) reserves both of those to the Owner —
+[DefenceBeforeFix.md](../../../DefenceBeforeFix.md) reserves both of those to the Owner —
 "deciding a defensible class will not be defended" and "accepting a known unfixed
 instance". **Decision**: Tasks 2.3 and 3.3 cost the options and stop; they do not choose.
 **Date**: 2026-09-11
@@ -77,7 +77,7 @@ declared. Taken by the Owner's instruction to resolve the open blockers. **Date*
 overlaps the `markdownLinks` lane on this checkout; and `phpqaci.forbiddenAttribute` names a
 category rather than the attribute it forbids. **Decision**: the checkers answer at different
 moments for different audiences (a guardrail for the editor; the package's guarantee to every
-consumer), so both stay, and [docs/tools/markdownLinks.md](../../../docs/tools/markdownLinks.md)
+consumer), so both stay, and [docs/tools/markdownLinks.md](../../../../docs/tools/markdownLinks.md)
 says why. The identifier stays: it is published, and a consumer may already carry it in
 `ignoreErrors`, so a rename is a breaking change with no defect behind it. Both taken by the
 Owner's instruction to resolve the open blockers. **Date**: 2026-09-12
