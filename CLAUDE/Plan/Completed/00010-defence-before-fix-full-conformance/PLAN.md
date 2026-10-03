@@ -1,6 +1,6 @@
 # Plan 00010: Defence Before Fix — full conformance
 
-**Status**: In Progress
+**Status**: Complete (merged e8d9ac8; re-audited at 85.3.0, register pull request #12)
 **Created**: 2026-09-11
 **Owner**: Joseph Edmonds
 **Priority**: High
@@ -18,7 +18,7 @@ declaration claims conformance without qualification.
 
 The target is not our own opinion of ourselves. Upstream publishes a clause-by-clause
 audit of php-qa-ci, checked by running the commands in a checkout, at
-[remote-docs/…/tools/php-qa-ci.md](../../../remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md).
+[remote-docs/…/tools/php-qa-ci.md](../../../../remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md).
 That audit is **harsher than our own declaration**, which is itself the first finding:
 it records failures and partials that our `known-gaps` does not mention. An understated
 gap record weakens the one thing clause 9.2 actually requires of us, so reconciling the
@@ -62,10 +62,10 @@ most of the clause table turns green at once.
 ## Context & Background
 
 - The method, detector and toolchain specifications, vendored verbatim with provenance:
-  [remote-docs/defence-before-fix.github.io/](../../../remote-docs/defence-before-fix.github.io/).
+  [remote-docs/defence-before-fix.github.io/](../../../../remote-docs/defence-before-fix.github.io/).
   Refresh with `.claude/hooks-daemon/bin/hooks-daemon remote-docs refresh --all`.
 - Why the method is shaped as it is, and how it binds work in this repo:
-  [CLAUDE/DefenceBeforeFix.md](../../DefenceBeforeFix.md). That file stays the single
+  [CLAUDE/DefenceBeforeFix.md](../../../DefenceBeforeFix.md). That file stays the single
   source of truth for the philosophy; this plan does not restate it.
 - The register entry was written against branch `php8.4` at commit `e25aba4`
   (2026-09-08), and `php8.5` had already moved. Task 1.1's reconciliation, and the
@@ -85,7 +85,7 @@ most of the clause table turns green at once.
   [JOURNAL/00010-Journal-26-09-11.md](JOURNAL/00010-Journal-26-09-11.md).
 - [x] ✅ **Task 1.2**: Add a defence over the declaration itself — the gap record is a
   claim about this repository, and nothing currently detects it drifting from reality.
-  Decide (per [tool-boundaries.md](../../tool-boundaries.md)) whether this is a new lane
+  Decide (per [tool-boundaries.md](../../../tool-boundaries.md)) whether this is a new lane
   or an assertion inside an existing one; the likely answer is an assertion. An assertion,
   in `DefenceBeforeFixDeclarationTest`: the declaration describes this repository, not a
   consumer's, so it is not a lane. Versions read from the vendored specifications; each
@@ -185,7 +185,7 @@ most of the clause table turns green at once.
 - [x] ✅ **Task 5.2**: State the toolchain's own defaults for what the method leaves to
   the project (toolchain 6.4) — the sweep scope, what counts as generated or vendored,
   and the calibrations. Where `docs/tools/` states a lane default already, link rather
-  than restate. [docs/defence-before-fix-defaults.md](../../../docs/defence-before-fix-defaults.md),
+  than restate. [docs/defence-before-fix-defaults.md](../../../../docs/defence-before-fix-defaults.md),
   linked from the consumer `CLAUDE.md` block, the identifier index and DefenceBeforeFix.md.
   Toolchain 6.4 closed
 
@@ -197,7 +197,7 @@ most of the clause table turns green at once.
   Decision 5 or 6; the vendored versions (method 1.0.1, toolchain 0.2.0) already matched
   and are now read from the vendored files by the Task 1.2 guard. Per toolchain 9.2 a
   non-empty record is not a claim of conformance, so the declaration still claims none.
-- [ ] ⬜ **Task 6.2**: Re-audit and update the register entry in the DBF repository.
+- [x] ✅ **Task 6.2**: Re-audit and update the register entry in the DBF repository.
   **Both repositories are first-party** (`Defence-Before-Fix` and `LongTermSupport` are
   both Joseph Edmonds), so this is a commit we can make, not a request we file. The
   separation is editorial discipline, not an access boundary — see Decision 4.
@@ -206,16 +206,18 @@ most of the clause table turns green at once.
     Nine of twelve rows re-grade `Yes`; detector 6.2/6.3 stay `Partial` and toolchain 4.1 `No`
     under Decisions 5 and 6.
   - [x] ✅ **Per-post Owner authorisation still applies** to anything that lands in a
-    public repository — see [CLAUDE/segfault-policy.md](../../segfault-policy.md) step 3
+    public repository — see [CLAUDE/segfault-policy.md](../../../segfault-policy.md) step 3
     for the same constraint stated for php-src. Authorised by the Owner.
-  - [ ] 🔄 Publish: a pull request against the register's `next` branch, opened once
-    [Plan 00016](../Completed/00016-method-1-1-0-deferred-defect-record/PLAN.md) has moved the declaration
+  - [x] ✅ Publish: a pull request against the register's `next` branch, opened once
+    [Plan 00016](../00016-method-1-1-0-deferred-defect-record/PLAN.md) has moved the declaration
     to the published method 1.1.0, so the entry grades the claim php-qa-ci actually makes.
+    [Register pull request #12](https://github.com/Defence-Before-Fix/defence-before-fix.github.io/pull/12);
+    its merge is the register editor's.
 
 ## Dependencies
 
 - Related: Plan 00005 (the lane registry and `PipelineBuilder` Phase 2 extends).
-- Related: [CLAUDE/tool-boundaries.md](../../tool-boundaries.md) governs every "is this a
+- Related: [CLAUDE/tool-boundaries.md](../../../tool-boundaries.md) governs every "is this a
   new lane or an assertion" question in Phases 1, 2 and 4.
 
 ## Technical Decisions
@@ -233,7 +235,7 @@ Seven decisions, each with its context and reasoning: [DECISIONS.md](DECISIONS.m
 - [x] A baseline — PHPArkitect's or PHPStan's, at the top level or through an
   `includes:` — cannot suppress a finding without appearing in the record and the
   listing.
-- [x] The full battery passes ([prepush-verification.md](../../prepush-verification.md)).
+- [x] The full battery passes ([prepush-verification.md](../../../prepush-verification.md)).
 
 ## Risks & Mitigations
 
@@ -253,4 +255,6 @@ Seven decisions, each with its context and reasoning: [DECISIONS.md](DECISIONS.m
 
 - Plan filed, specs and register entry vendored with provenance: (this commit)
 - Phases 1 to 5 and Task 6.1 merged into php8.5 as e8d9ac8; released as `85.2.0` (BREAKING)
-  at the release commit 60e45ff. Task 6.2's publication awaits the Owner
+  at the release commit 60e45ff
+- Task 6.2: re-audited against 85.3.0 (release commit cb5b4eb) and published as register pull
+  request #12 against `next`

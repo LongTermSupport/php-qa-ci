@@ -31,6 +31,13 @@ deferred:
         found: 'CHANGELOG.md, resolving the Plan 00016 merge into bugfix/known-defects-sweep'
         deferredBy: 'undecided; fixed upstream in hooks-daemon v3.68.0 (the formatter leaves a conflicted file untouched, and conflict_marker_commit_gate denies the commit), pending the Owner upgrading the daemon'
     -
+        # AgentContextIsCurrentTest fails on the result, so it cannot reach a push
+        # through the battery; rules --write-agent-summary restores the region.
+        defect: 'hooks-daemon v3.63.0 markdown formatter, run after any Edit to CLAUDE.md, also rewrites the generated active-defences region: it adds blank lines inside the markers and doubles the backslash in `#[\SensitiveParameter]`'
+        class: 'a formatter rewriting a generated region that its generator owns'
+        found: 'CLAUDE.md, editing the Plan 00010 link above the region'
+        deferredBy: 'undecided; recorded for the Owner, since the code is not in this repository and no upstream release names a fix'
+    -
         # IgnoredPathsReachEveryScanningLaneTest classifies this lane as a known
         # gap and fails if this entry goes while the gap stays.
         defect: 'the phpArkitect lane does not honour withIgnoredPaths(), so a path a project ignores under src/ is still checked against the architecture rules'
