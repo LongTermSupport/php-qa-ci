@@ -40,14 +40,6 @@ $config->ignoreUnknownClassesRegex('#^(PHPStan|Arkitect)\\\\#');
 $config->ignoreUnknownClassesRegex('#^Composer\\\\#');
 
 /*
- * RequireExplicitDIAttributeRule names Symfony DI attributes to recognise
- * them in consumer code. php-qa-ci does not depend on Symfony's DI component
- * and must not: the rule reads the attribute names, it never instantiates
- * them.
- */
-$config->ignoreUnknownClassesRegex('#^Symfony\\\\Component\\\\DependencyInjection\\\\#');
-
-/*
  * Packages with no PHP symbol for a scan to find. Each is used by the
  * pipeline at run time through a route static analysis cannot follow.
  */
