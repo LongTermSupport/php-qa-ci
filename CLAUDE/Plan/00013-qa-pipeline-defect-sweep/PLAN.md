@@ -1,6 +1,6 @@
 # Plan 00013: qa pipeline defect sweep
 
-**Status**: In Progress (Phases 1 and 2 done; Phase 3 is two carried follow-ons)
+**Status**: In Progress (Phases 1 and 2 done; Task 3.1 done; Task 3.2 waits on an upstream hooks-daemon rule)
 **Created**: 2026-09-16
 **Owner**: Joseph Edmonds
 **Priority**: Medium
@@ -65,9 +65,9 @@ running consumer-side `bin/qa` probes from the `accounts-api` checkout.
 
 ### Carried, not started here
 
-| Ref | Candidate                                                                                              | Position                                                                                                                                                                                                                   |
-| --- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| X1  | PHPArkitect has no fixture harness, so a project cannot prove a zero-instance architecture rule fires. | A genuine Detector gap and a real piece of work: it needs a fixture class set, a single-rule runner analogous to the PHPStan one, and a lane to run it. Sized beyond this sweep, and carried whole rather than half-built. |
+| Ref | Candidate                                                                                              | Position                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| X1  | PHPArkitect has no fixture harness, so a project cannot prove a zero-instance architecture rule fires. | A genuine Detector gap. Closed by Task 3.1: `bin/arkitect-rule <because> <path>`, with no identifier invented, so Plan 00010 Decision 5 stands. |
 
 ## Tasks
 
@@ -96,24 +96,46 @@ running consumer-side `bin/qa` probes from the `accounts-api` checkout.
 - [x] ✅ **Task 2.1**: Full unfiltered `CI=true bin/qa` exits 0 in this worktree.
 - [x] ✅ **Task 2.2**: The branch is handed over for the Owner to merge into `php8.5` locally. No pull request, no fork, no push: the branch itself is the deliverable.
 
-### Phase 3: Follow-on, not started
+### Phase 3: Follow-on
 
-- [ ] ⬜ **Task 3.1**: X1 — a PHPArkitect fixture harness, so a project can prove a zero-instance architecture rule fires.
+- [x] ✅ **Task 3.1**: X1 — a PHPArkitect fixture harness, so a project can prove a zero-instance architecture rule fires.
 
-  **Not started.** Three parts, none of which exists yet: a fixture class set under
-  `tests/assets/arkitect/` shaped so each shipped rule has a violating and a
-  conforming subject; a single-rule runner (`bin/arkitect-rule <rule> <path>`)
-  analogous to `bin/phpstan-rule`; and a lane or `-t` token to run the fixtures.
+  `bin/arkitect-rule <because> <path>` runs the project's resolved entry config over
+  one fixture file or directory: the config is loaded and every rule it registered is
+  re-added against the probed path, with the lane's phar, tiers and environment and no
+  baseline. Exit 0 / 1 / 2 as for `bin/phpstan-rule`. Red 525e01c, implementation
+  38961c0, consumer `CLAUDE.md` block 2af2de1.
 
-  **Sizing note**: larger than any single item in this sweep, and the awkward part
-  is design rather than volume. PHPArkitect has no rule identifiers — a rule is
-  named only by its `because` sentence — so giving rules addressable identities is
-  a public-API decision that wants the Owner's view before code. The fixture set
-  and the lane are mechanical once that is settled. Best done as its own plan.
+  - **The identity question is sidestepped, not decided.** A rule is named by its
+    `because` clause, the only name PHPArkitect gives one, matched as text against
+    the violation messages. No identifier is invented, so Plan 00010 Decision 5 and
+    the `known-gaps` entry stand as written.
+  - **Fixture set**: `tests/assets/arkitect/ruleProbe/` holds a violating and a
+    conforming subject for each default-tier rule and for one bespoke project rule.
+    None of them has an instance in that project's `src/`.
+    `tests/Large/Arkitect/ArkitectRuleProbeTest.php` proves each rule fires on its
+    violating subject and stays silent on its conforming one. The optional tiers are
+    already covered by `ArkitectCheckTest`.
+  - **No lane or `-t` token.** A project keeps the proof as a PHPUnit test that runs
+    the command on its fixtures, and the `phpunit` lane already runs that test. A
+    dedicated lane would need a fixture-to-rule registry format, which is new public
+    API. That is the Owner's call, recorded in the subagent report.
+  - **Found on the way, defended first**: a declared bin that `.gitignore` hides passed
+    `ComposerBinManifestTest` in the working tree and would never have been committed.
+    The red detector is f6e4789. The fix, a `.gitignore` re-include, is in 38961c0.
 
 - [ ] ⬜ **Task 3.2**: N5 — a hooks-daemon command-shape rule blocking `bash bin/qa` and `sh bin/qa`, with a one-line correction naming `bin/qa`.
 
-  **Not started, and deliberately not a php-qa-ci change.** Prefixing a PHP
+  **Investigated; nothing php-qa-ci can ship honestly, so this waits on the daemon.**
+  No daemon handler takes arbitrary command patterns: `subagent_full_qa_blocker` is
+  scoped to sub-agents and to full runs, and `sensitive_content` judges written content
+  and git metadata, not commands. php-qa-ci ships no daemon project handlers, so adding
+  one would open a new deploy channel of untested Python into consumers'
+  `.claude/project-handlers/`. The issue text to file upstream, generalised to a shell
+  interpreter applied to a script whose shebang names another interpreter, is in
+  `subagent-reports/261003-plan-00013-followons-opus.md`. Filing it is the Owner's step.
+
+  **Original scope note: deliberately not a php-qa-ci change.** Prefixing a PHP
   entrypoint with a shell interpreter is an invocation error, so the fix belongs in
   the daemon that reviews commands, beside its existing command-shape rules. The
   pattern is a Bash command whose head is `bash` or `sh` with a `bin/qa` or
