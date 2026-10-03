@@ -105,26 +105,13 @@ dir) prints its page offline.
 - `phpqaci.yamlLint` — YAML syntax (when symfony/yaml is installed) (`docs/tools/yamlLint.md`)
 - `phpqaci.shellCheck` — ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships (`docs/tools/shellCheck.md`)
 - `phpqaci.branchNamePolicy` — Branch naming policy (PR convention) (`CLAUDE/branch-policy.md`)
-- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification, and qaConfig/defect-record.neon reads in full (`docs/tools/phpstanIgnoreJustification.md`)
+- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification (`docs/tools/phpstanIgnoreJustification.md`)
 - `phpqaci.deadCode` — dead-code detection through phpstan.phar (opt-in: withDeadCodeDetection(true) in qaConfig/qa.php) (`docs/tools/deadCode.md`)
 - `phpqaci.phpArkitect` — PHPArkitect architecture rules (on by default; useArkitect=0 to disable) (`docs/tools/phpArkitect.md`; opt-in: `useArkitect`)
 - `phpqaci.sensitiveParameterUsage` — assert `#[\SensitiveParameter]` is used somewhere in src/ (`docs/tools/sensitiveParameterUsage.md`)
 - `phpqaci.phpunit` — phpunit (`docs/tools/phpunit.md`)
 - `phpqaci.infection` — infection (`docs/tools/infection.md`; opt-in: `useInfection`)
 - `phpqaci.phpcpd` — copy/paste detection, informational (`docs/tools/phpcpd.md`)
-
-### Deferred defects
-
-Recorded in `qaConfig/defect-record.neon`; whether a deferred one stays unfixed is the Owner's
-decision, and the attempt at a Defence is owed when its fix is taken up.
-
-- Deferred — hooks-daemon `remote-docs refresh --all` re-captures a document recorded `fidelity: verbatim` as a conversion unless `--verbatim` is passed, so the documented refresh replaced the vendored specifications with extractions (class: a refresh that does not preserve the capture mode the stored document records; found: the hooks daemon, refreshing remote-docs/defence-before-fix.github.io/ in Plan 00016; deferred by: undecided; recorded for the Owner by the Plan 00016 agent, since the code is not in this repository)
-- Deferred — hooks-daemon v3.63.0 `tdd_enforcement` resolves the expected test file against the main checkout, not the worktree the write targets, so it denies a new src/ file in a worktree whose test is already committed there (class: a path resolved against the session root rather than the root of the checkout the path is in; found: the hooks daemon, during the Plan 00015 and Plan 00016 worktree agents; deferred by: undecided; recorded for the Owner, since the code is not in this repository and no upstream release fixes it)
-- Deferred — hooks-daemon v3.63.0 markdown formatter reformats a file holding merge-conflict markers, turning `>>>>>>>` into a blockquote line that conflict-marker checks no longer match (class: a formatter run on a file in an unresolved merge state; found: CHANGELOG.md, resolving the Plan 00016 merge into bugfix/known-defects-sweep; deferred by: undecided; fixed upstream in hooks-daemon v3.68.0 (the formatter leaves a conflicted file untouched, and conflict_marker_commit_gate denies the commit), pending the Owner upgrading the daemon)
-- Deferred — hooks-daemon v3.63.0 markdown formatter, run after any Edit to CLAUDE.md, also rewrites the generated active-defences region: it adds blank lines inside the markers and doubles the backslash in `#[\SensitiveParameter]` (class: a formatter rewriting a generated region that its generator owns; found: CLAUDE.md, editing the Plan 00010 link above the region; deferred by: undecided; recorded for the Owner, since the code is not in this repository and no upstream release names a fix)
-- Deferred — the phpArkitect lane does not honour withIgnoredPaths(), so a path a project ignores under src/ is still checked against the architecture rules (class: a lane that scans the checked paths drops the project's ignored paths; found: src/Pipeline/Lane/PhpArkitectTool.php; deferred by: undecided; arkitect excludes only by ClassSet::excludePath(), an unanchored glob, so passing src/Legacy would also drop every directory named Legacy deeper in src/. withArkitectExcludedPaths() remains the knob until the Owner accepts that or arkitect gains an anchored exclusion)
-- Deferred — the infection lane does not honour withIgnoredPaths(), so mutants in a path a project ignores under src/ still count against the MSI floors (class: a lane that scans the checked paths drops the project's ignored paths; found: src/Pipeline/Lane/InfectionTool.php; deferred by: undecided; Infection takes no exclusion on the command line, and a rewritten infection.json would have to re-anchor every relative path in it. source.excludes in infection.json remains the knob)
-- Deferred — a withIgnoredPaths() entry that matches nothing goes unreported, so a stale exclusion outlives the code it excluded (class: a declared exclusion that matches nothing, which the analysedPaths lane catches for withUnanalysedPath() but not for withIgnoredPaths(); found: qaConfig/qa.php; deferred by: undecided; failing on a missing ignored path would also fail a project whose ignored directory is generated by a build step, as the documented src/Generated example is, so the detector is an Owner decision)
 
 <!-- phpqaci-active-defences:end -->
 
@@ -316,7 +303,7 @@ On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to
 ### Phase 3: Static Analysis Tools
 
 15. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope, and `qaConfig/defect-record.neon` (deferred defects and no-pattern conclusions) must read in full (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
 17. **PHPStan** (`phpstan`) - Static analysis tool
 18. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
 19. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.

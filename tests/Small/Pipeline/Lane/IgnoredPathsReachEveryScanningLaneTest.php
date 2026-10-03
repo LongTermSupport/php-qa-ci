@@ -93,7 +93,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         'analysedPaths'              => 'audits PHP outside the checked paths; an ignored path is one of its accepted exclusions (AnalysedPathsAuditTest)',
         'versionPins'                => 'reads phpunit.xml, composerRequireChecker.json and the workflows',
         'changelog'                  => 'reads CHANGELOG.md and git history',
-        'phpstanIgnoreJustification' => 'reads the phpstan.neon chain and the defect record',
+        'phpstanIgnoreJustification' => 'reads the phpstan.neon chain',
         'sensitiveParameterUsage'    => 'asserts a usage exists somewhere in src/ and reports no file',
         'markdownLinks'              => 'reads README.md and docs/',
         'docsProse'                  => 'reads README.md and docs/',
@@ -279,11 +279,11 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
                 str_contains($ignoredSeen, $needle) ? null : 'the ignored path ' . $needle . ' reached neither the argv, the environment nor a file the lane wrote',
                 str_contains($controlSeen, $needle) ? 'vacuous: the ignored path ' . $needle . ' is named even when nothing is ignored' : null,
             ])),
-            self::FILTERS => array_values(array_filter([
+            self::FILTERS                            => array_values(array_filter([
                 str_contains($ignoredSeen, self::PLANTED) ? 'the planted file ' . self::PLANTED . ' under the ignored path reached the tool' : null,
                 str_contains($controlSeen, self::PLANTED) ? null : 'vacuous: the planted file does not reach the tool even when nothing is ignored',
             ])),
-            default       => array_values(array_filter([
+            default                                  => array_values(array_filter([
                 ToolOutcomeEnum::Passed === $ignoredOutcome ? null : \sprintf('the violation planted under the ignored path failed the lane (%s)', $ignoredOutcome->name),
                 ToolOutcomeEnum::Failed === $controlOutcome ? null : \sprintf('vacuous: the planted violation does not fail the lane even when nothing is ignored (%s)', $controlOutcome->name),
             ])),

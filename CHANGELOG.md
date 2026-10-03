@@ -38,6 +38,12 @@ the release and its tag. The full rules are in
   exclusion outlived what it excluded, and would hide whatever is added there later from every
   scanning lane. Remove the entry. An ignored directory a build step generates must exist before
   the pipeline runs.
+- **BREAKING**: the defect record is removed. `qaConfig/defect-record.neon` is no longer read,
+  `vendor/bin/rules` no longer prints a defect-record section or the `defectRecord` JSON key, the
+  active-defences region `rules --write-agent-summary` writes has no deferred-defects section, and
+  the `phpstanIgnoreJustification` lane checks only the `ignoreErrors` justifications. A project
+  that kept a record should fix each entry, or file it as an issue on the upstream project where
+  the code is not its own, then delete the file.
 
 ### Fixed
 

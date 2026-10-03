@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan;
 
 use InvalidArgumentException;
-use LTS\PHPQA\DefectRecord\DefectRecordReader;
-use LTS\PHPQA\DefectRecord\Dto\DefectRecordDto;
-use LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto;
-use LTS\PHPQA\DefectRecord\Dto\NoPatternConclusionDto;
 use LTS\PHPQA\PHPStan\Dto\ActiveDefencesListingDto;
 use LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto;
 use LTS\PHPQA\PHPStan\Dto\PipelineLaneDto;
@@ -29,10 +25,8 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Lists the PHPStan-driven defences active in a project, its project record
- * (ignoreErrors) and its defect record ({@see DefectRecordReader}: deferred
- * Defects and no-pattern conclusions), WITHOUT running PHPStan. A defect
- * record that cannot be read in full is an error, as an include is. Resolves the project's
+ * Lists the PHPStan-driven defences active in a project and its project
+ * record (ignoreErrors), WITHOUT running PHPStan. Resolves the project's
  * phpstan.neon the same way the pipeline's ConfigPathResolver does, follows
  * `includes:` through {@see NeonIncludeChain} (the walk the justification lane
  * uses, so the record listed is the record checked; an include that cannot be
@@ -61,7 +55,6 @@ final readonly class ActiveRulesLister
         private string $qaCiRoot,
         private NeonIncludeChain $includeChain = new NeonIncludeChain(),
         private InstalledPhpstanExtensions $installedExtensions = new InstalledPhpstanExtensions(),
-        private DefectRecordReader $defectRecordReader = new DefectRecordReader(),
     ) {
         $this->ruleDocResolver = new RuleDocResolver($this->qaCiRoot);
     }
@@ -87,14 +80,7 @@ final readonly class ActiveRulesLister
             }
         }
 
-        $lanes = $this->pipelineLanes();
-
-        $defectRecord = $this->defectRecordReader->read($projectRoot);
-        if ([] !== $defectRecord->problems) {
-            throw new RuntimeException('Cannot read the defect record: ' . implode('; ', $defectRecord->problems));
-        }
-
-        return new ActiveDefencesListingDto($configPath, $rules, $lanes, $ignoreErrorEntries, $defectRecord);
+        return new ActiveDefencesListingDto($configPath, $rules, $this->pipelineLanes(), $ignoreErrorEntries);
     }
 
     public function renderText(ActiveDefencesListingDto $listing): string
@@ -169,7 +155,7 @@ final readonly class ActiveRulesLister
             $out .= '      justification: ' . ($entry->justification ?? '(none recorded)') . "\n";
         }
 
-        return $out . $this->renderDefectRecordText($listing->defectRecord);
+        return $out;
     }
 
     public function renderJson(ActiveDefencesListingDto $listing): string
@@ -205,45 +191,7 @@ final readonly class ActiveRulesLister
             'rules'         => $rules,
             'pipelineLanes' => $lanes,
             'projectRecord' => $projectRecord,
-            'defectRecord'  => [
-                'path'      => $listing->defectRecord->path,
-                'deferred'  => array_map(static fn (DeferredDefectDto $entry): array => [
-                    'defect'     => $entry->defect,
-                    'class'      => $entry->class,
-                    'found'      => $entry->found,
-                    'deferredBy' => $entry->deferredBy,
-                ], $listing->defectRecord->deferred),
-                'noPattern' => array_map(static fn (NoPatternConclusionDto $entry): array => [
-                    'defect'     => $entry->defect,
-                    'found'      => $entry->found,
-                    'conclusion' => $entry->conclusion,
-                    'techniques' => $entry->techniques,
-                ], $listing->defectRecord->noPattern),
-            ],
         ], \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES);
-    }
-
-    private function renderDefectRecordText(DefectRecordDto $record): string
-    {
-        $out = \sprintf("\nDefect record (%s%s):\n", DefectRecordReader::RELATIVE_PATH, null === $record->path ? ', not written yet' : '');
-
-        $out .= '  Deferred defects:' . ([] === $record->deferred ? " (none)\n" : "\n");
-        foreach ($record->deferred as $entry) {
-            $out .= \sprintf("    - defect:      %s\n", $entry->defect);
-            $out .= \sprintf("      class:       %s\n", $entry->class ?? 'none apparent yet');
-            $out .= \sprintf("      found:       %s\n", $entry->found);
-            $out .= \sprintf("      deferred by: %s\n", $entry->deferredBy);
-        }
-
-        $out .= '  No-pattern conclusions:' . ([] === $record->noPattern ? " (none)\n" : "\n");
-        foreach ($record->noPattern as $entry) {
-            $out .= \sprintf("    - defect:     %s\n", $entry->defect);
-            $out .= \sprintf("      found:      %s\n", $entry->found);
-            $out .= \sprintf("      conclusion: %s\n", $entry->conclusion);
-            $out .= \sprintf("      techniques: %s\n", implode('; ', $entry->techniques));
-        }
-
-        return $out;
     }
 
     private function resolveConfigPath(string $projectRoot): string

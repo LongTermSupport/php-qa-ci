@@ -155,14 +155,15 @@ the codebase is permitted to keep.
   weakened. A rule MAY merge at full width with one matched case recorded as a known instance
   awaiting the Owner; a remediation MAY span several changes provided the rule is not Blocking
   until every instance is fixed.
-- **A defect you do not fix now is written down, not mentioned.** Method specification section 2:
-  a Defect found and not fixed now goes in `qaConfig/defect-record.neon` under `deferred`, naming
-  its class where one is already apparent; the one-sentence conclusion that no pattern exists
-  goes there under `noPattern`, with the two techniques tried, as well as with the fix. That
-  file is the project's defect record: `bin/rules` lists it and the agent summary in
-  `CLAUDE.md` carries it, so the Owner sees what is waiting. A report in conversation is not a
-  record. Its format is the
-  [lane page](../docs/tools/phpstanIgnoreJustification.md#the-defect-record).
+- **A defect is fixed when it is found; there is no deferral record.** This repository does not
+  keep a list of defects found and left unfixed, any more than it keeps a Baseline (Owner
+  ruling). Build the Defence and fix the defect in the work that found it. Where the defective
+  code is not in this repository (an upstream tool, the hooks daemon, a library), file an issue
+  on that upstream project and link the issue from the commit; the upstream tracker is the
+  enumerable record method specification section 2 asks for. The one-sentence conclusion that
+  no pattern exists, with the two techniques tried, is a decision: record it in the
+  `DECISIONS.md` of the plan doing the work, as other decisions are, as well as with the fix. A
+  report in conversation is not a record.
 - Do not add or change the conformance declaration in `composer.json` on your own authority;
   report what you found.
 
@@ -278,8 +279,8 @@ identifier (`phpqaci.nullCoalescingFalse`) and never the class name.
   proves nothing unless the rule was loaded and looked. `bin/arkitect-rule <because> <path>` is
   the same harness for PHPArkitect, documented in `docs/tools/phpArkitect.md`.
 - `bin/rules [project-root] [--json]` lists every defence active in a project — its resolved
-  `phpstan.neon` rules and those the extension installer delivers, the pipeline lanes, the
-  project record and the defect record — WITHOUT running PHPStan, so an agent arriving cold can learn the standards
+  `phpstan.neon` rules and those the extension installer delivers, the pipeline lanes, and the
+  project record — WITHOUT running PHPStan, so an agent arriving cold can learn the standards
   without violating them first. `--write-agent-summary=CLAUDE.md` puts the same list, one line
   per defence, into the generated region of `CLAUDE.md`; composer install/update does that in
   every consuming project, and `AgentContextIsCurrentTest` keeps this repository's own current.
