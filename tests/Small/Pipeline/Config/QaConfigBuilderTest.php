@@ -53,7 +53,9 @@ final class QaConfigBuilderTest extends TestCase
 
     private const string ARKITECT_EXCLUDED = 'Quote/API';
 
-    private const string UNANALYSED_REASON = 'Symfony container configuration, linted by lint:container';
+    private const string UNANALYSED_DIR = 'migrations';
+
+    private const string UNANALYSED_REASON ='Symfony container configuration, linted by lint:container';
 
     #[Test]
     public function defaultsMirrorThePipelineDefaults(): void
@@ -426,10 +428,10 @@ final class QaConfigBuilderTest extends TestCase
     {
         foreach (['', '   ', 'legacy'] as $reason) {
             try {
-                $this->defaults()->withUnanalysedPath('config', $reason);
+                $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, $reason);
                 self::fail(self::EXPECTED_LOGIC_EXCEPTION . ' for reason "' . $reason . '"');
             } catch (LogicException $logicException) {
-                self::assertStringContainsString("withUnanalysedPath('config'", $logicException->getMessage());
+                self::assertStringContainsString("withUnanalysedPath('migrations'", $logicException->getMessage());
             }
         }
     }
@@ -450,13 +452,14 @@ final class QaConfigBuilderTest extends TestCase
     #[Test]
     public function aPathDeclaredUnanalysedTwiceIsRefused(): void
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('declared unanalysed twice');
+        $once = $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, self::UNANALYSED_REASON);
 
-        $this->defaults()
-            ->withUnanalysedPath('config', self::UNANALYSED_REASON)
-            ->withUnanalysedPath('config/', self::UNANALYSED_REASON)
-        ;
+        try {
+            $once->withUnanalysedPath(self::UNANALYSED_DIR . '/', self::UNANALYSED_REASON);
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertStringContainsString('declared unanalysed twice', $logicException->getMessage());
+        }
     }
 
     #[Test]

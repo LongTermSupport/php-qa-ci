@@ -110,8 +110,7 @@ final class AnalysedPathsAuditTest extends TestCase
         $verdict = $this->audit()->audit('vendor/acme/lib/src/A.php', 'var/cache/dev/Container.php');
 
         self::assertTrue($verdict->passes());
-        self::assertArrayHasKey('vendor', AnalysedPathsAudit::DEFAULT_UNANALYSED);
-        self::assertArrayHasKey('var', AnalysedPathsAudit::DEFAULT_UNANALYSED);
+        self::assertSame([], $verdict->declaredInUse);
     }
 
     #[Test]

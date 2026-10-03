@@ -24,6 +24,17 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- **PHP outside the checked paths fails the run until it is classified.** The
+  new always-on `analysedPaths` lane (`-t ap`) lists the project's PHP through
+  git and names each directory that is neither under a checked path nor
+  declared in `qaConfig/qa.php`; `vendor/` and `var/` are excluded by default.
+  Analyse code the project maintains with `withCheckedPaths('config')`, or
+  declare the exception with `withUnanalysedPath('<path>', '<reason>')`, whose
+  reason is required and printed on every run. See
+  [docs/tools/analysedPaths.md](docs/tools/analysedPaths.md).
+
 ### Changed
 
 - **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.
