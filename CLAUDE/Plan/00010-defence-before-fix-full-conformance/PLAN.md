@@ -203,11 +203,14 @@ most of the clause table turns green at once.
   separation is editorial discipline, not an access boundary — see Decision 4.
   - [x] ✅ Re-audit by *running* the commands, as the original did, and record the
     evidence column the register format requires: [REAUDIT.md](REAUDIT.md), unpublished.
-    Ten of twelve rows re-grade `Yes`; detector 6.2/6.3 and toolchain 4.1 stay `Partial`
+    Nine of twelve rows re-grade `Yes`; detector 6.2/6.3 stay `Partial` and toolchain 4.1 `No`
     under Decisions 5 and 6.
-  - [ ] ⬜ **Per-post Owner authorisation still applies** to anything that lands in a
+  - [x] ✅ **Per-post Owner authorisation still applies** to anything that lands in a
     public repository — see [CLAUDE/segfault-policy.md](../../segfault-policy.md) step 3
-    for the same constraint stated for php-src.
+    for the same constraint stated for php-src. Authorised by the Owner.
+  - [ ] 🔄 Publish: a pull request against the register's `next` branch, opened once
+    [Plan 00016](../00016-method-1-1-0-deferred-defect-record/PLAN.md) has moved the declaration
+    to the published method 1.1.0, so the entry grades the claim php-qa-ci actually makes.
 
 ## Dependencies
 

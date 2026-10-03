@@ -18,6 +18,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00015: release automation for consumers](00015-release-automation-for-consumers/PLAN.md) - Not Started — ship the changelog-driven release workflow as a template any project can adopt, semantic versioning by default (breaking moves the major), with php-qa-ci's locked major as an override in its own `qaConfig/qa.php`
 
+- [00016: method 1.1.0 and the deferred-defect record](00016-method-1-1-0-deferred-defect-record/PLAN.md) - Not Started — method 1.1.0 requires a deferred defect to be recorded where the project's decisions are enumerable; give projects that record in `bin/rules` and the agent summary, then declare 1.1.0
+
 ## Completed Plans
 
 - [00014: changelog release automation](Completed/00014-changelog-release-automation/PLAN.md) - Complete — `CHANGELOG.md` is the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` opens a release pull request whose merge publishes the release (85.1.0 shipped this way; merged ffa598e)
