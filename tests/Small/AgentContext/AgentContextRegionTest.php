@@ -42,6 +42,24 @@ final class AgentContextRegionTest extends TestCase
         self::assertNull($region->replace(self::SECTION . "\n" . self::SECTION . "\n", self::SECTION));
     }
 
+    /**
+     * Each malformation on its own, so no one check can stand in for another:
+     * a second START after a complete region, a second END after it, an END
+     * before the START, and an END with no START at all.
+     */
+    #[Test]
+    public function eachMalformationAloneLeavesTheDocumentUntouched(): void
+    {
+        $region = new AgentContextRegion();
+
+        self::assertNull($region->replace(self::SECTION . "\n" . AgentContextRegion::START . "\n", self::SECTION));
+        self::assertNull($region->replace(self::SECTION . "\n" . AgentContextRegion::END . "\n", self::SECTION));
+        self::assertNull($region->replace(AgentContextRegion::END . "\n" . AgentContextRegion::START . "\nx\n", self::SECTION));
+        self::assertNull($region->replace(AgentContextRegion::END . "\n" . self::SECTION . "\n", self::SECTION));
+        self::assertNull($region->replace("x\n" . AgentContextRegion::END . "\n", self::SECTION));
+        self::assertNull($region->current(AgentContextRegion::START . "\n" . AgentContextRegion::START . "\n" . AgentContextRegion::END . "\n"));
+    }
+
     #[Test]
     public function theCurrentRegionIsReadBackForADriftCheck(): void
     {
