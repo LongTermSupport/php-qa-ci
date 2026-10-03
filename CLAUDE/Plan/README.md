@@ -10,6 +10,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00017: fix every deferred defect and retire the record](00017-fix-every-deferred-defect-and-retire-the-record/PLAN.md) - In Progress — the Owner's ruling that this repository fixes rather than baselines: every deferred defect, the `ignoreErrors` entry and the declared `known-gaps` fixed, the defect record removed, the hooks daemon at v3.68.0, and `php8.4` taking bug fixes again with issues stating their release line
+
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
 ## Completed Plans
