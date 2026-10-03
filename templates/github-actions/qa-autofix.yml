@@ -47,12 +47,10 @@
 #   is set (see below); private-dependency repos work, public-only repos unaffected.
 # - The gate runs coding-standards + static analysis (tests deferred — see NOTES).
 #
-# THE ONE THING YOU MUST CHECK
-# ----------------------------
-# - Custom composer bin-dir: this template calls `vendor/bin/qa`. If composer.json
-#   sets `config.bin-dir` (e.g. `bin`), replace EVERY `vendor/bin/qa` below with
-#   `<bin-dir>/qa`. Verify: `grep -n 'vendor/bin/qa' .github/workflows/qa.yml`
-#   should then match only this comment.
+# COMPOSER BIN-DIR
+# ----------------
+# - Every step runs `"$(composer config bin-dir)/qa"`, so a project that sets
+#   `config.bin-dir` (e.g. `bin`) needs no edit.
 #
 # PRIVATE FIRST-PARTY DEPENDENCIES (ballicom/*, lts/* via github_deploy_* aliases)
 # --------------------------------------------------------------------------------
@@ -238,7 +236,7 @@ jobs:
       - name: Apply fixers in write mode (Rector + PHP CS Fixer)
         # QA_READONLY=0 forces WRITE mode even on GitHub Actions (where php-qa-ci
         # auto-enables read-only). This only formats — the gate verifies read-only.
-        run: QA_READONLY=0 vendor/bin/qa -t allCS
+        run: QA_READONLY=0 "$(composer config bin-dir)/qa" -t allCS
 
       - name: Commit & push any fixes back to the PR branch
         run: |
@@ -394,14 +392,14 @@ jobs:
       # pending change). Defaults to coding-standards + static analysis: a PHPUnit
       # suite usually needs a DB / services not present on the runner, so tests are
       # deferred. When your suite runs WITHOUT external services, add a tests step
-      # (`vendor/bin/qa -t allTests`, or the full `vendor/bin/qa`) plus a `services:`
+      # (`qa -t allTests`, or the full `qa`, run as above) plus a `services:`
       # block to this job.
       - name: Coding standards — read-only check (Rector + PHP CS Fixer)
         env:
           CI: 'true'
-        run: vendor/bin/qa -t allCS
+        run: '"$(composer config bin-dir)/qa" -t allCS'
 
       - name: Static analysis (PHPStan + PHPArkitect)
         env:
           CI: 'true'
-        run: vendor/bin/qa -t allStatic
+        run: '"$(composer config bin-dir)/qa" -t allStatic'

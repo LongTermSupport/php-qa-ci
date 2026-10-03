@@ -63,8 +63,11 @@ on:
       - master
       - develop
       - 'feature/**'
+      - 'bugfix/**'
+      - 'chore/**'
+      - 'hotfix/**'
       - 'fix/**'
-  
+
   # Trigger on pull requests to these branches
   pull_request:
     branches:
@@ -91,12 +94,12 @@ on:
 env:
   # REQUIRED: Tell QA tools we're in CI mode
   CI: true
-  
-  # REQUIRED: Skip uncommitted changes check (not applicable in CI)
-  skipUncommittedChangesCheck: 1
-  
+
   # AUTO-FIX CONFIGURATION:
-  # Set to 'true' to automatically commit and push fixes from Rector/CS Fixer
+  # Set to 'true' to automatically commit and push fixes from Rector/CS Fixer.
+  # A run on GitHub Actions is otherwise read-only (the fixers dry-run and fail
+  # on a pending change); 'true' makes the QA step writable so there is
+  # something to commit.
   # SAFETY: Auto-commits are NEVER allowed on main/master branches
   # Only works on feature/fix/develop branches to prevent accidental production changes
   AUTO_COMMIT_FIXES: 'false'
@@ -201,54 +204,43 @@ jobs:
         run: |
           composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
           
+      # The qa entry point lives in composer's bin-dir: vendor/bin unless
+      # composer.json sets config.bin-dir. The QA tools themselves ship inside
+      # the package (vendor-phar/), so nothing else needs installing.
       - name: Verify php-qa-ci installation
+        id: locate
         run: |
-          if [ ! -f "vendor/bin/qa" ]; then
-            echo "Error: php-qa-ci not installed. Add 'lts/php-qa-ci' to your composer.json"
+          QA="$(composer config bin-dir)/qa"
+          if [ ! -f "$QA" ]; then
+            echo "Error: $QA not found. Add 'lts/php-qa-ci' to your composer.json"
             exit 1
           fi
-          
+          echo "qa=$QA" >> "$GITHUB_OUTPUT"
+
       - name: Cache QA tools
         uses: actions/cache@v4
         with:
-          path: |
-            var/qa/cache
-            vendor/lts/php-qa-ci/vendor-phar
-          key: ${{ runner.os }}-qa-tools-${{ needs.detect-php-version.outputs.php-version }}-${{ hashFiles('**/phive.xml', '**/composer.lock') }}
+          path: var/qa/cache
+          key: ${{ runner.os }}-qa-cache-${{ needs.detect-php-version.outputs.php-version }}-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-qa-tools-${{ needs.detect-php-version.outputs.php-version }}-
-            ${{ runner.os }}-qa-tools-
-      
-      # Step 7: Install PHIVE tools if needed (PHARs for QA tools)
-      # Most projects won't need this as php-qa-ci includes the PHARs
-      - name: Run PHIVE install (if applicable)
-        run: |
-          if [ -f "vendor/lts/php-qa-ci/phive.xml" ] || [ -f "phive.xml" ]; then
-            # Install PHIVE if not present
-            if ! command -v phive &> /dev/null; then
-              wget -O phive.phar https://phar.io/releases/phive.phar
-              chmod +x phive.phar
-              sudo mv phive.phar /usr/local/bin/phive
-            fi
-            
-            # Run PHIVE install with forced acceptance (these tools are trusted)
-            cd vendor/lts/php-qa-ci && phive install --trust-gpg-keys --force-accept-unsigned || true
-            cd -
-          fi
-          
+            ${{ runner.os }}-qa-cache-${{ needs.detect-php-version.outputs.php-version }}-
+
       - name: Run QA Pipeline
         id: qa
+        env:
+          QA: ${{ steps.locate.outputs.qa }}
+          QA_READONLY: ${{ env.AUTO_COMMIT_FIXES == 'true' && '0' || '1' }}
         run: |
           set +e  # Don't exit on error
-          
+
           # Determine which command to run
           if [ -n "${{ github.event.inputs.qa_tools }}" ]; then
             echo "Running specific tool: ${{ github.event.inputs.qa_tools }}"
-            vendor/bin/qa -t ${{ github.event.inputs.qa_tools }}
+            "$QA" -t ${{ github.event.inputs.qa_tools }}
             QA_EXIT_CODE=$?
           else
             echo "Running full QA pipeline"
-            vendor/bin/qa
+            "$QA"
             QA_EXIT_CODE=$?
           fi
           

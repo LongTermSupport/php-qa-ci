@@ -34,9 +34,11 @@ The workflow automatically detects the PHP version from your `composer.json` fil
 
 ### Smart Git Operations
 
-- **Shallow clone by default**: Faster CI runs
-- **Full clone when needed**: Only when `AUTO_COMMIT_FIXES` is enabled
+- **Full history**: the `qa` job checks out with `fetch-depth: 0`, which the opt-in
+  `changelog` lane needs and auto-commit builds on
 - **Protected branch safety**: Never auto-commits to main/master or default branch
+- **Any bin-dir**: every step runs `"$(composer config bin-dir)/qa"`, so a project that sets
+  `config.bin-dir` needs no edit
 
 ### Tool-Specific Runs
 
@@ -74,6 +76,10 @@ To enable automatic committing of Rector/CS Fixer changes:
 env:
   AUTO_COMMIT_FIXES: 'true'  # Only on feature branches
 ```
+
+A run on GitHub Actions is read-only by default, so the fixers would only dry-run; with
+`AUTO_COMMIT_FIXES: 'true'` the template runs the QA step with `QA_READONLY=0`, so the fixes are
+written and then committed.
 
 **Safety Features:**
 
@@ -148,9 +154,8 @@ skipped run — cosmetic.)
   commits to production branches are never made.
 - Requires `permissions: contents: write` on the autofix job (the workflow is `contents: read`
   by default) and Settings → Actions → General → "Read and write permissions".
-- A custom composer `bin-dir` (e.g. `bin`) changes the qa path from `vendor/bin/qa` to
-  `bin/qa` — replace every `vendor/bin/qa` `run:` line accordingly. This is the one edit the
-  template cannot make for you.
+- A custom composer `bin-dir` (e.g. `bin`) needs no edit: every step runs
+  `"$(composer config bin-dir)/qa"`.
 - The gate runs `qa -t allCS` + `qa -t allStatic` (tests deferred — a PHPUnit suite usually
   needs a DB / services not on the runner). When your suite runs without external services,
   add a tests step plus a `gate.services` block.
@@ -217,7 +222,7 @@ Place configuration files in your project's `qaConfig/` directory:
 
 ```yaml
 - name: Run specific tool
-  run: vendor/bin/qa -t phpstan
+  run: '"$(composer config bin-dir)/qa" -t phpstan'
 ```
 
 ### Caching Strategy
@@ -226,19 +231,21 @@ The `php-qa-ci.yml` template uses two caches:
 
 - **Composer dependencies** — keyed on `${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}`
   (this key does **not** include the PHP version).
-- **QA tool PHARs + tool cache** (`vendor-phar/` and `var/qa/cache`) — keyed on the OS, the detected
-  PHP version, and `hashFiles('**/phive.xml', '**/composer.lock')`.
+- **QA tool cache** (`var/qa/cache`) — keyed on the OS, the detected PHP version, and
+  `hashFiles('**/composer.lock')`.
 
-There is no separate "PHPStan cache" block. Only the QA-tools cache key includes the PHP version.
+The QA tools' PHARs are not cached: they ship inside the package (`vendor-phar/`), so
+`composer install` already put the right versions in place, and a restored cache could only
+replace them with older ones.
 
 ## Workflow Features
 
 The workflow includes:
 
 - **Dynamic PHP version detection** from composer.json
-- **Smart git cloning** (shallow by default, full when auto-commit enabled)
-- **PHIVE integration** for PHAR tool management
-- **Comprehensive caching** for speed
+- **Full-history checkout**, which the opt-in `changelog` lane needs
+- **No tool installation step**: the QA PHARs ship inside the package
+- **Caching** of Composer downloads and the QA tool cache
 - **Auto-commit capability** with safety checks
 - **Manual tool selection** via workflow_dispatch
 - **Artifact storage** for test results and coverage

@@ -102,14 +102,14 @@ on these settings:
   approve pull requests" is on (`gh api repos/LongTermSupport/php-qa-ci/actions/permissions/workflow`
   shows `can_approve_pull_request_reviews: true`).
 - No ruleset targets tags, so `GITHUB_TOKEN` may create `85.N.N`.
-- `php8.5`'s classic branch protection requires the status checks `QA Pipeline` and
-  `ShellCheck (severity=warning)`, and is not enforced on admins
-  (`gh api repos/LongTermSupport/php-qa-ci/branches/php8.5/protection`). A pull request opened or
-  pushed with `GITHUB_TOKEN` starts no workflow, so `release.yml` dispatches CI
-  (`gh workflow run ci.yml --ref chore/release-php8.5`) whenever it opens or updates the release
-  pull request; that run reports `QA Pipeline` on its head commit.
-- `ShellCheck (severity=warning)` is reported by nothing: ShellCheck runs inside `bin/qa` as the
-  `shellCheck` lane, and the job that once reported that check is gone. Until the context is
-  removed from the branch protection (Settings → Branches → `php8.5` → required status checks),
-  no pull request can be merged except by an admin, which includes the release pull request
-  (`gh pr merge <n> --merge --admin`).
+- `php8.5`'s classic branch protection requires the one status check `QA Pipeline`, strict
+  (the branch must be up to date), and is not enforced on admins
+  (`gh api repos/LongTermSupport/php-qa-ci/branches/php8.5/protection`). ShellCheck has no
+  check of its own: it runs inside `bin/qa` as the `shellCheck` lane. `php8.4` still has the
+  separate ShellCheck job and still requires it.
+- GitHub holds the `pull_request` CI run of a pull request opened or pushed with `GITHUB_TOKEN`
+  (conclusion `action_required`), and only that run's `QA Pipeline` satisfies the protection: a
+  run of the same commit from another event does not. `release.yml` therefore waits for the run
+  after it opens or updates the release pull request and approves it
+  (`POST /repos/{owner}/{repo}/actions/runs/{id}/approve`, which `actions: write` allows). If
+  that step fails, approve the run from the pull request's Checks tab.
