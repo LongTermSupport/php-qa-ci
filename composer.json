@@ -27,6 +27,8 @@
     "tomasvotruba/type-coverage": "^2.3"
   },
   "require-dev": {
+    "ext-dom": "*",
+    "ext-libxml": "*",
     "roave/security-advisories": "dev-master"
   },
   "replace": {
