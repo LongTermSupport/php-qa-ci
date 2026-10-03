@@ -24,10 +24,11 @@ the procedure, what an agent may decide, and what only the Owner may. The three
 specifications are vendored verbatim under
 [remote-docs/defence-before-fix.github.io/](remote-docs/defence-before-fix.github.io/), and
 the versions this package is audited against are declared in `composer.json`
-`extra.defence-before-fix` with its known gaps. Upstream grades us clause by clause in its
-[tools register](remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md);
-[Plan 00010](CLAUDE/Plan/Completed/00010-defence-before-fix-full-conformance/PLAN.md) closed
-every gap that was not an Owner decision, and its DECISIONS.md records the ones that remain.
+`extra.defence-before-fix` with its known gaps, of which there are none at either level. Upstream
+grades us clause by clause in its
+[tools register](remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md). A gap found is
+closed, not accepted: `DefenceBeforeFixDeclarationTest` fails an accepted gap whose probe shows
+it closed.
 
 Two consequences bind every change here. A new check is a **defence** and inherits the
 method's requirements — a stable identifier, a page stating the correct construction, and a
@@ -36,6 +37,7 @@ it is a lane or an assertion. And a suppression, a baseline or a narrowing is an
 decision**, never a silent edit.
 
 <!-- phpqaci-active-defences:start -->
+
 ## php-qa-ci — Active defences
 
 Generated from this project's active configuration by `rules --write-agent-summary`; do not
@@ -104,26 +106,14 @@ dir) prints its page offline.
 - `phpqaci.yamlLint` — YAML syntax (when symfony/yaml is installed) (`docs/tools/yamlLint.md`)
 - `phpqaci.shellCheck` — ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships (`docs/tools/shellCheck.md`)
 - `phpqaci.branchNamePolicy` — Branch naming policy (PR convention) (`CLAUDE/branch-policy.md`)
-- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification, and qaConfig/defect-record.neon reads in full (`docs/tools/phpstanIgnoreJustification.md`)
+- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification (`docs/tools/phpstanIgnoreJustification.md`)
 - `phpqaci.deadCode` — dead-code detection through phpstan.phar (opt-in: withDeadCodeDetection(true) in qaConfig/qa.php) (`docs/tools/deadCode.md`)
 - `phpqaci.phpArkitect` — PHPArkitect architecture rules (on by default; useArkitect=0 to disable) (`docs/tools/phpArkitect.md`; opt-in: `useArkitect`)
-- `phpqaci.sensitiveParameterUsage` — assert #[\SensitiveParameter] is used somewhere in src/ (`docs/tools/sensitiveParameterUsage.md`)
+- `phpqaci.sensitiveParameterUsage` — assert `#[\SensitiveParameter]` is used somewhere in src/ (`docs/tools/sensitiveParameterUsage.md`)
 - `phpqaci.phpunit` — phpunit (`docs/tools/phpunit.md`)
 - `phpqaci.infection` — infection (`docs/tools/infection.md`; opt-in: `useInfection`)
 - `phpqaci.phpcpd` — copy/paste detection, informational (`docs/tools/phpcpd.md`)
 
-### Deferred defects
-
-Recorded in `qaConfig/defect-record.neon`; whether a deferred one stays unfixed is the Owner's
-decision, and the attempt at a Defence is owed when its fix is taken up.
-
-- Deferred — hooks-daemon `remote-docs refresh --all` re-captures a document recorded `fidelity: verbatim` as a conversion unless `--verbatim` is passed, so the documented refresh replaced the vendored specifications with extractions (class: a refresh that does not preserve the capture mode the stored document records; found: the hooks daemon, refreshing remote-docs/defence-before-fix.github.io/ in Plan 00016; deferred by: undecided; recorded for the Owner by the Plan 00016 agent, since the code is not in this repository)
-- Deferred — hooks-daemon v3.63.0 `tdd_enforcement` resolves the expected test file against the main checkout, not the worktree the write targets, so it denies a new src/ file in a worktree whose test is already committed there (class: a path resolved against the session root rather than the root of the checkout the path is in; found: the hooks daemon, during the Plan 00015 and Plan 00016 worktree agents; deferred by: undecided; recorded for the Owner, since the code is not in this repository and no upstream release fixes it)
-- Deferred — hooks-daemon v3.63.0 markdown formatter reformats a file holding merge-conflict markers, turning `>>>>>>>` into a blockquote line that conflict-marker checks no longer match (class: a formatter run on a file in an unresolved merge state; found: CHANGELOG.md, resolving the Plan 00016 merge into bugfix/known-defects-sweep; deferred by: undecided; fixed upstream in hooks-daemon v3.68.0 (the formatter leaves a conflicted file untouched, and conflict_marker_commit_gate denies the commit), pending the Owner upgrading the daemon)
-- Deferred — hooks-daemon v3.63.0 markdown formatter, run after any Edit to CLAUDE.md, also rewrites the generated active-defences region: it adds blank lines inside the markers and doubles the backslash in `#[\SensitiveParameter]` (class: a formatter rewriting a generated region that its generator owns; found: CLAUDE.md, editing the Plan 00010 link above the region; deferred by: undecided; recorded for the Owner, since the code is not in this repository and no upstream release names a fix)
-- Deferred — the phpArkitect lane does not honour withIgnoredPaths(), so a path a project ignores under src/ is still checked against the architecture rules (class: a lane that scans the checked paths drops the project's ignored paths; found: src/Pipeline/Lane/PhpArkitectTool.php; deferred by: undecided; arkitect excludes only by ClassSet::excludePath(), an unanchored glob, so passing src/Legacy would also drop every directory named Legacy deeper in src/. withArkitectExcludedPaths() remains the knob until the Owner accepts that or arkitect gains an anchored exclusion)
-- Deferred — the infection lane does not honour withIgnoredPaths(), so mutants in a path a project ignores under src/ still count against the MSI floors (class: a lane that scans the checked paths drops the project's ignored paths; found: src/Pipeline/Lane/InfectionTool.php; deferred by: undecided; Infection takes no exclusion on the command line, and a rewritten infection.json would have to re-anchor every relative path in it. source.excludes in infection.json remains the knob)
-- Deferred — a withIgnoredPaths() entry that matches nothing goes unreported, so a stale exclusion outlives the code it excluded (class: a declared exclusion that matches nothing, which the analysedPaths lane catches for withUnanalysedPath() but not for withIgnoredPaths(); found: qaConfig/qa.php; deferred by: undecided; failing on a missing ignored path would also fail a project whose ignored directory is generated by a build step, as the documented src/Generated example is, so the detector is an Owner decision)
 <!-- phpqaci-active-defences:end -->
 
 ## Segfaults are a halt condition (binding)
@@ -145,11 +135,17 @@ otherwise, and a green push to `php8.5` opens a release pull request whose merge
 [CLAUDE/releases.md](CLAUDE/releases.md) is the procedure: which heading a change belongs under,
 the trailer, how the release pull request works, and the repository settings it relies on.
 
-## Work happens on `php8.5` only (binding, Owner decision)
+## Work happens on `php8.5` (binding, Owner decision)
 
-Every change, fix and release is made on `php8.5`. The `php8.4` and `php8.3` branches are left
-as they are: nothing is backported to them and no issue waits on them. A defect found on an
-older line that `php8.5` does not have needs no action; one `php8.5` has is fixed there alone.
+Every change, fix and feature is made on `php8.5`, the current line.
+
+- **`php8.4`** takes a bug fix only when a project running `php8.4` reports that bug. A bug
+  found on `php8.5`, or found on `php8.4` by working on this repository, is not backported
+  proactively; it stays a known `php8.4` issue until a `php8.4` project hits it. The single
+  exception is #36 (FlipAssertRector inverts assertions), backported on the Owner's go-ahead.
+- **`php8.3`** is dead: no fixes, no releases.
+- An issue states the release line it was found on, so a report against `php8.4` is
+  recognisable as the trigger for a backport.
 
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
 
@@ -314,7 +310,7 @@ On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to
 ### Phase 3: Static Analysis Tools
 
 15. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope, and `qaConfig/defect-record.neon` (deferred defects and no-pattern conclusions) must read in full (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
 17. **PHPStan** (`phpstan`) - Static analysis tool
 18. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
 19. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.
@@ -400,23 +396,23 @@ real stdout and every line of decoration to stderr.
 Environment variables are read once by `EnvironmentReader`; `"1"`/`"true"` and `"0"`/`"false"`
 are the accepted boolean spellings. Defaults:
 
-| Variable                                        | Default               | Builder method                                                                                                     |
-| ----------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                 | (none: PHP binary for every tool)                                                                                  |
-| `phpqaQuickTests`                               | `0`                   | (none: skips PHPStan, PHPUnit and Infection)                                                                       |
-| `phpUnitQuickTests`                             | `0`                   | (none: passed through to the test suite)                                                                           |
-| `phpUnitCoverage`                               | `1`                   | `withPhpUnitCoverage(bool)`                                                                                        |
-| `phpUnitIterativeMode`                          | `0`                   | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                                     |
-| `useInfection`                                  | `1`                   | `withInfection(bool)`                                                                                              |
-| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`           | `withInfectionFloors(int, int)`                                                                                    |
-| `infectionThreads`                              | half the CPU threads  | `withInfectionThreads(int)`                                                                                        |
-| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                                         |
-| `useComposerAudit`                              | `1`                   | `withComposerAudit(bool)`                                                                                          |
-| (none)                                          | all floors off        | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType, ?int $declare)` |
-| `useArkitect`                                   | `1`                   | `withArkitect(bool)`                                                                                               |
-| `useSensitiveParameterCheck`                    | `1`                   | `withSensitiveParameterCheck(bool)`                                                                                |
-| `useChangelogCheck`                             | `0`                   | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                                         |
-| `CI`                                            | `false`               | (none: interactivity)                                                                                              |
+| Variable                                        | Default               | Builder method                                                                                      |
+| ----------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- |
+| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                 | (none: PHP binary for every tool)                                                                   |
+| `phpqaQuickTests`                               | `0`                   | (none: skips PHPStan, PHPUnit and Infection)                                                        |
+| `phpUnitQuickTests`                             | `0`                   | (none: passed through to the test suite)                                                            |
+| `phpUnitCoverage`                               | `1`                   | `withPhpUnitCoverage(bool)`                                                                         |
+| `phpUnitIterativeMode`                          | `0`                   | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                      |
+| `useInfection`                                  | `1`                   | `withInfection(bool)`                                                                               |
+| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`           | `withInfectionFloors(int, int)`                                                                     |
+| `infectionThreads`                              | half the CPU threads  | `withInfectionThreads(int)`                                                                         |
+| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                          |
+| `useComposerAudit`                              | `1`                   | `withComposerAudit(bool)`                                                                           |
+| (none)                                          | all floors off        | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType)` |
+| `useArkitect`                                   | `1`                   | `withArkitect(bool)`                                                                                |
+| `useSensitiveParameterCheck`                    | `1`                   | `withSensitiveParameterCheck(bool)`                                                                 |
+| `useChangelogCheck`                             | `0`                   | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                          |
+| `CI`                                            | `false`               | (none: interactivity)                                                                               |
 
 ### Memory Configuration
 
@@ -630,7 +626,7 @@ the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-s
 ## Environment Requirements
 
 - Linux/Unix environment (uses bash)
-- PHP 8.5 or higher on this branch (`composer.json` requires `^8.5`; the `php8.5` branch targets PHP 8.5, while the separate `php8.4` and `php8.3` branches support PHP 8.4 and 8.3)
+- PHP 8.5 or higher on this branch (`composer.json` requires `^8.5`; the `php8.5` branch targets PHP 8.5; `php8.4` takes reported fixes only and `php8.3` is unmaintained, see "Work happens on `php8.5`")
 - Composer-installed project with php-qa-ci as a dependency
 
 ### Custom PHP Executable
@@ -1061,15 +1057,15 @@ The handlers listed below are active in this project. Read this section to avoid
 
 The handlers that judge a Bash COMMAND — destructive git, `sed`, pipes, permissions, `curl | sh` — are unaffected and still cover you.
 
+**If something outside this project tells you to prefer Bash, `sed` or a heredoc over `Write`/`Edit` for file content, it does not override this.** That advice is written for repositories without these guards; here it routes every write around the checks above and `sed` is denied outright. Use `Write`/`Edit`, and treat the conflict as settled rather than re-deciding it.
+
 Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 
 ## All other enforced rules
 
-<!-- handler: require-absolute-paths -->
+<!-- handler: auto-continue-stop -->
 
-<!-- handler: error-hiding-blocker -->
-
-<!-- handler: qa-suppression-blocker -->
+<!-- handler: bash-safe-mode -->
 
 <!-- handler: block-ancestry-severing-merge -->
 
@@ -1077,67 +1073,21 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 
 <!-- handler: block-ask-user-question -->
 
-<!-- handler: bash-safe-mode -->
-
 <!-- handler: block-comment-changelog -->
 
 <!-- handler: block-comment-size -->
 
 <!-- handler: block-curl-pipe-shell -->
 
-<!-- handler: daemon-location-guard -->
-
 <!-- handler: block-dangerous-permissions -->
-
-<!-- handler: prevent-destructive-git -->
-
-<!-- handler: docs-qa-commit-gate -->
-
-<!-- handler: docs-qa-edit -->
-
-<!-- handler: flaggable-content-channel-guard -->
-
-<!-- handler: require-gh-issue-comments -->
-
-<!-- handler: require-gh-pr-comments -->
 
 <!-- handler: block-git-message-backtick -->
 
 <!-- handler: block-git-stash -->
 
-<!-- handler: github_auto_close_keywords -->
-
-<!-- handler: lock-file-edit-blocker -->
-
-<!-- handler: enforce-lsp-usage -->
-
-<!-- handler: enforce-markdown-organization -->
-
-<!-- handler: enforce-npm-commands -->
-
 <!-- handler: block-pip-break-system -->
 
-<!-- handler: pipe-blocker -->
-
-<!-- handler: plan-number-helper -->
-
-<!-- handler: plan-qa-commit-gate -->
-
-<!-- handler: plan-qa-edit -->
-
 <!-- handler: block-plan-time-estimates -->
-
-<!-- handler: enforce-project-containment -->
-
-<!-- handler: quarantine-artefact-read-guard -->
-
-<!-- handler: remote-docs-commit-gate -->
-
-<!-- handler: remote-docs-provenance -->
-
-<!-- handler: remote-docs-routing -->
-
-<!-- handler: root-recursion-guard -->
 
 <!-- handler: block-secret-file-read -->
 
@@ -1149,118 +1099,209 @@ Full detail on any rule: `bin/hooks-daemon explain-rule <ID>`.
 
 <!-- handler: block-sensitive-content -->
 
-<!-- handler: staged-lint-gate -->
-
 <!-- handler: block-sudo-pip -->
 
+<!-- handler: block-unread-overwrite -->
+
+<!-- handler: conflict-marker-commit-gate -->
+
+<!-- handler: daemon-location-guard -->
+
+<!-- handler: docs-qa-commit-gate -->
+
+<!-- handler: docs-qa-edit -->
+
+<!-- handler: enforce-lsp-usage -->
+
+<!-- handler: enforce-markdown-organization -->
+
+<!-- handler: enforce-npm-commands -->
+
+<!-- handler: enforce-project-containment -->
+
 <!-- handler: enforce-tdd -->
+
+<!-- handler: error-hiding-blocker -->
+
+<!-- handler: failsafe-cron-blockage-suppressor -->
+
+<!-- handler: github_auto_close_keywords -->
+
+<!-- handler: issue-filing-gate -->
+
+<!-- handler: lint-on-edit -->
+
+<!-- handler: lock-file-edit-blocker -->
+
+<!-- handler: lsp-noise-checker -->
+
+<!-- handler: pipe-blocker -->
+
+<!-- handler: plan-journal-guard -->
+
+<!-- handler: plan-number-helper -->
+
+<!-- handler: plan-qa-commit-gate -->
+
+<!-- handler: plan-qa-edit -->
+
+<!-- handler: prevent-destructive-git -->
+
+<!-- handler: prevent-worktree-file-copying -->
+
+<!-- handler: qa-suppression-blocker -->
+
+<!-- handler: reference-repo-freshness -->
+
+<!-- handler: remote-docs-commit-gate -->
+
+<!-- handler: remote-docs-provenance -->
+
+<!-- handler: remote-docs-routing -->
+
+<!-- handler: require-absolute-paths -->
+
+<!-- handler: require-gh-issue-comments -->
+
+<!-- handler: require-gh-pr-comments -->
+
+<!-- handler: root-recursion-guard -->
+
+<!-- handler: staged-lint-gate -->
+
+<!-- handler: subagent-cron-delete-blocker -->
+
+<!-- handler: subagent-full-qa-blocker -->
+
+<!-- handler: subagent-worktree-write-guard -->
+
+<!-- handler: upgrade-approval-guard -->
+
+<!-- handler: usage-pause-gate -->
+
+<!-- handler: usage-pause-stop-gate -->
+
+<!-- handler: usage-pause-tool-gate -->
 
 <!-- handler: validate-instruction-content -->
 
 <!-- handler: verification-result-gate -->
 
-<!-- handler: prevent-worktree-file-copying -->
-
-<!-- handler: block-unread-overwrite -->
-
-<!-- handler: lint-on-edit -->
-
-<!-- handler: failsafe-cron-blockage-suppressor -->
-
-<!-- handler: auto-continue-stop -->
-
-| ID                                 | Blocked                                                                                                            | Why                                                                                                                                                                                               | Fix                                                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| R-ABSOLUTE-PATH-REQUIRED           | `Read`/`Write`/`Edit` file_path requires absolute path                                                             | Ambiguous about the current working directory and can target the wrong file                                                                                                                       | Use an absolute path starting with /                                                                             |
-| R-ERROR-HIDING                     | an error-hiding pattern (bare except,                                                                              |                                                                                                                                                                                                   | true, empty catch, result, _ := ..., ...)                                                                        |
-| R-QA-SUPPRESSION                   | a QA suppression directive (noqa, type: ignore, eslint-disable, ...)                                               | Suppression comments hide real problems and create technical debt                                                                                                                                 | Fix the underlying issue; do not suppress the warning                                                            |
-| R-GIT-MERGE-SQUASH                 | `git merge --squash`                                                                                               | Severs ancestry -- git branch -d refuses the branch forever                                                                                                                                       | Use git merge --no-ff instead                                                                                    |
-| R-GH-PR-MERGE-SQUASH               | `gh pr merge --squash`                                                                                             | Severs ancestry -- git branch -d refuses the branch forever                                                                                                                                       | Use gh pr merge --merge instead                                                                                  |
-| R-GH-PR-MERGE-REBASE               | `gh pr merge --rebase`                                                                                             | Severs ancestry -- git branch -d refuses the branch forever                                                                                                                                       | Use gh pr merge --merge instead                                                                                  |
-| R-ARTIFACT-PUBLISH                 | publishing an artefact via the `Artifact` tool                                                                     | The page lives OUTSIDE the project and the repository cannot audit or retract it                                                                                                                  | Write the file locally and tell the user its path, or ask a human to publish                                     |
-| R-ASK-USER-QUESTION-UNJUSTIFIED    | AskUserQuestion without `ASKING BECAUSE:` prefix                                                                   | Asking pauses the session for a question the daemon cannot verify was necessary                                                                                                                   | State the assumed answer in output text and proceed, or retry every question prefixed `ASKING BECAUSE: <reason>` |
-| R-BASH-SAFE-MODE-PRELUDE-MISSING   | a sequenced Bash invocation with no `set` safety prelude                                                           | Errors in earlier statements can be silently ignored                                                                                                                                              | Add `set -euo pipefail` at the top, or gate explicitly with `&&`/\`                                              |
-| R-COMMENT-CHANGELOG                | changelog narrative in a code comment                                                                              | A comment describes CURRENT STATE; history belongs elsewhere                                                                                                                                      | Move it to git, a changelog file, or the plan's JOURNAL/                                                         |
-| R-COMMENT-SIZE                     | a comment growing past its configured size limit                                                                   | Comments should describe current state, not accumulate                                                                                                                                            | Shorten the comment, or declare MUST_EXCEED_COMMENT_SIZE_BECAUSE                                                 |
-| R-CURL-PIPE-SHELL                  | \`curl                                                                                                             | wget ...                                                                                                                                                                                          | bash                                                                                                             |
-| R-DAEMON-DIR-CD                    | `cd` into `.claude/hooks-daemon/`                                                                                  | Daemon CLI commands must be run from PROJECT ROOT, causing path confusion otherwise                                                                                                               | Run daemon commands from project root, e.g. `bin/hooks-daemon status`                                            |
-| R-CHMOD-WORLD-WRITABLE             | `chmod 777`/`chmod a+w`/`chmod o+w`                                                                                | Allows anyone to read, write, and execute, bypassing all file permission security                                                                                                                 | Use least-privilege permissions instead (755/644/600)                                                            |
-| R-GIT-RESET-HARD                   | `git reset --hard`                                                                                                 | Permanently destroys all uncommitted changes                                                                                                                                                      | Ask the user to run it manually                                                                                  |
-| R-GIT-CLEAN-FORCE                  | `git clean -f`                                                                                                     | Permanently deletes untracked files                                                                                                                                                               | Ask the user to run it manually                                                                                  |
-| R-GIT-CHECKOUT-DISCARD             | `git checkout -- <file>` / `git checkout .`                                                                        | Discards local changes to file(s) permanently                                                                                                                                                     | Ask the user to run it manually                                                                                  |
-| R-GIT-RESTORE                      | `git restore <file>`                                                                                               | Discards local changes to files permanently (`--staged`/`-S` is allowed)                                                                                                                          | Ask the user to run it manually                                                                                  |
-| R-GIT-STASH-DROP                   | `git stash drop`                                                                                                   | Permanently destroys a stashed change                                                                                                                                                             | Ask the user to run it manually                                                                                  |
-| R-GIT-STASH-CLEAR                  | `git stash clear`                                                                                                  | Permanently destroys all stashed changes                                                                                                                                                          | Ask the user to run it manually                                                                                  |
-| R-GIT-PUSH-FORCE                   | `git push --force` / `git push <remote> +<refspec>`                                                                | Can overwrite remote history and destroy team members' work                                                                                                                                       | Ask the user to run it manually, or coordinate and use `--force-with-lease`                                      |
-| R-GIT-BRANCH-FORCE-DELETE          | `git branch -D` / `git update-ref -d refs/heads/<name>`                                                            | Force-deletes a branch without checking if it has been merged                                                                                                                                     | Use `git branch -d` first (refuses unmerged branches); ask the user for -D                                       |
-| R-GIT-COMMIT-AMEND                 | `git commit --amend`                                                                                               | Rewrites the previous commit, creating messy history and potential data loss                                                                                                                      | Create a new commit instead                                                                                      |
-| R-DOCS-QA-COMMIT                   | a git commit violates a block-level docs QA staged-tree check                                                      | Most doc rot that matters at commit time is cross-file drift a single-file edit hook cannot see                                                                                                   | Fix the content per each finding's remediation below and amend the commit                                        |
-| R-DOCS-QA-EDIT                     | a documentation Write/Edit violates a block-level docs QA check                                                    | A finding only denies the write when it is BLOCK severity AND the resolved mode for that check is block                                                                                           | Fix the content per each finding's remediation below and retry                                                   |
-| R-FLAGGABLE-CONTENT-CHANNEL        | a content-revealing git/grep command shape over a flaggable path                                                   | It would reveal flaggable content inside routine command output, with no deliberate Read at all                                                                                                   | Delegate the WHOLE review to the quarantine subagent instead                                                     |
-| R-GH-ISSUE-VIEW-NO-COMMENTS        | `gh issue view` without `--comments`                                                                               | Issue comments contain critical context, clarifications and updates not in the issue body                                                                                                         | Add --comments, or include comments in --json fields                                                             |
-| R-GH-PR-VIEW-NO-COMMENTS           | `gh pr view` without `--comments`                                                                                  | PR comments contain review feedback and discussion context not in the PR body                                                                                                                     | Add --comments, or include comments in --json fields                                                             |
-| R-GIT-MESSAGE-BACKTICK             | an unescaped backtick in a double-quoted git commit/tag message                                                    | Bash performs command substitution inside double quotes -- the span is EXECUTED, not quoted                                                                                                       | Use single quotes, or git commit -F <file>                                                                       |
-| R-GIT-STASH-PUSH                   | `git stash` / `git stash push` / `git stash save`                                                                  | Stashes get forgotten, lost, and block git pull                                                                                                                                                   | Use git commit instead — WIP commits are fine                                                                    |
-| R-GH-AUTO-CLOSE-KEYWORD            | a GitHub closing keyword + issue reference in a git/gh message                                                     | Auto-closes the referenced issue/PR the moment the commit reaches the default branch, and cannot be disabled repository-side                                                                      | Use a non-closing reference instead, e.g. Addresses #123                                                         |
-| R-LOCK-FILE-EDIT                   | Direct `Write`/`Edit` of a package manager lock file                                                               | Lock files are generated artifacts; manual edits create checksum mismatches and broken dependency graphs                                                                                          | Use the package manager commands instead (e.g. `npm install`, `cargo update`)                                    |
-| R-LSP-SYMBOL-LOOKUP                | a symbol-like Grep/Bash grep lookup                                                                                | LSP tools give semantic ~50ms code intelligence; grep is slow and imprecise                                                                                                                       | Use goToDefinition/findReferences/workspaceSymbol/hover/documentSymbol instead                                   |
-| R-MARKDOWN-WRONG-LOCATION          | MARKDOWN FILE IN WRONG LOCATION — a new `.md` file written to an unrecognised location                             | Markdown files must follow project organization rules                                                                                                                                             | Move it into an allowed location, or configure `extra_allowed_markdown_paths`                                    |
-| R-MARKDOWN-UNTRACKED-MEMORY        | UNTRACKED CLAUDE MEMORY IS DISABLED FOR THIS PROJECT — a write to `~/.claude/projects/*/memory/*.md`               | That knowledge is per-checkout, un-reviewed, and invisible to teammates — it drifts from the repo and bypasses code review                                                                        | Document it in tracked project docs instead (CLAUDE.md, .claude/rules/\*.md, docs/)                              |
-| R-MARKDOWN-PLAN-SYNC               | a `.claude/settings.json` `plansDirectory` out of sync with the daemon's plan_workflow config                      | Plan workflow requires plansDirectory to match daemon config to redirect writes correctly                                                                                                         | Fix `.claude/settings.json`'s `plansDirectory` key, then restart your session                                    |
-| R-NPM-PIPED-COMMAND                | a piped `npm run`/`npx` command                                                                                    | Piping npm/npx commands is pointless — llm: cache files hold the full data                                                                                                                        | Run the plain command, then query the cache file with jq                                                         |
-| R-NPM-NON-LLM-COMMAND              | a raw `npm run`/`npx` command when llm: wrappers exist                                                             | llm: commands provide LLM-friendly, machine-readable output                                                                                                                                       | Use the project's `npm run llm:*` equivalent instead                                                             |
-| R-PIP-BREAK-SYSTEM-PACKAGES        | `pip install --break-system-packages`                                                                              | Bypasses PEP 668 protection and can corrupt the system Python installation                                                                                                                        | Use a virtual environment or `pip install --user` instead                                                        |
-| R-PIPE-TO-TAIL                     | \`                                                                                                                 | tail\`                                                                                                                                                                                            | Truncates output and causes information loss                                                                     |
-| R-PIPE-TO-HEAD                     | \`                                                                                                                 | head\`                                                                                                                                                                                            | Truncates output and causes information loss                                                                     |
-| R-PLAN-NUMBER-DISCOVERY            | a bash discovery scan (ls/find/sort+tail) for the next plan number                                                 | Misses subdirectories like Completed/ and disagrees across branches                                                                                                                               | Use the printed next plan number, or the git counter directly                                                    |
-| R-PLAN-FOLDER-MKDIR                | `mkdir <plan-dir>/NNNNN-name` (hand-creating a plan folder)                                                        | Claims a plan number the moment the folder appears, but nothing records the claim until PLAN.md is written                                                                                        | Use the mkplan.bash scaffolder instead                                                                           |
-| R-PLAN-QA-COMMIT                   | a git commit violates a block-level plan QA cross-file invariant                                                   | Most plan rot is cross-file and a single-file edit hook cannot see it                                                                                                                             | Amend the commit to also stage what each finding's remediation names below                                       |
-| R-PLAN-QA-EDIT                     | a PLAN.md/README.md Write/Edit violates a block-level plan QA check                                                | Plan QA linting catches issues you can fix immediately, before they reach commit                                                                                                                  | Fix the content per each finding's remediation below and retry                                                   |
-| R-PLAN-TIME-ESTIMATE               | Time estimates not allowed in plan documents                                                                       | Time estimates in plans create false expectations and pressure                                                                                                                                    | Break work into concrete tasks and implementation steps; let the user decide scheduling                          |
-| R-WRITE-OUTSIDE-PROJECT-ROOT       | a write whose target is outside the repository root                                                                | Outside the repo nothing is version-controlled, reviewed or durable — a container's temp directory is wiped on restart, and every other path rule is scoped to the repo so none of them judges it | Write it inside the repository — `untracked/scratch/` is the scratch location                                    |
-| R-QUARANTINE-ARTEFACT-READ         | reading a quarantined `*-opus-security-DETAIL*` artefact into the coordinator                                      | A DETAIL artefact holds raw flaggable substance meant for a human or another quarantine agent only                                                                                                | Read the paired `*-opus-security-SUMMARY*` artefact instead                                                      |
-| R-REMOTE-DOCS-STAGED-PROVENANCE    | a commit staging a remote-docs file without valid provenance frontmatter                                           | An unattributed vendored document that reaches history needs a rewrite to remove, and cannot be refreshed, dated or trusted meanwhile                                                             | Capture with `hooks-daemon remote-docs add <url>` and re-stage                                                   |
-| R-REMOTE-DOCS-PROVENANCE           | a write into the remote-docs tree without valid provenance frontmatter                                             | A vendored document with no recorded source is indistinguishable from something we wrote ourselves, and cannot be refreshed, dated or trusted                                                     | Capture with `hooks-daemon remote-docs add <url>` instead of hand-authoring                                      |
-| R-REMOTE-DOCS-VENDORED-COPY        | a WebFetch of a URL this project already holds a fresh vendored copy of                                            | The local copy is faster, costs no network round trip, and is the corpus the remote-docs tree exists to build                                                                                     | Read the local path named in the message, or refresh it if you need newer content                                |
-| R-ROOT-RECURSION-CATASTROPHIC      | `grep -r`/`find`/`rg`/... rooted at `/`, `/proc`, `/sys`, `/home`, `/root`, `~`, `$HOME`                           | Walks the entire filesystem and can pin every CPU core for hours                                                                                                                                  | Scope the search to the project (e.g. `rg -l "pattern" .`)                                                       |
-| R-SECRET-READ                      | Read/Write/Edit/NotebookEdit/Grep targeting a protected path                                                       | The file's contents must NEVER be read into context by any route — not Read, not Bash, not an interpreter one-liner, not a copy                                                                   | Use `bin/hooks-daemon secret-meta <path>` for metadata, or ask the user                                          |
-| R-SECRET-BASH-MENTION              | a Bash command whose text mentions a protected path                                                                | The file's contents must NEVER be read into context by any route — not Read, not Bash, not an interpreter one-liner, not a copy                                                                   | Use `bin/hooks-daemon secret-meta <path>` for metadata, or ask the user                                          |
-| R-SECRET-SCRIPT-AUTHOR             | a script authored via Write/Edit whose content references a protected path                                         | The file's contents must NEVER be read into context by any route — not Read, not Bash, not an interpreter one-liner, not a copy                                                                   | Use `bin/hooks-daemon secret-meta <path>` for metadata, or ask the user                                          |
-| R-SEC-CODE-INJECTION               | `eval`, `exec`, `new Function`, `__import__`, `instance_eval`, `yaml.load`                                         | Dynamic execution of a string as code                                                                                                                                                             | Avoid dynamic code execution; use safe parsing/import alternatives                                               |
-| R-SEC-CMD-INJECTION                | `os.system`, `subprocess(..., shell=True)`, `shell_exec`, `proc_open`, `Runtime.exec`, `Process.Start`, `IO.popen` | Shell command construction from untrusted input enables command injection                                                                                                                         | Use argument-list APIs (no shell=True) instead of shell string concatenation                                     |
-| R-SEC-DESERIALISATION              | `pickle.load`, `Marshal.load`, `unserialize`, `ObjectInputStream`, `XMLDecoder`, `BinaryFormatter`                 | Deserialising untrusted data can execute arbitrary code                                                                                                                                           | Use a safe serialisation format (e.g. JSON) instead                                                              |
-| R-SEC-XSS                          | `innerHTML`, `dangerouslySetInnerHTML`, `document.write`, `template.HTML`/`JS`/`URL`                               | Injects unescaped content into the DOM/output, enabling XSS                                                                                                                                       | Use the framework's safe templating/escaping APIs                                                                |
-| R-SEC-HARDCODED-CREDS              | AWS access keys, GitHub tokens, Stripe keys, private key blocks                                                    | Hardcoded credentials leak via source control history and code review                                                                                                                             | Use environment variables, never hardcode credentials                                                            |
-| R-SEC-UNSAFE-MEMORY                | Rust `from_raw_parts`, `transmute`                                                                                 | Bypasses Rust's memory/type safety guarantees                                                                                                                                                     | Use safe conversions (`as`, `From`/`Into`) or validated slice operations                                         |
-| R-SED-FILE-MODIFICATION            | `sed`                                                                                                              | Claude gets sed syntax wrong regularly and a single error can destroy hundreds of files                                                                                                           | Use the Edit tool (or parallel Haiku agents with Edit for bulk changes)                                          |
-| R-PGREP-SELF-MATCH                 | a `pgrep -f`/`pkill -f`/`ps`-piped-to-`grep` probe whose literal pattern matches this command's own argv           | The probe always finds itself, so a wait never ends and a check always lies                                                                                                                       | Bracket the first character (`pgrep -f '[p]rovision.bash'`), or wait on a log marker                             |
-| R-UNBOUNDED-LIVENESS-LOOP          | a `while`/`until` wait on a process with a sleep-only body and no cap                                              | run_in_background has no time limit, so a wrong probe waits for ever                                                                                                                              | Wrap it in `timeout 3600 bash -c '…'`, add a counter, or wait on a log marker                                    |
-| R-PGREP-UNRESOLVED-PATTERN         | a process probe whose pattern is built by expansion, inside a wait or a kill                                       | If it expands to text in this command's argv, the probe counts the caller                                                                                                                         | Bracket the pattern where it is built, or wait on a log marker                                                   |
-| R-SENSITIVE-PUBLIC-PATTERN         | content matching a configured public pattern                                                                       | The pattern is a named, safe-to-disclose signal (a path, a placeholder, profanity, ...)                                                                                                           | Remove or replace the matched text before retrying                                                               |
-| R-SENSITIVE-SECRET-TERM            | content matching a configured blocked term                                                                         | A gitignored secret word list term was found in what this call would record                                                                                                                       | Ask the user what the cited entry covers, then remove the matching text                                          |
-| R-STAGED-LINT-FAILURE              | a staged file fails the cheap syntax check at commit time                                                          | lint_on_edit only ever runs at Write/Edit time, so a git add of pre-existing content skips it entirely                                                                                            | Fix the failing file(s) above and re-stage before committing                                                     |
-| R-SUDO-PIP-INSTALL                 | `sudo pip install`                                                                                                 | Conflicts with the OS package manager and can corrupt system Python                                                                                                                               | Use a virtual environment or `pip install --user` instead                                                        |
-| R-TDD-TEST-FIRST                   | creating a production source file without its test file                                                            | TDD requires the test file to exist before the source file                                                                                                                                        | Create the test file first (RED), then the source file (GREEN)                                                   |
-| R-INSTRUCTION-IMPLEMENTATION-LOG   | implementation logs (e.g. 'created the file X', 'added the class Y')                                               | Instruction files hold permanent instructions, not a log of past edits                                                                                                                            | Remove the log sentence; put implementation history in git or a plan JOURNAL/                                    |
-| R-INSTRUCTION-STATUS-INDICATOR     | status indicators (e.g. checkmark + 'Complete', 'Done', 'Success', 'Fixed')                                        | A completion emoji records a moment in time, not a permanent fact                                                                                                                                 | Remove the status marker; instruction files describe the project, not its history                                |
-| R-INSTRUCTION-TIMESTAMP            | timestamps (ISO dates such as 2024-03-15)                                                                          | A dated entry is a log line, and instruction files are not a log                                                                                                                                  | Remove the date; if it is genuinely load-bearing, put it in git history                                          |
-| R-INSTRUCTION-LLM-SUMMARY          | LLM summaries (section headings such as '## Summary', '## Key Points', '## Overview')                              | A summary heading is the shape an LLM's own turn-report takes, not project documentation                                                                                                          | Remove the heading and fold any durable content into the surrounding instructions                                |
-| R-INSTRUCTION-TEST-OUTPUT          | test output counts (e.g. '42 tests passed', '1 test failed')                                                       | A test run's result is a point-in-time fact, not a stable instruction                                                                                                                             | Remove the count; CI already reports this on every run                                                           |
-| R-INSTRUCTION-FILE-LISTING         | changelog-style file listings (e.g. 'created src/Service/Foo.php')                                                 | A file path preceded by a past-tense action verb is changelog narrative                                                                                                                           | Remove the log line; a bare path reference used as documentation stays allowed                                   |
-| R-INSTRUCTION-CHANGE-SUMMARY       | change summaries (e.g. 'Added 15 lines', 'Removed 8 lines')                                                        | A line-count delta describes one diff, not a stable instruction                                                                                                                                   | Remove the summary; the diff itself is preserved in git                                                          |
-| R-INSTRUCTION-COMPLETION-INDICATOR | completion indicators (e.g. 'ALL DONE!', 'Task complete!', 'Finished task')                                        | A completion phrase announces a session's end, not a fact about the project                                                                                                                       | Remove the phrase; instruction files should never celebrate finishing a task                                     |
-| R-VERIFICATION-RESULT-NOT-CONSUMED | a verifier followed by a mutator with nothing consuming the result                                                 | The verifier can fail and the mutator would still run                                                                                                                                             | Gate with `&&`, an explicit exit-code check, or `set -euo pipefail`                                              |
-| R-WORKTREE-FILE-COPY               | `cp`/`mv`/`rsync` between a worktree and the main repo                                                             | Defeats worktree isolation, bypasses git tracking, and can nuke untracked work in the target directory                                                                                            | cd into the worktree, commit, then git merge back                                                                |
-| R-WRITE-CLOBBER                    | `Write` to an existing file you have not read this session                                                         | You cannot know what you are destroying, so you could not report the loss even afterwards                                                                                                         | `Read` the file then retry, or use `Edit` for a targeted change                                                  |
-| R-LINT-FAILURE                     | a written/authored file that fails its language's lint check                                                       | The write has already landed on disk; this is a failure report, not a rollback                                                                                                                    | Fix the reported problems with Edit — do not re-Write the file from scratch                                      |
-| R-FAILSAFE-CRON-SUPPRESSED         | A delivered failsafe-cron tick, while a 'blocked only on human input' marker is live                               | Every tick against a session blocked only on human input is a guaranteed no-op model turn                                                                                                         | Nothing to do -- this is expected. Send a real message to clear the marker and resume ticks                      |
-| R-FAILSAFE-CRON-BACKED-OFF         | A delivered failsafe-cron tick, while this session is producing nothing and owes no ledgered work                  | An hourly tick against a session with nothing to recover costs a full model turn and finds nothing                                                                                                | Nothing to do -- ticks continue, just less often. Any real user message restores hourly cadence                  |
-| R-STOP-QA-FAILURE                  | Stopping while the last QA tool run's own output indicated failure                                                 | QA failures detected in the last QA tool run                                                                                                                                                      | Fix the failures, re-run the QA tool, and continue without stopping                                              |
-| R-STOP-TAUTOLOGICAL-QUESTION       | Stopping behind a rhetorical continue/confirmation question                                                        | The answer is obvious -- yes, continue the already-planned work now                                                                                                                               | Resume the next unit of work immediately; STOPPING BECAUSE: does not exempt this                                 |
-| R-STOP-AFTER-TOOL-ERROR            | Stopping right after an unresolved tool_use_error                                                                  | The correct action is to address the cause and retry, not stop                                                                                                                                    | Address the tool_use_error's cause (e.g. Read before Edit/Write) and retry                                       |
-| R-STOP-CONFIRMATION-QUESTION       | Stopping to ask an obvious confirmation question                                                                   | The daemon auto-continues through confirmation-style questions                                                                                                                                    | Proceed with the remaining work; stop with STOPPING BECAUSE: only if truly stuck                                 |
-| R-STOP-NO-REASON                   | Stopping without a STOPPING BECAUSE: explanation                                                                   | The stop hook enforces intentional stops                                                                                                                                                          | Prefix your stop message with STOPPING BECAUSE: <reason>, or keep working                                        |
-| R-STOP-GOAL-LEDGER                 | Stopping while ledgered plan(s) are still In Progress                                                              | The daemon-side goal ledger owes a goal for EVERY In Progress plan, not only the newest /goal condition                                                                                           | Continue the listed plan(s), or stop with STOPPING BECAUSE: naming why each cannot proceed                       |
+| ID                                     | Blocked                                                                                                                                                                                                                                                         | Why                                                                                                                                                                                                           | Fix                                                                                                                                                                                                                   |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R-STOP-QA-FAILURE                      | Stopping while the last QA tool run's own output indicated failure                                                                                                                                                                                              | QA failures detected in the last QA tool run                                                                                                                                                                  | Fix the failures, re-run the QA tool, and continue without stopping                                                                                                                                                   |
+| R-STOP-TAUTOLOGICAL-QUESTION           | Stopping behind a rhetorical continue/confirmation question                                                                                                                                                                                                     | The answer is obvious -- yes, continue the already-planned work now                                                                                                                                           | Resume the next unit of work immediately; STOPPING BECAUSE: does not exempt this                                                                                                                                      |
+| R-STOP-AFTER-TOOL-ERROR                | Stopping right after an unresolved tool_use_error                                                                                                                                                                                                               | The correct action is to address the cause and retry, not stop                                                                                                                                                | Address the tool_use_error's cause (e.g. Read before Edit/Write) and retry                                                                                                                                            |
+| R-STOP-CONFIRMATION-QUESTION           | Stopping to ask an obvious confirmation question                                                                                                                                                                                                                | The daemon auto-continues through confirmation-style questions                                                                                                                                                | Proceed with the remaining work; stop with STOPPING BECAUSE: only if truly stuck                                                                                                                                      |
+| R-STOP-NO-REASON                       | Stopping without a STOPPING BECAUSE: explanation                                                                                                                                                                                                                | The stop hook enforces intentional stops                                                                                                                                                                      | Prefix your stop message with STOPPING BECAUSE: <reason>, or keep working                                                                                                                                             |
+| R-STOP-GOAL-LEDGER                     | Stopping while ledgered plan(s) are still In Progress                                                                                                                                                                                                           | The daemon-side goal ledger owes a goal for EVERY In Progress plan, not only the newest /goal condition                                                                                                       | Continue the listed plan(s), or stop with STOPPING BECAUSE: naming why each cannot proceed                                                                                                                            |
+| R-BASH-SAFE-MODE-PRELUDE-MISSING       | a sequenced Bash invocation with no `set` safety prelude                                                                                                                                                                                                        | Errors in earlier statements can be silently ignored                                                                                                                                                          | Add `set -euo pipefail` at the top, or gate explicitly with `&&`/\`                                                                                                                                                   |
+| R-GIT-MERGE-SQUASH                     | `git merge --squash`                                                                                                                                                                                                                                            | Severs ancestry -- git branch -d refuses the branch forever                                                                                                                                                   | Use git merge --no-ff instead                                                                                                                                                                                         |
+| R-GH-PR-MERGE-SQUASH                   | `gh pr merge --squash`                                                                                                                                                                                                                                          | Severs ancestry -- git branch -d refuses the branch forever                                                                                                                                                   | Use gh pr merge --merge instead                                                                                                                                                                                       |
+| R-GH-PR-MERGE-REBASE                   | `gh pr merge --rebase`                                                                                                                                                                                                                                          | Severs ancestry -- git branch -d refuses the branch forever                                                                                                                                                   | Use gh pr merge --merge instead                                                                                                                                                                                       |
+| R-ARTIFACT-PUBLISH                     | publishing an artefact via the `Artifact` tool                                                                                                                                                                                                                  | The page lives OUTSIDE the project and the repository cannot audit or retract it                                                                                                                              | Write the file locally and tell the user its path, or ask a human to publish                                                                                                                                          |
+| R-ASK-USER-QUESTION-UNJUSTIFIED        | AskUserQuestion without `ASKING BECAUSE:` prefix                                                                                                                                                                                                                | Asking pauses the session for a question the daemon cannot verify was necessary                                                                                                                               | State the assumed answer in output text and proceed, or retry every question prefixed `ASKING BECAUSE: <reason>`                                                                                                      |
+| R-COMMENT-CHANGELOG                    | changelog narrative in a code comment                                                                                                                                                                                                                           | A comment describes CURRENT STATE; history belongs elsewhere                                                                                                                                                  | Move it to git, a changelog file, or the plan's JOURNAL/                                                                                                                                                              |
+| R-COMMENT-SIZE                         | a comment growing past its configured size limit                                                                                                                                                                                                                | Comments should describe current state, not accumulate                                                                                                                                                        | Shorten the comment, or declare MUST_EXCEED_COMMENT_SIZE_BECAUSE                                                                                                                                                      |
+| R-CURL-PIPE-SHELL                      | \`curl                                                                                                                                                                                                                                                          | wget ...                                                                                                                                                                                                      | bash                                                                                                                                                                                                                  |
+| R-CHMOD-WORLD-WRITABLE                 | `chmod 777`/`chmod a+w`/`chmod o+w`                                                                                                                                                                                                                             | Allows anyone to read, write, and execute, bypassing all file permission security                                                                                                                             | Use least-privilege permissions instead (755/644/600)                                                                                                                                                                 |
+| R-GIT-MESSAGE-BACKTICK                 | an unescaped backtick in a double-quoted git commit/tag message                                                                                                                                                                                                 | Bash performs command substitution inside double quotes -- the span is EXECUTED, not quoted                                                                                                                   | Use single quotes, or git commit -F <file>                                                                                                                                                                            |
+| R-GIT-STASH-PUSH                       | `git stash` / `git stash push` / `git stash save`                                                                                                                                                                                                               | Stashes get forgotten, lost, and block git pull                                                                                                                                                               | Use git commit instead — WIP commits are fine                                                                                                                                                                         |
+| R-PIP-BREAK-SYSTEM-PACKAGES            | `pip install --break-system-packages`                                                                                                                                                                                                                           | Bypasses PEP 668 protection and can corrupt the system Python installation                                                                                                                                    | Use a virtual environment or `pip install --user` instead                                                                                                                                                             |
+| R-PLAN-TIME-ESTIMATE                   | Time estimates not allowed in plan documents                                                                                                                                                                                                                    | Time estimates in plans create false expectations and pressure                                                                                                                                                | Break work into concrete tasks and implementation steps; let the user decide scheduling                                                                                                                               |
+| R-SECRET-READ                          | Read/Write/Edit/NotebookEdit/Grep targeting a protected path                                                                                                                                                                                                    | The file's contents must NEVER be read into context by any route — not Read, not Bash, not an interpreter one-liner, not a copy                                                                               | Use `bin/hooks-daemon secret-meta <path>` for metadata, or ask the user                                                                                                                                               |
+| R-SECRET-BASH-MENTION                  | a Bash command whose text mentions a protected path                                                                                                                                                                                                             | The file's contents must NEVER be read into context by any route — not Read, not Bash, not an interpreter one-liner, not a copy                                                                               | Use `bin/hooks-daemon secret-meta <path>` for metadata, or ask the user                                                                                                                                               |
+| R-SECRET-SCRIPT-AUTHOR                 | a script authored via Write/Edit whose content references a protected path                                                                                                                                                                                      | The file's contents must NEVER be read into context by any route — not Read, not Bash, not an interpreter one-liner, not a copy                                                                               | Use `bin/hooks-daemon secret-meta <path>` for metadata, or ask the user                                                                                                                                               |
+| R-SECRET-EVALUATION-ERROR              | a call this guard could not finish evaluating                                                                                                                                                                                                                   | An exception during evaluation is not a decision the guard actually made -- treating it as "no match" would let a genuine protected-path mention through unexamined whenever the SAME defect crashed the scan | This is a bug in the guard itself, not something to work around -- report it via the hooks-daemon skill (issue-report)                                                                                                |
+| R-SECRET-COMMAND-UNREADABLE            | a Bash command whose structure could not be read with certainty                                                                                                                                                                                                 | A protected path could hide in a part of the command the reader cannot place, so an unreadable command is never treated as clean                                                                              | Rephrase the command: move a `case` inside `$( )` into an `if`, or put the logic in a script file under untracked/scratch/ and run that                                                                               |
+| R-SEC-CODE-INJECTION                   | `eval`, `exec`, `new Function`, `__import__`, `instance_eval`, `yaml.load`                                                                                                                                                                                      | Dynamic execution of a string as code                                                                                                                                                                         | Avoid dynamic code execution; use safe parsing/import alternatives                                                                                                                                                    |
+| R-SEC-CMD-INJECTION                    | `os.system`, `subprocess(..., shell=True)`, `shell_exec`, `proc_open`, `Runtime.exec`, `Process.Start`, `IO.popen`                                                                                                                                              | Shell command construction from untrusted input enables command injection                                                                                                                                     | Use argument-list APIs (no shell=True) instead of shell string concatenation                                                                                                                                          |
+| R-SEC-DESERIALISATION                  | `pickle.load`, `Marshal.load`, `unserialize`, `ObjectInputStream`, `XMLDecoder`, `BinaryFormatter`                                                                                                                                                              | Deserialising untrusted data can execute arbitrary code                                                                                                                                                       | Use a safe serialisation format (e.g. JSON) instead                                                                                                                                                                   |
+| R-SEC-XSS                              | `innerHTML`, `dangerouslySetInnerHTML`, `document.write`, `template.HTML`/`JS`/`URL`                                                                                                                                                                            | Injects unescaped content into the DOM/output, enabling XSS                                                                                                                                                   | Use the framework's safe templating/escaping APIs                                                                                                                                                                     |
+| R-SEC-HARDCODED-CREDS                  | AWS access keys, GitHub tokens, Stripe keys, private key blocks                                                                                                                                                                                                 | Hardcoded credentials leak via source control history and code review                                                                                                                                         | Use environment variables, never hardcode credentials                                                                                                                                                                 |
+| R-SEC-UNSAFE-MEMORY                    | Rust `from_raw_parts`, `transmute`                                                                                                                                                                                                                              | Bypasses Rust's memory/type safety guarantees                                                                                                                                                                 | Use safe conversions (`as`, `From`/`Into`) or validated slice operations                                                                                                                                              |
+| R-SED-FILE-MODIFICATION                | `sed`                                                                                                                                                                                                                                                           | Claude gets sed syntax wrong regularly and a single error can destroy hundreds of files                                                                                                                       | Use the Edit tool (or parallel Haiku agents with Edit for bulk changes)                                                                                                                                               |
+| R-PGREP-SELF-MATCH                     | a `pgrep -f`/`pkill -f`/`ps`-piped-to-`grep` probe whose literal pattern matches this command's own argv                                                                                                                                                        | The probe always finds itself, so a wait never ends and a check always lies                                                                                                                                   | Bracket the first character (`pgrep -f '[p]rovision.bash'`), or wait on a log marker                                                                                                                                  |
+| R-WAIT-ON-WRAPPER-PID                  | a wait on `$!` when the backgrounded command starts with a wrapper that forks — denied for `setsid`, advisory for `nohup sh -c`, `timeout` and `env sh -c`                                                                                                      | `$!` is the wrapper's pid, and setsid's parent exits at once, so the wait ends immediately and reports success                                                                                                | Let the job write its own pidfile, resolve the child with `pgrep -P`, or wait on a log marker                                                                                                                         |
+| R-UNBOUNDED-LIVENESS-LOOP              | a `while`/`until` wait on a process with a sleep-only body and no cap                                                                                                                                                                                           | run_in_background has no time limit, so a wrong probe waits for ever                                                                                                                                          | Wrap it in `timeout 3600 bash -c '…'`, add a counter, or wait on a log marker                                                                                                                                         |
+| R-PGREP-UNRESOLVED-PATTERN             | a process probe whose pattern is built by expansion, inside a wait or a kill                                                                                                                                                                                    | If it expands to text in this command's argv, the probe counts the caller                                                                                                                                     | Bracket the pattern where it is built, or wait on a log marker                                                                                                                                                        |
+| R-SENSITIVE-PUBLIC-PATTERN             | content matching a configured public pattern                                                                                                                                                                                                                    | The pattern is a named, safe-to-disclose signal (a path, a placeholder, profanity, ...)                                                                                                                       | Remove or replace the matched text before retrying                                                                                                                                                                    |
+| R-SENSITIVE-SECRET-TERM                | content matching a configured blocked term                                                                                                                                                                                                                      | A gitignored secret word list term was found in what this call would record                                                                                                                                   | Ask the user what the cited entry covers, then remove the matching text                                                                                                                                               |
+| R-SUDO-PIP-INSTALL                     | `sudo pip install`                                                                                                                                                                                                                                              | Conflicts with the OS package manager and can corrupt system Python                                                                                                                                           | Use a virtual environment or `pip install --user` instead                                                                                                                                                             |
+| R-WRITE-CLOBBER                        | `Write` to an existing file you have not read this session                                                                                                                                                                                                      | You cannot know what you are destroying, so you could not report the loss even afterwards                                                                                                                     | `Read` the file then retry, or use `Edit` for a targeted change                                                                                                                                                       |
+| R-CONFLICT-MARKER-COMMIT               | a commit whose added lines carry a merge-conflict marker                                                                                                                                                                                                        | A leftover marker becomes history, and one disguised by the markdown formatter reads as prose to every later check                                                                                            | Resolve the conflict at each line listed below, re-stage, and commit again                                                                                                                                            |
+| R-DAEMON-DIR-CD                        | `cd`/`pushd` into `.claude/hooks-daemon/`                                                                                                                                                                                                                       | Daemon CLI commands must be run from PROJECT ROOT, causing path confusion otherwise                                                                                                                           | Run daemon commands from project root, e.g. `bin/hooks-daemon status`                                                                                                                                                 |
+| R-DOCS-QA-COMMIT                       | a git commit violates a block-level docs QA staged-tree check                                                                                                                                                                                                   | Most doc rot that matters at commit time is cross-file drift a single-file edit hook cannot see                                                                                                               | Fix the content per each finding's remediation below and amend the commit                                                                                                                                             |
+| R-DOCS-QA-EDIT                         | a documentation Write/Edit violates a block-level docs QA check                                                                                                                                                                                                 | A finding only denies the write when it is BLOCK severity AND the resolved mode for that check is block                                                                                                       | Fix the content per each finding's remediation below and retry                                                                                                                                                        |
+| R-LSP-SYMBOL-LOOKUP                    | a symbol-like Grep/Bash grep lookup                                                                                                                                                                                                                             | LSP tools give semantic ~50ms code intelligence; grep is slow and imprecise                                                                                                                                   | Use goToDefinition/findReferences/workspaceSymbol/hover/documentSymbol instead                                                                                                                                        |
+| R-MARKDOWN-WRONG-LOCATION              | MARKDOWN FILE IN WRONG LOCATION — a new `.md` file written to an unrecognised location                                                                                                                                                                          | Markdown files must follow project organization rules                                                                                                                                                         | Move it into an allowed location, declare its sub-project under `projects:`, or configure `extra_allowed_markdown_paths`                                                                                              |
+| R-MARKDOWN-UNTRACKED-MEMORY            | UNTRACKED CLAUDE MEMORY IS DISABLED FOR THIS PROJECT — a write to `~/.claude/projects/*/memory/*.md`                                                                                                                                                            | That knowledge is per-checkout, un-reviewed, and invisible to teammates — it drifts from the repo and bypasses code review                                                                                    | Document it in tracked project docs instead (CLAUDE.md, .claude/rules/\*.md, docs/)                                                                                                                                   |
+| R-MARKDOWN-PLAN-SYNC                   | a `.claude/settings.json` `plansDirectory` out of sync with the daemon's plan_workflow config                                                                                                                                                                   | Plan workflow requires plansDirectory to match daemon config to redirect writes correctly                                                                                                                     | Fix `.claude/settings.json`'s `plansDirectory` key, then restart your session                                                                                                                                         |
+| R-NPM-PIPED-COMMAND                    | a piped `npm run`/`npx` command                                                                                                                                                                                                                                 | Piping npm/npx commands is pointless — llm: cache files hold the full data                                                                                                                                    | Run the plain command, then query the cache file with jq                                                                                                                                                              |
+| R-NPM-NON-LLM-COMMAND                  | a raw `npm run`/`npx` command when llm: wrappers exist                                                                                                                                                                                                          | llm: commands provide LLM-friendly, machine-readable output                                                                                                                                                   | Use the project's `npm run llm:*` equivalent instead                                                                                                                                                                  |
+| R-WRITE-OUTSIDE-PROJECT-ROOT           | a write whose target is outside the repository root                                                                                                                                                                                                             | Outside the repo nothing is version-controlled, reviewed or durable — a container's temp directory is wiped on restart, and every other path rule is scoped to the repo so none of them judges it             | Write it inside the repository — `untracked/scratch/` is the scratch location                                                                                                                                         |
+| R-PROJECT-CONTAINMENT-EVALUATION-ERROR | a call this guard could not finish evaluating                                                                                                                                                                                                                   | An exception during evaluation is not a decision the guard actually made -- treating it as "no match" would let a genuine out-of-root write through unexamined whenever the SAME defect crashed the check     | This is a bug in the guard itself, not something to work around -- report it via the hooks-daemon skill (issue-report)                                                                                                |
+| R-TDD-TEST-FIRST                       | creating a production source file without its test file                                                                                                                                                                                                         | TDD requires the test file to exist before the source file                                                                                                                                                    | Create the test file first (RED), then the source file (GREEN)                                                                                                                                                        |
+| R-ERROR-HIDING                         | an error-hiding pattern (bare except,                                                                                                                                                                                                                           |                                                                                                                                                                                                               | true, empty catch, result, _ := ..., ...)                                                                                                                                                                             |
+| R-FAILSAFE-CRON-SUPPRESSED             | A delivered failsafe-cron tick, while a 'blocked only on human input' marker is live                                                                                                                                                                            | Every tick against a session blocked only on human input is a guaranteed no-op model turn                                                                                                                     | Nothing to do -- this is expected. Send a real message to clear the marker and resume ticks                                                                                                                           |
+| R-FAILSAFE-CRON-BACKED-OFF             | A delivered failsafe-cron tick, while this session is producing nothing and owes no ledgered work                                                                                                                                                               | An hourly tick against a session with nothing to recover costs a full model turn and finds nothing                                                                                                            | Nothing to do -- ticks continue, just less often. Any real user message restores hourly cadence                                                                                                                       |
+| R-DECLARED-CRON-SUPPRESSED             | A delivered persistent_crons tick, while a 'blocked only on human input' marker is live                                                                                                                                                                         | A declared job's tick against a session blocked only on human input costs a full model turn                                                                                                                   | Nothing to do -- this is expected. Send a real message to clear the marker and resume ticks                                                                                                                           |
+| R-GH-AUTO-CLOSE-KEYWORD                | a GitHub closing keyword + issue reference in a git/gh message                                                                                                                                                                                                  | Auto-closes the referenced issue/PR the moment the commit reaches the default branch, and cannot be disabled repository-side                                                                                  | Use a non-closing reference instead, e.g. Addresses #123                                                                                                                                                              |
+| R-UPSTREAM-ISSUE-UNVERIFIED-BODY       | `gh issue create` against the hooks-daemon tracker with a body no generator produced                                                                                                                                                                            | that tracker is PUBLIC and an issue cannot be retracted -- a pasted config, log excerpt or absolute path costs the CLIENT permanently, while an over-redacted report costs one round trip                     | Generate the body with `hooks-daemon issue-report` and file the file it writes                                                                                                                                        |
+| R-LINT-FAILURE                         | a written/authored file that fails its language's lint check                                                                                                                                                                                                    | The write has already landed on disk; this is a failure report, not a rollback                                                                                                                                | Fix the reported problems with Edit — do not re-Write the file from scratch                                                                                                                                           |
+| R-LOCK-FILE-EDIT                       | Direct `Write`/`Edit` of a package manager lock file                                                                                                                                                                                                            | Lock files are generated artifacts; manual edits create checksum mismatches and broken dependency graphs                                                                                                      | Use the package manager commands instead (e.g. `npm install`, `cargo update`)                                                                                                                                         |
+| R-LSP-CONFIG-EXCLUDE                   | a language server config with no exclude for a tree that is not project code                                                                                                                                                                                    | The language server reports other checkouts' and fixtures' defects against this one, and a noisy stream is skimmed                                                                                            | Add the listed exclude entries (the advisory prints them ready to use); a finding that instead names an entry as harmful means REMOVE it - follow the exact instruction printed, never assume every finding means add |
+| R-LSP-SERVER-STALE                     | a running language server older than the config file its check is anchored to                                                                                                                                                                                   | It is still analysing the scope the OLD config declared                                                                                                                                                       | End the named process (the harness respawns it on the next LSP use)                                                                                                                                                   |
+| R-PIPE-TO-TAIL                         | \`                                                                                                                                                                                                                                                              | tail\`                                                                                                                                                                                                        | Truncates output and causes information loss                                                                                                                                                                          |
+| R-PIPE-TO-HEAD                         | \`                                                                                                                                                                                                                                                              | head\`                                                                                                                                                                                                        | Truncates output and causes information loss                                                                                                                                                                          |
+| R-JOURNAL-HAND-WRITTEN-ENTRY           | a plan journal entry written by hand (Edit/Write/Bash into a JOURNAL/ day-file)                                                                                                                                                                                 | Only `mkplan.bash --journal` stamps the real UTC time; hand-typed stamps have landed 40 minutes in the future                                                                                                 | Write the entry body to a fresh file under untracked/scratch/, then run `mkplan.bash --journal <plan> <category> <body-file>`                                                                                         |
+| R-PLAN-NUMBER-DISCOVERY                | a bash discovery scan (ls/find/sort+tail) for the next plan number                                                                                                                                                                                              | Misses subdirectories like Completed/ and disagrees across branches                                                                                                                                           | Use the printed next plan number, or the git counter directly                                                                                                                                                         |
+| R-PLAN-FOLDER-MKDIR                    | `mkdir <plan-dir>/NNNNN-name` (hand-creating a plan folder)                                                                                                                                                                                                     | Claims a plan number the moment the folder appears, but nothing records the claim until PLAN.md is written                                                                                                    | Use the mkplan.bash scaffolder instead                                                                                                                                                                                |
+| R-PLAN-QA-COMMIT                       | a git commit violates a block-level plan QA cross-file invariant                                                                                                                                                                                                | Most plan rot is cross-file and a single-file edit hook cannot see it                                                                                                                                         | Amend the commit to also stage what each finding's remediation names below                                                                                                                                            |
+| R-PLAN-QA-EDIT                         | a PLAN.md/README.md Write/Edit violates a block-level plan QA check                                                                                                                                                                                             | Plan QA linting catches issues you can fix immediately, before they reach commit                                                                                                                              | Fix the content per each finding's remediation below and retry                                                                                                                                                        |
+| R-GIT-RESET-HARD                       | `git reset --hard`                                                                                                                                                                                                                                              | Permanently destroys all uncommitted changes                                                                                                                                                                  | Ask the user to run it manually                                                                                                                                                                                       |
+| R-GIT-CLEAN-FORCE                      | `git clean -f`                                                                                                                                                                                                                                                  | Permanently deletes untracked files                                                                                                                                                                           | Ask the user to run it manually                                                                                                                                                                                       |
+| R-GIT-CHECKOUT-DISCARD                 | `git checkout -- <file>` / `git checkout .`                                                                                                                                                                                                                     | Discards local changes to file(s) permanently                                                                                                                                                                 | Ask the user to run it manually                                                                                                                                                                                       |
+| R-GIT-RESTORE                          | `git restore <file>`                                                                                                                                                                                                                                            | Discards local changes to files permanently (`--staged`/`-S` is allowed)                                                                                                                                      | Ask the user to run it manually                                                                                                                                                                                       |
+| R-GIT-STASH-DROP                       | `git stash drop`                                                                                                                                                                                                                                                | Permanently destroys a stashed change                                                                                                                                                                         | Ask the user to run it manually                                                                                                                                                                                       |
+| R-GIT-STASH-CLEAR                      | `git stash clear`                                                                                                                                                                                                                                               | Permanently destroys all stashed changes                                                                                                                                                                      | Ask the user to run it manually                                                                                                                                                                                       |
+| R-GIT-PUSH-FORCE                       | `git push --force` / `git push <remote> +<refspec>`                                                                                                                                                                                                             | Can overwrite remote history and destroy team members' work                                                                                                                                                   | Ask the user to run it manually, or coordinate and use `--force-with-lease`                                                                                                                                           |
+| R-GIT-BRANCH-FORCE-DELETE              | `git branch -D` / `git update-ref -d refs/heads/<name>` of a branch no remote holds                                                                                                                                                                             | Force-deletes a branch without a merge check; a tip on no remote loses its commits                                                                                                                            | Push the branch (`git push -u origin <name>`) and retry; a branch a remote holds is deleted freely                                                                                                                    |
+| R-GIT-COMMIT-AMEND                     | `git commit --amend`                                                                                                                                                                                                                                            | Rewrites the previous commit, creating messy history and potential data loss                                                                                                                                  | Create a new commit instead                                                                                                                                                                                           |
+| R-GIT-CHECKOUT-FORCE                   | `git checkout -f` / `git checkout --force`                                                                                                                                                                                                                      | Discards every uncommitted change in the working tree, naming no file                                                                                                                                         | Commit or stash first; ask the user if the discard is genuinely wanted                                                                                                                                                |
+| R-GIT-SWITCH-FORCE                     | `git switch -f` / `git switch --discard-changes`                                                                                                                                                                                                                | Discards every uncommitted change — the `switch` spelling of `checkout -f`                                                                                                                                    | Commit or stash first; `git switch <branch>` alone is never blocked                                                                                                                                                   |
+| R-GIT-REFLOG-EXPIRE                    | `git reflog expire --expire=now`                                                                                                                                                                                                                                | Destroys the reflog, which is the recovery route the other rules assume                                                                                                                                       | Use a real expiry window (`--expire=90.days.ago`), which is not blocked                                                                                                                                               |
+| R-GIT-GC-PRUNE-NOW                     | `git gc --prune=now`                                                                                                                                                                                                                                            | Drops unreachable objects immediately, so reflog-only history is gone                                                                                                                                         | Plain `git gc` and `git gc --auto` are not blocked; use a prune window                                                                                                                                                |
+| R-GIT-FILTER-HISTORY                   | `git filter-branch` / `git filter-repo`                                                                                                                                                                                                                         | Rewrites every commit in the history                                                                                                                                                                          | Ask the user to run it manually, on a fresh clone with a backup ref                                                                                                                                                   |
+| R-WORKTREE-FILE-COPY                   | `cp`/`mv`/`rsync` between a worktree and the main repo                                                                                                                                                                                                          | Defeats worktree isolation, bypasses git tracking, and can nuke untracked work in the target directory                                                                                                        | cd into the worktree, commit, then git merge back                                                                                                                                                                     |
+| R-QA-SUPPRESSION                       | a QA suppression directive (noqa, type: ignore, eslint-disable, ...)                                                                                                                                                                                            | Suppression comments hide real problems and create technical debt                                                                                                                                             | Fix the underlying issue; do not suppress the warning                                                                                                                                                                 |
+| R-REFERENCE-REPO-STALE                 | a read of a governed reference clone that is behind or off its default branch                                                                                                                                                                                   | reasoning from a stale clone produces conclusions indistinguishable from correct ones -- no error, no failing test, just a wrong answer                                                                       | Run the `fix:` command printed beside the repo, then retry the read                                                                                                                                                   |
+| R-REFERENCE-REPO-NOT-VERIFIED          | a read of a governed reference clone with no in-date freshness reading                                                                                                                                                                                          | nobody has checked this clone, which is a different fact from it being stale -- and treating the two the same either cries wolf or gives false comfort                                                        | Run `hooks-daemon reference-repos` to fetch every governed repo and refresh                                                                                                                                           |
+| R-REMOTE-DOCS-STAGED-PROVENANCE        | a commit staging a remote-docs file without valid provenance frontmatter                                                                                                                                                                                        | An unattributed vendored document that reaches history needs a rewrite to remove, and cannot be refreshed, dated or trusted meanwhile                                                                         | Capture with `hooks-daemon remote-docs add <url>` and re-stage                                                                                                                                                        |
+| R-REMOTE-DOCS-PROVENANCE               | a write into the remote-docs tree without valid provenance frontmatter                                                                                                                                                                                          | A vendored document with no recorded source is indistinguishable from something we wrote ourselves, and cannot be refreshed, dated or trusted                                                                 | Capture with `hooks-daemon remote-docs add <url>` instead of hand-authoring                                                                                                                                           |
+| R-REMOTE-DOCS-VENDORED-COPY            | a WebFetch of a URL this project already holds a fresh vendored copy of                                                                                                                                                                                         | The local copy is faster, costs no network round trip, and is the corpus the remote-docs tree exists to build                                                                                                 | Read the local path named in the message, or refresh it if you need newer content                                                                                                                                     |
+| R-ABSOLUTE-PATH-REQUIRED               | `Read`/`Write`/`Edit` file_path requires absolute path                                                                                                                                                                                                          | Ambiguous about the current working directory and can target the wrong file                                                                                                                                   | Use an absolute path starting with /                                                                                                                                                                                  |
+| R-GH-ISSUE-VIEW-NO-COMMENTS            | `gh issue view` without `--comments`                                                                                                                                                                                                                            | Issue comments contain critical context, clarifications and updates not in the issue body                                                                                                                     | Add --comments, or include comments in --json fields                                                                                                                                                                  |
+| R-GH-PR-VIEW-NO-COMMENTS               | `gh pr view` without `--comments`                                                                                                                                                                                                                               | PR comments contain review feedback and discussion context not in the PR body                                                                                                                                 | Add --comments, or include comments in --json fields                                                                                                                                                                  |
+| R-ROOT-RECURSION-CATASTROPHIC          | `grep -r`/`find`/`rg`/... rooted at `/`, `/proc`, `/sys`, `/home`, `/root`, `~`, `$HOME`                                                                                                                                                                        | Walks the entire filesystem and can pin every CPU core for hours                                                                                                                                              | Scope the search to the project (e.g. `rg -l "pattern" .`)                                                                                                                                                            |
+| R-STAGED-LINT-FAILURE                  | a staged file fails the cheap syntax check at commit time                                                                                                                                                                                                       | lint_on_edit only ever runs at Write/Edit time, so a git add of pre-existing content skips it entirely                                                                                                        | Fix the failing file(s) above and re-stage before committing                                                                                                                                                          |
+| R-SUBAGENT-CRON-DELETE                 | `CronDelete` called from inside a subagent                                                                                                                                                                                                                      | A session cron belongs to the coordinator's session, which is the session that loses coverage when it goes                                                                                                    | Report the cron id and your reasoning to the coordinator and let it decide                                                                                                                                            |
+| R-SUBAGENT-FULL-QA                     | a full-suite QA run inside a sub-agent (a declared `full_qa_patterns` command)                                                                                                                                                                                  | Concurrent full runs across agents exhaust the host, and the coordinator runs the full gate over every ready branch anyway                                                                                    | Run targeted QA on what you changed, commit, and hand the commit to the coordinator                                                                                                                                   |
+| R-SUBAGENT-CROSS-WORKTREE-WRITE        | a subagent's Write/Edit/NotebookEdit into another checkout of its repository                                                                                                                                                                                    | Edits land uncommitted in a branch nobody on this task owns, and a later commit there carries them under the wrong branch's name                                                                              | Write only inside your own worktree; report any cross-branch need to the coordinator                                                                                                                                  |
+| R-UPGRADE-APPROVAL-AGENT               | an agent action that grants or forges the owner's upgrade approval (running `approve-upgrade`, writing/touching a marker under `upgrade-approvals/`, forging a venv `.daemon-version` stamp, or moving the `.claude/hooks-daemon` clone to another ref by hand) | Approving a breaking upgrade is the project OWNER's step, not the agent's — the gate exists so a human reads what changed before it happens                                                                   | Report the gate's reasons to the user and stop; the owner runs `hooks-daemon approve-upgrade <version> --from <previous>` in their own terminal (it requires a TTY and a typed confirmation phrase)                   |
+| R-UPGRADE-APPROVAL-ENV-BYPASS          | a Bash command that sets `HOOKS_DAEMON_UPGRADE_HANDOFF`, or runs an upgrade with a variable that picks its interpreter, venv, flags or code, or passes `--uv <path>`                                                                                            | The upgrade and its pre-deploy gate run as shipped, not as an agent steers them                                                                                                                               | Run the upgrade with no such variable set; if it cannot run, tell the user                                                                                                                                            |
+| R-USAGE-PAUSE-PROMPT                   | A prompt, cron tick or supervisor message while the session is paused on its usage ceiling                                                                                                                                                                      | The session stopped taking on work to keep the account under its usage ceiling, and each prompt would cost a full model turn                                                                                  | Nothing to do -- the session resumes by itself at the window reset; a human can override it with `bin/hooks-daemon usage-pause clear` (run in a terminal)                                                             |
+| R-USAGE-PAUSE-STOP                     | a stop while a usage-paused session's crons are not exactly the one resume cron                                                                                                                                                                                 | A paused session is woken only by its resume cron, so any other cron would drive it past the usage ceiling and a missing one would never wake it                                                              | CronList, CronDelete every cron, CronCreate the one resume cron as the pause directive gave it, then stop again                                                                                                       |
+| R-USAGE-PAUSE-TOOL                     | any tool except CronCreate, CronDelete, CronList, SendMessage, TaskStop, ToolSearch while the session is paused on its usage ceiling                                                                                                                            | The session stopped taking on work to keep the account under its usage ceiling                                                                                                                                | Replace the session's crons with the one resume cron, then stop; the session resumes at the window reset                                                                                                              |
+| R-INSTRUCTION-IMPLEMENTATION-LOG       | implementation logs (e.g. 'created the file X', 'added the class Y')                                                                                                                                                                                            | Instruction files hold permanent instructions, not a log of past edits                                                                                                                                        | Remove the log sentence; put implementation history in git or a plan JOURNAL/                                                                                                                                         |
+| R-INSTRUCTION-STATUS-INDICATOR         | status indicators (e.g. checkmark + 'Complete', 'Done', 'Success', 'Fixed')                                                                                                                                                                                     | A completion emoji records a moment in time, not a permanent fact                                                                                                                                             | Remove the status marker; instruction files describe the project, not its history                                                                                                                                     |
+| R-INSTRUCTION-TIMESTAMP                | timestamps (ISO dates such as 2024-03-15)                                                                                                                                                                                                                       | A dated entry is a log line, and instruction files are not a log                                                                                                                                              | Remove the date; if it is genuinely load-bearing, put it in git history                                                                                                                                               |
+| R-INSTRUCTION-LLM-SUMMARY              | LLM summaries (section headings such as '## Summary', '## Key Points', '## Overview')                                                                                                                                                                           | A summary heading is the shape an LLM's own turn-report takes, not project documentation                                                                                                                      | Remove the heading and fold any durable content into the surrounding instructions                                                                                                                                     |
+| R-INSTRUCTION-TEST-OUTPUT              | test output counts (e.g. '42 tests passed', '1 test failed')                                                                                                                                                                                                    | A test run's result is a point-in-time fact, not a stable instruction                                                                                                                                         | Remove the count; CI already reports this on every run                                                                                                                                                                |
+| R-INSTRUCTION-FILE-LISTING             | changelog-style file listings (e.g. 'created src/Service/Foo.php')                                                                                                                                                                                              | A file path preceded by a past-tense action verb is changelog narrative                                                                                                                                       | Remove the log line; a bare path reference used as documentation stays allowed                                                                                                                                        |
+| R-INSTRUCTION-CHANGE-SUMMARY           | change summaries (e.g. 'Added 15 lines', 'Removed 8 lines')                                                                                                                                                                                                     | A line-count delta describes one diff, not a stable instruction                                                                                                                                               | Remove the summary; the diff itself is preserved in git                                                                                                                                                               |
+| R-INSTRUCTION-COMPLETION-INDICATOR     | completion indicators (e.g. 'ALL DONE!', 'Task complete!', 'Finished task')                                                                                                                                                                                     | A completion phrase announces a session's end, not a fact about the project                                                                                                                                   | Remove the phrase; instruction files should never celebrate finishing a task                                                                                                                                          |
+| R-VERIFICATION-RESULT-NOT-CONSUMED     | a verifier followed by a mutator with nothing consuming the result                                                                                                                                                                                              | The verifier can fail and the mutator would still run                                                                                                                                                         | Gate with `&&`, an explicit exit-code check, or `set -euo pipefail`                                                                                                                                                   |
 
 ## Advisories and other active handlers
 
@@ -1270,113 +1311,105 @@ One line each; these fire with their own guidance when relevant. Full text: `bin
 
 - agent_isolation_advisor — isolate concurrent agents
 
-<!-- handler: verify-daemon-restart -->
+<!-- handler: agent-terminated-early-failure-detector -->
 
-- daemon_restart_verifier — restart the daemon before committing
-
-<!-- handler: dispatch-declaration -->
-
-- dispatch_declaration — declare where a subagent's reports go
-
-<!-- handler: flaggable-work-advisor -->
-
-- flaggable_work_advisor — delegate flaggable work BEFORE reading it
-
-<!-- handler: plan-workflow-guidance -->
-
-- plan_workflow — PLAN.md, supporting docs and JOURNAL/ obey DIFFERENT contracts
-
-<!-- handler: background-process-tracker -->
-
-- background_process_tracker — backgrounded processes are tracked
-
-<!-- handler: budget-exhaustion-detector -->
-
-- budget_exhaustion_detector — hidden agent budgets are surfaced
-
-<!-- handler: command-hints -->
-
-- command_hints — advisory reminders after specific commands
-
-<!-- handler: git-hooks-executable-fixer -->
-
-- git_hooks_executable_fixer — auto-fixes non-executable git hooks
-
-<!-- handler: goal-injection -->
-
-- goal_injection — plan-start goal signal for the ccy supervisor
-
-<!-- handler: markdown-table-formatter -->
-
-- markdown_table_formatter — markdown tables are auto-aligned
-
-<!-- handler: model-downgrade-recorder -->
-
-- model_downgrade_recorder — the automatic model downgrade is written down
-
-<!-- handler: recovery-cron-advisor -->
-
-- recovery_cron_advisor — failsafe recovery cron lifecycle advisory
-
-<!-- handler: ccy-supervisor-integrity -->
-
-- ccy_supervisor_integrity — keep the ccy supervisor properly set up
-
-<!-- handler: git-upstream-checker -->
-
-- git_upstream_checker — additive fetch + pull/cleanup advice on session start
-
-<!-- handler: hook-registration-checker -->
-
-- hook_registration_checker — hooks configuration policy
-
-<!-- handler: project-handler-load-checker -->
-
-- project_handler_load_checker — project protection degraded alert
-
-<!-- handler: secret-file-hygiene-checker -->
-
-- secret_file_hygiene_checker -- on-disk hygiene for protected paths
-
-<!-- handler: docs-qa-sweep -->
-
-- docs_qa_sweep — documentation drift report at session start
-
-<!-- handler: model-fallback-detector -->
-
-- model_fallback_detector — silent model substitution is surfaced
-
-<!-- handler: plan-qa-sweep -->
-
-- plan_qa_sweep — plan-tree drift report at session start
-
-<!-- handler: plan-workflow-asset-checker -->
-
-- plan_workflow_asset_checker — plan tooling provisioning alert
-
-<!-- handler: tool-disable-advisor -->
-
-- tool_disable_advisor — declared never-want tools are checked at session start
-
-<!-- handler: idle-housekeeping-advisory -->
-
-- idle_housekeeping_advisory — report-first idle housekeeping (beta, opt-in)
-
-<!-- handler: standing-authorisations -->
-
-- standing_authorisations — a project can record a standing request
+- agent_terminated_early_failure_detector — a dead foreground sub-agent is surfaced on PostToolUseFailure
 
 <!-- handler: auto-approve-reads -->
 
 - auto_approve_reads — gated on bypassPermissions mode
 
-<!-- handler: subagent-report-size-blocker -->
+<!-- handler: background-process-tracker -->
 
-- subagent_report_size_blocker — write large reports to a file
+- background_process_tracker — backgrounded processes are tracked
 
-<!-- handler: worktree-create -->
+<!-- handler: branch-count-advisor -->
 
-- worktree_create — semantic worktree naming
+- branch_count_advisor — keep open work branches few
+
+<!-- handler: budget-exhaustion-detector -->
+
+- budget_exhaustion_detector — hidden agent budgets are surfaced
+
+<!-- handler: ccy-supervisor-integrity -->
+
+- ccy_supervisor_integrity — keep the ccy supervisor properly set up
+
+<!-- handler: command-hints -->
+
+- command_hints — advisory reminders after specific commands
+
+<!-- handler: cron-stop-enforcer -->
+
+- cron_stop_enforcer — declared crons are verified, not just asked for
+
+<!-- handler: cron-subagent-stop-enforcer -->
+
+- cron_subagent_stop_enforcer — SubagentStop twin of `cron_stop_enforcer`
+
+<!-- handler: daemon-sync-after-merge -->
+
+- daemon_sync_after_merge — a pull can leave the daemon stale
+
+<!-- handler: daemon-upgrade-detector -->
+
+- daemon_upgrade_detector — a running daemon notices its own upgrade
+
+<!-- handler: deployed-artefact-drift -->
+
+- deployed_artefact_drift — a deployed file has moved away from its template
+
+<!-- handler: dispatch-declaration -->
+
+- dispatch_declaration — declare where a subagent's reports go
+
+<!-- handler: docs-qa-sweep -->
+
+- docs_qa_sweep — documentation drift report at session start
+
+<!-- handler: failsafe-cron-session-advisor -->
+
+- failsafe_cron_session_advisor — the failsafe cron from session start
+
+<!-- handler: git-hooks-executable-fixer -->
+
+- git_hooks_executable_fixer — auto-fixes non-executable git hooks
+
+<!-- handler: git-upstream-checker -->
+
+- git_upstream_checker — additive fetch + pull/cleanup advice on session start
+
+<!-- handler: goal-injection -->
+
+- goal_injection — plan-start goal signal for the ccy supervisor
+
+<!-- handler: hook-registration-checker -->
+
+- hook_registration_checker — hooks configuration policy
+
+<!-- handler: idle-housekeeping-advisory -->
+
+- idle_housekeeping_advisory — report-first idle housekeeping (beta, opt-in)
+
+<!-- handler: markdown-table-formatter -->
+
+- markdown_table_formatter — markdown tables are auto-aligned
+
+<!-- handler: merge-qa-advisor -->
+
+- merge_qa_advisor — merge a work branch with its targeted QA recorded
+
+<!-- handler: merge-qa-report -->
+
+- merge_qa_report — post-hoc plan/docs QA report after a merge
+
+<!-- handler: model-downgrade-recorder -->
+
+- model_downgrade_recorder — the automatic model downgrade is written down
+
+<!-- handler: model-fallback-detector -->
+
+- model_fallback_detector — silent model substitution is surfaced
 
 <!-- handler: nitpick-dismissive-language -->
 
@@ -1385,5 +1418,73 @@ One line each; these fire with their own guidance when relevant. Full text: `bin
 <!-- handler: nitpick-hedging-language -->
 
 - nitpick.hedging_language — the guessing is the defect, not the wording
+
+<!-- handler: persistent-cron-assertor -->
+
+- persistent_cron_assertor — declared crons are re-established each session
+
+<!-- handler: plan-qa-sweep -->
+
+- plan_qa_sweep — plan-tree drift report at session start
+
+<!-- handler: plan-status-snapshot -->
+
+- plan_status_snapshot — pre-write PLAN.md status snapshot
+
+<!-- handler: plan-workflow-asset-checker -->
+
+- plan_workflow_asset_checker — plan tooling provisioning alert
+
+<!-- handler: plan-workflow-guidance -->
+
+- plan_workflow — PLAN.md, supporting docs and JOURNAL/ obey DIFFERENT contracts
+
+<!-- handler: project-handler-load-checker -->
+
+- project_handler_load_checker — project protection degraded alert
+
+<!-- handler: recovery-cron-advisor -->
+
+- recovery_cron_advisor — failsafe recovery cron lifecycle advisory
+
+<!-- handler: reference-repo-sweep -->
+
+- reference_repo_sweep — reference clones are made fresh before you read them
+
+<!-- handler: routine-qa-sweep -->
+
+- routine_qa_sweep — recurring work that has stopped recurring
+
+<!-- handler: secret-file-hygiene-checker -->
+
+- secret_file_hygiene_checker -- on-disk hygiene for protected paths
+
+<!-- handler: session-actions-directive -->
+
+- session_actions_directive — the must-do list is delivered as a turn
+
+<!-- handler: standing-authorisations -->
+
+- standing_authorisations — a project can record a standing request
+
+<!-- handler: subagent-report-path-verifier -->
+
+- subagent_report_path_verifier — a claimed report path must exist
+
+<!-- handler: subagent-report-persistence -->
+
+- subagent_report_persistence — every sub-agent reply is saved to a file
+
+<!-- handler: subagent-report-size-blocker -->
+
+- subagent_report_size_blocker — write large reports to a file
+
+<!-- handler: tool-disable-advisor -->
+
+- tool_disable_advisor — declared never-want tools are checked at session start
+
+<!-- handler: worktree-create -->
+
+- worktree_create — semantic worktree naming
 
 </hooksdaemon>

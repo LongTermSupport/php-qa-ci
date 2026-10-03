@@ -1,0 +1,41 @@
+---
+title: "methodTag.internalInterface"
+shortDescription: "PHPDoc @method tag references an internal interface."
+ignorable: true
+---
+
+## Code example
+
+```php
+<?php declare(strict_types = 1);
+
+namespace Vendor {
+	/** @internal */
+	interface InternalInterface {}
+}
+
+namespace App {
+	/**
+	 * @method \Vendor\InternalInterface getHandler()
+	 */
+	class MyClass {}
+}
+```
+
+## Why is it reported?
+
+The `@method` PHPDoc tag declares a magic method whose signature references an interface that is marked as `@internal` in another package. Internal types are not part of the public API and may change or be removed without notice. Depending on them from outside the package creates fragile coupling.
+
+## How to fix it
+
+Replace the internal interface reference with a public API type from the package, or define a local interface that mirrors the needed contract:
+
+```diff-php
+ namespace App {
+ 	/**
+-	 * @method \Vendor\InternalInterface getHandler()
++	 * @method \Vendor\PublicInterface getHandler()
+ 	 */
+ 	class MyClass {}
+ }
+```

@@ -132,7 +132,7 @@ CLAUDE/Plan/NNNNN-name/
   DECISIONS.md                     # optional: another one — as many as needed
   assets/                          # optional: diagrams, logs, non-markdown artefacts
   JOURNAL/
-    NNNNN-Journal-YY-MM-DD.md      # one file per LOCAL day with activity
+    NNNNN-Journal-YY-MM-DD.md      # one file per day with activity
     NNNNN-Journal-YY-MM-DD.md
 ```
 
@@ -145,8 +145,9 @@ CLAUDE/Plan/NNNNN-name/
   folder — so archiving a plan (`git mv` into `Completed/`) carries the journal
   (and every supporting document) for free.
 - Day-files are named `NNNNN-Journal-YY-MM-DD.md`: the redundant `NNNNN` plan
-  number survives copy/paste and greps cleanly; `YY-MM-DD` is the local day.
-- **One file per local day.** Multiple entries append to that day's file. A day
+  number survives copy/paste and greps cleanly; `YY-MM-DD` is the day, in UTC
+  for a day-file `mkplan.bash` created (legacy day-files use the local day).
+- **One file per day.** Multiple entries append to that day's file. A day
   with no activity has **no file** — never scaffold empty day-files.
 - `mkplan.bash` scaffolds `JOURNAL/` plus a seeded day-1 file automatically when
   a `_JOURNAL_TEMPLATE_.md` is present in the plan directory.
@@ -159,10 +160,15 @@ Each entry is a heading with a fixed grammar followed by a free markdown body:
 ## HH:MM · CATEGORY · REF   [— optional short title]
 ```
 
-- **`HH:MM`** — local 24-hour time (the date lives in the filename). Times run
-  monotonically down a file.
+- **`HH:MM`** — 24-hour time (the date lives in the filename). An entry appended
+  with `mkplan.bash --journal <plan-number> <category> <body-file>` is stamped
+  by the script in UTC, and a day-file the scaffolder created records that in a
+  sentinel line in its preamble; a day-file without that line predates it, and
+  its times are local with the zone unrecorded. Times run monotonically down a
+  file.
 - **`CATEGORY`** — one of a small fixed core set:
-  `action` · `finding` · `decision` · `thought` · `blocker` · `handoff`.
+  `action` · `finding` · `decision` · `thought` · `blocker` · `handoff` ·
+  `correction`.
   (Clients may extend this set — that is *convention*, not enforced.)
 - **`REF`** — optional task/phase reference (`T2.1`, `P2`, or `—` for none).
 - Separator is the middot `·` (U+00B7).
@@ -174,7 +180,11 @@ Bodies may embed fenced logs, diffs, or code snippets — put a one-line takeawa
 
 A journal is **append-only**. New entries go at the **bottom**; earlier entries
 are never edited. **Corrections are new entries**, not rewrites — if you got
-something wrong at 09:00, add an 11:00 `finding` entry that corrects it. This
+something wrong at 09:00, append a `correction` entry naming it:
+`mkplan.bash --journal <plan-number> correction <body-file> --ref 09:00`, or
+`--ref YY-MM-DD/09:00` for an entry in an earlier day-file. The `--ref` is
+required and must name an existing entry; the corrected entry is never edited
+or moved. This
 keeps the log an honest record of what was believed when, and lets the daemon's
 `journal-append-only` check confirm each edit only adds.
 

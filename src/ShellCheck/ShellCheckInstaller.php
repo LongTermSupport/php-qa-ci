@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\ShellCheck;
 
+use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\Pipeline\Config\ShellCheckBinary;
 use PharData;
 use RuntimeException;
@@ -108,31 +109,31 @@ final readonly class ShellCheckInstaller
     {
         $this->write($message);
 
-        $staging = $this->stagingDirectory();
+        $staging = TemporaryDirectory::create('phpqa-shellcheck');
 
         try {
-            $archive = $staging . '/shellcheck.tar.gz';
+            $archive = $staging->path . '/shellcheck.tar.gz';
             $this->download(\sprintf(self::DOWNLOAD_URL, $version, ShellCheckBinary::ARCHITECTURE), $archive);
 
             $entry = \sprintf('shellcheck-%s/shellcheck', $version);
-            new PharData($archive)->extractTo($staging, $entry, true);
+            new PharData($archive)->extractTo($staging->path, $entry, true);
 
             $binary = ShellCheckBinary::path($libraryRoot);
             if (!is_dir(\dirname($binary))) {
                 \Safe\mkdir(\dirname($binary), 0o755, true);
             }
 
-            \Safe\rename($staging . '/' . $entry, $binary);
+            \Safe\rename($staging->path . '/' . $entry, $binary);
             \Safe\chmod($binary, 0o755);
             \Safe\file_put_contents($libraryRoot . '/' . ShellCheckBinary::VERSION_FILE, $version . "\n");
         } catch (Throwable $throwable) {
-            $this->remove($staging);
+            $staging->remove();
             $this->write('ERROR: could not install ShellCheck ' . $version . ': ' . $throwable->getMessage(), \STDERR);
 
             return 1;
         }
 
-        $this->remove($staging);
+        $staging->remove();
         $this->write('IMPORTANT: ShellCheck is tracked in git. Commit vendor-bin/shellcheck and vendor-bin/shellcheck.version.');
 
         return 0;
@@ -207,39 +208,6 @@ final readonly class ShellCheckInstaller
     private function isMaintainerEnvironment(): bool
     {
         return null !== new ExecutableFinder()->find('phive');
-    }
-
-    private function stagingDirectory(): string
-    {
-        $path = \Safe\tempnam(sys_get_temp_dir(), 'phpqa-shellcheck');
-        \Safe\unlink($path);
-        \Safe\mkdir($path, 0o700, true);
-
-        return $path;
-    }
-
-    private function remove(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            return;
-        }
-
-        foreach (\Safe\scandir($directory) as $entry) {
-            if (!\is_string($entry) || '.' === $entry || '..' === $entry) {
-                continue;
-            }
-
-            $path = $directory . '/' . $entry;
-            if (is_dir($path)) {
-                $this->remove($path);
-
-                continue;
-            }
-
-            $this->write('Note: could not remove the temporary file ' . $path, \STDERR);
-        }
-
-        $this->write('Note: could not remove the temporary directory ' . $directory, \STDERR);
     }
 
     /** @param resource $stream */

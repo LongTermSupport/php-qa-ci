@@ -25,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(InfectionArguments::class)]
 #[UsesClass(InfectionDiffFilter::class)]
 #[UsesClass(InfectionDiffFilterDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -53,6 +55,12 @@ final class InfectionToolTest extends TestCase
     private const string COVERED_FLOOR_ARG = '--min-covered-msi=76';
 
     private const string SRC_DIR = '/src';
+
+    private const string PROJECT_CONFIG = 'qaConfig/infection.json';
+
+    private const string CONFIGURATION_ARG = '--configuration=';
+
+    private const string LEGACY = 'src/Legacy';
 
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4'];
 
@@ -102,7 +110,7 @@ final class InfectionToolTest extends TestCase
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
             '--threads=4',
-            '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
+            self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
             '--min-msi=74',
             self::COVERED_FLOOR_ARG,
             '--log-verbosity=all',
@@ -236,11 +244,100 @@ final class InfectionToolTest extends TestCase
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
             '--threads=4',
-            '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
+            self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
             self::COVERED_FLOOR_ARG,
             $this->root . '/src/Committed.php',
         ], \array_slice($phar->command, 6));
         self::assertTrue($phar->lowPriority);
+    }
+
+    #[Test]
+    public function anIgnoredSourcePathReachesInfectionThroughADerivedConfig(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}, "tmpDir": "../var/qa/infection/tmp"}');
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willSucceed();
+
+        $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY, 'tests/assets')));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertContains(self::CONFIGURATION_ARG . $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG, $this->factory->processes->lastSpec()->command);
+        self::assertSame(
+            ['source' => ['directories' => [$this->root . self::SRC_DIR], 'excludes' => ['#^Legacy(?:/|$)#']], 'tmpDir' => $this->root . '/var/qa/infection/tmp'],
+            \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true),
+        );
+        self::assertStringContainsString('Infection: the ignored paths under its source directories are excluded through', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function anIgnoredPathOutsideTheSourceDirectoriesLeavesTheConfigAsResolved(): void
+    {
+        $config = $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}}');
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willSucceed();
+
+        new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths('tests/assets')));
+
+        self::assertContains(self::CONFIGURATION_ARG . $config, $this->factory->processes->lastSpec()->command);
+        self::assertFileDoesNotExist($this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG);
+    }
+
+    #[Test]
+    public function whenEverySourceDirectoryIsIgnoredTheLaneSkipsBeforeAnyCoverageIsGenerated(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}}');
+
+        $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS, singleTool: self::INFECTION)->withIgnoredPaths('src')));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame([], $this->factory->processes->specs, 'nothing to mutate, so no coverage run either');
+        self::assertStringContainsString('every source directory in', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function anInfectionConfigThatIsNotJsonCrashesTheLane(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": ');
+
+        $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY)));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame([], $this->factory->processes->specs);
+        self::assertStringContainsString($this->root . '/' . self::PROJECT_CONFIG, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function diffModeLeavesOutAChangedFileUnderAnIgnoredPath(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed('')
+            ->willSucceed("src/Committed.php\nsrc/Legacy/Old.php\n")
+            ->willSucceed()
+        ;
+
+        $result  = new InfectionTool()->run($this->context($this->diffBuilder()->withIgnoredPaths(self::LEGACY)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('mutating only the changed files: src/Committed.php', $printed);
+        $command = $this->factory->processes->lastSpec()->command;
+        self::assertSame([$this->root . '/src/Committed.php'], \array_slice($command, -1));
+        self::assertNotContains($this->root . '/src/Legacy/Old.php', $command);
+    }
+
+    #[Test]
+    public function diffModeSkipsWhenEveryChangedFileIsIgnored(): void
+    {
+        $this->factory->processes
+            ->willSucceed('')
+            ->willSucceed("src/Legacy/Old.php\n")
+        ;
+
+        $result = new InfectionTool()->run($this->context($this->diffBuilder()->withIgnoredPaths(self::LEGACY)));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertCount(2, $this->factory->processes->specs, 'git status and git diff only: no coverage run');
     }
 
     #[Test]

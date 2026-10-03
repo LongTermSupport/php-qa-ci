@@ -98,6 +98,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/managed-source',
         'bin/mdlinks',
         'bin/package-type-check',
+        'bin/phpstan-docs-install',
         'bin/phpstan-ignore-justification',
         'bin/psr4-validate',
         'bin/qa',

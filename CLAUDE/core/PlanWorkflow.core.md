@@ -27,14 +27,58 @@ agents working in a project with plan tracking enabled should follow it.
 
 ## Core Principles
 
-1. **Plan Before Execute** - Never start implementation without a documented plan
-2. **Break Down Complexity** - Decompose large work into manageable tasks
-3. **Track Everything** - Every task has a status and owner
-4. **Document Decisions** - Capture rationale for major decisions
-5. **Iterate Rapidly** - Plans are living documents, update as you learn
-6. **Test First (TDD)** - Write failing tests before implementation, where this project practises TDD
-7. **Debug First** - Ground handler design in real hook event data before writing a handler
-8. **Orchestrate Intelligently** - Use sub-agents and teams for parallel execution when possible
+01. **Always Verify, Never Assume** - Every claim a plan makes about the codebase (what exists, where it lives, what reads or calls what) is checked with a search or a read before it is written, and cites the path that shows it. A remembered fact is not a checked one
+02. **Plan Before Execute** - Never start implementation without a documented plan
+03. **Break Down Complexity** - Decompose large work into manageable tasks
+04. **Track Everything** - Every task has a status and owner
+05. **Document Decisions** - Capture rationale for major decisions
+06. **Iterate Rapidly** - Plans are living documents, update as you learn
+07. **Test First (TDD)** - Write failing tests before implementation, where this project practises TDD
+08. **Debug First** - Ground handler design in real hook event data before writing a handler
+09. **Orchestrate Intelligently** - Use sub-agents and teams for parallel execution when possible
+10. **Record Every Defect** - A defect you noticed is recorded in a plan, never only in chat (see "The niggles ledger")
+
+---
+
+## The niggles ledger
+
+**A defect found in passing is RECORDED, in the same turn it is found. Reporting
+it only in conversation is not recording it.**
+
+A defect mentioned in chat and nowhere else is gone the moment the context
+window rolls. It feels like diligence — "one thing worth flagging…" — while
+producing the same outcome as silence: nobody can act on it, nobody can find it
+later, and the next agent rediscovers it from scratch, if at all.
+
+A **niggle** is a defect too small to justify its own plan: a missing check, an
+invariant nothing enforces, a message that misleads, a tool with a blind spot.
+Small is not the same as unimportant, and it is never the same as *not a
+defect*.
+
+### The rule
+
+- **Exactly ONE niggles ledger plan is open at any time.** It is an ordinary
+  plan, indexed and archived like any other; its tasks are the open niggles.
+- **Found a niggle → append it to the open ledger before you report it.** The
+  chat message then points at the entry rather than being the only record of
+  it.
+- **When every entry is resolved, close and archive the ledger.** Do not keep a
+  ledger open as a permanent fixture.
+- **The next niggle found opens a NEW ledger.** Never reopen a closed one — a
+  reopened terminal plan breaks the archive's atomicity guarantees.
+
+### What belongs in it
+
+An entry states what is wrong and the evidence, not just a feeling. The useful
+shape is: the invariant that is broken, the measurement that proves it, and
+where it was found. "Check X does not fire for input Y; measured: Y passed with
+0 findings" is actionable. "Check X seems weak" is not.
+
+### What does NOT belong in it
+
+- Work that deserves its own plan. A niggle that turns out to be systemic
+  **graduates**: file the plan, strike the entry, leave a pointer.
+- Ideas, preferences and wish-list items. This is a defect ledger.
 
 ---
 
@@ -156,12 +200,48 @@ what looks like a complete report while content is missing. The
 `dispatch_declaration` handler (PreToolUse on the `Task` tool) injects this
 contract at dispatch time when a prompt does not already declare it; the
 `subagent_report_size_blocker` handler (SubagentStop) blocks an oversized
-final message until it is re-routed through a file. Work that is NOT plan
-work should instead declare an explicit destination (falling back to
-`untracked/agent-reports/` when none is given).
+final message until it is re-routed through a file.
+
+**The plan folder is the default destination because it is tracked.** Commit
+`subagent-reports/` with the plan: a report nothing commits is evidence that
+lasts only until the container restarts. Work that is NOT plan work declares
+an explicit destination instead, falling back to `untracked/agent-reports/`.
+That directory is gitignored, so it is right only when no plan applies.
+`dispatch_declaration` advises a dispatch that names a plan folder but sends
+its report there.
 
 `subagent-reports/` is a recognised plan-folder member for plan QA purposes —
 its presence never triggers a stray-file or unexpected-content finding.
+
+### Journal entries: `mkplan.bash --journal` is the only way
+
+A `JOURNAL/` entry is appended with the scaffolder, never by hand. It reads the
+real UTC clock and writes the `## HH:MM · category · REF` heading itself:
+
+```bash
+# 1. Write the entry BODY (no heading) with the Write tool to a FRESH file, e.g.
+#    untracked/scratch/journal-<plan-number>-<yymmdd-hhmmss>.md
+# 2. Append it:
+CLAUDE/Plan/mkplan.bash --journal <plan-number> <category> untracked/scratch/journal-<plan-number>-<yymmdd-hhmmss>.md --title "short title"
+```
+
+`<category>` is one of `action`, `finding`, `decision`, `thought`, `blocker`,
+`handoff`, `correction`; add `--ref T1.2` for a task reference (a `correction`
+requires `--ref` naming the entry it corrects). The script creates today's
+day-file from the template when there is none. Use a new body-file name for
+every entry (a reused one is refused by the clobber guard), your configured
+plan directory if it is not `CLAUDE/Plan/`, and, in a worktree, that
+worktree's own `mkplan.bash`.
+
+Hand-typed timestamps have landed 40 minutes in the future, and an
+append-only journal cannot correct one until the clock passes it. So the
+`plan_journal_guard` handler DENIES, in every checkout, an `Edit`/`Write` that
+adds any line to a day-file, a `Write` that creates one, and a Bash command
+that writes into one by any route (a redirect, `tee`, a heredoc, a copy or
+link, an in-place editor, a patch, an interpreter program, a wrapper, or a name
+the shell builds at run time). **A coordinator's dispatch brief that asks for
+journalling must carry this two-step pattern**, not "append with Edit and
+`date -u`".
 
 ### Plan Numbering
 
@@ -241,7 +321,7 @@ Refer to detailed info in supporting docs as required
 
 - [ ] Criterion 1 that must be met
 - [ ] Criterion 2 that must be met
-- [ ] All QA checks passing
+- [ ] This project's QA gate for the change passes
 - [ ] Every release-bound consequence is in the pending-release holding area
       (or: this plan has no release-bound consequences)
 
@@ -297,15 +377,18 @@ Use these Unicode icons for task status:
 
 ## QA Integration
 
-**Before completing any task, this project's full QA suite must pass.**
+**Before completing any task, the QA gate this project names for that change must pass.**
 
 ### Required QA Verification
 
-Run whatever this project defines as its QA gate — lint, format check, type
-check, tests, and anything else it treats as merge-blocking — before marking
-any task complete. This project's own QA documentation and scripts (wherever
-it keeps them) are the single source of truth for what "QA" means here; treat
-any enumeration in a plan or a stale doc as a hint, not gospel.
+Run whatever this project defines as its QA gate for the change — lint, format
+check, type check, tests, and anything else it treats as merge-blocking —
+before marking any task complete. This project's own QA documentation and
+scripts (wherever it keeps them) are the single source of truth for what "QA"
+means here and for which gate applies when: a project may run a targeted gate
+for everyday work and keep its full suite for a release or another step it
+names. Run the full suite only where that documentation requires it. Treat any
+enumeration in a plan or a stale doc as a hint, not gospel.
 
 ### QA Task Format
 
@@ -332,9 +415,13 @@ a `PLAN.md` is linted against single-file rules on the content the file *would*
 have. New material with a missing/invalid `**Status**:` line, a header that
 contradicts an all-ticked body, or ad-hoc task markers is **blocked** with the
 exact fix (mode `edit_mode`, default `block`). The plan-index `README.md` is
-linted too, against one rule — `index-row-length`: keep every line under 500
+linted too — for example `index-row-length` keeps every line under 500
 characters, because a row is a pointer (link, status, one clause), not a
 summary copied from the linked plan.
+
+`plan-qa --list-checks` prints every check and the stages it runs on. That
+listing comes from the check registry itself, so it is the catalogue; this page
+names checks only as examples.
 
 **Stage 2 — commit gate** (`plan_qa_commit_gate`, PreToolUse on `git commit`):
 checks the **staged** tree against cross-file invariants -- index-at-birth (a
@@ -364,6 +451,7 @@ recount.
 .claude/hooks-daemon/bin/hooks-daemon plan-qa --sweep          # whole tree; exit 1 on findings (CI-able)
 .claude/hooks-daemon/bin/hooks-daemon plan-qa --check-staged   # staged-tree commit-gate checks
 .claude/hooks-daemon/bin/hooks-daemon plan-qa --lint <PLAN.md> # single-file edit-stage checks
+.claude/hooks-daemon/bin/hooks-daemon plan-qa --list-checks    # every check and its stages
 ```
 
 Add `--json` to any of these for machine-readable output.
@@ -414,7 +502,7 @@ follows the Red-Green-Refactor cycle.
 1. **Red**: Write a failing test that defines the expected behaviour
 2. **Green**: Write the minimum code to make the test pass
 3. **Refactor**: Clean up the code while keeping tests green
-4. **Verify**: Run this project's full QA suite
+4. **Verify**: Run this project's QA gate for the change
 
 ### TDD Task Format
 
@@ -426,7 +514,7 @@ follows the Red-Green-Refactor cycle.
   - [ ] ⬜ Implement handling for edge cases
   - [ ] ⬜ Refactor for clarity
   - [ ] ⬜ Verify this project's test coverage requirement is maintained, if it has one
-  - [ ] ⬜ Run this project's full QA suite
+  - [ ] ⬜ Run this project's QA gate for the change
 ```
 
 ### Coverage Requirement
@@ -488,7 +576,8 @@ When new work is identified:
 1. Review plan completeness
 2. Verify tasks are well-defined
 3. Check for missing dependencies
-4. Get stakeholder approval (if needed)
+4. Confirm the scope with the human who owns it: a plan's scope is theirs
+   to set, and a change of scope is recorded in the plan before execution
 
 ### Step 5: Execute
 
@@ -504,7 +593,8 @@ When new work is identified:
 
 For long, multi-hour plan executions, set up a **non-durable hourly failsafe
 recovery cron** at the start of execution (the `recovery_cron_advisor` handler
-prompts this on plan creation/progress when enabled). It is a safety net that
+prompts this on plan creation/progress when enabled, and
+`failsafe_cron_session_advisor` prompts it at SessionStart of a new session). It is a safety net that
 resumes work stalled by **external** factors — Claude API overload, rate limits,
 usage limits, network failures — by firing only while the REPL is idle.
 
@@ -526,7 +616,7 @@ actually stops you; the cron only matters once something has already gone wrong.
 
 ### Step 6: Complete
 
-1. **Verify all QA checks pass**
+1. **Verify the QA gate for the change passes**
 2. Verify all success criteria met
 3. Mark all tasks as ✅
 4. Mark plan status as Complete
@@ -698,7 +788,7 @@ assumption:
 ### Phase 3: Integration
 
 - [ ] ⬜ Validate: `.claude/hooks-daemon/bin/hooks-daemon validate-project-handlers`
-- [ ] ⬜ Run this project's full QA suite
+- [ ] ⬜ Run this project's QA gate for the change
 - [ ] ⬜ Restart the daemon and confirm it is running:
   `.claude/hooks-daemon/bin/hooks-daemon restart`
 - [ ] ⬜ Test with a live session
@@ -733,7 +823,7 @@ The base and result type are chosen by the event: `PreToolUseHandlerBase`/`Gatin
 - [ ] This project's coverage requirement maintained, if it has one
 - [ ] Live testing successful
 - [ ] Documentation updated
-- [ ] All QA checks pass
+- [ ] This project's QA gate for the change passes
 
 ### Feature Implementation Plan Template
 
@@ -763,7 +853,7 @@ The base and result type are chosen by the event: `PreToolUseHandlerBase`/`Gatin
 
 ### Phase 3: Integration & QA
 - [ ] ⬜ Integrate with existing code
-- [ ] ⬜ Run this project's full QA suite
+- [ ] ⬜ Run this project's QA gate for the change
 - [ ] ⬜ Fix any QA issues
 - [ ] ⬜ Update documentation
 
@@ -771,7 +861,7 @@ The base and result type are chosen by the event: `PreToolUseHandlerBase`/`Gatin
 
 - [ ] Feature works as specified
 - [ ] All tests passing, meeting this project's coverage requirement if it has one
-- [ ] All QA checks pass
+- [ ] This project's QA gate for the change passes
 - [ ] Documentation updated
 ```
 
@@ -795,7 +885,7 @@ The base and result type are chosen by the event: `PreToolUseHandlerBase`/`Gatin
 - [ ] ⬜ Identify root cause
 - [ ] ⬜ Implement fix (make test pass)
 - [ ] ⬜ Add additional regression tests
-- [ ] ⬜ Run this project's full QA suite
+- [ ] ⬜ Run this project's QA gate for the change
 - [ ] ⬜ Verify fix works in live testing
 
 ## Success Criteria
@@ -803,7 +893,7 @@ The base and result type are chosen by the event: `PreToolUseHandlerBase`/`Gatin
 - [ ] Bug no longer reproducible
 - [ ] Failing test now passes
 - [ ] No regression in other tests
-- [ ] All QA checks pass
+- [ ] This project's QA gate for the change passes
 ```
 
 ### Refactoring Plan Template
@@ -844,7 +934,7 @@ Use this template when improving existing code without changing behaviour.
 - [ ] ⬜ Verify no behaviour changes
 
 ### Phase 3: Verification
-- [ ] ⬜ Run this project's full QA suite
+- [ ] ⬜ Run this project's QA gate for the change
 - [ ] ⬜ Compare before/after behaviour
 - [ ] ⬜ Update documentation if needed
 
@@ -853,7 +943,7 @@ Use this template when improving existing code without changing behaviour.
 - [ ] All existing tests pass
 - [ ] Test coverage maintained (or improved) against this project's own requirement, if it has one
 - [ ] No behaviour changes
-- [ ] All QA checks pass
+- [ ] This project's QA gate for the change passes
 - [ ] Code is cleaner/more maintainable
 ```
 
@@ -889,7 +979,8 @@ Use this template when improving existing code without changing behaviour.
 3. **After completing**: Mark ✅, run QA, commit with reference
 4. **Regularly**: Review the plan and edit it IN PLACE so it states current
    truth. Append the narrative of what happened to the plan's `JOURNAL/`
-   day-file — never to `PLAN.md`. See [CLAUDE/PlanJournalling.md](../PlanJournalling.md).
+   day-file with `mkplan.bash --journal` (see "Journal entries" above) —
+   never to `PLAN.md`. See [CLAUDE/PlanJournalling.md](../PlanJournalling.md).
 
 ### Handling Changes
 
@@ -897,8 +988,9 @@ When requirements change mid-plan:
 
 1. **Document Change**: Edit `PLAN.md` in place to state the new truth
    (revise Goals/Tasks, record the reasoning under Technical Decisions), and
-   append a dated entry to the plan's `JOURNAL/` recording what changed and
-   why. Do NOT append a change-log section to `PLAN.md`.
+   append an entry to the plan's `JOURNAL/` with `mkplan.bash --journal`
+   recording what changed and why. Do NOT append a change-log section to
+   `PLAN.md`.
 2. **Update Tasks**: Revise task list as needed
 3. **Assess Impact**: Update estimates, dependencies
 4. **Communicate**: Ensure stakeholders are aware
@@ -924,7 +1016,7 @@ When requirements change mid-plan:
 ### Completion Review
 
 - All success criteria met?
-- All QA checks pass?
+- Does the QA gate for the change pass?
 - Lessons learned documented?
 - Follow-up work identified?
 
@@ -973,7 +1065,7 @@ plan/00003-search-indexing
 Before committing, always verify:
 
 ```bash
-# Run this project's full QA suite
+# Run this project's QA gate for the change
 <this project's QA command>
 
 # Check git status
@@ -1027,9 +1119,14 @@ When Claude Code (or other AI agents) work on a project with plan tracking enabl
     shape of `hook_input`
 05. **Follow TDD workflow**, where this project practises it - Write failing tests before implementation
 06. **Update task status in real-time** as you work
-07. **Run QA before commits** - this project's full QA suite must pass
+07. **Run QA before commits** - the QA gate this project names for the change must pass
 08. **Document blockers immediately** if you get stuck
-09. **Ask user for approval** before marking plan complete
+09. **Close a plan when it is fully complete** - every task ticked and every
+    success criterion met - in the same commit that archives it. A project
+    that wants a human to close plans sets
+    `plan_workflow.close_requires_human_approval: true`; the daemon then
+    denies the status flip until a human records approval, and the agent
+    reports the plan as ready to close and moves on
 10. **Reference plans in all commits** for traceability
 
 ### Agent Workflow Example
@@ -1043,14 +1140,14 @@ Agent:
 3. Inspects recent event flow to see what hook_input looks like for the scenario
 4. Analyses events to determine handler design
 5. Breaks down into TDD tasks
-6. Shows plan to user for approval
+6. Shows the plan to the user, whose call the scope is
 7. Begins execution:
    - Write failing test
    - Implement handler
    - Run this project's QA suite
 8. Commits with "Plan 00001: Add changelog-reminder project handler"
-9. Ticks the task in PLAN.md and appends the narrative to the plan's JOURNAL/
-10. Marks complete when all QA passes
+9. Ticks the task in PLAN.md and appends the narrative to the plan's JOURNAL/ with `mkplan.bash --journal`
+10. Marks complete when the QA gate for the change passes
 ```
 
 ### Project Handler Development Workflow
@@ -1063,7 +1160,7 @@ Agent:
 3. Determine which event type fires and what data is available in `hook_input`
 4. Write tests first (TDD)
 5. Implement the handler
-6. Run this project's full QA suite
+6. Run this project's QA gate for the change
 7. Validate: `.claude/hooks-daemon/bin/hooks-daemon validate-project-handlers`
 8. Test in a live Claude Code session
 

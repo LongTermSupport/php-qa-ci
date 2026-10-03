@@ -1,0 +1,45 @@
+---
+title: "staticProperty.internalInterface"
+shortDescription: "Static property is accessed on an internal interface from outside its package."
+ignorable: true
+---
+
+## Code example
+
+```php
+<?php declare(strict_types = 1);
+
+namespace Vendor {
+	/**
+	 * @internal
+	 * @property string $name
+	 */
+	interface Config {
+	}
+}
+
+namespace App {
+	function test(): mixed {
+		return \Vendor\Config::$name; // error: Access to static property on internal interface Vendor\Config.
+	}
+}
+```
+
+## Why is it reported?
+
+A static property is being accessed on an interface that is marked as `@internal`. Internal interfaces are not part of the public API of the package that defines them. They may change or be removed in any version without notice.
+
+## How to fix it
+
+Use the public API of the package instead of accessing static properties on internal interfaces:
+
+```diff-php
+ namespace App {
+ 	function test(): mixed {
+-		return \Vendor\Config::$name;
++		return \Vendor\PublicConfig::$name;
+ 	}
+ }
+```
+
+If the interface is internal to your own project, the error will not be reported when accessing it from within the same root namespace.

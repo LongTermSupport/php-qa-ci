@@ -1,0 +1,17 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Verifies (install mode) or refreshes (maintainer update mode) PHPStan's
+ * identifier pages under vendor-docs/phpstan/, which bin/rule-doc reads
+ * offline. Called by scripts/tool-install.bash on every composer
+ * install/update; the logic is LTS\PHPQA\PhpstanDocs\PhpstanDocsInstaller,
+ * where it is unit-tested.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+exit(\LTS\PHPQA\PhpstanDocs\PhpstanDocsInstaller::main(
+    \dirname(__DIR__),
+    $argv[1] ?? \LTS\PHPQA\PhpstanDocs\PhpstanDocsInstaller::MODE_INSTALL,
+));

@@ -39,11 +39,7 @@ Paths are for a consuming project; in the php-qa-ci repository itself drop
 `vendor/lts/php-qa-ci/`, and the bin directory is `bin/` rather than `vendor/bin/`.
 
 - `vendor/bin/rules [--json]` lists the active defences: PHPStan rules from the resolved
-  `phpstan.neon`, the always-on pipeline lanes, the project's `ignoreErrors` record, and its
-  defect record.
-- A defect found and not fixed now, and a conclusion that no pattern exists, are recorded in
-  `qaConfig/defect-record.neon`; its format is on the page
-  `vendor/bin/rule-doc phpqaci.phpstanIgnoreJustification` prints.
+  `phpstan.neon`, the always-on pipeline lanes, and the project's `ignoreErrors` record.
 - `vendor/bin/rule-doc <identifier>` resolves an identifier printed in a failure to its
   documentation page; `--list` prints every identifier resolvable in the project. A
   project's own identifiers resolve through the indexes it declares in
