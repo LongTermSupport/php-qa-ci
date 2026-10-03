@@ -58,6 +58,14 @@ the release and its tag. The full rules are in
   change skips at once instead of spending a full Xdebug PHPUnit run and then
   reporting nothing to mutate. When there are changed source files, coverage
   is reused or generated exactly as before.
+- **The GitHub Actions templates run on Node 24.** `templates/github-actions/`
+  pinned `actions/checkout`, `actions/cache`, `actions/upload-artifact` and
+  `actions/download-artifact` at v4 and `marocchino/sticky-pull-request-comment`
+  at v2, all on the deprecated Node 20 runtime, so every run printed a
+  deprecation annotation and the steps stop running once GitHub removes Node 20.
+  They are now v7, v6, v7, v8 and v3. `actions/download-artifact@v8` fails on a
+  digest mismatch where v4 only warned. A project that copied the templates
+  should copy them again.
 
 ## 85.2.0 — 2026-10-03
 

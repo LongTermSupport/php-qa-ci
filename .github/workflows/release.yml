@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout php8.5 with history and tags
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: php8.5
           fetch-depth: 0

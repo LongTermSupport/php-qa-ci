@@ -119,7 +119,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             composer.json
@@ -170,7 +170,7 @@ jobs:
       # commit on top of it, and the opt-in changelog lane judges everything
       # since the merge base or the last release tag, failing on a shallow clone.
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       
@@ -193,7 +193,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
       
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -218,7 +218,7 @@ jobs:
           echo "qa=$QA" >> "$GITHUB_OUTPUT"
 
       - name: Cache QA tools
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: var/qa/cache
           key: ${{ runner.os }}-qa-cache-${{ needs.detect-php-version.outputs.php-version }}-${{ hashFiles('**/composer.lock') }}
@@ -249,7 +249,7 @@ jobs:
       
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ needs.detect-php-version.outputs.php-version }}
           path: |
@@ -259,7 +259,7 @@ jobs:
       
       - name: Upload coverage reports
         if: success() || failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ needs.detect-php-version.outputs.php-version }}
           path: |
@@ -318,10 +318,10 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Download coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: coverage-${{ needs.detect-php-version.outputs.php-version }}
           path: coverage
@@ -337,6 +337,6 @@ jobs:
       
       - name: Add Coverage PR Comment
         if: github.event_name == 'pull_request' && hashFiles('code-coverage-results.md') != ''
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           path: code-coverage-results.md
