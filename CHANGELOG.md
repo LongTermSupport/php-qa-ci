@@ -24,6 +24,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed
+
+- **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.
+
 ### Fixed
 
 - **The GitHub Actions templates work with any bin-dir and fetch nothing.**

@@ -35,13 +35,13 @@ declare(strict_types=1);
  */
 
 // Load composer autoloader
-require \dirname(__DIR__) . '/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
 // Load PHPStan core classes from the bundled phar so that PHPStan\* classes
 // (Scope, RuleErrorBuilder, IdentifierRuleError, etc.) are available when
 // unit-testing custom PHPStan rules directly — without running the full
 // static-analysis pipeline.
-$phpstanPhar = \dirname(__DIR__) . '/vendor-phar/phpstan.phar';
+$phpstanPhar = __DIR__ . '/../vendor-phar/phpstan.phar';
 if (file_exists($phpstanPhar)) {
     require_once 'phar://' . $phpstanPhar . '/vendor/autoload.php';
 }
