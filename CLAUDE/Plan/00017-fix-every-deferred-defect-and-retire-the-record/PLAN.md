@@ -45,7 +45,7 @@ so an issue must state the release line it was found on.
 
 ### Phase 2: fix the deferred defects (Defence Before Fix: detector red first)
 
-- [ ] ⬜ **Task 2.1**: The generated `CLAUDE.md` region is written in the markdown formatter's canonical form, so a formatter pass changes nothing (blank lines inside the markers; the attribute in a code span)
+- [x] ✅ **Task 2.1**: The generated `CLAUDE.md` region is written in the markdown formatter's canonical form, so a formatter pass changes nothing (blank lines inside the markers; the attribute in a code span)
 - [x] ✅ **Task 2.2**: The `phpArkitect` lane honours `withIgnoredPaths()`, anchored to the project root
 - [x] ✅ **Task 2.3**: The `infection` lane honours `withIgnoredPaths()`
 - [x] ✅ **Task 2.4**: A `withIgnoredPaths()` entry that matches nothing fails, as a stale `withUnanalysedPath()` does

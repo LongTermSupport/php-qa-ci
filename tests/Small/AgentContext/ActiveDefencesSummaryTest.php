@@ -41,7 +41,7 @@ final class ActiveDefencesSummaryTest extends TestCase
 
     private const string PHPSTAN_NEON = self::ROOT . '/qaConfig/phpstan.neon';
 
-    private const string HEADER = AgentContextRegion::START . "\n"
+    private const string HEADER = AgentContextRegion::START . "\n\n"
         . "## php-qa-ci — Active defences\n\n"
         . "Generated from this project's active configuration by `rules --write-agent-summary`; do not\n"
         . "edit. Each line is a standing rule the pipeline enforces; `rule-doc <identifier>` (Composer bin\n"
@@ -74,7 +74,7 @@ final class ActiveDefencesSummaryTest extends TestCase
         );
 
         self::assertSame(
-            AgentContextRegion::START . "\n"
+            AgentContextRegion::START . "\n\n"
             . "## php-qa-ci — Active defences\n\n"
             . "Generated from this project's active configuration by `rules --write-agent-summary`; do not\n"
             . "edit. Each line is a standing rule the pipeline enforces; `rule-doc <identifier>` (Composer bin\n"
@@ -90,7 +90,7 @@ final class ActiveDefencesSummaryTest extends TestCase
             . "None recorded. A Defect found and not fixed now, or the conclusion that no pattern exists, is\n"
             . "recorded in `qaConfig/defect-record.neon`, not only in conversation (`rule-doc\n"
             . "phpqaci.phpstanIgnoreJustification` prints the format).\n"
-            . AgentContextRegion::END,
+            . "\n" . AgentContextRegion::END,
             new ActiveDefencesSummary()->render($listing, self::ROOT),
         );
     }
@@ -163,7 +163,7 @@ final class ActiveDefencesSummaryTest extends TestCase
             . "- Deferred — The cache key omits the locale. (class: A cache key built from a subset of its inputs.; found: src/Cache/KeyBuilder.php; deferred by: Owner)\n"
             . "- Deferred — A timeout is swallowed. (class: none apparent yet; found: src/Http/Retry.php; deferred by: Owner, pending the client rewrite)\n"
             . "- No pattern — The total was rounded twice. (found: src/Invoice/Total.php; No pattern exists.)\n"
-            . AgentContextRegion::END,
+            . "\n" . AgentContextRegion::END,
             new ActiveDefencesSummary()->render($this->listingWith($record), self::ROOT),
         );
     }
@@ -191,7 +191,7 @@ final class ActiveDefencesSummaryTest extends TestCase
             . "10 deferred defects and 1 no-pattern conclusion are recorded in `qaConfig/defect-record.neon`;\n"
             . "`rules` lists them. Whether a deferred one stays unfixed is the Owner's decision, and the attempt\n"
             . "at a Defence is owed when its fix is taken up.\n"
-            . AgentContextRegion::END,
+            . "\n" . AgentContextRegion::END,
             new ActiveDefencesSummary()->render($this->listingWith($record), self::ROOT),
         );
     }

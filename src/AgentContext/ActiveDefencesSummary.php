@@ -77,8 +77,9 @@ final readonly class ActiveDefencesSummary
             $lines[] = $this->line($lane->identifier, $lane->summary, $notes);
         }
 
-        return AgentContextRegion::START . "\n" . self::HEADER . implode("\n", $lines)
-            . self::RECORD_HEADING . $this->defectRecord($listing->defectRecord) . AgentContextRegion::END;
+        // A blank line inside each marker: the formatter's canonical form.
+        return AgentContextRegion::START . "\n\n" . self::HEADER . implode("\n", $lines)
+            . self::RECORD_HEADING . $this->defectRecord($listing->defectRecord) . "\n" . AgentContextRegion::END;
     }
 
     private function defectRecord(DefectRecordDto $record): string
@@ -128,7 +129,24 @@ final readonly class ActiveDefencesSummary
 
     private function line(string $identifier, string $summary, string $notes): string
     {
-        return \sprintf('- `%s` — %s', $identifier, $summary) . ('' === $notes ? '' : \sprintf(' (%s)', $notes));
+        return \sprintf('- `%s` — %s', $identifier, $this->escapeText($summary)) . ('' === $notes ? '' : \sprintf(' (%s)', $notes));
+    }
+
+    /**
+     * A summary is written as text, so a backslash in it is escaped as the
+     * formatter would escape it; inside a code span it is left as it is.
+     */
+    private function escapeText(string $summary): string
+    {
+        $parts = explode('`', $summary);
+        foreach ($parts as $index => $part) {
+            // Even parts are outside a code span; an unclosed final span is text.
+            if (0 === $index % 2 || $index === \count($parts) - 1) {
+                $parts[$index] = str_replace('\\', '\\\\', $part);
+            }
+        }
+
+        return implode('`', $parts);
     }
 
     /** The page relative to the project root when it lies inside it, so the line reads the same on every machine. */

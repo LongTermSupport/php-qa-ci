@@ -51,6 +51,11 @@ the release and its tag. The full rules are in
   path added to `source.excludes`, anchored at its source directory. Diff mode no longer mutates
   a changed file under an ignored path, and a run whose every source directory is ignored is
   skipped.
+- `rules --write-agent-summary` writes the active-defences region in the markdown formatter's
+  canonical form: a blank line inside each marker, and a backslash in a summary escaped where it
+  is text (a code span keeps it as written). A formatter run over the document, as an editor or
+  the hooks daemon does after every edit, no longer rewrites the region and leaves it reported as
+  out of date. The `sensitiveParameterUsage` summary puts `#[\SensitiveParameter]` in a code span.
 
 ## 85.3.0 — 2026-10-03
 
