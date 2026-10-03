@@ -24,6 +24,27 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- **Suppressions reached through `includes:` must be justified too.** The
+  `phpstanIgnoreJustification` lane reads `qaConfig/phpstan.neon` and every NEON
+  file it includes, so an `ignoreErrors` entry in an included file, including a
+  generated baseline, needs the same comment above it. It also fails on an entry
+  written inline (`ignoreErrors: [...]`), an include that does not exist or uses
+  a `%parameter%` other than `%currentWorkingDirectory%`, and a `.php` include
+  that sets `ignoreErrors`. See
+  [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors).
+
+- **The PHPArkitect lane never reads `phparkitect-baseline.json`.** It runs with
+  `--skip-baseline`, so violations a baseline listed are reported, and it names
+  the file when present. Fix them, or declare the exception with
+  `withArkitectExcludedPaths()` in `qaConfig/qa.php`.
+
+- **An inline PHPStan ignore must give its reason.** `rules-default.neon` turns
+  on `reportIgnoresWithoutComments`, behind the tier's ban on inline ignores:
+  where a project has excluded that rule, an inline ignore must name an
+  identifier and give a reason in parentheses.
+
 ### Fixed
 
 - **The GitHub Actions templates work with any bin-dir and fetch nothing.**
@@ -35,6 +56,10 @@ the release and its tag. The full rules are in
   `bugfix/`, `chore/` and `hotfix/` branches the branch policy allows; and
   `AUTO_COMMIT_FIXES: true` now runs the QA step writable, so it has fixes to
   commit. Copy the templates again to pick this up.
+
+- **`bin/rules` no longer hangs on a cyclic include** or fails on PHPStan's own
+  `%rootDir%` configuration: it walks `includes:` the way the justification lane
+  does, and names an include it cannot follow.
 
 ## 85.1.0 — 2026-10-03
 
