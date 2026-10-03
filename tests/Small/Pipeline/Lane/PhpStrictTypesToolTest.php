@@ -25,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
@@ -82,6 +83,24 @@ final class A {}
         self::assertStringContainsString('READ-ONLY run', $printed);
         self::assertStringContainsString(PhpStrictTypesTool::IDENTIFIER, $printed);
         self::assertSame(self::PHP_FINAL_CLASS_A, $this->factory->project->read(self::SRC_A_PHP));
+    }
+
+    #[Test]
+    public function aFileUnderAnIgnoredPathIsNeitherReportedNorRewritten(): void
+    {
+        $fixture = "<?php\n\nfinal class Fixture {}\n";
+        $path    = 'tests/assets/Fixture.php';
+        $this->factory->project->write($path, $fixture);
+        $this->factory->project->write('tests/assetsExtra/B.php', self::PHP_FINAL_CLASS_A);
+
+        $config = $this->factory->builder(readOnly: false)->withIgnoredPaths('tests/assets')->build();
+
+        $result = new PhpStrictTypesTool()->run($this->factory->context($config));
+
+        self::assertTrue($result->isSuccess());
+        self::assertStringNotContainsString($path, $this->factory->output->fetch());
+        self::assertSame($fixture, $this->factory->project->read($path), 'a fixture is data, never fixed');
+        self::assertStringStartsWith('<?php declare(strict_types=1);', $this->factory->project->read('tests/assetsExtra/B.php'), 'a sibling sharing the prefix is not ignored');
     }
 
     #[Test]

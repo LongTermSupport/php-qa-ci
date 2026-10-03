@@ -29,6 +29,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
@@ -99,6 +101,29 @@ final class DeadCodeToolTest extends TestCase
         );
         self::assertSame($paths->projectRoot, $this->factory->processes->lastSpec()->cwd);
         self::assertStringNotContainsString(DeadCodeTool::IDENTIFIER, $this->factory->output->fetch());
+        self::assertStringNotContainsString('excludePaths', $wrapper, 'nothing ignored, nothing excluded');
+    }
+
+    #[Test]
+    public function theIgnoredPathsAreExcludedExactlyAsThePhpstanLaneExcludesThem(): void
+    {
+        $this->factory->processes->willSucceed("[OK] No errors\n");
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $root   = $this->factory->project->path;
+        $config = $this->factory->builder()
+            ->withDeadCodeDetection(true)
+            ->withoutDeadCodeEntryPoints()
+            ->withIgnoredPaths('tests/assets')
+            ->build()
+        ;
+
+        new DeadCodeTool()->run($this->factory->context($config));
+
+        self::assertStringContainsString(
+            "    excludePaths:\n        analyse:\n            - '" . $root . "/tests/assets' (?)\n    shipmonkDeadCode:\n",
+            $this->factory->project->read(self::WRAPPER),
+        );
     }
 
     #[Test]

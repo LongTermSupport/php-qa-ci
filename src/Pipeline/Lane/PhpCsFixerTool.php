@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\IgnoredPathsConfig;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 
 /**
- * PHP CS Fixer over the checked paths with the resolved php_cs.php config.
- * The fixer mutates code; a read-only run passes --dry-run and a pending fix
- * fails the lane with remediation guidance, while a writable run applies it.
+ * PHP CS Fixer over the checked paths with the resolved php_cs.php config,
+ * less the project's ignored paths. The fixer mutates code; a read-only run
+ * passes --dry-run and a pending fix fails the lane with remediation
+ * guidance, while a writable run applies it.
  * The output is also written to var/qa/php-cs-fixer-output.log. A file the
  * fixer could not process at all (a parse failure) is fatal in either mode.
  *
@@ -21,6 +24,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 final readonly class PhpCsFixerTool implements ToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.phpCsFixer';
+
+    public const string IGNORED_PATHS_CONFIG = 'phpCsFixer/php_cs.php';
 
     private const int EXIT_PENDING_FIXES = 8;
 
@@ -41,7 +46,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
         $paths    = $context->config->paths;
         $readOnly = $context->config->readOnly;
         $args     = [
-            '--config=' . $context->configPath('php_cs.php'),
+            '--config=' . $this->config($context),
             '--cache-file=' . $paths->varDir . '/cache/php_cs.cache',
             '--allow-risky=yes',
             '--show-progress=dots',
@@ -103,5 +108,26 @@ final readonly class PhpCsFixerTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::crashed(\sprintf('PHP CS Fixer crashed (exit %d)', $result->exitCode));
+    }
+
+    /**
+     * The config the fixer runs: the resolved php_cs.php itself, or, when the
+     * project ignores paths, a wrapper generated at IGNORED_PATHS_CONFIG under
+     * var/qa/ that takes them out of its finder (IgnoredPathsConfig says why
+     * it has to be the finder).
+     */
+    private function config(ToolContext $context): string
+    {
+        $resolved = $context->configPath('php_cs.php');
+        $ignored  = IgnoredPaths::of($context->config);
+        if ($ignored->isEmpty()) {
+            return $resolved;
+        }
+
+        $context->logDir(\dirname(self::IGNORED_PATHS_CONFIG));
+        $wrapper = $context->config->paths->varDir . '/' . self::IGNORED_PATHS_CONFIG;
+        \Safe\file_put_contents($wrapper, new IgnoredPathsConfig()->source($resolved, $ignored));
+
+        return $wrapper;
     }
 }

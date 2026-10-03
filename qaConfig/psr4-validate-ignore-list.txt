@@ -1,3 +1,2 @@
 #tests/bootstrap\.php#
 #tests/phpstan-bootstrap\.php#
-#tests/assets#

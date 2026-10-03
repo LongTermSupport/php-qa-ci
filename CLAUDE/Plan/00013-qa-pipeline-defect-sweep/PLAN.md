@@ -1,6 +1,6 @@
 # Plan 00013: qa pipeline defect sweep
 
-**Status**: In Progress (Phases 1 and 2 done; Task 3.1 done; Task 3.2 waits on an upstream hooks-daemon rule)
+**Status**: In Progress (Phases 1 and 2 done; Tasks 3.1 and 3.3 done; Task 3.2 waits on an upstream hooks-daemon rule)
 **Created**: 2026-09-16
 **Owner**: Joseph Edmonds
 **Priority**: Medium
@@ -52,6 +52,7 @@ running consumer-side `bin/qa` probes from the `accounts-api` checkout.
 | D3  | Latent, not active. The block writer does not guarantee a blank line before the closing tag, so a template whose tag sits under a bullet yields a tag a markdown formatter indents; the block then stops matching the template and is rewritten, and auto-committed, on every deploy. The shipped template happens to carry that blank line, so php-qa-ci's own block is safe today by a property of one template rather than of the writer, and a future template edit would reintroduce the churn silently. The churn originally reported came from another package's block. | proven red against the previous writer: with a bullet above it, the closing tag lands with no blank line             |
 | D5  | Per-file PHPStan on a phar-tool config file is permanently red. `qaConfig/phparkitect.php` and `qaConfig/composer-dependency-analyser.php` name classes that live only inside `vendor-phar/*.phar`, which the project's PHPStan run has no autoloader for.                                                                                                                                                                                                                                                                                                                     | consumer `bin/qa -t stan -p qaConfig/phparkitect.php` exits 1 with 108 `class.notFound` / `method.nonObject` errors  |
 | D6  | `bin/rule-doc` cannot resolve a consuming project's own rule identifiers. The row pattern hardcodes the `phpqaci.` prefix and the index path is fixed to this package's own rule index, so a project identifier gets "Unknown rule identifier".                                                                                                                                                                                                                                                                                                                                | `src/PHPStan/RuleDocResolver.php` row pattern and index constants                                                    |
+| D7  | `withIgnoredPaths()` does not reach PHPStan, deadCode, PHP CS Fixer, phpStrictTypes, phpcpd or psr4Validate, so a project that ignores its fixtures as the docs say still has their deliberate violations reported.                                                                                                                                                                                                                                                                                                                                                            | `IgnoredPathsReachEveryScanningLaneTest` red at 292d3c0 for exactly those six lanes                                  |
 
 ### Not a defect — verified, no change
 
@@ -145,6 +146,28 @@ running consumer-side `bin/qa` probes from the `accounts-api` checkout.
   in the shape the daemon's other command-shape rules already use. Worth doing
   because the error costs a whole turn each time it is made, and no documentation
   in this repository can reach the agent that makes it.
+
+- [x] ✅ **Task 3.3**: D7 — `withIgnoredPaths()` reaches every lane that scans the checked paths.
+
+  The setting was documented as the paths the scanning tools skip, but PHPStan,
+  deadCode, PHP CS Fixer, phpStrictTypes, phpcpd and psr4Validate scanned them
+  anyway; this repository hid it by repeating `tests/assets` in three tool configs.
+  Red detector 292d3c0 (`IgnoredPathsReachEveryScanningLaneTest`: every shipped lane
+  classified, each scanning lane probed for behaviour, self-tested); fix 7218f7f;
+  the repeated exclusions dropped in f23e27d; unrelated tool drift committed apart
+  in 361a07c.
+
+  - **PHPStan**: `excludePaths.analyse`, optional, in the wrapper neon; deadCode
+    writes the same block. `analyse` so classes under an ignored path stay
+    discoverable.
+  - **PHP CS Fixer**: a generated config wrapping the resolved one and filtering its
+    finder, since intersection mode only narrows the finder.
+  - **Known gaps, deferred to the Owner** in `qaConfig/defect-record.neon`:
+    PHPArkitect (its exclusion is an unanchored glob) and Infection (no CLI
+    exclusion). Also deferred: the stale `src/PHPUnit/TestDox` ignore.
+  - **Owner question**: whether the setting should extend to lanes whose scope is
+    not the checked paths (Twig, YAML, Markdown). Detail in
+    `subagent-reports/261003-ignored-paths-opus.md`.
 
 ## Success Criteria
 

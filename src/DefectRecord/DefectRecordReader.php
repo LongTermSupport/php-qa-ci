@@ -81,7 +81,7 @@ final readonly class DefectRecordReader
         $deferred = [];
         foreach ($this->entries($decoded, self::DEFERRED, $problems) as $number => $entry) {
             $parsed = $this->deferred($number, $entry, $problems);
-            if ($parsed instanceof \LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto) {
+            if ($parsed instanceof DeferredDefectDto) {
                 $deferred[] = $parsed;
             }
         }
@@ -89,7 +89,7 @@ final readonly class DefectRecordReader
         $noPattern = [];
         foreach ($this->entries($decoded, self::NO_PATTERN, $problems) as $number => $entry) {
             $parsed = $this->noPattern($number, $entry, $problems);
-            if ($parsed instanceof \LTS\PHPQA\DefectRecord\Dto\NoPatternConclusionDto) {
+            if ($parsed instanceof NoPatternConclusionDto) {
                 $noPattern[] = $parsed;
             }
         }

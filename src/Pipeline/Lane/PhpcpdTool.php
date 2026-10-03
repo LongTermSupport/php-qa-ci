@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 
 /**
- * Copy/paste detection over the checked paths via the shipped
- * vendor-phar/phpcpd.phar, after the gate has passed.
+ * Copy/paste detection over the checked paths, less the ignored paths, via
+ * the shipped vendor-phar/phpcpd.phar, after the gate has passed.
  * Informational by design: duplication is a judgement call, not a defect, and
  * a lane that failed on it would be turned off within a week.
  *
@@ -47,7 +48,7 @@ final readonly class PhpcpdTool implements ToolInterface
         $logDir = $context->logDir($this->name());
         $result = $context->php->withoutXdebug(
             $paths->pharDir . '/' . self::PHAR,
-            ['--log-json=' . $logDir . '/' . self::LOG_FILE, ...$context->config->pathsToCheck],
+            ['--log-json=' . $logDir . '/' . self::LOG_FILE, ...$this->excludes($context), ...$context->config->pathsToCheck],
             $paths->projectRoot,
         );
 
@@ -56,5 +57,24 @@ final readonly class PhpcpdTool implements ToolInterface
         }
 
         return ToolResultDto::passed();
+    }
+
+    /**
+     * One --exclude per ignored path. phpcpd drops a file whose path CONTAINS
+     * an exclude, and prunes a directory the same way, so a directory goes in
+     * with its trailing slash: without it `tests/assets` would also drop
+     * `tests/assetsExtra`.
+     *
+     * @return list<string>
+     */
+    private function excludes(ToolContext $context): array
+    {
+        $args = [];
+        foreach (IgnoredPaths::of($context->config)->absolute as $ignored) {
+            $args[] = '--exclude';
+            $args[] = is_dir($ignored) ? $ignored . '/' : $ignored;
+        }
+
+        return $args;
     }
 }

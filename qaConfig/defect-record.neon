@@ -30,3 +30,22 @@ deferred:
         class: 'a formatter run on a file in an unresolved merge state'
         found: 'CHANGELOG.md, resolving the Plan 00016 merge into bugfix/known-defects-sweep'
         deferredBy: 'undecided; fixed upstream in hooks-daemon v3.68.0 (the formatter leaves a conflicted file untouched, and conflict_marker_commit_gate denies the commit), pending the Owner upgrading the daemon'
+    -
+        # IgnoredPathsReachEveryScanningLaneTest classifies this lane as a known
+        # gap and fails if this entry goes while the gap stays.
+        defect: 'the phpArkitect lane does not honour withIgnoredPaths(), so a path a project ignores under src/ is still checked against the architecture rules'
+        class: 'a lane that scans the checked paths drops the project''s ignored paths'
+        found: src/Pipeline/Lane/PhpArkitectTool.php
+        deferredBy: 'undecided; arkitect excludes only by ClassSet::excludePath(), an unanchored glob, so passing src/Legacy would also drop every directory named Legacy deeper in src/. withArkitectExcludedPaths() remains the knob until the Owner accepts that or arkitect gains an anchored exclusion'
+    -
+        # IgnoredPathsReachEveryScanningLaneTest classifies this lane as a known
+        # gap and fails if this entry goes while the gap stays.
+        defect: 'the infection lane does not honour withIgnoredPaths(), so mutants in a path a project ignores under src/ still count against the MSI floors'
+        class: 'a lane that scans the checked paths drops the project''s ignored paths'
+        found: src/Pipeline/Lane/InfectionTool.php
+        deferredBy: 'undecided; Infection takes no exclusion on the command line, and a rewritten infection.json would have to re-anchor every relative path in it. source.excludes in infection.json remains the knob'
+    -
+        defect: 'qaConfig/qa.php ignores src/PHPUnit/TestDox, and qaConfig/infection.json excludes /TestDox/, but no such directory has existed since the mess detector went'
+        class: 'a declared exclusion that matches nothing, which the analysedPaths lane catches for withUnanalysedPath() but not for withIgnoredPaths()'
+        found: qaConfig/qa.php
+        deferredBy: 'undecided; recorded for the Owner while fixing the ignored-paths lanes in Plan 00013'
