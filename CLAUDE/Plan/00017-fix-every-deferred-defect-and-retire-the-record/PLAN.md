@@ -57,13 +57,18 @@ backported proactively; the rest stay known `php8.4` issues until someone report
 
 - [x] ✅ **Task 3.1**: Remove `defect-record.neon`, `src/DefectRecord/`, its lane check, the `bin/rules` listing and the agent-summary section; `Changed — breaking` changelog entry
 - [x] ✅ **Task 3.2**: Rewrite `CLAUDE/DefenceBeforeFix.md` and the defaults page: a defect is fixed now; upstream code gets an upstream issue
-- [ ] ⬜ **Task 3.3**: Remove the `ignoreErrors` entry by fixing `RequireExplicitDIAttributeRule`
+- [x] ✅ **Task 3.3**: Remove the `ignoreErrors` entry by fixing `RequireExplicitDIAttributeRule`
 
 ### Phase 4: the declared known gaps
 
-- [ ] ⬜ **Task 4.1**: Identify each PHPArkitect tier rule, resolvable by `bin/rule-doc`, with a single-file run
-- [ ] ⬜ **Task 4.2**: Carry PHPStan's native identifier catalogue offline for `bin/rule-doc`
+- [ ] 🔄 **Task 4.1**: Identify each PHPArkitect tier rule, resolvable by `bin/rule-doc`, with a single-file run (red committed, fix pending)
+- [x] ✅ **Task 4.2**: Carry PHPStan's native identifier catalogue offline for `bin/rule-doc`
 - [ ] ⬜ **Task 4.3**: Remove the `known-gaps` entries and the decisions they cite
+
+### Phase 4b: defects found while working (fixed, red first)
+
+- [x] ✅ **Task 4.4**: `withTypeCoverageFloors(declare:)` set a floor type-coverage 2.4 ignores; the argument is removed
+- [x] ✅ **Task 4.5**: `ShellCheckInstaller` never removed its staging directory; `TemporaryDirectory` does, for both installers
 
 ### Phase 5: release lines
 
