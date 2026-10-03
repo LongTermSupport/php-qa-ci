@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\PhpstanDocs;
 
-use FilesystemIterator;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
+use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use RuntimeException;
-use SplFileInfo;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
@@ -98,8 +95,8 @@ final readonly class PhpstanDocsInstaller
      */
     private function update(string $libraryRoot, ?string $carried, string $version): int
     {
-        $staging  = $this->stagingDirectory();
-        $checkout = $staging . '/phpstan';
+        $staging  = TemporaryDirectory::create('phpqa-phpstan-docs');
+        $checkout = $staging->path . '/phpstan';
 
         try {
             $source   = 'phpstan/phpstan ' . $this->fetcher->fetch($checkout);
@@ -128,7 +125,7 @@ final readonly class PhpstanDocsInstaller
         } catch (Throwable $throwable) {
             return $this->fail('could not update the PHPStan identifier pages: ' . $throwable->getMessage());
         } finally {
-            $this->remove($staging);
+            $staging->remove();
         }
 
         $this->output->writeln(\sprintf('IMPORTANT: the PHPStan identifier pages are tracked in git. Commit %s/.', PhpstanDocsCatalogue::DIRECTORY));
@@ -194,8 +191,14 @@ final readonly class PhpstanDocsInstaller
     private function replace(string $libraryRoot, array $pages, string $license, string $version, string $source): void
     {
         $target = $libraryRoot . '/' . PhpstanDocsCatalogue::PAGES;
-        $this->remove($target);
-        \Safe\mkdir($target, 0o755, true);
+        if (is_dir($target)) {
+            foreach ($this->pages($target) as $carried) {
+                \Safe\unlink($carried);
+            }
+        } else {
+            \Safe\mkdir($target, 0o755, true);
+        }
+
         foreach ($pages as $identifier => $page) {
             \Safe\copy($page, $target . '/' . $identifier . self::PAGE_SUFFIX);
         }
@@ -214,39 +217,5 @@ final readonly class PhpstanDocsInstaller
     private function isMaintainerEnvironment(): bool
     {
         return $this->maintainer ?? null !== new ExecutableFinder()->find('phive');
-    }
-
-    private function stagingDirectory(): string
-    {
-        $path = \Safe\tempnam(sys_get_temp_dir(), 'phpqa-phpstan-docs');
-        \Safe\unlink($path);
-        \Safe\mkdir($path, 0o700, true);
-
-        return $path;
-    }
-
-    private function remove(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            return;
-        }
-
-        $entries = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($entries as $entry) {
-            if (!$entry instanceof SplFileInfo) {
-                continue;
-            }
-
-            if ($entry->isDir() && !$entry->isLink()) {
-                \Safe\rmdir($entry->getPathname());
-            } else {
-                \Safe\unlink($entry->getPathname());
-            }
-        }
-
-        \Safe\rmdir($directory);
     }
 }

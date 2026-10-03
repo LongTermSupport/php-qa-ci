@@ -21,14 +21,16 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class TemporaryDirectoryTest extends TestCase
 {
+    private const string PREFIX = 'phpqa-temporary-directory-test';
+
     #[Test]
     public function aNewDirectoryIsEmptyAndUnderTheSystemTempDirectory(): void
     {
-        $directory = TemporaryDirectory::create('phpqa-temporary-directory-test');
+        $directory = TemporaryDirectory::create(self::PREFIX);
 
         try {
             self::assertDirectoryExists($directory->path);
-            self::assertStringStartsWith(sys_get_temp_dir() . '/phpqa-temporary-directory-test', $directory->path);
+            self::assertStringStartsWith(sys_get_temp_dir() . '/' . self::PREFIX, $directory->path);
             self::assertSame(['.', '..'], \Safe\scandir($directory->path));
         } finally {
             $directory->remove();
@@ -38,7 +40,7 @@ final class TemporaryDirectoryTest extends TestCase
     #[Test]
     public function removingItRemovesEverythingInIt(): void
     {
-        $directory = TemporaryDirectory::create('phpqa-temporary-directory-test');
+        $directory = TemporaryDirectory::create(self::PREFIX);
         \Safe\mkdir($directory->path . '/nested/deeper', 0o700, true);
         \Safe\file_put_contents($directory->path . '/top.txt', 'x');
         \Safe\file_put_contents($directory->path . '/nested/deeper/file.txt', 'x');
@@ -52,7 +54,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aSymlinkInsideIsRemovedWithoutFollowingIt(): void
     {
         $outside   = TemporaryDirectory::create('phpqa-temporary-directory-target');
-        $directory = TemporaryDirectory::create('phpqa-temporary-directory-test');
+        $directory = TemporaryDirectory::create(self::PREFIX);
         \Safe\file_put_contents($outside->path . '/keep.txt', 'x');
         \Safe\symlink($outside->path, $directory->path . '/link');
 
@@ -69,7 +71,7 @@ final class TemporaryDirectoryTest extends TestCase
     #[Test]
     public function removingADirectoryAlreadyGoneIsNotAnError(): void
     {
-        $directory = TemporaryDirectory::create('phpqa-temporary-directory-test');
+        $directory = TemporaryDirectory::create(self::PREFIX);
         $directory->remove();
 
         $directory->remove();
