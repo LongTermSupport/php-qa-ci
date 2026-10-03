@@ -14,6 +14,13 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   `var/qa/phpstan_logs/phpstan-parallel.neon` that includes it and caps
   `parallel.maximumNumberOfProcesses` at half the CPU threads, the same figure Rector and
   Infection use. The lane prints the cap it applied.
+- Each path given to `withIgnoredPaths()` in `qaConfig/qa.php` is written into the wrapper as an
+  `excludePaths.analyse` entry, absolute and optional (`(?)`), so a fixture's deliberate
+  violations are never reported and the project does not repeat the path in its own
+  `phpstan.neon`. It is `analyse` rather than `analyseAndScan`: analysed code may still reference
+  a class declared under an ignored path, and PHPStan still discovers it there. A `-p` run whose
+  path lies wholly under an ignored path is skipped, since PHPStan would otherwise stop at "No
+  files found to analyse".
 - The phar runs without Xdebug as `analyse <paths> -c <wrapper>`, with `--no-progress` in CI.
 - **Text mode**: the output is streamed and written to `var/qa/phpstan_logs/phpstan.log`, and a
   timestamped copy is archived (last ten kept per full-suite or per-path pattern). Exit 1 means

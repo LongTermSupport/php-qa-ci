@@ -111,6 +111,17 @@ the release and its tag. The full rules are in
   They are now v7, v6, v7, v8 and v3. `actions/download-artifact@v8` fails on a
   digest mismatch where v4 only warned. A project that copied the templates
   should copy them again.
+- **`withIgnoredPaths()` reaches every lane that scans the checked paths.**
+  PHPStan, Dead Code Detection, PHP CS Fixer, PHP Strict Types, PHPCPD and
+  PSR-4 Validation scanned the ignored paths anyway, so a project following the
+  docs had its fixtures' deliberate violations reported and had to repeat each
+  path in every tool's own config. PHPStan and Dead Code Detection now exclude
+  them from the report (`excludePaths.analyse`, so their classes stay
+  discoverable), PHP CS Fixer filters them out of whatever finder the project's
+  config uses, and the rest skip them; a `-p` PHPStan run inside an ignored
+  path is skipped. An exclusion repeated in a project's own `phpstan.neon`,
+  `php_cs_finder.php` or `psr4-validate-ignore-list.txt` can be dropped.
+  PHPArkitect and Infection still need their own setting.
 
 ## 85.2.0 — 2026-10-03
 

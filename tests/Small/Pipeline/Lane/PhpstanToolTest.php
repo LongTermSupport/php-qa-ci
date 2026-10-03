@@ -36,6 +36,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
@@ -67,6 +69,8 @@ final class PhpstanToolTest extends TestCase
     private const string PHAR_SCHEME = 'phar://';
 
     private const string NEON_LIST_ITEM = '        - ';
+
+    private const string ASSETS = 'tests/assets';
 
     private ContextFactory $factory;
 
@@ -161,6 +165,55 @@ final class PhpstanToolTest extends TestCase
         new PhpstanTool()->run($this->factory->context());
 
         self::assertStringContainsString('    - ' . $override . "\n", $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
+    }
+
+    #[Test]
+    public function theIgnoredPathsAreExcludedFromTheReportInTheWrapperNeon(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root   = $this->factory->project->path;
+        $config = $this->factory->builder()->withIgnoredPaths(self::ASSETS, 'src/Generated')->build();
+
+        new PhpstanTool()->run($this->factory->context($config));
+
+        self::assertStringEndsWith(
+            "    excludePaths:\n        analyse:\n            - '" . $root . "/tests/assets' (?)\n            - '" . $root . "/src/Generated' (?)\n",
+            $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON),
+        );
+    }
+
+    #[Test]
+    public function aSinglePathRunInsideAnIgnoredPathIsSkippedWithoutRunningPhpstan(): void
+    {
+        $config = $this->factory->builder(specifiedPath: 'tests/assets/Fixture.php')->withIgnoredPaths(self::ASSETS)->build();
+
+        $result = new PhpstanTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame('tests/assets/Fixture.php is under an ignored path (withIgnoredPaths in qaConfig/qa.php), so there is nothing to analyse', $result->summary);
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function aSinglePathRunAboveAnIgnoredPathStillRuns(): void
+    {
+        $this->factory->processes->willSucceed();
+        $config = $this->factory->builder(specifiedPath: 'tests')->withIgnoredPaths(self::ASSETS)->build();
+
+        $result = new PhpstanTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertCount(1, $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function noIgnoredPathWritesNoExcludePaths(): void
+    {
+        $this->factory->processes->willSucceed();
+
+        new PhpstanTool()->run($this->factory->context());
+
+        self::assertStringNotContainsString('excludePaths', $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
     }
 
     #[Test]

@@ -12,6 +12,8 @@ use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
 use LTS\PHPQA\Pipeline\Agent\PhpstanJsonParser;
 use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -91,6 +93,13 @@ final readonly class PhpstanTool implements ToolInterface
     public function run(ToolContext $context): ToolResultDto
     {
         $config  = $context->config;
+        $ignored = IgnoredPaths::of($config);
+        if (null !== $config->specifiedPath && array_all($config->pathsToCheck, $ignored->contains(...))) {
+            // PHPStan itself would stop at "No files found to analyse" and exit 1,
+            // a red run nothing in the analysed code can turn green.
+            return ToolResultDto::skipped(\sprintf('%s is under an ignored path (withIgnoredPaths in qaConfig/qa.php), so there is nothing to analyse', $config->specifiedPath));
+        }
+
         $logDir  = $context->logDir(self::LOG_DIR);
         $wrapper = $this->writeWrapperNeon($context, $logDir);
         $context->writeln(\sprintf('PHPStan: limiting to %d parallel processes (50%% of cores)', $config->halfCpuThreads));
@@ -265,9 +274,10 @@ final readonly class PhpstanTool implements ToolInterface
 
     /**
      * Generate the neon that includes the resolved config, caps the worker
-     * count and applies the project's type-coverage floors. The floors go here
-     * rather than in the shipped phpstan.neon so a project that has copied that
-     * file still gets them from qa.php.
+     * count, applies the project's type-coverage floors and keeps its ignored
+     * paths out of the report. These go here rather than in the shipped
+     * phpstan.neon so a project that has copied that file still gets them
+     * from qa.php.
      */
     private function writeWrapperNeon(ToolContext $context, string $logDir): string
     {
@@ -300,6 +310,8 @@ final readonly class PhpstanTool implements ToolInterface
                 $neon .= \sprintf("        - %s\n", $path);
             }
         }
+
+        $neon .= new ExcludePathsNeon()->parameters(IgnoredPaths::of($config));
 
         \Safe\file_put_contents($wrapper, $neon);
 

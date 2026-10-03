@@ -29,7 +29,11 @@ structural false positive in eleven reports, the rest genuine (Plan 00005, journ
   `rules.neon` from `vendor-phar/dead-code-detector.phar`; the detector's classes load through
   `--autoload-file` from the same PHAR. Nothing is installed through Composer, so the PHPStan
   gate never sees the detector.
-- Analyses `src/`, `tests/` and every entry point listed with `withDeadCodeEntryPoints()`.
+- Analyses `src/`, `tests/` and every entry point listed with `withDeadCodeEntryPoints()`, less
+  the `withIgnoredPaths()` paths, which it excludes exactly as the [PHPStan lane](phpstan.md)
+  does. Code under an ignored path is not analysed, so a member reached only from there is
+  reported as unused: ignore generated production code only if nothing hand-written depends on
+  it being called from there.
 - The tests usage excluder is always on: a member only tests reach is reported.
 - A library (composer `type: library`, or no type) with no `@api` tag anywhere in `src/` fails
   before anything runs: the detector treats `@api` classes as entry points, and a library without

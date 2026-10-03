@@ -24,6 +24,13 @@ fix --config=<php_cs.php> --cache-file=var/qa/cache/php_cs.cache --allow-risky=y
 
 The process output is streamed and also written to `var/qa/php-cs-fixer-output.log`.
 
+With `--path-mode=intersection` the checked paths only narrow what the config's finder yields, so
+an exclusion has to be in the finder. When `qaConfig/qa.php` sets `withIgnoredPaths()`, the lane
+therefore generates `var/qa/phpCsFixer/php_cs.php`, which requires the resolved `php_cs.php` and
+filters its finder by real path, and passes that as `--config`. This works whichever
+`php_cs.php` and `php_cs_finder.php` the project uses, so a copied config needs no exclusion of
+its own for an ignored path.
+
 - In the full pipeline, second in the coding-standards phase.
 - Standalone: `vendor/bin/qa -t fixer` (aliases `-t f`, `-t csfixer`); supports `-p <path>`.
 - **Read-only run** (`QA_READONLY=1`, GitHub Actions): `--dry-run` is passed. Exit 0 passes; exit
@@ -48,7 +55,8 @@ The process output is streamed and also written to `var/qa/php-cs-fixer-output.l
 
 ## Implementation
 
-- Lane: [`PhpCsFixerTool`](../../src/Pipeline/Lane/PhpCsFixerTool.php).
+- Lane: [`PhpCsFixerTool`](../../src/Pipeline/Lane/PhpCsFixerTool.php); the generated config
+  for ignored paths: [`IgnoredPathsConfig`](../../src/Pipeline/Lane/PhpCsFixer/IgnoredPathsConfig.php).
 - Read-only remediation text: [`ReadOnlyGuidance`](../../src/Pipeline/Lane/ReadOnlyGuidance.php),
   shared with [Rector](rector.md).
 - Shipped config: [`php_cs.php`](../../configDefaults/generic/php_cs.php) and its finder
