@@ -135,11 +135,17 @@ otherwise, and a green push to `php8.5` opens a release pull request whose merge
 [CLAUDE/releases.md](CLAUDE/releases.md) is the procedure: which heading a change belongs under,
 the trailer, how the release pull request works, and the repository settings it relies on.
 
-## Work happens on `php8.5` only (binding, Owner decision)
+## Work happens on `php8.5` (binding, Owner decision)
 
-Every change, fix and release is made on `php8.5`. The `php8.4` and `php8.3` branches are left
-as they are: nothing is backported to them and no issue waits on them. A defect found on an
-older line that `php8.5` does not have needs no action; one `php8.5` has is fixed there alone.
+Every change, fix and feature is made on `php8.5`, the current line.
+
+- **`php8.4`** takes a bug fix only when a project running `php8.4` reports that bug. A bug
+  found on `php8.5`, or found on `php8.4` by working on this repository, is not backported
+  proactively; it stays a known `php8.4` issue until a `php8.4` project hits it. The single
+  exception is #36 (FlipAssertRector inverts assertions), backported on the Owner's go-ahead.
+- **`php8.3`** is dead: no fixes, no releases.
+- An issue states the release line it was found on, so a report against `php8.4` is
+  recognisable as the trigger for a backport.
 
 ## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
 
@@ -620,7 +626,7 @@ the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-s
 ## Environment Requirements
 
 - Linux/Unix environment (uses bash)
-- PHP 8.5 or higher on this branch (`composer.json` requires `^8.5`; the `php8.5` branch targets PHP 8.5, while the separate `php8.4` and `php8.3` branches support PHP 8.4 and 8.3)
+- PHP 8.5 or higher on this branch (`composer.json` requires `^8.5`; the `php8.5` branch targets PHP 8.5; `php8.4` takes reported fixes only and `php8.3` is unmaintained, see "Work happens on `php8.5`")
 - Composer-installed project with php-qa-ci as a dependency
 
 ### Custom PHP Executable

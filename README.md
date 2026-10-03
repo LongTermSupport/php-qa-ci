@@ -1,6 +1,6 @@
 # PHP-QA-CI
 
-A comprehensive quality assurance and continuous integration pipeline for PHP 8.5+ projects (this is the `php8.5` branch; `php8.4` and `php8.3` branches support PHP 8.4 and 8.3). Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
+A comprehensive quality assurance and continuous integration pipeline for PHP 8.5+ projects (this is the `php8.5` branch; see [Branches and versions](#branches-and-versions) for the `php8.4` and `php8.3` lines). Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
 
 This package is written for and tested on Linux.
 
@@ -517,11 +517,12 @@ vendor/bin/qa -t stan -p src/Domain
 
 ### Branches and versions
 
-Each supported PHP minor has its own long-lived branch:
+Each PHP minor has its own long-lived branch:
 
-- `php8.5` -- Default branch, targets PHP 8.5
-- `php8.4` -- Targets PHP 8.4
-- `php8.3` -- Targets PHP 8.3 (no tagged release yet; track the branch)
+- `php8.5` -- Default branch, targets PHP 8.5. Every feature and fix lands here.
+- `php8.4` -- Targets PHP 8.4. Takes a bug fix when a project running `php8.4` reports the bug;
+  say which line you are on when you open an issue.
+- `php8.3` -- Targets PHP 8.3. Unmaintained: no fixes and no releases.
 
 Releases are tagged per branch, and **the major version is the PHP line written without
 the dot**: `85.x.y` is cut from `php8.5` and requires PHP 8.5, `84.x.y` is cut from `php8.4`.
