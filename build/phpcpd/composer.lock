@@ -8,28 +8,27 @@
     "packages": [
         {
             "name": "phpcpd-next/phpcpd",
-            "version": "v1.4",
+            "version": "v2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpcpd-next/phpcpd.git",
-                "reference": "0ab94a48a18136881419f7d67027cdbc1b6af6ca"
+                "reference": "a975e5094e3639054bd54d24b2b894e14cf683f5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpcpd-next/phpcpd/zipball/0ab94a48a18136881419f7d67027cdbc1b6af6ca",
-                "reference": "0ab94a48a18136881419f7d67027cdbc1b6af6ca",
+                "url": "https://api.github.com/repos/phpcpd-next/phpcpd/zipball/a975e5094e3639054bd54d24b2b894e14cf683f5",
+                "reference": "a975e5094e3639054bd54d24b2b894e14cf683f5",
                 "shasum": ""
             },
             "require": {
                 "ext-dom": "*",
                 "ext-mbstring": "*",
-                "php": ">=8.5"
+                "php": ">=8.4"
             },
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.64",
                 "phpstan/phpstan": "^2.2",
-                "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0",
-                "rector/rector": "^2.0"
+                "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0"
             },
             "suggest": {
                 "phpunit/phpunit": "To use the PHPUnit integration (AssertNoDuplication trait / DuplicationConstraint) for duplication-as-a-test"
@@ -50,20 +49,15 @@
             },
             "notification-url": "https://packagist.org/downloads/",
             "license": [
-                "BSD-3-Clause"
+                "MIT"
             ],
             "authors": [
                 {
-                    "name": "Sebastian Bergmann",
-                    "email": "sebastian@phpunit.de",
-                    "role": "Original author"
-                },
-                {
                     "name": "Luciano Federico Pereira",
-                    "role": "Fork maintainer"
+                    "role": "Author and maintainer"
                 }
             ],
-            "description": "phpcpd-next — Copy/Paste (clone) detector for PHP 8.5+ with Type-1/2/3 detection. The maintained successor to the archived sebastianbergmann/phpcpd.",
+            "description": "phpcpd-next — Copy/Paste (clone) detector for PHP 8.4+ with Type-1/2/3 detection. The maintained successor to the archived sebastianbergmann/phpcpd.",
             "homepage": "https://github.com/phpcpd-next/phpcpd",
             "keywords": [
                 "ci",
@@ -78,7 +72,7 @@
                 "issues": "https://github.com/phpcpd-next/phpcpd/issues",
                 "source": "https://github.com/phpcpd-next/phpcpd"
             },
-            "time": "2026-08-23T08:27:19+00:00"
+            "time": "2026-09-15T20:06:09+00:00"
         }
     ],
     "packages-dev": [],
