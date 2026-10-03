@@ -76,6 +76,13 @@ jobs:
           done
           bash scripts/build-phar.bash --all --force
 
+      # The active-defences region of CLAUDE.md counts the rules each installed
+      # PHPStan extension registers, and a test holds it current, so an extension
+      # release that changes its rule set would fail the QA run below. Regenerate
+      # it from what the update installed; the change lands in the pull request.
+      - name: Regenerate the active-defences region of CLAUDE.md
+        run: php bin/rules . --write-agent-summary=CLAUDE.md
+
       # Step 4: Check for changes
       - name: Detect changes
         id: changes

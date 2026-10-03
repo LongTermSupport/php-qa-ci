@@ -78,11 +78,10 @@ dir) prints its page offline.
 - `typeCoverage.returnTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `typeCoverage.propertyTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `typeCoverage.constantTypeCoverage` — a rule from `tomasvotruba/type-coverage`
-- `typeCoverage.declareCoverage` — a rule from `tomasvotruba/type-coverage`
 - `phpstan/phpstan-deprecation-rules` — 2 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `phpstan/phpstan-phpunit` — 15 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `phpstan/phpstan-strict-rules` — 45 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
-- `tomasvotruba/type-coverage` — 8 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `tomasvotruba/type-coverage` — 7 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `phpqaci.rector` — Rector (`docs/tools/rector.md`)
 - `phpqaci.phpCsFixer` — PHP-CS-Fixer (`docs/tools/phpCsFixer.md`)
 - `phpqaci.twigCsFixer` — Twig coding standards (when twig/twig is installed) (`docs/tools/twigCsFixer.md`)
