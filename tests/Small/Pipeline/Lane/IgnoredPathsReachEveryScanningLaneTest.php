@@ -271,16 +271,13 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         [$ignoredOutcome, $ignoredSeen]     = $this->drive($lane, $configure, $queue, true);
         [$controlOutcome, $controlSeen]     = $this->drive($lane, $configure, $queue, false);
 
-        $fromSource = substr(self::IGNORED, \strlen('src/'));
+        // The source-relative form, for a tool that matches inside each source dir.
+        $needle = self::REACHES_FROM_SOURCE === $kind ? substr(self::IGNORED, \strlen('src/')) : self::IGNORED;
 
         return match ($kind) {
-            self::REACHES_FROM_SOURCE => array_values(array_filter([
-                str_contains($ignoredSeen, $fromSource) ? null : 'the ignored path ' . $fromSource . ', relative to src/, reached neither the argv, the environment nor a file the lane wrote',
-                str_contains($controlSeen, $fromSource) ? 'vacuous: ' . $fromSource . ' is named even when nothing is ignored' : null,
-            ])),
-            self::REACHES => array_values(array_filter([
-                str_contains($ignoredSeen, self::IGNORED) ? null : 'the ignored path ' . self::IGNORED . ' reached neither the argv, the environment nor a file the lane wrote',
-                str_contains($controlSeen, self::IGNORED) ? 'vacuous: the ignored path ' . self::IGNORED . ' is named even when nothing is ignored' : null,
+            self::REACHES, self::REACHES_FROM_SOURCE => array_values(array_filter([
+                str_contains($ignoredSeen, $needle) ? null : 'the ignored path ' . $needle . ' reached neither the argv, the environment nor a file the lane wrote',
+                str_contains($controlSeen, $needle) ? 'vacuous: the ignored path ' . $needle . ' is named even when nothing is ignored' : null,
             ])),
             self::FILTERS => array_values(array_filter([
                 str_contains($ignoredSeen, self::PLANTED) ? 'the planted file ' . self::PLANTED . ' under the ignored path reached the tool' : null,

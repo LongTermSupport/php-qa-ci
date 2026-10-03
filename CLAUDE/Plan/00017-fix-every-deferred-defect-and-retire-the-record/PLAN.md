@@ -47,7 +47,7 @@ so an issue must state the release line it was found on.
 
 - [ ] ⬜ **Task 2.1**: The generated `CLAUDE.md` region is written in the markdown formatter's canonical form, so a formatter pass changes nothing (blank lines inside the markers; the attribute in a code span)
 - [x] ✅ **Task 2.2**: The `phpArkitect` lane honours `withIgnoredPaths()`, anchored to the project root
-- [ ] ⬜ **Task 2.3**: The `infection` lane honours `withIgnoredPaths()`
+- [x] ✅ **Task 2.3**: The `infection` lane honours `withIgnoredPaths()`
 - [ ] ⬜ **Task 2.4**: A `withIgnoredPaths()` entry that matches nothing fails, as a stale `withUnanalysedPath()` does
 - [ ] ⬜ **Task 2.5**: The three hooks-daemon defects: confirm which v3.68.0 fixes; file each one it does not upstream through `hooks-daemon issue-report`
 

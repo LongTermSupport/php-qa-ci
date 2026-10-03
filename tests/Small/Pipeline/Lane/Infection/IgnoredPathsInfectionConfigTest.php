@@ -30,14 +30,23 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
 {
     private const string CONFIG = 'qaConfig/infection.json';
 
+    private const string SRC_FROM_CONFIG = '../src';
+
+    private const string LEGACY = 'src/Legacy';
+
+    private const string ANCHORED_LEGACY = '#^Legacy(?:/|$)#';
+
     private TempDir $project;
 
     private string $root;
+
+    private string $src;
 
     protected function setUp(): void
     {
         $this->project = TempDir::create('phpqa-infcfg');
         $this->root    = $this->project->path;
+        $this->src     = $this->root . '/src';
     }
 
     protected function tearDown(): void
@@ -48,7 +57,7 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     #[Test]
     public function nothingIsDerivedWhenNoIgnoredPathIsUnderASourceDirectory(): void
     {
-        $config = $this->config(['source' => ['directories' => ['../src']]]);
+        $config = $this->srcOnly();
 
         self::assertNull(new IgnoredPathsInfectionConfig()->derive($config, $this->ignored('tests/assets', 'srcLegacy')));
         self::assertNull(new IgnoredPathsInfectionConfig()->derive($config, $this->ignored()));
@@ -57,22 +66,22 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     #[Test]
     public function anIgnoredPathUnderASourceDirectoryBecomesAnExcludeAnchoredAtThatDirectory(): void
     {
-        $config = $this->config(['source' => ['directories' => ['../src'], 'excludes' => ['/ComposerPlugin/']]]);
+        $config = $this->config(['source' => ['directories' => [self::SRC_FROM_CONFIG], 'excludes' => ['/ComposerPlugin/']]]);
 
-        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored('src/Legacy', 'src/Domain/Old.php'));
+        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY, 'src/Domain/Old.php'));
 
         self::assertSame(
-            ['directories' => [$this->root . '/src'], 'excludes' => ['/ComposerPlugin/', '#^Legacy(?:/|$)#', '#^Domain/Old\.php(?:/|$)#']],
-            $derived['source'] ?? null,
+            ['directories' => [$this->src], 'excludes' => ['/ComposerPlugin/', self::ANCHORED_LEGACY, '#^Domain/Old\.php(?:/|$)#']],
+            $this->source($derived),
         );
     }
 
     #[Test]
     public function aRegexMetacharacterInAnIgnoredPathIsQuoted(): void
     {
-        $derived = new IgnoredPathsInfectionConfig()->derive($this->config(['source' => ['directories' => ['../src']]]), $this->ignored('src/Le#ga.cy+'));
+        $derived = new IgnoredPathsInfectionConfig()->derive($this->srcOnly(), $this->ignored('src/Le#ga.cy+'));
 
-        self::assertSame(['#^Le\#ga\.cy\+(?:/|$)#'], $derived['source']['excludes'] ?? null);
+        self::assertSame(['#^Le\#ga\.cy\+(?:/|$)#'], $this->source($derived)['excludes'] ?? null);
     }
 
     #[Test]
@@ -81,7 +90,7 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
         $config = $this->config([
             'timeout'   => 10,
             'bootstrap' => 'tests/bootstrap.php',
-            'source'    => ['directories' => ['../src']],
+            'source'    => ['directories' => [self::SRC_FROM_CONFIG]],
             'logs'      => [
                 'text'        => '../var/qa/infection/log.txt',
                 'summary'     => '../var/qa/infection/summary.txt',
@@ -102,13 +111,13 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
         ]);
         $qa = $this->root . '/qaConfig';
 
-        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored('src/Legacy'));
+        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
 
         self::assertSame(
             [
                 'timeout'   => 10,
                 'bootstrap' => 'tests/bootstrap.php',
-                'source'    => ['directories' => [$this->root . '/src'], 'excludes' => ['#^Legacy(?:/|$)#']],
+                'source'    => ['directories' => [$this->src], 'excludes' => [self::ANCHORED_LEGACY]],
                 'logs'      => [
                     'text'        => $this->root . '/var/qa/infection/log.txt',
                     'summary'     => $this->root . '/var/qa/infection/summary.txt',
@@ -135,19 +144,19 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     #[Test]
     public function anIgnoredSourceDirectoryIsDroppedRatherThanExcluded(): void
     {
-        $config = $this->config(['source' => ['directories' => ['../src', '../lib']]]);
+        $config = $this->config(['source' => ['directories' => [self::SRC_FROM_CONFIG, '../lib']]]);
 
         $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored('lib'));
 
-        self::assertSame(['directories' => [$this->root . '/src']], $derived['source'] ?? null);
+        self::assertSame(['directories' => [$this->src]], $this->source($derived));
     }
 
     #[Test]
     public function whenEverySourceDirectoryIsIgnoredNoneIsLeft(): void
     {
-        $derived = new IgnoredPathsInfectionConfig()->derive($this->config(['source' => ['directories' => ['../src']]]), $this->ignored('src'));
+        $derived = new IgnoredPathsInfectionConfig()->derive($this->srcOnly(), $this->ignored('src'));
 
-        self::assertSame([], $derived['source']['directories'] ?? null);
+        self::assertSame([], $this->source($derived)['directories'] ?? null);
     }
 
     #[Test]
@@ -156,7 +165,39 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
         $config = $this->project->write(self::CONFIG, '{"source": ');
 
         $this->expectException(JsonException::class);
-        new IgnoredPathsInfectionConfig()->derive($config, $this->ignored('src/Legacy'));
+        new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
+    }
+
+    #[Test]
+    public function aConfigThatIsNotAnObjectIsReported(): void
+    {
+        $config = $this->project->write(self::CONFIG, '"src"');
+
+        try {
+            new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
+            self::fail('a config that is not an object was derived');
+        } catch (JsonException $jsonException) {
+            self::assertSame($config . ' does not hold a JSON object', $jsonException->getMessage());
+        }
+    }
+
+    /**
+     * @param array<array-key, mixed>|null $derived
+     *
+     * @return array<array-key, mixed>
+     */
+    private function source(?array $derived): array
+    {
+        self::assertIsArray($derived);
+        $source = $derived['source'] ?? null;
+        self::assertIsArray($source);
+
+        return $source;
+    }
+
+    private function srcOnly(): string
+    {
+        return $this->config(['source' => ['directories' => [self::SRC_FROM_CONFIG]]]);
     }
 
     /** @param array<string, mixed> $config */

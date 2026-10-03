@@ -153,11 +153,10 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
 
 `withIgnoredPaths()` takes project-relative paths, and every lane that scans the checked paths
 skips them: Rector, PHP CS Fixer, PHP Strict Types, PHP Lint, OPcache, PSR-4 Validation, PHPStan,
-Dead Code Detection, PHPArkitect and PHPCPD. ShellCheck and Analysed Paths honour them too. Each
-lane's page under [tools/](tools/) says how it hands them to its tool, so the path is not
-repeated in any tool's own config. Infection cannot yet be told to skip a path, and keeps its own
-setting, `source.excludes` in `infection.json`. Lanes whose scope is not the checked paths (the
-Composer checks, the Twig and YAML lanes, the Markdown lanes, PHPUnit) do not read the setting.
+Dead Code Detection, PHPArkitect, Infection and PHPCPD. ShellCheck and Analysed Paths honour them
+too. Each lane's page under [tools/](tools/) says how it hands them to its tool, so the path is
+not repeated in any tool's own config. Lanes whose scope is not the checked paths (the Composer
+checks, the Twig and YAML lanes, the Markdown lanes, PHPUnit) do not read the setting.
 
 The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at

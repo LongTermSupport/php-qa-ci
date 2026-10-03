@@ -58,6 +58,10 @@ final class InfectionToolTest extends TestCase
 
     private const string PROJECT_CONFIG = 'qaConfig/infection.json';
 
+    private const string CONFIGURATION_ARG = '--configuration=';
+
+    private const string LEGACY = 'src/Legacy';
+
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4'];
 
     private ContextFactory $factory;
@@ -106,7 +110,7 @@ final class InfectionToolTest extends TestCase
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
             '--threads=4',
-            '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
+            self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
             '--min-msi=74',
             self::COVERED_FLOOR_ARG,
             '--log-verbosity=all',
@@ -240,7 +244,7 @@ final class InfectionToolTest extends TestCase
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
             '--threads=4',
-            '--configuration=' . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
+            self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
             self::COVERED_FLOOR_ARG,
             $this->root . '/src/Committed.php',
         ], \array_slice($phar->command, 6));
@@ -254,10 +258,10 @@ final class InfectionToolTest extends TestCase
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes->willSucceed();
 
-        $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths('src/Legacy', 'tests/assets')));
+        $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY, 'tests/assets')));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertContains('--configuration=' . $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG, $this->factory->processes->lastSpec()->command);
+        self::assertContains(self::CONFIGURATION_ARG . $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG, $this->factory->processes->lastSpec()->command);
         self::assertSame(
             ['source' => ['directories' => [$this->root . self::SRC_DIR], 'excludes' => ['#^Legacy(?:/|$)#']], 'tmpDir' => $this->root . '/var/qa/infection/tmp'],
             \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true),
@@ -274,7 +278,7 @@ final class InfectionToolTest extends TestCase
 
         new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths('tests/assets')));
 
-        self::assertContains('--configuration=' . $config, $this->factory->processes->lastSpec()->command);
+        self::assertContains(self::CONFIGURATION_ARG . $config, $this->factory->processes->lastSpec()->command);
         self::assertFileDoesNotExist($this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG);
     }
 
@@ -295,7 +299,7 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory->project->write(self::PROJECT_CONFIG, '{"source": ');
 
-        $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths('src/Legacy')));
+        $result = new InfectionTool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY)));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame([], $this->factory->processes->specs);
@@ -312,13 +316,13 @@ final class InfectionToolTest extends TestCase
             ->willSucceed()
         ;
 
-        $result  = new InfectionTool()->run($this->context($this->diffBuilder()->withIgnoredPaths('src/Legacy')));
+        $result  = new InfectionTool()->run($this->context($this->diffBuilder()->withIgnoredPaths(self::LEGACY)));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('mutating only the changed files: src/Committed.php', $printed);
         $command = $this->factory->processes->lastSpec()->command;
-        self::assertSame($this->root . '/src/Committed.php', $command[array_key_last($command)]);
+        self::assertSame([$this->root . '/src/Committed.php'], \array_slice($command, -1));
         self::assertNotContains($this->root . '/src/Legacy/Old.php', $command);
     }
 
@@ -330,7 +334,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed("src/Legacy/Old.php\n")
         ;
 
-        $result = new InfectionTool()->run($this->context($this->diffBuilder()->withIgnoredPaths('src/Legacy')));
+        $result = new InfectionTool()->run($this->context($this->diffBuilder()->withIgnoredPaths(self::LEGACY)));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertCount(2, $this->factory->processes->specs, 'git status and git diff only: no coverage run');

@@ -40,6 +40,12 @@ the release and its tag. The full rules are in
   (`configDefaults/generic/phparkitect-class-set.php`, exported as `PHPQACI_ARKITECT_CLASS_SET`)
   drops each ignored path anchored at the source directory, so ignoring `src/Legacy` no longer
   leaves `src/Legacy/` checked, and does not drop `src/Domain/Legacy/` either.
+- The `infection` lane honours `withIgnoredPaths()`. When an ignored path lies under one of
+  `infection.json`'s source directories, the lane runs Infection with a derived copy of the
+  config at `var/qa/infection-config/infection.json`: its paths made absolute and the ignored
+  path added to `source.excludes`, anchored at its source directory. Diff mode no longer mutates
+  a changed file under an ignored path, and a run whose every source directory is ignored is
+  skipped.
 
 ## 85.3.0 — 2026-10-03
 

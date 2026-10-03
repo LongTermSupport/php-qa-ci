@@ -31,8 +31,10 @@ use Symfony\Component\Process\Process;
 #[Large]
 final class IgnoredPathsSourceCollectionTest extends TestCase
 {
+    /** The Infection PHAR php-qa-ci ships. */
     private const string PHAR = __DIR__ . '/../../../vendor-phar/infection.phar';
 
+    /** A project whose src/ holds Legacy/ and Domain/Legacy/. */
     private const string FIXTURE = __DIR__ . '/../../assets/infection/ignoredPaths';
 
     /** String settings in Infection's schema that are not resolved against the config's directory. */
@@ -103,7 +105,7 @@ final class IgnoredPathsSourceCollectionTest extends TestCase
      * Dotted names of every setting whose value is a string or a list of
      * strings, outside the mutator settings.
      *
-     * @param array<mixed> $properties
+     * @param array<array-key, mixed> $properties
      *
      * @return list<string>
      */

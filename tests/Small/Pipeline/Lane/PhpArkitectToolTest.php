@@ -67,6 +67,12 @@ final class PhpArkitectToolTest extends TestCase
 
     private const string VIOLATION_OUTPUT = "App\\Foo violates ...\n";
 
+    private const string PROJECT_ENTRY_CONFIG = 'qaConfig/phparkitect.php';
+
+    private const string OWN_CLASS_SET_CONFIG = "<?php return static fn () => null;\n";
+
+    private const string LEGACY = 'src/Legacy';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -142,7 +148,7 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function projectOverridesOfTheEntryConfigAndTiersWin(): void
     {
-        $entry   = $this->factory->project->write('qaConfig/phparkitect.php', "<?php return static fn () => null;\n");
+        $entry   = $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
         $default = $this->factory->project->write('qaConfig/phparkitect-rules-default.php', "<?php return [];\n");
         $this->factory->processes->willSucceed();
 
@@ -158,7 +164,7 @@ final class PhpArkitectToolTest extends TestCase
     public function theIgnoredPathsAndTheClassSetFactoryAreExported(): void
     {
         $this->factory->processes->willSucceed();
-        $config = $this->factory->builder()->withIgnoredPaths('src/Legacy', 'tests/assets')->build();
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY, 'tests/assets')->build();
 
         new PhpArkitectTool()->run($this->factory->context($config));
 
@@ -175,8 +181,8 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function aProjectEntryConfigThatBuildsItsOwnClassSetFailsWhileASourcePathIsIgnored(): void
     {
-        $this->factory->project->write('qaConfig/phparkitect.php', "<?php return static fn () => null;\n");
-        $config = $this->factory->builder()->withIgnoredPaths('src/Legacy')->build();
+        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY)->build();
 
         $result = new PhpArkitectTool()->run($this->factory->context($config));
 
@@ -184,13 +190,13 @@ final class PhpArkitectToolTest extends TestCase
         self::assertSame([], $this->factory->processes->specs, 'arkitect must not run on a class set that still holds the ignored path');
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('PHPQACI_ARKITECT_CLASS_SET', $printed);
-        self::assertStringContainsString('src/Legacy', $printed);
+        self::assertStringContainsString(self::LEGACY, $printed);
     }
 
     #[Test]
     public function aProjectEntryConfigNeedsNothingWhenNoIgnoredPathIsUnderTheSourceDir(): void
     {
-        $this->factory->project->write('qaConfig/phparkitect.php', "<?php return static fn () => null;\n");
+        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
         $this->factory->processes->willSucceed();
         $config = $this->factory->builder()->withIgnoredPaths('tests/assets', 'srcGenerated')->build();
 
@@ -200,9 +206,9 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function aProjectEntryConfigThatBuildsTheShippedClassSetRunsWhileASourcePathIsIgnored(): void
     {
-        $this->factory->project->write('qaConfig/phparkitect.php', "<?php\n\$classSet = (require getenv('PHPQACI_ARKITECT_CLASS_SET'))(__DIR__ . '/../src');\n");
+        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, "<?php\n\$classSet = (require getenv('PHPQACI_ARKITECT_CLASS_SET'))(__DIR__ . '/../src');\n");
         $this->factory->processes->willSucceed();
-        $config = $this->factory->builder()->withIgnoredPaths('src/Legacy')->build();
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY)->build();
 
         self::assertSame(ToolOutcomeEnum::Passed, new PhpArkitectTool()->run($this->factory->context($config))->outcome);
     }
