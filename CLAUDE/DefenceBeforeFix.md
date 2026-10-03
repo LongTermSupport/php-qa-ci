@@ -87,7 +87,9 @@ the rule anyway and record the mechanism gap in `composer.json` `known-gaps`.
 - Run the rule everywhere the pattern can occur — every language and component, not just the
   one that reported — and **record the instance count before fixing anything**. Absent a
   recorded project decision, sweep all first-party source and exclude generated and vendored
-  code, and record that as the decision. The rule's own fixtures are never instances.
+  code, and record that as the decision. The rule's own fixtures are never instances. What
+  that means in a php-qa-ci project, with the other judgements the method leaves open, is
+  [docs/defence-before-fix-defaults.md](../docs/defence-before-fix-defaults.md).
 - **Corroborate the count** by the independent search from 3.1. If the search finds instances
   the rule missed, the rule is too narrow: widen it. The search is the authority.
 - **Fix every instance.** Each fix addresses the hazard, never the rule: no change that turns

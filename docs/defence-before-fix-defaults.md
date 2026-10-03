@@ -1,0 +1,22 @@
+# Defence Before Fix: the defaults php-qa-ci assumes
+
+The [method specification](https://defence-before-fix.github.io/SPEC.html) leaves several
+judgements to the project. A project that has recorded none of them still has an answer: the
+defaults below. Each one is what php-qa-ci already does, so following it needs no configuration.
+To decide otherwise, record the decision in the place named, and that record replaces the
+default.
+
+| Judgement                   | Default                                                                                                                                                                                                                         | Where a project records otherwise                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Owner                       | Whoever instructed the work, as the method says. A suppression, baseline, narrowing or removed rule they approve is written into the project record with its reason, marked as taken by a default Owner.                        | Name the Owner in the project's root `CLAUDE.md` or `README.md`.                               |
+| Where the project record is | `qaConfig/phpstan.neon` and every file it includes (`ignoreErrors`, each entry with its justification comment), `qaConfig/qa.php` (lanes switched off, floors), and `composer.json` `extra.defence-before-fix` (declared gaps). | These files; `vendor/bin/rules` lists the `ignoreErrors` entries beside the defences.          |
+| Sweep scope                 | The checked paths, `src/` and `tests/`, plus any added with `withCheckedPaths()`. `vendor/` is never swept. A directory named `Generated` is excluded by the architecture rules.                                                | `withCheckedPaths()` and `withIgnoredPaths()` in `qaConfig/qa.php`, with a comment saying why. |
+| Fixtures                    | Next to the project's tests, under `tests/assets/`, and excluded from the sweep with `withIgnoredPaths('tests/assets')`. A fixture is the rule's proof, never an instance.                                                      | Wherever the project's existing tests keep their data; say which in the rule's page.           |
+| Hazard                      | Wrong output produced silently, a crash, an error hidden, or code that cannot be changed safely. A preference about how code looks is a coding standard for PHP CS Fixer and Rector, not a defence.                             | The rule's page, in its "why" section.                                                         |
+| A comprehensive search      | Two techniques, run before the rule: a text search over the sweep scope (`rg`), and a structural one that a text search cannot do, such as reading every caller of the function involved or a type-aware search.                | The rule's page, listing the techniques used and the count each found.                         |
+| Class breadth               | The rule matches the construction that carries the hazard, never the names in the reported defect, and its page names the next wider rule and why it was not built.                                                             | The rule's page.                                                                               |
+| Calibrations the lanes set  | Each lane's page under `docs/tools/` states its own thresholds, such as the [Infection floors](tools/infection.md) and the [type-coverage floors](tools/phpstan.md#type-coverage).                                              | The `with*()` method each page names, in `qaConfig/qa.php`.                                    |
+
+A calibration chosen while building a defence is stated on that defence's page, which ships
+with the rule and is reached through its identifier (`vendor/bin/rule-doc <identifier>`). The
+next person to meet the rule then finds the decision rather than having to reach it again.

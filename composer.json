@@ -145,8 +145,7 @@
     "defence-before-fix": {
       "known-gaps": [
         "toolchain 4.1: accepted by Owner decision — the PHPArkitect lane is identified and documented as a lane, but the rules of its bundled tier are not individually identified or resolvable, and it has no single-file run; as wrapped that detector fails detector 5.2 and 6.1 to 6.3. Kept as shipped: parsing arkitect's prose into identifiers would re-implement a format this package does not own, and dropping the tier would remove real structural defences (Plan 00010 Decision 5)",
-        "toolchain 4.1: accepted by Owner decision — PHPStan's native identifiers are documented online only; bin/rule-doc names the phpstan.org page for one and says the catalogue is not carried offline, so that detector as wrapped fails detector 6.2 and 6.3 (Plan 00010 Decision 6)",
-        "toolchain 6.4: lane defaults are stated in docs/tools, but the toolchain states no default for the calibrations the method leaves to the project"
+        "toolchain 4.1: accepted by Owner decision — PHPStan's native identifiers are documented online only; bin/rule-doc names the phpstan.org page for one and says the catalogue is not carried offline, so that detector as wrapped fails detector 6.2 and 6.3 (Plan 00010 Decision 6)"
       ],
       "method": "1.0.1",
       "project": {

@@ -26,6 +26,10 @@ It prints the rule class, bundle and summary, followed by the remediation page w
 An identifier this index does not carry is an error, which is the point: every identifier the
 package can print must resolve here, and `tests/Small/PHPStan/RuleDocResolverTest.php` audits that.
 
+Building a rule of your own involves judgements the method leaves to the project: who the Owner
+is, what the sweep covers, where fixtures go and how wide a class is. Where your project has
+recorded none of them, [the defaults php-qa-ci assumes](../defence-before-fix-defaults.md) apply.
+
 ## Your own rules in the same lookup
 
 A project that ships its own PHPStan rules prints its own identifiers, and those are the ones its

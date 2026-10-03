@@ -54,6 +54,13 @@ the release and its tag. The full rules are in
   Rules without an identifier are gathered into one line per package, so the
   section stays short.
 
+- **The defaults php-qa-ci assumes for what Defence Before Fix leaves to the
+  project.** `docs/defence-before-fix-defaults.md` states the Owner, where the
+  project record is, the sweep scope, where fixtures go, and the hazard, search
+  and class-breadth calibrations a project has not recorded, and the `CLAUDE.md`
+  block points an agent at it. Toolchain 6.4 is no longer a known gap in
+  `extra.defence-before-fix`.
+
 ### Fixed
 
 - **The GitHub Actions templates work with any bin-dir and fetch nothing.**
