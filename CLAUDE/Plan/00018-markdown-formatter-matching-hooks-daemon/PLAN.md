@@ -1,6 +1,6 @@
 # Plan 00018: markdown formatter matching hooks daemon
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-10-03
 **Owner**: joseph
 **Priority**: Medium
@@ -26,10 +26,9 @@ hand-coding canonical form.
 
 ## Goals
 
-- One formatter in php-qa-ci, producing exactly what the daemon's transform produces for the same input
-- Every markdown generator in php-qa-ci routes its output through it (no hand-coded canonical form)
-- A lane that reports (read-only) or applies (writable) formatting, like Rector and PHP CS Fixer
-- A differential test proving agreement with the daemon's transform over a corpus, run when the daemon is present
+- A lane that formats markdown with the daemon's own transform: reports (read-only) or applies (writable), like Rector and PHP CS Fixer
+- Skips with a notice, never passes silently, where the daemon is absent
+- php-qa-ci's generated markdown is already in the daemon's form, so the lane never changes it
 
 ## Non-Goals
 
@@ -40,18 +39,14 @@ hand-coding canonical form.
 
 ### Phase 1: decide the engine (Owner decision)
 
-- [ ] ⬜ **Task 1.1**: Record the options and their cost in `DECISIONS.md` and get the Owner's ruling:
-  (a) a PHP port of mdformat's rendering on a CommonMark/GFM parser, held to mdformat by the differential corpus;
-  (b) run mdformat itself at the daemon's resolved version, from a pinned, isolated Python environment the lane provisions;
-  (c) delegate to the daemon's own `format-markdown` when the daemon is installed, and skip or fail otherwise.
-  Byte agreement depends on the mdformat version, and the daemon pins only `mdformat>=0.7`, `mdformat-gfm>=0.4`, so each option states how it tracks the daemon's resolved version
-- [ ] ⬜ **Task 1.2**: Build the differential corpus: every `.md` this repository tracks, plus edge fixtures (tables with escaped pipes, nested lists, numbered lists, front matter, thematic breaks, backslash escapes such as `\S`, HTML comments as region markers)
+- [x] ✅ **Task 1.1**: Engine decided: delegate to the daemon's own `format-markdown` (option c); options, reasoning and limits in [DECISIONS.md](DECISIONS.md) Decision 1
+- [x] 🚫 **Task 1.2**: Differential corpus: not needed, agreement is by construction (Decision 1); the edge fixtures move to the lane tests in Task 2.1
 
-### Phase 2: the formatter (Defence Before Fix: red first)
+### Phase 2: the daemon formatter adapter (Defence Before Fix: red first)
 
-- [ ] ⬜ **Task 2.1**: Red: the differential test, failing until the formatter agrees on the whole corpus
-- [ ] ⬜ **Task 2.2**: The formatter, per the Task 1.1 ruling
-- [ ] ⬜ **Task 2.3**: `ActiveDefencesSummary` and every other markdown writer emit through it; the hand-coded canonical form from Plan 00017 Task 2.1 goes
+- [ ] ⬜ **Task 2.1**: Red: tests for locating the daemon (`.claude/hooks-daemon/bin/hooks-daemon`, project or parent), running `format-markdown` and `format-markdown --check`, and skipping with a notice when it is absent; edge fixtures (tables with escaped pipes, nested and numbered lists, front matter, thematic breaks, `\S`, HTML comment region markers) must come back intact
+- [ ] ⬜ **Task 2.2**: The adapter, under `src/` with a thin `bin/` entry point
+- [ ] ⬜ **Task 2.3**: Prove the generated active-defences region is already canonical (the lane over `CLAUDE.md` finds nothing to change); no generator calls the daemon, since CI has none
 
 ### Phase 3: the lane
 
@@ -60,9 +55,9 @@ hand-coding canonical form.
 
 ## Success Criteria
 
-- [ ] For every file in the corpus, php-qa-ci's formatter output equals the daemon transform's output
+- [ ] The lane's output is the daemon's (it runs the daemon's code)
 - [ ] A daemon restart after a full `bin/qa` run changes no tracked markdown file
-- [ ] No php-qa-ci generator hand-codes canonical markdown
+- [ ] Without the daemon the lane skips with a notice naming why
 
 ## Delivery & Milestones
 
