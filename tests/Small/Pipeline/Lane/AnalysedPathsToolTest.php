@@ -178,6 +178,42 @@ final class AnalysedPathsToolTest extends TestCase
     }
 
     #[Test]
+    public function anIgnoredPathThatMatchesNothingFailsAsStale(): void
+    {
+        $this->tracked(self::SRC_FILE);
+        $this->factory->project->write('tests/assets/fixture.twig', '');
+        $config = $this->factory->builder()->withIgnoredPaths('src/Removed', 'tests/assets')->build();
+
+        $result  = new AnalysedPathsTool()->run($this->factory->context($config));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString("withIgnoredPaths('src/Removed') names a path where nothing exists", $printed);
+        self::assertStringNotContainsString("withIgnoredPaths('tests/assets')", $printed);
+        self::assertStringContainsString(AnalysedPathsTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function anIgnoredPathHoldingNoPhpIsNotStale(): void
+    {
+        $this->tracked(self::SRC_FILE);
+        $this->factory->project->write('tests/assets/fixture.twig', '');
+        $config = $this->factory->builder()->withIgnoredPaths('./tests/assets/')->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, new AnalysedPathsTool()->run($this->factory->context($config))->outcome);
+    }
+
+    #[Test]
+    public function anIgnoredFileThatExistsIsNotStale(): void
+    {
+        $this->tracked(self::SRC_FILE, 'rector.php');
+        $this->factory->project->write('rector.php', "<?php\n");
+        $config = $this->factory->builder()->withIgnoredPaths('rector.php')->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, new AnalysedPathsTool()->run($this->factory->context($config))->outcome);
+    }
+
+    #[Test]
     public function aDeclarationInsideAnAnalysedPathFailsAsContradicted(): void
     {
         $this->tracked(self::SRC_FILE);
