@@ -45,7 +45,8 @@ final class ArkitectRuleProbeTest extends TestCase
 
     private const string CONFORMING = self::PROJECT . '/tests/Fixtures/Arkitect/Conforming';
 
-    private const string INTERFACE_BECAUSE = 'an Interface suffix makes the symbol kind obvious at every use site';
+    /** A bundled rule is named by its identifier, which ends its because clause. */
+    private const string INTERFACE_RULE = 'phpqaci.interfaceSuffix';
 
     private const string CONFORMING_DTO = 'Dto/AddressDto.php';
 
@@ -101,13 +102,13 @@ final class ArkitectRuleProbeTest extends TestCase
     /** @return iterable<string, array{string, string, string}> because clause, violating file, conforming file */
     public static function provideEveryRuleTheProjectEnforces(): iterable
     {
-        yield 'default: interface suffix' => [self::INTERFACE_BECAUSE, 'Gateway.php', 'GatewayInterface.php'];
-        yield 'default: enum suffix' => ['an Enum suffix makes the symbol kind obvious at every use site', 'Colour.php', 'ColourEnum.php'];
-        yield 'default: trait suffix' => ['a Trait suffix makes the symbol kind obvious at every use site', 'Loggable.php', 'LoggableTrait.php'];
-        yield 'default: Dto namespace implies suffix' => ['a Dto namespace holds data transfer objects', 'Dto/Address.php', self::CONFORMING_DTO];
-        yield 'default: Dto suffix implies namespace' => ['keeping every Dto in a Dto namespace', 'Model/PostcodeDto.php', self::CONFORMING_DTO];
-        yield 'default: Dto is final' => ['a Dto is a value carrier, not an extension point', 'Dto/OpenDto.php', self::CONFORMING_DTO];
-        yield 'default: Dto is readonly' => ['a readonly Dto cannot be mutated after construction', 'Dto/MutableDto.php', self::CONFORMING_DTO];
+        yield 'default: interface suffix' => [self::INTERFACE_RULE, 'Gateway.php', 'GatewayInterface.php'];
+        yield 'default: enum suffix' => ['phpqaci.enumSuffix', 'Colour.php', 'ColourEnum.php'];
+        yield 'default: trait suffix' => ['phpqaci.traitSuffix', 'Loggable.php', 'LoggableTrait.php'];
+        yield 'default: Dto namespace implies suffix' => ['phpqaci.dtoNamespaceHoldsDtos', 'Dto/Address.php', self::CONFORMING_DTO];
+        yield 'default: Dto suffix implies namespace' => ['phpqaci.dtoInDtoNamespace', 'Model/PostcodeDto.php', self::CONFORMING_DTO];
+        yield 'default: Dto is final' => ['phpqaci.dtoFinal', 'Dto/OpenDto.php', self::CONFORMING_DTO];
+        yield 'default: Dto is readonly' => ['phpqaci.dtoReadonly', 'Dto/MutableDto.php', self::CONFORMING_DTO];
         yield 'project: controller suffix' => ['a Controller suffix tells routing code apart from the services it calls', 'Controller/Home.php', 'Controller/HomeController.php'];
     }
 
@@ -131,7 +132,7 @@ final class ArkitectRuleProbeTest extends TestCase
         $this->expectException(ProbeFailedException::class);
 
         $this->probe(srcDir: $this->var->path . '/no-such-src', projectConfigDir: $this->var->path . '/no-qaConfig')
-            ->probe(self::INTERFACE_BECAUSE, self::VIOLATING . '/Gateway.php')
+            ->probe(self::INTERFACE_RULE, self::VIOLATING . '/Gateway.php')
         ;
     }
 
@@ -143,7 +144,7 @@ final class ArkitectRuleProbeTest extends TestCase
     #[Test]
     public function theCommandExitsOneWhenTheRuleFires(): void
     {
-        [$exitCode, $output] = $this->runCommand(self::INTERFACE_BECAUSE, self::VIOLATING . '/Gateway.php');
+        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE, self::VIOLATING . '/Gateway.php');
 
         self::assertSame(1, $exitCode, $output);
         self::assertStringContainsString('FIRED (1)', $output);
@@ -155,7 +156,7 @@ final class ArkitectRuleProbeTest extends TestCase
     #[Test]
     public function theCommandExitsZeroWhenTheRuleDoesNotFire(): void
     {
-        [$exitCode, $output] = $this->runCommand(self::INTERFACE_BECAUSE, self::CONFORMING . '/GatewayInterface.php');
+        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE, self::CONFORMING . '/GatewayInterface.php');
 
         self::assertSame(0, $exitCode, $output);
         self::assertStringContainsString('did not fire', $output);
@@ -164,7 +165,7 @@ final class ArkitectRuleProbeTest extends TestCase
     #[Test]
     public function theCommandExitsTwoOnAUsageError(): void
     {
-        [$exitCode, $output] = $this->runCommand(self::INTERFACE_BECAUSE);
+        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE);
 
         self::assertSame(2, $exitCode, $output);
         self::assertStringContainsString(self::USAGE, $output);
@@ -173,7 +174,7 @@ final class ArkitectRuleProbeTest extends TestCase
     #[Test]
     public function theCommandExitsTwoOnAMissingPath(): void
     {
-        [$exitCode, $output] = $this->runCommand(self::INTERFACE_BECAUSE, self::VIOLATING . '/Nowhere.php');
+        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE, self::VIOLATING . '/Nowhere.php');
 
         self::assertSame(2, $exitCode, $output);
         self::assertStringContainsString('Nowhere.php', $output);
