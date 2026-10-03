@@ -16,9 +16,9 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
-- [00014: changelog release automation](00014-changelog-release-automation/PLAN.md) - In Progress — `CHANGELOG.md` is the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` opens a release pull request whose merge publishes the release (85.1.0 shipped this way)
-
 ## Completed Plans
+
+- [00014: changelog release automation](Completed/00014-changelog-release-automation/PLAN.md) - Complete — `CHANGELOG.md` is the only input to a release: the opt-in `changelog` lane fails unrecorded consumer-facing changes, and a green push to `php8.5` opens a release pull request whose merge publishes the release (85.1.0 shipped this way; merged ffa598e)
 
 - [00012: agent mode terse stdout and per file reports](Completed/00012-agent-mode-terse-stdout-and-per-file-reports/PLAN.md) - Complete — `--agent-mode` / `PHPQACI_AGENT_MODE` makes stdout a count plus a report path, with the findings in per-file JSON under `var/qa/`, for PHPStan and PHPArkitect (merged 3e0c970)
 

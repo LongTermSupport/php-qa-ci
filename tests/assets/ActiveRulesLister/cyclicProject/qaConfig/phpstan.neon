@@ -1,0 +1,6 @@
+includes:
+    - shared.neon
+    - %rootDir%/conf/bleedingEdge.neon
+
+rules:
+    - LTS\PHPQA\Tests\Assets\ActiveRulesLister\FixtureProjectRule

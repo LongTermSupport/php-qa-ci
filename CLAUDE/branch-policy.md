@@ -47,6 +47,22 @@ A repo may add additional prefixes via `qaConfig/branchNamePolicy.yaml` (see
 - Any other free-form prefix (e.g. `joe-experiments/`, `wip-stuff/`) unless
   explicitly added to the project allow-list
 
+## How to fix a failure
+
+Rename the branch to the prefix that describes the change, then publish it under the new name:
+
+```bash
+git branch -m plan/00077-zoho-desk-stub feature/zoho-desk-stub
+git push -u origin feature/zoho-desk-stub
+git push origin --delete plan/00077-zoho-desk-stub
+```
+
+A pull request cannot change its head branch, so one already open from the old name is closed
+and opened again from the new one. Pick the prefix from the table above by what the change does
+for its users, not by which plan produced it. A prefix the table lacks, where the project has a
+real need for it, goes in the project's allow-list (below) as a recorded decision rather than a
+rename of the branch to something the policy happens to accept.
+
 ## Default-Branch Exemption
 
 The repo's default branch is always exempt — the policy fires only on
@@ -126,8 +142,8 @@ Schema:
 | `extra_allowed_prefixes` | list of strings | Additional prefixes (trailing `/` is conventional) |
 | `extra_exempt_branches`  | list of strings | Additional fully-qualified branch names to exempt  |
 
-Both keys are optional. Unknown keys are ignored. The file is parsed by a
-minimal pure-bash YAML reader — keep it to these two flat lists.
+Both keys are optional. Unknown keys are ignored. The file is parsed as NEON
+(`nette/neon`), which reads flat YAML lists like these — keep it to the two.
 
 ## Anti-Pattern: Per-Plan PRs
 

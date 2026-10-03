@@ -83,20 +83,26 @@ most of the clause table turns green at once.
   missing from our declaration; artefact list six entries → ten, project three → six.
   Evidence and the enumerated fifteen undocumented rules:
   [JOURNAL/00010-Journal-26-09-11.md](JOURNAL/00010-Journal-26-09-11.md).
-- [ ] ⬜ **Task 1.2**: Add a defence over the declaration itself — the gap record is a
+- [x] ✅ **Task 1.2**: Add a defence over the declaration itself — the gap record is a
   claim about this repository, and nothing currently detects it drifting from reality.
   Decide (per [tool-boundaries.md](../../tool-boundaries.md)) whether this is a new lane
-  or an assertion inside an existing one; the likely answer is an assertion.
+  or an assertion inside an existing one; the likely answer is an assertion. An assertion,
+  in `DefenceBeforeFixDeclarationTest`: the declaration describes this repository, not a
+  consumer's, so it is not a lane. Versions read from the vendored specifications; each
+  gap's clause must exist; each gap is accepted (citing a recorded decision with a probe
+  that the gap is still real) or open (citing an active plan). Red at 09457a7.
 
 ### Phase 2: Identity — every defence names itself (toolchain 4.1, 5.1)
 
 - [x] ✅ **Task 2.1**: Give the identifier-less lanes stable identifiers. **Already done
   before this plan existed**; the sweep of all thirty lanes found no defence without one.
   Kept rather than deleted so the next reader of the register entry does not re-open it.
-  - [ ] ⬜ **Still owed**: a defence over it. Nothing fails the build when a new lane
+  - [x] ✅ **Still owed**: a defence over it. Nothing fails the build when a new lane
     ships without an identifier, which is how five of them got there — the instance was
-    fixed and the class left undefended. Fold into Task 3.2's guard, which already has to
-    walk every defence.
+    fixed and the class left undefended. `EveryLaneNamesItselfTest`: every registry entry
+    that is neither a phase runner nor another tool's mode has a shipped implementation with
+    a `phpqaci.` identifier, proved on a fabricated registry with an unimplemented lane and
+    a foreign identifier.
 - [x] ✅ **Task 2.2**: Give each lane a documentation route in `bin/rules`. Every lane now
   prints its identifier and the page it resolves to, and
   `testEveryLaneWithAnIdentifierResolvesToAnExistingPage` holds it. Surfacing the route
@@ -128,9 +134,10 @@ most of the clause table turns green at once.
   stronger than `bin/rules` — it immediately found four more gaps (the Symfony tier and one
   experimental rule) that Task 3.1's enumeration had missed. Red first, three ways,
   committed at 30ab7e1.
-  - [ ] ⬜ **Still owed**: "and states a correct construction". The guard checks a page
-    exists, not that it is more than a restatement of the summary. Reviewing prose
-    mechanically is the hard part; the risk row for filler pages stands until it is closed.
+  - [x] ✅ **Owed guard closed**: "and states a correct construction". Each page needs a
+    construction section (`The correct construction`, `How to fix a failure`, or `How to act on a report` for the informational lane) adding at least fifteen distinct words to the
+    summary. Red at a70a1b2: six lane pages had no section, Twig Lint and Yaml Lint only
+    "fix the file". Prose truth stays a reviewer's call; restating the summary now fails.
 - [x] ✅ **Task 3.3**: **PHPStan's native catalogue is out of scope offline, as a recorded
   Owner decision** — Decision 6. `bin/rule-doc method.notFound` no longer answers
   `Unknown rule identifier`: it says the identifier is not php-qa-ci's, names the
@@ -142,41 +149,62 @@ most of the clause table turns green at once.
 
 ### Phase 4: Record — no suppression route bypasses it (toolchain 4.3, 6.2)
 
-- [ ] ⬜ **Task 4.1**: Close the `phparkitect-baseline.json` route. A baseline generated
+- [x] ✅ **Task 4.1**: Close the `phparkitect-baseline.json` route. A baseline generated
   once is read silently on every later run — upstream reproduced `Baseline file found` /
   `No violations detected` on a fixture holding a violation. The lane must refuse it, or
-  surface it in the record and the listing. Red first, with that fixture.
-- [ ] ⬜ **Task 4.2**: Make the `phpstanIgnoreJustification` lane read the **whole
+  surface it in the record and the listing. Red first, with that fixture. The lane passes
+  `--skip-baseline` in both modes (phparkitect resolves the baseline from the CLI only, so
+  nothing else can turn it back on) and names a present file as not read (red `e96d215`).
+  Toolchain 4.3 closed at both levels
+- [x] ✅ **Task 4.2**: Make the `phpstanIgnoreJustification` lane read the **whole
   resolved neon chain**, not `qaConfig/phpstan.neon` alone, so an `ignoreErrors` entry or
   a baseline reached through an `includes:` cannot escape justification. This is one gap
   counted twice, under 4.3 and 6.2. Red first, with an included file carrying an
-  unjustified entry.
-- [ ] ⬜ **Task 4.3**: Configure PHPStan's `reportIgnoresWithoutComments` (detector 7.2,
+  unjustified entry. `NeonIncludeChain` follows `includes:` and fails closed on what it
+  cannot follow; a second escape found on the way, entries written inline as a flow list,
+  is caught by comparing the decoded count with the `-` items read. 6.2 closed; 4.3 keeps
+  only the PHPArkitect baseline (Task 4.1)
+- [x] ✅ **Task 4.3**: Configure PHPStan's `reportIgnoresWithoutComments` (detector 7.2,
   graded `No`), or record why the justification lane standing in for it is sufficient.
-  Prefer configuring it: defence in depth costs nothing here.
+  Prefer configuring it: defence in depth costs nothing here. On in `rules-default.neon`, so
+  it reaches every consumer the bundled tier reaches, behind `inlinePhpstanIgnore` (red
+  `5672d30`). No finding on this repository. Detector 7.2 closed at both levels
 
 ### Phase 5: Agent context and defaults (toolchain 6.4, 7.1)
 
-- [ ] ⬜ **Task 5.1**: Put the active defences into the agent block the plugin writes into
+- [x] ✅ **Task 5.1**: Put the active defences into the agent block the plugin writes into
   each consuming project's `CLAUDE.md`. It currently carries a pointer and no rule lines,
   which is toolchain 7.1 graded `No`. `bin/rules --json` already produces the data; the
   work is rendering it, bounding its size, and keeping it fresh on install/update.
-- [ ] ⬜ **Task 5.2**: State the toolchain's own defaults for what the method leaves to
+  `ActiveDefencesSummary` renders one line per defence into a marked region
+  (`AgentContextRegion`), written by `bin/rules --write-agent-summary` from the deploy and
+  into this repository's own `CLAUDE.md`, held current by `AgentContextIsCurrentTest`.
+  Found on the way: `bin/rules` read none of what `phpstan/extension-installer` delivers,
+  which in a consumer is every bundled rule (red `e3aa01b`); it now does, by package.
+  Toolchain 7.1 closed at both levels
+- [x] ✅ **Task 5.2**: State the toolchain's own defaults for what the method leaves to
   the project (toolchain 6.4) — the sweep scope, what counts as generated or vendored,
   and the calibrations. Where `docs/tools/` states a lane default already, link rather
-  than restate.
+  than restate. [docs/defence-before-fix-defaults.md](../../../docs/defence-before-fix-defaults.md),
+  linked from the consumer `CLAUDE.md` block, the identifier index and DefenceBeforeFix.md.
+  Toolchain 6.4 closed
 
 ### Phase 6: Claim it
 
-- [ ] ⬜ **Task 6.1**: Empty both `known-gaps` lists, or reduce each remaining entry to a
+- [x] ✅ **Task 6.1**: Empty both `known-gaps` lists, or reduce each remaining entry to a
   recorded Owner decision, and bump the declared versions to the specifications actually
-  vendored under `remote-docs/`.
+  vendored under `remote-docs/`. Three entries remain, all toolchain 4.1, each citing
+  Decision 5 or 6; the vendored versions (method 1.0.1, toolchain 0.2.0) already matched
+  and are now read from the vendored files by the Task 1.2 guard. Per toolchain 9.2 a
+  non-empty record is not a claim of conformance, so the declaration still claims none.
 - [ ] ⬜ **Task 6.2**: Re-audit and update the register entry in the DBF repository.
   **Both repositories are first-party** (`Defence-Before-Fix` and `LongTermSupport` are
   both Joseph Edmonds), so this is a commit we can make, not a request we file. The
   separation is editorial discipline, not an access boundary — see Decision 4.
-  - [ ] ⬜ Re-audit by *running* the commands, as the original did, and record the
-    evidence column the register format requires.
+  - [x] ✅ Re-audit by *running* the commands, as the original did, and record the
+    evidence column the register format requires: [REAUDIT.md](REAUDIT.md), unpublished.
+    Ten of twelve rows re-grade `Yes`; detector 6.2/6.3 and toolchain 4.1 stay `Partial`
+    under Decisions 5 and 6.
   - [ ] ⬜ **Per-post Owner authorisation still applies** to anything that lands in a
     public repository — see [CLAUDE/segfault-policy.md](../../segfault-policy.md) step 3
     for the same constraint stated for php-src.
@@ -189,98 +217,20 @@ most of the clause table turns green at once.
 
 ## Technical Decisions
 
-### Decision 1: Upstream's register entry is the scorecard, not our own declaration
-
-**Context**: we already keep a `known-gaps` list, so the obvious plan is "close our list".
-**Why that is wrong**: our list is shorter than upstream's audit, and the difference is
-not in our favour — it omits at least five clauses upstream grades `No` or `Partial`.
-Planning against our own list would bake the understatement in and produce a declaration
-that claims conformance while the published register still says otherwise. **Decision**:
-plan against the register entry, reconcile our declaration to it first (Task 1.1), and
-treat any gap we find that upstream missed as an addition to record rather than a
-discretionary one. **Date**: 2026-09-11
-
-### Decision 2: Identity before documentation before enforcement
-
-**Context**: the gaps could be attacked in any order, and the fifteen missing pages are
-the most visible. **Why this order**: a page for a defence that cannot name itself is
-unreachable — method 3.6 requires the identifier to be the route in. Writing pages first
-would produce documentation nothing resolves to, and tightening the release guard first
-would fail the build on gaps not yet closed. So identity (Phase 2), then resolution
-(Phase 3), then the guard that holds both (Task 3.2). **Date**: 2026-09-11
-
-### Decision 3: PHPArkitect and the PHPStan native catalogue are Owner decisions, not ours
-
-**Context**: both could be "closed" by narrowing what we claim to route. **Why it is the
-Owner's**: dropping the bundled arkitect tier changes a shipped default for every
-consumer, and declaring the native catalogue out of scope is accepting a permanent gap.
-[DefenceBeforeFix.md](../../DefenceBeforeFix.md) reserves both of those to the Owner —
-"deciding a defensible class will not be defended" and "accepting a known unfixed
-instance". **Decision**: Tasks 2.3 and 3.3 cost the options and stop; they do not choose.
-**Date**: 2026-09-11
-
-### Decision 4: First-party on both sides, and the separation is kept anyway
-
-**Context**: `Defence-Before-Fix` and `LongTermSupport` are the same author, so "upstream"
-here means another repository, not another party. Nothing stops us editing the
-specifications, the register entry or our own grade. **Why keep the separation**: the
-register grades PHPStan, Psalm, ESLint, Semgrep, CodeQL and a few dozen others, and its
-entry for php-qa-ci says it grades this tool "with the same scrutiny as every other entry".
-That sentence is the asset. A specification written to be passed by its author's tool, and
-a register that flatters it, are worth nothing to anyone — including us, since the gaps it
-found are real and we did not find them ourselves. **Decision**: treat the specification
-and the register as though they belonged to someone else. Conformance is earned by changing
-php-qa-ci, and a specification change is argued in that repository on its own merits under
-its cold-reader acceptance process. Being able to cheat is exactly why it is written down.
-**Date**: 2026-09-11
-
-### Decision 5: PHPArkitect stays as shipped; its clauses are an accepted gap
-
-**Context**: the arkitect lane fails detector 4.3, 5.2 and 6.1–6.3 as wrapped, and Task 2.3
-asked whether to make it conform, stop routing bundled defences through it, or accept the
-gap. **Why accept**: conformance would mean parsing arkitect's prose output into rule
-identifiers — a second implementation of a format we do not own, broken silently by every
-upstream wording change, which is a worse defect than the one it closes. Dropping the
-bundled tier would remove real structural defences from every consumer to improve a
-scorecard, which the Non-Goals forbid. The lane itself is identified and documented; what is
-missing is per-rule identity inside it. **Decision**: keep the shipped default, keep the
-`known-gaps` entries, and word them as accepted rather than pending. Taken by the Owner's
-instruction to resolve the open blockers; reversible by reopening Task 2.3. **Date**:
-2026-09-12
-
-### Decision 6: PHPStan's native catalogue is not carried offline
-
-**Context**: `bin/rule-doc` could not say anything useful about an identifier that is not
-ours. **Why not vendor the catalogue**: phpstan.org documents hundreds of identifiers and
-changes them with every PHPStan release; a vendored copy would be stale within its own
-`remote-docs` window and would be a second maintenance burden with no defect behind it.
-**Decision**: `bin/rule-doc` names the catalogue a foreign identifier belongs to and says the
-package does not carry it offline; the detector 6.2/6.3 gap for PHPStan-as-wrapped stays
-declared. Taken by the Owner's instruction to resolve the open blockers. **Date**: 2026-09-12
-
-### Decision 7: Two link checkers are kept, and `phpqaci.forbiddenAttribute` is not renamed
-
-**Context**: both surfaced during Tasks 2.2–3.2. The hooks daemon's `pointer-resolves`
-overlaps the `markdownLinks` lane on this checkout; and `phpqaci.forbiddenAttribute` names a
-category rather than the attribute it forbids. **Decision**: the checkers answer at different
-moments for different audiences (a guardrail for the editor; the package's guarantee to every
-consumer), so both stay, and [docs/tools/markdownLinks.md](../../../docs/tools/markdownLinks.md)
-says why. The identifier stays: it is published, and a consumer may already carry it in
-`ignoreErrors`, so a rename is a breaking change with no defect behind it. Both taken by the
-Owner's instruction to resolve the open blockers. **Date**: 2026-09-12
+Seven decisions, each with its context and reasoning: [DECISIONS.md](DECISIONS.md).
 
 ## Success Criteria
 
-- [ ] Every clause upstream grades `No` or `Partial` is either graded `Yes` by the same
+- [x] Every clause upstream grades `No` or `Partial` is either graded `Yes` by the same
   evidence, or carries a recorded Owner decision in `known-gaps`.
-- [ ] `bin/rules .` shows an identifier and a documentation route for every rule **and**
+- [x] `bin/rules .` shows an identifier and a documentation route for every rule **and**
   every lane, with no `doc: no documentation page` rows.
-- [ ] `bin/rule-doc <identifier>` resolves every identifier php-qa-ci can print to a page
+- [x] `bin/rule-doc <identifier>` resolves every identifier php-qa-ci can print to a page
   stating a correct construction, offline.
-- [ ] A baseline — PHPArkitect's or PHPStan's, at the top level or through an
+- [x] A baseline — PHPArkitect's or PHPStan's, at the top level or through an
   `includes:` — cannot suppress a finding without appearing in the record and the
   listing.
-- [ ] The full battery passes ([prepush-verification.md](../../prepush-verification.md)).
+- [x] The full battery passes ([prepush-verification.md](../../prepush-verification.md)).
 
 ## Risks & Mitigations
 

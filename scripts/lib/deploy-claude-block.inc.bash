@@ -29,6 +29,13 @@ if [[ -f "$PHPQACI_BLOCK_TEMPLATE" && -f "$PHPQACI_BLOCK_WRITER" ]]; then
         "$PHPQACI_BLOCK_FILTERED"
     PHPQACI_BLOCK_TEMPLATE="$PHPQACI_BLOCK_FILTERED"
 
+    # The active defences, one line each, generated from the project's own
+    # configuration into the template's marked region (bin/rules does the work).
+    # On failure the region keeps the template's pointer to vendor/bin/rules.
+    if ! php "$QACI_PATH/bin/rules" "$PROJECT_ROOT" --write-agent-summary="$PHPQACI_BLOCK_FILTERED"; then
+        echo "  ⚠️  Could not list the active defences — the block points to vendor/bin/rules instead" >&2
+    fi
+
     if bash "$PHPQACI_BLOCK_WRITER" "$PHPQACI_BLOCK_TEMPLATE" "$PHPQACI_BLOCK_TARGET"; then
         echo "  ✓ <phpqaci> block in CLAUDE.md is current"
     else

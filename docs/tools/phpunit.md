@@ -148,6 +148,26 @@ The lane is `LTS\PHPQA\Pipeline\Lane\PhpunitTool` (identifier `phpqaci.phpunit`)
 5. An absent or empty junit log ("no tests have been run") fails the lane. Both `phpunit.junit.xml` and `phpunit.log` are archived under `var/qa/phpunit_logs`, and the `Tests: … Assertions: …` summary line is echoed.
 6. Exit 0 passes, 1 and 2 fail (retried interactively), anything higher is a crash: the suite is re-run once with `--debug` for diagnosis and never retried.
 
+## How to fix a failure
+
+The lane prints PHPUnit's own report, and keeps the junit log and the full output under
+`var/qa/phpunit_logs`. Work from the first failure listed:
+
+- **A failing assertion**: decide which side is wrong. If the code is wrong, fix the code. If the
+  expectation is out of date because the behaviour changed on purpose, change the expectation
+  to the new behaviour, stated exactly; never widen it (`assertStringContainsString` in place of
+  `assertSame`, a removed assertion) until it passes, because that turns the test into one that
+  cannot fail.
+- **A risky test** (no assertions, unexpected output, global state changed): give the test a
+  real assertion, or remove the output and restore the state it changes. `--fail-on-risky` makes
+  these failures because a test that asserts nothing passes whatever the code does.
+- **A warning or a deprecation**: fix its cause; `--fail-on-warning` is on for the same reason.
+- **A crash** (exit above 2): the lane re-runs the suite with `--debug`; the last test it names
+  before the fatal is the one to look at.
+
+`vendor/bin/qa -t uniterate` re-runs the failing tests first and stops at the first error, which
+is the quickest loop while working through a list.
+
 ## Infection
 
 Another tool that runs your PHPUnit tests is Infection. This will only run if Xdebug is enabled and you have configured PHPUnit to generate coverage. Infection runs as a PHAR.

@@ -52,6 +52,21 @@ Diff mode (`infectionDiffBase`, or `withInfectionDiffBase()`) holds the changed 
 
 Every floor must be below 100: the configuration refuses 100 or more. Real code has equivalent mutants, mutations no test can tell from the original, so a 100% floor is met only by suppressing mutants or contorting code. 90 to 95 is a healthy gate.
 
+## How to fix a failure
+
+The lane fails when a score falls under its floor. The escaped mutants are listed, each with
+its file, line and diff, in `var/qa/infection/log.txt`. For each one, the diff shows a change
+to the code that every test still passed with. Write the test that tells the two apart: an
+assertion on the exact value, boundary or branch the mutant altered. A covered mutant that
+escapes is an assertion the suite is missing; an uncovered one is code no test runs.
+
+Some mutants cannot be killed because they change nothing observable — a `>=` that behaves as
+`>` for every reachable input, a cast of a value already of that type. Simplify the code so the
+mutation point does not exist rather than writing a test that pretends to pin it.
+
+Lowering a floor is an owner decision recorded in `qaConfig/qa.php`, not a way to make a
+change pass.
+
 #### Disabling Infection
 
 If you would like to disable infection, simply export the environment variable `useInfection` with the value `0`:

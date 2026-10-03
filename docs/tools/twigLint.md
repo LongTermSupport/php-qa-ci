@@ -29,7 +29,11 @@ turns that runtime error into a build failure.
 ## How to fix a failure
 
 The linter names the template and line of each syntax error. Fix the template; the lane never
-modifies files.
+modifies files. The usual causes are a block opened without its closing tag (`{% if %}` with no
+`{% endif %}`, `{% block %}` with no `{% endblock %}`), a filter or function no installed extension
+registers, and a tag or argument spelt for another Twig major version. Each needs the template
+written the way the application's own Twig environment parses it, which is why this lane goes
+through `bin/console`.
 
 ## Implementation
 

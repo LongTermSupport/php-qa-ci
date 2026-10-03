@@ -28,6 +28,45 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.
 
+## 85.2.0 — 2026-10-03
+
+### Changed — breaking
+
+- **Suppressions reached through `includes:` must be justified too.** The
+  `phpstanIgnoreJustification` lane reads `qaConfig/phpstan.neon` and every NEON
+  file it includes, so an `ignoreErrors` entry in an included file, including a
+  generated baseline, needs the same comment above it. It also fails on an entry
+  written inline (`ignoreErrors: [...]`), an include that does not exist or uses
+  a `%parameter%` other than `%currentWorkingDirectory%`, and a `.php` include
+  that sets `ignoreErrors`. See
+  [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors).
+
+- **The PHPArkitect lane never reads `phparkitect-baseline.json`.** It runs with
+  `--skip-baseline`, so violations a baseline listed are reported, and it names
+  the file when present. Fix them, or declare the exception with
+  `withArkitectExcludedPaths()` in `qaConfig/qa.php`.
+
+- **An inline PHPStan ignore must give its reason.** `rules-default.neon` turns
+  on `reportIgnoresWithoutComments`, behind the tier's ban on inline ignores:
+  where a project has excluded that rule, an inline ignore must name an
+  identifier and give a reason in parentheses.
+
+### Added
+
+- **The `CLAUDE.md` block lists the defences active in the project.** Composer
+  install/update writes one line per active defence into the `<phpqaci>` block,
+  with its identifier and page, generated from the project's own configuration
+  by `vendor/bin/rules --write-agent-summary`; `--agent-summary` prints it.
+  Rules without an identifier are gathered into one line per package, so the
+  section stays short.
+
+- **The defaults php-qa-ci assumes for what Defence Before Fix leaves to the
+  project.** `docs/defence-before-fix-defaults.md` states the Owner, where the
+  project record is, the sweep scope, where fixtures go, and the hazard, search
+  and class-breadth calibrations a project has not recorded, and the `CLAUDE.md`
+  block points an agent at it. Toolchain 6.4 is no longer a known gap in
+  `extra.defence-before-fix`.
+
 ### Fixed
 
 - **The GitHub Actions templates work with any bin-dir and fetch nothing.**
@@ -39,6 +78,30 @@ the release and its tag. The full rules are in
   `bugfix/`, `chore/` and `hotfix/` branches the branch policy allows; and
   `AUTO_COMMIT_FIXES: true` now runs the QA step writable, so it has fixes to
   commit. Copy the templates again to pick this up.
+
+- **`bin/rules` no longer hangs on a cyclic include** or fails on PHPStan's own
+  `%rootDir%` configuration: it walks `includes:` the way the justification lane
+  does, and names an include it cannot follow.
+
+- **`bin/rules` lists the rules `phpstan/extension-installer` delivers.** In a
+  consuming project the bundled tiers arrive that way, so the listing showed
+  none of them; it now reads the installer's configuration, names the package
+  each rule came from, and counts rules registered behind a parameter
+  (`conditionalTags`), as `phpstan-strict-rules` registers all of its.
+
+- **Every rule and lane page states the correct construction.** The PHPStan,
+  PHPUnit, Infection, SensitiveParameter-usage, branch-name, Twig Lint and Yaml
+  Lint pages now say what to write when the lane fails, and the release guard
+  fails a page whose fix section is missing or only restates the summary, so
+  toolchain 8.1 is no longer a known gap in `extra.defence-before-fix`.
+
+- **The default `phpunit.xml` validates against PHPUnit 13.4.** It set
+  `executionOrder="depends,random"`, which PHPUnit 13.4 no longer accepts, so
+  every run printed two test runner deprecations and PHPUnit 14 would stop
+  running it. It now sets `executionOrder="random"`; dependencies are still
+  resolved, which is PHPUnit's default. The schema URL and
+  `SYMFONY_PHPUNIT_VERSION` move to 13.4. A project with its own copy of the
+  file makes the same change.
 
 ## 85.1.0 — 2026-10-03
 

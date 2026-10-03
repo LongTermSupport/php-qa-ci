@@ -1,6 +1,6 @@
 # Plan 00014: changelog release automation
 
-**Status**: In Progress
+**Status**: Complete (merged into php8.5 as ffa598e; Task 3.5 proven by run 37112024765)
 **Created**: 2026-10-02
 **Owner**: Joseph Edmonds
 **Priority**: Medium
@@ -114,12 +114,14 @@ decisions below, the merge, the one-time repository setup and watching the first
   Release and tag at the release commit `3da4c9c`
 - [x] **Task 3.4**: Packagist's metadata lists `85.1.0`, and a fresh `composer require` with
   `^85.1` and with `~85.1.0` resolves it
-- [ ] **Task 3.5**: Diagnose the weekly `Update Dependencies` workflow, which failed on its last
+- [x] **Task 3.5**: Diagnose the weekly `Update Dependencies` workflow, which failed on its last
   two scheduled runs before this work, and confirm its first run after the merge passes the lane.
   Diagnosed: both failed at QA, read-only by default in Actions, on pending changes from a newer
   Rector; the auto-merge step after it could never succeed (`allow_auto_merge: false`). Fixed:
   the QA run is writable (`QA_READONLY: 0`) so new rules land in the PR, and the auto-merge step
-  is gone; the owner merges the PR. Still to confirm on the first scheduled run
+  is gone; the owner merges the PR. Confirmed on `php8.5` by a dispatched run of the same
+  workflow (37112024765): it passed end to end, updated #33, and approved that pull request's
+  held CI, which passed (37112169125)
 
 ## Success Criteria
 

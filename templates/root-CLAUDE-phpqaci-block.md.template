@@ -32,9 +32,19 @@ prove it fires, sweep, fix every instance, enforce, then fix the original with a
 (method specification: <https://defence-before-fix.github.io/raw/SPEC.md>). Toolchain
 commands: `vendor/bin/phpstan-rule <identifier> <path>` proves one rule on one path,
 `vendor/bin/rule-doc <identifier>` resolves a printed identifier offline, `vendor/bin/rules`
-lists every defence active in this project.
+lists every defence active in this project. Where the method leaves a judgement to the project
+and this project has recorded nothing (the Owner, the sweep scope, where fixtures go, the
+calibrations), proceed on php-qa-ci's stated defaults and say so:
+`vendor/lts/php-qa-ci/docs/defence-before-fix-defaults.md`.
 
 **Detailed docs** (read in vendor): `vendor/lts/php-qa-ci/CLAUDE/DefenceBeforeFix.md`.
+
+<!-- phpqaci-active-defences:start -->
+## php-qa-ci — Active defences
+
+The list of the defences active in this project could not be generated on the last composer
+install/update. Run `vendor/bin/rules` to list them.
+<!-- phpqaci-active-defences:end -->
 
 ## php-qa-ci — Full Pipeline Is the Proof
 
