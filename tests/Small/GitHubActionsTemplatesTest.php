@@ -88,6 +88,10 @@ final class GitHubActionsTemplatesTest extends TestCase
     {
         $hits = [];
         foreach (\Safe\glob(self::TEMPLATES . '/*.yml') as $file) {
+            if (!\is_string($file)) {
+                continue;
+            }
+
             foreach (explode("\n", \Safe\file_get_contents($file)) as $index => $line) {
                 if (!str_starts_with(ltrim($line), '#') && 1 === \Safe\preg_match($pattern, $line)) {
                     $hits[] = \sprintf('%s:%d: %s', basename($file), $index + 1, trim($line));
