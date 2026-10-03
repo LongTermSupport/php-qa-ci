@@ -103,16 +103,17 @@ decisions below, the merge, the one-time repository setup and watching the first
 - [x] **Task 3.1**: Merge `feature/changelog-release-automation` into `php8.5` with `--no-ff`
   (`ca6b529`)
 - [x] **Task 3.2**: Repository settings: Actions may open pull requests and no ruleset targets
-  tags. Classic branch protection on `php8.5` requires "QA Pipeline" and the stale
-  "ShellCheck (severity=warning)", which nothing reports. A pull request opened with
-  `GITHUB_TOKEN` starts no workflows, so `release.yml` dispatches CI on the release branch
-  (`4b97873`, merged `adae4f3`). Recorded in `CLAUDE/releases.md`. Removing the stale check is
-  the owner's setting
-- [ ] **Task 3.3**: Push `php8.5`; watch the first run: CI green, `release.yml` opens
-  `Release 85.1.0`. Merge it; CI on the merge is green and `release.yml` publishes the
-  `85.1.0` GitHub Release at the release commit
-- [ ] **Task 3.4**: Confirm Packagist lists `85.1.0`, and that a fresh install with
-  `^85.1` / `~85.1.0` resolves it
+  tags. Classic branch protection on `php8.5` requires "QA Pipeline" (strict) and one
+  approving review; the stale "ShellCheck (severity=warning)" requirement, reported by
+  nothing, was removed on the owner's "fix everything". GitHub holds the CI run of a pull
+  request `GITHUB_TOKEN` pushed, so `release.yml` and `update-deps.yml` approve it through
+  `.github/actions/approve-held-ci` (the first attempt, a dispatched run, did not count for
+  the pull request). Recorded in `CLAUDE/releases.md`
+- [x] **Task 3.3**: CI green on `ca6b529`; `release.yml` opened #45 `Release 85.1.0`. Reviewed
+  and merged as `324a907`; CI on the merge green; `release.yml` published the `85.1.0` GitHub
+  Release and tag at the release commit `3da4c9c`
+- [x] **Task 3.4**: Packagist's metadata lists `85.1.0`, and a fresh `composer require` with
+  `^85.1` and with `~85.1.0` resolves it
 - [ ] **Task 3.5**: Diagnose the weekly `Update Dependencies` workflow, which failed on its last
   two scheduled runs before this work, and confirm its first run after the merge passes the lane.
   Diagnosed: both failed at QA, read-only by default in Actions, on pending changes from a newer
@@ -123,11 +124,12 @@ decisions below, the merge, the one-time repository setup and watching the first
 ## Success Criteria
 
 - [x] The full pipeline exits 0 on the branch, and the read-only gate passes on the committed tree
-- [ ] A branch changing a watched path with no entry and no reasoned trailer fails the
-  `changelog` lane in a real run
-- [ ] The first green push after the merge opens the release pull request, and merging it yields
-  the GitHub Release and tag at the release commit without any further step
-- [ ] A push that only touches unwatched paths and adds no entry releases nothing
+- [x] A branch changing a watched path with no entry and no reasoned trailer fails the
+  `changelog` lane in a real run (`bugfix/ci-workflows` at `b667928`: both templates named)
+- [x] The first green push after the merge opens the release pull request, and merging it yields
+  the GitHub Release and tag at the release commit without any further step (`85.1.0`)
+- [x] A push that only touches unwatched paths and adds no entry releases nothing (the release
+  run on `324a907`: `next-version` empty, no pull request opened)
 
 ## Delivery & Milestones
 
