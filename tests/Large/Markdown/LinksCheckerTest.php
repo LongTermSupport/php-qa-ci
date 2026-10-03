@@ -23,6 +23,7 @@ final class LinksCheckerTest extends TestCase
     private const string GH_TOKEN_VAR = 'GH_TOKEN';
 
     private const string GITHUB_TOKEN_VAR = 'GITHUB_TOKEN';
+
     /** @var list<TempDir> */
     private array $tempDirs = [];
 

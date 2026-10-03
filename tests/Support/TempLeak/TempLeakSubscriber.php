@@ -34,7 +34,7 @@ final readonly class TempLeakSubscriber implements FinishedSubscriber
         foreach (\Safe\scandir('/proc/self/fd') as $fd) {
             // The descriptor scandir() itself used is listed but already closed, so not a link.
             $link = '/proc/self/fd/' . (\is_string($fd) ? $fd : '');
-            if (\is_string($fd) && ctype_digit($fd) && is_link($link)) {
+            if (\is_string($fd) && 1 === \Safe\preg_match('/^\d+$/', $fd) && is_link($link)) {
                 $target = \Safe\readlink($link);
                 if (str_starts_with($target, '/')) {
                     $open[] = $target;

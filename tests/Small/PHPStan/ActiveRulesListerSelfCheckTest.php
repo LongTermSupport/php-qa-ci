@@ -77,6 +77,7 @@ use PHPUnit\Framework\TestCase;
 final class ActiveRulesListerSelfCheckTest extends TestCase
 {
     private const string QA_CI_ROOT = __DIR__ . '/../../..';
+
     /** @var list<TempDir> */
     private array $tempDirs = [];
 

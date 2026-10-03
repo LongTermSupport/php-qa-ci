@@ -147,7 +147,9 @@ final class ArkitectRuleProbeTest extends TestCase
 
         self::assertSame(1, $exitCode, $output);
         self::assertStringContainsString('FIRED (1)', $output);
-        self::assertStringContainsString('ArkitectProbe\Fixture\Gateway', $output);
+        // Joined rather than one literal: Rector turns a string naming a class it can reflect into
+        // ::class, and this fixture class is not autoloadable outside the probe's own process.
+        self::assertStringContainsString(implode('\\', ['ArkitectProbe', 'Fixture', 'Gateway']), $output);
     }
 
     #[Test]

@@ -43,14 +43,14 @@ final class WorkflowActionRuntimeTest extends TestCase
      * @var array<string, int>
      */
     private const array MINIMUM_MAJOR = [
-        'actions/cache'                         => 5,
-        'actions/checkout'                      => 5,
-        'actions/download-artifact'             => 7,
-        'actions/upload-artifact'               => 6,
-        'irongut/CodeCoverageSummary'           => 0,
+        'actions/cache'                          => 5,
+        'actions/checkout'                       => 5,
+        'actions/download-artifact'              => 7,
+        'actions/upload-artifact'                => 6,
+        'irongut/CodeCoverageSummary'            => 0,
         'marocchino/sticky-pull-request-comment' => 3,
-        'peter-evans/create-pull-request'       => 8,
-        'shivammathur/setup-php'                => 2,
+        'peter-evans/create-pull-request'        => 8,
+        'shivammathur/setup-php'                 => 2,
     ];
 
     /** `uses: owner/repo@vN`, the shape every remote action reference takes here. */

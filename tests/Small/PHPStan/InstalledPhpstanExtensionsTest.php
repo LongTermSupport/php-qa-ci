@@ -125,6 +125,7 @@ final class InstalledPhpstanExtensionsTest extends TestCase
     {
         $this->project->write(self::ACME_RULES_FILE, self::EMPTY_RULES);
         $this->project->write('vendor/phpstan/extension-installer/src/7/rules.neon', self::EMPTY_RULES);
+
         $install = var_export(self::ACME_INSTALL_PATH, true);
         $valid   = "array ('relative_install_path' => " . $install . ", 'extra' => array ('includes' => array ('rules.neon')))";
         $this->project->write(
