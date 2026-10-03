@@ -1,0 +1,25 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Single-rule harness for PHPArkitect: run the project's own rules over ONE
+ * fixture path and report whether the rule named by its because clause fired.
+ *
+ *   arkitect-rule <because> <path>
+ *   arkitect-rule 'controllers must be named consistently' tests/Fixtures/Arkitect/Home.php
+ *
+ * Exit 0: the rule did not fire.  Exit 1: it fired (classes printed).
+ * Exit 2: usage error, or the run produced no verdict.
+ *
+ * The logic is LTS\PHPQA\Arkitect\ArkitectRuleProbe, where it is unit-tested.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+// The project is the parent of the vendor directory bootstrap.php loaded, as for bin/qa.
+if (!isset($phpQaCiBootstrapAutoloadPath) || !\is_string($phpQaCiBootstrapAutoloadPath)) {
+    fwrite(\STDERR, "bootstrap.php did not report the autoloader path\n");
+    exit(2);
+}
+
+exit(\LTS\PHPQA\Arkitect\ArkitectRuleProbe::main(\dirname(__DIR__), $phpQaCiBootstrapAutoloadPath, ...array_slice($argv ?? [], 1)));

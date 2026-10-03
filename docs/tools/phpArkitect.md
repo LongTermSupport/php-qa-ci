@@ -78,8 +78,44 @@ lane runs `--skip-baseline`, and says so when the file is present. A baseline re
 violations it lists as no violation at all, so it would be an exception nobody can see in the
 project record. Fix what it lists, or declare the exception as above.
 
+## Proving a rule fires
+
+A rule with no instance in the project's code passes the lane whether or not it can fire, so a
+green run proves nothing about it. Prove it on fixture code:
+
+```bash
+vendor/bin/arkitect-rule 'controllers must be named consistently' tests/Fixtures/Arkitect/Home.php
+```
+
+- **What runs.** The project's resolved entry config, with the same rule tiers and environment
+  the lane exports, from the same phar, with no baseline. The entry config is loaded and every
+  rule it registered is re-added against the probed path in place of its own class sets, so a
+  config that hard-codes `src/` (as the template does) is probed as readily as the default.
+  `withArkitectExcludedPaths` does not apply to the probed path.
+- **Naming the rule.** PHPArkitect gives a rule no identifier: its `because` clause is the only
+  name it has, and every violation it prints ends in that clause. The first argument is matched
+  as text against those messages, so give the whole clause, or enough of it to be unique.
+- **The path.** A directory probes every class in it; a file probes the classes that file
+  declares, which lets a violating and a conforming subject share a directory.
+- **Exit codes.** `0` the rule did not fire, `1` it fired (each class, its file and the message
+  are printed), `2` a usage error or a run with no verdict: a missing path, a crash, or an entry
+  config that registered no rule at all.
+- **A miss is ambiguous.** A clause that names no rule reads the same as a rule that did not
+  fire, so the proof is a pair: the rule fires on its violating fixture and stays silent on its
+  conforming one.
+- **The fixture declares what the rule looks at.** A rule scoped to `App\Controller` sees only
+  classes declaring that namespace, so the fixture declares it whatever directory it sits in.
+  Such a file breaks PSR-4, so list the fixture directory in `psr4Validate`'s ignore list. A
+  rule that resolves ancestry (`IsA`, the optional tiers) also needs the fixture autoloadable,
+  so its fixtures keep namespaces their paths match.
+
+Keep the fixture as the rule's own test: a PHPUnit test that runs the command on each fixture
+and asserts the exit code is a test the pipeline's `phpunit` lane already runs.
+
 ## Implementation
 
 - Lane: [`PhpArkitectTool`](../../src/Pipeline/Lane/PhpArkitectTool.php).
+- Single-rule harness: [`ArkitectRuleProbe`](../../src/Arkitect/ArkitectRuleProbe.php), behind
+  `bin/arkitect-rule`.
 - Default entry config: [`configDefaults/generic/phparkitect.php`](../../configDefaults/generic/phparkitect.php).
 - Default tier: [`configDefaults/generic/phparkitect-rules-default.php`](../../configDefaults/generic/phparkitect-rules-default.php).

@@ -256,7 +256,8 @@ detected source dir automatically. To go further, add `qaConfig/phparkitect.php`
 
 - **extend** the default tier (`require getenv('PHPQACI_ARKITECT_RULES_DEFAULT')`),
 - **opt in** to the optional / symfony tiers (their env vars),
-- **add** project-bespoke rules,
+- **add** project-bespoke rules, and prove each one fires on a fixture with
+  `vendor/bin/arkitect-rule <because> <path>` (see [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires)),
 - **replace** a tier wholesale by dropping your own `qaConfig/phparkitect-rules-*.php` (resolved ahead of the shipped copy by the config-path lookup).
 
 Disable arkitect for a project with `->withArkitect(false)` in

@@ -30,7 +30,8 @@ Defence Before Fix agent prompt once and follow it — attribute the class, buil
 prove it fires, sweep, fix every instance, enforce, then fix the original with a test:
 <https://defence-before-fix.github.io/defence-before-fix-project-prompt.md>
 (method specification: <https://defence-before-fix.github.io/raw/SPEC.md>). Toolchain
-commands: `vendor/bin/phpstan-rule <identifier> <path>` proves one rule on one path,
+commands: `vendor/bin/phpstan-rule <identifier> <path>` proves one rule on one path
+(`vendor/bin/arkitect-rule <because> <path>` for a PHPArkitect rule, named by its `because`),
 `vendor/bin/rule-doc <identifier>` resolves a printed identifier offline, `vendor/bin/rules`
 lists every defence active in this project. Where the method leaves a judgement to the project
 and this project has recorded nothing (the Owner, the sweep scope, where fixtures go, the
