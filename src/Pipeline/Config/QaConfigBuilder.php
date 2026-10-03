@@ -527,8 +527,8 @@ final readonly class QaConfigBuilder
             deadCodeEntryPoints: $deadCodeEntryPoints               ?? $this->deadCodeEntryPoints,
             useChangelogCheck: $useChangelogCheck                   ?? $this->useChangelogCheck,
             changelogWatchedPaths: $changelogWatchedPaths           ?? $this->changelogWatchedPaths,
-            unanalysedPaths: $unanalysedPaths                       ?? $this->unanalysedPaths,
             releaseVersionPolicy: $releaseVersionPolicy             ?? $this->releaseVersionPolicy,
+            unanalysedPaths: $unanalysedPaths                       ?? $this->unanalysedPaths,
         );
     }
 }
