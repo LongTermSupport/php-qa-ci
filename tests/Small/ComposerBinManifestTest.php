@@ -39,11 +39,7 @@ final class ComposerBinManifestTest extends TestCase
     public function everyShippedExecutableIsDeclaredAndEveryDeclaredEntryExists(): void
     {
         $root     = \dirname(__DIR__, 2);
-        $composer = json_decode(file_get_contents($root . '/composer.json'), true);
-        self::assertIsArray($composer);
-        self::assertIsArray($composer['bin'] ?? null, 'composer.json must declare a "bin" list');
-        $declared = $composer['bin'];
-        self::assertContainsOnlyString($declared);
+        $declared = $this->declaredBins($root);
 
         $shipped = $this->shippedBinFiles($root);
         self::assertNotSame([], $shipped, 'no shipped executables found under bin/');
@@ -65,17 +61,49 @@ final class ComposerBinManifestTest extends TestCase
     #[Test]
     public function noDeclaredEntryIsIgnoredByGit(): void
     {
-        $root     = \dirname(__DIR__, 2);
-        $composer = json_decode(file_get_contents($root . '/composer.json'), true);
-        self::assertIsArray($composer);
-        self::assertIsArray($composer['bin'] ?? null);
-        self::assertContainsOnlyString($composer['bin']);
-
-        $process = new Process(['git', 'check-ignore', '--', ...array_values($composer['bin'])], $root);
+        $root    = \dirname(__DIR__, 2);
+        $process = new Process(['git', 'check-ignore', '--', ...$this->declaredBins($root)], $root);
         $process->run();
 
         // check-ignore exits 1 when no path is ignored, 0 when one is, 128 on error.
         self::assertSame(1, $process->getExitCode(), "composer.json \"bin\" entries ignored by git (add a !/bin/<name> line to .gitignore):\n" . $process->getOutput() . $process->getErrorOutput());
+    }
+
+    /**
+     * A consumer gets an executable proxy from Composer whatever the mode, but this repository
+     * runs bin/ in place: its bin-dir is bin, so the shipped release workflow's
+     * "$(composer config bin-dir)/changelog-release" executes the file itself, and a 644 entry
+     * failed the release with "Permission denied". The git index is what a checkout gets.
+     */
+    #[Test]
+    public function everyDeclaredEntryIsExecutableInGit(): void
+    {
+        $root    = \dirname(__DIR__, 2);
+        $process = new Process(['git', 'ls-files', '--stage', '--', ...$this->declaredBins($root)], $root);
+        $process->mustRun();
+
+        $notExecutable = [];
+        foreach (explode("\n", trim($process->getOutput())) as $line) {
+            // <mode> <object> <stage>\t<path>
+            [$meta, $path] = explode("\t", $line, 2) + ['', ''];
+            $mode          = explode(' ', $meta)[0];
+            if ('100755' !== $mode) {
+                $notExecutable[] = $path . ' (' . $mode . ')';
+            }
+        }
+
+        self::assertSame([], $notExecutable, 'composer.json "bin" entries not executable in git (git update-index --chmod=+x <path>):');
+    }
+
+    /** @return list<string> composer.json's "bin" list */
+    private function declaredBins(string $root): array
+    {
+        $composer = json_decode(file_get_contents($root . '/composer.json'), true);
+        self::assertIsArray($composer);
+        self::assertIsArray($composer['bin'] ?? null, 'composer.json must declare a "bin" list');
+        self::assertContainsOnlyString($composer['bin']);
+
+        return array_values($composer['bin']);
     }
 
     /**
