@@ -45,7 +45,6 @@ final class ArkitectRuleProbeTest extends TestCase
 
     private const string CONFORMING = self::PROJECT . '/tests/Fixtures/Arkitect/Conforming';
 
-    /** A bundled rule is named by its identifier, which ends its because clause. */
     private const string INTERFACE_RULE = 'phpqaci.interfaceSuffix';
 
     private const string CONFORMING_DTO = 'Dto/AddressDto.php';

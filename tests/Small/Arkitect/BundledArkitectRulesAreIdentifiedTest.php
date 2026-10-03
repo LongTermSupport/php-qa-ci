@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Arkitect;
 
-use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
 use LTS\PHPQA\PHPStan\RuleDocResolver;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
@@ -26,8 +25,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class BundledArkitectRulesAreIdentifiedTest extends TestCase
 {
+    /** The repository whose bundled tiers and rule index are checked. */
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
+    /** Every bundled PHPArkitect tier: default, optional and optional-symfony. */
     private const string TIERS = self::REPO_ROOT . '/configDefaults/generic/phparkitect-rules-*.php';
 
     /** One rule, from where it starts to its because clause; the clause's closing quote ends it. */
@@ -82,10 +83,7 @@ final class BundledArkitectRulesAreIdentifiedTest extends TestCase
     {
         $resolver = new RuleDocResolver(self::REPO_ROOT);
         foreach ($this->identifiers() as $identifier) {
-            $entry = $resolver->resolve($identifier);
-
-            self::assertInstanceOf(RuleDocEntryDto::class, $entry);
-            self::assertFileExists($entry->sourcePath, $identifier . ': the index row names no tier file that exists');
+            self::assertFileExists($resolver->resolve($identifier)->sourcePath, $identifier . ': the index row names no tier file that exists');
         }
     }
 
@@ -112,6 +110,7 @@ final class BundledArkitectRulesAreIdentifiedTest extends TestCase
 
         $clauses = [];
         foreach ($tiers as $tier) {
+            self::assertIsString($tier);
             \Safe\preg_match_all(self::RULE, \Safe\file_get_contents($tier), $matches);
             $found          = $matches[1] ?? [];
             $clauses[$tier] = \is_array($found) ? array_values(array_filter($found, is_string(...))) : [];

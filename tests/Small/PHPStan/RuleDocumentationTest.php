@@ -334,6 +334,7 @@ final class RuleDocumentationTest extends TestCase
 
         // A bundled PHPArkitect rule declares its identifier at the end of its because clause.
         foreach (\Safe\glob(self::REPO_ROOT . '/configDefaults/generic/phparkitect-rules-*.php') as $tier) {
+            self::assertIsString($tier);
             foreach ($this->matchAllGroup("# \\[(phpqaci\\.[A-Za-z]+)\\]'\\)#", \Safe\file_get_contents($tier), 1) as $arkitect) {
                 $identifiers[$arkitect] = true;
             }

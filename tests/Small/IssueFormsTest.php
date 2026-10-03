@@ -25,8 +25,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class IssueFormsTest extends TestCase
 {
+    /** The repository whose issue forms and composer.json are read. */
     private const string REPO_ROOT = __DIR__ . '/../..';
 
+    /** Where GitHub reads issue forms from: one form per .yml, plus the chooser. */
     private const string FORMS_DIR = self::REPO_ROOT . '/.github/ISSUE_TEMPLATE';
 
     /** The chooser's own configuration, not a form. */
@@ -119,16 +121,19 @@ final class IssueFormsTest extends TestCase
             return ['asks no release-line question'];
         }
 
+        $validations = \is_array($question['validations'] ?? null) ? $question['validations'] : [];
+        $attributes  = \is_array($question['attributes'] ?? null) ? $question['attributes'] : [];
+        $options     = \is_array($attributes['options'] ?? null) ? $attributes['options'] : [];
+
         $problems = [];
-        if (true !== ($question['validations']['required'] ?? null)) {
+        if (true !== ($validations['required'] ?? null)) {
             $problems[] = 'the release line is optional';
         }
 
-        $options = $question['attributes']['options'] ?? null;
         if ($options !== $this->liveLines()) {
             $problems[] = \sprintf(
                 'offers %s where the live lines are %s',
-                \is_array($options) ? implode(', ', array_map(strval(...), $options)) : 'nothing',
+                [] === $options ? 'nothing' : implode(', ', array_filter($options, is_string(...))),
                 implode(', ', $this->liveLines()),
             );
         }
@@ -141,9 +146,13 @@ final class IssueFormsTest extends TestCase
     {
         $manifest = \Safe\json_decode(\Safe\file_get_contents(self::REPO_ROOT . '/composer.json'), true);
         self::assertIsArray($manifest);
-        $php = $manifest['require']['php'] ?? null;
+        $require = $manifest['require'] ?? null;
+        self::assertIsArray($require);
+        $php = $require['php'] ?? null;
         self::assertIsString($php);
         self::assertSame(1, \Safe\preg_match('/^\^(\d+)\.(\d+)$/', $php, $version), 'composer.json require.php is not a ^X.Y constraint');
+        self::assertIsArray($version);
+        self::assertArrayHasKey(2, $version);
 
         return ['php' . $version[1] . '.' . $version[2], ...self::MAINTAINED_OLDER_LINES];
     }
@@ -153,6 +162,7 @@ final class IssueFormsTest extends TestCase
     {
         $forms = [];
         foreach (\Safe\glob(self::FORMS_DIR . '/*.yml') as $path) {
+            self::assertIsString($path);
             if (self::CHOOSER !== basename($path)) {
                 $forms[$path] = $this->decode(\Safe\file_get_contents($path));
             }
