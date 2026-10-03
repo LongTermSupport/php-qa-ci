@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan;
 
+use LTS\PHPQA\DefectRecord\Dto\DefectRecordDto;
+use LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto;
+use LTS\PHPQA\DefectRecord\Dto\NoPatternConclusionDto;
 use LTS\PHPQA\PHPStan\ActiveRulesLister;
 use LTS\PHPQA\PHPStan\Dto\ActiveDefencesListingDto;
 use LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto;
@@ -27,6 +30,9 @@ use PHPUnit\Framework\TestCase;
 #[\PHPUnit\Framework\Attributes\UsesClass(PipelineLaneDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(ProjectRecordEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\RuleDocResolver::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(DefectRecordDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(DeferredDefectDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(NoPatternConclusionDto::class)]
 #[\PHPUnit\Framework\Attributes\Small]
 final class ActiveRulesListerRenderTest extends TestCase
 {
@@ -35,6 +41,8 @@ final class ActiveRulesListerRenderTest extends TestCase
     private const string CONFIG_PATH = '/fixture/qaConfig/phpstan.neon';
 
     private const string DOC_PATH = '/docs/example.md';
+
+    private const string RECORD_PATH = '/fixture/qaConfig/defect-record.neon';
 
     public function testRenderTextProducesTheExactExpectedString(): void
     {
@@ -72,6 +80,22 @@ final class ActiveRulesListerRenderTest extends TestCase
               - message: a message raw: raw text
                   justification: (none recorded)
 
+            Defect record (qaConfig/defect-record.neon):
+              Deferred defects:
+                - defect:      The cache key omits the locale.
+                  class:       A cache key built from a subset of its inputs.
+                  found:       src/Cache/KeyBuilder.php
+                  deferred by: Owner
+                - defect:      A timeout is swallowed.
+                  class:       none apparent yet
+                  found:       src/Http/Retry.php
+                  deferred by: Owner, pending the client rewrite
+              No-pattern conclusions:
+                - defect:     The total was rounded twice.
+                  found:      src/Invoice/Total.php
+                  conclusion: No pattern exists.
+                  techniques: a text search for round(; reading every caller of Money::round()
+
             TEXT;
 
         self::assertSame($expected, $lister->renderText($listing));
@@ -92,6 +116,10 @@ final class ActiveRulesListerRenderTest extends TestCase
 
             Project record (ignoreErrors):
               (none)
+
+            Defect record (qaConfig/defect-record.neon, not written yet):
+              Deferred defects: (none)
+              No-pattern conclusions: (none)
 
             TEXT;
 
@@ -175,6 +203,31 @@ final class ActiveRulesListerRenderTest extends TestCase
                         'justification' => null,
                     ],
                 ],
+                'defectRecord' => [
+                    'path'     => self::RECORD_PATH,
+                    'deferred' => [
+                        [
+                            'defect'     => 'The cache key omits the locale.',
+                            'class'      => 'A cache key built from a subset of its inputs.',
+                            'found'      => 'src/Cache/KeyBuilder.php',
+                            'deferredBy' => 'Owner',
+                        ],
+                        [
+                            'defect'     => 'A timeout is swallowed.',
+                            'class'      => null,
+                            'found'      => 'src/Http/Retry.php',
+                            'deferredBy' => 'Owner, pending the client rewrite',
+                        ],
+                    ],
+                    'noPattern' => [
+                        [
+                            'defect'     => 'The total was rounded twice.',
+                            'found'      => 'src/Invoice/Total.php',
+                            'conclusion' => 'No pattern exists.',
+                            'techniques' => ['a text search for round(', 'reading every caller of Money::round()'],
+                        ],
+                    ],
+                ],
             ],
             $decoded,
         );
@@ -197,6 +250,17 @@ final class ActiveRulesListerRenderTest extends TestCase
                 new ProjectRecordEntryDto('class.notFound', null, 'some/path.php', 3, null, 'Justification one.'),
                 new ProjectRecordEntryDto(null, 'a message', null, null, 'raw text', null),
             ],
+            new DefectRecordDto(
+                self::RECORD_PATH,
+                [
+                    new DeferredDefectDto('The cache key omits the locale.', 'A cache key built from a subset of its inputs.', 'src/Cache/KeyBuilder.php', 'Owner'),
+                    new DeferredDefectDto('A timeout is swallowed.', null, 'src/Http/Retry.php', 'Owner, pending the client rewrite'),
+                ],
+                [
+                    new NoPatternConclusionDto('The total was rounded twice.', 'src/Invoice/Total.php', 'No pattern exists.', ['a text search for round(', 'reading every caller of Money::round()']),
+                ],
+                [],
+            ),
         );
     }
 }

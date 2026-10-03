@@ -1,15 +1,14 @@
 ---
 source_url: https://defence-before-fix.github.io/DETECTOR-SPEC.html
-fetched_at: 2026-09-11T16:15:15.270640+00:00
+fetched_at: 2026-10-03T10:38:13.881613+00:00
 fidelity: verbatim
-source_sha256: ae0a2ebf02adbd34159023e4ddb3276ab68d30460e4eaab735a5c7d831d9266b
+source_sha256: 7edbbcec31e7ffd35b83991dfce6608b34ebaf9477f867e0156edd2b4119668f
 licence: CC-BY-4.0
-stale_after: 2026-12-10
+stale_after: 2027-01-01
 fetch_method: https-get
 ---
 
 <!DOCTYPE html>
-
 <html lang="en-GB">
 <head>
   <meta charset="utf-8">
@@ -33,6 +32,7 @@ fetch_method: https-get
 {"@context":"https://schema.org","@type":"WebPage","author":{"@type":"Person","name":"Joseph Edmonds"},"description":"A phase that runs before a defect is fixed. The method, detector and toolchain specifications.","headline":"Defence Before Fix: Detector Specification","url":"https://defence-before-fix.github.io/DETECTOR-SPEC.html"}</script>
 <!-- End Jekyll SEO tag -->
 
+  
 <link rel="canonical" href="https://defence-before-fix.github.io/DETECTOR-SPEC.html">
 <script type="application/ld+json">
 {
@@ -62,12 +62,12 @@ fetch_method: https-get
 }
 </script>
 
-<link rel="stylesheet" href="/assets/css/site.css">
+  <link rel="stylesheet" href="/assets/css/site.css">
   <link rel="alternate" type="text/markdown" href="/raw/DETECTOR-SPEC.md" title="Raw markdown">
   <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
 </head>
 <body>
-
+  
 <header class="site-header">
   <p class="site-title"><a href="/">Defence Before Fix (DBF)</a></p>
   <nav aria-label="Site">
@@ -79,8 +79,8 @@ fetch_method: https-get
     <a href="/PROVENANCE.html">Provenance</a>
     <a href="/CHANGELOG.html">Changelog</a>
     <a href="/defence-before-fix-project-prompt.md">Agents</a>
-
-</nav>
+    
+  </nav>
   <p class="site-byline agent-line">Agents: read <a href="/defence-before-fix-project-prompt.md">the project prompt</a>
     (raw markdown), or start from <a href="/llms.txt">llms.txt</a>.
     This page as <a href="/raw/DETECTOR-SPEC.md">raw markdown</a>.</p>
@@ -88,11 +88,11 @@ fetch_method: https-get
     <a href="https://edmondscommerce.co.uk">Edmonds Commerce</a>. First published 22 February 2026.</p>
 </header>
 
-<main>
+  <main>
     <h1 id="defence-before-fix-detector-specification">Defence Before Fix: Detector Specification</h1>
 
 <p><strong>Version</strong>: 1.0.0, published 2026-09-08
-<strong>Companion to</strong>: <a href="/SPEC.html">the method specification</a>, version 1.0.1, and <a href="/TOOLING-SPEC.html">the toolchain specification</a>, version 0.2.0
+<strong>Companion to</strong>: <a href="/SPEC.html">the method specification</a>, version 1.1.0, and <a href="/TOOLING-SPEC.html">the toolchain specification</a>, version 0.2.0
 <strong>Author</strong>: <a href="https://ltscommerce.dev">Joseph Edmonds</a>, <a href="https://edmondscommerce.co.uk">Edmonds Commerce</a>
 <strong>Coined</strong>: 22 February 2026, in <a href="https://ltscommerce.dev/articles/defence-before-fix-static-analysis">the original article</a></p>
 
@@ -588,11 +588,12 @@ does not have to.</p>
 
 <!-- Term link definitions -->
 
-</main>
 
+  </main>
+  
 <footer class="site-footer">
-  <p>Method specification 1.0.1, detector specification 1.0.0 and
-    toolchain specification 0.2.0, published 8 September 2026. Source and history at
+  <p>Method specification 1.1.0, detector specification 1.0.0 and
+    toolchain specification 0.2.0, published between 8 September and 2 October 2026. Source and history at
     <a href="https://github.com/Defence-Before-Fix/defence-before-fix.github.io">github.com/Defence-Before-Fix</a>.</p>
   <p>Defence Before Fix (DBF) was coined by <a href="https://ltscommerce.dev">Joseph Edmonds</a> of
     <a href="https://edmondscommerce.co.uk">Edmonds Commerce</a>. US spelling:

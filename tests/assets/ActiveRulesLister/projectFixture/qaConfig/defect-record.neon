@@ -1,0 +1,16 @@
+# A fixture: one deferred defect and one no-pattern conclusion, so the listing
+# is seen to carry both sections of the record.
+deferred:
+    -
+        defect: The fixture's cache key omits the locale.
+        class: A cache key built from a subset of the inputs the value depends on.
+        found: src/Cache/KeyBuilder.php
+        deferredBy: Owner
+noPattern:
+    -
+        defect: The fixture's invoice total was rounded twice.
+        found: src/Invoice/Total.php
+        conclusion: No pattern exists; neither technique found a second double rounding.
+        techniques:
+            - a text search for round( over src/
+            - reading every caller of Money::round()
