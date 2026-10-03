@@ -146,11 +146,14 @@ most of the clause table turns green at once.
   once is read silently on every later run — upstream reproduced `Baseline file found` /
   `No violations detected` on a fixture holding a violation. The lane must refuse it, or
   surface it in the record and the listing. Red first, with that fixture.
-- [ ] ⬜ **Task 4.2**: Make the `phpstanIgnoreJustification` lane read the **whole
+- [x] ✅ **Task 4.2**: Make the `phpstanIgnoreJustification` lane read the **whole
   resolved neon chain**, not `qaConfig/phpstan.neon` alone, so an `ignoreErrors` entry or
   a baseline reached through an `includes:` cannot escape justification. This is one gap
   counted twice, under 4.3 and 6.2. Red first, with an included file carrying an
-  unjustified entry.
+  unjustified entry. `NeonIncludeChain` follows `includes:` and fails closed on what it
+  cannot follow; a second escape found on the way, entries written inline as a flow list,
+  is caught by comparing the decoded count with the `-` items read. 6.2 closed; 4.3 keeps
+  only the PHPArkitect baseline (Task 4.1)
 - [ ] ⬜ **Task 4.3**: Configure PHPStan's `reportIgnoresWithoutComments` (detector 7.2,
   graded `No`), or record why the justification lane standing in for it is sufficient.
   Prefer configuring it: defence in depth costs nothing here.

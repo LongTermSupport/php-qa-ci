@@ -267,6 +267,16 @@ too short to name a hazard and a scope, or a phrase that would fit any entry unc
 that is the reviewer's judgement, which is why the entries are kept in one file where a vacuous
 reason sits next to its neighbours.
 
+The record is `qaConfig/phpstan.neon` **and every file it reaches through `includes:`**, because an
+entry in an included file suppresses findings just the same. A generated baseline
+(`phpstan --generate-baseline`) is therefore not a way round it: its entries carry no comments and
+fail like any other. The lane also fails when part of the chain cannot be read:
+
+- an entry written inline (`ignoreErrors: ['#...#']`), which leaves no line for its comment;
+- an include that does not exist, or that uses a `%parameter%` other than
+  `%currentWorkingDirectory%` (`%rootDir%`, PHPStan's own configuration, is not followed);
+- a `.php` include that sets `ignoreErrors` or `includes`, since PHP has no place for the comment.
+
 ```neon
 parameters:
     ignoreErrors:

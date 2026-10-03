@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\ProjectRecord;
 
 use LTS\PHPQA\PHPStan\ProjectRecord\Dto\JustificationFindingDto;
+use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto;
+use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck;
 use LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationDetector;
+use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,6 +26,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(IgnoreErrorsJustificationCheck::class)]
 #[UsesClass(IgnoreErrorsJustificationDetector::class)]
 #[UsesClass(JustificationFindingDto::class)]
+#[UsesClass(NeonIncludeChain::class)]
+#[UsesClass(NeonIncludeChainDto::class)]
+#[UsesClass(NeonRecordFileDto::class)]
 #[Small]
 final class IgnoreErrorsJustificationCheckTest extends TestCase
 {
