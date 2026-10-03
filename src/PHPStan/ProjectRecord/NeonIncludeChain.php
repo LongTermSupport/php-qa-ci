@@ -45,11 +45,11 @@ final readonly class NeonIncludeChain
     /**
      * @param list<NeonRecordFileDto> $files
      * @param list<string>            $problems
-     * @param array<string, true>     $seen
+     * @param array<string, string>   $seen every file visited, keyed by itself
      */
     private function visit(string $path, string $root, array &$files, array &$problems, array &$seen): void
     {
-        $seen[$path] = true;
+        $seen[$path] = $path;
         $display     = $this->display($path, $root);
         $neon        = \Safe\file_get_contents($path);
 
