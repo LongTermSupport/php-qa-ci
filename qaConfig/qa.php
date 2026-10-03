@@ -14,8 +14,8 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     // Monotonic ratchet — raise-only. The floors sit a few points under the
     // last measured covered MSI to absorb run-to-run timeout variance.
     ->withInfectionFloors(msi: 82, coveredMsi: 82)
-    // Test fixtures and the TestDox printer are not first-party code to scan.
-    ->withIgnoredPaths('tests/assets', 'src/PHPUnit/TestDox')
+    // Test fixtures are deliberate instances, not first-party code to scan.
+    ->withIgnoredPaths('tests/assets')
     // Every PHP file outside src/ and tests/ is accounted for here, with the
     // reason it is not analysed (the analysedPaths lane, docs/tools/analysedPaths.md).
     // A new PHP directory fails the run until it is added here or analysed.
