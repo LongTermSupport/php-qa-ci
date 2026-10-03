@@ -89,6 +89,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     // are not ours to analyse.
     ->withDeadCodeDetection(true)
     ->withDeadCodeEntryPoints(
+        'bin/arkitect-rule',
         'bin/bootstrap.php',
         'bin/changelog-release',
         'bin/config-template-ignorelist-check',
