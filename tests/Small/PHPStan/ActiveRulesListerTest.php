@@ -27,6 +27,9 @@ use RuntimeException;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\ProjectRecordEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\RuleDocResolver::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesCheck::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::class)]
@@ -262,6 +265,34 @@ final class ActiveRulesListerTest extends TestCase
         );
         self::assertSame([], $listing->rules);
         self::assertSame([], $listing->projectRecord);
+    }
+
+    /**
+     * The listing walks includes with the same NeonIncludeChain the justification lane
+     * uses: a cycle is read once rather than recursing until the stack runs out, and
+     * PHPStan's own %rootDir% configuration is not a project file to open.
+     */
+    public function testACyclicIncludeAndPhpstansOwnConfigurationAreWalkedOnce(): void
+    {
+        $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list(__DIR__ . '/../../assets/ActiveRulesLister/cyclicProject');
+
+        self::assertSame(
+            [\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::class, \LTS\PHPQA\Tests\Assets\ActiveRulesLister\FixtureProjectRule::class],
+            array_map(static fn (\LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto $rule): string => $rule->ruleClass, $listing->rules),
+        );
+    }
+
+    public function testAnIncludeThatCannotBeFollowedIsAnError(): void
+    {
+        try {
+            new ActiveRulesLister(self::QA_CI_ROOT)->list(__DIR__ . '/../../assets/ActiveRulesLister/missingIncludeProject');
+            self::fail('expected the missing include to be an error');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame(
+                'Cannot read the PHPStan configuration in full: qaConfig/phpstan.neon includes missing.neon, which does not exist',
+                $runtimeException->getMessage(),
+            );
+        }
     }
 
     public function testUnparseableNeonIsAnError(): void

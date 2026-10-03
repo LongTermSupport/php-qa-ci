@@ -29,6 +29,8 @@ final class NeonIncludeChainTest extends TestCase
 {
     private const string ENTRY = 'qaConfig/phpstan.neon';
 
+    private const string B_NEON = 'qaConfig/b.neon';
+
     private TempDir $dir;
 
     protected function setUp(): void
@@ -56,16 +58,16 @@ final class NeonIncludeChainTest extends TestCase
     }
 
     #[Test]
-    public function includesAreFollowedDepthFirstRelativeToTheIncludingFile(): void
+    public function includesAreFollowedDepthFirstRelativeToTheIncludingFileAndComeBeforeIt(): void
     {
         $this->dir->write(self::ENTRY, "includes:\n    - ../config/a.neon\n    - b.neon\n");
         $this->dir->write('config/a.neon', "includes:\n    - nested/c.neon\n");
         $this->dir->write('config/nested/c.neon', "parameters:\n    level: 8\n");
-        $this->dir->write('qaConfig/b.neon', "parameters:\n    level: 9\n");
+        $this->dir->write(self::B_NEON, "parameters:\n    level: 9\n");
 
         $chain = $this->chain();
 
-        self::assertSame([self::ENTRY, 'config/a.neon', 'config/nested/c.neon', 'qaConfig/b.neon'], $this->displays($chain));
+        self::assertSame(['config/nested/c.neon', 'config/a.neon', self::B_NEON, self::ENTRY], $this->displays($chain));
         self::assertSame([], $chain->problems);
     }
 
@@ -74,9 +76,9 @@ final class NeonIncludeChainTest extends TestCase
     {
         $this->dir->write(self::ENTRY, "includes:\n    - a.neon\n    - b.neon\n");
         $this->dir->write('qaConfig/a.neon', "includes:\n    - b.neon\n    - phpstan.neon\n");
-        $this->dir->write('qaConfig/b.neon', "includes:\n    - a.neon\n");
+        $this->dir->write(self::B_NEON, "includes:\n    - a.neon\n");
 
-        self::assertSame([self::ENTRY, 'qaConfig/a.neon', 'qaConfig/b.neon'], $this->displays($this->chain()));
+        self::assertSame([self::B_NEON, 'qaConfig/a.neon', self::ENTRY], $this->displays($this->chain()));
     }
 
     #[Test]
@@ -88,7 +90,7 @@ final class NeonIncludeChainTest extends TestCase
 
         $chain = $this->chain();
 
-        self::assertSame([self::ENTRY, 'elsewhere/abs.neon', 'config/cwd.neon'], $this->displays($chain));
+        self::assertSame(['elsewhere/abs.neon', 'config/cwd.neon', self::ENTRY], $this->displays($chain));
         self::assertSame([], $chain->problems);
     }
 
@@ -101,7 +103,7 @@ final class NeonIncludeChainTest extends TestCase
             $file = $outside->write('shared.neon', "parameters:\n    level: 5\n");
             $this->dir->write(self::ENTRY, "includes:\n    - " . $file . "\n");
 
-            self::assertSame([self::ENTRY, \Safe\realpath($file)], $this->displays($this->chain()));
+            self::assertSame([\Safe\realpath($file), self::ENTRY], $this->displays($this->chain()));
         } finally {
             $outside->remove();
         }
@@ -157,7 +159,9 @@ final class NeonIncludeChainTest extends TestCase
         $this->dir->write('qaConfig/other.neon', "includes:\n    - [nested]\n");
         $this->dir->write('qaConfig/entry2.neon', "includes:\n    - other.neon\n");
 
-        self::assertSame(['qaConfig/phpstan.neon has an includes key that is not a list of paths'], $this->chain()->problems);
+        $chain = $this->chain();
+        self::assertSame(['qaConfig/phpstan.neon has an includes key that is not a list of paths'], $chain->problems);
+        self::assertSame([self::ENTRY], $this->displays($chain), 'the file itself is still read, so its own entries are checked');
         self::assertSame(
             ['qaConfig/other.neon has an includes key that is not a list of paths'],
             new NeonIncludeChain()->resolve($this->dir->path . '/qaConfig/entry2.neon', $this->dir->path)->problems,

@@ -6,7 +6,8 @@ namespace LTS\PHPQA\PHPStan\ProjectRecord\Dto;
 
 /**
  * The NEON files reached from a project's phpstan.neon through `includes:`,
- * in the order PHPStan reads them, and one sentence for each include that
+ * in PHPStan's merge order (a file's includes before the file, so the entry
+ * file is last), and one sentence for each include that
  * could not be followed. A non-empty `$problems` means part of the chain was
  * not read, so it cannot be called justified.
  *

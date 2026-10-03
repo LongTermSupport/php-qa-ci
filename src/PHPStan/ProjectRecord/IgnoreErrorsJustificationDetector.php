@@ -51,6 +51,7 @@ final readonly class IgnoreErrorsJustificationDetector
     /** @return array<int, string> each entry's first meaningful line, keyed by the index of its `-` line */
     private function entries(string ...$lines): array
     {
+        $lines     = array_values($lines);
         $start     = null;
         $keyIndent = 0;
         foreach ($lines as $i => $line) {

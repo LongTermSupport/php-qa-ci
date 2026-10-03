@@ -12,7 +12,9 @@ use Nette\Neon\Neon;
 /**
  * Every NEON file PHPStan reads for a project, found by following `includes:`
  * from its phpstan.neon depth-first, each file once, so that an ignoreErrors
- * entry cannot leave the project record by moving into an included file.
+ * entry cannot leave the project record by moving into an included file. The
+ * files come in PHPStan's merge order: a file's includes before the file.
+ * Both the justification lane and `bin/rules` walk the chain through here.
  *
  * An include resolves against the including file's directory, or is absolute,
  * or starts with `%currentWorkingDirectory%` (the project root, where the
@@ -59,13 +61,10 @@ final readonly class NeonIncludeChain
             return;
         }
 
-        $files[] = new NeonRecordFileDto($path, $display, $neon, $this->declaredEntries($decoded));
-
         $includes = \is_array($decoded) ? ($decoded['includes'] ?? []) : [];
         if (!\is_array($includes) || !array_is_list($includes) || [] !== array_filter($includes, static fn (mixed $include): bool => !\is_string($include))) {
             $problems[] = \sprintf('%s has an includes key that is not a list of paths', $display);
-
-            return;
+            $includes   = [];
         }
 
         /** @var list<string> $includes */
@@ -75,6 +74,8 @@ final readonly class NeonIncludeChain
                 $this->visit($target, $root, $files, $problems, $seen);
             }
         }
+
+        $files[] = new NeonRecordFileDto($path, $display, $neon, $this->declaredEntries($decoded));
     }
 
     /**
