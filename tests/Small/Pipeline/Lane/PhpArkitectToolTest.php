@@ -198,6 +198,7 @@ final class PhpArkitectToolTest extends TestCase
     {
         $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
         $this->factory->processes->willSucceed();
+
         $config = $this->factory->builder()->withIgnoredPaths('tests/assets', 'srcGenerated')->build();
 
         self::assertSame(ToolOutcomeEnum::Passed, new PhpArkitectTool()->run($this->factory->context($config))->outcome);
@@ -208,6 +209,7 @@ final class PhpArkitectToolTest extends TestCase
     {
         $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, "<?php\n\$classSet = (require getenv('PHPQACI_ARKITECT_CLASS_SET'))(__DIR__ . '/../src');\n");
         $this->factory->processes->willSucceed();
+
         $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY)->build();
 
         self::assertSame(ToolOutcomeEnum::Passed, new PhpArkitectTool()->run($this->factory->context($config))->outcome);

@@ -69,14 +69,14 @@ final class IgnoredPathsSourceCollectionTest extends TestCase
     {
         self::assertSame(
             ['Domain/Legacy/Deep.php', 'Kept.php', 'Legacy/Old.php'],
-            $this->collect((string)realpath(self::FIXTURE . '/qaConfig/infection.json')),
+            $this->collect(\Safe\realpath(self::FIXTURE . '/qaConfig/infection.json')),
         );
     }
 
     #[Test]
     public function anIgnoredPathIsDroppedOnlyWhereItIsAnchored(): void
     {
-        $fixture = (string)realpath(self::FIXTURE);
+        $fixture = \Safe\realpath(self::FIXTURE);
         $derived = new IgnoredPathsInfectionConfig()->derive($fixture . '/qaConfig/infection.json', new IgnoredPaths($fixture, 'src/Legacy'));
         self::assertNotNull($derived);
 
@@ -88,7 +88,7 @@ final class IgnoredPathsSourceCollectionTest extends TestCase
     #[Test]
     public function everyStringSettingInTheShippedSchemaIsClassified(): void
     {
-        $schema = \Safe\json_decode(\Safe\file_get_contents('phar://' . realpath(self::PHAR) . '/resources/schema.json'), true);
+        $schema = \Safe\json_decode(\Safe\file_get_contents('phar://' . \Safe\realpath(self::PHAR) . '/resources/schema.json'), true);
         self::assertIsArray($schema);
         self::assertIsArray($schema['properties'] ?? null);
 
@@ -145,9 +145,9 @@ final class IgnoredPathsSourceCollectionTest extends TestCase
         $process = new Process([
             \PHP_BINARY,
             __DIR__ . '/../../assets/infection/collect-sources.php',
-            (string)realpath(self::PHAR),
+            \Safe\realpath(self::PHAR),
             $configPath,
-            (string)realpath(self::FIXTURE . '/src'),
+            \Safe\realpath(self::FIXTURE . '/src'),
         ]);
         $process->run();
         self::assertTrue($process->isSuccessful(), $process->getOutput() . $process->getErrorOutput());

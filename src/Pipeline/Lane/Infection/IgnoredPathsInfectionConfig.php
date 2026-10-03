@@ -60,7 +60,7 @@ final readonly class IgnoredPathsInfectionConfig
             return null;
         }
 
-        $config = json_decode(\Safe\file_get_contents($configPath), true, 512, \JSON_THROW_ON_ERROR);
+        $config = \Safe\json_decode(\Safe\file_get_contents($configPath), true, 512, \JSON_THROW_ON_ERROR);
         if (!\is_array($config)) {
             throw new JsonException($configPath . ' does not hold a JSON object');
         }
