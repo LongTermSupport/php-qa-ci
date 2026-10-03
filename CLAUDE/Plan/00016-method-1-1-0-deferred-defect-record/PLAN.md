@@ -1,6 +1,6 @@
 # Plan 00016: method 1.1.0 and the deferred-defect record
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-10-03
 **Owner**: joseph
 **Priority**: High
@@ -41,27 +41,70 @@ does not meet.
 
 ### Phase 1: The record
 
-- [ ] ⬜ **Task 1.1**: Decide its form (a typed file under `qaConfig/`, its fields: the defect, the
+- [x] ✅ **Task 1.1**: Decide its form (a typed file under `qaConfig/`, its fields: the defect, the
   class where apparent, where it was found, and who decided to defer it), and record the decision
-  with its reasoning in this plan. Prefer a format the toolchain already parses.
-- [ ] ⬜ **Task 1.2**: Red first, then the reader, validation (a malformed entry fails rather than
+  with its reasoning in this plan. Prefer a format the toolchain already parses. Decisions 1 and 2.
+- [x] ✅ **Task 1.2**: Red first, then the reader, validation (a malformed entry fails rather than
   vanishing), and the `bin/rules` text and JSON listing.
-- [ ] ⬜ **Task 1.3**: The agent summary (`ActiveDefencesSummary`) carries the deferred entries, or a
-  count and the record's path when there are many.
+- [x] ✅ **Task 1.3**: The agent summary (`ActiveDefencesSummary`) carries the deferred entries, or a
+  count and the record's path when there are many (more than ten).
 
 ### Phase 2: Declaration and documentation
 
-- [ ] ⬜ **Task 2.1**: Refresh `remote-docs/defence-before-fix.github.io/` (`.claude/hooks-daemon/bin/hooks-daemon remote-docs refresh --all`) and move the declaration to method 1.1.0 at both levels;
-  `DefenceBeforeFixDeclarationTest` reads the versions from the vendored files.
-- [ ] ⬜ **Task 2.2**: The defaults page, `CLAUDE/DefenceBeforeFix.md` and the CLAUDE.md block
+- [x] ✅ **Task 2.1**: Refresh `remote-docs/defence-before-fix.github.io/` (`.claude/hooks-daemon/bin/hooks-daemon remote-docs refresh --all --verbatim`) and move the declaration to method 1.1.0 at both levels;
+  `DefenceBeforeFixDeclarationTest` reads the versions from the vendored files. Decision 3.
+- [x] ✅ **Task 2.2**: The defaults page, `CLAUDE/DefenceBeforeFix.md` and the CLAUDE.md block
   template name the record.
-- [ ] ⬜ **Task 2.3**: This repository's deferred defects, if any remain open, go into the record.
+- [x] ✅ **Task 2.3**: This repository's deferred defects, if any remain open, go into the record.
+  Decision 4.
+
+## Technical Decisions
+
+### Decision 1: the record is `qaConfig/defect-record.neon`, two sections
+
+NEON, because the toolchain already reads it (`nette/neon` is a runtime dependency, and the
+`ignoreErrors` record it sits beside is NEON), it carries comments, and it needs no loader of its
+own. `qaConfig/qa.php` was rejected: `bin/rules` would have to build the whole typed configuration
+to read a list of sentences. JSON was rejected because it has no comments. The cost of NEON is
+that prose containing `,` `:` `(` `[` `{` or `#` must be quoted; the reader names the line it could
+not parse, and the documentation says so.
+
+One file holds both things section 2 asks for: `deferred` (`defect`, `class` where apparent,
+`found`, `deferredBy`) and `noPattern` (`defect`, `found`, `conclusion`, and `techniques`, a list
+of at least two different entries, because the sentence must name at least two). An unknown
+section or field is a problem rather than ignored: a misspelt `class` would otherwise drop out of
+the enumeration unseen, which is the failure the record exists to prevent.
+
+### Decision 2: an assertion in `phpstanIgnoreJustification`, not a new lane
+
+The tool-boundaries test: (1) the question "is the project record usable" is already asked by
+this lane, of `ignoreErrors`; (2) nobody would type a lane that only checks this file; (3) its help
+line could not stand without naming the record. So the lane gained an assertion, its identifier is
+unchanged (renaming it would break every consumer that types `-t pij`), its description and page
+grew a section, and both halves always run. `bin/rules` refuses a record it cannot read, as it
+refuses an include it cannot follow.
+
+### Decision 3: 1.1.0 opens no gap at either level
+
+The new obligation (section 2) is met by Decisions 1 and 2 at the artefact level and by this
+repository's own record at the project level. The other 1.1.0 change, a conforming remediation's
+verdict resting on reproduction (section 7), is about how a remediation is judged, not a
+mechanism the toolchain supplies. The detector and toolchain specifications did not change. The
+refresh needs `--verbatim`: without it the hooks daemon re-captured the specifications as
+conversions, so `DefenceBeforeFixDeclarationTest` now also asserts each vendored copy is verbatim.
+
+### Decision 4: this repository's own deferred defects
+
+`gh issue list --state open`: #10, #36 and #37 are being fixed by work in flight; #13 and #18 are
+enhancement requests, not defects. The record holds one entry: the hooks daemon's refresh dropping
+the verbatim capture mode, found while doing this plan, whose code is not in this repository. Its
+`deferredBy` says the decision is open: that is the Owner's.
 
 ## Success Criteria
 
-- [ ] `bin/rules .` lists the deferred-defect record, and a fixture entry appears in its JSON.
-- [ ] `composer.json` declares method 1.1.0 at both levels, matching the vendored specification.
-- [ ] The full battery passes.
+- [x] `bin/rules .` lists the deferred-defect record, and a fixture entry appears in its JSON.
+- [x] `composer.json` declares method 1.1.0 at both levels, matching the vendored specification.
+- [ ] The full battery passes. The coordinating session runs it.
 
 ## Delivery & Milestones
 
@@ -70,3 +113,4 @@ does not meet.
      JOURNAL/00016-Journal-YY-MM-DD.md — see CLAUDE/PlanJournalling.md. -->
 
 - Plan filed
+- Red: a6ece89. Phases 1 and 2 implemented in the commit after it.

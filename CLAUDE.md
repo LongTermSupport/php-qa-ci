@@ -103,13 +103,20 @@ dir) prints its page offline.
 - `phpqaci.yamlLint` — YAML syntax (when symfony/yaml is installed) (`docs/tools/yamlLint.md`)
 - `phpqaci.shellCheck` — ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships (`docs/tools/shellCheck.md`)
 - `phpqaci.branchNamePolicy` — Branch naming policy (PR convention) (`CLAUDE/branch-policy.md`)
-- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification (`docs/tools/phpstanIgnoreJustification.md`)
+- `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification, and qaConfig/defect-record.neon reads in full (`docs/tools/phpstanIgnoreJustification.md`)
 - `phpqaci.deadCode` — dead-code detection through phpstan.phar (opt-in: withDeadCodeDetection(true) in qaConfig/qa.php) (`docs/tools/deadCode.md`)
 - `phpqaci.phpArkitect` — PHPArkitect architecture rules (on by default; useArkitect=0 to disable) (`docs/tools/phpArkitect.md`; opt-in: `useArkitect`)
 - `phpqaci.sensitiveParameterUsage` — assert #[\SensitiveParameter] is used somewhere in src/ (`docs/tools/sensitiveParameterUsage.md`)
 - `phpqaci.phpunit` — phpunit (`docs/tools/phpunit.md`)
 - `phpqaci.infection` — infection (`docs/tools/infection.md`; opt-in: `useInfection`)
 - `phpqaci.phpcpd` — copy/paste detection, informational (`docs/tools/phpcpd.md`)
+
+### Deferred defects
+
+Recorded in `qaConfig/defect-record.neon`; whether a deferred one stays unfixed is the Owner's
+decision, and the attempt at a Defence is owed when its fix is taken up.
+
+- Deferred — hooks-daemon `remote-docs refresh --all` re-captures a document recorded `fidelity: verbatim` as a conversion unless `--verbatim` is passed, so the documented refresh replaced the vendored specifications with extractions (class: a refresh that does not preserve the capture mode the stored document records; found: the hooks daemon, refreshing remote-docs/defence-before-fix.github.io/ in Plan 00016; deferred by: undecided; recorded for the Owner by the Plan 00016 agent, since the code is not in this repository)
 <!-- phpqaci-active-defences:end -->
 
 ## Segfaults are a halt condition (binding)
@@ -294,7 +301,7 @@ On a Symfony project the platform lane **Twig Lint** (`twigLint`) is appended to
 ### Phase 3: Static Analysis Tools
 
 15. **Branch Name Policy** (`branchNamePolicy`) - Runs first in this phase. Always-on: enforces the PR branch-naming convention (see [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md))
-16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
+16. **PHPStan ignoreErrors Justification** (`phpstanIgnoreJustification`) - Always-on: every `ignoreErrors` entry in `qaConfig/phpstan.neon` must carry a comment naming the hazard accepted and its scope, and `qaConfig/defect-record.neon` (deferred defects and no-pattern conclusions) must read in full (see [docs/tools/phpstan.md](docs/tools/phpstan.md#suppressing-errors))
 17. **PHPStan** (`phpstan`) - Static analysis tool
 18. **PHPArkitect** (`phpArkitect`) - Architecture rules (class naming, namespace layering, dependency direction). On by default; applies a generic-safe baseline and is composable/overridable per project. Opt out with `withArkitect(false)` in `qaConfig/qa.php` or `useArkitect=0` in the environment. See the [PHPArkitect section in README.md](README.md#phparkitect-architecture-rules).
 19. **SensitiveParameter Usage** (`sensitiveParameterUsage`) - Always-on security baseline: fails if `#[\SensitiveParameter]` is used nowhere in `src/`. Opt out per-project with `withSensitiveParameterCheck(false)`.

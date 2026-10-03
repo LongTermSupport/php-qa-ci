@@ -65,6 +65,11 @@ use RuntimeException;
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\JustificationFindingDto::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordCheck::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordReader::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\Dto\DefectRecordDto::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto::class)]
+#[UsesClass(\LTS\PHPQA\DefectRecord\Dto\NoPatternConclusionDto::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationDetector::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
@@ -224,6 +229,21 @@ final class InProcessLanesTest extends TestCase
 
         $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    ignoreErrors:\n        - '#unjustified#'\n");
         $this->assertFails(new PhpstanIgnoreJustificationTool(), 'without a usable justification', PhpstanIgnoreJustificationTool::IDENTIFIER);
+    }
+
+    /**
+     * The defect record is the other half of the project record (method specification
+     * section 2, 1.1.0): the same lane fails when it cannot be read, so a misspelt field
+     * fails the build instead of dropping the entry from bin/rules.
+     */
+    #[Test]
+    public function phpstanIgnoreJustificationReadsTheDefectRecord(): void
+    {
+        $this->factory->project->write('qaConfig/defect-record.neon', "deferred:\n    - {defect: x, found: src/A.php, deferredBy: Owner}\n");
+        $this->assertPasses(new PhpstanIgnoreJustificationTool(), 'Defect record: 1 deferred defect');
+
+        $this->factory->project->write('qaConfig/defect-record.neon', "deferred:\n    - {defect: x, found: src/A.php, deferedBy: Owner}\n");
+        $this->assertFails(new PhpstanIgnoreJustificationTool(), 'has an unknown field "deferedBy"', PhpstanIgnoreJustificationTool::IDENTIFIER);
     }
 
     #[Test]

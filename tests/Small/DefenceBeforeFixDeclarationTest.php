@@ -70,6 +70,9 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
     /** "(Plan 00010)", for an open gap. */
     private const string PLAN_CITATION = '/\(Plan (\d{5})\)/';
 
+    /** The capture mode a vendored specification's front matter must record. */
+    private const string VERBATIM = 'verbatim';
+
     /** A PHPStan identifier that is not this package's, for the catalogue probe. */
     private const string NATIVE_IDENTIFIER = 'method.notFound';
 
@@ -91,6 +94,28 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
         self::assertSame($this->vendoredVersion('method'), $project['method'] ?? null);
         self::assertSame($this->vendoredVersion('toolchain'), $project['toolchain'] ?? null);
         self::assertSame([], $this->gapProblems(...$this->gaps($project, 'project')));
+    }
+
+    /**
+     * The declaration is checked against the specifications as published, so a vendored copy
+     * must be the published text itself. `remote-docs refresh --all` without `--verbatim`
+     * re-captures a verbatim copy as a conversion, which drops the markup the version and the
+     * clause anchors are read from; the probe is shown firing on that front matter too.
+     */
+    public function testTheVendoredSpecificationsAreVerbatimCaptures(): void
+    {
+        foreach (self::SPEC_FILES as $document => $file) {
+            self::assertNull($this->fidelityProblem(\Safe\file_get_contents(self::SPEC_DIR . $file)), $document);
+        }
+
+        self::assertSame(
+            'captured as "converted", not verbatim; refresh with `remote-docs refresh --all --verbatim`',
+            $this->fidelityProblem("---\nsource_url: https://defence-before-fix.github.io/SPEC.html\nfidelity: converted\n---\n\n# Spec\n"),
+        );
+        self::assertSame(
+            'captured with no recorded fidelity, not verbatim; refresh with `remote-docs refresh --all --verbatim`',
+            $this->fidelityProblem("# Spec\n"),
+        );
     }
 
     /**
@@ -252,6 +277,20 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
         return str_contains(
             new RuleDocResolver(self::REPO_ROOT)->render(self::NATIVE_IDENTIFIER),
             'https://phpstan.org/error-identifiers/' . self::NATIVE_IDENTIFIER,
+        );
+    }
+
+    /** Why a vendored copy is not the published text, or null when its front matter records a verbatim capture. */
+    private function fidelityProblem(string $vendored): ?string
+    {
+        $fidelity = $this->group('/\A---\n(?:.*\n)*?fidelity: (\S+)\n(?:.*\n)*?---\n/', $vendored, 1);
+        if (self::VERBATIM === $fidelity) {
+            return null;
+        }
+
+        return \sprintf(
+            'captured %s, not verbatim; refresh with `remote-docs refresh --all --verbatim`',
+            null === $fidelity ? 'with no recorded fidelity' : \sprintf('as "%s"', $fidelity),
         );
     }
 

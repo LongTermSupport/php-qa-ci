@@ -45,10 +45,24 @@ the release and its tag. The full rules are in
   no instance in `src/` can now be seen to fire before a green arch run is
   trusted. See
   [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires).
+- **A defect record: `qaConfig/defect-record.neon`.** Method specification
+  1.1.0 requires a defect found and not fixed now, and the conclusion that no
+  pattern exists, to be recorded where the project's decisions are enumerable.
+  Write them under `deferred` (defect, class where apparent, found, deferredBy)
+  and `noPattern` (defect, found, conclusion, two or more techniques).
+  `vendor/bin/rules` lists the record in text and in JSON (`defectRecord`), the
+  active-defences region of `CLAUDE.md` carries it, and the
+  `phpstanIgnoreJustification` lane fails on an entry it cannot read, such as a
+  misspelt field. A project without the file passes as before; its `CLAUDE.md`
+  region gains a line saying where a deferred defect goes. Format:
+  `vendor/bin/rule-doc phpqaci.phpstanIgnoreJustification`.
 
 ### Changed
 
 - **Bundled tool versions updated** by the weekly dependency update: shipmonk/dead-code-detector 1.4.1 → 1.4.2; phpcpd-next/phpcpd v1.4 → v2.0; rector/rector 2.6.6 → 2.6.7.
+- **The Defence Before Fix declaration moves to method specification 1.1.0.**
+  `composer.json` `extra.defence-before-fix` states method 1.1.0 at both the
+  artefact and the project level, with no new known gap.
 
 ### Fixed
 
@@ -66,6 +80,8 @@ the release and its tag. The full rules are in
   They are now v7, v6, v7, v8 and v3. `actions/download-artifact@v8` fails on a
   digest mismatch where v4 only warned. A project that copied the templates
   should copy them again.
+
+> > > > > > > agent-a234aa19507b7e520-7ef8a3e5
 
 ## 85.2.0 — 2026-10-03
 
