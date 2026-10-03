@@ -32,6 +32,19 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   instruction. The lane is the only one that supports it. See
   [Agent Mode](../agent-mode.md) for the schema, the exit codes and the hook wiring.
 
+## How to fix a failure
+
+Each error names its file, line and identifier. Look the identifier up before changing anything:
+a `phpqaci.*` identifier is one of this package's rules, and `vendor/bin/rule-doc <identifier>`
+prints its page, offline, with the construction to write instead; any other identifier is
+PHPStan's own or an extension's, documented at `https://phpstan.org/error-identifiers/`.
+
+Then change the code so the error has nothing to report: declare the type the value really
+has, narrow it with a check where it enters (a parameter, a decoded payload, a `mixed` return),
+or delete a condition that the types have already made always true. The tips at the end of this
+page cover the frequent cases. An `ignoreErrors` entry is a recorded owner decision with its own
+justification, described under "Suppressing Errors", not a way to make a change pass.
+
 ## Configuration
 
 Default configuration is in [configDefaults/generic/phpstan.neon](./../../configDefaults/generic/phpstan.neon).

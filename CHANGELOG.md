@@ -76,6 +76,12 @@ the release and its tag. The full rules are in
   each rule came from, and counts rules registered behind a parameter
   (`conditionalTags`), as `phpstan-strict-rules` registers all of its.
 
+- **Every rule and lane page states the correct construction.** The PHPStan,
+  PHPUnit, Infection, SensitiveParameter-usage, branch-name, Twig Lint and Yaml
+  Lint pages now say what to write when the lane fails, and the release guard
+  fails a page whose fix section is missing or only restates the summary, so
+  toolchain 8.1 is no longer a known gap in `extra.defence-before-fix`.
+
 ## 85.1.0 — 2026-10-03
 
 ### Changed — breaking

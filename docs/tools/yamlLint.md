@@ -37,7 +37,11 @@ stays a Symfony platform lane driven through `bin/console`.
 ## How to fix a failure
 
 The linter names the file and line of each parse error. Fix the YAML; the lane never modifies
-files.
+files. The usual causes are indentation that mixes tabs with spaces or steps by an inconsistent
+width, a duplicate key in one mapping, and an unquoted value that starts with a character the
+parser reserves: `@`, `%` and `` ` `` are refused outright, and `*` or `&` is read as an alias or
+an anchor. Indent with spaces only, keep each key once, and quote any value that begins with one
+of those characters.
 
 ## Implementation
 

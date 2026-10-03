@@ -56,8 +56,11 @@ final class RuleDocumentationTest extends TestCase
     /** A page with no construction section, one that restates the summary, and one that states it. */
     private const string CONSTRUCTION_FIXTURE_ROOT = self::REPO_ROOT . '/tests/assets/ruleDocResolverConstruction';
 
-    /** A rule page names the construction; a lane page names the fix for its failure. */
-    private const string CONSTRUCTION_HEADING = '/^## (?:The correct construction|How to fix(?: it| a failure| a violation)?)[ \t]*$/m';
+    /**
+     * A rule page names the construction; a lane page names the fix for its failure; an
+     * informational lane, which cannot fail, names how to act on its report.
+     */
+    private const string CONSTRUCTION_HEADING = '/^## (?:The correct construction|How to fix(?: it| a failure| a violation)?|How to act on a report)[ \t]*$/m';
 
     /**
      * Distinct words the section adds beyond the summary. A sentence pointing at the
@@ -273,15 +276,15 @@ final class RuleDocumentationTest extends TestCase
             }
 
             $sections = \Safe\preg_split(self::CONSTRUCTION_HEADING, \Safe\file_get_contents($entry->docPath), 2);
-            if (!\is_array($sections) || !isset($sections[1]) || !\is_string($sections[1])) {
+            if (!isset($sections[1]) || !\is_string($sections[1])) {
                 $unstated[] = $identifier . ': no construction section';
 
                 continue;
             }
 
-            $section = \Safe\preg_split('/^## /m', $sections[1], 2);
-            $body    = \is_array($section) && isset($section[0]) && \is_string($section[0]) ? $section[0] : '';
-            $added   = \count(array_diff($this->distinctWords($body), $this->distinctWords($entry->summary)));
+            $end   = strpos($sections[1], "\n## ");
+            $body  = false === $end ? $sections[1] : substr($sections[1], 0, $end);
+            $added = \count(array_diff($this->distinctWords($body), $this->distinctWords($entry->summary)));
             if ($added < self::CONSTRUCTION_MIN_WORDS) {
                 $unstated[] = \sprintf(
                     '%s: the construction section adds %d words to the summary, fewer than %d',
@@ -300,13 +303,8 @@ final class RuleDocumentationTest extends TestCase
      */
     private function distinctWords(string $text): array
     {
-        $words = \Safe\preg_split('/[^A-Za-z]+/', strtolower($text), -1, PREG_SPLIT_NO_EMPTY);
-        if (!\is_array($words)) {
-            return [];
-        }
-
         $distinct = [];
-        foreach ($words as $word) {
+        foreach (\Safe\preg_split('/[^A-Za-z]+/', strtolower($text), -1, PREG_SPLIT_NO_EMPTY) as $word) {
             if (\is_string($word)) {
                 $distinct[$word] = true;
             }

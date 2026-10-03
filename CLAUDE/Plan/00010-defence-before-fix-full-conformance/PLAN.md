@@ -130,9 +130,10 @@ most of the clause table turns green at once.
   stronger than `bin/rules` — it immediately found four more gaps (the Symfony tier and one
   experimental rule) that Task 3.1's enumeration had missed. Red first, three ways,
   committed at 30ab7e1.
-  - [ ] ⬜ **Still owed**: "and states a correct construction". The guard checks a page
-    exists, not that it is more than a restatement of the summary. Reviewing prose
-    mechanically is the hard part; the risk row for filler pages stands until it is closed.
+  - [x] ✅ **Owed guard closed**: "and states a correct construction". Each page needs a
+    construction section (`The correct construction`, `How to fix a failure`, or `How to act on a report` for the informational lane) adding at least fifteen distinct words to the
+    summary. Red at a70a1b2: six lane pages had no section, Twig Lint and Yaml Lint only
+    "fix the file". Prose truth stays a reviewer's call; restating the summary now fails.
 - [x] ✅ **Task 3.3**: **PHPStan's native catalogue is out of scope offline, as a recorded
   Owner decision** — Decision 6. `bin/rule-doc method.notFound` no longer answers
   `Unknown rule identifier`: it says the identifier is not php-qa-ci's, names the

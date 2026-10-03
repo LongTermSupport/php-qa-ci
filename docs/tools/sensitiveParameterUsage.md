@@ -41,6 +41,24 @@ The tool scans `{projectRoot}/src` and:
 - **fails (exit 1)** when none are found, printing guidance and the opt-out
   instructions.
 
+## How to fix a failure
+
+Find the parameters that receive a secret — a password, an API key or token, a private key, a
+signing secret, a connection string with credentials in it — and mark each one where the value
+first enters a function:
+
+```php
+public function authenticate(string $username, #[\SensitiveParameter] string $password): Session
+```
+
+Mark every function the value passes through, not only the outermost one: the redaction applies
+per frame, so a helper that receives the same password unmarked prints it in its own frame of the
+trace. Constructor-promoted properties take the attribute the same way.
+
+The `phpqaci.requireSensitiveParameterAttribute` PHPStan rule finds parameters whose names look
+like credentials, which is the quickest way to locate the candidates. Opting out, below, is right
+only for a project that genuinely receives no secret.
+
 ## Escape hatch (opt-out, on by default)
 
 A small number of projects — pure tooling/QA libraries, for example — genuinely
