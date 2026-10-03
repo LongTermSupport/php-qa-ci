@@ -6,8 +6,6 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use Closure;
 use FilesystemIterator;
-use LTS\PHPQA\DefectRecord\DefectRecordReader;
-use LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ShippedTools;
@@ -23,7 +21,6 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use ReflectionClass;
 use SplFileInfo;
 
 /**
@@ -38,14 +35,15 @@ use SplFileInfo;
  * repository's qaConfig/phpstan.neon came to carry `tests/assets` by hand.
  *
  * Every shipped lane is classified here: it scans the checked paths and so
- * must honour the setting, it does not scan them (with the reason), or it is a
- * known gap recorded in qaConfig/defect-record.neon for the Owner. A lane
+ * must honour the setting, or it does not scan them (with the reason). A lane
  * added without a classification fails, so the next lane is classified when it
  * is written rather than when a consumer reports it. Each scanning lane is
  * then probed for behaviour, not for wiring:
  *
  * - REACHES: the ignored path is handed to the tool, in its argv, its
  *   environment or a config file the lane writes for it;
+ * - REACHES_FROM_SOURCE: the same, relative to the source dir it lies under,
+ *   for a tool that matches exclusions against paths inside each source dir;
  * - FILTERS: the lane enumerates the files itself, and a file planted under
  *   the ignored path never reaches the tool;
  * - SKIPS: the lane checks in-process, and a violation planted under the
@@ -84,15 +82,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         'phpstan'        => 'analyses the checked paths',
         'deadCode'       => 'analyses src/ and tests/ through phpstan.phar',
         'phpArkitect'    => 'checks the classes under the source dir against the architecture rules',
-    ];
-
-    /**
-     * Lanes that scan the checked paths but cannot yet be told to skip a path.
-     * Each is a deferred entry in qaConfig/defect-record.neon whose `found`
-     * names the lane's source file, so the Owner sees it.
-     */
-    private const array KNOWN_GAPS = [
-        'infection'   => "mutates infection.json's source directories, and Infection takes no exclusion on the command line",
+        'infection'      => "mutates the PHP under infection.json's source directories",
     ];
 
     /** Lanes whose scope is not the checked paths, with the reason. */
@@ -121,6 +111,13 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
     /** Probe: the ignored path is handed to the tool. */
     private const string REACHES = 'reaches';
 
+    /**
+     * Probe: the ignored path reaches the tool relative to the source dir it
+     * lies under, for a tool that matches its exclusions against paths
+     * relative to each source directory.
+     */
+    private const string REACHES_FROM_SOURCE = 'reaches from the source dir';
+
     /** Probe: a file under the ignored path never reaches the tool. */
     private const string FILTERS = 'filters';
 
@@ -140,7 +137,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
     #[Test]
     public function everyShippedLaneIsClassifiedExactlyOnce(): void
     {
-        $classified = [...array_keys(self::SCANS), ...array_keys(self::KNOWN_GAPS), ...array_keys(self::DOES_NOT_SCAN)];
+        $classified = [...array_keys(self::SCANS), ...array_keys(self::DOES_NOT_SCAN)];
         $shipped    = array_keys(ShippedTools::all());
 
         self::assertSame([], array_values(array_diff($shipped, $classified)), 'unclassified lane: decide whether it scans the checked paths');
@@ -154,18 +151,6 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         $probed = array_map(static fn (array $probe): string => $probe[0], array_values(self::probes()));
 
         self::assertSame([], array_values(array_diff(array_keys(self::SCANS), $probed)));
-    }
-
-    #[Test]
-    public function everyKnownGapIsInTheDefectRecord(): void
-    {
-        $root  = \dirname(__DIR__, 4);
-        $found = array_map(static fn (DeferredDefectDto $entry): string => $entry->found, new DefectRecordReader()->read($root)->deferred);
-
-        foreach (array_keys(self::KNOWN_GAPS) as $lane) {
-            $file = (string)new ReflectionClass(ShippedTools::all()[$lane])->getFileName();
-            self::assertContains(substr($file, \strlen($root) + 1), $found, $lane . ' is a known gap with no deferred entry naming its source file');
-        }
     }
 
     /**
@@ -205,6 +190,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
             'phpstan'        => ['phpstan', self::REACHES, $asIs, $succeeds],
             'deadCode'       => ['deadCode', self::REACHES, $deadCode, $succeeds],
             'phpArkitect'    => ['phpArkitect', self::REACHES, $asIs, $succeeds],
+            'infection'      => ['infection', self::REACHES_FROM_SOURCE, $asIs, $succeeds],
         ];
     }
 
@@ -285,7 +271,13 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         [$ignoredOutcome, $ignoredSeen]     = $this->drive($lane, $configure, $queue, true);
         [$controlOutcome, $controlSeen]     = $this->drive($lane, $configure, $queue, false);
 
+        $fromSource = substr(self::IGNORED, \strlen('src/'));
+
         return match ($kind) {
+            self::REACHES_FROM_SOURCE => array_values(array_filter([
+                str_contains($ignoredSeen, $fromSource) ? null : 'the ignored path ' . $fromSource . ', relative to src/, reached neither the argv, the environment nor a file the lane wrote',
+                str_contains($controlSeen, $fromSource) ? 'vacuous: ' . $fromSource . ' is named even when nothing is ignored' : null,
+            ])),
             self::REACHES => array_values(array_filter([
                 str_contains($ignoredSeen, self::IGNORED) ? null : 'the ignored path ' . self::IGNORED . ' reached neither the argv, the environment nor a file the lane wrote',
                 str_contains($controlSeen, self::IGNORED) ? 'vacuous: the ignored path ' . self::IGNORED . ' is named even when nothing is ignored' : null,
@@ -316,6 +308,8 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         // Missing strict_types AND in the wrong namespace, so one file is a
         // violation for every in-process lane.
         $factory->project->write(self::PLANTED, "<?php\n\nnamespace Elsewhere;\n\nfinal class Planted\n{\n}\n");
+        // The project's own Infection config, mutating src/ as a project's does.
+        $factory->project->write('qaConfig/infection.json', "{\"source\": {\"directories\": [\"../src\"]}}\n");
         $queue($factory->processes);
 
         $builder = $configure($factory->builder());
