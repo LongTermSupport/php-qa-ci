@@ -9,7 +9,8 @@ use LTS\PHPQA\Changelog\ChangelogRangeResolver;
 use LTS\PHPQA\Changelog\Dto\ChangelogRangeDto;
 use LTS\PHPQA\Changelog\Exception\ChangelogHistoryException;
 use LTS\PHPQA\Changelog\Exception\ChangelogReleaseException;
-use LTS\PHPQA\Changelog\ReleaseVersionCalculator;
+use LTS\PHPQA\Changelog\ReleaseLine;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
@@ -29,7 +30,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ChangelogGit::class)]
 #[UsesClass(ChangelogHistoryException::class)]
 #[UsesClass(ChangelogReleaseException::class)]
-#[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(ReleaseLine::class)]
+#[UsesClass(ReleaseVersionPolicy::class)]
 #[UsesClass(EnvironmentReader::class)]
 #[UsesClass(GitBranches::class)]
 #[UsesClass(ProcessResultDto::class)]
@@ -184,14 +186,63 @@ final class ChangelogRangeResolverTest extends TestCase
         $this->resolve([], '{"require": {"php": ">=8.5"}}');
     }
 
+    #[Test]
+    public function underSemanticVersioningTheDefaultBranchIsMeasuredFromTheNewestReleaseOfAnyMajor(): void
+    {
+        $this->processes->willSucceed(self::ORIGIN_HEAD)->willSucceed(self::DEFAULT_BRANCH)->willSucceed("v1.9.0\n1.4.2\n2.0.0\n2.1.0-rc1\n");
+
+        $range = $this->resolve(policy: ReleaseVersionPolicy::semanticVersioning());
+
+        self::assertSame('2.0.0', $range->base);
+        self::assertSame('since the last release tag 2.0.0', $range->description);
+    }
+
+    #[Test]
+    public function aTagPrefixDecidesWhichTagsAreReleases(): void
+    {
+        $this->processes->willSucceed(self::ORIGIN_HEAD)->willSucceed(self::DEFAULT_BRANCH)->willSucceed("v1.9.0\n1.4.2\n2.0.0\nv1.10.0\n");
+
+        self::assertSame('v1.10.0', $this->resolve(policy: ReleaseVersionPolicy::semanticVersioning('v'))->base);
+    }
+
+    #[Test]
+    public function noReleaseTagUnderSemanticVersioningNamesItsFirstRelease(): void
+    {
+        $this->processes->willSucceed(self::ORIGIN_HEAD)->willSucceed(self::DEFAULT_BRANCH)->willSucceed("v1.0.0\n1.0\n");
+
+        try {
+            $this->resolve([], 'not json', ReleaseVersionPolicy::semanticVersioning());
+            self::fail('expected the missing tag to fail');
+        } catch (ChangelogHistoryException $changelogHistoryException) {
+            self::assertStringContainsString('no X.Y.Z release tag is in this clone', $changelogHistoryException->getMessage());
+            self::assertStringContainsString('tag the first release 0.1.0', $changelogHistoryException->getMessage());
+        }
+    }
+
+    #[Test]
+    public function theDefaultPolicyIsSemanticVersioning(): void
+    {
+        $this->processes->willSucceed(self::ORIGIN_HEAD)->willSucceed(self::DEFAULT_BRANCH)->willSucceed("85.1.0\n86.0.0\n");
+
+        $range = new ChangelogRangeResolver()->resolve(
+            new ChangelogGit($this->processes, '/p'),
+            new GitBranches($this->processes, '/p'),
+            new EnvironmentReader([]),
+            self::COMPOSER,
+        );
+
+        self::assertSame('86.0.0', $range->base);
+    }
+
     /** @param array<string, string> $env */
-    private function resolve(array $env = [], string $composerJson = self::COMPOSER): ChangelogRangeDto
+    private function resolve(array $env = [], string $composerJson = self::COMPOSER, ?ReleaseVersionPolicy $policy = null): ChangelogRangeDto
     {
         return new ChangelogRangeResolver()->resolve(
             new ChangelogGit($this->processes, '/p'),
             new GitBranches($this->processes, '/p'),
             new EnvironmentReader($env),
             $composerJson,
+            $policy ?? ReleaseVersionPolicy::lockedMajorFromPhpRequirement(),
         );
     }
 }

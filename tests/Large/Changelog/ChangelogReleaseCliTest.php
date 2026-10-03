@@ -32,6 +32,11 @@ final class ChangelogReleaseCliTest extends TestCase
 
     private const string TAG = 'tag';
 
+    private const string QA_PHP = 'qaConfig/qa.php';
+
+    /** php-qa-ci's own release policy: the major is the PHP line, so a breaking change moves the minor. */
+    private const string LOCKED_MAJOR = "<?php\nreturn static fn (\\LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder \$qa) => \$qa->withReleaseVersionPolicy(\\LTS\\PHPQA\\Changelog\\ReleaseVersionPolicy::lockedMajorFromPhpRequirement());\n";
+
     private const string CHANGELOG = <<<'MD'
         # Changelog
 
@@ -63,6 +68,7 @@ final class ChangelogReleaseCliTest extends TestCase
         $this->sandbox = GitSandbox::create([
             'composer.json'      => "{\"require\": {\"php\": \"^8.5\"}}\n",
             self::CHANGELOG_FILE => self::CHANGELOG,
+            self::QA_PHP         => self::LOCKED_MAJOR,
         ]);
         $this->sandbox->git(self::TAG, '85.0.0');
     }
@@ -125,6 +131,15 @@ final class ChangelogReleaseCliTest extends TestCase
         self::assertSame('', $result->getOutput());
         self::assertStringContainsString('"### Fixed" repeats the heading at line 3', $result->getErrorOutput());
         self::assertStringContainsString('phpqaci.changelog', $result->getErrorOutput());
+    }
+
+    #[Test]
+    public function withoutTheOverrideTheSameBreakingEntryReleasesANewMajor(): void
+    {
+        $this->sandbox->git('rm', '-q', self::QA_PHP);
+        $this->sandbox->git('commit', '-m', 'Release by semantic versioning');
+
+        self::assertSame("86.0.0\n", $this->cli(self::NEXT_VERSION)->getOutput());
     }
 
     private function cli(string ...$arguments): Process

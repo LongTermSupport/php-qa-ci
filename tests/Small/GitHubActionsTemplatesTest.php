@@ -34,6 +34,12 @@ final class GitHubActionsTemplatesTest extends TestCase
 
     private const string PIPELINE_TEMPLATE = self::TEMPLATES . '/php-qa-ci.yml';
 
+    private const string RELEASE_TEMPLATE = self::TEMPLATES . '/release.yml';
+
+    private const string APPROVE_TEMPLATE = self::TEMPLATES . '/approve-held-ci/action.yml';
+
+    private const string REPOSITORY = __DIR__ . '/../..';
+
     #[Test]
     public function everyTemplateFindsTheQaEntryPointThroughTheComposerBinDir(): void
     {
@@ -81,6 +87,69 @@ final class GitHubActionsTemplatesTest extends TestCase
             \Safe\file_get_contents(self::PIPELINE_TEMPLATE),
             'A run on GitHub Actions is read-only by default, so the fixers write nothing and AUTO_COMMIT_FIXES has nothing to commit unless the QA step is writable.',
         );
+    }
+
+    /**
+     * php-qa-ci releases itself through the workflow it ships, so every
+     * php-qa-ci release proves the template; a fix made to one copy only
+     * would leave consumers on the version that was not proven.
+     */
+    #[Test]
+    public function thisRepositoryReleasesThroughTheShippedReleaseWorkflow(): void
+    {
+        self::assertSame(
+            \Safe\file_get_contents(self::RELEASE_TEMPLATE),
+            \Safe\file_get_contents(self::REPOSITORY . '/.github/workflows/release.yml'),
+            '.github/workflows/release.yml must be an identical copy of templates/github-actions/release.yml: edit the template and copy it.',
+        );
+    }
+
+    #[Test]
+    public function thisRepositoryApprovesHeldRunsWithTheShippedAction(): void
+    {
+        self::assertSame(
+            \Safe\file_get_contents(self::APPROVE_TEMPLATE),
+            \Safe\file_get_contents(self::REPOSITORY . '/.github/actions/approve-held-ci/action.yml'),
+            '.github/actions/approve-held-ci/action.yml must be an identical copy of templates/github-actions/approve-held-ci/action.yml: edit the template and copy it.',
+        );
+    }
+
+    #[Test]
+    public function theReleaseTemplateNamesNoBranchOfItsOwn(): void
+    {
+        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#php8\\.\\d|\\b(?:main|master)\\b#'), 'The release branch is the repository default branch, read from the event, so the template copies unchanged into any repository.');
+    }
+
+    #[Test]
+    public function theReleaseTemplateRunsTheReleaseCliFromTheComposerBinDir(): void
+    {
+        $template = \Safe\file_get_contents(self::RELEASE_TEMPLATE);
+
+        self::assertSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#\\bbin/changelog-release#'), 'Run the release CLI from "$(composer config bin-dir)": a consumer has it in vendor/bin, php-qa-ci in bin.');
+        self::assertStringContainsString('"$(composer config bin-dir)/changelog-release"', $template);
+    }
+
+    #[Test]
+    public function theReleaseTemplateApprovesTheHeldRunOfTheWorkflowThatGatedIt(): void
+    {
+        $template = \Safe\file_get_contents(self::RELEASE_TEMPLATE);
+
+        self::assertStringContainsString('uses: ./.github/actions/approve-held-ci', $template);
+        self::assertStringContainsString('workflow: ${{ github.event.workflow_run.path }}', $template);
+        self::assertSame([], $this->executedLinesIn(self::APPROVE_TEMPLATE, '#ci\\.yml#'), 'The action is told which workflow to approve; it must not assume one.');
+    }
+
+    /** @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern */
+    private function executedLinesIn(string $file, string $pattern): array
+    {
+        $hits = [];
+        foreach (explode("\n", \Safe\file_get_contents($file)) as $index => $line) {
+            if (!str_starts_with(ltrim($line), '#') && 1 === \Safe\preg_match($pattern, $line)) {
+                $hits[] = \sprintf('%d: %s', $index + 1, trim($line));
+            }
+        }
+
+        return $hits;
     }
 
     /** @return list<string> "<file>:<line>: <text>" for every non-comment line matching $pattern */

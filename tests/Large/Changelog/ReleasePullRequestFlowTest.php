@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Large\Changelog;
 use LTS\PHPQA\Changelog\ChangelogCheck;
 use LTS\PHPQA\Changelog\ChangelogGit;
 use LTS\PHPQA\Changelog\Dto\ChangelogCheckResultDto;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Changelog\WatchedPaths;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
@@ -56,6 +57,7 @@ final class ReleasePullRequestFlowTest extends TestCase
             'composer.json'      => self::COMPOSER,
             self::CHANGELOG_FILE => "# Changelog\n\n## Unreleased\n",
             self::SOURCE         => "<?php\n",
+            'qaConfig/qa.php'    => "<?php\nreturn static fn (\\LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder \$qa) => \$qa->withReleaseVersionPolicy(\\LTS\\PHPQA\\Changelog\\ReleaseVersionPolicy::lockedMajorFromPhpRequirement());\n",
         ]);
         $this->sandbox->git('tag', '85.0.0');
     }
@@ -142,6 +144,7 @@ final class ReleasePullRequestFlowTest extends TestCase
             new GitBranches($processes, $root),
             new EnvironmentReader([]),
             new WatchedPaths('src/', 'composer.json'),
+            ReleaseVersionPolicy::lockedMajorFromPhpRequirement(),
         );
     }
 

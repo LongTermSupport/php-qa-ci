@@ -17,7 +17,8 @@ use LTS\PHPQA\Changelog\Dto\ChangelogHeadingBlockDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogRangeDto;
 use LTS\PHPQA\Changelog\Dto\ChangelogTrailerVerdictDto;
 use LTS\PHPQA\Changelog\Exception\InvalidChangelogException;
-use LTS\PHPQA\Changelog\ReleaseVersionCalculator;
+use LTS\PHPQA\Changelog\ReleaseLine;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Changelog\WatchedPaths;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
@@ -47,7 +48,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ChangelogRangeDto::class)]
 #[UsesClass(ChangelogTrailerVerdictDto::class)]
 #[UsesClass(InvalidChangelogException::class)]
-#[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(ReleaseLine::class)]
+#[UsesClass(ReleaseVersionPolicy::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleasedSections::class)]
 #[UsesClass(WatchedPaths::class)]
 #[UsesClass(GitBranches::class)]
@@ -219,6 +221,34 @@ final class ChangelogToolTest extends TestCase
         self::assertSame('1 changelog problem', $result->summary);
         self::assertStringContainsString('  - 1 watched file changed since the merge base with origin/main (base1)', $printed);
         self::assertStringContainsString("\n        src/A.php\n", $printed);
+    }
+
+    #[Test]
+    public function theConfiguredReleasePolicyDecidesTheDefaultBranchRange(): void
+    {
+        $this->factory->project->write(ChangelogCheck::CHANGELOG, self::CHANGELOG);
+        $locked = $this->factory->builder()->withChangelogCheck(true)->withChangelogWatchedPaths('src/')->withReleaseVersionPolicy(ReleaseVersionPolicy::lockedMajor(85))->build();
+
+        $this->onTheDefaultBranch();
+        new ChangelogTool(new EnvironmentReader([]))->run($this->factory->context($locked));
+        self::assertStringContainsString('[changelog] Range: since the last release tag 85.1.0.', $this->factory->output->fetch());
+
+        $this->onTheDefaultBranch();
+        new ChangelogTool(new EnvironmentReader([]))->run($this->factory->context($this->enabled()));
+        self::assertStringContainsString('[changelog] Range: since the last release tag 86.0.0.', $this->factory->output->fetch());
+    }
+
+    private function onTheDefaultBranch(): void
+    {
+        $this->factory->processes
+            ->willSucceed(self::NOT_SHALLOW)
+            ->willSucceed("refs/remotes/origin/main\n")
+            ->willSucceed("main\n")
+            ->willSucceed("85.1.0\n86.0.0\n")
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::EMPTY_COMPOSER)
+        ;
     }
 
     private function enabled(): \LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto

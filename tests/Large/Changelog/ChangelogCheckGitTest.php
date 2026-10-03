@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Large\Changelog;
 use LTS\PHPQA\Changelog\ChangelogCheck;
 use LTS\PHPQA\Changelog\ChangelogGit;
 use LTS\PHPQA\Changelog\Dto\ChangelogCheckResultDto;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Changelog\WatchedPaths;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
@@ -171,6 +172,7 @@ final class ChangelogCheckGitTest extends TestCase
             new GitBranches($processes, $root),
             new EnvironmentReader([]),
             new WatchedPaths('src/', 'composer.json'),
+            ReleaseVersionPolicy::lockedMajorFromPhpRequirement(),
         );
     }
 }

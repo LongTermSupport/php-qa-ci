@@ -21,7 +21,8 @@ use LTS\PHPQA\Changelog\Exception\ChangelogHistoryException;
 use LTS\PHPQA\Changelog\Exception\ChangelogReleaseException;
 use LTS\PHPQA\Changelog\Exception\InvalidChangelogException;
 use LTS\PHPQA\Changelog\ReleasedSections;
-use LTS\PHPQA\Changelog\ReleaseVersionCalculator;
+use LTS\PHPQA\Changelog\ReleaseLine;
+use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Changelog\WatchedPaths;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
@@ -53,7 +54,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ChangelogHistoryException::class)]
 #[UsesClass(ChangelogReleaseException::class)]
 #[UsesClass(InvalidChangelogException::class)]
-#[UsesClass(ReleaseVersionCalculator::class)]
+#[UsesClass(ReleaseLine::class)]
+#[UsesClass(ReleaseVersionPolicy::class)]
 #[UsesClass(ReleasedSections::class)]
 #[UsesClass(ReleasedSectionDto::class)]
 #[UsesClass(WatchedPaths::class)]
@@ -446,6 +448,39 @@ final class ChangelogCheckTest extends TestCase
         self::assertSame(['CHANGELOG.md is invalid:' . "\n" . '  - line 5: text outside a "###" heading: "Loose text."'], $result->problems);
     }
 
+    #[Test]
+    public function aBreakingEntryIsReportedAsABreakingRelease(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, "## Unreleased\n\n### Fixed\n\n- A fix.\n\n### Removed\n\n- Gone.\n");
+        $this->processes->willSucceed("true\n");
+
+        self::assertSame('CHANGELOG.md "## Unreleased" is valid: 2 entries, the next release is breaking.', $this->check()->report[0]);
+    }
+
+    #[Test]
+    public function theReleasePolicyDecidesWhichTagTheDefaultBranchIsMeasuredFrom(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
+
+        $this->onTheDefaultBranchWithTags("85.1.0\n86.0.0\n");
+        self::assertSame('Range: since the last release tag 85.1.0.', $this->check(policy: ReleaseVersionPolicy::lockedMajorFromPhpRequirement())->report[1]);
+
+        $this->onTheDefaultBranchWithTags("85.1.0\n86.0.0\n");
+        self::assertSame('Range: since the last release tag 86.0.0.', $this->check()->report[1]);
+    }
+
+    private function onTheDefaultBranchWithTags(string $tags): void
+    {
+        $this->processes
+            ->willSucceed(self::NOT_SHALLOW)
+            ->willSucceed(self::ORIGIN_HEAD)
+            ->willSucceed("php8.5\n")
+            ->willSucceed($tags)
+            ->willSucceed()
+        ;
+        $this->composerUnchanged();
+    }
+
     private function featureBranch(string $changedFiles): void
     {
         $this->processes
@@ -464,7 +499,7 @@ final class ChangelogCheckTest extends TestCase
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
     }
 
-    private function check(?WatchedPaths $watched = null): ChangelogCheckResultDto
+    private function check(?WatchedPaths $watched = null, ReleaseVersionPolicy $policy = new ReleaseVersionPolicy()): ChangelogCheckResultDto
     {
         $root = $this->project->path;
 
@@ -474,6 +509,7 @@ final class ChangelogCheckTest extends TestCase
             new GitBranches($this->processes, $root),
             new EnvironmentReader([]),
             $watched ?? new WatchedPaths('src/', self::COMPOSER_JSON),
+            $policy,
         );
     }
 }

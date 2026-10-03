@@ -20,9 +20,12 @@ use PHPUnit\Framework\TestCase;
 final class ChangelogHeadingEnumTest extends TestCase
 {
     #[Test]
-    public function featuresAndBreakingChangesBumpTheMinorAndFixesThePatch(): void
+    public function breakingChangesAskForTheMajorFeaturesTheMinorAndFixesThePatch(): void
     {
-        $minor = [ChangelogHeadingEnum::ChangedBreaking, ChangelogHeadingEnum::Removed, ChangelogHeadingEnum::Added, ChangelogHeadingEnum::Changed, ChangelogHeadingEnum::Deprecated];
+        self::assertSame(ReleaseBumpEnum::Major, ChangelogHeadingEnum::ChangedBreaking->bump());
+        self::assertSame(ReleaseBumpEnum::Major, ChangelogHeadingEnum::Removed->bump());
+
+        $minor = [ChangelogHeadingEnum::Added, ChangelogHeadingEnum::Changed, ChangelogHeadingEnum::Deprecated];
         foreach ($minor as $heading) {
             self::assertSame(ReleaseBumpEnum::Minor, $heading->bump(), $heading->value);
         }
