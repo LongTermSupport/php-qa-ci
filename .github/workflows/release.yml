@@ -120,14 +120,14 @@ jobs:
           body-path: ${{ runner.temp }}/release-pr.md
           delete-branch: true
 
-      # A pull request opened or pushed with GITHUB_TOKEN starts no workflow, so
-      # its required "QA Pipeline" check would never report. workflow_dispatch is
-      # the event GITHUB_TOKEN may start, and its run reports on the head commit.
-      - name: Run CI on the release pull request
+      # The pull request's CI run is held because GITHUB_TOKEN pushed it, and
+      # the required "QA Pipeline" check is that run's.
+      - name: Approve CI on the release pull request
         if: steps.release-pr.outputs.pull-request-operation == 'created' || steps.release-pr.outputs.pull-request-operation == 'updated'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run ci.yml --ref chore/release-php8.5
+        uses: ./.github/actions/approve-held-ci
+        with:
+          head-sha: ${{ steps.release-pr.outputs.pull-request-head-sha }}
+          token: ${{ github.token }}
 
       # "## Unreleased" emptied by hand leaves nothing for an open release pull
       # request to release.

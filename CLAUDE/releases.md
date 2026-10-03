@@ -69,8 +69,10 @@ messages. The workflow is `.github/workflows/release.yml`; every decision in it 
    `Release <version>` from `chore/release-php8.5`, whose only change is `CHANGELOG.md` and whose
    body is the release notes. Every later green push refreshes it, so it always releases
    everything recorded so far.
-4. **Merging the release pull request is the decision to release.** Merge it like any other
-   (`gh pr merge <n> --merge`); nothing else is required, and nothing is released until then.
+4. **Merging the release pull request is the decision to release.** Its CI run is approved by
+   the workflow (see "Repository settings" below); once `QA Pipeline` is green, review and merge
+   it like any other (`gh pr review <n> --approve`, `gh pr merge <n> --merge`). Nothing else is
+   required, and nothing is released until then.
 5. CI runs on the merge. The lane counts the new version section as the record of everything
    since the last tag, so it passes. `release.yml` then runs `pending-tags`, which names each
    version section newer than the newest tag together with the commit that wrote it, and runs
@@ -102,14 +104,18 @@ on these settings:
   approve pull requests" is on (`gh api repos/LongTermSupport/php-qa-ci/actions/permissions/workflow`
   shows `can_approve_pull_request_reviews: true`).
 - No ruleset targets tags, so `GITHUB_TOKEN` may create `85.N.N`.
-- `php8.5`'s classic branch protection requires the status checks `QA Pipeline` and
-  `ShellCheck (severity=warning)`, and is not enforced on admins
-  (`gh api repos/LongTermSupport/php-qa-ci/branches/php8.5/protection`). A pull request opened or
-  pushed with `GITHUB_TOKEN` starts no workflow, so `release.yml` dispatches CI
-  (`gh workflow run ci.yml --ref chore/release-php8.5`) whenever it opens or updates the release
-  pull request; that run reports `QA Pipeline` on its head commit.
-- `ShellCheck (severity=warning)` is reported by nothing: ShellCheck runs inside `bin/qa` as the
-  `shellCheck` lane, and the job that once reported that check is gone. Until the context is
-  removed from the branch protection (Settings → Branches → `php8.5` → required status checks),
-  no pull request can be merged except by an admin, which includes the release pull request
-  (`gh pr merge <n> --merge --admin`).
+- `php8.5`'s classic branch protection requires the one status check `QA Pipeline`, strict
+  (the branch must be up to date), one approving review (stale approvals dismissed) and
+  resolved conversations, and is not enforced on admins
+  (`gh api repos/LongTermSupport/php-qa-ci/branches/php8.5/protection`). The review is the
+  owner's look at the release pull request before merging it: `gh pr review <n> --approve`,
+  then `gh pr merge <n> --merge`. ShellCheck has no check of its own: it runs inside `bin/qa`
+  as the `shellCheck` lane. `php8.4` still has the separate ShellCheck job and still requires
+  it.
+- GitHub holds the `pull_request` CI run of a pull request opened or pushed with `GITHUB_TOKEN`
+  (conclusion `action_required`), and only that run's `QA Pipeline` satisfies the protection: a
+  run of the same commit from another event does not. `release.yml` and `update-deps.yml`
+  therefore call [.github/actions/approve-held-ci](../.github/actions/approve-held-ci/action.yml)
+  after opening or updating their pull request; it waits for the run and approves it
+  (`POST /repos/{owner}/{repo}/actions/runs/{id}/approve`, which `actions: write` allows). If
+  that step fails, approve the run from the pull request's Checks tab.

@@ -24,6 +24,18 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- **The GitHub Actions templates work with any bin-dir and fetch nothing.**
+  `php-qa-ci.yml` and `qa-autofix.yml` run `"$(composer config bin-dir)/qa"`
+  instead of `vendor/bin/qa`, so a project that sets `config.bin-dir` needs no
+  edit. `php-qa-ci.yml` no longer installs PHIVE and fetches PHARs into
+  `vendor/lts/php-qa-ci` (the package ships them) or caches `vendor-phar/`,
+  which could restore older PHARs over the installed ones; it triggers on the
+  `bugfix/`, `chore/` and `hotfix/` branches the branch policy allows; and
+  `AUTO_COMMIT_FIXES: true` now runs the QA step writable, so it has fixes to
+  commit. Copy the templates again to pick this up.
+
 ## 85.1.0 — 2026-10-03
 
 ### Changed — breaking
