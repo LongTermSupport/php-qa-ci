@@ -37,6 +37,12 @@ final readonly class QaConfigBuilder
     private const int MIN_REASON_WORDS = 2;
 
     /**
+     * The markdown a project writes itself. A whole-project pass would also
+     * rewrite vendored documents and fixtures that must stay byte for byte.
+     */
+    private const array DEFAULT_MARKDOWN_FORMAT_PATHS = ['README.md', 'CLAUDE.md', 'CHANGELOG.md', 'docs', 'CLAUDE'];
+
+    /**
      * @param list<string>          $pathsToCheck
      * @param list<string>          $pathsToIgnore
      * @param list<string>          $arkitectExcludePaths
@@ -46,6 +52,7 @@ final readonly class QaConfigBuilder
      * @param list<string>|null     $deadCodeEntryPoints   null until a project has listed them or opted out
      * @param list<string>          $changelogWatchedPaths
      * @param array<string, string> $unanalysedPaths       project-relative path => reason
+     * @param list<string>          $markdownFormatPaths
      */
     public function __construct(
         private ProjectPathsDto $paths,
@@ -88,6 +95,7 @@ final readonly class QaConfigBuilder
         private array $changelogWatchedPaths,
         private ReleaseVersionPolicy $releaseVersionPolicy,
         private array $unanalysedPaths = [],
+        private array $markdownFormatPaths = self::DEFAULT_MARKDOWN_FORMAT_PATHS,
     ) {
     }
 
@@ -273,6 +281,17 @@ final readonly class QaConfigBuilder
     }
 
     /**
+     * Project-relative files and directories the markdownFormat lane formats,
+     * replacing the default set (README.md, CLAUDE.md, CHANGELOG.md, docs/,
+     * CLAUDE/). A directory is formatted recursively, so list only markdown
+     * the project writes itself: never vendored or fixture documents.
+     */
+    public function withMarkdownFormatPaths(string ...$paths): self
+    {
+        return $this->with(markdownFormatPaths: array_values($paths));
+    }
+
+    /**
      * Dead-code detection (shipmonk/dead-code-detector through phpstan.phar).
      * Off by default. Enabling it also requires withDeadCodeEntryPoints() or
      * withoutDeadCodeEntryPoints(), because a script the detector never sees
@@ -418,6 +437,7 @@ final readonly class QaConfigBuilder
             changelogWatchedPaths: $this->changelogWatchedPaths,
             unanalysedPaths: $this->unanalysedPaths,
             releaseVersionPolicy: $this->releaseVersionPolicy,
+            markdownFormatPaths: $this->markdownFormatPaths,
         );
     }
 
@@ -461,6 +481,7 @@ final readonly class QaConfigBuilder
      * @param list<string>|null          $deadCodeEntryPoints
      * @param list<string>|null          $changelogWatchedPaths
      * @param array<string, string>|null $unanalysedPaths
+     * @param list<string>|null          $markdownFormatPaths
      */
     private function with(
         ?array $pathsToCheck = null,
@@ -488,6 +509,7 @@ final readonly class QaConfigBuilder
         ?array $changelogWatchedPaths = null,
         ?array $unanalysedPaths = null,
         ?ReleaseVersionPolicy $releaseVersionPolicy = null,
+        ?array $markdownFormatPaths = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -530,6 +552,7 @@ final readonly class QaConfigBuilder
             changelogWatchedPaths: $changelogWatchedPaths           ?? $this->changelogWatchedPaths,
             releaseVersionPolicy: $releaseVersionPolicy             ?? $this->releaseVersionPolicy,
             unanalysedPaths: $unanalysedPaths                       ?? $this->unanalysedPaths,
+            markdownFormatPaths: $markdownFormatPaths               ?? $this->markdownFormatPaths,
         );
     }
 }

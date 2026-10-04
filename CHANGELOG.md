@@ -51,6 +51,13 @@ the release and its tag. The full rules are in
 
 ### Added
 
+- A `markdownFormat` lane (`vendor/bin/qa -t mdf`) in the coding-standards phase keeps the
+  project's markdown in the form the Claude Code hooks daemon rewrites it to. It runs the daemon's
+  own `format-markdown`, so the result matches the daemon byte for byte, and skips where no daemon
+  is installed (CI included). A read-only run fails on files the daemon would rewrite; a writable
+  run rewrites them. It covers `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/` and `CLAUDE/`, or
+  the list given to `withMarkdownFormatPaths()` in `qaConfig/qa.php`. See
+  `docs/tools/markdownFormat.md`.
 - `vendor/bin/rule-doc` resolves PHPStan's own identifiers, and those of the extensions php-qa-ci
   installs, offline, the way it resolves its own: `rule-doc argument.type` prints PHPStan's page
   for it (code example, why it is reported, how to fix it) rather than a phpstan.org URL. The pages
