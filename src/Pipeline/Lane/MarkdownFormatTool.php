@@ -27,6 +27,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  */
 final readonly class MarkdownFormatTool implements ToolInterface
 {
+    /** The lane's stable identifier, printed on failure and resolved by rule-doc. */
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.markdownFormat';
 
     /** The daemon prints this for each file a `--check` run would rewrite. */

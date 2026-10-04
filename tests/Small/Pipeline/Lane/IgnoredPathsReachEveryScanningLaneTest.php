@@ -103,7 +103,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         'composerDependencyAnalyser' => 'a dependency is real wherever the autoloader ships the code that uses it, ignored or not',
         'twigCsFixer'                => 'scans the Twig directories, withTwigDirectories()',
         'markdownFormat'             => 'formats the markdown paths, withMarkdownFormatPaths(); PHP is never its input',
-        'twigLint'                 => 'scans the Twig directories, withTwigDirectories()',
+        'twigLint'                   => 'scans the Twig directories, withTwigDirectories()',
         'yamlLint'                   => 'scans the YAML directories, withYamlDirectories()',
         'shellCheck'                 => 'scans git-tracked shell scripts; it honours the setting all the same (ShellCheckToolTest)',
         'phpunit'                    => 'executes the suite phpunit.xml defines and reports test outcomes, not files',

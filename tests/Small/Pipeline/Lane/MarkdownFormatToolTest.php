@@ -49,6 +49,10 @@ final class MarkdownFormatToolTest extends TestCase
 
     private const string CHECK = '--check';
 
+    private const string FORMAT = 'format-markdown';
+
+    private const string PENDING_README = 'Would reformat: README.md';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -65,7 +69,7 @@ final class MarkdownFormatToolTest extends TestCase
     #[Test]
     public function withoutTheDaemonTheLaneSkipsAndSaysWhy(): void
     {
-        $this->factory->project->write(self::README, "# Readme\n");
+        $this->writeReadme();
 
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
@@ -90,7 +94,7 @@ final class MarkdownFormatToolTest extends TestCase
     public function aReadOnlyRunChecksEachPresentPathWithTheDaemonsFormatter(): void
     {
         $cli = $this->installDaemon();
-        $this->factory->project->write(self::README, "# Readme\n");
+        $this->writeReadme();
         $this->factory->project->write('docs/guide.md', "# Guide\n");
         $this->factory->processes->willSucceed()->willSucceed();
 
@@ -98,8 +102,8 @@ final class MarkdownFormatToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame([
-            [$cli, 'format-markdown', self::CHECK, self::README],
-            [$cli, 'format-markdown', self::CHECK, self::DOCS],
+            [$cli, self::FORMAT, self::CHECK, self::README],
+            [$cli, self::FORMAT, self::CHECK, self::DOCS],
         ], $this->commands(), 'one call per present path, in configured order; absent defaults are dropped');
         self::assertSame($this->factory->project->path, $this->factory->processes->lastSpec()->cwd);
     }
@@ -108,13 +112,13 @@ final class MarkdownFormatToolTest extends TestCase
     public function aWritableRunFormatsInPlace(): void
     {
         $cli = $this->installDaemon();
-        $this->factory->project->write(self::README, "# Readme\n");
+        $this->writeReadme();
         $this->factory->processes->willSucceed('Reformatted: README.md');
 
         $result = new MarkdownFormatTool()->run($this->context(readOnly: false));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertSame([[$cli, 'format-markdown', self::README]], $this->commands());
+        self::assertSame([[$cli, self::FORMAT, self::README]], $this->commands());
         self::assertStringContainsString('Reformatted: README.md', $this->factory->output->fetch());
     }
 
@@ -122,14 +126,14 @@ final class MarkdownFormatToolTest extends TestCase
     public function aPendingReformatInAReadOnlyRunFailsWithTheWouldModifyGuidance(): void
     {
         $this->installDaemon();
-        $this->factory->project->write(self::README, "# Readme\n");
-        $this->factory->processes->willFail(1, 'Would reformat: README.md');
+        $this->writeReadme();
+        $this->factory->processes->willFail(1, self::PENDING_README);
 
         $result  = new MarkdownFormatTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('Would reformat: README.md', $printed);
+        self::assertStringContainsString(self::PENDING_README, $printed);
         self::assertStringContainsString('READ-ONLY run', $printed);
         self::assertStringContainsString('vendor/bin/qa -t mdf', $printed);
         self::assertStringContainsString(MarkdownFormatTool::IDENTIFIER, $printed);
@@ -140,9 +144,9 @@ final class MarkdownFormatToolTest extends TestCase
     public function aReadOnlyRunReportsEveryPathBeforeFailing(): void
     {
         $this->installDaemon();
-        $this->factory->project->write(self::README, "# Readme\n");
+        $this->writeReadme();
         $this->factory->project->write('docs/guide.md', "# Guide\n");
-        $this->factory->processes->willFail(1, 'Would reformat: README.md')->willFail(1, 'Would reformat: docs/guide.md');
+        $this->factory->processes->willFail(1, self::PENDING_README)->willFail(1, 'Would reformat: docs/guide.md');
 
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
@@ -156,7 +160,7 @@ final class MarkdownFormatToolTest extends TestCase
     public function aFailureThatNamesNoFileToReformatIsACrash(): void
     {
         $this->installDaemon();
-        $this->factory->project->write(self::README, "# Readme\n");
+        $this->writeReadme();
         $this->factory->processes->willFail(1, 'ERROR: README.md is gitignored');
 
         $result = new MarkdownFormatTool()->run($this->factory->context());
@@ -170,7 +174,7 @@ final class MarkdownFormatToolTest extends TestCase
     public function aWritableRunWhoseFormatterFailsIsACrash(): void
     {
         $this->installDaemon();
-        $this->factory->project->write(self::README, "# Readme\n");
+        $this->writeReadme();
         $this->factory->processes->willFail(2, 'usage: claude-hooks-daemon');
 
         $result = new MarkdownFormatTool()->run($this->context(readOnly: false));
@@ -183,14 +187,14 @@ final class MarkdownFormatToolTest extends TestCase
     public function aProjectChoosesItsOwnPaths(): void
     {
         $cli = $this->installDaemon();
-        $this->factory->project->write(self::README, "# Readme\n");
+        $this->writeReadme();
         $this->factory->project->write('handbook/intro.md', "# Intro\n");
         $this->factory->processes->willSucceed();
 
         $config = $this->factory->builder()->withMarkdownFormatPaths('handbook')->build();
         new MarkdownFormatTool()->run($this->factory->context($config));
 
-        self::assertSame([[$cli, 'format-markdown', self::CHECK, 'handbook']], $this->commands(), 'the project list replaces the defaults');
+        self::assertSame([[$cli, self::FORMAT, self::CHECK, 'handbook']], $this->commands(), 'the project list replaces the defaults');
     }
 
     #[Test]
@@ -200,6 +204,11 @@ final class MarkdownFormatToolTest extends TestCase
 
         self::assertSame('markdownFormat', $tool->name());
         self::assertSame('phpqaci.markdownFormat', $tool->identifier());
+    }
+
+    private function writeReadme(): void
+    {
+        $this->factory->project->write(self::README, "# Readme\n");
     }
 
     private function installDaemon(): string
@@ -215,6 +224,6 @@ final class MarkdownFormatToolTest extends TestCase
     /** @return list<list<string>> */
     private function commands(): array
     {
-        return array_map(static fn ($spec): array => $spec->command, $this->factory->processes->specs);
+        return array_map(static fn (\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto $spec): array => $spec->command, $this->factory->processes->specs);
     }
 }

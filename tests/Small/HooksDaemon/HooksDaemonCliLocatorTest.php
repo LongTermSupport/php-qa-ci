@@ -24,6 +24,10 @@ final class HooksDaemonCliLocatorTest extends TestCase
 {
     private const string PACKAGE = 'packages/app';
 
+    private const string WORK_TREE_MARKER = '.git';
+
+    private const string CLI_SCRIPT = "#!/bin/bash\n";
+
     private TempDir $root;
 
     protected function setUp(): void
@@ -39,8 +43,8 @@ final class HooksDaemonCliLocatorTest extends TestCase
     #[Test]
     public function theDaemonInTheProjectItselfIsFound(): void
     {
-        $this->root->mkdir('.git');
-        $cli = $this->root->write(HooksDaemonCliLocator::CLI, "#!/bin/bash\n");
+        $this->root->mkdir(self::WORK_TREE_MARKER);
+        $cli = $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
 
         self::assertSame($cli, new HooksDaemonCliLocator()->locate($this->root->path));
     }
@@ -48,8 +52,8 @@ final class HooksDaemonCliLocatorTest extends TestCase
     #[Test]
     public function theDaemonAtTheRootOfTheWorkTreeServesAPackageNestedInIt(): void
     {
-        $this->root->mkdir('.git');
-        $cli     = $this->root->write(HooksDaemonCliLocator::CLI, "#!/bin/bash\n");
+        $this->root->mkdir(self::WORK_TREE_MARKER);
+        $cli     = $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
         $package = $this->root->mkdir(self::PACKAGE);
 
         self::assertSame($cli, new HooksDaemonCliLocator()->locate($package));
@@ -58,9 +62,9 @@ final class HooksDaemonCliLocatorTest extends TestCase
     #[Test]
     public function aDaemonAboveTheWorkTreeBelongsToAnotherCheckoutAndIsNotUsed(): void
     {
-        $this->root->write(HooksDaemonCliLocator::CLI, "#!/bin/bash\n");
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
         $checkout = $this->root->mkdir('checkout');
-        $this->root->write('checkout/.git', "gitdir: /elsewhere\n");
+        $this->root->write('checkout/' . self::WORK_TREE_MARKER, "gitdir: /elsewhere\n");
 
         self::assertNull(new HooksDaemonCliLocator()->locate($checkout));
     }
@@ -68,7 +72,7 @@ final class HooksDaemonCliLocatorTest extends TestCase
     #[Test]
     public function noDaemonAnywhereIsNull(): void
     {
-        $this->root->mkdir('.git');
+        $this->root->mkdir(self::WORK_TREE_MARKER);
         $package = $this->root->mkdir(self::PACKAGE);
 
         self::assertNull(new HooksDaemonCliLocator()->locate($package));
