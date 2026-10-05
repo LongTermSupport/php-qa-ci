@@ -29,6 +29,12 @@ final class ArkitectCheckTest extends TestCase
 
     private const string NO_VIOLATIONS = 'No violations detected';
 
+    private const string ENTRY_CONFIG = __DIR__ . '/../../../configDefaults/generic/phparkitect.php';
+
+    private const string CLASS_SET = __DIR__ . '/../../../configDefaults/generic/phparkitect-class-set.php';
+
+    private const string AUTOLOAD = '/autoload.php';
+
     public function testValidProjectPasses(): void
     {
         [$exitCode, $output] = $this->runCheck(self::ASSETS . '/projectValid');
@@ -183,7 +189,7 @@ final class ArkitectCheckTest extends TestCase
      */
     public function testZeroConfigDefaultEntryAppliesDefaultTier(): void
     {
-        $entryConfig = __DIR__ . '/../../../configDefaults/generic/phparkitect.php';
+        $entryConfig = self::ENTRY_CONFIG;
 
         [$exitCode, $output] = $this->runCheckConfig(
             $entryConfig,
@@ -209,12 +215,12 @@ final class ArkitectCheckTest extends TestCase
         $project = self::ASSETS . '/projectIgnoredPaths';
 
         [$exitCode, $output] = $this->runCheckConfig(
-            __DIR__ . '/../../../configDefaults/generic/phparkitect.php',
-            $project . '/autoload.php',
+            self::ENTRY_CONFIG,
+            $project . self::AUTOLOAD,
             [
                 'PHPQACI_ARKITECT_SRC_DIR'       => $project . '/src',
                 'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
-                'PHPQACI_ARKITECT_CLASS_SET'     => __DIR__ . '/../../../configDefaults/generic/phparkitect-class-set.php',
+                'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
                 'PHPQACI_ARKITECT_IGNORED_PATHS' => $project . '/src/Legacy',
             ],
         );
@@ -234,12 +240,12 @@ final class ArkitectCheckTest extends TestCase
         $project = self::ASSETS . '/projectIgnoredPaths';
 
         [$exitCode, $output] = $this->runCheckConfig(
-            __DIR__ . '/../../../configDefaults/generic/phparkitect.php',
-            $project . '/autoload.php',
+            self::ENTRY_CONFIG,
+            $project . self::AUTOLOAD,
             [
                 'PHPQACI_ARKITECT_SRC_DIR'       => $project . '/src/../src',
                 'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
-                'PHPQACI_ARKITECT_CLASS_SET'     => __DIR__ . '/../../../configDefaults/generic/phparkitect-class-set.php',
+                'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
                 'PHPQACI_ARKITECT_IGNORED_PATHS' => \Safe\realpath($project) . '/src/Legacy',
             ],
         );
@@ -293,7 +299,7 @@ final class ArkitectCheckTest extends TestCase
      */
     private function runCheck(string $projectDir, array $env = []): array
     {
-        return $this->runCheckConfig($projectDir . '/phparkitect.php', $projectDir . '/autoload.php', $env);
+        return $this->runCheckConfig($projectDir . '/phparkitect.php', $projectDir . self::AUTOLOAD, $env);
     }
 
     /**
