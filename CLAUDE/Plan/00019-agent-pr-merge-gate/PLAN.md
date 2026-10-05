@@ -37,13 +37,22 @@ records the setting change that lets verified agent pull requests merge.
 
 ### Phase 1: Research
 
-- [ ] 🔄 **Task 1.1**: Research the ruleset option and the approval rules; report in
+- [x] ✅ **Task 1.1**: Research the ruleset option and the approval rules; report in
   [research-github-unattributed-changes.md](research-github-unattributed-changes.md)
+
+**Finding:** "unattributed changes" is GitHub's public-preview option *Require an additional
+approval for unattributed Copilot pull requests*. It is on by default and adds one approval to a
+pull request that Copilot opens under its own app identity. It has no effect when the ruleset
+requires zero approvals, as `protect` does. It ignores commit signing, author emails and
+`Co-Authored-By` trailers, and #49's commits are all signed and verified. What blocks `lts-bob` is
+classic protection's one required approval on `php8.5` and `php8.4`, because an author cannot
+approve their own pull request. Dropping the Claude trailer unblocks nothing.
 
 ### Phase 2: Decision and settings
 
-- [ ] ⬜ **Task 2.1**: Owner chooses the merge-gate setting (remove the required approval, a
-  bypass for `lts-bob`, or a second approver) and the attribution policy
+- [ ] ⬜ **Task 2.1**: Owner chooses the merge-gate setting from the report's Options (A: zero
+  required approvals with the checks kept; B: classic bypass for `lts-bob`, which also allows
+  direct pushes; D/E: a second approver) and, separately, the attribution policy
 - [ ] ⬜ **Task 2.2**: Owner applies the settings; confirm with the GraphQL `refUpdateRule` query
   and a `reviewDecision` that is no longer `REVIEW_REQUIRED`
 - [ ] ⬜ **Task 2.3**: Record the chosen settings in
@@ -52,7 +61,7 @@ records the setting change that lets verified agent pull requests merge.
 
 ## Success Criteria
 
-- [ ] The research report answers what "unattributed changes" means, with quoted sources
+- [x] The research report answers what "unattributed changes" means, with quoted sources
 - [ ] A verified `lts-bob` pull request merges with `gh pr merge --merge` and no human approval
 
 ## Delivery & Milestones
