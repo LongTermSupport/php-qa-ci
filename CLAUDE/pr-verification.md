@@ -15,12 +15,21 @@ A human approving the pull request on GitHub replaces this step for that pull re
 - A **fresh** sub-agent (`general-purpose`), never a fork of the author's session: a fork inherits
   the author's reasoning, and the point is a reader who has not already decided the change is
   right.
+- **Dispatched from the main working tree.** A sub-agent shares the session's working directory,
+  and the hooks daemon's `subagent_worktree_write_guard` denies a sub-agent's `Write`/`Edit` into
+  any checkout other than the one that directory is in. So the coordinator changes directory to
+  the main working tree before dispatching; from a linked worktree the verifier could write
+  nowhere but the author's checkout.
 - **Read-only towards the pull request.** It does not edit, commit, push, comment, approve or
-  merge, and it never checks out or writes in the author's checkouts (the main working tree or any
-  worktree under `untracked/worktrees/`). It reads through `gh` and `git show`/`git diff` against
-  the remote refs.
-- **It may reproduce.** To run a single lane, a single test or a small fixture against the head,
-  it makes its own throwaway checkout (`git worktree add --detach untracked/worktrees/verify-<pr> origin/<branch>`) or a fixture under `untracked/scratch/`, and removes the worktree when done.
+  merge, it changes no tracked file and checks out no branch in any existing checkout, and it
+  reads through `gh` and `git show`/`git diff` against the remote refs. Everything it writes,
+  report and fixtures alike, goes under the main working tree's gitignored `untracked/`.
+- **It may reproduce.** To run a single lane or test against the head, it makes its own throwaway
+  checkout with Bash (`git worktree add --detach untracked/worktrees/verify-<pr> origin/<branch>`,
+  then `composer install` there, since a fresh checkout has no `vendor/`), runs the commands
+  there with Bash, keeps any fixture under `untracked/scratch/` in the main working tree, and
+  removes the worktree when done. It never `Write`s into that worktree: the guard binds a
+  sub-agent to the first checkout it writes in, and from then on the report could not be written.
   A finding it reproduced is worth more than one it read, and the report says which.
 - It does not run the full pipeline (with the hooks daemon installed, sub-agents are denied it;
   see [qa-orchestration.md](qa-orchestration.md)), and CI has run it.
@@ -53,8 +62,9 @@ For each pull request, with evidence for each:
 5. **Mergeability**: no conflict with the base; a stacked pull request carries only its own
    commits.
 
-It writes the full report to a file, the plan's `subagent-reports/` folder when the pull request
-belongs to a plan and `untracked/agent-reports/` otherwise, and replies with one verdict per pull
+It writes the full report to `untracked/agent-reports/` in the main working tree (the coordinator
+copies it into the plan's `subagent-reports/` on the plan's branch when the pull request belongs
+to a plan), and replies with one verdict per pull
 request: **PASS**, **PASS WITH NOTES** or **FAIL**, with `file:line` and the reason for every
 blocking finding.
 
@@ -78,19 +88,30 @@ commit and the findings on the pull request, so the merge carries its evidence; 
 
 An agent can merge only where no rule demands an approval it cannot give: GitHub never lets an
 author approve their own pull request, and the agent account has neither admin rights nor a place
-on a bypass list.
+on a bypass list. What a branch requires is readable by the agent account, even though the rules
+that produce it are not:
 
-- **`php8.5`**: the `protect` ruleset requires no approving review, but its option **"Require
-  extra approval for unattributed changes"** (`require_extra_approval_for_unattributed_changes`)
-  is on. GitHub documents it for unattributed Copilot pull requests; what this repository
-  observes is that every agent pull request, whose commits carry the `Co-Authored-By: Claude`
-  trailer, waits on an approval from someone other than its author while it is on. GitHub
+```bash
+gh api graphql -f query='{ repository(owner:"LongTermSupport", name:"php-qa-ci") {
+  pullRequest(number: <pr>) { baseRef { refUpdateRule { requiredApprovingReviewCount requiredStatusCheckContexts } } } } }'
+```
+
+`requiredApprovingReviewCount` is the effective number of approvals the base branch demands, from
+every source combined. While it is above 0, an agent cannot merge its own pull request.
+
+- **Both `php8.5` and `php8.4` carry classic branch protection** (`gh api repos/LongTermSupport/php-qa-ci/branches/<branch>` shows `protected: true` and the required
+  checks, enforced for non-admins). Its review settings are visible only to an admin.
+- **`php8.5` also has the `protect` ruleset.** It requires no approving review, but its option
+  **"Require extra approval for unattributed changes"**
+  (`require_extra_approval_for_unattributed_changes`) is on. GitHub documents it, as a public
+  preview, for unattributed Copilot pull requests; whether it, the branch protection or both
+  produce `php8.5`'s required approval cannot be told apart from the agent account. GitHub
   enabled the option on existing rulesets when it introduced it, and turns it on whenever a
   ruleset is saved without it, so a later ruleset edit can switch it back on.
-- **`php8.4`**: no repository ruleset applies, yet GitHub refuses an agent's merge there with
-  "the base branch policy prohibits the merge". The rule comes from branch protection or an
-  organisation ruleset, neither of which the agent account can read.
+- **`php8.4` has no ruleset**, so its required approval comes from its branch protection (or an
+  organisation ruleset, which needs `admin:org` to read).
 
-Changing either needs repository or organisation admin rights: they are the Owner's settings.
-While a merge is blocked by one, this verification step still runs, and the pull request waits on
-the Owner rather than on the verdict.
+Changing any of these needs repository or organisation admin rights: they are the Owner's
+settings, and after a change `requiredApprovingReviewCount` shows whether it took effect. While a
+merge is blocked by one, this verification step still runs, and the pull request waits on the
+Owner rather than on the verdict.
