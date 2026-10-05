@@ -38,8 +38,15 @@ return static function (string $srcDir): ClassSet {
     // Finder keeps a path's `..` segments in every pathname it yields, and
     // yields a symlinked directory's files under the link's own name. So both
     // sides of the ignored-path comparison fold `.` and `..` lexically, and
-    // neither resolves a symlink: an ignored link is matched by its name.
+    // neither resolves a symlink: an ignored link is matched by its name. A
+    // relative path is taken from the working directory first, since the
+    // ignored paths are absolute.
     $canonical = static function (string $path): string {
+        $cwd = getcwd();
+        if (!str_starts_with($path, '/') && false !== $cwd) {
+            $path = $cwd . '/' . $path;
+        }
+
         $absolute = str_starts_with($path, '/');
         $segments = [];
         foreach (explode('/', $path) as $segment) {

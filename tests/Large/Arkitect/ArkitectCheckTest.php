@@ -36,6 +36,8 @@ final class ArkitectCheckTest extends TestCase
 
     private const string AUTOLOAD = '/autoload.php';
 
+    private const string IGNORED_PATHS_FIXTURE = '/projectIgnoredPaths';
+
     public function testValidProjectPasses(): void
     {
         [$exitCode, $output] = $this->runCheck(self::ASSETS . '/projectValid');
@@ -208,52 +210,36 @@ final class ArkitectCheckTest extends TestCase
     /**
      * withIgnoredPaths() through the shipped entry config: the class set drops
      * src/Legacy, anchored at the source dir, and keeps src/Domain/Legacy.
-     * Both fixture interfaces break the default *Interface rule, so the one
-     * reported is the one the class set handed to arkitect.
      */
     public function testAnIgnoredPathIsDroppedOnlyWhereItIsAnchored(): void
     {
-        $project = self::ASSETS . '/projectIgnoredPaths';
+        $project = self::ASSETS . self::IGNORED_PATHS_FIXTURE;
 
-        [$exitCode, $output] = $this->runCheckConfig(
-            self::ENTRY_CONFIG,
-            $project . self::AUTOLOAD,
-            [
-                'PHPQACI_ARKITECT_SRC_DIR'       => $project . '/src',
-                'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
-                'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
-                'PHPQACI_ARKITECT_IGNORED_PATHS' => $project . '/src/Legacy',
-            ],
-        );
-
-        self::assertSame(1, $exitCode, "Expected the deeper Legacy interface to be reported, got:\n" . $output);
-        self::assertStringContainsString('ArkitectFixture\Domain\Legacy\Gateway has 1 violations', $output);
-        self::assertStringNotContainsString('ArkitectFixture\Legacy\Repository has', $output, 'a class under the ignored path reached arkitect');
+        $this->assertLegacyIsDroppedAndTheDeeperLegacyKept($project . '/src', $project, null, '');
     }
 
     /**
      * The project template hands the factory `__DIR__ . '/../src'`, and Finder
      * keeps the `..` in every pathname it yields, so the class set must compare
-     * canonical paths or the ignored path is never matched.
+     * folded paths or the ignored path is never matched.
      */
     public function testAnIgnoredPathIsDroppedWhenTheSourceDirIsNotCanonical(): void
     {
-        $project = self::ASSETS . '/projectIgnoredPaths';
+        $project = self::ASSETS . self::IGNORED_PATHS_FIXTURE;
 
-        [$exitCode, $output] = $this->runCheckConfig(
-            self::ENTRY_CONFIG,
-            $project . self::AUTOLOAD,
-            [
-                'PHPQACI_ARKITECT_SRC_DIR'       => $project . '/src/../src',
-                'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
-                'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
-                'PHPQACI_ARKITECT_IGNORED_PATHS' => \Safe\realpath($project) . '/src/Legacy',
-            ],
-        );
+        $this->assertLegacyIsDroppedAndTheDeeperLegacyKept($project . '/src/../src', \Safe\realpath($project), null, ' through a non-canonical source dir');
+    }
 
-        self::assertSame(1, $exitCode, "Expected the deeper Legacy interface to be reported, got:\n" . $output);
-        self::assertStringContainsString('ArkitectFixture\Domain\Legacy\Gateway has 1 violations', $output);
-        self::assertStringNotContainsString('ArkitectFixture\Legacy\Repository has', $output, 'a class under the ignored path reached arkitect through a non-canonical source dir');
+    /**
+     * A relative source dir is resolved against the working directory, the
+     * same base the ignored paths were made absolute from, so it drops them
+     * too.
+     */
+    public function testAnIgnoredPathIsDroppedWhenTheSourceDirIsRelative(): void
+    {
+        $project = \Safe\realpath(self::ASSETS . self::IGNORED_PATHS_FIXTURE);
+
+        $this->assertLegacyIsDroppedAndTheDeeperLegacyKept('src', $project, $project, ' through a relative source dir');
     }
 
     /**
@@ -328,6 +314,36 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
+     * Runs the shipped entry config over the projectIgnoredPaths fixture with
+     * src/Legacy ignored. Both fixture interfaces break the default *Interface
+     * rule, so the one reported is the one the class set handed to arkitect.
+     *
+     * @param string      $ignoredRoot the project root the ignored path is built from
+     * @param string|null $cwd         the working directory arkitect runs in
+     * @param string      $how         how the ignored class would have got through, for the failure message
+     */
+    private function assertLegacyIsDroppedAndTheDeeperLegacyKept(string $srcDir, string $ignoredRoot, ?string $cwd, string $how): void
+    {
+        $project = self::ASSETS . self::IGNORED_PATHS_FIXTURE;
+
+        [$exitCode, $output] = $this->runCheckConfig(
+            self::ENTRY_CONFIG,
+            $project . self::AUTOLOAD,
+            [
+                'PHPQACI_ARKITECT_SRC_DIR'       => $srcDir,
+                'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
+                'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
+                'PHPQACI_ARKITECT_IGNORED_PATHS' => $ignoredRoot . '/src/Legacy',
+            ],
+            $cwd,
+        );
+
+        self::assertSame(1, $exitCode, "Expected the deeper Legacy interface to be reported, got:\n" . $output);
+        self::assertStringContainsString('ArkitectFixture\Domain\Legacy\Gateway has 1 violations', $output);
+        self::assertStringNotContainsString('ArkitectFixture\Legacy\Repository has', $output, 'a class under the ignored path reached arkitect' . $how);
+    }
+
+    /**
      * @param array<string, string> $env extra environment for the phar process
      *
      * @return array{0: int, 1: string}
@@ -342,9 +358,9 @@ final class ArkitectCheckTest extends TestCase
      *
      * @return array{0: int, 1: string}
      */
-    private function runCheckConfig(string $configPath, string $autoloadPath, array $env = []): array
+    private function runCheckConfig(string $configPath, string $autoloadPath, array $env = [], ?string $cwd = null): array
     {
-        $envPrefix = '';
+        $envPrefix = null === $cwd ? '' : 'cd ' . escapeshellarg($cwd) . ' && ';
         foreach ($env as $name => $value) {
             $envPrefix .= $name . '=' . escapeshellarg($value) . ' ';
         }
