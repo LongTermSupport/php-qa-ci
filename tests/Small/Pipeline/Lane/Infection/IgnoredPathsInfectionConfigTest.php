@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 /**
  * Infection takes no exclusion on its command line, so the infection lane
@@ -169,8 +170,8 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     {
         $config = $this->config([
             'source'   => ['directories' => [self::SRC_FROM_CONFIG]],
-            'logs'     => new \stdClass(),
-            'mutators' => ['@default' => true, 'TrueValue' => new \stdClass()],
+            'logs'     => new stdClass(),
+            'mutators' => ['@default' => true, 'TrueValue' => new stdClass()],
         ]);
 
         $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
