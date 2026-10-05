@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Pipeline\Lane\Infection;
 
 use JsonException;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use stdClass;
 
 /**
  * The infection.json the infection lane hands Infection when a
@@ -53,9 +54,11 @@ final readonly class IgnoredPathsInfectionConfig
     public const array DEFAULTED_CONFIG_DIRS = ['phpUnit', 'phpStan', 'mago'];
 
     /**
-     * @return array<array-key, mixed>|null the derived config, or null when no ignored
-     *                                      path is under a source directory, so the
-     *                                      config is used as it is
+     * @return array<array-key, mixed>|null the derived config, ready for json_encode()
+     *                                      (an empty object in the original is a
+     *                                      stdClass), or null when no ignored path is
+     *                                      under a source directory, so the config is
+     *                                      used as it is
      *
      * @throws JsonException when the config is not a JSON object
      */
@@ -112,7 +115,37 @@ final readonly class IgnoredPathsInfectionConfig
 
         $config['source'] = $source;
 
-        return $config;
+        $restored = $this->restoreEmptyObjects($config, \Safe\json_decode(\Safe\file_get_contents($configPath), false, 512, \JSON_THROW_ON_ERROR));
+        if (!\is_array($restored)) {
+            throw new JsonException($configPath . ' does not hold a JSON object');
+        }
+
+        return $restored;
+    }
+
+    /**
+     * $value with every `[]` that $shape, the config decoded to objects, holds
+     * as an empty object turned back into one: decoding to arrays loses the
+     * difference, and Infection's schema rejects `[]` where it wants `{}`.
+     */
+    private function restoreEmptyObjects(mixed $value, mixed $shape): mixed
+    {
+        if ($shape instanceof stdClass && [] === $value) {
+            return new stdClass();
+        }
+
+        if (!\is_array($value) || (!$shape instanceof stdClass && !\is_array($shape))) {
+            return $value;
+        }
+
+        $shapeEntries = $shape instanceof stdClass ? get_object_vars($shape) : $shape;
+        foreach ($value as $key => $entry) {
+            if (\array_key_exists($key, $shapeEntries)) {
+                $value[$key] = $this->restoreEmptyObjects($entry, $shapeEntries[$key]);
+            }
+        }
+
+        return $value;
     }
 
     /**
