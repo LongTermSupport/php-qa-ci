@@ -225,6 +225,31 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
+     * The project template hands the factory `__DIR__ . '/../src'`, and Finder
+     * keeps the `..` in every pathname it yields, so the class set must compare
+     * canonical paths or the ignored path is never matched.
+     */
+    public function testAnIgnoredPathIsDroppedWhenTheSourceDirIsNotCanonical(): void
+    {
+        $project = self::ASSETS . '/projectIgnoredPaths';
+
+        [$exitCode, $output] = $this->runCheckConfig(
+            __DIR__ . '/../../../configDefaults/generic/phparkitect.php',
+            $project . '/autoload.php',
+            [
+                'PHPQACI_ARKITECT_SRC_DIR'       => $project . '/src/../src',
+                'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
+                'PHPQACI_ARKITECT_CLASS_SET'     => __DIR__ . '/../../../configDefaults/generic/phparkitect-class-set.php',
+                'PHPQACI_ARKITECT_IGNORED_PATHS' => \Safe\realpath($project) . '/src/Legacy',
+            ],
+        );
+
+        self::assertSame(1, $exitCode, "Expected the deeper Legacy interface to be reported, got:\n" . $output);
+        self::assertStringContainsString('ArkitectFixture\Domain\Legacy\Gateway has 1 violations', $output);
+        self::assertStringNotContainsString('ArkitectFixture\Legacy\Repository has', $output, 'a class under the ignored path reached arkitect through a non-canonical source dir');
+    }
+
+    /**
      * The shipped consumer API-boundary factory: a consumer that reaches the
      * library only through its public @api namespace passes. Proves the
      * PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY factory wiring works end-to-end and
