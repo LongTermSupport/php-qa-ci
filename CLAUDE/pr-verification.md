@@ -29,7 +29,8 @@ A human approving the pull request on GitHub replaces this step for that pull re
   then `composer install` there, since a fresh checkout has no `vendor/`), runs the commands
   there with Bash, keeps any fixture under `untracked/scratch/` in the main working tree, and
   removes the worktree when done. It never `Write`s into that worktree: the guard binds a
-  sub-agent to the first checkout it writes in, and from then on the report could not be written.
+  sub-agent to the first linked worktree it writes in, and from then on the report in the main
+  working tree could not be written.
   A finding it reproduced is worth more than one it read, and the report says which.
 - It does not run the full pipeline (with the hooks daemon installed, sub-agents are denied it;
   see [qa-orchestration.md](qa-orchestration.md)), and CI has run it.
@@ -96,8 +97,11 @@ gh api graphql -f query='{ repository(owner:"LongTermSupport", name:"php-qa-ci")
   pullRequest(number: <pr>) { baseRef { refUpdateRule { requiredApprovingReviewCount requiredStatusCheckContexts } } } } }'
 ```
 
-`requiredApprovingReviewCount` is the effective number of approvals the base branch demands, from
-every source combined. While it is above 0, an agent cannot merge its own pull request.
+`requiredApprovingReviewCount` is the number of approvals the base branch's update rule demands.
+While it is above 0, an agent cannot merge its own pull request. It is not proof of the opposite:
+whether it also counts the ruleset option below is not established, so the direct signals for a
+given pull request are its `reviewDecision` and `mergeStateStatus` (`gh pr view <pr> --json reviewDecision,mergeStateStatus,comments`), which read `REVIEW_REQUIRED` and `BLOCKED` while an
+approval is still owed.
 
 - **Both `php8.5` and `php8.4` carry classic branch protection** (`gh api repos/LongTermSupport/php-qa-ci/branches/<branch>` shows `protected: true` and the required
   checks, enforced for non-admins). Its review settings are visible only to an admin.
@@ -112,6 +116,6 @@ every source combined. While it is above 0, an agent cannot merge its own pull r
   organisation ruleset, which needs `admin:org` to read).
 
 Changing any of these needs repository or organisation admin rights: they are the Owner's
-settings, and after a change `requiredApprovingReviewCount` shows whether it took effect. While a
+settings, and after a change a pull request's `reviewDecision` shows whether it took effect. While a
 merge is blocked by one, this verification step still runs, and the pull request waits on the
 Owner rather than on the verdict.
