@@ -35,18 +35,26 @@ return static function (string $srcDir): ClassSet {
         static fn (string $line): bool => '' !== $line,
     ));
 
-    $classSet = ClassSet::fromDir($srcDir)->excludePath('Generated');
+    // Finder keeps a path's `..` segments and symlinks in every pathname it
+    // yields, so both sides of the ignored-path comparison are made canonical.
+    $canonical = static function (string $path): string {
+        $real = realpath($path);
+
+        return false === $real ? rtrim($path, '/') : $real;
+    };
+
+    $classSet = ClassSet::fromDir($canonical($srcDir))->excludePath('Generated');
     foreach ($lines('PHPQACI_ARKITECT_EXCLUDE_PATHS') as $glob) {
         $classSet = $classSet->excludePath($glob);
     }
 
-    $ignored = array_map(static fn (string $path): string => rtrim($path, '/'), $lines('PHPQACI_ARKITECT_IGNORED_PATHS'));
+    $ignored = array_map($canonical, $lines('PHPQACI_ARKITECT_IGNORED_PATHS'));
     if ([] === $ignored) {
         return $classSet;
     }
 
     return new class($classSet, $ignored) extends ClassSet {
-        /** @param list<string> $ignored absolute, without a trailing slash */
+        /** @param list<string> $ignored canonical, without a trailing slash */
         public function __construct(private readonly ClassSet $inner, private readonly array $ignored)
         {
         }

@@ -141,6 +141,28 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
         );
     }
 
+    /**
+     * Infection defaults an absent phpUnit, phpStan or mago configDir to the
+     * config file's own directory, which for the copy would be var/qa/, so the
+     * copy states the original directory explicitly.
+     */
+    #[Test]
+    public function anAbsentConfigDirIsPinnedToTheOriginalConfigDirectory(): void
+    {
+        $config = $this->config([
+            'source'  => ['directories' => [self::SRC_FROM_CONFIG]],
+            'phpUnit' => ['customPath' => '../bin/phpunit'],
+        ]);
+        $qa = $this->root . '/qaConfig';
+
+        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
+
+        self::assertIsArray($derived);
+        self::assertSame(['configDir' => $qa, 'customPath' => $this->root . '/bin/phpunit'], $derived['phpUnit'] ?? null);
+        self::assertSame(['configDir' => $qa], $derived['phpStan'] ?? null);
+        self::assertSame(['configDir' => $qa], $derived['mago'] ?? null);
+    }
+
     #[Test]
     public function anIgnoredSourceDirectoryIsDroppedRatherThanExcluded(): void
     {

@@ -14,8 +14,10 @@ use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
  * Infection takes no exclusion on its command line, so the lane writes a
  * derived copy of the resolved config under var/qa/. Every setting Infection
  * resolves against the config file's own directory (PATH_KEYS) is made
- * absolute, so the copy means the same from its new place; `bootstrap` is
- * resolved against the working directory and is left as written. An ignored
+ * absolute, so the copy means the same from its new place, and an absent
+ * configDir that Infection would default to that directory is stated
+ * (DEFAULTED_CONFIG_DIRS); `bootstrap` is resolved against the working
+ * directory and is left as written. An ignored
  * source directory is dropped from source.directories, and an ignored path
  * inside one is added to source.excludes as a regex anchored at that
  * directory: Infection matches excludes against the path relative to each
@@ -46,6 +48,9 @@ final readonly class IgnoredPathsInfectionConfig
         'mago.customPath',
         'debug.logFile',
     ];
+
+    /** The sections whose absent configDir Infection defaults to the config file's directory. */
+    public const array DEFAULTED_CONFIG_DIRS = ['phpUnit', 'phpStan', 'mago'];
 
     /**
      * @return array<array-key, mixed>|null the derived config, or null when no ignored
@@ -90,6 +95,13 @@ final readonly class IgnoredPathsInfectionConfig
 
         foreach (self::PATH_KEYS as $key) {
             $config = $this->absolutise($config, $configDir, ...explode('.', $key));
+        }
+
+        foreach (self::DEFAULTED_CONFIG_DIRS as $section) {
+            $settings = \is_array($config[$section] ?? null) ? $config[$section] : [];
+            if (!\array_key_exists('configDir', $settings)) {
+                $config[$section] = ['configDir' => $configDir, ...$settings];
+            }
         }
 
         $source                = \is_array($config['source'] ?? null) ? $config['source'] : [];
