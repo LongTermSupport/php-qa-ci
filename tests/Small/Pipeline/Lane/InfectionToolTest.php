@@ -262,9 +262,17 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertContains(self::CONFIGURATION_ARG . $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG, $this->factory->processes->lastSpec()->command);
+        $qaConfig = ['configDir' => $this->root . '/qaConfig'];
         self::assertSame(
-            ['source' => ['directories' => [$this->root . self::SRC_DIR], 'excludes' => ['#^Legacy(?:/|$)#']], 'tmpDir' => $this->root . '/var/qa/infection/tmp'],
+            [
+                'source'  => ['directories' => [$this->root . self::SRC_DIR], 'excludes' => ['#^Legacy(?:/|$)#']],
+                'tmpDir'  => $this->root . '/var/qa/infection/tmp',
+                'phpUnit' => $qaConfig,
+                'phpStan' => $qaConfig,
+                'mago'    => $qaConfig,
+            ],
             \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true),
+            'the configDirs Infection would default to the project config directory are stated, not left to default to var/qa/',
         );
         self::assertStringContainsString('Infection: the ignored paths under its source directories are excluded through', $this->factory->output->fetch());
     }
