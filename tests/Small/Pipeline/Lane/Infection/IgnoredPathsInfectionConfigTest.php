@@ -163,6 +163,24 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
         self::assertSame(['configDir' => $qa], $derived['mago'] ?? null);
     }
 
+    /** Infection's schema rejects `[]` where it expects an object, so `{}` must stay `{}`. */
+    #[Test]
+    public function anEmptyObjectInTheConfigIsStillAnObjectInTheCopy(): void
+    {
+        $config = $this->config([
+            'source'   => ['directories' => [self::SRC_FROM_CONFIG]],
+            'logs'     => new \stdClass(),
+            'mutators' => ['@default' => true, 'TrueValue' => new \stdClass()],
+        ]);
+
+        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
+
+        self::assertIsArray($derived);
+        $json = \Safe\json_encode($derived, \JSON_UNESCAPED_SLASHES);
+        self::assertStringContainsString('"logs":{}', $json);
+        self::assertStringContainsString('"mutators":{"@default":true,"TrueValue":{}}', $json);
+    }
+
     #[Test]
     public function anIgnoredSourceDirectoryIsDroppedRatherThanExcluded(): void
     {
