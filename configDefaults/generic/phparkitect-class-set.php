@@ -35,12 +35,32 @@ return static function (string $srcDir): ClassSet {
         static fn (string $line): bool => '' !== $line,
     ));
 
-    // Finder keeps a path's `..` segments and symlinks in every pathname it
-    // yields, so both sides of the ignored-path comparison are made canonical.
+    // Finder keeps a path's `..` segments in every pathname it yields, and
+    // yields a symlinked directory's files under the link's own name. So both
+    // sides of the ignored-path comparison fold `.` and `..` lexically, and
+    // neither resolves a symlink: an ignored link is matched by its name.
     $canonical = static function (string $path): string {
-        $real = realpath($path);
+        $absolute = str_starts_with($path, '/');
+        $segments = [];
+        foreach (explode('/', $path) as $segment) {
+            if ('' === $segment || '.' === $segment) {
+                continue;
+            }
 
-        return false === $real ? rtrim($path, '/') : $real;
+            if ('..' === $segment && [] !== $segments && '..' !== end($segments)) {
+                array_pop($segments);
+
+                continue;
+            }
+
+            if ('..' === $segment && $absolute) {
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        return ($absolute ? '/' : '') . implode('/', $segments);
     };
 
     $classSet = ClassSet::fromDir($canonical($srcDir))->excludePath('Generated');
@@ -54,7 +74,7 @@ return static function (string $srcDir): ClassSet {
     }
 
     return new class($classSet, $ignored) extends ClassSet {
-        /** @param list<string> $ignored canonical, without a trailing slash */
+        /** @param list<string> $ignored lexically folded, without a trailing slash */
         public function __construct(private readonly ClassSet $inner, private readonly array $ignored)
         {
         }

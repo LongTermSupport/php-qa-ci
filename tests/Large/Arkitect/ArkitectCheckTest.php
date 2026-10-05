@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Arkitect;
 
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
@@ -253,6 +254,40 @@ final class ArkitectCheckTest extends TestCase
         self::assertSame(1, $exitCode, "Expected the deeper Legacy interface to be reported, got:\n" . $output);
         self::assertStringContainsString('ArkitectFixture\Domain\Legacy\Gateway has 1 violations', $output);
         self::assertStringNotContainsString('ArkitectFixture\Legacy\Repository has', $output, 'a class under the ignored path reached arkitect through a non-canonical source dir');
+    }
+
+    /**
+     * Finder follows a symlinked directory and yields its files under the
+     * link's own name, so an ignored path that is a symlink is matched by that
+     * name, never by where it points.
+     */
+    public function testAnIgnoredSymlinkedDirectoryIsDropped(): void
+    {
+        $project = TempDir::create('phpqaci-ark-symlink');
+
+        try {
+            $project->write('autoload.php', "<?php\n\ndeclare(strict_types=1);\n");
+            $project->write('src/Domain/Gateway.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace ArkitectFixture\\Domain;\n\ninterface Gateway\n{\n}\n");
+            $project->write('ext/Linked.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace ArkitectFixture\\Linked;\n\ninterface Linked\n{\n}\n");
+            \Safe\symlink('../ext', $project->path . '/src/Linked');
+
+            [$exitCode, $output] = $this->runCheckConfig(
+                self::ENTRY_CONFIG,
+                $project->path . self::AUTOLOAD,
+                [
+                    'PHPQACI_ARKITECT_SRC_DIR'       => $project->path . '/src',
+                    'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
+                    'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
+                    'PHPQACI_ARKITECT_IGNORED_PATHS' => $project->path . '/src/Linked',
+                ],
+            );
+        } finally {
+            $project->remove();
+        }
+
+        self::assertSame(1, $exitCode, "Expected the Domain interface to be reported, got:\n" . $output);
+        self::assertStringContainsString('ArkitectFixture\Domain\Gateway has 1 violations', $output);
+        self::assertStringNotContainsString('ArkitectFixture\Linked\Linked has', $output, 'a class under an ignored symlinked directory reached arkitect');
     }
 
     /**
