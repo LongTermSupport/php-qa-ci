@@ -257,6 +257,32 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
+     * A relative source dir is resolved against the working directory, the
+     * same base the ignored paths were made absolute from, so it drops them
+     * too.
+     */
+    public function testAnIgnoredPathIsDroppedWhenTheSourceDirIsRelative(): void
+    {
+        $project = \Safe\realpath(self::ASSETS . '/projectIgnoredPaths');
+
+        [$exitCode, $output] = $this->runCheckConfig(
+            self::ENTRY_CONFIG,
+            $project . self::AUTOLOAD,
+            [
+                'PHPQACI_ARKITECT_SRC_DIR'       => 'src',
+                'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
+                'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
+                'PHPQACI_ARKITECT_IGNORED_PATHS' => $project . '/src/Legacy',
+            ],
+            $project,
+        );
+
+        self::assertSame(1, $exitCode, "Expected the deeper Legacy interface to be reported, got:\n" . $output);
+        self::assertStringContainsString('ArkitectFixture\Domain\Legacy\Gateway has 1 violations', $output);
+        self::assertStringNotContainsString('ArkitectFixture\Legacy\Repository has', $output, 'a class under the ignored path reached arkitect through a relative source dir');
+    }
+
+    /**
      * Finder follows a symlinked directory and yields its files under the
      * link's own name, so an ignored path that is a symlink is matched by that
      * name, never by where it points.
@@ -342,9 +368,9 @@ final class ArkitectCheckTest extends TestCase
      *
      * @return array{0: int, 1: string}
      */
-    private function runCheckConfig(string $configPath, string $autoloadPath, array $env = []): array
+    private function runCheckConfig(string $configPath, string $autoloadPath, array $env = [], ?string $cwd = null): array
     {
-        $envPrefix = '';
+        $envPrefix = null === $cwd ? '' : 'cd ' . escapeshellarg($cwd) . ' && ';
         foreach ($env as $name => $value) {
             $envPrefix .= $name . '=' . escapeshellarg($value) . ' ';
         }
