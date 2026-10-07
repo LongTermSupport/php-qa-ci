@@ -235,15 +235,14 @@ final class PhpstanToolTest extends TestCase
     public function onlyTheTypeCoverageFloorsActuallySetAreWrittenToTheWrapperNeon(): void
     {
         $this->factory->processes->willSucceed();
-        $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50, declare: 100)->build();
+        $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50, constantType: 100)->build();
 
         new PhpstanTool()->run($this->factory->context($config));
 
         $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
-        self::assertStringContainsString("    type_coverage:\n        return_type: 50\n        declare: 100\n", $wrapper);
+        self::assertStringContainsString("    type_coverage:\n        return_type: 50\n        constant_type: 100\n", $wrapper);
         self::assertStringNotContainsString('param_type', $wrapper, 'an unset floor must not be written as zero');
         self::assertStringNotContainsString('property_type', $wrapper);
-        self::assertStringNotContainsString('constant_type', $wrapper);
     }
 
     #[Test]

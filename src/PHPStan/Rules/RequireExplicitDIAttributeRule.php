@@ -9,8 +9,6 @@ use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
-use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
-use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
 /**
  * Symfony-specific rule enforcing explicit dependency injection declaration for all classes.
@@ -150,16 +148,13 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
                     $isAttributeClass = true;
                 }
 
-                // Check for full namespace or just class name
-                if ('Autoconfigure'         === $name
-                    || Autoconfigure::class === $name
-                    || str_ends_with($name, '\Autoconfigure')) {
+                // The short name, or any resolved name ending in it: matched as text,
+                // so the rule needs no Symfony on the analyser's class path.
+                if ('Autoconfigure' === $name || str_ends_with($name, '\Autoconfigure')) {
                     $hasAutoconfigure = true;
                 }
 
-                if ('Exclude'         === $name
-                    || Exclude::class === $name
-                    || str_ends_with($name, '\Exclude')) {
+                if ('Exclude' === $name || str_ends_with($name, '\Exclude')) {
                     $hasExclude = true;
                 }
 

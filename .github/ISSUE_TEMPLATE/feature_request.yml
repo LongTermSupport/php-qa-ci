@@ -1,0 +1,26 @@
+name: Feature request
+description: Something php-qa-ci should do that it does not
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: release-line
+    attributes:
+      label: Release line
+      description: "The branch your project installs php-qa-ci from. New features land on php8.5 only."
+      options: [php8.5, php8.4]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: "What you are trying to do, and where php-qa-ci gets in the way or falls short."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: "The behaviour you want, and any alternative you have considered."
+    validations:
+      required: false

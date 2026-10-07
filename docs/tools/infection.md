@@ -19,6 +19,19 @@ contains `"phpUnit": {"configDir": "./"}`; to point it elsewhere, override that 
 }
 ```
 
+### Ignored paths
+
+A `withIgnoredPaths()` entry under one of `infection.json`'s source directories is never
+mutated. Infection takes no exclusion on its command line, so the lane writes a copy of the
+resolved config to `var/qa/infection-config/infection.json` and runs with that: every setting
+Infection resolves against the config file's directory (source directories, logs, `tmpDir`,
+the PHPUnit, PHPStan and Mago paths, the debug log file) made absolute, and each ignored path
+added to `source.excludes` as a regex anchored at its source directory. Ignoring `src/Legacy`
+drops `src/Legacy/` and keeps `src/Domain/Legacy/`. An ignored source directory is dropped from
+the list, and when every one is ignored the lane is skipped. In diff mode, a changed file under
+an ignored path is not mutated either. With no ignored path under a source directory the
+resolved config is used as it is.
+
 Here are the environment variables that you might decide to override:
 
 - **Use Infection** `useInfection`: Set this to 0 to disable Infection

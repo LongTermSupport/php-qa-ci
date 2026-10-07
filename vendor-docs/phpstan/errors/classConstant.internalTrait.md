@@ -1,0 +1,41 @@
+---
+title: "classConstant.internalTrait"
+shortDescription: "Accessing a constant defined in a trait marked as @internal."
+ignorable: true
+---
+
+## Code example
+
+```php
+<?php declare(strict_types = 1);
+
+namespace Vendor {
+	/** @internal */
+	trait InternalTrait {
+		public const VALUE = 42;
+	}
+}
+
+namespace App {
+	function test(): int {
+		return \Vendor\InternalTrait::VALUE; // error: Access to constant VALUE of internal trait Vendor\InternalTrait from outside its root namespace Vendor.
+	}
+}
+```
+
+## Why is it reported?
+
+The constant is defined on a trait that is marked as `@internal`. Internal types are not part of the package's public API and may change or be removed without notice. Accessing constants on internal traits from outside their package creates a fragile dependency.
+
+## How to fix it
+
+Use a public (non-internal) constant or API instead. If no public alternative exists, consider reaching out to the package maintainers to request a public API for your use case.
+
+```diff-php
+ namespace App {
+ 	function test(): int {
+-		return \Vendor\InternalTrait::VALUE;
++		return \Vendor\PublicClass::VALUE;
+ 	}
+ }
+```

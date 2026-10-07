@@ -218,16 +218,17 @@ final readonly class QaConfigBuilder
     /**
      * Minimum percentage of declarations carrying a native type, per kind.
      * Every floor is off unless given, so the check does nothing until a
-     * project opts in and raises each ratchet as it earns it.
+     * project opts in and raises each ratchet as it earns it. The share of
+     * files declaring strict types is not one of them: the phpStrictTypes
+     * lane requires it of every file.
      */
     public function withTypeCoverageFloors(
         ?int $returnType = null,
         ?int $paramType = null,
         ?int $propertyType = null,
         ?int $constantType = null,
-        ?int $declare = null,
     ): self {
-        return $this->with(typeCoverage: new TypeCoverageOptionsDto($returnType, $paramType, $propertyType, $constantType, $declare));
+        return $this->with(typeCoverage: new TypeCoverageOptionsDto($returnType, $paramType, $propertyType, $constantType));
     }
 
     public function withArkitect(bool $enabled): self

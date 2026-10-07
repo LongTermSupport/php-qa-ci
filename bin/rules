@@ -4,11 +4,10 @@
 /*
  * List the active defences for a project — PHPStan rule classes derived from
  * its resolved phpstan.neon (rules: entries and phpstan.rules.rule-tagged
- * services), the always-on php-qa-ci pipeline lanes, the project record
- * (ignoreErrors, with any preceding justification comment) and the defect
- * record (qaConfig/defect-record.neon: deferred defects and no-pattern
- * conclusions). Runs WITHOUT invoking PHPStan; a defect record it cannot read
- * is an error (exit 1).
+ * services), the always-on php-qa-ci pipeline lanes and the project record
+ * (ignoreErrors, with any preceding justification comment). Runs WITHOUT
+ * invoking PHPStan; a PHPStan configuration it cannot read in full is an
+ * error (exit 1).
  *
  *   bin/rules [project-root] [--json]
  *   bin/rules [project-root] --agent-summary

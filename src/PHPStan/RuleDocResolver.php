@@ -7,6 +7,7 @@ namespace LTS\PHPQA\PHPStan;
 use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 
 /**
  * Resolves a bundled rule identifier, as printed in a PHPStan failure, to the
@@ -15,7 +16,10 @@ use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
  * rule class and, where one exists, its remediation page. Pipeline lanes that
  * print an identifier of their own are rows in the same index, with the class
  * given as a path under src/, so one lookup covers everything the package can
- * print.
+ * print. An identifier from another catalogue resolves too: PHPStan's own and
+ * its first-party extensions' from the pages carried under vendor-docs/phpstan/
+ * at the shipped phar's version, and an installed extension that publishes no
+ * pages from the ones this package writes for it under EXTENSION_DOCS.
  *
  * @internal
  */
@@ -34,9 +38,11 @@ final readonly class RuleDocResolver
      * Identifier and class cells, then the rest of the row; the trailing cells
      * vary by bundle. The identifier prefix is not pinned to this package's
      * own: a consuming project publishes its rules under its own prefix, in its
-     * own index, and the row shape is the same one.
+     * own index, and the row shape is the same one. A class cell given as a
+     * path may leave src/ (`../configDefaults/generic/phparkitect-rules-default`),
+     * which is how a bundled PHPArkitect rule names the tier file declaring it.
      */
-    private const string ROW_PATTERN = '/^\| `([A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/]+)` +\|(.*)\|\s*$/';
+    private const string ROW_PATTERN = '/^\| `([A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9]+)` +\| `([A-Za-z0-9\/.\-]+)` +\|(.*)\|\s*$/';
 
     /** Where a project declares the indexes carrying its own identifiers. */
     private const string PROJECT_DECLARATION = '/qaConfig/rule-docs.json';
@@ -59,8 +65,17 @@ final readonly class RuleDocResolver
     /** Everything this package can print starts with this; anything else belongs to another catalogue. */
     private const string OWN_PREFIX = RuleIdentifierInterface::PREFIX . '.';
 
-    /** Where PHPStan documents its own identifiers — online only, which is the recorded gap. */
+    /** Where PHPStan documents its own identifiers online, named alongside the page carried offline. */
     private const string PHPSTAN_CATALOGUE = 'https://phpstan.org/error-identifiers/';
+
+    /** Pages, one per identifier, for the installed extensions whose upstream publishes none. */
+    private const string EXTENSION_DOCS = '/docs/phpstan-extension-rules/';
+
+    /** A carried PHPStan page opens with front matter; its summary line is the one worth printing. */
+    private const string FRONT_MATTER = '/\A---\n(.*?)\n---\n/s';
+
+    /** The front-matter line holding that summary, quoted as YAML. */
+    private const string SHORT_DESCRIPTION = '/^shortDescription:\s*"(.*)"\s*$/m';
 
     /**
      * A markdown link whose TEXT may itself contain a bracketed span, which is
@@ -118,22 +133,33 @@ final readonly class RuleDocResolver
         return $entry?->docPath;
     }
 
+    /**
+     * The page for an identifier from a catalogue other than this package's:
+     * PHPStan's carried page, else this package's page for an installed
+     * extension, else null. Only a string shaped as an identifier is looked
+     * up, so none can name a path outside the catalogues.
+     */
+    public function foreignDocPath(string $identifier): ?string
+    {
+        $catalogue = new PhpstanDocsCatalogue($this->repoRoot);
+        $page      = $catalogue->pagePath($identifier);
+        if (null !== $page || 1 !== \Safe\preg_match(PhpstanDocsCatalogue::IDENTIFIER_PATTERN, $identifier)) {
+            return $page;
+        }
+
+        $extensionPage = $this->repoRoot . self::EXTENSION_DOCS . $identifier . '.md';
+
+        return is_file($extensionPage) ? \Safe\realpath($extensionPage) : null;
+    }
+
     public function render(string $identifier): string
     {
-        // A practitioner holds one string and cannot tell whose it is. For an
-        // identifier outside this package's prefix, "unknown" is true and useless;
-        // name the catalogue it belongs to, and say plainly that it is not carried
-        // offline — that is the recorded gap, not something to paper over.
+        // A practitioner holds one string and cannot tell whose it is, so an
+        // identifier outside this package's prefix is answered from whichever
+        // catalogue carries it, and one that none carries says so and names
+        // PHPStan's online catalogue rather than "unknown".
         if (!str_starts_with($identifier, self::OWN_PREFIX) && !isset($this->entries()[$identifier])) {
-            return \sprintf(
-                "%s\n\nThis is not a php-qa-ci identifier, so there is no remediation page for it here.\n"
-                . "If it is one of PHPStan's own, PHPStan documents it online at:\n  %s%s\n\n"
-                . "php-qa-ci does not carry PHPStan's catalogue offline; that gap is recorded in\n"
-                . "composer.json under extra.defence-before-fix.known-gaps.\n",
-                $identifier,
-                self::PHPSTAN_CATALOGUE,
-                $identifier,
-            );
+            return $this->renderForeign($identifier);
         }
 
         $entry = $this->resolve($identifier);
@@ -152,6 +178,48 @@ final readonly class RuleDocResolver
         }
 
         return $out . "\n" . \Safe\file_get_contents($entry->docPath);
+    }
+
+    private function renderForeign(string $identifier): string
+    {
+        $catalogue = new PhpstanDocsCatalogue($this->repoRoot);
+        $page      = $this->foreignDocPath($identifier);
+        if (null === $page) {
+            return \sprintf(
+                "%s\n\nThis identifier is in none of the catalogues php-qa-ci carries offline: its own,\n"
+                . "PHPStan's at %s, and the pages for the PHPStan extensions it installs. A newer PHPStan\n"
+                . "or an extension php-qa-ci does not ship may print it. PHPStan documents its own at:\n  %s%s\n",
+                $identifier,
+                $catalogue->carriedVersion() ?? '(none carried)',
+                self::PHPSTAN_CATALOGUE,
+                $identifier,
+            );
+        }
+
+        $markdown = \Safe\file_get_contents($page);
+        if (!str_starts_with($page, \Safe\realpath($this->repoRoot . '/' . PhpstanDocsCatalogue::PAGES) . '/')) {
+            return \sprintf("%s\n\nCatalogue: php-qa-ci's page for a PHPStan extension it installs\n\n%s", $identifier, $markdown);
+        }
+
+        $summary = '';
+        if (1 === \Safe\preg_match(self::FRONT_MATTER, $markdown, $frontMatter) && isset($frontMatter[0], $frontMatter[1])) {
+            $markdown = substr($markdown, \strlen($frontMatter[0]));
+            if (1 === \Safe\preg_match(self::SHORT_DESCRIPTION, $frontMatter[1], $description) && isset($description[1])) {
+                $summary = \sprintf("Summary:   %s\n", stripslashes($description[1]));
+            }
+        }
+
+        return \sprintf(
+            "%s\n\nCatalogue: PHPStan's, carried offline in %s (%s, alongside phpstan.phar %s)\n%sOnline:    %s%s\n\n%s",
+            $identifier,
+            PhpstanDocsCatalogue::DIRECTORY,
+            $catalogue->carriedSource()  ?? 'source unrecorded',
+            $catalogue->carriedVersion() ?? '(none)',
+            $summary,
+            self::PHPSTAN_CATALOGUE,
+            $identifier,
+            ltrim($markdown),
+        );
     }
 
     /** @return array<string, RuleDocEntryDto> */
@@ -316,14 +384,16 @@ final readonly class RuleDocResolver
             }
         }
 
+        $sourcePath = str_contains($ruleClass, '/')
+            ? $srcDir . $ruleClass . '.php'
+            : $rulesDir . $ruleClass . '.php';
+
         return new RuleDocEntryDto(
             identifier: $identifier,
             ruleClass: $ruleClass,
             summary: $summary,
             bundle: $bundle,
-            sourcePath: str_contains($ruleClass, '/')
-                ? $srcDir . $ruleClass . '.php'
-                : $rulesDir . $ruleClass . '.php',
+            sourcePath: is_file($sourcePath) ? \Safe\realpath($sourcePath) : $sourcePath,
             docPath: $docPath,
         );
     }

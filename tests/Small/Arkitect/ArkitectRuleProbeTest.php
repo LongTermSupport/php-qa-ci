@@ -16,6 +16,7 @@ use LTS\PHPQA\Pipeline\Agent\Dto\ParsedArchReportDto;
 use LTS\PHPQA\Pipeline\Agent\Exception\UnreadableReportException;
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
@@ -53,6 +54,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(UnreadableReportException::class)]
 #[UsesClass(ConfigPathResolver::class)]
 #[UsesClass(ProjectPathsDto::class)]
+#[UsesClass(IgnoredPaths::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(PhpInvoker::class)]

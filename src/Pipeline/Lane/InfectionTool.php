@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use FilesystemIterator;
+use JsonException;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
@@ -39,11 +42,16 @@ use SplFileInfo;
  */
 final readonly class InfectionTool implements ToolInterface
 {
+    /** The stable identifier a failing run prints, resolved by `bin/rule-doc`. */
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.infection';
+
+    /** The derived infection.json under var/qa/, written when an ignored path lies under a source directory. */
+    public const string DERIVED_CONFIG = 'infection-config/infection.json';
 
     public function __construct(
         private InfectionArguments $arguments = new InfectionArguments(),
         private InfectionDiffFilter $diffFilter = new InfectionDiffFilter(),
+        private IgnoredPathsInfectionConfig $ignoredPathsConfig = new IgnoredPathsInfectionConfig(),
     ) {
     }
 
@@ -69,6 +77,11 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::skipped('Xdebug not enabled');
         }
 
+        $configPath = $this->configPath($context);
+        if ($configPath instanceof ToolResultDto) {
+            return $configPath;
+        }
+
         $positionalPaths = [];
         if (null !== $options->diffBase) {
             $scope = $this->resolveDiffScope($context, $options->diffBase);
@@ -86,8 +99,7 @@ final readonly class InfectionTool implements ToolInterface
             return $coverage;
         }
 
-        $configPath = $context->configPath('infection.json');
-        $args       = null === $options->diffBase
+        $args = null === $options->diffBase
             ? $this->arguments->full($options, $logsDir, $configPath)
             : $this->arguments->diff($options, $logsDir, $configPath, ...$positionalPaths);
 
@@ -109,6 +121,44 @@ final readonly class InfectionTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed(\sprintf('Infection failed (exit %d)', $result->exitCode));
+    }
+
+    /**
+     * The config Infection runs with: the resolved infection.json, or, when a
+     * withIgnoredPaths() entry lies under one of its source directories, the
+     * copy IgnoredPathsInfectionConfig derives, written to var/qa/. Returns the
+     * lane's result instead when the config cannot be read or every source
+     * directory is ignored.
+     */
+    private function configPath(ToolContext $context): string|ToolResultDto
+    {
+        $resolved = $context->configPath('infection.json');
+
+        try {
+            $derived = $this->ignoredPathsConfig->derive($resolved, IgnoredPaths::of($context->config));
+        } catch (JsonException $jsonException) {
+            $context->writeln(\sprintf('Infection: %s could not be read as JSON (%s), so the ignored paths cannot be applied to it.', $resolved, $jsonException->getMessage()));
+
+            return ToolResultDto::crashed('infection.json is not valid JSON');
+        }
+
+        if (null === $derived) {
+            return $resolved;
+        }
+
+        $source = $derived['source'] ?? null;
+        if (!\is_array($source) || [] === ($source['directories'] ?? [])) {
+            $context->writeln(\sprintf('Infection: every source directory in %s is an ignored path (withIgnoredPaths in qaConfig/qa.php), so there is nothing to mutate. SKIPPING.', $resolved));
+
+            return ToolResultDto::skipped('every source directory is ignored');
+        }
+
+        $context->logDir(\dirname(self::DERIVED_CONFIG));
+        $path = $context->config->paths->varDir . '/' . self::DERIVED_CONFIG;
+        \Safe\file_put_contents($path, \Safe\json_encode($derived, \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES) . "\n");
+        $context->writeln('Infection: the ignored paths under its source directories are excluded through ' . $path);
+
+        return $path;
     }
 
     /**
@@ -137,7 +187,7 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::failed('Infection diff mode: git diff failed');
         }
 
-        $filter = $this->diffFilter->fromGitDiffOutput($diff->output, $paths->projectRoot);
+        $filter = $this->diffFilter->fromGitDiffOutput($diff->output, $paths->projectRoot, IgnoredPaths::of($context->config));
         if ($filter->isEmpty()) {
             $context->writeln(\sprintf("Infection: diff mode — no committed PHP source changes against '%s'; there are no new mutants to check. SKIPPING.", $diffBase));
             $context->writeln('           Nothing to mutate, so no coverage run is started.');

@@ -8,6 +8,7 @@
 #qaConfig/composer-dependency-analyser\.php#
 #qaConfig/\.twig-cs-fixer\.php#
 #qaConfig/phparkitect\.php#
+#qaConfig/phparkitect-class-set\.php#
 #qaConfig/php_cs\.php#
 #qaConfig/php_cs_finder\.php#
 #qaConfig/phparkitect-consumer-api-boundary\.php#

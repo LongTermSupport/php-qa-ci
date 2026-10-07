@@ -57,11 +57,12 @@ identifier, a path, and a comment naming the hazard being accepted and its scope
 ```neon
 parameters:
     ignoreErrors:
-        # Symfony DI attributes are referenced as strings for comparison in this rule,
-        # not used at runtime; the package is deliberately not required. Scope: this file.
+        # The vendor SDK's stub declares fetch() as returning array, but it returns
+        # null for a missing record (reported upstream as acme/sdk#123). Scope: this
+        # one call site, until the stub is fixed.
         -
-            identifier: class.notFound
-            path: ../src/PHPStan/Rules/RequireExplicitDIAttributeRule.php
+            identifier: identical.alwaysFalse
+            path: ../src/Billing/InvoiceGateway.php
 ```
 
 The comment is not optional — the `phpstanIgnoreJustification` lane

@@ -41,6 +41,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
@@ -66,6 +67,12 @@ final class PhpArkitectToolTest extends TestCase
     private const string SKIP_BASELINE = '--skip-baseline';
 
     private const string VIOLATION_OUTPUT = "App\\Foo violates ...\n";
+
+    private const string PROJECT_ENTRY_CONFIG = 'qaConfig/phparkitect.php';
+
+    private const string OWN_CLASS_SET_CONFIG = "<?php return static fn () => null;\n";
+
+    private const string LEGACY = 'src/Legacy';
 
     private ContextFactory $factory;
 
@@ -114,6 +121,8 @@ final class PhpArkitectToolTest extends TestCase
                 'PHPQACI_ARKITECT_RULES_OPTIONAL'          => $defaults . '/phparkitect-rules-optional.php',
                 'PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY'  => $defaults . '/phparkitect-rules-optional-symfony.php',
                 'PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY'   => $defaults . '/phparkitect-consumer-api-boundary.php',
+                'PHPQACI_ARKITECT_CLASS_SET'               => $defaults . '/phparkitect-class-set.php',
+                'PHPQACI_ARKITECT_IGNORED_PATHS'           => '',
                 'PHPQACI_ARKITECT_EXCLUDE_PATHS'           => "Quote/API\nGenerated/Client",
                 'XDEBUG_MODE'                              => 'off',
             ],
@@ -140,7 +149,7 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function projectOverridesOfTheEntryConfigAndTiersWin(): void
     {
-        $entry   = $this->factory->project->write('qaConfig/phparkitect.php', "<?php return static fn () => null;\n");
+        $entry   = $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
         $default = $this->factory->project->write('qaConfig/phparkitect-rules-default.php', "<?php return [];\n");
         $this->factory->processes->willSucceed();
 
@@ -150,6 +159,61 @@ final class PhpArkitectToolTest extends TestCase
         self::assertContains('--config=' . $entry, $this->toolArgs($spec));
         self::assertSame($default, $spec->env['PHPQACI_ARKITECT_RULES_DEFAULT']);
         self::assertSame(\dirname(__DIR__, 4) . '/configDefaults/generic/phparkitect-rules-optional.php', $spec->env['PHPQACI_ARKITECT_RULES_OPTIONAL']);
+    }
+
+    #[Test]
+    public function theIgnoredPathsAndTheClassSetFactoryAreExported(): void
+    {
+        $this->factory->processes->willSucceed();
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY, 'tests/assets')->build();
+
+        new PhpArkitectTool()->run($this->factory->context($config));
+
+        $env = $this->factory->processes->lastSpec()->env;
+        self::assertSame($this->factory->project->path . "/src/Legacy\n" . $this->factory->project->path . '/tests/assets', $env['PHPQACI_ARKITECT_IGNORED_PATHS']);
+        self::assertSame(\dirname(__DIR__, 4) . '/configDefaults/generic/phparkitect-class-set.php', $env['PHPQACI_ARKITECT_CLASS_SET']);
+    }
+
+    /**
+     * A project entry config copied from an older template builds its own
+     * class set, so an ignored path under src/ would still be checked. The lane
+     * says so rather than reporting a verdict the project did not ask for.
+     */
+    #[Test]
+    public function aProjectEntryConfigThatBuildsItsOwnClassSetFailsWhileASourcePathIsIgnored(): void
+    {
+        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY)->build();
+
+        $result = new PhpArkitectTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame([], $this->factory->processes->specs, 'arkitect must not run on a class set that still holds the ignored path');
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('PHPQACI_ARKITECT_CLASS_SET', $printed);
+        self::assertStringContainsString(self::LEGACY, $printed);
+    }
+
+    #[Test]
+    public function aProjectEntryConfigNeedsNothingWhenNoIgnoredPathIsUnderTheSourceDir(): void
+    {
+        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
+        $this->factory->processes->willSucceed();
+
+        $config = $this->factory->builder()->withIgnoredPaths('tests/assets', 'srcGenerated')->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, new PhpArkitectTool()->run($this->factory->context($config))->outcome);
+    }
+
+    #[Test]
+    public function aProjectEntryConfigThatBuildsTheShippedClassSetRunsWhileASourcePathIsIgnored(): void
+    {
+        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, "<?php\n\$classSet = (require getenv('PHPQACI_ARKITECT_CLASS_SET'))(__DIR__ . '/../src');\n");
+        $this->factory->processes->willSucceed();
+
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY)->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, new PhpArkitectTool()->run($this->factory->context($config))->outcome);
     }
 
     #[Test]

@@ -70,15 +70,15 @@ return [
     Rule::allClasses()
         ->that(new IsInterface())
         ->should(new HaveNameMatching('*Interface'))
-        ->because('an Interface suffix makes the symbol kind obvious at every use site'),
+        ->because('an Interface suffix makes the symbol kind obvious at every use site [phpqaci.interfaceSuffix]'),
     Rule::allClasses()
         ->that(new IsEnum())
         ->should(new HaveNameMatching('*Enum'))
-        ->because('an Enum suffix makes the symbol kind obvious at every use site'),
+        ->because('an Enum suffix makes the symbol kind obvious at every use site [phpqaci.enumSuffix]'),
     Rule::allClasses()
         ->that(new IsTrait())
         ->should(new HaveNameMatching('*Trait'))
-        ->because('a Trait suffix makes the symbol kind obvious at every use site'),
+        ->because('a Trait suffix makes the symbol kind obvious at every use site [phpqaci.traitSuffix]'),
 
     // DTOs are suffixed *Dto, live in a Dto namespace, and are immutable value
     // carriers. The three rules below are one convention read from three sides:
@@ -91,26 +91,26 @@ return [
         ->andThat(new IsNotEnum())
         ->andThat(new IsNotTrait())
         ->should(new HaveNameMatching('*Dto'))
-        ->because('a Dto namespace holds data transfer objects, so everything in it carries the Dto suffix'),
+        ->because('a Dto namespace holds data transfer objects, so everything in it carries the Dto suffix [phpqaci.dtoNamespaceHoldsDtos]'),
     Rule::allClasses()
         ->that(new HaveNameMatching('*Dto'))
         ->andThat(new IsNotInterface())
         ->andThat(new IsNotEnum())
         ->andThat(new IsNotTrait())
         ->should(new ResideInOneOfTheseNamespaces(...$dtoNamespaces))
-        ->because('keeping every Dto in a Dto namespace makes the data-transfer layer discoverable in one place'),
+        ->because('keeping every Dto in a Dto namespace makes the data-transfer layer discoverable in one place [phpqaci.dtoInDtoNamespace]'),
     Rule::allClasses()
         ->that(new HaveNameMatching('*Dto'))
         ->andThat(new IsNotInterface())
         ->andThat(new IsNotEnum())
         ->andThat(new IsNotTrait())
         ->should(new IsFinal())
-        ->because('a Dto is a value carrier, not an extension point — subclassing one invites behaviour where there should be none'),
+        ->because('a Dto is a value carrier, not an extension point — subclassing one invites behaviour where there should be none [phpqaci.dtoFinal]'),
     Rule::allClasses()
         ->that(new HaveNameMatching('*Dto'))
         ->andThat(new IsNotInterface())
         ->andThat(new IsNotEnum())
         ->andThat(new IsNotTrait())
         ->should(new IsReadonly())
-        ->because('a readonly Dto cannot be mutated after construction, so what a caller receives is what the producer sent'),
+        ->because('a readonly Dto cannot be mutated after construction, so what a caller receives is what the producer sent [phpqaci.dtoReadonly]'),
 ];

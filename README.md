@@ -1,6 +1,6 @@
 # PHP-QA-CI
 
-A comprehensive quality assurance and continuous integration pipeline for PHP 8.5+ projects (this is the `php8.5` branch; `php8.4` and `php8.3` branches support PHP 8.4 and 8.3). Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
+A comprehensive quality assurance and continuous integration pipeline for PHP 8.5+ projects (this is the `php8.5` branch; see [Branches and versions](#branches-and-versions) for the `php8.4` and `php8.3` lines). Runs tools in a logical order designed to fail as quickly as possible, suitable for both local development and CI.
 
 This package is written for and tested on Linux.
 
@@ -40,10 +40,8 @@ with provenance, so a consuming project has them offline at the version installe
 **The claim is machine-readable.** `composer.json` carries `extra.defence-before-fix`, naming
 the method and toolchain specification versions this package implements and listing every
 known gap against the clause it fails, at two levels — the artefact a consumer installs, and
-this repository as a project using it. The list is not yet empty, and the package does not
-claim unqualified conformance while it is not; each remaining entry is an Owner decision recorded
-in [Plan 00010](./CLAUDE/Plan/Completed/00010-defence-before-fix-full-conformance/DECISIONS.md). Check the claim
-against the artefact rather than against this sentence:
+this repository as a project using it. Both lists are empty. Check the claim against the
+artefact rather than against this sentence:
 
 ```bash
 # what this installed copy claims, and where it admits it falls short
@@ -257,7 +255,7 @@ detected source dir automatically. To go further, add `qaConfig/phparkitect.php`
 - **extend** the default tier (`require getenv('PHPQACI_ARKITECT_RULES_DEFAULT')`),
 - **opt in** to the optional / symfony tiers (their env vars),
 - **add** project-bespoke rules, and prove each one fires on a fixture with
-  `vendor/bin/arkitect-rule <because> <path>` (see [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires)),
+  `vendor/bin/arkitect-rule '<because clause>' <path>` (a bundled rule by its identifier; see [docs/tools/phpArkitect.md](docs/tools/phpArkitect.md#proving-a-rule-fires)),
 - **replace** a tier wholesale by dropping your own `qaConfig/phparkitect-rules-*.php` (resolved ahead of the shipped copy by the config-path lookup).
 
 Disable arkitect for a project with `->withArkitect(false)` in
@@ -519,11 +517,12 @@ vendor/bin/qa -t stan -p src/Domain
 
 ### Branches and versions
 
-Each supported PHP minor has its own long-lived branch:
+Each PHP minor has its own long-lived branch:
 
-- `php8.5` -- Default branch, targets PHP 8.5
-- `php8.4` -- Targets PHP 8.4
-- `php8.3` -- Targets PHP 8.3 (no tagged release yet; track the branch)
+- `php8.5` -- Default branch, targets PHP 8.5. Every feature and fix lands here.
+- `php8.4` -- Targets PHP 8.4. Takes a bug fix when a project running `php8.4` reports the bug;
+  say which line you are on when you open an issue.
+- `php8.3` -- Targets PHP 8.3. Unmaintained: no fixes and no releases.
 
 Releases are tagged per branch, and **the major version is the PHP line written without
 the dot**: `85.x.y` is cut from `php8.5` and requires PHP 8.5, `84.x.y` is cut from `php8.4`.

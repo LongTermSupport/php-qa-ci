@@ -29,11 +29,11 @@ return [
     Rule::allClasses()
         ->that(new IsA('Symfony\\Component\\Console\\Command\\Command'))
         ->should(new HaveNameMatching('*Command'))
-        ->because('a Command suffix makes console commands obvious and consistent'),
+        ->because('a Command suffix makes console commands obvious and consistent [phpqaci.commandSuffix]'),
 
     // Event subscribers are suffixed *Subscriber.
     Rule::allClasses()
         ->that(new IsA('Symfony\\Component\\EventDispatcher\\EventSubscriberInterface'))
         ->should(new HaveNameMatching('*Subscriber'))
-        ->because('a Subscriber suffix makes event subscribers obvious and consistent'),
+        ->because('a Subscriber suffix makes event subscribers obvious and consistent [phpqaci.subscriberSuffix]'),
 ];
