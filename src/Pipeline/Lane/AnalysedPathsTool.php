@@ -60,9 +60,10 @@ final readonly class AnalysedPathsTool implements ToolInterface
             return ToolResultDto::skipped('the project is not a git work tree, so there is no file list to account for');
         }
 
-        $analysed = $this->analysedPaths($config);
-        $verdict  = new AnalysedPathsAudit($analysed, $config->pathsToIgnore, $config->unanalysedPaths)->audit(...$phpFiles);
-        if ($verdict->passes()) {
+        $analysed      = $this->analysedPaths($config);
+        $verdict       = new AnalysedPathsAudit($analysed, $config->pathsToIgnore, $config->unanalysedPaths)->audit(...$phpFiles);
+        $staleIgnored  = $this->staleIgnoredPaths($context);
+        if ($verdict->passes() && [] === $staleIgnored) {
             $this->reportPass($context, $verdict, ...$analysed);
 
             return ToolResultDto::passed();
@@ -71,9 +72,37 @@ final readonly class AnalysedPathsTool implements ToolInterface
         $this->reportUnclassified($context, $verdict, ...$analysed);
         $this->reportStale($context, ...$verdict->stale);
         $this->reportContradicted($context, $verdict);
+        $this->reportStaleIgnored($context, ...$staleIgnored);
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed('PHP that is neither analysed nor declared unanalysed, or a declaration that does not hold');
+    }
+
+    /**
+     * The withIgnoredPaths() entries naming a path where nothing exists. Such
+     * an exclusion outlived what it excluded, and would hide whatever is added
+     * there later from every scanning lane.
+     *
+     * @return list<string> as the project declared them
+     */
+    private function staleIgnoredPaths(ToolContext $context): array
+    {
+        $root = rtrim($context->config->paths->projectRoot, self::SEPARATOR);
+
+        return array_values(array_filter(
+            $context->config->pathsToIgnore,
+            static fn (string $path): bool => !file_exists($root . self::SEPARATOR . ltrim($path, self::SEPARATOR)),
+        ));
+    }
+
+    private function reportStaleIgnored(ToolContext $context, string ...$stale): void
+    {
+        foreach ($stale as $path) {
+            $context->writeln(\sprintf(
+                "withIgnoredPaths('%s') names a path where nothing exists: remove it, or it would hide whatever is added there later from every scanning lane.",
+                $path,
+            ));
+        }
     }
 
     /**

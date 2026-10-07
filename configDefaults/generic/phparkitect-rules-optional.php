@@ -36,12 +36,12 @@ return [
     Rule::allClasses()
         ->that(new IsA(\Throwable::class))
         ->should(new HaveNameMatching('*Exception'))
-        ->because('a consistent Exception suffix makes throw/catch sites and signatures unambiguous'),
+        ->because('a consistent Exception suffix makes throw/catch sites and signatures unambiguous [phpqaci.exceptionSuffix]'),
 
     // Abstract classes are prefixed Abstract*, so the abstract-ness of a base
     // type is obvious at the use site without opening the file.
     Rule::allClasses()
         ->that(new IsAbstract())
         ->should(new HaveNameMatching('Abstract*'))
-        ->because('an Abstract prefix signals a non-instantiable base type at every use site'),
+        ->because('an Abstract prefix signals a non-instantiable base type at every use site [phpqaci.abstractPrefix]'),
 ];

@@ -42,9 +42,17 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
 ## How to fix a failure
 
 Each error names its file, line and identifier. Look the identifier up before changing anything:
-a `phpqaci.*` identifier is one of this package's rules, and `vendor/bin/rule-doc <identifier>`
-prints its page, offline, with the construction to write instead; any other identifier is
-PHPStan's own or an extension's, documented at `https://phpstan.org/error-identifiers/`.
+`vendor/bin/rule-doc <identifier>` prints its page, offline, with the construction to write
+instead. That covers every identifier the shipped toolchain prints:
+
+- a `phpqaci.*` identifier is one of this package's rules;
+- PHPStan's own and its first-party extensions' (`argument.type`, `phpunit.assertEmpty`) come
+  from PHPStan's own pages, carried in `vendor-docs/phpstan/` alongside the shipped phar;
+- the type-coverage extension's come from [pages this package writes](../phpstan-extension-rules/README.md),
+  because that extension publishes none.
+
+An identifier from an extension php-qa-ci does not ship resolves to none of these, and
+`rule-doc` names `https://phpstan.org/error-identifiers/` instead.
 
 Then change the code so the error has nothing to report: declare the type the value really
 has, narrow it with a check where it enters (a parameter, a decoded payload, a `mixed` return),
@@ -102,23 +110,21 @@ going up? It is a ratchet, not a gate, so every floor is off until you set one:
 ```php
 // qaConfig/qa.php
 return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
-    ->withTypeCoverageFloors(returnType: 65, paramType: 70, propertyType: 80, declare: 100);
+    ->withTypeCoverageFloors(returnType: 65, paramType: 70, propertyType: 80, constantType: 90);
 ```
 
 Each argument is a percentage and each is optional; an omitted one is not measured at all. Raise
 them as you earn them. The identifiers, for `ignoreErrors` and for `rule-doc`, are
 `typeCoverage.returnTypeCoverage`, `typeCoverage.paramTypeCoverage`,
-`typeCoverage.propertyTypeCoverage`, `typeCoverage.constantTypeCoverage` and
-`typeCoverage.declareCoverage`.
+`typeCoverage.propertyTypeCoverage` and `typeCoverage.constantTypeCoverage`.
 
 **It does nothing in a `-p` run, deliberately.** A percentage measured over one directory is not
 the project's coverage, so the extension refuses to report unless the whole configured project
 is being analysed. `vendor/bin/qa -t stan -p src/Domain` will therefore never show a coverage
 error, whatever the floors say. Use a full run to check them.
 
-`declare` is the share of files with `declare(strict_types=1)`. A project running the
-`phpStrictTypes` lane already requires that everywhere, so it is at 100 by construction and the
-floor is only worth setting as a belt-and-braces record of that fact.
+There is no floor for files declaring `strict_types`: the extension no longer measures it, and
+the `phpStrictTypes` lane requires the declaration in every file.
 
 ## Custom PHPStan Rules
 

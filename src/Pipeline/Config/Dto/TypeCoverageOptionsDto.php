@@ -11,9 +11,8 @@ namespace LTS\PHPQA\Pipeline\Config\Dto;
  * Every floor is null by default, meaning that kind is not measured at all.
  * The tool's own defaults are 99, which is not a floor a project can adopt on
  * the day it installs the pipeline; a project raises each ratchet as it earns
- * it. `$declare` is the share of files carrying `declare(strict_types=1)` —
- * separate from the phpStrictTypes lane, which requires it everywhere, so a
- * project running that lane is already at 100 here.
+ * it. Every floor here is one the installed extension enforces, which
+ * TypeCoverageFloorsAreHonouredTest holds it to.
  *
  * @api
  */
@@ -24,7 +23,6 @@ final readonly class TypeCoverageOptionsDto
         public ?int $paramType = null,
         public ?int $propertyType = null,
         public ?int $constantType = null,
-        public ?int $declare = null,
     ) {
     }
 
@@ -33,8 +31,7 @@ final readonly class TypeCoverageOptionsDto
         return null !== $this->returnType
             || null !== $this->paramType
             || null !== $this->propertyType
-            || null !== $this->constantType
-            || null !== $this->declare;
+            || null !== $this->constantType;
     }
 
     /**
@@ -49,7 +46,6 @@ final readonly class TypeCoverageOptionsDto
             'param_type'    => $this->paramType,
             'property_type' => $this->propertyType,
             'constant_type' => $this->constantType,
-            'declare'       => $this->declare,
         ], static fn (?int $floor): bool => null !== $floor);
     }
 }

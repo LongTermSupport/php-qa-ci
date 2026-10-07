@@ -18,6 +18,7 @@
 !/bin/config-template-ignorelist-check
 !/bin/php-cs-fixer
 !/bin/phpstan
+!/bin/phpstan-docs-install
 !/bin/phpstan-ignore-justification
 !/bin/phpstan-rule
 !/bin/psr4-validate

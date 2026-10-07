@@ -25,6 +25,63 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- **BREAKING**: the `phpArkitect` lane fails, without running arkitect, when the project's own
+  `qaConfig/phparkitect.php` builds its class set by hand while a `withIgnoredPaths()` entry is
+  under the source directory, since those classes would still be checked. Build the class set
+  from the shipped factory instead, `(require getenv('PHPQACI_ARKITECT_CLASS_SET'))($srcDir)`, as
+  `templates/qaConfig-phparkitect.php` now does; it applies `Generated` and
+  `withArkitectExcludedPaths()` as before.
+- **BREAKING**: the `analysedPaths` lane fails a `withIgnoredPaths()` entry that names a path
+  where nothing exists, as it already failed a `withUnanalysedPath()` that excuses nothing: the
+  exclusion outlived what it excluded, and would hide whatever is added there later from every
+  scanning lane. Remove the entry. An ignored directory a build step generates must exist before
+  the pipeline runs.
+- **BREAKING**: the defect record is removed. `qaConfig/defect-record.neon` is no longer read,
+  `vendor/bin/rules` no longer prints a defect-record section or the `defectRecord` JSON key, the
+  active-defences region `rules --write-agent-summary` writes has no deferred-defects section, and
+  the `phpstanIgnoreJustification` lane checks only the `ignoreErrors` justifications. A project
+  that kept a record should fix each entry, or file it as an issue on the upstream project where
+  the code is not its own, then delete the file.
+- **BREAKING**: `withTypeCoverageFloors()` has no `declare` argument. type-coverage 2.4 stopped
+  measuring the share of files declaring `strict_types`, and printed a deprecation on stderr while
+  the floor went unenforced. Remove `declare:` from the call; the `phpStrictTypes` lane already
+  requires the declaration in every file.
+
+### Added
+
+- `vendor/bin/rule-doc` resolves PHPStan's own identifiers, and those of the extensions php-qa-ci
+  installs, offline, the way it resolves its own: `rule-doc argument.type` prints PHPStan's page
+  for it (code example, why it is reported, how to fix it) rather than a phpstan.org URL. The pages
+  are PHPStan's, carried in `vendor-docs/phpstan/` and refreshed with the shipped phpstan.phar by
+  `bin/phpstan-docs-install` during a maintainer `composer update`. The type-coverage extension
+  publishes no pages, so `docs/phpstan-extension-rules/` holds one for each of its identifiers. An
+  identifier none of these carry still names its phpstan.org page.
+- Every rule of the bundled PHPArkitect tiers carries an identifier, ending its `because` clause
+  (`[phpqaci.interfaceSuffix]`), so a `phpArkitect` violation names the rule that fired.
+  `vendor/bin/rule-doc <identifier>` prints its page (`docs/arkitect-rules/`) and
+  `vendor/bin/arkitect-rule <identifier> <path>` runs that one rule on one path. A consumer
+  matching arkitect output on the old clause text still matches: the identifier is appended.
+
+### Fixed
+
+- The `phpArkitect` lane honours `withIgnoredPaths()`. The shipped class-set factory
+  (`configDefaults/generic/phparkitect-class-set.php`, exported as `PHPQACI_ARKITECT_CLASS_SET`)
+  drops each ignored path anchored at the source directory, so ignoring `src/Legacy` no longer
+  leaves `src/Legacy/` checked, and does not drop `src/Domain/Legacy/` either.
+- The `infection` lane honours `withIgnoredPaths()`. When an ignored path lies under one of
+  `infection.json`'s source directories, the lane runs Infection with a derived copy of the
+  config at `var/qa/infection-config/infection.json`: its paths made absolute and the ignored
+  path added to `source.excludes`, anchored at its source directory. Diff mode no longer mutates
+  a changed file under an ignored path, and a run whose every source directory is ignored is
+  skipped.
+- `rules --write-agent-summary` writes the active-defences region in the markdown formatter's
+  canonical form: a blank line inside each marker, and a backslash in a summary escaped where it
+  is text (a code span keeps it as written). A formatter run over the document, as an editor or
+  the hooks daemon does after every edit, no longer rewrites the region and leaves it reported as
+  out of date. The `sensitiveParameterUsage` summary puts `#[\SensitiveParameter]` in a code span.
+
 ## 85.3.0 — 2026-10-03
 
 ### Changed — breaking

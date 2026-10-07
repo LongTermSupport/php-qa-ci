@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Arkitect;
 
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +29,14 @@ final class ArkitectCheckTest extends TestCase
     private const string DEFAULT_RULES = __DIR__ . '/../../../configDefaults/generic/phparkitect-rules-default.php';
 
     private const string NO_VIOLATIONS = 'No violations detected';
+
+    private const string ENTRY_CONFIG = __DIR__ . '/../../../configDefaults/generic/phparkitect.php';
+
+    private const string CLASS_SET = __DIR__ . '/../../../configDefaults/generic/phparkitect-class-set.php';
+
+    private const string AUTOLOAD = '/autoload.php';
+
+    private const string IGNORED_PATHS_FIXTURE = '/projectIgnoredPaths';
 
     public function testValidProjectPasses(): void
     {
@@ -183,7 +192,7 @@ final class ArkitectCheckTest extends TestCase
      */
     public function testZeroConfigDefaultEntryAppliesDefaultTier(): void
     {
-        $entryConfig = __DIR__ . '/../../../configDefaults/generic/phparkitect.php';
+        $entryConfig = self::ENTRY_CONFIG;
 
         [$exitCode, $output] = $this->runCheckConfig(
             $entryConfig,
@@ -196,6 +205,75 @@ final class ArkitectCheckTest extends TestCase
 
         self::assertSame(1, $exitCode, "Expected the shipped entry config to enforce the default tier, got:\n" . $output);
         self::assertStringContainsString('*Interface', $output);
+    }
+
+    /**
+     * withIgnoredPaths() through the shipped entry config: the class set drops
+     * src/Legacy, anchored at the source dir, and keeps src/Domain/Legacy.
+     */
+    public function testAnIgnoredPathIsDroppedOnlyWhereItIsAnchored(): void
+    {
+        $project = self::ASSETS . self::IGNORED_PATHS_FIXTURE;
+
+        $this->assertLegacyIsDroppedAndTheDeeperLegacyKept($project . '/src', $project, null, '');
+    }
+
+    /**
+     * The project template hands the factory `__DIR__ . '/../src'`, and Finder
+     * keeps the `..` in every pathname it yields, so the class set must compare
+     * folded paths or the ignored path is never matched.
+     */
+    public function testAnIgnoredPathIsDroppedWhenTheSourceDirIsNotCanonical(): void
+    {
+        $project = self::ASSETS . self::IGNORED_PATHS_FIXTURE;
+
+        $this->assertLegacyIsDroppedAndTheDeeperLegacyKept($project . '/src/../src', \Safe\realpath($project), null, ' through a non-canonical source dir');
+    }
+
+    /**
+     * A relative source dir is resolved against the working directory, the
+     * same base the ignored paths were made absolute from, so it drops them
+     * too.
+     */
+    public function testAnIgnoredPathIsDroppedWhenTheSourceDirIsRelative(): void
+    {
+        $project = \Safe\realpath(self::ASSETS . self::IGNORED_PATHS_FIXTURE);
+
+        $this->assertLegacyIsDroppedAndTheDeeperLegacyKept('src', $project, $project, ' through a relative source dir');
+    }
+
+    /**
+     * Finder follows a symlinked directory and yields its files under the
+     * link's own name, so an ignored path that is a symlink is matched by that
+     * name, never by where it points.
+     */
+    public function testAnIgnoredSymlinkedDirectoryIsDropped(): void
+    {
+        $project = TempDir::create('phpqaci-ark-symlink');
+
+        try {
+            $project->write('autoload.php', "<?php\n\ndeclare(strict_types=1);\n");
+            $project->write('src/Domain/Gateway.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace ArkitectFixture\\Domain;\n\ninterface Gateway\n{\n}\n");
+            $project->write('ext/Linked.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace ArkitectFixture\\Linked;\n\ninterface Linked\n{\n}\n");
+            \Safe\symlink('../ext', $project->path . '/src/Linked');
+
+            [$exitCode, $output] = $this->runCheckConfig(
+                self::ENTRY_CONFIG,
+                $project->path . self::AUTOLOAD,
+                [
+                    'PHPQACI_ARKITECT_SRC_DIR'       => $project->path . '/src',
+                    'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
+                    'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
+                    'PHPQACI_ARKITECT_IGNORED_PATHS' => $project->path . '/src/Linked',
+                ],
+            );
+        } finally {
+            $project->remove();
+        }
+
+        self::assertSame(1, $exitCode, "Expected the Domain interface to be reported, got:\n" . $output);
+        self::assertStringContainsString('ArkitectFixture\Domain\Gateway has 1 violations', $output);
+        self::assertStringNotContainsString('ArkitectFixture\Linked\Linked has', $output, 'a class under an ignored symlinked directory reached arkitect');
     }
 
     /**
@@ -236,13 +314,33 @@ final class ArkitectCheckTest extends TestCase
     }
 
     /**
-     * @param array<string, string> $env extra environment for the phar process
+     * Runs the shipped entry config over the projectIgnoredPaths fixture with
+     * src/Legacy ignored. Both fixture interfaces break the default *Interface
+     * rule, so the one reported is the one the class set handed to arkitect.
      *
-     * @return array{0: int, 1: string}
+     * @param string      $ignoredRoot the project root the ignored path is built from
+     * @param string|null $cwd         the working directory arkitect runs in
+     * @param string      $how         how the ignored class would have got through, for the failure message
      */
-    private function runCheck(string $projectDir, array $env = []): array
+    private function assertLegacyIsDroppedAndTheDeeperLegacyKept(string $srcDir, string $ignoredRoot, ?string $cwd, string $how): void
     {
-        return $this->runCheckConfig($projectDir . '/phparkitect.php', $projectDir . '/autoload.php', $env);
+        $project = self::ASSETS . self::IGNORED_PATHS_FIXTURE;
+
+        [$exitCode, $output] = $this->runCheckConfig(
+            self::ENTRY_CONFIG,
+            $project . self::AUTOLOAD,
+            [
+                'PHPQACI_ARKITECT_SRC_DIR'       => $srcDir,
+                'PHPQACI_ARKITECT_RULES_DEFAULT' => self::DEFAULT_RULES,
+                'PHPQACI_ARKITECT_CLASS_SET'     => self::CLASS_SET,
+                'PHPQACI_ARKITECT_IGNORED_PATHS' => $ignoredRoot . '/src/Legacy',
+            ],
+            $cwd,
+        );
+
+        self::assertSame(1, $exitCode, "Expected the deeper Legacy interface to be reported, got:\n" . $output);
+        self::assertStringContainsString('ArkitectFixture\Domain\Legacy\Gateway has 1 violations', $output);
+        self::assertStringNotContainsString('ArkitectFixture\Legacy\Repository has', $output, 'a class under the ignored path reached arkitect' . $how);
     }
 
     /**
@@ -250,9 +348,19 @@ final class ArkitectCheckTest extends TestCase
      *
      * @return array{0: int, 1: string}
      */
-    private function runCheckConfig(string $configPath, string $autoloadPath, array $env = []): array
+    private function runCheck(string $projectDir, array $env = []): array
     {
-        $envPrefix = '';
+        return $this->runCheckConfig($projectDir . '/phparkitect.php', $projectDir . self::AUTOLOAD, $env);
+    }
+
+    /**
+     * @param array<string, string> $env extra environment for the phar process
+     *
+     * @return array{0: int, 1: string}
+     */
+    private function runCheckConfig(string $configPath, string $autoloadPath, array $env = [], ?string $cwd = null): array
+    {
+        $envPrefix = null === $cwd ? '' : 'cd ' . escapeshellarg($cwd) . ' && ';
         foreach ($env as $name => $value) {
             $envPrefix .= $name . '=' . escapeshellarg($value) . ' ';
         }

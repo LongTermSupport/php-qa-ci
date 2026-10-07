@@ -33,11 +33,6 @@ use RuntimeException;
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\InfectionConfig\InfectionConfigSourceDirectoriesCheck::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\IgnoreErrorsJustificationCheck::class)]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordCheck::class)]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\DefectRecordReader::class)]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\Dto\DefectRecordDto::class)]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\Dto\DeferredDefectDto::class)]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\DefectRecord\Dto\NoPatternConclusionDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecksTool::class)]
@@ -260,52 +255,7 @@ final class ActiveRulesListerTest extends TestCase
 
         self::assertNotEmpty($decoded['pipelineLanes']);
 
-        self::assertSame(
-            [
-                'path'      => self::FIXTURE_PROJECT . '/qaConfig/defect-record.neon',
-                'deferred'  => [
-                    [
-                        'defect'     => "The fixture's cache key omits the locale.",
-                        'class'      => 'A cache key built from a subset of the inputs the value depends on.',
-                        'found'      => 'src/Cache/KeyBuilder.php',
-                        'deferredBy' => 'Owner',
-                    ],
-                ],
-                'noPattern' => [
-                    [
-                        'defect'     => "The fixture's invoice total was rounded twice.",
-                        'found'      => 'src/Invoice/Total.php',
-                        'conclusion' => 'No pattern exists; neither technique found a second double rounding.',
-                        'techniques' => ['a text search for round( over src/', 'reading every caller of Money::round()'],
-                    ],
-                ],
-            ],
-            $decoded['defectRecord'],
-        );
-    }
-
-    /**
-     * Method specification section 2 (1.1.0): a deferred Defect is recorded where the
-     * project's decisions are enumerable. A record the listing cannot read is an error,
-     * as an include it cannot follow is, rather than an enumeration that quietly omits it.
-     */
-    public function testAMalformedDefectRecordIsAnError(): void
-    {
-        $project = \LTS\PHPQA\Tests\Support\TempDir::create('phpqa-lister-defect-record');
-
-        try {
-            $project->write('qaConfig/defect-record.neon', "deferred:\n    -\n        defect: x\n");
-            new ActiveRulesLister(self::QA_CI_ROOT)->list($project->path);
-            self::fail('expected the malformed defect record to be an error');
-        } catch (RuntimeException $runtimeException) {
-            self::assertSame(
-                'Cannot read the defect record: qaConfig/defect-record.neon: deferred #1 "found" must be a non-empty string; '
-                . 'qaConfig/defect-record.neon: deferred #1 "deferredBy" must be a non-empty string',
-                $runtimeException->getMessage(),
-            );
-        } finally {
-            $project->remove();
-        }
+        self::assertSame(['configPath', 'rules', 'pipelineLanes', 'projectRecord'], array_keys($decoded));
     }
 
     public function testProjectWithNoQaConfigFallsBackToTheShippedDefault(): void

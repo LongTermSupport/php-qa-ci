@@ -249,3 +249,11 @@ if [[ "$MODE" == "update" ]] || [[ $FORCE_INSTALL -eq 1 ]]; then
 fi
 
 php "$PROJECT_ROOT/bin/shellcheck-install" "$shellcheck_mode"
+
+# ============================================================================
+# Phase 4: PHPStan's identifier pages under vendor-docs/phpstan/, which
+# bin/rule-doc reads offline. They track the phpstan.phar Phase 1 installed,
+# so an update that moved the phar moves them too (bin/phpstan-docs-install).
+# ============================================================================
+
+php "$PROJECT_ROOT/bin/phpstan-docs-install" "$shellcheck_mode"

@@ -18,11 +18,10 @@ declare(strict_types=1);
  *
  * The pipeline exports PHPQACI_ARKITECT_SRC_DIR (the detected srcDir),
  * PHPQACI_ARKITECT_RULES_DEFAULT (the resolved default ruleset path) and
- * PHPQACI_ARKITECT_EXCLUDE_PATHS (newline-delimited extra generated paths a
- * project declares via `->withArkitectExcludedPaths(...)` in qaConfig/qa.php).
+ * PHPQACI_ARKITECT_CLASS_SET (the class-set factory, phparkitect-class-set.php,
+ * which reads PHPQACI_ARKITECT_EXCLUDE_PATHS and PHPQACI_ARKITECT_IGNORED_PATHS).
  */
 
-use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 
 return static function (Config $config): void {
@@ -43,20 +42,9 @@ return static function (Config $config): void {
         return;
     }
 
-    // Generated code is regenerated and cannot be renamed — never check it.
-    // 'Generated' is the built-in convention. A project declares ADDITIONAL
-    // generated paths (e.g. a jane-php OpenAPI client at src/Quote/API) with
-    //   ->withArkitectExcludedPaths('Quote/API')
-    // in qaConfig/qa.php; the pipeline exports them newline-delimited
-    // as PHPQACI_ARKITECT_EXCLUDE_PATHS. Each entry is matched by arkitect
-    // (Arkitect\Glob::toRegex) against the path RELATIVE to src/.
-    $classSet         = ClassSet::fromDir($srcDir)->excludePath('Generated');
-    $extraExcludePaths = getenv('PHPQACI_ARKITECT_EXCLUDE_PATHS');
-    if (false !== $extraExcludePaths && '' !== \trim($extraExcludePaths)) {
-        foreach (\array_filter(\array_map('trim', \explode("\n", $extraExcludePaths))) as $excludePath) {
-            $classSet = $classSet->excludePath($excludePath);
-        }
-    }
+    // The class set leaves out 'Generated', each ->withArkitectExcludedPaths()
+    // glob and each ->withIgnoredPaths() path under src/; the factory says how.
+    $classSetFile = getenv('PHPQACI_ARKITECT_CLASS_SET') ?: __DIR__ . '/phparkitect-class-set.php';
 
-    $config->add($classSet, ...$defaultRules);
+    $config->add((require $classSetFile)($srcDir), ...$defaultRules);
 };

@@ -36,6 +36,7 @@ daemon:
     enabled: true              # Validate hook inputs (recommended)
     strict_mode: true          # Fail-closed: return errors on validation failures
     log_validation_errors: true
+  expected_version: "3.68.0"  # daemon version this project expects; `provision.sh` installs exactly this
 
 # Built-in handler configuration
 # Handlers run in priority order (lower number = earlier execution)
@@ -99,10 +100,6 @@ handlers:
     sudo_pip:              # Blocks sudo pip (use venv instead)
       enabled: true
       priority: 21
-
-    daemon_restart_verifier: # Verifies daemon restart after code changes
-      enabled: true
-      priority: 22
 
     ask_user_question_blocker: # Requires an ASKING BECAUSE: prefix on every question
       enabled: true            # Unattended ccy sessions: justify the pause or proceed
@@ -225,6 +222,12 @@ handlers:
         #     - "cluster"           # matches a single top-level sub-project folder
         #     - "services"          # matches another top-level sub-project folder
         monorepo_subproject_patterns: null
+        # Additive to the built-in locations: vendor-docs/ holds third-party
+        # documentation carried verbatim (PHPStan's identifier pages), and
+        # tests/assets/ holds markdown fixtures the tests read.
+        extra_allowed_markdown_paths:
+          - "^vendor-docs/.*\\.md$"
+          - "^tests/assets/.*\\.md$"
 
     # TOOL USAGE HANDLERS (Priority 50-60)
     web_search_year:       # Fixes year in web search queries (uses current year)
@@ -238,6 +241,33 @@ handlers:
     british_english:       # Warns about American English spelling (advisory only)
       enabled: true        # Project docs use British English (normalise, licence, ...)
       priority: 60
+    subagent_full_qa_blocker:
+      # Managed by php-qa-ci: rewritten on composer install/update while this
+      # comment stays. Delete the comment to own the block, or set enabled: false
+      # to opt out. See php-qa-ci docs/hooks-daemon-full-qa-blocker.md.
+      enabled: true
+      priority: 32
+      options:
+        full_qa_patterns:
+          # The full pipeline: qa with neither -t nor -p, from any directory.
+          - id: php-qa-ci-full-pipeline
+            command: qa
+            read_only_flags: ["-t", "-p", "-h"]
+          # The full pipeline pointed at the whole tree: -p src, -p tests, -p .
+          - id: php-qa-ci-full-pipeline-whole-tree
+            command: qa
+            full_args: [src, tests, test]
+            read_only_flags: ["-t", "-h"]
+          # The full pipeline through the PHP binary: php bin/qa
+          - id: php-qa-ci-full-pipeline-via-php
+            command: php
+            full_words: [bin/qa, ./bin/qa]
+            read_only_flags: ["-t", "-p", "-h"]
+        targeted_qa_commands:
+          - "bin/qa -t <tool> -p <file or directory you changed>"
+          - "bin/qa --agent-mode -t phpstan -p <file you changed>"
+          - "bin/qa -t <tool>   (one lane; never the bare pipeline)"
+        unseen_sink_description: "php-qa-ci's run lock refuses a second concurrent qa run in the same project tree (exit 75); nothing else here stops a full run this handler could not read."
 
   # PostToolUse handlers (run after tool execution)
   post_tool_use:
@@ -264,6 +294,12 @@ handlers:
     validate_eslint_on_write:  # Runs ESLint after file writes
       enabled: false           # Enable for automatic ESLint validation
       priority: 20
+
+    goal_injection:        # Signals the ccy supervisor to /goal a plan that turns In Progress
+      enabled: true
+
+    plan_fact_check_feed:  # Debounces plan edits into one pending fact-check
+      enabled: true
 
   # SessionStart handlers (run when session starts)
   session_start:
@@ -302,6 +338,21 @@ handlers:
     ccy_supervisor_integrity:  # Warns when the ccy supervisor is armed but its files are unsafe (Plan 00148)
       enabled: true            # Silent unless .claude/ccy/ is a ccy project with an armed ccy.env
       priority: 58
+
+    routine_qa_sweep:  # Drift report over CLAUDE/Routine/ (silent when clean)
+      enabled: true
+
+    model_fallback_detector:  # Reports a safety-triggered model fallback from the transcript
+      enabled: true
+
+    session_actions_directive:  # Has the ccy supervisor type a directive when must-do items exist
+      enabled: true
+
+    skill_opportunity_detector:  # TTL-gated pointer at the skill-scan CLI
+      enabled: true
+
+    tool_disable_advisor:  # Checks tool_policy.never_want tools are disabled in .claude/settings.json
+      enabled: true
 
   # PreCompact handlers (run before conversation compaction)
   pre_compact:
@@ -389,6 +440,9 @@ handlers:
     current_time:   # Shows current local time (24-hour format)
       enabled: true
       priority: 14
+
+    host_hostname:  # Shows @machine-name for the host the session really runs on
+      enabled: true
 
 
 # Project-level handlers (custom handlers in .claude/hooks/handlers/)
