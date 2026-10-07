@@ -33,6 +33,12 @@ final readonly class MarkdownFormatTool implements ToolInterface
     /** The daemon prints this for each file a `--check` run would rewrite. */
     private const string PENDING_MARKER = 'Would reformat:';
 
+    /**
+     * git's message outside a work tree. There is no ignore list there, and
+     * the daemon refuses nothing either, so it means nothing is ignored.
+     */
+    private const string NOT_A_REPOSITORY = 'not a git repository';
+
     /** The daemon venv starts cold; a hung daemon must not hang the pipeline. */
     private const float TIMEOUT_SECONDS = 600.0;
 
@@ -72,15 +78,16 @@ final readonly class MarkdownFormatTool implements ToolInterface
         }
 
         if ([] !== $paths) {
-            $probe = $this->gitIgnored($context, ...$paths);
-            if (!\in_array($probe->exitCode, [0, 1], true)) {
+            $probe      = $this->gitIgnored($context, ...$paths);
+            $outsideGit = !$probe->succeeded() && str_contains($probe->output, self::NOT_A_REPOSITORY);
+            if (!$outsideGit && !\in_array($probe->exitCode, [0, 1], true)) {
                 $context->writeln(rtrim($probe->output));
                 $context->writeIdentifier(self::IDENTIFIER);
 
                 return ToolResultDto::crashed(\sprintf('git check-ignore could not run (exit %d)', $probe->exitCode));
             }
 
-            $ignored = array_map(trim(...), explode("\n", $probe->stdout));
+            $ignored = $outsideGit ? [] : array_map(trim(...), explode("\n", $probe->stdout));
             foreach (array_intersect($paths, $ignored) as $path) {
                 $context->writeln('Gitignored, skipped: ' . $path);
             }
@@ -127,12 +134,13 @@ final readonly class MarkdownFormatTool implements ToolInterface
     /**
      * The daemon refuses a gitignored path it is handed by name, so ignored
      * paths are found first and dropped. Exit 0 lists the ignored ones, exit 1
-     * means none is; anything else is git failing to answer.
+     * means none is; anything else is git failing to answer. Paths are
+     * printed unquoted, so a non-ASCII one matches the configured spelling.
      */
     private function gitIgnored(ToolContext $context, string ...$paths): ProcessResultDto
     {
         return $context->processes->run(new ProcessSpecDto(
-            ['git', 'check-ignore', '--', ...array_values($paths)],
+            ['git', '-c', 'core.quotePath=false', 'check-ignore', '--', ...array_values($paths)],
             $context->config->paths->projectRoot,
             streamOutput: false,
         ));

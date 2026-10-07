@@ -35,8 +35,10 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[Large]
 final class MarkdownFormatToolGitTest extends TestCase
 {
+    /** A tracked path the daemon must be handed. */
     private const string README = 'README.md';
 
+    /** An ignored path git would quote under its default core.quotePath. */
     private const string IGNORED = 'gën';
 
     /** Appends each call's last argument, the path, to calls.log beside itself. */
@@ -50,11 +52,12 @@ final class MarkdownFormatToolGitTest extends TestCase
             $sandbox->root->write('work/' . self::IGNORED . '/a.md', "# Generated\n");
             $output = new BufferedOutput();
 
-            $result = new MarkdownFormatTool()->run($this->context($sandbox->work, $output));
+            $result  = new MarkdownFormatTool()->run($this->context($sandbox->work, $output));
+            $printed = $output->fetch();
 
-            self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, $output->fetch());
+            self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, $printed);
             self::assertSame([self::README], $this->daemonCalls($sandbox->work));
-            self::assertStringContainsString('Gitignored, skipped: ' . self::IGNORED, $output->fetch());
+            self::assertStringContainsString('Gitignored, skipped: ' . self::IGNORED, $printed);
         } finally {
             $sandbox->remove();
         }

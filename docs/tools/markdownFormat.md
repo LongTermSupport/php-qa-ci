@@ -37,7 +37,7 @@ records the alternatives and why they lost.
   recursively. A project list replaces the default.
 - A listed path that does not exist, or that git ignores (`git check-ignore`), is skipped with a
   `Not present, skipped:` or `Gitignored, skipped:` line, so a misspelt path is visible. When every
-  path is skipped, so is the lane.
+  path is skipped, so is the lane. Outside a git work tree nothing is ignored, as for the daemon.
 - The daemon refuses to rewrite a gitignored file, so ignored output under a listed directory is
   left alone too.
 - It does not support `-p`: the paths are configuration, like Twig's directories.
