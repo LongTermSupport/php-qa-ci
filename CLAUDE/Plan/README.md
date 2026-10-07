@@ -16,6 +16,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
+- [00019: agent pr merge gate](00019-agent-pr-merge-gate/PLAN.md) - In Progress — why verified `lts-bob` pull requests stop at `REVIEW_REQUIRED`, what GitHub's "unattributed changes" ruleset option checks, and the settings change that lets them merge
+
 ## Completed Plans
 
 - [00010: Defence Before Fix full conformance](Completed/00010-defence-before-fix-full-conformance/PLAN.md) - Complete — every clause upstream graded `No` or `Partial` is graded `Yes` or carries a recorded Owner decision in `known-gaps` (three remain, all toolchain 4.1); re-audited against 85.3.0 and published as register pull request #12 (merged e8d9ac8)
