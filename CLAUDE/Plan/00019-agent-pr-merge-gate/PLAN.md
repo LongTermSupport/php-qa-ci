@@ -50,9 +50,15 @@ approve their own pull request. Dropping the Claude trailer unblocks nothing.
 
 ### Phase 2: Decision and settings
 
-- [ ] ⬜ **Task 2.1**: Owner chooses the merge-gate setting from the report's Options (A: zero
+- [x] ✅ **Task 2.1**: Owner chooses the merge-gate setting from the report's Options (A: zero
   required approvals with the checks kept; B: classic bypass for `lts-bob`, which also allows
   direct pushes; D/E: a second approver) and, separately, the attribution policy
+
+**Decision:** Option A. Classic protection on `php8.5` and `php8.4` requires zero approving reviews
+and keeps its required status checks; the merge gate for an agent pull request is green CI plus
+the independent sub-agent verification in [CLAUDE/pr-verification.md](../../pr-verification.md).
+The attribution trailer stays as it is, since it has no bearing on merging.
+
 - [ ] ⬜ **Task 2.2**: Owner applies the settings; confirm with the GraphQL `refUpdateRule` query
   and a `reviewDecision` that is no longer `REVIEW_REQUIRED`
 - [ ] ⬜ **Task 2.3**: Record the chosen settings in
