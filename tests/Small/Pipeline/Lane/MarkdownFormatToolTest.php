@@ -87,7 +87,8 @@ final class MarkdownFormatToolTest extends TestCase
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertSame('none of the markdown paths exists', $result->summary);
+        self::assertSame('no markdown path to format: each is absent or gitignored', $result->summary);
+        self::assertStringContainsString('Not present, skipped: README.md', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -96,7 +97,7 @@ final class MarkdownFormatToolTest extends TestCase
         $cli = $this->installDaemon();
         $this->writeReadme();
         $this->factory->project->write('docs/guide.md', "# Guide\n");
-        $this->factory->processes->willSucceed()->willSucceed();
+        $this->noneIgnored()->willSucceed()->willSucceed();
 
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
@@ -113,7 +114,7 @@ final class MarkdownFormatToolTest extends TestCase
     {
         $cli = $this->installDaemon();
         $this->writeReadme();
-        $this->factory->processes->willSucceed('Reformatted: README.md');
+        $this->noneIgnored()->willSucceed('Reformatted: README.md');
 
         $result = new MarkdownFormatTool()->run($this->context(readOnly: false));
 
@@ -127,7 +128,7 @@ final class MarkdownFormatToolTest extends TestCase
     {
         $this->installDaemon();
         $this->writeReadme();
-        $this->factory->processes->willFail(1, self::PENDING_README);
+        $this->noneIgnored()->willFail(1, self::PENDING_README);
 
         $result  = new MarkdownFormatTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -146,12 +147,12 @@ final class MarkdownFormatToolTest extends TestCase
         $this->installDaemon();
         $this->writeReadme();
         $this->factory->project->write('docs/guide.md', "# Guide\n");
-        $this->factory->processes->willFail(1, self::PENDING_README)->willFail(1, 'Would reformat: docs/guide.md');
+        $this->noneIgnored()->willFail(1, self::PENDING_README)->willFail(1, 'Would reformat: docs/guide.md');
 
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertCount(2, $this->factory->processes->specs);
+        self::assertCount(2, $this->commands());
         self::assertStringContainsString('Would reformat: docs/guide.md', $this->factory->output->fetch());
     }
 
@@ -161,7 +162,7 @@ final class MarkdownFormatToolTest extends TestCase
     {
         $this->installDaemon();
         $this->writeReadme();
-        $this->factory->processes->willFail(1, 'ERROR: README.md is gitignored');
+        $this->noneIgnored()->willFail(1, 'ERROR: README.md is gitignored');
 
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
@@ -175,7 +176,7 @@ final class MarkdownFormatToolTest extends TestCase
     {
         $this->installDaemon();
         $this->writeReadme();
-        $this->factory->processes->willFail(2, 'usage: claude-hooks-daemon');
+        $this->noneIgnored()->willFail(2, 'usage: claude-hooks-daemon');
 
         $result = new MarkdownFormatTool()->run($this->context(readOnly: false));
 
@@ -189,12 +190,63 @@ final class MarkdownFormatToolTest extends TestCase
         $cli = $this->installDaemon();
         $this->writeReadme();
         $this->factory->project->write('handbook/intro.md', "# Intro\n");
-        $this->factory->processes->willSucceed();
+        $this->noneIgnored()->willSucceed();
 
         $config = $this->factory->builder()->withMarkdownFormatPaths('handbook')->build();
         new MarkdownFormatTool()->run($this->factory->context($config));
 
         self::assertSame([[$cli, self::FORMAT, self::CHECK, 'handbook']], $this->commands(), 'the project list replaces the defaults');
+    }
+
+    /**
+     * The daemon refuses a gitignored path it is handed by name, so a default
+     * the project ignores (generated API docs in `docs/`) is dropped, not run.
+     */
+    #[Test]
+    public function aPathGitIgnoresIsDroppedAndNamed(): void
+    {
+        $cli = $this->installDaemon();
+        $this->writeReadme();
+        $this->factory->project->write('docs/api.md', "# Api\n");
+        $this->factory->processes->willSucceed(self::DOCS . "\n")->willSucceed();
+
+        $result = new MarkdownFormatTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(['git', 'check-ignore', '--', self::README, self::DOCS], $this->factory->processes->specs[0]->command);
+        self::assertSame($this->factory->project->path, $this->factory->processes->specs[0]->cwd);
+        self::assertSame([[$cli, self::FORMAT, self::CHECK, self::README]], $this->commands());
+        self::assertStringContainsString('Gitignored, skipped: docs', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function withEveryPresentPathIgnoredTheLaneSkips(): void
+    {
+        $this->installDaemon();
+        $this->writeReadme();
+        $this->factory->processes->willSucceed(self::README . "\n");
+
+        $result = new MarkdownFormatTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame('no markdown path to format: each is absent or gitignored', $result->summary);
+        self::assertSame([], $this->commands(), 'the daemon is never handed an ignored path');
+    }
+
+    /** check-ignore exits 128 on its own error; guessing "not ignored" would hide it. */
+    #[Test]
+    public function aGitProbeThatCannotRunIsACrash(): void
+    {
+        $this->installDaemon();
+        $this->writeReadme();
+        $this->factory->processes->willFail(128, 'fatal: not a git repository');
+
+        $result = new MarkdownFormatTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('git check-ignore could not run (exit 128)', $result->summary);
+        self::assertStringContainsString('fatal: not a git repository', $this->factory->output->fetch());
+        self::assertSame([], $this->commands());
     }
 
     #[Test]
@@ -204,6 +256,12 @@ final class MarkdownFormatToolTest extends TestCase
 
         self::assertSame('markdownFormat', $tool->name());
         self::assertSame('phpqaci.markdownFormat', $tool->identifier());
+    }
+
+    /** `git check-ignore` exits 1 when none of the paths it was given is ignored. */
+    private function noneIgnored(): \LTS\PHPQA\Tests\Support\FakeProcessRunner
+    {
+        return $this->factory->processes->willFail(1);
     }
 
     private function writeReadme(): void
@@ -221,9 +279,12 @@ final class MarkdownFormatToolTest extends TestCase
         return $this->factory->context($this->factory->builder(readOnly: $readOnly)->build());
     }
 
-    /** @return list<list<string>> */
+    /** @return list<list<string>> the daemon calls, without the git probe */
     private function commands(): array
     {
-        return array_map(static fn (\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto $spec): array => $spec->command, $this->factory->processes->specs);
+        return array_values(array_filter(
+            array_map(static fn (\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto $spec): array => $spec->command, $this->factory->processes->specs),
+            static fn (array $command): bool => 'git' !== $command[0],
+        ));
     }
 }
