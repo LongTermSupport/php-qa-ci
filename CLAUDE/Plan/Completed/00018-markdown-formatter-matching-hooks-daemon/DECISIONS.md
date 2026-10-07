@@ -56,7 +56,7 @@ installs without the daemon, which is the case that has no problem to solve.
 
 ## Decision 2: a new lane, `markdownFormat`, with no `bin/` entry point
 
-Per [tool-boundaries.md](../../tool-boundaries.md), weighed against `markdownLinks` and
+Per [tool-boundaries.md](../../../tool-boundaries.md), weighed against `markdownLinks` and
 `docsProse`, the two lanes that already read markdown:
 
 1. **A question no tool asks?** Yes. `markdownLinks` asks whether links resolve and `docsProse`

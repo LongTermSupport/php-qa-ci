@@ -22,7 +22,7 @@ history. This lane closes the gap by putting the daemon's form there first.
 
 It runs the daemon rather than reimplementing it. Byte-for-byte agreement depends on the mdformat
 version the daemon's virtualenv resolved, and only the daemon's own code is guaranteed to have it.
-[Plan 00018 Decision 1](../../CLAUDE/Plan/00018-markdown-formatter-matching-hooks-daemon/DECISIONS.md)
+[Plan 00018 Decision 1](../../CLAUDE/Plan/Completed/00018-markdown-formatter-matching-hooks-daemon/DECISIONS.md)
 records the alternatives and why they lost.
 
 ## How it runs

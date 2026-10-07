@@ -10,13 +10,13 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00018: markdown formatter matching hooks daemon](00018-markdown-formatter-matching-hooks-daemon/PLAN.md) - In Progress — a `markdownFormat` lane that runs the hooks daemon's own formatter, so markdown written by a generator, a script or a merge is already in the daemon's form and the two never take turns rewriting it (Decision 1: delegate to the daemon); PR #51
-
 - [00017: fix every deferred defect and retire the record](00017-fix-every-deferred-defect-and-retire-the-record/PLAN.md) - In Progress — the Owner's ruling that this repository fixes rather than baselines: every deferred defect, the `ignoreErrors` entry and the declared `known-gaps` fixed, the defect record removed, the hooks daemon at v3.68.0, and `php8.4` taking bug fixes again with issues stating their release line
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
 ## Completed Plans
+
+- [00018: markdown formatter matching hooks daemon](Completed/00018-markdown-formatter-matching-hooks-daemon/PLAN.md) - Complete — the `markdownFormat` lane (`-t mdf`) runs the hooks daemon's own `format-markdown` over `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/` and `CLAUDE/`, skipping absent and gitignored paths by name and skipping entirely without the daemon (Decision 1: delegate, never port; merged 9823f20)
 
 - [00019: agent pr merge gate](Completed/00019-agent-pr-merge-gate/PLAN.md) - Complete — classic protection on `php8.5` and `php8.4` requires zero approvals with its checks kept (Owner, Option A), so green CI plus an independent sub-agent verdict is the merge gate; "unattributed changes" concerns Copilot pull requests only (#59 merged as 3cda27f)
 
