@@ -53,7 +53,7 @@ hand-coding canonical form.
 - [x] ✅ **Task 3.1**: `markdownFormat` (`-t mdf`), coding-standards phase, `withMarkdownFormatPaths()` defaulting to `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/`, `CLAUDE/`; identifier, index row and page; tool-boundary record in Decision 2
 - [x] ✅ **Task 3.2**: `docs/tools/markdownFormat.md`, `CLAUDE.md`, `docs/pipeline.md`, `docs/upgrading-to-8.5.md` and the CHANGELOG entry
 - [x] ✅ **Task 3.3**: Both battery runs pass at `2a432be`, then a daemon restart changes no tracked markdown file
-- [ ] ⬜ **Task 3.4**: Merged into `php8.5` (stacked on Plan 00017's PR #49)
+- [ ] ⬜ **Task 3.4**: Merged into `php8.5` (PR #51, after independent verification)
 
 ## Success Criteria
 
