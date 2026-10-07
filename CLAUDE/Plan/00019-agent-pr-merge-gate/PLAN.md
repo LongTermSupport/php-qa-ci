@@ -59,11 +59,16 @@ and keeps its required status checks; the merge gate for an agent pull request i
 the independent sub-agent verification in [CLAUDE/pr-verification.md](../../pr-verification.md).
 The attribution trailer stays as it is, since it has no bearing on merging.
 
-- [ ] ⬜ **Task 2.2**: Owner applies the settings; confirm with the GraphQL `refUpdateRule` query
+- [x] ✅ **Task 2.2**: Owner applies the settings; confirm with the GraphQL `refUpdateRule` query
   and a `reviewDecision` that is no longer `REVIEW_REQUIRED`
+
+**Confirmed:** `requiredApprovingReviewCount` is 0 on `php8.5` and `php8.4` with the required
+checks kept, and #51, #53 and #59 read an empty `reviewDecision`.
+
 - [ ] ⬜ **Task 2.3**: Record the chosen settings in
   [CLAUDE/pr-verification.md](../../pr-verification.md) and, if attribution is dropped, in
-  `CLAUDE.md` and `.claude/settings.json`
+  `CLAUDE.md` and `.claude/settings.json` (attribution is kept; the settings section is on #53,
+  ticked when #53 merges)
 
 ## Success Criteria
 
