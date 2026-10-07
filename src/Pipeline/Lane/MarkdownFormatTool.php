@@ -34,7 +34,8 @@ final readonly class MarkdownFormatTool implements ToolInterface
     private const string PENDING_MARKER = 'Would reformat:';
 
     /**
-     * git's message outside a work tree. There is no ignore list there, and
+     * git's message outside a work tree, in the C locale the probe runs in,
+     * so a translated git prints it too. There is no ignore list there, and
      * the daemon refuses nothing either, so it means nothing is ignored.
      */
     private const string NOT_A_REPOSITORY = 'not a git repository';
@@ -142,6 +143,7 @@ final readonly class MarkdownFormatTool implements ToolInterface
         return $context->processes->run(new ProcessSpecDto(
             ['git', '-c', 'core.quotePath=false', 'check-ignore', '--', ...array_values($paths)],
             $context->config->paths->projectRoot,
+            env: ['LC_ALL' => 'C'],
             streamOutput: false,
         ));
     }

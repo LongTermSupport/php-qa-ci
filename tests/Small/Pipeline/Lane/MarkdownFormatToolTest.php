@@ -215,7 +215,7 @@ final class MarkdownFormatToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(['git', '-c', 'core.quotePath=false', 'check-ignore', '--', self::README, self::DOCS], $this->factory->processes->specs[0]->command);
         self::assertSame($this->factory->project->path, $this->factory->processes->specs[0]->cwd);
-        self::assertSame(['LC_ALL' => 'C'], $this->factory->processes->specs[0]->env, 'git\'s messages are matched in English, whatever the locale');
+        self::assertSame(['LC_ALL' => 'C'], $this->factory->processes->specs[0]->env, "git's messages are matched in English, whatever the locale");
         self::assertSame([[$cli, self::FORMAT, self::CHECK, self::README]], $this->commands());
         self::assertStringContainsString('Gitignored, skipped: docs', $this->factory->output->fetch());
     }
