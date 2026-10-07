@@ -103,7 +103,7 @@ pull request are its `reviewDecision` and `mergeStateStatus` (`gh pr view <pr> -
 still owed, `BEHIND` means the head must first take in the base (a push, so a new verdict).
 
 The settings, chosen by the Owner
-([Plan 00019](Plan/00019-agent-pr-merge-gate/PLAN.md), Option A):
+([Plan 00019](Plan/Completed/00019-agent-pr-merge-gate/PLAN.md), Option A):
 
 - **Classic branch protection on `php8.5` and `php8.4` requires zero approving reviews** and keeps
   its required status checks, which is what makes this verification the review step. Its settings
@@ -113,7 +113,7 @@ The settings, chosen by the Owner
   (`require_extra_approval_for_unattributed_changes`) applies only to pull requests Copilot opens
   under its own app identity, and adds nothing at zero required approvals. It is unrelated to commit
   signing and to `Co-Authored-By` trailers
-  ([research](Plan/00019-agent-pr-merge-gate/research-github-unattributed-changes.md)). A second
+  ([research](Plan/Completed/00019-agent-pr-merge-gate/research-github-unattributed-changes.md)). A second
   ruleset, `protect-default-branch`, only blocks deleting and force-pushing the branch.
 - **`php8.4` has no ruleset.**
 

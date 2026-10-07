@@ -1,6 +1,6 @@
 # Plan 00019: agent pr merge gate
 
-**Status**: In Progress
+**Status**: Complete (#59 merged unreviewed as 3cda27f; settings recorded by #53)
 **Created**: 2026-10-05
 **Owner**: dev
 **Priority**: High
@@ -11,7 +11,7 @@ Agent-driven pull requests are opened and pushed by the `lts-bob` account, which
 but not admin. Every one of them stops at `REVIEW_REQUIRED`: GitHub never lets an account approve
 its own pull request, and the base branches demand an approving review. Pull requests #49, #50 and
 #53 had all passed independent sub-agent verification
-([CLAUDE/pr-verification.md](../../pr-verification.md), on #53) and still could not merge.
+([CLAUDE/pr-verification.md](../../../pr-verification.md), on #53) and still could not merge.
 
 Two settings were candidates. Classic branch protection on `php8.5` and `php8.4` requires one
 approving review (GraphQL `refUpdateRule.requiredApprovingReviewCount = 1`). Ruleset `protect`
@@ -25,7 +25,7 @@ records the setting change that lets verified agent pull requests merge.
 
 - A sourced answer to what GitHub's "unattributed changes" ruleset option checks
 - The settings change that lets a verified `lts-bob` pull request merge, chosen by the Owner and
-  recorded in [CLAUDE/pr-verification.md](../../pr-verification.md)
+  recorded in [CLAUDE/pr-verification.md](../../../pr-verification.md)
 - An Owner decision on the Claude attribution trailer on future commits and pull requests
 
 ## Non-Goals
@@ -56,7 +56,7 @@ approve their own pull request. Dropping the Claude trailer unblocks nothing.
 
 **Decision:** Option A. Classic protection on `php8.5` and `php8.4` requires zero approving reviews
 and keeps its required status checks; the merge gate for an agent pull request is green CI plus
-the independent sub-agent verification in [CLAUDE/pr-verification.md](../../pr-verification.md).
+the independent sub-agent verification in [CLAUDE/pr-verification.md](../../../pr-verification.md).
 The attribution trailer stays as it is, since it has no bearing on merging.
 
 - [x] ✅ **Task 2.2**: Owner applies the settings; confirm with the GraphQL `refUpdateRule` query
@@ -65,16 +65,17 @@ The attribution trailer stays as it is, since it has no bearing on merging.
 **Confirmed:** `requiredApprovingReviewCount` is 0 on `php8.5` and `php8.4` with the required
 checks kept, and #51, #53 and #59 read an empty `reviewDecision`.
 
-- [ ] ⬜ **Task 2.3**: Record the chosen settings in
-  [CLAUDE/pr-verification.md](../../pr-verification.md) and, if attribution is dropped, in
-  `CLAUDE.md` and `.claude/settings.json` (attribution is kept; the settings section is on #53,
-  ticked when #53 merges)
+- [x] ✅ **Task 2.3**: Record the chosen settings in
+  [CLAUDE/pr-verification.md](../../../pr-verification.md) and, if attribution is dropped, in
+  `CLAUDE.md` and `.claude/settings.json` (attribution is kept; the settings section is #53)
 
 ## Success Criteria
 
 - [x] The research report answers what "unattributed changes" means, with quoted sources
-- [ ] A verified `lts-bob` pull request merges with `gh pr merge --merge` and no human approval
+- [x] A verified `lts-bob` pull request merges with `gh pr merge --merge` and no human approval
+  (#59, merged as 3cda27f after a PASS verdict)
 
 ## Delivery & Milestones
 
-- <!-- milestone or delivery commit hash -->
+- 3cda27f: #59 merged by the agent account with no approving review, the gate working as decided
+- #53: `CLAUDE/pr-verification.md` with the settings section
