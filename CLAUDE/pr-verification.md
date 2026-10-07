@@ -113,7 +113,8 @@ The settings, chosen by the Owner
   (`require_extra_approval_for_unattributed_changes`) applies only to pull requests Copilot opens
   under its own app identity, and adds nothing at zero required approvals. It is unrelated to commit
   signing and to `Co-Authored-By` trailers
-  ([research](Plan/00019-agent-pr-merge-gate/research-github-unattributed-changes.md)).
+  ([research](Plan/00019-agent-pr-merge-gate/research-github-unattributed-changes.md)). A second
+  ruleset, `protect-default-branch`, only blocks deleting and force-pushing the branch.
 - **`php8.4` has no ruleset.**
 
 Changing any of these needs repository or organisation admin rights: they are the Owner's
