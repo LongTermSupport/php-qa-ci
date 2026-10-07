@@ -23,6 +23,7 @@ use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Process\Process;
 
 /**
  * The lane's gitignore probe against real git, with a stub daemon that records
@@ -68,6 +69,10 @@ final class MarkdownFormatToolGitTest extends TestCase
     {
         $project = TempDir::create('phpqa-mdf-nogit');
         try {
+            $probe = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $project->path);
+            $probe->run();
+            self::assertFalse($probe->isSuccessful(), 'the temp directory sits inside a git work tree, so this test cannot exercise the outside-git case');
+
             $project->write(self::README, "# Readme\n");
             $project->write(self::IGNORED . '/a.md', "# Generated\n");
             $output = new BufferedOutput();
