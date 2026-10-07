@@ -213,7 +213,7 @@ final class MarkdownFormatToolTest extends TestCase
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertSame(['git', 'check-ignore', '--', self::README, self::DOCS], $this->factory->processes->specs[0]->command);
+        self::assertSame(['git', '-c', 'core.quotePath=false', 'check-ignore', '--', self::README, self::DOCS], $this->factory->processes->specs[0]->command);
         self::assertSame($this->factory->project->path, $this->factory->processes->specs[0]->cwd);
         self::assertSame([[$cli, self::FORMAT, self::CHECK, self::README]], $this->commands());
         self::assertStringContainsString('Gitignored, skipped: docs', $this->factory->output->fetch());
@@ -239,14 +239,31 @@ final class MarkdownFormatToolTest extends TestCase
     {
         $this->installDaemon();
         $this->writeReadme();
-        $this->factory->processes->willFail(128, 'fatal: not a git repository');
+        $this->factory->processes->willFail(128, "fatal: ../shared: '../shared' is outside repository");
 
         $result = new MarkdownFormatTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('git check-ignore could not run (exit 128)', $result->summary);
-        self::assertStringContainsString('fatal: not a git repository', $this->factory->output->fetch());
+        self::assertStringContainsString('is outside repository', $this->factory->output->fetch());
         self::assertSame([], $this->commands());
+    }
+
+    /**
+     * Outside a git work tree there is no ignore list, and the daemon refuses
+     * nothing there either, so the lane formats every present path.
+     */
+    #[Test]
+    public function outsideAGitWorkTreeNothingIsIgnored(): void
+    {
+        $cli = $this->installDaemon();
+        $this->writeReadme();
+        $this->factory->processes->willFail(128, 'fatal: not a git repository (or any of the parent directories): .git')->willSucceed();
+
+        $result = new MarkdownFormatTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame([[$cli, self::FORMAT, self::CHECK, self::README]], $this->commands());
     }
 
     #[Test]
