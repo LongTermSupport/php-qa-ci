@@ -53,3 +53,31 @@ installs without the daemon, which is the case that has no problem to solve.
 - Task 1.2's differential corpus is not needed: agreement is by construction. Edge fixtures stay
   useful as lane tests (the lane must not corrupt them), not as a parity proof.
 - Phase 2 becomes the daemon locator and invocation, red first; Phase 3 is unchanged.
+
+## Decision 2: a new lane, `markdownFormat`, with no `bin/` entry point
+
+Per [tool-boundaries.md](../../tool-boundaries.md), weighed against `markdownLinks` and
+`docsProse`, the two lanes that already read markdown:
+
+1. **A question no tool asks?** Yes. `markdownLinks` asks whether links resolve and `docsProse`
+   what the prose is about; neither owns layout, and neither rewrites. Folding layout into either
+   would make its identifier resolve to the wrong page when a layout finding fired.
+2. **Would a user type its name?** Yes: `-t mdf` after editing docs, as `-t fixer` after
+   editing PHP.
+3. **Stands alone in the help text?** "markdown in the hooks daemon's format, by the daemon's own
+   formatter (when the daemon is installed)" names no defect or incident.
+
+Placed in the coding-standards phase because it rewrites files, after the PHP and Twig fixers.
+Aliases `mdf` and `markdownFormat`; not path-supporting, since its paths are configuration
+(`withMarkdownFormatPaths()`), like Twig's directories.
+
+The plan's thin `bin/` entry point is dropped: the lane runs in-process through the process
+runner, as every lane does, and the daemon's own CLI is already the standalone command. The edge
+fixtures from Decision 1 are dropped too: the lane formats nothing itself, so they would test the
+daemon's formatter, which is the daemon's to test.
+
+The default paths exclude everything a whole-project pass would wrongly rewrite. Measured on this
+repository, `format-markdown --check .` flags the vendored specifications under `remote-docs/` and
+`vendor-docs/`, a `tests/assets/` fixture, and the daemon's own generated `.claude/*.md`, all of
+which must stay byte for byte. One call per configured path, since the daemon takes one path and
+starts a fresh process each time (several seconds each).

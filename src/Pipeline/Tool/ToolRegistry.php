@@ -91,6 +91,7 @@ final readonly class ToolRegistry
                 new ToolDefinitionDto('rector', ['r', 'rector'], 'Rector', $codingStandards, true, banner: 'Running Rector'),
                 new ToolDefinitionDto('phpCsFixer', ['f', 'fixer', 'csfixer'], 'PHP-CS-Fixer', $codingStandards, true, banner: 'Running PHP-CS-Fixer'),
                 new ToolDefinitionDto('twigCsFixer', ['twigcs'], 'Twig coding standards (when twig/twig is installed)', $codingStandards, false, banner: 'Running Twig CS Fixer'),
+                new ToolDefinitionDto('markdownFormat', ['mdf', 'markdownFormat'], "markdown in the hooks daemon's format, by the daemon's own formatter (when the daemon is installed)", $codingStandards, false, banner: 'Formatting Markdown With The Hooks Daemon'),
                 new ToolDefinitionDto('psr4Validate', ['psr', 'psr4'], 'psr4 validation', $linting, false, banner: 'Validating PSR-4 Roots'),
                 new ToolDefinitionDto('composerChecks', ['com', 'composer'], 'composer validation', $linting, false, banner: 'Checking for Composer Issues'),
                 new ToolDefinitionDto('packageType', ['pt', 'packagetype', 'packageType'], 'assert composer.json declares an explicit package type (library/project/...)', $linting, false, banner: 'Checking Package Type Is Declared'),

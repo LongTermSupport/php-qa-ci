@@ -10,7 +10,7 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00018: markdown formatter matching hooks daemon](00018-markdown-formatter-matching-hooks-daemon/PLAN.md) - Not Started — php-qa-ci's own markdown formatter, byte-identical to the hooks daemon's mdformat transform, so generated and hand-written markdown is never reformatted back and forth; every generator routes through it and a lane applies it. Engine is an Owner decision (PHP port, pinned mdformat, or delegate to the daemon)
+- [00018: markdown formatter matching hooks daemon](00018-markdown-formatter-matching-hooks-daemon/PLAN.md) - In Progress — a `markdownFormat` lane that runs the hooks daemon's own formatter, so markdown written by a generator, a script or a merge is already in the daemon's form and the two never take turns rewriting it (Decision 1: delegate to the daemon); PR #51
 
 - [00017: fix every deferred defect and retire the record](00017-fix-every-deferred-defect-and-retire-the-record/PLAN.md) - In Progress — the Owner's ruling that this repository fixes rather than baselines: every deferred defect, the `ignoreErrors` entry and the declared `known-gaps` fixed, the defect record removed, the hooks daemon at v3.68.0, and `php8.4` taking bug fixes again with issues stating their release line
 

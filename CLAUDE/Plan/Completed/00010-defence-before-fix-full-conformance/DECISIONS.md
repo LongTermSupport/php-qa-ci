@@ -81,4 +81,3 @@ consumer), so both stay, and [docs/tools/markdownLinks.md](../../../../docs/tool
 says why. The identifier stays: it is published, and a consumer may already carry it in
 `ignoreErrors`, so a rename is a breaking change with no defect behind it. Both taken by the
 Owner's instruction to resolve the open blockers. **Date**: 2026-09-12
-

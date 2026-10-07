@@ -89,6 +89,7 @@ dir) prints its page offline.
 - `phpqaci.rector` — Rector (`docs/tools/rector.md`)
 - `phpqaci.phpCsFixer` — PHP-CS-Fixer (`docs/tools/phpCsFixer.md`)
 - `phpqaci.twigCsFixer` — Twig coding standards (when twig/twig is installed) (`docs/tools/twigCsFixer.md`)
+- `phpqaci.markdownFormat` — markdown in the hooks daemon's format, by the daemon's own formatter (when the daemon is installed) (`docs/tools/markdownFormat.md`)
 - `phpqaci.psr4Validate` — psr4 validation (`docs/tools/psr4Validate.md`)
 - `phpqaci.composerChecks` — composer validation (`docs/tools/composerChecks.md`)
 - `phpqaci.packageType` — assert composer.json declares an explicit package type (library/project/...) (`docs/tools/packageType.md`)
@@ -267,8 +268,8 @@ The pipeline runs tools in 4 distinct phases, each lane being a class under `src
 
 1. **Rector** (`rector`) - Automated refactoring and code upgrades
 2. **PHP CS Fixer** (`phpCsFixer`) - Code style fixing
-
-On a Symfony project the platform lane **Twig CS Fixer** (`twigCsFixer`) is appended to this phase; it is not `-t` selectable.
+3. **Twig CS Fixer** (`twigCsFixer`) - Twig coding standards; skips unless `twig/twig` is installed
+4. **Markdown Format** (`markdownFormat`) - Markdown in the hooks daemon's format, by the daemon's own formatter; skips without the daemon (see [docs/tools/markdownFormat.md](docs/tools/markdownFormat.md))
 
 ### Phase 2: Linting Tools (validation only)
 
@@ -962,6 +963,15 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 - **Updating**: `bin/shellcheck-install update` (which `scripts/tool-install.bash update` calls, and so `composer update`) re-resolves it to the newest release — maintainer path, gated on phive being present, as the PHAR rebuild is gated on Box. Pure PHP: HTTP fetch plus `PharData`, nothing shelled out
 - **Alias**: `vendor/bin/qa -t sc`
 - **Details**: [docs/tools/shellCheck.md](docs/tools/shellCheck.md)
+
+### Markdown Format
+
+- **Purpose**: Keep the project's markdown in the form the hooks daemon rewrites it to (mdformat with GFM, after every `Write`/`Edit` and over `CLAUDE.md` on every restart), so a generator, a script or a merge and the daemon never take turns rewriting a file
+- **Lane**: [src/Pipeline/Lane/MarkdownFormatTool.php](src/Pipeline/Lane/MarkdownFormatTool.php); the daemon is found by [src/HooksDaemon/HooksDaemonCliLocator.php](src/HooksDaemon/HooksDaemonCliLocator.php) in the project or above it, up to the git work-tree root
+- **How it works**: runs the daemon's own `format-markdown` (`--check` in a read-only run) once per path in `withMarkdownFormatPaths()` (default `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/`, `CLAUDE/`). It formats nothing itself: only the daemon's code agrees with the daemon byte for byte. Skips without the daemon, which includes CI. Why delegate rather than port mdformat: [Plan 00018 Decision 1](CLAUDE/Plan/00018-markdown-formatter-matching-hooks-daemon/DECISIONS.md)
+- **Never list** vendored or fixture markdown (`remote-docs/`, `vendor-docs/`, `tests/assets/`): a directory is formatted recursively, and those files must stay byte for byte
+- **Alias**: `vendor/bin/qa -t mdf`
+- **Details**: [docs/tools/markdownFormat.md](docs/tools/markdownFormat.md)
 
 ### Twig CS Fixer, Twig Lint and Yaml Lint
 

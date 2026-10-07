@@ -48,6 +48,8 @@ final readonly class QaConfigDto
      *                                                     entry; never empty when $useChangelogCheck is on
      * @param array<string, string> $unanalysedPaths       project-relative path => the reason the PHP beneath
      *                                                     it is deliberately not analysed
+     * @param list<string>          $markdownFormatPaths   project-relative files and directories the
+     *                                                     markdownFormat lane formats; a directory is recursive
      */
     public function __construct(
         public ProjectPathsDto $paths,
@@ -81,6 +83,7 @@ final readonly class QaConfigDto
         public array $changelogWatchedPaths = [],
         public array $unanalysedPaths = [],
         public ReleaseVersionPolicy $releaseVersionPolicy = new ReleaseVersionPolicy(),
+        public array $markdownFormatPaths = [],
     ) {
     }
 }

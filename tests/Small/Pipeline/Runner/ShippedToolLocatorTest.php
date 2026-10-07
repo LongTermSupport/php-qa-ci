@@ -55,6 +55,8 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpcpdTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigCsFixerTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownFormatTool::class)]
+#[UsesClass(\LTS\PHPQA\HooksDaemon\HooksDaemonCliLocator::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
 #[UsesClass(UnknownToolException::class)]
