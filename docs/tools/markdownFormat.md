@@ -33,10 +33,13 @@ records the alternatives and why they lost.
 - **Without the daemon the lane skips**, and says so. That includes CI, where nothing rewrites
   markdown either, so there is nothing to agree with.
 - It formats the paths from `withMarkdownFormatPaths()` in `qaConfig/qa.php`. The default is
-  `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/` and `CLAUDE/`; a path that does not exist is
-  dropped, and a directory is formatted recursively. A project list replaces the default.
+  `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/` and `CLAUDE/`, and a directory is formatted
+  recursively. A project list replaces the default.
+- A listed path that does not exist, or that git ignores (`git check-ignore`), is skipped with a
+  `Not present, skipped:` or `Gitignored, skipped:` line, so a misspelt path is visible. When every
+  path is skipped, so is the lane.
 - The daemon refuses to rewrite a gitignored file, so ignored output under a listed directory is
-  left alone.
+  left alone too.
 - It does not support `-p`: the paths are configuration, like Twig's directories.
 
 ### Read-only versus writable
@@ -48,7 +51,8 @@ records the alternatives and why they lost.
 - **Writable run**: `format-markdown` rewrites the files in place and lists each one
   (`Reformatted: <file>`).
 
-Any other failure, an error from the daemon or a CLI without `format-markdown`, is a **crash**:
+Any other failure, an error from the daemon, a CLI without `format-markdown` or a
+`git check-ignore` that cannot run, is a **crash**:
 it is not a formatting finding, and the daemon's own message is printed.
 
 ## How to fix a failure

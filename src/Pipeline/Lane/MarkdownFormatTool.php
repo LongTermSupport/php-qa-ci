@@ -60,14 +60,36 @@ final readonly class MarkdownFormatTool implements ToolInterface
             return ToolResultDto::skipped('the hooks daemon is not installed, and its formatter is the one this lane runs');
         }
 
-        $paths = array_values(array_filter(
-            $context->config->markdownFormatPaths,
-            static fn (string $path): bool => file_exists($root . '/' . $path),
-        ));
-        if ([] === $paths) {
-            $context->writeln('None of the markdown paths exists: ' . implode(', ', $context->config->markdownFormatPaths));
+        $paths = [];
+        foreach ($context->config->markdownFormatPaths as $path) {
+            if (file_exists($root . '/' . $path)) {
+                $paths[] = $path;
 
-            return ToolResultDto::skipped('none of the markdown paths exists');
+                continue;
+            }
+
+            $context->writeln('Not present, skipped: ' . $path);
+        }
+
+        if ([] !== $paths) {
+            $probe = $this->gitIgnored($context, ...$paths);
+            if (!\in_array($probe->exitCode, [0, 1], true)) {
+                $context->writeln(rtrim($probe->output));
+                $context->writeIdentifier(self::IDENTIFIER);
+
+                return ToolResultDto::crashed(\sprintf('git check-ignore could not run (exit %d)', $probe->exitCode));
+            }
+
+            $ignored = array_map(trim(...), explode("\n", $probe->stdout));
+            foreach (array_intersect($paths, $ignored) as $path) {
+                $context->writeln('Gitignored, skipped: ' . $path);
+            }
+
+            $paths = array_values(array_diff($paths, $ignored));
+        }
+
+        if ([] === $paths) {
+            return ToolResultDto::skipped('no markdown path to format: each is absent or gitignored');
         }
 
         $readOnly = $context->config->readOnly;
@@ -100,6 +122,20 @@ final readonly class MarkdownFormatTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed('markdown the hooks daemon would reformat, in a read-only run');
+    }
+
+    /**
+     * The daemon refuses a gitignored path it is handed by name, so ignored
+     * paths are found first and dropped. Exit 0 lists the ignored ones, exit 1
+     * means none is; anything else is git failing to answer.
+     */
+    private function gitIgnored(ToolContext $context, string ...$paths): ProcessResultDto
+    {
+        return $context->processes->run(new ProcessSpecDto(
+            ['git', 'check-ignore', '--', ...array_values($paths)],
+            $context->config->paths->projectRoot,
+            streamOutput: false,
+        ));
     }
 
     private function format(ToolContext $context, string $cli, string $path, bool $readOnly): ProcessResultDto
