@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\PhpArkitect;
 
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment;
 use LTS\PHPQA\Tests\Support\TempDir;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ArkitectEnvironment::class)]
 #[UsesClass(ConfigPathResolver::class)]
+#[UsesClass(IgnoredPaths::class)]
 #[Small]
 final class ArkitectEnvironmentTest extends TestCase
 {
@@ -46,7 +48,9 @@ final class ArkitectEnvironmentTest extends TestCase
         $override = $this->project->write('qaConfig/phparkitect-rules-default.php', "<?php\n");
         $defaults = \dirname(__DIR__, 5) . '/configDefaults';
 
-        $env = new ArkitectEnvironment()->variables($this->resolver($defaults), self::SRC_DIR, 'Quote/API', 'Generated/Client');
+        $ignored  = new IgnoredPaths('/project', 'src/Legacy', './tests/assets/');
+
+        $env = new ArkitectEnvironment()->variables($this->resolver($defaults), self::SRC_DIR, $ignored, 'Quote/API', 'Generated/Client');
 
         self::assertSame(
             [
@@ -55,6 +59,8 @@ final class ArkitectEnvironmentTest extends TestCase
                 'PHPQACI_ARKITECT_RULES_OPTIONAL'         => $defaults . '/generic/phparkitect-rules-optional.php',
                 'PHPQACI_ARKITECT_RULES_OPTIONAL_SYMFONY' => $defaults . '/generic/phparkitect-rules-optional-symfony.php',
                 'PHPQACI_ARKITECT_CONSUMER_API_BOUNDARY'  => $defaults . '/generic/phparkitect-consumer-api-boundary.php',
+                ArkitectEnvironment::CLASS_SET            => $defaults . '/generic/phparkitect-class-set.php',
+                'PHPQACI_ARKITECT_IGNORED_PATHS'          => "/project/src/Legacy\n/project/tests/assets",
                 'PHPQACI_ARKITECT_EXCLUDE_PATHS'          => "Quote/API\nGenerated/Client",
             ],
             $env,
@@ -62,11 +68,12 @@ final class ArkitectEnvironmentTest extends TestCase
     }
 
     #[Test]
-    public function noExcludePathsExportsAnEmptyValue(): void
+    public function noExcludeOrIgnoredPathsExportEmptyValues(): void
     {
-        $env = new ArkitectEnvironment()->variables($this->resolver(\dirname(__DIR__, 5) . '/configDefaults'), self::SRC_DIR);
+        $env = new ArkitectEnvironment()->variables($this->resolver(\dirname(__DIR__, 5) . '/configDefaults'), self::SRC_DIR, new IgnoredPaths('/project'));
 
         self::assertSame('', $env['PHPQACI_ARKITECT_EXCLUDE_PATHS']);
+        self::assertSame('', $env['PHPQACI_ARKITECT_IGNORED_PATHS']);
     }
 
     private function resolver(string $defaults): ConfigPathResolver

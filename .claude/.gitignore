@@ -1,2 +1,3 @@
 # Claude Code Hooks Daemon - runtime files
 hooks-daemon/untracked/
+/hooks-daemon-backups/

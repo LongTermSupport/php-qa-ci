@@ -62,12 +62,14 @@ final class AnalysedPathsToolTest extends TestCase
 
     private const string PHP = "<?php\n\ndeclare(strict_types=1);\n";
 
+    private const string ROOT_SCRIPT = 'rector.php';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        foreach ([self::SRC_FILE, self::TEST_FILE, self::SERVICES, 'vendor/acme/lib/A.php', 'rector.php'] as $file) {
+        foreach ([self::SRC_FILE, self::TEST_FILE, self::SERVICES, 'vendor/acme/lib/A.php', self::ROOT_SCRIPT] as $file) {
             $this->factory->project->write($file, self::PHP);
         }
 
@@ -109,7 +111,7 @@ final class AnalysedPathsToolTest extends TestCase
     #[Test]
     public function aRootLevelFileIsNamedByItself(): void
     {
-        $this->tracked(self::SRC_FILE, 'rector.php');
+        $this->tracked(self::SRC_FILE, self::ROOT_SCRIPT);
 
         $result = new AnalysedPathsTool()->run($this->factory->context());
 
@@ -175,6 +177,42 @@ final class AnalysedPathsToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString('migrations', $printed);
         self::assertStringContainsString('no PHP file', $printed);
+    }
+
+    #[Test]
+    public function anIgnoredPathThatMatchesNothingFailsAsStale(): void
+    {
+        $this->tracked(self::SRC_FILE);
+        $this->factory->project->write('tests/assets/fixture.twig', '');
+        $config = $this->factory->builder()->withIgnoredPaths('src/Removed', 'tests/assets')->build();
+
+        $result  = new AnalysedPathsTool()->run($this->factory->context($config));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString("withIgnoredPaths('src/Removed') names a path where nothing exists", $printed);
+        self::assertStringNotContainsString("withIgnoredPaths('tests/assets')", $printed);
+        self::assertStringContainsString(AnalysedPathsTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function anIgnoredPathHoldingNoPhpIsNotStale(): void
+    {
+        $this->tracked(self::SRC_FILE);
+        $this->factory->project->write('tests/assets/fixture.twig', '');
+        $config = $this->factory->builder()->withIgnoredPaths('./tests/assets/')->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, new AnalysedPathsTool()->run($this->factory->context($config))->outcome);
+    }
+
+    #[Test]
+    public function anIgnoredFileThatExistsIsNotStale(): void
+    {
+        $this->tracked(self::SRC_FILE, self::ROOT_SCRIPT);
+        $this->factory->project->write(self::ROOT_SCRIPT, "<?php\n");
+        $config = $this->factory->builder()->withIgnoredPaths(self::ROOT_SCRIPT)->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, new AnalysedPathsTool()->run($this->factory->context($config))->outcome);
     }
 
     #[Test]

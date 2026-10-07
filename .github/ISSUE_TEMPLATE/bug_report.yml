@@ -1,0 +1,33 @@
+name: Bug report
+description: Something php-qa-ci does wrong
+labels: [bug]
+body:
+  - type: dropdown
+    id: release-line
+    attributes:
+      label: Release line
+      description: "The branch your project installs php-qa-ci from. php8.4 takes a fix when a project running php8.4 reports the bug; php8.3 is unmaintained."
+      options: [php8.5, php8.4]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "From composer show lts/php-qa-ci: a tag such as 85.2.0, or the commit of a dev branch."
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: "The command you ran, its output, and what you expected instead. An identifier the output printed (phpqaci.something) names the rule or lane."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: "The smallest file or configuration that shows it, if you have one."
+    validations:
+      required: false

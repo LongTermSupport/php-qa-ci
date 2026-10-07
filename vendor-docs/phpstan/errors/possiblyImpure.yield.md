@@ -1,0 +1,68 @@
+---
+title: "possiblyImpure.yield"
+shortDescription: "Pure function or method uses yield, which is a stateful operation."
+ignorable: true
+feasible: false
+---
+
+## Code example
+
+```php
+<?php declare(strict_types = 1);
+
+/**
+ * @phpstan-pure
+ * @return \Generator<int, string, void, void>
+ */
+function generateItems(): \Generator
+{
+	yield 'a'; // ERROR: Possibly impure yield in pure function generateItems().
+	yield 'b';
+}
+```
+
+## Why is it reported?
+
+This identifier is not reported in practice because `yield` is always considered definitely impure, not just possibly impure. PHPStan reports [`impure.yield`](/error-identifiers/impure.yield) instead.
+
+A function or method marked as `@phpstan-pure` must not have side effects and must always return the same result for the same inputs. Using `yield` inside a pure function is considered impure because generators maintain internal state across multiple calls. Each time the generator is resumed, it can produce different values and interact with the caller through the `send()` method, making the behavior inherently stateful and impure.
+
+## How to fix it
+
+Remove the `@phpstan-pure` annotation if the function needs to use `yield`:
+
+```diff-php
+ <?php declare(strict_types = 1);
+
+-/**
+- * @phpstan-pure
+- * @return \Generator<int, string, void, void>
+- */
++/**
++ * @return \Generator<int, string, void, void>
++ */
+ function generateItems(): \Generator
+ {
+ 	yield 'a';
+ 	yield 'b';
+ }
+```
+
+Alternatively, if the function should remain pure, return an array instead of using a generator:
+
+```diff-php
+ <?php declare(strict_types = 1);
+
+ /**
+  * @phpstan-pure
+- * @return \Generator<int, string, void, void>
++ * @return list<string>
+  */
+-function generateItems(): \Generator
++function generateItems(): array
+ {
+-	yield 'a';
+-	yield 'b';
++	return ['a', 'b'];
+ }
+```

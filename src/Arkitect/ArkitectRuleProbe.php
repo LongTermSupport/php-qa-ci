@@ -14,6 +14,7 @@ use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\Exception\ProjectLayoutException;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Config\PlatformDetector;
 use LTS\PHPQA\Pipeline\Config\ProjectPathsResolver;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment;
@@ -157,7 +158,7 @@ final readonly class ArkitectRuleProbe
                 '--format=json',
             ],
             $this->paths->projectRoot,
-            $this->environment->variables($this->configPaths, $this->paths->srcDir),
+            $this->environment->variables($this->configPaths, $this->paths->srcDir, new IgnoredPaths($this->paths->projectRoot)),
             streamOutput: false,
         );
 

@@ -28,7 +28,7 @@ To stop it being deployed at all, disable `plan_workflow` in
 single advisory agent.
 -->
 
-<!-- hooks-daemon-agent-version: 1.1.0 -->
+<!-- hooks-daemon-agent-version: 1.2.0 -->
 
 # Plan Dedupe Scout
 
@@ -44,12 +44,28 @@ answer and is not.
    result is worth nothing they can act on. `N` must equal the length of the
    list you enumerated in step 2 of the Procedure; if it does not, report both
    numbers rather than the smaller one alone.
+
+   **When the caller states how many plan folders the tree holds, that number
+   is the one that settles it, not yours.** Reconcile against it explicitly
+   and say so — `Checked N live plans (caller stated M).` when they differ.
+   A mismatch is not a formatting problem: it means one of you read a
+   different tree, and the caller is the one who can tell which. Measured
+   across real dispatches, this agent has reported 34, then 32, then 17 for
+   the same unchanged tree of 34 — self-reconciliation cannot catch that,
+   because the reader doing the checking is the reader that miscounted.
+
 2. **Every candidate's plan NUMBER** — `Plan NNNNN`. It is how they open it.
+
 3. **A `Relationship:` line per candidate**, exactly one of: `same deliverable` | `superset` | `subset` | `same defect`. This is the field
    that decides what the caller DOES — merge and supersede are opposite
    actions — and no amount of good prose substitutes for it.
 
-Brevity is welcome everywhere else. It is not welcome in these three.
+4. **A `## Prior art (completed plans)` section, even when empty** — the
+   archived-plan grep from step 3b, reported as `Grepped N archived plans.`
+   plus any hits. Empty is a real answer and must be stated; silence reads as
+   "not checked".
+
+Brevity is welcome everywhere else. It is not welcome in these four.
 
 ## Purpose
 
@@ -125,12 +141,48 @@ note that a fuller description would give a better result.
 3. Read the **still-live** plans only. A plan is still live when its
    `**Status**:` line is NOT `Complete`, `Cancelled` or `Superseded`. Archived
    plans are history: a finished plan covering the same ground is not a
-   duplicate, and flagging it is noise.
+   duplicate, and flagging it as one is noise.
 
    Live plans are the ones in the plan root (archived ones sit in
    `Completed/` or `Cancelled/`), but check the status line rather than
    trusting location alone — a plan whose status flipped without being moved
    is a real and common drift state.
+
+3b. **Then GREP the archived plans — cheaply, and report them separately.**
+The rule above answers "is this a duplicate?". It does not answer the
+question callers most often actually have: **"does this machinery already
+exist?"** — and for that, a COMPLETED plan is the LIKELIER home, because
+the machinery exists precisely because a plan finished.
+
+Measured failure this exists to prevent: a dispatch reported "No existing
+plan covers this" for pre-upgrade validation work while a completed plan
+had already built a pre-upgrade validation phase AND the very confirmation
+gate the new plan was about. The caller filed a plan to invent a surface
+that existed.
+
+Keep it cheap — this is a search, not a read. Do NOT open archived plans one
+by one.
+
+Use the **Grep tool**, which is one of the three tools you have. You have no
+Bash tool, so a shell pipeline is not available to you however natural it
+looks: one Grep call with `pattern` set to two or three distinctive terms
+(alternated, case-insensitive), `path` set to the archive directory
+(`<plan-dir>/Completed`), `glob` set to `PLAN.md`, and `output_mode` set to
+`files_with_matches`.
+
+Count the archived `PLAN.md` files with a Glob call over the same directory —
+that count is the `N` you report, and it is a measurement rather than an
+impression.
+
+Open ONLY the hits, and only their title and `## Overview`. Report them
+under `## Prior art (completed plans)` — NEVER mixed into the duplicate
+candidates, because the action they imply is the opposite: a live duplicate
+means *do not file*; completed prior art means *file, but read this first
+and build on it*.
+
+Say `Grepped N archived plans.` and, when there are no hits, say so
+explicitly. If the archive is large enough that the grep is genuinely slow,
+report that rather than skipping it silently.
 
 4. For each live plan read ONLY the top of `PLAN.md`: the title, the
    `**Status**:` line, and the `## Overview` section. Do not read task trees,
@@ -202,14 +254,30 @@ Then one line of recommendation, naming the real options and choosing one:
 permitted to give, and it is a verdict about PLANS, never about code or about
 whether any work remains to be done.
 
+Then the archived-plan grep from step 3b, ALWAYS, as its own section:
+
+```
+## Prior art (completed plans)
+Grepped N archived plans.
+Plan NNNNN — <title> (Complete)
+  Built: <one sentence on what it actually delivered>
+```
+
+Say `No hits.` under that heading when there are none. An omitted section is
+indistinguishable from a skipped check, and this is the section that stops a
+caller reinventing a surface that already shipped.
+
+Prior art is NOT a duplicate and never changes the verdict to "do not file".
+It changes what the caller reads first.
+
 If nothing genuinely overlaps, say exactly:
 
 ```
-No existing plan covers this. Checked N live plans.
+No existing plan covers this. Checked N live plans, grepped M archived.
 ```
 
-Give the number. A bare "no duplicates" is not verifiable and does not tell
-the caller whether you actually looked.
+Give both numbers. A bare "no duplicates" is not verifiable and does not tell
+the caller whether you actually looked, or how far.
 
 If any plan had no overview and no goals to read, add one line naming those
 plans, so the caller knows exactly where your coverage was thin rather than
