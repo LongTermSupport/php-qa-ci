@@ -97,25 +97,25 @@ gh api graphql -f query='{ repository(owner:"LongTermSupport", name:"php-qa-ci")
   pullRequest(number: <pr>) { baseRef { refUpdateRule { requiredApprovingReviewCount requiredStatusCheckContexts } } } } }'
 ```
 
-`requiredApprovingReviewCount` is the number of approvals the base branch's update rule demands.
-While it is above 0, an agent cannot merge its own pull request. It is not proof of the opposite:
-whether it also counts the ruleset option below is not established, so the direct signals for a
-given pull request are its `reviewDecision` and `mergeStateStatus` (`gh pr view <pr> --json reviewDecision,mergeStateStatus,comments`), which read `REVIEW_REQUIRED` and `BLOCKED` while an
-approval is still owed.
+`requiredApprovingReviewCount` is the number of approvals the base branch's update rule demands;
+while it is above 0, an agent cannot merge its own pull request. The direct signals for a given
+pull request are its `reviewDecision` and `mergeStateStatus` (`gh pr view <pr> --json reviewDecision,mergeStateStatus,comments`): `REVIEW_REQUIRED` and `BLOCKED` mean an approval is
+still owed, `BEHIND` means the head must first take in the base (a push, so a new verdict).
 
-- **Both `php8.5` and `php8.4` carry classic branch protection** (`gh api repos/LongTermSupport/php-qa-ci/branches/<branch>` shows `protected: true` and the required
-  checks, enforced for non-admins). Its review settings are visible only to an admin.
-- **`php8.5` also has the `protect` ruleset.** It requires no approving review, but its option
-  **"Require extra approval for unattributed changes"**
-  (`require_extra_approval_for_unattributed_changes`) is on. GitHub documents it, as a public
-  preview, for unattributed Copilot pull requests; whether it, the branch protection or both
-  produce `php8.5`'s required approval cannot be told apart from the agent account. GitHub
-  enabled the option on existing rulesets when it introduced it, and turns it on whenever a
-  ruleset is saved without it, so a later ruleset edit can switch it back on.
-- **`php8.4` has no ruleset**, so its required approval comes from its branch protection (or an
-  organisation ruleset, which needs `admin:org` to read).
+The settings, chosen by the Owner
+([Plan 00019](Plan/00019-agent-pr-merge-gate/PLAN.md), Option A):
+
+- **Classic branch protection on `php8.5` and `php8.4` requires zero approving reviews** and keeps
+  its required status checks, which is what makes this verification the review step. Its settings
+  are visible only to an admin.
+- **`php8.5` also has the `protect` ruleset**, which requires no approving review. Its option
+  "Require extra approval for unattributed changes"
+  (`require_extra_approval_for_unattributed_changes`) applies only to pull requests Copilot opens
+  under its own app identity, and adds nothing at zero required approvals. It is unrelated to commit
+  signing and to `Co-Authored-By` trailers
+  ([research](Plan/00019-agent-pr-merge-gate/research-github-unattributed-changes.md)).
+- **`php8.4` has no ruleset.**
 
 Changing any of these needs repository or organisation admin rights: they are the Owner's
-settings, and after a change a pull request's `reviewDecision` shows whether it took effect. While a
-merge is blocked by one, this verification step still runs, and the pull request waits on the
-Owner rather than on the verdict.
+settings. If a pull request reads `REVIEW_REQUIRED` again, an approval rule has come back; the
+verification still runs, and the merge waits on the Owner rather than on the verdict.
