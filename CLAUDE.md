@@ -8,7 +8,8 @@ and context MUST be tracked in-repo, clean of secrets: durable operational
 knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
 — the mandatory pre-push battery; pushing `php8.5` deploys to production — and
 [CLAUDE/qa-orchestration.md](CLAUDE/qa-orchestration.md) — the run → fix → run cycle the
-`qa` skill follows),
+`qa` skill follows — and [CLAUDE/pr-verification.md](CLAUDE/pr-verification.md) — the
+separate sub-agent that must verify a pull request before an agent merges it unreviewed),
 programme/work records in `CLAUDE/Plan/`.
 
 ## Defence Before Fix is what this package is for (binding)
