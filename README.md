@@ -388,7 +388,7 @@ PHP-QA-CI includes three GitHub Actions workflows in `.github/workflows/`:
 
 - **`ci.yml`** -- Runs on push/PR to `php8.5`, executes `bash ci.bash`
 - **`qa.yml`** -- Template workflow for consuming projects (copy to your project)
-- **`update-deps.yml`** -- Daily scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, the Rector PHAR), runs the full QA pipeline with the fixers applying any new rules, and opens a PR for the owner to merge if green
+- **`update-deps.yml`** -- Daily scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, the Rector PHAR), runs the full QA pipeline with the fixers applying any new rules, and opens a PR if green; that PR is merged after an independent review, never automatically (see [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md))
 
 Two consuming-project templates live in `templates/github-actions/`:
 
