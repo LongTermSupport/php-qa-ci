@@ -61,11 +61,6 @@ final readonly class TurboPlatform
         return new self(\PHP_OS_FAMILY, php_uname('m'), $libc, \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, 1 === \PHP_ZTS);
     }
 
-    public function isSupported(): bool
-    {
-        return null !== $this->directory();
-    }
-
     /** The release asset built for this host, e.g. `php_phpstan_turbo-2.3.0_php8.5-x86_64-linux-glibc.zip`. */
     public function assetName(string $phpstanVersion): ?string
     {

@@ -62,6 +62,8 @@ use RuntimeException;
 #[UsesClass(ToolRegistry::class)]
 #[UsesClass(NonInteractiveRetryPrompt::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(\LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
 #[Small]
 final class PipelineTest extends TestCase
 {

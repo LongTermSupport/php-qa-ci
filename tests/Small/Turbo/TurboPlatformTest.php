@@ -41,7 +41,6 @@ final class TurboPlatformTest extends TestCase
     #[DataProvider('supportedHosts')]
     public function aSupportedHostNamesItsAssetAndWherePhpstanLooks(TurboPlatform $platform, string $asset, string $directory, string $binary): void
     {
-        self::assertTrue($platform->isSupported());
         self::assertSame($asset, $platform->assetName(self::VERSION));
         self::assertSame($directory . '/' . $binary, $platform->binaryPath());
     }
@@ -91,7 +90,6 @@ final class TurboPlatformTest extends TestCase
     #[DataProvider('unsupportedHosts')]
     public function anUnsupportedHostHasNoAssetAndNoPath(TurboPlatform $platform): void
     {
-        self::assertFalse($platform->isSupported());
         self::assertNull($platform->assetName(self::VERSION));
         self::assertNull($platform->binaryPath());
     }
