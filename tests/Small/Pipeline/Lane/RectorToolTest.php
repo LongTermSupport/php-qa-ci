@@ -115,6 +115,19 @@ final class RectorToolTest extends TestCase
         self::assertStringContainsString('Running PHPUnit Rector on ' . $testFile, $this->factory->output->fetch());
     }
 
+    /** `./` and `..` segments name the same file, so they must not move it outside the tests directory. */
+    #[Test]
+    public function aPathWithDotSegmentsInsideTheTestsDirectoryIsStillThePhpunitPassesPath(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: './src/../tests/Unit/OneTest.php')->build());
+
+        new RectorTool()->run($context);
+
+        $testFile = $context->config->paths->testsDir . '/Unit/OneTest.php';
+        self::assertSame($this->expectedArgs($context, self::PHPUNIT_CONFIG, true, $testFile), $this->toolArgs(1));
+    }
+
     #[Test]
     public function aPathContainingTheTestsDirectoryGivesThePhpunitPassTheWholeTestsDirectory(): void
     {
