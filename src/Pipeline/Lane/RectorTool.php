@@ -12,7 +12,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 /**
  * Rector: automated refactoring in up to four passes, in order: the Safe
  * function conversion over the checked paths, the PHPUnit upgrade over the
- * tests directory, then either every project rector.php (root or qaConfig/)
+ * tests directory (on a `-p` run, only the checked paths inside it, and not at
+ * all when there are none), then either every project rector.php (root or qaConfig/)
  * or, when the project has none, the shipped PHP 8.5 config. Rector mutates
  * code; a read-only run passes --dry-run and a pending change fails the lane
  * with remediation guidance, while a writable run applies it. The first
@@ -58,10 +59,17 @@ final readonly class RectorTool implements ToolInterface
             return $result;
         }
 
-        $context->writeln('Running PHPUnit Rector on ' . $paths->testsDir);
-        $result = $this->pass($context, $phar, 'PHPUnit', $context->configPath('rector-phpunit.php'), $paths->testsDir);
-        if (!$result->isSuccess()) {
-            return $result;
+        $testPaths = null === $context->config->specifiedPath
+            ? [$paths->testsDir]
+            : $this->pathsInsideTestsDir($paths->testsDir, ...$checked);
+        if ([] === $testPaths) {
+            $context->writeln('Skipping PHPUnit Rector: no checked path is inside ' . $paths->testsDir);
+        } else {
+            $context->writeln('Running PHPUnit Rector on ' . implode(' ', $testPaths));
+            $result = $this->pass($context, $phar, 'PHPUnit', $context->configPath('rector-phpunit.php'), ...$testPaths);
+            if (!$result->isSuccess()) {
+                return $result;
+            }
         }
 
         $projectRectorFound = false;
@@ -92,6 +100,51 @@ final readonly class RectorTool implements ToolInterface
         }
 
         return ToolResultDto::passed();
+    }
+
+    /**
+     * The part of a `-p` run the PHPUnit set applies to: each checked path inside the tests
+     * directory, or the whole tests directory for a checked path that contains it.
+     *
+     * @return list<string>
+     */
+    private function pathsInsideTestsDir(string $testsDir, string ...$checked): array
+    {
+        $inside = [];
+        foreach ($checked as $path) {
+            $path = $this->normalised($path);
+            if ($path === $testsDir || str_starts_with($path, $testsDir . '/')) {
+                $inside[] = $path;
+            } elseif (str_starts_with($testsDir, $path . '/')) {
+                $inside[] = $testsDir;
+            }
+        }
+
+        return array_values(array_unique($inside));
+    }
+
+    /**
+     * A checked path with `.`, `..` and repeated or trailing slashes resolved lexically, so `-p .`,
+     * `-p tests/` and `-p ./tests/Foo` compare as the directories they name.
+     */
+    private function normalised(string $path): string
+    {
+        $segments = [];
+        foreach (explode('/', $path) as $segment) {
+            if ('' === $segment || '.' === $segment) {
+                continue;
+            }
+
+            if ('..' === $segment && [] !== $segments && '..' !== end($segments)) {
+                array_pop($segments);
+
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        return (str_starts_with($path, '/') ? '/' : '') . implode('/', $segments);
     }
 
     /** One Rector config over one or more paths, honouring read-only mode. */

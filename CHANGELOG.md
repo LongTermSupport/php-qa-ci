@@ -33,6 +33,12 @@ the release and its tag. The full rules are in
   now its default. The setting is kept and changes nothing. A new test checks every option the
   Infection lane can emit against the shipped `infection.phar`'s own `--help`, so a tool update
   that drops an option fails the build.
+- **`qa -t rector -p <path>` no longer runs the PHPUnit Rector set over the whole tests directory**
+  ([#76](https://github.com/LongTermSupport/php-qa-ci/issues/76)). The Safe, project and PHP 8.5
+  passes were narrowed to the given path, but the PHPUnit pass always got all of `tests/`, so a
+  one-file run took about as long as a whole-tree run. On a `-p` run it now gets only the checked
+  paths inside the tests directory, the whole directory for a path that contains it (`-p .`), and
+  is skipped when there are none. A run without `-p` is unchanged.
 
 ## 85.5.0 — 2026-10-08
 
