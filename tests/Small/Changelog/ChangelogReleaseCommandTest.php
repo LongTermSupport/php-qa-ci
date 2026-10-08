@@ -102,6 +102,10 @@ final class ChangelogReleaseCommandTest extends TestCase
 
     private const string PHPSTAN_PIN = '<phar name="phpstan" installed="2.2.16"/>';
 
+    private const string PHIVE = 'phive.xml';
+
+    private const string RECTOR_MANIFEST = '{"require": {"rector/rector": "@stable"}}';
+
     private const string EXTRA = 'extra';
 
     private const string BREAKING = "# Changelog\n\n## Unreleased\n\n### Changed — breaking\n\n- A new requirement.\n\n### Fixed\n\n- A fix.\n";
@@ -326,26 +330,44 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
     public function addToolUpdatesRecordsEveryPinnedVersionThatMovedSinceHead(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
-        $this->project->write('phive.xml', self::PHPSTAN_PIN);
-        $this->project->write('build/rector/composer.json', '{"require": {"rector/rector": "@stable"}}');
+        $this->project->write(self::PHIVE, self::PHPSTAN_PIN);
+        $this->project->write('build/rector/composer.json', self::RECTOR_MANIFEST);
         $this->project->write('build/rector/composer.lock', '{"packages": [{"name": "rector/rector", "version": "2.6.6"}]}');
         $this->processes
             ->willSucceed()->willSucceed('<phar name="phpstan" installed="2.2.15"/>')
             ->willFail(128)
-            ->willSucceed()->willSucceed('{"require": {"rector/rector": "@stable"}}')
+            ->willSucceed()->willSucceed(self::RECTOR_MANIFEST)
             ->willSucceed()->willSucceed('{"packages": [{"name": "rector/rector", "version": "2.6.6"}]}')
         ;
 
         self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
-        self::assertStringContainsString("## Unreleased\n\n### Changed\n\n- **Bundled tool versions updated** by the weekly dependency update: phpstan 2.2.15 → 2.2.16.\n\n## 85.0.0", $this->project->read(ChangelogCheck::CHANGELOG));
+        self::assertStringContainsString("## Unreleased\n\n### Changed\n\n- **Bundled tool versions updated** by the dependency update: phpstan 2.2.15 → 2.2.16.\n\n## 85.0.0", $this->project->read(ChangelogCheck::CHANGELOG));
         self::assertSame('git cat-file -e HEAD:build/rector/composer.lock', $this->processes->commandLines()[5]);
+    }
+
+    #[Test]
+    public function addToolUpdatesRecordsADependencyThatMovedInsideASelfBuiltPhar(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
+        $this->project->write(self::PHIVE, self::PHPSTAN_PIN);
+        $this->project->write('build/rector/composer.json', self::RECTOR_MANIFEST);
+        $this->project->write('build/rector/composer.lock', '{"packages": [{"name": "rector/rector", "version": "2.6.7"}, {"name": "nikic/php-parser", "version": "v5.7.0"}]}');
+        $this->processes
+            ->willSucceed()->willSucceed(self::PHPSTAN_PIN)
+            ->willFail(128)
+            ->willSucceed()->willSucceed(self::RECTOR_MANIFEST)
+            ->willSucceed()->willSucceed('{"packages": [{"name": "rector/rector", "version": "2.6.7"}, {"name": "nikic/php-parser", "version": "v5.6.0"}]}')
+        ;
+
+        self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
+        self::assertStringContainsString("### Changed\n\n- **Bundled tool versions updated** by the dependency update: nikic/php-parser (in rector.phar) v5.6.0 → v5.7.0.\n", $this->project->read(ChangelogCheck::CHANGELOG));
     }
 
     #[Test]
     public function addToolUpdatesAddsNothingWhenNoVersionMoved(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
-        $this->project->write('phive.xml', self::PHPSTAN_PIN);
+        $this->project->write(self::PHIVE, self::PHPSTAN_PIN);
         $this->processes->willSucceed()->willSucceed(self::PHPSTAN_PIN)->willFail(128);
 
         self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));

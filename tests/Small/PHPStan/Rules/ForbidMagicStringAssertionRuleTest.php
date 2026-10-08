@@ -14,6 +14,7 @@ use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Type\Constant\ConstantStringType;
@@ -204,7 +205,7 @@ final class ForbidMagicStringAssertionRuleTest extends TestCase
         return new StaticCall(new Name('self'), new Identifier($method), [new Arg($arg0), new Arg($arg1)]);
     }
 
-    private function scopeReturning(Type $type): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scopeReturning(Type $type): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         // PHPStan's Rule::processNode() widens the $scope parameter to the
         // intersection the analyser actually passes; the double must satisfy all

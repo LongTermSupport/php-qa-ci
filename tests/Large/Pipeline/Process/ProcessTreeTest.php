@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Large\Pipeline\Process;
 
 use InvalidArgumentException;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,8 +24,12 @@ final class ProcessTreeTest extends TestCase
 {
     private ?Process $parent = null;
 
+    private ?TempDir $tempDir = null;
+
     protected function tearDown(): void
     {
+        $this->tempDir?->remove();
+
         $pid = $this->parent?->getPid();
         if (null !== $pid) {
             foreach (new ProcessTree()->descendantsOf($pid) as $descendant) {
@@ -97,13 +102,23 @@ final class ProcessTreeTest extends TestCase
         self::assertFalse($tree->isAlive($finishedPid), 'exited and reaped');
     }
 
+    /**
+     * The child waits for a marker file, so its pid is read while it is still running:
+     * getPid() goes through proc_get_status(), which would reap a child that had already
+     * exited, and it never becomes a zombie (#54). Once the pid is in hand the marker
+     * releases it, and nothing calls into the Process until the assertions are done.
+     */
     #[Test]
     public function anExitedButUnreapedProcessIsNotAlive(): void
     {
-        $this->parent = new Process(['true']);
+        $this->tempDir = TempDir::create('process-tree');
+        $marker        = $this->tempDir->path . '/release';
+        $this->parent  = new Process(['sh', '-c', 'while [ ! -e "$1" ]; do sleep 0.01; done', 'sh', $marker]);
         $this->parent->start();
 
-        $pid  = (int)$this->parent->getPid();
+        $pid = (int)$this->parent->getPid();
+        self::assertGreaterThan(1, $pid, 'the child is still waiting for the marker, so it has a pid');
+        \Safe\touch($marker);
         $tree = new ProcessTree();
 
         $deadline = microtime(true) + 10;

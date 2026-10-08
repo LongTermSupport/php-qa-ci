@@ -53,7 +53,7 @@ final class BundledToolVersionsTest extends TestCase
         ];
 
         self::assertSame(
-            [self::PHPSTAN => self::PHPSTAN_NEW, 'phparkitect/arkitect' => '1.3.1', 'shellcheck' => 'v0.11.0', self::RECTOR => self::RECTOR_VERSION],
+            [self::PHPSTAN => self::PHPSTAN_NEW, 'phparkitect/arkitect' => '1.3.1', 'shellcheck' => 'v0.11.0', 'nikic/php-parser (in rector.phar)' => 'v5.6.0', self::RECTOR => self::RECTOR_VERSION],
             new BundledToolVersions()->read(static fn (string $path): ?string => $files[$path] ?? null, 'rector'),
         );
     }
@@ -126,7 +126,7 @@ final class BundledToolVersionsTest extends TestCase
             [self::PHPSTAN => self::PHPSTAN_NEW, self::RECTOR => self::RECTOR_VERSION, 'new-tool' => '0.1.0'],
         );
 
-        self::assertSame('**Bundled tool versions updated** by the weekly dependency update: phpstan 2.2.15 → 2.2.16; new-tool 0.1.0 (added); old-tool 1.0.0 (removed).', $entry);
+        self::assertSame('**Bundled tool versions updated** by the dependency update: phpstan 2.2.15 → 2.2.16; new-tool 0.1.0 (added); old-tool 1.0.0 (removed).', $entry);
     }
 
     #[Test]

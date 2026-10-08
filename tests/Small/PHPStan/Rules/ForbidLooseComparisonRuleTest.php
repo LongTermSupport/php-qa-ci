@@ -12,6 +12,7 @@ use PhpParser\Node\Expr\BinaryOp\NotEqual;
 use PhpParser\Node\Expr\BinaryOp\NotIdentical;
 use PhpParser\Node\Expr\Variable;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -72,7 +73,7 @@ final class ForbidLooseComparisonRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode(new NotIdentical(new Variable('a'), new Variable('b')), $this->scope()));
     }
 
-    private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         return self::scopeStub();
     }

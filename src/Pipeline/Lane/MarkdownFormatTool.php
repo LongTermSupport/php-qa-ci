@@ -68,14 +68,14 @@ final readonly class MarkdownFormatTool implements ToolInterface
         }
 
         $paths = [];
-        foreach ($context->config->markdownFormatPaths as $path) {
-            if (file_exists($root . '/' . $path)) {
-                $paths[] = $path;
+        foreach ($context->config->markdownFormatPaths as $configured) {
+            if (file_exists($root . '/' . $configured)) {
+                $paths[] = $configured;
 
                 continue;
             }
 
-            $context->writeln('Not present, skipped: ' . $path);
+            $context->writeln('Not present, skipped: ' . $configured);
         }
 
         if ([] !== $paths) {
@@ -89,8 +89,8 @@ final readonly class MarkdownFormatTool implements ToolInterface
             }
 
             $ignored = $outsideGit ? [] : array_map(trim(...), explode("\n", $probe->stdout));
-            foreach (array_intersect($paths, $ignored) as $path) {
-                $context->writeln('Gitignored, skipped: ' . $path);
+            foreach (array_intersect($paths, $ignored) as $ignoredPath) {
+                $context->writeln('Gitignored, skipped: ' . $ignoredPath);
             }
 
             $paths = array_values(array_diff($paths, $ignored));

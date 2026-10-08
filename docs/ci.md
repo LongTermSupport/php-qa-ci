@@ -32,15 +32,16 @@ See the [GitHub Actions Integration](./github-actions.md) guide for full setup i
 
 ### update-deps.yml
 
-A **weekly scheduled workflow** that automatically:
+A **daily scheduled workflow** that automatically:
 
 1. Updates Composer dependencies (`composer update`)
 2. Updates PHARs via PHIVE (`scripts/tool-install.bash update`)
 3. Updates the self-built PHARs (`composer update --working-dir=build/<tool>` for each manifest, then `scripts/build-phar.bash --all --force`)
-4. Runs the full QA pipeline to verify everything still passes
-5. Creates a pull request with the changes (if any)
-6. Enables auto-merge on the PR
+4. Records each moved tool in `CHANGELOG.md` (`bin/changelog-release add-tool-updates`)
+5. Runs the full QA pipeline on a work branch, judged from the merge base as the pull request will be
+6. Creates or updates a pull request with the changes (if any)
+7. On failure, comments on the open `update-deps-failure` issue, or opens one
 
-This ensures dependencies stay current without manual intervention. The workflow can also be triggered manually via `workflow_dispatch`.
+The pull request is not auto-merged: someone reads it and merges it. The workflow can also be triggered manually via `workflow_dispatch`.
 
 See [.github/workflows/update-deps.yml](./../.github/workflows/update-deps.yml).

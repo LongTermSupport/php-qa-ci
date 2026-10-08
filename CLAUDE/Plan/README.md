@@ -10,6 +10,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00020: tool currency and phpstan turbo](00020-tool-currency-and-phpstan-turbo/PLAN.md) - In Progress — the Owner's ruling that tracking the latest tools that pass QA is a standing process: the dependency update that judges itself as its pull request will and lands when green, PHPStan 2.3.0, and PHPStan Turbo shipped beside the phar for every consumer
+
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
 ## Completed Plans

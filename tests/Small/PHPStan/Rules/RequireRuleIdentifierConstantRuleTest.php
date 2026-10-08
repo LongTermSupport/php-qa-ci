@@ -15,6 +15,7 @@ use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassReflection;
@@ -112,7 +113,7 @@ final class RequireRuleIdentifierConstantRuleTest extends RuleTestCase
         return new MethodCall(new Variable(self::BUILDER_METHOD), new Identifier('identifier'), [new Arg($argValue)]);
     }
 
-    private function scopeInClass(?string $className): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scopeInClass(?string $className): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $reflection = null;
         if (null !== $className) {

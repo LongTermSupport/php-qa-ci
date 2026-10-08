@@ -32,7 +32,7 @@
     "roave/security-advisories": "dev-master"
   },
   "replace": {
-    "phpstan/phpstan": "*"
+    "phpstan/phpstan": "2.3.0"
   },
   "suggest": {
     "larastan/larastan": "Laravel specific checks (PHPStan wrapper)",
@@ -119,6 +119,7 @@
     "bin/phpstan",
     "bin/phpstan-docs-install",
     "bin/phpstan-ignore-justification",
+    "bin/phpstan-replace-sync",
     "bin/phpstan-rule",
     "bin/psr4-validate",
     "bin/qa",

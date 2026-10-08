@@ -257,3 +257,12 @@ php "$PROJECT_ROOT/bin/shellcheck-install" "$shellcheck_mode"
 # ============================================================================
 
 php "$PROJECT_ROOT/bin/phpstan-docs-install" "$shellcheck_mode"
+
+# ============================================================================
+# Phase 5: composer.json replaces phpstan/phpstan at the version of the phar
+# Phase 1 installed, so Composer resolves only the PHPStan extensions that phar
+# can load (#60). An update that moved the phar moves the replace too; the
+# caller re-runs composer update to resolve against it.
+# ============================================================================
+
+php "$PROJECT_ROOT/bin/phpstan-replace-sync" "$shellcheck_mode"

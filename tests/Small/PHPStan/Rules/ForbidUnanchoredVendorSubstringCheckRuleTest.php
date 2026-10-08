@@ -12,6 +12,7 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
@@ -141,7 +142,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
         return new FuncCall(new Name($functionName), $args);
     }
 
-    private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         return self::scopeStub();
     }

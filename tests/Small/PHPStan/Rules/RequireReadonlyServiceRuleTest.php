@@ -13,6 +13,7 @@ use PhpParser\Node\PropertyItem;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Property;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -148,7 +149,7 @@ final class RequireReadonlyServiceRuleTest extends TestCase
         ]);
     }
 
-    private function scope(?string $namespace): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(?string $namespace): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);

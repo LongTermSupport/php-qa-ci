@@ -8,6 +8,7 @@ use LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedSerializableRule;
 use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\Class_;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -76,7 +77,7 @@ final class ForbidDeprecatedSerializableRuleTest extends TestCase
         self::assertStringContainsString('Class anonymous implements', $errors[0]->getMessage());
     }
 
-    private function scopeResolvingTo(string $resolved): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scopeResolvingTo(string $resolved): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('resolveName')->willReturn($resolved);

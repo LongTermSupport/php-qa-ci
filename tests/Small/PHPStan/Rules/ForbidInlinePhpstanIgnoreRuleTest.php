@@ -9,6 +9,7 @@ use PhpParser\Comment;
 use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Nop;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -102,7 +103,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
         return new Nop(['comments' => [new Comment($commentText, $line)]]);
     }
 
-    private function scope(string $namespace, string $file): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(string $namespace, string $file): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);

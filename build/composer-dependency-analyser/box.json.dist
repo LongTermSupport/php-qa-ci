@@ -1,6 +1,7 @@
 {
     "main": "vendor/shipmonk/composer-dependency-analyser/bin/composer-dependency-analyser",
     "output": "composer-dependency-analyser.phar",
+    "alias": "composer-dependency-analyser.phar",
     "directories": ["vendor"],
     "check-requirements": false,
     "compactors": [],

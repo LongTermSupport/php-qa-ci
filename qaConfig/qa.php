@@ -100,6 +100,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/package-type-check',
         'bin/phpstan-docs-install',
         'bin/phpstan-ignore-justification',
+        'bin/phpstan-replace-sync',
         'bin/psr4-validate',
         'bin/qa',
         'bin/rule-doc',

@@ -8,6 +8,7 @@ use LTS\PHPQA\PHPStan\Rules\ForbidEmptyLanguageConstructRule;
 use PhpParser\Node\Expr\Empty_;
 use PhpParser\Node\Expr\Variable;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -47,7 +48,7 @@ final class ForbidEmptyLanguageConstructRuleTest extends TestCase
         self::assertSame(ForbidEmptyLanguageConstructRule::IDENTIFIER, $errors[0]->getIdentifier());
     }
 
-    private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         return self::scopeStub();
     }

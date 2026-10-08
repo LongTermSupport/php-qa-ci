@@ -2,13 +2,15 @@ name: Update Dependencies
 
 on:
   schedule:
-    # Weekly on Sunday at 03:00 UTC
-    - cron: '0 3 * * 0'
+    # Daily at 03:17 UTC: tracking the latest tools that pass QA is a standing
+    # process (CLAUDE/tool-currency.md), not a weekly chore.
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
   actions: write
   contents: write
+  issues: write
   pull-requests: write
 
 jobs:
@@ -76,6 +78,13 @@ jobs:
           done
           bash scripts/build-phar.bash --all --force
 
+      # The PHAR update moved composer.json's replace of phpstan/phpstan to the
+      # new phar's version (bin/phpstan-replace-sync), and the composer update
+      # above resolved the PHPStan extensions against the old one. Resolve again
+      # so they move up to what the new phar can load; a no-op otherwise.
+      - name: Re-resolve the PHPStan extensions against the phar
+        run: composer update --no-interaction --no-progress --prefer-dist
+
       # The active-defences region of CLAUDE.md counts the rules each installed
       # PHPStan extension registers, and a test holds it current, so an extension
       # release that changes its rule set would fail the QA run below. Regenerate
@@ -99,7 +108,8 @@ jobs:
       # Step 5: Record the update in CHANGELOG.md. A re-fetched or rebuilt tool is
       # a change every consumer receives, so the changelog lane in the QA run
       # requires an entry for it, and the release it leads to is decided by that
-      # entry. The entry names each tool whose pinned version moved; an update
+      # entry. The entry names each tool whose pinned version moved, and each
+      # package that moved inside a self-built PHAR; an update
       # that moved none (composer.lock alone) ships nothing and records nothing.
       - name: Record the bundled tool updates in the changelog
         if: steps.changes.outputs.changed == 'true'
@@ -110,6 +120,14 @@ jobs:
       # and this job exists to take them, so they are applied and land in the
       # pull request for review instead of failing it. CI on php8.5 re-checks the
       # merged result read-only.
+      #
+      # It runs on a work branch with the update still uncommitted, so the
+      # changelog lane measures the update from the merge base, exactly as it
+      # will on the pull request; on the default branch it would measure from
+      # the last release tag, where earlier Unreleased entries cover anything.
+      # The job then returns to its checkout, the base the pull request action
+      # expects, carrying the working-tree changes with it. The work branch is
+      # not chore/update-deps, which that action creates and resets itself.
       - name: Run QA Pipeline
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -117,7 +135,10 @@ jobs:
           QA_READONLY: 0
           phpUnitQuickTests: 0
           phpUnitCoverage: 0
-        run: bash ci.bash
+        run: |
+          git switch --create chore/update-deps-qa
+          bash ci.bash
+          git switch -
 
       # Step 7: Generate PR summary
       - name: Generate update summary
@@ -182,7 +203,7 @@ jobs:
           delete-branch: true
           title: 'chore(deps): update dependencies'
           body: |
-            Automated weekly dependency update.
+            Automated daily dependency update.
 
             ${{ steps.summary.outputs.body }}
 
@@ -199,3 +220,21 @@ jobs:
           head-sha: ${{ steps.create-pr.outputs.pull-request-head-sha }}
           token: ${{ github.token }}
           workflow: ci.yml
+
+      # A failed run must reach someone: the one open issue labelled
+      # update-deps-failure gets a comment linking the run, or, when none is
+      # open, a new one is opened. CLAUDE/tool-currency.md says who acts on it.
+      - name: Report the failure on the tracking issue
+        if: failure()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const label = 'update-deps-failure';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The dependency update failed: ${run}\n\nRead the failing step, fix the cause on a branch (Defence Before Fix), and close this issue when an update lands green.`;
+            const open = await github.rest.issues.listForRepo({ ...context.repo, labels: label, state: 'open', per_page: 1 });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open.data[0].number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title: 'The dependency update is failing', labels: [label, 'dependencies'], body });
+            }

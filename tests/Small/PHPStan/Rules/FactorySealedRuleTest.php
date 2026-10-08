@@ -11,6 +11,7 @@ use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ReflectionProvider;
@@ -120,7 +121,7 @@ final class FactorySealedRuleTest extends TestCase
      *
      * @param class-string $resolvesTo
      *
-     * @return CollectedDataEmitter&NodeCallbackInvoker&Scope
+     * @return CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
      */
     private function scope(string $resolvesTo, string $file, ?string $enclosingClass): Scope
     {

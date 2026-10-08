@@ -1,6 +1,7 @@
 {
     "main": "vendor/rector/rector/bin/rector.php",
     "output": "rector.phar",
+    "alias": "rector.phar",
     "directories": ["vendor"],
     "check-requirements": false,
     "compactors": [],
