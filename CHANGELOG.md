@@ -25,6 +25,12 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- **BREAKING**: `composer.json` now requires `ext-hash`. Every PHP build since 7.4 includes it, and
+  it cannot be disabled, so nothing needs installing. php-qa-ci uses it to check the SHA-256 of each
+  PHPStan Turbo binary it downloads.
+
 ## 85.5.0 — 2026-10-08
 
 ### Changed

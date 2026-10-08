@@ -75,7 +75,7 @@ final class TurboInstallerTest extends TestCase
     {
         $zip    = $this->zip();
         $source = $this->source(assets: [self::ASSET => $zip]);
-        $this->writeManifest([self::ASSET => hash('sha256', $zip)]);
+        $this->writeManifest([self::ASSET => $this->sha256($zip)]);
 
         self::assertSame(0, $this->installer($source)->run($this->library->path, TurboInstaller::MODE_INSTALL), $this->errors->fetch());
 
@@ -88,7 +88,7 @@ final class TurboInstallerTest extends TestCase
     {
         $zip    = $this->zip();
         $source = $this->source(assets: [self::ASSET => $zip]);
-        $this->writeManifest([self::ASSET => hash('sha256', $zip)]);
+        $this->writeManifest([self::ASSET => $this->sha256($zip)]);
         $this->installer($source)->run($this->library->path, TurboInstaller::MODE_INSTALL);
         $this->output->fetch();
 
@@ -104,7 +104,7 @@ final class TurboInstallerTest extends TestCase
     {
         $zip    = $this->zip();
         $source = $this->source(assets: [self::ASSET => $zip]);
-        $this->writeManifest([self::ASSET => hash('sha256', $zip)]);
+        $this->writeManifest([self::ASSET => $this->sha256($zip)]);
         $this->installer($source)->run($this->library->path, TurboInstaller::MODE_INSTALL);
         \Safe\unlink($this->library->path . '/' . self::BINARY);
 
@@ -151,7 +151,7 @@ final class TurboInstallerTest extends TestCase
     #[Test]
     public function aManifestForAnotherPharVersionFailsTheInstall(): void
     {
-        \Safe\file_put_contents($this->library->path . '/' . TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
+        $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -172,13 +172,13 @@ final class TurboInstallerTest extends TestCase
     public function anUpdateInAMaintainerEnvironmentRegeneratesTheManifestFromTheRelease(): void
     {
         $zip     = $this->zip();
-        $release = $this->releaseJson([self::ASSET => hash('sha256', $zip)]);
+        $release = $this->releaseJson([self::ASSET => $this->sha256($zip)]);
         $source  = $this->source(release: $release, assets: [self::ASSET => $zip]);
         $this->writeManifest([]);
 
         self::assertSame(0, $this->installer($source, maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE), $this->errors->fetch());
 
-        self::assertSame([self::ASSET => hash('sha256', $zip)], TurboManifest::fromJson($this->library->read(TurboManifest::PATH))->assets);
+        self::assertSame([self::ASSET => $this->sha256($zip)], TurboManifest::fromJson($this->library->read(TurboManifest::PATH))->assets);
         self::assertSame(self::SO_BYTES, $this->library->read(self::BINARY));
         self::assertStringContainsString('Commit ' . TurboManifest::PATH, $this->output->fetch());
     }
@@ -189,7 +189,7 @@ final class TurboInstallerTest extends TestCase
     {
         $zip    = $this->zip();
         $source = $this->source(release: $this->releaseJson([]), assets: [self::ASSET => $zip]);
-        $this->writeManifest([self::ASSET => hash('sha256', $zip)]);
+        $this->writeManifest([self::ASSET => $this->sha256($zip)]);
         $before = $this->library->read(TurboManifest::PATH);
 
         self::assertSame(0, $this->installer($source)->run($this->library->path, TurboInstaller::MODE_UPDATE));
@@ -241,6 +241,12 @@ final class TurboInstallerTest extends TestCase
     private function writeManifest(array $assets): void
     {
         $this->library->write(TurboManifest::PATH, new TurboManifest(self::VERSION, $assets)->toJson());
+    }
+
+    /** The digest the manifest pins for a zip. */
+    private function sha256(string $bytes): string
+    {
+        return hash('sha256', $bytes);
     }
 
     /** @param array<string, string> $digests asset name => hex SHA-256 */

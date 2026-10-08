@@ -12,10 +12,8 @@ use LTS\PHPQA\Turbo\TurboReleaseSourceInterface;
  */
 final class FakeTurboReleaseSource implements TurboReleaseSourceInterface
 {
-    /** How many release lookups were made. */
     public int $releaseLookups = 0;
 
-    /** How many assets were downloaded. */
     public int $downloads = 0;
 
     /** @param array<string, string> $assets asset name => bytes */
