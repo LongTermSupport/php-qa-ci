@@ -39,7 +39,8 @@ the release and its tag. The full rules are in
   `vendor-phar/turbo-ext.json` pins for the shipped phar. In a consuming project the php-qa-ci
   Composer plugin runs it on every `composer install` and `composer update`. A failed download is
   a warning, not a failed install. A host upstream builds nothing for (Windows, an Intel Mac) runs
-  PHPStan without Turbo, as before.
+  PHPStan without Turbo, as before. A run refuses to start when `vendor-phar/turbo-ext.json` is
+  missing or names another PHPStan version than the shipped phar, as it does for a missing PHAR.
 
 ## 85.5.0 — 2026-10-08
 

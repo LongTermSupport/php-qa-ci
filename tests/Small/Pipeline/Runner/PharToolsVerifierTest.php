@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 
+use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\Pipeline\Runner\Exception\MissingPharException;
 use LTS\PHPQA\Pipeline\Runner\PharToolsVerifier;
-use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\Tests\Support\TempDir;
 use LTS\PHPQA\Turbo\TurboManifest;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -53,22 +53,20 @@ final class PharToolsVerifierTest extends TestCase
     }
 
     #[Test]
+    #[\PHPUnit\Framework\Attributes\DoesNotPerformAssertions]
     public function aLibraryWhoseManifestMatchesThePharPasses(): void
     {
         $this->library->write(TurboManifest::PATH, new TurboManifest(self::VERSION, [])->toJson());
 
         new PharToolsVerifier()->verify($this->library->path);
-
-        $this->addToAssertionCount(1);
     }
 
     /** The shipped library itself: the committed manifest is for the committed phar. */
     #[Test]
+    #[\PHPUnit\Framework\Attributes\DoesNotPerformAssertions]
     public function theShippedLibraryPasses(): void
     {
         new PharToolsVerifier()->verify(self::REPO_ROOT);
-
-        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -86,7 +84,7 @@ final class PharToolsVerifierTest extends TestCase
     public function aMissingManifestFails(): void
     {
         $this->expectException(MissingPharException::class);
-        $this->expectExceptionMessage(TurboManifest::PATH);
+        $this->expectExceptionMessageIsOrContains(TurboManifest::PATH);
 
         new PharToolsVerifier()->verify($this->library->path);
     }
@@ -98,7 +96,7 @@ final class PharToolsVerifierTest extends TestCase
         \Safe\unlink($this->library->path . '/' . self::PHAR);
 
         $this->expectException(MissingPharException::class);
-        $this->expectExceptionMessage('phpstan');
+        $this->expectExceptionMessageIsOrContains('phpstan');
 
         new PharToolsVerifier()->verify($this->library->path);
     }
