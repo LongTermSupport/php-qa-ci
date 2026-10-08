@@ -44,6 +44,22 @@ final class UpdateDepsStepsReachingGitHubCarryTheTokenTest extends TestCase
         self::assertSame([], $this->stepsWithoutToken(\Safe\file_get_contents(self::WORKFLOW)));
     }
 
+    /** Not vacuous: the daily job does reach GitHub, so a parse that finds no such step is broken. */
+    public function testTheWorkflowsStepsThatReachGitHubAreFound(): void
+    {
+        self::assertNotSame([], $this->stepsReachingGitHub(\Safe\file_get_contents(self::WORKFLOW)));
+    }
+
+    /** Any indentation, and Composer's short spellings of update. */
+    public function testTheGuardIsNotFooledByIndentationOrSpelling(): void
+    {
+        $deeper = "        - name: Deeper\n          run: composer update\n";
+        $short  = "      - name: Short\n        run: composer up --no-interaction\n";
+        $alias  = "      - name: Alias\n        run: composer u\n";
+
+        self::assertSame(['Deeper', 'Short', 'Alias'], $this->stepsWithoutToken($deeper . $short . $alias));
+    }
+
     /** The guard proven to fire: a step running composer update with no token is reported. */
     public function testTheGuardReportsAStepWithoutTheToken(): void
     {
@@ -60,20 +76,30 @@ final class UpdateDepsStepsReachingGitHubCarryTheTokenTest extends TestCase
     /** @return list<string> the names of the steps that reach GitHub without the token */
     private function stepsWithoutToken(string $workflow): array
     {
-        $missing = [];
-        $steps   = \Safe\preg_split(self::STEP_START, $workflow);
+        return array_keys(array_filter(
+            $this->stepsReachingGitHub($workflow),
+            static fn (string $step): bool => !str_contains($step, self::TOKEN),
+        ));
+    }
+
+    /** @return array<string, string> step name => step text, for every step that reaches GitHub */
+    private function stepsReachingGitHub(string $workflow): array
+    {
+        $reaching = [];
+        $steps    = \Safe\preg_split(self::STEP_START, $workflow);
         foreach (\array_slice($steps, 1) as $step) {
             self::assertIsString($step);
-            if (!$this->reachesGitHub($step) || str_contains($step, self::TOKEN)) {
+            if (!$this->reachesGitHub($step)) {
                 continue;
             }
 
-            $missing[] = 1 === \Safe\preg_match('/^name: (.+)$/m', $step, $match) && isset($match[1])
+            $name            = 1 === \Safe\preg_match('/^name: (.+)$/m', $step, $match) && isset($match[1])
                 ? trim($match[1])
                 : trim(explode("\n", $step)[0]);
+            $reaching[$name] = $step;
         }
 
-        return $missing;
+        return $reaching;
     }
 
     /** Comment lines are prose, and the comment above a step lands in the step before it. */
