@@ -266,3 +266,12 @@ php "$PROJECT_ROOT/bin/phpstan-docs-install" "$shellcheck_mode"
 # ============================================================================
 
 php "$PROJECT_ROOT/bin/phpstan-replace-sync" "$shellcheck_mode"
+
+# ============================================================================
+# Phase 6: PHPStan Turbo, the phar's native extension. Built per OS, CPU, libc
+# and PHP version, so the binary is not committed: each host fetches its own,
+# verified against the SHA-256 vendor-phar/turbo-ext.json pins. An update that
+# moved the phar regenerates that manifest first (bin/turbo-install).
+# ============================================================================
+
+php "$PROJECT_ROOT/bin/turbo-install" "$shellcheck_mode"

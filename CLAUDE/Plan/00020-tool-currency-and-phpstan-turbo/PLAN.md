@@ -81,23 +81,27 @@ disables Turbo. Turbo also uses more memory.
 
 ### Phase 3: PHPStan Turbo
 
-- [ ] ⬜ **Task 3.1**: Red: a Large test that runs `vendor-phar/phpstan.phar diagnose` the way the
+- [x] ✅ **Task 3.1**: Red: a Large test that runs `vendor-phar/phpstan.phar diagnose` the way the
   lane invokes PHP (`PhpInvoker`, no Xdebug, the memory limit) and requires `Turbo extension: enabled`.
-- [ ] ⬜ **Task 3.2**: D3 (c): on `composer install`/`update`, fetch the host's binary from the
+  Red `ec699c3`; green once 3.2 installs the binary.
+- [x] ✅ **Task 3.2**: D3 (c): on `composer install`/`update`, fetch the host's binary from the
   `phpstan/turbo-ext` release whose tag is the phar's version, verified against a committed SHA-256
   manifest that the PHAR update path writes, into `vendor-phar/turbo-ext/<platform>/` (PHP, not
-  Bash, per the ShellCheck installer pattern), for PHP 8.5 non-ZTS on the platforms upstream ships.
-  Record the size cost.
-- [ ] ⬜ **Task 3.3**: A parity defence: the shipped `turbo-ext` version must be the one the shipped
-  phar expects. A test, plus a `PharToolsVerifier` check, so a mismatch fails rather than silently
-  running without Turbo.
+  Bash, per the ShellCheck installer pattern). Decision table `93d191a`. Installer: red `7680332`,
+  fix `eed543c`. `bin/turbo-install`, tool-install Phase 6 and the 2.3.0 manifest are `2901b4e`.
+  The Composer plugin for consumers: red `5fba9aa`, fix `075e71b`. Size: one asset per host, about
+  3.3 MB zipped and 7.3 MB installed; nothing is committed but the 3 KB manifest.
+- [x] ✅ **Task 3.3**: A parity defence: the shipped `turbo-ext` version must be the one the shipped
+  phar expects. `PharToolsVerifier` refuses a missing manifest or one for another PHPStan version.
+  Red `88d5b99`, fix `455b841`. The installer refuses the same mismatch at install time.
 - [ ] ⬜ **Task 3.4**: The `phpstan` lane reports whether Turbo loaded. On a platform with a shipped
   binary where it does not load, the cause is shown (decide warn or fail; see Decisions).
-- [ ] 🔄 **Task 3.5**: Measure on this repository: wall time and peak memory, Turbo on against off,
+- [x] ✅ **Task 3.5**: Measure on this repository: wall time and peak memory, Turbo on against off,
   interleaved. Measured on 2.3.0: about 20.4 s → 9.4 s, and worker peak memory up about 6% (see the
-  journal). Still to do: document it, and the memory-limit guidance, in `docs/tools/phpstan.md`.
+  journal). Documented with the memory-limit guidance in `docs/tools/phpstan.md` (`247de5f`).
 - [ ] ⬜ **Task 3.6**: A consumer-shaped Large test, with php-qa-ci under
-  `vendor/lts/php-qa-ci`, proving the lane runs with Turbo enabled.
+  `vendor/lts/php-qa-ci`, proving the lane runs with Turbo enabled. It depends on 3.4: the test
+  fixture symlinks `vendor-phar/`, so without a lane report it could only repeat 3.1's `diagnose`.
 
 ### Phase 4: release and roll-out
 

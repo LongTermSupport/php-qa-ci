@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Runner;
 
+use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\Pipeline\Runner\Exception\MissingPharException;
+use LTS\PHPQA\Turbo\TurboManifest;
 
 /**
  * Every PHAR the pipeline runs is committed under the library's vendor-phar/:
  * the PHIVE-managed ones named in phive.xml, plus one self-built <tool>.phar
  * per build/<tool>/ manifest (scripts/build-phar.bash). A missing one means a
- * broken install, not something to fetch at run time.
+ * broken install, not something to fetch at run time. So does a Turbo manifest
+ * (vendor-phar/turbo-ext.json) that is missing or names another PHPStan version.
  *
  * @internal
  */
@@ -35,6 +38,30 @@ final readonly class PharToolsVerifier
 
         if ([] !== $missing) {
             throw MissingPharException::missing($libraryRoot . '/vendor-phar', ...$missing);
+        }
+
+        $this->verifyTurboManifest($libraryRoot);
+    }
+
+    /**
+     * The Turbo binaries are fetched against vendor-phar/turbo-ext.json, and one built for another
+     * PHPStan release does not load, so the manifest must name the phar's own version.
+     */
+    private function verifyTurboManifest(string $libraryRoot): void
+    {
+        $pharVersion = new PhpstanDocsCatalogue($libraryRoot)->installedPhpstanVersion();
+        if (null === $pharVersion) {
+            return;
+        }
+
+        $manifest = $libraryRoot . '/' . TurboManifest::PATH;
+        if (!is_file($manifest)) {
+            throw MissingPharException::turboManifestMissing($manifest);
+        }
+
+        $manifestVersion = TurboManifest::fromJson(\Safe\file_get_contents($manifest))->phpstanVersion;
+        if ($manifestVersion !== $pharVersion) {
+            throw MissingPharException::turboManifestMismatch($manifest, $manifestVersion, $pharVersion);
         }
     }
 
