@@ -13,12 +13,16 @@ through `workflow_dispatch`. It does the following:
 2. It runs the PHIVE update (`scripts/tool-install.bash update`).
 3. It bumps every `build/<tool>/` manifest and rebuilds the self-built PHARs. These builds are
    reproducible: a rebuild with no version change is byte for byte the same, so it is not a change.
-4. It regenerates the active-defences region of `CLAUDE.md`.
-5. It records each moved tool, and each package that moved inside a self-built PHAR, under
+4. It runs `composer update` a second time. The PHAR update moves `composer.json`'s replace of
+   `phpstan/phpstan` to the new phar's version (`bin/phpstan-replace-sync`). The first
+   `composer update` resolved the PHPStan extensions against the old version. The second one lets
+   them move up to what the new phar can load.
+5. It regenerates the active-defences region of `CLAUDE.md`.
+6. It records each moved tool, and each package that moved inside a self-built PHAR, under
    `## Unreleased` (`bin/changelog-release add-tool-updates`).
-6. It runs the full pipeline, writable, on a work branch. That makes the changelog lane measure from
+7. It runs the full pipeline, writable, on a work branch. That makes the changelog lane measure from
    the merge base, as it will on the pull request.
-7. When QA passes, it opens or updates the `chore/update-deps` pull request.
+8. When QA passes, it opens or updates the `chore/update-deps` pull request.
 
 When the run fails, it comments on the open issue labelled `update-deps-failure`. When no such
 issue is open, it opens one. A failure is never silent.
@@ -72,8 +76,13 @@ composer update
 bash scripts/tool-install.bash update
 for manifest in build/*/composer.json; do composer update --working-dir="$(dirname "$manifest")" --no-dev; done
 bash scripts/build-phar.bash --all --force
+composer update
+php bin/rules . --write-agent-summary=CLAUDE.md
 php bin/changelog-release add-tool-updates
 ```
+
+The second `composer update` is not a repeat. It resolves the PHPStan extensions against the
+phar the PHIVE update just installed.
 
 Then run the battery ([prepush-verification.md](prepush-verification.md)). The change goes through
 a pull request like any other.
