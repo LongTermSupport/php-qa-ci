@@ -186,20 +186,19 @@ final readonly class TurboInstaller
             return 1;
         }
 
-        $staging = TemporaryDirectory::create('phpqa-turbo');
+        // Staged beside the binary: a running PHPStan has the old one mapped, and only a
+        // same-filesystem rename replaces it without rewriting the pages under that process.
+        $staging = TemporaryDirectory::besides($binary, '.phpqa-turbo');
 
         try {
             $archive = $staging->path . '/' . $asset;
             \Safe\file_put_contents($archive, $bytes);
             new PharData($archive)->extractTo($staging->path, self::ZIP_ENTRY, true);
 
-            if (!is_dir(\dirname($binary))) {
-                \Safe\mkdir(\dirname($binary), 0o755, true);
-            }
-
-            \Safe\rename($staging->path . '/' . self::ZIP_ENTRY, $binary);
+            $extracted = $staging->path . '/' . self::ZIP_ENTRY;
             // The zip entry carries no usable mode, and the extracted file comes out world-writable.
-            \Safe\chmod($binary, 0o644);
+            \Safe\chmod($extracted, 0o644);
+            \Safe\rename($extracted, $binary);
             \Safe\file_put_contents($binary . self::STAMP_SUFFIX, TurboInstallDecider::stamp($asset, $digest) . "\n");
         } catch (Throwable $throwable) {
             $staging->remove();
