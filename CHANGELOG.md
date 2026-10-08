@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed
+
+- **Bundled tool versions updated** by the weekly dependency update: phpstan 2.2.16 → 2.3.0.
+
 ### Fixed
 
 - **`bin/changelog-release add-tool-updates` records a dependency that moved inside a self-built PHAR**, such as a package Rector bundles, as `<package> (in <tool>.phar)`. Before, only the tool itself was compared, so an update that changed such a PHAR recorded nothing and its pull request failed the `changelog` lane.
