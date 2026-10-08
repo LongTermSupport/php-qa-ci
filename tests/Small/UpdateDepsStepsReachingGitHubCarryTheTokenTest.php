@@ -63,11 +63,14 @@ final class UpdateDepsStepsReachingGitHubCarryTheTokenTest extends TestCase
         $missing = [];
         $steps   = \Safe\preg_split(self::STEP_START, $workflow);
         foreach (\array_slice($steps, 1) as $step) {
+            self::assertIsString($step);
             if (!$this->reachesGitHub($step) || str_contains($step, self::TOKEN)) {
                 continue;
             }
 
-            $missing[] = 1 === \Safe\preg_match('/^name: (.+)$/m', $step, $match) ? trim($match[1]) : trim(strtok($step, "\n"));
+            $missing[] = 1 === \Safe\preg_match('/^name: (.+)$/m', $step, $match) && isset($match[1])
+                ? trim($match[1])
+                : trim(explode("\n", $step)[0]);
         }
 
         return $missing;
@@ -77,6 +80,7 @@ final class UpdateDepsStepsReachingGitHubCarryTheTokenTest extends TestCase
     private function reachesGitHub(string $step): bool
     {
         $code = \Safe\preg_replace('/^\s*#.*$/m', '', $step);
+        self::assertIsString($code);
 
         return str_contains($code, self::TOOL_INSTALL) || 1 === \Safe\preg_match(self::ROOT_COMPOSER_UPDATE, $code);
     }

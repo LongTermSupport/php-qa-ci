@@ -83,6 +83,8 @@ jobs:
       # above resolved the PHPStan extensions against the old one. Resolve again
       # so they move up to what the new phar can load; a no-op otherwise.
       - name: Re-resolve the PHPStan extensions against the phar
+        env:
+          GITHUB_AUTH_TOKEN: ${{ github.token }}
         run: composer update --no-interaction --no-progress --prefer-dist
 
       # The active-defences region of CLAUDE.md counts the rules each installed
