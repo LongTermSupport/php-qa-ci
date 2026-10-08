@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 /**
  * Defence for the class "a test double that does not satisfy the type the analyser passes".
@@ -34,14 +35,14 @@ final class ScopeStubTraitTest extends TestCase
         $stub = self::scopeStub();
 
         foreach ($this->declaredScopeInterfaces() as $interface) {
-            self::assertInstanceOf($interface, $stub, \sprintf('Rule::processNode() declares its scope as including %s; add it to ScopeStubTrait and to each rule test\'s scope() return type', $interface));
+            self::assertInstanceOf($interface, $stub, \sprintf("Rule::processNode() declares its scope as including %s; add it to ScopeStubTrait and to each rule test's scope() return type", $interface));
         }
     }
 
     /** @return list<class-string> the intersection in `@param ... $scope` of Rule::processNode() */
     private function declaredScopeInterfaces(): array
     {
-        $doc = new \ReflectionMethod(Rule::class, 'processNode')->getDocComment();
+        $doc = new ReflectionMethod(Rule::class, 'processNode')->getDocComment();
         self::assertIsString($doc);
         \Safe\preg_match('/@param\s+(\S+)\s+\$scope\b/', $doc, $matches);
         $declared = $matches[1] ?? null;
