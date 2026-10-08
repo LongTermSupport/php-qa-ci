@@ -81,10 +81,11 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
                   --skip-initial-tests         Requires the coverage to be provided via the "--coverage" option
                   --debug|--no-debug           Keep temporary files
                   --git-diff-filter=FILTER     Filter files by git "--diff-filter" option
+              -s, --show-mutations[=SHOW]      Show escaped mutants
             HELP;
 
         self::assertSame(
-            ['--threads', '--skip-initial-tests', '--debug', '--no-debug', '--git-diff-filter'],
+            ['--threads', '--skip-initial-tests', '--debug', '--no-debug', '--git-diff-filter', '--show-mutations'],
             $this->optionsListedIn($help),
         );
     }
