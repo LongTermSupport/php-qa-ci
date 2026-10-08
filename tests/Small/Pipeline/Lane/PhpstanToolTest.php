@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpstanTool::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::class)]
+#[UsesClass(PhpstanCrash::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\AgentStatusEnum::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto::class)]
@@ -77,10 +77,8 @@ final class PhpstanToolTest extends TestCase
 
     private const string INCOMPLETE_LINE = "⚠️  Result is incomplete because of severe errors. ⚠️\n";
 
-    /** The summary line the shipped phar's table output ends a findings run with. */
     private const string FOUND_ONE = "\n [ERROR] Found 1 error\n";
 
-    /** What the shipped phar prints, and exits 1 on, for a config error: nothing was analysed. */
     private const string CONFIG_ERROR = "Invalid configuration:\nUnexpected item 'parameters › notARealParameter'.\n";
 
     private const string INTERNAL_ERROR_OUTPUT =" Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;

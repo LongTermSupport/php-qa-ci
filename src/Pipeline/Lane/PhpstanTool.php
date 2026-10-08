@@ -24,8 +24,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Static analysis via the shipped phpstan.phar. The resolved phpstan.neon is
  * wrapped in a generated neon that caps the worker count at half the CPU
  * threads, the same figure Rector and Infection use. Exit 1 means PHPStan ran
- * and found errors, unless it abandoned the analysis on internal errors;
- * that, and anything above 1, is a crash (PhpstanCrash), which in text mode is
+ * and found errors only when its output reports findings; an abandoned analysis,
+ * an error before any analysis, and anything above 1, are crashes (PhpstanCrash), which in text mode are
  * re-run with --debug so the fatal that stopped it is visible. In --json mode the
  * report goes to the real stdout untouched and nothing is retried. In agent
  * mode the same JSON is turned into one report file per analysed source file
@@ -156,7 +156,7 @@ final readonly class PhpstanTool implements ToolInterface
 
         $writer->clearScope($scope);
 
-        $crash = PhpstanCrash::reason($result);
+        $crash = PhpstanCrash::jsonReason($result);
         if (null !== $crash) {
             return $this->agentCrash($writer, $terse, $crash, $scope, $runAt, $logPath);
         }
@@ -220,7 +220,7 @@ final readonly class PhpstanTool implements ToolInterface
         $context->stdout->write($result->stdout, false, OutputInterface::OUTPUT_RAW);
         $context->logs->archive('PHPStan', $logDir, self::JSON_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
 
-        $crash = PhpstanCrash::reason($result);
+        $crash = PhpstanCrash::jsonReason($result);
         if (null !== $crash) {
             $context->writeln($result->exitCode > 1 ? \sprintf('PHPStan crashed (exit code: %d)', $result->exitCode) : $crash);
 

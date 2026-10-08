@@ -17,6 +17,19 @@ use JsonException;
  */
 final readonly class SingleRuleReport
 {
+    /**
+     * An internal error means PHPStan abandoned the analysis and dropped every finding, so "did
+     * not fire" would be a false answer. The shipped phar reports one per file under this
+     * identifier, or in the top-level list with this prefix.
+     */
+    private const string INTERNAL_ERROR_IDENTIFIER = 'phpstan.internal';
+
+    /** How an internal error in the top-level list begins. */
+    private const string INTERNAL_ERROR_PREFIX = 'Internal error';
+
+    /** Why an abandoned run is refused rather than answered. */
+    private const string ABANDONED = 'PHPStan abandoned the analysis on internal errors, so this run cannot say whether the rule fired';
+
     /** @param array<string, list<array{line: int|null, message: string, identifier: string|null}>> $messagesByFile */
     private function __construct(private array $messagesByFile)
     {
@@ -32,6 +45,12 @@ final readonly class SingleRuleReport
 
         if (!\is_array($decoded) || !\array_key_exists('files', $decoded) || !\is_array($decoded['files'])) {
             throw new InvalidArgumentException('Expected PHPStan --error-format=json output with a "files" key');
+        }
+
+        foreach (\is_array($decoded['errors'] ?? null) ? $decoded['errors'] : [] as $error) {
+            if (\is_string($error) && str_starts_with($error, self::INTERNAL_ERROR_PREFIX)) {
+                throw new InvalidArgumentException(self::ABANDONED . ': ' . $error);
+            }
         }
 
         $messagesByFile = [];
@@ -58,8 +77,12 @@ final readonly class SingleRuleReport
                     continue;
                 }
 
-                $line                    = $message['line']       ?? null;
-                $identifier              = $message['identifier'] ?? null;
+                $line       = $message['line']       ?? null;
+                $identifier = $message['identifier'] ?? null;
+                if (self::INTERNAL_ERROR_IDENTIFIER === $identifier) {
+                    throw new InvalidArgumentException(self::ABANDONED . ': ' . $message['message']);
+                }
+
                 $messagesByFile[$file][] = [
                     'line'       => \is_int($line) ? $line : null,
                     'message'    => $message['message'],
@@ -105,7 +128,7 @@ final readonly class SingleRuleReport
     /**
      * Entry point for the harness: JSON on stdin, identifier as the argument.
      * Exit 0 when the rule did not fire, 1 when it did, 2 when the input was
-     * not a PHPStan JSON run at all.
+     * not a PHPStan JSON run at all or PHPStan abandoned the analysis.
      */
     public static function main(string $identifier, string $json): int
     {

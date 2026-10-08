@@ -21,12 +21,14 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpstanCrashTest extends TestCase
 {
+    /** The line the shipped phar writes to stderr when it abandons an analysis. */
     private const string INCOMPLETE = "⚠️  Result is incomplete because of severe errors. ⚠️\n";
 
     /** What the shipped phar prints, and exits 1 on, for a config error: no analysis, no report. */
     private const string CONFIG_ERROR = "Invalid configuration:\nUnexpected item 'parameters › notARealParameter'.\n";
 
-    private const string JSON_FINDINGS = '{"totals":{"errors":0,"file_errors":1},"files":{"/p/A.php":{"errors":1,"messages":[{"message":"Function nope not found.","line":3,"ignorable":true,"identifier":"function.notFound"}]}},"errors":[]}';
+    /** A JSON report of one finding, counted under file_errors only. */
+    private const string JSON_FINDINGS ='{"totals":{"errors":0,"file_errors":1},"files":{"/p/A.php":{"errors":1,"messages":[{"message":"Function nope not found.","line":3,"ignorable":true,"identifier":"function.notFound"}]}},"errors":[]}';
 
     #[Test]
     #[DataProvider('verdicts')]

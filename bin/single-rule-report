@@ -4,7 +4,8 @@
 /*
  * The PHP half of bin/phpstan-rule: a PHPStan JSON run on stdin, the rule
  * identifier as the argument. Exit 0 when the rule did not fire, 1 when it
- * did, 2 when the input was not a PHPStan JSON run.
+ * did, 2 when the input was not a PHPStan JSON run or PHPStan abandoned the
+ * analysis.
  */
 
 require __DIR__.'/bootstrap.php';

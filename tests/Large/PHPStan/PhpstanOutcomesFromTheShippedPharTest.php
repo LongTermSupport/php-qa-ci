@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Large\PHPStan;
 
 use InvalidArgumentException;
+use LTS\PHPQA\PHPStan\SingleRuleReport;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
-use LTS\PHPQA\PHPStan\SingleRuleReport;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;

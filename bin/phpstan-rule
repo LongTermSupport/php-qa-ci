@@ -6,7 +6,8 @@
 #   bin/phpstan-rule phpqaci.nestedTernary src/Service/Pricing.php
 #
 # Exit 0: the rule did not fire.  Exit 1: it fired (locations printed).
-# Exit 2: usage error, or PHPStan did not produce a JSON run.
+# Exit 2: usage error, PHPStan did not produce a JSON run, or it abandoned the
+# analysis on internal errors (so it cannot say whether the rule fired).
 #
 # The run is the ordinary `qa -t phpstan -p <path> --json`, so the rule is
 # exercised exactly as the pipeline exercises it: same config, same includes,
