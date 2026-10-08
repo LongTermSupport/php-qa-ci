@@ -68,8 +68,8 @@ disables Turbo. Turbo also uses more memory.
   `DependencyTracker`, which 2.3.0 adds to `Rule::processNode()`'s scope type. Red `a32227e` (read
   from the phar's own PHPDoc), fix `2741e00`. Seven identifiers with no upstream page got pages under
   `docs/phpstan-extension-rules/`, and the last four findings were fixed in `cd85df1`. No baseline.
-- [ ] 🔄 **Task 2.3**: Every custom rule still registers (the rule-listing and agent-summary tests
-  pass). Supersede #52 once this lands.
+- [x] ✅ **Task 2.3**: Every custom rule still registers: the rule-listing and agent-summary tests
+  pass on 2.3.0 in the full battery. #52 was closed as superseded by #70.
 - [x] ✅ **Task 2.4**: #60. `replace: {"phpstan/phpstan": "*"}` let Composer install extensions that
   need a newer PHPStan than the phar (strict-rules 2.1.0 and phpunit 2.1.x need ^2.3), so the lane
   aborted. Released 85.4.0 (phar 2.2.16) was affected as well as `php8.4`. Red `a895522`, fix
@@ -90,7 +90,10 @@ disables Turbo. Turbo also uses more memory.
   Bash, per the ShellCheck installer pattern). Decision table `93d191a`. Installer: red `7680332`,
   fix `eed543c`. `bin/turbo-install`, tool-install Phase 6 and the 2.3.0 manifest are `2901b4e`.
   The Composer plugin for consumers: red `5fba9aa`, fix `075e71b`. Size: one asset per host, about
-  3.3 MB zipped and 7.3 MB installed; nothing is committed but the 3 KB manifest.
+  3.3 MB zipped and 7.3 MB installed; nothing is committed but the 3 KB manifest. Merged in #83
+  (`f324011`) after two verifications. Round 1 found a reinstall rewriting the mapped binary in
+  place (red `a7b6835`, fix `ad93c26`). A later deadCode run found forked workers sharing the
+  detector PHAR, which was #82 part 2 (red `81883eb`, fix `ea343e6`). Follow-ups: #84, #85, #86.
 - [x] ✅ **Task 3.3**: A parity defence: the shipped `turbo-ext` version must be the one the shipped
   phar expects. `PharToolsVerifier` refuses a missing manifest or one for another PHPStan version.
   Red `88d5b99`, fix `455b841`. The installer refuses the same mismatch at install time.
@@ -139,7 +142,9 @@ disables Turbo. Turbo also uses more memory.
   constraint must accept.
 - **D2: when Turbo should load but does not.** The lane prints the cause either way. Recommendation:
   fail, since a silent loss of Turbo is the failure #18 warned of. A host without a shipped binary
-  (another platform or a ZTS build) is reported, not failed.
+  (another platform or a ZTS build) is reported, not failed. One case is already decided by
+  Task 3.3: a `phpstan.phar` update that lands before `phpstan/turbo-ext` publishes the matching
+  release leaves the manifest naming the old version, and preflight refuses every run.
 
 ## Success Criteria
 
