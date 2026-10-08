@@ -155,7 +155,7 @@ PHP-QA-CI uses a hybrid approach to tool delivery:
 
 Every PHAR is verified present at the start of each run (`phive.xml` is a hard requirement); nothing is fetched at run time.
 
-The `phpstan/phpstan` package is in the `replace` section of `composer.json` since PHPStan is provided via PHAR. This prevents version conflicts when consuming projects also require PHPStan extensions.
+PHPStan is provided via PHAR, so `composer.json` replaces `phpstan/phpstan` at the phar's exact version (`bin/phpstan-replace-sync` keeps the two in step). Composer then resolves only the PHPStan extension releases that version can load. A project whose own `phpstan/phpstan` constraint excludes that version gets a Composer error saying the two cannot coexist; `PhpStanGuardPlugin` warns about any direct `phpstan/phpstan` requirement in any case.
 
 ## PHPArkitect (architecture rules)
 

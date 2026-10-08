@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use SimpleXMLElement;
 
 /**
  * Defence for the class "Composer resolves a PHPStan extension that needs a newer PHPStan than the
@@ -40,14 +40,10 @@ final class PhpstanReplaceMatchesPharTest extends TestCase
 
     private function pharVersion(): string
     {
-        $phive = new SimpleXMLElement(\Safe\file_get_contents(self::ROOT . '/phive.xml'));
-        foreach ($phive->children() as $phar) {
-            if ('phpstan' === (string)$phar['name']) {
-                return (string)$phar['installed'];
-            }
-        }
+        $version = new PhpstanDocsCatalogue(self::ROOT)->installedPhpstanVersion();
+        self::assertIsString($version, 'phive.xml records no installed phpstan phar');
 
-        self::fail('phive.xml lists no phpstan phar');
+        return $version;
     }
 
     private function replacedVersion(): string

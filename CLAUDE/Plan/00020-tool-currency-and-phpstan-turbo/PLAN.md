@@ -75,8 +75,9 @@ disables Turbo. Turbo also uses more memory.
   aborted. Released 85.4.0 (phar 2.2.16) was affected as well as `php8.4`. Red `a895522`, fix
   `ac166be`: the replace is the phar's exact version, and `bin/phpstan-replace-sync` moves it with
   the phar.
-- [ ] ⬜ **Task 2.5**: Backport the replace pin to `php8.4` (reported from a `php8.4` project, so
-  the backport rule applies): replace at its phar's 2.2.3, the test, and a reply on #60.
+- [x] ✅ **Task 2.5**: Backport the replace pin to `php8.4` (reported from a `php8.4` project, so
+  the backport rule applies): replace at its phar's 2.2.3, the test, and a reply on #60. #68,
+  merged `d0069e5` after two sub-agent verifications.
 
 ### Phase 3: PHPStan Turbo
 
