@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.5.0 — 2026-10-08
+
 ### Changed
 
 - **Bundled tool versions updated** by the dependency update: phpstan 2.2.16 → 2.3.0.
