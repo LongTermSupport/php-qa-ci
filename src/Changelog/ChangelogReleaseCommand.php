@@ -44,7 +44,8 @@ final readonly class ChangelogReleaseCommand
                                       deprecated, removed, fixed, security)
           add-tool-updates            add a "Changed" entry naming every bundled tool whose pinned
                                       version differs from HEAD's (phive.xml, the ShellCheck pin,
-                                      build/*/composer.lock); add nothing when none moved
+                                      every package in build/*/composer.lock); add nothing when
+                                      none moved
 
         TXT;
 

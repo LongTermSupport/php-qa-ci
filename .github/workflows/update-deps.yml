@@ -99,7 +99,8 @@ jobs:
       # Step 5: Record the update in CHANGELOG.md. A re-fetched or rebuilt tool is
       # a change every consumer receives, so the changelog lane in the QA run
       # requires an entry for it, and the release it leads to is decided by that
-      # entry. The entry names each tool whose pinned version moved; an update
+      # entry. The entry names each tool whose pinned version moved, and each
+      # package that moved inside a self-built PHAR; an update
       # that moved none (composer.lock alone) ships nothing and records nothing.
       - name: Record the bundled tool updates in the changelog
         if: steps.changes.outputs.changed == 'true'

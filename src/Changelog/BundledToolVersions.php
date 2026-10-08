@@ -16,8 +16,9 @@ use Safe\Exceptions\JsonException;
  *
  *  - phive.xml: each `<phar>`'s `installed` attribute, keyed by its name;
  *  - vendor-bin/shellcheck.version, as `shellcheck`;
- *  - build/<tool>/: each package composer.json requires (bar PHP and
- *    extensions) at the version composer.lock resolved, keyed by package.
+ *  - build/<tool>/: each package composer.lock resolved, at that version. A
+ *    package composer.json requires is keyed by its name; any other is keyed
+ *    `<package> (in <tool>.phar)`, since moving it changes the shipped PHAR too.
  *
  * A source that is absent contributes nothing, so a tool added or removed in
  * the update reads as such; a build file that is not JSON is refused.
@@ -48,7 +49,7 @@ final readonly class BundledToolVersions
         foreach ($buildDirectories as $directory) {
             $manifest  = 'build/' . $directory . '/composer.json';
             $lock      = 'build/' . $directory . '/composer.lock';
-            $versions += $this->build($this->decode($manifest, $file($manifest)), $this->decode($lock, $file($lock)));
+            $versions += $this->build($directory, $this->decode($manifest, $file($manifest)), $this->decode($lock, $file($lock)));
         }
 
         return $versions;
@@ -115,7 +116,7 @@ final readonly class BundledToolVersions
      *
      * @return array<string, string>
      */
-    private function build(array $manifest, array $lock): array
+    private function build(string $directory, array $manifest, array $lock): array
     {
         $require  = $manifest['require'] ?? null;
         $packages = $lock['packages']    ?? null;
@@ -129,9 +130,8 @@ final readonly class BundledToolVersions
                 continue;
             }
 
-            if (\array_key_exists($package['name'], $require)) {
-                $versions[$package['name']] = $package['version'];
-            }
+            $key            = \array_key_exists($package['name'], $require) ? $package['name'] : \sprintf('%s (in %s.phar)', $package['name'], $directory);
+            $versions[$key] = $package['version'];
         }
 
         return $versions;

@@ -184,7 +184,9 @@ section or a version that already has a section. `notes` writes headings as unde
 `###`, so the notes also survive as an annotated tag's message, whose default cleanup deletes
 lines that start with `#`. `pending-tags` refuses a version section no commit has written yet.
 `add-tool-updates` reads php-qa-ci's own pins (`phive.xml`'s `installed`, the ShellCheck version
-file, `build/*/composer.lock`), never a tool's `--version` banner.
+file, `build/*/composer.lock`), never a tool's `--version` banner. Every package in a build lock
+counts, not only the tool it builds: a moved dependency changes the shipped PHAR as well, and is
+named as `<package> (in <tool>.phar)`.
 
 The shipped GitHub Actions workflow that drives these commands, and the repository settings it
 needs, are under [Release automation](../github-actions.md#release-automation). How php-qa-ci

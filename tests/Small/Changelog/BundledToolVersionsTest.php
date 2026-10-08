@@ -53,7 +53,7 @@ final class BundledToolVersionsTest extends TestCase
         ];
 
         self::assertSame(
-            [self::PHPSTAN => self::PHPSTAN_NEW, 'phparkitect/arkitect' => '1.3.1', 'shellcheck' => 'v0.11.0', self::RECTOR => self::RECTOR_VERSION],
+            [self::PHPSTAN => self::PHPSTAN_NEW, 'phparkitect/arkitect' => '1.3.1', 'shellcheck' => 'v0.11.0', 'nikic/php-parser (in rector.phar)' => 'v5.6.0', self::RECTOR => self::RECTOR_VERSION],
             new BundledToolVersions()->read(static fn (string $path): ?string => $files[$path] ?? null, 'rector'),
         );
     }
