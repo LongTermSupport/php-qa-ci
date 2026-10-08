@@ -30,14 +30,14 @@ final class UpdateDepsStepsReachingGitHubCarryTheTokenTest extends TestCase
     /** The script that calls the GitHub API. */
     private const string TOOL_INSTALL = 'tool-install.bash';
 
-    /** A root `composer update`, which runs that script: a line with no --working-dir. */
-    private const string ROOT_COMPOSER_UPDATE = '/^(?!.*--working-dir).*\bcomposer update\b/m';
+    /** A root `composer update`, in any of Composer's spellings, which runs that script: a line with no --working-dir. */
+    private const string ROOT_COMPOSER_UPDATE = '/^(?!.*--working-dir).*\bcomposer (?:update|upgrade|up|u)\b/m';
 
     /** What a step must set to authenticate them. */
     private const string TOKEN = 'GITHUB_AUTH_TOKEN:';
 
-    /** A step starts at a list item under `steps:`. */
-    private const string STEP_START = '/^ {6}- /m';
+    /** A step starts at a list item whose first key is a step key, at any indentation. */
+    private const string STEP_START = '/^\s+- (?=(?:name|uses|run|id|if|env|with|shell|working-directory|continue-on-error|timeout-minutes):)/m';
 
     public function testEveryStepReachingGitHubSetsTheToken(): void
     {
