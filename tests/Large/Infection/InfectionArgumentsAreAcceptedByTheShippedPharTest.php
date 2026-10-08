@@ -33,6 +33,22 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
     /** @var list<string>|null the long options the phar lists, read once */
     private static ?array $accepted = null;
 
+    /** @param list<string> $argv */
+    #[Test]
+    #[DataProvider('laneArgv')]
+    public function everyOptionTheLaneEmitsIsOneTheShippedPharAccepts(array $argv): void
+    {
+        $emitted = [];
+        foreach ($argv as $argument) {
+            if (str_starts_with($argument, '--')) {
+                $emitted[] = explode('=', $argument, 2)[0];
+            }
+        }
+
+        self::assertNotSame([], $emitted, 'the lane emitted no options, so this check would be vacuous');
+        self::assertSame([], array_values(array_diff($emitted, $this->accepted())), 'options the shipped infection.phar does not list in run --help');
+    }
+
     /** @return iterable<string, array{list<string>}> */
     public static function laneArgv(): iterable
     {
@@ -51,30 +67,23 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
         yield 'diff run' => [$arguments->diff($options, '/coverage', '/infection.json', '/src/One.php')];
     }
 
-    /** @param list<string> $argv */
-    #[Test]
-    #[DataProvider('laneArgv')]
-    public function everyOptionTheLaneEmitsIsOneTheShippedPharAccepts(array $argv): void
-    {
-        $emitted = [];
-        foreach ($argv as $argument) {
-            if (str_starts_with($argument, '--')) {
-                $emitted[] = explode('=', $argument, 2)[0];
-            }
-        }
-
-        self::assertNotSame([], $emitted, 'the lane emitted no options, so this check would be vacuous');
-        self::assertSame([], array_values(array_diff($emitted, self::accepted())), 'options the shipped infection.phar does not list in run --help');
-    }
-
     /** @return list<string> */
-    private static function accepted(): array
+    private function accepted(): array
     {
         if (null === self::$accepted) {
             $process = new Process([\PHP_BINARY, self::PHAR, 'run', '--help', '--no-ansi']);
             $process->mustRun();
+            $matches = [];
             \Safe\preg_match_all('/(?<![\w-])--[a-z][a-z0-9-]*/', $process->getOutput(), $matches);
-            self::$accepted = array_values(array_unique($matches[0]));
+            $accepted = [];
+            $found    = $matches[0] ?? [];
+            foreach (\is_array($found) ? $found : [] as $option) {
+                if (\is_string($option) && !\in_array($option, $accepted, true)) {
+                    $accepted[] = $option;
+                }
+            }
+
+            self::$accepted = $accepted;
         }
 
         return self::$accepted;
