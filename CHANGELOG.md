@@ -36,8 +36,10 @@ the release and its tag. The full rules are in
 - **PHPStan runs with Turbo, its native extension.** `bin/turbo-install` downloads the Turbo
   binary built for the host (OS, CPU, libc, PHP version) into `vendor-phar/turbo-ext/`, where
   `phpstan.phar` loads it. It refuses any download whose SHA-256 differs from the one
-  `vendor-phar/turbo-ext.json` pins for the shipped phar. A host upstream builds nothing for
-  (Windows, an Intel Mac) runs PHPStan without Turbo, as before.
+  `vendor-phar/turbo-ext.json` pins for the shipped phar. In a consuming project the php-qa-ci
+  Composer plugin runs it on every `composer install` and `composer update`. A failed download is
+  a warning, not a failed install. A host upstream builds nothing for (Windows, an Intel Mac) runs
+  PHPStan without Turbo, as before.
 
 ## 85.5.0 — 2026-10-08
 
