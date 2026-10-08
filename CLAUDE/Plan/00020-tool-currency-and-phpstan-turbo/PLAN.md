@@ -47,25 +47,28 @@ disables Turbo. Turbo also uses more memory.
 
 ### Phase 1: the update lands (Defence Before Fix: detector red first)
 
-- [ ] ⬜ **Task 1.1**: Find why a no-version-change rebuild of the self-built PHARs differs byte for
-  byte (non-reproducible build, or a moved dependency inside the phar). Red test first, then make it
-  either reproducible or recorded.
-- [ ] ⬜ **Task 1.2**: `add-tool-updates` records every shipped artefact whose bytes changed, not only
-  a moved pinned version, so the update's own changes always satisfy the changelog lane.
-- [ ] ⬜ **Task 1.3**: The update job runs QA on its pull-request branch, judged against the merge
-  base as CI will. A job that passes while its pull request fails is a red test.
-- [ ] ⬜ **Task 1.4**: The job runs daily, and a failed run or a red update pull request opens or
-  updates a tracking issue instead of failing silently.
-- [ ] ⬜ **Task 1.5**: Decide who merges a green update pull request (see Decisions). Then wire it up
-  and document it in a new `CLAUDE/tool-currency.md`, linked from `CLAUDE.md`.
+- [x] ✅ **Task 1.1**: Find why a no-version-change rebuild of the self-built PHARs differs byte for
+  byte. Cause: Box's random alias, plus Composer recording this repository's branch and commit. Red
+  `c65d197`, fix `2160764`: a fixed alias per tool and a fixed `COMPOSER_ROOT_VERSION`.
+- [x] ✅ **Task 1.2**: `add-tool-updates` records every package of a build lock, so a dependency that
+  moved inside a self-built PHAR is recorded. Red `6857aba`, fix `d941c4e`.
+- [x] ✅ **Task 1.3**: The update job runs QA on a work branch, judged from the merge base as its pull
+  request will be. Red `3daaa2c`, fix `7369f06`.
+- [x] ✅ **Task 1.4**: The job runs daily, and a failed run comments on the open
+  `update-deps-failure` issue or opens one. Red `0f3a68f`, fix `4f2d59c`.
+- [ ] 🔄 **Task 1.5**: Decide who merges a green update pull request (D1, the Owner's). Then wire it
+  up and document it in a new `CLAUDE/tool-currency.md`, linked from `CLAUDE.md`.
 
 ### Phase 2: PHPStan 2.3.0
 
-- [ ] ⬜ **Task 2.1**: Update `phpstan.phar` to the latest release through `scripts/tool-install.bash update`, as its own commit.
-- [ ] ⬜ **Task 2.2**: Fix every new finding on this project's code, red first where a finding
-  reveals a defect class. No baseline and no `ignoreErrors`.
-- [ ] ⬜ **Task 2.3**: Confirm every custom rule still registers (`bin/rules`, the rule tests), and
-  close or supersede #52.
+- [x] ✅ **Task 2.1**: `phpstan.phar` 2.2.16 → 2.3.0 through `scripts/tool-install.bash update`, as
+  its own commit (`6a53669`). It reported 162 findings.
+- [x] ✅ **Task 2.2**: 158 came from one class: the rule tests' scope double lacked
+  `DependencyTracker`, which 2.3.0 adds to `Rule::processNode()`'s scope type. Red `a32227e` (read
+  from the phar's own PHPDoc), fix `2741e00`. Seven identifiers with no upstream page got pages under
+  `docs/phpstan-extension-rules/`, and the last four findings were fixed in `cd85df1`. No baseline.
+- [ ] 🔄 **Task 2.3**: Every custom rule still registers (the rule-listing and agent-summary tests
+  pass). Supersede #52 once this lands.
 
 ### Phase 3: PHPStan Turbo
 
@@ -79,9 +82,9 @@ disables Turbo. Turbo also uses more memory.
   running without Turbo.
 - [ ] ⬜ **Task 3.4**: The `phpstan` lane reports whether Turbo loaded. On a platform with a shipped
   binary where it does not load, the cause is shown (decide warn or fail; see Decisions).
-- [ ] ⬜ **Task 3.5**: Measure on this repository: wall time and peak memory, Turbo on against off,
-  interleaved. Re-check the memory-limit guidance (default 4G; lower limits crash rather than slow
-  down) and document it in `docs/tools/phpstan.md`.
+- [ ] 🔄 **Task 3.5**: Measure on this repository: wall time and peak memory, Turbo on against off,
+  interleaved. Measured on 2.3.0: about 20.4 s → 9.4 s, and worker peak memory up about 6% (see the
+  journal). Still to do: document it, and the memory-limit guidance, in `docs/tools/phpstan.md`.
 - [ ] ⬜ **Task 3.6**: A consumer-shaped Large test, with php-qa-ci under
   `vendor/lts/php-qa-ci`, proving the lane runs with Turbo enabled.
 
@@ -99,6 +102,14 @@ disables Turbo. Turbo also uses more memory.
   it after an independent verification, per `pr-verification.md`. Recommendation: (a) when the
   update changes only versions and the files the job generates, and (b) whenever a person or an
   agent had to change code to make it pass.
+- **D3 (Owner): how Turbo reaches consumers.** At 2.3.0 each PHP 8.5 binary is about 7 MB, and its
+  version changes with most PHPStan releases. (a) Commit every non-Windows platform: about 35 MB of
+  git history per PHPStan bump, and Turbo everywhere. (b) Commit linux-gnu-x86_64 only: about 7 MB
+  per bump, covering CI and Debian/Ubuntu x86 containers, while other hosts run without Turbo and
+  the lane says so. (c) Fetch the host's own binary during `composer install`/`update`, pinned by a
+  committed SHA-256 manifest: no binaries in git and Turbo everywhere, but the first network fetch
+  outside the maintainer path. Recommendation: (c), since it is the only option that is both small
+  and universal. (b) is the fallback if install-time fetching is unwelcome.
 - **D2: when Turbo should load but does not.** The lane prints the cause either way. Recommendation:
   fail, since a silent loss of Turbo is the failure #18 warned of. A host without a shipped binary
   (another platform or a ZTS build) is reported, not failed.
