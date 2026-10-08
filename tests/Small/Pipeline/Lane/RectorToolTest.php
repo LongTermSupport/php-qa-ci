@@ -81,6 +81,57 @@ final class RectorToolTest extends TestCase
     }
 
     #[Test]
+    public function aPathOutsideTheTestsDirectorySkipsThePhpunitPass(): void
+    {
+        $this->queuePasses(0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: 'src/One.php')->build());
+
+        $result = new RectorTool()->run($context);
+
+        self::assertTrue($result->isSuccess());
+        self::assertCount(2, $this->rectorSpecs(), 'only the Safe and PHP 8.5 passes run');
+        self::assertSame($this->expectedArgs($context, 'rector-safe.php', true, ...$context->config->pathsToCheck), $this->toolArgs(0));
+        self::assertSame($this->expectedArgs($context, 'rector-php85.php', true, ...$context->config->pathsToCheck), $this->toolArgs(1));
+        self::assertStringNotContainsString('rector-phpunit.php', implode("\n", $this->factory->processes->commandLines()));
+        self::assertStringContainsString('Skipping PHPUnit Rector: no checked path is inside ' . $context->config->paths->testsDir, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aPathInsideTheTestsDirectoryIsThePhpunitPassesOnlyPath(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: 'tests/Unit/OneTest.php')->build());
+
+        new RectorTool()->run($context);
+
+        $testFile = $context->config->paths->testsDir . '/Unit/OneTest.php';
+        self::assertSame($this->expectedArgs($context, 'rector-phpunit.php', true, $testFile), $this->toolArgs(1));
+        self::assertStringContainsString('Running PHPUnit Rector on ' . $testFile, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aPathContainingTheTestsDirectoryGivesThePhpunitPassTheWholeTestsDirectory(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: '.')->build());
+
+        new RectorTool()->run($context);
+
+        self::assertSame($this->expectedArgs($context, 'rector-phpunit.php', true, $context->config->paths->testsDir), $this->toolArgs(1));
+    }
+
+    #[Test]
+    public function aSiblingWhoseNameStartsLikeTheTestsDirectoryIsNotInsideIt(): void
+    {
+        $this->queuePasses(0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: 'tests-legacy/OneTest.php')->build());
+
+        new RectorTool()->run($context);
+
+        self::assertCount(2, $this->rectorSpecs(), 'tests-legacy/ is not tests/, so the PHPUnit pass is skipped');
+    }
+
+    #[Test]
     public function aWritableRunOmitsDryRunAndPrintsTheAdvisory(): void
     {
         $this->queuePasses(0, 0, 0);
