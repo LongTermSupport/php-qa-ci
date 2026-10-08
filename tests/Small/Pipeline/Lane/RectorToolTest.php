@@ -47,6 +47,12 @@ final class RectorToolTest extends TestCase
 {
     private const string ADVISORY = 'Rector ran in WRITABLE mode and may have rewritten files. DO NOT FIGHT IT.';
 
+    private const string SAFE_CONFIG = 'rector-safe.php';
+
+    private const string PHPUNIT_CONFIG = 'rector-phpunit.php';
+
+    private const string PHP85_CONFIG = 'rector-php85.php';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -69,15 +75,79 @@ final class RectorToolTest extends TestCase
 
         self::assertTrue($result->isSuccess());
         self::assertCount(3, $this->rectorSpecs());
-        self::assertSame($this->expectedArgs($context, 'rector-safe.php', true, ...$context->config->pathsToCheck), $this->toolArgs(0));
-        self::assertSame($this->expectedArgs($context, 'rector-phpunit.php', true, $context->config->paths->testsDir), $this->toolArgs(1));
-        self::assertSame($this->expectedArgs($context, 'rector-php85.php', true, ...$context->config->pathsToCheck), $this->toolArgs(2));
+        self::assertSame($this->expectedArgs($context, self::SAFE_CONFIG, true, ...$context->config->pathsToCheck), $this->toolArgs(0));
+        self::assertSame($this->expectedArgs($context, self::PHPUNIT_CONFIG, true, $context->config->paths->testsDir), $this->toolArgs(1));
+        self::assertSame($this->expectedArgs($context, self::PHP85_CONFIG, true, ...$context->config->pathsToCheck), $this->toolArgs(2));
 
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString("Running Rector ('Safe') in read-only check mode", $printed);
         self::assertStringContainsString('Running PHPUnit Rector on ' . $context->config->paths->testsDir, $printed);
         self::assertStringContainsString("Running Rector ('PHP 8.5') in read-only check mode", $printed);
         self::assertStringNotContainsString(self::ADVISORY, $printed);
+    }
+
+    #[Test]
+    public function aPathOutsideTheTestsDirectorySkipsThePhpunitPass(): void
+    {
+        $this->queuePasses(0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: 'src/One.php')->build());
+
+        $result = new RectorTool()->run($context);
+
+        self::assertTrue($result->isSuccess());
+        self::assertCount(2, $this->rectorSpecs(), 'only the Safe and PHP 8.5 passes run');
+        self::assertSame($this->expectedArgs($context, self::SAFE_CONFIG, true, ...$context->config->pathsToCheck), $this->toolArgs(0));
+        self::assertSame($this->expectedArgs($context, self::PHP85_CONFIG, true, ...$context->config->pathsToCheck), $this->toolArgs(1));
+        self::assertStringNotContainsString(self::PHPUNIT_CONFIG, implode("\n", $this->factory->processes->commandLines()));
+        self::assertStringContainsString('Skipping PHPUnit Rector: no checked path is inside ' . $context->config->paths->testsDir, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aPathInsideTheTestsDirectoryIsThePhpunitPassesOnlyPath(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: 'tests/Unit/OneTest.php')->build());
+
+        new RectorTool()->run($context);
+
+        $testFile = $context->config->paths->testsDir . '/Unit/OneTest.php';
+        self::assertSame($this->expectedArgs($context, self::PHPUNIT_CONFIG, true, $testFile), $this->toolArgs(1));
+        self::assertStringContainsString('Running PHPUnit Rector on ' . $testFile, $this->factory->output->fetch());
+    }
+
+    /** `./` and `..` segments name the same file, so they must not move it outside the tests directory. */
+    #[Test]
+    public function aPathWithDotSegmentsInsideTheTestsDirectoryIsStillThePhpunitPassesPath(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: './src/../tests/Unit/OneTest.php')->build());
+
+        new RectorTool()->run($context);
+
+        $testFile = $context->config->paths->testsDir . '/Unit/OneTest.php';
+        self::assertSame($this->expectedArgs($context, self::PHPUNIT_CONFIG, true, $testFile), $this->toolArgs(1));
+    }
+
+    #[Test]
+    public function aPathContainingTheTestsDirectoryGivesThePhpunitPassTheWholeTestsDirectory(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: '.')->build());
+
+        new RectorTool()->run($context);
+
+        self::assertSame($this->expectedArgs($context, self::PHPUNIT_CONFIG, true, $context->config->paths->testsDir), $this->toolArgs(1));
+    }
+
+    #[Test]
+    public function aSiblingWhoseNameStartsLikeTheTestsDirectoryIsNotInsideIt(): void
+    {
+        $this->queuePasses(0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: 'tests-legacy/OneTest.php')->build());
+
+        new RectorTool()->run($context);
+
+        self::assertCount(2, $this->rectorSpecs(), 'tests-legacy/ is not tests/, so the PHPUnit pass is skipped');
     }
 
     #[Test]
@@ -89,7 +159,7 @@ final class RectorToolTest extends TestCase
         $result = new RectorTool()->run($context);
 
         self::assertTrue($result->isSuccess());
-        self::assertSame($this->expectedArgs($context, 'rector-safe.php', false, ...$context->config->pathsToCheck), $this->toolArgs(0));
+        self::assertSame($this->expectedArgs($context, self::SAFE_CONFIG, false, ...$context->config->pathsToCheck), $this->toolArgs(0));
         foreach ($this->rectorSpecs() as $spec) {
             self::assertNotContains('--dry-run', $spec->command);
         }
@@ -159,7 +229,7 @@ final class RectorToolTest extends TestCase
         self::assertStringContainsString('Running Project Specific Rector as configured in ' . $rootConfig, $printed);
         self::assertStringContainsString('Running Project Specific Rector as configured in ' . $qaConfigConfig, $printed);
         self::assertStringContainsString('Skipping standard PHP 8.5 Rector as we assume its handled in project rector', $printed);
-        self::assertStringNotContainsString('rector-php85.php', implode("\n", $this->factory->processes->commandLines()));
+        self::assertStringNotContainsString(self::PHP85_CONFIG, implode("\n", $this->factory->processes->commandLines()));
     }
 
     #[Test]
