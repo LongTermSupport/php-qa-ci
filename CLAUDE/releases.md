@@ -81,8 +81,9 @@ adopts the same workflow is in
    everything recorded so far.
 4. **Merging the release pull request is the decision to release.** Its CI run is approved by
    the workflow (see "Repository settings" below); once `QA Pipeline` is green, review and merge
-   it like any other (`gh pr review <n> --approve`, `gh pr merge <n> --merge`). Nothing else is
-   required, and nothing is released until then.
+   it like any other pull request: an Owner's approval, or, when an agent merges on the Owner's
+   instruction, the independent verification of [pr-verification.md](pr-verification.md), then
+   `gh pr merge <n> --merge`. Nothing else is required, and nothing is released until then.
 5. CI runs on the merge. The lane counts the new version section as the record of everything
    since the last tag, so it passes. `release.yml` then runs `pending-tags`, which names the tag
    for each version section newer than the newest tag together with the commit that wrote it, and
@@ -116,7 +117,7 @@ release `86.0.0`. The policies are in
 ## Repository settings it relies on
 
 The workflow needs no secret and bypasses no branch protection: `GITHUB_TOKEN` opens the pull
-request and creates the release, and the owner's merge is the only write to `php8.5`. It relies
+request and creates the release, and a merged pull request is the only write to `php8.5`. It relies
 on these settings:
 
 - **Settings → Actions → General → Workflow permissions**: "Allow GitHub Actions to create and
@@ -124,11 +125,11 @@ on these settings:
   shows `can_approve_pull_request_reviews: true`).
 - No ruleset targets tags, so `GITHUB_TOKEN` may create `85.N.N`.
 - `php8.5`'s classic branch protection requires the one status check `QA Pipeline`, strict
-  (the branch must be up to date), one approving review (stale approvals dismissed) and
-  resolved conversations, and is not enforced on admins
-  (`gh api repos/LongTermSupport/php-qa-ci/branches/php8.5/protection`). The review is the
-  owner's look at the release pull request before merging it: `gh pr review <n> --approve`,
-  then `gh pr merge <n> --merge`. ShellCheck has no check of its own: it runs inside `bin/qa`
+  (the branch must be up to date), zero approving reviews (the Owner's choice in
+  [Plan 00019](Plan/Completed/00019-agent-pr-merge-gate/PLAN.md); the review step is
+  [pr-verification.md](pr-verification.md)) and resolved conversations, and is not enforced on
+  admins (`gh api repos/LongTermSupport/php-qa-ci/branches/php8.5/protection`, readable by an
+  admin only). ShellCheck has no check of its own: it runs inside `bin/qa`
   as the `shellCheck` lane. `php8.4` still has the separate ShellCheck job and still requires
   it.
 - GitHub holds the `pull_request` CI run of a pull request opened or pushed with `GITHUB_TOKEN`
