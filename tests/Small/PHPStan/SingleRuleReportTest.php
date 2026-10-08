@@ -72,6 +72,35 @@ final class SingleRuleReportTest extends TestCase
         self::assertSame([], SingleRuleReport::fromJson('{"totals":{"errors":0,"file_errors":0},"files":[],"errors":[]}')->firingsOf(self::PHPQACI_NESTED_TERNARY));
     }
 
+    /**
+     * PHPStan drops every finding when it abandons an analysis on internal errors, so "did not
+     * fire" would be a false answer: the harness exits 2 instead. The shipped phar reports those
+     * errors either per file, identified `phpstan.internal`, or in the top-level list.
+     */
+    #[Test]
+    public function anAbandonedAnalysisIsNotAnAnswer(): void
+    {
+        $perFile  = '{"totals":{"errors":0,"file_errors":1},"files":{"/p/A.php":{"errors":1,"messages":[{"message":"Internal error: Unclosed \'{\' on line 49","line":null,"ignorable":false,"identifier":"phpstan.internal"}]}},"errors":[]}';
+        $topLevel = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Internal error: boom from fixture rule while analysing file /p/A.php"]}';
+
+        foreach (['per file' => $perFile, 'top level' => $topLevel] as $shape => $json) {
+            try {
+                SingleRuleReport::fromJson($json);
+                self::fail('an abandoned analysis was read as an answer: ' . $shape);
+            } catch (InvalidArgumentException $invalidArgumentException) {
+                self::assertStringContainsString('abandoned the analysis', $invalidArgumentException->getMessage(), $shape);
+            }
+        }
+    }
+
+    #[Test]
+    public function aGeneralFindingIsStillAnAnswer(): void
+    {
+        $json = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Ignored error pattern #x# was not matched in reported errors."]}';
+
+        self::assertSame([], SingleRuleReport::fromJson($json)->firingsOf(self::PHPQACI_NESTED_TERNARY));
+    }
+
     #[Test]
     public function outputThatIsNotPhpstanJsonIsAnError(): void
     {

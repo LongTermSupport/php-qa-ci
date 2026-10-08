@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Lane\PhpstanTool;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -76,7 +77,13 @@ final class PhpstanToolTest extends TestCase
 
     private const string INCOMPLETE_LINE = "⚠️  Result is incomplete because of severe errors. ⚠️\n";
 
-    private const string INTERNAL_ERROR_OUTPUT = " Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;
+    /** The summary line the shipped phar's table output ends a findings run with. */
+    private const string FOUND_ONE = "\n [ERROR] Found 1 error\n";
+
+    /** What the shipped phar prints, and exits 1 on, for a config error: nothing was analysed. */
+    private const string CONFIG_ERROR = "Invalid configuration:\nUnexpected item 'parameters › notARealParameter'.\n";
+
+    private const string INTERNAL_ERROR_OUTPUT =" Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;
 
     private ContextFactory $factory;
 
@@ -298,7 +305,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function errorsFoundFailWithTheIdentifierAndNoTautologyNote(): void
     {
-        $this->factory->processes->willFail(1, " 12  Method foo() has no return type specified.\n");
+        $this->factory->processes->willFail(1, " 12  Method foo() has no return type specified.\n" . self::FOUND_ONE);
 
         $result  = new PhpstanTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -312,7 +319,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function aTautologyIdentifierInTheOutputPrintsTheNote(): void
     {
-        $this->factory->processes->willFail(1, "Call to method assertTrue() with true will always evaluate to true.\n  🪪 method.alreadyNarrowedType\n");
+        $this->factory->processes->willFail(1, "Call to method assertTrue() with true will always evaluate to true.\n  🪪 method.alreadyNarrowedType\n" . self::FOUND_ONE);
 
         $result  = new PhpstanTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -366,6 +373,35 @@ final class PhpstanToolTest extends TestCase
         self::assertStringContainsString('PHPStan Crashed!!....', $printed);
         self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
         self::assertCount(2, $this->factory->processes->specs, 'an abandoned analysis gets the same debug re-run as any crash');
+    }
+
+    /** A config error also exits 1, before anything is analysed: there are no findings to fix. */
+    #[Test]
+    public function aConfigurationErrorIsACrashNotFindings(): void
+    {
+        $this->factory->processes->willFail(1, self::CONFIG_ERROR);
+        $this->factory->processes->willFail(1, self::CONFIG_ERROR);
+
+        $result  = new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(PhpstanCrash::NO_REPORT_REASON, $result->summary);
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
+        self::assertCount(2, $this->factory->processes->specs, 'the debug re-run, as for any crash');
+    }
+
+    #[Test]
+    public function jsonModeAConfigurationErrorIsACrash(): void
+    {
+        $this->factory->processes->willFail(1, self::CONFIG_ERROR);
+        $config = $this->factory->builder(jsonOutput: true, specifiedPath: self::SRC)->build();
+
+        $result = new PhpstanTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(PhpstanCrash::NO_REPORT_REASON, $result->summary);
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $this->factory->output->fetch());
     }
 
     #[Test]

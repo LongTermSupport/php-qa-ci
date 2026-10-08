@@ -174,7 +174,7 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function findingsFailTheLaneWithTheIdentifier(): void
     {
-        $this->factory->processes->willFail(1, 'Unused Foo::bar');
+        $this->factory->processes->willFail(1, " 12  Unused Foo::bar\n\n [ERROR] Found 1 error\n");
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
@@ -186,6 +186,24 @@ final class DeadCodeToolTest extends TestCase
         self::assertSame('dead code found', $result->summary);
         self::assertStringContainsString('withDeadCodeEntryPoints', $printed);
         self::assertStringContainsString(DeadCodeTool::IDENTIFIER, $printed);
+    }
+
+    /** A config error exits 1 before anything is analysed: the "delete it" guidance would be wrong. */
+    #[Test]
+    public function aConfigurationErrorIsACrashNotDeadCode(): void
+    {
+        $this->factory->processes->willFail(1, "Invalid configuration:\nUnexpected item 'parameters › notARealParameter'.\n");
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::NO_REPORT_REASON, $result->summary);
+        self::assertStringNotContainsString('Delete it', $printed);
+        self::assertStringNotContainsString(DeadCodeTool::IDENTIFIER, $printed);
     }
 
     #[Test]
