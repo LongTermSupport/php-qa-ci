@@ -1,0 +1,18 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Gives this host PHPStan's Turbo binary under vendor-phar/turbo-ext/, verified
+ * against the SHA-256 vendor-phar/turbo-ext.json pins (install mode), after
+ * regenerating that manifest for the shipped phpstan.phar (maintainer update
+ * mode). Called by scripts/tool-install.bash on every composer install/update,
+ * and in a consuming project by the php-qa-ci Composer plugin; the logic is
+ * LTS\PHPQA\Turbo\TurboInstaller, where it is unit-tested.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+exit(\LTS\PHPQA\Turbo\TurboInstaller::main(
+    \dirname(__DIR__),
+    $argv[1] ?? \LTS\PHPQA\Turbo\TurboInstaller::MODE_INSTALL,
+));

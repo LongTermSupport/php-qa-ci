@@ -80,6 +80,7 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(0, $this->installer($source)->run($this->library->path, TurboInstaller::MODE_INSTALL), $this->errors->fetch());
 
         self::assertSame(self::SO_BYTES, $this->library->read(self::BINARY));
+        self::assertSame(0o644, \Safe\fileperms($this->library->path . '/' . self::BINARY) & 0o777, 'a shared library nobody else may rewrite');
         self::assertStringContainsString('Installing PHPStan Turbo 2.3.0', $this->output->fetch());
     }
 

@@ -198,6 +198,8 @@ final readonly class TurboInstaller
             }
 
             \Safe\rename($staging->path . '/' . self::ZIP_ENTRY, $binary);
+            // The zip entry carries no usable mode, and the extracted file comes out world-writable.
+            \Safe\chmod($binary, 0o644);
             \Safe\file_put_contents($binary . self::STAMP_SUFFIX, TurboInstallDecider::stamp($asset, $digest) . "\n");
         } catch (Throwable $throwable) {
             $staging->remove();

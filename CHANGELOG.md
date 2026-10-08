@@ -31,6 +31,14 @@ the release and its tag. The full rules are in
   it cannot be disabled, so nothing needs installing. php-qa-ci uses it to check the SHA-256 of each
   PHPStan Turbo binary it downloads.
 
+### Added
+
+- **PHPStan runs with Turbo, its native extension.** `bin/turbo-install` downloads the Turbo
+  binary built for the host (OS, CPU, libc, PHP version) into `vendor-phar/turbo-ext/`, where
+  `phpstan.phar` loads it. It refuses any download whose SHA-256 differs from the one
+  `vendor-phar/turbo-ext.json` pins for the shipped phar. A host upstream builds nothing for
+  (Windows, an Intel Mac) runs PHPStan without Turbo, as before.
+
 ## 85.5.0 — 2026-10-08
 
 ### Changed

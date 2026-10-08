@@ -129,6 +129,7 @@
     "bin/sensitive-parameter-usage",
     "bin/shellcheck-install",
     "bin/single-rule-report",
+    "bin/turbo-install",
     "bin/version-pins-check"
   ],
   "config": {

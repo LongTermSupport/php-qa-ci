@@ -29,7 +29,10 @@
 !/bin/sensitive-parameter-usage
 !/bin/shellcheck-install
 !/bin/single-rule-report
+!/bin/turbo-install
 !/bin/version-pins-check
+# PHPStan Turbo binaries: one per host, fetched by bin/turbo-install against vendor-phar/turbo-ext.json
+/vendor-phar/turbo-ext/
 /cache/
 /.phive-home/
 /build/*/vendor/
