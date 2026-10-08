@@ -30,6 +30,8 @@ final class InfectionArgumentsTest extends TestCase
 
     private const string SRC_CHANGED_PHP = '/p/src/Changed.php';
 
+    private const string DIFF_BASE_MAIN = 'main';
+
     private const array COMMON = [
         '--coverage=/var/qa/phpunit_logs',
         '--skip-initial-tests',
@@ -64,10 +66,9 @@ final class InfectionArgumentsTest extends TestCase
     #[Test]
     public function positionalPathsAlwaysComeLast(): void
     {
-        $args = new InfectionArguments()->diff($this->options(diffBase: 'main', onlyCovered: true), '/c', self::CFG_INFECTION_JSON, '/p/src/A.php', '/p/src/B.php');
+        $args = new InfectionArguments()->diff($this->options(diffBase: self::DIFF_BASE_MAIN, onlyCovered: true), '/c', self::CFG_INFECTION_JSON, '/p/src/A.php', '/p/src/B.php');
 
         self::assertSame(['/p/src/A.php', '/p/src/B.php'], \array_slice($args, -2));
-        self::assertSame('--only-covered', $args[0]);
     }
 
     #[Test]
@@ -79,13 +80,18 @@ final class InfectionArgumentsTest extends TestCase
         self::assertNotContains(self::DEFAULT_DIFF_FLOOR, $args, 'the overridden floor must REPLACE the default');
     }
 
+    /**
+     * Infection 0.35 mutates only covered code by default and has no `--only-covered`; passing it
+     * makes Infection refuse the run (#74). The setting is kept, and changes nothing.
+     */
     #[Test]
-    public function onlyCoveredIsTheFirstFlagInEitherLane(): void
+    public function onlyCoveredAddsNoOptionInEitherLane(): void
     {
         $full = new InfectionArguments()->full($this->options(onlyCovered: true), '/c', self::CFG_INFECTION_JSON);
+        $diff = new InfectionArguments()->diff($this->options(diffBase: self::DIFF_BASE_MAIN, onlyCovered: true), '/c', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP);
 
-        self::assertSame('--only-covered', $full[0]);
-        self::assertSame('--coverage=/c', $full[1]);
+        self::assertSame(new InfectionArguments()->full($this->options(), '/c', self::CFG_INFECTION_JSON), $full);
+        self::assertSame(new InfectionArguments()->diff($this->options(diffBase: self::DIFF_BASE_MAIN), '/c', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP), $diff);
     }
 
     private function options(?string $diffBase = null, int $diffCoveredMsi = 80, bool $onlyCovered = false): InfectionOptionsDto
