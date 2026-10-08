@@ -1,0 +1,17 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Verifies (install mode) or moves (maintainer update mode) composer.json's
+ * replace of phpstan/phpstan to the version of the shipped phpstan.phar, so
+ * Composer resolves only the PHPStan extensions the phar can load. Called by
+ * scripts/tool-install.bash on every composer install/update; the logic is
+ * LTS\PHPQA\PhpstanReplace\PhpstanReplaceSync, where it is unit-tested.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+exit(\LTS\PHPQA\PhpstanReplace\PhpstanReplaceSync::main(
+    \dirname(__DIR__),
+    $argv[1] ?? \LTS\PHPQA\PhpstanReplace\PhpstanReplaceSync::MODE_INSTALL,
+));

@@ -27,10 +27,18 @@ the release and its tag. The full rules are in
 
 ### Changed
 
-- **Bundled tool versions updated** by the weekly dependency update: phpstan 2.2.16 → 2.3.0.
+- **Bundled tool versions updated** by the dependency update: phpstan 2.2.16 → 2.3.0.
 
 ### Fixed
 
+- **A `composer update` no longer installs PHPStan extensions the shipped phar cannot load**
+  ([#60](https://github.com/LongTermSupport/php-qa-ci/issues/60)). `composer.json` replaced
+  `phpstan/phpstan` with `*`, so Composer treated every PHPStan version as present and installed
+  the newest extensions: `phpstan/phpstan-strict-rules` 2.1.0 and `phpstan/phpstan-phpunit` 2.1.x
+  require PHPStan ^2.3, and the `phpstan` lane then aborted with "Running PHPStan with incompatible
+  extensions" against an older phar. The replace is now the phar's exact version (2.3.0), so
+  Composer resolves only extension releases the phar can load. `bin/phpstan-replace-sync` verifies
+  it on every install and moves it with the phar on a maintainer update.
 - **`bin/changelog-release add-tool-updates` records a dependency that moved inside a self-built PHAR**, such as a package Rector bundles, as `<package> (in <tool>.phar)`. Before, only the tool itself was compared, so an update that changed such a PHAR recorded nothing and its pull request failed the `changelog` lane.
 
 ## 85.4.0 — 2026-10-07

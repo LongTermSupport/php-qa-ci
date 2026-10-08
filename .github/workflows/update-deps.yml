@@ -78,6 +78,13 @@ jobs:
           done
           bash scripts/build-phar.bash --all --force
 
+      # The PHAR update moved composer.json's replace of phpstan/phpstan to the
+      # new phar's version (bin/phpstan-replace-sync), and the composer update
+      # above resolved the PHPStan extensions against the old one. Resolve again
+      # so they move up to what the new phar can load; a no-op otherwise.
+      - name: Re-resolve the PHPStan extensions against the phar
+        run: composer update --no-interaction --no-progress --prefer-dist
+
       # The active-defences region of CLAUDE.md counts the rules each installed
       # PHPStan extension registers, and a test holds it current, so an extension
       # release that changes its rule set would fail the QA run below. Regenerate
