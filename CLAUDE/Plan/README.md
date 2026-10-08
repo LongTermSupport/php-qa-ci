@@ -12,11 +12,11 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 - [00020: tool currency and phpstan turbo](00020-tool-currency-and-phpstan-turbo/PLAN.md) - In Progress — the Owner's ruling that tracking the latest tools that pass QA is a standing process: the dependency update that judges itself as its pull request will and lands when green, PHPStan 2.3.0, and PHPStan Turbo shipped beside the phar for every consumer
 
-- [00017: fix every deferred defect and retire the record](00017-fix-every-deferred-defect-and-retire-the-record/PLAN.md) - In Progress — the Owner's ruling that this repository fixes rather than baselines: every deferred defect, the `ignoreErrors` entry and the declared `known-gaps` fixed, the defect record removed, the hooks daemon at v3.68.0, and `php8.4` taking bug fixes again with issues stating their release line
-
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
 ## Completed Plans
+
+- [00017: fix every deferred defect and retire the record](Completed/00017-fix-every-deferred-defect-and-retire-the-record/PLAN.md) - Complete — the Owner's ruling that this repository fixes rather than baselines: every deferred defect, the `ignoreErrors` entry and the declared `known-gaps` fixed, the defect record removed, the hooks daemon at v3.68.0, issues stating their release line, and #36 backported to `php8.4` (merged #49; `php8.4` 9960f97, released 84.0.1)
 
 - [00018: markdown formatter matching hooks daemon](Completed/00018-markdown-formatter-matching-hooks-daemon/PLAN.md) - Complete — the `markdownFormat` lane (`-t mdf`) runs the hooks daemon's own `format-markdown` over `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `docs/` and `CLAUDE/`, skipping absent and gitignored paths by name and skipping entirely without the daemon (Decision 1: delegate, never port; merged 9823f20)
 

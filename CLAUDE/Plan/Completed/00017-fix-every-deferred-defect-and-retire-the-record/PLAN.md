@@ -1,6 +1,6 @@
 # Plan 00017: fix every deferred defect and retire the record
 
-**Status**: In Progress
+**Status**: Complete (php8.5 delivery merged with #49; php8.4 backport 9960f97, released as 84.0.1)
 **Created**: 2026-10-03
 **Owner**: joseph
 **Priority**: High
@@ -74,15 +74,16 @@ backported proactively; the rest stay known `php8.4` issues until someone report
 
 - [x] ✅ **Task 5.1**: `CLAUDE.md` and `README.md` state the ruling: `php8.5` is current, `php8.4` takes a fix when a `php8.4` project reports a bug, `php8.3` is dead
 - [x] ✅ **Task 5.2**: An issue form whose release line is required, held to the live branches by a test
-- [ ] 🔄 **Task 5.3**: Backport #36 (FlipAssertRector inverts assertions) to `php8.4` and release it (Owner go-ahead given; red `6c944d3`, fix `ecd4af3`, PR #50)
+- [x] ✅ **Task 5.3**: Backport #36 (FlipAssertRector inverts assertions) to `php8.4` and release it (Owner go-ahead given; red `6c944d3`, fix `ecd4af3`, PR #50 merged as `9960f97`, released as `84.0.1`)
 
 ## Success Criteria
 
 - [x] `qaConfig/defect-record.neon` does not exist and nothing refers to it
 - [x] `qaConfig/phpstan.neon` has no `ignoreErrors`, and `composer.json` declares no `known-gaps`
-- [ ] Both battery runs pass on `php8.5` (done), and on `php8.4` for its fixes (with Task 5.3)
+- [x] Both battery runs pass on `php8.5` (local), and on `php8.4` for its fixes (CI's full pipeline on `9960f97`; no PHP 8.4 runtime here)
 - [x] Issues cannot be opened without a release line
 
 ## Delivery & Milestones
 
-- <!-- delivery commit hashes -->
+- `php8.5`: PR #49
+- `php8.4`: `9960f97` (PR #50), tag `84.0.1`
