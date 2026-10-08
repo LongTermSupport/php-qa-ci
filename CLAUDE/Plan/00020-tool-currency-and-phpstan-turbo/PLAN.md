@@ -56,8 +56,9 @@ disables Turbo. Turbo also uses more memory.
   request will be. Red `3daaa2c`, fix `7369f06`.
 - [x] ✅ **Task 1.4**: The job runs daily, and a failed run comments on the open
   `update-deps-failure` issue or opens one. Red `0f3a68f`, fix `4f2d59c`.
-- [ ] 🔄 **Task 1.5**: Decide who merges a green update pull request (D1, the Owner's). Then wire it
-  up and document it in a new `CLAUDE/tool-currency.md`, linked from `CLAUDE.md`.
+- [x] ✅ **Task 1.5**: Decide who merges a green update pull request (D1, decided: an agent session,
+  after a fresh sub-agent's verification). Documented in `CLAUDE/tool-currency.md`, with a binding
+  section in `CLAUDE.md` that makes the check part of every session.
 
 ### Phase 2: PHPStan 2.3.0
 
@@ -97,19 +98,26 @@ disables Turbo. Turbo also uses more memory.
 
 ## Decisions
 
-- **D1 (Owner): who merges a green dependency-update pull request.** (a) The workflow enables
-  auto-merge on it, so a green `QA Pipeline` lands it with no verifier. (b) An agent session merges
-  it after an independent verification, per `pr-verification.md`. Recommendation: (a) when the
-  update changes only versions and the files the job generates, and (b) whenever a person or an
-  agent had to change code to make it pass.
-- **D3 (Owner): how Turbo reaches consumers.** At 2.3.0 each PHP 8.5 binary is about 7 MB, and its
-  version changes with most PHPStan releases. (a) Commit every non-Windows platform: about 35 MB of
-  git history per PHPStan bump, and Turbo everywhere. (b) Commit linux-gnu-x86_64 only: about 7 MB
-  per bump, covering CI and Debian/Ubuntu x86 containers, while other hosts run without Turbo and
-  the lane says so. (c) Fetch the host's own binary during `composer install`/`update`, pinned by a
-  committed SHA-256 manifest: no binaries in git and Turbo everywhere, but the first network fetch
-  outside the maintainer path. Recommendation: (c), since it is the only option that is both small
-  and universal. (b) is the fallback if install-time fetching is unwelcome.
+- **D1 (Owner, decided): who merges a green dependency-update pull request.** An agent session
+  merges it after a fresh sub-agent's verification (`pr-verification.md`), as a standing
+  authorisation. No auto-merge.
+- **D3 (Owner, open): how Turbo reaches consumers.** Upstream does bundle Turbo, but only in the
+  Composer package: `phpstan/phpstan` at a tag carries `turbo-ext/` (every platform) beside
+  `phpstan.phar`, and `.gitattributes` does not export-ignore it. The GitHub release that PHIVE
+  downloads has `phpstan.phar` and its signature only. php-qa-ci takes the phar from PHIVE and
+  `replace`s `phpstan/phpstan` (README: to prevent version conflicts when consumers also require
+  PHPStan extensions),
+  so neither php-qa-ci nor a consumer ever receives `turbo-ext/`. At 2.3.0 each PHP 8.5 binary is
+  about 7 MB, and its version changes with most PHPStan releases. (a) Commit every non-Windows
+  platform under `vendor-phar/turbo-ext/`: about 35 MB of git history per PHPStan bump. (b) Commit
+  linux-gnu-x86_64 only: about 7 MB per bump; other hosts run without Turbo and the lane says so.
+  (c) Fetch the host's own binary from the phar's tag during `composer install`/`update`, pinned by
+  a committed SHA-256 manifest: nothing in git, Turbo everywhere, but a network fetch at install.
+  (d) Drop the `replace` and require `phpstan/phpstan` at the exact version of the shipped phar, so
+  Composer delivers `turbo-ext/` as upstream intends; the lane then runs Composer's
+  `phpstan.phar` and PHIVE stops handling PHPStan. Nothing in git and no fetching code of our own,
+  but about 45 MB in every consumer's `vendor/`, and an exact pin a consumer's own PHPStan
+  constraint must accept.
 - **D2: when Turbo should load but does not.** The lane prints the cause either way. Recommendation:
   fail, since a silent loss of Turbo is the failure #18 warned of. A host without a shipped binary
   (another platform or a ZTS build) is reported, not failed.

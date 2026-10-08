@@ -196,7 +196,7 @@ jobs:
           delete-branch: true
           title: 'chore(deps): update dependencies'
           body: |
-            Automated weekly dependency update.
+            Automated daily dependency update.
 
             ${{ steps.summary.outputs.body }}
 

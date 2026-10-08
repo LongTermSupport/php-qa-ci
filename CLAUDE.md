@@ -137,6 +137,14 @@ otherwise, and a green push to `php8.5` opens a release pull request whose merge
 [CLAUDE/releases.md](CLAUDE/releases.md) is the procedure: which heading a change belongs under,
 the trailer, how the release pull request works, and the repository settings it relies on.
 
+## Tools stay current (binding, Owner decision)
+
+php-qa-ci runs on the latest release of every tool it bundles that passes QA against this
+repository. The dependency update runs daily. At the start and end of every session, check for an
+open update pull request and for an `update-deps-failure` issue. Merge a green update pull request
+after a fresh sub-agent's verification; this is a standing authorisation. Fix a red one or a failure
+issue (Defence Before Fix). [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md) is the procedure.
+
 ## Work happens on `php8.5` (binding, Owner decision)
 
 Every change, fix and feature is made on `php8.5`, the current line.
