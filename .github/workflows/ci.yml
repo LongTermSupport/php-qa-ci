@@ -38,8 +38,14 @@ jobs:
             "${shellFiles[@]}"
 
   qa:
-    name: QA Pipeline
+    # composer.json requires "php": "^8.4", which admits 8.5: the pipeline must pass on every
+    # PHP line that constraint lets a consumer install it on, not only the one it targets (#69).
+    name: QA Pipeline (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
 
     steps:
       - name: Checkout
@@ -48,7 +54,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: ${{ matrix.php }}
           tools: composer:v2
           coverage: xdebug
           extensions: json, tokenizer, mbstring
