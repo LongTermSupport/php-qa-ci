@@ -111,6 +111,14 @@ jobs:
       # and this job exists to take them, so they are applied and land in the
       # pull request for review instead of failing it. CI on php8.5 re-checks the
       # merged result read-only.
+      #
+      # It runs on a work branch with the update still uncommitted, so the
+      # changelog lane measures the update from the merge base, exactly as it
+      # will on the pull request; on the default branch it would measure from
+      # the last release tag, where earlier Unreleased entries cover anything.
+      # The job then returns to its checkout, the base the pull request action
+      # expects, carrying the working-tree changes with it. The work branch is
+      # not chore/update-deps, which that action creates and resets itself.
       - name: Run QA Pipeline
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -118,7 +126,10 @@ jobs:
           QA_READONLY: 0
           phpUnitQuickTests: 0
           phpUnitCoverage: 0
-        run: bash ci.bash
+        run: |
+          git switch --create chore/update-deps-qa
+          bash ci.bash
+          git switch -
 
       # Step 7: Generate PR summary
       - name: Generate update summary

@@ -32,7 +32,7 @@ final class UpdateDepsJudgesItselfAsItsPullRequestTest extends TestCase
     private const string QA = 'bash ci.bash';
 
     /** Onto a work branch with the update still uncommitted, so the lane diffs it against the merge base. */
-    private const string TO_WORK_BRANCH = 'git switch --create chore/update-deps';
+    private const string TO_WORK_BRANCH = 'git switch --create chore/update-deps-qa';
 
     /** Back to the branch the job checked out, which the pull request action bases on. */
     private const string BACK = 'git switch -';
@@ -49,7 +49,7 @@ final class UpdateDepsJudgesItselfAsItsPullRequestTest extends TestCase
     public function testTheGuardReportsQaOutsideAWorkBranchOrNoReturn(): void
     {
         $qa     = "          bash ci.bash\n";
-        $switch = "          git switch --create chore/update-deps\n";
+        $switch = "          git switch --create chore/update-deps-qa\n";
         $back   = "          git switch -\n";
         $create = "      - name: Create Pull Request\n";
 
