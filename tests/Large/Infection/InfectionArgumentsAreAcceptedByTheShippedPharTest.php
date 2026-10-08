@@ -67,25 +67,53 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
         yield 'diff run' => [$arguments->diff($options, '/coverage', '/infection.json', '/src/One.php')];
     }
 
+    /**
+     * An option another option's description mentions is not thereby accepted: Infection's help
+     * names `--coverage` in the text of `--skip-initial-tests`, so reading options from the prose
+     * would keep `--coverage` "accepted" after Infection dropped it.
+     */
+    #[Test]
+    public function onlyTheOptionColumnOfTheHelpCounts(): void
+    {
+        $help = <<<'HELP'
+            Options:
+              -j, --threads=THREADS            Number of threads to use
+                  --skip-initial-tests         Requires the coverage to be provided via the "--coverage" option
+                  --debug|--no-debug           Keep temporary files
+                  --git-diff-filter=FILTER     Filter files by git "--diff-filter" option
+            HELP;
+
+        self::assertSame(
+            ['--threads', '--skip-initial-tests', '--debug', '--no-debug', '--git-diff-filter'],
+            self::optionsListedIn($help),
+        );
+    }
+
     /** @return list<string> */
     private function accepted(): array
     {
         if (null === self::$accepted) {
             $process = new Process([\PHP_BINARY, self::PHAR, 'run', '--help', '--no-ansi']);
             $process->mustRun();
-            $matches = [];
-            \Safe\preg_match_all('/(?<![\w-])--[a-z][a-z0-9-]*/', $process->getOutput(), $matches);
-            $accepted = [];
-            $found    = $matches[0] ?? [];
-            foreach (\is_array($found) ? $found : [] as $option) {
-                if (\is_string($option) && !\in_array($option, $accepted, true)) {
-                    $accepted[] = $option;
-                }
-            }
-
-            self::$accepted = $accepted;
+            self::$accepted = self::optionsListedIn($process->getOutput());
         }
 
         return self::$accepted;
+    }
+
+    /** @return list<string> */
+    private static function optionsListedIn(string $help): array
+    {
+        $matches = [];
+        \Safe\preg_match_all('/(?<![\w-])--[a-z][a-z0-9-]*/', $help, $matches);
+        $listed = [];
+        $found  = $matches[0] ?? [];
+        foreach (\is_array($found) ? $found : [] as $option) {
+            if (\is_string($option) && !\in_array($option, $listed, true)) {
+                $listed[] = $option;
+            }
+        }
+
+        return $listed;
     }
 }
