@@ -123,15 +123,28 @@ final readonly class RectorTool implements ToolInterface
         return array_values(array_unique($inside));
     }
 
-    /** A checked path without a trailing slash or `/.`, so `-p .` and `-p tests/` compare as directories. */
+    /**
+     * A checked path with `.`, `..` and repeated or trailing slashes resolved lexically, so `-p .`,
+     * `-p tests/` and `-p ./tests/Foo` compare as the directories they name.
+     */
     private function normalised(string $path): string
     {
-        $path = rtrim($path, '/');
-        while (str_ends_with($path, '/.')) {
-            $path = rtrim(substr($path, 0, -2), '/');
+        $segments = [];
+        foreach (explode('/', $path) as $segment) {
+            if ('' === $segment || '.' === $segment) {
+                continue;
+            }
+
+            if ('..' === $segment && [] !== $segments && '..' !== end($segments)) {
+                array_pop($segments);
+
+                continue;
+            }
+
+            $segments[] = $segment;
         }
 
-        return $path;
+        return (str_starts_with($path, '/') ? '/' : '') . implode('/', $segments);
     }
 
     /** One Rector config over one or more paths, honouring read-only mode. */
