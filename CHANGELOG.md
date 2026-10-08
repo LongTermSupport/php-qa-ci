@@ -42,6 +42,15 @@ the release and its tag. The full rules are in
   PHPStan without Turbo, as before. A run refuses to start when `vendor-phar/turbo-ext.json` is
   missing or names another PHPStan version than the shipped phar, as it does for a missing PHAR.
 
+### Fixed
+
+- **`qa -t rector -p <path>` no longer runs the PHPUnit Rector set over the whole tests directory**
+  ([#76](https://github.com/LongTermSupport/php-qa-ci/issues/76)). The Safe, project and PHP 8.5
+  passes were narrowed to the given path, but the PHPUnit pass always got all of `tests/`, so a
+  one-file run took about as long as a whole-tree run. On a `-p` run it now gets only the checked
+  paths inside the tests directory, the whole directory for a path that contains it (`-p .`), and
+  is skipped when there are none. A run without `-p` is unchanged.
+
 ## 85.5.0 — 2026-10-08
 
 ### Changed
