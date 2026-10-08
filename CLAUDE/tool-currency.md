@@ -25,13 +25,17 @@ issue is open, it opens one. A failure is never silent.
 
 ## What an agent session does
 
-At the start of every session on this repository, and again before the session ends, look for both
-of these:
+At the start of every session on this repository, and again before the session ends, run these
+three checks:
 
 ```bash
 gh pr list --state open --label dependencies --json number,title,headRefOid,statusCheckRollup
 gh issue list --state open --label update-deps-failure --json number,title,comments
+gh issue list --state open --json number,title,author,comments,updatedAt
 ```
+
+Read every open issue that has had no reply. A consumer's report, such as a tool version clash after
+an update, is often this process failing for someone, and it is acted on in the same session.
 
 **A green update pull request: verify it, then merge it.**
 

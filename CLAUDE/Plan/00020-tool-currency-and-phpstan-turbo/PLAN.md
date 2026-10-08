@@ -70,12 +70,21 @@ disables Turbo. Turbo also uses more memory.
   `docs/phpstan-extension-rules/`, and the last four findings were fixed in `cd85df1`. No baseline.
 - [ ] 🔄 **Task 2.3**: Every custom rule still registers (the rule-listing and agent-summary tests
   pass). Supersede #52 once this lands.
+- [x] ✅ **Task 2.4**: #60. `replace: {"phpstan/phpstan": "*"}` let Composer install extensions that
+  need a newer PHPStan than the phar (strict-rules 2.1.0 and phpunit 2.1.x need ^2.3), so the lane
+  aborted. Released 85.4.0 (phar 2.2.16) was affected as well as `php8.4`. Red `a895522`, fix
+  `ac166be`: the replace is the phar's exact version, and `bin/phpstan-replace-sync` moves it with
+  the phar.
+- [ ] ⬜ **Task 2.5**: Backport the replace pin to `php8.4` (reported from a `php8.4` project, so
+  the backport rule applies): replace at its phar's 2.2.3, the test, and a reply on #60.
 
 ### Phase 3: PHPStan Turbo
 
 - [ ] ⬜ **Task 3.1**: Red: a Large test that runs `vendor-phar/phpstan.phar diagnose` the way the
   lane invokes PHP (`PhpInvoker`, no Xdebug, the memory limit) and requires `Turbo extension: enabled`.
-- [ ] ⬜ **Task 3.2**: Fetch `turbo-ext/` from the phar's own tag in the PHAR update path (PHP, not
+- [ ] ⬜ **Task 3.2**: D3 (c): on `composer install`/`update`, fetch the host's binary from the
+  `phpstan/turbo-ext` release whose tag is the phar's version, verified against a committed SHA-256
+  manifest that the PHAR update path writes, into `vendor-phar/turbo-ext/<platform>/` (PHP, not
   Bash, per the ShellCheck installer pattern), for PHP 8.5 non-ZTS on the platforms upstream ships.
   Record the size cost.
 - [ ] ⬜ **Task 3.3**: A parity defence: the shipped `turbo-ext` version must be the one the shipped
@@ -101,7 +110,12 @@ disables Turbo. Turbo also uses more memory.
 - **D1 (Owner, decided): who merges a green dependency-update pull request.** An agent session
   merges it after a fresh sub-agent's verification (`pr-verification.md`), as a standing
   authorisation. No auto-merge.
-- **D3 (Owner, open): how Turbo reaches consumers.** Upstream does bundle Turbo, but only in the
+- **D3 (Owner, decided: (c)): how Turbo reaches consumers.** The source is the `phpstan/turbo-ext`
+  GitHub release, tagged with the PHPStan version: about 3 MB zipped per platform, built from the
+  same commit the phar expects, and byte-identical to the binary in `phpstan/phpstan`'s
+  `turbo-ext/` (verified for PHP 8.5 linux-gnu-x86_64, with `diagnose` reporting it enabled). The
+  Packagist package `phpstan/turbo` is of type `php-ext`, for PIE; Composer refuses to install it.
+  (d) is out: the Owner keeps PHPStan out of the dependency graph. Upstream does bundle Turbo, but only in the
   Composer package: `phpstan/phpstan` at a tag carries `turbo-ext/` (every platform) beside
   `phpstan.phar`, and `.gitattributes` does not export-ignore it. The GitHub release that PHIVE
   downloads has `phpstan.phar` and its signature only. php-qa-ci takes the phar from PHIVE and

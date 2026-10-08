@@ -141,7 +141,8 @@ the trailer, how the release pull request works, and the repository settings it 
 
 php-qa-ci runs on the latest release of every tool it bundles that passes QA against this
 repository. The dependency update runs daily. At the start and end of every session, check for an
-open update pull request and for an `update-deps-failure` issue. Merge a green update pull request
+open update pull request, for an `update-deps-failure` issue, and for any other open issue that
+has no reply yet (`gh issue list --state open`): a consumer's report is acted on, not left to wait. Merge a green update pull request
 after a fresh sub-agent's verification; this is a standing authorisation. Fix a red one or a failure
 issue (Defence Before Fix). [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md) is the procedure.
 
