@@ -63,4 +63,8 @@ jobs:
         run: composer install --no-interaction --prefer-dist
 
       - name: Run QA Pipeline
+        # Coverage on, as a consumer's run has it by default: without it ci.bash skips the
+        # infection lane, so a mutation-testing crash on one PHP line went unseen (#69).
+        env:
+          phpunitCoverage: 1
         run: bash ci.bash
