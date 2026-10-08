@@ -113,7 +113,7 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
         $listed = [];
         foreach (explode("\n", $help) as $line) {
             $matches = [];
-            \Safe\preg_match('/^ {2,}(?:-\S+, )?(--[^\s=]+)/', $line, $matches);
+            \Safe\preg_match('/^ {2,}(?:-\S+, )?(--[a-z][a-z0-9-]*(?:\|--[a-z][a-z0-9-]*)*)/', $line, $matches);
             $column = $matches[1] ?? null;
             if (!\is_string($column)) {
                 continue;
