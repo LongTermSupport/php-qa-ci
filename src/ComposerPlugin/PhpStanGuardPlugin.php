@@ -15,8 +15,9 @@ use Composer\Semver\Semver;
 /**
  * Composer plugin that guards against PHPStan version mismatches and duplicate installs.
  *
- * php-qa-ci provides PHPStan via a PHIVE-managed phar and declares
- * "replace": {"phpstan/phpstan": "*"} to prevent it being installed as a composer package.
+ * php-qa-ci provides PHPStan via a PHIVE-managed phar and replaces phpstan/phpstan at the
+ * phar's exact version, so it is never installed as a composer package and Composer resolves
+ * only the extension releases the phar can load (#60).
  * Rector is delivered as a committed, self-contained phar (vendor-phar/rector.phar)
  * that bundles its own extracted phpstan, so Rector's phpstan/phpstan dependency
  * never enters any composer graph either.

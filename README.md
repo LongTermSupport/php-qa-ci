@@ -99,7 +99,7 @@ PHP-QA-CI uses a hybrid approach to tool delivery:
 - **Composer dependencies**: PHPUnit, phpstan-strict-rules, phpstan-phpunit, parallel-lint
 - **Committed PHAR**: Rector -- shipped as `vendor-phar/rector.phar` (self-built via `scripts/build-rector-phar.bash`; it bundles its own extracted phpstan, so nothing leaks into any consuming project's composer graph)
 
-The `phpstan/phpstan` package is in the `replace` section of `composer.json` since PHPStan is provided via PHAR. This prevents version conflicts when consuming projects also require PHPStan extensions.
+The `phpstan/phpstan` package is in the `replace` section of `composer.json` since PHPStan is provided via PHAR. It is replaced at the phar's exact version, so Composer installs only PHPStan extension releases the phar can load. A project that requires `phpstan/phpstan` itself, or an extension release needing a newer PHPStan, gets a Composer resolution error instead of a PHPStan step that aborts.
 
 ## PHPArkitect (architecture rules)
 
