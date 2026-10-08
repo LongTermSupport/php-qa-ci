@@ -16,6 +16,7 @@ use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\Expression;
 use PhpParser\Node\Stmt\Return_;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -107,7 +108,7 @@ final class ForbidSilentCatchRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode($catch, $this->scope()));
     }
 
-    private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         return self::scopeStub();
     }

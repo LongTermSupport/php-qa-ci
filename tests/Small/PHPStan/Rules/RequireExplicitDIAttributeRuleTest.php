@@ -11,6 +11,7 @@ use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\Class_;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -145,7 +146,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
         return new Class_($name, ['flags' => $flags, 'attrGroups' => $attrGroups]);
     }
 
-    private function scope(string $namespace): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(string $namespace): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);

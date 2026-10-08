@@ -14,6 +14,7 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
@@ -202,7 +203,7 @@ final class ForbidMockingFinalClassRuleTest extends RuleTestCase
         return new MethodCall(new Variable(self::VARIABLE_THIS), new Identifier($method), [new Arg($fetch)]);
     }
 
-    private function scopeResolvingTo(string $className): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scopeResolvingTo(string $className): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('resolveName')->willReturn($className);

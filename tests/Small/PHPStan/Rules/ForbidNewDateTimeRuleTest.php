@@ -9,6 +9,7 @@ use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -102,7 +103,7 @@ final class ForbidNewDateTimeRuleTest extends TestCase
         self::assertSame([], $errors);
     }
 
-    private function scope(?string $namespace, string $file, string $resolvesTo): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(?string $namespace, string $file, string $resolvesTo): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);

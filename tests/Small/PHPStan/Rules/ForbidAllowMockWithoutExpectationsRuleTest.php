@@ -8,6 +8,7 @@ use LTS\PHPQA\PHPStan\Rules\ForbidAllowMockWithoutExpectationsRule;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\Name;
 use PHPStan\Analyser\CollectedDataEmitter;
+use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -63,7 +64,7 @@ final class ForbidAllowMockWithoutExpectationsRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode(new Attribute(new Name('CoversClass')), $this->scope()));
     }
 
-    private function scope(): CollectedDataEmitter&NodeCallbackInvoker&Scope
+    private function scope(): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         return self::scopeStub();
     }
