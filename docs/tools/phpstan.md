@@ -41,6 +41,42 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   instruction. The lane is the only one that supports it. See
   [Agent Mode](../agent-mode.md) for the schema, the exit codes and the hook wiring.
 
+## PHPStan Turbo
+
+Turbo is PHPStan's native extension. With it loaded, PHPStan runs some of its analysis in compiled
+code. `phpstan.phar` loads it from `vendor-phar/turbo-ext/<platform>/` beside itself. It accepts
+only a binary built from the same PHPStan release; any other binary, or none, and the phar runs
+without Turbo, silently.
+
+- **Installed on every `composer install` and `composer update`.** `bin/turbo-install` downloads
+  the binary built for the host: its OS, CPU, C library, PHP minor version and thread safety. In a
+  consuming project the php-qa-ci Composer plugin runs it; in php-qa-ci itself
+  `scripts/tool-install.bash` does.
+- **Pinned by digest.** `vendor-phar/turbo-ext.json` records the SHA-256 that
+  [phpstan/turbo-ext](https://github.com/phpstan/turbo-ext/releases) publishes for every Linux and
+  macOS asset of the release matching the shipped phar. A download whose digest differs is
+  refused and nothing is installed. A failed download is only a warning: PHPStan still runs,
+  without Turbo, and the next install tries again.
+- **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
+  manifest. A run refuses to start when the manifest is missing or names another PHPStan version
+  (see [PHAR verification](../../CLAUDE.md#preflight-phase-configuration--setup)).
+- **Hosts without a build** (Windows, an Intel Mac, a ZTS PHP on macOS) run PHPStan without
+  Turbo, as before. The install says so.
+
+**Effect, measured on this repository** (PHPStan 2.3.0, PHP 8.5, Linux x86_64, cold result
+cache, three interleaved runs each way): wall time about 20 s without Turbo and about 9 s with
+it; peak worker memory about 6% higher; identical findings. A project already close to its memory
+limit (4G by default, see `withMemoryLimit()`) may need a little more.
+
+**To see whether Turbo loads** on a host:
+
+```bash
+php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar diagnose
+```
+
+It prints `Turbo extension: enabled (version …)` when the binary loaded, and the reason when it
+did not.
+
 ## How to fix a failure
 
 Each error names its file, line and identifier. Look the identifier up before changing anything:

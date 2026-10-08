@@ -6,6 +6,7 @@
   "require": {
     "php": "^8.5",
     "ext-filter": "*",
+    "ext-hash": "*",
     "ext-json": "*",
     "ext-openssl": "*",
     "ext-pcntl": "*",
@@ -128,6 +129,7 @@
     "bin/sensitive-parameter-usage",
     "bin/shellcheck-install",
     "bin/single-rule-report",
+    "bin/turbo-install",
     "bin/version-pins-check"
   ],
   "config": {
@@ -145,7 +147,8 @@
     "class": [
       "LTS\\PHPQA\\ComposerPlugin\\SkillsDeployPlugin",
       "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin",
-      "LTS\\PHPQA\\ComposerPlugin\\ManagedSourceDeployPlugin"
+      "LTS\\PHPQA\\ComposerPlugin\\ManagedSourceDeployPlugin",
+      "LTS\\PHPQA\\ComposerPlugin\\TurboInstallPlugin"
     ],
     "defence-before-fix": {
       "known-gaps": [],

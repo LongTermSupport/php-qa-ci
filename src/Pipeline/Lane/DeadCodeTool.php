@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 use LTS\PHPQA\PackageType\ProjectComposerTypeReader;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\DeadCode\DetectorUnpacker;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
@@ -20,7 +21,8 @@ use SplFileInfo;
  * Dead-code detection: shipmonk/dead-code-detector run through the shipped
  * phpstan.phar, loaded from vendor-phar/dead-code-detector.phar (its neon by
  * include, its classes by --autoload-file) rather than from any Composer package, so it is present only in this lane and never in
- * the PHPStan gate. Opt-in per project; the tests excluder is always on
+ * the PHPStan gate. PHPStan gets it unpacked into the QA cache (DetectorUnpacker),
+ * never as a second PHAR its forked workers would share. Opt-in per project; the tests excluder is always on
  * (a member reached only from tests is dead in production) and the project's
  * PHP entry-point scripts are analysed alongside src/ and tests/.
  *
@@ -70,11 +72,12 @@ final readonly class DeadCodeTool implements ToolInterface
             return ToolResultDto::failed('no @api tag in src/; a library needs its public surface declared before dead-code detection means anything');
         }
 
-        $logDir  = $context->logDir(self::LOG_DIR);
-        $wrapper = $this->writeWrapperNeon($context, $logDir);
+        $logDir   = $context->logDir(self::LOG_DIR);
+        $detector = new DetectorUnpacker()->unpack($config->paths->pharDir . '/' . self::PHAR, $config->paths->cacheDir);
+        $wrapper  = $this->writeWrapperNeon($context, $logDir, $detector);
         // The detector's classes must exist when PHPStan compiles its container,
         // which is before any bootstrapFiles run; --autoload-file is the hook for that.
-        $args = ['analyse', '-c', $wrapper, '--autoload-file', $this->phar($context) . '/vendor/autoload.php'];
+        $args = ['analyse', '-c', $wrapper, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD];
         if ($config->ci) {
             $args[] = '--no-progress';
         }
@@ -106,16 +109,17 @@ final readonly class DeadCodeTool implements ToolInterface
      * from there counts as unused, exactly as for an excludePaths entry in the
      * project's own phpstan.neon.
      */
-    private function writeWrapperNeon(ToolContext $context, string $logDir): string
+    private function writeWrapperNeon(ToolContext $context, string $logDir, string $detector): string
     {
         $config  = $context->config;
         $paths   = $config->paths;
         $wrapper = $logDir . '/' . self::WRAPPER_NEON;
 
         $neon = \sprintf(
-            "includes:\n    - %s\n    - %s/vendor/shipmonk/dead-code-detector/rules.neon\n\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %d\n    paths:\n",
+            "includes:\n    - %s\n    - %s/%s\n\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %d\n    paths:\n",
             $context->configPath('phpstan.neon'),
-            $this->phar($context),
+            $detector,
+            DetectorUnpacker::RULES_NEON,
             $config->halfCpuThreads,
         );
         foreach ([$paths->srcDir, $paths->testsDir, ...$config->deadCode->entryPoints] as $path) {
@@ -128,12 +132,6 @@ final readonly class DeadCodeTool implements ToolInterface
         \Safe\file_put_contents($wrapper, $neon);
 
         return $wrapper;
-    }
-
-    /** The detector PHAR as a phar:// path, for neon includes and the autoloader. */
-    private function phar(ToolContext $context): string
-    {
-        return 'phar://' . $context->config->paths->pharDir . '/' . self::PHAR;
     }
 
     private function isLibrary(string $projectRoot): bool

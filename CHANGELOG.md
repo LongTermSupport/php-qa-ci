@@ -25,6 +25,26 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- **BREAKING**: `composer.json` now requires `ext-hash`. Every PHP build since 7.4 includes it, and
+  it cannot be disabled, so nothing needs installing. php-qa-ci uses it to check the SHA-256 of each
+  PHPStan Turbo binary it downloads.
+
+### Added
+
+- **PHPStan runs with Turbo, its native extension.** `bin/turbo-install` downloads the Turbo
+  binary built for the host (OS, CPU, libc, PHP version) into `vendor-phar/turbo-ext/`, where
+  `phpstan.phar` loads it. It refuses any download whose SHA-256 differs from the one
+  `vendor-phar/turbo-ext.json` pins for the shipped phar. In a consuming project the php-qa-ci
+  Composer plugin runs it on every `composer install` and `composer update`. A failed download is
+  a warning, not a failed install. A host upstream builds nothing for (Windows, an Intel Mac) runs
+  PHPStan without Turbo, as before. A run refuses to start when `vendor-phar/turbo-ext.json` is
+  missing or names another PHPStan version than the shipped phar, as it does for a missing PHAR.
+  With Turbo, PHPStan forks its workers, so the dead-code lane now unpacks its detector into
+  `var/qa/cache/dead-code-detector/` instead of loading it as a second PHAR, which forked workers
+  cannot share.
+
 ### Fixed
 
 - **`infectionOnlyCovered=1` no longer makes Infection refuse to run**

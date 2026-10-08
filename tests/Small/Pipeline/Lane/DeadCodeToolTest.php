@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use LTS\PHPQA\Pipeline\Lane\DeadCode\DetectorUnpacker;
 use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -40,6 +41,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(DetectorUnpacker::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\TemporaryDirectory::class)]
 #[Small]
 final class DeadCodeToolTest extends TestCase
 {
@@ -91,16 +94,20 @@ final class DeadCodeToolTest extends TestCase
         $result = new DeadCodeTool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        $wrapper = $this->factory->project->read(self::WRAPPER);
-        $phar    = 'phar://' . $paths->pharDir . '/dead-code-detector.phar';
-        self::assertStringContainsString("includes:\n    - " . \dirname(__DIR__, 4) . "/configDefaults/generic/phpstan.neon\n    - " . $phar . "/vendor/shipmonk/dead-code-detector/rules.neon\n", $wrapper);
+        $wrapper  = $this->factory->project->read(self::WRAPPER);
+        $detector = new DetectorUnpacker()->unpack($paths->pharDir . '/dead-code-detector.phar', $paths->cacheDir);
+        self::assertStringContainsString("includes:\n    - " . \dirname(__DIR__, 4) . "/configDefaults/generic/phpstan.neon\n    - " . $detector . '/' . DetectorUnpacker::RULES_NEON . "\n", $wrapper);
         self::assertStringContainsString("    paths:\n        - " . $paths->srcDir . "\n        - " . $paths->testsDir . "\n        - " . $paths->projectRoot . "/bin/console\n        - /abs/bin/tool\n", $wrapper);
         self::assertStringContainsString("    shipmonkDeadCode:\n        usageExcluders:\n            tests:\n                enabled: true\n", $wrapper);
         self::assertStringContainsString("    parallel:\n        maximumNumberOfProcesses: 2\n", $wrapper);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'analyse', '-c', $paths->projectRoot . '/' . self::WRAPPER, '--autoload-file', $phar . '/vendor/autoload.php', '--no-progress'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'analyse', '-c', $paths->projectRoot . '/' . self::WRAPPER, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD, '--no-progress'],
             $this->factory->processes->lastSpec()->command,
         );
+        // With Turbo, PHPStan forks its workers, and only phpstan.phar's reads are guarded across
+        // the fork: a second PHAR is read through one shared descriptor and its source garbles.
+        self::assertStringNotContainsString('phar://', $wrapper, 'the detector reaches PHPStan as plain files');
+        self::assertStringNotContainsString('phar://', implode(' ', $this->factory->processes->lastSpec()->command), 'the detector reaches PHPStan as plain files');
         self::assertSame($paths->projectRoot, $this->factory->processes->lastSpec()->cwd);
         self::assertStringNotContainsString(DeadCodeTool::IDENTIFIER, $this->factory->output->fetch());
         self::assertStringNotContainsString('excludePaths', $wrapper, 'nothing ignored, nothing excluded');

@@ -37,6 +37,27 @@ final class TemporaryDirectoryTest extends TestCase
         }
     }
 
+    /**
+     * Staged beside the file it will replace, so the final rename() is on one filesystem and swaps
+     * the file atomically instead of rewriting it in place.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetIsCreatedInTheTargetsOwnDirectory(): void
+    {
+        $parent    = TemporaryDirectory::create('phpqa-temporary-directory-parent');
+        $directory = TemporaryDirectory::besides($parent->path . '/missing/yet/library.so', self::PREFIX);
+
+        try {
+            self::assertDirectoryExists($directory->path);
+            self::assertSame($parent->path . '/missing/yet', \dirname($directory->path), "created in the target's directory, which is created if absent");
+            self::assertStringStartsWith(self::PREFIX, basename($directory->path));
+            self::assertSame(['.', '..'], \Safe\scandir($directory->path));
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
     #[Test]
     public function removingItRemovesEverythingInIt(): void
     {

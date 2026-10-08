@@ -39,6 +39,8 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(\LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
 #[Small]
 final class PreflightTest extends TestCase
 {
