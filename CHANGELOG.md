@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.4.0 — 2026-10-07
+
 ### Changed — breaking
 
 - **BREAKING**: the `phpArkitect` lane fails, without running arkitect, when the project's own
