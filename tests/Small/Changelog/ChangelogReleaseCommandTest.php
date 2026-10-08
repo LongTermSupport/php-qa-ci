@@ -342,6 +342,25 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
     }
 
     #[Test]
+    public function addToolUpdatesRecordsADependencyThatMovedInsideASelfBuiltPhar(): void
+    {
+        $manifest = '{"require": {"rector/rector": "@stable"}}';
+        $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
+        $this->project->write('phive.xml', self::PHPSTAN_PIN);
+        $this->project->write('build/rector/composer.json', $manifest);
+        $this->project->write('build/rector/composer.lock', '{"packages": [{"name": "rector/rector", "version": "2.6.7"}, {"name": "nikic/php-parser", "version": "v5.7.0"}]}');
+        $this->processes
+            ->willSucceed()->willSucceed(self::PHPSTAN_PIN)
+            ->willFail(128)
+            ->willSucceed()->willSucceed($manifest)
+            ->willSucceed()->willSucceed('{"packages": [{"name": "rector/rector", "version": "2.6.7"}, {"name": "nikic/php-parser", "version": "v5.6.0"}]}')
+        ;
+
+        self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
+        self::assertStringContainsString("### Changed\n\n- **Bundled tool versions updated** by the weekly dependency update: nikic/php-parser (in rector.phar) v5.6.0 → v5.7.0.\n", $this->project->read(ChangelogCheck::CHANGELOG));
+    }
+
+    #[Test]
     public function addToolUpdatesAddsNothingWhenNoVersionMoved(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
