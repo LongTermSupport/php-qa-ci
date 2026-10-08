@@ -19,12 +19,12 @@ revert it.
 Up to four passes, each a separate Rector process over the committed
 `vendor-phar/rector.phar`, in this order. The first pass that fails ends the lane.
 
-| Pass               | Config                                             | Paths                                |
-| ------------------ | -------------------------------------------------- | ------------------------------------ |
-| `Safe`             | `rector-safe.php` (project override or shipped)    | the checked paths                    |
-| `PHPUnit`          | `rector-phpunit.php` (project override or shipped) | the tests directory                  |
-| `Project Specific` | `rector.php` and/or `qaConfig/rector.php`          | the checked paths, one pass per file |
-| `PHP 8.5`          | `rector-php85.php` (project override or shipped)   | the checked paths                    |
+| Pass               | Config                                             | Paths                                                                                            |
+| ------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `Safe`             | `rector-safe.php` (project override or shipped)    | the checked paths                                                                                |
+| `PHPUnit`          | `rector-phpunit.php` (project override or shipped) | the tests directory, or with `-p` only the checked paths inside it (skipped when there are none) |
+| `Project Specific` | `rector.php` and/or `qaConfig/rector.php`          | the checked paths, one pass per file                                                             |
+| `PHP 8.5`          | `rector-php85.php` (project override or shipped)   | the checked paths                                                                                |
 
 The `Project Specific` and `PHP 8.5` passes are alternatives: when a project ships its own
 `rector.php` in either location the shipped PHP 8.5 config is skipped, on the assumption that the
