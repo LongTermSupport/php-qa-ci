@@ -37,9 +37,32 @@ jobs:
             git-hooks/pre-commit-check-vendor-uncommitted \
             "${shellFiles[@]}"
 
-  qa:
+  qa-gate:
+    # Branch protection requires a check named exactly "QA Pipeline"; a matrix leg reports as
+    # "QA Pipeline (PHP x.y)", so this job carries the required name and passes only when every
+    # leg passed (tests/Small/CiReportsTheRequiredStatusChecksTest.php).
     name: QA Pipeline
     runs-on: ubuntu-latest
+    needs: qa
+    if: always()
+
+    steps:
+      - name: Every PHP leg passed
+        env:
+          LEGS_RESULT: ${{ needs.qa.result }}
+        run: |
+          echo "QA matrix result: $LEGS_RESULT"
+          test "$LEGS_RESULT" = success
+
+  qa:
+    # composer.json requires "php": "^8.4", which admits 8.5: the pipeline must pass on every
+    # PHP line that constraint lets a consumer install it on, not only the one it targets (#69).
+    name: QA Pipeline (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
 
     steps:
       - name: Checkout
@@ -48,7 +71,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: ${{ matrix.php }}
           tools: composer:v2
           coverage: xdebug
           extensions: json, tokenizer, mbstring
@@ -57,4 +80,8 @@ jobs:
         run: composer install --no-interaction --prefer-dist
 
       - name: Run QA Pipeline
+        # Coverage on, as a consumer's run has it by default: without it ci.bash skips the
+        # infection lane, so a mutation-testing crash on one PHP line went unseen (#69).
+        env:
+          phpunitCoverage: 1
         run: bash ci.bash
