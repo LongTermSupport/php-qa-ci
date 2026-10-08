@@ -39,6 +39,13 @@ the release and its tag. The full rules are in
   one-file run took about as long as a whole-tree run. On a `-p` run it now gets only the checked
   paths inside the tests directory, the whole directory for a path that contains it (`-p .`), and
   is skipped when there are none. A run without `-p` is unchanged.
+- **A PHPStan analysis abandoned on internal errors is reported as a crash, not as findings**
+  ([#82](https://github.com/LongTermSupport/php-qa-ci/issues/82)). PHPStan exits 1 both when it
+  finds errors and when it gives up ("Result is incomplete because of severe errors"), and in the
+  second case it drops every real finding. The dead-code lane reported such a run as "dead code
+  found", with advice to delete members it never named. In every mode the PHPStan lane reported it
+  as errors found, without the `--debug` re-run that a crash gets in text mode. Both lanes now
+  report it as a crash.
 
 ## 85.5.0 — 2026-10-08
 

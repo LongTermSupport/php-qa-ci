@@ -27,12 +27,14 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   errors were found: the lane fails with the identifier trailer, and when the output mentions
   `alreadyNarrowedType`, `alwaysTrue`, `alwaysFalse` or `impossibleCheck` it first prints a note
   explaining that such an error is usually a tautology left behind by stronger types, to be
-  deleted rather than silenced. An exit above 1 is a crash: the lane says so, runs PHPStan again
-  with `--debug -v` so the fatal that stopped it is visible, and is never retried.
+  deleted rather than silenced. An exit above 1 is a crash, and so is an exit 1 where PHPStan
+  reports "Result is incomplete because of severe errors": it abandoned the analysis on internal
+  errors and dropped every real finding. Either way the lane says so, runs PHPStan again with
+  `--debug -v` so the fatal that stopped it is visible, and is never retried.
 - **`--json` mode** (`vendor/bin/qa --json -t stan`): PHPStan runs with `--error-format=json`,
   the report is written to `var/qa/phpstan_logs/phpstan.json`, archived, and printed unchanged on
-  the real stdout while every other line goes to stderr. Exit 1 fails, above 1 crashes, and
-  nothing is re-run.
+  the real stdout while every other line goes to stderr. Exit 1 fails, above 1 or an incomplete
+  result crashes, and nothing is re-run.
 - **Agent mode** (`vendor/bin/qa --agent-mode -t stan -p src/Kernel.php`): the same
   `--error-format=json` report, turned into one JSON file per analysed source file under
   `var/qa/phpstan-file-reports/`, with stdout held to a count, a report path and an

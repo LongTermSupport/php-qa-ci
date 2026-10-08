@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(DeadCodeTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::class)]
 #[UsesClass(\LTS\PHPQA\PackageType\ApiSurfaceEnforcementModeEnum::class)]
 #[UsesClass(\LTS\PHPQA\PackageType\ProjectComposerTypeReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]

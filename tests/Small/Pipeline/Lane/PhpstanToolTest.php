@@ -20,6 +20,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpstanTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\AgentStatusEnum::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto::class)]
@@ -73,7 +74,6 @@ final class PhpstanToolTest extends TestCase
 
     private const string ASSETS = 'tests/assets';
 
-    /** What PHPStan writes to stderr when it abandons an analysis on internal errors. */
     private const string INCOMPLETE_LINE = "⚠️  Result is incomplete because of severe errors. ⚠️\n";
 
     private const string INTERNAL_ERROR_OUTPUT = " Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;

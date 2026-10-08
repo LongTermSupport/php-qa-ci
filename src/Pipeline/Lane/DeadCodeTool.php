@@ -8,6 +8,7 @@ use LTS\PHPQA\PackageType\ProjectComposerTypeReader;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -86,8 +87,9 @@ final readonly class DeadCodeTool implements ToolInterface
             return ToolResultDto::passed();
         }
 
-        if ($result->exitCode > 1) {
-            return ToolResultDto::crashed(\sprintf('PHPStan crashed (exit %d)', $result->exitCode));
+        $crash = PhpstanCrash::reason($result);
+        if (null !== $crash) {
+            return ToolResultDto::crashed($crash);
         }
 
         $this->findingsGuidance($context);
