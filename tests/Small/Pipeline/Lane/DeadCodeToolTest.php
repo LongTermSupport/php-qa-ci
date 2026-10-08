@@ -194,6 +194,31 @@ final class DeadCodeToolTest extends TestCase
         self::assertSame('PHPStan crashed (exit 255)', $result->summary);
     }
 
+    /**
+     * PHPStan exits 1 both for findings and for an analysis it abandoned on internal errors, which
+     * reports none of the dead code there is (#82). The run that showed it printed the "delete it,
+     * or wire the caller" guidance over four internal errors and no findings.
+     */
+    #[Test]
+    public function anIncompleteResultIsACrashNotDeadCode(): void
+    {
+        $this->factory->processes->willFail(
+            1,
+            " Internal error: Class \"ShipMonk\\PHPStan\\DeadCode\\Graph\\ClassMethodUsage\" not found while analysing file /p/bin/x\n\n"
+            . " [ERROR] Found 1 error\n\n⚠️  Result is incomplete because of severe errors. ⚠️\n",
+        );
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('incomplete', $result->summary);
+        self::assertStringNotContainsString('withDeadCodeEntryPoints', $printed, 'no dead-code guidance for a run that reported none');
+    }
+
     #[Test]
     public function nameAndIdentifierAreStable(): void
     {

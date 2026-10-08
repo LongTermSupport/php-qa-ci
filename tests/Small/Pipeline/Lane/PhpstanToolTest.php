@@ -73,6 +73,11 @@ final class PhpstanToolTest extends TestCase
 
     private const string ASSETS = 'tests/assets';
 
+    /** What PHPStan writes to stderr when it abandons an analysis on internal errors. */
+    private const string INCOMPLETE_LINE = "⚠️  Result is incomplete because of severe errors. ⚠️\n";
+
+    private const string INTERNAL_ERROR_OUTPUT = " Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -344,6 +349,25 @@ final class PhpstanToolTest extends TestCase
         );
     }
 
+    /**
+     * PHPStan exits 1 both for findings and for an analysis it abandoned on internal errors, and
+     * an abandoned analysis drops every real finding (#82). Its stderr line is the difference.
+     */
+    #[Test]
+    public function anIncompleteResultIsACrashAndIsReRunWithDebug(): void
+    {
+        $this->factory->processes->willFail(1, self::INTERNAL_ERROR_OUTPUT);
+        $this->factory->processes->willFail(1, "debug output\n");
+
+        $result  = new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('PHPStan Crashed!!....', $printed);
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
+        self::assertCount(2, $this->factory->processes->specs, 'an abandoned analysis gets the same debug re-run as any crash');
+    }
+
     #[Test]
     public function jsonModeWritesOnlyTheProcessStdoutSoStderrNoiseNeverCorruptsTheReport(): void
     {
@@ -407,6 +431,19 @@ final class PhpstanToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertStringContainsString('PHPStan crashed (exit code: 255)', $this->factory->output->fetch());
+        self::assertCount(1, $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function jsonModeIncompleteResultIsACrash(): void
+    {
+        $json = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Internal error: boom while analysing file /p/src/A.php"]}';
+        $this->factory->processes->willReturn(new ProcessResultDto(1, $json . "\n" . self::INCOMPLETE_LINE, $json));
+
+        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame($json, $this->factory->stdout->fetch(), 'the report still reaches stdout for the caller to read');
         self::assertCount(1, $this->factory->processes->specs);
     }
 
@@ -545,6 +582,19 @@ final class PhpstanToolTest extends TestCase
         self::assertSame(self::CRASHED, $report['status']);
         self::assertSame(3, $report['exit_code']);
         self::assertStringContainsString(self::CRASHED, $this->stdoutLines()[0]);
+    }
+
+    #[Test]
+    public function anAgentModeIncompleteResultIsACrashNotAFindingsReport(): void
+    {
+        $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $json = $this->reportFor($this->factory->project->path . '/' . self::KERNEL, 1);
+        $this->factory->processes->willReturn(new ProcessResultDto(1, $json . "\n" . self::INCOMPLETE_LINE, $json));
+
+        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(self::CRASHED, $this->decode($this->reportPath(self::KERNEL))['status']);
     }
 
     #[Test]
