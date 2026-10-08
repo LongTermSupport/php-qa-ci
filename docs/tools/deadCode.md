@@ -27,8 +27,10 @@ structural false positive in eleven reports, the rest genuine (Plan 00005, journ
 - Runs `phpstan.phar analyse` with a generated `var/qa/deadCode/dead-code.neon` that includes the
   project's resolved `phpstan.neon` (so excludes, stubs and level carry over) and the detector's
   `rules.neon` from `vendor-phar/dead-code-detector.phar`; the detector's classes load through
-  `--autoload-file` from the same PHAR. Nothing is installed through Composer, so the PHPStan
-  gate never sees the detector.
+  `--autoload-file`. PHPStan gets the detector unpacked into `var/qa/cache/dead-code-detector/`,
+  once per PHAR version, rather than the PHAR itself: with Turbo, PHPStan forks its workers, and
+  forked workers reading a second PHAR corrupt each other's reads. Nothing is installed through
+  Composer, so the PHPStan gate never sees the detector.
 - Analyses `src/`, `tests/` and every entry point listed with `withDeadCodeEntryPoints()`, less
   the `withIgnoredPaths()` paths, which it excludes exactly as the [PHPStan lane](phpstan.md)
   does. Code under an ignored path is not analysed, so a member reached only from there is

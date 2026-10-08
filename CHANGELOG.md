@@ -41,6 +41,9 @@ the release and its tag. The full rules are in
   a warning, not a failed install. A host upstream builds nothing for (Windows, an Intel Mac) runs
   PHPStan without Turbo, as before. A run refuses to start when `vendor-phar/turbo-ext.json` is
   missing or names another PHPStan version than the shipped phar, as it does for a missing PHAR.
+  With Turbo, PHPStan forks its workers, so the dead-code lane now unpacks its detector into
+  `var/qa/cache/dead-code-detector/` instead of loading it as a second PHAR, which forked workers
+  cannot share.
 
 ### Fixed
 

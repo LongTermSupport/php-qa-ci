@@ -50,7 +50,7 @@ final class DetectorUnpackerTest extends TestCase
         self::assertFileExists($directory . '/' . DetectorUnpacker::AUTOLOAD);
         self::assertFileExists($directory . '/' . DetectorUnpacker::RULES_NEON);
         self::assertSame(
-            \Safe\file_get_contents('phar://' . realpath(self::PHAR) . '/' . DetectorUnpacker::RULES_NEON),
+            \Safe\file_get_contents('phar://' . \Safe\realpath(self::PHAR) . '/' . DetectorUnpacker::RULES_NEON),
             \Safe\file_get_contents($directory . '/' . DetectorUnpacker::RULES_NEON),
         );
     }
