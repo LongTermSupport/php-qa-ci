@@ -26,7 +26,14 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class UpdateDepsJudgesItselfAsItsPullRequestTest extends TestCase
 {
+    /** The job that updates the dependencies and opens the pull request. */
     private const string WORKFLOW = __DIR__ . '/../../.github/workflows/update-deps.yml';
+
+    /** Reported when the QA run happens on the default branch. */
+    private const string NOT_ON_WORK_BRANCH = 'the QA run is not on a work branch';
+
+    /** Reported when the job opens the pull request from the work branch. */
+    private const string NO_RETURN = 'the job does not return to its checkout before opening the pull request';
 
     /** The full pipeline. */
     private const string QA = 'bash ci.bash';
@@ -53,9 +60,9 @@ final class UpdateDepsJudgesItselfAsItsPullRequestTest extends TestCase
         $back   = "          git switch -\n";
         $create = "      - name: Create Pull Request\n";
 
-        self::assertSame(['the QA run is not on a work branch'], $this->problems($qa . $back . $create));
-        self::assertSame(['the job does not return to its checkout before opening the pull request'], $this->problems($switch . $qa . $create));
-        self::assertSame(['the job does not return to its checkout before opening the pull request'], $this->problems($switch . $qa . $create . $back));
+        self::assertSame([self::NOT_ON_WORK_BRANCH], $this->problems($qa . $back . $create));
+        self::assertSame([self::NO_RETURN], $this->problems($switch . $qa . $create));
+        self::assertSame([self::NO_RETURN], $this->problems($switch . $qa . $create . $back));
         self::assertSame([], $this->problems($switch . $qa . $back . $create));
     }
 
@@ -68,12 +75,12 @@ final class UpdateDepsJudgesItselfAsItsPullRequestTest extends TestCase
         $problems = [];
 
         if (false === $qa || false === $switch || $switch > $qa) {
-            $problems[] = 'the QA run is not on a work branch';
+            $problems[] = self::NOT_ON_WORK_BRANCH;
         }
 
         $back = false === $qa ? false : strpos($workflow, self::BACK, $qa);
         if (false === $back || false === $create || $back > $create) {
-            $problems[] = 'the job does not return to its checkout before opening the pull request';
+            $problems[] = self::NO_RETURN;
         }
 
         return $problems;
