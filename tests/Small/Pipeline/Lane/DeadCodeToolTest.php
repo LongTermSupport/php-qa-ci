@@ -101,8 +101,9 @@ final class DeadCodeToolTest extends TestCase
         self::assertStringContainsString("    shipmonkDeadCode:\n        usageExcluders:\n            tests:\n                enabled: true\n", $wrapper);
         self::assertStringContainsString("    parallel:\n        maximumNumberOfProcesses: 2\n", $wrapper);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'analyse', '-c', $paths->projectRoot . '/' . self::WRAPPER, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD, '--no-progress'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'analyse', '-c', $paths->projectRoot . '/' . self::WRAPPER, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD, \LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::TABLE_FORMAT, '--no-progress'],
             $this->factory->processes->lastSpec()->command,
+            'the table format is named, so a project errorFormat cannot take away the summary line the verdict is read from',
         );
         // With Turbo, PHPStan forks its workers, and only phpstan.phar's reads are guarded across
         // the fork: a second PHAR is read through one shared descriptor and its source garbles.

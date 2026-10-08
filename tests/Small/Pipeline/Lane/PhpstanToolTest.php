@@ -116,8 +116,9 @@ final class PhpstanToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, PhpstanCrash::TABLE_FORMAT, self::NO_PROGRESS],
             $this->toolArgs($spec),
+            'the table format is named, so a project errorFormat cannot take away the summary line the verdict is read from',
         );
         self::assertSame(\dirname(__DIR__, 4) . '/vendor-phar/phpstan.phar', $this->script($spec));
         self::assertSame($this->factory->project->path, $spec->cwd);
@@ -265,7 +266,7 @@ final class PhpstanToolTest extends TestCase
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
-            [self::ANALYSE, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, '-c', $wrapper, PhpstanCrash::TABLE_FORMAT, self::NO_PROGRESS],
             $this->toolArgs($this->factory->processes->lastSpec()),
             'type-coverage reports nothing when the analysed paths differ from the configured ones',
         );
@@ -284,7 +285,7 @@ final class PhpstanToolTest extends TestCase
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
-            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, PhpstanCrash::TABLE_FORMAT, self::NO_PROGRESS],
             $this->toolArgs($this->factory->processes->lastSpec()),
         );
         self::assertStringNotContainsString('    paths:', \Safe\file_get_contents($wrapper), 'a subset must not masquerade as the whole project');
@@ -399,7 +400,9 @@ final class PhpstanToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame(PhpstanCrash::NO_REPORT_REASON, $result->summary);
-        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $this->factory->output->fetch());
+        $printed = $this->factory->output->fetch();
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
+        self::assertStringContainsString(PhpstanCrash::noVerdictLine(PhpstanCrash::NO_REPORT_REASON), $printed, 'bin/phpstan-rule reads this line to refuse an answer');
     }
 
     #[Test]
@@ -464,7 +467,7 @@ final class PhpstanToolTest extends TestCase
         $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
-        self::assertStringContainsString('PHPStan crashed (exit code: 255)', $this->factory->output->fetch());
+        self::assertStringContainsString(PhpstanCrash::noVerdictLine('PHPStan crashed (exit 255)'), $this->factory->output->fetch());
         self::assertCount(1, $this->factory->processes->specs);
     }
 
@@ -478,6 +481,7 @@ final class PhpstanToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame($json, $this->factory->stdout->fetch(), 'the report still reaches stdout for the caller to read');
+        self::assertStringContainsString(PhpstanCrash::noVerdictLine(PhpstanCrash::INCOMPLETE_REASON), $this->factory->output->fetch(), 'so a caller reading the report also learns it is not a verdict');
         self::assertCount(1, $this->factory->processes->specs);
     }
 

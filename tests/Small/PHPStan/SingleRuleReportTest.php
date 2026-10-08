@@ -6,9 +6,11 @@ namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\SingleRuleReport;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -19,6 +21,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(SingleRuleReport::class)]
+#[UsesClass(PhpstanCrash::class)]
 #[Small]
 final class SingleRuleReportTest extends TestCase
 {
@@ -119,5 +122,27 @@ final class SingleRuleReportTest extends TestCase
         self::assertStringContainsString('/repo/src/B.php:3', $fired);
 
         self::assertSame("phpqaci.emptyCatchBlock did not fire\n", $report->render('phpqaci.emptyCatchBlock'));
+    }
+
+    /**
+     * A parallel worker that dies (a segfault, an OOM kill, an exit) leaves only a top-level
+     * "Child process error" in the JSON, which reads like any general finding. The PHPStan lane
+     * still knows the run reached no verdict, and says so on the qa stderr the harness keeps.
+     */
+    #[Test]
+    public function aRunTheLaneReportedAsNoVerdictIsNotAnAnswer(): void
+    {
+        $json  = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Child process error (exit code 3):  while running parallel worker"]}';
+        $qaLog = "Running Single Tool: phpstan\n" . PhpstanCrash::noVerdictLine(PhpstanCrash::INCOMPLETE_REASON) . "\n";
+
+        $this->expectOutputString('');
+        self::assertSame(2, SingleRuleReport::main(self::PHPQACI_NESTED_TERNARY, $json, $qaLog));
+    }
+
+    #[Test]
+    public function aRunTheLaneReportedAsAVerdictIsAnswered(): void
+    {
+        $this->expectOutputString("phpqaci.emptyCatchBlock did not fire\n");
+        self::assertSame(0, SingleRuleReport::main('phpqaci.emptyCatchBlock', self::JSON, "Running Single Tool: phpstan\n"));
     }
 }

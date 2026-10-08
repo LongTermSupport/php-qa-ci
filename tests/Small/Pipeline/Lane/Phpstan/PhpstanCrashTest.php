@@ -44,6 +44,26 @@ final class PhpstanCrashTest extends TestCase
         yield 'findings' => [1, " 12  Method foo() has no return type specified.\n [ERROR] Found 1 error\n"];
         yield 'several findings' => [1, " 12  Method foo() has no return type specified.\n 14  Method bar() has no return type specified.\n [ERROR] Found 2 errors\n"];
         yield 'a finding that quotes the words' => [1, " 3  'Result is incomplete' is a string.\n [ERROR] Found 1 error\n"];
+        yield 'more findings than the table shows' => [1, " 12  Method foo() has no return type specified.\n [ERROR] Found 1000+ errors\n"];
+        yield 'findings and warnings' => [1, " 12  Method foo() has no return type specified.\n [ERROR] Found 1 error and 2 warnings\n"];
+    }
+
+    #[Test]
+    public function theTableFormatIsNamedForTheLanesThatReadIt(): void
+    {
+        self::assertSame('--error-format=table', PhpstanCrash::TABLE_FORMAT);
+    }
+
+    /** What the JSON-mode lane prints to stderr when PHPStan reached no verdict, and how it is read back. */
+    #[Test]
+    public function aNoVerdictLineCarriesItsReasonAndIsFoundInALog(): void
+    {
+        $line = PhpstanCrash::noVerdictLine(PhpstanCrash::INCOMPLETE_REASON);
+
+        self::assertStringStartsWith(PhpstanCrash::NO_VERDICT_PREFIX, $line);
+        self::assertSame(PhpstanCrash::INCOMPLETE_REASON, PhpstanCrash::noVerdictIn("Running Single Tool: phpstan\n" . $line . "\nphpstan Crashed...\n"));
+        self::assertNull(PhpstanCrash::noVerdictIn("Running Single Tool: phpstan\n" . PhpstanCrash::INCOMPLETE_REASON . "\n"));
+        self::assertNull(PhpstanCrash::noVerdictIn(''));
     }
 
     /**
