@@ -85,7 +85,7 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
 
         self::assertSame(
             ['--threads', '--skip-initial-tests', '--debug', '--no-debug', '--git-diff-filter'],
-            self::optionsListedIn($help),
+            $this->optionsListedIn($help),
         );
     }
 
@@ -95,22 +95,33 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
         if (null === self::$accepted) {
             $process = new Process([\PHP_BINARY, self::PHAR, 'run', '--help', '--no-ansi']);
             $process->mustRun();
-            self::$accepted = self::optionsListedIn($process->getOutput());
+            self::$accepted = $this->optionsListedIn($process->getOutput());
         }
 
         return self::$accepted;
     }
 
-    /** @return list<string> */
-    private static function optionsListedIn(string $help): array
+    /**
+     * The long options in the help's option column: the first token of an indented line, after an
+     * optional short alias, with `--debug|--no-debug` naming both spellings.
+     *
+     * @return list<string>
+     */
+    private function optionsListedIn(string $help): array
     {
-        $matches = [];
-        \Safe\preg_match_all('/(?<![\w-])--[a-z][a-z0-9-]*/', $help, $matches);
         $listed = [];
-        $found  = $matches[0] ?? [];
-        foreach (\is_array($found) ? $found : [] as $option) {
-            if (\is_string($option) && !\in_array($option, $listed, true)) {
-                $listed[] = $option;
+        foreach (explode("\n", $help) as $line) {
+            $matches = [];
+            \Safe\preg_match('/^ {2,}(?:-\S+, )?(--[^\s=]+)/', $line, $matches);
+            $column = $matches[1] ?? null;
+            if (!\is_string($column)) {
+                continue;
+            }
+
+            foreach (explode('|', $column) as $spelling) {
+                if (str_starts_with($spelling, '--') && !\in_array($spelling, $listed, true)) {
+                    $listed[] = $spelling;
+                }
             }
         }
 
