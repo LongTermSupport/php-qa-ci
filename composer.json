@@ -29,7 +29,7 @@
     "symfony/process": "^7.3 || ^8.0"
   },
   "replace": {
-    "phpstan/phpstan": "*"
+    "phpstan/phpstan": "2.2.3"
   },
   "suggest": {
     "nunomaduro/larastan": "Laravel specific checks (PHPStan Wrapper)",
