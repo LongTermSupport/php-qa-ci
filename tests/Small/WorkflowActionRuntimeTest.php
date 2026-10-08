@@ -46,6 +46,7 @@ final class WorkflowActionRuntimeTest extends TestCase
         'actions/cache'                          => 5,
         'actions/checkout'                       => 5,
         'actions/download-artifact'              => 7,
+        'actions/github-script'                  => 8,
         'actions/upload-artifact'                => 6,
         'irongut/CodeCoverageSummary'            => 0,
         'marocchino/sticky-pull-request-comment' => 3,
