@@ -78,7 +78,7 @@ final readonly class BundledToolVersions
             return null;
         }
 
-        return '**Bundled tool versions updated** by the weekly dependency update: ' . implode('; ', $changes) . '.';
+        return '**Bundled tool versions updated** by the dependency update: ' . implode('; ', $changes) . '.';
     }
 
     /** @return array<string, string> */

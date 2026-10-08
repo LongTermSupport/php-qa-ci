@@ -341,7 +341,7 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
         ;
 
         self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
-        self::assertStringContainsString("## Unreleased\n\n### Changed\n\n- **Bundled tool versions updated** by the weekly dependency update: phpstan 2.2.15 → 2.2.16.\n\n## 85.0.0", $this->project->read(ChangelogCheck::CHANGELOG));
+        self::assertStringContainsString("## Unreleased\n\n### Changed\n\n- **Bundled tool versions updated** by the dependency update: phpstan 2.2.15 → 2.2.16.\n\n## 85.0.0", $this->project->read(ChangelogCheck::CHANGELOG));
         self::assertSame('git cat-file -e HEAD:build/rector/composer.lock', $this->processes->commandLines()[5]);
     }
 
@@ -360,7 +360,7 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
         ;
 
         self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
-        self::assertStringContainsString("### Changed\n\n- **Bundled tool versions updated** by the weekly dependency update: nikic/php-parser (in rector.phar) v5.6.0 → v5.7.0.\n", $this->project->read(ChangelogCheck::CHANGELOG));
+        self::assertStringContainsString("### Changed\n\n- **Bundled tool versions updated** by the dependency update: nikic/php-parser (in rector.phar) v5.6.0 → v5.7.0.\n", $this->project->read(ChangelogCheck::CHANGELOG));
     }
 
     #[Test]
