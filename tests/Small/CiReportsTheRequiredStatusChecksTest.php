@@ -51,7 +51,16 @@ final class CiReportsTheRequiredStatusChecksTest extends TestCase
     private function jobNames(string $workflow): array
     {
         \Safe\preg_match_all('/^ {4}name: (.+)$/m', $workflow, $matches);
+        self::assertIsArray($matches);
+        $names = $matches[1] ?? [];
+        self::assertIsArray($names);
 
-        return array_values(array_map(trim(...), $matches[1]));
+        $jobNames = [];
+        foreach ($names as $name) {
+            self::assertIsString($name);
+            $jobNames[] = trim($name);
+        }
+
+        return $jobNames;
     }
 }

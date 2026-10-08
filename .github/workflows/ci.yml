@@ -37,6 +37,23 @@ jobs:
             git-hooks/pre-commit-check-vendor-uncommitted \
             "${shellFiles[@]}"
 
+  qa-gate:
+    # Branch protection requires a check named exactly "QA Pipeline"; a matrix leg reports as
+    # "QA Pipeline (PHP x.y)", so this job carries the required name and passes only when every
+    # leg passed (tests/Small/CiReportsTheRequiredStatusChecksTest.php).
+    name: QA Pipeline
+    runs-on: ubuntu-latest
+    needs: qa
+    if: always()
+
+    steps:
+      - name: Every PHP leg passed
+        env:
+          LEGS_RESULT: ${{ needs.qa.result }}
+        run: |
+          echo "QA matrix result: $LEGS_RESULT"
+          test "$LEGS_RESULT" = success
+
   qa:
     # composer.json requires "php": "^8.4", which admits 8.5: the pipeline must pass on every
     # PHP line that constraint lets a consumer install it on, not only the one it targets (#69).
