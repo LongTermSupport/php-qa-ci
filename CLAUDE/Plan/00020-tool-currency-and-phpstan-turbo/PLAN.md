@@ -1,0 +1,116 @@
+# Plan 00020: tool currency and phpstan turbo
+
+**Status**: In Progress
+**Created**: 2026-10-08
+**Owner**: dev
+**Priority**: High
+
+## Overview
+
+The Owner's ruling: tracking current tools is a standing process, not an occasional chore. php-qa-ci
+should always run on the latest version of every tool it bundles that passes QA against this
+project, and consumers get those versions through it. PHPStan Turbo is to be used, here and in
+every client project.
+
+Most of the machinery exists. `.github/workflows/update-deps.yml` runs `composer update`, the PHIVE
+update and the self-built PHAR rebuilds weekly, runs QA and opens `chore/update-deps`. But it does
+not land. The last pull request it opened, #52, has been red since it opened: the rebuilt self-built
+PHARs differ byte for byte, `add-tool-updates` records nothing because no pinned version moved, and
+the changelog lane fails. The job's own QA run passed, because it judged the default branch, not
+the pull request. Nothing and nobody picks the pull request up. As a result `phpstan.phar` is
+2.2.16 while 2.2.17 and 2.3.0 are out.
+
+Turbo is PHPStan's native extension, loaded into its worker processes. Since PHPStan 2.2.6 the phar
+looks for it in a `turbo-ext/` directory beside itself, so shipping that directory in `vendor-phar/`
+gives every consumer Turbo with no action on their part. #18 researched this and deferred it.
+The Owner has now decided to adopt it. The research's conditions remain requirements: the binaries
+come from the same tag as the phar, and a parity check holds them together. A mismatch silently
+disables Turbo. Turbo also uses more memory.
+
+## Goals
+
+- The dependency update runs often, judges itself as the pull request's CI will, and lands when green
+- When an update fails QA, the failure is reported and fixed (Defence Before Fix); it is never left
+  for nobody to see
+- `phpstan.phar` at the latest release (2.3.0 at the time of writing), with this project green on it
+- Turbo shipped in `vendor-phar/turbo-ext/`, from the same tag as the phar, and proven enabled in
+  the `phpstan` lane, here and in a consumer-shaped install
+- The standing process is written down in `CLAUDE/` and is part of every session's routine
+
+## Non-Goals
+
+- `php8.4`: it takes reported fixes only (#18 records its PHPStan pin)
+- Installing Turbo through PIE or any per-host step: the sibling-directory route needs none
+- Porting or patching PHPStan or Turbo
+
+## Tasks
+
+### Phase 1: the update lands (Defence Before Fix: detector red first)
+
+- [ ] ⬜ **Task 1.1**: Find why a no-version-change rebuild of the self-built PHARs differs byte for
+  byte (non-reproducible build, or a moved dependency inside the phar). Red test first, then make it
+  either reproducible or recorded.
+- [ ] ⬜ **Task 1.2**: `add-tool-updates` records every shipped artefact whose bytes changed, not only
+  a moved pinned version, so the update's own changes always satisfy the changelog lane.
+- [ ] ⬜ **Task 1.3**: The update job runs QA on its pull-request branch, judged against the merge
+  base as CI will. A job that passes while its pull request fails is a red test.
+- [ ] ⬜ **Task 1.4**: The job runs daily, and a failed run or a red update pull request opens or
+  updates a tracking issue instead of failing silently.
+- [ ] ⬜ **Task 1.5**: Decide who merges a green update pull request (see Decisions). Then wire it up
+  and document it in a new `CLAUDE/tool-currency.md`, linked from `CLAUDE.md`.
+
+### Phase 2: PHPStan 2.3.0
+
+- [ ] ⬜ **Task 2.1**: Update `phpstan.phar` to the latest release through `scripts/tool-install.bash update`, as its own commit.
+- [ ] ⬜ **Task 2.2**: Fix every new finding on this project's code, red first where a finding
+  reveals a defect class. No baseline and no `ignoreErrors`.
+- [ ] ⬜ **Task 2.3**: Confirm every custom rule still registers (`bin/rules`, the rule tests), and
+  close or supersede #52.
+
+### Phase 3: PHPStan Turbo
+
+- [ ] ⬜ **Task 3.1**: Red: a Large test that runs `vendor-phar/phpstan.phar diagnose` the way the
+  lane invokes PHP (`PhpInvoker`, no Xdebug, the memory limit) and requires `Turbo extension: enabled`.
+- [ ] ⬜ **Task 3.2**: Fetch `turbo-ext/` from the phar's own tag in the PHAR update path (PHP, not
+  Bash, per the ShellCheck installer pattern), for PHP 8.5 non-ZTS on the platforms upstream ships.
+  Record the size cost.
+- [ ] ⬜ **Task 3.3**: A parity defence: the shipped `turbo-ext` version must be the one the shipped
+  phar expects. A test, plus a `PharToolsVerifier` check, so a mismatch fails rather than silently
+  running without Turbo.
+- [ ] ⬜ **Task 3.4**: The `phpstan` lane reports whether Turbo loaded. On a platform with a shipped
+  binary where it does not load, the cause is shown (decide warn or fail; see Decisions).
+- [ ] ⬜ **Task 3.5**: Measure on this repository: wall time and peak memory, Turbo on against off,
+  interleaved. Re-check the memory-limit guidance (default 4G; lower limits crash rather than slow
+  down) and document it in `docs/tools/phpstan.md`.
+- [ ] ⬜ **Task 3.6**: A consumer-shaped Large test, with php-qa-ci under
+  `vendor/lts/php-qa-ci`, proving the lane runs with Turbo enabled.
+
+### Phase 4: release and roll-out
+
+- [ ] ⬜ **Task 4.1**: Changelog entries (PHPStan 2.3.0, with new findings expected; Turbo on by
+  default, with its memory note), then the release pull request through the normal gate.
+- [ ] ⬜ **Task 4.2**: Confirm Turbo enabled in at least one real client project's `phpstan` lane
+  after it updates, and record the evidence in the journal.
+
+## Decisions
+
+- **D1 (Owner): who merges a green dependency-update pull request.** (a) The workflow enables
+  auto-merge on it, so a green `QA Pipeline` lands it with no verifier. (b) An agent session merges
+  it after an independent verification, per `pr-verification.md`. Recommendation: (a) when the
+  update changes only versions and the files the job generates, and (b) whenever a person or an
+  agent had to change code to make it pass.
+- **D2: when Turbo should load but does not.** The lane prints the cause either way. Recommendation:
+  fail, since a silent loss of Turbo is the failure #18 warned of. A host without a shipped binary
+  (another platform or a ZTS build) is reported, not failed.
+
+## Success Criteria
+
+- [ ] The update job's QA verdict and its pull request's CI verdict agree, by construction
+- [ ] A green update pull request lands without anyone remembering to look
+- [ ] `phpstan.phar` is the latest release and the full battery is green on it
+- [ ] The Turbo Large tests pass, and the lane reports Turbo enabled here and in a client project
+- [ ] `CLAUDE/tool-currency.md` states the standing process
+
+## Delivery & Milestones
+
+- <!-- milestone or delivery commit hash -->
