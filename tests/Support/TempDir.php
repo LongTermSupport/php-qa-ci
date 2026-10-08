@@ -21,7 +21,13 @@ final readonly class TempDir
 
     public static function create(string $prefix): self
     {
-        $path = sys_get_temp_dir() . '/' . $prefix . '-' . bin2hex(random_bytes(6));
+        return self::createUnder(sys_get_temp_dir(), $prefix);
+    }
+
+    /** The same, under another parent: a test that needs a second filesystem passes one. */
+    public static function createUnder(string $parent, string $prefix): self
+    {
+        $path = $parent . '/' . $prefix . '-' . bin2hex(random_bytes(6));
         \Safe\mkdir($path, 0o777, true);
 
         return new self($path);
