@@ -28,8 +28,12 @@ final class SelfBuiltPharReproducibilityTest extends TestCase
     /** @return iterable<string, array{string}> one case per build/<tool>/ manifest */
     public static function selfBuiltTools(): iterable
     {
-        foreach (\Safe\glob(self::libraryRoot() . '/build/*/composer.json') as $manifest) {
-            $tool = basename(\dirname($manifest));
+        foreach (new \FilesystemIterator(self::libraryRoot() . '/build') as $directory) {
+            if (!$directory instanceof \SplFileInfo || !is_file($directory->getPathname() . '/composer.json')) {
+                continue;
+            }
+
+            $tool = $directory->getFilename();
 
             yield $tool => [$tool];
         }
@@ -50,8 +54,11 @@ final class SelfBuiltPharReproducibilityTest extends TestCase
     {
         $root = $this->rootPackage($tool);
 
+        $version = $root['pretty_version'] ?? null;
+
         self::assertNull($root['reference'] ?? null, \sprintf('vendor-phar/%s.phar records the git commit it was built from as its root package reference: build it with COMPOSER_ROOT_VERSION set', $tool));
-        self::assertStringStartsNotWith('dev-', (string) ($root['pretty_version'] ?? ''), \sprintf('vendor-phar/%s.phar records the branch it was built on as its root package version', $tool));
+        self::assertIsString($version);
+        self::assertStringStartsNotWith('dev-', $version, \sprintf('vendor-phar/%s.phar records the branch it was built on as its root package version', $tool));
     }
 
     private static function libraryRoot(): string
@@ -67,7 +74,7 @@ final class SelfBuiltPharReproducibilityTest extends TestCase
     /**
      * The root package record of Composer's generated `installed.php` inside the PHAR.
      *
-     * @return array<string, mixed>
+     * @return array<array-key, mixed>
      */
     private function rootPackage(string $tool): array
     {

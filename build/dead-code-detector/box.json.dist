@@ -1,6 +1,7 @@
 {
     "main": false,
     "output": "dead-code-detector.phar",
+    "alias": "dead-code-detector.phar",
     "directories": ["vendor"],
     "check-requirements": false,
     "compactors": [],

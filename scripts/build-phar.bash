@@ -39,6 +39,13 @@ NC='\033[0m'
 # are world-readable (0444/0555).
 umask 0022
 
+# Composer records the root package of each build manifest in the phar's
+# vendor/composer/installed.php, and guesses its version from this repository's
+# git: the branch and the commit being built. A fixed root version records no
+# commit, so a rebuild with an unchanged lock reproduces the phar byte for byte
+# (each build/<tool>/box.json.dist also fixes Box's alias, otherwise random).
+export COMPOSER_ROOT_VERSION="1.0.0"
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 PHAR_DIR="$PROJECT_ROOT/vendor-phar"
