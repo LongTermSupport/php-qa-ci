@@ -2,13 +2,15 @@ name: Update Dependencies
 
 on:
   schedule:
-    # Weekly on Sunday at 03:00 UTC
-    - cron: '0 3 * * 0'
+    # Daily at 03:17 UTC: tracking the latest tools that pass QA is a standing
+    # process (CLAUDE/tool-currency.md), not a weekly chore.
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
   actions: write
   contents: write
+  issues: write
   pull-requests: write
 
 jobs:
@@ -211,3 +213,21 @@ jobs:
           head-sha: ${{ steps.create-pr.outputs.pull-request-head-sha }}
           token: ${{ github.token }}
           workflow: ci.yml
+
+      # A failed run must reach someone: the one open issue labelled
+      # update-deps-failure gets a comment linking the run, or, when none is
+      # open, a new one is opened. CLAUDE/tool-currency.md says who acts on it.
+      - name: Report the failure on the tracking issue
+        if: failure()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const label = 'update-deps-failure';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The dependency update failed: ${run}\n\nRead the failing step, fix the cause on a branch (Defence Before Fix), and close this issue when an update lands green.`;
+            const open = await github.rest.issues.listForRepo({ ...context.repo, labels: label, state: 'open', per_page: 1 });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open.data[0].number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title: 'The dependency update is failing', labels: [label, 'dependencies'], body });
+            }
