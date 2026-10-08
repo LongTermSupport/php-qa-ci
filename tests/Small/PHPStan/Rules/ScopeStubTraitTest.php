@@ -43,10 +43,12 @@ final class ScopeStubTraitTest extends TestCase
     {
         $doc = new \ReflectionMethod(Rule::class, 'processNode')->getDocComment();
         self::assertIsString($doc);
-        self::assertSame(1, \Safe\preg_match('/@param\s+(\S+)\s+\$scope\b/', $doc, $matches), 'Rule::processNode() no longer documents $scope; re-read how PHPStan types it');
+        \Safe\preg_match('/@param\s+(\S+)\s+\$scope\b/', $doc, $matches);
+        $declared = $matches[1] ?? null;
+        self::assertIsString($declared, 'Rule::processNode() documents no $scope type; re-read how PHPStan types it');
 
         $interfaces = [];
-        foreach (explode('&', $matches[1]) as $type) {
+        foreach (explode('&', $declared) as $type) {
             $class = ltrim($type, '\\');
             self::assertTrue(interface_exists($class), \sprintf('%s, from Rule::processNode()\'s $scope type, is not an interface', $class));
             $interfaces[] = $class;

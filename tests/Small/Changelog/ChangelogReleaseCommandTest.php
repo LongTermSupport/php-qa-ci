@@ -102,6 +102,10 @@ final class ChangelogReleaseCommandTest extends TestCase
 
     private const string PHPSTAN_PIN = '<phar name="phpstan" installed="2.2.16"/>';
 
+    private const string PHIVE = 'phive.xml';
+
+    private const string RECTOR_MANIFEST = '{"require": {"rector/rector": "@stable"}}';
+
     private const string EXTRA = 'extra';
 
     private const string BREAKING = "# Changelog\n\n## Unreleased\n\n### Changed — breaking\n\n- A new requirement.\n\n### Fixed\n\n- A fix.\n";
@@ -326,13 +330,13 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
     public function addToolUpdatesRecordsEveryPinnedVersionThatMovedSinceHead(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
-        $this->project->write('phive.xml', self::PHPSTAN_PIN);
-        $this->project->write('build/rector/composer.json', '{"require": {"rector/rector": "@stable"}}');
+        $this->project->write(self::PHIVE, self::PHPSTAN_PIN);
+        $this->project->write('build/rector/composer.json', self::RECTOR_MANIFEST);
         $this->project->write('build/rector/composer.lock', '{"packages": [{"name": "rector/rector", "version": "2.6.6"}]}');
         $this->processes
             ->willSucceed()->willSucceed('<phar name="phpstan" installed="2.2.15"/>')
             ->willFail(128)
-            ->willSucceed()->willSucceed('{"require": {"rector/rector": "@stable"}}')
+            ->willSucceed()->willSucceed(self::RECTOR_MANIFEST)
             ->willSucceed()->willSucceed('{"packages": [{"name": "rector/rector", "version": "2.6.6"}]}')
         ;
 
@@ -344,15 +348,14 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
     #[Test]
     public function addToolUpdatesRecordsADependencyThatMovedInsideASelfBuiltPhar(): void
     {
-        $manifest = '{"require": {"rector/rector": "@stable"}}';
         $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
-        $this->project->write('phive.xml', self::PHPSTAN_PIN);
-        $this->project->write('build/rector/composer.json', $manifest);
+        $this->project->write(self::PHIVE, self::PHPSTAN_PIN);
+        $this->project->write('build/rector/composer.json', self::RECTOR_MANIFEST);
         $this->project->write('build/rector/composer.lock', '{"packages": [{"name": "rector/rector", "version": "2.6.7"}, {"name": "nikic/php-parser", "version": "v5.7.0"}]}');
         $this->processes
             ->willSucceed()->willSucceed(self::PHPSTAN_PIN)
             ->willFail(128)
-            ->willSucceed()->willSucceed($manifest)
+            ->willSucceed()->willSucceed(self::RECTOR_MANIFEST)
             ->willSucceed()->willSucceed('{"packages": [{"name": "rector/rector", "version": "2.6.7"}, {"name": "nikic/php-parser", "version": "v5.6.0"}]}')
         ;
 
@@ -364,7 +367,7 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
     public function addToolUpdatesAddsNothingWhenNoVersionMoved(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::EMPTY);
-        $this->project->write('phive.xml', self::PHPSTAN_PIN);
+        $this->project->write(self::PHIVE, self::PHPSTAN_PIN);
         $this->processes->willSucceed()->willSucceed(self::PHPSTAN_PIN)->willFail(128);
 
         self::assertSame(0, $this->invoke(self::ADD_TOOL_UPDATES));
