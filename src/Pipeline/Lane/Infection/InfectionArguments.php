@@ -47,16 +47,15 @@ final readonly class InfectionArguments
         ];
     }
 
-    /** @return list<string> */
+    /**
+     * `$options->onlyCovered` adds nothing: the bundled Infection mutates only covered code by
+     * default and has no `--only-covered` option.
+     *
+     * @return list<string>
+     */
     private function common(InfectionOptionsDto $options, string $coverageDir, string $configPath): array
     {
-        $args = [];
-        if ($options->onlyCovered) {
-            $args[] = '--only-covered';
-        }
-
         return [
-            ...$args,
             '--coverage=' . $coverageDir,
             '--skip-initial-tests',
             '--threads=' . $options->threads,

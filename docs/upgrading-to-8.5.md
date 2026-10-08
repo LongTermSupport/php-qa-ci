@@ -177,7 +177,7 @@ line, never in `qa.php`):
 | `QA_FAIL_FAST`             | Turn aggregate mode off in a read-only run.                                    |
 | `phpqaQuickTests`          | Skip PHPStan, PHPUnit and Infection.                                           |
 | `phpUnitQuickTests`        | Passed through to the test suite as before.                                    |
-| `infectionOnlyCovered`     | Infection `--only-covered`.                                                    |
+| `infectionOnlyCovered`     | No effect: the bundled Infection mutates only covered code by default.         |
 | `PHP_QA_CI_PHP_EXECUTABLE` | The PHP binary for every tool.                                                 |
 
 Bash variables with **no replacement** (delete the line):

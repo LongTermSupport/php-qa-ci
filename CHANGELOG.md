@@ -44,6 +44,12 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- **`infectionOnlyCovered=1` no longer makes Infection refuse to run**
+  ([#74](https://github.com/LongTermSupport/php-qa-ci/issues/74)). The lane passed
+  `--only-covered`, which the bundled Infection 0.35 no longer has: mutating only covered code is
+  now its default. The setting is kept and changes nothing. A new test checks every option the
+  Infection lane can emit against the shipped `infection.phar`'s own `--help`, so a tool update
+  that drops an option fails the build.
 - **`qa -t rector -p <path>` no longer runs the PHPUnit Rector set over the whole tests directory**
   ([#76](https://github.com/LongTermSupport/php-qa-ci/issues/76)). The Safe, project and PHP 8.5
   passes were narrowed to the given path, but the PHPUnit pass always got all of `tests/`, so a
