@@ -8,6 +8,7 @@ use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
 use LTS\PHPQA\Tests\Support\TempDir;
+use PharData;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -176,7 +177,7 @@ final class NeonIncludeChainTest extends TestCase
     {
         $archive = $this->dir->path . '/tools/ext.tar';
         \Safe\mkdir(\dirname($archive));
-        new \PharData($archive)->addFromString('conf/rules.neon', "parameters:\n    ignoreErrors:\n        - '#x#'\n");
+        new PharData($archive)->addFromString('conf/rules.neon', "parameters:\n    ignoreErrors:\n        - '#x#'\n");
         $include = 'phar://' . $archive . '/conf/rules.neon';
         $this->dir->write(self::ENTRY, \sprintf("includes:\n    - %s\n", $include));
 
