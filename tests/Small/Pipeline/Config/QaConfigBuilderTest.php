@@ -12,6 +12,7 @@ use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
+use LTS\PHPQA\Pipeline\Config\InfectionDiffModeEnum;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -49,6 +50,8 @@ final class QaConfigBuilderTest extends TestCase
 
     private const string ENV_DIFF_BASE = 'origin/main';
 
+    private const string LOCAL_BASE = 'main';
+
     private const string GENERATED_DIR = 'src/Generated';
 
     private const string ASSETS_DIR = 'tests/assets';
@@ -76,6 +79,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(60, $config->infection->minMsi);
         self::assertSame(80, $config->infection->minCoveredMsi);
         self::assertNull($config->infection->diffBase);
+        self::assertSame(InfectionDiffModeEnum::Auto, $config->infection->diffMode, 'unset means auto: diff mode on a branch, full on the default branch');
         self::assertSame(80, $config->infection->diffCoveredMsi, 'the diff floor follows the covered-code floor');
         self::assertTrue($config->useComposerAudit);
         self::assertTrue($config->useArkitect);
@@ -119,6 +123,7 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame(70, $config->infection->minMsi);
         self::assertSame(90, $config->infection->minCoveredMsi);
         self::assertSame(self::ENV_DIFF_BASE, $config->infection->diffBase);
+        self::assertSame(InfectionDiffModeEnum::Ref, $config->infection->diffMode);
         self::assertSame(95, $config->infection->diffCoveredMsi);
         self::assertFalse($config->useComposerAudit);
         self::assertFalse($config->useArkitect);
@@ -270,6 +275,93 @@ final class QaConfigBuilderTest extends TestCase
 
         self::assertSame(self::DIFF_BASE, $config->infection->diffBase);
         self::assertSame(90, $config->infection->diffCoveredMsi);
+    }
+
+    #[Test]
+    public function theEnvironmentKeywordFullForcesAFullRun(): void
+    {
+        $infection = $this->defaults(env: new EnvironmentReader(['infectionDiffBase' => 'full']))->build()->infection;
+
+        self::assertSame(InfectionDiffModeEnum::Full, $infection->diffMode);
+        self::assertNull($infection->diffBase);
+    }
+
+    #[Test]
+    public function theEnvironmentKeywordAutoIsTheDefault(): void
+    {
+        $infection = $this->defaults(env: new EnvironmentReader(['infectionDiffBase' => 'auto']))->build()->infection;
+
+        self::assertSame(InfectionDiffModeEnum::Auto, $infection->diffMode);
+        self::assertNull($infection->diffBase);
+    }
+
+    #[Test]
+    public function withInfectionFullRunForcesAFullRunOverAnEnvironmentBase(): void
+    {
+        $infection = $this->defaults(env: new EnvironmentReader(['infectionDiffBase' => self::ENV_DIFF_BASE]))->withInfectionFullRun()->build()->infection;
+
+        self::assertSame(InfectionDiffModeEnum::Full, $infection->diffMode);
+        self::assertNull($infection->diffBase, 'a full run carries no base');
+    }
+
+    #[Test]
+    public function aNullDiffBaseMeansAutoEvenOverAnEnvironmentBaseOrAFullRun(): void
+    {
+        $overEnv  = $this->defaults(env: new EnvironmentReader(['infectionDiffBase' => self::ENV_DIFF_BASE]))->withInfectionDiffBase(null)->build()->infection;
+        $overFull = $this->defaults()->withInfectionFullRun()->withInfectionDiffBase(null, 91)->build()->infection;
+
+        self::assertSame(InfectionDiffModeEnum::Auto, $overEnv->diffMode);
+        self::assertNull($overEnv->diffBase);
+        self::assertSame(InfectionDiffModeEnum::Auto, $overFull->diffMode);
+        self::assertSame(91, $overFull->diffCoveredMsi, 'the floor argument still applies to the diff auto mode chooses');
+    }
+
+    #[Test]
+    public function anExplicitRefAfterAFullRunIsARefRun(): void
+    {
+        $infection = $this->defaults()->withInfectionFullRun()->withInfectionDiffBase(self::DIFF_BASE)->build()->infection;
+
+        self::assertSame(InfectionDiffModeEnum::Ref, $infection->diffMode);
+        self::assertSame(self::DIFF_BASE, $infection->diffBase);
+    }
+
+    #[Test]
+    public function anUnrelatedWitherKeepsTheDiffMode(): void
+    {
+        $full = $this->defaults()->withInfectionFullRun()->withInfectionThreads(2)->build()->infection;
+        $ref  = $this->defaults()->withInfectionDiffBase(self::DIFF_BASE)->withInfectionThreads(2)->build()->infection;
+
+        self::assertSame(InfectionDiffModeEnum::Full, $full->diffMode);
+        self::assertSame(InfectionDiffModeEnum::Ref, $ref->diffMode);
+        self::assertSame(self::DIFF_BASE, $ref->diffBase);
+    }
+
+    #[Test]
+    public function theOptionsDerivedTheModeFromTheBaseWhenNotGivenOne(): void
+    {
+        self::assertSame(InfectionDiffModeEnum::Ref, $this->options('origin/main', null)->diffMode);
+        self::assertSame(InfectionDiffModeEnum::Auto, $this->options(null, null)->diffMode);
+        self::assertSame(InfectionDiffModeEnum::Full, $this->options(null, InfectionDiffModeEnum::Full)->diffMode);
+        self::assertSame(InfectionDiffModeEnum::Auto, $this->options(null, InfectionDiffModeEnum::Auto)->diffMode);
+        self::assertSame(InfectionDiffModeEnum::Ref, $this->options(self::LOCAL_BASE, InfectionDiffModeEnum::Ref)->diffMode);
+    }
+
+    #[Test]
+    public function theOptionsRefuseAModeThatContradictsTheBase(): void
+    {
+        $contradictions = [
+            'a ref run needs a base'            => [null, InfectionDiffModeEnum::Ref],
+            'a full run carries no base'        => [self::LOCAL_BASE, InfectionDiffModeEnum::Full],
+            'an auto run carries no fixed base' => [self::LOCAL_BASE, InfectionDiffModeEnum::Auto],
+        ];
+        foreach ($contradictions as $named => [$base, $mode]) {
+            try {
+                $this->options($base, $mode);
+                self::fail('expected the contradiction to be refused: ' . $named);
+            } catch (LogicException $logicException) {
+                self::assertStringContainsString('InfectionOptionsDto', $logicException->getMessage(), $named);
+            }
+        }
     }
 
     #[Test]
@@ -490,6 +582,20 @@ final class QaConfigBuilderTest extends TestCase
     public function halfCpuThreadsIsNeverBelowOne(): void
     {
         self::assertSame(1, $this->defaults(halfCpu: 0)->build()->halfCpuThreads);
+    }
+
+    private function options(?string $diffBase, ?InfectionDiffModeEnum $diffMode): InfectionOptionsDto
+    {
+        return new InfectionOptionsDto(
+            enabled: true,
+            threads: 1,
+            onlyCovered: false,
+            minMsi: 60,
+            minCoveredMsi: 80,
+            diffBase: $diffBase,
+            diffCoveredMsi: 80,
+            diffMode: $diffMode,
+        );
     }
 
     private function defaults(
