@@ -364,20 +364,6 @@ final class QaConfigBuilderTest extends TestCase
         }
     }
 
-    private function options(?string $diffBase, ?InfectionDiffModeEnum $diffMode): InfectionOptionsDto
-    {
-        return new InfectionOptionsDto(
-            enabled: true,
-            threads: 1,
-            onlyCovered: false,
-            minMsi: 60,
-            minCoveredMsi: 80,
-            diffBase: $diffBase,
-            diffCoveredMsi: 80,
-            diffMode: $diffMode,
-        );
-    }
-
     #[Test]
     public function infectionMutatesUncoveredCodeTooByDefault(): void
     {
@@ -596,6 +582,20 @@ final class QaConfigBuilderTest extends TestCase
     public function halfCpuThreadsIsNeverBelowOne(): void
     {
         self::assertSame(1, $this->defaults(halfCpu: 0)->build()->halfCpuThreads);
+    }
+
+    private function options(?string $diffBase, ?InfectionDiffModeEnum $diffMode): InfectionOptionsDto
+    {
+        return new InfectionOptionsDto(
+            enabled: true,
+            threads: 1,
+            onlyCovered: false,
+            minMsi: 60,
+            minCoveredMsi: 80,
+            diffBase: $diffBase,
+            diffCoveredMsi: 80,
+            diffMode: $diffMode,
+        );
     }
 
     private function defaults(

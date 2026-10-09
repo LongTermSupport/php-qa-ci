@@ -116,7 +116,7 @@ final class InfectionDiffBaseResolverTest extends TestCase
         $base = $this->resolve();
 
         self::assertSame(self::MERGE_BASE_SHA, $base->ref);
-        self::assertStringContainsString("against php8.5 (merge base abc1234def)", $base->description);
+        self::assertStringContainsString('against php8.5 (merge base abc1234def)', $base->description);
         self::assertSame('git merge-base HEAD php8.5', $this->processes->lastSpec()->commandLine());
     }
 

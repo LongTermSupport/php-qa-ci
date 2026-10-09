@@ -564,7 +564,7 @@ final readonly class QaConfigBuilder
             minCoveredMsi: $minCoveredMsi                           ?? $this->minCoveredMsi,
             infectionDiffMode: $infectionDiffMode                   ?? $this->infectionDiffMode,
             // A new mode brings its own base: null for Auto and Full, the ref for Ref.
-            infectionDiffBase: null === $infectionDiffMode ? $this->infectionDiffBase : $infectionDiffBase,
+            infectionDiffBase: $infectionDiffMode instanceof InfectionDiffModeEnum ? $infectionDiffBase : $this->infectionDiffBase,
             infectionDiffCoveredMsi: $infectionDiffCoveredMsi       ?? $this->infectionDiffCoveredMsi,
             useComposerAudit: $useComposerAudit                     ?? $this->useComposerAudit,
             typeCoverage: $typeCoverage                             ?? $this->typeCoverage,
