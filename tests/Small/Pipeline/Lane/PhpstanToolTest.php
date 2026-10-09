@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use LTS\PHPQA\Pipeline\Agent\FileReportWriter;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Lane\PhpstanTool;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -20,6 +21,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(PhpstanTool::class)]
+#[UsesClass(PhpstanCrash::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\AgentStatusEnum::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto::class)]
@@ -73,6 +75,14 @@ final class PhpstanToolTest extends TestCase
 
     private const string ASSETS = 'tests/assets';
 
+    private const string INCOMPLETE_LINE = "⚠️  Result is incomplete because of severe errors. ⚠️\n";
+
+    private const string FOUND_ONE = "\n [ERROR] Found 1 error\n";
+
+    private const string CONFIG_ERROR = "Invalid configuration:\nUnexpected item 'parameters › notARealParameter'.\n";
+
+    private const string INTERNAL_ERROR_OUTPUT =" Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -106,8 +116,9 @@ final class PhpstanToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, PhpstanCrash::TABLE_FORMAT, self::NO_PROGRESS],
             $this->toolArgs($spec),
+            'the table format is named, so a project errorFormat cannot take away the summary line the verdict is read from',
         );
         self::assertSame(\dirname(__DIR__, 4) . '/vendor-phar/phpstan.phar', $this->script($spec));
         self::assertSame($this->factory->project->path, $spec->cwd);
@@ -255,7 +266,7 @@ final class PhpstanToolTest extends TestCase
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
-            [self::ANALYSE, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, '-c', $wrapper, PhpstanCrash::TABLE_FORMAT, self::NO_PROGRESS],
             $this->toolArgs($this->factory->processes->lastSpec()),
             'type-coverage reports nothing when the analysed paths differ from the configured ones',
         );
@@ -274,7 +285,7 @@ final class PhpstanToolTest extends TestCase
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
-            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, self::NO_PROGRESS],
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $wrapper, PhpstanCrash::TABLE_FORMAT, self::NO_PROGRESS],
             $this->toolArgs($this->factory->processes->lastSpec()),
         );
         self::assertStringNotContainsString('    paths:', \Safe\file_get_contents($wrapper), 'a subset must not masquerade as the whole project');
@@ -293,7 +304,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function errorsFoundFailWithTheIdentifierAndNoTautologyNote(): void
     {
-        $this->factory->processes->willFail(1, " 12  Method foo() has no return type specified.\n");
+        $this->factory->processes->willFail(1, " 12  Method foo() has no return type specified.\n" . self::FOUND_ONE);
 
         $result  = new PhpstanTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -307,7 +318,7 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function aTautologyIdentifierInTheOutputPrintsTheNote(): void
     {
-        $this->factory->processes->willFail(1, "Call to method assertTrue() with true will always evaluate to true.\n  🪪 method.alreadyNarrowedType\n");
+        $this->factory->processes->willFail(1, "Call to method assertTrue() with true will always evaluate to true.\n  🪪 method.alreadyNarrowedType\n" . self::FOUND_ONE);
 
         $result  = new PhpstanTool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
@@ -342,6 +353,56 @@ final class PhpstanToolTest extends TestCase
             $this->toolArgs($this->factory->processes->lastSpec()),
             'the debug re-run drops --no-progress and adds --debug -v',
         );
+    }
+
+    /**
+     * PHPStan exits 1 both for findings and for an analysis it abandoned on internal errors, and
+     * an abandoned analysis drops every real finding (#82). Its stderr line is the difference.
+     */
+    #[Test]
+    public function anIncompleteResultIsACrashAndIsReRunWithDebug(): void
+    {
+        $this->factory->processes->willFail(1, self::INTERNAL_ERROR_OUTPUT);
+        $this->factory->processes->willFail(1, "debug output\n");
+
+        $result  = new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('PHPStan Crashed!!....', $printed);
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
+        self::assertCount(2, $this->factory->processes->specs, 'an abandoned analysis gets the same debug re-run as any crash');
+    }
+
+    /** A config error also exits 1, before anything is analysed: there are no findings to fix. */
+    #[Test]
+    public function aConfigurationErrorIsACrashNotFindings(): void
+    {
+        $this->factory->processes->willFail(1, self::CONFIG_ERROR);
+        $this->factory->processes->willFail(1, self::CONFIG_ERROR);
+
+        $result  = new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(PhpstanCrash::NO_REPORT_REASON, $result->summary);
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
+        self::assertCount(2, $this->factory->processes->specs, 'the debug re-run, as for any crash');
+    }
+
+    #[Test]
+    public function jsonModeAConfigurationErrorIsACrash(): void
+    {
+        $this->factory->processes->willFail(1, self::CONFIG_ERROR);
+        $config = $this->factory->builder(jsonOutput: true, specifiedPath: self::SRC)->build();
+
+        $result = new PhpstanTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(PhpstanCrash::NO_REPORT_REASON, $result->summary);
+        $printed = $this->factory->output->fetch();
+        self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
+        self::assertStringContainsString(PhpstanCrash::noVerdictLine(PhpstanCrash::NO_REPORT_REASON), $printed, 'bin/phpstan-rule reads this line to refuse an answer');
     }
 
     #[Test]
@@ -406,7 +467,21 @@ final class PhpstanToolTest extends TestCase
         $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
-        self::assertStringContainsString('PHPStan crashed (exit code: 255)', $this->factory->output->fetch());
+        self::assertStringContainsString(PhpstanCrash::noVerdictLine('PHPStan crashed (exit 255)'), $this->factory->output->fetch());
+        self::assertCount(1, $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function jsonModeIncompleteResultIsACrash(): void
+    {
+        $json = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Internal error: boom while analysing file /p/src/A.php"]}';
+        $this->factory->processes->willReturn(new ProcessResultDto(1, $json . "\n" . self::INCOMPLETE_LINE, $json));
+
+        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame($json, $this->factory->stdout->fetch(), 'the report still reaches stdout for the caller to read');
+        self::assertStringContainsString(PhpstanCrash::noVerdictLine(PhpstanCrash::INCOMPLETE_REASON), $this->factory->output->fetch(), 'so a caller reading the report also learns it is not a verdict');
         self::assertCount(1, $this->factory->processes->specs);
     }
 
@@ -545,6 +620,19 @@ final class PhpstanToolTest extends TestCase
         self::assertSame(self::CRASHED, $report['status']);
         self::assertSame(3, $report['exit_code']);
         self::assertStringContainsString(self::CRASHED, $this->stdoutLines()[0]);
+    }
+
+    #[Test]
+    public function anAgentModeIncompleteResultIsACrashNotAFindingsReport(): void
+    {
+        $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $json = $this->reportFor($this->factory->project->path . '/' . self::KERNEL, 1);
+        $this->factory->processes->willReturn(new ProcessResultDto(1, $json . "\n" . self::INCOMPLETE_LINE, $json));
+
+        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(self::CRASHED, $this->decode($this->reportPath(self::KERNEL))['status']);
     }
 
     #[Test]

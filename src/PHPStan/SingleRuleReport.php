@@ -6,6 +6,7 @@ namespace LTS\PHPQA\PHPStan;
 
 use InvalidArgumentException;
 use JsonException;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 
 /**
  * Answers one question about a PHPStan JSON run: did a given rule fire, and
@@ -17,6 +18,19 @@ use JsonException;
  */
 final readonly class SingleRuleReport
 {
+    /**
+     * An internal error means PHPStan abandoned the analysis and dropped every finding, so "did
+     * not fire" would be a false answer. The shipped phar reports one per file under this
+     * identifier, or in the top-level list with this prefix.
+     */
+    private const string INTERNAL_ERROR_IDENTIFIER = 'phpstan.internal';
+
+    /** How an internal error in the top-level list begins. */
+    private const string INTERNAL_ERROR_PREFIX = 'Internal error';
+
+    /** Why an abandoned run is refused rather than answered. */
+    private const string ABANDONED = 'PHPStan abandoned the analysis on internal errors, so this run cannot say whether the rule fired';
+
     /** @param array<string, list<array{line: int|null, message: string, identifier: string|null}>> $messagesByFile */
     private function __construct(private array $messagesByFile)
     {
@@ -32,6 +46,12 @@ final readonly class SingleRuleReport
 
         if (!\is_array($decoded) || !\array_key_exists('files', $decoded) || !\is_array($decoded['files'])) {
             throw new InvalidArgumentException('Expected PHPStan --error-format=json output with a "files" key');
+        }
+
+        foreach (\is_array($decoded['errors'] ?? null) ? $decoded['errors'] : [] as $error) {
+            if (\is_string($error) && str_starts_with($error, self::INTERNAL_ERROR_PREFIX)) {
+                throw new InvalidArgumentException(self::ABANDONED . ': ' . $error);
+            }
         }
 
         $messagesByFile = [];
@@ -58,8 +78,12 @@ final readonly class SingleRuleReport
                     continue;
                 }
 
-                $line                    = $message['line']       ?? null;
-                $identifier              = $message['identifier'] ?? null;
+                $line       = $message['line']       ?? null;
+                $identifier = $message['identifier'] ?? null;
+                if (self::INTERNAL_ERROR_IDENTIFIER === $identifier) {
+                    throw new InvalidArgumentException(self::ABANDONED . ': ' . $message['message']);
+                }
+
                 $messagesByFile[$file][] = [
                     'line'       => \is_int($line) ? $line : null,
                     'message'    => $message['message'],
@@ -103,12 +127,22 @@ final readonly class SingleRuleReport
     }
 
     /**
-     * Entry point for the harness: JSON on stdin, identifier as the argument.
-     * Exit 0 when the rule did not fire, 1 when it did, 2 when the input was
-     * not a PHPStan JSON run at all.
+     * Entry point for the harness: JSON on stdin, identifier as the argument,
+     * and the qa run's stderr, where the PHPStan lane says when the run reached
+     * no verdict. A dead worker leaves JSON that reads like any general finding,
+     * so that line is the only sign of it. Exit 0 when the rule did not fire,
+     * 1 when it did, 2 when the input was not a PHPStan JSON run at all or
+     * PHPStan reached no verdict.
      */
-    public static function main(string $identifier, string $json): int
+    public static function main(string $identifier, string $json, string $qaLog = ''): int
     {
+        $noVerdict = PhpstanCrash::noVerdictIn($qaLog);
+        if (null !== $noVerdict) {
+            \Safe\fwrite(STDERR, $noVerdict . ", so this run cannot say whether the rule fired\n");
+
+            return 2;
+        }
+
         try {
             $report = self::fromJson($json);
         } catch (InvalidArgumentException $invalidArgumentException) {

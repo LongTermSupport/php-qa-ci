@@ -6,9 +6,11 @@ namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\SingleRuleReport;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -19,10 +21,13 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(SingleRuleReport::class)]
+#[UsesClass(PhpstanCrash::class)]
 #[Small]
 final class SingleRuleReportTest extends TestCase
 {
     private const string PHPQACI_NESTED_TERNARY = 'phpqaci.nestedTernary';
+
+    private const string PHPQACI_EMPTY_CATCH_BLOCK = 'phpqaci.emptyCatchBlock';
 
     private const string JSON = <<<'JSON'
         {
@@ -63,13 +68,42 @@ final class SingleRuleReportTest extends TestCase
     #[Test]
     public function aRuleThatDidNotFireYieldsNothing(): void
     {
-        self::assertSame([], SingleRuleReport::fromJson(self::JSON)->firingsOf('phpqaci.emptyCatchBlock'));
+        self::assertSame([], SingleRuleReport::fromJson(self::JSON)->firingsOf(self::PHPQACI_EMPTY_CATCH_BLOCK));
     }
 
     #[Test]
     public function aRunWithNoFilesYieldsNothing(): void
     {
         self::assertSame([], SingleRuleReport::fromJson('{"totals":{"errors":0,"file_errors":0},"files":[],"errors":[]}')->firingsOf(self::PHPQACI_NESTED_TERNARY));
+    }
+
+    /**
+     * PHPStan drops every finding when it abandons an analysis on internal errors, so "did not
+     * fire" would be a false answer: the harness exits 2 instead. The shipped phar reports those
+     * errors either per file, identified `phpstan.internal`, or in the top-level list.
+     */
+    #[Test]
+    public function anAbandonedAnalysisIsNotAnAnswer(): void
+    {
+        $perFile  = '{"totals":{"errors":0,"file_errors":1},"files":{"/p/A.php":{"errors":1,"messages":[{"message":"Internal error: Unclosed \'{\' on line 49","line":null,"ignorable":false,"identifier":"phpstan.internal"}]}},"errors":[]}';
+        $topLevel = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Internal error: boom from fixture rule while analysing file /p/A.php"]}';
+
+        foreach (['per file' => $perFile, 'top level' => $topLevel] as $shape => $json) {
+            try {
+                SingleRuleReport::fromJson($json);
+                self::fail('an abandoned analysis was read as an answer: ' . $shape);
+            } catch (InvalidArgumentException $invalidArgumentException) {
+                self::assertStringContainsString('abandoned the analysis', $invalidArgumentException->getMessage(), $shape);
+            }
+        }
+    }
+
+    #[Test]
+    public function aGeneralFindingIsStillAnAnswer(): void
+    {
+        $json = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Ignored error pattern #x# was not matched in reported errors."]}';
+
+        self::assertSame([], SingleRuleReport::fromJson($json)->firingsOf(self::PHPQACI_NESTED_TERNARY));
     }
 
     #[Test]
@@ -89,6 +123,28 @@ final class SingleRuleReportTest extends TestCase
         self::assertStringStartsWith('phpqaci.nestedTernary FIRED (2)', $fired);
         self::assertStringContainsString('/repo/src/B.php:3', $fired);
 
-        self::assertSame("phpqaci.emptyCatchBlock did not fire\n", $report->render('phpqaci.emptyCatchBlock'));
+        self::assertSame("phpqaci.emptyCatchBlock did not fire\n", $report->render(self::PHPQACI_EMPTY_CATCH_BLOCK));
+    }
+
+    /**
+     * A parallel worker that dies (a segfault, an OOM kill, an exit) leaves only a top-level
+     * "Child process error" in the JSON, which reads like any general finding. The PHPStan lane
+     * still knows the run reached no verdict, and says so on the qa stderr the harness keeps.
+     */
+    #[Test]
+    public function aRunTheLaneReportedAsNoVerdictIsNotAnAnswer(): void
+    {
+        $json  = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Child process error (exit code 3):  while running parallel worker"]}';
+        $qaLog = "Running Single Tool: phpstan\n" . PhpstanCrash::noVerdictLine(PhpstanCrash::INCOMPLETE_REASON) . "\n";
+
+        $this->expectOutputString('');
+        self::assertSame(2, SingleRuleReport::main(self::PHPQACI_NESTED_TERNARY, $json, $qaLog));
+    }
+
+    #[Test]
+    public function aRunTheLaneReportedAsAVerdictIsAnswered(): void
+    {
+        $this->expectOutputString("phpqaci.emptyCatchBlock did not fire\n");
+        self::assertSame(0, SingleRuleReport::main(self::PHPQACI_EMPTY_CATCH_BLOCK, self::JSON, "Running Single Tool: phpstan\n"));
     }
 }

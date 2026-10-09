@@ -20,6 +20,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(DeadCodeTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::class)]
 #[UsesClass(\LTS\PHPQA\PackageType\ApiSurfaceEnforcementModeEnum::class)]
 #[UsesClass(\LTS\PHPQA\PackageType\ProjectComposerTypeReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
@@ -100,8 +101,9 @@ final class DeadCodeToolTest extends TestCase
         self::assertStringContainsString("    shipmonkDeadCode:\n        usageExcluders:\n            tests:\n                enabled: true\n", $wrapper);
         self::assertStringContainsString("    parallel:\n        maximumNumberOfProcesses: 2\n", $wrapper);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'analyse', '-c', $paths->projectRoot . '/' . self::WRAPPER, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD, '--no-progress'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'analyse', '-c', $paths->projectRoot . '/' . self::WRAPPER, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD, \LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::TABLE_FORMAT, '--no-progress'],
             $this->factory->processes->lastSpec()->command,
+            'the table format is named, so a project errorFormat cannot take away the summary line the verdict is read from',
         );
         // With Turbo, PHPStan forks its workers, and only phpstan.phar's reads are guarded across
         // the fork: a second PHAR is read through one shared descriptor and its source garbles.
@@ -173,7 +175,7 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function findingsFailTheLaneWithTheIdentifier(): void
     {
-        $this->factory->processes->willFail(1, 'Unused Foo::bar');
+        $this->factory->processes->willFail(1, " 12  Unused Foo::bar\n\n [ERROR] Found 1 error\n");
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
@@ -185,6 +187,24 @@ final class DeadCodeToolTest extends TestCase
         self::assertSame('dead code found', $result->summary);
         self::assertStringContainsString('withDeadCodeEntryPoints', $printed);
         self::assertStringContainsString(DeadCodeTool::IDENTIFIER, $printed);
+    }
+
+    /** A config error exits 1 before anything is analysed: the "delete it" guidance would be wrong. */
+    #[Test]
+    public function aConfigurationErrorIsACrashNotDeadCode(): void
+    {
+        $this->factory->processes->willFail(1, "Invalid configuration:\nUnexpected item 'parameters › notARealParameter'.\n");
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash::NO_REPORT_REASON, $result->summary);
+        self::assertStringNotContainsString('Delete it', $printed);
+        self::assertStringNotContainsString(DeadCodeTool::IDENTIFIER, $printed);
     }
 
     #[Test]
@@ -199,6 +219,31 @@ final class DeadCodeToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('PHPStan crashed (exit 255)', $result->summary);
+    }
+
+    /**
+     * PHPStan exits 1 both for findings and for an analysis it abandoned on internal errors, which
+     * reports none of the dead code there is (#82). The run that showed it printed the "delete it,
+     * or wire the caller" guidance over four internal errors and no findings.
+     */
+    #[Test]
+    public function anIncompleteResultIsACrashNotDeadCode(): void
+    {
+        $this->factory->processes->willFail(
+            1,
+            " Internal error: Class \"ShipMonk\\PHPStan\\DeadCode\\Graph\\ClassMethodUsage\" not found while analysing file /p/bin/x\n\n"
+            . " [ERROR] Found 1 error\n\n⚠️  Result is incomplete because of severe errors. ⚠️\n",
+        );
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('incomplete', $result->summary);
+        self::assertStringNotContainsString('withDeadCodeEntryPoints', $printed, 'no dead-code guidance for a run that reported none');
     }
 
     #[Test]

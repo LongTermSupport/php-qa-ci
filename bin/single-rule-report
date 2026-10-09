@@ -3,16 +3,19 @@
 
 /*
  * The PHP half of bin/phpstan-rule: a PHPStan JSON run on stdin, the rule
- * identifier as the argument. Exit 0 when the rule did not fire, 1 when it
- * did, 2 when the input was not a PHPStan JSON run.
+ * identifier as the argument, and optionally the file holding the qa run's
+ * stderr. Exit 0 when the rule did not fire, 1 when it did, 2 when the input
+ * was not a PHPStan JSON run or PHPStan reached no verdict.
  */
 
 require __DIR__.'/bootstrap.php';
 
 $identifier = $argv[1] ?? null;
 if (null === $identifier || '' === $identifier) {
-    fwrite(STDERR, "Usage: bin/single-rule-report <identifier> < phpstan.json\n");
+    fwrite(STDERR, "Usage: bin/single-rule-report <identifier> [<qa-stderr-file>] < phpstan.json\n");
     exit(2);
 }
 
-exit(\LTS\PHPQA\PHPStan\SingleRuleReport::main($identifier, (string) stream_get_contents(STDIN)));
+$qaLog = isset($argv[2]) ? \Safe\file_get_contents($argv[2]) : '';
+
+exit(\LTS\PHPQA\PHPStan\SingleRuleReport::main($identifier, (string) stream_get_contents(STDIN), $qaLog));

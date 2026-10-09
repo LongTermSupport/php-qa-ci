@@ -59,6 +59,17 @@ the release and its tag. The full rules are in
   one-file run took about as long as a whole-tree run. On a `-p` run it now gets only the checked
   paths inside the tests directory, the whole directory for a path that contains it (`-p .`), and
   is skipped when there are none. A run without `-p` is unchanged.
+- **A PHPStan run that found nothing is no longer reported as findings**
+  ([#82](https://github.com/LongTermSupport/php-qa-ci/issues/82)). PHPStan exits 1 for findings,
+  but also when it gives up on internal errors ("Result is incomplete because of severe errors"),
+  dropping every real finding, and when it stops before analysing anything, on a config error, a
+  missing bootstrap file or a rule class it cannot load. The dead-code lane reported all of these
+  as "dead code found", with advice to delete members it never named. The PHPStan lane reported
+  them as errors found in every mode, without the `--debug` re-run that a crash gets in text mode.
+  An exit 1 now counts as findings only when PHPStan reports some, and anything else is a crash.
+  The text-mode and dead-code runs pass `--error-format=table`, so a project's `errorFormat` no
+  longer changes what they print. `vendor/bin/phpstan-rule` answered "did not fire" for an
+  abandoned analysis, including one whose parallel worker died; it now exits 2.
 
 ## 85.5.0 — 2026-10-08
 

@@ -6,7 +6,9 @@
 #   bin/phpstan-rule phpqaci.nestedTernary src/Service/Pricing.php
 #
 # Exit 0: the rule did not fire.  Exit 1: it fired (locations printed).
-# Exit 2: usage error, or PHPStan did not produce a JSON run.
+# Exit 2: usage error, PHPStan did not produce a JSON run, or the PHPStan lane
+# reported that the run reached no verdict (an analysis abandoned on internal
+# errors or a dead worker, a config error), so it cannot say whether the rule fired.
 #
 # The run is the ordinary `qa -t phpstan -p <path> --json`, so the rule is
 # exercised exactly as the pipeline exercises it: same config, same includes,
@@ -40,6 +42,9 @@ if [[ -z "$json" ]]; then
   exit 2
 fi
 
-# PHP reads the run from stdin; the identifier and bootstrap path travel as
-# arguments so that neither is interpolated into code.
-exec php "$binDir/single-rule-report" "$identifier" <<< "$json"
+# PHP reads the run from stdin; the identifier and the qa stderr file travel as
+# arguments so that neither is interpolated into code. The stderr is where the
+# PHPStan lane says the run reached no verdict, which the JSON cannot show.
+rc=0
+php "$binDir/single-rule-report" "$identifier" "$qaLog" <<< "$json" || rc=$?
+exit "$rc"

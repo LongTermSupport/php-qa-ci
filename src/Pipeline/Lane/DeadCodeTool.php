@@ -9,6 +9,7 @@ use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\DeadCode\DetectorUnpacker;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -76,7 +77,7 @@ final readonly class DeadCodeTool implements ToolInterface
         $wrapper  = $this->writeWrapperNeon($context, $logDir, $detector);
         // The detector's classes must exist when PHPStan compiles its container,
         // which is before any bootstrapFiles run; --autoload-file is the hook for that.
-        $args = ['analyse', '-c', $wrapper, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD];
+        $args = ['analyse', '-c', $wrapper, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD, PhpstanCrash::TABLE_FORMAT];
         if ($config->ci) {
             $args[] = '--no-progress';
         }
@@ -89,8 +90,9 @@ final readonly class DeadCodeTool implements ToolInterface
             return ToolResultDto::passed();
         }
 
-        if ($result->exitCode > 1) {
-            return ToolResultDto::crashed(\sprintf('PHPStan crashed (exit %d)', $result->exitCode));
+        $crash = PhpstanCrash::reason($result);
+        if (null !== $crash) {
+            return ToolResultDto::crashed($crash);
         }
 
         $this->findingsGuidance($context);

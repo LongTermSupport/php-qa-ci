@@ -14,6 +14,7 @@ use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -23,8 +24,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Static analysis via the shipped phpstan.phar. The resolved phpstan.neon is
  * wrapped in a generated neon that caps the worker count at half the CPU
  * threads, the same figure Rector and Infection use. Exit 1 means PHPStan ran
- * and found errors; anything above is a crash, which in text mode is re-run
- * with --debug so the fatal that stopped it is visible. In --json mode the
+ * and found errors only when its output reports findings; an abandoned analysis,
+ * an error before any analysis, and anything above 1, are crashes (PhpstanCrash), which in text mode are
+ * re-run with --debug so the fatal that stopped it is visible. In --json mode the
  * report goes to the real stdout untouched and nothing is retried. In agent
  * mode the same JSON is turned into one report file per analysed source file
  * and stdout is held to a count, a path and an instruction.
@@ -48,8 +50,6 @@ final readonly class PhpstanTool implements ToolInterface
     private const string PHAR = '/phpstan.phar';
 
     private const string NO_PROGRESS = '--no-progress';
-
-    private const string CRASH_MESSAGE = 'PHPStan crashed (exit %d)';
 
     private const string ERRORS_FOUND = 'PHPStan found errors';
 
@@ -156,8 +156,9 @@ final readonly class PhpstanTool implements ToolInterface
 
         $writer->clearScope($scope);
 
-        if ($result->exitCode > 1) {
-            return $this->agentCrash($writer, $terse, \sprintf(self::CRASH_MESSAGE, $result->exitCode), $scope, $runAt, $logPath);
+        $crash = PhpstanCrash::jsonReason($result);
+        if (null !== $crash) {
+            return $this->agentCrash($writer, $terse, $crash, $scope, $runAt, $logPath);
         }
 
         try {
@@ -219,10 +220,12 @@ final readonly class PhpstanTool implements ToolInterface
         $context->stdout->write($result->stdout, false, OutputInterface::OUTPUT_RAW);
         $context->logs->archive('PHPStan', $logDir, self::JSON_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
 
-        if ($result->exitCode > 1) {
-            $context->writeln(\sprintf('PHPStan crashed (exit code: %d)', $result->exitCode));
+        $crash = PhpstanCrash::jsonReason($result);
+        if (null !== $crash) {
+            // bin/phpstan-rule reads this line: the JSON alone cannot show that a worker died.
+            $context->writeln(PhpstanCrash::noVerdictLine($crash));
 
-            return ToolResultDto::crashed(\sprintf(self::CRASH_MESSAGE, $result->exitCode));
+            return ToolResultDto::crashed($crash);
         }
 
         if ($result->succeeded()) {
@@ -238,7 +241,7 @@ final readonly class PhpstanTool implements ToolInterface
     {
         $config = $context->config;
         $phar   = $config->paths->pharDir . self::PHAR;
-        $args   = array_values($config->ci ? [...$baseArgs, self::NO_PROGRESS] : $baseArgs);
+        $args   = array_values([...$baseArgs, PhpstanCrash::TABLE_FORMAT, ...($config->ci ? [self::NO_PROGRESS] : [])]);
 
         $result = $context->php->withoutXdebug($phar, $args, $config->paths->projectRoot);
 
@@ -249,7 +252,8 @@ final readonly class PhpstanTool implements ToolInterface
             return ToolResultDto::passed();
         }
 
-        if ($result->exitCode > 1) {
+        $crash = PhpstanCrash::reason($result);
+        if (null !== $crash) {
             $context->writeln('');
             $context->writeln('');
             $context->writeln('PHPStan Crashed!!....');
@@ -259,7 +263,7 @@ final readonly class PhpstanTool implements ToolInterface
             $context->writeln('');
             $context->php->withoutXdebug($phar, array_values([...$baseArgs, '--debug', '-v']), $config->paths->projectRoot);
 
-            return ToolResultDto::crashed(\sprintf(self::CRASH_MESSAGE, $result->exitCode));
+            return ToolResultDto::crashed($crash);
         }
 
         if (1 === \Safe\preg_match(self::TAUTOLOGY_PATTERN, $result->output)) {
