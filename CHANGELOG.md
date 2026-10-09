@@ -31,6 +31,8 @@ the release and its tag. The full rules are in
   it cannot be disabled, so nothing needs installing. php-qa-ci uses it to check the SHA-256 of each
   PHPStan Turbo binary it downloads.
 
+- **Infection now mutates only what a branch changed, by default.** With `infectionDiffBase` unset, a run on any branch but the default one mutates the PHP files committed since its merge base with the default branch (the target branch in a pull request build), plus the source each changed test is named after; on the default branch, or where no merge base can be found (a shallow clone, an unknown default branch), it mutates everything and prints why. The first Infection line of every run names the scope. A branch is now held to the diff covered-MSI floor (`infectionDiffCoveredMsi`, default `coveredCodeMSI`) on its changed files, which can fail where the whole-codebase floor passed. To keep the full run everywhere, set `infectionDiffBase=full` or call `withInfectionFullRun()`. `withInfectionDiffBase(null)` now means this automatic choice rather than a full run; an explicit ref behaves as before. In CI, check out with `fetch-depth: 0` (the shipped templates do), or every run is full. Details: `docs/tools/infection.md`.
+
 ### Added
 
 - **PHPStan runs with Turbo, its native extension.** `bin/turbo-install` downloads the Turbo
@@ -76,6 +78,8 @@ the release and its tag. The full rules are in
   The text-mode and dead-code runs pass `--error-format=table`, so a project's `errorFormat` no
   longer changes what they print. `vendor/bin/phpstan-rule` answered "did not fire" for an
   abandoned analysis, including one whose parallel worker died; it now exits 2.
+
+- **Diff-mode Infection mutates renamed and copied source files, under their new path,** where it used to drop them, reads file names verbatim (`git diff -z`), writes the same `log.txt` and `summary-log.txt` as a full run (`--log-verbosity=all`), and passes a scope whose changed files hold no mutable code instead of scoring it 0%. Uncommitted work under `src/`/`tests/` still refuses an explicit base; in the automatic default it is listed as not mutated and the run carries on.
 
 ## 85.5.0 — 2026-10-08
 
