@@ -101,12 +101,17 @@ disables Turbo. Turbo also uses more memory.
   Red `88d5b99`, fix `455b841`. The installer refuses the same mismatch at install time.
 - [ ] ⬜ **Task 3.4**: The `phpstan` lane reports whether Turbo loaded. On a platform with a shipped
   binary where it does not load, the cause is shown (decide warn or fail; see Decisions).
+  Reporting done: text mode prints whether Turbo is running, and `NOT RUNNING` with PHPStan's
+  reasons and the fix where a build ships for the host (red `3763778`, fix `01564fd`). The
+  outcome is unchanged; failing the lane on it waits on D2.
 - [x] ✅ **Task 3.5**: Measure on this repository: wall time and peak memory, Turbo on against off,
   interleaved. Measured on 2.3.0: about 20.4 s → 9.4 s, and worker peak memory up about 6% (see the
   journal). Documented with the memory-limit guidance in `docs/tools/phpstan.md` (`247de5f`).
-- [ ] ⬜ **Task 3.6**: A consumer-shaped Large test, with php-qa-ci under
+- [x] ✅ **Task 3.6**: A consumer-shaped Large test, with php-qa-ci under
   `vendor/lts/php-qa-ci`, proving the lane runs with Turbo enabled. It depends on 3.4: the test
   fixture symlinks `vendor-phar/`, so without a lane report it could only repeat 3.1's `diagnose`.
+  `ConsumerPhpstanLaneRunsWithTurboTest` (`20a3bc2`): fails with `vendor-phar/turbo-ext` moved
+  aside, passes with it.
 
 ### Phase 4: release and roll-out
 
