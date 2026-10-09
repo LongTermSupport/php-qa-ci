@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Changelog;
 
+use LTS\PHPQA\Tests\Support\ChildEnvironment;
 use LTS\PHPQA\Tests\Support\GitSandbox;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
@@ -148,7 +149,7 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
 
     private function cli(string ...$arguments): Process
     {
-        $process = new Process(['php', '-d', 'xdebug.mode=off', \Safe\realpath(self::BIN), ...array_values($arguments)], $this->sandbox->work, GitSandbox::environment());
+        $process = new Process(['php', \Safe\realpath(self::BIN), ...array_values($arguments)], $this->sandbox->work, ChildEnvironment::withoutXdebug(GitSandbox::environment()));
         $process->run();
 
         return $process;
