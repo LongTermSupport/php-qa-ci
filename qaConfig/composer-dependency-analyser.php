@@ -54,10 +54,10 @@ $config
     ], [ErrorType::UNUSED_DEPENDENCY])
     /*
      * Extensions the shipped tools need rather than our own code: openssl for
-     * PHIVE signature verification and xml for the PHARs' report writing
-     * (tokenizer is used directly, by PhpStanGuardPlugin).
+     * PHIVE signature verification (tokenizer is used directly, by
+     * PhpStanGuardPlugin; xml, by InfectionFullRunTriggers).
      */
-    ->ignoreErrorsOnExtensions(['ext-openssl', 'ext-xml'], [ErrorType::UNUSED_DEPENDENCY])
+    ->ignoreErrorsOnExtensions(['ext-openssl'], [ErrorType::UNUSED_DEPENDENCY])
     /*
      * posix is called through \Safe\posix_kill (RunningProcesses), which the
      * scan credits to thecodingmachine/safe; the wrapper still needs the

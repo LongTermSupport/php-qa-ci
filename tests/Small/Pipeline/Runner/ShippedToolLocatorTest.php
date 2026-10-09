@@ -32,6 +32,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DocsProseTool::class)]

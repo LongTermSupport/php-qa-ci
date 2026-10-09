@@ -16,7 +16,8 @@ final readonly class InfectionDiffFilterDto
      * @param list<string>          $relativePaths   the same files, project-relative, for the log line
      * @param array<string, string> $mirrored        source file => the changed test that brought it into scope
      * @param list<string>          $unmappedTests   changed test-directory files that mirror no source file
-     * @param list<string>          $configChanges   changed configuration files every mutant's outcome depends on
+     * @param list<string>          $configChanges   changed full-run triggers (InfectionFullRunTriggers): files every mutant's outcome depends on
+     * @param list<string>          $commentOnly     changed PHP files whose only change is comments, docblocks or whitespace, so not mutated
      */
     public function __construct(
         public array $positionalPaths,
@@ -24,6 +25,7 @@ final readonly class InfectionDiffFilterDto
         public array $mirrored = [],
         public array $unmappedTests = [],
         public array $configChanges = [],
+        public array $commentOnly = [],
     ) {
     }
 
