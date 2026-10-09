@@ -35,9 +35,9 @@ the release and its tag. The full rules are in
 
 - **A diff-mode Infection run, with an explicit `infectionDiffBase` ref as in auto mode, is stricter:**
 
-  - It mutates uncovered code too (`--with-uncovered`) and holds both its MSI and its covered MSI to the diff floor. Before, it only checked the covered MSI, so a changed file with no test passed. It now fails.
+  - It mutates uncovered code too (`--with-uncovered`) and holds both its MSI and its covered MSI to the diff floor. Before, it only checked the covered MSI, so an untested changed file passed whenever the scope also held a tested one (a scope of untested files alone already failed, at 0%). It now fails either way.
   - A change to `qaConfig/`, `composer.json` or `composer.lock` since the base turns it into a full run, with one line naming the files. Before, those changes were ignored.
-  - The clean-tree refusal of an explicit ref now also covers those configuration paths and untracked files. Before, it only covered tracked files under `src/` and `tests/`.
+  - The clean-tree refusal of an explicit ref now also covers those configuration paths, and names each file inside an untracked directory rather than the directory.
   - A changed test now brings into scope the source file it is named after.
 
 ### Added

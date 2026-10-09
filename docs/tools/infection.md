@@ -58,7 +58,10 @@ is treated differently by the two diff modes:
 - **Auto mode** mutates it as it is on disk, alongside the committed change, and prints a
   `WARNING` naming every such file: that verdict cannot be reproduced from committed history,
   so commit (a WIP commit will do) for the result CI will see. Local work in progress never
-  fails the run on this account, and an uncommitted configuration change makes it full.
+  fails the run on this account, and an uncommitted configuration change makes it full. A
+  committed file since deleted or renamed away is left out, since only what is on disk can be
+  mutated. Paths are read relative to the project, so a project in a subdirectory of its
+  repository is scoped the same way.
 - **An explicit base** refuses to run, listing the files, so its verdict is always the one
   committed history gives.
 
@@ -153,7 +156,7 @@ The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infecti
 
 1. Without Xdebug there is no coverage, so the lane skips.
 2. The scope is decided and printed (see [What is mutated](#what-is-mutated)).
-3. A diff run checks `git status --porcelain=v1 -z --untracked-files=all` over `src`, `tests`, `qaConfig`, `composer.json` and `composer.lock`: an explicit base refuses a dirty tree; auto mode adds the uncommitted files to the change and names them in a warning.
+3. A diff run checks `git status --porcelain=v1 -z --untracked-files=all` over `src`, `tests`, `qaConfig`, `composer.json` and `composer.lock`: an explicit base refuses a dirty tree; auto mode adds the uncommitted files (made project-relative with `git rev-parse --show-prefix`) to the change and names them in a warning.
 4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A configuration file in it makes the run full. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
 5. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
 6. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
