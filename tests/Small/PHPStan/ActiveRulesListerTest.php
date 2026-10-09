@@ -323,6 +323,29 @@ final class ActiveRulesListerTest extends TestCase
         );
     }
 
+    /**
+     * PHPStan's documented `phar://phpstan.phar/conf/bleedingEdge.neon` include is
+     * PHPStan's own configuration, so the listing (and the agent summary written from
+     * it) reads the project's rules past it rather than failing.
+     */
+    public function testPhpstansOwnConfigurationInsideItsPharIsNotAProjectFile(): void
+    {
+        $project = \LTS\PHPQA\Tests\Support\TempDir::create('phpqa-lister-phar');
+
+        try {
+            $project->write('qaConfig/phpstan.neon', "includes:\n    - phar://phpstan.phar/conf/bleedingEdge.neon\n\nrules:\n    - LTS\\PHPQA\\Tests\\Assets\\ActiveRulesLister\\FixtureProjectRule\n");
+
+            $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list($project->path);
+        } finally {
+            $project->remove();
+        }
+
+        self::assertSame(
+            [\LTS\PHPQA\Tests\Assets\ActiveRulesLister\FixtureProjectRule::class],
+            array_map(static fn (\LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto $rule): string => $rule->ruleClass, $listing->rules),
+        );
+    }
+
     public function testAnIncludeThatCannotBeFollowedIsAnError(): void
     {
         try {
