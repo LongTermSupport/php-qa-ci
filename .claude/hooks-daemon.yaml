@@ -162,6 +162,22 @@ handlers:
       enabled: true
       priority: 40
 
+    # Who may hand work to an agent through a GitHub issue. `approved_issue_authors`
+    # is the ONE home of the list: this guard, `bin/hooks-daemon issue-validity`
+    # and the issue monitor (CLAUDE/issue-sdlc.md) all read it. An issue from
+    # anyone else is never worked, claimed or answered by the loop.
+    # `auto_claim: false` keeps the hook judge-only; the runbook claims explicitly.
+    github_issue_assignment_guard:
+      enabled: true
+      priority: 53
+      options:
+        auto_claim: false
+        approved_issue_authors:
+          - LTSCommerce
+          - edmondscommerce
+          - lts-bob
+          - ballidev
+
     global_npm_advisor:    # Advises against global npm installs
       enabled: true
       priority: 42
