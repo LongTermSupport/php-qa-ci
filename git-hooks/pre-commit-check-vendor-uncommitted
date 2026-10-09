@@ -58,15 +58,13 @@ COMPOSER_OUT_OF_SYNC=()
 # Parse composer.lock ONCE to build package -> commit map (fast!)
 declare -A COMPOSER_COMMITS
 if [[ -f "$PROJECT_ROOT/composer.lock" ]]; then
-    # XDEBUG_MODE=off: with OPcache JIT on, a loaded Xdebug prints a "JIT is
-    # incompatible" warning on STDOUT at every php start, which would arrive
-    # here as a bogus map entry. Off prevents the warning; the shape check below
-    # ignores any other stray line, since only "vendor/package|reference" is data.
     while IFS='|' read -r package_name commit_ref; do
-        if [[ ! "$package_name" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || [[ -z "$commit_ref" ]]; then
-            continue
+        # php can print more than its answer (a start-up warning on stdout,
+        # such as the OPcache JIT's with Xdebug loaded): keep name|reference
+        # lines only.
+        if [[ "$package_name" =~ ^[a-z0-9._-]+/[a-z0-9._-]+$ ]] && [[ "$commit_ref" =~ ^[0-9a-f]+$ ]]; then
+            COMPOSER_COMMITS["$package_name"]="$commit_ref"
         fi
-        COMPOSER_COMMITS["$package_name"]="$commit_ref"
     done < <(XDEBUG_MODE=off php -r '
         $json = json_decode(file_get_contents($argv[1]), true);
         foreach (["packages", "packages-dev"] as $section) {

@@ -106,7 +106,7 @@ final readonly class RequireReadonlyServiceRule implements Rule
             return [];
         }
 
-        $className = null !== $node->name ? $node->name->name : null;
+        $className = $node->name?->name;
         if (null === $className) {
             return [];
         }

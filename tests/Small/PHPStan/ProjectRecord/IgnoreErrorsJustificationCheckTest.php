@@ -146,6 +146,19 @@ final class IgnoreErrorsJustificationCheckTest extends TestCase
         self::assertSame(0, new IgnoreErrorsJustificationCheck()->run($this->root));
     }
 
+    /** PHPStan's documented bleeding-edge include names its own phar, which is no project file. */
+    #[Test]
+    public function phpstansBundledConfigurationIncludedThroughItsPharPasses(): void
+    {
+        \Safe\file_put_contents(
+            $this->root . self::QA_CONFIG_PHPSTAN_NEON,
+            "includes:\n    - phar://phpstan.phar/conf/bleedingEdge.neon\n\nparameters:\n    ignoreErrors:\n        # The generated client reaches a class that only exists at runtime;\n        # scoped to the generated directory.\n        -\n            identifier: class.notFound\n            path: ../src/Generated/*\n",
+        );
+
+        $this->expectOutputString('PHPStan project record: 1 ignoreErrors entry, all justified.' . \PHP_EOL);
+        self::assertSame(0, new IgnoreErrorsJustificationCheck()->run($this->root));
+    }
+
     #[Test]
     public function anEntryWrittenInlineCannotEscapeTheCheck(): void
     {

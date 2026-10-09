@@ -367,7 +367,11 @@ fail like any other. The lane also fails when part of the chain cannot be read:
 
 - an entry written inline (`ignoreErrors: ['#...#']`), which leaves no line for its comment;
 - an include that does not exist, or that uses a `%parameter%` other than
-  `%currentWorkingDirectory%` (`%rootDir%`, PHPStan's own configuration, is not followed);
+  `%currentWorkingDirectory%`. PHPStan's own configuration is not followed: an include under
+  `%rootDir%`, or inside an archive named `phpstan.phar` (the documented
+  `phar://phpstan.phar/conf/bleedingEdge.neon` included). A `phar://` include into any other
+  archive is project configuration like any other file: it is read when the archive opens, and
+  is a failure when it does not;
 - a `.php` include that sets `ignoreErrors` or `includes`, since PHP has no place for the comment.
 
 Inline ignore comments are forbidden by the default tier's `phpqaci.inlinePhpstanIgnore`. Behind
