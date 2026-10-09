@@ -27,6 +27,12 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- The deployed `pre-commit` hook no longer blocks every commit when `php` prints a start-up warning on stdout, such as the OPcache JIT's "JIT is incompatible with third party extensions" when Xdebug is loaded (#100). It reads `composer.lock` with `XDEBUG_MODE=off` and keeps only `name|reference` lines, where a stray line used to stop it with `bad array subscript`. A package off its locked commit is still caught.
+
+## 85.6.1 — 2026-10-09
+
+### Fixed
+
 - A `phar://phpstan.phar/...` include in `qaConfig/phpstan.neon` (PHPStan's documented `phar://phpstan.phar/conf/bleedingEdge.neon`) is PHPStan's own configuration, as `%rootDir%/...` is, and is no longer reported as missing: the `phpstanIgnoreJustification` lane passes it, and `rules --write-agent-summary` lists the active defences instead of writing the "could not be generated" fallback into `CLAUDE.md`. Any archive named `phpstan.phar` is treated so; a `phar://` include into any other archive is read like any other file, and fails when the archive cannot be opened.
 
 ## 85.6.0 — 2026-10-09
