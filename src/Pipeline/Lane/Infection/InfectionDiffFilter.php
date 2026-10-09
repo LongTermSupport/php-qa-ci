@@ -54,9 +54,9 @@ final readonly class InfectionDiffFilter
     public function nameStatusFromGitStatus(string $gitStatusOutput, string $prefix = ''): string
     {
         $gitStatusOutput = $this->withoutPrefix($gitStatusOutput, $prefix);
-        $tokens  = explode("\0", $gitStatusOutput);
-        $count   = \count($tokens);
-        $records = '';
+        $tokens          = explode("\0", $gitStatusOutput);
+        $count           = \count($tokens);
+        $records         = '';
         for ($index = 0; $index < $count; ++$index) {
             $token = $tokens[$index];
             if (\strlen($token) < 4) {
@@ -131,6 +131,24 @@ final readonly class InfectionDiffFilter
         );
     }
 
+    /** `git status --porcelain=v1 -z` output with every path made relative to `$prefix` */
+    public function withoutPrefix(string $gitStatusOutput, string $prefix): string
+    {
+        if ('' === $prefix) {
+            return $gitStatusOutput;
+        }
+
+        $tokens = explode("\0", $gitStatusOutput);
+        foreach ($tokens as $index => $token) {
+            $at = str_starts_with($token, $prefix) ? 0 : 3;
+            if (substr($token, $at, \strlen($prefix)) === $prefix) {
+                $tokens[$index] = substr($token, 0, $at) . substr($token, $at + \strlen($prefix));
+            }
+        }
+
+        return implode("\0", $tokens);
+    }
+
     /**
      * The `-z --name-status` records: a status token, then one path, or two
      * (old, new) for a rename or copy.
@@ -155,24 +173,6 @@ final readonly class InfectionDiffFilter
         }
 
         return $entries;
-    }
-
-    /** `git status --porcelain=v1 -z` output with every path made relative to `$prefix` */
-    public function withoutPrefix(string $gitStatusOutput, string $prefix): string
-    {
-        if ('' === $prefix) {
-            return $gitStatusOutput;
-        }
-
-        $tokens = explode("\0", $gitStatusOutput);
-        foreach ($tokens as $index => $token) {
-            $at = str_starts_with($token, $prefix) ? 0 : 3;
-            if (substr($token, $at, \strlen($prefix)) === $prefix) {
-                $tokens[$index] = substr($token, 0, $at) . substr($token, $at + \strlen($prefix));
-            }
-        }
-
-        return implode("\0", $tokens);
     }
 
     private function relative(string $dir, string $cwd): string
