@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane;
 
+use Closure;
 use FilesystemIterator;
 use JsonException;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
@@ -13,6 +14,7 @@ use LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffBaseResolver;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
+use LTS\PHPQA\Pipeline\Lane\Infection\InfectionFullRunTriggers;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
@@ -41,10 +43,13 @@ use SplFileInfo;
  * base, runs in full. In diff mode the lane scopes mutation to the PHP files
  * changed since the base plus the sources the changed tests are named after,
  * uncovered code included, and holds both MSI figures to the diff floor; an
- * empty diff skips before any coverage is generated. A change to the project
- * configuration (qaConfig/, composer.json, composer.lock) runs in full.
- * Uncommitted work refuses an explicit base; in auto mode it is mutated as it
- * is on disk and named in a warning. The phar runs at low CPU priority.
+ * empty diff skips before any coverage is generated. A change to a file
+ * Infection or PHPUnit reads to decide what is mutated and whether a mutant
+ * is killed (InfectionFullRunTriggers) runs in full; composer.json,
+ * composer.lock and the rest of qaConfig/ do not. A file whose change is only
+ * comments, docblocks or whitespace is named and not mutated. Uncommitted
+ * work refuses an explicit base; in auto mode it is mutated as it is on disk
+ * and named in a warning. The phar runs at low CPU priority.
  *
  * @internal
  */
@@ -65,6 +70,7 @@ final readonly class InfectionTool implements ToolInterface
         private IgnoredPathsInfectionConfig $ignoredPathsConfig = new IgnoredPathsInfectionConfig(),
         private InfectionDiffBaseResolver $diffBaseResolver = new InfectionDiffBaseResolver(),
         private ?EnvironmentReader $environment = null,
+        private InfectionFullRunTriggers $fullRunTriggers = new InfectionFullRunTriggers(),
     ) {
     }
 
@@ -193,14 +199,19 @@ final readonly class InfectionTool implements ToolInterface
      */
     private function resolveDiffScope(ToolContext $context, string $diffBase, bool $strict): array|ToolResultDto
     {
-        $paths       = $context->config->paths;
-        $configPaths = [$paths->projectConfigDir, $paths->projectRoot . '/composer.json', $paths->projectRoot . '/composer.lock'];
-        $uncommitted = $this->uncommittedChanges($context, $strict, ...$configPaths);
+        $paths    = $context->config->paths;
+        $triggers = $this->fullRunTriggers->paths(
+            $paths->projectRoot,
+            $paths->projectConfigDir,
+            $context->configPath('infection.json'),
+            $context->configPath('phpunit.xml'),
+        );
+        $uncommitted = $this->uncommittedChanges($context, $strict, ...$triggers);
         if ($uncommitted instanceof ToolResultDto) {
             return $uncommitted;
         }
 
-        $diff = $this->git($context, ...$this->diffFilter->gitDiffArguments($diffBase, $paths->srcDir, $paths->testsDir, ...$configPaths));
+        $diff = $this->git($context, ...$this->diffFilter->gitDiffArguments($diffBase, $paths->srcDir, $paths->testsDir, ...$triggers));
         if (!$diff->succeeded()) {
             $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (exit %d) — cannot determine the changed files for diff mode.", $diffBase, $diff->exitCode));
             $context->writeln("           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first).");
@@ -209,7 +220,15 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::failed('Infection diff mode: git diff failed');
         }
 
-        $filter = $this->diffFilter->fromGitDiffOutput($diff->stdout . $uncommitted, $paths->projectRoot, $paths->srcDir, $paths->testsDir, IgnoredPaths::of($context->config));
+        $filter = $this->diffFilter->fromGitDiffOutput(
+            $diff->stdout . $uncommitted,
+            $paths->projectRoot,
+            $paths->srcDir,
+            $paths->testsDir,
+            IgnoredPaths::of($context->config),
+            $this->baseContent($context, $diffBase),
+            ...$triggers,
+        );
         if ([] !== $filter->configChanges) {
             $context->writeln(\sprintf(
                 'Infection: full run — the change touches configuration every mutant depends on (%s), which a diff run cannot judge.',
@@ -217,6 +236,10 @@ final readonly class InfectionTool implements ToolInterface
             ));
 
             return [];
+        }
+
+        if ([] !== $filter->commentOnly) {
+            $context->writeln('Infection: diff mode — comment-only change, not mutated: ' . implode(',', $filter->commentOnly));
         }
 
         $this->reportUnmappedTests($context, ...$filter->unmappedTests);
@@ -234,6 +257,34 @@ final readonly class InfectionTool implements ToolInterface
         $context->writeln(\sprintf('Infection: diff mode — mutating %d file(s): %s', \count($filter->positionalPaths), $filter->display()));
 
         return $filter->positionalPaths;
+    }
+
+    /**
+     * A changed file's content at the merge base the three-dot diff compares
+     * against, by project-relative path; null when git cannot produce it, so
+     * the file is mutated rather than assumed unchanged. The merge base is
+     * resolved once, on the first file that needs it.
+     *
+     * @return Closure(string): ?string
+     */
+    private function baseContent(ToolContext $context, string $diffBase): Closure
+    {
+        $mergeBase = null;
+
+        return function (string $path) use ($context, $diffBase, &$mergeBase): ?string {
+            if (null === $mergeBase) {
+                $resolved  = $this->git($context, 'merge-base', $diffBase, 'HEAD');
+                $mergeBase = $resolved->succeeded() ? trim($resolved->stdout) : '';
+            }
+
+            if ('' === $mergeBase) {
+                return null;
+            }
+
+            $show = $this->git($context, 'show', $mergeBase . ':./' . $path);
+
+            return $show->succeeded() ? $show->stdout : null;
+        };
     }
 
     /** Changed test-directory files that name no source: what they cover is not mutated, and the run says so. */

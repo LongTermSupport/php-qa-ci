@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane\Infection;
 
+use Closure;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
 
@@ -12,16 +13,21 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
  * Infection mutates.
  *
  * Input is the output of
- *   git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative -- <srcDir> <testsDir> <configPaths>
+ *   git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative -- <srcDir> <testsDir> <fullRunTriggers>
  * (see gitDiffArguments()), to which the lane may append uncommitted work in
  * the same record form (nameStatusFromGitStatus()). The three-dot diff lists
  * only files changed on this branch since the merge base, so the scope is not
  * widened by a base ref that has advanced. `-z` keeps unusual file names
  * verbatim; `-M` reports a moved file as a rename, whose new path is mutated.
  *
- * - A changed file outside the source and tests directories is one of the
- *   configuration paths every mutant depends on, and is listed as such.
- *
+ * - A changed full-run trigger (InfectionFullRunTriggers: the Infection and
+ *   PHPUnit configs and the test bootstrap) is listed as such, even under the
+ *   tests directory. Any other file outside the source and tests directories
+ *   is left out quietly: it decides neither what is mutated nor whether a
+ *   mutant is killed.
+ * - A modified, renamed or copied PHP file whose change is only comments,
+ *   docblocks or whitespace (CommentOnlyChange, against its base version read
+ *   through `$baseContent`) is listed as comment-only and brings nothing in.
  * - A source file added, modified, renamed or copied is mutated; a deleted
  *   one has nothing left to mutate.
  * - A test file changed in any way (deleted included) mutates the source it
@@ -38,10 +44,15 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
  */
 final readonly class InfectionDiffFilter
 {
+    public function __construct(
+        private CommentOnlyChange $commentOnly = new CommentOnlyChange(),
+    ) {
+    }
+
     /** @return list<string> the argv (after `git`) that produces the output this class parses */
-    public function gitDiffArguments(string $diffBase, string $srcDir, string $testsDir, string ...$configPaths): array
+    public function gitDiffArguments(string $diffBase, string $srcDir, string $testsDir, string ...$fullRunTriggers): array
     {
-        return ['--no-pager', 'diff', $diffBase . '...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', $srcDir, $testsDir, ...array_values($configPaths)];
+        return ['--no-pager', 'diff', $diffBase . '...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', $srcDir, $testsDir, ...array_values($fullRunTriggers)];
     }
 
     /**
@@ -84,33 +95,54 @@ final readonly class InfectionDiffFilter
         return $records;
     }
 
-    public function fromGitDiffOutput(string $gitDiffOutput, string $cwd, string $srcDir, string $testsDir, IgnoredPaths $ignored): InfectionDiffFilterDto
+    /**
+     * @param Closure(string): ?string|null $baseContent a file's content at the diff base, by project-relative
+     *                                                   path, null when it cannot be read; without a reader no
+     *                                                   change is treated as comment-only
+     */
+    public function fromGitDiffOutput(string $gitDiffOutput, string $cwd, string $srcDir, string $testsDir, IgnoredPaths $ignored, ?Closure $baseContent = null, string ...$fullRunTriggers): InfectionDiffFilterDto
     {
         $mirror      = new TestSourceMirror($cwd, $srcDir, $testsDir);
         $srcPrefix   = $this->relative($srcDir, $cwd) . '/';
         $testsPrefix = $this->relative($testsDir, $cwd) . '/';
+        $triggers    = array_map(fn (string $trigger): string => $this->relative($trigger, $cwd), $fullRunTriggers);
 
-        $changed  = [];
-        $mirrored = [];
-        $unmapped = [];
-        $config   = [];
+        $changed     = [];
+        $mirrored    = [];
+        $unmapped    = [];
+        $config      = [];
+        $commentOnly = [];
         foreach ($this->entries($gitDiffOutput) as [$status, $path, $previous]) {
             if ('R' === $status && null !== $previous) {
                 unset($changed[$previous], $mirrored[$previous]);
+            }
+
+            if (\in_array($path, $triggers, true)) {
+                $config[] = $path;
+
+                continue;
             }
 
             if (str_starts_with($path, $srcPrefix)) {
                 if ('D' === $status) {
                     unset($changed[$path], $mirrored[$path]);
                 } elseif (str_ends_with($path, '.php') && !$ignored->contains($cwd . '/' . $path)) {
-                    $changed[$path] = true;
+                    if ($this->isCommentOnly($status, $path, $previous, $cwd, $baseContent)) {
+                        $commentOnly[$path] = true;
+                    } else {
+                        $changed[$path] = true;
+                    }
                 }
 
                 continue;
             }
 
             if (!str_starts_with($path, $testsPrefix)) {
-                $config[] = $path;
+                continue;
+            }
+
+            if ($this->isCommentOnly($status, $path, $previous, $cwd, $baseContent)) {
+                $commentOnly[$path] = true;
 
                 continue;
             }
@@ -132,6 +164,7 @@ final readonly class InfectionDiffFilter
             $mirrored,
             $unmapped,
             $config,
+            array_keys(array_diff_key($commentOnly, $changed)),
         );
     }
 
@@ -151,6 +184,25 @@ final readonly class InfectionDiffFilter
         }
 
         return implode("\0", $tokens);
+    }
+
+    /**
+     * A modified, renamed or copied PHP file whose tokens, comments and
+     * whitespace aside, match its base version (a rename's or copy's old
+     * path). An added file, or one either side of which cannot be read,
+     * counts as a change, so doubt always means mutating.
+     *
+     * @param Closure(string): ?string|null $baseContent
+     */
+    private function isCommentOnly(string $status, string $path, ?string $previous, string $cwd, ?Closure $baseContent): bool
+    {
+        if (!$baseContent instanceof Closure || !\in_array($status, ['M', 'R', 'C'], true) || !str_ends_with($path, '.php') || !is_file($cwd . '/' . $path)) {
+            return false;
+        }
+
+        $base = $baseContent($previous ?? $path);
+
+        return null !== $base && $this->commentOnly->isCommentOnly($base, \Safe\file_get_contents($cwd . '/' . $path));
     }
 
     /**

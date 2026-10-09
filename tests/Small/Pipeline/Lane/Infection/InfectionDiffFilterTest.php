@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Infection;
 
+use Closure;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\Infection\CommentOnlyChange;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
 use LTS\PHPQA\Pipeline\Lane\Infection\TestSourceMirror;
@@ -22,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(InfectionDiffFilterDto::class)]
 #[UsesClass(IgnoredPaths::class)]
 #[UsesClass(TestSourceMirror::class)]
+#[UsesClass(CommentOnlyChange::class)]
 #[Small]
 final class InfectionDiffFilterTest extends TestCase
 {
@@ -36,6 +39,14 @@ final class InfectionDiffFilterTest extends TestCase
     private const string SRC_SPEC = '/p/src';
 
     private const string TESTS_SPEC = '/p/tests';
+
+    private const string PHPUNIT_XML = 'qaConfig/phpunit.xml';
+
+    private const string HELPER = 'tests/Support/Helper.php';
+
+    private const string CODE = "<?php\n\nfinal class Committed\n{\n    public function one(): int\n    {\n        return 1;\n    }\n}\n";
+
+    private const string CODE_DOCUMENTED = "<?php\n\n/** A committed class. */\nfinal class Committed\n{\n    /** @return int one */\n    public function one(): int\n    {\n        return 1; // always\n    }\n}\n";
 
     private TempDir $project;
 
@@ -70,13 +81,99 @@ final class InfectionDiffFilterTest extends TestCase
     }
 
     #[Test]
-    public function aChangedConfigurationFileIsReportedAsSuchAndMutatesNothing(): void
+    public function aChangedFullRunTriggerIsReportedAsSuchAndMutatesNothing(): void
     {
-        $filter = $this->filter($this->records(['M', 'qaConfig/phpunit.xml'], ['M', 'composer.lock'], ['M', self::COMMITTED]));
+        $filter = $this->filter($this->records(['M', self::PHPUNIT_XML], ['M', self::COMMITTED]), null, $this->cwd . '/' . self::PHPUNIT_XML);
 
-        self::assertSame(['qaConfig/phpunit.xml', 'composer.lock'], $filter->configChanges);
-        self::assertSame([], $filter->unmappedTests, 'a configuration file is not a test file');
+        self::assertSame([self::PHPUNIT_XML], $filter->configChanges);
         self::assertSame([self::COMMITTED], $filter->relativePaths);
+    }
+
+    #[Test]
+    public function aChangedFileThatIsNeitherSourceTestNorTriggerIsLeftOutQuietly(): void
+    {
+        $filter = $this->filter($this->records(['M', 'composer.lock'], ['M', 'qaConfig/qa.php'], ['M', self::COMMITTED]), null, $this->cwd . '/' . self::PHPUNIT_XML);
+
+        self::assertSame([], $filter->configChanges, 'composer.lock and qa.php decide neither what is mutated nor whether a mutant is killed');
+        self::assertSame([], $filter->unmappedTests);
+        self::assertSame([self::COMMITTED], $filter->relativePaths);
+    }
+
+    #[Test]
+    public function aBootstrapUnderTheTestsDirectoryIsATriggerNotAnUnmappedTest(): void
+    {
+        $filter = $this->filter($this->records(['M', 'tests/bootstrap.php']), null, $this->cwd . '/tests/bootstrap.php');
+
+        self::assertSame(['tests/bootstrap.php'], $filter->configChanges);
+        self::assertSame([], $filter->unmappedTests);
+    }
+
+    #[Test]
+    public function aDocblockOnlySourceChangeIsListedNotMutated(): void
+    {
+        $this->project->write(self::COMMITTED, self::CODE_DOCUMENTED);
+        $filter = $this->filter($this->records(['M', self::COMMITTED]), base: $this->base([self::COMMITTED => self::CODE]));
+
+        self::assertTrue($filter->isEmpty());
+        self::assertSame([self::COMMITTED], $filter->commentOnly);
+    }
+
+    #[Test]
+    public function aRealStatementIsMutated(): void
+    {
+        $this->project->write(self::COMMITTED, str_replace('return 1;', 'return 2;', self::CODE));
+        $filter = $this->filter($this->records(['M', self::COMMITTED]), base: $this->base([self::COMMITTED => self::CODE]));
+
+        self::assertSame([self::COMMITTED], $filter->relativePaths);
+        self::assertSame([], $filter->commentOnly);
+    }
+
+    #[Test]
+    public function aRenamedFileIsComparedWithItsOldPathAtTheBase(): void
+    {
+        $this->project->write(self::ADDED, self::CODE_DOCUMENTED);
+        $filter = $this->filter($this->records(['R091', self::COMMITTED, self::ADDED]), base: $this->base([self::COMMITTED => self::CODE]));
+
+        self::assertTrue($filter->isEmpty());
+        self::assertSame([self::ADDED], $filter->commentOnly);
+    }
+
+    #[Test]
+    public function anAddedFileAlwaysCounts(): void
+    {
+        $this->project->write(self::ADDED, self::CODE);
+        $filter = $this->filter($this->records(['A', self::ADDED]), base: $this->base([self::ADDED => self::CODE]));
+
+        self::assertSame([self::ADDED], $filter->relativePaths);
+    }
+
+    #[Test]
+    public function aFileUnreadableAtTheBaseCounts(): void
+    {
+        $this->project->write(self::COMMITTED, self::CODE);
+        $filter = $this->filter($this->records(['M', self::COMMITTED]), base: $this->base([]));
+
+        self::assertSame([self::COMMITTED], $filter->relativePaths, 'when the base cannot be read the change is mutated, never assumed harmless');
+    }
+
+    #[Test]
+    public function aCommentOnlyTestChangeBringsInNothing(): void
+    {
+        $this->project->write(self::MIRRORING_TEST, self::CODE_DOCUMENTED);
+        $filter = $this->filter($this->records(['M', self::MIRRORING_TEST], ['M', 'tests/Support/Helper.php']), base: $this->base([self::MIRRORING_TEST => self::CODE]));
+
+        self::assertSame([], $filter->relativePaths);
+        self::assertSame([], $filter->mirrored);
+        self::assertSame([self::MIRRORING_TEST], $filter->commentOnly);
+        self::assertSame(['tests/Support/Helper.php'], $filter->unmappedTests);
+    }
+
+    #[Test]
+    public function withNoBaseReaderEveryChangeCounts(): void
+    {
+        $this->project->write(self::COMMITTED, self::CODE);
+
+        self::assertSame([self::COMMITTED], $this->filter($this->records(['M', self::COMMITTED]))->relativePaths);
     }
 
     #[Test]
@@ -278,18 +375,21 @@ final class InfectionDiffFilterTest extends TestCase
     #[Test]
     public function aTestFileThatMirrorsNoSourceIsListedAsUnmapped(): void
     {
-        $filter = $this->filter($this->records(['M', 'tests/Support/Helper.php'], ['A', 'tests/fixtures/data.json']));
+        $filter = $this->filter($this->records(['M', self::HELPER], ['A', 'tests/fixtures/data.json']));
 
         self::assertTrue($filter->isEmpty());
-        self::assertSame(['tests/Support/Helper.php', 'tests/fixtures/data.json'], $filter->unmappedTests);
+        self::assertSame([self::HELPER, 'tests/fixtures/data.json'], $filter->unmappedTests);
     }
 
     #[Test]
     public function aChangedFileUnderAnIgnoredPathIsLeftOut(): void
     {
         $this->project->write('src/Legacy/Old.php', '<?php');
-        $filter = $this->filter(
+        $filter = new InfectionDiffFilter()->fromGitDiffOutput(
             $this->records(['M', 'src/Legacy/Old.php'], ['M', 'src/Kept.php'], ['A', 'src/LegacyExtra/New.php'], ['M', 'src/Domain/Legacy/Deep.php'], ['M', 'tests/Legacy/OldTest.php']),
+            $this->cwd,
+            $this->cwd . '/src',
+            $this->cwd . '/tests',
             new IgnoredPaths($this->cwd, 'src/Legacy'),
         );
 
@@ -315,9 +415,20 @@ final class InfectionDiffFilterTest extends TestCase
         self::assertTrue($this->filter("R100\0src/Old.php\0")->isEmpty());
     }
 
-    private function filter(string $output, ?IgnoredPaths $ignored = null): InfectionDiffFilterDto
+    /** @param Closure(string): ?string|null $base */
+    private function filter(string $output, ?Closure $base = null, string ...$triggers): InfectionDiffFilterDto
     {
-        return new InfectionDiffFilter()->fromGitDiffOutput($output, $this->cwd, $this->cwd . '/src', $this->cwd . '/tests', $ignored ?? new IgnoredPaths($this->cwd));
+        return new InfectionDiffFilter()->fromGitDiffOutput($output, $this->cwd, $this->cwd . '/src', $this->cwd . '/tests', new IgnoredPaths($this->cwd), $base, ...$triggers);
+    }
+
+    /**
+     * @param array<string, string> $files project-relative path => its content at the base
+     *
+     * @return Closure(string): ?string
+     */
+    private function base(array $files): Closure
+    {
+        return static fn (string $path): ?string => $files[$path] ?? null;
     }
 
     /** @param list<string> ...$records `git diff -z --name-status` output for the given records */
