@@ -8,6 +8,7 @@ use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
 use LTS\PHPQA\Tests\Support\TempDir;
+use PharData;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -137,6 +138,68 @@ final class NeonIncludeChainTest extends TestCase
 
         self::assertSame([self::ENTRY], $this->displays($chain));
         self::assertSame([], $chain->problems);
+    }
+
+    /**
+     * PHPStan's documented `phar://phpstan.phar/conf/bleedingEdge.neon` names the
+     * running PHPStan phar by its alias; the same file reached by the archive's own
+     * path is PHPStan's too. Neither exists in this process, and neither is project
+     * configuration.
+     */
+    #[Test]
+    public function phpstansOwnConfigurationInsideItsPharIsNotFollowed(): void
+    {
+        $this->dir->write(
+            self::ENTRY,
+            "includes:\n    - phar://phpstan.phar/conf/bleedingEdge.neon\n    - phar:///nowhere/vendor/phpstan/phpstan/phpstan.phar/conf/bleedingEdge.neon\n",
+        );
+
+        $chain = $this->chain();
+
+        self::assertSame([self::ENTRY], $this->displays($chain));
+        self::assertSame([], $chain->problems);
+    }
+
+    #[Test]
+    public function aMissingProjectIncludeBesidePhpstansPharIsStillAProblem(): void
+    {
+        $this->dir->write(self::ENTRY, "includes:\n    - phar://phpstan.phar/conf/bleedingEdge.neon\n    - gone.neon\n");
+
+        self::assertSame(['qaConfig/phpstan.neon includes gone.neon, which does not exist'], $this->chain()->problems);
+    }
+
+    /**
+     * Any other archive may carry ignoreErrors entries like any other file, so it
+     * is read as one: followed when it can be opened, a problem when it cannot.
+     */
+    #[Test]
+    public function anIncludeInsideAnotherArchiveIsFollowedAndRead(): void
+    {
+        $archive = $this->dir->path . '/tools/ext.tar';
+        \Safe\mkdir(\dirname($archive));
+        new PharData($archive)->addFromString('conf/rules.neon', "parameters:\n    ignoreErrors:\n        - '#x#'\n");
+        $include = 'phar://' . $archive . '/conf/rules.neon';
+        $this->dir->write(self::ENTRY, \sprintf("includes:\n    - %s\n", $include));
+
+        $chain = $this->chain();
+
+        self::assertSame([$include, self::ENTRY], $this->displays($chain));
+        self::assertSame([], $chain->problems);
+        self::assertSame(1, $chain->files[0]->declaredEntries);
+    }
+
+    #[Test]
+    public function anIncludeInsideAnArchiveThatCannotBeOpenedIsAProblem(): void
+    {
+        $this->dir->write(self::ENTRY, "includes:\n    - phar://other.phar/conf/rules.neon\n    - phar:///nowhere/notphpstan.phar/conf/rules.neon\n");
+
+        self::assertSame(
+            [
+                'qaConfig/phpstan.neon includes phar://other.phar/conf/rules.neon, which does not exist',
+                'qaConfig/phpstan.neon includes phar:///nowhere/notphpstan.phar/conf/rules.neon, which does not exist',
+            ],
+            $this->chain()->problems,
+        );
     }
 
     #[Test]

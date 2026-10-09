@@ -16,10 +16,14 @@ use Nette\Neon\Neon;
  * files come in PHPStan's merge order: a file's includes before the file.
  * Both the justification lane and `bin/rules` walk the chain through here.
  *
- * An include resolves against the including file's directory, or is absolute,
- * or starts with `%currentWorkingDirectory%` (the project root, where the
- * pipeline runs PHPStan). `%rootDir%` is PHPStan's own installation and is not
- * followed. Anything that cannot be followed is a problem rather than a
+ * An include resolves against the including file's directory, or is absolute
+ * (a path, or a `phar://` URL into an archive), or starts with
+ * `%currentWorkingDirectory%` (the project root, where the pipeline runs
+ * PHPStan). PHPStan's own configuration is not followed: anything under
+ * `%rootDir%`, and anything inside an archive named `phpstan.phar`, which is
+ * how PHPStan ships and how its documented `phar://phpstan.phar/conf/...`
+ * includes address it. Any other archive is read like any other file.
+ * Anything that cannot be followed is a problem rather than a
  * silent gap: another `%parameter%`, a missing file, a file that is not NEON,
  * and a PHP include that sets ignoreErrors or includes, which can carry no
  * comment to justify them.
@@ -31,6 +35,10 @@ final readonly class NeonIncludeChain
     private const string WORKING_DIRECTORY = '%currentWorkingDirectory%';
 
     private const string PHPSTAN_ROOT = '%rootDir%';
+
+    private const string PHAR_SCHEME = 'phar://';
+
+    private const string PHPSTAN_PHAR = 'phpstan.phar';
 
     public function resolve(string $entryFile, string $projectRoot): NeonIncludeChainDto
     {
@@ -86,7 +94,7 @@ final readonly class NeonIncludeChain
      */
     private function target(string $include, string $directory, string $root, string $display, array &$problems): ?string
     {
-        if (str_starts_with($include, self::PHPSTAN_ROOT)) {
+        if (str_starts_with($include, self::PHPSTAN_ROOT) || $this->isInsidePhpstanPhar($include)) {
             return null;
         }
 
@@ -99,7 +107,8 @@ final readonly class NeonIncludeChain
             return null;
         }
 
-        $absolute = str_starts_with($path, '/') ? $path : $directory . '/' . $path;
+        $inArchive = str_starts_with($path, self::PHAR_SCHEME);
+        $absolute  = $inArchive || str_starts_with($path, '/') ? $path : $directory . '/' . $path;
         if (!is_file($absolute)) {
             $problems[] = \sprintf('%s includes %s, which does not exist', $display, $include);
 
@@ -114,7 +123,20 @@ final readonly class NeonIncludeChain
             return null;
         }
 
-        return \Safe\realpath($absolute);
+        // realpath() cannot canonicalise a phar:// URL; the URL is already absolute.
+        return $inArchive ? $absolute : \Safe\realpath($absolute);
+    }
+
+    /**
+     * Whether the include is a `phar://` URL into an archive named `phpstan.phar`:
+     * the archive is the text up to the first `.phar/` segment, by alias
+     * (`phar://phpstan.phar/...`, the running PHPStan) or by path.
+     */
+    private function isInsidePhpstanPhar(string $include): bool
+    {
+        return 1 === \Safe\preg_match('#^phar://(.*?\.phar)/#', $include, $matches)
+            && isset($matches[1])
+            && self::PHPSTAN_PHAR === basename($matches[1]);
     }
 
     private function declaredEntries(mixed $decoded): int
