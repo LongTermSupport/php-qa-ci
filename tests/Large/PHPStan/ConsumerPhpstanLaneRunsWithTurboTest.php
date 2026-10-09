@@ -31,8 +31,7 @@ final class ConsumerPhpstanLaneRunsWithTurboTest extends TestCase
     protected function setUp(): void
     {
         $manifest = TurboManifest::fromJson(\Safe\file_get_contents(self::REPO_ROOT . '/' . TurboManifest::PATH));
-        $asset    = TurboPlatform::fromRuntime()->assetName($manifest->phpstanVersion);
-        if (null === $asset || null === $manifest->digestFor($asset)) {
+        if (!$manifest->pinsBuildFor(TurboPlatform::fromRuntime())) {
             self::markTestSkipped('php-qa-ci ships no Turbo build for this host, so the lane runs without it by design');
         }
 

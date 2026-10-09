@@ -7,33 +7,33 @@ namespace LTS\PHPQA\Tests\Support;
 use LTS\PHPQA\Turbo\TurboReleaseSourceInterface;
 
 /**
- * Serves a fixed release response and fixed asset bytes, counting what was asked for, so the
- * Turbo installer's tests run without the network.
+ * Serves a fixed repository tree and fixed file bytes, counting what was asked for, so the Turbo
+ * installer's tests run without the network.
  */
 final class FakeTurboReleaseSource implements TurboReleaseSourceInterface
 {
-    public int $releaseLookups = 0;
+    public int $treeLookups = 0;
 
     public int $downloads = 0;
 
-    /** @param array<string, string> $assets asset name => bytes */
+    /** @param array<string, string> $files path under turbo-ext/ => bytes */
     public function __construct(
-        private readonly ?string $release,
-        private readonly array $assets,
+        private readonly ?string $tree,
+        private readonly array $files,
     ) {
     }
 
-    public function release(string $version): ?string
+    public function tree(string $version): ?string
     {
-        ++$this->releaseLookups;
+        ++$this->treeLookups;
 
-        return $this->release;
+        return $this->tree;
     }
 
-    public function asset(string $version, string $asset): ?string
+    public function file(string $version, string $path): ?string
     {
         ++$this->downloads;
 
-        return $this->assets[$asset] ?? null;
+        return $this->files[$path] ?? null;
     }
 }

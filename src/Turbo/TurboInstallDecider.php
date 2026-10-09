@@ -7,8 +7,8 @@ namespace LTS\PHPQA\Turbo;
 use LTS\PHPQA\Turbo\Dto\TurboDecisionDto;
 
 /**
- * Whether an install should leave this host's Turbo binary alone, fetch it, or report that it
- * cannot. Pure: it is handed the manifest, the phar's version, the host and the stamp of what is
+ * Whether an install should leave this host's Turbo binary and core alone, fetch them, or report
+ * that it cannot. Pure: it is handed the manifest, the phar's version, the host and the stamp of what is
  * installed, and decides nothing else.
  *
  * A manifest written for another phar version is broken rather than fetched from: a binary from
@@ -18,10 +18,19 @@ use LTS\PHPQA\Turbo\Dto\TurboDecisionDto;
  */
 final readonly class TurboInstallDecider
 {
-    /** What an install records beside the binary, so the next install knows where it came from. */
-    public static function stamp(string $asset, string $digest): string
+    /**
+     * What an install records beside the binary, so the next install knows which files it came from.
+     *
+     * @param array<string, string> $files path under `turbo-ext/` => SHA-256
+     */
+    public static function stamp(array $files): string
     {
-        return $asset . ' ' . $digest;
+        $parts = [];
+        foreach ($files as $path => $digest) {
+            $parts[] = $path . ' ' . $digest;
+        }
+
+        return implode(' ', $parts);
     }
 
     public function decide(?TurboManifest $manifest, ?string $pharVersion, TurboPlatform $platform, ?string $installedStamp): TurboDecisionDto
@@ -43,20 +52,27 @@ final readonly class TurboInstallDecider
             ));
         }
 
-        $asset = $platform->assetName($pharVersion);
-        if (null === $asset) {
+        $core   = $platform->corePath();
+        $binary = $platform->binaryPath();
+        if (null === $core || null === $binary) {
             return TurboDecisionDto::unsupported(\sprintf('PHPStan Turbo is not built for %s; PHPStan runs without it.', $platform->describe()));
         }
 
-        $digest = $manifest->digestFor($asset);
-        if (null === $digest) {
-            return TurboDecisionDto::unsupported(\sprintf('phpstan/turbo-ext %s publishes no %s; PHPStan runs without Turbo on %s.', $pharVersion, $asset, $platform->describe()));
+        // The core goes first: the phar loads a binary only when its core is beside it.
+        $files = [];
+        foreach ([$core, $binary] as $path) {
+            $digest = $manifest->digestFor($path);
+            if (null === $digest) {
+                return TurboDecisionDto::unsupported(\sprintf('phpstan/phpstan %s publishes no turbo-ext/%s; PHPStan runs without Turbo on %s.', $pharVersion, $path, $platform->describe()));
+            }
+
+            $files[$path] = $digest;
         }
 
-        if (self::stamp($asset, $digest) === $installedStamp) {
+        if (self::stamp($files) === $installedStamp) {
             return TurboDecisionDto::ready(\sprintf('PHPStan Turbo %s present for %s.', $pharVersion, $platform->describe()));
         }
 
-        return TurboDecisionDto::fetch($asset, $digest, \sprintf('Installing PHPStan Turbo %s for %s...', $pharVersion, $platform->describe()));
+        return TurboDecisionDto::fetch($files, \sprintf('Installing PHPStan Turbo %s for %s...', $pharVersion, $platform->describe()));
     }
 }

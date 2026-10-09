@@ -27,11 +27,15 @@ final class TurboInstallDeciderTest extends TestCase
 {
     private const string PHP_MINOR = '8.5';
 
-    private const string VERSION = '2.3.0';
+    private const string VERSION = '2.3.1';
 
-    private const string ASSET = 'php_phpstan_turbo-2.3.0_php8.5-x86_64-linux-glibc.zip';
+    private const string BINARY = 'linux-gnu-x86_64/phpstan_turbo-8.5.so';
 
-    private const string DIGEST = '62c7222f6c5458568d67443a7e14fac3c30619887736cc5473ccefd8098ca9bb';
+    private const string CORE = 'linux-gnu-x86_64/phpstan_turbo_core.so';
+
+    private const string BINARY_DIGEST = '62c7222f6c5458568d67443a7e14fac3c30619887736cc5473ccefd8098ca9bb';
+
+    private const string CORE_DIGEST = '9e99c055b3da7559b4ec0a486391020184d6a1296dc45ec019da67a59f64c2ba';
 
     private TurboInstallDecider $decider;
 
@@ -43,29 +47,29 @@ final class TurboInstallDeciderTest extends TestCase
         $this->linux   = new TurboPlatform('Linux', 'x86_64', 'gnu', self::PHP_MINOR, false);
     }
 
+    /** The phar loads the binary only with its core beside it, so a host needs both files. */
     #[Test]
-    public function aHostWithNoBinaryYetFetchesTheManifestsAsset(): void
+    public function aHostWithNoBinaryYetFetchesTheCoreAndTheBinary(): void
     {
         $decision = $this->decider->decide($this->manifest(), self::VERSION, $this->linux, null);
 
         self::assertSame(TurboActionEnum::Fetch, $decision->action);
-        self::assertSame(self::ASSET, $decision->asset);
-        self::assertSame(self::DIGEST, $decision->digest);
+        self::assertSame([self::CORE => self::CORE_DIGEST, self::BINARY => self::BINARY_DIGEST], $decision->files);
     }
 
     #[Test]
-    public function aBinaryInstalledFromTheSameAssetAndDigestIsReady(): void
+    public function filesInstalledFromTheSameDigestsAreReady(): void
     {
-        $decision = $this->decider->decide($this->manifest(), self::VERSION, $this->linux, TurboInstallDecider::stamp(self::ASSET, self::DIGEST));
+        $decision = $this->decider->decide($this->manifest(), self::VERSION, $this->linux, TurboInstallDecider::stamp($this->files()));
 
         self::assertSame(TurboActionEnum::Ready, $decision->action);
     }
 
-    /** The stamp names the asset and digest it came from, so a phar update replaces the binary. */
+    /** The stamp names every file and digest it came from, so a phar update replaces both. */
     #[Test]
-    public function aBinaryFromAnotherReleaseIsFetchedAgain(): void
+    public function filesFromAnotherReleaseAreFetchedAgain(): void
     {
-        $older    = TurboInstallDecider::stamp('php_phpstan_turbo-2.2.16_php8.5-x86_64-linux-glibc.zip', self::DIGEST);
+        $older    = TurboInstallDecider::stamp([self::CORE => self::CORE_DIGEST, self::BINARY => str_repeat('1', 64)]);
         $decision = $this->decider->decide($this->manifest(), self::VERSION, $this->linux, $older);
 
         self::assertSame(TurboActionEnum::Fetch, $decision->action);
@@ -96,11 +100,11 @@ final class TurboInstallDeciderTest extends TestCase
     #[Test]
     public function aManifestForAnotherPharVersionIsBroken(): void
     {
-        $decision = $this->decider->decide($this->manifest(), '2.3.1', $this->linux, null);
+        $decision = $this->decider->decide($this->manifest(), '2.3.2', $this->linux, null);
 
         self::assertSame(TurboActionEnum::Broken, $decision->action);
-        self::assertStringContainsString('2.3.0', $decision->message);
         self::assertStringContainsString('2.3.1', $decision->message);
+        self::assertStringContainsString('2.3.2', $decision->message);
     }
 
     #[Test]
@@ -114,17 +118,34 @@ final class TurboInstallDeciderTest extends TestCase
     }
 
     #[Test]
-    public function aHostWhoseAssetTheReleaseLacksIsUnsupported(): void
+    public function aHostWhoseFilesTheReleaseLacksIsUnsupported(): void
     {
         $arm      = new TurboPlatform('Linux', 'aarch64', 'gnu', self::PHP_MINOR, false);
         $decision = $this->decider->decide($this->manifest(), self::VERSION, $arm, null);
 
         self::assertSame(TurboActionEnum::Unsupported, $decision->action);
-        self::assertStringContainsString('php_phpstan_turbo-2.3.0_php8.5-arm64-linux-glibc.zip', $decision->message);
+        self::assertStringContainsString('turbo-ext/linux-gnu-arm64/', $decision->message);
+    }
+
+    /** A binary without its core is a file PHPStan refuses to load, which is worse than none. */
+    #[Test]
+    public function aHostWhoseCoreTheReleaseLacksIsUnsupported(): void
+    {
+        $manifest = new TurboManifest(self::VERSION, [self::BINARY => self::BINARY_DIGEST]);
+        $decision = $this->decider->decide($manifest, self::VERSION, $this->linux, null);
+
+        self::assertSame(TurboActionEnum::Unsupported, $decision->action);
+        self::assertStringContainsString(self::CORE, $decision->message);
     }
 
     private function manifest(): TurboManifest
     {
-        return new TurboManifest(self::VERSION, [self::ASSET => self::DIGEST]);
+        return new TurboManifest(self::VERSION, $this->files());
+    }
+
+    /** @return array<string, string> */
+    private function files(): array
+    {
+        return [self::CORE => self::CORE_DIGEST, self::BINARY => self::BINARY_DIGEST];
     }
 }
