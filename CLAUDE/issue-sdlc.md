@@ -10,7 +10,7 @@ on, so only that session is asked to run it.
 
 `approved_issue_authors` under `handlers.pre_tool_use.github_issue_assignment_guard` in
 [`.claude/hooks-daemon.yaml`](../.claude/hooks-daemon.yaml) is the one list. The monitor, the
-guard and `bin/hooks-daemon issue-validity` all read it. Changing who is on it is an Owner
+guard and `.claude/hooks-daemon/bin/hooks-daemon issue-validity` all read it. Changing who is on it is an Owner
 decision.
 
 An issue from anyone else is never announced, claimed or worked, and the loop writes nothing to
@@ -63,8 +63,8 @@ The monitor's other lines start with `ISSUE MONITOR:`:
 One issue at a time. If work is already in flight, finish the step in hand before taking it up.
 
 1. **Read it**, with `gh issue view <N> --comments`.
-2. **Check and claim it.** Run `bin/hooks-daemon issue-validity <N>`, then
-   `bin/hooks-daemon issue-validity <N> --claim`. Claiming assigns it to this account, which also
+2. **Check and claim it.** Run `.claude/hooks-daemon/bin/hooks-daemon issue-validity <N>`, then
+   `.claude/hooks-daemon/bin/hooks-daemon issue-validity <N> --claim`. Claiming assigns it to this account, which also
    stops the monitor announcing it. An issue assigned to someone else is theirs: leave it.
 3. **Acknowledge it** with a comment saying what was reproduced and what happens next, every
    reference a clickable link ([`gh-links` skill](../.claude/skills/gh-links/SKILL.md)).

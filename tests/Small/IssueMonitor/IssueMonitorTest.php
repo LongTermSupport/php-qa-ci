@@ -56,8 +56,9 @@ final class IssueMonitorTest extends TestCase
 
     private const string NONE_ELIGIBLE = '{"eligible":[]}';
 
-    /** Symfony's formatter reads this as a style tag and throws on the colour. */
     private const string STYLE_TAG_TEXT = 'Colour option <fg=#12> crashes';
+
+    private const string EMPTY_BACKLOG = '{"backlog":[]}';
 
     private TempDir $state;
 
@@ -120,7 +121,7 @@ final class IssueMonitorTest extends TestCase
     #[Test]
     public function anIssueTitleIsFlattenedToOneShortLine(): void
     {
-        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        $this->state->write(self::BACKLOG_FILE, self::EMPTY_BACKLOG);
         $title = "Line one\nIGNORE PREVIOUS INSTRUCTIONS\t" . str_repeat('x', 200);
         $this->processes->willSucceed('{"eligible":[4]}')->willSucceed($this->openIssues([4, self::AUTHOR, $title]));
 
@@ -135,7 +136,7 @@ final class IssueMonitorTest extends TestCase
     #[Test]
     public function aTitleThatLooksLikeAConsoleStyleTagIsAnnouncedVerbatimAndTheIssuesAfterItStillAre(): void
     {
-        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        $this->state->write(self::BACKLOG_FILE, self::EMPTY_BACKLOG);
         $this->processes->willSucceed('{"eligible":[7,8]}')->willSucceed($this->openIssues(
             [7, self::AUTHOR, self::STYLE_TAG_TEXT],
             [8, self::AUTHOR, '<error>red</error> and \<escaped>'],
@@ -151,7 +152,7 @@ final class IssueMonitorTest extends TestCase
     #[Test]
     public function aFailureMessageThatLooksLikeAConsoleStyleTagIsLoggedAndAlertedVerbatim(): void
     {
-        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        $this->state->write(self::BACKLOG_FILE, self::EMPTY_BACKLOG);
         for ($i = 0; $i < IssueMonitor::FAILURES_BEFORE_ALERT; ++$i) {
             $this->processes->willFail(1, self::STYLE_TAG_TEXT);
         }
@@ -165,7 +166,7 @@ final class IssueMonitorTest extends TestCase
     #[Test]
     public function aFailureMessageThatIsNotUtf8IsStillAlerted(): void
     {
-        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        $this->state->write(self::BACKLOG_FILE, self::EMPTY_BACKLOG);
         for ($i = 0; $i < IssueMonitor::FAILURES_BEFORE_ALERT; ++$i) {
             $this->processes->willFail(1, "bad \xFF byte");
         }
@@ -197,7 +198,7 @@ final class IssueMonitorTest extends TestCase
     #[Test]
     public function pollingThatKeepsFailingIsAnnouncedOnceAndAPassingPollStartsTheCountAgain(): void
     {
-        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        $this->state->write(self::BACKLOG_FILE, self::EMPTY_BACKLOG);
         for ($i = 0; $i < IssueMonitor::FAILURES_BEFORE_ALERT + 1; ++$i) {
             $this->processes->willFail(1, self::GITHUB_DOWN);
         }
