@@ -429,6 +429,25 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
+    public function autoModeLeavesAStagedFileSinceDeletedFromDiskOutOfTheScope(): void
+    {
+        $this->factory->processes
+            ->willSucceed(self::FEATURE_BRANCH)
+            ->willSucceed(self::ORIGIN_DEFAULT)
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
+            ->willSucceed('MD ' . self::COMMITTED_SRC . "\0AD src/Added.php\0")
+            ->willSucceed(self::NO_PREFIX)
+            ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
+        ;
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome, 'the staged column is not what is on disk: a file removed since it was staged must not reach Infection');
+        self::assertCount(7, $this->factory->processes->specs);
+    }
+
+    #[Test]
     public function diffModeFailsWhenTheRepositoryPrefixCannotBeRead(): void
     {
         $this->factory->processes->willSucceed(" M src/Wip.php\0")->willFail(128);

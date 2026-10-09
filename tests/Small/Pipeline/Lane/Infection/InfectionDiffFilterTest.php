@@ -138,6 +138,28 @@ final class InfectionDiffFilterTest extends TestCase
     }
 
     #[Test]
+    public function aStagedChangeDeletedFromTheWorkingTreeIsADeletion(): void
+    {
+        $filter = new InfectionDiffFilter();
+
+        self::assertSame($this->records(['A', self::ADDED], ['D', self::ADDED]), $filter->nameStatusFromGitStatus('AD ' . self::ADDED . "\0"));
+        self::assertSame($this->records(['M', self::COMMITTED], ['D', self::COMMITTED]), $filter->nameStatusFromGitStatus('MD ' . self::COMMITTED . "\0"));
+        self::assertSame(
+            $this->records(['R', self::COMMITTED, self::ADDED], ['D', self::ADDED]),
+            $filter->nameStatusFromGitStatus('RD ' . self::ADDED . "\0" . self::COMMITTED . "\0"),
+        );
+    }
+
+    #[Test]
+    public function aStagedChangeDeletedFromTheWorkingTreeIsNeverMutated(): void
+    {
+        $status = 'AD ' . self::ADDED . "\0MD " . self::COMMITTED . "\0RD src/Moved.php\0src/Staged.php\0";
+        $filter = $this->filter($this->records(['M', self::COMMITTED], ['M', 'src/Staged.php']) . new InfectionDiffFilter()->nameStatusFromGitStatus($status));
+
+        self::assertTrue($filter->isEmpty(), 'every one of these paths is gone from disk, and Infection aborts on a missing positional path');
+    }
+
+    #[Test]
     public function aLaterRenameMovesTheOldPathOutOfScopeAndTheNewPathIn(): void
     {
         $filter = $this->filter($this->records(['M', self::COMMITTED], ['R', self::COMMITTED, self::ADDED]));

@@ -47,7 +47,9 @@ final readonly class InfectionDiffFilter
     /**
      * `git status --porcelain=v1 -z` output as the `-z --name-status` records
      * fromGitDiffOutput() reads, so uncommitted work is scoped by the same
-     * rules: untracked is added, a rename or copy keeps both paths. Status
+     * rules: untracked is added, a rename or copy keeps both paths, and a
+     * path the working-tree column reports deleted (AD, MD, RD) is followed
+     * by a deletion, since only what is on disk can be mutated. Status
      * paths are relative to the repository root; `$prefix` (`git rev-parse
      * --show-prefix`) is stripped so they match the project-relative diff.
      */
@@ -69,12 +71,14 @@ final readonly class InfectionDiffFilter
             if (('R' === $code || 'C' === $code) && $index + 1 < $count) {
                 ++$index;
                 $records .= $code . "\0" . $tokens[$index] . "\0" . $path . "\0";
-
-                continue;
+            } else {
+                $kept     = 'D' === $code || 'A' === $code;
+                $records .= ($kept ? $code : 'M') . "\0" . $path . "\0";
             }
 
-            $kept     = 'D' === $code || 'A' === $code;
-            $records .= ($kept ? $code : 'M') . "\0" . $path . "\0";
+            if ('D' === $codes[1] && 'D' !== $code) {
+                $records .= "D\0" . $path . "\0";
+            }
         }
 
         return $records;
