@@ -43,7 +43,10 @@ the release and its tag. The full rules are in
   missing or names another PHPStan version than the shipped phar, as it does for a missing PHAR.
   With Turbo, PHPStan forks its workers, so the dead-code lane now unpacks its detector into
   `var/qa/cache/dead-code-detector/` instead of loading it as a second PHAR, which forked workers
-  cannot share.
+  cannot share. On this repository the PHPStan lane runs in about half the time (about 20 s to
+  9 s) with identical findings, and each worker's peak memory is about 6% higher, so a project
+  already close to its memory limit (4G by default, `withMemoryLimit()`) may need a little more.
+  `vendor-phar/phpstan.phar diagnose` says whether Turbo loaded, and why not when it did not.
 
 ### Fixed
 
