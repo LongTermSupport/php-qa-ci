@@ -80,12 +80,12 @@ final class PreCommitVendorHookTest extends TestCase
         $project       = TempDir::create('phpqa-pre-commit-hook');
         $this->project = $project;
 
-        $this->git($project->path, 'init', '--quiet');
+        $this->git($project->path, 'init');
         $project->write(self::PACKAGE . '/src/Lib.php', "<?php\n");
         $package = $project->path . '/' . self::PACKAGE;
-        $this->git($package, 'init', '--quiet');
+        $this->git($package, 'init');
         $this->git($package, 'add', '-A');
-        $this->git($package, 'commit', '--quiet', '-m', 'Initial');
+        $this->git($package, 'commit', '-m', 'Initial');
 
         return trim($this->git($package, 'rev-parse', 'HEAD'));
     }
@@ -95,7 +95,7 @@ final class PreCommitVendorHookTest extends TestCase
         $project = $this->project;
         self::assertNotNull($project);
         $project->write('composer.lock', \Safe\json_encode([
-            'packages' => [[
+            'packages'     => [[
                 'name'   => 'acme/lib',
                 'source' => ['type' => 'git', 'url' => 'https://example.invalid/acme/lib.git', 'reference' => $reference],
             ]],
