@@ -1,0 +1,13 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Watches GitHub for new issues from approved authors and prints one line per
+ * issue, for a Claude Code session to run under its Monitor tool; the loop is
+ * described in CLAUDE/issue-sdlc.md. The work is in
+ * LTS\PHPQA\IssueMonitor\IssueMonitor, where it is unit-tested.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+die(\LTS\PHPQA\IssueMonitor\IssueMonitor::main(\dirname(__DIR__), array_values($argv)));
