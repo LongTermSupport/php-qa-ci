@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane\Infection;
 
-use DOMDocument;
+use XMLParser;
 
 /**
  * The files whose change forces a diff-mode Infection run to run in full:
@@ -72,14 +72,32 @@ final readonly class InfectionFullRunTriggers
             return null;
         }
 
-        $previous = libxml_use_internal_errors(true);
-        $document = new DOMDocument();
-        $loaded   = $document->load($phpunitConfig, \LIBXML_NONET);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
+        $contents = file_get_contents($phpunitConfig);
+        if (false === $contents) {
+            return null;
+        }
 
-        $bootstrap = $loaded ? $document->documentElement?->getAttribute('bootstrap') : null;
-        if (null === $bootstrap || '' === $bootstrap) {
+        $bootstrap = null;
+        $seenRoot  = false;
+        $parser    = xml_parser_create();
+        xml_parser_set_option($parser, \XML_OPTION_CASE_FOLDING, 0);
+        xml_set_element_handler(
+            $parser,
+            /** @param array<string, string> $attributes */
+            static function (XMLParser $handlerParser, string $element, array $attributes) use (&$bootstrap, &$seenRoot): void {
+                if (!$seenRoot) {
+                    $seenRoot  = true;
+                    $bootstrap = $attributes['bootstrap'] ?? null;
+                }
+            },
+            static function (): void {
+            },
+        );
+        if (1 !== xml_parse($parser, $contents, true)) {
+            return null;
+        }
+
+        if (!\is_string($bootstrap) || '' === $bootstrap) {
             return null;
         }
 
