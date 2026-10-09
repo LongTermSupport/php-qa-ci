@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Process;
 
 use InvalidArgumentException;
-use Safe\Exceptions\FilesystemException;
+use RuntimeException;
+use SplFileObject;
 
 /**
  * Processes as the kernel reports them in /proc: who descends from whom, and
@@ -99,14 +100,16 @@ final readonly class ProcessTree
             return null;
         }
 
+        // SplFileObject turns a failed open into an exception without the
+        // warning file_get_contents() emits first.
         try {
-            $line = \Safe\file_get_contents($file);
-        } catch (FilesystemException $filesystemException) {
+            $line = new SplFileObject($file)->fgets();
+        } catch (RuntimeException $runtimeException) {
             // A process that exits between the check and the read is gone,
             // which is an answer; one whose /proc entry is still there is a
             // real failure.
             if (is_dir($this->proc . '/' . $pid)) {
-                throw $filesystemException;
+                throw $runtimeException;
             }
 
             return null;
