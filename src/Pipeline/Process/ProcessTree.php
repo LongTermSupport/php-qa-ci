@@ -17,7 +17,11 @@ use Safe\Exceptions\FilesystemException;
  */
 final readonly class ProcessTree
 {
-    private const string PROC = '/proc';
+    /** @param string $proc where the kernel's process table is mounted */
+    public function __construct(
+        private string $proc = '/proc',
+    ) {
+    }
 
     /**
      * Every process below $pid, at any depth, as of now. Asking for the
@@ -61,12 +65,12 @@ final readonly class ProcessTree
     /** @return array<int, list<int>> child pids by parent pid */
     private function childrenByParent(): array
     {
-        if (!is_dir(self::PROC)) {
+        if (!is_dir($this->proc)) {
             return [];
         }
 
         $children = [];
-        foreach (\Safe\scandir(self::PROC) as $entry) {
+        foreach (\Safe\scandir($this->proc) as $entry) {
             if (!\is_string($entry) || 1 !== \Safe\preg_match('/^\d+$/', $entry)) {
                 continue;
             }
@@ -90,7 +94,7 @@ final readonly class ProcessTree
      */
     private function statFields(int $pid): ?array
     {
-        $file = self::PROC . '/' . $pid . '/stat';
+        $file = $this->proc . '/' . $pid . '/stat';
         if (!is_file($file)) {
             return null;
         }
@@ -101,7 +105,7 @@ final readonly class ProcessTree
             // A process that exits between the check and the read is gone,
             // which is an answer; one whose /proc entry is still there is a
             // real failure.
-            if (is_dir(self::PROC . '/' . $pid)) {
+            if (is_dir($this->proc . '/' . $pid)) {
                 throw $filesystemException;
             }
 
