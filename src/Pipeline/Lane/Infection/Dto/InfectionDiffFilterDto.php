@@ -12,12 +12,18 @@ namespace LTS\PHPQA\Pipeline\Lane\Infection\Dto;
 final readonly class InfectionDiffFilterDto
 {
     /**
-     * @param list<string> $positionalPaths absolute paths, handed to Infection as positional arguments
-     * @param list<string> $relativePaths   the same files as git reported them, for the log line
+     * @param list<string>          $positionalPaths absolute paths, handed to Infection as positional arguments
+     * @param list<string>          $relativePaths   the same files, project-relative, for the log line
+     * @param array<string, string> $mirrored        source file => the changed test that brought it into scope
+     * @param list<string>          $unmappedTests   changed test-directory files that mirror no source file
+     * @param list<string>          $configChanges   changed configuration files every mutant's outcome depends on
      */
     public function __construct(
         public array $positionalPaths,
         public array $relativePaths,
+        public array $mirrored = [],
+        public array $unmappedTests = [],
+        public array $configChanges = [],
     ) {
     }
 

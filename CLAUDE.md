@@ -407,23 +407,23 @@ real stdout and every line of decoration to stderr.
 Environment variables are read once by `EnvironmentReader`; `"1"`/`"true"` and `"0"`/`"false"`
 are the accepted boolean spellings. Defaults:
 
-| Variable                                        | Default               | Builder method                                                                                      |
-| ----------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- |
-| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                 | (none: PHP binary for every tool)                                                                   |
-| `phpqaQuickTests`                               | `0`                   | (none: skips PHPStan, PHPUnit and Infection)                                                        |
-| `phpUnitQuickTests`                             | `0`                   | (none: passed through to the test suite)                                                            |
-| `phpUnitCoverage`                               | `1`                   | `withPhpUnitCoverage(bool)`                                                                         |
-| `phpUnitIterativeMode`                          | `0`                   | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                      |
-| `useInfection`                                  | `1`                   | `withInfection(bool)`                                                                               |
-| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`           | `withInfectionFloors(int, int)`                                                                     |
-| `infectionThreads`                              | half the CPU threads  | `withInfectionThreads(int)`                                                                         |
-| `infectionDiffBase` / `infectionDiffCoveredMsi` | unset / covered floor | `withInfectionDiffBase(?string, ?int)` (every MSI floor must be below 100)                          |
-| `useComposerAudit`                              | `1`                   | `withComposerAudit(bool)`                                                                           |
-| (none)                                          | all floors off        | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType)` |
-| `useArkitect`                                   | `1`                   | `withArkitect(bool)`                                                                                |
-| `useSensitiveParameterCheck`                    | `1`                   | `withSensitiveParameterCheck(bool)`                                                                 |
-| `useChangelogCheck`                             | `0`                   | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                          |
-| `CI`                                            | `false`               | (none: interactivity)                                                                               |
+| Variable                                        | Default                | Builder method                                                                                                                                                                                                                     |
+| ----------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                  | (none: PHP binary for every tool)                                                                                                                                                                                                  |
+| `phpqaQuickTests`                               | `0`                    | (none: skips PHPStan, PHPUnit and Infection)                                                                                                                                                                                       |
+| `phpUnitQuickTests`                             | `0`                    | (none: passed through to the test suite)                                                                                                                                                                                           |
+| `phpUnitCoverage`                               | `1`                    | `withPhpUnitCoverage(bool)`                                                                                                                                                                                                        |
+| `phpUnitIterativeMode`                          | `0`                    | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                                                                                                                                                     |
+| `useInfection`                                  | `1`                    | `withInfection(bool)`                                                                                                                                                                                                              |
+| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`            | `withInfectionFloors(int, int)`                                                                                                                                                                                                    |
+| `infectionThreads`                              | half the CPU threads   | `withInfectionThreads(int)`                                                                                                                                                                                                        |
+| `infectionDiffBase` / `infectionDiffCoveredMsi` | `auto` / covered floor | `withInfectionDiffBase(?string, ?int)` (null = `auto`: diff against the merge base with the default branch on any other branch, full on the default branch); `withInfectionFullRun()` = `full` (every MSI floor must be below 100) |
+| `useComposerAudit`                              | `1`                    | `withComposerAudit(bool)`                                                                                                                                                                                                          |
+| (none)                                          | all floors off         | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType)`                                                                                                                                |
+| `useArkitect`                                   | `1`                    | `withArkitect(bool)`                                                                                                                                                                                                               |
+| `useSensitiveParameterCheck`                    | `1`                    | `withSensitiveParameterCheck(bool)`                                                                                                                                                                                                |
+| `useChangelogCheck`                             | `0`                    | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                                                                                                                                                         |
+| `CI`                                            | `false`                | (none: interactivity)                                                                                                                                                                                                              |
 
 ### Memory Configuration
 
@@ -947,7 +947,7 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 - **Purpose**: Mutation testing to verify test quality
 - **Lane**: [src/Pipeline/Lane/InfectionTool.php](src/Pipeline/Lane/InfectionTool.php) (argument assembly and the committed-history diff filter under [src/Pipeline/Lane/Infection/](src/Pipeline/Lane/Infection/))
 - **Default**: [configDefaults/generic/infection.json](configDefaults/generic/infection.json)
-- **How it works**: Modifies source code (mutations), runs tests to see if they catch the changes. Reuses the coverage the phpunit lane produced in the same run, or generates it fresh for a standalone `-t infection`; always `--skip-initial-tests`; opt-in diff mode via `withInfectionDiffBase()` / `infectionDiffBase`
+- **How it works**: Modifies source code (mutations), runs tests to see if they catch the changes. Reuses the coverage the phpunit lane produced in the same run, or generates it fresh for a standalone `-t infection`; always `--skip-initial-tests`; by default a branch other than the default one mutates only what it changed since its merge base with the default branch (`withInfectionDiffBase()` sets an explicit base, `withInfectionFullRun()` / `infectionDiffBase=full` forces the full run)
 - **Requirements**: Xdebug and code coverage enabled
 - **Key metrics**:
   - MSI (Mutation Score Indicator)

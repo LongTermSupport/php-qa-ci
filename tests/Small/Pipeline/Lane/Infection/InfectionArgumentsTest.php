@@ -12,10 +12,9 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Pins the two-lane flag contract the Bash fragment's runInfection() had:
- * FULL keeps the SSoT floors and the verbose report; DIFF scopes to the
- * changed files via positional paths, enforces only the diff covered floor
- * and drops the verbose report.
+ * Pins the two-lane flag contract: FULL keeps the SSoT floors; DIFF scopes
+ * to the changed files via positional paths and enforces only the diff
+ * covered floor. Both write the file logs at full verbosity.
  *
  * @internal
  */
@@ -32,6 +31,10 @@ final class InfectionArgumentsTest extends TestCase
 
     private const string DIFF_BASE_MAIN = 'main';
 
+    private const string LOG_ALL = '--log-verbosity=all';
+
+    private const string WITH_UNCOVERED = '--with-uncovered';
+
     private const array COMMON = [
         '--coverage=/var/qa/phpunit_logs',
         '--skip-initial-tests',
@@ -44,7 +47,7 @@ final class InfectionArgumentsTest extends TestCase
     {
         $args = new InfectionArguments()->full($this->options(), '/var/qa/phpunit_logs', self::CFG_INFECTION_JSON);
 
-        self::assertSame([...self::COMMON, '--min-msi=74', '--min-covered-msi=76', '--log-verbosity=all'], $args);
+        self::assertSame([...self::COMMON, '--min-msi=74', '--min-covered-msi=76', self::LOG_ALL], $args);
         self::assertNotContains(self::DEFAULT_DIFF_FLOOR, $args, 'the diff bar must not leak into a full run');
         foreach ($args as $arg) {
             self::assertStringStartsNotWith('--git-diff', $arg, 'a full run must not be git-diff scoped');
@@ -56,11 +59,51 @@ final class InfectionArgumentsTest extends TestCase
     {
         $args = new InfectionArguments()->diff($this->options(diffBase: 'origin/main'), '/var/qa/phpunit_logs', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP);
 
-        self::assertSame([...self::COMMON, self::DEFAULT_DIFF_FLOOR, self::SRC_CHANGED_PHP], $args);
+        self::assertSame([...self::COMMON, self::WITH_UNCOVERED, '--min-msi=80', self::DEFAULT_DIFF_FLOOR, '--ignore-msi-with-no-mutations', self::LOG_ALL, self::SRC_CHANGED_PHP], $args);
         self::assertNotContains('--filter=/p/src/Changed.php', $args, 'the deprecated --filter form must not be used');
         self::assertNotContains('--min-msi=74', $args, 'the whole-codebase floor is meaningless on a diff');
         self::assertNotContains('--min-covered-msi=76', $args, 'the whole-codebase covered floor is dropped in diff mode');
-        self::assertNotContains('--log-verbosity=all', $args, 'diff mode drops the verbose console report');
+    }
+
+    /**
+     * A diff run mutates the uncovered code of its changed files too and holds the MSI, which
+     * counts those mutants as escaped, to the diff floor: changed code no test runs fails the
+     * run instead of producing no mutant and passing. With uncovered code mutated, a run that
+     * still generates no mutant has changed no mutable code, which is the one case
+     * --ignore-msi-with-no-mutations lets through.
+     */
+    #[Test]
+    public function aDiffRunCountsUncoveredMutantsAgainstTheDiffFloor(): void
+    {
+        $args = new InfectionArguments()->diff($this->options(diffBase: self::DIFF_BASE_MAIN, diffCoveredMsi: 91), '/c', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP);
+
+        self::assertContains(self::WITH_UNCOVERED, $args);
+        self::assertContains('--min-msi=91', $args);
+        self::assertContains('--min-covered-msi=91', $args);
+    }
+
+    #[Test]
+    public function aFullRunMutatesCoveredCodeOnly(): void
+    {
+        self::assertNotContains(self::WITH_UNCOVERED, new InfectionArguments()->full($this->options(), '/c', self::CFG_INFECTION_JSON));
+    }
+
+    /**
+     * The file loggers (log.txt, summary-log.txt) are written at the same verbosity in both
+     * lanes, so a project reading them after the run gets the same files whichever lane ran.
+     */
+    #[Test]
+    public function bothLanesWriteTheLogsAtFullVerbosity(): void
+    {
+        self::assertContains(self::LOG_ALL, new InfectionArguments()->full($this->options(), '/c', self::CFG_INFECTION_JSON));
+        self::assertContains(self::LOG_ALL, new InfectionArguments()->diff($this->options(diffBase: self::DIFF_BASE_MAIN), '/c', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP));
+    }
+
+    /** A whole codebase always has mutable code, so a full run that generates no mutant fails. */
+    #[Test]
+    public function onlyTheDiffLaneAcceptsARunWithNoMutants(): void
+    {
+        self::assertNotContains('--ignore-msi-with-no-mutations', new InfectionArguments()->full($this->options(), '/c', self::CFG_INFECTION_JSON));
     }
 
     #[Test]

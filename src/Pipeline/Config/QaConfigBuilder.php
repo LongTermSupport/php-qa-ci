@@ -79,6 +79,7 @@ final readonly class QaConfigBuilder
         private bool $infectionOnlyCovered,
         private int $minMsi,
         private int $minCoveredMsi,
+        private InfectionDiffModeEnum $infectionDiffMode,
         private ?string $infectionDiffBase,
         private ?int $infectionDiffCoveredMsi,
         private bool $useComposerAudit,
@@ -122,7 +123,13 @@ final readonly class QaConfigBuilder
             ? [$paths->testsDir, $paths->srcDir]
             : [$paths->projectRoot . '/' . $specifiedPath];
 
-        $halfCpu = max(1, $halfCpuThreads);
+        $halfCpu  = max(1, $halfCpuThreads);
+        $diffBase = $env->string('infectionDiffBase');
+        $diffMode = match ($diffBase) {
+            null, InfectionDiffModeEnum::Auto->value => InfectionDiffModeEnum::Auto,
+            InfectionDiffModeEnum::Full->value       => InfectionDiffModeEnum::Full,
+            default                                  => InfectionDiffModeEnum::Ref,
+        };
 
         return new self(
             paths: $paths,
@@ -149,7 +156,8 @@ final readonly class QaConfigBuilder
             infectionOnlyCovered: $env->bool('infectionOnlyCovered', false),
             minMsi: $env->int('mutationScoreIndicator', 60),
             minCoveredMsi: $env->int('coveredCodeMSI', 80),
-            infectionDiffBase: $env->string('infectionDiffBase'),
+            infectionDiffMode: $diffMode,
+            infectionDiffBase: InfectionDiffModeEnum::Ref === $diffMode ? $diffBase : null,
             infectionDiffCoveredMsi: $env->intOrNull('infectionDiffCoveredMsi'),
             useComposerAudit: $env->bool('useComposerAudit', true),
             typeCoverage: new TypeCoverageOptionsDto(),
@@ -212,10 +220,26 @@ final readonly class QaConfigBuilder
         return $this->with(infectionThreads: max(1, $threads));
     }
 
-    /** The diff-mode floor defaults to the covered-code floor withInfectionFloors() sets. */
+    /**
+     * Scope mutation to the files committed since $gitRef, or, with null, to
+     * the automatic choice (the default): the merge base with the default
+     * branch on any other branch, everything on the default branch. The
+     * diff-mode floor defaults to the covered-code floor withInfectionFloors()
+     * sets.
+     */
     public function withInfectionDiffBase(?string $gitRef, ?int $coveredMsi = null): self
     {
-        return $this->with(infectionDiffBase: $gitRef, infectionDiffCoveredMsi: $coveredMsi);
+        return $this->with(
+            infectionDiffMode: null === $gitRef ? InfectionDiffModeEnum::Auto : InfectionDiffModeEnum::Ref,
+            infectionDiffBase: $gitRef,
+            infectionDiffCoveredMsi: $coveredMsi,
+        );
+    }
+
+    /** Mutate all of the source on every run, whatever the branch: the opt-out from automatic diff mode. */
+    public function withInfectionFullRun(): self
+    {
+        return $this->with(infectionDiffMode: InfectionDiffModeEnum::Full);
     }
 
     public function withComposerAudit(bool $enabled): self
@@ -423,6 +447,7 @@ final readonly class QaConfigBuilder
                 minCoveredMsi: $this->minCoveredMsi,
                 diffBase: $this->infectionDiffBase,
                 diffCoveredMsi: $diffCoveredMsi,
+                diffMode: $this->infectionDiffMode,
             ),
             useComposerAudit: $this->useComposerAudit,
             typeCoverage: $this->typeCoverage,
@@ -493,6 +518,7 @@ final readonly class QaConfigBuilder
         ?int $infectionThreads = null,
         ?int $minMsi = null,
         ?int $minCoveredMsi = null,
+        ?InfectionDiffModeEnum $infectionDiffMode = null,
         ?string $infectionDiffBase = null,
         ?int $infectionDiffCoveredMsi = null,
         ?bool $useComposerAudit = null,
@@ -536,7 +562,9 @@ final readonly class QaConfigBuilder
             infectionOnlyCovered: $this->infectionOnlyCovered,
             minMsi: $minMsi                                         ?? $this->minMsi,
             minCoveredMsi: $minCoveredMsi                           ?? $this->minCoveredMsi,
-            infectionDiffBase: $infectionDiffBase                   ?? $this->infectionDiffBase,
+            infectionDiffMode: $infectionDiffMode                   ?? $this->infectionDiffMode,
+            // A new mode brings its own base: null for Auto and Full, the ref for Ref.
+            infectionDiffBase: $infectionDiffMode instanceof InfectionDiffModeEnum ? $infectionDiffBase : $this->infectionDiffBase,
             infectionDiffCoveredMsi: $infectionDiffCoveredMsi       ?? $this->infectionDiffCoveredMsi,
             useComposerAudit: $useComposerAudit                     ?? $this->useComposerAudit,
             typeCoverage: $typeCoverage                             ?? $this->typeCoverage,

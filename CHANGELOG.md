@@ -25,11 +25,22 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.6.0 — 2026-10-09
+
 ### Changed — breaking
 
 - **BREAKING**: `composer.json` now requires `ext-hash`. Every PHP build since 7.4 includes it, and
   it cannot be disabled, so nothing needs installing. php-qa-ci uses it to check the SHA-256 of each
   PHPStan Turbo binary it downloads.
+
+- **Infection now mutates only what a branch changed, by default.** With `infectionDiffBase` unset, a run on any branch but the default one mutates the PHP files changed since its merge base with the default branch (the target branch in a pull request build), plus the source each changed test is named after; on the default branch, or where no merge base can be found (a shallow clone, an unknown default branch), it mutates everything and prints why. The first Infection line of every run names the scope. Uncommitted work under `src/`, `tests/`, `qaConfig/`, `composer.json` or `composer.lock` (untracked files included) is mutated as it is on disk, and a `WARNING` names each such file, since that verdict is not reproducible from committed history. A branch is now held to the diff floor (`infectionDiffCoveredMsi`, default `coveredCodeMSI`) on its changed files, which can fail where the whole-codebase floor passed. To keep the full run everywhere, set `infectionDiffBase=full` or call `withInfectionFullRun()`. `withInfectionDiffBase(null)` now means this automatic choice rather than a full run. In CI, check out with `fetch-depth: 0` (the shipped templates do), or every run is full. Details: `docs/tools/infection.md`.
+
+- **A diff-mode Infection run, with an explicit `infectionDiffBase` ref as in auto mode, is stricter:**
+
+  - It mutates uncovered code too (`--with-uncovered`) and holds both its MSI and its covered MSI to the diff floor. Before, it only checked the covered MSI, so an untested changed file passed whenever the scope also held a tested one (a scope of untested files alone already failed, at 0%). It now fails either way.
+  - A change to `qaConfig/`, `composer.json` or `composer.lock` since the base turns it into a full run, with one line naming the files. Before, those changes were ignored.
+  - The clean-tree refusal of an explicit ref now also covers those configuration paths, and names each file inside an untracked directory rather than the directory.
+  - A changed test now brings into scope the source file it is named after.
 
 ### Added
 
@@ -59,12 +70,14 @@ the release and its tag. The full rules are in
   now its default. The setting is kept and changes nothing. A new test checks every option the
   Infection lane can emit against the shipped `infection.phar`'s own `--help`, so a tool update
   that drops an option fails the build.
+
 - **`qa -t rector -p <path>` no longer runs the PHPUnit Rector set over the whole tests directory**
   ([#76](https://github.com/LongTermSupport/php-qa-ci/issues/76)). The Safe, project and PHP 8.5
   passes were narrowed to the given path, but the PHPUnit pass always got all of `tests/`, so a
   one-file run took about as long as a whole-tree run. On a `-p` run it now gets only the checked
   paths inside the tests directory, the whole directory for a path that contains it (`-p .`), and
   is skipped when there are none. A run without `-p` is unchanged.
+
 - **A PHPStan run that found nothing is no longer reported as findings**
   ([#82](https://github.com/LongTermSupport/php-qa-ci/issues/82)). PHPStan exits 1 for findings,
   but also when it gives up on internal errors ("Result is incomplete because of severe errors"),
@@ -76,6 +89,8 @@ the release and its tag. The full rules are in
   The text-mode and dead-code runs pass `--error-format=table`, so a project's `errorFormat` no
   longer changes what they print. `vendor/bin/phpstan-rule` answered "did not fire" for an
   abandoned analysis, including one whose parallel worker died; it now exits 2.
+
+- **Diff-mode Infection mutates renamed and copied source files, under their new path,** where it used to drop them, and reads file names verbatim (`git diff -z`). It now logs at `--log-verbosity=all`, as a full run already did, so `log.txt` lists every escaped mutant. A scope whose changed files hold no mutable code at all (an interface, constants) now passes instead of scoring 0%.
 
 ## 85.5.0 — 2026-10-08
 
