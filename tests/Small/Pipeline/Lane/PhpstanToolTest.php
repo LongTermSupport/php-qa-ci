@@ -163,11 +163,6 @@ final class PhpstanToolTest extends TestCase
         self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
     }
 
-    private function tool(): PhpstanTool
-    {
-        return new PhpstanTool($this->turbo);
-    }
-
     #[Test]
     public function aCleanRunWritesTheWrapperNeonRunsThePharAndArchivesTheLog(): void
     {
@@ -728,6 +723,11 @@ final class PhpstanToolTest extends TestCase
         self::assertSame('phpstan', $tool->name());
         self::assertSame('phpqaci.phpstan', $tool->identifier());
         self::assertSame(PhpstanTool::IDENTIFIER, $tool->identifier());
+    }
+
+    private function tool(): PhpstanTool
+    {
+        return new PhpstanTool($this->turbo);
     }
 
     /** A PHPStan JSON report placing $count findings against one absolute file path. */

@@ -13,8 +13,10 @@ use LTS\PHPQA\Pipeline\Agent\PhpstanJsonParser;
 use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\TurboProbeInterface;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -26,7 +28,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * threads, the same figure Rector and Infection use. Exit 1 means PHPStan ran
  * and found errors only when its output reports findings; an abandoned analysis,
  * an error before any analysis, and anything above 1, are crashes (PhpstanCrash), which in text mode are
- * re-run with --debug so the fatal that stopped it is visible. In --json mode the
+ * re-run with --debug so the fatal that stopped it is visible. Text mode first says whether
+ * PHPStan runs with Turbo (TurboProbeInterface). In --json mode the
  * report goes to the real stdout untouched and nothing is retried. In agent
  * mode the same JSON is turned into one report file per analysed source file
  * and stdout is held to a count, a path and an instruction.
@@ -80,6 +83,10 @@ final readonly class PhpstanTool implements ToolInterface
         a baseline entry, or an inline PHPStan ignore comment.
         TAUTOLOGY;
 
+    public function __construct(private TurboProbeInterface $turbo = new DiagnoseTurboProbe())
+    {
+    }
+
     public function name(): string
     {
         return 'phpstan';
@@ -123,6 +130,10 @@ final readonly class PhpstanTool implements ToolInterface
         if ($config->jsonOutput) {
             return $this->runJson($context, $logDir, ...$baseArgs);
         }
+
+        // PHPStan runs without Turbo silently when its binary is missing or stale. Whether a
+        // missing Turbo also fails the lane is Plan 00020's decision D2; for now it is reported.
+        $context->writeln($this->turbo->status($context, $wrapper)->line());
 
         return $this->runText($context, $logDir, ...$baseArgs);
     }

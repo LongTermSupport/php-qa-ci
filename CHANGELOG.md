@@ -46,7 +46,10 @@ the release and its tag. The full rules are in
   cannot share. On this repository the PHPStan lane runs in about half the time (about 20 s to
   9 s) with identical findings, and each worker's peak memory is about 6% higher, so a project
   already close to its memory limit (4G by default, `withMemoryLimit()`) may need a little more.
-  `vendor-phar/phpstan.phar diagnose` says whether Turbo loaded, and why not when it did not.
+  The PHPStan lane's text mode says on every run whether Turbo is running, and when it is not on
+  a host php-qa-ci ships a build for, prints `NOT RUNNING` with PHPStan's reasons and the fix;
+  the run's outcome is unchanged. `vendor-phar/phpstan.phar diagnose` gives the same answer by
+  hand.
 
 ### Fixed
 

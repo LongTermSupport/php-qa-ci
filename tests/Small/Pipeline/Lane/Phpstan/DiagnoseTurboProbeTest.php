@@ -68,12 +68,12 @@ final class DiagnoseTurboProbeTest extends TestCase
         $this->factory->processes->willSucceed("Turbo extension: enabled (version 6351afb)\n");
         $config = $this->factory->builder(ci: true)->build();
 
-        $status = $this->probe(new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false))->status($this->factory->context($config), self::WRAPPER);
+        $status = $this->probe($this->shippedHost())->status($this->factory->context($config), self::WRAPPER);
 
         self::assertSame(TurboStateEnum::Enabled, $status->state);
         $spec = $this->factory->processes->lastSpec();
-        self::assertSame($config->paths->pharDir . '/phpstan.phar', $spec->command[array_search('-f', $spec->command, true) + 1]);
-        self::assertSame(['diagnose', '--no-interaction', '-c', self::WRAPPER], \array_slice($spec->command, array_search('--', $spec->command, true) + 1));
+        self::assertSame($config->paths->pharDir . '/phpstan.phar', $spec->command[$this->indexOf('-f', ...$spec->command) + 1]);
+        self::assertSame(['diagnose', '--no-interaction', '-c', self::WRAPPER], \array_slice($spec->command, $this->indexOf('--', ...$spec->command) + 1));
         self::assertSame($config->paths->projectRoot, $spec->cwd);
         self::assertFalse($spec->streamOutput, 'the diagnose report is read, not shown');
     }
@@ -84,7 +84,7 @@ final class DiagnoseTurboProbeTest extends TestCase
     {
         $this->factory->processes->willSucceed(self::NOT_LOADED);
 
-        $status = $this->probe(new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false))->status($this->factory->context(), self::WRAPPER);
+        $status = $this->probe($this->shippedHost())->status($this->factory->context(), self::WRAPPER);
 
         self::assertSame(TurboStateEnum::Missing, $status->state);
     }
@@ -105,7 +105,7 @@ final class DiagnoseTurboProbeTest extends TestCase
     {
         $this->factory->processes->willFail(1, "Invalid configuration:\nUnexpected item 'parameters › nope'.\n");
 
-        $status = $this->probe(new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false))->status($this->factory->context(), self::WRAPPER);
+        $status = $this->probe($this->shippedHost())->status($this->factory->context(), self::WRAPPER);
 
         self::assertSame(TurboStateEnum::Unknown, $status->state);
     }
@@ -113,5 +113,19 @@ final class DiagnoseTurboProbeTest extends TestCase
     private function probe(TurboPlatform $platform): DiagnoseTurboProbe
     {
         return new DiagnoseTurboProbe($platform);
+    }
+
+    /** glibc x86_64 on 8.5, a host the committed manifest pins a build for. */
+    private function shippedHost(): TurboPlatform
+    {
+        return new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false);
+    }
+
+    private function indexOf(string $argument, string ...$command): int
+    {
+        $index = array_search($argument, $command, true);
+        self::assertIsInt($index, $argument . ' is not in the command');
+
+        return $index;
     }
 }
