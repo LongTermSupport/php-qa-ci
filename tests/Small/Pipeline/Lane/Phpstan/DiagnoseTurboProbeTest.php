@@ -100,11 +100,14 @@ final class DiagnoseTurboProbeTest extends TestCase
         self::assertSame(TurboStateEnum::NotBuiltForHost, $status->state);
     }
 
-    /** A config error stops diagnose as it stops analyse; the lane's own run reports that. */
+    /**
+     * A config error stops diagnose as it stops analyse; the lane's own run reports that. What a
+     * failed diagnose printed is not its report, whatever Turbo lines it holds.
+     */
     #[Test]
     public function aDiagnoseThatFailsLeavesTheStateUnknown(): void
     {
-        $this->factory->processes->willFail(1, "Invalid configuration:\nUnexpected item 'parameters › nope'.\n");
+        $this->factory->processes->willFail(1, "Turbo extension: enabled (version 6351afb)\nInvalid configuration:\nUnexpected item 'parameters › nope'.\n");
 
         $status = $this->probe($this->shippedHost())->status($this->factory->context(), self::WRAPPER);
 
