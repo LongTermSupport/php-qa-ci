@@ -23,16 +23,16 @@ The real `.github/workflows/update-deps.yml` has no list item at any indentation
 
 `STEP_START` lookahead covers every GitHub step key: `name`, `uses`, `run`, `id`, `if`, `env`, `with`, `shell`, `working-directory`, `continue-on-error` and `timeout-minutes`. Probe results:
 
-| Input                                                                      | Result                                                       |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| steps at 2, 4 or 8 spaces                                                  | split and reported                                           |
-| `- uses:` as the first key, followed by a step running `composer upgrade` | reported                                                     |
-| `composer up`, `composer u`, `composer upgrade`                            | reported                                                     |
-| `- name: inner` inside a `run: \|` heredoc, or `- run: x` under `with:`    | splits inside the step: a false positive that fails loudly   |
-| matrix `include: - name:` before `steps:`                                  | a pseudo-step, harmless; the real step is still reported     |
-| `composer update-ish`, `echo composer up-to-date`                          | false positive, loud                                         |
-| quoted key `- "name":`, or a list at column 0                              | not split (exotic; steps are never at column 0)              |
-| **two steps with the same name** (or two unnamed steps with an identical first line), where the later one has the token | **not reported** (see N1) |
+| Input                                                                                                                   | Result                                                     |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| steps at 2, 4 or 8 spaces                                                                                               | split and reported                                         |
+| `- uses:` as the first key, followed by a step running `composer upgrade`                                               | reported                                                   |
+| `composer up`, `composer u`, `composer upgrade`                                                                         | reported                                                   |
+| `- name: inner` inside a `run: \|` heredoc, or `- run: x` under `with:`                                                 | splits inside the step: a false positive that fails loudly |
+| matrix `include: - name:` before `steps:`                                                                               | a pseudo-step, harmless; the real step is still reported   |
+| `composer update-ish`, `echo composer up-to-date`                                                                       | false positive, loud                                       |
+| quoted key `- "name":`, or a list at column 0                                                                           | not split (exotic; steps are never at column 0)            |
+| **two steps with the same name** (or two unnamed steps with an identical first line), where the later one has the token | **not reported** (see N1)                                  |
 
 ## 3. CI, mergeability, trailers (read)
 

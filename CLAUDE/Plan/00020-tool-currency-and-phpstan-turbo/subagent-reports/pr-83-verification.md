@@ -25,11 +25,11 @@ A process that has the old `.so` mapped then faults on pages that were truncated
 `phpstan.phar analyse src tests` (Turbo loaded, cold cache) while `bin/turbo-install install` re-ran
 with the stamp removed:
 
-| run | PHPStan exit | reinstalls during the run |
-| --- | --- | --- |
-| 1 | 139 (Segmentation fault, core dumped) | 15 |
-| 2 | 135 (Bus error, core dumped) | 5 |
-| 3 | 135 (Bus error, core dumped) | 3 |
+| run | PHPStan exit                          | reinstalls during the run |
+| --- | ------------------------------------- | ------------------------- |
+| 1   | 139 (Segmentation fault, core dumped) | 15                        |
+| 2   | 135 (Bus error, core dumped)          | 5                         |
+| 3   | 135 (Bus error, core dumped)          | 3                         |
 
 Control, same analysis, same number of replacements but done atomically (`cp` to a sibling temp file,
 `mv -f` over the target, new inode): 3 of 3 runs completed normally (exit 1 on the deliberate
@@ -85,36 +85,36 @@ target directory, or a PHPStan rule against `rename()` from a temp directory int
 
 Each red commit's test run at the red commit and at the fix commit (`bin/phpunit -c qaConfig/phpunit.xml --no-coverage <file>`):
 
-| Pair | Red result | Fix result |
-| --- | --- | --- |
-| 3.1 `ec699c3` -> `2901b4e` (after `bin/turbo-install install`) | FAIL, for the stated reason: diagnose reports `Turbo extension: not loaded`, `Turbo worker binary: none found` | PASS |
-| 3.2 installer `7680332` -> `eed543c` | 11 errors: `Interface "LTS\PHPQA\Turbo\TurboReleaseSourceInterface" not found` (the installer does not exist yet) | PASS |
-| 3.2 plugin `5fba9aa` -> `075e71b` | 1 error + 1 failure: `TurboInstallPlugin` class not found; composer.json `extra.class` lacks it | PASS |
-| 3.3 manifest `88d5b99` -> `455b841` | 2 failures: `MissingPharException` not thrown (missing manifest, mismatched version) | PASS |
+| Pair                                                           | Red result                                                                                                        | Fix result |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
+| 3.1 `ec699c3` -> `2901b4e` (after `bin/turbo-install install`) | FAIL, for the stated reason: diagnose reports `Turbo extension: not loaded`, `Turbo worker binary: none found`    | PASS       |
+| 3.2 installer `7680332` -> `eed543c`                           | 11 errors: `Interface "LTS\PHPQA\Turbo\TurboReleaseSourceInterface" not found` (the installer does not exist yet) | PASS       |
+| 3.2 plugin `5fba9aa` -> `075e71b`                              | 1 error + 1 failure: `TurboInstallPlugin` class not found; composer.json `extra.class` lacks it                   | PASS       |
+| 3.3 manifest `88d5b99` -> `455b841`                            | 2 failures: `MissingPharException` not thrown (missing manifest, mismatched version)                              | PASS       |
 
 At the head: `tests/Small/Turbo` OK (37 tests), `tests/Small/Pipeline/Runner` OK (47 tests).
 
 ### 2. Installer security and integrity
 
-- **SHA-256 not bypassable [read + reproduced]:** the digest compared is the manifest's, which
+- **SHA-256 not bypassable \[read + reproduced\]:** the digest compared is the manifest's, which
   `TurboManifest::fromJson` only accepts as 64 lowercase hex (an empty or malformed hash rejects the
   whole manifest, exit 1). An asset with no manifest entry is `Unsupported`: nothing is fetched or
   installed. Comparison is `hash_equals` over the downloaded bytes, before anything is written; a
   mismatch exits 1 and writes nothing (covered by `aDownloadWhoseDigestDiffersFailsAndPlacesNothing`).
-- **Redirect / HTML error page [read + reproduced]:** `ignore_errors => false`, so a 4xx/5xx is a
+- **Redirect / HTML error page \[read + reproduced\]:** `ignore_errors => false`, so a 4xx/5xx is a
   failed request (warning, exit 0, nothing installed); a 200 HTML page fails the digest (exit 1).
   The real download follows GitHub's redirect to its asset host and verified correctly.
-- **Zip extra entries / path traversal [read]:** only the named entry `phpstan_turbo.so` is extracted,
+- **Zip extra entries / path traversal \[read\]:** only the named entry `phpstan_turbo.so` is extracted,
   into a fresh staging directory, and only after the archive's digest matched the pin, so the archive's
   content is fixed by the manifest.
 - **Pre-existing file at the target:** replaced — but not atomically across filesystems: see **B1**.
-- **Permissions [reproduced]:** binary `0644`, directory `0755`; stamp follows umask (note 4).
-- **Token scope [reproduced]:** `GITHUB_AUTH_TOKEN` is only attached to requests for the two hard-coded
+- **Permissions \[reproduced\]:** binary `0644`, directory `0755`; stamp follows umask (note 4).
+- **Token scope \[reproduced\]:** `GITHUB_AUTH_TOKEN` is only attached to requests for the two hard-coded
   `api.github.com` / `github.com` URLs. With a local two-host redirect (127.0.0.1 -> localhost) driven
   through the real `GitHubTurboReleaseSource::get()`, PHP's HTTP wrapper did **not** forward the
   `Authorization` header to the redirect target (`AUTH=(none)`, while `Accept` was forwarded). So the
   token does not follow GitHub's redirect to its asset CDN either.
-- **Nothing executed from the download [read]:** the `.so` is only written; nothing is `dl()`ed,
+- **Nothing executed from the download \[read\]:** the `.so` is only written; nothing is `dl()`ed,
   `include`d or run by the installer.
 
 ### 3. Composer plugin [read]

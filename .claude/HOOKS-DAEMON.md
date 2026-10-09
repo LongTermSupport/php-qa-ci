@@ -1,15 +1,16 @@
 # Hooks Daemon - Active Configuration
 
-> Generated on 2026-10-03 (v3.68.0) by `generate-docs`. Regenerate: `.claude/hooks-daemon/bin/hooks-daemon generate-docs`
+> Generated on 2026-10-09 (v3.69.0) by `generate-docs`. Regenerate: `.claude/hooks-daemon/bin/hooks-daemon generate-docs`
 
 ## Active Handlers
 
-### PreToolUse (68 handlers)
+### PreToolUse (70 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
 | 9 | usage_pause_tool_gate | BLOCKING | Deny and halt the main thread's tools outside the pause allow-list while paused |
 | 10 | destructive_git | BLOCKING | Block destructive git commands that permanently destroy data |
+| 10 | host_command_guard | BLOCKING | Deny the four commands of owner ruling A6 that reach past the project |
 | 11 | daemon_location_guard | BLOCKING | Prevent agents from cd-ing into .claude/hooks-daemon and running commands |
 | 11 | sed_blocker | BLOCKING | Block sed used for file modification - Claude gets sed wrong and causes file destruction |
 | 12 | absolute_path | BLOCKING | Require absolute paths for Read/Write/Edit tool file_path parameters |
@@ -43,6 +44,7 @@
 | 30 | qa_suppression | BLOCKING | Block QA suppression comments across all supported languages |
 | 31 | comment_changelog | BLOCKING | Block Write/Edit content that writes historical narrative into a comment |
 | 31 | plan_journal_guard | BLOCKING | Deny a journal entry written by hand rather than through `mkplan.bash --journal` |
+| 32 | subagent_full_qa_blocker | BLOCKING | Deny a declared full-suite QA run inside a sub-agent; the coordinator runs it |
 | 32 | tdd_enforcement | BLOCKING | Enforce TDD by blocking production file creation without corresponding test file |
 | 33 | comment_size | BLOCKING | Block/advise on over-long comments, tiered like plan-doc-size |
 | 33 | plan_number_helper | BLOCKING | Detect bash commands attempting to discover plan numbers and provide correct answer |
@@ -77,7 +79,7 @@
 | 59 | merge_qa_advisor | ADVISORY | Advise the static checks to run before merging a work branch with no recorded green run |
 | 60 | british_english | ADVISORY | Warn about American English spellings in content files (non-blocking) |
 
-### PostToolUse (11 handlers)
+### PostToolUse (13 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
@@ -86,18 +88,22 @@
 | 27 | git_hooks_executable_fixer | NON-TERMINAL | Detect git's "not set as executable" hint and fix the hooks automatically |
 | 28 | background_process_tracker | ADVISORY | Track backgrounded Bash processes and advise on watchdog/harvest (never kills) |
 | 28 | command_hints | ADVISORY | Inject a rate-limited advisory HINT when a configured command is detected |
+| 30 | goal_injection | ADVISORY | Write a goal-intent signal when a plan TRANSITIONS to In Progress |
 | 30 | recovery_cron_advisor | ADVISORY | Advisory handler that manages failsafe recovery cron across plan lifecycle |
 | 32 | budget_exhaustion_detector | ADVISORY | Advisory PostToolUse handler that flags budget-exhaustion messaging |
 | 33 | model_downgrade_recorder | ADVISORY | Publish Claude Code's own automatic model-downgrade record, silently |
 | 34 | merge_qa_report | ADVISORY | Post-hoc plan/docs QA report over what a merge/pull/rebase just introduced |
 | 35 | daemon_sync_after_merge | ADVISORY | Advise a restart when a merge/pull/rebase changed daemon config or handlers |
 | 36 | cron_record_keeper | ADVISORY | Record every CronCreate and forget every CronDelete, silently |
+| 37 | plan_fact_check_feed | ADVISORY | Feed plan edits to the debouncer so a burst yields one pending fact-check |
 
-### SessionStart (26 handlers)
+### SessionStart (33 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
 | 15 | disclosure_reset_session_start | NON-TERMINAL | Reset DisclosureTracker state for the firing agent on SessionStart |
+| 47 | autonomy_notice | ADVISORY | State at session start that autonomy is off here, and why |
+| 48 | work_queue_rebrief | ADVISORY | List the agents the durable work queue records as still running |
 | 49 | guard_config_drift | ADVISORY | Name any uncommitted change that weakens this project's guards |
 | 50 | project_handler_load_checker | ADVISORY | Loudly alert at session start when project handlers failed to load |
 | 51 | hook_registration_checker | ADVISORY | Validate hook registrations in Claude Code settings on session start |
@@ -114,8 +120,11 @@
 | 59 | deployed_artefact_drift | ADVISORY | Advise when a deployed daemon-owned file differs from its template |
 | 59 | plan_workflow_asset_checker | ADVISORY | Advise when plan_workflow is enabled but its assets are not provisioned |
 | 60 | contract_staleness | ADVISORY | Advise a vendored-contract refresh when Claude Code has moved on |
+| 61 | skill_opportunity_detector | ADVISORY | TTL-gated advisory pointing at the ``skill-scan`` CLI |
 | 62 | secret_file_hygiene_checker | ADVISORY | Advise (never block) unsafe on-disk state for existing protected files |
+| 63 | model_fallback_detector | ADVISORY | Detect a safety-triggered model fallback from the session transcript |
 | 64 | docs_qa_sweep | ADVISORY | Advisory SessionStart sweep over the documentation corpus (silent when clean) |
+| 65 | tool_disable_advisor | NON-TERMINAL | Advise when a declared never-want tool is not disabled at source |
 | 66 | monorepo_detector | ADVISORY | Advise when manifests exist below the repo root but not at it |
 | 67 | config_optimisation_reminder | ADVISORY | Remind the agent when the config-optimisation review is stale |
 | 68 | remote_docs_staleness | ADVISORY | Report vendored documents that are stale or no longer parse |
@@ -123,6 +132,8 @@
 | 70 | failsafe_cron_session_advisor | ADVISORY | Advise establishing the failsafe recovery cron at session start |
 | 70 | persistent_cron_assertor | ADVISORY | State the project's declared crons and instruct a CronList reconcile |
 | 71 | reference_repo_sweep | ADVISORY | Fetch, safely fast-forward and record every governed reference repo |
+| 72 | routine_qa_sweep | ADVISORY | Advisory SessionStart sweep over the Routine tree (silent when clean) |
+| 73 | session_actions_directive | ADVISORY | Signal the ccy supervisor when a session starts with must-do items |
 
 ### PreCompact (2 handlers)
 
@@ -131,7 +142,7 @@
 | 15 | disclosure_reset_pre_compact | NON-TERMINAL | Reset DisclosureTracker state for the firing agent on PreCompact |
 | 20 | compaction_signal | NON-TERMINAL | Write a ``<session>.compacting`` signal on PreCompact for the supervisor |
 
-### UserPromptSubmit (8 handlers)
+### UserPromptSubmit (9 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
@@ -139,6 +150,7 @@
 | 10 | git_context_injector | CONTEXT | Inject current git status as context when user submits a prompt |
 | 37 | failsafe_cron_blockage_suppressor | BLOCKING | Suppress a delivered failsafe-cron tick while the session is stably |
 | 38 | stop_failure_resolver | ADVISORY | Resolve this session's recorded StopFailure when it submits a prompt |
+| 39 | limit_rebrief | ADVISORY | Re-brief after a usage-limit resume; name a background or teammate agent a limit killed |
 | 55 | critical_thinking_advisory | ADVISORY | Periodically inject advisory context encouraging critical evaluation |
 | 56 | idle_housekeeping_advisory | ADVISORY | After N consecutive no-op recovery ticks, advise a report-first |
 | 57 | standing_authorisations | ADVISORY | Inject the authorisations a project has recorded in its config |
@@ -149,6 +161,12 @@
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
 | 10 | auto_approve_reads | TERMINAL | Auto-approve read-only tool permission requests |
+
+### Notification (1 handler)
+
+| Priority | Handler | Behaviour | Description |
+|----------|---------|----------|-------------|
+| 50 | quota_resume_recorder | ADVISORY | Record each ``quota_auto_resume_*`` notification, silently |
 
 ### Stop (4 handlers)
 
@@ -169,11 +187,12 @@
 | 10 | subagent_report_persistence | NON-TERMINAL | Persist every stopping sub-agent's final reply to a gitignored file |
 | 15 | subagent_report_size_blocker | TERMINAL | Block a SubagentStop whose ``last_assistant_message`` is oversized |
 
-### Status (16 handlers)
+### Status (17 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
 | 2 | multithread_indicator | NON-TERMINAL | Show this thread's rank among live Agent-View threads (``🧵 Y/X``) |
+| 6 | host_hostname | NON-TERMINAL | Show ``@machine-name`` for the host this session is really running on |
 | 10 | model_context | NON-TERMINAL | Format model name with effort level and colour-coded context percentage |
 | 11 | downgrade_indicator | NON-TERMINAL | Surface a silent model-family downgrade (e.g. fable/opus -> lower) in the status line |
 | 11 | environment_indicator | NON-TERMINAL | Show 💻 (desktop/host) or a container icon (🐳 docker / 📦 podman / 🧊 lxc) |

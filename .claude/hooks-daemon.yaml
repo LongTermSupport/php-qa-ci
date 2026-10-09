@@ -36,7 +36,7 @@ daemon:
     enabled: true              # Validate hook inputs (recommended)
     strict_mode: true          # Fail-closed: return errors on validation failures
     log_validation_errors: true
-  expected_version: "3.68.0"  # daemon version this project expects; `provision.sh` installs exactly this
+  expected_version: "3.69.0"  # daemon version this project expects; `provision.sh` installs exactly this
 
 # Built-in handler configuration
 # Handlers run in priority order (lower number = earlier execution)
