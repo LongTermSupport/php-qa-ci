@@ -10,6 +10,9 @@ namespace LTS\PHPQA\Tests\Support;
  * own directory has gone. That is the moment between ProcessTree's check and
  * its read, held still so a test can reach it every time.
  *
+ * Registered under UNREADABLE_SCHEME instead, the process's directory is still
+ * there: the process is running, and the failed open is a real failure.
+ *
  * Registered under SCHEME by a test; the method names are PHP's stream
  * wrapper protocol. PHP's stream layer is what calls them, so the class is
  * tagged as API: an entry point to the dead-code detector, as a Composer
@@ -21,13 +24,19 @@ final class VanishingProcStreamWrapper
 {
     public const string SCHEME = 'vanishingproc';
 
+    public const string UNREADABLE_SCHEME = 'unreadableproc';
+
     /** @var resource|null set by PHP for every wrapper instance */
     public $context;
 
     /** @return array{mode: int, size: int}|false */
     public function url_stat(string $path): array|false
     {
-        return str_ends_with($path, '/stat') ? ['mode' => 0o100644, 'size' => 0] : false;
+        if (str_ends_with($path, '/stat')) {
+            return ['mode' => 0o100644, 'size' => 0];
+        }
+
+        return str_starts_with($path, self::UNREADABLE_SCHEME . '://') ? ['mode' => 0o040755, 'size' => 0] : false;
     }
 
     public function stream_open(): bool
