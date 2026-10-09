@@ -27,6 +27,8 @@ final class InfectionDiffFilterTest extends TestCase
 {
     private const string COMMITTED = 'src/Committed.php';
 
+    private const string ADDED = 'src/Added.php';
+
     private const string MIRRORED_SOURCE = 'src/Lane/Tool.php';
 
     private const string MIRRORING_TEST = 'tests/Small/Lane/ToolTest.php';
@@ -106,6 +108,61 @@ final class InfectionDiffFilterTest extends TestCase
         $filter = $this->filter(new InfectionDiffFilter()->nameStatusFromGitStatus("?? src/New.php\0 D src/Gone.php\0"));
 
         self::assertSame(['src/New.php'], $filter->relativePaths);
+    }
+
+    #[Test]
+    public function gitStatusPathsAreMadeRelativeToTheProjectInsideALargerRepository(): void
+    {
+        $status = " M app/src/Edited.php\0R  app/src/After.php\0app/src/Before.php\0?? app/composer.json\0";
+
+        self::assertSame(
+            $this->records(['M', 'src/Edited.php'], ['R', 'src/Before.php', 'src/After.php'], ['A', 'composer.json']),
+            new InfectionDiffFilter()->nameStatusFromGitStatus($status, 'app/'),
+        );
+    }
+
+    #[Test]
+    public function aLaterDeletionTakesAPathTheCommittedDiffAddedOutOfScope(): void
+    {
+        $filter = $this->filter($this->records(['A', self::ADDED], ['M', self::COMMITTED], ['D', self::ADDED]));
+
+        self::assertSame([self::COMMITTED], $filter->relativePaths, 'Infection aborts on a positional path that no longer exists');
+    }
+
+    #[Test]
+    public function anUncommittedDeletionOfACommittedChangeLeavesNothingToMutate(): void
+    {
+        $filter = $this->filter($this->records(['M', self::COMMITTED]) . new InfectionDiffFilter()->nameStatusFromGitStatus(' D ' . self::COMMITTED . "\0"));
+
+        self::assertTrue($filter->isEmpty());
+    }
+
+    #[Test]
+    public function aLaterRenameMovesTheOldPathOutOfScopeAndTheNewPathIn(): void
+    {
+        $filter = $this->filter($this->records(['M', self::COMMITTED], ['R', self::COMMITTED, self::ADDED]));
+
+        self::assertSame([self::ADDED], $filter->relativePaths);
+    }
+
+    #[Test]
+    public function aLaterCopyKeepsTheOriginalInScope(): void
+    {
+        $filter = $this->filter($this->records(['M', self::COMMITTED], ['C100', self::COMMITTED, self::ADDED]));
+
+        self::assertSame([self::COMMITTED, self::ADDED], $filter->relativePaths);
+    }
+
+    #[Test]
+    public function aPathDeletedThenAddedAgainIsInScope(): void
+    {
+        self::assertSame([self::ADDED], $this->filter($this->records(['D', self::ADDED], ['A', self::ADDED]))->relativePaths);
+    }
+
+    #[Test]
+    public function aLaterDeletionOfAMirroredSourceTakesItOutOfScope(): void
+    {
+        self::assertTrue($this->filter($this->records(['M', self::MIRRORING_TEST], ['D', self::MIRRORED_SOURCE]))->isEmpty());
     }
 
     #[Test]

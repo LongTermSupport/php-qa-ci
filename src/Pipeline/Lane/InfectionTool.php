@@ -272,16 +272,25 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::failed('Infection diff mode: git status failed');
         }
 
-        $dirty = $this->statusPaths($status->stdout);
-        if ([] === $dirty) {
+        if ([] === $this->statusPaths($status->stdout)) {
             return '';
         }
 
+        $prefix = $this->git($context, 'rev-parse', '--show-prefix');
+        if (!$prefix->succeeded()) {
+            $context->writeln("Infection: diff mode — 'git rev-parse --show-prefix' failed; cannot place the uncommitted files relative to the project.");
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::failed('Infection diff mode: git rev-parse failed');
+        }
+
+        $projectStatus = $this->diffFilter->withoutPrefix($status->stdout, rtrim($prefix->stdout, "\n"));
+        $dirty         = $this->statusPaths($projectStatus);
         if (!$strict) {
             $context->writeln('Infection: auto diff mode — WARNING: uncommitted edits are in scope and mutated as they are on disk, so this verdict is not reproducible from committed history: ' . implode(',', $dirty));
             $context->writeln('           Commit them (a WIP commit is fine) for a result that matches what CI will see.');
 
-            return $this->diffFilter->nameStatusFromGitStatus($status->stdout);
+            return $this->diffFilter->nameStatusFromGitStatus($projectStatus);
         }
 
         $context->writeln('Infection: diff mode REFUSED — uncommitted changes under the source, tests or configuration paths:');

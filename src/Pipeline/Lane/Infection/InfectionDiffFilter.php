@@ -47,10 +47,13 @@ final readonly class InfectionDiffFilter
     /**
      * `git status --porcelain=v1 -z` output as the `-z --name-status` records
      * fromGitDiffOutput() reads, so uncommitted work is scoped by the same
-     * rules: untracked is added, a rename or copy keeps both paths.
+     * rules: untracked is added, a rename or copy keeps both paths. Status
+     * paths are relative to the repository root; `$prefix` (`git rev-parse
+     * --show-prefix`) is stripped so they match the project-relative diff.
      */
-    public function nameStatusFromGitStatus(string $gitStatusOutput): string
+    public function nameStatusFromGitStatus(string $gitStatusOutput, string $prefix = ''): string
     {
+        $gitStatusOutput = $this->withoutPrefix($gitStatusOutput, $prefix);
         $tokens  = explode("\0", $gitStatusOutput);
         $count   = \count($tokens);
         $records = '';
@@ -88,8 +91,14 @@ final readonly class InfectionDiffFilter
         $unmapped = [];
         $config   = [];
         foreach ($this->entries($gitDiffOutput) as [$status, $path, $previous]) {
+            if ('R' === $status && null !== $previous) {
+                unset($changed[$previous], $mirrored[$previous]);
+            }
+
             if (str_starts_with($path, $srcPrefix)) {
-                if ('D' !== $status && str_ends_with($path, '.php') && !$ignored->contains($cwd . '/' . $path)) {
+                if ('D' === $status) {
+                    unset($changed[$path], $mirrored[$path]);
+                } elseif (str_ends_with($path, '.php') && !$ignored->contains($cwd . '/' . $path)) {
                     $changed[$path] = true;
                 }
 
@@ -146,6 +155,24 @@ final readonly class InfectionDiffFilter
         }
 
         return $entries;
+    }
+
+    /** `git status --porcelain=v1 -z` output with every path made relative to `$prefix` */
+    public function withoutPrefix(string $gitStatusOutput, string $prefix): string
+    {
+        if ('' === $prefix) {
+            return $gitStatusOutput;
+        }
+
+        $tokens = explode("\0", $gitStatusOutput);
+        foreach ($tokens as $index => $token) {
+            $at = str_starts_with($token, $prefix) ? 0 : 3;
+            if (substr($token, $at, \strlen($prefix)) === $prefix) {
+                $tokens[$index] = substr($token, 0, $at) . substr($token, $at + \strlen($prefix));
+            }
+        }
+
+        return implode("\0", $tokens);
     }
 
     private function relative(string $dir, string $cwd): string

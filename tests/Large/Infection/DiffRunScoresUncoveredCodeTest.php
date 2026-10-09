@@ -35,6 +35,10 @@ final class DiffRunScoresUncoveredCodeTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!\extension_loaded('xdebug')) {
+            self::markTestSkipped('the fixture coverage needs Xdebug');
+        }
+
         $this->project = TempDir::create('phpqa-diffscope');
         $fixture       = \Safe\realpath(self::FIXTURE);
         foreach (self::FIXTURE_FILES as $file) {
@@ -58,14 +62,15 @@ final class DiffRunScoresUncoveredCodeTest extends TestCase
             300,
         );
         $coverage->run();
-        if (!$coverage->isSuccessful() || !is_dir($this->project->path . '/logs/coverage-xml')) {
-            self::markTestSkipped('the fixture coverage needs Xdebug: ' . $coverage->getOutput() . $coverage->getErrorOutput());
-        }
+        self::assertTrue($coverage->isSuccessful(), 'the fixture coverage run failed: ' . $coverage->getOutput() . $coverage->getErrorOutput());
+        self::assertDirectoryExists($this->project->path . '/logs/coverage-xml', 'the fixture coverage run wrote no coverage');
     }
 
     protected function tearDown(): void
     {
-        $this->project->remove();
+        if (isset($this->project)) {
+            $this->project->remove();
+        }
     }
 
     #[Test]

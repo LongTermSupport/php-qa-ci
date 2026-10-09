@@ -78,6 +78,8 @@ final class InfectionToolTest extends TestCase
 
     private const string GIT_STATUS_CLEAN = '';
 
+    private const string NO_PREFIX = "\n";
+
     private const string FEATURE_BRANCH = "feature/x\n";
 
     private const string ORIGIN_DEFAULT = "refs/remotes/origin/main\n";
@@ -221,13 +223,13 @@ final class InfectionToolTest extends TestCase
     #[Test]
     public function diffModeRefusesADirtyWorkingTree(): void
     {
-        $this->factory->processes->willSucceed("?? src/Dirty.php\0");
+        $this->factory->processes->willSucceed("?? src/Dirty.php\0")->willSucceed(self::NO_PREFIX);
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome, 'a dirty src/tests tree must REFUSE the diff lane');
-        self::assertCount(1, $this->factory->processes->specs, 'nothing expensive runs after the refusal');
+        self::assertCount(2, $this->factory->processes->specs, 'only the status and its path prefix run before the refusal');
         self::assertSame(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', ...$this->pathspecs()], $this->factory->processes->specs[0]->command);
         self::assertFalse($this->factory->processes->specs[0]->streamOutput);
         self::assertStringContainsString('REFUSED', $printed);
@@ -349,6 +351,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(self::RESOLVED)
             ->willSucceed(self::MERGE_BASE)
             ->willSucceed(" M src/Wip.php\0?? src/Fresh.php\0 M src/Committed.php\0")
+            ->willSucceed(self::NO_PREFIX)
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
             ->willSucceed()
         ;
@@ -395,6 +398,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(self::RESOLVED)
             ->willSucceed(self::MERGE_BASE)
             ->willSucceed(" M composer.lock\0")
+            ->willSucceed(self::NO_PREFIX)
             ->willSucceed('')
             ->willSucceed()
         ;
@@ -403,6 +407,62 @@ final class InfectionToolTest extends TestCase
 
         self::assertStringContainsString('configuration every mutant depends on (composer.lock)', $this->factory->output->fetch());
         self::assertContains(self::FULL_FLOOR_ARG, $this->factory->processes->lastSpec()->command);
+    }
+
+    #[Test]
+    public function autoModeLeavesAFileDeletedSinceItsCommitOutOfTheScope(): void
+    {
+        $this->factory->processes
+            ->willSucceed(self::FEATURE_BRANCH)
+            ->willSucceed(self::ORIGIN_DEFAULT)
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
+            ->willSucceed(' D ' . self::COMMITTED_SRC . "\0")
+            ->willSucceed(self::NO_PREFIX)
+            ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
+        ;
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome, 'Infection aborts on a positional path that no longer exists, so it must never be passed one');
+        self::assertCount(7, $this->factory->processes->specs, 'no coverage run and no phar');
+    }
+
+    #[Test]
+    public function diffModeFailsWhenTheRepositoryPrefixCannotBeRead(): void
+    {
+        $this->factory->processes->willSucceed(" M src/Wip.php\0")->willFail(128);
+
+        $result = $this->tool()->run($this->context($this->diffBuilder()));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString("'git rev-parse --show-prefix' failed", $this->factory->output->fetch());
+        self::assertCount(2, $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function inAProjectBelowTheRepositoryRootUncommittedSourceIsStillSource(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::FEATURE_BRANCH)
+            ->willSucceed(self::ORIGIN_DEFAULT)
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
+            ->willSucceed(" M app/src/Wip.php\0")
+            ->willSucceed("app/\n")
+            ->willSucceed('')
+            ->willSucceed()
+        ;
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame('git rev-parse --show-prefix', $this->factory->processes->commandLines()[5]);
+        self::assertStringContainsString('not reproducible from committed history: src/Wip.php', $printed);
+        self::assertStringNotContainsString('full run', $printed, 'git status paths are relative to the repository root, not the project');
+        self::assertSame($this->root . '/src/Wip.php', $this->factory->processes->lastSpec()->command[\count($this->factory->processes->lastSpec()->command) - 1]);
     }
 
     #[Test]
