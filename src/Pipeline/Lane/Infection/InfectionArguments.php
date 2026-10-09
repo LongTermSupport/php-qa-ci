@@ -10,16 +10,16 @@ use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
  * The argv the Infection lane hands to infection.phar. Two lanes:
  *
  *   - FULL: the whole codebase against the SSoT floors (--min-msi and
- *     --min-covered-msi).
- *   - DIFF: only the changed files, passed as positional paths LAST, against
- *     the single covered-MSI diff floor. Changed files with no mutable code
- *     generate no mutant, which passes (--ignore-msi-with-no-mutations;
- *     Infection prints that nothing was generated) instead of scoring 0%.
+ *     --min-covered-msi). Only covered code is mutated.
+ *   - DIFF: only the changed files, passed as positional paths LAST. Their
+ *     uncovered code is mutated too (--with-uncovered), and both the MSI, which
+ *     counts an uncovered mutant as escaped, and the covered MSI are held to
+ *     the diff floor: a changed file no test runs fails. With uncovered code
+ *     mutated, a run that still generates no mutant has changed no mutable
+ *     code (an interface, constants), the only case
+ *     --ignore-msi-with-no-mutations lets through.
  *
- * Both write the file loggers in infection.json (log.txt, summary-log.txt) at
- * full verbosity, so a project reading them gets the same files either way.
- * Infection mutates only covered code (no --with-uncovered), so the MSI and
- * the covered MSI of a run are the same number.
+ * Both write the file loggers in infection.json at full verbosity.
  *
  * Coverage is always reused (--skip-initial-tests): the lane guarantees it
  * exists before Infection runs, so the suite is never executed a second time.
@@ -50,6 +50,8 @@ final readonly class InfectionArguments
     {
         return [
             ...$this->common($options, $coverageDir, $configPath),
+            '--with-uncovered',
+            '--min-msi=' . $options->diffCoveredMsi,
             '--min-covered-msi=' . $options->diffCoveredMsi,
             '--ignore-msi-with-no-mutations',
             self::LOG_VERBOSITY,

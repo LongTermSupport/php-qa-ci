@@ -33,6 +33,8 @@ final class InfectionArgumentsTest extends TestCase
 
     private const string LOG_ALL = '--log-verbosity=all';
 
+    private const string WITH_UNCOVERED = '--with-uncovered';
+
     private const array COMMON = [
         '--coverage=/var/qa/phpunit_logs',
         '--skip-initial-tests',
@@ -57,10 +59,33 @@ final class InfectionArgumentsTest extends TestCase
     {
         $args = new InfectionArguments()->diff($this->options(diffBase: 'origin/main'), '/var/qa/phpunit_logs', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP);
 
-        self::assertSame([...self::COMMON, self::DEFAULT_DIFF_FLOOR, '--ignore-msi-with-no-mutations', self::LOG_ALL, self::SRC_CHANGED_PHP], $args);
+        self::assertSame([...self::COMMON, self::WITH_UNCOVERED, '--min-msi=80', self::DEFAULT_DIFF_FLOOR, '--ignore-msi-with-no-mutations', self::LOG_ALL, self::SRC_CHANGED_PHP], $args);
         self::assertNotContains('--filter=/p/src/Changed.php', $args, 'the deprecated --filter form must not be used');
         self::assertNotContains('--min-msi=74', $args, 'the whole-codebase floor is meaningless on a diff');
         self::assertNotContains('--min-covered-msi=76', $args, 'the whole-codebase covered floor is dropped in diff mode');
+    }
+
+    /**
+     * A diff run mutates the uncovered code of its changed files too and holds the MSI, which
+     * counts those mutants as escaped, to the diff floor: changed code no test runs fails the
+     * run instead of producing no mutant and passing. With uncovered code mutated, a run that
+     * still generates no mutant has changed no mutable code, which is the one case
+     * --ignore-msi-with-no-mutations lets through.
+     */
+    #[Test]
+    public function aDiffRunCountsUncoveredMutantsAgainstTheDiffFloor(): void
+    {
+        $args = new InfectionArguments()->diff($this->options(diffBase: self::DIFF_BASE_MAIN, diffCoveredMsi: 91), '/c', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP);
+
+        self::assertContains(self::WITH_UNCOVERED, $args);
+        self::assertContains('--min-msi=91', $args);
+        self::assertContains('--min-covered-msi=91', $args);
+    }
+
+    #[Test]
+    public function aFullRunMutatesCoveredCodeOnly(): void
+    {
+        self::assertNotContains(self::WITH_UNCOVERED, new InfectionArguments()->full($this->options(), '/c', self::CFG_INFECTION_JSON));
     }
 
     /**
@@ -74,11 +99,7 @@ final class InfectionArgumentsTest extends TestCase
         self::assertContains(self::LOG_ALL, new InfectionArguments()->diff($this->options(diffBase: self::DIFF_BASE_MAIN), '/c', self::CFG_INFECTION_JSON, self::SRC_CHANGED_PHP));
     }
 
-    /**
-     * A changed file can hold no mutable code (an interface, a DTO of promoted properties); a
-     * scoped run of only such files generates no mutant, which Infection would score as 0% and
-     * fail. The full run never has that excuse, so it keeps the default.
-     */
+    /** A whole codebase always has mutable code, so a full run that generates no mutant fails. */
     #[Test]
     public function onlyTheDiffLaneAcceptsARunWithNoMutants(): void
     {

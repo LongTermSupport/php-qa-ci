@@ -95,7 +95,7 @@ final class InfectionDiffBaseResolverTest extends TestCase
         self::assertFalse($base->strict, 'auto mode never fails a run over local edits');
         self::assertFalse($base->isFullRun());
         self::assertSame(
-            "Infection: auto diff mode — branch 'feature/x' against origin/php8.5 (merge base abc1234def), committed history only.",
+            "Infection: auto diff mode — branch 'feature/x' against origin/php8.5 (merge base abc1234def).",
             $base->description,
         );
         self::assertSame([
@@ -178,7 +178,7 @@ final class InfectionDiffBaseResolverTest extends TestCase
 
         self::assertSame(self::MERGE_BASE_SHA, $base->ref);
         self::assertSame(
-            "Infection: auto diff mode — pull request into 'php8.4' against origin/php8.4 (merge base abc1234def), committed history only.",
+            "Infection: auto diff mode — pull request into 'php8.4' against origin/php8.4 (merge base abc1234def).",
             $base->description,
         );
         self::assertSame("git rev-parse --verify --quiet 'origin/php8.4^{commit}'", $this->processes->commandLines()[0]);

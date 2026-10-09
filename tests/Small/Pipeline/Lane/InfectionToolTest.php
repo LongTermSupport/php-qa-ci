@@ -92,6 +92,8 @@ final class InfectionToolTest extends TestCase
 
     private const string RESOLVED = "abc\n";
 
+    private const string FULL_FLOOR_ARG = '--min-msi=74';
+
     private ContextFactory $factory;
 
     private string $root;
@@ -140,7 +142,7 @@ final class InfectionToolTest extends TestCase
             '--skip-initial-tests',
             '--threads=4',
             self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
-            '--min-msi=74',
+            self::FULL_FLOOR_ARG,
             self::COVERED_FLOOR_ARG,
             self::LOG_ALL,
         ], $phar->command);
@@ -219,14 +221,14 @@ final class InfectionToolTest extends TestCase
     #[Test]
     public function diffModeRefusesADirtyWorkingTree(): void
     {
-        $this->factory->processes->willSucceed("?? src/Dirty.php\n");
+        $this->factory->processes->willSucceed("?? src/Dirty.php\0");
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome, 'a dirty src/tests tree must REFUSE the diff lane');
         self::assertCount(1, $this->factory->processes->specs, 'nothing expensive runs after the refusal');
-        self::assertSame(['git', 'status', '--porcelain', '--', $this->root . self::SRC_DIR, $this->root . self::TESTS_DIR], $this->factory->processes->specs[0]->command);
+        self::assertSame(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', ...$this->pathspecs()], $this->factory->processes->specs[0]->command);
         self::assertFalse($this->factory->processes->specs[0]->streamOutput);
         self::assertStringContainsString('REFUSED', $printed);
         self::assertStringContainsString('src/Dirty.php', $printed);
@@ -260,7 +262,7 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['git', '--no-pager', 'diff', 'origin/main...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', $this->root . self::SRC_DIR, $this->root . self::TESTS_DIR],
+            ['git', '--no-pager', 'diff', 'origin/main...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', ...$this->pathspecs()],
             $this->factory->processes->specs[1]->command,
             'the filter is computed from committed history (three-dot diff), never the working tree',
         );
@@ -274,11 +276,13 @@ final class InfectionToolTest extends TestCase
             '--skip-initial-tests',
             '--threads=4',
             self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
+            '--with-uncovered',
+            '--min-msi=76',
             self::COVERED_FLOOR_ARG,
             '--ignore-msi-with-no-mutations',
             self::LOG_ALL,
             $this->root . '/' . self::COMMITTED_SRC,
-        ], \array_slice($phar->command, 6));
+        ], \array_slice($phar->command, 6), 'a diff run mutates uncovered code too and holds the MSI to the diff floor');
         self::assertTrue($phar->lowPriority);
     }
 
@@ -300,7 +304,7 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString("Infection: auto diff mode — branch 'feature/x' against origin/main (merge base abc1234), committed history only.", $printed);
+        self::assertStringContainsString("Infection: auto diff mode — branch 'feature/x' against origin/main (merge base abc1234).", $printed);
         self::assertStringContainsString('mutating 2 file(s): src/Committed.php,src/Added.php', $printed);
         self::assertStringStartsWith('git --no-pager diff abc1234...HEAD ', $this->factory->processes->commandLines()[5]);
         self::assertSame([$this->root . '/' . self::COMMITTED_SRC, $this->root . '/src/Added.php'], \array_slice($this->factory->processes->lastSpec()->command, -2));
@@ -336,7 +340,7 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
-    public function autoModeReportsUncommittedWorkAsOutOfScopeInsteadOfRefusing(): void
+    public function autoModeMutatesUncommittedWorkAndNamesItInsteadOfRefusing(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes
@@ -344,7 +348,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(self::ORIGIN_DEFAULT)
             ->willSucceed(self::RESOLVED)
             ->willSucceed(self::MERGE_BASE)
-            ->willSucceed(" M src/Wip.php\n")
+            ->willSucceed(" M src/Wip.php\0?? src/Fresh.php\0 M src/Committed.php\0")
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
             ->willSucceed()
         ;
@@ -353,10 +357,52 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, 'local work in progress must not fail the default mode');
-        self::assertStringContainsString('uncommitted changes under the source/tests directories are NOT mutated', $printed);
-        self::assertStringContainsString('src/Wip.php', $printed);
+        self::assertStringContainsString('Infection: auto diff mode — WARNING: uncommitted edits are in scope and mutated as they are on disk, so this verdict is not reproducible from committed history: src/Wip.php,src/Fresh.php,src/Committed.php', $printed);
         self::assertStringNotContainsString('REFUSED', $printed);
-        self::assertSame([$this->root . '/' . self::COMMITTED_SRC], \array_slice($this->factory->processes->lastSpec()->command, -1), 'the scope is still committed history only');
+        self::assertSame(
+            [$this->root . '/' . self::COMMITTED_SRC, $this->root . '/src/Wip.php', $this->root . '/src/Fresh.php'],
+            \array_slice($this->factory->processes->lastSpec()->command, -3),
+            'nothing changed locally is left out of the scope',
+        );
+    }
+
+    #[Test]
+    public function aChangedConfigurationFileRunsInFullAndSaysWhy(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['M', 'qaConfig/phpunit.xml'], ['M', self::COMMITTED_SRC]))
+            ->willSucceed()
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('Infection: full run — the change touches configuration every mutant depends on (qaConfig/phpunit.xml), which a diff run cannot judge.', $printed);
+        self::assertContains(self::FULL_FLOOR_ARG, $this->factory->processes->lastSpec()->command, 'the full run keeps the whole-codebase floors');
+        self::assertNotContains($this->root . '/' . self::COMMITTED_SRC, $this->factory->processes->lastSpec()->command);
+    }
+
+    #[Test]
+    public function anUncommittedConfigurationChangeInAutoModeRunsInFull(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::FEATURE_BRANCH)
+            ->willSucceed(self::ORIGIN_DEFAULT)
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
+            ->willSucceed(" M composer.lock\0")
+            ->willSucceed('')
+            ->willSucceed()
+        ;
+
+        $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
+
+        self::assertStringContainsString('configuration every mutant depends on (composer.lock)', $this->factory->output->fetch());
+        self::assertContains(self::FULL_FLOOR_ARG, $this->factory->processes->lastSpec()->command);
     }
 
     #[Test]
@@ -521,9 +567,8 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertCount(2, $this->factory->processes->specs);
-        self::assertStringContainsString("no committed PHP source change, and no changed test named after a source file, against 'origin/main'; there are no new mutants to check. SKIPPING.", $printed);
-        self::assertStringContainsString('A diff run does not check changes outside', $printed, 'a config-only change is not passed quietly');
-        self::assertStringContainsString('infectionDiffBase=full does.', $printed);
+        self::assertStringContainsString("no PHP source change, and no changed test named after a source file, against 'origin/main'; there are no new mutants to check. SKIPPING.", $printed);
+        self::assertStringNotContainsString('full run', $printed, 'only a change with nothing mutable skips; a configuration change runs in full');
     }
 
     #[Test]
@@ -537,8 +582,8 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertSame(
             [
-                'git status --porcelain -- ' . $this->root . '/src ' . $this->root . self::TESTS_DIR,
-                'git --no-pager diff origin/main...HEAD -z -M --name-status --diff-filter=AMRCD --relative -- ' . $this->root . self::SRC_DIR . ' ' . $this->root . self::TESTS_DIR,
+                'git status --porcelain=v1 -z --untracked-files=all -- ' . implode(' ', $this->pathspecs()),
+                'git --no-pager diff origin/main...HEAD -z -M --name-status --diff-filter=AMRCD --relative -- ' . implode(' ', $this->pathspecs()),
             ],
             $this->factory->processes->commandLines(),
             'with nothing to mutate, the lane must not spend a coverage run first',
@@ -575,6 +620,12 @@ final class InfectionToolTest extends TestCase
     private function tool(): InfectionTool
     {
         return new InfectionTool(environment: new EnvironmentReader([]));
+    }
+
+    /** @return list<string> what the lane's git status and git diff are restricted to */
+    private function pathspecs(): array
+    {
+        return [$this->root . self::SRC_DIR, $this->root . self::TESTS_DIR, $this->root . '/qaConfig', $this->root . '/composer.json', $this->root . '/composer.lock'];
     }
 
     /** @param list<string> ...$records `git diff -z --name-status` output for the given records */

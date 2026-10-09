@@ -39,11 +39,12 @@ use SplFileInfo;
  * default a branch is scoped to the files committed since its merge base
  * with the default branch, and the default branch, or a clone with no merge
  * base, runs in full. In diff mode the lane scopes mutation to the PHP files
- * committed since the base plus the sources the changed tests are named
- * after, and enforces the diff covered-MSI floor; an empty diff skips before
- * any coverage is generated. Uncommitted work under src/tests refuses an
- * explicit base and is reported, but not mutated, in auto mode. The phar
- * runs at low CPU priority.
+ * changed since the base plus the sources the changed tests are named after,
+ * uncovered code included, and holds both MSI figures to the diff floor; an
+ * empty diff skips before any coverage is generated. A change to the project
+ * configuration (qaConfig/, composer.json, composer.lock) runs in full.
+ * Uncommitted work refuses an explicit base; in auto mode it is mutated as it
+ * is on disk and named in a warning. The phar runs at low CPU priority.
  *
  * @internal
  */
@@ -182,22 +183,24 @@ final readonly class InfectionTool implements ToolInterface
     }
 
     /**
-     * Everything diff mode decides before coverage is paid for: the clean-tree
-     * check and the changed-file list. Returns the lane's result when it ends
-     * here (refused, git failed, nothing to mutate), otherwise the positional
-     * paths Infection mutates.
+     * Everything diff mode decides before coverage is paid for: the working
+     * tree, the changed-file list, and whether a changed configuration file
+     * forces the full run. Returns the lane's result when it ends here
+     * (refused, git failed, nothing to mutate), an empty list for the full
+     * run, otherwise the positional paths Infection mutates.
      *
      * @return list<string>|ToolResultDto
      */
     private function resolveDiffScope(ToolContext $context, string $diffBase, bool $strict): array|ToolResultDto
     {
-        $preflight = $this->checkTreeForDiffMode($context, $strict);
-        if ($preflight instanceof ToolResultDto) {
-            return $preflight;
+        $paths       = $context->config->paths;
+        $configPaths = [$paths->projectConfigDir, $paths->projectRoot . '/composer.json', $paths->projectRoot . '/composer.lock'];
+        $uncommitted = $this->uncommittedChanges($context, $strict, ...$configPaths);
+        if ($uncommitted instanceof ToolResultDto) {
+            return $uncommitted;
         }
 
-        $paths = $context->config->paths;
-        $diff  = $this->git($context, ...$this->diffFilter->gitDiffArguments($diffBase, $paths->srcDir, $paths->testsDir));
+        $diff = $this->git($context, ...$this->diffFilter->gitDiffArguments($diffBase, $paths->srcDir, $paths->testsDir, ...$configPaths));
         if (!$diff->succeeded()) {
             $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (exit %d) — cannot determine the changed files for diff mode.", $diffBase, $diff->exitCode));
             $context->writeln("           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first).");
@@ -206,14 +209,22 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::failed('Infection diff mode: git diff failed');
         }
 
-        $filter = $this->diffFilter->fromGitDiffOutput($diff->stdout, $paths->projectRoot, $paths->srcDir, $paths->testsDir, IgnoredPaths::of($context->config));
+        $filter = $this->diffFilter->fromGitDiffOutput($diff->stdout . $uncommitted, $paths->projectRoot, $paths->srcDir, $paths->testsDir, IgnoredPaths::of($context->config));
+        if ([] !== $filter->configChanges) {
+            $context->writeln(\sprintf(
+                'Infection: full run — the change touches configuration every mutant depends on (%s), which a diff run cannot judge.',
+                implode(',', array_unique($filter->configChanges)),
+            ));
+
+            return [];
+        }
+
         $this->reportUnmappedTests($context, ...$filter->unmappedTests);
         if ($filter->isEmpty()) {
-            $context->writeln(\sprintf("Infection: diff mode — no committed PHP source change, and no changed test named after a source file, against '%s'; there are no new mutants to check. SKIPPING.", $diffBase));
-            $context->writeln('           Nothing to mutate, so no coverage run is started. A diff run does not check changes outside');
-            $context->writeln('           src/ and tests/ (phpunit.xml, infection.json, composer.lock); infectionDiffBase=full does.');
+            $context->writeln(\sprintf("Infection: diff mode — no PHP source change, and no changed test named after a source file, against '%s'; there are no new mutants to check. SKIPPING.", $diffBase));
+            $context->writeln('           Nothing to mutate, so no coverage run is started.');
 
-            return ToolResultDto::skipped('no committed PHP source changes to mutate');
+            return ToolResultDto::skipped('no PHP source changes to mutate');
         }
 
         foreach ($filter->mirrored as $source => $test) {
@@ -243,17 +254,17 @@ final readonly class InfectionTool implements ToolInterface
     }
 
     /**
-     * Diff mode measures the COMMITTED change, so uncommitted work under
-     * src/tests is never in its scope. An explicit base refuses it: the
-     * verdict must be reproducible, and a dirty-tree run has been seen to
-     * under-report. Auto mode, the default, must not fail a run over local
-     * work in progress, so it names the uncommitted files as out of scope and
-     * carries on. Dirt elsewhere cannot affect mutation results and is ignored.
+     * Uncommitted work under the source, tests and configuration paths, as
+     * `-z --name-status` records to append to the committed diff. An explicit
+     * base refuses it: that verdict must be reproducible from history. Auto
+     * mode, the default, must neither fail a local run nor silently leave the
+     * work out, so it mutates the files as they are on disk and names every one
+     * in a warning. Dirt elsewhere cannot affect mutation results and is ignored.
      */
-    private function checkTreeForDiffMode(ToolContext $context, bool $strict): ?ToolResultDto
+    private function uncommittedChanges(ToolContext $context, bool $strict, string ...$configPaths): string|ToolResultDto
     {
         $paths  = $context->config->paths;
-        $status = $this->git($context, 'status', '--porcelain', '--', $paths->srcDir, $paths->testsDir);
+        $status = $this->git($context, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', $paths->srcDir, $paths->testsDir, ...array_values($configPaths));
         if (!$status->succeeded()) {
             $context->writeln("Infection: diff mode — 'git status' failed; cannot verify the working tree is clean.");
             $context->writeIdentifier(self::IDENTIFIER);
@@ -261,21 +272,20 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::failed('Infection diff mode: git status failed');
         }
 
-        $dirty = rtrim($status->stdout, "\n");
-        if ('' === $dirty) {
-            return null;
+        $dirty = $this->statusPaths($status->stdout);
+        if ([] === $dirty) {
+            return '';
         }
 
         if (!$strict) {
-            $context->writeln('Infection: auto diff mode — uncommitted changes under the source/tests directories are NOT mutated');
-            $context->writeln('           by this run (it reads committed history only); commit them to bring them into scope:');
-            $context->writeln($dirty);
+            $context->writeln('Infection: auto diff mode — WARNING: uncommitted edits are in scope and mutated as they are on disk, so this verdict is not reproducible from committed history: ' . implode(',', $dirty));
+            $context->writeln('           Commit them (a WIP commit is fine) for a result that matches what CI will see.');
 
-            return null;
+            return $this->diffFilter->nameStatusFromGitStatus($status->stdout);
         }
 
-        $context->writeln('Infection: diff mode REFUSED — uncommitted changes under the source/tests directories:');
-        $context->writeln($dirty);
+        $context->writeln('Infection: diff mode REFUSED — uncommitted changes under the source, tests or configuration paths:');
+        $context->writeln('           ' . implode(',', $dirty));
         $context->writeln('           A dirty-tree diff run can silently under-report (mutants for the uncommitted');
         $context->writeln('           code may never be generated), producing a false green. Commit the work first');
         $context->writeln('           (a WIP commit is fine), then re-run the diff lane against the committed state.');
@@ -324,6 +334,31 @@ final readonly class InfectionTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed(\sprintf('Infection (coverage generation) failed (phpunit exit %d)', $result->exitCode));
+    }
+
+    /**
+     * The paths `git status --porcelain=v1 -z` lists, a rename or copy by its
+     * new path (the record after it is the old one).
+     *
+     * @return list<string>
+     */
+    private function statusPaths(string $gitStatusOutput): array
+    {
+        $tokens = explode("\0", $gitStatusOutput);
+        $count  = \count($tokens);
+        $found  = [];
+        for ($index = 0; $index < $count; ++$index) {
+            if (\strlen($tokens[$index]) < 4) {
+                continue;
+            }
+
+            $found[] = substr($tokens[$index], 3);
+            if (str_contains('RC', ltrim(substr($tokens[$index], 0, 2))[0])) {
+                ++$index;
+            }
+        }
+
+        return $found;
     }
 
     private function git(ToolContext $context, string ...$args): ProcessResultDto

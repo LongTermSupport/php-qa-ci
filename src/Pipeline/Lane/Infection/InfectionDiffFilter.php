@@ -12,12 +12,15 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
  * Infection mutates.
  *
  * Input is the output of
- *   git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative -- <srcDir> <testsDir>
- * (see gitDiffArguments()). The three-dot diff lists only files changed on
- * this branch since the merge base, read from committed history alone, so
- * the scoping can neither be skewed by uncommitted work nor widened by a base
- * ref that has advanced. `-z` keeps unusual file names verbatim; `-M` reports
- * a moved file as a rename, whose new path is mutated.
+ *   git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative -- <srcDir> <testsDir> <configPaths>
+ * (see gitDiffArguments()), to which the lane may append uncommitted work in
+ * the same record form (nameStatusFromGitStatus()). The three-dot diff lists
+ * only files changed on this branch since the merge base, so the scope is not
+ * widened by a base ref that has advanced. `-z` keeps unusual file names
+ * verbatim; `-M` reports a moved file as a rename, whose new path is mutated.
+ *
+ * - A changed file outside the source and tests directories is one of the
+ *   configuration paths every mutant depends on, and is listed as such.
  *
  * - A source file added, modified, renamed or copied is mutated; a deleted
  *   one has nothing left to mutate.
@@ -36,24 +39,65 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
 final readonly class InfectionDiffFilter
 {
     /** @return list<string> the argv (after `git`) that produces the output this class parses */
-    public function gitDiffArguments(string $diffBase, string $srcDir, string $testsDir): array
+    public function gitDiffArguments(string $diffBase, string $srcDir, string $testsDir, string ...$configPaths): array
     {
-        return ['--no-pager', 'diff', $diffBase . '...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', $srcDir, $testsDir];
+        return ['--no-pager', 'diff', $diffBase . '...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', $srcDir, $testsDir, ...array_values($configPaths)];
+    }
+
+    /**
+     * `git status --porcelain=v1 -z` output as the `-z --name-status` records
+     * fromGitDiffOutput() reads, so uncommitted work is scoped by the same
+     * rules: untracked is added, a rename or copy keeps both paths.
+     */
+    public function nameStatusFromGitStatus(string $gitStatusOutput): string
+    {
+        $tokens  = explode("\0", $gitStatusOutput);
+        $count   = \count($tokens);
+        $records = '';
+        for ($index = 0; $index < $count; ++$index) {
+            $token = $tokens[$index];
+            if (\strlen($token) < 4) {
+                continue;
+            }
+
+            $codes = substr($token, 0, 2);
+            $path  = substr($token, 3);
+            $code  = '??' === $codes ? 'A' : substr(ltrim($codes), 0, 1);
+            if (('R' === $code || 'C' === $code) && $index + 1 < $count) {
+                ++$index;
+                $records .= $code . "\0" . $tokens[$index] . "\0" . $path . "\0";
+
+                continue;
+            }
+
+            $kept     = 'D' === $code || 'A' === $code;
+            $records .= ($kept ? $code : 'M') . "\0" . $path . "\0";
+        }
+
+        return $records;
     }
 
     public function fromGitDiffOutput(string $gitDiffOutput, string $cwd, string $srcDir, string $testsDir, IgnoredPaths $ignored): InfectionDiffFilterDto
     {
-        $mirror    = new TestSourceMirror($cwd, $srcDir, $testsDir);
-        $srcPrefix = $this->relative($srcDir, $cwd) . '/';
+        $mirror      = new TestSourceMirror($cwd, $srcDir, $testsDir);
+        $srcPrefix   = $this->relative($srcDir, $cwd) . '/';
+        $testsPrefix = $this->relative($testsDir, $cwd) . '/';
 
         $changed  = [];
         $mirrored = [];
         $unmapped = [];
+        $config   = [];
         foreach ($this->entries($gitDiffOutput) as [$status, $path, $previous]) {
             if (str_starts_with($path, $srcPrefix)) {
                 if ('D' !== $status && str_ends_with($path, '.php') && !$ignored->contains($cwd . '/' . $path)) {
                     $changed[$path] = true;
                 }
+
+                continue;
+            }
+
+            if (!str_starts_with($path, $testsPrefix)) {
+                $config[] = $path;
 
                 continue;
             }
@@ -74,6 +118,7 @@ final readonly class InfectionDiffFilter
             $relative,
             $mirrored,
             $unmapped,
+            $config,
         );
     }
 

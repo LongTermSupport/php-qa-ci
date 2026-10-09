@@ -31,6 +31,10 @@ final class InfectionDiffFilterTest extends TestCase
 
     private const string MIRRORING_TEST = 'tests/Small/Lane/ToolTest.php';
 
+    private const string SRC_SPEC = '/p/src';
+
+    private const string TESTS_SPEC = '/p/tests';
+
     private TempDir $project;
 
     private string $cwd;
@@ -50,9 +54,58 @@ final class InfectionDiffFilterTest extends TestCase
     #[Test]
     public function theGitDiffIsAThreeDotNulSeparatedRenameAwareDiffOfCommittedHistory(): void
     {
-        $args = new InfectionDiffFilter()->gitDiffArguments('origin/main', '/p/src', '/p/tests');
+        $args = new InfectionDiffFilter()->gitDiffArguments('origin/main', self::SRC_SPEC, self::TESTS_SPEC);
 
-        self::assertSame(['--no-pager', 'diff', 'origin/main...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', '/p/src', '/p/tests'], $args);
+        self::assertSame(['--no-pager', 'diff', 'origin/main...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', self::SRC_SPEC, self::TESTS_SPEC], $args);
+    }
+
+    #[Test]
+    public function theConfigurationPathsAreDiffedAlongsideTheSourceAndTests(): void
+    {
+        $args = new InfectionDiffFilter()->gitDiffArguments('origin/main', self::SRC_SPEC, self::TESTS_SPEC, '/p/qaConfig', '/p/composer.lock');
+
+        self::assertSame(['--', self::SRC_SPEC, self::TESTS_SPEC, '/p/qaConfig', '/p/composer.lock'], \array_slice($args, -5));
+    }
+
+    #[Test]
+    public function aChangedConfigurationFileIsReportedAsSuchAndMutatesNothing(): void
+    {
+        $filter = $this->filter($this->records(['M', 'qaConfig/phpunit.xml'], ['M', 'composer.lock'], ['M', self::COMMITTED]));
+
+        self::assertSame(['qaConfig/phpunit.xml', 'composer.lock'], $filter->configChanges);
+        self::assertSame([], $filter->unmappedTests, 'a configuration file is not a test file');
+        self::assertSame([self::COMMITTED], $filter->relativePaths);
+    }
+
+    #[Test]
+    public function aDiffOfSourceAndTestsAloneHasNoConfigurationChange(): void
+    {
+        self::assertSame([], $this->filter($this->records(['M', self::COMMITTED], ['M', self::MIRRORING_TEST]))->configChanges);
+    }
+
+    #[Test]
+    public function gitStatusRecordsBecomeNameStatusRecords(): void
+    {
+        $status = " M src/Edited.php\0?? src/New.php\0D  src/Gone.php\0R  src/Moved.php\0src/Old.php\0MM tests/Small/Lane/ToolTest.php\0";
+
+        self::assertSame(
+            $this->records(['M', 'src/Edited.php'], ['A', 'src/New.php'], ['D', 'src/Gone.php'], ['R', 'src/Old.php', 'src/Moved.php'], ['M', self::MIRRORING_TEST]),
+            new InfectionDiffFilter()->nameStatusFromGitStatus($status),
+        );
+    }
+
+    #[Test]
+    public function anEmptyGitStatusIsAnEmptyNameStatus(): void
+    {
+        self::assertSame('', new InfectionDiffFilter()->nameStatusFromGitStatus(''));
+    }
+
+    #[Test]
+    public function aWorkingTreeChangeIsScopedLikeACommittedOne(): void
+    {
+        $filter = $this->filter(new InfectionDiffFilter()->nameStatusFromGitStatus("?? src/New.php\0 D src/Gone.php\0"));
+
+        self::assertSame(['src/New.php'], $filter->relativePaths);
     }
 
     #[Test]

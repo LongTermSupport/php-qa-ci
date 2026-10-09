@@ -83,7 +83,7 @@ final readonly class InfectionDiffBaseResolver
                 return InfectionDiffBaseDto::fullRun(\sprintf('%sHEAD and %s share no merge base in this clone, so the history is incomplete (a shallow clone?); `git fetch --unshallow`, or `fetch-depth: 0` on actions/checkout, restores diff mode.', self::FULL_RUN, $ref));
             }
 
-            return InfectionDiffBaseDto::diff($base, false, \sprintf('Infection: auto diff mode — %s against %s (merge base %s), committed history only.', $subject, $ref, $base));
+            return InfectionDiffBaseDto::diff($base, false, \sprintf('Infection: auto diff mode — %s against %s (merge base %s).', $subject, $ref, $base));
         }
 
         return InfectionDiffBaseDto::fullRun(\sprintf('%1$sneither origin/%2$s nor %2$s is in this clone; `git fetch origin %2$s` restores diff mode.', self::FULL_RUN, $branch));
