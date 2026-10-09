@@ -33,7 +33,7 @@ final readonly class ForbidDeprecatedSerializableRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $className = null !== $node->name ? $node->name->name : 'anonymous';
+        $className = $node->name->name ?? 'anonymous';
 
         foreach ($node->implements as $interface) {
             $resolved = $scope->resolveName($interface);
