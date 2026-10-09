@@ -72,15 +72,11 @@ final readonly class InfectionFullRunTriggers
             return null;
         }
 
-        $contents = file_get_contents($phpunitConfig);
-        if (false === $contents) {
-            return null;
-        }
-
+        $contents  = \Safe\file_get_contents($phpunitConfig);
         $bootstrap = null;
         $seenRoot  = false;
         $parser    = xml_parser_create();
-        xml_parser_set_option($parser, \XML_OPTION_CASE_FOLDING, 0);
+        \Safe\xml_parser_set_option($parser, \XML_OPTION_CASE_FOLDING, 0);
         xml_set_element_handler(
             $parser,
             /** @param array<string, string> $attributes */

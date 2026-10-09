@@ -89,6 +89,16 @@ final class InfectionFullRunTriggersTest extends TestCase
     }
 
     #[Test]
+    public function aPhpunitXmlThatDoesNotExistIsStillATriggerButNamesNoBootstrap(): void
+    {
+        $missing  = $this->root . '/' . self::PHPUNIT_XML;
+        $triggers = $this->triggers($this->project->write(self::INFECTION_JSON, '{}'), $missing);
+
+        self::assertContains($missing, $triggers);
+        self::assertCount(7, $triggers);
+    }
+
+    #[Test]
     public function theShippedDefaultsInsideTheProjectAreTriggersAndTheirBootstrapResolvesAgainstThem(): void
     {
         $infection = $this->project->write('vendor/lts/php-qa-ci/configDefaults/generic/infection.json', '{}');
