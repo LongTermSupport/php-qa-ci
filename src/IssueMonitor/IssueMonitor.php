@@ -58,7 +58,7 @@ final class IssueMonitor
     }
 
     /**
-     * `bin/issue-monitor <owner/repo>`: poll until stopped. Events go to stdout,
+     * `scripts/issue-monitor <owner/repo>`: poll until stopped. Events go to stdout,
      * everything else to stderr; state lives in `untracked/issue-monitor/`.
      *
      * @param list<string> $argv
@@ -71,7 +71,7 @@ final class IssueMonitor
 
         $repository = $argv[1] ?? null;
         if (null === $repository || 1 !== \Safe\preg_match('#^[\w.-]+/[\w.-]+$#', $repository)) {
-            $log->writeln('usage: bin/issue-monitor <owner/repo>');
+            $log->writeln('usage: scripts/issue-monitor <owner/repo>');
 
             return 2;
         }
@@ -229,6 +229,9 @@ final class IssueMonitor
     {
         $flat = implode(' ', array_filter(\Safe\preg_split('/[\p{C}\s]+/u', $text, -1, \PREG_SPLIT_NO_EMPTY), \is_string(...)));
 
-        return mb_strlen($flat) > self::TITLE_LENGTH ? mb_substr($flat, 0, self::TITLE_LENGTH) . '…' : $flat;
+        // Cut at a character, not a byte, without needing ext-mbstring.
+        $matched = \Safe\preg_match('/^(.{' . self::TITLE_LENGTH . '}).+/us', $flat, $cut);
+
+        return 1 === $matched && isset($cut[1]) ? $cut[1] . '…' : $flat;
     }
 }

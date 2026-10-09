@@ -148,7 +148,7 @@ issue (Defence Before Fix). [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md) i
 
 ## The GitHub issue loop
 
-The session launched with `HOOKS_DAEMON_HOSTNAME=gh-sdlc` keeps `bin/issue-monitor` running under
+The session launched with `HOOKS_DAEMON_HOSTNAME=gh-sdlc` keeps `scripts/issue-monitor` running under
 the Monitor tool and works each new issue from an approved author through to a merged pull request.
 [CLAUDE/issue-sdlc.md](CLAUDE/issue-sdlc.md) is the procedure; the approved authors are listed once,
 in `.claude/hooks-daemon.yaml`.

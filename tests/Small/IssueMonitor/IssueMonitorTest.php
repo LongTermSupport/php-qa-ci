@@ -46,7 +46,7 @@ final class IssueMonitorTest extends TestCase
 
     private const string GITHUB_DOWN = 'HTTP 502';
 
-    private const string ENTRY_POINT = 'bin/issue-monitor';
+    private const string ENTRY_POINT = 'scripts/issue-monitor';
 
     private const string REPO = 'o/r';
 
@@ -220,7 +220,7 @@ final class IssueMonitorTest extends TestCase
     {
         self::assertSame(2, IssueMonitor::main($this->state->path, [self::ENTRY_POINT], $this->events, $this->log, polls: 0));
         self::assertSame(2, IssueMonitor::main($this->state->path, [self::ENTRY_POINT, 'not a repo'], $this->events, $this->log, polls: 0));
-        self::assertStringContainsString('usage: bin/issue-monitor <owner/repo>', $this->log->fetch());
+        self::assertStringContainsString('usage: ' . self::ENTRY_POINT . ' <owner/repo>', $this->log->fetch());
         self::assertSame('', $this->events->fetch());
     }
 

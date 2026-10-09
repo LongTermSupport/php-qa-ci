@@ -19,13 +19,15 @@ suggested fix is a hypothesis to check, not a patch to apply.
 
 ## The monitor, and the cron that keeps it armed
 
-[`bin/issue-monitor`](../bin/issue-monitor) polls GitHub every 60 seconds. It prints one line on
+[`scripts/issue-monitor`](../scripts/issue-monitor) polls GitHub every 60 seconds. It is this
+repository's own tooling, so it lives with the maintainer scripts rather than in `bin/`, which
+ships to consumers. It prints one line on
 stdout for each new issue: eligible, assigned to nobody, and filed after the monitor was first
 set up. The session runs it with the **Monitor** tool, so every line it prints arrives as a
 notification:
 
 ```text
-Monitor  command:     bin/issue-monitor LongTermSupport/php-qa-ci
+Monitor  command:     scripts/issue-monitor LongTermSupport/php-qa-ci
          description: new approved GitHub issues for php-qa-ci
          timeout_ms:  1800000
 ```

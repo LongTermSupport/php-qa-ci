@@ -10,7 +10,6 @@
 !/bin/hooks-daemon-full-qa-blocker
 !/bin/infection
 !/bin/infection-config-source-dirs-check
-!/bin/issue-monitor
 !/bin/lib-redirect-stub.inc.bash
 !/bin/managed-source
 !/bin/mdlinks

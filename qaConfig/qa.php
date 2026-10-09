@@ -83,10 +83,10 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     // branch targets (`^8.5` is 85), so it never moves and a breaking change
     // releases the next minor. A new PHP line is a new branch, not a release.
     ->withReleaseVersionPolicy(ReleaseVersionPolicy::lockedMajorFromPhpRequirement())
-    // Dead-code detection, dogfooded here first. Every PHP script under bin/
-    // is an entry point the detector would otherwise never see; bin/phpunit,
-    // bin/neon-lint and bin/php-parse are Composer proxies for packages and
-    // are not ours to analyse.
+    // Dead-code detection, dogfooded here first. Every PHP script under bin/,
+    // and scripts/issue-monitor, is an entry point the detector would otherwise
+    // never see; bin/phpunit, bin/neon-lint and bin/php-parse are Composer
+    // proxies for packages and are not ours to analyse.
     ->withDeadCodeDetection(true)
     ->withDeadCodeEntryPoints(
         'bin/arkitect-rule',
@@ -95,7 +95,6 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/config-template-ignorelist-check',
         'bin/hooks-daemon-full-qa-blocker',
         'bin/infection-config-source-dirs-check',
-        'bin/issue-monitor',
         'bin/managed-source',
         'bin/mdlinks',
         'bin/package-type-check',
@@ -109,5 +108,6 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/sensitive-parameter-usage',
         'bin/single-rule-report',
         'bin/version-pins-check',
+        'scripts/issue-monitor',
     )
 ;
