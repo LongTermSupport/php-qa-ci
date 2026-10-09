@@ -36,16 +36,22 @@ final class CommentOnlyChangeTest extends TestCase
 
         PHP;
 
+    private const string DOCBLOCK = '/** Adds. */';
+
+    private const string LINE_COMMENT = '// sum';
+
+    private const string ANNOTATED_DOCBLOCK = '/** @infection-ignore-all */';
+
     #[Test]
     public function aDocblockOnlyEditIsCommentOnly(): void
     {
-        self::assertTrue($this->commentOnly(str_replace('/** Adds. */', "/**\n * Adds two integers.\n *\n * @api\n */", self::BASE)));
+        self::assertTrue($this->commentOnly(str_replace(self::DOCBLOCK, "/**\n * Adds two integers.\n *\n * @api\n */", self::BASE)));
     }
 
     #[Test]
     public function aLineCommentEditIsCommentOnly(): void
     {
-        self::assertTrue($this->commentOnly(str_replace('// sum', '# the total', self::BASE)));
+        self::assertTrue($this->commentOnly(str_replace(self::LINE_COMMENT, '# the total', self::BASE)));
     }
 
     #[Test]
@@ -63,7 +69,7 @@ final class CommentOnlyChangeTest extends TestCase
     #[Test]
     public function anAttributeChangeIsCodeEvenBesideACommentChange(): void
     {
-        self::assertFalse($this->commentOnly(str_replace(['#[\Deprecated]', '/** Adds. */'], ['#[\Override]', '/** Adds them. */'], self::BASE)));
+        self::assertFalse($this->commentOnly(str_replace(['#[\Deprecated]', self::DOCBLOCK], ['#[\Override]', '/** Adds them. */'], self::BASE)));
     }
 
     #[Test]
@@ -83,9 +89,50 @@ final class CommentOnlyChangeTest extends TestCase
     }
 
     #[Test]
+    public function addingAnInfectionAnnotationInADocblockIsCode(): void
+    {
+        self::assertFalse($this->commentOnly(str_replace(self::DOCBLOCK, '/** Adds. @infection-ignore-all */', self::BASE)));
+    }
+
+    #[Test]
+    public function addingAnInfectionAnnotationInALineOrBlockCommentIsCode(): void
+    {
+        self::assertFalse($this->commentOnly(str_replace(self::LINE_COMMENT, '// @infection-ignore-all', self::BASE)));
+        self::assertFalse($this->commentOnly(str_replace(self::LINE_COMMENT, '/* @infection-ignore-all */', self::BASE)));
+    }
+
+    #[Test]
+    public function removingAnInfectionAnnotationIsCode(): void
+    {
+        self::assertFalse(new CommentOnlyChange()->isCommentOnly($this->annotatedClass(), self::BASE));
+    }
+
+    #[Test]
+    public function movingAnInfectionAnnotationIsCode(): void
+    {
+        $onMethod = str_replace('#[\Deprecated]', self::ANNOTATED_DOCBLOCK . "\n    #[\\Deprecated]", self::BASE);
+
+        self::assertFalse(new CommentOnlyChange()->isCommentOnly($this->annotatedClass(), $onMethod));
+    }
+
+    #[Test]
+    public function editingTheProseAroundAKeptAnnotationIsCommentOnly(): void
+    {
+        $annotated = str_replace(self::DOCBLOCK, "/**\n * Adds.\n *\n * @infection-ignore-all\n */", self::BASE);
+        $reworded  = str_replace(self::DOCBLOCK, "/**\n * Adds two integers.\n *\n * @api\n * @infection-ignore-all\n */", self::BASE);
+
+        self::assertTrue(new CommentOnlyChange()->isCommentOnly($annotated, $reworded));
+    }
+
+    #[Test]
     public function identicalContentIsCommentOnly(): void
     {
         self::assertTrue($this->commentOnly(self::BASE));
+    }
+
+    private function annotatedClass(): string
+    {
+        return str_replace(self::DOCBLOCK, self::ANNOTATED_DOCBLOCK, self::BASE);
     }
 
     private function commentOnly(string $after): bool

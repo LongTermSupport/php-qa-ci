@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Pipeline\Lane\Infection;
 use Closure;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
+use Safe\Exceptions\FilesystemException;
 
 /**
  * Parses the changed-file list of a diff-mode run into the positional paths
@@ -25,9 +26,11 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
  *   tests directory. Any other file outside the source and tests directories
  *   is left out quietly: it decides neither what is mutated nor whether a
  *   mutant is killed.
- * - A modified, renamed or copied PHP file whose change is only comments,
- *   docblocks or whitespace (CommentOnlyChange, against its base version read
- *   through `$baseContent`) is listed as comment-only and brings nothing in.
+ * - A modified or renamed PHP file whose change is only comments, docblocks
+ *   or whitespace (CommentOnlyChange, against its base version read through
+ *   `$baseContent`) is listed as comment-only and brings nothing in. An
+ *   Infection annotation is not a comment for this purpose; an added or
+ *   copied file, or an unreadable one, always counts.
  * - A source file added, modified, renamed or copied is mutated; a deleted
  *   one has nothing left to mutate.
  * - A test file changed in any way (deleted included) mutates the source it
@@ -187,22 +190,41 @@ final readonly class InfectionDiffFilter
     }
 
     /**
-     * A modified, renamed or copied PHP file whose tokens, comments and
-     * whitespace aside, match its base version (a rename's or copy's old
-     * path). An added file, or one either side of which cannot be read,
-     * counts as a change, so doubt always means mutating.
+     * A modified or renamed PHP file whose tokens, comments and whitespace
+     * aside, match its base version (a rename's old path). An added or copied
+     * file is new code and is never compared; one either side of which cannot
+     * be read counts as a change, so doubt always means mutating.
      *
      * @param Closure(string): ?string|null $baseContent
      */
     private function isCommentOnly(string $status, string $path, ?string $previous, string $cwd, ?Closure $baseContent): bool
     {
-        if (!$baseContent instanceof Closure || !\in_array($status, ['M', 'R', 'C'], true) || !str_ends_with($path, '.php') || !is_file($cwd . '/' . $path)) {
+        if (!$baseContent instanceof Closure || !\in_array($status, ['M', 'R'], true) || !str_ends_with($path, '.php')) {
+            return false;
+        }
+
+        $working = $this->workingContent($cwd . '/' . $path);
+        if (!\is_string($working)) {
             return false;
         }
 
         $base = $baseContent($previous ?? $path);
 
-        return null !== $base && $this->commentOnly->isCommentOnly($base, \Safe\file_get_contents($cwd . '/' . $path));
+        return null !== $base && $this->commentOnly->isCommentOnly($base, $working);
+    }
+
+    /** The file's content, or why it could not be read (absent, not a regular file, unreadable) */
+    private function workingContent(string $file): string|FilesystemException
+    {
+        if (!is_file($file) || !is_readable($file)) {
+            return new FilesystemException($file . ' is not a readable file');
+        }
+
+        try {
+            return \Safe\file_get_contents($file);
+        } catch (FilesystemException $filesystemException) {
+            return $filesystemException;
+        }
     }
 
     /**

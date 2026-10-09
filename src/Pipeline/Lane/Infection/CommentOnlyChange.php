@@ -18,11 +18,20 @@ use PhpToken;
  * into an open or close tag is trimmed. Source that does not parse is never
  * comment-only, so a doubtful file is mutated rather than skipped.
  *
+ * An Infection annotation (`@infection-ignore-all`, which Infection honours
+ * in any comment attached to a node) decides what is mutated, so it is code
+ * too: each one a comment carries is kept, in place, as a token of its own.
+ * The prose around it is still ignored.
+ *
  * @internal
  */
 final readonly class CommentOnlyChange
 {
     private const array IGNORED = [\T_COMMENT, \T_DOC_COMMENT, \T_WHITESPACE];
+
+    private const array COMMENTS = [\T_COMMENT, \T_DOC_COMMENT];
+
+    private const string ANNOTATION = '/@infection[\w-]*/';
 
     public function isCommentOnly(string $before, string $after): bool
     {
@@ -46,6 +55,12 @@ final readonly class CommentOnlyChange
 
         $significant = [];
         foreach ($tokens as $token) {
+            if ($token->is(self::COMMENTS) && 0 < \Safe\preg_match_all(self::ANNOTATION, $token->text, $annotations)) {
+                foreach ($annotations[0] as $annotation) {
+                    $significant[] = 'annotation:' . $annotation;
+                }
+            }
+
             if ($token->is(self::IGNORED)) {
                 continue;
             }

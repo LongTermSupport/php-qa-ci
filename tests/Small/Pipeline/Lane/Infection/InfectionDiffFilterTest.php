@@ -157,6 +157,37 @@ final class InfectionDiffFilterTest extends TestCase
     }
 
     #[Test]
+    public function aCopiedFileAlwaysCountsLikeAnAddedOne(): void
+    {
+        $this->project->write(self::ADDED, self::CODE_DOCUMENTED);
+        $filter = $this->filter($this->records(['C075', self::COMMITTED, self::ADDED]), base: $this->base([self::COMMITTED => self::CODE]));
+
+        self::assertSame([self::ADDED], $filter->relativePaths, 'a copy is new code, never compared with its source');
+        self::assertSame([], $filter->commentOnly);
+    }
+
+    #[Test]
+    public function aWorkingFileThatCannotBeReadCounts(): void
+    {
+        $missing = $this->filter($this->records(['M', self::COMMITTED]), base: $this->base([self::COMMITTED => self::CODE]));
+        $this->project->write(self::ADDED . '/inside.txt', 'a directory where the file should be');
+        $directory = $this->filter($this->records(['M', self::ADDED]), base: $this->base([self::ADDED => self::CODE]));
+
+        self::assertSame([self::COMMITTED], $missing->relativePaths, 'an unreadable working file is mutated, never a crash');
+        self::assertSame([self::ADDED], $directory->relativePaths);
+    }
+
+    #[Test]
+    public function anInfectionAnnotationChangeIsMutated(): void
+    {
+        $this->project->write(self::COMMITTED, str_replace('/** A committed class. */', '/** @infection-ignore-all */', self::CODE_DOCUMENTED));
+        $filter = $this->filter($this->records(['M', self::COMMITTED]), base: $this->base([self::COMMITTED => self::CODE]));
+
+        self::assertSame([self::COMMITTED], $filter->relativePaths);
+        self::assertSame([], $filter->commentOnly);
+    }
+
+    #[Test]
     public function aCommentOnlyTestChangeBringsInNothing(): void
     {
         $this->project->write(self::MIRRORING_TEST, self::CODE_DOCUMENTED);
