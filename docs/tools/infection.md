@@ -12,11 +12,11 @@ A full run of every source file takes hours on a real project, so by default a b
 only to what it changed. `infectionDiffBase` (or `withInfectionDiffBase()` /
 `withInfectionFullRun()` in `qaConfig/qa.php`) chooses:
 
-| Setting                                                    | Scope                                                                                                                                   |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| unset, `auto`, `withInfectionDiffBase(null)` (the default) | On any branch but the default one: the files committed since the merge base with the default branch. On the default branch: everything. |
-| `full`, `withInfectionFullRun()`                           | Everything, on every branch.                                                                                                            |
-| a git ref, `withInfectionDiffBase('origin/main')`          | The files committed since that ref.                                                                                                     |
+| Setting                                                    | Scope                                                                                                                                 |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| unset, `auto`, `withInfectionDiffBase(null)` (the default) | On any branch but the default one: the files changed since the merge base with the default branch. On the default branch: everything. |
+| `full`, `withInfectionFullRun()`                           | Everything, on every branch.                                                                                                          |
+| a git ref, `withInfectionDiffBase('origin/main')`          | The files committed since that ref.                                                                                                   |
 
 Auto mode takes the default branch from the same detector as the branchNamePolicy lane
 (`origin/HEAD`, else `git ls-remote --symref origin HEAD`), and the merge base with
@@ -27,9 +27,10 @@ a shallow clone with no merge base) the run is full. The first line the lane pri
 says which scope ran and, for a full run in auto mode, why:
 
 ```text
-Infection: auto diff mode — branch 'feature/x' against origin/main (merge base 1a2b3c4), committed history only.
+Infection: auto diff mode — branch 'feature/x' against origin/main (merge base 1a2b3c4).
 Infection: full run — auto diff mode does not apply: on the default branch 'main'.
 Infection: full run — auto diff mode does not apply: HEAD and origin/main share no merge base in this clone, ...
+Infection: full run — the change touches configuration every mutant depends on (composer.lock), which a diff run cannot judge.
 ```
 
 In CI, check out with `fetch-depth: 0` (the shipped workflow templates do), or every run is
@@ -45,13 +46,21 @@ A diff run mutates:
   changed test-directory file named after no source (support code, fixtures) is listed in the
   output as not checked.
 
-It reads committed history only. Uncommitted work under `src/` or `tests/` is outside its
-scope: an explicit base refuses to run with any, so its verdict is reproducible; auto mode
-lists the uncommitted files as not mutated and carries on, so local work in progress never
-fails a run. With nothing to mutate the lane skips before any coverage run and says so.
-Changes outside `src/` and `tests/` (`phpunit.xml`, `infection.json`, `composer.lock`) are
-not checked by a diff run; when one could change every mutant's outcome, run with
-`infectionDiffBase=full`.
+A change to the configuration every mutant depends on — anything under `qaConfig/`
+(`phpunit.xml`, `infection.json`, ...), `composer.json` or `composer.lock` — can change the
+outcome of a mutant in any file, so it turns the run into a full one, and the lane prints
+which files caused it. With nothing to mutate the lane skips before any coverage run and says
+so.
+
+Uncommitted work under `src/`, `tests/` or the configuration paths, untracked files included,
+is treated differently by the two diff modes:
+
+- **Auto mode** mutates it as it is on disk, alongside the committed change, and prints a
+  `WARNING` naming every such file: that verdict cannot be reproduced from committed history,
+  so commit (a WIP commit will do) for the result CI will see. Local work in progress never
+  fails the run on this account, and an uncommitted configuration change makes it full.
+- **An explicit base** refuses to run, listing the files, so its verdict is always the one
+  committed history gives.
 
 ## Configuration
 
@@ -85,7 +94,7 @@ Here are the environment variables that you might decide to override:
 - **Minimum MSI Percentage** `mutationScoreIndicator`: The minimum [MSI](https://infection.github.io/guide/#Mutation-Score-Indicator-MSI) required for PHPQA to pass
 - **Minimum Covered MSI Percentage** `coveredCodeMSI`: The minimum [covered MSI](https://infection.github.io/guide/#Covered-Code-Mutation-Score-Indicator) level required for PHPQA to pass
 - **Scope** `infectionDiffBase`: unset or `auto` (the default), `full`, or a git ref; see [What is mutated](#what-is-mutated)
-- **Diff floor** `infectionDiffCoveredMsi`: the covered-MSI floor of a diff run; defaults to `coveredCodeMSI`
+- **Diff floor** `infectionDiffCoveredMsi`: the floor of a diff run, for both its MSI and its covered MSI; defaults to `coveredCodeMSI`
 
 #### Minimum Mutation Score Indicators
 
@@ -110,7 +119,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
 
 You can see that this is being done in the phpqa project itself in its own [qaConfig/qa.php](./../../qaConfig/qa.php). For a single run the `mutationScoreIndicator` and `coveredCodeMSI` environment variables still work.
 
-A diff run holds the changed files to the covered-MSI floor above unless given its own (`infectionDiffCoveredMsi`, or the second argument of `withInfectionDiffBase()`). It has no separate MSI floor: Infection mutates only covered code, so a run's MSI and covered MSI are the same number, and code no test runs is the coverage report's finding rather than this lane's. Changed files with no mutable code (an interface, a DTO of promoted properties) generate no mutant; Infection says so and the run passes rather than scoring 0%. Both kinds of run write the same log files, `var/qa/infection/log.txt` and `summary-log.txt`.
+A diff run holds the changed files to one floor, the covered-MSI floor above unless given its own (`infectionDiffCoveredMsi`, or the second argument of `withInfectionDiffBase()`), applied to both scores. It mutates uncovered code too (`--with-uncovered`), so a mutant in a line no test runs counts as escaped: a changed file with no test fails its MSI floor rather than passing unseen. Its covered MSI is the score of the covered mutants alone, so the two numbers differ exactly when the change has uncovered lines. Changed files with no mutable code at all (an interface, constants, a DTO of promoted properties) generate no mutant; Infection says so and the run passes rather than scoring 0%. Both kinds of run write the same log files, `var/qa/infection/log.txt` and `summary-log.txt`.
 
 Every floor must be below 100: the configuration refuses 100 or more. Real code has equivalent mutants, mutations no test can tell from the original, so a 100% floor is met only by suppressing mutants or contorting code. 90 to 95 is a healthy gate.
 
@@ -144,7 +153,7 @@ The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infecti
 
 1. Without Xdebug there is no coverage, so the lane skips.
 2. The scope is decided and printed (see [What is mutated](#what-is-mutated)).
-3. A diff run checks `git status --porcelain -- src tests`: an explicit base refuses a dirty tree; auto mode lists it as not mutated.
-4. A diff run scopes mutation to `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative -- src tests`, passed to Infection as positional absolute paths. An empty list skips before any coverage is generated, so a docs-only or config-only change costs no test run; a failing `git diff` fails.
+3. A diff run checks `git status --porcelain=v1 -z --untracked-files=all` over `src`, `tests`, `qaConfig`, `composer.json` and `composer.lock`: an explicit base refuses a dirty tree; auto mode adds the uncommitted files to the change and names them in a warning.
+4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A configuration file in it makes the run full. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
 5. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
-6. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--min-covered-msi=<infectionDiffCoveredMsi> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
+6. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
