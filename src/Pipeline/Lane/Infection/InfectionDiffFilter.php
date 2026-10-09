@@ -28,9 +28,10 @@ use Safe\Exceptions\FilesystemException;
  *   mutant is killed.
  * - A modified or renamed PHP file whose change is only comments, docblocks
  *   or whitespace (CommentOnlyChange, against its base version read through
- *   `$baseContent`) is listed as comment-only and brings nothing in. An
- *   Infection annotation is not a comment for this purpose; an added or
- *   copied file, or an unreadable one, always counts.
+ *   `$baseContent`) is listed as comment-only and brings nothing in. In a
+ *   file with a comment carrying an Infection or coverage directive, any
+ *   comment change counts; an added or copied file, or an unreadable one,
+ *   always counts.
  * - A source file added, modified, renamed or copied is mutated; a deleted
  *   one has nothing left to mutate.
  * - A test file changed in any way (deleted included) mutates the source it

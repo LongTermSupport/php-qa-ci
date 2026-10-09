@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Infection;
 
 use LTS\PHPQA\Pipeline\Lane\Infection\CommentOnlyChange;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -40,9 +41,13 @@ final class CommentOnlyChangeTest extends TestCase
 
     private const string LINE_COMMENT = '// sum';
 
-    private const string ANNOTATED_DOCBLOCK = '/** @infection-ignore-all */';
+    private const string RETURN = "        return \$a + \$b;\n";
 
-    private const string ATTRIBUTE = '#[\Deprecated]';
+    private const string IGNORE_LINE = '@codeCoverageIgnore';
+
+    private const string STATEMENT = 'return $a + $b;';
+
+    private const string SLASHED_IGNORE = '// @codeCoverageIgnore';
 
     #[Test]
     public function aDocblockOnlyEditIsCommentOnly(): void
@@ -59,19 +64,19 @@ final class CommentOnlyChangeTest extends TestCase
     #[Test]
     public function aWhitespaceOnlyReformatIsCommentOnly(): void
     {
-        self::assertTrue($this->commentOnly(str_replace(['return $a + $b;', "<?php\n"], ["return\n            \$a+\$b ;", '<?php '], self::BASE)));
+        self::assertTrue($this->commentOnly(str_replace([self::STATEMENT, "<?php\n"], ["return\n            \$a+\$b ;", '<?php '], self::BASE)));
     }
 
     #[Test]
     public function anAddedStatementIsCode(): void
     {
-        self::assertFalse($this->commentOnly(str_replace('return $a + $b;', "\$a++;\n        return \$a + \$b;", self::BASE)));
+        self::assertFalse($this->commentOnly(str_replace(self::STATEMENT, "\$a++;\n        return \$a + \$b;", self::BASE)));
     }
 
     #[Test]
     public function anAttributeChangeIsCodeEvenBesideACommentChange(): void
     {
-        self::assertFalse($this->commentOnly(str_replace([self::ATTRIBUTE, self::DOCBLOCK], ['#[\Override]', '/** Adds them. */'], self::BASE)));
+        self::assertFalse($this->commentOnly(str_replace(['#[\Deprecated]', self::DOCBLOCK], ['#[\Override]', '/** Adds them. */'], self::BASE)));
     }
 
     #[Test]
@@ -91,102 +96,79 @@ final class CommentOnlyChangeTest extends TestCase
     }
 
     #[Test]
-    public function addingAnInfectionAnnotationInADocblockIsCode(): void
-    {
-        self::assertFalse($this->commentOnly(str_replace(self::DOCBLOCK, '/** Adds. @infection-ignore-all */', self::BASE)));
-    }
-
-    #[Test]
-    public function addingAnInfectionAnnotationInALineOrBlockCommentIsCode(): void
-    {
-        self::assertFalse($this->commentOnly(str_replace(self::LINE_COMMENT, '// @infection-ignore-all', self::BASE)));
-        self::assertFalse($this->commentOnly(str_replace(self::LINE_COMMENT, '/* @infection-ignore-all */', self::BASE)));
-    }
-
-    #[Test]
-    public function removingAnInfectionAnnotationIsCode(): void
-    {
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($this->annotatedClass(), self::BASE));
-    }
-
-    #[Test]
-    public function movingAnInfectionAnnotationIsCode(): void
-    {
-        $onMethod = str_replace(self::ATTRIBUTE, self::ANNOTATED_DOCBLOCK . "\n    " . self::ATTRIBUTE, self::BASE);
-
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($this->annotatedClass(), $onMethod));
-    }
-
-    #[Test]
-    public function editingTheProseAroundAKeptAnnotationIsCommentOnly(): void
-    {
-        $annotated = str_replace(self::DOCBLOCK, "/**\n * Adds.\n *\n * @infection-ignore-all\n */", self::BASE);
-        $reworded  = str_replace(self::DOCBLOCK, "/**\n * Adds two integers.\n *\n * @api\n * @infection-ignore-all\n */", self::BASE);
-
-        self::assertTrue(new CommentOnlyChange()->isCommentOnly($annotated, $reworded));
-    }
-
-    #[Test]
-    public function addingOrRemovingACoverageIgnoreAnnotationIsCode(): void
-    {
-        $lineComment = str_replace(self::LINE_COMMENT, '// @codeCoverageIgnore', self::BASE);
-        $docblock    = str_replace(self::DOCBLOCK, '/** @codeCoverageIgnore */', self::BASE);
-
-        self::assertFalse($this->commentOnly($lineComment));
-        self::assertFalse($this->commentOnly($docblock));
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($lineComment, self::BASE));
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($docblock, self::BASE));
-    }
-
-    #[Test]
-    public function aCoverageIgnoreRangeInLineCommentsOrDocblocksIsCode(): void
-    {
-        $range = static fn (string $start, string $end): string => str_replace('return $a + $b; // sum', $start . "\n        return \$a + \$b;\n        " . $end, self::BASE);
-
-        self::assertFalse($this->commentOnly($range('// @codeCoverageIgnoreStart', '// @codeCoverageIgnoreEnd')));
-        self::assertFalse($this->commentOnly($range('/** @codeCoverageIgnoreStart */', '/** @codeCoverageIgnoreEnd */')));
-    }
-
-    #[Test]
-    public function aFileCarryingALineBasedCoverageAnnotationIsNeverCommentOnly(): void
-    {
-        $annotated = str_replace(self::LINE_COMMENT, '// @codeCoverageIgnore', self::BASE);
-        $moved     = str_replace('return $a + $b; // @codeCoverageIgnore', "// @codeCoverageIgnore\n        return \$a + \$b;", $annotated);
-
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($annotated, $moved), 'the annotation ignores the line it is on, so moving it moves what is ignored');
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($annotated, str_replace(self::DOCBLOCK, "/**\n * Adds.\n */", $annotated)), 'shifting the lines may shift what is ignored');
-        self::assertTrue(new CommentOnlyChange()->isCommentOnly($annotated, str_replace(self::DOCBLOCK, '/** Adds them. */', $annotated)), 'every token on the same line, so the same code is ignored');
-    }
-
-    #[Test]
-    public function addingRemovingOrMovingADeprecatedTagIsCode(): void
-    {
-        $onClass  = str_replace(self::DOCBLOCK, '/** @deprecated */', self::BASE);
-        $onMethod = str_replace(self::ATTRIBUTE, "/** @deprecated */\n    " . self::ATTRIBUTE, self::BASE);
-
-        self::assertFalse($this->commentOnly($onClass));
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($onClass, self::BASE));
-        self::assertFalse(new CommentOnlyChange()->isCommentOnly($onClass, str_replace(self::DOCBLOCK, '', $onMethod)));
-    }
-
-    #[Test]
-    public function editingTheProseAroundAKeptDeprecatedTagIsCommentOnly(): void
-    {
-        $before = str_replace(self::DOCBLOCK, "/**\n * Adds.\n *\n * @deprecated\n */", self::BASE);
-        $after  = str_replace(self::DOCBLOCK, "/**\n * Adds two integers.\n *\n * @deprecated use Summer\n */", self::BASE);
-
-        self::assertTrue(new CommentOnlyChange()->isCommentOnly($before, $after));
-    }
-
-    #[Test]
     public function identicalContentIsCommentOnly(): void
     {
         self::assertTrue($this->commentOnly(self::BASE));
     }
 
-    private function annotatedClass(): string
+    #[Test]
+    #[DataProvider('directives')]
+    public function addingOrRemovingADirectiveInAnyCommentFormIsCode(string $directive): void
     {
-        return str_replace(self::DOCBLOCK, self::ANNOTATED_DOCBLOCK, self::BASE);
+        foreach ([\sprintf('/** %s */', $directive), \sprintf('/* %s */', $directive), '// ' . $directive, '# ' . $directive] as $comment) {
+            $annotated = str_replace(self::LINE_COMMENT, $comment, self::BASE);
+
+            self::assertFalse($this->commentOnly($annotated), 'added: ' . $comment);
+            self::assertFalse(new CommentOnlyChange()->isCommentOnly($annotated, self::BASE), 'removed: ' . $comment);
+        }
+    }
+
+    #[Test]
+    #[DataProvider('directives')]
+    public function anyCommentEditInAFileCarryingADirectiveIsCode(string $directive): void
+    {
+        $annotated = str_replace(self::DOCBLOCK, \sprintf('/** Adds. %s */', $directive), self::BASE);
+
+        self::assertFalse(new CommentOnlyChange()->isCommentOnly($annotated, str_replace(self::LINE_COMMENT, '// the total', $annotated)), 'an unrelated comment');
+        self::assertFalse(new CommentOnlyChange()->isCommentOnly($annotated, str_replace('Adds.', 'Sums.', $annotated)), 'the prose beside the directive');
+        self::assertFalse(new CommentOnlyChange()->isCommentOnly($annotated, str_replace(self::STATEMENT, "return \$a\n            + \$b;", $annotated)), 'a reformat that moves code to another line');
+        self::assertTrue(new CommentOnlyChange()->isCommentOnly($annotated, $annotated . "\n"), 'trailing whitespace moves no token');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function directives(): iterable
+    {
+        yield 'infection' => ['@infection-ignore-all'];
+        yield 'coverage ignore' => [self::IGNORE_LINE];
+        yield 'coverage ignore start' => ['@codeCoverageIgnoreStart'];
+        yield 'coverage ignore end' => ['@codeCoverageIgnoreEnd'];
+        yield 'deprecated' => ['@deprecated'];
+    }
+
+    #[Test]
+    #[DataProvider('commentFormChanges')]
+    public function changingTheFormOrPlaceOfADirectiveCommentIsCode(string $before, string $after): void
+    {
+        self::assertFalse(new CommentOnlyChange()->isCommentOnly($before, $after));
+    }
+
+    /** @return iterable<string, array{string, string}> the probe cases where the comment form, not only the directive, decides what php-code-coverage ignores */
+    public static function commentFormChanges(): iterable
+    {
+        $method = static fn (string $head, string $body): string => "<?php\n\ndeclare(strict_types=1);\n\nfinal class Summer\n{\n" . $head . "    public function sum(int \$a, int \$b): int\n    {\n" . $body . "    }\n}\n";
+        $line   = static fn (string $comment): string => $method('', '        return $a + $b; ' . $comment . "\n");
+
+        yield 'exact line annotation gains a reason' => [$line(self::SLASHED_IGNORE), $line(self::SLASHED_IGNORE . ' unreachable')];
+        yield 'line annotation loses its reason' => [$line(self::SLASHED_IGNORE . ' unreachable'), $line(self::SLASHED_IGNORE)];
+        yield 'hash to slashes' => [$line('# @codeCoverageIgnore'), $line(self::SLASHED_IGNORE)];
+        yield 'block to slashes' => [$line('/* @codeCoverageIgnore */'), $line(self::SLASHED_IGNORE)];
+        yield 'start/end slashes to hash' => [
+            $method('', "        // @codeCoverageIgnoreStart\n" . self::RETURN . "        // @codeCoverageIgnoreEnd\n"),
+            $method('', "        # @codeCoverageIgnoreStart\n" . self::RETURN . "        # @codeCoverageIgnoreEnd\n"),
+        ];
+        yield 'method docblock to block comment' => [$method("    /** @codeCoverageIgnore */\n", self::RETURN), $method("    /* @codeCoverageIgnore */\n", self::RETURN)];
+        yield 'method docblock to line comment' => [$method("    /** @codeCoverageIgnore */\n", self::RETURN), $method("    // @codeCoverageIgnore\n", self::RETURN)];
+        yield 'two docblocks on one line swapped' => [$method("    /** @codeCoverageIgnore */ /** Adds. */\n", self::RETURN), $method("    /** Adds. */ /** @codeCoverageIgnore */\n", self::RETURN)];
+        yield 'deprecated docblock to block comment' => [$method("    /** @deprecated */\n", self::RETURN), $method("    /* @deprecated */\n", self::RETURN)];
+        yield 'deprecated docblocks swapped' => [$method("    /** @deprecated */\n    /** Adds. */\n", self::RETURN), $method("    /** Adds. */\n    /** @deprecated */\n", self::RETURN)];
+    }
+
+    #[Test]
+    public function aDirectiveInsideAStringDoesNotMarkTheFile(): void
+    {
+        $code = str_replace(self::STATEMENT, "return \$a + \$b + strlen('" . self::IGNORE_LINE . "');", self::BASE);
+
+        self::assertTrue(new CommentOnlyChange()->isCommentOnly($code, str_replace(self::DOCBLOCK, "/**\n * Adds.\n */", $code)));
     }
 
     private function commentOnly(string $after): bool
