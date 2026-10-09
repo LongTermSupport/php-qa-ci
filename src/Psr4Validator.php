@@ -171,8 +171,6 @@ final class Psr4Validator
 
         return new class($iterator) extends SplHeap {
             /**
-             *  constructor.
-             *
              * @param RecursiveIteratorIterator<RecursiveDirectoryIterator> $iterator
              */
             public function __construct(RecursiveIteratorIterator $iterator)

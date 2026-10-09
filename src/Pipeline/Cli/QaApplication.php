@@ -13,6 +13,7 @@ use LTS\PHPQA\Pipeline\Config\PlatformDetector;
 use LTS\PHPQA\Pipeline\Config\ProjectConfigLoader;
 use LTS\PHPQA\Pipeline\Config\ProjectPathsResolver;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
+use LTS\PHPQA\Pipeline\Config\XdebugJitAdvisory;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\LogArchiver;
@@ -182,6 +183,10 @@ final readonly class QaApplication
             $decoration->writeln('Xdebug is enabled in ' . (false === $xdebugMode || '' === $xdebugMode ? 'default' : $xdebugMode) . ' mode');
         } else {
             $decoration->writeln('Xdebug is not enabled - infection and coverage not available');
+        }
+
+        foreach (XdebugJitAdvisory::lines($xdebug, $xdebug ? $php->jitSettings() : '') as $line) {
+            $decoration->writeln($line);
         }
 
         foreach (OpcacheDefects::advisory($php->version(), $php->opcacheSettings()) as $line) {

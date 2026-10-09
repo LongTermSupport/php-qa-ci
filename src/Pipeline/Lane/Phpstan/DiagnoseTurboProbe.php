@@ -42,8 +42,7 @@ final readonly class DiagnoseTurboProbe implements TurboProbeInterface
     private function shippedForHost(string $pharDir): bool
     {
         $manifest = TurboManifest::fromJson(\Safe\file_get_contents($pharDir . '/' . basename(TurboManifest::PATH)));
-        $asset    = ($this->platform ?? TurboPlatform::fromRuntime())->assetName($manifest->phpstanVersion);
 
-        return null !== $asset && null !== $manifest->digestFor($asset);
+        return $manifest->pinsBuildFor($this->platform ?? TurboPlatform::fromRuntime());
     }
 }

@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Large\Infection;
 
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig;
+use LTS\PHPQA\Tests\Support\ChildEnvironment;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
@@ -148,7 +149,7 @@ final class IgnoredPathsSourceCollectionTest extends TestCase
             \Safe\realpath(self::PHAR),
             $configPath,
             \Safe\realpath(self::FIXTURE . '/src'),
-        ]);
+        ], null, ChildEnvironment::withoutXdebug());
         $process->run();
         self::assertTrue($process->isSuccessful(), $process->getOutput() . $process->getErrorOutput());
 

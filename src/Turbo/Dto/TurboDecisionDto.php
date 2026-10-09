@@ -7,21 +7,20 @@ namespace LTS\PHPQA\Turbo\Dto;
 use LTS\PHPQA\Turbo\TurboActionEnum;
 
 /**
- * One decision about the Turbo binary: what to do, and for a fetch which asset and digest.
+ * One decision about the Turbo files: what to do, and for a fetch which files and digests.
  *
  * @internal
  */
 final readonly class TurboDecisionDto
 {
     /**
-     * @param string|null $asset  the release asset to fetch; only set for TurboActionEnum::Fetch
-     * @param string|null $digest its SHA-256; only set for TurboActionEnum::Fetch
+     * @param array<string, string> $files path under `turbo-ext/` => SHA-256, in the order to place them;
+     *                                     only set for TurboActionEnum::Fetch
      */
     public function __construct(
         public TurboActionEnum $action,
         public string $message,
-        public ?string $asset = null,
-        public ?string $digest = null,
+        public array $files = [],
     ) {
     }
 
@@ -30,9 +29,10 @@ final readonly class TurboDecisionDto
         return new self(TurboActionEnum::Ready, $message);
     }
 
-    public static function fetch(string $asset, string $digest, string $message): self
+    /** @param array<string, string> $files path under `turbo-ext/` => SHA-256 */
+    public static function fetch(array $files, string $message): self
     {
-        return new self(TurboActionEnum::Fetch, $message, $asset, $digest);
+        return new self(TurboActionEnum::Fetch, $message, $files);
     }
 
     public static function unsupported(string $message): self

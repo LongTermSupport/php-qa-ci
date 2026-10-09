@@ -103,6 +103,16 @@ final readonly class PhpInvoker
     }
 
     /**
+     * The JIT ini the configured binary holds, as `enable_cli|jit|jit_buffer_size`,
+     * for XdebugJitAdvisory to judge. A binary that cannot answer yields text
+     * that advisory reads as "JIT not on".
+     */
+    public function jitSettings(): string
+    {
+        return trim($this->probe('echo ini_get("opcache.enable_cli"), "|", ini_get("opcache.jit"), "|", ini_get("opcache.jit_buffer_size");'));
+    }
+
+    /**
      * What the configured binary reports about OPcache, in one probe. An
      * unreadable answer reads as "not loaded": the callers only ever use this
      * to decide whether to warn or to compile, and neither is worth guessing at.

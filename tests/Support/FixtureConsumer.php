@@ -62,7 +62,7 @@ final readonly class FixtureConsumer
         return new Process(
             ['php', $this->dir->path . '/' . self::INSTALLED_LIBRARY . '/bin/qa', ...$args],
             $this->dir->path,
-            ['CI' => 'true', ...$env],
+            ChildEnvironment::withoutXdebug(['CI' => 'true', ...$env]),
             null,
             120,
         );
