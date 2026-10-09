@@ -94,6 +94,8 @@ disables Turbo. Turbo also uses more memory.
   (`f324011`) after two verifications. Round 1 found a reinstall rewriting the mapped binary in
   place (red `a7b6835`, fix `ad93c26`). A later deadCode run found forked workers sharing the
   detector PHAR, which was #82 part 2 (red `81883eb`, fix `ea343e6`). Follow-ups: #84, #85, #86.
+  #82 part 1, the lanes reading a PHPStan run that found nothing as findings, merged in #88
+  (`2cf8df2`) after three verification rounds; its non-blocking notes are #89.
 - [x] ✅ **Task 3.3**: A parity defence: the shipped `turbo-ext` version must be the one the shipped
   phar expects. `PharToolsVerifier` refuses a missing manifest or one for another PHPStan version.
   Red `88d5b99`, fix `455b841`. The installer refuses the same mismatch at install time.
@@ -109,7 +111,9 @@ disables Turbo. Turbo also uses more memory.
 ### Phase 4: release and roll-out
 
 - [ ] ⬜ **Task 4.1**: Changelog entries (PHPStan 2.3.0, with new findings expected; Turbo on by
-  default, with its memory note), then the release pull request through the normal gate.
+  default, with its memory note), then the release pull request through the normal gate. PHPStan
+  2.3.0 shipped in 85.5.0. The Turbo entry under Unreleased carries the memory note. The release
+  pull request (#80) is open; merging it is the Owner's.
 - [ ] ⬜ **Task 4.2**: Confirm Turbo enabled in at least one real client project's `phpstan` lane
   after it updates, and record the evidence in the journal.
 
