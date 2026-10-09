@@ -9,6 +9,7 @@ use Iterator;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Lock\SystemClock;
+use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
 use LTS\PHPQA\Pipeline\Runner\RunInterruptHandler;
 use LTS\PHPQA\Tests\Support\TempDir;
@@ -34,6 +35,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[UsesClass(LockInfoDto::class)]
 #[UsesClass(SystemClock::class)]
 #[UsesClass(RunningProcesses::class)]
+#[UsesClass(ProcessTree::class)]
 #[Small]
 final class RunInterruptHandlerTest extends TestCase
 {

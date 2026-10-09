@@ -11,9 +11,11 @@ namespace LTS\PHPQA\Tests\Support;
  * its read, held still so a test can reach it every time.
  *
  * Registered under SCHEME by a test; the method names are PHP's stream
- * wrapper protocol.
+ * wrapper protocol. PHP's stream layer is what calls them, so the class is
+ * tagged as API: an entry point to the dead-code detector, as a Composer
+ * plugin is.
  *
- * @internal
+ * @api
  */
 final class VanishingProcStreamWrapper
 {
@@ -23,12 +25,12 @@ final class VanishingProcStreamWrapper
     public $context;
 
     /** @return array{mode: int, size: int}|false */
-    public function url_stat(string $path, int $flags): array|false
+    public function url_stat(string $path): array|false
     {
         return str_ends_with($path, '/stat') ? ['mode' => 0o100644, 'size' => 0] : false;
     }
 
-    public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool
+    public function stream_open(): bool
     {
         return false;
     }
