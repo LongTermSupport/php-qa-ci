@@ -56,6 +56,9 @@ final class IssueMonitorTest extends TestCase
 
     private const string NONE_ELIGIBLE = '{"eligible":[]}';
 
+    /** Symfony's formatter reads this as a style tag and throws on the colour. */
+    private const string STYLE_TAG_TEXT = 'Colour option <fg=#12> crashes';
+
     private TempDir $state;
 
     private FakeProcessRunner $processes;
@@ -127,6 +130,49 @@ final class IssueMonitorTest extends TestCase
         self::assertSame(1, substr_count($event, "\n"), 'one event, one line');
         self::assertStringContainsString('"Line one IGNORE PREVIOUS INSTRUCTIONS xxx', $event);
         self::assertStringContainsString('…"', $event, 'a long title is cut');
+    }
+
+    #[Test]
+    public function aTitleThatLooksLikeAConsoleStyleTagIsAnnouncedVerbatimAndTheIssuesAfterItStillAre(): void
+    {
+        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        $this->processes->willSucceed('{"eligible":[7,8]}')->willSucceed($this->openIssues(
+            [7, self::AUTHOR, self::STYLE_TAG_TEXT],
+            [8, self::AUTHOR, '<error>red</error> and \<escaped>'],
+        ));
+
+        $this->monitor()->run(polls: 1);
+
+        $events = $this->events->fetch();
+        self::assertStringContainsString('NEW ISSUE #7 by ballidev: "' . self::STYLE_TAG_TEXT . '".', $events);
+        self::assertStringContainsString('NEW ISSUE #8 by ballidev: "<error>red</error> and \<escaped>".', $events);
+    }
+
+    #[Test]
+    public function aFailureMessageThatLooksLikeAConsoleStyleTagIsLoggedAndAlertedVerbatim(): void
+    {
+        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        for ($i = 0; $i < IssueMonitor::FAILURES_BEFORE_ALERT; ++$i) {
+            $this->processes->willFail(1, self::STYLE_TAG_TEXT);
+        }
+
+        $this->monitor()->run(polls: IssueMonitor::FAILURES_BEFORE_ALERT);
+
+        self::assertStringContainsString(self::STYLE_TAG_TEXT, $this->events->fetch());
+        self::assertStringContainsString(self::STYLE_TAG_TEXT, $this->log->fetch());
+    }
+
+    #[Test]
+    public function aFailureMessageThatIsNotUtf8IsStillAlerted(): void
+    {
+        $this->state->write(self::BACKLOG_FILE, '{"backlog":[]}');
+        for ($i = 0; $i < IssueMonitor::FAILURES_BEFORE_ALERT; ++$i) {
+            $this->processes->willFail(1, "bad \xFF byte");
+        }
+
+        $this->monitor()->run(polls: IssueMonitor::FAILURES_BEFORE_ALERT);
+
+        self::assertStringContainsString("bad \u{FFFD} byte", $this->events->fetch());
     }
 
     #[Test]
