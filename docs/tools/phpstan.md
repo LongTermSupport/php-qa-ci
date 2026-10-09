@@ -86,14 +86,21 @@ cache, three interleaved runs each way): wall time about 20 s without Turbo and 
 it; peak worker memory about 6% higher; identical findings. A project already close to its memory
 limit (4G by default, see `withMemoryLimit()`) may need a little more.
 
-**To see whether Turbo loads** on a host:
+**Every text-mode run says whether Turbo is running**, from the phar's own `diagnose`, before it
+analyses:
+
+- `PHPStan Turbo: enabled (version …)`.
+- `PHPStan Turbo: NOT RUNNING, though php-qa-ci ships a build for this host`, with PHPStan's
+  reasons and the fix (run `turbo-install`). This is a missing, stale or unloadable binary on a
+  host the manifest pins a build for. The run's outcome is still the analysis's own.
+- `PHPStan Turbo: not running; upstream publishes no build for this host`: the expected fallback.
+
+`--json` and agent mode do not ask, so their single-path runs pay no extra PHPStan start (about
+a second). To ask by hand:
 
 ```bash
 php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar diagnose
 ```
-
-It prints `Turbo extension: enabled (version …)` when the binary loaded, and the reason when it
-did not.
 
 ## How to fix a failure
 

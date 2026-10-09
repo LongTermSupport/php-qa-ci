@@ -44,6 +44,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanIgnoreJustificationTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Psr4ValidateTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]

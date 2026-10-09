@@ -11,6 +11,8 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
+use LTS\PHPQA\Tests\Support\FixedTurboProbe;
+use LTS\PHPQA\Turbo\TurboStatus;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -48,6 +50,11 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(TurboStatus::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboStateEnum::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboPlatform::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe::class)]
 #[Small]
 final class PhpstanToolTest extends TestCase
 {
@@ -83,16 +90,77 @@ final class PhpstanToolTest extends TestCase
 
     private const string INTERNAL_ERROR_OUTPUT =" Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;
 
+    private const string TURBO_ENABLED = "Turbo extension: enabled (version 6351afb)\n";
+
     private ContextFactory $factory;
+
+    private FixedTurboProbe $turbo;
 
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
+        $this->turbo   = new FixedTurboProbe(TurboStatus::fromDiagnose(self::TURBO_ENABLED, true));
     }
 
     protected function tearDown(): void
     {
         $this->factory->project->remove();
+    }
+
+    /** Text mode says whether PHPStan is running with Turbo before it analyses, asked about the lane's own wrapper. */
+    #[Test]
+    public function textModeReportsWhetherTurboIsRunning(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
+        self::assertSame([$this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON], $this->turbo->askedAbout);
+    }
+
+    /**
+     * A host php-qa-ci ships a build for, where Turbo is not running, is reported loudly. Whether
+     * it also fails the lane is Plan 00020's decision D2; until it is taken the outcome is the
+     * analysis's own.
+     */
+    #[Test]
+    public function aMissingTurboIsReportedAndTheAnalysisDecidesTheOutcome(): void
+    {
+        $this->turbo = new FixedTurboProbe(TurboStatus::fromDiagnose("Turbo extension: not loaded\n", true));
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('PHPStan Turbo: NOT RUNNING', $this->factory->output->fetch());
+    }
+
+    /** JSON and agent mode are machine output for single-path loops; the extra PHPStan start is not paid there. */
+    #[Test]
+    public function jsonAndAgentModesDoNotAskAboutTurbo(): void
+    {
+        $this->factory->processes->willSucceed(self::CLEAN_REPORT);
+        $this->tool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
+
+        $this->factory->processes->willSucceed(self::CLEAN_REPORT);
+        $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+
+        self::assertSame([], $this->turbo->askedAbout);
+    }
+
+    /** The shipped lane (ShippedTools builds it with no arguments) asks the phar itself, through diagnose. */
+    #[Test]
+    public function theShippedLaneAsksThePharThroughDiagnose(): void
+    {
+        $this->factory->processes->willSucceed(self::TURBO_ENABLED);
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        self::assertSame('diagnose', $this->toolArgs($this->factory->processes->specs[0])[0]);
+        self::assertSame(self::ANALYSE, $this->toolArgs($this->factory->processes->lastSpec())[0]);
+        self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -101,7 +169,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willSucceed(self::NO_ERRORS);
         $config = $this->factory->builder(ci: true)->build();
 
-        $result  = new PhpstanTool()->run($this->factory->context($config));
+        $result  = $this->tool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
@@ -140,7 +208,7 @@ final class PhpstanToolTest extends TestCase
         // class.notFound errors nobody can act on.
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
 
         $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
         self::assertStringContainsString("    scanDirectories:\n", $wrapper);
@@ -155,7 +223,7 @@ final class PhpstanToolTest extends TestCase
         // this correct when a phar is rebuilt with its sources somewhere else.
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
 
         $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
         foreach (['phparkitect.phar', 'composer-dependency-analyser.phar'] as $phar) {
@@ -174,7 +242,7 @@ final class PhpstanToolTest extends TestCase
         $override = $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    level: max\n");
         $this->factory->processes->willSucceed();
 
-        new PhpstanTool()->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         self::assertStringContainsString('    - ' . $override . "\n", $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
     }
@@ -186,7 +254,7 @@ final class PhpstanToolTest extends TestCase
         $root   = $this->factory->project->path;
         $config = $this->factory->builder()->withIgnoredPaths(self::ASSETS, 'src/Generated')->build();
 
-        new PhpstanTool()->run($this->factory->context($config));
+        $this->tool()->run($this->factory->context($config));
 
         self::assertStringEndsWith(
             "    excludePaths:\n        analyse:\n            - '" . $root . "/tests/assets' (?)\n            - '" . $root . "/src/Generated' (?)\n",
@@ -199,7 +267,7 @@ final class PhpstanToolTest extends TestCase
     {
         $config = $this->factory->builder(specifiedPath: 'tests/assets/Fixture.php')->withIgnoredPaths(self::ASSETS)->build();
 
-        $result = new PhpstanTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertSame('tests/assets/Fixture.php is under an ignored path (withIgnoredPaths in qaConfig/qa.php), so there is nothing to analyse', $result->summary);
@@ -212,7 +280,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willSucceed();
         $config = $this->factory->builder(specifiedPath: 'tests')->withIgnoredPaths(self::ASSETS)->build();
 
-        $result = new PhpstanTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertCount(1, $this->factory->processes->specs);
@@ -223,7 +291,7 @@ final class PhpstanToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
 
-        new PhpstanTool()->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         self::assertStringNotContainsString('excludePaths', $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
     }
@@ -233,7 +301,7 @@ final class PhpstanToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
 
-        new PhpstanTool()->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         self::assertStringNotContainsString(
             'type_coverage',
@@ -248,7 +316,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willSucceed();
         $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50, constantType: 100)->build();
 
-        new PhpstanTool()->run($this->factory->context($config));
+        $this->tool()->run($this->factory->context($config));
 
         $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
         self::assertStringContainsString("    type_coverage:\n        return_type: 50\n        constant_type: 100\n", $wrapper);
@@ -262,7 +330,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willSucceed();
         $config = $this->factory->builder()->withTypeCoverageFloors(returnType: 50)->build();
 
-        new PhpstanTool()->run($this->factory->context($config));
+        $this->tool()->run($this->factory->context($config));
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
@@ -281,7 +349,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willSucceed();
         $config = $this->factory->builder(specifiedPath: self::SRC)->withTypeCoverageFloors(returnType: 50)->build();
 
-        new PhpstanTool()->run($this->factory->context($config));
+        $this->tool()->run($this->factory->context($config));
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
         self::assertSame(
@@ -296,7 +364,7 @@ final class PhpstanToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
 
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: false)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: false)->build()));
 
         self::assertNotContains(self::NO_PROGRESS, $this->toolArgs($this->factory->processes->lastSpec()));
     }
@@ -306,7 +374,7 @@ final class PhpstanToolTest extends TestCase
     {
         $this->factory->processes->willFail(1, " 12  Method foo() has no return type specified.\n" . self::FOUND_ONE);
 
-        $result  = new PhpstanTool()->run($this->factory->context());
+        $result  = $this->tool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -320,7 +388,7 @@ final class PhpstanToolTest extends TestCase
     {
         $this->factory->processes->willFail(1, "Call to method assertTrue() with true will always evaluate to true.\n  🪪 method.alreadyNarrowedType\n" . self::FOUND_ONE);
 
-        $result  = new PhpstanTool()->run($this->factory->context());
+        $result  = $this->tool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -338,7 +406,7 @@ final class PhpstanToolTest extends TestCase
 
         $config = $this->factory->builder(ci: true)->build();
 
-        $result  = new PhpstanTool()->run($this->factory->context($config));
+        $result  = $this->tool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
@@ -365,7 +433,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willFail(1, self::INTERNAL_ERROR_OUTPUT);
         $this->factory->processes->willFail(1, "debug output\n");
 
-        $result  = new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $result  = $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
@@ -381,7 +449,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willFail(1, self::CONFIG_ERROR);
         $this->factory->processes->willFail(1, self::CONFIG_ERROR);
 
-        $result  = new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $result  = $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
@@ -396,7 +464,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willFail(1, self::CONFIG_ERROR);
         $config = $this->factory->builder(jsonOutput: true, specifiedPath: self::SRC)->build();
 
-        $result = new PhpstanTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame(PhpstanCrash::NO_REPORT_REASON, $result->summary);
@@ -413,7 +481,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willReturn(new ProcessResultDto(0, $noise . $json, $json));
         $config = $this->factory->builder(jsonOutput: true, specifiedPath: self::SRC)->build();
 
-        $result = new PhpstanTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($json, $this->factory->stdout->fetch());
@@ -426,7 +494,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willFail(1, $json);
         $config = $this->factory->builder(ci: false, jsonOutput: true, specifiedPath: self::SRC)->build();
 
-        $result = new PhpstanTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame($json, $this->factory->stdout->fetch());
@@ -453,7 +521,7 @@ final class PhpstanToolTest extends TestCase
     {
         $this->factory->processes->willSucceed('{"totals":{"errors":0,"file_errors":0}}');
 
-        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame('{"totals":{"errors":0,"file_errors":0}}', $this->factory->stdout->fetch());
@@ -464,7 +532,7 @@ final class PhpstanToolTest extends TestCase
     {
         $this->factory->processes->willFail(255, 'Fatal');
 
-        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertStringContainsString(PhpstanCrash::noVerdictLine('PHPStan crashed (exit 255)'), $this->factory->output->fetch());
@@ -477,7 +545,7 @@ final class PhpstanToolTest extends TestCase
         $json = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Internal error: boom while analysing file /p/src/A.php"]}';
         $this->factory->processes->willReturn(new ProcessResultDto(1, $json . "\n" . self::INCOMPLETE_LINE, $json));
 
-        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(jsonOutput: true)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame($json, $this->factory->stdout->fetch(), 'the report still reaches stdout for the caller to read');
@@ -492,7 +560,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->processes->willFail(1, $this->reportFor($file, 2));
         $config = $this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build();
 
-        $result = new PhpstanTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
         $lines  = $this->stdoutLines();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -509,7 +577,7 @@ final class PhpstanToolTest extends TestCase
         $file = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
         $this->factory->processes->willFail(1, $this->reportFor($file, 1));
 
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
 
         $report = $this->decode($this->reportPath(self::KERNEL));
         self::assertSame('phpstan', $report['tool']);
@@ -534,13 +602,13 @@ final class PhpstanToolTest extends TestCase
         $file = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
 
         $this->factory->processes->willFail(1, $this->reportFor($file, 3));
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
         self::assertSame(3, $this->decode($this->reportPath(self::KERNEL))['error_count']);
         $this->factory->stdout->fetch();
 
         $this->factory->processes->willSucceed(self::CLEAN_REPORT);
 
-        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $report = $this->decode($this->reportPath(self::KERNEL));
@@ -561,7 +629,7 @@ final class PhpstanToolTest extends TestCase
             . '},"errors":[]}';
         $this->factory->processes->willFail(1, $json);
 
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
 
         self::assertSame(2, $this->decode($this->reportPath(self::KERNEL))['error_count']);
         self::assertSame(1, $this->decode($this->reportPath('src/Other.php'))['error_count']);
@@ -580,12 +648,12 @@ final class PhpstanToolTest extends TestCase
     {
         $kernel = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
         $this->factory->processes->willFail(1, $this->reportFor($kernel, 1));
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
         self::assertFileExists($this->reportPath(self::KERNEL));
         $this->factory->stdout->fetch();
 
         $this->factory->processes->willSucceed(self::CLEAN_REPORT);
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true)->build()));
 
         self::assertFileDoesNotExist($this->reportPath(self::KERNEL), 'an absent report must mean clean, so the stale one has to go');
         self::assertSame('PHPSTAN AGENT MODE: 0 errors in 0 files', $this->stdoutLines()[0]);
@@ -598,7 +666,7 @@ final class PhpstanToolTest extends TestCase
         $json = '{"totals":{"errors":0,"file_errors":1},"files":{"' . $file . '":{"errors":1,"messages":[{"message":"always true","line":4,"identifier":"method.alreadyNarrowedType"}]}},"errors":[]}';
         $this->factory->processes->willFail(1, $json);
 
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
 
         $printed = $this->factory->stdout->fetch();
         self::assertStringNotContainsString('possible tautology', $printed);
@@ -611,7 +679,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
         $this->factory->processes->willFail(255, "PHP Fatal error: boom\n");
 
-        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertCount(1, $this->factory->processes->specs, 'a crash in agent mode is reported, not re-run for a human to watch');
@@ -629,7 +697,7 @@ final class PhpstanToolTest extends TestCase
         $json = $this->reportFor($this->factory->project->path . '/' . self::KERNEL, 1);
         $this->factory->processes->willReturn(new ProcessResultDto(1, $json . "\n" . self::INCOMPLETE_LINE, $json));
 
-        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame(self::CRASHED, $this->decode($this->reportPath(self::KERNEL))['status']);
@@ -641,7 +709,7 @@ final class PhpstanToolTest extends TestCase
         $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
         $this->factory->processes->willSucceed("not json at all\n");
 
-        $result = new PhpstanTool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame(self::CRASHED, $this->decode($this->reportPath(self::KERNEL))['status']);
@@ -650,11 +718,16 @@ final class PhpstanToolTest extends TestCase
     #[Test]
     public function nameAndIdentifierAreStable(): void
     {
-        $tool = new PhpstanTool();
+        $tool = $this->tool();
 
         self::assertSame('phpstan', $tool->name());
         self::assertSame('phpqaci.phpstan', $tool->identifier());
         self::assertSame(PhpstanTool::IDENTIFIER, $tool->identifier());
+    }
+
+    private function tool(): PhpstanTool
+    {
+        return new PhpstanTool($this->turbo);
     }
 
     /** A PHPStan JSON report placing $count findings against one absolute file path. */

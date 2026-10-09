@@ -93,6 +93,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpStrictTypesTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpstanTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpunitTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheckTool::class)]
