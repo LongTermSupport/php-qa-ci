@@ -10,10 +10,16 @@ use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
  * The argv the Infection lane hands to infection.phar. Two lanes:
  *
  *   - FULL: the whole codebase against the SSoT floors (--min-msi and
- *     --min-covered-msi) with the verbose console report.
+ *     --min-covered-msi).
  *   - DIFF: only the changed files, passed as positional paths LAST, against
- *     the single covered-MSI diff floor and Infection's default verbosity (the
- *     file loggers in infection.json stay authoritative).
+ *     the single covered-MSI diff floor. Changed files with no mutable code
+ *     generate no mutant, which passes (--ignore-msi-with-no-mutations;
+ *     Infection prints that nothing was generated) instead of scoring 0%.
+ *
+ * Both write the file loggers in infection.json (log.txt, summary-log.txt) at
+ * full verbosity, so a project reading them gets the same files either way.
+ * Infection mutates only covered code (no --with-uncovered), so the MSI and
+ * the covered MSI of a run are the same number.
  *
  * Coverage is always reused (--skip-initial-tests): the lane guarantees it
  * exists before Infection runs, so the suite is never executed a second time.
@@ -22,6 +28,8 @@ use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
  */
 final readonly class InfectionArguments
 {
+    private const string LOG_VERBOSITY = '--log-verbosity=all';
+
     /** @return list<string> */
     public function full(InfectionOptionsDto $options, string $coverageDir, string $configPath): array
     {
@@ -29,7 +37,7 @@ final readonly class InfectionArguments
             ...$this->common($options, $coverageDir, $configPath),
             '--min-msi=' . $options->minMsi,
             '--min-covered-msi=' . $options->minCoveredMsi,
-            '--log-verbosity=all',
+            self::LOG_VERBOSITY,
         ];
     }
 
@@ -43,6 +51,8 @@ final readonly class InfectionArguments
         return [
             ...$this->common($options, $coverageDir, $configPath),
             '--min-covered-msi=' . $options->diffCoveredMsi,
+            '--ignore-msi-with-no-mutations',
+            self::LOG_VERBOSITY,
             ...array_values($positionalPaths),
         ];
     }
