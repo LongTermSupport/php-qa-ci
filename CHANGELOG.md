@@ -25,6 +25,15 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Added
+
+- **A start-up warning when Xdebug is loaded and OPcache JIT is configured on.** PHP prints "JIT is incompatible with third party extensions" on stdout at every start of a process with Xdebug active, which corrupts anything that parses that output. The note says the pipeline is unaffected and that a PHP started by hand needs `XDEBUG_MODE=off`.
+
+### Fixed
+
+- **Every child process the pipeline starts now runs with `XDEBUG_MODE=off`, except the coverage runs (PHPUnit with coverage, Infection's coverage generation), which name their own mode.** Before, a child started without a mode of its own (a git call, the markdown formatter, a shell script) inherited whatever the parent had, so with JIT on and Xdebug loaded the "JIT is incompatible" warning reached stdout and broke output parsing.
+- **The deployed git pre-commit hook runs its `php -r` with `XDEBUG_MODE=off` and ignores any line that is not `vendor/package|reference`.** A stray warning line used to become a bogus map key and fail the hook with "bad array subscript". Consumers pick the fix up on their next `composer install`/`update`, which redeploys the hook.
+
 ## 85.6.0 — 2026-10-09
 
 ### Changed — breaking

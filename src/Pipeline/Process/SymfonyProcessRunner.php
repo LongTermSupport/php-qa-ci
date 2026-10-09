@@ -27,11 +27,29 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
     ) {
     }
 
+    /**
+     * The environment a child starts with: the parent's, with Xdebug off
+     * unless the spec says otherwise. With OPcache JIT on, a loaded Xdebug
+     * prints a "JIT is incompatible" warning on stdout at every PHP start, which
+     * corrupts any output a caller parses; `XDEBUG_MODE=off` prevents it. Only a
+     * coverage lane (PHPUnit, Infection) names a mode in its spec, so only it
+     * keeps Xdebug live.
+     *
+     * @param array<string, string> $parent
+     * @param array<string, string> $specEnv
+     *
+     * @return array<string, string>
+     */
+    public static function childEnvironment(array $parent, array $specEnv): array
+    {
+        return [...$parent, 'XDEBUG_MODE' => 'off', ...$specEnv];
+    }
+
     public function run(ProcessSpecDto $spec): ProcessResultDto
     {
         $command = $spec->lowPriority ? ['nice', '-n', '19', ...$spec->command] : $spec->command;
 
-        $process = new Process($command, $spec->cwd, [] === $spec->env ? null : [...getenv(), ...$spec->env], null, $spec->timeout);
+        $process = new Process($command, $spec->cwd, self::childEnvironment(getenv(), $spec->env), null, $spec->timeout);
         $process->setPty(false);
 
         $this->output->writeln('++ ' . $spec->commandLine());

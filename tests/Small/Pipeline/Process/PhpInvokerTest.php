@@ -132,6 +132,17 @@ final class PhpInvokerTest extends TestCase
     }
 
     #[Test]
+    public function jitSettingsAreProbedWithXdebugOffAndReturnedTrimmed(): void
+    {
+        $runner  = new FakeProcessRunner()->willSucceed("1|tracing|64M\n");
+        $invoker = new PhpInvoker($runner, self::PHP_AT_OPT, '4G', $this->varDir->path);
+
+        self::assertSame('1|tracing|64M', $invoker->jitSettings());
+        self::assertSame(self::XDEBUG_OFF, $runner->specs[0]->env);
+        self::assertStringContainsString('opcache.jit_buffer_size', $runner->specs[0]->commandLine());
+    }
+
+    #[Test]
     public function aBinaryThatCannotAnswerTheOpcacheProbeReadsAsNotLoaded(): void
     {
         $runner  = new FakeProcessRunner()->willFail(255, 'Segmentation fault');
