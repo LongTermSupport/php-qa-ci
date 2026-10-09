@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.6.0 — 2026-10-09
+
 ### Changed — breaking
 
 - **BREAKING**: `composer.json` now requires `ext-hash`. Every PHP build since 7.4 includes it, and
