@@ -59,9 +59,10 @@ is treated differently by the two diff modes:
   `WARNING` naming every such file: that verdict cannot be reproduced from committed history,
   so commit (a WIP commit will do) for the result CI will see. Local work in progress never
   fails the run on this account, and an uncommitted configuration change makes it full. A
-  committed file since deleted or renamed away is left out, since only what is on disk can be
-  mutated. Paths are read relative to the project, so a project in a subdirectory of its
-  repository is scoped the same way.
+  file deleted from disk is left out whether or not its deletion is staged (a committed file
+  removed or renamed away, or a staged addition, edit or rename since deleted), since only what
+  is on disk can be mutated. Paths are read relative to the project, so a project in a
+  subdirectory of its repository is scoped the same way.
 - **An explicit base** refuses to run, listing the files, so its verdict is always the one
   committed history gives.
 
