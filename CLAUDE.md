@@ -146,6 +146,13 @@ has no reply yet (`gh issue list --state open`): a consumer's report is acted on
 after a fresh sub-agent's verification; this is a standing authorisation. Fix a red one or a failure
 issue (Defence Before Fix). [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md) is the procedure.
 
+## The GitHub issue loop
+
+The session launched with `HOOKS_DAEMON_HOSTNAME=gh-sdlc` keeps `bin/issue-monitor` running under
+the Monitor tool and works each new issue from an approved author through to a merged pull request.
+[CLAUDE/issue-sdlc.md](CLAUDE/issue-sdlc.md) is the procedure; the approved authors are listed once,
+in `.claude/hooks-daemon.yaml`.
+
 ## Work happens on `php8.5` (binding, Owner decision)
 
 Every change, fix and feature is made on `php8.5`, the current line.

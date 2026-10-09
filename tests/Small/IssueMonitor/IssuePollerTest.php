@@ -28,6 +28,10 @@ final class IssuePollerTest extends TestCase
 
     private const string REPO = 'LongTermSupport/php-qa-ci';
 
+    private const string AUTHOR = 'ballidev';
+
+    private const string ELIGIBLE_1 = '{"eligible":[1]}';
+
     private FakeProcessRunner $processes;
 
     protected function setUp(): void
@@ -53,18 +57,19 @@ final class IssuePollerTest extends TestCase
         $this->processes
             ->willSucceed('{"eligible":[110,111,112,113,114],"skipped":1}')
             ->willSucceed(\Safe\json_encode([
-                $this->issue(115, 'stranger', []),
-                $this->issue(114, 'ballidev', []),
-                $this->issue(113, 'ballidev', ['lts-bob']),
-                $this->issue(112, 'LTSCommerce', []),
-                $this->issue(111, 'ballidev', []),
-                $this->issue(110, 'ballidev', []),
-            ]));
+                $this->issue(115, 'stranger'),
+                $this->issue(114, self::AUTHOR),
+                $this->issue(113, self::AUTHOR, 'lts-bob'),
+                $this->issue(112, 'LTSCommerce'),
+                $this->issue(111, self::AUTHOR),
+                $this->issue(110, self::AUTHOR),
+            ]))
+        ;
 
         $new = $this->poller()->newIssues(backlog: [110 => true], announced: [111 => true]);
 
         self::assertSame(
-            [['number' => 112, 'author' => 'LTSCommerce', 'title' => 'Issue 112'], ['number' => 114, 'author' => 'ballidev', 'title' => 'Issue 114']],
+            [['number' => 112, 'author' => 'LTSCommerce', 'title' => 'Issue 112'], ['number' => 114, 'author' => self::AUTHOR, 'title' => 'Issue 114']],
             $new,
             '115 has an unapproved author, 113 is claimed, 110 is backlog and 111 was announced already',
         );
@@ -80,7 +85,7 @@ final class IssuePollerTest extends TestCase
         $this->processes->willFail(4, 'refusing to judge issues: no approved_issue_authors configured');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('issue-validity --list-eligible --json --project-root /p failed (exit 4): refusing to judge issues');
+        $this->expectExceptionMessageIsOrContains('issue-validity --list-eligible --json --project-root /p failed (exit 4): refusing to judge issues');
 
         $this->poller()->eligible();
     }
@@ -88,10 +93,10 @@ final class IssuePollerTest extends TestCase
     #[Test]
     public function aFailedGitHubCallIsAPollFailure(): void
     {
-        $this->processes->willSucceed('{"eligible":[1]}')->willFail(1, 'HTTP 502');
+        $this->processes->willSucceed(self::ELIGIBLE_1)->willFail(1, 'HTTP 502');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('gh issue list');
+        $this->expectExceptionMessageIsOrContains('gh issue list');
 
         $this->poller()->newIssues(backlog: [], announced: []);
     }
@@ -102,7 +107,40 @@ final class IssuePollerTest extends TestCase
         $this->processes->willSucceed('{"something":"else"}');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('unexpected answer');
+        $this->expectExceptionMessageIsOrContains('unexpected answer');
+
+        $this->poller()->eligible();
+    }
+
+    #[Test]
+    public function anEligibleEntryThatIsNotAnIssueNumberIsAPollFailure(): void
+    {
+        $this->processes->willSucceed('{"eligible":["7"]}');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIsOrContains('issue-validity --list-eligible gave an unexpected answer');
+
+        $this->poller()->eligible();
+    }
+
+    #[Test]
+    public function anIssueListThatIsNotAListIsAPollFailure(): void
+    {
+        $this->processes->willSucceed(self::ELIGIBLE_1)->willSucceed('"rate limited"');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIsOrContains('gh issue list gave an unexpected answer');
+
+        $this->poller()->newIssues(backlog: [], announced: []);
+    }
+
+    #[Test]
+    public function anAnswerThatIsNotJsonIsAPollFailureNamingTheCommand(): void
+    {
+        $this->processes->willSucceed('<html>');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIsOrContains('issue-validity --list-eligible --json --project-root /p gave an unexpected answer: ');
 
         $this->poller()->eligible();
     }
@@ -110,10 +148,10 @@ final class IssuePollerTest extends TestCase
     #[Test]
     public function anIssueListEntryWithoutANumberIsAPollFailure(): void
     {
-        $this->processes->willSucceed('{"eligible":[1]}')->willSucceed('[{"title":"x"}]');
+        $this->processes->willSucceed(self::ELIGIBLE_1)->willSucceed('[{"title":"x"}]');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('unexpected answer');
+        $this->expectExceptionMessageIsOrContains('unexpected answer');
 
         $this->poller()->newIssues(backlog: [], announced: []);
     }
@@ -123,18 +161,14 @@ final class IssuePollerTest extends TestCase
         return new IssuePoller($this->processes, self::CLI, '/p', self::REPO);
     }
 
-    /**
-     * @param list<string> $assignees
-     *
-     * @return array<string, mixed>
-     */
-    private function issue(int $number, string $author, array $assignees): array
+    /** @return array<string, mixed> */
+    private function issue(int $number, string $author, string ...$assignees): array
     {
         return [
             'number'    => $number,
             'title'     => 'Issue ' . $number,
             'author'    => ['login' => $author],
-            'assignees' => array_map(static fn (string $login): array => ['login' => $login], $assignees),
+            'assignees' => array_map(static fn (string $login): array => ['login' => $login], array_values($assignees)),
         ];
     }
 }

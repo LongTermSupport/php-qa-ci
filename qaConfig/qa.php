@@ -95,6 +95,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/config-template-ignorelist-check',
         'bin/hooks-daemon-full-qa-blocker',
         'bin/infection-config-source-dirs-check',
+        'bin/issue-monitor',
         'bin/managed-source',
         'bin/mdlinks',
         'bin/package-type-check',
