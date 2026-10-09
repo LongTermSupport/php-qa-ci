@@ -115,10 +115,10 @@ disables Turbo. Turbo also uses more memory.
 
 ### Phase 4: release and roll-out
 
-- [ ] ⬜ **Task 4.1**: Changelog entries (PHPStan 2.3.0, with new findings expected; Turbo on by
+- [x] ✅ **Task 4.1**: Changelog entries (PHPStan 2.3.0, with new findings expected; Turbo on by
   default, with its memory note), then the release pull request through the normal gate. PHPStan
-  2.3.0 shipped in 85.5.0. The Turbo entry under Unreleased carries the memory note. The release
-  pull request (#80) is open; merging it is the Owner's.
+  2.3.0 shipped in 85.5.0. Turbo, its memory note and the lane's Turbo line shipped in 85.6.0: the
+  Owner merged release pull request #80 (`c5b71b7`), tagged `85.6.0` at `55f4e71`.
 - [ ] ⬜ **Task 4.2**: Confirm Turbo enabled in at least one real client project's `phpstan` lane
   after it updates, and record the evidence in the journal.
 
