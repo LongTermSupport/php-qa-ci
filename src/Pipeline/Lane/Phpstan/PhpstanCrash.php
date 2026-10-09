@@ -28,11 +28,41 @@ final readonly class PhpstanCrash
     /** The crash reason for an exit 1 that reports no findings. */
     public const string NO_REPORT_REASON = 'PHPStan exited 1 without reporting any findings (an error before or outside the analysis; see its output)';
 
+    /**
+     * The format a lane that reads the table names on the command line, so a project's
+     * parameters.errorFormat cannot replace the table and its summary line.
+     */
+    public const string TABLE_FORMAT = '--error-format=table';
+
+    /** How the JSON-mode lane's stderr line begins when PHPStan reached no verdict. */
+    public const string NO_VERDICT_PREFIX = 'PHPStan reached no verdict: ';
+
     /** The crash reason for any exit above 1. */
     private const string EXIT_REASON = 'PHPStan crashed (exit %d)';
 
-    /** The line the table output ends a findings run with. */
-    private const string FINDINGS_SUMMARY = '/^\s*\[ERROR\] Found [1-9]\d* errors?\s*$/m';
+    /**
+     * The line the table output ends a findings run with: past the error budget the count reads
+     * "1000+", and warnings, when there are any, follow the count.
+     */
+    private const string FINDINGS_SUMMARY = '/^\s*\[ERROR\] Found [1-9]\d*\+? errors?(?: and [1-9]\d* warnings?)?\s*$/m';
+
+    /** The line that tells a reader of the qa output that the run reached no verdict, and why. */
+    public static function noVerdictLine(string $reason): string
+    {
+        return self::NO_VERDICT_PREFIX . $reason;
+    }
+
+    /** The reason in the first no-verdict line of a qa log, or null when it has none. */
+    public static function noVerdictIn(string $log): ?string
+    {
+        foreach (explode("\n", $log) as $line) {
+            if (str_starts_with($line, self::NO_VERDICT_PREFIX)) {
+                return rtrim(substr($line, \strlen(self::NO_VERDICT_PREFIX)));
+            }
+        }
+
+        return null;
+    }
 
     /** The reason a run in PHPStan's table format is a crash, or null when it reached a verdict. */
     public static function reason(ProcessResultDto $result): ?string

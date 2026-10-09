@@ -77,7 +77,7 @@ final readonly class DeadCodeTool implements ToolInterface
         $wrapper  = $this->writeWrapperNeon($context, $logDir, $detector);
         // The detector's classes must exist when PHPStan compiles its container,
         // which is before any bootstrapFiles run; --autoload-file is the hook for that.
-        $args = ['analyse', '-c', $wrapper, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD];
+        $args = ['analyse', '-c', $wrapper, '--autoload-file', $detector . '/' . DetectorUnpacker::AUTOLOAD, PhpstanCrash::TABLE_FORMAT];
         if ($config->ci) {
             $args[] = '--no-progress';
         }

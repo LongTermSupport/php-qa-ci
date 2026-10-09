@@ -26,9 +26,11 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
 
 - The phar runs without Xdebug as `analyse <paths> -c <wrapper>`, with `--no-progress` in CI.
 
-- **Text mode**: the output is streamed and written to `var/qa/phpstan_logs/phpstan.log`, and a
-  timestamped copy is archived (last ten kept per full-suite or per-path pattern). An exit 1 whose
-  output ends with PHPStan's `[ERROR] Found N errors` line means errors were found: the lane fails
+- **Text mode**: PHPStan runs with `--error-format=table`, whatever `errorFormat` the project's
+  config sets, because the verdict is read from the table's summary line. The output is streamed
+  and written to `var/qa/phpstan_logs/phpstan.log`, and a timestamped copy is archived (last ten
+  kept per full-suite or per-path pattern). An exit 1 whose output ends with PHPStan's
+  `[ERROR] Found N errors` line (`Found 1000+ errors` past the table's limit) means errors were found: the lane fails
   with the identifier trailer, and when the output mentions
   `alreadyNarrowedType`, `alwaysTrue`, `alwaysFalse` or `impossibleCheck` it first prints a note
   explaining that such an error is usually a tautology left behind by stronger types, to be
@@ -47,6 +49,8 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   the report is written to `var/qa/phpstan_logs/phpstan.json`, archived, and printed unchanged on
   the real stdout while every other line goes to stderr. Exit 1 fails when the report counts
   errors. Any other failing exit crashes: above 1, an incomplete result, or no report at all.
+  A crash adds the line `PHPStan reached no verdict: <reason>` to stderr, because the report
+  alone cannot always show it: a dead worker leaves one top-level error that reads like any other.
   Nothing is re-run.
 
 - **Agent mode** (`vendor/bin/qa --agent-mode -t stan -p src/Kernel.php`): the same
@@ -217,8 +221,9 @@ Two commands ship for working with a single rule:
   exists, its remediation page. Offline, from the installed package.
 - `vendor/bin/phpstan-rule <identifier> <path>` runs PHPStan over one path with the project's own
   configuration and reports whether that one rule fired there, and where. Exit 0 for did not fire,
-  1 for fired, and 2 when there is no answer: PHPStan produced no JSON report, or it abandoned the
-  analysis on internal errors. Use it to prove a new rule sees what it should before trusting a
+  1 for fired, and 2 when there is no answer: PHPStan produced no JSON report, or the lane said the
+  run reached no verdict (an analysis abandoned on internal errors or a dead worker, a config
+  error). Use it to prove a new rule sees what it should before trusting a
   green full run.
 
 To list every defence active in the project — without running PHPStan — use

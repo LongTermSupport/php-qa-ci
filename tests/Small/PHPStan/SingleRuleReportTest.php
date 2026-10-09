@@ -27,6 +27,8 @@ final class SingleRuleReportTest extends TestCase
 {
     private const string PHPQACI_NESTED_TERNARY = 'phpqaci.nestedTernary';
 
+    private const string PHPQACI_EMPTY_CATCH_BLOCK = 'phpqaci.emptyCatchBlock';
+
     private const string JSON = <<<'JSON'
         {
           "totals": {"errors": 0, "file_errors": 3},
@@ -66,7 +68,7 @@ final class SingleRuleReportTest extends TestCase
     #[Test]
     public function aRuleThatDidNotFireYieldsNothing(): void
     {
-        self::assertSame([], SingleRuleReport::fromJson(self::JSON)->firingsOf('phpqaci.emptyCatchBlock'));
+        self::assertSame([], SingleRuleReport::fromJson(self::JSON)->firingsOf(self::PHPQACI_EMPTY_CATCH_BLOCK));
     }
 
     #[Test]
@@ -121,7 +123,7 @@ final class SingleRuleReportTest extends TestCase
         self::assertStringStartsWith('phpqaci.nestedTernary FIRED (2)', $fired);
         self::assertStringContainsString('/repo/src/B.php:3', $fired);
 
-        self::assertSame("phpqaci.emptyCatchBlock did not fire\n", $report->render('phpqaci.emptyCatchBlock'));
+        self::assertSame("phpqaci.emptyCatchBlock did not fire\n", $report->render(self::PHPQACI_EMPTY_CATCH_BLOCK));
     }
 
     /**
@@ -143,6 +145,6 @@ final class SingleRuleReportTest extends TestCase
     public function aRunTheLaneReportedAsAVerdictIsAnswered(): void
     {
         $this->expectOutputString("phpqaci.emptyCatchBlock did not fire\n");
-        self::assertSame(0, SingleRuleReport::main('phpqaci.emptyCatchBlock', self::JSON, "Running Single Tool: phpstan\n"));
+        self::assertSame(0, SingleRuleReport::main(self::PHPQACI_EMPTY_CATCH_BLOCK, self::JSON, "Running Single Tool: phpstan\n"));
     }
 }

@@ -6,6 +6,7 @@ namespace LTS\PHPQA\PHPStan;
 
 use InvalidArgumentException;
 use JsonException;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 
 /**
  * Answers one question about a PHPStan JSON run: did a given rule fire, and
@@ -126,12 +127,22 @@ final readonly class SingleRuleReport
     }
 
     /**
-     * Entry point for the harness: JSON on stdin, identifier as the argument.
-     * Exit 0 when the rule did not fire, 1 when it did, 2 when the input was
-     * not a PHPStan JSON run at all or PHPStan abandoned the analysis.
+     * Entry point for the harness: JSON on stdin, identifier as the argument,
+     * and the qa run's stderr, where the PHPStan lane says when the run reached
+     * no verdict. A dead worker leaves JSON that reads like any general finding,
+     * so that line is the only sign of it. Exit 0 when the rule did not fire,
+     * 1 when it did, 2 when the input was not a PHPStan JSON run at all or
+     * PHPStan reached no verdict.
      */
-    public static function main(string $identifier, string $json): int
+    public static function main(string $identifier, string $json, string $qaLog = ''): int
     {
+        $noVerdict = PhpstanCrash::noVerdictIn($qaLog);
+        if (null !== $noVerdict) {
+            \Safe\fwrite(STDERR, $noVerdict . ", so this run cannot say whether the rule fired\n");
+
+            return 2;
+        }
+
         try {
             $report = self::fromJson($json);
         } catch (InvalidArgumentException $invalidArgumentException) {

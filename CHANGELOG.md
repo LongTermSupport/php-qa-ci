@@ -67,7 +67,9 @@ the release and its tag. The full rules are in
   as "dead code found", with advice to delete members it never named. The PHPStan lane reported
   them as errors found in every mode, without the `--debug` re-run that a crash gets in text mode.
   An exit 1 now counts as findings only when PHPStan reports some, and anything else is a crash.
-  `vendor/bin/phpstan-rule` answered "did not fire" for an abandoned analysis; it now exits 2.
+  The text-mode and dead-code runs pass `--error-format=table`, so a project's `errorFormat` no
+  longer changes what they print. `vendor/bin/phpstan-rule` answered "did not fire" for an
+  abandoned analysis, including one whose parallel worker died; it now exits 2.
 
 ## 85.5.0 — 2026-10-08
 

@@ -222,7 +222,8 @@ final readonly class PhpstanTool implements ToolInterface
 
         $crash = PhpstanCrash::jsonReason($result);
         if (null !== $crash) {
-            $context->writeln($result->exitCode > 1 ? \sprintf('PHPStan crashed (exit code: %d)', $result->exitCode) : $crash);
+            // bin/phpstan-rule reads this line: the JSON alone cannot show that a worker died.
+            $context->writeln(PhpstanCrash::noVerdictLine($crash));
 
             return ToolResultDto::crashed($crash);
         }
@@ -240,7 +241,7 @@ final readonly class PhpstanTool implements ToolInterface
     {
         $config = $context->config;
         $phar   = $config->paths->pharDir . self::PHAR;
-        $args   = array_values($config->ci ? [...$baseArgs, self::NO_PROGRESS] : $baseArgs);
+        $args   = array_values([...$baseArgs, PhpstanCrash::TABLE_FORMAT, ...($config->ci ? [self::NO_PROGRESS] : [])]);
 
         $result = $context->php->withoutXdebug($phar, $args, $config->paths->projectRoot);
 

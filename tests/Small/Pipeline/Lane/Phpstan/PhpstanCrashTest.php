@@ -48,12 +48,6 @@ final class PhpstanCrashTest extends TestCase
         yield 'findings and warnings' => [1, " 12  Method foo() has no return type specified.\n [ERROR] Found 1 error and 2 warnings\n"];
     }
 
-    #[Test]
-    public function theTableFormatIsNamedForTheLanesThatReadIt(): void
-    {
-        self::assertSame('--error-format=table', PhpstanCrash::TABLE_FORMAT);
-    }
-
     /** What the JSON-mode lane prints to stderr when PHPStan reached no verdict, and how it is read back. */
     #[Test]
     public function aNoVerdictLineCarriesItsReasonAndIsFoundInALog(): void
