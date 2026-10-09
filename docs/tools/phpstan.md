@@ -62,19 +62,20 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
 ## PHPStan Turbo
 
 Turbo is PHPStan's native extension. With it loaded, PHPStan runs some of its analysis in compiled
-code. `phpstan.phar` loads it from `vendor-phar/turbo-ext/<platform>/` beside itself. It accepts
-only a binary built from the same PHPStan release; any other binary, or none, and the phar runs
-without Turbo, silently.
+code. `phpstan.phar` loads it from `vendor-phar/turbo-ext/<platform>/` beside itself, where it
+needs two files: the binary for the PHP version and the platform's shared core
+(`phpstan_turbo_core.so`). It accepts only files built from the same PHPStan release; any other
+files, or none, or a binary without its core, and the phar runs without Turbo, silently.
 
 - **Installed on every `composer install` and `composer update`.** `bin/turbo-install` downloads
-  the binary built for the host: its OS, CPU, C library, PHP minor version and thread safety. In a
-  consuming project the php-qa-ci Composer plugin runs it; in php-qa-ci itself
+  the binary and core built for the host: its OS, CPU, C library, PHP minor version and thread
+  safety. In a consuming project the php-qa-ci Composer plugin runs it; in php-qa-ci itself
   `scripts/tool-install.bash` does.
-- **Pinned by digest.** `vendor-phar/turbo-ext.json` records the SHA-256 that
-  [phpstan/turbo-ext](https://github.com/phpstan/turbo-ext/releases) publishes for every Linux and
-  macOS asset of the release matching the shipped phar. A download whose digest differs is
-  refused and nothing is installed. A failed download is only a warning: PHPStan still runs,
-  without Turbo, and the next install tries again.
+- **Pinned by digest.** `vendor-phar/turbo-ext.json` records the SHA-256 of every Linux and macOS
+  file in the `turbo-ext/` directory of the
+  [phpstan/phpstan](https://github.com/phpstan/phpstan) tag matching the shipped phar. A download
+  whose digest differs is refused and nothing is installed. A failed download is only a warning:
+  PHPStan still runs, without Turbo, and the next install tries again.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
   (see [PHAR verification](../../CLAUDE.md#preflight-phase-configuration--setup)).

@@ -33,6 +33,7 @@ the release and its tag. The full rules are in
 
 - **Every child process the pipeline starts now runs with `XDEBUG_MODE=off`, except the coverage runs (PHPUnit with coverage, Infection's coverage generation), which name their own mode.** Before, a child started without a mode of its own (a git call, the markdown formatter, a shell script) inherited whatever the parent had, so with JIT on and Xdebug loaded the "JIT is incompatible" warning reached stdout and broke output parsing.
 - **The deployed git pre-commit hook runs its `php -r` with `XDEBUG_MODE=off` and ignores any line that is not `vendor/package|reference`.** A stray warning line used to become a bogus map key and fail the hook with "bad array subscript". Consumers pick the fix up on their next `composer install`/`update`, which redeploys the hook.
+- **PHPStan Turbo runs again with PHPStan 2.3.1.** Its phar loads a Turbo binary only with the platform's shared core (`phpstan_turbo_core.so`) beside it, and both live in the `turbo-ext/` of the phpstan/phpstan tag, not in the phpstan/turbo-ext release zips, which hold a single self-contained build the phar does not accept. `bin/turbo-install` now fetches the binary and its core from the tag into `vendor-phar/turbo-ext/<platform>/`, verifies both against `vendor-phar/turbo-ext.json` (whose `assets` object, keyed by release zip name, is now `files`, keyed by path under `turbo-ext/`) and replaces each atomically. Without it PHPStan ran without Turbo and the lane reported "NOT RUNNING". Run `composer update` to refetch.
 
 ## 85.6.0 — 2026-10-09
 
