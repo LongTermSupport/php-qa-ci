@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Infection;
 
 use JsonException;
+use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -18,11 +19,13 @@ use PHPUnit\Framework\TestCase;
  * so a suite that cannot start under Infection's wrapper "kills" every mutant
  * and the MSI reads 100% while nothing was tested. The detector reads
  * Infection's JSON log and names each killed mutant whose test output shows
- * that no test ran.
+ * that no test ran, against the number of killed mutants it judged: only when
+ * no test ran for any of them did the suite never start.
  *
  * @internal
  */
 #[CoversClass(VacuousKillDetector::class)]
+#[CoversClass(KillJudgementDto::class)]
 #[UsesClass(VacuousKillDto::class)]
 #[Small]
 final class VacuousKillDetectorTest extends TestCase
@@ -40,20 +43,23 @@ final class VacuousKillDetectorTest extends TestCase
 
     private const string FAILED_TEST = self::BANNER . "\n\n" . self::RUNTIME . "\n\nF\n\nTime: 00:00.010, Memory: 10.00 MB\n\nThere was 1 failure:\n\n1) FooTest::bar\nFailed asserting that 59 is identical to 60.\n\nFAILURES!\nTests: 1, Assertions: 1, Failures: 1.";
 
+    // A mutant in code the test bootstrap runs: PHPUnit stops before the suite.
+    private const string BOOTSTRAP_BROKEN = self::BANNER . "\n\nError in bootstrap script: LogicException:\nboom";
+
     #[Test]
     public function aKillWhoseOutputSaysNoTestsExecutedIsVacuous(): void
     {
         $found = new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 56, 'DecrementInteger', self::EXTENSION_FAILED)]));
 
-        self::assertCount(1, $found);
-        self::assertSame('/p/src/Foo.php:56 DecrementInteger', $found[0]->mutant);
-        self::assertSame(self::EXTENSION_FAILED, $found[0]->output);
+        self::assertCount(1, $found->vacuous);
+        self::assertSame('/p/src/Foo.php:56 DecrementInteger', $found->vacuous[0]->mutant);
+        self::assertSame(self::EXTENSION_FAILED, $found->vacuous[0]->output);
     }
 
     #[Test]
     public function aKillByAFailingTestIsReal(): void
     {
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 56, 'DecrementInteger', self::FAILED_TEST)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 56, 'DecrementInteger', self::FAILED_TEST)]))->vacuous);
     }
 
     #[Test]
@@ -61,7 +67,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $errored = self::BANNER . "\n\n" . self::RUNTIME . "\n\nE\n\nERRORS!\nTests: 3, Assertions: 2, Errors: 1.";
 
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 1, 'TrueValue', $errored)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 1, 'TrueValue', $errored)]))->vacuous);
     }
 
     #[Test]
@@ -69,7 +75,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $issues = self::BANNER . "\n\n" . self::RUNTIME . "\n\n.\n\nOK, but there were issues!\nTests: 1, Assertions: 1, PHPUnit Warnings: 1.";
 
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 1, 'TrueValue', $issues)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 1, 'TrueValue', $issues)]))->vacuous);
     }
 
     #[Test]
@@ -79,8 +85,8 @@ final class VacuousKillDetectorTest extends TestCase
 
         $found = new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 9, self::PLUS, $stopped)]));
 
-        self::assertCount(1, $found);
-        self::assertSame('/p/src/Foo.php:9 Plus', $found[0]->mutant);
+        self::assertCount(1, $found->vacuous);
+        self::assertSame('/p/src/Foo.php:9 Plus', $found->vacuous[0]->mutant);
     }
 
     #[Test]
@@ -89,7 +95,7 @@ final class VacuousKillDetectorTest extends TestCase
         // The mutant made the code under test call exit(): the suite started, a test ran into it.
         $exited = self::BANNER . "\n\n" . self::RUNTIME . "\n\n";
 
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, 'Exit_', $exited)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, 'Exit_', $exited)]))->vacuous);
     }
 
     #[Test]
@@ -97,7 +103,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $codeception = "Codeception PHP Testing Framework v5.1.2\n\nUnit Tests (1)\n✖ FooTest: bar\n\nFAILURES!";
 
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $codeception)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $codeception)]))->vacuous);
     }
 
     #[Test]
@@ -105,7 +111,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $coloured = self::BANNER . "\n\n" . self::RUNTIME . "\n\n\e[30;43mNo tests executed!\e[0m";
 
-        self::assertCount(1, new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $coloured)])));
+        self::assertCount(1, new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $coloured)]))->vacuous);
     }
 
     #[Test]
@@ -113,7 +119,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $named = self::BANNER . "\n\n" . self::RUNTIME . "\n\nThere was 1 failure:\n\n1) FooTest::it reports No tests executed! as a warning\n\nFAILURES!\nTests: 1, Assertions: 1, Failures: 1.";
 
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $named)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $named)]))->vacuous);
     }
 
     #[Test]
@@ -126,7 +132,8 @@ final class VacuousKillDetectorTest extends TestCase
 
         $found = new VacuousKillDetector()->find($log);
 
-        self::assertSame(['/p/src/Bar.php:2 Minus'], array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, $found));
+        self::assertSame(2, $found->judged, 'the escaped mutant is not counted');
+        self::assertSame(['/p/src/Bar.php:2 Minus'], array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, $found->vacuous));
     }
 
     #[Test]
@@ -137,7 +144,50 @@ final class VacuousKillDetectorTest extends TestCase
             $this->mutant(self::SOURCE, 2, self::PLUS, self::EXTENSION_FAILED),
         ]));
 
-        self::assertSame(['/p/src/Foo.php:1 Plus', '/p/src/Foo.php:2 Plus'], array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, $found));
+        self::assertSame(['/p/src/Foo.php:1 Plus', '/p/src/Foo.php:2 Plus'], array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, $found->vacuous));
+    }
+
+    /** The #122 case: the suite cannot start under Infection, so no killed mutant ran a test. */
+    #[Test]
+    public function whenNoTestRanForAnyKilledMutantTheSuiteNeverStarted(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: [
+            $this->mutant(self::SOURCE, 1, self::PLUS, self::EXTENSION_FAILED),
+            $this->mutant(self::SOURCE, 2, self::PLUS, self::BOOTSTRAP_BROKEN),
+            $this->mutant(self::SOURCE, 3, self::PLUS, self::EXTENSION_FAILED),
+        ]));
+
+        self::assertSame(3, $found->judged);
+        self::assertCount(3, $found->vacuous);
+        self::assertTrue($found->suiteNeverStarted());
+    }
+
+    /**
+     * One real kill proves the suite starts under Infection, so a mutant that
+     * stopped it before any test ran broke the bootstrap itself.
+     */
+    #[Test]
+    public function oneKillMadeByATestShowsTheSuiteStarts(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: [
+            $this->mutant(self::SOURCE, 1, self::PLUS, self::BOOTSTRAP_BROKEN),
+            $this->mutant(self::SOURCE, 2, self::PLUS, self::FAILED_TEST),
+            $this->mutant(self::SOURCE, 3, self::PLUS, self::BOOTSTRAP_BROKEN),
+        ]));
+
+        self::assertSame(3, $found->judged);
+        self::assertSame(['/p/src/Foo.php:1 Plus', '/p/src/Foo.php:3 Plus'], array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, $found->vacuous));
+        self::assertFalse($found->suiteNeverStarted());
+    }
+
+    #[Test]
+    public function withNoKilledMutantThereIsNothingToJudge(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: [], escaped: [$this->mutant(self::SOURCE, 3, self::PLUS, self::EXTENSION_FAILED)]));
+
+        self::assertSame(0, $found->judged);
+        self::assertSame([], $found->vacuous);
+        self::assertFalse($found->suiteNeverStarted(), 'no kill, so no kill was vacuous');
     }
 
     #[Test]

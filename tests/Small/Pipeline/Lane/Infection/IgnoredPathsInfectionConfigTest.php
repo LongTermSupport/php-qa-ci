@@ -47,6 +47,10 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
 
     private const string QA_CONFIG_DIR = '/qaConfig';
 
+    private const string STDERR = 'php://stderr';
+
+    private const string STDOUT = 'php://stdout';
+
     private TempDir $project;
 
     private string $root;
@@ -223,6 +227,26 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
             \Safe\json_decode(\Safe\json_encode($relocated), true),
         );
         self::assertStringContainsString('"TrueValue":{}', \Safe\json_encode($relocated));
+    }
+
+    /**
+     * Infection writes a log to php://stdout, php://stderr or php://output
+     * rather than resolving it as a file, so the copy keeps those as written.
+     */
+    #[Test]
+    public function aPhpStreamLogTargetSurvivesRelocationUnchanged(): void
+    {
+        $config = $this->config([
+            'source' => ['directories' => [self::SRC_FROM_CONFIG]],
+            'logs'   => ['text' => self::STDERR, 'summary' => self::STDOUT, 'html' => 'html.html'],
+        ]);
+        $expected = ['text' => self::STDERR, 'summary' => self::STDOUT, 'html' => $this->root . self::QA_CONFIG_DIR . '/html.html'];
+
+        self::assertSame($expected, new IgnoredPathsInfectionConfig()->relocated($config)['logs'] ?? null);
+
+        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
+        self::assertIsArray($derived);
+        self::assertSame($expected, $derived['logs'] ?? null);
     }
 
     #[Test]
