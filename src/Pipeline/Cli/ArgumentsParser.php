@@ -15,6 +15,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
  *  - `-t <token>` selects one tool or phase runner by any registered alias.
  *  - `-p <path>` scopes a path-supporting tool; a single bare argument is
  *    taken as the path when -p is absent.
+ *  - each of -t and -p may be given once; a repeat, like a second bare path
+ *    or a bare path beside -p, is a usage error rather than a silent drop.
  *  - `--json` needs -t and a tool that supports it (phpstan).
  *  - `-h` prints the usage and exits 1, as does any unknown option.
  *
@@ -67,18 +69,18 @@ final readonly class ArgumentsParser
 
                     ++$i;
                     if ('-t' === $arg) {
-                        $tool = $value;
+                        $tool = $this->once('-t', $tool, $value);
                     } else {
-                        $path = $value;
+                        $path = $this->once('-p', $path, $value);
                     }
 
                     break;
 
                 default:
                     if (str_starts_with($arg, '-t') && \strlen($arg) > 2) {
-                        $tool = substr($arg, 2);
+                        $tool = $this->once('-t', $tool, substr($arg, 2));
                     } elseif (str_starts_with($arg, '-p') && \strlen($arg) > 2) {
-                        $path = substr($arg, 2);
+                        $path = $this->once('-p', $path, substr($arg, 2));
                     } elseif (str_starts_with($arg, '-')) {
                         throw $this->unsupportedArgument($arg);
                     } else {
@@ -202,6 +204,32 @@ final readonly class ArgumentsParser
             $resolved,
             $listing,
             self::AGENT_MODE_OPTION,
+        ));
+    }
+
+    /**
+     * -t and -p each take one value. A second occurrence is refused rather
+     * than allowed to replace the first, because a run that silently checks
+     * less than it was asked to reports green on code it never looked at.
+     */
+    private function once(string $option, ?string $previous, string $value): string
+    {
+        if (null === $previous) {
+            return $value;
+        }
+
+        $isPath = '-p' === $option;
+
+        throw UsageException::plain(\sprintf(
+            "\nERROR:\nMultiple %s not supported: %s %s %s %s\n\nSpecify a single %s: %s/qa -t toolname%s\n",
+            $isPath ? 'paths' : 'tools',
+            $option,
+            $previous,
+            $option,
+            $value,
+            $isPath ? 'path' : 'tool',
+            $this->binDir,
+            $isPath ? ' -p path/to/check' : '',
         ));
     }
 
