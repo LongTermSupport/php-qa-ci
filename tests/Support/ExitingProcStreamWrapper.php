@@ -53,7 +53,10 @@ final class ExitingProcStreamWrapper
             return ['mode' => 0o100644, 'size' => 0];
         }
 
-        $running = $this->isUnder($path, self::RUNNING_FAILED_READ_SCHEME, self::RUNNING_EMPTY_READ_SCHEME);
+        // Only the process's own directory, so a check that looks anywhere
+        // else finds nothing.
+        $running = $this->isUnder($path, self::RUNNING_FAILED_READ_SCHEME, self::RUNNING_EMPTY_READ_SCHEME)
+            && 1 === \Safe\preg_match('#://proc/\d+$#', $path);
 
         return $running ? ['mode' => 0o040755, 'size' => 0] : false;
     }
