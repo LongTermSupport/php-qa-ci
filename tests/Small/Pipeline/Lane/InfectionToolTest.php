@@ -344,6 +344,44 @@ final class InfectionToolTest extends TestCase
         self::assertStringContainsString('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for', $printed);
     }
 
+    /**
+     * Each score is held to its own floor. With 2 of 10 mutants uncovered the
+     * two scores differ: without the vacuous kill the MSI is 70% (7 of 10) and
+     * the covered-code MSI 87.5% (7 of 8), which meet floors of 70% and 80%
+     * but would not meet them the other way round.
+     */
+    #[Test]
+    public function eachScoreWithoutTheVacuousKillsIsHeldToItsOwnFloor(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun(function (ProcessSpecDto $spec): ProcessResultDto {
+            $this->factory->project->write(self::JSON_LOG, \Safe\json_encode([
+                'stats'  => [
+                    'totalMutantsCount'           => 10,
+                    'killedCount'                 => 8,
+                    'killedByStaticAnalysisCount' => 0,
+                    'notCoveredCount'             => 2,
+                    'errorCount'                  => 0,
+                    'syntaxErrorCount'            => 0,
+                    'skippedCount'                => 0,
+                    'ignoredCount'                => 0,
+                    'timeOutCount'                => 0,
+                    'msi'                         => 80.0,
+                    'coveredCodeMsi'              => 100.0,
+                ],
+                'killed' => array_map(fn (int $line): array => $this->killed($line, 7 === $line ? self::NO_TESTS_EXECUTED : self::REAL_KILL), range(7, 14)),
+            ]));
+
+            return new ProcessResultDto(0, '', '');
+        });
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: [...self::FLOORS, 'mutationScoreIndicator' => '70', 'coveredCodeMSI' => '80'])));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('Without them the MSI is 70% (floor 70%) and the covered-code MSI 87.5% (floor 80%), both still at or above their floors.', $printed);
+    }
+
     #[Test]
     public function aMixedRunBelowTheFloorIsAFailureNotACrash(): void
     {
