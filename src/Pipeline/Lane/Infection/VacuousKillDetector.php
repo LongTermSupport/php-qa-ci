@@ -97,7 +97,8 @@ final readonly class VacuousKillDetector
      * vacuous ones: the judgement carries the counts Infection scores from.
      * Detected is every kill, error and timeout, unless the run counted
      * timeouts as escaped; Infection's own MSI says which, and counts that
-     * give neither are refused rather than guessed at.
+     * give neither are refused rather than guessed at. Where both give it,
+     * the lower count is taken, so no pass rests on the doubt.
      *
      * @throws JsonException
      */
@@ -127,7 +128,7 @@ final readonly class VacuousKillDetector
         $tested   = $counts['totalMutantsCount'] - $counts['skippedCount'] - $counts['ignoredCount'];
         $covered  = $tested                      - $counts['notCoveredCount'];
         $detected = $counts['killedCount'] + $counts['killedByStaticAnalysisCount'] + $counts['errorCount'] + $counts['syntaxErrorCount'];
-        foreach ([$detected + $counts['timeOutCount'], $detected] as $candidate) {
+        foreach ([$detected, $detected + $counts['timeOutCount']] as $candidate) {
             $judgement = new KillJudgementDto($judged, $found, $candidate, $tested, $covered);
             if (new KillJudgementDto($judged, [], $candidate, $tested, $covered)->msiWithoutVacuous() === (float)$msi) {
                 return $judgement;

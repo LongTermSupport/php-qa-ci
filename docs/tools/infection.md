@@ -211,7 +211,10 @@ What it does with them depends on whether any kill was made by a test:
   prints how many there were, the first one and the scores without them. If they do not, the
   pass rests on kills no test made, and the lane crashes and names them. Their test output in the
   JSON log tells the two causes apart. A mutant that breaks only the bootstrap can be killed
-  for real by a test that reaches that code another way. A failing run fails whatever they are.
+  for real by a test that reaches that code another way. A failing run fails whatever they are,
+  unless the log's `stats` are missing or do not add up to Infection's MSI: then nothing in the
+  log can be judged, and the lane crashes instead. Where the counts fit Infection's MSI both
+  with a timeout counted as detected and without, the lower count is used.
 - **No mutant was killed**: there is nothing to judge.
 
 When the lane crashes, the cause is almost always in the test setup, not in the code or the

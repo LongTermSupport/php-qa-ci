@@ -304,16 +304,16 @@ final readonly class InfectionTool implements ToolInterface
             return null;
         }
 
-        $scores = \sprintf('           Without them the MSI is %s%% and the covered-code MSI %s%%', $judgement->msiWithoutVacuous(), $judgement->coveredMsiWithoutVacuous());
+        $scores = \sprintf('           Without them the MSI is %s%% (floor %d%%) and the covered-code MSI %s%% (floor %d%%)', $judgement->msiWithoutVacuous(), $minMsi, $judgement->coveredMsiWithoutVacuous(), $minCoveredMsi);
         if ($judgement->floorsHoldWithoutVacuous($minMsi, $minCoveredMsi)) {
-            $context->writeln(\sprintf('%s, still at or above the floors of %d%% and %d%%.', $scores, $minMsi, $minCoveredMsi));
+            $context->writeln($scores . ', both still at or above their floors.');
             $context->writeln('           The other kills ran tests, so the suite starts under Infection: these mutants most likely broke code the test bootstrap runs.');
             $context->writeln(self::EVERY_MUTANT . $jsonLog);
 
             return null;
         }
 
-        $context->writeln(\sprintf('%s, below the floors of %d%% and %d%%, so the pass rests on kills no test made.', $scores, $minMsi, $minCoveredMsi));
+        $context->writeln($scores . ', not both at or above their floors, so the pass rests on kills no test made.');
         $context->writeln('           Either these mutants broke code the test bootstrap runs, which only a test that reaches that code another way can show,');
         $context->writeln('           or the suite starts only some of the time under Infection (a race in its bootstrap, a resource its threads share): their test output tells the two apart.');
         $context->writeln(self::EVERY_MUTANT . $jsonLog);
