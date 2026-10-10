@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Process;
 
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -22,6 +23,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(RunningProcesses::class)]
+#[UsesClass(ProcessTree::class)]
 #[Small]
 final class SymfonyProcessRunnerTest extends TestCase
 {
