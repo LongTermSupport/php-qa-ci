@@ -136,6 +136,40 @@ final class DeadCodeToolTest extends TestCase
         );
     }
 
+    /**
+     * The dead-code run keeps its own cache, apart from the PHPStan lane's: PHPStan holds one
+     * result cache per tmpDir, so two configurations sharing one would invalidate each other on
+     * every alternation (#123).
+     */
+    #[Test]
+    public function theCacheLivesInsideTheProjectApartFromThePhpstanLanes(): void
+    {
+        $this->factory->processes->willSucceed();
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        new DeadCodeTool()->run($this->factory->context($config));
+
+        $cacheDir = $this->factory->project->path . '/var/qa/cache/deadCode';
+        self::assertStringContainsString("    tmpDir: '" . $cacheDir . "'\n", $this->factory->project->read(self::WRAPPER));
+        self::assertDirectoryExists($cacheDir);
+        self::assertStringContainsString('Dead code: cache in var/qa/cache/deadCode', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aTmpDirTheProjectSetsItselfIsLeftInPlace(): void
+    {
+        $this->factory->processes->willSucceed();
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    tmpDir: /ci-cache/phpstan\n");
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        new DeadCodeTool()->run($this->factory->context($config));
+
+        self::assertStringNotContainsString('tmpDir', $this->factory->project->read(self::WRAPPER));
+        self::assertStringContainsString('Dead code: cache in the tmpDir qaConfig/phpstan.neon sets', $this->factory->output->fetch());
+    }
+
     #[Test]
     public function aLibraryWithNoApiTagFailsFastBeforeAnythingRuns(): void
     {

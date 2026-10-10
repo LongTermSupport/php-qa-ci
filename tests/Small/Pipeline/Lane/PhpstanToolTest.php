@@ -247,6 +247,43 @@ final class PhpstanToolTest extends TestCase
         self::assertStringContainsString('    - ' . $override . "\n", $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
     }
 
+    /**
+     * PHPStan's default tmpDir is sys_get_temp_dir()/phpstan, which every checkout on the host
+     * shares; a stale entry there once failed a clean tree in one worktree only (#123).
+     */
+    #[Test]
+    public function theCacheLivesInsideTheProjectRatherThanTheHostsSharedTempDir(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        $cacheDir = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . 'cache/phpstan';
+        self::assertStringContainsString(
+            "    tmpDir: '" . $cacheDir . "'\n",
+            $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON),
+        );
+        self::assertDirectoryExists($cacheDir);
+        self::assertStringContainsString('PHPStan: cache in var/qa/cache/phpstan', $this->factory->output->fetch());
+    }
+
+    /** A tmpDir the project's own config sets is its decision; the wrapper must not override it. */
+    #[Test]
+    public function aTmpDirTheProjectSetsItselfIsLeftInPlace(): void
+    {
+        $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    tmpDir: /ci-cache/phpstan\n");
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        self::assertStringNotContainsString(
+            'tmpDir',
+            $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON),
+        );
+        self::assertDirectoryDoesNotExist($this->factory->project->path . '/' . self::VAR_QA_PREFIX . 'cache/phpstan');
+        self::assertStringContainsString('PHPStan: cache in the tmpDir qaConfig/phpstan.neon sets', $this->factory->output->fetch());
+    }
+
     #[Test]
     public function theIgnoredPathsAreExcludedFromTheReportInTheWrapperNeon(): void
     {
