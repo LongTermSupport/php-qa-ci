@@ -40,7 +40,11 @@ final readonly class ContextFactory
         return new self($project, new FakeProcessRunner(), new BufferedOutput(), new BufferedOutput());
     }
 
-    public function paths(): ProjectPathsDto
+    /**
+     * The fixture project's paths; a test that needs one directory somewhere
+     * else (a cache outside the project, a phar directory of its own) names it.
+     */
+    public function paths(?string $cacheDir = null, ?string $pharDir = null): ProjectPathsDto
     {
         $root = $this->project->path;
 
@@ -52,8 +56,8 @@ final readonly class ContextFactory
             testsDir: $root . '/tests',
             projectConfigDir: $root . '/qaConfig',
             varDir: $root . '/var/qa',
-            cacheDir: $root . '/var/qa/cache',
-            pharDir: \dirname(__DIR__, 2) . '/vendor-phar',
+            cacheDir: $cacheDir ?? $root . '/var/qa/cache',
+            pharDir: $pharDir   ?? \dirname(__DIR__, 2) . '/vendor-phar',
             configDefaultsDir: \dirname(__DIR__, 2) . '/configDefaults',
         );
     }
@@ -70,9 +74,10 @@ final readonly class ContextFactory
         ?string $specifiedPath = null,
         bool $xdebug = true,
         PlatformEnum $platform = PlatformEnum::Generic,
+        ?ProjectPathsDto $paths = null,
     ): QaConfigBuilder {
         return QaConfigBuilder::defaults(
-            paths: $this->paths(),
+            paths: $paths ?? $this->paths(),
             platform: $platform,
             env: new EnvironmentReader($env),
             phpBinPath: '/usr/bin/php',

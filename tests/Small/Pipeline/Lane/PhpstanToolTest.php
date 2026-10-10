@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 
 /**
  * @internal
@@ -42,6 +43,10 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
@@ -91,6 +96,16 @@ final class PhpstanToolTest extends TestCase
     private const string INTERNAL_ERROR_OUTPUT =" Internal error: Unclosed '{' on line 49 while analysing file /p/tests/A.php\n\n [ERROR] Found 1 error\n\n" . self::INCOMPLETE_LINE;
 
     private const string TURBO_ENABLED = "Turbo extension: enabled (version 6351afb)\n";
+
+    private const string PHPSTAN_PHAR = '/vendor-phar/phpstan.phar';
+
+    private const string PHARS = 'phars';
+
+    private const string ARKITECT_PHAR = '/phparkitect.phar';
+
+    private const string CDA_PHAR = '/composer-dependency-analyser.phar';
+
+    private const string JSON_FORMAT = '--error-format=json';
 
     private ContextFactory $factory;
 
@@ -188,7 +203,7 @@ final class PhpstanToolTest extends TestCase
             $this->toolArgs($spec),
             'the table format is named, so a project errorFormat cannot take away the summary line the verdict is read from',
         );
-        self::assertSame(\dirname(__DIR__, 4) . '/vendor-phar/phpstan.phar', $this->script($spec));
+        self::assertSame(\dirname(__DIR__, 4) . self::PHPSTAN_PHAR, $this->script($spec));
         self::assertSame($this->factory->project->path, $spec->cwd);
         self::assertTrue($spec->streamOutput);
 
@@ -236,6 +251,51 @@ final class PhpstanToolTest extends TestCase
         }
     }
 
+    /**
+     * A file named like a config-API phar that is not a phar has no autoload map to read, and
+     * the phar after it is still read.
+     */
+    #[Test]
+    public function aPharWithNoReadableAutoloadMapIsPassedOver(): void
+    {
+        $pharDir = $this->factory->project->mkdir(self::PHARS);
+        $this->factory->project->write('phars/phparkitect.phar', 'not a phar');
+        $this->buildMapPhar($pharDir . self::CDA_PHAR, ['ShipMonk\ComposerDependencyAnalyser\\' => [$pharDir]]);
+
+        self::assertSame([$pharDir], $this->scannedDirectoriesWith($pharDir));
+    }
+
+    /** A map that does not declare the config API's prefix contributes nothing, and the next phar is still read. */
+    #[Test]
+    public function aMapWithoutTheConfigApiPrefixIsPassedOver(): void
+    {
+        $pharDir = $this->factory->project->mkdir(self::PHARS);
+        $this->buildMapPhar($pharDir . self::ARKITECT_PHAR, ['Other\\' => [$pharDir]]);
+        $this->buildMapPhar($pharDir . self::CDA_PHAR, ['ShipMonk\ComposerDependencyAnalyser\\' => [$pharDir]]);
+
+        self::assertSame([$pharDir], $this->scannedDirectoriesWith($pharDir));
+    }
+
+    #[Test]
+    public function aPrefixMappedToSomethingOtherThanAListIsPassedOver(): void
+    {
+        $pharDir = $this->factory->project->mkdir(self::PHARS);
+        $this->buildMapPhar($pharDir . self::ARKITECT_PHAR, ['Arkitect\\' => $pharDir]);
+        $this->buildMapPhar($pharDir . self::CDA_PHAR, ['ShipMonk\ComposerDependencyAnalyser\\' => [$pharDir]]);
+
+        self::assertSame([$pharDir], $this->scannedDirectoriesWith($pharDir));
+    }
+
+    /** Only a directory that exists is scanned: PHPStan crashes on a scanDirectories entry that does not. */
+    #[Test]
+    public function onlyExistingDirectoriesFromTheMapAreScanned(): void
+    {
+        $pharDir = $this->factory->project->mkdir(self::PHARS);
+        $this->buildMapPhar($pharDir . self::ARKITECT_PHAR, ['Arkitect\\' => [$pharDir . '/gone', 42, $pharDir]]);
+
+        self::assertSame([$pharDir], $this->scannedDirectoriesWith($pharDir));
+    }
+
     #[Test]
     public function theProjectOverrideNeonIsIncludedWhenPresent(): void
     {
@@ -245,6 +305,43 @@ final class PhpstanToolTest extends TestCase
         $this->tool()->run($this->factory->context());
 
         self::assertStringContainsString('    - ' . $override . "\n", $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
+    }
+
+    /**
+     * PHPStan's default tmpDir is sys_get_temp_dir()/phpstan, which every checkout on the host
+     * shares; a stale entry there once failed a clean tree in one worktree only (#123).
+     */
+    #[Test]
+    public function theCacheLivesInsideTheProjectRatherThanTheHostsSharedTempDir(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        $cacheDir = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . 'cache/phpstan';
+        self::assertStringContainsString(
+            "    tmpDir: '" . $cacheDir . "'\n",
+            $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON),
+        );
+        self::assertDirectoryExists($cacheDir);
+        self::assertStringContainsString('PHPStan: cache in var/qa/cache/phpstan', $this->factory->output->fetch());
+    }
+
+    /** A tmpDir the project's own config sets is its decision; the wrapper must not override it. */
+    #[Test]
+    public function aTmpDirTheProjectSetsItselfIsLeftInPlace(): void
+    {
+        $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    tmpDir: /ci-cache/phpstan\n");
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+
+        $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        self::assertStringNotContainsString(
+            'tmpDir',
+            $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON),
+        );
+        self::assertDirectoryDoesNotExist($this->factory->project->path . '/' . self::VAR_QA_PREFIX . 'cache/phpstan');
+        self::assertStringContainsString('PHPStan: cache in the tmpDir qaConfig/phpstan.neon sets', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -319,6 +416,7 @@ final class PhpstanToolTest extends TestCase
         $this->tool()->run($this->factory->context($config));
 
         $wrapper = $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON);
+        self::assertStringStartsWith("includes:\n", $wrapper, 'the floors are added to the wrapper, not written over it');
         self::assertStringContainsString("    type_coverage:\n        return_type: 50\n        constant_type: 100\n", $wrapper);
         self::assertStringNotContainsString('param_type', $wrapper, 'an unset floor must not be written as zero');
         self::assertStringNotContainsString('property_type', $wrapper);
@@ -392,7 +490,7 @@ final class PhpstanToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('NOTE — possible tautology from stronger types', $printed);
+        self::assertMatchesRegularExpression('/\.log\n\nNOTE — possible tautology from stronger types\n/', $printed, 'a blank line separates the note from the log line above');
         self::assertStringContainsString('DELETING the now-redundant assertion', $printed);
         self::assertStringContainsString('Do NOT silence it with treatPhpDocTypesAsCertain:false', $printed);
         self::assertStringContainsString(PhpstanTool::IDENTIFIER, $printed);
@@ -410,8 +508,11 @@ final class PhpstanToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
-        self::assertStringContainsString('PHPStan Crashed!!....', $printed);
-        self::assertStringContainsString('Where ever it stops is probably a fatal PHP error', $printed);
+        self::assertStringEndsWith(
+            "\n\n\nPHPStan Crashed!!....\n\nrunning again with debug mode:\nWhere ever it stops is probably a fatal PHP error\n\n",
+            $printed,
+            'the banner is set off by blank lines from the log line above and the debug output below',
+        );
         self::assertStringNotContainsString(PhpstanTool::IDENTIFIER, $printed);
 
         $wrapper = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON;
@@ -505,9 +606,12 @@ final class PhpstanToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertFalse($spec->streamOutput);
-        $args = $this->toolArgs($spec);
-        self::assertContains('--error-format=json', $args);
-        self::assertContains(self::NO_PROGRESS, $args, 'json mode always suppresses progress, even interactively');
+        self::assertSame(\dirname(__DIR__, 4) . self::PHPSTAN_PHAR, $this->script($spec));
+        self::assertSame(
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON, self::NO_PROGRESS, self::JSON_FORMAT],
+            $this->toolArgs($spec),
+            'json mode always suppresses progress, even interactively',
+        );
         self::assertCount(1, $this->factory->processes->specs, 'no re-run of any kind in json mode');
 
         $logDir = self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR;
@@ -568,7 +672,31 @@ final class PhpstanToolTest extends TestCase
         self::assertSame('PHPSTAN AGENT MODE: 2 errors in 1 file', $lines[0]);
         self::assertSame('REPORT: ' . $this->reportPath(self::KERNEL), $lines[1]);
         self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
-        self::assertContains('--error-format=json', $this->toolArgs($this->factory->processes->lastSpec()));
+        self::assertContains(self::JSON_FORMAT, $this->toolArgs($this->factory->processes->lastSpec()));
+    }
+
+    /** The analysis is the text-mode one with JSON asked for; the raw report is kept beside the per-file ones. */
+    #[Test]
+    public function agentModeRunsThePharOverTheSameAnalysisAndKeepsTheRawReport(): void
+    {
+        $file = $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        $json = $this->reportFor($file, 1);
+        $this->factory->processes->willFail(1, $json);
+        $config = $this->factory->builder(agentMode: true, specifiedPath: self::KERNEL)->build();
+
+        $this->tool()->run($this->factory->context($config));
+
+        $logDir = $this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR;
+        $spec   = $this->factory->processes->lastSpec();
+        self::assertSame(\dirname(__DIR__, 4) . self::PHPSTAN_PHAR, $this->script($spec));
+        self::assertSame(
+            [self::ANALYSE, ...$config->pathsToCheck, '-c', $logDir . '/' . PhpstanTool::WRAPPER_NEON, self::NO_PROGRESS, self::JSON_FORMAT],
+            $this->toolArgs($spec),
+        );
+        self::assertSame($this->factory->project->path, $spec->cwd);
+        self::assertFalse($spec->streamOutput, 'agent mode keeps the JSON off the terminal');
+        self::assertSame($json, \Safe\file_get_contents($logDir . '/' . PhpstanTool::JSON_FILE));
+        self::assertSame($logDir . '/' . PhpstanTool::JSON_FILE, $this->decode($this->reportPath(self::KERNEL))['log_path']);
     }
 
     #[Test]
@@ -688,6 +816,9 @@ final class PhpstanToolTest extends TestCase
         self::assertSame(self::CRASHED, $report['status']);
         self::assertSame(3, $report['exit_code']);
         self::assertStringContainsString(self::CRASHED, $this->stdoutLines()[0]);
+
+        $index = $this->decode($this->reportsDir() . '/' . FileReportWriter::INDEX_FILE);
+        self::assertSame(self::CRASHED, $index['status'], 'the index says the run crashed, not that it is clean');
     }
 
     #[Test]
@@ -774,6 +905,39 @@ final class PhpstanToolTest extends TestCase
             explode("\n", trim($this->factory->stdout->fetch())),
             static fn (string $line): bool => '' !== trim($line),
         ));
+    }
+
+    /**
+     * Build a phar holding only a Composer PSR-4 map that returns $map. Creating a phar needs
+     * phar.readonly off, which only a fresh PHP process can have.
+     *
+     * @param array<string, mixed> $map
+     */
+    private function buildMapPhar(string $path, array $map): void
+    {
+        $process = new Process([
+            \PHP_BINARY,
+            '-d',
+            'phar.readonly=0',
+            '-r',
+            '(new Phar($argv[1]))->addFromString("vendor/composer/autoload_psr4.php", "<?php return " . var_export(json_decode($argv[2], true), true) . ";");',
+            $path,
+            \Safe\json_encode($map),
+        ]);
+        $process->run();
+
+        self::assertTrue($process->isSuccessful(), $process->getErrorOutput());
+    }
+
+    /** @return list<string> the scanDirectories a clean run writes when the phars live in $pharDir */
+    private function scannedDirectoriesWith(string $pharDir): array
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $config = $this->factory->builder(ci: true, paths: $this->factory->paths(pharDir: $pharDir))->build();
+
+        $this->tool()->run($this->factory->context($config));
+
+        return $this->scannedDirectories($this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON));
     }
 
     /** @return list<string> */

@@ -10,6 +10,7 @@ use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\DeadCode\DetectorUnpacker;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -41,6 +42,8 @@ final readonly class DeadCodeTool implements ToolInterface
     public const string LOG_FILE = 'dead-code.log';
 
     public const string WRAPPER_NEON = 'dead-code.neon';
+
+    public const string CACHE_DIR = 'deadCode';
 
     private const string PHAR = 'dead-code-detector.phar';
 
@@ -104,8 +107,8 @@ final readonly class DeadCodeTool implements ToolInterface
     /**
      * The gate's resolved phpstan.neon (so excludes, stubs and level carry
      * over) plus the detector from its PHAR, the tests excluder, the entry
-     * points, and the same worker cap and ignored-path exclusions the PHPStan
-     * lane writes. An ignored path is not analysed, so a member reached only
+     * points, the same worker cap and ignored-path exclusions the PHPStan
+     * lane writes, and a cache of the lane's own (TmpDirNeon). An ignored path is not analysed, so a member reached only
      * from there counts as unused, exactly as for an excludePaths entry in the
      * project's own phpstan.neon.
      */
@@ -126,6 +129,7 @@ final readonly class DeadCodeTool implements ToolInterface
             $neon .= \sprintf("        - %s\n", $path);
         }
 
+        $neon .= new TmpDirNeon()->forLane($context, 'Dead code', self::CACHE_DIR);
         $neon .= new ExcludePathsNeon()->parameters(IgnoredPaths::of($config));
         $neon .= "    shipmonkDeadCode:\n        usageExcluders:\n            tests:\n                enabled: true\n";
 
