@@ -162,7 +162,9 @@ final class ProjectTreeLedger
             $iterator = new FilesystemIterator($directory, FilesystemIterator::KEY_AS_FILENAME | FilesystemIterator::CURRENT_AS_PATHNAME | FilesystemIterator::SKIP_DOTS);
         } catch (UnexpectedValueException $unexpectedValueException) {
             // Another process can remove a directory between the caller's check and this
-            // read, which is an answer; one that is still there is a real failure.
+            // read, which is an answer; one that is still there is a real failure. PHP
+            // keeps the caller's stat of the path, which that removal does not clear.
+            clearstatcache(true, $directory);
             if (is_dir($directory)) {
                 throw $unexpectedValueException;
             }
