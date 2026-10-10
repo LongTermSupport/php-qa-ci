@@ -274,6 +274,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, 'without the vacuous kill both scores are 90%, above 74% and 76%');
         self::assertStringContainsString(\sprintf('Infection: 1 of 10 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
         self::assertStringContainsString('Without them the MSI is 90% and the covered-code MSI 90%, still at or above the floors of 74% and 76%.', $printed);
+        self::assertStringContainsString('The other kills ran tests, so the suite starts under Infection: these mutants most likely broke code the test bootstrap runs.', $printed);
         self::assertStringContainsString($this->everyMutantLine(), $printed);
         self::assertStringNotContainsString(InfectionTool::IDENTIFIER, $printed);
     }
@@ -355,6 +356,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome, 'the score is a measurement, so it is reported');
         self::assertSame('Infection failed (exit 1)', $result->summary);
         self::assertStringContainsString(\sprintf('Infection: 2 of 3 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:7 Plus.', $this->root), $printed);
+        self::assertStringContainsString($this->everyMutantLine(), $printed, 'the failure still points at the test output of the kills no test made');
     }
 
     #[Test]

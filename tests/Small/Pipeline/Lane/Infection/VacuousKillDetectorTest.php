@@ -9,6 +9,7 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -216,6 +217,36 @@ final class VacuousKillDetectorTest extends TestCase
         new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: $this->stats(55.0, 55.0)));
     }
 
+    /** A mutant that broke the syntax is detected, as an error is. */
+    #[Test]
+    public function aSyntaxErrorIsDetected(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: [...$this->stats(90.0, 100.0), 'errorCount' => 0, 'syntaxErrorCount' => 1]));
+
+        self::assertSame(9, $found->detected);
+    }
+
+    /** @return iterable<string, array{array<string, int|float|string|null>}> */
+    public static function statsThatAreNotCounts(): iterable
+    {
+        yield 'a count that is not an integer' => [['killedCount' => '6']];
+
+        yield 'an MSI that is not a number' => [['msi' => '90']];
+
+        yield 'no MSI' => [['msi' => null]];
+    }
+
+    /** @param array<string, int|float|string|null> $wrong */
+    #[Test]
+    #[DataProvider('statsThatAreNotCounts')]
+    public function statsThatAreNotCountsAreRefused(array $wrong): void
+    {
+        $this->expectException(JsonException::class);
+        $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
+
+        new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: [...$this->stats(90.0, 100.0), ...$wrong]));
+    }
+
     #[Test]
     public function aMixedJudgementWithoutTheCountsIsRefused(): void
     {
@@ -294,7 +325,7 @@ final class VacuousKillDetectorTest extends TestCase
     /**
      * @param list<array<string, mixed>> $killed
      * @param list<array<string, mixed>> $escaped
-     * @param array<string, int|float>   $stats   the log's stats; killedCount alone when not given
+     * @param array<string, int|float|string|null> $stats the log's stats; killedCount alone when not given
      */
     private function log(array $killed, array $escaped = [], array $stats = []): string
     {

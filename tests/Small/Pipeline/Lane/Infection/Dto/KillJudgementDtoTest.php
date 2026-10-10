@@ -8,6 +8,7 @@ use LogicException;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -74,6 +75,26 @@ final class KillJudgementDtoTest extends TestCase
         $this->expectException(LogicException::class);
 
         new KillJudgementDto(2, [$this->vacuous()])->msiWithoutVacuous();
+    }
+
+    /** @return iterable<string, array{KillJudgementDto}> */
+    public static function judgementsMissingACount(): iterable
+    {
+        $vacuous = [new VacuousKillDto('src/Foo.php:7 Plus', 'No tests executed!')];
+
+        yield 'no tested count' => [new KillJudgementDto(2, $vacuous, detected: 2, testedCovered: 2)];
+
+        yield 'no covered count' => [new KillJudgementDto(2, $vacuous, detected: 2, tested: 2)];
+    }
+
+    /** Each score needs every count: a missing one is not a 0. */
+    #[Test]
+    #[DataProvider('judgementsMissingACount')]
+    public function eachCountIsNeeded(KillJudgementDto $judgement): void
+    {
+        $this->expectException(LogicException::class);
+
+        $judgement->floorsHoldWithoutVacuous(0, 0);
     }
 
     private function vacuous(): VacuousKillDto
