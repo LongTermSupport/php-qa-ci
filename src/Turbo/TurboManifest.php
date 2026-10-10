@@ -7,11 +7,12 @@ namespace LTS\PHPQA\Turbo;
 use UnexpectedValueException;
 
 /**
- * The committed record of which Turbo binaries go with the shipped phpstan.phar:
- * `vendor-phar/turbo-ext.json`, holding the PHPStan version (which is also the phpstan/turbo-ext
- * release tag) and the SHA-256 of every Linux and macOS asset of that release, as GitHub publishes
- * them. An install downloads only the host's asset and refuses one whose digest differs, so the
- * binary a consumer runs is the one this file pinned when the phar was updated.
+ * The committed record of which Turbo files go with the shipped phpstan.phar:
+ * `vendor-phar/turbo-ext.json`, holding the PHPStan version (which is also the phpstan/phpstan tag
+ * the files are read from) and the SHA-256 of every Linux and macOS file under that tag's
+ * `turbo-ext/`: each PHP version's binary and the platform's shared core the binary loads. An
+ * install downloads only the host's pair and refuses a file whose digest differs, so what a
+ * consumer runs is what this file pinned when the phar was updated.
  *
  * @internal
  */
@@ -20,19 +21,23 @@ final readonly class TurboManifest
     /** Relative to the library root. */
     public const string PATH = 'vendor-phar/turbo-ext.json';
 
-    /** How GitHub's release API prefixes an asset digest. */
-    private const string SHA256_PREFIX = 'sha256:';
-
     /** A SHA-256 as stored here: 64 lowercase hex digits, no prefix. */
     private const string SHA256_PATTERN = '/^[0-9a-f]{64}$/';
 
-    /** Windows builds: upstream names them by Visual Studio version, and the lane does not run there. */
-    private const string WINDOWS_MARKER = '-vs1';
+    /** Where the repository keeps the files the phar loads. */
+    private const string REPOSITORY_DIRECTORY = 'turbo-ext/';
 
-    /** @param array<string, string> $assets asset name => lowercase hex SHA-256 */
+    /**
+     * A Unix binary or core under `turbo-ext/`, relative to it: `<platform>/phpstan_turbo-8.5.so`,
+     * `<platform>/phpstan_turbo-8.5-zts.so` or `<platform>/phpstan_turbo_core.so`. The Windows
+     * builds are DLLs in their own directory, and the lane does not run there.
+     */
+    private const string REPOSITORY_FILE_PATTERN = '#^(?!windows-)[a-z0-9_-]+/phpstan_turbo(?:-\d+\.\d+(?:-zts)?|_core)\.so$#';
+
+    /** @param array<string, string> $files path under `turbo-ext/` => lowercase hex SHA-256 */
     public function __construct(
         public string $phpstanVersion,
-        public array $assets,
+        public array $files,
     ) {
     }
 
@@ -43,57 +48,86 @@ final readonly class TurboManifest
             throw new UnexpectedValueException(self::PATH . ' has no "phpstan" version');
         }
 
-        $assets = $data['assets'] ?? [];
-        if (!\is_array($assets)) {
-            throw new UnexpectedValueException(self::PATH . ' "assets" is not an object');
+        $files = $data['files'] ?? [];
+        if (!\is_array($files)) {
+            throw new UnexpectedValueException(self::PATH . ' "files" is not an object');
         }
 
         $checked = [];
-        foreach ($assets as $name => $digest) {
-            if (!\is_string($name) || !\is_string($digest) || 1 !== \Safe\preg_match(self::SHA256_PATTERN, $digest)) {
-                throw new UnexpectedValueException(\sprintf('%s asset "%s" does not carry a SHA-256 digest', self::PATH, $name));
+        foreach ($files as $path => $digest) {
+            if (!\is_string($path) || !\is_string($digest) || 1 !== \Safe\preg_match(self::SHA256_PATTERN, $digest)) {
+                throw new UnexpectedValueException(\sprintf('%s file "%s" does not carry a SHA-256 digest', self::PATH, $path));
             }
 
-            $checked[$name] = $digest;
+            $checked[$path] = $digest;
         }
 
         return new self($data['phpstan'], $checked);
     }
 
-    /** From GitHub's release API response for the phpstan/turbo-ext tag. */
-    public static function fromReleaseApi(string $json): self
+    /**
+     * The Turbo files, relative to `turbo-ext/`, in GitHub's git-tree API response for the
+     * phpstan/phpstan tag.
+     *
+     * @return list<string>
+     */
+    public static function pathsInRepositoryTree(string $json): array
     {
-        $release = \Safe\json_decode($json, true);
-        if (!\is_array($release) || !\is_string($release['tag_name'] ?? null) || !\is_array($release['assets'] ?? null)) {
-            throw new UnexpectedValueException('the phpstan/turbo-ext release response has no tag or assets');
+        $tree = \Safe\json_decode($json, true);
+        if (!\is_array($tree) || !\is_array($tree['tree'] ?? null)) {
+            throw new UnexpectedValueException('the phpstan/phpstan tree response has no entries');
         }
 
-        $assets = [];
-        foreach ($release['assets'] as $asset) {
-            if (!\is_array($asset) || !\is_string($asset['name'] ?? null) || !\is_string($asset['digest'] ?? null)) {
+        if (true === ($tree['truncated'] ?? null)) {
+            throw new UnexpectedValueException('the phpstan/phpstan tree response is truncated, so a manifest from it would pin only some of the Turbo files');
+        }
+
+        $paths = [];
+        foreach ($tree['tree'] as $entry) {
+            if (!\is_array($entry) || !\is_string($entry['path'] ?? null) || 'blob' !== ($entry['type'] ?? null)) {
                 continue;
             }
 
-            if (str_contains($asset['name'], self::WINDOWS_MARKER) || !str_starts_with($asset['digest'], self::SHA256_PREFIX)) {
+            if (!str_starts_with($entry['path'], self::REPOSITORY_DIRECTORY)) {
                 continue;
             }
 
-            $assets[$asset['name']] = substr($asset['digest'], \strlen(self::SHA256_PREFIX));
+            $relative = substr($entry['path'], \strlen(self::REPOSITORY_DIRECTORY));
+            if (1 === \Safe\preg_match(self::REPOSITORY_FILE_PATTERN, $relative)) {
+                $paths[] = $relative;
+            }
         }
 
-        return new self($release['tag_name'], $assets);
+        if ([] === $paths) {
+            throw new UnexpectedValueException('the phpstan/phpstan tag holds no Turbo files under turbo-ext/');
+        }
+
+        return $paths;
     }
 
-    public function digestFor(string $assetName): ?string
+    public function digestFor(string $path): ?string
     {
-        return $this->assets[$assetName] ?? null;
+        return $this->files[$path] ?? null;
+    }
+
+    /** Whether the manifest pins both files the phar needs to load Turbo on the host. */
+    public function pinsBuildFor(TurboPlatform $platform): bool
+    {
+        $binary = $platform->binaryPath();
+        $core   = $platform->corePath();
+
+        if (null === $binary || null === $core) {
+            return false;
+        }
+
+        return null !== $this->digestFor($binary) && null !== $this->digestFor($core);
     }
 
     public function toJson(): string
     {
-        $assets = $this->assets;
-        ksort($assets);
+        $files = $this->files;
+        ksort($files);
 
-        return \Safe\json_encode(['phpstan' => $this->phpstanVersion, 'assets' => $assets], \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES) . "\n";
+        return \Safe\json_encode(['phpstan' => $this->phpstanVersion, 'files' => $files], \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES) . "\n";
     }
 }

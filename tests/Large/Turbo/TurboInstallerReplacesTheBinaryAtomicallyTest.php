@@ -13,8 +13,6 @@ use LTS\PHPQA\Turbo\TurboInstallDecider;
 use LTS\PHPQA\Turbo\TurboInstaller;
 use LTS\PHPQA\Turbo\TurboManifest;
 use LTS\PHPQA\Turbo\TurboPlatform;
-use Phar;
-use PharData;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
@@ -48,33 +46,33 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[Large]
 final class TurboInstallerReplacesTheBinaryAtomicallyTest extends TestCase
 {
-    private const string VERSION = '2.3.0';
+    private const string VERSION = '2.3.1';
 
-    private const string ASSET = 'php_phpstan_turbo-2.3.0_php8.5-x86_64-linux-glibc.zip';
+    private const string BINARY_PATH = 'linux-gnu-x86_64/phpstan_turbo-8.5.so';
 
-    private const string BINARY = 'vendor-phar/turbo-ext/linux-gnu-x86_64/phpstan_turbo-8.5.so';
+    private const string CORE_PATH = 'linux-gnu-x86_64/phpstan_turbo_core.so';
+
+    private const string BINARY = 'vendor-phar/turbo-ext/' . self::BINARY_PATH;
+
+    private const string CORE = 'vendor-phar/turbo-ext/' . self::CORE_PATH;
 
     private const string SECOND_FILESYSTEM = '/dev/shm';
 
     private TempDir $library;
 
-    private TempDir $zips;
-
     protected function setUp(): void
     {
         $this->library = TempDir::createUnder(self::SECOND_FILESYSTEM, 'turbo-atomic');
-        $this->zips    = TempDir::create('turbo-atomic-zips');
         $this->library->write('phive.xml', \sprintf('<phive><phar name="phpstan" version="^2" installed="%s"/></phive>', self::VERSION));
     }
 
     protected function tearDown(): void
     {
         $this->library->remove();
-        $this->zips->remove();
     }
 
     #[Test]
-    public function aReinstallReplacesTheBinaryWithoutRewritingTheOneInUse(): void
+    public function aReinstallReplacesTheBinaryAndCoreWithoutRewritingTheOnesInUse(): void
     {
         self::assertNotSame(
             $this->device(self::SECOND_FILESYSTEM),
@@ -82,22 +80,30 @@ final class TurboInstallerReplacesTheBinaryAtomicallyTest extends TestCase
             'this test needs /dev/shm and the system temp directory on different filesystems',
         );
 
-        $old = $this->zip("\x7fELF the binary a running PHPStan has mapped");
+        $old = [self::BINARY_PATH => "\x7fELF the binary a running PHPStan has mapped", self::CORE_PATH => "\x7fELF the core a running PHPStan has mapped"];
         $this->writeManifest($old);
         self::assertSame(0, $this->install($old));
 
-        $inUse = $this->library->path . '/in-use.so';
-        \Safe\link($this->library->path . '/' . self::BINARY, $inUse);
+        $binaryInUse = $this->library->path . '/in-use.so';
+        $coreInUse   = $this->library->path . '/core-in-use.so';
+        \Safe\link($this->library->path . '/' . self::BINARY, $binaryInUse);
+        \Safe\link($this->library->path . '/' . self::CORE, $coreInUse);
 
-        $new = $this->zip("\x7fELF the next release's binary");
+        $new = [self::BINARY_PATH => "\x7fELF the next release's binary", self::CORE_PATH => "\x7fELF the next release's core"];
         $this->writeManifest($new);
         self::assertSame(0, $this->install($new));
 
         self::assertSame("\x7fELF the next release's binary", $this->library->read(self::BINARY));
+        self::assertSame("\x7fELF the next release's core", $this->library->read(self::CORE));
         self::assertSame(
-            "\x7fELF the binary a running PHPStan has mapped",
-            \Safe\file_get_contents($inUse),
+            $old[self::BINARY_PATH],
+            \Safe\file_get_contents($binaryInUse),
             'the old binary was rewritten in place, so a PHPStan that has it mapped would crash',
+        );
+        self::assertSame(
+            $old[self::CORE_PATH],
+            \Safe\file_get_contents($coreInUse),
+            'the old core was rewritten in place, so a PHPStan that has it mapped would crash',
         );
     }
 
@@ -109,11 +115,12 @@ final class TurboInstallerReplacesTheBinaryAtomicallyTest extends TestCase
         return $stat['dev'];
     }
 
-    private function install(string $zip): int
+    /** @param array<string, string> $files path under turbo-ext/ => bytes */
+    private function install(array $files): int
     {
         $errors    = new BufferedOutput();
         $installer = new TurboInstaller(
-            new FakeTurboReleaseSource(null, [self::ASSET => $zip]),
+            new FakeTurboReleaseSource(null, $files),
             new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false),
             false,
             new BufferedOutput(),
@@ -126,16 +133,9 @@ final class TurboInstallerReplacesTheBinaryAtomicallyTest extends TestCase
         return $exit;
     }
 
-    private function zip(string $binary): string
+    /** @param array<string, string> $files path under turbo-ext/ => bytes */
+    private function writeManifest(array $files): void
     {
-        $path = $this->zips->path . '/' . bin2hex(random_bytes(4)) . '-' . self::ASSET;
-        new PharData($path, 0, null, Phar::ZIP)->addFromString('phpstan_turbo.so', $binary);
-
-        return \Safe\file_get_contents($path);
-    }
-
-    private function writeManifest(string $zip): void
-    {
-        $this->library->write(TurboManifest::PATH, new TurboManifest(self::VERSION, [self::ASSET => hash('sha256', $zip)])->toJson());
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::VERSION, array_map(static fn (string $bytes): string => hash('sha256', $bytes), $files))->toJson());
     }
 }

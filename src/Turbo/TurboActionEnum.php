@@ -11,10 +11,10 @@ namespace LTS\PHPQA\Turbo;
  */
 enum TurboActionEnum
 {
-    /** The binary for this host is installed, from the asset and digest the manifest names. */
+    /** The binary and core for this host are installed, from the digests the manifest names. */
     case Ready;
 
-    /** Download the asset the decision names and install it. */
+    /** Download the files the decision names and install them. */
     case Fetch;
 
     /** Upstream builds no binary for this host; PHPStan runs here without Turbo. */

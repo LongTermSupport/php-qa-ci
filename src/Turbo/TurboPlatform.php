@@ -6,9 +6,8 @@ namespace LTS\PHPQA\Turbo;
 
 /**
  * The axes that pick PHPStan's Turbo binary for a host: operating system, CPU, C library, PHP
- * minor version and thread safety. It names the phpstan/turbo-ext release asset built for the
- * host, and the path under `turbo-ext/` where phpstan.phar looks for it, both as upstream spells
- * them. A host upstream builds nothing for (Windows, an Intel Mac, an unknown CPU or libc) is
+ * minor version and thread safety. It names the paths under `turbo-ext/` where phpstan.phar looks
+ * for the host's binary and its core, as upstream spells them. A host upstream builds nothing for (Windows, an Intel Mac, an unknown CPU or libc) is
  * unsupported: PHPStan runs there without Turbo.
  *
  * @internal
@@ -30,8 +29,11 @@ final readonly class TurboPlatform
     /** CPU names as `php_uname('m')` reports them, mapped to upstream's. */
     private const array MACHINES = ['x86_64' => self::X86_64, 'amd64' => self::X86_64, 'aarch64' => self::ARM64, 'arm64' => self::ARM64];
 
-    /** libc as PHPStan names it in the directory, mapped to the asset name's spelling. */
-    private const array LINUX_LIBCS = ['gnu' => 'glibc', 'musl' => 'musl'];
+    /** The libc spellings PHPStan uses in the directory name. */
+    private const array LINUX_LIBCS = ['gnu', 'musl'];
+
+    /** The core every binary of a platform loads, in the binary's own directory. */
+    private const string CORE_FILE = 'phpstan_turbo_core.so';
 
     /** Where a musl host keeps its dynamic loader; a glibc host has none of these. */
     private const string MUSL_LOADER_GLOB = '/lib/ld-musl-*.so.1';
@@ -61,17 +63,15 @@ final readonly class TurboPlatform
         return new self(\PHP_OS_FAMILY, php_uname('m'), $libc, \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, 1 === \PHP_ZTS);
     }
 
-    /** The release asset built for this host, e.g. `php_phpstan_turbo-2.3.0_php8.5-x86_64-linux-glibc.zip`. */
-    public function assetName(string $phpstanVersion): ?string
+    /** Where phpstan.phar looks for the platform's shared core, relative to `turbo-ext/`; it loads no binary without it. */
+    public function corePath(): ?string
     {
-        $arch = $this->arch();
-        if (null === $arch || null === $this->directory()) {
+        $directory = $this->directory();
+        if (null === $directory) {
             return null;
         }
 
-        $suffix = self::DARWIN === $this->os ? 'darwin-bsdlibc' : 'linux-' . self::LINUX_LIBCS[$this->libc];
-
-        return \sprintf('php_phpstan_turbo-%s_php%s-%s-%s%s.zip', $phpstanVersion, $this->phpMinor, $arch, $suffix, $this->zts ? '-zts' : '');
+        return $directory . '/' . self::CORE_FILE;
     }
 
     /** Where phpstan.phar looks for the binary, relative to `turbo-ext/`. */
@@ -99,7 +99,7 @@ final readonly class TurboPlatform
             return null;
         }
 
-        if (self::LINUX === $this->os && isset(self::LINUX_LIBCS[$this->libc])) {
+        if (self::LINUX === $this->os && \in_array($this->libc, self::LINUX_LIBCS, true)) {
             return \sprintf('linux-%s-%s', $this->libc, $arch);
         }
 
