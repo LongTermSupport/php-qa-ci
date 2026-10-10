@@ -201,10 +201,17 @@ What it does with them depends on whether any kill was made by a test:
 - **No test ran for any killed mutant**: the lane crashes, with no score, whatever the floors
   say. It names the mutants, prints the first one's output and points at the JSON log, which
   holds every mutant's output.
-- **Some kills were made by tests**: the suite demonstrably starts under Infection, so a mutant
-  that stopped it before any test ran broke code the test bootstrap runs (a bootstrap that
-  boots a kernel or seeds a schema from `src/`), and PHPUnit refusing to start is a genuine
-  kill. The lane prints how many there were and the first one, and reports the scores as usual.
+- **Some kills were made by tests**: the suite starts under Infection, so a mutant that stopped
+  it before any test ran most likely broke code the test bootstrap runs (a bootstrap that boots
+  a kernel or seeds a schema from `src/`). A suite that starts only some of the time (a race in
+  its bootstrap, a resource Infection's threads share) gives the same output, though, and a
+  kill no test made is not evidence either way. So for a passing run the lane works out both
+  scores without those kills, from the counts in the JSON log's `stats`, as Infection works them
+  out. If the floors still hold (the diff floor on a diff run), the run passes, and the lane
+  prints how many there were, the first one and the scores without them. If they do not, the
+  pass rests on kills no test made, and the lane crashes and names them. Their test output in the
+  JSON log tells the two causes apart. A mutant that breaks only the bootstrap can be killed
+  for real by a test that reaches that code another way. A failing run fails whatever they are.
 - **No mutant was killed**: there is nothing to judge.
 
 When the lane crashes, the cause is almost always in the test setup, not in the code or the
@@ -264,4 +271,4 @@ The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infecti
 4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A trigger in it makes the run full. Each modified or renamed PHP file is compared with `git show <merge base>:<path>` and left out when only its comments or whitespace changed, unless either version has a comment carrying a tool directive. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
 5. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
 6. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
-7. `VacuousKillDetector` reads the JSON log, before the exit code is judged: no test ran for any killed mutant, an unreadable log, or a passing run with no log crashes the lane; some kills with no test run are named and the exit code then decides.
+7. `VacuousKillDetector` reads the JSON log, before the exit code is judged: no test ran for any killed mutant, an unreadable log, or a passing run with no log crashes the lane; some kills with no test run are named, a passing run whose floors hold only by counting them crashes, and the exit code then decides.

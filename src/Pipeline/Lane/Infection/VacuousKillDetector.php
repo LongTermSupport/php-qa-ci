@@ -42,6 +42,22 @@ final readonly class VacuousKillDetector
     /** The key of a mutant's test process output in Infection's JSON log. */
     private const string PROCESS_OUTPUT = 'processOutput';
 
+    /** Why a mixed judgement cannot be made from a log whose stats lack a count. */
+    private const string NO_STATS = 'the Infection JSON log has no "stats" to work out the scores without the kills no test ran for';
+
+    /** The counts in the log's stats Infection's scores are worked out from. */
+    private const array COUNTS = [
+        'totalMutantsCount',
+        'killedCount',
+        'killedByStaticAnalysisCount',
+        'notCoveredCount',
+        'errorCount',
+        'syntaxErrorCount',
+        'skippedCount',
+        'ignoredCount',
+        'timeOutCount',
+    ];
+
     /**
      * @return KillJudgementDto how many killed mutants were judged, and every
      *                          one whose test output shows no test ran
@@ -68,7 +84,57 @@ final readonly class VacuousKillDetector
             }
         }
 
-        return new KillJudgementDto(\count($log['killed']), $found);
+        $judged = \count($log['killed']);
+        if ([] === $found || \count($found) === $judged) {
+            return new KillJudgementDto($judged, $found);
+        }
+
+        return $this->withCounts($judged, $log['stats'] ?? null, ...$found);
+    }
+
+    /**
+     * Some kills ran no test and some did, so the verdict may rest on the
+     * vacuous ones: the judgement carries the counts Infection scores from.
+     * Detected is every kill, error and timeout, unless the run counted
+     * timeouts as escaped; Infection's own MSI says which, and counts that
+     * give neither are refused rather than guessed at.
+     *
+     * @throws JsonException
+     */
+    private function withCounts(int $judged, mixed $stats, VacuousKillDto ...$found): KillJudgementDto
+    {
+        if (!\is_array($stats)) {
+            throw new JsonException(self::NO_STATS);
+        }
+
+        $counts = [];
+        foreach (self::COUNTS as $count) {
+            $value = $stats[$count] ?? null;
+            if (!\is_int($value)) {
+                throw new JsonException(self::NO_STATS);
+            }
+
+            $counts[$count] = $value;
+        }
+
+        $msi = $stats['msi'] ?? null;
+        if (!\is_int($msi) && !\is_float($msi)) {
+            throw new JsonException(self::NO_STATS);
+        }
+
+        $found = array_values($found);
+
+        $tested   = $counts['totalMutantsCount'] - $counts['skippedCount'] - $counts['ignoredCount'];
+        $covered  = $tested                      - $counts['notCoveredCount'];
+        $detected = $counts['killedCount'] + $counts['killedByStaticAnalysisCount'] + $counts['errorCount'] + $counts['syntaxErrorCount'];
+        foreach ([$detected + $counts['timeOutCount'], $detected] as $candidate) {
+            $judgement = new KillJudgementDto($judged, $found, $candidate, $tested, $covered);
+            if (new KillJudgementDto($judged, [], $candidate, $tested, $covered)->msiWithoutVacuous() === (float)$msi) {
+                return $judgement;
+            }
+        }
+
+        throw new JsonException(\sprintf('the stats in the Infection JSON log do not add up to its MSI of %s%%', $msi));
     }
 
     private function noTestRan(string $output): bool

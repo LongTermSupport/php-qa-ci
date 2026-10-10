@@ -252,7 +252,7 @@ final class InfectionToolTest extends TestCase
         self::assertStringContainsString(\sprintf("\n           %s/src/Foo.php:7 Plus,%1\$s/src/Foo.php:8 Plus\n", $this->root), $printed);
         self::assertStringContainsString("\n           The test output of the first:\n             PHPUnit 13.4.1", $printed);
         self::assertStringContainsString("\n             No tests executed!\n", $printed);
-        self::assertStringContainsString("\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n", $printed);
+        self::assertStringContainsString($this->everyMutantLine(), $printed);
         self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 
@@ -274,7 +274,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, 'without the vacuous kill both scores are 90%, above 74% and 76%');
         self::assertStringContainsString(\sprintf('Infection: 1 of 10 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
         self::assertStringContainsString('Without them the MSI is 90% and the covered-code MSI 90%, still at or above the floors of 74% and 76%.', $printed);
-        self::assertStringContainsString("\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n", $printed);
+        self::assertStringContainsString($this->everyMutantLine(), $printed);
         self::assertStringNotContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 
@@ -298,7 +298,7 @@ final class InfectionToolTest extends TestCase
         self::assertStringContainsString('Without them the MSI is 75% and the covered-code MSI 75%, below the floors of 74% and 76%, so the pass rests on kills no test made.', $printed);
         self::assertStringContainsString('the suite starts only some of the time', $printed, 'the cause the score cannot show is named');
         self::assertStringContainsString('code the test bootstrap runs', $printed, 'and so is the other');
-        self::assertStringContainsString("\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n", $printed);
+        self::assertStringContainsString($this->everyMutantLine(), $printed);
         self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 
@@ -308,7 +308,8 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'src/Changed.php']))
-            ->willRun($this->infection(0, self::NO_TESTS_EXECUTED, ...array_fill(0, 4, self::REAL_KILL)));
+            ->willRun($this->infection(0, self::NO_TESTS_EXECUTED, ...array_fill(0, 4, self::REAL_KILL)))
+        ;
 
         $result  = $this->tool()->run($this->context($this->diffBuilder(['infectionDiffCoveredMsi' => '81'])));
         $printed = $this->factory->output->fetch();
@@ -326,8 +327,8 @@ final class InfectionToolTest extends TestCase
             $this->factory->project->write(self::JSON_LOG, \Safe\json_encode([
                 'stats'  => ['killedCount' => 2],
                 'killed' => [
-                    ['mutator' => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => 7], 'processOutput' => self::REAL_KILL],
-                    ['mutator' => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => 8], 'processOutput' => self::NO_TESTS_EXECUTED],
+                    $this->killed(7, self::REAL_KILL),
+                    $this->killed(8, self::NO_TESTS_EXECUTED),
                 ],
             ]));
 
@@ -1197,16 +1198,28 @@ final class InfectionToolTest extends TestCase
 
                 \Safe\file_put_contents($log, \Safe\json_encode([
                     'stats'  => $stats,
-                    'killed' => array_map(fn (int $index, string $output): array => [
-                        'mutator'       => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => 7 + $index],
-                        'diff'          => '',
-                        'processOutput' => $output,
-                    ], array_keys($killedOutputs), $killedOutputs),
+                    'killed' => array_map(fn (int $index, string $output): array => $this->killed(7 + $index, $output), array_keys($killedOutputs), $killedOutputs),
                 ]));
             }
 
             return new ProcessResultDto($exitCode, 'Infection ran', 'Infection ran');
         };
+    }
+
+    /** @return array<string, mixed> a killed mutant at src/Foo.php:$line as Infection's JSON log holds it */
+    private function killed(int $line, string $output): array
+    {
+        return [
+            'mutator'       => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => $line],
+            'diff'          => '',
+            'processOutput' => $output,
+        ];
+    }
+
+    /** The line that points at the JSON log, which holds every judged mutant's output. */
+    private function everyMutantLine(): string
+    {
+        return "\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n";
     }
 
     /** The infection.json the lane hands Infection, always the copy under var/qa/. */

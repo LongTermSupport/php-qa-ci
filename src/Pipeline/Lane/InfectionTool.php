@@ -10,6 +10,7 @@ use JsonException;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
@@ -71,6 +72,9 @@ final readonly class InfectionTool implements ToolInterface
 
     /** How many unmapped test files, or vacuously killed mutants, the lane names before summarising the rest. */
     private const int UNMAPPED_SHOWN = 10;
+
+    /** The line pointing at the JSON log, which holds every judged mutant's test output. */
+    private const string EVERY_MUTANT = '           Every mutant, with its test output: ';
 
     public function __construct(
         private InfectionArguments $arguments = new InfectionArguments(),
@@ -155,7 +159,9 @@ final readonly class InfectionTool implements ToolInterface
             lowPriority: true,
         ));
 
-        $kills = $this->judgeKills($context, $jsonLog, $result);
+        $kills = [] === $positionalPaths
+            ? $this->judgeKills($context, $jsonLog, $result, $options->minMsi, $options->minCoveredMsi)
+            : $this->judgeKills($context, $jsonLog, $result, $options->diffCoveredMsi, $options->diffCoveredMsi);
         if ($kills instanceof ToolResultDto) {
             return $kills;
         }
@@ -229,11 +235,13 @@ final readonly class InfectionTool implements ToolInterface
      * every mutant, and --skip-initial-tests leaves nothing else to notice.
      * Returns a crash when Infection's JSON log shows that no test ran for any
      * killed mutant (VacuousKillDetector), when the log cannot be read, or when
-     * a passing run wrote none. Otherwise null: when some kills were made by a
-     * test the suite starts, so a mutant that stopped it before any test ran
-     * broke the code its bootstrap runs, a genuine kill the run names.
+     * a passing run wrote none. When some kills were made by a test and some
+     * were not, a kill no test made is not evidence, so a passing run is held
+     * to its floors ($minMsi, $minCoveredMsi) with those kills counted as not
+     * detected: a crash when it falls below them, as the pass then rests on
+     * them. Otherwise null, and the vacuous kills are named.
      */
-    private function judgeKills(ToolContext $context, string $jsonLog, ProcessResultDto $result): ?ToolResultDto
+    private function judgeKills(ToolContext $context, string $jsonLog, ProcessResultDto $result, int $minMsi, int $minCoveredMsi): ?ToolResultDto
     {
         if (!is_file($jsonLog)) {
             if (!$result->succeeded()) {
@@ -261,11 +269,7 @@ final readonly class InfectionTool implements ToolInterface
         }
 
         if (!$judgement->suiteNeverStarted()) {
-            $context->writeln(\sprintf('Infection: %d of %d killed mutant(s) stopped the test suite before any test ran, the first %s.', \count($vacuous), $judgement->judged, $vacuous[0]->mutant));
-            $context->writeln('           The other kills ran tests, so the suite starts under Infection: these mutants broke code the test bootstrap runs, and count as killed.');
-            $context->writeln('           Every mutant, with its test output: ' . $jsonLog);
-
-            return null;
+            return $this->judgePartlyVacuous($context, $jsonLog, $result, $judgement, $minMsi, $minCoveredMsi);
         }
 
         $context->writeln(\sprintf('Infection: no test ran for any of the %d mutant(s) Infection counted as killed, so the scores above are not a measurement.', $judgement->judged));
@@ -277,10 +281,45 @@ final readonly class InfectionTool implements ToolInterface
             $context->writeln('             ' . $line);
         }
 
-        $context->writeln('           Every mutant, with its test output: ' . $jsonLog);
+        $context->writeln(self::EVERY_MUTANT . $jsonLog);
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::crashed(\sprintf('No test ran for any of the %d mutant(s) Infection counted as killed', $judgement->judged));
+    }
+
+    /**
+     * Some kills ran tests, so the suite starts under Infection. The others most
+     * likely broke code the test bootstrap runs, but a suite that starts only
+     * some of the time produces the same output, and the score cannot tell the
+     * two apart. A failing run fails whatever they are; a passing run passes
+     * only if its floors hold without them.
+     */
+    private function judgePartlyVacuous(ToolContext $context, string $jsonLog, ProcessResultDto $result, KillJudgementDto $judgement, int $minMsi, int $minCoveredMsi): ?ToolResultDto
+    {
+        $vacuous = $judgement->vacuous;
+        $context->writeln(\sprintf('Infection: %d of %d killed mutant(s) stopped the test suite before any test ran, the first %s.', \count($vacuous), $judgement->judged, $vacuous[0]->mutant));
+        if (!$result->succeeded()) {
+            $context->writeln(self::EVERY_MUTANT . $jsonLog);
+
+            return null;
+        }
+
+        $scores = \sprintf('           Without them the MSI is %s%% and the covered-code MSI %s%%', $judgement->msiWithoutVacuous(), $judgement->coveredMsiWithoutVacuous());
+        if ($judgement->floorsHoldWithoutVacuous($minMsi, $minCoveredMsi)) {
+            $context->writeln(\sprintf('%s, still at or above the floors of %d%% and %d%%.', $scores, $minMsi, $minCoveredMsi));
+            $context->writeln('           The other kills ran tests, so the suite starts under Infection: these mutants most likely broke code the test bootstrap runs.');
+            $context->writeln(self::EVERY_MUTANT . $jsonLog);
+
+            return null;
+        }
+
+        $context->writeln(\sprintf('%s, below the floors of %d%% and %d%%, so the pass rests on kills no test made.', $scores, $minMsi, $minCoveredMsi));
+        $context->writeln('           Either these mutants broke code the test bootstrap runs, which only a test that reaches that code another way can show,');
+        $context->writeln('           or the suite starts only some of the time under Infection (a race in its bootstrap, a resource its threads share): their test output tells the two apart.');
+        $context->writeln(self::EVERY_MUTANT . $jsonLog);
+        $context->writeIdentifier(self::IDENTIFIER);
+
+        return ToolResultDto::crashed(\sprintf('The MSI floors hold only by counting %d killed mutant(s) no test ran for', \count($vacuous)));
     }
 
     /**
