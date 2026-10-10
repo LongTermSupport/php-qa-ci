@@ -79,7 +79,7 @@ final class ProcessTreeExitingStatTest extends TestCase
     /** Its /proc entry still there, the process has not gone: the failed read is real and is not swallowed. */
     #[Test]
     #[DataProvider('runningProcesses')]
-    public function aStatFileThatReadsNothingForARunningProcessIsAnError(string $scheme): void
+    public function aStatFileThatReadsNothingForARunningProcessIsAnError(string $scheme, string $cause): void
     {
         $thrown = null;
         try {
@@ -91,12 +91,19 @@ final class ProcessTreeExitingStatTest extends TestCase
         self::assertSame([], $this->notices);
         self::assertInstanceOf(RuntimeException::class, $thrown);
         self::assertStringContainsString($scheme . '://proc/4242/stat', $thrown->getMessage());
+        self::assertStringContainsString($cause, $thrown->getMessage());
     }
 
-    /** @return iterable<string, array{string}> */
+    /**
+     * The scheme, and what the error must say caused it: the read's own notice when the read
+     * fails, so a handler that swallowed the notice and fell through to the empty-line check
+     * would not pass.
+     *
+     * @return iterable<string, array{string, string}>
+     */
     public static function runningProcesses(): iterable
     {
-        yield 'the read fails' => [ExitingProcStreamWrapper::RUNNING_FAILED_READ_SCHEME];
-        yield 'the read is empty' => [ExitingProcStreamWrapper::RUNNING_EMPTY_READ_SCHEME];
+        yield 'the read fails' => [ExitingProcStreamWrapper::RUNNING_FAILED_READ_SCHEME, 'errno=3 No such process'];
+        yield 'the read is empty' => [ExitingProcStreamWrapper::RUNNING_EMPTY_READ_SCHEME, 'it is empty'];
     }
 }
