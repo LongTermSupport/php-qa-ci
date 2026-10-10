@@ -182,6 +182,49 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
         self::assertStringContainsString('"mutators":{"@default":true,"TrueValue":{}}', $json);
     }
 
+    /**
+     * The lane always runs Infection from a copy, to add the JSON log it reads;
+     * with nothing ignored the copy means exactly what the original does.
+     */
+    #[Test]
+    public function aRelocatedCopyExcludesNothingAndResolvesEveryPathAsTheOriginalDoes(): void
+    {
+        $config = $this->config([
+            'bootstrap' => 'tests/bootstrap.php',
+            'source'    => ['directories' => [self::SRC_FROM_CONFIG], 'excludes' => ['/ComposerPlugin/']],
+            'logs'      => ['text' => '../var/qa/infection/log.txt'],
+            'phpUnit'   => ['customPath' => '../bin/phpunit'],
+            'mutators'  => ['TrueValue' => new stdClass()],
+        ]);
+        $qa = $this->root . '/qaConfig';
+
+        $relocated = new IgnoredPathsInfectionConfig()->relocated($config);
+
+        self::assertSame(
+            [
+                'bootstrap' => 'tests/bootstrap.php',
+                'source'    => ['directories' => [$this->src], 'excludes' => ['/ComposerPlugin/']],
+                'logs'      => ['text' => $this->root . '/var/qa/infection/log.txt'],
+                'phpUnit'   => ['configDir' => $qa, 'customPath' => $this->root . '/bin/phpunit'],
+                'mutators'  => ['TrueValue' => []],
+                'phpStan'   => ['configDir' => $qa],
+                'mago'      => ['configDir' => $qa],
+            ],
+            json_decode(\Safe\json_encode($relocated), true),
+        );
+        self::assertStringContainsString('"TrueValue":{}', \Safe\json_encode($relocated));
+    }
+
+    #[Test]
+    public function aRelocatedConfigThatIsNotAnObjectIsReported(): void
+    {
+        $config = $this->project->write(self::CONFIG, '[1]');
+
+        $this->expectException(JsonException::class);
+        $this->expectExceptionMessage($config . ' does not hold a JSON object');
+        new IgnoredPathsInfectionConfig()->relocated($config);
+    }
+
     #[Test]
     public function anIgnoredSourceDirectoryIsDroppedRatherThanExcluded(): void
     {

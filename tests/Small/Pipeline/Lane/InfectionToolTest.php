@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use Closure;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
@@ -15,7 +16,10 @@ use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffBaseResolver;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionFullRunTriggers;
 use LTS\PHPQA\Pipeline\Lane\Infection\TestSourceMirror;
+use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
@@ -49,8 +53,10 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(EnvironmentReader::class)]
 #[UsesClass(QaConfigBuilder::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
+#[UsesClass(VacuousKillDetector::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto::class)]
+#[UsesClass(ProcessResultDto::class)]
+#[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
@@ -100,6 +106,15 @@ final class InfectionToolTest extends TestCase
 
     private const string FULL_FLOOR_ARG = '--min-msi=74';
 
+    private const string JSON_LOG = 'var/qa/infection/infection-log.json';
+
+    private const string PHPUNIT_HEADER = "PHPUnit 13.4.1 by Sebastian Bergmann and contributors.\n\nRuntime:       PHP 8.5.11\n\n";
+
+    /** What a mutant run printed when the suite could not start under Infection (issue #122). */
+    private const string NO_TESTS_EXECUTED = self::PHPUNIT_HEADER . "There was 1 PHPUnit test runner warning:\n\n1) Bootstrapping of extension X failed\n\nNo tests executed!";
+
+    private const string REAL_KILL = self::PHPUNIT_HEADER . "F\n\nFAILURES!\nTests: 1, Assertions: 1, Failures: 1.";
+
     private ContextFactory $factory;
 
     private string $root;
@@ -131,7 +146,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->project->write('var/qa/infection/log.txt', 'stale');
         $this->factory->project->write('var/qa/infection/tmp/deep/file', 'stale');
-        $this->factory->processes->willSucceed('Mutation Score Indicator (MSI): 90%');
+        $this->factory->processes->willRun($this->infection());
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
         $printed = $this->factory->output->fetch();
@@ -147,7 +162,7 @@ final class InfectionToolTest extends TestCase
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
             '--threads=4',
-            self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
+            self::CONFIGURATION_ARG . $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG,
             self::FULL_FLOOR_ARG,
             self::COVERED_FLOOR_ARG,
             self::LOG_ALL,
@@ -157,15 +172,128 @@ final class InfectionToolTest extends TestCase
         self::assertSame($this->root, $phar->cwd);
 
         self::assertDirectoryExists($this->root . '/var/qa/infection');
-        self::assertSame([], $this->factory->project->files('var/qa/infection'), 'previous infection output is cleared');
+        self::assertSame([self::JSON_LOG], $this->factory->project->files('var/qa/infection'), 'previous infection output is cleared');
         self::assertDirectoryDoesNotExist($this->root . '/var/qa/infection/tmp');
+    }
+
+    #[Test]
+    public function theConfigInfectionRunsWithAlwaysWritesTheJsonLogTheLaneReads(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection());
+
+        $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        $generic = \dirname(__DIR__, 4) . '/configDefaults/generic';
+        $derived = \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true);
+        self::assertIsArray($derived);
+        self::assertSame(
+            [
+                'text'    => $this->root . '/var/qa/infection/log.txt',
+                'summary' => $this->root . '/var/qa/infection/summary-log.txt',
+                'debug'   => $this->root . '/var/qa/infection/debug-log.txt',
+                'json'    => $this->root . '/' . self::JSON_LOG,
+            ],
+            $derived['logs'],
+            'the shipped logs keep their places and the JSON log is added beside them',
+        );
+        self::assertSame(['configDir' => $generic], $derived['phpUnit']);
+        self::assertStringNotContainsString('ignored paths', $this->factory->output->fetch(), 'nothing is excluded, so nothing is said about exclusions');
+    }
+
+    #[Test]
+    public function aProjectsOwnJsonLogIsKeptAndRead(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}, "logs": {"json": "../build/mutants.json"}}');
+        $this->factory->project->write('build/mutants.json', 'stale');
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection(0, self::NO_TESTS_EXECUTED));
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'the project-declared log is the one read');
+        self::assertStringContainsString($this->root . '/build/mutants.json', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aStaleProjectJsonLogIsRemovedBeforeInfectionRuns(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}, "logs": {"json": "../build/mutants.json"}}');
+        $this->factory->project->write('build/mutants.json', \Safe\json_encode(['killed' => []]));
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willSucceed();
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'a log left by an earlier run is no evidence about this one');
+    }
+
+    #[Test]
+    public function aMutantKilledAlthoughNoTestRanCrashesTheLaneAndNamesTheCause(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection(0, self::REAL_KILL, self::NO_TESTS_EXECUTED, self::NO_TESTS_EXECUTED));
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'a vacuous MSI is not a score to report');
+        self::assertSame('Infection counted 2 of 3 killed mutant(s) as killed although no test ran', $result->summary);
+        self::assertStringContainsString('Infection: 2 of 3 killed mutant(s) were killed although no test ran', $printed);
+        self::assertStringContainsString('src/Foo.php:7 Plus', $printed);
+        self::assertStringContainsString('Bootstrapping of extension X failed', $printed, 'the test output of the first one is shown');
+        self::assertStringContainsString($this->root . '/' . self::JSON_LOG, $printed);
+        self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function aFloorBreachWithVacuousKillsCrashesRatherThanReportingTheScore(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection(1, self::NO_TESTS_EXECUTED));
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+    }
+
+    #[Test]
+    public function aPassingRunThatWroteNoJsonLogCrashes(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willSucceed();
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'an unverifiable pass is not a pass');
+        self::assertStringContainsString('wrote no JSON log at ' . $this->root . '/' . self::JSON_LOG, $printed);
+        self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function aJsonLogThatCannotBeReadCrashes(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun(function (ProcessSpecDto $spec): ProcessResultDto {
+            $this->factory->project->write(self::JSON_LOG, '{"killed": ');
+
+            return new ProcessResultDto(0, '', '');
+        });
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('could not be read', $printed);
+        self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 
     #[Test]
     public function aSingleToolRunGeneratesFreshCoverageWithXdebug(): void
     {
         $this->factory->project->write('var/qa/phpunit_logs/coverage-xml/stale.xml', self::MINIMAL_XML);
-        $this->factory->processes->willSucceed('OK (3 tests)')->willSucceed();
+        $this->factory->processes->willSucceed('OK (3 tests)')->willRun($this->infection());
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS, singleTool: self::INFECTION)));
         $printed = $this->factory->output->fetch();
@@ -188,7 +316,7 @@ final class InfectionToolTest extends TestCase
     #[Test]
     public function aFullRunWithNoCoverageOnDiskGeneratesIt(): void
     {
-        $this->factory->processes->willSucceed()->willSucceed();
+        $this->factory->processes->willSucceed()->willRun($this->infection());
 
         $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
 
@@ -260,7 +388,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
@@ -303,7 +431,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(self::MERGE_BASE)
             ->willSucceed(self::GIT_STATUS_CLEAN)
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC], ['A', 'src/Added.php']))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
@@ -320,7 +448,7 @@ final class InfectionToolTest extends TestCase
     public function autoModeOnTheDefaultBranchRunsInFullAndSaysSo(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed("main\n")->willSucceed(self::ORIGIN_DEFAULT)->willSucceed();
+        $this->factory->processes->willSucceed("main\n")->willSucceed(self::ORIGIN_DEFAULT)->willRun($this->infection());
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
         $printed = $this->factory->output->fetch();
@@ -335,7 +463,7 @@ final class InfectionToolTest extends TestCase
     public function autoModeWithNoMergeBaseRunsInFullAndSaysWhy(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed(self::FEATURE_BRANCH)->willSucceed(self::ORIGIN_DEFAULT)->willSucceed(self::RESOLVED)->willFail(1)->willSucceed();
+        $this->factory->processes->willSucceed(self::FEATURE_BRANCH)->willSucceed(self::ORIGIN_DEFAULT)->willSucceed(self::RESOLVED)->willFail(1)->willRun($this->infection());
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
         $printed = $this->factory->output->fetch();
@@ -357,7 +485,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(" M src/Wip.php\0?? src/Fresh.php\0 M src/Committed.php\0")
             ->willSucceed(self::NO_PREFIX)
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
@@ -380,7 +508,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
             ->willSucceed($this->nameStatus(['M', 'qaConfig/phpunit.xml'], ['M', self::COMMITTED_SRC]))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
@@ -404,7 +532,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(' M ' . self::PROJECT_CONFIG . "\0")
             ->willSucceed(self::NO_PREFIX)
             ->willSucceed('')
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
@@ -420,7 +548,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
@@ -443,7 +571,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
             ->willSucceed($this->nameStatus(['M', 'composer.lock'], ['M', 'qaConfig/qa.php'], ['M', self::COMMITTED_SRC]))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
@@ -463,7 +591,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
             ->willSucceed($this->nameStatus(['M', 'tests/support/boot.php']))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $this->tool()->run($this->context($this->diffBuilder()));
@@ -507,7 +635,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
             ->willSucceed(self::MERGE_BASE)
             ->willFail(128, 'fatal: path does not exist')
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
@@ -580,7 +708,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(" M app/src/Wip.php\0")
             ->willSucceed("app/\n")
             ->willSucceed('')
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
@@ -598,7 +726,7 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory->project->write('src/Lane/Tool.php', '<?php');
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'tests/Small/Lane/ToolTest.php']))->willSucceed();
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'tests/Small/Lane/ToolTest.php']))->willRun($this->infection());
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()));
         $printed = $this->factory->output->fetch();
@@ -640,7 +768,7 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}, "tmpDir": "../var/qa/infection/tmp"}');
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed();
+        $this->factory->processes->willRun($this->infection());
 
         $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY, 'tests/assets')));
 
@@ -654,6 +782,7 @@ final class InfectionToolTest extends TestCase
                 'phpUnit' => $qaConfig,
                 'phpStan' => $qaConfig,
                 'mago'    => $qaConfig,
+                'logs'    => ['json' => $this->root . '/' . self::JSON_LOG],
             ],
             \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true),
             'the configDirs Infection would default to the project config directory are stated, not left to default to var/qa/',
@@ -662,16 +791,18 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
-    public function anIgnoredPathOutsideTheSourceDirectoriesLeavesTheConfigAsResolved(): void
+    public function anIgnoredPathOutsideTheSourceDirectoriesExcludesNothing(): void
     {
-        $config = $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}}');
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}}');
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed();
+        $this->factory->processes->willRun($this->infection());
 
         $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths('tests/assets')));
 
-        self::assertContains(self::CONFIGURATION_ARG . $config, $this->factory->processes->lastSpec()->command);
-        self::assertFileDoesNotExist($this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG);
+        $derived = \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true);
+        self::assertIsArray($derived);
+        self::assertSame(['directories' => [$this->root . self::SRC_DIR]], $derived['source']);
+        self::assertStringNotContainsString('ignored paths', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -705,7 +836,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
             ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC], ['M', 'src/Legacy/Old.php']))
-            ->willSucceed()
+            ->willRun($this->infection())
         ;
 
         $result  = $this->tool()->run($this->context($this->diffBuilder()->withIgnoredPaths(self::LEGACY)));
@@ -736,7 +867,7 @@ final class InfectionToolTest extends TestCase
     public function anOverriddenDiffFloorReachesInfection(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'src/Changed.php']))->willSucceed();
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'src/Changed.php']))->willRun($this->infection());
 
         $this->tool()->run($this->context($this->diffBuilder(['infectionDiffCoveredMsi' => '95'])));
 
@@ -802,6 +933,41 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(self::INFECTION, $tool->name());
         self::assertSame('phpqaci.infection', $tool->identifier());
+    }
+
+    /**
+     * Infection exiting $exitCode after writing the JSON log the config it was
+     * handed asks for, one killed mutant per output (one real kill by default).
+     * A config with no JSON log gets none written.
+     *
+     * @return Closure(ProcessSpecDto): ProcessResultDto
+     */
+    private function infection(int $exitCode = 0, string ...$killedOutputs): Closure
+    {
+        $killedOutputs = [] === $killedOutputs ? [self::REAL_KILL] : array_values($killedOutputs);
+
+        return function (ProcessSpecDto $spec) use ($exitCode, $killedOutputs): ProcessResultDto {
+            $configArgs = array_values(array_filter($spec->command, static fn (string $arg): bool => str_starts_with($arg, self::CONFIGURATION_ARG)));
+            self::assertCount(1, $configArgs);
+            $config = \Safe\json_decode(\Safe\file_get_contents(substr($configArgs[0], \strlen(self::CONFIGURATION_ARG))), true);
+            $log    = \is_array($config) && \is_array($config['logs'] ?? null) ? ($config['logs']['json'] ?? null) : null;
+            if (\is_string($log)) {
+                if (!is_dir(\dirname($log))) {
+                    \Safe\mkdir(\dirname($log), 0o777, true);
+                }
+
+                \Safe\file_put_contents($log, \Safe\json_encode([
+                    'stats'  => ['killedCount' => \count($killedOutputs)],
+                    'killed' => array_map(fn (string $output): array => [
+                        'mutator'       => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => 7],
+                        'diff'          => '',
+                        'processOutput' => $output,
+                    ], $killedOutputs),
+                ]));
+            }
+
+            return new ProcessResultDto($exitCode, 'Infection ran', 'Infection ran');
+        };
     }
 
     /** An environment-free lane, so a GITHUB_BASE_REF in the test runner's own environment cannot steer it. */

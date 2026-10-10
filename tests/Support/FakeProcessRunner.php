@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support;
 
+use Closure;
 use LogicException;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -19,12 +20,25 @@ final class FakeProcessRunner implements ProcessRunnerInterface
     /** @var list<ProcessSpecDto> */
     public array $specs = [];
 
-    /** @var list<ProcessResultDto> */
+    /** @var list<Closure(ProcessSpecDto): ProcessResultDto|ProcessResultDto> */
     private array $queue = [];
 
     public function willReturn(ProcessResultDto ...$results): self
     {
         $this->queue = [...$this->queue, ...array_values($results)];
+
+        return $this;
+    }
+
+    /**
+     * Answers the next spec by calling $handler with it, for a tool whose
+     * process writes a file the tool reads afterwards.
+     *
+     * @param Closure(ProcessSpecDto): ProcessResultDto $handler
+     */
+    public function willRun(Closure $handler): self
+    {
+        $this->queue[] = $handler;
 
         return $this;
     }
@@ -47,7 +61,7 @@ final class FakeProcessRunner implements ProcessRunnerInterface
             throw new LogicException('FakeProcessRunner has no queued result for: ' . $spec->commandLine());
         }
 
-        return $result;
+        return $result instanceof Closure ? $result($spec) : $result;
     }
 
     public function lastSpec(): ProcessSpecDto
