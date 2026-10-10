@@ -228,6 +228,21 @@ leaves a suite that runs no test unrecognised. PHPUnit's own report of a bootstr
 configuration it cannot load is printed before any extension is loaded, so it is recognised
 either way.
 
+### Per-thread resources: `TEST_TOKEN`
+
+Infection starts every mutant run with `TEST_TOKEN` set to its thread number (`1` to the thread
+count), the ParaTest convention. The lane's coverage run sets no `TEST_TOKEN`. A suite that
+derives a resource's name from it, typically a Doctrine test database such as
+`dbname_suffix: '_test%env(default::TEST_TOKEN)%'`, therefore connects to a different database
+in each mutant run than in the coverage run. If those per-thread databases do not exist, every
+database-backed test errors on connect and Infection scores each error as a killed mutant: the
+run passes on an inflated score.
+
+The lane's check above does not catch this, because the tests do start and PHPUnit reports
+their errors. Create and migrate one database (or other per-thread resource) for each thread,
+`1` to `withInfectionThreads()`, before the run. Killed mutants whose test output in
+`var/qa/infection/infection-log.json` shows connection errors are the sign that they are missing.
+
 #### Disabling Infection
 
 If you would like to disable infection, simply export the environment variable `useInfection` with the value `0`:
