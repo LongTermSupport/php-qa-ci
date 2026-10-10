@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Support\ProjectTreeLeak;
 
+use Closure;
 use InvalidArgumentException;
 use LTS\PHPQA\Tests\Support\ProjectTreeLeak\ProjectTreeLedger;
 use LTS\PHPQA\Tests\Support\TempDir;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 use UnexpectedValueException;
 
 /**
@@ -195,6 +197,40 @@ final class ProjectTreeLedgerTest extends TestCase
         self::assertSame([], $warnings);
         self::assertSame(['FooTest::racesAnotherProcess deleted src from the project tree'], $ledger->leaks());
         self::assertDirectoryDoesNotExist($this->root . self::SRC);
+    }
+
+    /**
+     * PHP caches the last stat() of a path, and a removal by another process does not clear
+     * it, so the sweep's own is_dir() leaves the directory looking present after it has gone.
+     * The window between that is_dir() and the read has no hook, so the read is driven
+     * directly, after a real is_dir() and a real removal by another process (issue #146).
+     * Every Process call after start() stats some other path, which would replace the
+     * cached entry, so the child removes the directory after a delay, unprompted, and the
+     * wait for it uses file_exists(), which PHP answers with access() and never caches.
+     */
+    #[Test]
+    public function aDirectoryAnotherProcessRemovedAfterAStatIsReadAsGoneNotAsAnError(): void
+    {
+        $ledger    = $this->ledger();
+        $directory = $this->root . '/tests';
+        \Safe\unlink($directory . '/ExistingTest.php');
+        $remover = new Process([\PHP_BINARY, '-r', 'usleep(500000); rmdir($argv[1]);', $directory]);
+        $remover->start();
+
+        $presentBefore = is_dir($directory);
+        $polls         = 0;
+        while (file_exists($directory) && $polls++ < 1000) {
+            usleep(10000);
+        }
+
+        $names = Closure::bind(static fn (ProjectTreeLedger $ledger, string $directory): ?array => $ledger->names($directory), null, ProjectTreeLedger::class);
+        $read  = $names($ledger, $directory);
+        $remover->wait();
+
+        self::assertTrue($presentBefore, 'the stat came before the removal');
+        self::assertTrue($remover->isSuccessful(), $remover->getErrorOutput());
+        self::assertNull($read);
+        self::assertDirectoryDoesNotExist($directory);
     }
 
     /** A directory that is still there but cannot be read is a real failure, and is not swallowed. */
