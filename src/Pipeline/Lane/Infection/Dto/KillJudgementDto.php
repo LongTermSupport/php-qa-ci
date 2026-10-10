@@ -23,8 +23,8 @@ final readonly class KillJudgementDto
         public int $judged,
         public array $vacuous,
         public ?int $detected = null,
-        public int $tested = 0,
-        public int $testedCovered = 0,
+        public ?int $tested = null,
+        public ?int $testedCovered = null,
     ) {
     }
 
@@ -42,13 +42,13 @@ final readonly class KillJudgementDto
     /** Infection's MSI with the vacuous kills counted as not detected. */
     public function msiWithoutVacuous(): float
     {
-        return $this->share($this->detectedWithoutVacuous(), $this->tested);
+        return $this->share($this->tested);
     }
 
     /** Infection's covered-code MSI with the vacuous kills counted as not detected. */
     public function coveredMsiWithoutVacuous(): float
     {
-        return $this->share($this->detectedWithoutVacuous(), $this->testedCovered);
+        return $this->share($this->testedCovered);
     }
 
     /** Whether Infection would let both scores through without the vacuous kills: it fails a score below its floor, and 0 is no floor. */
@@ -57,18 +57,13 @@ final readonly class KillJudgementDto
         return $this->msiWithoutVacuous() >= $minMsi && $this->coveredMsiWithoutVacuous() >= $minCoveredMsi;
     }
 
-    private function detectedWithoutVacuous(): int
+    /** The detected mutants less the vacuous kills, out of $of, as Infection rounds a score: to two places, half up; over no mutants, 0. */
+    private function share(?int $of): float
     {
-        if (null === $this->detected) {
+        if (null === $this->detected || null === $of) {
             throw new LogicException("the scores need the counts from the Infection JSON log's stats, which this judgement was made without");
         }
 
-        return $this->detected - \count($this->vacuous);
-    }
-
-    /** As Infection rounds a score: to two places, half up; over no mutants, 0. */
-    private function share(int $detected, int $of): float
-    {
-        return 0 === $of ? 0.0 : round(100 * $detected / $of, 2, RoundingMode::HalfAwayFromZero);
+        return 0 === $of ? 0.0 : round(100 * ($this->detected - \count($this->vacuous)) / $of, 2, RoundingMode::HalfAwayFromZero);
     }
 }
