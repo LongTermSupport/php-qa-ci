@@ -16,6 +16,13 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   `parallel.maximumNumberOfProcesses` at half the CPU threads, the same figure Rector and
   Infection use. The lane prints the cap it applied.
 
+- PHPStan's cache (its `tmpDir`) is `var/qa/cache/phpstan/`, set in the wrapper, so each checkout
+  keeps its own and deleting `var/qa/` resets it. PHPStan's default, `/tmp/phpstan`, is shared by
+  every checkout on the host, and a stale entry there can decide the verdict in another tree
+  ([#123](https://github.com/LongTermSupport/php-qa-ci/issues/123)). `clear-result-cache` clears
+  only part of the cache. A `tmpDir` the project's own `phpstan.neon`, or a file it includes, sets
+  is used instead, and the lane prints which file sets it.
+
 - Each path given to `withIgnoredPaths()` in `qaConfig/qa.php` is written into the wrapper as an
   `excludePaths.analyse` entry, absolute and optional (`(?)`), so a fixture's deliberate
   violations are never reported and the project does not repeat the path in its own

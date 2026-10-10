@@ -46,18 +46,11 @@ final class PhpstanCacheStaysInTheProjectTest extends TestCase
     {
         $consumer = $this->consumer;
         self::assertNotNull($consumer);
-        $consumer->dir->write('qaConfig/qa.php', <<<'PHP'
-            <?php
-
-            declare(strict_types=1);
-
-            use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
-
-            return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
-                ->withDeadCodeDetection(true)
-                ->withoutDeadCodeEntryPoints()
-            ;
-            PHP);
+        $consumer->dir->write(
+            'qaConfig/qa.php',
+            "<?php\n\ndeclare(strict_types=1);\n\nuse LTS\\PHPQA\\Pipeline\\Config\\QaConfigBuilder;\n\n"
+            . "return static fn (QaConfigBuilder \$qa): QaConfigBuilder => \$qa->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints();\n",
+        );
 
         $this->assertTheLaneCachesInside('dcd', 'var/qa/cache/deadCode');
     }
@@ -70,11 +63,12 @@ final class PhpstanCacheStaysInTheProjectTest extends TestCase
 
         $process = $consumer->qa(['TMPDIR' => $systemTemp], '-t', $tool);
         $process->run();
+
         $output = $process->getOutput() . $process->getErrorOutput();
 
         self::assertDirectoryDoesNotExist($systemTemp . '/phpstan', 'PHPStan fell back to the shared system temp directory: ' . $output);
         $absolute = $consumer->dir->path . '/' . $cacheDir;
         self::assertDirectoryExists($absolute, $output);
-        self::assertNotSame([], array_diff(\Safe\scandir($absolute), ['.', '..']), 'PHPStan wrote nothing under ' . $cacheDir . ': ' . $output);
+        self::assertGreaterThan(2, \count(\Safe\scandir($absolute)), 'PHPStan wrote nothing under ' . $cacheDir . ' (only . and ..): ' . $output);
     }
 }

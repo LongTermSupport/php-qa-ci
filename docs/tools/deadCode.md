@@ -31,6 +31,11 @@ structural false positive in eleven reports, the rest genuine (Plan 00005, journ
   once per PHAR version, rather than the PHAR itself: with Turbo, PHPStan forks its workers, and
   forked workers reading a second PHAR corrupt each other's reads. Nothing is installed through
   Composer, so the PHPStan gate never sees the detector.
+- PHPStan's cache (its `tmpDir`) is `var/qa/cache/deadCode/`, apart from the PHPStan lane's
+  `var/qa/cache/phpstan/`: PHPStan keeps one result cache per `tmpDir`, so two configurations
+  sharing one would invalidate each other's on every run. Deleting `var/qa/` resets it. A `tmpDir`
+  the project's `phpstan.neon` chain sets is used instead, as in the
+  [PHPStan lane](phpstan.md#how-the-lane-runs).
 - Analyses `src/`, `tests/` and every entry point listed with `withDeadCodeEntryPoints()`, less
   the `withIgnoredPaths()` paths, which it excludes exactly as the [PHPStan lane](phpstan.md)
   does. Code under an ignored path is not analysed, so a member reached only from there is

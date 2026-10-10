@@ -33,6 +33,10 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
@@ -146,6 +150,7 @@ final class DeadCodeToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
         new DeadCodeTool()->run($this->factory->context($config));
@@ -162,6 +167,7 @@ final class DeadCodeToolTest extends TestCase
         $this->factory->processes->willSucceed();
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    tmpDir: /ci-cache/phpstan\n");
+
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
         new DeadCodeTool()->run($this->factory->context($config));
