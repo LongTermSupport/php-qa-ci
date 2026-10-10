@@ -9,6 +9,7 @@ use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
@@ -97,6 +98,27 @@ final class QaEntrypointTest extends TestCase
         self::assertStringContainsString('generic platform detected', $out);
         self::assertStringContainsString('Checking for Xdebug', $out);
         self::assertSame(0, $process->getExitCode(), $out . $process->getErrorOutput());
+        self::assertMatchesRegularExpression('/ qa -t pt COMPLETED\n=+\n$/', $out);
+    }
+
+    /**
+     * The closing banner is the line a reader skims for the verdict, so a
+     * failed run must not end on a word that reads as success. Both modes: the
+     * aggregate run keeps going past the failure, the fail-fast one stops.
+     */
+    #[Test]
+    #[TestWith(['1'], 'read-only, aggregate')]
+    #[TestWith(['0'], 'writable, fail-fast')]
+    public function aFailedRunEndsWithAFailureBannerNotCompleted(string $readOnly): void
+    {
+        $this->consumer->write('composer.json', '{"name": "fixture/consumer", "autoload": {"psr-4": {"Fixture\\\": "src/"}}}');
+
+        $process = $this->qa(['QA_READONLY' => $readOnly], '-t', 'pt');
+
+        $out = $process->getOutput();
+        self::assertSame(1, $process->getExitCode(), $out . $process->getErrorOutput());
+        self::assertMatchesRegularExpression('/ qa -t pt FAILED \(exit 1\)\n=+\n$/', $out);
+        self::assertStringNotContainsString('COMPLETED', $out);
     }
 
     #[Test]
