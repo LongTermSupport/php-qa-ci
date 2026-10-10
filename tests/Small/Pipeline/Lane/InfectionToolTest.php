@@ -190,8 +190,9 @@ final class InfectionToolTest extends TestCase
         self::assertStringEndsWith("}\n", $written);
         $derived = \Safe\json_decode($written, true);
         self::assertIsArray($derived);
-        // The shipped config reaches the consumer's root from vendor/lts/php-qa-ci/configDefaults/generic.
-        $consumer = \dirname($generic, 5);
+        // The shipped config reaches the consumer's root from vendor/lts/php-qa-ci/configDefaults/generic;
+        // in a checkout fewer than five levels deep that is `/`, so it is joined without its separator.
+        $consumer = rtrim(\dirname($generic, 5), '/');
         self::assertSame(
             [
                 'text'    => $consumer . '/var/qa/infection/log.txt',
