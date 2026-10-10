@@ -48,25 +48,21 @@ final class ProjectTreeLeakExtensionTest extends TestCase
                 \Safe\rmdir($processDirectory);
             }
         }
+
+        foreach ($this->childTempDirectories() as $directory) {
+            foreach (\Safe\glob($directory . '/*') as $left) {
+                self::assertIsString($left);
+                \Safe\unlink($left);
+            }
+
+            \Safe\rmdir($directory);
+        }
     }
 
     #[Test]
     public function aPassingTestThatWritesIntoTheProjectTreeFailsTheRunAndLeavesTheTreeClean(): void
     {
-        $process = new Process(
-            [
-                \PHP_BINARY,
-                $this->root . '/bin/phpunit',
-                '--configuration=' . $this->root . '/qaConfig/phpunit.xml',
-                '--no-coverage',
-                '--no-logging',
-                '--do-not-record-test-run-history',
-                $this->root . '/tests/assets/projectTreeLeak/WritesIntoTheWorkingDirectoryTest.php',
-            ],
-            $this->root,
-            ['PROJECT_TREE_LEAK_PROBE' => $this->probe, 'XDEBUG_MODE' => 'off'],
-        );
-        $process->run();
+        $process = $this->runFixture('WritesIntoTheWorkingDirectoryTest.php');
 
         self::assertStringContainsString('OK (1 test', $process->getOutput(), 'the test itself passes');
         self::assertSame(1, $process->getExitCode(), 'the extension fails the run: ' . $process->getErrorOutput());
@@ -76,5 +72,60 @@ final class ProjectTreeLeakExtensionTest extends TestCase
             $process->getErrorOutput(),
         );
         self::assertFileDoesNotExist($this->root . '/' . $this->probe);
+    }
+
+    /**
+     * exit() in a shutdown function cancels every shutdown function after it, so this
+     * extension's verdict must not cost TempLeakExtension, listed after it, its report
+     * or the removal of its directory (issue #137).
+     */
+    #[Test]
+    public function aTestThatLeaksIntoTheTreeAndTheTempDirectoryIsReportedByBothExtensions(): void
+    {
+        $process = $this->runFixture('WritesIntoTheTreeAndTheTempDirectoryTest.php');
+
+        self::assertStringContainsString('OK (1 test', $process->getOutput(), 'the test itself passes');
+        self::assertSame(1, $process->getExitCode(), 'the extensions fail the run: ' . $process->getErrorOutput());
+        // The short name: Rector resolves the fixture class, PHPStan (which excludes tests/assets) cannot.
+        $test = '\WritesIntoTheTreeAndTheTempDirectoryTest::writesARelativePathAndLeavesATempFile';
+        self::assertStringContainsString($test . ' wrote ' . $this->probe . ' into the project tree', $process->getErrorOutput());
+        self::assertStringContainsString('Tests left files in the temp directory', $process->getErrorOutput());
+        self::assertStringContainsString($test . ' left ' . $this->probe, $process->getErrorOutput());
+        self::assertFileDoesNotExist($this->root . '/' . $this->probe);
+        self::assertSame([], $this->childTempDirectories(), 'TempLeakExtension removed its directory');
+    }
+
+    private function runFixture(string $fixture): Process
+    {
+        $process = new Process(
+            [
+                \PHP_BINARY,
+                $this->root . '/bin/phpunit',
+                '--configuration=' . $this->root . '/qaConfig/phpunit.xml',
+                '--no-coverage',
+                '--no-logging',
+                '--do-not-record-test-run-history',
+                $this->root . '/tests/assets/projectTreeLeak/' . $fixture,
+            ],
+            $this->root,
+            ['PROJECT_TREE_LEAK_PROBE' => $this->probe, 'XDEBUG_MODE' => 'off'],
+        );
+        $process->run();
+
+        return $process;
+    }
+
+    /**
+     * The child run's TMPDIR is this process's temp directory, so the child claims its own
+     * directory inside it; one left behind means TempLeakExtension's shutdown never ran.
+     *
+     * @return list<string>
+     */
+    private function childTempDirectories(): array
+    {
+        return array_values(array_filter(
+            \Safe\glob(sys_get_temp_dir() . '/php-qa-ci-tests-*'),
+            \is_string(...),
+        ));
     }
 }
