@@ -9,6 +9,7 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -128,6 +129,7 @@ final class VacuousKillDetectorTest extends TestCase
         $log = $this->log(
             killed: [$this->mutant(self::SOURCE, 1, self::PLUS, self::FAILED_TEST), $this->mutant('/p/src/Bar.php', 2, 'Minus', self::EXTENSION_FAILED)],
             escaped: [$this->mutant('/p/src/Baz.php', 3, self::PLUS, self::EXTENSION_FAILED)],
+            stats: $this->stats(90.0, 100.0),
         );
 
         $found = new VacuousKillDetector()->find($log);
@@ -173,11 +175,112 @@ final class VacuousKillDetectorTest extends TestCase
             $this->mutant(self::SOURCE, 1, self::PLUS, self::BOOTSTRAP_BROKEN),
             $this->mutant(self::SOURCE, 2, self::PLUS, self::FAILED_TEST),
             $this->mutant(self::SOURCE, 3, self::PLUS, self::BOOTSTRAP_BROKEN),
-        ]));
+        ], stats: $this->stats(90.0, 100.0)));
 
         self::assertSame(3, $found->judged);
         self::assertSame(['/p/src/Foo.php:1 Plus', '/p/src/Foo.php:3 Plus'], array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, $found->vacuous));
         self::assertFalse($found->suiteNeverStarted());
+    }
+
+    /**
+     * Some kills vacuous and some not: the verdict may rest on the vacuous ones,
+     * so the counts Infection scores from are read: detected is every kill,
+     * error and timeout (9), out of the tested mutants (10) and the covered ones (9).
+     */
+    #[Test]
+    public function aMixedJudgementCarriesTheCountsInfectionScoresFrom(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: $this->stats(90.0, 100.0)));
+
+        self::assertSame(9, $found->detected);
+        self::assertSame(10, $found->tested);
+        self::assertSame(9, $found->testedCovered);
+        self::assertSame(80.0, $found->msiWithoutVacuous());
+    }
+
+    /** Run with --timeouts-as-escaped, Infection counts a timeout as not detected, and its MSI says so. */
+    #[Test]
+    public function aTimeoutIsLeftOutOfTheDetectedWhenInfectionLeftItOut(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: $this->stats(80.0, 88.89)));
+
+        self::assertSame(8, $found->detected);
+    }
+
+    /** Counts that give neither Infection's MSI nor its MSI with timeouts escaped are not counts to score from. */
+    #[Test]
+    public function statsThatDoNotAddUpToTheMsiAreRefused(): void
+    {
+        $this->expectException(JsonException::class);
+        $this->expectExceptionMessageIsOrContains('the stats in the Infection JSON log do not add up to its MSI of 55%');
+
+        new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: $this->stats(55.0, 55.0)));
+    }
+
+    /**
+     * Over 20001 mutants one timeout moves the MSI by less than its rounding,
+     * so 18000 and 18001 detected both read 90%: the counts cannot say whether
+     * the timeout was detected, and the judgement takes the lower count rather
+     * than let a pass rest on the doubt.
+     */
+    #[Test]
+    public function whenBothReadingsOfATimeoutGiveTheMsiTheLowerCountIsTaken(): void
+    {
+        $stats = [...$this->stats(90.0, 90.0), 'totalMutantsCount' => 20001, 'killedCount' => 18000, 'killedByStaticAnalysisCount' => 0, 'notCoveredCount' => 0, 'errorCount' => 0, 'skippedCount' => 0, 'ignoredCount' => 0];
+
+        $found = new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: $stats));
+
+        self::assertSame(18000, $found->detected);
+    }
+
+    /** A mutant that broke the syntax is detected, as an error is. */
+    #[Test]
+    public function aSyntaxErrorIsDetected(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: [...$this->stats(90.0, 100.0), 'errorCount' => 0, 'syntaxErrorCount' => 1]));
+
+        self::assertSame(9, $found->detected);
+    }
+
+    /** @param array<string, int|float|string|null> $wrong */
+    #[Test]
+    #[DataProvider('statsThatAreNotCounts')]
+    public function statsThatAreNotCountsAreRefused(array $wrong): void
+    {
+        $this->expectException(JsonException::class);
+        $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
+
+        new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: [...$this->stats(90.0, 100.0), ...$wrong]));
+    }
+
+    /** @return iterable<string, array{array<string, int|float|string|null>}> */
+    public static function statsThatAreNotCounts(): iterable
+    {
+        yield 'a count that is not an integer' => [['killedCount' => '6']];
+
+        yield 'an MSI that is not a number' => [['msi' => '90']];
+
+        yield 'no MSI' => [['msi' => null]];
+    }
+
+    #[Test]
+    public function aMixedJudgementWithoutTheCountsIsRefused(): void
+    {
+        $this->expectException(JsonException::class);
+        $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
+
+        new VacuousKillDetector()->find($this->log(killed: $this->mixedKills()));
+    }
+
+    /** With every kill vacuous, or none, no score is worked out, so the stats are not needed. */
+    #[Test]
+    public function onlyAMixedJudgementNeedsTheCounts(): void
+    {
+        $none = new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 1, self::PLUS, self::FAILED_TEST)]));
+        $all  = new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 1, self::PLUS, self::BOOTSTRAP_BROKEN)]));
+
+        self::assertNull($none->detected);
+        self::assertNull($all->detected);
     }
 
     #[Test]
@@ -236,12 +339,48 @@ final class VacuousKillDetectorTest extends TestCase
     }
 
     /**
-     * @param list<array<string, mixed>> $killed
-     * @param list<array<string, mixed>> $escaped
+     * @param list<array<string, mixed>>           $killed
+     * @param list<array<string, mixed>>           $escaped
+     * @param array<string, int|float|string|null> $stats   the log's stats; killedCount alone when not given
      */
-    private function log(array $killed, array $escaped = []): string
+    private function log(array $killed, array $escaped = [], array $stats = []): string
     {
-        return \Safe\json_encode(['stats' => ['killedCount' => \count($killed)], 'escaped' => $escaped, 'killed' => $killed, 'errored' => []]);
+        return \Safe\json_encode(['stats' => [] === $stats ? ['killedCount' => \count($killed)] : $stats, 'escaped' => $escaped, 'killed' => $killed, 'errored' => []]);
+    }
+
+    /**
+     * Stats as Infection writes them: 12 mutants, 1 skipped and 1 ignored, so
+     * 10 tested, 1 of them not covered; 6 killed by tests, 1 by static
+     * analysis, 1 errored and 1 timed out.
+     *
+     * @return array<string, int|float>
+     */
+    private function stats(float $msi, float $coveredCodeMsi): array
+    {
+        return [
+            'totalMutantsCount'           => 12,
+            'killedCount'                 => 6,
+            'killedByStaticAnalysisCount' => 1,
+            'notCoveredCount'             => 1,
+            'escapedCount'                => 1,
+            'errorCount'                  => 1,
+            'syntaxErrorCount'            => 0,
+            'skippedCount'                => 1,
+            'ignoredCount'                => 1,
+            'timeOutCount'                => 1,
+            'msi'                         => $msi,
+            'mutationCodeCoverage'        => 90,
+            'coveredCodeMsi'              => $coveredCodeMsi,
+        ];
+    }
+
+    /** @return list<array<string, mixed>> one kill no test made beside one a test made */
+    private function mixedKills(): array
+    {
+        return [
+            $this->mutant(self::SOURCE, 1, self::PLUS, self::BOOTSTRAP_BROKEN),
+            $this->mutant(self::SOURCE, 2, self::PLUS, self::FAILED_TEST),
+        ];
     }
 
     /** @return array<string, mixed> one entry as Infection's JsonReporter writes it */

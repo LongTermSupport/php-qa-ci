@@ -252,29 +252,96 @@ final class InfectionToolTest extends TestCase
         self::assertStringContainsString(\sprintf("\n           %s/src/Foo.php:7 Plus,%1\$s/src/Foo.php:8 Plus\n", $this->root), $printed);
         self::assertStringContainsString("\n           The test output of the first:\n             PHPUnit 13.4.1", $printed);
         self::assertStringContainsString("\n             No tests executed!\n", $printed);
-        self::assertStringContainsString("\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n", $printed);
+        self::assertStringContainsString($this->everyMutantLine(), $printed);
         self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 
     /**
      * One kill made by a test proves the suite starts under Infection, so a
-     * mutant that stopped it before any test ran broke the code the bootstrap
-     * runs: a genuine kill, named so it can be looked at.
+     * mutant that stopped it before any test ran most likely broke the code
+     * the bootstrap runs. When the floors hold without it, the verdict does
+     * not rest on it, and it is named so it can be looked at.
      */
     #[Test]
-    public function aRunMixingRealKillsWithAVacuousOnePassesWithANotice(): void
+    public function aRunMixingRealKillsWithAVacuousOnePassesWithANoticeWhenTheFloorsHoldWithoutIt(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->processes->willRun($this->infection(0, self::REAL_KILL, self::NO_TESTS_EXECUTED, self::REAL_KILL));
+        $this->factory->processes->willRun($this->infection(0, self::REAL_KILL, self::NO_TESTS_EXECUTED, ...array_fill(0, 8, self::REAL_KILL)));
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
         $printed = $this->factory->output->fetch();
 
-        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString(\sprintf('Infection: 1 of 3 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
-        self::assertStringContainsString('count as killed', $printed);
-        self::assertStringContainsString("\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n", $printed);
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, 'without the vacuous kill both scores are 90%, above 74% and 76%');
+        self::assertStringContainsString(\sprintf('Infection: 1 of 10 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
+        self::assertStringContainsString('Without them the MSI is 90% (floor 74%) and the covered-code MSI 90% (floor 76%), both still at or above their floors.', $printed);
+        self::assertStringContainsString('The other kills ran tests, so the suite starts under Infection: these mutants most likely broke code the test bootstrap runs.', $printed);
+        self::assertStringContainsString($this->everyMutantLine(), $printed);
         self::assertStringNotContainsString(InfectionTool::IDENTIFIER, $printed);
+    }
+
+    /**
+     * A kill no test made is not evidence. When a passing run meets a floor only
+     * by counting such kills, the pass is not a measurement either: the suite may
+     * start only some of the time, and nothing in the score says so (issue #125).
+     */
+    #[Test]
+    public function aPassThatRestsOnVacuousKillsIsACrashThatNamesThem(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection(0, self::REAL_KILL, self::NO_TESTS_EXECUTED, self::REAL_KILL, self::REAL_KILL));
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'without the vacuous kill the covered-code MSI is 75%, below 76%');
+        self::assertSame('The MSI floors hold only by counting 1 killed mutant(s) no test ran for', $result->summary);
+        self::assertStringContainsString(\sprintf('Infection: 1 of 4 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
+        self::assertStringContainsString('Without them the MSI is 75% (floor 74%) and the covered-code MSI 75% (floor 76%), not both at or above their floors, so the pass rests on kills no test made.', $printed);
+        self::assertStringContainsString('the suite starts only some of the time', $printed, 'the cause the score cannot show is named');
+        self::assertStringContainsString('code the test bootstrap runs', $printed, 'and so is the other');
+        self::assertStringContainsString($this->everyMutantLine(), $printed);
+        self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
+    }
+
+    /** A diff run holds both scores to the diff floor, so that is the floor the kills are judged against. */
+    #[Test]
+    public function aDiffRunJudgesVacuousKillsAgainstTheDiffFloor(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'src/Changed.php']))
+            ->willRun($this->infection(0, self::NO_TESTS_EXECUTED, ...array_fill(0, 4, self::REAL_KILL)))
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder(['infectionDiffCoveredMsi' => '81'])));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, '80% without the vacuous kill is above the full floors, but below the diff floor of 81%');
+        self::assertStringContainsString('the MSI is 80% (floor 81%) and the covered-code MSI 80% (floor 81%), not both', $printed);
+    }
+
+    /** The stats are what the scores without the vacuous kills are worked out from; a log without them cannot be judged. */
+    #[Test]
+    public function aMixedRunWhoseLogHasNoStatsCannotBeJudged(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun(function (ProcessSpecDto $spec): ProcessResultDto {
+            $this->factory->project->write(self::JSON_LOG, \Safe\json_encode([
+                'stats'  => ['killedCount' => 2],
+                'killed' => [
+                    $this->killed(7, self::REAL_KILL),
+                    $this->killed(8, self::NO_TESTS_EXECUTED),
+                ],
+            ]));
+
+            return new ProcessResultDto(0, '', '');
+        });
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('the Infection JSON log could not be read', $result->summary);
+        self::assertStringContainsString('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for', $printed);
     }
 
     #[Test]
@@ -289,6 +356,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome, 'the score is a measurement, so it is reported');
         self::assertSame('Infection failed (exit 1)', $result->summary);
         self::assertStringContainsString(\sprintf('Infection: 2 of 3 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:7 Plus.', $this->root), $printed);
+        self::assertStringContainsString($this->everyMutantLine(), $printed, 'the failure still points at the test output of the kills no test made');
     }
 
     #[Test]
@@ -1082,16 +1150,32 @@ final class InfectionToolTest extends TestCase
 
     /**
      * Infection exiting $exitCode after writing the JSON log the config it was
-     * handed asks for, one killed mutant per output (one real kill by default).
-     * A config with no JSON log gets none written.
+     * handed asks for, one killed mutant per output (one real kill by default),
+     * with the stats Infection writes for that run: every mutant covered,
+     * tested and killed. A config with no JSON log gets none written.
      *
      * @return Closure(ProcessSpecDto): ProcessResultDto
      */
     private function infection(int $exitCode = 0, string ...$killedOutputs): Closure
     {
         $killedOutputs = [] === $killedOutputs ? [self::REAL_KILL] : array_values($killedOutputs);
+        $stats         = [
+            'totalMutantsCount'            => \count($killedOutputs),
+            'killedCount'                  => \count($killedOutputs),
+            'killedByStaticAnalysisCount'  => 0,
+            'notCoveredCount'              => 0,
+            'escapedCount'                 => 0,
+            'errorCount'                   => 0,
+            'syntaxErrorCount'             => 0,
+            'skippedCount'                 => 0,
+            'ignoredCount'                 => 0,
+            'timeOutCount'                 => 0,
+            'msi'                          => 100.0,
+            'mutationCodeCoverage'         => 100,
+            'coveredCodeMsi'               => 100.0,
+        ];
 
-        return function (ProcessSpecDto $spec) use ($exitCode, $killedOutputs): ProcessResultDto {
+        return function (ProcessSpecDto $spec) use ($exitCode, $killedOutputs, $stats): ProcessResultDto {
             $configArgs = array_values(array_filter($spec->command, static fn (string $arg): bool => str_starts_with($arg, self::CONFIGURATION_ARG)));
             self::assertCount(1, $configArgs);
             $config = \Safe\json_decode(\Safe\file_get_contents(substr($configArgs[0], \strlen(self::CONFIGURATION_ARG))), true);
@@ -1102,17 +1186,29 @@ final class InfectionToolTest extends TestCase
                 }
 
                 \Safe\file_put_contents($log, \Safe\json_encode([
-                    'stats'  => ['killedCount' => \count($killedOutputs)],
-                    'killed' => array_map(fn (int $index, string $output): array => [
-                        'mutator'       => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => 7 + $index],
-                        'diff'          => '',
-                        'processOutput' => $output,
-                    ], array_keys($killedOutputs), $killedOutputs),
+                    'stats'  => $stats,
+                    'killed' => array_map(fn (int $index, string $output): array => $this->killed(7 + $index, $output), array_keys($killedOutputs), $killedOutputs),
                 ]));
             }
 
             return new ProcessResultDto($exitCode, 'Infection ran', 'Infection ran');
         };
+    }
+
+    /** @return array<string, mixed> a killed mutant at src/Foo.php:$line as Infection's JSON log holds it */
+    private function killed(int $line, string $output): array
+    {
+        return [
+            'mutator'       => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => $line],
+            'diff'          => '',
+            'processOutput' => $output,
+        ];
+    }
+
+    /** The line that points at the JSON log, which holds every judged mutant's output. */
+    private function everyMutantLine(): string
+    {
+        return "\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n";
     }
 
     /** The infection.json the lane hands Infection, always the copy under var/qa/. */
