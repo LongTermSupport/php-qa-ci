@@ -50,6 +50,8 @@ final class TmpDirNeonTest extends TestCase
 
     private const string TMP_DIR_LINE = "    tmpDir: '";
 
+    private const string LANE_CACHE = '/var/qa/cache/lane';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -67,7 +69,7 @@ final class TmpDirNeonTest extends TestCase
     {
         $line = new TmpDirNeon()->forLane($this->factory->context(), self::LABEL, self::LANE);
 
-        $dir = $this->factory->project->path . '/var/qa/cache/lane';
+        $dir = $this->factory->project->path . self::LANE_CACHE;
         self::assertSame(self::TMP_DIR_LINE . $dir . "'\n", $line);
         self::assertDirectoryExists($dir);
         self::assertSame("Lane: cache in var/qa/cache/lane\n", $this->factory->output->fetch());
@@ -137,7 +139,7 @@ final class TmpDirNeonTest extends TestCase
         $this->factory->project->write(self::PROJECT_NEON, "parameters:\n    tmpDir: /ci-cache/phpstan\n");
 
         self::assertSame('', new TmpDirNeon()->forLane($this->factory->context(), self::LABEL, self::LANE));
-        self::assertDirectoryDoesNotExist($this->factory->project->path . '/var/qa/cache/lane');
+        self::assertDirectoryDoesNotExist($this->factory->project->path . self::LANE_CACHE);
         self::assertSame("Lane: cache in the tmpDir qaConfig/phpstan.neon sets\n", $this->factory->output->fetch());
     }
 
@@ -205,10 +207,42 @@ final class TmpDirNeonTest extends TestCase
         self::assertSame(self::PROJECT_NEON, new TmpDirNeon()->declaredBy($neon, $this->factory->project->path));
     }
 
+    /**
+     * An include built from a `%parameter%` cannot be followed outside PHPStan, so PHPStan is
+     * asked for the merged value; a tmpDir other than its default is the project's.
+     */
+    #[Test]
+    public function aTmpDirBehindAParameterIncludeIsLeftToTheProject(): void
+    {
+        $this->factory->project->write(self::PROJECT_NEON, "includes:\n    - %env.SHARED_CONFIG%/tmpdir.neon\n");
+        $this->factory->processes->willSucceed(self::dump('/ci-cache/phpstan', '/probe'));
+
+        self::assertSame('', new TmpDirNeon()->forLane($this->factory->context(), self::LABEL, self::LANE));
+        self::assertDirectoryDoesNotExist($this->factory->project->path . self::LANE_CACHE);
+    }
+
+    /** A PHP configuration file is not NEON the walk can read; PHPStan's merged value still names it. */
+    #[Test]
+    public function aTmpDirSetInAPhpConfigIncludeIsLeftToTheProject(): void
+    {
+        $this->factory->project->write('qaConfig/tmpdir.php', "<?php\n\nreturn ['parameters' => ['tmpDir' => '/ci-cache/phpstan']];\n");
+        $this->factory->project->write(self::PROJECT_NEON, "includes:\n    - tmpdir.php\n");
+        $this->factory->processes->willSucceed(self::dump('/ci-cache/phpstan', '/probe'));
+
+        self::assertSame('', new TmpDirNeon()->forLane($this->factory->context(), self::LABEL, self::LANE));
+        self::assertDirectoryDoesNotExist($this->factory->project->path . self::LANE_CACHE);
+    }
+
     #[Test]
     public function aMissingConfigDeclaresNone(): void
     {
         self::assertNull(new TmpDirNeon()->declaredBy($this->factory->project->path . '/nope.neon', $this->factory->project->path));
+    }
+
+    /** What `phpstan dump-parameters --json` prints, reduced to the two parameters read. */
+    private static function dump(string $tmpDir, string $sysGetTempDir): string
+    {
+        return \Safe\json_encode(['level' => 'max', 'tmpDir' => $tmpDir, 'sysGetTempDir' => $sysGetTempDir]);
     }
 
     private function contextWithCacheIn(string $cacheDir): ToolContext
