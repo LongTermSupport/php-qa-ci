@@ -212,5 +212,12 @@ final class SymfonyProcessRunnerTest extends TestCase
         }
 
         self::assertSame(0, $running->stopAll(0.0), 'nothing is left registered once the run has ended');
+
+        // The abandoned Process is held by a reference cycle; collected here, its destructor stops the
+        // child inside this test rather than during whichever test the collector next runs in.
+        unset($runtimeException);
+        gc_collect_cycles();
+        $tree = new ProcessTree();
+        self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'no child outlives the test');
     }
 }
