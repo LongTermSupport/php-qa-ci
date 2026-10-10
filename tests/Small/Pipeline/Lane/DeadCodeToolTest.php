@@ -10,6 +10,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
+use LTS\PHPQA\Tests\Support\FixedTmpDirProbe;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
@@ -64,13 +66,18 @@ final class DeadCodeToolTest extends TestCase
 
     private const string LIBRARY_TYPE = '{"type": "library"}';
 
+    private const string TMP_DIR = 'tmpDir';
+
     private const string IDENTIFIER_LINE = "🪪  phpqaci.deadCode  (vendor/bin/rule-doc phpqaci.deadCode)\n";
 
     private ContextFactory $factory;
 
+    private FixedTmpDirProbe $tmpDirProbe;
+
     protected function setUp(): void
     {
-        $this->factory = ContextFactory::create();
+        $this->factory     = ContextFactory::create();
+        $this->tmpDirProbe = new FixedTmpDirProbe();
     }
 
     protected function tearDown(): void
@@ -81,7 +88,7 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function itIsSkippedUntilAProjectOptsIn(): void
     {
-        $result = new DeadCodeTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertSame('off; withDeadCodeDetection(true) in qaConfig/qa.php enables it', $result->summary);
@@ -101,7 +108,7 @@ final class DeadCodeToolTest extends TestCase
         ;
         $paths = $config->paths;
 
-        $result = new DeadCodeTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $wrapper  = $this->factory->project->read(self::WRAPPER);
@@ -133,7 +140,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        new DeadCodeTool()->run($this->factory->context($config));
+        $this->tool()->run($this->factory->context($config));
 
         $logDir = 'var/qa/' . DeadCodeTool::LOG_DIR;
         self::assertSame(self::NO_ERRORS, $this->factory->project->read($logDir . '/' . DeadCodeTool::LOG_FILE));
@@ -156,7 +163,7 @@ final class DeadCodeToolTest extends TestCase
             ->build()
         ;
 
-        new DeadCodeTool()->run($this->factory->context($config));
+        $this->tool()->run($this->factory->context($config));
 
         self::assertStringContainsString(
             "    excludePaths:\n        analyse:\n            - '" . $root . "/tests/assets' (?)\n    shipmonkDeadCode:\n",
@@ -177,7 +184,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        new DeadCodeTool()->run($this->factory->context($config));
+        $this->tool()->run($this->factory->context($config));
 
         $cacheDir = $this->factory->project->path . '/var/qa/cache/deadCode';
         self::assertStringContainsString("    tmpDir: '" . $cacheDir . "'\n", $this->factory->project->read(self::WRAPPER));
@@ -194,10 +201,49 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
+        $this->tool()->run($this->factory->context($config));
+
+        self::assertStringNotContainsString(self::TMP_DIR, $this->factory->project->read(self::WRAPPER));
+        self::assertStringContainsString('Dead code: cache in the tmpDir qaConfig/phpstan.neon sets', $this->factory->output->fetch());
+    }
+
+    /**
+     * A tmpDir only PHPStan can resolve (behind a `%parameter%` or PHP include) is the project's
+     * too (#140). PHPStan is asked with the detector's autoload file, as the analysis runs.
+     */
+    #[Test]
+    public function aTmpDirOnlyPhpstanCanResolveIsLeftInPlace(): void
+    {
+        $this->tmpDirProbe = new FixedTmpDirProbe('/ci-cache/phpstan');
+        $this->factory->processes->willSucceed();
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config  = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+        $context = $this->factory->context($config);
+
+        $this->tool()->run($context);
+
+        $detector = new DetectorUnpacker()->unpack($config->paths->pharDir . '/dead-code-detector.phar', $config->paths->cacheDir);
+        self::assertStringNotContainsString(self::TMP_DIR, $this->factory->project->read(self::WRAPPER));
+        self::assertStringContainsString("Dead code: cache in the tmpDir the project's PHPStan configuration sets, /ci-cache/phpstan", $this->factory->output->fetch());
+        self::assertSame([[$context->configPath('phpstan.neon'), $detector . '/' . DetectorUnpacker::AUTOLOAD]], $this->tmpDirProbe->askedAbout);
+    }
+
+    /** The shipped lane (ShippedTools builds it with no arguments) asks the phar through dump-parameters. */
+    #[Test]
+    public function theShippedLaneAsksThePharThroughDumpParameters(): void
+    {
+        $this->factory->processes->willSucceed('{"tmpDir":"/ci-cache/phpstan","sysGetTempDir":"/t"}');
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
         new DeadCodeTool()->run($this->factory->context($config));
 
-        self::assertStringNotContainsString('tmpDir', $this->factory->project->read(self::WRAPPER));
-        self::assertStringContainsString('Dead code: cache in the tmpDir qaConfig/phpstan.neon sets', $this->factory->output->fetch());
+        self::assertContains('dump-parameters', $this->factory->processes->specs[0]->command);
+        self::assertContains('--autoload-file', $this->factory->processes->specs[0]->command);
+        self::assertStringNotContainsString(self::TMP_DIR, $this->factory->project->read(self::WRAPPER));
     }
 
     #[Test]
@@ -208,7 +254,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $result  = $this->tool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -236,7 +282,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        $result = new DeadCodeTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame([], $this->factory->processes->specs);
@@ -250,7 +296,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        $result = new DeadCodeTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame([], $this->factory->processes->specs);
@@ -265,13 +311,13 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        self::assertSame(ToolOutcomeEnum::Passed, new DeadCodeTool()->run($this->factory->context($config))->outcome);
+        self::assertSame(ToolOutcomeEnum::Passed, $this->tool()->run($this->factory->context($config))->outcome);
 
         $this->factory->processes->willSucceed();
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write(self::THING, "<?php\n\nfinal class Thing {}\n");
 
-        self::assertSame(ToolOutcomeEnum::Passed, new DeadCodeTool()->run($this->factory->context($config))->outcome);
+        self::assertSame(ToolOutcomeEnum::Passed, $this->tool()->run($this->factory->context($config))->outcome);
     }
 
     #[Test]
@@ -282,7 +328,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $result  = $this->tool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -315,7 +361,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $result  = $this->tool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
@@ -332,7 +378,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        $result = new DeadCodeTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('PHPStan crashed (exit 255)', $result->summary);
@@ -355,7 +401,7 @@ final class DeadCodeToolTest extends TestCase
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
-        $result  = new DeadCodeTool()->run($this->factory->context($config));
+        $result  = $this->tool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
@@ -366,9 +412,14 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function nameAndIdentifierAreStable(): void
     {
-        $tool = new DeadCodeTool();
+        $tool = $this->tool();
 
         self::assertSame('deadCode', $tool->name());
         self::assertSame('phpqaci.deadCode', $tool->identifier());
+    }
+
+    private function tool(): DeadCodeTool
+    {
+        return new DeadCodeTool($this->tmpDirProbe);
     }
 }

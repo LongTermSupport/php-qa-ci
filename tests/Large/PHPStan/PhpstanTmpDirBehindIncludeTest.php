@@ -92,9 +92,9 @@ final class PhpstanTmpDirBehindIncludeTest extends TestCase
 
         $output = $process->getOutput() . $process->getErrorOutput();
 
-        self::assertDirectoryDoesNotExist($consumer->dir->path . '/' . $laneCache, 'the lane overrode the project\'s tmpDir with its own: ' . $output);
+        self::assertDirectoryDoesNotExist($consumer->dir->path . '/' . $laneCache, "the lane overrode the project's tmpDir with its own: " . $output);
         self::assertDirectoryExists($this->projectCache(), $output);
-        self::assertGreaterThan(2, \count(\Safe\scandir($this->projectCache())), 'PHPStan wrote nothing under the project\'s tmpDir (only . and ..): ' . $output);
+        self::assertGreaterThan(2, \count(\Safe\scandir($this->projectCache())), "PHPStan wrote nothing under the project's tmpDir (only . and ..): " . $output);
     }
 
     private function projectCache(): string
