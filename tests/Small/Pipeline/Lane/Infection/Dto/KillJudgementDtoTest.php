@@ -44,6 +44,13 @@ final class KillJudgementDtoTest extends TestCase
         self::assertSame(78.26, $judgement->coveredMsiWithoutVacuous(), '54 of 69; 88.41 less 7/69 would give 78.27');
     }
 
+    /** Infection rounds a score half up to two places, so 1 of 800 (0.125%) is 0.13%, not 0.12%. */
+    #[Test]
+    public function aScoreIsRoundedHalfUp(): void
+    {
+        self::assertSame(0.13, new KillJudgementDto(2, [$this->vacuous()], detected: 2, tested: 800, testedCovered: 800)->msiWithoutVacuous());
+    }
+
     /** With no mutant tested there is no score, and Infection reports it as 0. */
     #[Test]
     public function aScoreOverNoMutantsIsZero(): void

@@ -217,6 +217,22 @@ final class VacuousKillDetectorTest extends TestCase
         new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: $this->stats(55.0, 55.0)));
     }
 
+    /**
+     * Over 20001 mutants one timeout moves the MSI by less than its rounding,
+     * so 18000 and 18001 detected both read 90%: the counts cannot say whether
+     * the timeout was detected, and the judgement takes the lower count rather
+     * than let a pass rest on the doubt.
+     */
+    #[Test]
+    public function whenBothReadingsOfATimeoutGiveTheMsiTheLowerCountIsTaken(): void
+    {
+        $stats = [...$this->stats(90.0, 90.0), 'totalMutantsCount' => 20001, 'killedCount' => 18000, 'killedByStaticAnalysisCount' => 0, 'notCoveredCount' => 0, 'errorCount' => 0, 'skippedCount' => 0, 'ignoredCount' => 0];
+
+        $found = new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: $stats));
+
+        self::assertSame(18000, $found->detected);
+    }
+
     /** A mutant that broke the syntax is detected, as an error is. */
     #[Test]
     public function aSyntaxErrorIsDetected(): void

@@ -273,7 +273,7 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, 'without the vacuous kill both scores are 90%, above 74% and 76%');
         self::assertStringContainsString(\sprintf('Infection: 1 of 10 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
-        self::assertStringContainsString('Without them the MSI is 90% and the covered-code MSI 90%, still at or above the floors of 74% and 76%.', $printed);
+        self::assertStringContainsString('Without them the MSI is 90% (floor 74%) and the covered-code MSI 90% (floor 76%), both still at or above their floors.', $printed);
         self::assertStringContainsString('The other kills ran tests, so the suite starts under Infection: these mutants most likely broke code the test bootstrap runs.', $printed);
         self::assertStringContainsString($this->everyMutantLine(), $printed);
         self::assertStringNotContainsString(InfectionTool::IDENTIFIER, $printed);
@@ -296,7 +296,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'without the vacuous kill the covered-code MSI is 75%, below 76%');
         self::assertSame('The MSI floors hold only by counting 1 killed mutant(s) no test ran for', $result->summary);
         self::assertStringContainsString(\sprintf('Infection: 1 of 4 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
-        self::assertStringContainsString('Without them the MSI is 75% and the covered-code MSI 75%, below the floors of 74% and 76%, so the pass rests on kills no test made.', $printed);
+        self::assertStringContainsString('Without them the MSI is 75% (floor 74%) and the covered-code MSI 75% (floor 76%), not both at or above their floors, so the pass rests on kills no test made.', $printed);
         self::assertStringContainsString('the suite starts only some of the time', $printed, 'the cause the score cannot show is named');
         self::assertStringContainsString('code the test bootstrap runs', $printed, 'and so is the other');
         self::assertStringContainsString($this->everyMutantLine(), $printed);
@@ -316,7 +316,7 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, '80% without the vacuous kill is above the full floors, but below the diff floor of 81%');
-        self::assertStringContainsString('below the floors of 81% and 81%', $printed);
+        self::assertStringContainsString('the MSI is 80% (floor 81%) and the covered-code MSI 80% (floor 81%), not both', $printed);
     }
 
     /** The stats are what the scores without the vacuous kills are worked out from; a log without them cannot be judged. */
@@ -1150,42 +1150,29 @@ final class InfectionToolTest extends TestCase
 
     /**
      * Infection exiting $exitCode after writing the JSON log the config it was
-     * handed asks for, one killed mutant per output (one real kill by default).
-     * A config with no JSON log gets none written.
+     * handed asks for, one killed mutant per output (one real kill by default),
+     * with the stats Infection writes for that run: every mutant covered,
+     * tested and killed. A config with no JSON log gets none written.
      *
      * @return Closure(ProcessSpecDto): ProcessResultDto
      */
     private function infection(int $exitCode = 0, string ...$killedOutputs): Closure
     {
-        return $this->infectionWithEscaped($exitCode, 0, ...$killedOutputs);
-    }
-
-    /**
-     * infection(), with $escaped mutants besides the killed ones, and the stats
-     * Infection writes for that run: every mutant covered and tested, so both
-     * scores are the killed share of them.
-     *
-     * @return Closure(ProcessSpecDto): ProcessResultDto
-     */
-    private function infectionWithEscaped(int $exitCode, int $escaped, string ...$killedOutputs): Closure
-    {
         $killedOutputs = [] === $killedOutputs ? [self::REAL_KILL] : array_values($killedOutputs);
-        $total         = \count($killedOutputs) + $escaped;
-        $score         = round(100 * \count($killedOutputs) / $total, 2);
         $stats         = [
-            'totalMutantsCount'            => $total,
+            'totalMutantsCount'            => \count($killedOutputs),
             'killedCount'                  => \count($killedOutputs),
             'killedByStaticAnalysisCount'  => 0,
             'notCoveredCount'              => 0,
-            'escapedCount'                 => $escaped,
+            'escapedCount'                 => 0,
             'errorCount'                   => 0,
             'syntaxErrorCount'             => 0,
             'skippedCount'                 => 0,
             'ignoredCount'                 => 0,
             'timeOutCount'                 => 0,
-            'msi'                          => $score,
+            'msi'                          => 100.0,
             'mutationCodeCoverage'         => 100,
-            'coveredCodeMsi'               => $score,
+            'coveredCodeMsi'               => 100.0,
         ];
 
         return function (ProcessSpecDto $spec) use ($exitCode, $killedOutputs, $stats): ProcessResultDto {
