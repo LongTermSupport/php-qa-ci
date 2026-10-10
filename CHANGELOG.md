@@ -25,13 +25,22 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- An interrupted run no longer prints a PHP warning for a child process that exits while the run is stopping it. The process tree read `/proc/<pid>/stat` with a function that warns before it fails, so a process exiting between the check and the read printed `file_get_contents(/proc/…/stat): Failed to open stream`; it is now read without the warning and treated as gone, as before.
+
+## 85.7.0 — 2026-10-09
+
 ### Added
 
 - **A start-up warning when Xdebug is loaded and OPcache JIT is configured on.** PHP prints "JIT is incompatible with third party extensions" on stdout at every start of a process with Xdebug active, which corrupts anything that parses that output. The note says the pipeline is unaffected and that a PHP started by hand needs `XDEBUG_MODE=off`.
 
+### Changed
+
+- **Infection's auto diff mode makes a run full only for the files every mutant depends on, and leaves comment-only changes out.** The full-run triggers are now the resolved Infection config and its `qaConfig/infection.json{,5}{,.dist}` overrides, the resolved PHPUnit config and its `qaConfig/phpunit.xml`, `phpunit.xml.dist` and `phpunit.dist.xml` overrides, and the bootstrap the PHPUnit config names in its `bootstrap` attribute; `composer.json`, `composer.lock` and the rest of `qaConfig/` no longer force a full run, are no longer watched for uncommitted work and are not mentioned. A modified or renamed PHP file whose tokens, comments and whitespace aside, match its merge-base version is not mutated and is named on one "comment-only change, not mutated" line. In a file where either version has a comment containing a directive Infection or the coverage tool reads (`@infection…`, `@codeCoverageIgnore…`, `@deprecated`), every comment counts as code, verbatim and by line, so any comment change mutates it; an added or copied file, or one whose working copy or base cannot be read, is always mutated; a comment-only test change brings nothing into scope.
+
 ### Fixed
 
-- An interrupted run no longer prints a PHP warning for a child process that exits while the run is stopping it. The process tree read `/proc/<pid>/stat` with a function that warns before it fails, so a process exiting between the check and the read printed `file_get_contents(/proc/…/stat): Failed to open stream`; it is now read without the warning and treated as gone, as before.
 - **Every child process the pipeline starts now runs with `XDEBUG_MODE=off`, except the coverage runs (PHPUnit with coverage, Infection's coverage generation), which name their own mode.** Before, a child started without a mode of its own (a git call, the markdown formatter, a shell script) inherited whatever the parent had, so with JIT on and Xdebug loaded the "JIT is incompatible" warning reached stdout and broke output parsing.
 - The deployed `pre-commit` hook no longer blocks every commit when `php` prints a start-up warning on stdout, such as the OPcache JIT's "JIT is incompatible with third party extensions" when Xdebug is loaded (#100). It reads `composer.lock` with `XDEBUG_MODE=off` and keeps only `name|reference` lines, where a stray line used to stop it with `bad array subscript`. A package off its locked commit is still caught.
 - **PHPStan Turbo runs again with PHPStan 2.3.1.** Its phar loads a Turbo binary only with the platform's shared core (`phpstan_turbo_core.so`) beside it, and both live in the `turbo-ext/` of the phpstan/phpstan tag, not in the phpstan/turbo-ext release zips, which hold a single self-contained build the phar does not accept. `bin/turbo-install` now fetches the binary and its core from the tag into `vendor-phar/turbo-ext/<platform>/`, verifies both against `vendor-phar/turbo-ext.json` (whose `assets` object, keyed by release zip name, is now `files`, keyed by path under `turbo-ext/`) and replaces each atomically. Without it PHPStan ran without Turbo and the lane reported "NOT RUNNING". Run `composer update` to refetch.
