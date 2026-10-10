@@ -226,16 +226,6 @@ final class VacuousKillDetectorTest extends TestCase
         self::assertSame(9, $found->detected);
     }
 
-    /** @return iterable<string, array{array<string, int|float|string|null>}> */
-    public static function statsThatAreNotCounts(): iterable
-    {
-        yield 'a count that is not an integer' => [['killedCount' => '6']];
-
-        yield 'an MSI that is not a number' => [['msi' => '90']];
-
-        yield 'no MSI' => [['msi' => null]];
-    }
-
     /** @param array<string, int|float|string|null> $wrong */
     #[Test]
     #[DataProvider('statsThatAreNotCounts')]
@@ -245,6 +235,16 @@ final class VacuousKillDetectorTest extends TestCase
         $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
 
         new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: [...$this->stats(90.0, 100.0), ...$wrong]));
+    }
+
+    /** @return iterable<string, array{array<string, int|float|string|null>}> */
+    public static function statsThatAreNotCounts(): iterable
+    {
+        yield 'a count that is not an integer' => [['killedCount' => '6']];
+
+        yield 'an MSI that is not a number' => [['msi' => '90']];
+
+        yield 'no MSI' => [['msi' => null]];
     }
 
     #[Test]
@@ -323,9 +323,9 @@ final class VacuousKillDetectorTest extends TestCase
     }
 
     /**
-     * @param list<array<string, mixed>> $killed
-     * @param list<array<string, mixed>> $escaped
-     * @param array<string, int|float|string|null> $stats the log's stats; killedCount alone when not given
+     * @param list<array<string, mixed>>           $killed
+     * @param list<array<string, mixed>>           $escaped
+     * @param array<string, int|float|string|null> $stats   the log's stats; killedCount alone when not given
      */
     private function log(array $killed, array $escaped = [], array $stats = []): string
     {

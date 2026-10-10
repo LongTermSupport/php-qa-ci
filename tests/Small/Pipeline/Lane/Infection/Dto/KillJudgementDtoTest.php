@@ -77,16 +77,6 @@ final class KillJudgementDtoTest extends TestCase
         new KillJudgementDto(2, [$this->vacuous()])->msiWithoutVacuous();
     }
 
-    /** @return iterable<string, array{KillJudgementDto}> */
-    public static function judgementsMissingACount(): iterable
-    {
-        $vacuous = [new VacuousKillDto('src/Foo.php:7 Plus', 'No tests executed!')];
-
-        yield 'no tested count' => [new KillJudgementDto(2, $vacuous, detected: 2, testedCovered: 2)];
-
-        yield 'no covered count' => [new KillJudgementDto(2, $vacuous, detected: 2, tested: 2)];
-    }
-
     /** Each score needs every count: a missing one is not a 0. */
     #[Test]
     #[DataProvider('judgementsMissingACount')]
@@ -95,6 +85,16 @@ final class KillJudgementDtoTest extends TestCase
         $this->expectException(LogicException::class);
 
         $judgement->floorsHoldWithoutVacuous(0, 0);
+    }
+
+    /** @return iterable<string, array{KillJudgementDto}> */
+    public static function judgementsMissingACount(): iterable
+    {
+        $vacuous = [new VacuousKillDto('src/Foo.php:7 Plus', 'No tests executed!')];
+
+        yield 'no tested count' => [new KillJudgementDto(2, $vacuous, detected: 2, testedCovered: 2)];
+
+        yield 'no covered count' => [new KillJudgementDto(2, $vacuous, detected: 2, tested: 2)];
     }
 
     private function vacuous(): VacuousKillDto
