@@ -89,10 +89,14 @@ final class ProcessTreeTest extends TestCase
     public function aRunningProcessIsAliveAndAFinishedOneIsNot(): void
     {
         $finished = new Process(['true']);
-        $finished->start();
+        try {
+            $finished->start();
+            $finishedPid = (int)$finished->getPid();
+            $finished->wait();
+        } finally {
+            $finished->stop(0);
+        }
 
-        $finishedPid = (int)$finished->getPid();
-        $finished->wait();
         $this->parent = new Process(['sleep', '60']);
         $this->parent->start();
 

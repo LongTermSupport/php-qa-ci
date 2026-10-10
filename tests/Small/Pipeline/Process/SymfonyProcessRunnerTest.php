@@ -181,7 +181,7 @@ final class SymfonyProcessRunnerTest extends TestCase
         self::assertStringNotContainsString('done', $result->output, 'stopping it ended the child before it finished');
     }
 
-    /** A run that ends by throwing still deregisters its child: the registration lasts exactly as long as the run. */
+    /** A run that ends by throwing still deregisters its child, and stops it: nothing outlives the run. */
     #[Test]
     public function aRunThatThrowsLeavesNothingRegistered(): void
     {
@@ -213,11 +213,7 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         self::assertSame(0, $running->stopAll(0.0), 'nothing is left registered once the run has ended');
 
-        // The abandoned Process is held by a reference cycle; collected here, its destructor stops the
-        // child inside this test rather than during whichever test the collector next runs in.
-        unset($runtimeException);
-        gc_collect_cycles();
         $tree = new ProcessTree();
-        self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'no child outlives the test');
+        self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'the child was stopped, not left running unregistered');
     }
 }

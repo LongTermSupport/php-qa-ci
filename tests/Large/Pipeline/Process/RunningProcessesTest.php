@@ -38,14 +38,24 @@ final class RunningProcessesTest extends TestCase
     public function stopAllTerminatesEveryRegisteredRunningProcess(): void
     {
         $running = new RunningProcesses();
-        $first   = $this->started($running);
-        $second  = $this->started($running);
+        $first   = $this->sleeper();
+        $second  = $this->sleeper();
 
-        self::assertSame(2, $running->stopAll(5.0));
+        try {
+            $first->start();
+            $running->add($first);
+            $second->start();
+            $running->add($second);
 
-        self::assertFalse($first->isRunning());
-        self::assertFalse($second->isRunning());
-        self::assertSame(143, $first->getExitCode(), 'stopped by SIGTERM (128 + 15)');
+            self::assertSame(2, $running->stopAll(5.0));
+
+            self::assertFalse($first->isRunning());
+            self::assertFalse($second->isRunning());
+            self::assertSame(143, $first->getExitCode(), 'stopped by SIGTERM (128 + 15)');
+        } finally {
+            $first->stop(0);
+            $second->stop(0);
+        }
     }
 
     /**
@@ -57,29 +67,45 @@ final class RunningProcessesTest extends TestCase
     #[Test]
     public function stopAllTakesTheChildsOwnDescendantsWithIt(): void
     {
-        $running              = new RunningProcesses();
-        [$tool, $descendants] = $this->toolWithDescendants($running, 'sleep 60');
+        $running = new RunningProcesses();
+        $tool    = $this->toolWithDescendants('sleep 60');
 
-        self::assertSame(1, $running->stopAll(5.0));
+        try {
+            $tool->start();
+            $running->add($tool);
+            $descendants = $this->reportedDescendants($tool);
 
-        self::assertFalse($tool->isRunning());
-        foreach ($descendants as $pid) {
-            self::assertFalse(new ProcessTree()->isAlive($pid), 'descendant ' . $pid . ' was left running');
+            self::assertSame(1, $running->stopAll(5.0));
+
+            self::assertFalse($tool->isRunning());
+            foreach ($descendants as $pid) {
+                self::assertFalse(new ProcessTree()->isAlive($pid), 'descendant ' . $pid . ' was left running');
+            }
+        } finally {
+            $tool->stop(0);
         }
     }
 
     #[Test]
     public function aDescendantThatIgnoresSigtermIsKilledOnceTheGracePeriodIsUp(): void
     {
-        $running         = new RunningProcesses();
-        [, $descendants] = $this->toolWithDescendants($running, 'trap \"\" TERM; sleep 60');
+        $running = new RunningProcesses();
+        $tool    = $this->toolWithDescendants('trap \"\" TERM; sleep 60');
 
-        $started = microtime(true);
-        $running->stopAll(0.5);
+        try {
+            $tool->start();
+            $running->add($tool);
+            $descendants = $this->reportedDescendants($tool);
 
-        self::assertGreaterThanOrEqual(0.5, microtime(true) - $started, 'it was given the grace period first');
-        foreach ($descendants as $pid) {
-            self::assertFalse(new ProcessTree()->isAlive($pid), 'descendant ' . $pid . ' survived SIGKILL');
+            $started = microtime(true);
+            $running->stopAll(0.5);
+
+            self::assertGreaterThanOrEqual(0.5, microtime(true) - $started, 'it was given the grace period first');
+            foreach ($descendants as $pid) {
+                self::assertFalse(new ProcessTree()->isAlive($pid), 'descendant ' . $pid . ' survived SIGKILL');
+            }
+        } finally {
+            $tool->stop(0);
         }
     }
 
@@ -87,27 +113,39 @@ final class RunningProcessesTest extends TestCase
     public function aRemovedOrFinishedProcessIsNotCounted(): void
     {
         $running  = new RunningProcesses();
-        $removed  = $this->started($running);
+        $removed  = $this->sleeper();
         $finished = new Process(['true']);
-        $running->add($finished);
-        $finished->run();
-        $running->remove($removed);
 
-        self::assertSame(0, $running->stopAll(5.0));
-        self::assertTrue($removed->isRunning(), "a process nobody registered is not this registry's to stop");
+        try {
+            $removed->start();
+            $running->add($removed);
+            $running->add($finished);
+            $finished->run();
+            $running->remove($removed);
 
-        $removed->stop(0);
+            self::assertSame(0, $running->stopAll(5.0));
+            self::assertTrue($removed->isRunning(), "a process nobody registered is not this registry's to stop");
+        } finally {
+            $removed->stop(0);
+        }
     }
 
     #[Test]
     public function stopAllEmptiesTheRegistry(): void
     {
         $running = new RunningProcesses();
-        $this->started($running);
+        $process = $this->sleeper();
 
-        $running->stopAll(5.0);
+        try {
+            $process->start();
+            $running->add($process);
 
-        self::assertSame(0, $running->stopAll(5.0));
+            $running->stopAll(5.0);
+
+            self::assertSame(0, $running->stopAll(5.0));
+        } finally {
+            $process->stop(0);
+        }
     }
 
     /**
@@ -142,41 +180,36 @@ final class RunningProcessesTest extends TestCase
     }
 
     /**
-     * A registered shell running $body in two background shells (one nested a
-     * level deeper), each of which reports its pid before running it.
-     *
-     * @return array{Process, list<int>}
+     * A shell running $body in two background shells (one nested a level
+     * deeper), each of which reports its pid before running it. Not started:
+     * the test starts it inside the try whose finally stops it.
      */
-    private function toolWithDescendants(RunningProcesses $running, string $body): array
+    private function toolWithDescendants(string $body): Process
     {
         $worker = \sprintf('sh -c "echo \$\$; %s"', $body);
-        $tool   = new Process(['sh', '-c', \sprintf("%s & sh -c '%s & wait' & wait", $worker, $worker)]);
-        $tool->start();
 
-        $running->add($tool);
+        return new Process(['sh', '-c', \sprintf("%s & sh -c '%s & wait' & wait", $worker, $worker)]);
+    }
 
+    /** @return list<int> the pids the started tool's two descendants reported */
+    private function reportedDescendants(Process $tool): array
+    {
         $deadline = microtime(true) + 10;
         do {
             $pids = array_values(array_map(intval(...), array_filter(explode("\n", $tool->getOutput()), static fn (string $line): bool => '' !== $line)));
             if (2 === \count($pids)) {
-                return [$tool, $pids];
+                return $pids;
             }
 
             usleep(10_000);
         } while (microtime(true) < $deadline);
 
-        $tool->stop(0);
         self::fail('the descendants never reported their pids: ' . $tool->getOutput() . $tool->getErrorOutput());
     }
 
-    private function started(RunningProcesses $running): Process
+    private function sleeper(): Process
     {
-        $process = new Process([self::SLEEP, self::FOREVER]);
-        $process->start();
-
-        $running->add($process);
-
-        return $process;
+        return new Process([self::SLEEP, self::FOREVER]);
     }
 }
 
