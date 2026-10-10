@@ -254,7 +254,7 @@ When you run `vendor/bin/qa` in your project:
 
 Before any tool runs, `QaApplication` and `Pipeline` perform these steps in order:
 
-01. **Arguments** ([ArgumentsParser](src/Pipeline/Cli/ArgumentsParser.php)) - `-t <tool>`, `-p <path>` (or a single bare path), `--json`, `-h`. A path given to a tool that does not support paths, an unknown tool, or an unknown option prints the usage and exits 1
+01. **Arguments** ([ArgumentsParser](src/Pipeline/Cli/ArgumentsParser.php)) - `-t <tool>`, `-p <path>` (or a single bare path), `--json`, `-h`. A path given to a tool that does not support paths, an unknown tool, or an unknown option prints the usage and exits 1. `-t` and `-p` are each given at most once: a second `-t`, a second `-p`, a second bare path or a bare path beside `-p` is refused with exit 1, and a repeated option names both values
 
 02. **Environment** ([EnvironmentReader](src/Pipeline/Config/EnvironmentReader.php)) - typed access to `CI`, `QA_READONLY`, `QA_FAIL_FAST`, `phpqaMemoryLimit`, `PHP_QA_CI_PHP_EXECUTABLE` and the tool variables; decides the CI, read-only and aggregate modes and announces them
 
