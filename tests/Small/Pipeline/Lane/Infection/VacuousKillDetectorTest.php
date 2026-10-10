@@ -33,7 +33,9 @@ final class VacuousKillDetectorTest extends TestCase
 
     private const string SOURCE = '/p/src/Foo.php';
 
-    /** The output issue #122 recorded for every one of 198 "killed" mutants. */
+    private const string PLUS = 'Plus';
+
+    // The output issue #122 recorded for every one of 198 "killed" mutants.
     private const string EXTENSION_FAILED = self::BANNER . "\n\n" . self::RUNTIME . "\n\nThere was 1 PHPUnit test runner warning:\n\n1) Bootstrapping of extension X failed: sys_get_temp_dir() was resolved as /tmp before the extension ran\n\nNo tests executed!";
 
     private const string FAILED_TEST = self::BANNER . "\n\n" . self::RUNTIME . "\n\nF\n\nTime: 00:00.010, Memory: 10.00 MB\n\nThere was 1 failure:\n\n1) FooTest::bar\nFailed asserting that 59 is identical to 60.\n\nFAILURES!\nTests: 1, Assertions: 1, Failures: 1.";
@@ -75,7 +77,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $stopped = self::BANNER . "\n\nCannot open bootstrap script \"/p/tests/bootstrap.php\"";
 
-        $found = new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 9, 'Plus', $stopped)]));
+        $found = new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 9, self::PLUS, $stopped)]));
 
         self::assertCount(1, $found);
         self::assertSame('/p/src/Foo.php:9 Plus', $found[0]->mutant);
@@ -95,7 +97,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $codeception = "Codeception PHP Testing Framework v5.1.2\n\nUnit Tests (1)\n✖ FooTest: bar\n\nFAILURES!";
 
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, 'Plus', $codeception)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $codeception)])));
     }
 
     #[Test]
@@ -103,7 +105,7 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $coloured = self::BANNER . "\n\n" . self::RUNTIME . "\n\n\e[30;43mNo tests executed!\e[0m";
 
-        self::assertCount(1, new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, 'Plus', $coloured)])));
+        self::assertCount(1, new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $coloured)])));
     }
 
     #[Test]
@@ -111,15 +113,15 @@ final class VacuousKillDetectorTest extends TestCase
     {
         $named = self::BANNER . "\n\n" . self::RUNTIME . "\n\nThere was 1 failure:\n\n1) FooTest::it reports No tests executed! as a warning\n\nFAILURES!\nTests: 1, Assertions: 1, Failures: 1.";
 
-        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, 'Plus', $named)])));
+        self::assertSame([], new VacuousKillDetector()->find($this->log(killed: [$this->mutant(self::SOURCE, 3, self::PLUS, $named)])));
     }
 
     #[Test]
     public function onlyKilledMutantsAreJudged(): void
     {
         $log = $this->log(
-            killed: [$this->mutant(self::SOURCE, 1, 'Plus', self::FAILED_TEST), $this->mutant('/p/src/Bar.php', 2, 'Minus', self::EXTENSION_FAILED)],
-            escaped: [$this->mutant('/p/src/Baz.php', 3, 'Plus', self::EXTENSION_FAILED)],
+            killed: [$this->mutant(self::SOURCE, 1, self::PLUS, self::FAILED_TEST), $this->mutant('/p/src/Bar.php', 2, 'Minus', self::EXTENSION_FAILED)],
+            escaped: [$this->mutant('/p/src/Baz.php', 3, self::PLUS, self::EXTENSION_FAILED)],
         );
 
         $found = new VacuousKillDetector()->find($log);
@@ -131,7 +133,7 @@ final class VacuousKillDetectorTest extends TestCase
     public function aLogWithNoKilledListIsRefused(): void
     {
         $this->expectException(JsonException::class);
-        $this->expectExceptionMessage('no "killed" list');
+        $this->expectExceptionMessageIsOrContains('no "killed" list');
 
         new VacuousKillDetector()->find('{"stats":{}}');
     }
@@ -140,17 +142,17 @@ final class VacuousKillDetectorTest extends TestCase
     public function aKilledMutantWithoutItsProcessOutputIsRefused(): void
     {
         $this->expectException(JsonException::class);
-        $this->expectExceptionMessage('/p/src/Foo.php:4 Plus');
-        $this->expectExceptionMessage('processOutput');
+        $this->expectExceptionMessageIsOrContains('/p/src/Foo.php:4 Plus');
+        $this->expectExceptionMessageIsOrContains('processOutput');
 
-        new VacuousKillDetector()->find(\Safe\json_encode(['killed' => [['mutator' => ['mutatorName' => 'Plus', 'originalFilePath' => self::SOURCE, 'originalStartLine' => 4]]]]));
+        new VacuousKillDetector()->find(\Safe\json_encode(['killed' => [['mutator' => ['mutatorName' => self::PLUS, 'originalFilePath' => self::SOURCE, 'originalStartLine' => 4]]]]));
     }
 
     #[Test]
     public function aKilledEntryThatIsNotAMutantIsRefused(): void
     {
         $this->expectException(JsonException::class);
-        $this->expectExceptionMessage('processOutput');
+        $this->expectExceptionMessageIsOrContains('processOutput');
 
         new VacuousKillDetector()->find('{"killed":["x"]}');
     }

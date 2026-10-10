@@ -110,7 +110,7 @@ final class InfectionToolTest extends TestCase
 
     private const string PHPUNIT_HEADER = "PHPUnit 13.4.1 by Sebastian Bergmann and contributors.\n\nRuntime:       PHP 8.5.11\n\n";
 
-    /** What a mutant run printed when the suite could not start under Infection (issue #122). */
+    // What a mutant run printed when the suite could not start under Infection (issue #122).
     private const string NO_TESTS_EXECUTED = self::PHPUNIT_HEADER . "There was 1 PHPUnit test runner warning:\n\n1) Bootstrapping of extension X failed\n\nNo tests executed!";
 
     private const string REAL_KILL = self::PHPUNIT_HEADER . "F\n\nFAILURES!\nTests: 1, Assertions: 1, Failures: 1.";
@@ -162,7 +162,7 @@ final class InfectionToolTest extends TestCase
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
             '--threads=4',
-            self::CONFIGURATION_ARG . $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG,
+            self::CONFIGURATION_ARG . $this->derivedConfigPath(),
             self::FULL_FLOOR_ARG,
             self::COVERED_FLOOR_ARG,
             self::LOG_ALL,
@@ -172,7 +172,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame($this->root, $phar->cwd);
 
         self::assertDirectoryExists($this->root . '/var/qa/infection');
-        self::assertSame([self::JSON_LOG], $this->factory->project->files('var/qa/infection'), 'previous infection output is cleared');
+        self::assertSame([basename(self::JSON_LOG)], $this->factory->project->files('var/qa/infection'), 'previous infection output is cleared');
         self::assertDirectoryDoesNotExist($this->root . '/var/qa/infection/tmp');
     }
 
@@ -185,17 +185,19 @@ final class InfectionToolTest extends TestCase
         $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
 
         $generic = \dirname(__DIR__, 4) . '/configDefaults/generic';
-        $derived = \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true);
+        $derived = \Safe\json_decode(\Safe\file_get_contents($this->derivedConfigPath()), true);
         self::assertIsArray($derived);
+        // The shipped config reaches the consumer's root from vendor/lts/php-qa-ci/configDefaults/generic.
+        $consumer = \dirname($generic, 5);
         self::assertSame(
             [
-                'text'    => $this->root . '/var/qa/infection/log.txt',
-                'summary' => $this->root . '/var/qa/infection/summary-log.txt',
-                'debug'   => $this->root . '/var/qa/infection/debug-log.txt',
+                'text'    => $consumer . '/var/qa/infection/log.txt',
+                'summary' => $consumer . '/var/qa/infection/summary-log.txt',
+                'debug'   => $consumer . '/var/qa/infection/debug-log.txt',
                 'json'    => $this->root . '/' . self::JSON_LOG,
             ],
             $derived['logs'],
-            'the shipped logs keep their places and the JSON log is added beside them',
+            'the shipped logs mean what they meant from the original config, and the JSON log is added',
         );
         self::assertSame(['configDir' => $generic], $derived['phpUnit']);
         self::assertStringNotContainsString('ignored paths', $this->factory->output->fetch(), 'nothing is excluded, so nothing is said about exclusions');
@@ -205,7 +207,7 @@ final class InfectionToolTest extends TestCase
     public function aProjectsOwnJsonLogIsKeptAndRead(): void
     {
         $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}, "logs": {"json": "../build/mutants.json"}}');
-        $this->factory->project->write('build/mutants.json', 'stale');
+        $this->factory->project->write('build/mutants.json', 'left by an earlier run');
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes->willRun($this->infection(0, self::NO_TESTS_EXECUTED));
 
@@ -238,12 +240,40 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'a vacuous MSI is not a score to report');
-        self::assertSame('Infection counted 2 of 3 killed mutant(s) as killed although no test ran', $result->summary);
-        self::assertStringContainsString('Infection: 2 of 3 killed mutant(s) were killed although no test ran', $printed);
+        self::assertSame('Infection counted 2 mutant(s) as killed although no test ran', $result->summary);
+        self::assertStringContainsString('Infection: 2 mutant(s) were counted as killed although no test ran', $printed);
         self::assertStringContainsString('src/Foo.php:7 Plus', $printed);
         self::assertStringContainsString('Bootstrapping of extension X failed', $printed, 'the test output of the first one is shown');
         self::assertStringContainsString($this->root . '/' . self::JSON_LOG, $printed);
         self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function manyVacuousKillsAreSummarisedAfterTheFirstTen(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection(0, ...array_fill(0, 12, self::NO_TESTS_EXECUTED)));
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame('Infection counted 12 mutant(s) as killed although no test ran', $result->summary);
+        self::assertSame(10, substr_count($printed, 'src/Foo.php:7 Plus'));
+        self::assertStringContainsString('src/Foo.php:7 Plus and 2 more', $printed);
+        self::assertSame(1, substr_count($printed, 'Bootstrapping of extension X failed'), 'one output is shown, not twelve');
+    }
+
+    #[Test]
+    public function anEmptyLogsObjectGetsTheJsonLog(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"]}, "logs": {}}');
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection());
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('"logs": {' . "\n" . '        "json": ', \Safe\file_get_contents($this->derivedConfigPath()));
     }
 
     #[Test]
@@ -409,7 +439,7 @@ final class InfectionToolTest extends TestCase
             '--coverage=' . $this->root . '/var/qa/phpunit_logs',
             '--skip-initial-tests',
             '--threads=4',
-            self::CONFIGURATION_ARG . \dirname(__DIR__, 4) . '/configDefaults/generic/infection.json',
+            self::CONFIGURATION_ARG . $this->derivedConfigPath(),
             '--with-uncovered',
             '--min-msi=76',
             self::COVERED_FLOOR_ARG,
@@ -773,7 +803,7 @@ final class InfectionToolTest extends TestCase
         $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY, 'tests/assets')));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertContains(self::CONFIGURATION_ARG . $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG, $this->factory->processes->lastSpec()->command);
+        self::assertContains(self::CONFIGURATION_ARG . $this->derivedConfigPath(), $this->factory->processes->lastSpec()->command);
         $qaConfig = ['configDir' => $this->root . '/qaConfig'];
         self::assertSame(
             [
@@ -784,7 +814,7 @@ final class InfectionToolTest extends TestCase
                 'mago'    => $qaConfig,
                 'logs'    => ['json' => $this->root . '/' . self::JSON_LOG],
             ],
-            \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true),
+            \Safe\json_decode(\Safe\file_get_contents($this->derivedConfigPath()), true),
             'the configDirs Infection would default to the project config directory are stated, not left to default to var/qa/',
         );
         self::assertStringContainsString('Infection: the ignored paths under its source directories are excluded through', $this->factory->output->fetch());
@@ -799,7 +829,7 @@ final class InfectionToolTest extends TestCase
 
         $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths('tests/assets')));
 
-        $derived = \Safe\json_decode($this->factory->project->read('var/qa/' . InfectionTool::DERIVED_CONFIG), true);
+        $derived = \Safe\json_decode(\Safe\file_get_contents($this->derivedConfigPath()), true);
         self::assertIsArray($derived);
         self::assertSame(['directories' => [$this->root . self::SRC_DIR]], $derived['source']);
         self::assertStringNotContainsString('ignored paths', $this->factory->output->fetch());
@@ -968,6 +998,12 @@ final class InfectionToolTest extends TestCase
 
             return new ProcessResultDto($exitCode, 'Infection ran', 'Infection ran');
         };
+    }
+
+    /** The infection.json the lane hands Infection, always the copy under var/qa/. */
+    private function derivedConfigPath(): string
+    {
+        return $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG;
     }
 
     /** An environment-free lane, so a GITHUB_BASE_REF in the test runner's own environment cannot steer it. */

@@ -37,6 +37,16 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
 
     private const string ANCHORED_LEGACY = '#^Legacy(?:/|$)#';
 
+    private const string COMPOSER_PLUGIN = '/ComposerPlugin/';
+
+    private const string BOOTSTRAP = 'tests/bootstrap.php';
+
+    private const string PHPUNIT_FROM_CONFIG = '../bin/phpunit';
+
+    private const string BIN_PHPUNIT = '/bin/phpunit';
+
+    private const string QA_CONFIG_DIR = '/qaConfig';
+
     private TempDir $project;
 
     private string $root;
@@ -67,12 +77,12 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     #[Test]
     public function anIgnoredPathUnderASourceDirectoryBecomesAnExcludeAnchoredAtThatDirectory(): void
     {
-        $config = $this->config(['source' => ['directories' => [self::SRC_FROM_CONFIG], 'excludes' => ['/ComposerPlugin/']]]);
+        $config = $this->config(['source' => ['directories' => [self::SRC_FROM_CONFIG], 'excludes' => [self::COMPOSER_PLUGIN]]]);
 
         $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY, 'src/Domain/Old.php'));
 
         self::assertSame(
-            ['directories' => [$this->src], 'excludes' => ['/ComposerPlugin/', self::ANCHORED_LEGACY, '#^Domain/Old\.php(?:/|$)#']],
+            ['directories' => [$this->src], 'excludes' => [self::COMPOSER_PLUGIN, self::ANCHORED_LEGACY, '#^Domain/Old\.php(?:/|$)#']],
             $this->source($derived),
         );
     }
@@ -90,7 +100,7 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     {
         $config = $this->config([
             'timeout'   => 10,
-            'bootstrap' => 'tests/bootstrap.php',
+            'bootstrap' => self::BOOTSTRAP,
             'source'    => ['directories' => [self::SRC_FROM_CONFIG]],
             'logs'      => [
                 'text'        => '../var/qa/infection/log.txt',
@@ -104,20 +114,20 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
                 'github'      => true,
             ],
             'tmpDir'    => '../var/qa/infection/tmp',
-            'phpUnit'   => ['configDir' => './', 'customPath' => '../bin/phpunit'],
+            'phpUnit'   => ['configDir' => './', 'customPath' => self::PHPUNIT_FROM_CONFIG],
             'phpStan'   => ['configDir' => '..', 'customPath' => '../bin/phpstan'],
             'mago'      => ['configDir' => 'mago', 'customPath' => 'bin/mago'],
             'debug'     => ['logFile' => 'debug.jsonl'],
             'mutators'  => ['@default' => true, 'global-ignoreSourceCodeByRegex' => ['#\[\s*[A-Za-z].*']],
         ]);
-        $qa = $this->root . '/qaConfig';
+        $qa = $this->root . self::QA_CONFIG_DIR;
 
         $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
 
         self::assertSame(
             [
                 'timeout'   => 10,
-                'bootstrap' => 'tests/bootstrap.php',
+                'bootstrap' => self::BOOTSTRAP,
                 'source'    => ['directories' => [$this->src], 'excludes' => [self::ANCHORED_LEGACY]],
                 'logs'      => [
                     'text'        => $this->root . '/var/qa/infection/log.txt',
@@ -131,7 +141,7 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
                     'github'      => true,
                 ],
                 'tmpDir'    => $this->root . '/var/qa/infection/tmp',
-                'phpUnit'   => ['configDir' => $qa, 'customPath' => $this->root . '/bin/phpunit'],
+                'phpUnit'   => ['configDir' => $qa, 'customPath' => $this->root . self::BIN_PHPUNIT],
                 'phpStan'   => ['configDir' => $this->root, 'customPath' => $this->root . '/bin/phpstan'],
                 'mago'      => ['configDir' => $qa . '/mago', 'customPath' => $qa . '/bin/mago'],
                 'debug'     => ['logFile' => $qa . '/debug.jsonl'],
@@ -152,14 +162,14 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     {
         $config = $this->config([
             'source'  => ['directories' => [self::SRC_FROM_CONFIG]],
-            'phpUnit' => ['customPath' => '../bin/phpunit'],
+            'phpUnit' => ['customPath' => self::PHPUNIT_FROM_CONFIG],
         ]);
-        $qa = $this->root . '/qaConfig';
+        $qa = $this->root . self::QA_CONFIG_DIR;
 
         $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored(self::LEGACY));
 
         self::assertIsArray($derived);
-        self::assertSame(['configDir' => $qa, 'customPath' => $this->root . '/bin/phpunit'], $derived['phpUnit'] ?? null);
+        self::assertSame(['configDir' => $qa, 'customPath' => $this->root . self::BIN_PHPUNIT], $derived['phpUnit'] ?? null);
         self::assertSame(['configDir' => $qa], $derived['phpStan'] ?? null);
         self::assertSame(['configDir' => $qa], $derived['mago'] ?? null);
     }
@@ -190,27 +200,27 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     public function aRelocatedCopyExcludesNothingAndResolvesEveryPathAsTheOriginalDoes(): void
     {
         $config = $this->config([
-            'bootstrap' => 'tests/bootstrap.php',
-            'source'    => ['directories' => [self::SRC_FROM_CONFIG], 'excludes' => ['/ComposerPlugin/']],
+            'bootstrap' => self::BOOTSTRAP,
+            'source'    => ['directories' => [self::SRC_FROM_CONFIG], 'excludes' => [self::COMPOSER_PLUGIN]],
             'logs'      => ['text' => '../var/qa/infection/log.txt'],
-            'phpUnit'   => ['customPath' => '../bin/phpunit'],
+            'phpUnit'   => ['customPath' => self::PHPUNIT_FROM_CONFIG],
             'mutators'  => ['TrueValue' => new stdClass()],
         ]);
-        $qa = $this->root . '/qaConfig';
+        $qa = $this->root . self::QA_CONFIG_DIR;
 
         $relocated = new IgnoredPathsInfectionConfig()->relocated($config);
 
         self::assertSame(
             [
-                'bootstrap' => 'tests/bootstrap.php',
-                'source'    => ['directories' => [$this->src], 'excludes' => ['/ComposerPlugin/']],
+                'bootstrap' => self::BOOTSTRAP,
+                'source'    => ['directories' => [$this->src], 'excludes' => [self::COMPOSER_PLUGIN]],
                 'logs'      => ['text' => $this->root . '/var/qa/infection/log.txt'],
-                'phpUnit'   => ['configDir' => $qa, 'customPath' => $this->root . '/bin/phpunit'],
+                'phpUnit'   => ['configDir' => $qa, 'customPath' => $this->root . self::BIN_PHPUNIT],
                 'mutators'  => ['TrueValue' => []],
                 'phpStan'   => ['configDir' => $qa],
                 'mago'      => ['configDir' => $qa],
             ],
-            json_decode(\Safe\json_encode($relocated), true),
+            \Safe\json_decode(\Safe\json_encode($relocated), true),
         );
         self::assertStringContainsString('"TrueValue":{}', \Safe\json_encode($relocated));
     }
@@ -218,10 +228,10 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     #[Test]
     public function aRelocatedConfigThatIsNotAnObjectIsReported(): void
     {
-        $config = $this->project->write(self::CONFIG, '[1]');
+        $config = $this->project->write(self::CONFIG, '"src"');
 
         $this->expectException(JsonException::class);
-        $this->expectExceptionMessage($config . ' does not hold a JSON object');
+        $this->expectExceptionMessageIsOrContains($config . ' does not hold a JSON object');
         new IgnoredPathsInfectionConfig()->relocated($config);
     }
 

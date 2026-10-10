@@ -9,8 +9,9 @@ use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use stdClass;
 
 /**
- * The infection.json the infection lane hands Infection when a
- * withIgnoredPaths() entry lies under one of its source directories.
+ * The infection.json the infection lane hands Infection: a copy of the
+ * resolved config under var/qa/, with the withIgnoredPaths() entries under its
+ * source directories excluded (derive()) or with nothing excluded (relocated()).
  *
  * Infection takes no exclusion on its command line, so the lane writes a
  * derived copy of the resolved config under var/qa/. Every setting Infection
@@ -68,11 +69,7 @@ final readonly class IgnoredPathsInfectionConfig
             return null;
         }
 
-        $config = \Safe\json_decode(\Safe\file_get_contents($configPath), true, 512, \JSON_THROW_ON_ERROR);
-        if (!\is_array($config)) {
-            throw new JsonException($configPath . ' does not hold a JSON object');
-        }
-
+        $config      = $this->read($configPath);
         $configDir   = \dirname($configPath);
         $source      = \is_array($config['source'] ?? null) ? $config['source'] : [];
         $directories = array_map(fn (string $directory): string => $this->absolute($configDir, $directory), $this->strings($source['directories'] ?? null));
@@ -96,6 +93,55 @@ final readonly class IgnoredPathsInfectionConfig
             return null;
         }
 
+        $config                = $this->relocate($config, $configDir);
+        $source                = \is_array($config['source'] ?? null) ? $config['source'] : [];
+        $source['directories'] = $kept;
+        if ([] !== $excludes) {
+            $source['excludes'] = [...$this->strings($source['excludes'] ?? null), ...$excludes];
+        }
+
+        $config['source'] = $source;
+
+        return $this->restored($config, $configPath);
+    }
+
+    /**
+     * The config at $configPath as a copy elsewhere must state it to mean the
+     * same: every PATH_KEYS setting absolute and every DEFAULTED_CONFIG_DIRS
+     * configDir stated, nothing excluded. The lane always runs Infection from a
+     * copy, because it adds the JSON log it reads.
+     *
+     * @return array<array-key, mixed> ready for json_encode(), an empty object in the original still one
+     *
+     * @throws JsonException when the config is not a JSON object
+     */
+    public function relocated(string $configPath): array
+    {
+        return $this->restored($this->relocate($this->read($configPath), \dirname($configPath)), $configPath);
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     *
+     * @throws JsonException
+     */
+    private function read(string $configPath): array
+    {
+        $config = \Safe\json_decode(\Safe\file_get_contents($configPath), true, 512, \JSON_THROW_ON_ERROR);
+        if (!\is_array($config)) {
+            throw new JsonException($configPath . ' does not hold a JSON object');
+        }
+
+        return $config;
+    }
+
+    /**
+     * @param array<array-key, mixed> $config
+     *
+     * @return array<array-key, mixed>
+     */
+    private function relocate(array $config, string $configDir): array
+    {
         foreach (self::PATH_KEYS as $key) {
             $config = $this->absolutise($config, $configDir, ...explode('.', $key));
         }
@@ -107,14 +153,18 @@ final readonly class IgnoredPathsInfectionConfig
             }
         }
 
-        $source                = \is_array($config['source'] ?? null) ? $config['source'] : [];
-        $source['directories'] = $kept;
-        if ([] !== $excludes) {
-            $source['excludes'] = [...$this->strings($source['excludes'] ?? null), ...$excludes];
-        }
+        return $config;
+    }
 
-        $config['source'] = $source;
-
+    /**
+     * @param array<array-key, mixed> $config
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws JsonException
+     */
+    private function restored(array $config, string $configPath): array
+    {
         $restored = $this->restoreEmptyObjects($config, \Safe\json_decode(\Safe\file_get_contents($configPath), false, 512, \JSON_THROW_ON_ERROR));
         if (!\is_array($restored)) {
             throw new JsonException($configPath . ' does not hold a JSON object');

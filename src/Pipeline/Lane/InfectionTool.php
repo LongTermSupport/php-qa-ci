@@ -10,11 +10,13 @@ use JsonException;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffBaseResolver;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionFullRunTriggers;
+use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
@@ -22,6 +24,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use Safe\Exceptions\FilesystemException;
 use SplFileInfo;
 
 /**
@@ -34,7 +37,10 @@ use SplFileInfo;
  *      run also proves the suite green, which is what lets Infection skip its
  *      own initial run.
  *   2. Infection always gets --skip-initial-tests, so the suite is never
- *      executed a redundant second time.
+ *      executed a redundant second time. That skipped run is Infection's
+ *      only check that the suite starts under its wrapper, so the lane makes
+ *      its own: it reads every killed mutant's test output from Infection's
+ *      JSON log and crashes when any was killed although no test ran.
  *
  * Without Xdebug there is no coverage and the lane skips. What is mutated
  * is decided first (InfectionDiffBaseResolver) and printed in one line: by
@@ -58,10 +64,13 @@ final readonly class InfectionTool implements ToolInterface
     /** The stable identifier a failing run prints, resolved by `bin/rule-doc`. */
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.infection';
 
-    /** The derived infection.json under var/qa/, written when an ignored path lies under a source directory. */
+    /** The infection.json Infection runs with, a copy of the resolved one under var/qa/. */
     public const string DERIVED_CONFIG = 'infection-config/infection.json';
 
-    /** How many unmapped test files the lane names before summarising the rest. */
+    /** The JSON log the lane reads each mutant's test output from, under var/qa/, unless the project's config names one. */
+    public const string JSON_LOG = 'infection/infection-log.json';
+
+    /** How many unmapped test files, or vacuously killed mutants, the lane names before summarising the rest. */
     private const int UNMAPPED_SHOWN = 10;
 
     public function __construct(
@@ -71,6 +80,7 @@ final readonly class InfectionTool implements ToolInterface
         private InfectionDiffBaseResolver $diffBaseResolver = new InfectionDiffBaseResolver(),
         private ?EnvironmentReader $environment = null,
         private InfectionFullRunTriggers $fullRunTriggers = new InfectionFullRunTriggers(),
+        private VacuousKillDetector $vacuousKills = new VacuousKillDetector(),
     ) {
     }
 
@@ -96,10 +106,12 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::skipped('Xdebug not enabled');
         }
 
-        $configPath = $this->configPath($context);
-        if ($configPath instanceof ToolResultDto) {
-            return $configPath;
+        $runConfig = $this->runConfig($context);
+        if ($runConfig instanceof ToolResultDto) {
+            return $runConfig;
         }
+
+        [$configPath, $jsonLog] = $runConfig;
 
         $base = $this->diffBaseResolver->resolve(
             $options,
@@ -131,6 +143,9 @@ final readonly class InfectionTool implements ToolInterface
             : $this->arguments->diff($options, $logsDir, $configPath, ...$positionalPaths);
 
         $this->clearDirectory($paths->varDir . '/infection');
+        if (is_file($jsonLog)) {
+            \Safe\unlink($jsonLog);
+        }
 
         $result = $context->processes->run($context->php->specWithoutXdebug(
             $paths->pharDir . '/infection.phar',
@@ -140,6 +155,11 @@ final readonly class InfectionTool implements ToolInterface
             true,
             lowPriority: true,
         ));
+
+        $kills = $this->judgeKills($context, $jsonLog, $result);
+        if ($kills instanceof ToolResultDto) {
+            return $kills;
+        }
 
         if ($result->succeeded()) {
             return ToolResultDto::passed();
@@ -151,41 +171,99 @@ final readonly class InfectionTool implements ToolInterface
     }
 
     /**
-     * The config Infection runs with: the resolved infection.json, or, when a
-     * withIgnoredPaths() entry lies under one of its source directories, the
-     * copy IgnoredPathsInfectionConfig derives, written to var/qa/. Returns the
-     * lane's result instead when the config cannot be read or every source
-     * directory is ignored.
+     * The config Infection runs with and the JSON log it writes: always a copy
+     * of the resolved infection.json under var/qa/, with every path made
+     * absolute, the withIgnoredPaths() entries under its source directories
+     * excluded, and a `logs.json` (the project's own, else JSON_LOG) for
+     * judgeKills() to read. Returns the lane's result instead when the config
+     * cannot be read or every source directory is ignored.
+     *
+     * @return array{string, string}|ToolResultDto the config path and the JSON log path
      */
-    private function configPath(ToolContext $context): string|ToolResultDto
+    private function runConfig(ToolContext $context): array|ToolResultDto
     {
         $resolved = $context->configPath('infection.json');
 
         try {
             $derived = $this->ignoredPathsConfig->derive($resolved, IgnoredPaths::of($context->config));
-        } catch (JsonException $jsonException) {
-            $context->writeln(\sprintf('Infection: %s could not be read as JSON (%s), so the ignored paths cannot be applied to it.', $resolved, $jsonException->getMessage()));
+            $config  = $derived ?? $this->ignoredPathsConfig->relocated($resolved);
+        } catch (JsonException|FilesystemException $exception) {
+            $context->writeln(\sprintf('Infection: %s could not be read as JSON (%s), so the lane cannot derive the config Infection runs with.', $resolved, $exception->getMessage()));
+            $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::crashed('infection.json is not valid JSON');
+            return ToolResultDto::crashed('infection.json could not be read');
         }
 
-        if (null === $derived) {
-            return $resolved;
-        }
-
-        $source = $derived['source'] ?? null;
+        $source = $config['source'] ?? null;
         if (!\is_array($source) || [] === ($source['directories'] ?? [])) {
             $context->writeln(\sprintf('Infection: every source directory in %s is an ignored path (withIgnoredPaths in qaConfig/qa.php), so there is nothing to mutate. SKIPPING.', $resolved));
 
             return ToolResultDto::skipped('every source directory is ignored');
         }
 
+        // An empty `logs` object reaches here as a stdClass, which holds nothing to keep.
+        $logs           = \is_array($config['logs'] ?? null) ? $config['logs'] : [];
+        $jsonLog        =\is_string($logs['json'] ?? null) ? $logs['json'] : $context->config->paths->varDir . '/' . self::JSON_LOG;
+        $logs['json']   = $jsonLog;
+        $config['logs'] = $logs;
+
         $context->logDir(\dirname(self::DERIVED_CONFIG));
         $path = $context->config->paths->varDir . '/' . self::DERIVED_CONFIG;
-        \Safe\file_put_contents($path, \Safe\json_encode($derived, \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES) . "\n");
-        $context->writeln('Infection: the ignored paths under its source directories are excluded through ' . $path);
+        \Safe\file_put_contents($path, \Safe\json_encode($config, \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES) . "\n");
+        if (null !== $derived) {
+            $context->writeln('Infection: the ignored paths under its source directories are excluded through ' . $path);
+        }
 
-        return $path;
+        return [$path, $jsonLog];
+    }
+
+    /**
+     * Infection counts a mutant as killed whenever the test process exits
+     * non-zero, so a suite that cannot start under Infection's wrapper "kills"
+     * every mutant, and --skip-initial-tests leaves nothing else to notice.
+     * Returns a crash when Infection's JSON log shows a mutant killed although
+     * no test ran (VacuousKillDetector), when the log cannot be read, or when a
+     * passing run wrote none; null when every kill was made by a test, or when
+     * a failed run left no log to judge.
+     */
+    private function judgeKills(ToolContext $context, string $jsonLog, ProcessResultDto $result): ?ToolResultDto
+    {
+        if (!is_file($jsonLog)) {
+            if (!$result->succeeded()) {
+                return null;
+            }
+
+            $context->writeln(\sprintf('Infection: the run passed but wrote no JSON log at %s, so the lane cannot check that its kills were made by tests.', $jsonLog));
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::crashed('Infection wrote no JSON log to verify its kills');
+        }
+
+        try {
+            $vacuous = $this->vacuousKills->find(\Safe\file_get_contents($jsonLog));
+        } catch (JsonException $jsonException) {
+            $context->writeln(\sprintf('Infection: its JSON log %s could not be read (%s), so the lane cannot check that its kills were made by tests.', $jsonLog, $jsonException->getMessage()));
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::crashed('the Infection JSON log could not be read');
+        }
+
+        if ([] === $vacuous) {
+            return null;
+        }
+
+        $context->writeln(\sprintf('Infection: %d mutant(s) were counted as killed although no test ran, so the scores above are not a measurement.', \count($vacuous)));
+        $context->writeln('           The test suite does not start under Infection (its generated PHPUnit config and bootstrap): fix that, not the mutants.');
+        $context->writeln('           ' . implode(',', array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, \array_slice($vacuous, 0, self::UNMAPPED_SHOWN))) . (\count($vacuous) > self::UNMAPPED_SHOWN ? \sprintf(' and %d more', \count($vacuous) - self::UNMAPPED_SHOWN) : ''));
+        $context->writeln('           The test output of the first:');
+        foreach (explode("\n", $vacuous[0]->output) as $line) {
+            $context->writeln('             ' . $line);
+        }
+
+        $context->writeln('           Every mutant, with its test output: ' . $jsonLog);
+        $context->writeIdentifier(self::IDENTIFIER);
+
+        return ToolResultDto::crashed(\sprintf('Infection counted %d mutant(s) as killed although no test ran', \count($vacuous)));
     }
 
     /**

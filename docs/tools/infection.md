@@ -115,16 +115,19 @@ contains `"phpUnit": {"configDir": "./"}`; to point it elsewhere, override that 
 
 ### Ignored paths
 
+Infection always runs from a copy of the resolved config the lane writes to
+`var/qa/infection-config/infection.json`: every setting Infection resolves against the config
+file's directory (source directories, logs, `tmpDir`, the PHPUnit, PHPStan and Mago paths, the
+debug log file) made absolute, so it means what the original means, and a `logs.json` added
+when the config names none (`var/qa/infection/infection-log.json`), which the lane reads to
+check its kills (see [How to fix a failure](#how-to-fix-a-failure)).
+
 A `withIgnoredPaths()` entry under one of `infection.json`'s source directories is never
-mutated. Infection takes no exclusion on its command line, so the lane writes a copy of the
-resolved config to `var/qa/infection-config/infection.json` and runs with that: every setting
-Infection resolves against the config file's directory (source directories, logs, `tmpDir`,
-the PHPUnit, PHPStan and Mago paths, the debug log file) made absolute, and each ignored path
-added to `source.excludes` as a regex anchored at its source directory. Ignoring `src/Legacy`
+mutated. Infection takes no exclusion on its command line, so the copy adds each ignored path
+to `source.excludes` as a regex anchored at its source directory. Ignoring `src/Legacy`
 drops `src/Legacy/` and keeps `src/Domain/Legacy/`. An ignored source directory is dropped from
 the list, and when every one is ignored the lane is skipped. In diff mode, a changed file under
-an ignored path is not mutated either. With no ignored path under a source directory the
-resolved config is used as it is.
+an ignored path is not mutated either.
 
 Here are the environment variables that you might decide to override:
 
@@ -176,6 +179,24 @@ mutation point does not exist rather than writing a test that pretends to pin it
 Lowering a floor is an owner decision recorded in `qaConfig/qa.php`, not a way to make a
 change pass.
 
+### Mutants killed although no test ran
+
+The lane crashes, with no score, when Infection counted a mutant as killed but its test run
+executed no test. Infection scores a mutant as killed whenever the test process exits
+non-zero, and the lane skips Infection's initial test run, so a suite that cannot start under
+Infection "kills" every mutant and the MSI reads 100%. The lane reads each killed mutant's test
+output from Infection's JSON log and recognises two shapes: PHPUnit's `No tests executed!`,
+and PHPUnit stopping before the suite started (its banner with no `Runtime:` line, which is
+how it reports a bootstrap script or configuration it cannot load). It names the mutants,
+prints the first one's output and points at the JSON log, which holds every mutant's output.
+
+The cause is in the test setup, not in the code or the tests of it: something that works in a
+plain `phpunit` run fails under Infection's generated PHPUnit configuration and bootstrap
+(`var/qa/infection/tmp/`). Read the printed output: a PHPUnit extension whose bootstrap failed,
+a bootstrap script that cannot be found or throws, an environment the wrapper sets differently.
+Make the suite start there; a score is only a measurement once it does. A passing run that
+wrote no JSON log crashes too, because nothing then shows that its kills were made by tests.
+
 #### Disabling Infection
 
 If you would like to disable infection, simply export the environment variable `useInfection` with the value `0`:
@@ -195,3 +216,4 @@ The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infecti
 4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A trigger in it makes the run full. Each modified or renamed PHP file is compared with `git show <merge base>:<path>` and left out when only its comments or whitespace changed, unless either version has a comment carrying a tool directive. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
 5. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
 6. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
+7. `VacuousKillDetector` reads the JSON log: a mutant killed although no test ran, an unreadable log, or a passing run with no log crashes the lane, before the exit code is judged.
