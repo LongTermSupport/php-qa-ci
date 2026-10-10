@@ -178,6 +178,44 @@ final class ArgumentsParserTest extends TestCase
     }
 
     #[Test]
+    public function helpCarriesNoErrorMessageOfItsOwn(): void
+    {
+        try {
+            $this->parser->parse('-h');
+            self::fail('expected a UsageException for -h');
+        } catch (UsageException $usageException) {
+            self::assertSame('', $usageException->getMessage(), '-h is a request for the usage, not an option missing its value');
+            self::assertTrue($usageException->showUsage);
+        }
+    }
+
+    #[Test]
+    public function argumentsUnpackedFromAKeyedArrayAreReadInOrder(): void
+    {
+        $request = $this->parser->parse(...['tool' => '-t', 'name' => self::STAN, 'path' => self::ATTACHED_SRC]);
+
+        self::assertSame(self::PHPSTAN, $request->tool);
+        self::assertSame(self::SRC, $request->path);
+    }
+
+    #[Test]
+    public function theAgentModeRefusalListsEachSupportingToolOnItsOwnIndentedLine(): void
+    {
+        $listing = implode("\n", array_map(static fn (string $tool): string => '  ' . $tool, ToolRegistry::shipped()->agentModeTools()));
+
+        try {
+            $this->parser->parse(self::AGENT_OPTION);
+            self::fail('expected a UsageException for --agent-mode without -t');
+        } catch (UsageException $usageException) {
+            self::assertSame(
+                "\nERROR: --agent-mode requires a single tool (-t)\n  Example: vendor/bin/qa --agent-mode -t phpstan -p src/Kernel.php\n"
+                . "\nTools with --agent-mode support:\n" . $listing . "\n",
+                $usageException->getMessage(),
+            );
+        }
+    }
+
+    #[Test]
     public function anUnknownToolShowsTheUsage(): void
     {
         $this->assertUsage('Invalid tool: nope', true, '-t', 'nope');
@@ -261,6 +299,7 @@ final class ArgumentsParserTest extends TestCase
         self::assertStringContainsString('PHPQACI_AGENT_MODE=1', $usage);
         self::assertStringContainsString(\sprintf('     %-26s %s', 'allCS', 'all coding standards tools'), $usage);
         self::assertStringContainsString('vp|versionPins', $usage);
+        self::assertStringEndsWith("\n", $usage, 'the usage is printed as-is, so it must end its own last line');
     }
 
     private function assertUsage(string $expectedMessage, bool $showUsage, string ...$argv): void
