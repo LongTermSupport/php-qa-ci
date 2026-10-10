@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Support\ProjectTreeLeak;
 
 use ErrorException;
+use FilesystemIterator;
 use InvalidArgumentException;
+use RuntimeException;
+use UnexpectedValueException;
 
 /**
  * Charges what appeared in the project tree to the test that just finished,
@@ -19,7 +22,7 @@ use InvalidArgumentException;
  * at the top level (`linux-gnu-x86_64/`, `php:`), or one level into a
  * directory that already exists (`src/…`, `bin/…`). Nothing deeper is read,
  * and no file's content is compared, so the probe stays a few dozen
- * scandir() calls per test. The unwatched entries are neither read nor
+ * directory reads per test. The unwatched entries are neither read nor
  * charged: the suite's own output (`var/`), Composer's (`vendor/`), git's,
  * and scratch space other processes write to while the suite runs.
  *
@@ -126,30 +129,48 @@ final class ProjectTreeLedger
     private function entries(): array
     {
         $entries = [];
-        foreach ($this->names($this->root) as $name) {
+        foreach ($this->names($this->root) ?? throw new RuntimeException(\sprintf('The project root %s has gone', $this->root)) as $name) {
             if (\in_array($name, $this->unwatched, true)) {
                 continue;
             }
 
+            $path     = $this->root . '/' . $name;
+            $children = is_dir($path) && !is_link($path) && is_readable($path) ? $this->names($path) : [];
+            if (null === $children) {
+                // Removed between is_dir() and the read: absent, so charged as deleted, once.
+                continue;
+            }
+
             $entries[] = $name;
-            $path      = $this->root . '/' . $name;
-            if (is_dir($path) && !is_link($path) && is_readable($path)) {
-                foreach ($this->names($path) as $child) {
-                    $entries[] = $name . '/' . $child;
-                }
+            foreach ($children as $child) {
+                $entries[] = $name . '/' . $child;
             }
         }
 
         return $entries;
     }
 
-    /** @return list<string> */
-    private function names(string $directory): array
+    /**
+     * FilesystemIterator turns a failed open into an exception without the PHP
+     * warning scandir() emits first, which would fail the test running at the time.
+     *
+     * @return list<string>|null null when the directory has gone
+     */
+    private function names(string $directory): ?array
     {
-        return array_values(array_filter(
-            \Safe\scandir($directory),
-            static fn (mixed $entry): bool => \is_string($entry) && '.' !== $entry && '..' !== $entry,
-        ));
+        try {
+            $iterator = new FilesystemIterator($directory, FilesystemIterator::KEY_AS_FILENAME | FilesystemIterator::CURRENT_AS_PATHNAME | FilesystemIterator::SKIP_DOTS);
+        } catch (UnexpectedValueException $unexpectedValueException) {
+            // Another process can remove a directory between the caller's check and this
+            // read, which is an answer; one that is still there is a real failure.
+            if (is_dir($directory)) {
+                throw $unexpectedValueException;
+            }
+
+            return null;
+        }
+
+        return array_map(strval(...), array_keys(iterator_to_array($iterator)));
     }
 
     /**
