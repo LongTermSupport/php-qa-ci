@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Small\Support\ProjectTreeLeak;
 use InvalidArgumentException;
 use LTS\PHPQA\Tests\Support\ProjectTreeLeak\ProjectTreeLedger;
 use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\VanishingDirectoryStreamWrapper;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -48,10 +49,13 @@ final class ProjectTreeLedgerTest extends TestCase
         $this->directory->write('project/tests/ExistingTest.php', self::SOURCE);
         $this->directory->write('project/vendor/autoload.php', self::SOURCE);
         $this->directory->mkdir('project/var');
+        \Safe\stream_wrapper_register(VanishingDirectoryStreamWrapper::SCHEME, VanishingDirectoryStreamWrapper::class);
     }
 
     protected function tearDown(): void
     {
+        \Safe\stream_wrapper_unregister(VanishingDirectoryStreamWrapper::SCHEME);
+        VanishingDirectoryStreamWrapper::reset();
         $this->directory->remove();
     }
 
@@ -161,6 +165,35 @@ final class ProjectTreeLedgerTest extends TestCase
         self::assertSame(['FooTest::deletes deleted src/Existing.php from the project tree'], $ledger->leaks());
     }
 
+    /**
+     * Another process can remove a directory between the sweep's is_dir() and its read. The
+     * directory has gone, which is a deletion like any other: charged once, and neither an
+     * exception nor a PHP warning, either of which fails a green run (issue #137).
+     */
+    #[Test]
+    public function aDirectoryThatVanishesBetweenTheCheckAndTheReadIsChargedOnceAsDeleted(): void
+    {
+        $ledger = $this->ledger(root: VanishingDirectoryStreamWrapper::SCHEME . '://' . $this->root);
+        VanishingDirectoryStreamWrapper::vanishOnOpen($this->root . '/src');
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $ledger->sweep('FooTest::racesAnotherProcess');
+            $ledger->sweep(self::NEXT);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame([], $warnings);
+        self::assertSame(['FooTest::racesAnotherProcess deleted src from the project tree'], $ledger->leaks());
+        self::assertDirectoryDoesNotExist($this->root . '/src');
+    }
+
     #[Test]
     public function eachChargedTestGetsItsOwnQuarantine(): void
     {
@@ -209,8 +242,8 @@ final class ProjectTreeLedgerTest extends TestCase
         $this->ledger($this->root . '/src/leaks');
     }
 
-    private function ledger(?string $quarantine = null): ProjectTreeLedger
+    private function ledger(?string $quarantine = null, ?string $root = null): ProjectTreeLedger
     {
-        return new ProjectTreeLedger($this->root, $quarantine ?? $this->quarantine, 'var', 'vendor');
+        return new ProjectTreeLedger($root ?? $this->root, $quarantine ?? $this->quarantine, 'var', 'vendor');
     }
 }
