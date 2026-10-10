@@ -111,7 +111,7 @@ final class QaEntrypointTest extends TestCase
     #[TestWith(['0'], 'writable, fail-fast')]
     public function aFailedRunEndsWithAFailureBannerNotCompleted(string $readOnly): void
     {
-        $this->consumer->write('composer.json', '{"name": "fixture/consumer", "autoload": {"psr-4": {"Fixture\\\\": "src/"}}}');
+        $this->consumer->write('composer.json', '{"name": "fixture/consumer", "autoload": {"psr-4": {"Fixture\\\": "src/"}}}');
 
         $process = $this->qa(['QA_READONLY' => $readOnly], '-t', 'pt');
 
