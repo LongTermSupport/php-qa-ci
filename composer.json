@@ -93,6 +93,9 @@
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\FactorySealed\\": [
         "tests/assets/PHPStan/FactorySealed/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ProcessStopOnThrow\\": [
+        "tests/assets/PHPStan/ProcessStopOnThrow/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\RepeatedStringLiteral\\": [
         "tests/assets/PHPStan/RepeatedStringLiteral/"
       ],
