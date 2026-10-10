@@ -10,6 +10,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -121,6 +122,32 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         self::assertSame('19', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
         self::assertSame((string)\Safe\pcntl_getpriority(), $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false))->stdout);
+    }
+
+    /**
+     * The same, seen through a stand-in `nice` that prints its arguments: under Infection the test
+     * process already runs at 19, where a niced child and an ordinary one report the same priority.
+     */
+    #[Test]
+    public function onlyALowPriorityChildIsHandedToNiceWithItsArgumentsIntact(): void
+    {
+        $path = getenv('PATH');
+        self::assertIsString($path);
+        $bin = TempDir::create('fake-nice');
+
+        try {
+            \Safe\chmod($bin->write('nice', "#!/bin/sh\nprintf '%s|' \"\$@\"\n"), 0o755);
+            // The executable is looked up on this process's PATH, not on the child's environment.
+            \Safe\putenv('PATH=' . $bin->path . ':' . $path);
+            $runner = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses());
+            $print  = [\PHP_BINARY, '-r', 'echo "plain";'];
+
+            self::assertSame('-n|19|' . \PHP_BINARY . '|-r|echo "plain";|', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
+            self::assertSame('plain', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false))->stdout);
+        } finally {
+            \Safe\putenv('PATH=' . $path);
+            $bin->remove();
+        }
     }
 
     /** While it runs, the child is registered, so an interrupt arriving mid-run can stop it. */
