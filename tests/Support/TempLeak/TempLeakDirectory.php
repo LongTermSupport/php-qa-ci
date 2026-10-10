@@ -45,11 +45,11 @@ final class TempLeakDirectory
             return self::$claimed;
         }
 
-        $tmpdir = getenv('TMPDIR');
-        $shared = rtrim(\is_string($tmpdir) && '' !== $tmpdir ? $tmpdir : '/tmp', '/');
-        self::removeAbandoned($shared);
+        $tmpdir    = getenv('TMPDIR');
+        $shared    = rtrim(\is_string($tmpdir) && '' !== $tmpdir ? $tmpdir : '/tmp', '/');
         $directory = $shared . '/' . self::PREFIX . \Safe\getmypid() . '-' . bin2hex(random_bytes(4));
         \Safe\mkdir($directory, 0o700);
+        self::removeAbandoned($shared, new SplFileInfo($directory)->getOwner());
         \Safe\putenv('TMPDIR=' . $directory);
         $_ENV['TMPDIR'] = $directory;
         self::$claimed  = $directory;
@@ -73,13 +73,14 @@ final class TempLeakDirectory
     /**
      * Removes the directory of every test process under $shared that died
      * without removing it: Infection kills a mutant run that times out with
-     * SIGKILL, and no shutdown function runs then. Only a real directory this
-     * user owns, named exactly as claim() names one, whose pid is not running,
-     * is removed; a symlink is never followed. A reused pid only keeps a stale
+     * SIGKILL, and no shutdown function runs then. Only a real directory owned
+     * by $uid (the owner of the directory this process has just created),
+     * named exactly as claim() names one, whose pid is not running, is
+     * removed; a symlink is never followed. A reused pid only keeps a stale
      * directory until a later claim. Without /proc this process does not look
      * alive to itself, and then nothing can be judged dead, so nothing goes.
      */
-    private static function removeAbandoned(string $shared): void
+    private static function removeAbandoned(string $shared, int $uid): void
     {
         $processes = new ProcessTree();
         if (!$processes->isAlive(\Safe\getmypid())) {
@@ -92,7 +93,7 @@ final class TempLeakDirectory
                 || is_link($path)
                 || !is_dir($path)
                 || $processes->isAlive($pid)
-                || !self::ownedByThisUser($path)) {
+                || !self::ownedBy($path, $uid)) {
                 continue;
             }
 
@@ -108,10 +109,10 @@ final class TempLeakDirectory
         return isset($match[1]) ? (int)$match[1] : null;
     }
 
-    private static function ownedByThisUser(string $path): bool
+    private static function ownedBy(string $path, int $uid): bool
     {
         try {
-            return new SplFileInfo($path)->getOwner() === posix_geteuid();
+            return new SplFileInfo($path)->getOwner() === $uid;
         } catch (RuntimeException $runtimeException) {
             if (self::stillThere($path)) {
                 throw $runtimeException;
