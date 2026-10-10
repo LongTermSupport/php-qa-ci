@@ -100,10 +100,8 @@ final readonly class ProcessTree
             return null;
         }
 
-        // SplFileObject turns a failed open into an exception without the
-        // warning file_get_contents() emits first.
         try {
-            $line = new SplFileObject($file)->fgets();
+            $line = $this->statLine($file);
         } catch (RuntimeException $runtimeException) {
             // A process that exits between the check and the read is gone,
             // which is an answer; one whose /proc entry is still there is a
@@ -116,5 +114,32 @@ final readonly class ProcessTree
         }
 
         return explode(' ', substr($line, (int)strrpos($line, ')') + 2));
+    }
+
+    /**
+     * The stat file's line, or a RuntimeException when it cannot be opened or
+     * read. SplFileObject turns a failed open into an exception without the
+     * warning file_get_contents() emits first. A read that fails once the file
+     * is open (the process exited in between) raises a notice and returns "",
+     * so for the length of the read a notice becomes the exception instead,
+     * and an empty line is one too: a process's stat line is never empty.
+     */
+    private function statLine(string $file): string
+    {
+        $stat = new SplFileObject($file);
+        set_error_handler(static function (int $level, string $message) use ($file): never {
+            throw new RuntimeException(\sprintf('Cannot read %s: %s', $file, $message), $level);
+        });
+        try {
+            $line = $stat->fgets();
+        } finally {
+            restore_error_handler();
+        }
+
+        if ('' === $line) {
+            throw new RuntimeException(\sprintf('Cannot read %s: it is empty', $file));
+        }
+
+        return $line;
     }
 }
