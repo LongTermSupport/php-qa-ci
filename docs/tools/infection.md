@@ -189,6 +189,9 @@ output from Infection's JSON log and recognises two shapes: PHPUnit's `No tests 
 and PHPUnit stopping before the suite started (its banner with no `Runtime:` line, which is
 how it reports a bootstrap script or configuration it cannot load). It names the mutants,
 prints the first one's output and points at the JSON log, which holds every mutant's output.
+A run that started the suite and then ended without a summary is not judged, since a test ran
+into the mutated code; nor is a mutant Infection scored as an error, nor another test
+framework's output.
 
 The cause is in the test setup, not in the code or the tests of it: something that works in a
 plain `phpunit` run fails under Infection's generated PHPUnit configuration and bootstrap

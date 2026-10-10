@@ -185,7 +185,9 @@ final class InfectionToolTest extends TestCase
         $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
 
         $generic = \dirname(__DIR__, 4) . '/configDefaults/generic';
-        $derived = \Safe\json_decode(\Safe\file_get_contents($this->derivedConfigPath()), true);
+        $written = \Safe\file_get_contents($this->derivedConfigPath());
+        self::assertStringEndsWith("}\n", $written);
+        $derived = \Safe\json_decode($written, true);
         self::assertIsArray($derived);
         // The shipped config reaches the consumer's root from vendor/lts/php-qa-ci/configDefaults/generic.
         $consumer = \dirname($generic, 5);
@@ -242,9 +244,11 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'a vacuous MSI is not a score to report');
         self::assertSame('Infection counted 2 mutant(s) as killed although no test ran', $result->summary);
         self::assertStringContainsString('Infection: 2 mutant(s) were counted as killed although no test ran', $printed);
-        self::assertStringContainsString('src/Foo.php:7 Plus', $printed);
-        self::assertStringContainsString('Bootstrapping of extension X failed', $printed, 'the test output of the first one is shown');
-        self::assertStringContainsString($this->root . '/' . self::JSON_LOG, $printed);
+        self::assertStringContainsString("\n           The test suite does not start under Infection", $printed);
+        self::assertStringContainsString(\sprintf("\n           %s/src/Foo.php:8 Plus,%1\$s/src/Foo.php:9 Plus\n", $this->root), $printed, 'the real kill on line 7 is not named');
+        self::assertStringContainsString("\n           The test output of the first:\n             PHPUnit 13.4.1", $printed);
+        self::assertStringContainsString("\n             No tests executed!\n", $printed);
+        self::assertStringContainsString("\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n", $printed);
         self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 
@@ -258,9 +262,22 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame('Infection counted 12 mutant(s) as killed although no test ran', $result->summary);
-        self::assertSame(10, substr_count($printed, 'src/Foo.php:7 Plus'));
-        self::assertStringContainsString('src/Foo.php:7 Plus and 2 more', $printed);
+        self::assertSame(10, substr_count($printed, 'src/Foo.php:'));
+        self::assertStringContainsString('src/Foo.php:16 Plus and 2 more', $printed);
         self::assertSame(1, substr_count($printed, 'Bootstrapping of extension X failed'), 'one output is shown, not twelve');
+    }
+
+    #[Test]
+    public function tenVacuousKillsAreAllNamedWithNothingMore(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection(0, ...array_fill(0, 10, self::NO_TESTS_EXECUTED)));
+
+        $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringContainsString("src/Foo.php:16 Plus\n", $printed);
+        self::assertStringNotContainsString(' more', $printed);
     }
 
     #[Test]
@@ -817,7 +834,7 @@ final class InfectionToolTest extends TestCase
             \Safe\json_decode(\Safe\file_get_contents($this->derivedConfigPath()), true),
             'the configDirs Infection would default to the project config directory are stated, not left to default to var/qa/',
         );
-        self::assertStringContainsString('Infection: the ignored paths under its source directories are excluded through', $this->factory->output->fetch());
+        self::assertStringContainsString('Infection: the ignored paths under its source directories are excluded through ' . $this->derivedConfigPath(), $this->factory->output->fetch());
     }
 
     #[Test]
@@ -854,9 +871,11 @@ final class InfectionToolTest extends TestCase
 
         $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY)));
 
+        $printed = $this->factory->output->fetch();
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame([], $this->factory->processes->specs);
-        self::assertStringContainsString($this->root . '/' . self::PROJECT_CONFIG, $this->factory->output->fetch());
+        self::assertStringContainsString($this->root . '/' . self::PROJECT_CONFIG, $printed);
+        self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 
     #[Test]
@@ -988,11 +1007,11 @@ final class InfectionToolTest extends TestCase
 
                 \Safe\file_put_contents($log, \Safe\json_encode([
                     'stats'  => ['killedCount' => \count($killedOutputs)],
-                    'killed' => array_map(fn (string $output): array => [
-                        'mutator'       => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => 7],
+                    'killed' => array_map(fn (int $index, string $output): array => [
+                        'mutator'       => ['mutatorName' => 'Plus', 'originalFilePath' => $this->root . '/src/Foo.php', 'originalStartLine' => 7 + $index],
                         'diff'          => '',
                         'processOutput' => $output,
-                    ], $killedOutputs),
+                    ], array_keys($killedOutputs), $killedOutputs),
                 ]));
             }
 

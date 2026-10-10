@@ -236,6 +236,24 @@ final class IgnoredPathsInfectionConfigTest extends TestCase
     }
 
     #[Test]
+    public function withNothingIgnoredTheConfigIsNotEvenRead(): void
+    {
+        $config = $this->project->write(self::CONFIG, '{"source": ');
+
+        self::assertNull(new IgnoredPathsInfectionConfig()->derive($config, $this->ignored()));
+    }
+
+    #[Test]
+    public function theSourceDirectoriesAfterAnIgnoredOneAreKept(): void
+    {
+        $config = $this->config(['source' => ['directories' => ['../lib', self::SRC_FROM_CONFIG]]]);
+
+        $derived = new IgnoredPathsInfectionConfig()->derive($config, $this->ignored('lib'));
+
+        self::assertSame(['directories' => [$this->src]], $this->source($derived));
+    }
+
+    #[Test]
     public function anIgnoredSourceDirectoryIsDroppedRatherThanExcluded(): void
     {
         $config = $this->config(['source' => ['directories' => [self::SRC_FROM_CONFIG, '../lib']]]);

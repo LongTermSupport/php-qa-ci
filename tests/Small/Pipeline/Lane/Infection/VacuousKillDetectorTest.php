@@ -130,6 +130,26 @@ final class VacuousKillDetectorTest extends TestCase
     }
 
     #[Test]
+    public function everyVacuousKillIsFound(): void
+    {
+        $found = new VacuousKillDetector()->find($this->log(killed: [
+            $this->mutant(self::SOURCE, 1, self::PLUS, self::EXTENSION_FAILED),
+            $this->mutant(self::SOURCE, 2, self::PLUS, self::EXTENSION_FAILED),
+        ]));
+
+        self::assertSame(['/p/src/Foo.php:1 Plus', '/p/src/Foo.php:2 Plus'], array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, $found));
+    }
+
+    #[Test]
+    public function aKilledEntryWithNoMutatorIsNamedAsUnknown(): void
+    {
+        $this->expectException(JsonException::class);
+        $this->expectExceptionMessageIsOrContains('the killed mutant ?:? ? in the Infection JSON log has no processOutput');
+
+        new VacuousKillDetector()->find('{"killed":[{"diff":""}]}');
+    }
+
+    #[Test]
     public function aLogWithNoKilledListIsRefused(): void
     {
         $this->expectException(JsonException::class);

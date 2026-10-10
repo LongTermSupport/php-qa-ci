@@ -127,7 +127,7 @@ final readonly class IgnoredPathsInfectionConfig
      */
     private function read(string $configPath): array
     {
-        $config = \Safe\json_decode(\Safe\file_get_contents($configPath), true, 512, \JSON_THROW_ON_ERROR);
+        $config = \Safe\json_decode(\Safe\file_get_contents($configPath), true, flags: \JSON_THROW_ON_ERROR);
         if (!\is_array($config)) {
             throw new JsonException($configPath . ' does not hold a JSON object');
         }
@@ -165,7 +165,7 @@ final readonly class IgnoredPathsInfectionConfig
      */
     private function restored(array $config, string $configPath): array
     {
-        $restored = $this->restoreEmptyObjects($config, \Safe\json_decode(\Safe\file_get_contents($configPath), false, 512, \JSON_THROW_ON_ERROR));
+        $restored = $this->restoreEmptyObjects($config, \Safe\json_decode(\Safe\file_get_contents($configPath), false, flags: \JSON_THROW_ON_ERROR));
         if (!\is_array($restored)) {
             throw new JsonException($configPath . ' does not hold a JSON object');
         }

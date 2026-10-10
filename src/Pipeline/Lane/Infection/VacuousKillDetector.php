@@ -47,7 +47,7 @@ final readonly class VacuousKillDetector
      */
     public function find(string $jsonLog): array
     {
-        $log = \Safe\json_decode($jsonLog, true, 512, \JSON_THROW_ON_ERROR);
+        $log = \Safe\json_decode($jsonLog, true, flags: \JSON_THROW_ON_ERROR);
         if (!\is_array($log) || !\is_array($log['killed'] ?? null)) {
             throw new JsonException('the Infection JSON log has no "killed" list');
         }

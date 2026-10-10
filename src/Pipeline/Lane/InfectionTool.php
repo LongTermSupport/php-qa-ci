@@ -24,7 +24,6 @@ use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use Safe\Exceptions\FilesystemException;
 use SplFileInfo;
 
 /**
@@ -187,8 +186,8 @@ final readonly class InfectionTool implements ToolInterface
         try {
             $derived = $this->ignoredPathsConfig->derive($resolved, IgnoredPaths::of($context->config));
             $config  = $derived ?? $this->ignoredPathsConfig->relocated($resolved);
-        } catch (JsonException|FilesystemException $exception) {
-            $context->writeln(\sprintf('Infection: %s could not be read as JSON (%s), so the lane cannot derive the config Infection runs with.', $resolved, $exception->getMessage()));
+        } catch (JsonException $jsonException) {
+            $context->writeln(\sprintf('Infection: %s could not be read as JSON (%s), so the lane cannot derive the config Infection runs with.', $resolved, $jsonException->getMessage()));
             $context->writeIdentifier(self::IDENTIFIER);
 
             return ToolResultDto::crashed('infection.json could not be read');
