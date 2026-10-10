@@ -47,6 +47,9 @@ final class VacuousKillDetectorTest extends TestCase
     // A mutant in code the test bootstrap runs: PHPUnit stops before the suite.
     private const string BOOTSTRAP_BROKEN = self::BANNER . "\n\nError in bootstrap script: LogicException:\nboom";
 
+    // Why a mixed judgement is refused when the log's stats cannot be scored from.
+    private const string NO_STATS = 'the Infection JSON log has no "stats" to work out the scores without the kills no test ran for';
+
     #[Test]
     public function aKillWhoseOutputSaysNoTestsExecutedIsVacuous(): void
     {
@@ -248,7 +251,7 @@ final class VacuousKillDetectorTest extends TestCase
     public function statsThatAreNotCountsAreRefused(array $wrong): void
     {
         $this->expectException(JsonException::class);
-        $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
+        $this->expectExceptionMessageIsOrContains(self::NO_STATS);
 
         new VacuousKillDetector()->find($this->log(killed: $this->mixedKills(), stats: [...$this->stats(90.0, 100.0), ...$wrong]));
     }
@@ -268,7 +271,7 @@ final class VacuousKillDetectorTest extends TestCase
     public function aMixedJudgementFromALogWithNoStatsIsRefused(string $log): void
     {
         $this->expectException(JsonException::class);
-        $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
+        $this->expectExceptionMessageIsOrContains(self::NO_STATS);
 
         new VacuousKillDetector()->find(\sprintf($log, \Safe\json_encode($this->mixedKills())));
     }
@@ -285,7 +288,7 @@ final class VacuousKillDetectorTest extends TestCase
     public function aMixedJudgementWithoutTheCountsIsRefused(): void
     {
         $this->expectException(JsonException::class);
-        $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
+        $this->expectExceptionMessageIsOrContains(self::NO_STATS);
 
         new VacuousKillDetector()->find($this->log(killed: $this->mixedKills()));
     }
