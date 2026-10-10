@@ -264,6 +264,24 @@ final class VacuousKillDetectorTest extends TestCase
     }
 
     #[Test]
+    #[DataProvider('logsWithNoStats')]
+    public function aMixedJudgementFromALogWithNoStatsIsRefused(string $log): void
+    {
+        $this->expectException(JsonException::class);
+        $this->expectExceptionMessageIsOrContains('the Infection JSON log has no "stats" to work out the scores without the kills no test ran for');
+
+        new VacuousKillDetector()->find(\sprintf($log, \Safe\json_encode($this->mixedKills())));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function logsWithNoStats(): iterable
+    {
+        yield 'no stats' => ['{"killed":%s}'];
+
+        yield 'stats that are not an object' => ['{"stats":"none","killed":%s}'];
+    }
+
+    #[Test]
     public function aMixedJudgementWithoutTheCountsIsRefused(): void
     {
         $this->expectException(JsonException::class);
