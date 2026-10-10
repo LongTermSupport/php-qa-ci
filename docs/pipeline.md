@@ -61,7 +61,7 @@ The pre hook runs after configuration and PHAR verification, before the run lock
 
 `QaApplication` performs these steps in order:
 
-- **Arguments** ([ArgumentsParser](../src/Pipeline/Cli/ArgumentsParser.php)): `-t <tool>`, `-p <path>` (or a single bare path), `--json` (PHPStan only), `-h`. A path given to a tool that does not support paths, an unknown tool or an unknown option prints the usage and exits 1. `-t` and `-p` are each given at most once: a second `-t`, a second `-p`, a second bare path or a bare path beside `-p` is refused with exit 1, naming both values, rather than one silently replacing the other.
+- **Arguments** ([ArgumentsParser](../src/Pipeline/Cli/ArgumentsParser.php)): `-t <tool>`, `-p <path>` (or a single bare path), `--json` (PHPStan only), `-h`. A path given to a tool that does not support paths, an unknown tool or an unknown option prints the usage and exits 1. `-t` and `-p` are each given at most once: a second `-t`, a second `-p`, a second bare path or a bare path beside `-p` is refused with exit 1 rather than one silently replacing the other, and a repeated option names both values.
 - **Environment** ([EnvironmentReader](../src/Pipeline/Config/EnvironmentReader.php)): decides CI, read-only and aggregate mode and announces them.
 - **Project paths** ([ProjectPathsResolver](../src/Pipeline/Config/ProjectPathsResolver.php)): requires `src/` and `tests/` (or `test/`); reads `config.bin-dir` from `composer.json` (default `vendor/bin`); fixes `var/qa`, `var/qa/cache`, `qaConfig/` and the library's `vendor-phar/` and `configDefaults/`.
 - **Platform detection** ([PlatformDetector](../src/Pipeline/Config/PlatformDetector.php)): Symfony via `symfony.lock`, otherwise generic. See [Platform Detection](./platform-detection.md).
