@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support\TempLeak;
 
+use ErrorException;
+use FilesystemIterator;
+use LTS\PHPQA\Pipeline\Process\ProcessTree;
+use RuntimeException;
+use SplFileInfo;
+use UnexpectedValueException;
+
 /**
  * The temp directory of this test process: created and made the process's
  * TMPDIR once, before anything resolves sys_get_temp_dir().
@@ -21,6 +28,12 @@ namespace LTS\PHPQA\Tests\Support\TempLeak;
  */
 final class TempLeakDirectory
 {
+    /** What every directory claim() creates is named after. */
+    private const string PREFIX = 'php-qa-ci-tests-';
+
+    /** A directory claim() creates: the owner's pid, then four random bytes in hex. */
+    private const string PATTERN = '/^php-qa-ci-tests-(\d+)-[0-9a-f]{8}$/';
+
     private static ?string $claimed = null;
 
     private static bool $adopted = false;
@@ -34,8 +47,9 @@ final class TempLeakDirectory
 
         $tmpdir    = getenv('TMPDIR');
         $shared    = rtrim(\is_string($tmpdir) && '' !== $tmpdir ? $tmpdir : '/tmp', '/');
-        $directory = $shared . '/php-qa-ci-tests-' . \Safe\getmypid() . '-' . bin2hex(random_bytes(4));
+        $directory = $shared . '/' . self::PREFIX . \Safe\getmypid() . '-' . bin2hex(random_bytes(4));
         \Safe\mkdir($directory, 0o700);
+        self::removeAbandoned($shared, new SplFileInfo($directory)->getOwner());
         \Safe\putenv('TMPDIR=' . $directory);
         $_ENV['TMPDIR'] = $directory;
         self::$claimed  = $directory;
@@ -54,6 +68,129 @@ final class TempLeakDirectory
         self::$adopted = true;
 
         return self::claim();
+    }
+
+    /**
+     * Removes the directory of every test process under $shared that died
+     * without removing it: Infection kills a mutant run that times out with
+     * SIGKILL, and no shutdown function runs then. Only a real directory owned
+     * by $uid (the owner of the directory this process has just created),
+     * named exactly as claim() names one, whose pid is not running, is
+     * removed; a symlink is never followed. A reused pid only keeps a stale
+     * directory until a later claim. Without /proc this process does not look
+     * alive to itself, and then nothing can be judged dead, so nothing goes.
+     */
+    private static function removeAbandoned(string $shared, int $uid): void
+    {
+        $processes = new ProcessTree();
+        if (!$processes->isAlive(\Safe\getmypid())) {
+            return;
+        }
+
+        foreach (self::entriesOf($shared) ?? [] as $name => $path) {
+            $pid = self::ownerPid($name);
+            if (null === $pid
+                || is_link($path)
+                || !is_dir($path)
+                || $processes->isAlive($pid)
+                || !self::ownedBy($path, $uid)) {
+                continue;
+            }
+
+            self::removeTree($path);
+        }
+    }
+
+    /** The pid in a name claim() gives a directory, or null for any other name. */
+    private static function ownerPid(string $name): ?int
+    {
+        \Safe\preg_match(self::PATTERN, $name, $match);
+
+        return isset($match[1]) ? (int)$match[1] : null;
+    }
+
+    private static function ownedBy(string $path, int $uid): bool
+    {
+        try {
+            return new SplFileInfo($path)->getOwner() === $uid;
+        } catch (RuntimeException $runtimeException) {
+            if (self::stillThere($path)) {
+                throw $runtimeException;
+            }
+
+            // Another claim removed it first.
+            return false;
+        }
+    }
+
+    /**
+     * Two processes may remove the same directory at once, so whatever has
+     * already gone when it is reached was removed by the other one, which is
+     * the outcome wanted. A failure on a path still there is real.
+     */
+    private static function removeTree(string $directory): void
+    {
+        foreach (self::entriesOf($directory) ?? [] as $path) {
+            if (is_dir($path) && !is_link($path)) {
+                self::removeTree($path);
+
+                continue;
+            }
+
+            self::unlessGone($path, \Safe\unlink(...));
+        }
+
+        self::unlessGone($directory, \Safe\rmdir(...));
+    }
+
+    /**
+     * FilesystemIterator turns a failed open into an exception without the PHP
+     * warning scandir() emits first, as ProjectTreeLedger reads the project tree.
+     *
+     * @return array<string, string>|null paths by name; null when the directory has gone
+     */
+    private static function entriesOf(string $directory): ?array
+    {
+        try {
+            $iterator = new FilesystemIterator($directory, FilesystemIterator::KEY_AS_FILENAME | FilesystemIterator::CURRENT_AS_PATHNAME | FilesystemIterator::SKIP_DOTS);
+        } catch (UnexpectedValueException $unexpectedValueException) {
+            if (self::stillThere($directory)) {
+                throw $unexpectedValueException;
+            }
+
+            return null;
+        }
+
+        /** @var array<string, string> */
+        return iterator_to_array($iterator);
+    }
+
+    /** @param callable(string): void $remove */
+    private static function unlessGone(string $path, callable $remove): void
+    {
+        set_error_handler(static function (int $severity, string $message): never {
+            throw new ErrorException($message, 0, $severity);
+        });
+        try {
+            $remove($path);
+        } catch (ErrorException $errorException) {
+            if (self::stillThere($path)) {
+                throw $errorException;
+            }
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    /**
+     * PHP caches the last stat() of a path, so a path the caller has just
+     * tested would still look present after another process removed it.
+     */
+    private static function stillThere(string $path): bool
+    {
+        clearstatcache(true, $path);
+
+        return file_exists($path) || is_link($path);
     }
 
     /**
