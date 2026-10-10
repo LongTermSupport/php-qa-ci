@@ -45,6 +45,8 @@ final class DumpParametersTmpDirProbeTest extends TestCase
 
     private const string PROJECT_TMP_DIR = '/ci-cache/phpstan';
 
+    private const string TEMP_PATH = 'var/qa/cache/' . DumpParametersTmpDirProbe::TEMP_DIR;
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -84,6 +86,23 @@ final class DumpParametersTmpDirProbeTest extends TestCase
         self::assertDirectoryExists($probe);
     }
 
+    /** The directory gets the default mode the umask narrows, as every other directory the pipeline makes. */
+    #[Test]
+    public function theTemporaryDirectoryIsCreatedWithTheUmaskDefaultMode(): void
+    {
+        $this->factory->processes->willSucceed(self::dump(self::PROJECT_TMP_DIR, self::PROBE_TEMP));
+        $previous = umask(0);
+
+        try {
+            new DumpParametersTmpDirProbe()->projectTmpDir($this->factory->context(), self::CONFIG, null);
+        } finally {
+            umask($previous);
+        }
+
+        clearstatcache();
+        self::assertSame(0o777, \Safe\fileperms($this->factory->project->path . '/' . self::TEMP_PATH) & 0o7777);
+    }
+
     /** The deadCode lane loads its detector with --autoload-file; the dump gets the same file. */
     #[Test]
     public function anAutoloadFileIsPassedOn(): void
@@ -101,12 +120,12 @@ final class DumpParametersTmpDirProbeTest extends TestCase
     #[Test]
     public function anExistingTemporaryDirectoryIsKept(): void
     {
-        $this->factory->project->write('var/qa/cache/' . DumpParametersTmpDirProbe::TEMP_DIR . '/phpstan/kept', 'x');
+        $this->factory->project->write(self::TEMP_PATH . '/phpstan/kept', 'x');
         $this->factory->processes->willSucceed($this->dump(self::PROJECT_TMP_DIR, self::PROBE_TEMP));
 
         new DumpParametersTmpDirProbe()->projectTmpDir($this->factory->context(), self::CONFIG, null);
 
-        self::assertFileExists($this->factory->project->path . '/var/qa/cache/' . DumpParametersTmpDirProbe::TEMP_DIR . '/phpstan/kept');
+        self::assertFileExists($this->factory->project->path . '/' . self::TEMP_PATH . '/phpstan/kept');
     }
 
     #[Test]
