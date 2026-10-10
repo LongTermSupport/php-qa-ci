@@ -43,6 +43,14 @@ final class ArgumentsParserTest extends TestCase
 
     private const string UNIT = 'unit';
 
+    private const string ATTACHED_STAN = '-tstan';
+
+    private const string ATTACHED_SRC = '-psrc';
+
+    private const string ATTACHED_TESTS = '-ptests';
+
+    private const string EXTRA = 'extra';
+
     private ArgumentsParser $parser;
 
     protected function setUp(): void
@@ -63,7 +71,7 @@ final class ArgumentsParserTest extends TestCase
     public function aToolTokenResolvesToItsCanonicalName(): void
     {
         self::assertSame(self::PHPSTAN, $this->parser->parse('-t', self::STAN)->tool);
-        self::assertSame(self::PHPSTAN, $this->parser->parse('-tstan')->tool);
+        self::assertSame(self::PHPSTAN, $this->parser->parse(self::ATTACHED_STAN)->tool);
         self::assertSame('allLintingTools', $this->parser->parse('-t', 'allLints')->tool);
     }
 
@@ -82,7 +90,7 @@ final class ArgumentsParserTest extends TestCase
     {
         self::assertSame(self::SRC_DOMAIN, $this->parser->parse('-t', self::STAN, '-p', self::SRC_DOMAIN)->path);
         self::assertSame(self::SRC_DOMAIN, $this->parser->parse('-t', self::STAN, self::SRC_DOMAIN)->path);
-        self::assertSame(self::SRC, $this->parser->parse('-psrc')->path);
+        self::assertSame(self::SRC, $this->parser->parse(self::ATTACHED_SRC)->path);
     }
 
     #[Test]
@@ -189,7 +197,39 @@ final class ArgumentsParserTest extends TestCase
         $this->assertUsage('Unsupported argument: --help', false, '-t', self::STAN, '--help');
         $this->assertUsage('Unsupported argument: -x', false, '-x');
         $this->assertUsage('Multiple paths not supported: src tests', false, self::SRC, 'tests');
-        $this->assertUsage('Unsupported argument: extra', false, '-p', self::SRC, 'extra');
+        $this->assertUsage('Unsupported argument: extra', false, '-p', self::SRC, self::EXTRA);
+    }
+
+    #[Test]
+    public function aRepeatedPathOptionIsRefusedRatherThanDroppingTheFirst(): void
+    {
+        $bothPaths = 'Multiple paths not supported: -p src -p tests';
+        foreach ([['-p', self::SRC, '-p', 'tests'], [self::ATTACHED_SRC, self::ATTACHED_TESTS], ['-p', self::SRC, self::ATTACHED_TESTS]] as $paths) {
+            $this->assertUsage($bothPaths, false, '-t', self::STAN, ...$paths);
+        }
+
+        $this->assertUsage('Multiple paths not supported: -p src -p src', false, self::ATTACHED_SRC, '-p', self::SRC);
+        $this->assertUsage('Specify a single path: vendor/bin/qa -t toolname -p path/to/check', false, '-p', self::SRC, self::ATTACHED_TESTS);
+    }
+
+    #[Test]
+    public function aRepeatedToolOptionIsRefusedRatherThanDroppingTheFirst(): void
+    {
+        $bothTools = 'Multiple tools not supported: -t stan -t rector';
+        foreach ([['-t', self::STAN, '-t', 'rector'], [self::ATTACHED_STAN, '-trector'], [self::ATTACHED_STAN, '-t', 'rector']] as $tools) {
+            $this->assertUsage($bothTools, false, ...$tools);
+        }
+
+        $this->assertUsage('Multiple tools not supported: -t stan -t stan', false, '-t', self::STAN, self::ATTACHED_STAN);
+        $this->assertUsage('Specify a single tool: vendor/bin/qa -t toolname', false, '-t', self::STAN, '-tphpunit');
+    }
+
+    #[Test]
+    public function aPathOptionTogetherWithABarePathIsRefused(): void
+    {
+        foreach ([['-p', self::SRC, self::EXTRA], [self::EXTRA, '-p', self::SRC], [self::ATTACHED_SRC, self::EXTRA]] as $arguments) {
+            $this->assertUsage('Unsupported argument: extra', false, '-t', self::STAN, ...$arguments);
+        }
     }
 
     #[Test]
