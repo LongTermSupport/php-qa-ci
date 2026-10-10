@@ -16,6 +16,7 @@ use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\TurboProbeInterface;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
@@ -49,6 +50,10 @@ final readonly class PhpstanTool implements ToolInterface
     public const string REPORT_DIR = 'phpstan-file-reports';
 
     public const string WRAPPER_NEON = 'phpstan-parallel.neon';
+
+    public const string CACHE_DIR = 'phpstan';
+
+    private const string LABEL = 'PHPStan';
 
     private const string PHAR = '/phpstan.phar';
 
@@ -229,7 +234,7 @@ final readonly class PhpstanTool implements ToolInterface
 
         \Safe\file_put_contents($logDir . '/' . self::JSON_FILE, $result->stdout);
         $context->stdout->write($result->stdout, false, OutputInterface::OUTPUT_RAW);
-        $context->logs->archive('PHPStan', $logDir, self::JSON_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
+        $context->logs->archive(self::LABEL, $logDir, self::JSON_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
 
         $crash = PhpstanCrash::jsonReason($result);
         if (null !== $crash) {
@@ -257,7 +262,7 @@ final readonly class PhpstanTool implements ToolInterface
         $result = $context->php->withoutXdebug($phar, $args, $config->paths->projectRoot);
 
         \Safe\file_put_contents($logDir . '/' . self::LOG_FILE, $result->output);
-        $context->logs->archive('PHPStan', $logDir, self::LOG_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
+        $context->logs->archive(self::LABEL, $logDir, self::LOG_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
 
         if ($result->succeeded()) {
             return ToolResultDto::passed();
@@ -326,6 +331,7 @@ final readonly class PhpstanTool implements ToolInterface
             }
         }
 
+        $neon .= new TmpDirNeon()->forLane($context, self::LABEL, self::CACHE_DIR);
         $neon .= new ExcludePathsNeon()->parameters(IgnoredPaths::of($config));
 
         \Safe\file_put_contents($wrapper, $neon);
