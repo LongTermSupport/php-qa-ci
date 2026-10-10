@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- An interrupted run no longer prints a PHP warning for a child process that exits while the run is stopping it. The process tree read `/proc/<pid>/stat` with a function that warns before it fails, so a process exiting between the check and the read printed `file_get_contents(/proc/…/stat): Failed to open stream`; it is now read without the warning and treated as gone, as before.
+
 ## 85.7.0 — 2026-10-09
 
 ### Added

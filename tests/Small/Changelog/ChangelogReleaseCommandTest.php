@@ -25,6 +25,7 @@ use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
 use LTS\PHPQA\Changelog\ReleaseVersionPolicyLoader;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Tests\Support\FakeProcessRunner;
@@ -73,6 +74,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(SymfonyProcessRunner::class)]
 #[UsesClass(RunningProcesses::class)]
+#[UsesClass(ProcessTree::class)]
 #[Small]
 final class ChangelogReleaseCommandTest extends TestCase
 {
