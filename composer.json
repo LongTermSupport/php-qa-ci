@@ -102,7 +102,10 @@
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\VariadicOverArrayParameter\\": [
         "tests/assets/PHPStan/VariadicOverArrayParameter/"
       ]
-    }
+    },
+    "files": [
+      "tests/Support/TempLeak/claim-before-bootstrap.php"
+    ]
   },
   "bin": [
     "bin/arkitect-rule",

@@ -9,8 +9,9 @@ use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use stdClass;
 
 /**
- * The infection.json the infection lane hands Infection when a
- * withIgnoredPaths() entry lies under one of its source directories.
+ * The infection.json the infection lane hands Infection: a copy of the
+ * resolved config under var/qa/, with the withIgnoredPaths() entries under its
+ * source directories excluded (derive()) or with nothing excluded (relocated()).
  *
  * Infection takes no exclusion on its command line, so the lane writes a
  * derived copy of the resolved config under var/qa/. Every setting Infection
@@ -18,7 +19,8 @@ use stdClass;
  * absolute, so the copy means the same from its new place, and an absent
  * configDir that Infection would default to that directory is stated
  * (DEFAULTED_CONFIG_DIRS); `bootstrap` is resolved against the working
- * directory and is left as written. An ignored
+ * directory and a php:// log target is a stream, so both are left as
+ * written. An ignored
  * source directory is dropped from source.directories, and an ignored path
  * inside one is added to source.excludes as a regex anchored at that
  * directory: Infection matches excludes against the path relative to each
@@ -53,6 +55,9 @@ final readonly class IgnoredPathsInfectionConfig
     /** The sections whose absent configDir Infection defaults to the config file's directory. */
     public const array DEFAULTED_CONFIG_DIRS = ['phpUnit', 'phpStan', 'mago'];
 
+    /** The prefix of a log target Infection writes to as a stream (php://stdout, php://stderr, php://output). */
+    public const string PHP_STREAM = 'php://';
+
     /**
      * @return array<array-key, mixed>|null the derived config, ready for json_encode()
      *                                      (an empty object in the original is a
@@ -68,11 +73,7 @@ final readonly class IgnoredPathsInfectionConfig
             return null;
         }
 
-        $config = \Safe\json_decode(\Safe\file_get_contents($configPath), true, 512, \JSON_THROW_ON_ERROR);
-        if (!\is_array($config)) {
-            throw new JsonException($configPath . ' does not hold a JSON object');
-        }
-
+        $config      = $this->read($configPath);
         $configDir   = \dirname($configPath);
         $source      = \is_array($config['source'] ?? null) ? $config['source'] : [];
         $directories = array_map(fn (string $directory): string => $this->absolute($configDir, $directory), $this->strings($source['directories'] ?? null));
@@ -96,6 +97,55 @@ final readonly class IgnoredPathsInfectionConfig
             return null;
         }
 
+        $config                = $this->relocate($config, $configDir);
+        $source                = \is_array($config['source'] ?? null) ? $config['source'] : [];
+        $source['directories'] = $kept;
+        if ([] !== $excludes) {
+            $source['excludes'] = [...$this->strings($source['excludes'] ?? null), ...$excludes];
+        }
+
+        $config['source'] = $source;
+
+        return $this->restored($config, $configPath);
+    }
+
+    /**
+     * The config at $configPath as a copy elsewhere must state it to mean the
+     * same: every PATH_KEYS setting absolute and every DEFAULTED_CONFIG_DIRS
+     * configDir stated, nothing excluded. The lane always runs Infection from a
+     * copy, because it adds the JSON log it reads.
+     *
+     * @return array<array-key, mixed> ready for json_encode(), an empty object in the original still one
+     *
+     * @throws JsonException when the config is not a JSON object
+     */
+    public function relocated(string $configPath): array
+    {
+        return $this->restored($this->relocate($this->read($configPath), \dirname($configPath)), $configPath);
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     *
+     * @throws JsonException
+     */
+    private function read(string $configPath): array
+    {
+        $config = \Safe\json_decode(\Safe\file_get_contents($configPath), true, flags: \JSON_THROW_ON_ERROR);
+        if (!\is_array($config)) {
+            throw new JsonException($configPath . ' does not hold a JSON object');
+        }
+
+        return $config;
+    }
+
+    /**
+     * @param array<array-key, mixed> $config
+     *
+     * @return array<array-key, mixed>
+     */
+    private function relocate(array $config, string $configDir): array
+    {
         foreach (self::PATH_KEYS as $key) {
             $config = $this->absolutise($config, $configDir, ...explode('.', $key));
         }
@@ -107,15 +157,19 @@ final readonly class IgnoredPathsInfectionConfig
             }
         }
 
-        $source                = \is_array($config['source'] ?? null) ? $config['source'] : [];
-        $source['directories'] = $kept;
-        if ([] !== $excludes) {
-            $source['excludes'] = [...$this->strings($source['excludes'] ?? null), ...$excludes];
-        }
+        return $config;
+    }
 
-        $config['source'] = $source;
-
-        $restored = $this->restoreEmptyObjects($config, \Safe\json_decode(\Safe\file_get_contents($configPath), false, 512, \JSON_THROW_ON_ERROR));
+    /**
+     * @param array<array-key, mixed> $config
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws JsonException
+     */
+    private function restored(array $config, string $configPath): array
+    {
+        $restored = $this->restoreEmptyObjects($config, \Safe\json_decode(\Safe\file_get_contents($configPath), false, flags: \JSON_THROW_ON_ERROR));
         if (!\is_array($restored)) {
             throw new JsonException($configPath . ' does not hold a JSON object');
         }
@@ -179,9 +233,17 @@ final readonly class IgnoredPathsInfectionConfig
         return $config;
     }
 
-    /** $path resolved against $base when it is relative, with `.` and `..` segments folded. */
+    /**
+     * $path resolved against $base when it is relative, with `.` and `..`
+     * segments folded; a php:// stream, which Infection writes to rather than
+     * resolving, as written.
+     */
     private function absolute(string $base, string $path): string
     {
+        if (str_starts_with($path, self::PHP_STREAM)) {
+            return $path;
+        }
+
         $segments = [];
         foreach (explode('/', str_starts_with($path, '/') ? $path : $base . '/' . $path) as $segment) {
             if ('..' === $segment) {

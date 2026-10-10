@@ -13,8 +13,9 @@ use RuntimeException;
 /**
  * Defence for the class "a test leaves files in the system temp directory".
  *
- * Each test process gets a temp directory of its own (TMPDIR, set before
- * anything has resolved sys_get_temp_dir()), so a leak is attributable even
+ * Each test process gets a temp directory of its own (TMPDIR, set by
+ * TempLeakDirectory before anything has resolved sys_get_temp_dir(), even
+ * under Infection's mutant bootstrap), so a leak is attributable even
  * when other processes write to the shared one. After every test the directory
  * must be empty again; when the run ends, every test that left something is
  * listed on stderr and the process exits 1. A file the process still holds open
@@ -34,12 +35,7 @@ final readonly class TempLeakExtension implements Extension
 
     public function bootstrap(Configuration $configuration, Facade $facade, ParameterCollection $parameters): void
     {
-        $tmpdir    = getenv('TMPDIR');
-        $shared    = rtrim(\is_string($tmpdir) && '' !== $tmpdir ? $tmpdir : '/tmp', '/');
-        $directory = $shared . '/php-qa-ci-tests-' . \Safe\getmypid() . '-' . bin2hex(random_bytes(4));
-        \Safe\mkdir($directory, 0o700);
-        \Safe\putenv('TMPDIR=' . $directory);
-        $_ENV['TMPDIR'] = $directory;
+        $directory = TempLeakDirectory::adopt();
         if (sys_get_temp_dir() !== $directory) {
             throw new RuntimeException(\sprintf('TempLeakExtension could not redirect the temp directory: sys_get_temp_dir() was resolved as %s before the extension ran', sys_get_temp_dir()));
         }
