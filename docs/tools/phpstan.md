@@ -28,8 +28,11 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   the lane prints the directory. Any value other than PHPStan's default, `%sysGetTempDir%/phpstan`,
   counts as the project's; a `tmpDir` set to exactly that default is replaced like an unset one.
   The dump runs with its own `TMPDIR` under `var/qa/cache/phpstan-dump-parameters/`, so it never
-  writes to the shared system temp directory either. If the dump fails, the lane uses its own
-  `tmpDir` and the analysis reports the broken configuration.
+  writes to the shared system temp directory either. A `tmpDir` built from `%sysGetTempDir%` is
+  therefore printed as resolved under that directory, while the analysis resolves it against the
+  real one. The dump loads the configuration as the analysis does, so the project's
+  `bootstrapFiles` run once for it as well, before the analysis. If the dump fails, the lane uses
+  its own `tmpDir` and the analysis reports the broken configuration.
 
 - Each path given to `withIgnoredPaths()` in `qaConfig/qa.php` is written into the wrapper as an
   `excludePaths.analyse` entry, absolute and optional (`(?)`), so a fixture's deliberate
