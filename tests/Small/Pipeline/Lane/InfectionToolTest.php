@@ -272,7 +272,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString(\sprintf('Infection: 1 of 3 killed mutant(s) stopped the test suite before any test ran, the first %s/src/Foo.php:8 Plus.', $this->root), $printed);
         self::assertStringContainsString('count as killed', $printed);
-        self::assertStringContainsString($this->root . '/' . self::JSON_LOG, $printed);
+        self::assertStringContainsString("\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n", $printed);
         self::assertStringNotContainsString(InfectionTool::IDENTIFIER, $printed);
     }
 

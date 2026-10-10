@@ -19,7 +19,8 @@ use stdClass;
  * absolute, so the copy means the same from its new place, and an absent
  * configDir that Infection would default to that directory is stated
  * (DEFAULTED_CONFIG_DIRS); `bootstrap` is resolved against the working
- * directory and is left as written. An ignored
+ * directory and a php:// log target is a stream, so both are left as
+ * written. An ignored
  * source directory is dropped from source.directories, and an ignored path
  * inside one is added to source.excludes as a regex anchored at that
  * directory: Infection matches excludes against the path relative to each
@@ -53,6 +54,9 @@ final readonly class IgnoredPathsInfectionConfig
 
     /** The sections whose absent configDir Infection defaults to the config file's directory. */
     public const array DEFAULTED_CONFIG_DIRS = ['phpUnit', 'phpStan', 'mago'];
+
+    /** The prefix of a log target Infection writes to as a stream (php://stdout, php://stderr, php://output). */
+    public const string PHP_STREAM = 'php://';
 
     /**
      * @return array<array-key, mixed>|null the derived config, ready for json_encode()
@@ -229,9 +233,17 @@ final readonly class IgnoredPathsInfectionConfig
         return $config;
     }
 
-    /** $path resolved against $base when it is relative, with `.` and `..` segments folded. */
+    /**
+     * $path resolved against $base when it is relative, with `.` and `..`
+     * segments folded; a php:// stream, which Infection writes to rather than
+     * resolving, as written.
+     */
     private function absolute(string $base, string $path): string
     {
+        if (str_starts_with($path, self::PHP_STREAM)) {
+            return $path;
+        }
+
         $segments = [];
         foreach (explode('/', str_starts_with($path, '/') ? $path : $base . '/' . $path) as $segment) {
             if ('..' === $segment) {

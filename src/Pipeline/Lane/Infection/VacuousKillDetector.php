@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane\Infection;
 
 use JsonException;
+use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 
 /**
@@ -22,6 +23,8 @@ use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
  * script or configuration it cannot load. Output that started the suite and
  * then printed no summary is not judged: a test ran into the mutated code and
  * the process ended, which is a kill. Another framework's output is not judged.
+ * Whether the vacuous kills mean the suite never started is decided against
+ * the number judged (KillJudgementDto::suiteNeverStarted()).
  *
  * @internal
  */
@@ -40,12 +43,13 @@ final readonly class VacuousKillDetector
     private const string PROCESS_OUTPUT = 'processOutput';
 
     /**
-     * @return list<VacuousKillDto> every killed mutant whose test output shows no test ran
+     * @return KillJudgementDto how many killed mutants were judged, and every
+     *                          one whose test output shows no test ran
      *
      * @throws JsonException when the log is not Infection's JSON log, or a killed
      *                       mutant carries no test output to judge
      */
-    public function find(string $jsonLog): array
+    public function find(string $jsonLog): KillJudgementDto
     {
         $log = \Safe\json_decode($jsonLog, true, flags: \JSON_THROW_ON_ERROR);
         if (!\is_array($log) || !\is_array($log['killed'] ?? null)) {
@@ -64,7 +68,7 @@ final readonly class VacuousKillDetector
             }
         }
 
-        return $found;
+        return new KillJudgementDto(\count($log['killed']), $found);
     }
 
     private function noTestRan(string $output): bool

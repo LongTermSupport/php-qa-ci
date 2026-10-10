@@ -39,7 +39,7 @@ use SplFileInfo;
  *      executed a redundant second time. That skipped run is Infection's
  *      only check that the suite starts under its wrapper, so the lane makes
  *      its own: it reads every killed mutant's test output from Infection's
- *      JSON log and crashes when any was killed although no test ran.
+ *      JSON log and crashes when no test ran for any of them.
  *
  * Without Xdebug there is no coverage and the lane skips. What is mutated
  * is decided first (InfectionDiffBaseResolver) and printed in one line: by
@@ -201,8 +201,15 @@ final readonly class InfectionTool implements ToolInterface
         }
 
         // An empty `logs` object reaches here as a stdClass, which holds nothing to keep.
-        $logs           = \is_array($config['logs'] ?? null) ? $config['logs'] : [];
-        $jsonLog        =\is_string($logs['json'] ?? null) ? $logs['json'] : $context->config->paths->varDir . '/' . self::JSON_LOG;
+        $logs    = \is_array($config['logs'] ?? null) ? $config['logs'] : [];
+        $jsonLog = $context->config->paths->varDir . '/' . self::JSON_LOG;
+        if (\is_string($logs['json'] ?? null) && str_starts_with($logs['json'], IgnoredPathsInfectionConfig::PHP_STREAM)) {
+            // logs.json takes one target, and a stream cannot be read back.
+            $context->writeln(\sprintf('Infection: logs.json in %s is %s, which the lane cannot read back, so this run writes the JSON log to %s instead.', $resolved, $logs['json'], $jsonLog));
+        } elseif (\is_string($logs['json'] ?? null)) {
+            $jsonLog = $logs['json'];
+        }
+
         $logs['json']   = $jsonLog;
         $config['logs'] = $logs;
 
@@ -220,10 +227,11 @@ final readonly class InfectionTool implements ToolInterface
      * Infection counts a mutant as killed whenever the test process exits
      * non-zero, so a suite that cannot start under Infection's wrapper "kills"
      * every mutant, and --skip-initial-tests leaves nothing else to notice.
-     * Returns a crash when Infection's JSON log shows a mutant killed although
-     * no test ran (VacuousKillDetector), when the log cannot be read, or when a
-     * passing run wrote none; null when every kill was made by a test, or when
-     * a failed run left no log to judge.
+     * Returns a crash when Infection's JSON log shows that no test ran for any
+     * killed mutant (VacuousKillDetector), when the log cannot be read, or when
+     * a passing run wrote none. Otherwise null: when some kills were made by a
+     * test the suite starts, so a mutant that stopped it before any test ran
+     * broke the code its bootstrap runs, a genuine kill the run names.
      */
     private function judgeKills(ToolContext $context, string $jsonLog, ProcessResultDto $result): ?ToolResultDto
     {
@@ -239,7 +247,7 @@ final readonly class InfectionTool implements ToolInterface
         }
 
         try {
-            $vacuous = $this->vacuousKills->find(\Safe\file_get_contents($jsonLog));
+            $judgement = $this->vacuousKills->find(\Safe\file_get_contents($jsonLog));
         } catch (JsonException $jsonException) {
             $context->writeln(\sprintf('Infection: its JSON log %s could not be read (%s), so the lane cannot check that its kills were made by tests.', $jsonLog, $jsonException->getMessage()));
             $context->writeIdentifier(self::IDENTIFIER);
@@ -247,12 +255,22 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::crashed('the Infection JSON log could not be read');
         }
 
+        $vacuous = $judgement->vacuous;
         if ([] === $vacuous) {
             return null;
         }
 
-        $context->writeln(\sprintf('Infection: %d mutant(s) were counted as killed although no test ran, so the scores above are not a measurement.', \count($vacuous)));
-        $context->writeln('           The test suite does not start under Infection (its generated PHPUnit config and bootstrap): fix that, not the mutants.');
+        if (!$judgement->suiteNeverStarted()) {
+            $context->writeln(\sprintf('Infection: %d of %d killed mutant(s) stopped the test suite before any test ran, the first %s.', \count($vacuous), $judgement->judged, $vacuous[0]->mutant));
+            $context->writeln('           The other kills ran tests, so the suite starts under Infection: these mutants broke code the test bootstrap runs, and count as killed.');
+            $context->writeln('           Every mutant, with its test output: ' . $jsonLog);
+
+            return null;
+        }
+
+        $context->writeln(\sprintf('Infection: no test ran for any of the %d mutant(s) Infection counted as killed, so the scores above are not a measurement.', $judgement->judged));
+        $context->writeln('           The test suite does not start under Infection (its generated PHPUnit config and bootstrap): make it start, as docs/tools/infection.md describes.');
+        $context->writeln('           Or every mutant in this run is in code the test bootstrap itself runs, and stopped it: a full run (infectionDiffBase=full) tells the two apart.');
         $context->writeln('           ' . implode(',', array_map(static fn (VacuousKillDto $kill): string => $kill->mutant, \array_slice($vacuous, 0, self::UNMAPPED_SHOWN))) . (\count($vacuous) > self::UNMAPPED_SHOWN ? \sprintf(' and %d more', \count($vacuous) - self::UNMAPPED_SHOWN) : ''));
         $context->writeln('           The test output of the first:');
         foreach (explode("\n", $vacuous[0]->output) as $line) {
@@ -262,7 +280,7 @@ final readonly class InfectionTool implements ToolInterface
         $context->writeln('           Every mutant, with its test output: ' . $jsonLog);
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::crashed(\sprintf('Infection counted %d mutant(s) as killed although no test ran', \count($vacuous)));
+        return ToolResultDto::crashed(\sprintf('No test ran for any of the %d mutant(s) Infection counted as killed', $judgement->judged));
     }
 
     /**
