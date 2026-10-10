@@ -27,6 +27,12 @@ final class TempLeakDirectoryTest extends TestCase
 {
     private const string MARKER = 'php-qa-ci-tests-';
 
+    private const string PARENT = 'temp-leak-reap';
+
+    private const string RANDOM = '-0123abcd';
+
+    private const string KEPT = 'kept';
+
     #[Test]
     public function thisRunsTempDirectoryIsTheOneClaimedForIt(): void
     {
@@ -73,10 +79,10 @@ final class TempLeakDirectoryTest extends TestCase
     #[Test]
     public function aClaimRemovesTheDirectoryOfADeadProcess(): void
     {
-        $parent = TempDir::create('temp-leak-reap');
+        $parent = TempDir::create(self::PARENT);
         try {
-            $dead      = self::deadPid();
-            $abandoned = $parent->path . '/' . self::MARKER . $dead . '-0123abcd';
+            $dead      = $this->deadPid();
+            $abandoned = $parent->path . '/' . self::MARKER . $dead . self::RANDOM;
             $parent->write(self::MARKER . $dead . '-0123abcd/phpqa-ctx-abc/qaConfig/phpstan.neon', "parameters:\n");
             $parent->write(self::MARKER . $dead . '-0123abcd/stray', '');
 
@@ -91,9 +97,9 @@ final class TempLeakDirectoryTest extends TestCase
     #[Test]
     public function aClaimLeavesTheDirectoryOfALiveProcessAlone(): void
     {
-        $parent = TempDir::create('temp-leak-reap');
+        $parent = TempDir::create(self::PARENT);
         try {
-            $live = $parent->write(self::MARKER . \Safe\getmypid() . '-0123abcd/phpqa-ctx-abc/file', 'kept');
+            $live = $parent->write(self::MARKER . \Safe\getmypid() . '-0123abcd/phpqa-ctx-abc/file', self::KEPT);
 
             $this->claimUnder($parent->path);
 
@@ -106,20 +112,20 @@ final class TempLeakDirectoryTest extends TestCase
     #[Test]
     public function aClaimLeavesEveryNameOutsideThePatternAlone(): void
     {
-        $parent = TempDir::create('temp-leak-reap');
+        $parent = TempDir::create(self::PARENT);
         try {
-            $dead  = self::deadPid();
+            $dead  = $this->deadPid();
             $names = [
                 self::MARKER . $dead,
                 self::MARKER . $dead . '-0123abcd-extra',
                 self::MARKER . $dead . '-0123ABCD',
                 self::MARKER . $dead . '-0123abc',
                 self::MARKER . 'abc-0123abcd',
-                'x' . self::MARKER . $dead . '-0123abcd',
-                'other-' . $dead . '-0123abcd',
+                'x' . self::MARKER . $dead . self::RANDOM,
+                'other-' . $dead . self::RANDOM,
             ];
             foreach ($names as $name) {
-                $parent->write($name . '/file', 'kept');
+                $parent->write($name . '/file', self::KEPT);
             }
 
             $parent->write(self::MARKER . $dead . '-89abcdef.file', 'a file, not a directory');
@@ -140,12 +146,12 @@ final class TempLeakDirectoryTest extends TestCase
     #[Test]
     public function aClaimNeverFollowsASymlink(): void
     {
-        $parent = TempDir::create('temp-leak-reap');
+        $parent = TempDir::create(self::PARENT);
         $target = TempDir::create('temp-leak-reap-target');
         try {
-            $dead = self::deadPid();
-            $kept = $target->write('kept/file', 'kept');
-            \Safe\symlink($target->path . '/kept', $parent->path . '/' . self::MARKER . $dead . '-0123abcd');
+            $dead = $this->deadPid();
+            $kept = $target->write('kept/file', self::KEPT);
+            \Safe\symlink($target->path . '/kept', $parent->path . '/' . self::MARKER . $dead . self::RANDOM);
             $parent->mkdir(self::MARKER . $dead . '-89abcdef');
             \Safe\symlink($target->path . '/kept', $parent->path . '/' . self::MARKER . $dead . '-89abcdef/link');
 
@@ -163,9 +169,9 @@ final class TempLeakDirectoryTest extends TestCase
     #[Test]
     public function twoClaimsAtOnceBothSucceedQuietly(): void
     {
-        $parent = TempDir::create('temp-leak-reap');
+        $parent = TempDir::create(self::PARENT);
         try {
-            $dead = self::deadPid();
+            $dead = $this->deadPid();
             for ($i = 0; $i < 40; ++$i) {
                 for ($j = 0; $j < 10; ++$j) {
                     $parent->write(\sprintf('%s%d-%08x/phpqa-ctx-%d/sub/file%d', self::MARKER, $dead, $i, $j, $j), '');
@@ -179,6 +185,9 @@ final class TempLeakDirectoryTest extends TestCase
 
             foreach ($claims as $claim) {
                 $claim->wait();
+            }
+
+            foreach ($claims as $claim) {
                 self::assertSame(0, $claim->getExitCode(), $claim->getErrorOutput());
                 self::assertSame('', $claim->getOutput() . $claim->getErrorOutput(), 'no notice or warning');
             }
@@ -190,10 +199,11 @@ final class TempLeakDirectoryTest extends TestCase
     }
 
     /** A pid that was alive a moment ago and is not now: a process started and killed as Infection kills one. */
-    private static function deadPid(): int
+    private function deadPid(): int
     {
         $process = new Process(['sleep', '30']);
         $process->start();
+
         $pid = $process->getPid();
         self::assertIsInt($pid);
         $process->signal(9);
