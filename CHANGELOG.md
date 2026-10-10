@@ -25,9 +25,15 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.7.0 — 2026-10-09
+
 ### Added
 
 - **A start-up warning when Xdebug is loaded and OPcache JIT is configured on.** PHP prints "JIT is incompatible with third party extensions" on stdout at every start of a process with Xdebug active, which corrupts anything that parses that output. The note says the pipeline is unaffected and that a PHP started by hand needs `XDEBUG_MODE=off`.
+
+### Changed
+
+- **Infection's auto diff mode makes a run full only for the files every mutant depends on, and leaves comment-only changes out.** The full-run triggers are now the resolved Infection config and its `qaConfig/infection.json{,5}{,.dist}` overrides, the resolved PHPUnit config and its `qaConfig/phpunit.xml`, `phpunit.xml.dist` and `phpunit.dist.xml` overrides, and the bootstrap the PHPUnit config names in its `bootstrap` attribute; `composer.json`, `composer.lock` and the rest of `qaConfig/` no longer force a full run, are no longer watched for uncommitted work and are not mentioned. A modified or renamed PHP file whose tokens, comments and whitespace aside, match its merge-base version is not mutated and is named on one "comment-only change, not mutated" line. In a file where either version has a comment containing a directive Infection or the coverage tool reads (`@infection…`, `@codeCoverageIgnore…`, `@deprecated`), every comment counts as code, verbatim and by line, so any comment change mutates it; an added or copied file, or one whose working copy or base cannot be read, is always mutated; a comment-only test change brings nothing into scope.
 
 ### Fixed
 

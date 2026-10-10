@@ -7,11 +7,13 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
+use LTS\PHPQA\Pipeline\Lane\Infection\CommentOnlyChange;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffBaseDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffBaseResolver;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
+use LTS\PHPQA\Pipeline\Lane\Infection\InfectionFullRunTriggers;
 use LTS\PHPQA\Pipeline\Lane\Infection\TestSourceMirror;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
@@ -33,6 +35,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(InfectionDiffBaseResolver::class)]
 #[UsesClass(InfectionDiffBaseDto::class)]
 #[UsesClass(TestSourceMirror::class)]
+#[UsesClass(CommentOnlyChange::class)]
+#[UsesClass(InfectionFullRunTriggers::class)]
 #[UsesClass(GitBranches::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig::class)]
@@ -389,7 +393,7 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
-    public function anUncommittedConfigurationChangeInAutoModeRunsInFull(): void
+    public function anUncommittedInfectionConfigChangeInAutoModeRunsInFull(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes
@@ -397,7 +401,7 @@ final class InfectionToolTest extends TestCase
             ->willSucceed(self::ORIGIN_DEFAULT)
             ->willSucceed(self::RESOLVED)
             ->willSucceed(self::MERGE_BASE)
-            ->willSucceed(" M composer.lock\0")
+            ->willSucceed(' M ' . self::PROJECT_CONFIG . "\0")
             ->willSucceed(self::NO_PREFIX)
             ->willSucceed('')
             ->willSucceed()
@@ -405,8 +409,113 @@ final class InfectionToolTest extends TestCase
 
         $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
 
-        self::assertStringContainsString('configuration every mutant depends on (composer.lock)', $this->factory->output->fetch());
+        self::assertStringContainsString('configuration every mutant depends on (qaConfig/infection.json)', $this->factory->output->fetch());
         self::assertContains(self::FULL_FLOOR_ARG, $this->factory->processes->lastSpec()->command);
+    }
+
+    #[Test]
+    public function composerFilesAndOtherQaConfigAreNeitherWatchedNorAFullRun(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
+            ->willSucceed()
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringNotContainsString('configuration every mutant depends on', $printed);
+        foreach ([0, 1] as $probe) {
+            $command = $this->factory->processes->specs[$probe]->command;
+            foreach (['/composer.json', '/composer.lock', '/qaConfig', '/qaConfig/qa.php', '/qaConfig/phpstan.neon'] as $unwatched) {
+                self::assertNotContains($this->root . $unwatched, $command, 'a dependency bump or unrelated QA config must not cost a full mutation run');
+            }
+        }
+    }
+
+    #[Test]
+    public function aComposerLockOrQaPhpChangeStaysInDiffModeAndIsNotMentioned(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['M', 'composer.lock'], ['M', 'qaConfig/qa.php'], ['M', self::COMMITTED_SRC]))
+            ->willSucceed()
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame([$this->root . '/' . self::COMMITTED_SRC], \array_slice($this->factory->processes->lastSpec()->command, -1), 'a diff run, scoped to the source change alone');
+        self::assertStringNotContainsString('composer.lock', $printed);
+        self::assertStringNotContainsString('qa.php', $printed);
+    }
+
+    #[Test]
+    public function theBootstrapThePhpunitXmlNamesForcesAFullRun(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->project->write('qaConfig/phpunit.xml', '<phpunit bootstrap="../tests/support/boot.php"/>');
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['M', 'tests/support/boot.php']))
+            ->willSucceed()
+        ;
+
+        $this->tool()->run($this->context($this->diffBuilder()));
+
+        self::assertContains($this->root . '/tests/support/boot.php', $this->factory->processes->specs[0]->command, 'the bootstrap is read from the XML');
+        self::assertStringContainsString('configuration every mutant depends on (tests/support/boot.php)', $this->factory->output->fetch());
+        self::assertContains(self::FULL_FLOOR_ARG, $this->factory->processes->lastSpec()->command);
+    }
+
+    #[Test]
+    public function aCommentOnlyChangeIsNamedAndNotMutated(): void
+    {
+        $this->factory->project->write(self::COMMITTED_SRC, "<?php\n\n/** Documented. */\nfinal class Committed\n{\n}\n");
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
+            ->willSucceed(self::MERGE_BASE)
+            ->willSucceed("<?php\n\nfinal class Committed\n{\n}\n")
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome, 'every change is comment-only, so there is nothing to mutate');
+        self::assertSame(
+            ['git merge-base origin/main HEAD', 'git show abc1234:./src/Committed.php'],
+            \array_slice($this->factory->processes->commandLines(), 2),
+            'the base is the merge base the three-dot diff compares against',
+        );
+        self::assertStringContainsString('Infection: diff mode — comment-only change, not mutated: src/Committed.php', $printed);
+        self::assertStringContainsString('there are no new mutants to check. SKIPPING.', $printed);
+    }
+
+    #[Test]
+    public function aFileWhoseBaseCannotBeReadIsMutated(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->project->write(self::COMMITTED_SRC, "<?php\n\nfinal class Committed\n{\n}\n");
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))
+            ->willSucceed(self::MERGE_BASE)
+            ->willFail(128, 'fatal: path does not exist')
+            ->willSucceed()
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame([$this->root . '/' . self::COMMITTED_SRC], \array_slice($this->factory->processes->lastSpec()->command, -1), 'doubt about the base means the file is mutated');
+        self::assertStringNotContainsString('comment-only', $printed);
     }
 
     #[Test]
@@ -701,10 +810,19 @@ final class InfectionToolTest extends TestCase
         return new InfectionTool(environment: new EnvironmentReader([]));
     }
 
-    /** @return list<string> what the lane's git status and git diff are restricted to */
+    /**
+     * What the lane's git status and git diff are restricted to: the source and tests, then the
+     * full-run triggers. The resolved configs are the shipped defaults, outside this project.
+     *
+     * @return list<string>
+     */
     private function pathspecs(): array
     {
-        return [$this->root . self::SRC_DIR, $this->root . self::TESTS_DIR, $this->root . '/qaConfig', $this->root . '/composer.json', $this->root . '/composer.lock'];
+        return [
+            $this->root . self::SRC_DIR,
+            $this->root . self::TESTS_DIR,
+            ...array_map(fn (string $name): string => $this->root . '/qaConfig/' . $name, [...InfectionFullRunTriggers::INFECTION_CONFIG_NAMES, ...InfectionFullRunTriggers::PHPUNIT_CONFIG_NAMES]),
+        ];
     }
 
     /** @param list<string> ...$records `git diff -z --name-status` output for the given records */
