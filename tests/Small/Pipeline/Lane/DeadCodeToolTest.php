@@ -60,6 +60,12 @@ final class DeadCodeToolTest extends TestCase
 
     private const string THING = 'src/Thing.php';
 
+    private const string NO_ERRORS = "[OK] No errors\n";
+
+    private const string LIBRARY_TYPE = '{"type": "library"}';
+
+    private const string IDENTIFIER_LINE = "🪪  phpqaci.deadCode  (vendor/bin/rule-doc phpqaci.deadCode)\n";
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -85,7 +91,7 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function aCleanRunWritesTheWrapperNeonWithThePharTheTestsExcluderAndTheEntryPoints(): void
     {
-        $this->factory->processes->willSucceed("[OK] No errors\n");
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
 
         $config = $this->factory->builder(ci: true)
@@ -118,10 +124,28 @@ final class DeadCodeToolTest extends TestCase
         self::assertStringNotContainsString('excludePaths', $wrapper, 'nothing ignored, nothing excluded');
     }
 
+    /** The lane always analyses the whole project, so its log is archived as a full run. */
+    #[Test]
+    public function theLogIsWrittenAndArchivedAsAFullRun(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        new DeadCodeTool()->run($this->factory->context($config));
+
+        $logDir = 'var/qa/' . DeadCodeTool::LOG_DIR;
+        self::assertSame(self::NO_ERRORS, $this->factory->project->read($logDir . '/' . DeadCodeTool::LOG_FILE));
+        self::assertMatchesRegularExpression('/\nFull test suite run\nLog: dead-code\.\d{8}-\d{6}\.log\n\z/', $this->factory->output->fetch());
+        $archived = array_filter($this->factory->project->files($logDir), static fn (string $f): bool => 1 === \Safe\preg_match('/^dead-code\.\d{8}-\d{6}\.log$/', $f));
+        self::assertCount(1, $archived);
+    }
+
     #[Test]
     public function theIgnoredPathsAreExcludedExactlyAsThePhpstanLaneExcludesThem(): void
     {
-        $this->factory->processes->willSucceed("[OK] No errors\n");
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
 
         $root   = $this->factory->project->path;
@@ -179,7 +203,7 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function aLibraryWithNoApiTagFailsFastBeforeAnythingRuns(): void
     {
-        $this->factory->project->write(self::COMPOSER_JSON, '{"type": "library"}');
+        $this->factory->project->write(self::COMPOSER_JSON, self::LIBRARY_TYPE);
         $this->factory->project->write(self::THING, "<?php\n\n/** @internal */\nfinal class Thing {}\n");
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
@@ -189,8 +213,46 @@ final class DeadCodeToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('no @api tag in src/; a library needs its public surface declared before dead-code detection means anything', $result->summary);
-        self::assertStringContainsString('every public class-like as @api or @internal', $printed);
-        self::assertStringContainsString(DeadCodeTool::IDENTIFIER, $printed);
+        self::assertSame(
+            "\n"
+            . "Dead-code detection needs a declared public surface: the detector treats every\n"
+            . "@api class as an entry point, and a library with none has every public member\n"
+            . "reported as dead. Classify every public class-like as @api or @internal first\n"
+            . "(RequireApiOrInternalTagRule enforces exactly that), then run this lane again.\n"
+            . "\n"
+            . self::IDENTIFIER_LINE,
+            $printed,
+        );
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    /** Only a PHP file declares a class: `@api` in a README or a fixture is not a public surface. */
+    #[Test]
+    public function anApiTagOutsideAPhpFileDoesNotCount(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, self::LIBRARY_TYPE);
+        $this->factory->project->write(self::THING, "<?php\n\n/** @internal */\nfinal class Thing {}\n");
+        $this->factory->project->write('src/README.md', "Mark the public classes @api.\n");
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result = new DeadCodeTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function aLibraryWithNoSourceDirectoryHasNoApiTag(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, self::LIBRARY_TYPE);
+        \Safe\rmdir($this->factory->project->path . '/src');
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result = new DeadCodeTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame([], $this->factory->processes->specs);
     }
 
@@ -198,7 +260,7 @@ final class DeadCodeToolTest extends TestCase
     public function aLibraryWithAnApiTagRunsAndAProjectNeverNeedsOne(): void
     {
         $this->factory->processes->willSucceed();
-        $this->factory->project->write(self::COMPOSER_JSON, '{"type": "library"}');
+        $this->factory->project->write(self::COMPOSER_JSON, self::LIBRARY_TYPE);
         $this->factory->project->write(self::THING, self::API_CLASS);
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
@@ -225,8 +287,23 @@ final class DeadCodeToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('dead code found', $result->summary);
-        self::assertStringContainsString('withDeadCodeEntryPoints', $printed);
-        self::assertStringContainsString(DeadCodeTool::IDENTIFIER, $printed);
+        self::assertStringEndsWith(
+            ".log\n"
+            . "\n"
+            . "HOW TO FIX\n"
+            . "----------\n"
+            . "Each report names a member nothing reaches. Delete it, or wire the caller the\n"
+            . "report shows is missing. Two shapes are not dead code and have their own fix:\n"
+            . "  ENTRY POINT — a method only a script or an external runtime calls. List the\n"
+            . "  script with withDeadCodeEntryPoints() in qaConfig/qa.php; a class an external\n"
+            . "  runtime drives (a Composer plugin, a console command) is @api.\n"
+            . "  TESTS ONLY — \"all usages excluded by tests excluder\": production never calls\n"
+            . "  it. Delete it with the tests that used it, or move it into the tests tree.\n"
+            . "Never suppress with an ignore comment or a baseline.\n"
+            . "\n"
+            . self::IDENTIFIER_LINE,
+            $printed,
+        );
     }
 
     /** A config error exits 1 before anything is analysed: the "delete it" guidance would be wrong. */
