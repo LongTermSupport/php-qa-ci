@@ -67,13 +67,12 @@ final class ProjectTreeLeakExtensionTest extends TestCase
             ['PROJECT_TREE_LEAK_PROBE' => $this->probe, 'XDEBUG_MODE' => 'off'],
         );
         $process->run();
-        // The fixture is outside the analysed and autoloaded paths, so its name stays a string.
-        $fixture = 'ProjectTreeLeakFixture\WritesIntoTheWorkingDirectoryTest';
 
         self::assertStringContainsString('OK (1 test', $process->getOutput(), 'the test itself passes');
         self::assertSame(1, $process->getExitCode(), 'the extension fails the run: ' . $process->getErrorOutput());
+        // The short name: Rector resolves the fixture class, PHPStan (which excludes tests/assets) cannot.
         self::assertStringContainsString(
-            $fixture . '::writesARelativePath wrote ' . $this->probe . ' into the project tree',
+            '\WritesIntoTheWorkingDirectoryTest::writesARelativePath wrote ' . $this->probe . ' into the project tree',
             $process->getErrorOutput(),
         );
         self::assertFileDoesNotExist($this->root . '/' . $this->probe);
