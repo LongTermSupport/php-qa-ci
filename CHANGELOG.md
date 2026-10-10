@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- **The Infection lane now fails a run in which no test ran for any mutant counted as killed.** Infection scores a mutant as killed whenever the test process exits non-zero, and the lane skips Infection's initial test run, so a test suite that cannot start under Infection (a PHPUnit extension or bootstrap that fails under Infection's generated config) "killed" every mutant and the lane passed on a vacuous score. The lane now runs Infection from a copy of `infection.json` under `var/qa/infection-config/` that always writes a JSON log (`var/qa/infection/infection-log.json`, or the file your config's `logs.json` already names; a `logs.json` sent to a `php://` stream is replaced by the default file, and other `php://` log targets are kept as written), reads every killed mutant's test output from it, and crashes with `phpqaci.infection` when every one shows that PHPUnit ran no test, naming the mutants and printing the first one's output. When only some do, the suite demonstrably starts, so those mutants broke code the test bootstrap runs: they count as killed, and the lane names them in a notice and reports the scores as before. A run that passes without writing that log crashes too. If your Infection runs now fail this way, the scores they reported were not measurements: make the suite start under Infection, as `docs/tools/infection.md` describes.
+
 ### Changed
 
 - **Bundled tool versions updated** by the dependency update: phpstan/phpstan (in rector.phar) 2.2.16 → 2.3.1; rector/rector 2.6.7 → 2.7.0.
