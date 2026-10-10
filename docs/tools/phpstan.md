@@ -21,7 +21,18 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   every checkout on the host, and a stale entry there can decide the verdict in another tree
   ([#123](https://github.com/LongTermSupport/php-qa-ci/issues/123)). `clear-result-cache` clears
   only part of the cache. A `tmpDir` the project's own `phpstan.neon`, or a file it includes, sets
-  is used instead, and the lane prints which file sets it.
+  is used instead, and the lane prints which file sets it. The lane first follows the NEON
+  `includes:` itself; when that finds no `tmpDir`, it asks PHPStan for the merged value with
+  `phpstan.phar dump-parameters --json`, so a `tmpDir` behind an include only PHPStan can resolve
+  (a path built from a `%parameter%` such as `%env.NAME%`, or a PHP config file) is kept too, and
+  the lane prints the directory. Any value other than PHPStan's default, `%sysGetTempDir%/phpstan`,
+  counts as the project's; a `tmpDir` set to exactly that default is replaced like an unset one.
+  The dump runs with its own `TMPDIR` under `var/qa/cache/phpstan-dump-parameters/`, so it never
+  writes to the shared system temp directory either. A `tmpDir` built from `%sysGetTempDir%` is
+  therefore printed as resolved under that directory, while the analysis resolves it against the
+  real one. The dump loads the configuration as the analysis does, so the project's
+  `bootstrapFiles` run once for it as well, before the analysis. If the dump fails, the lane uses
+  its own `tmpDir` and the analysis reports the broken configuration.
 
 - Each path given to `withIgnoredPaths()` in `qaConfig/qa.php` is written into the wrapper as an
   `excludePaths.analyse` entry, absolute and optional (`(?)`), so a fixture's deliberate

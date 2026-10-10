@@ -8,9 +8,11 @@ use LTS\PHPQA\PackageType\ProjectComposerTypeReader;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\DeadCode\DetectorUnpacker;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirProbeInterface;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -50,6 +52,10 @@ final readonly class DeadCodeTool implements ToolInterface
     private const string COMPOSER_JSON = 'composer.json';
 
     private const string API_TAG = '@api';
+
+    public function __construct(private TmpDirProbeInterface $tmpDirProbe = new DumpParametersTmpDirProbe())
+    {
+    }
 
     public function name(): string
     {
@@ -129,7 +135,7 @@ final readonly class DeadCodeTool implements ToolInterface
             $neon .= \sprintf("        - %s\n", $path);
         }
 
-        $neon .= new TmpDirNeon()->forLane($context, 'Dead code', self::CACHE_DIR);
+        $neon .= new TmpDirNeon($this->tmpDirProbe)->forLane($context, 'Dead code', self::CACHE_DIR, $detector . '/' . DetectorUnpacker::AUTOLOAD);
         $neon .= new ExcludePathsNeon()->parameters(IgnoredPaths::of($config));
         $neon .= "    shipmonkDeadCode:\n        usageExcluders:\n            tests:\n                enabled: true\n";
 

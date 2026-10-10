@@ -34,8 +34,9 @@ structural false positive in eleven reports, the rest genuine (Plan 00005, journ
 - PHPStan's cache (its `tmpDir`) is `var/qa/cache/deadCode/`, apart from the PHPStan lane's
   `var/qa/cache/phpstan/`: PHPStan keeps one result cache per `tmpDir`, so two configurations
   sharing one would invalidate each other's on every run. Deleting `var/qa/` resets it. A `tmpDir`
-  the project's `phpstan.neon` chain sets is used instead, as in the
-  [PHPStan lane](phpstan.md#how-the-lane-runs).
+  the project's `phpstan.neon` chain sets is used instead, including one behind an include only
+  PHPStan can resolve, found the same way as in the [PHPStan lane](phpstan.md#how-the-lane-runs);
+  PHPStan is asked with the detector's `--autoload-file`, as the analysis runs.
 - Analyses `src/`, `tests/` and every entry point listed with `withDeadCodeEntryPoints()`, less
   the `withIgnoredPaths()` paths, which it excludes exactly as the [PHPStan lane](phpstan.md)
   does. Code under an ignored path is not analysed, so a member reached only from there is

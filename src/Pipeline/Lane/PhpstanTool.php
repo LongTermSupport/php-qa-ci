@@ -14,9 +14,11 @@ use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirProbeInterface;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\TurboProbeInterface;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
@@ -88,8 +90,10 @@ final readonly class PhpstanTool implements ToolInterface
         a baseline entry, or an inline PHPStan ignore comment.
         TAUTOLOGY;
 
-    public function __construct(private TurboProbeInterface $turbo = new DiagnoseTurboProbe())
-    {
+    public function __construct(
+        private TurboProbeInterface $turbo = new DiagnoseTurboProbe(),
+        private TmpDirProbeInterface $tmpDirProbe = new DumpParametersTmpDirProbe(),
+    ) {
     }
 
     public function name(): string
@@ -331,7 +335,7 @@ final readonly class PhpstanTool implements ToolInterface
             }
         }
 
-        $neon .= new TmpDirNeon()->forLane($context, self::LABEL, self::CACHE_DIR);
+        $neon .= new TmpDirNeon($this->tmpDirProbe)->forLane($context, self::LABEL, self::CACHE_DIR);
         $neon .= new ExcludePathsNeon()->parameters(IgnoredPaths::of($config));
 
         \Safe\file_put_contents($wrapper, $neon);

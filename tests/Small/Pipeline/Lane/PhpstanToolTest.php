@@ -11,6 +11,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
+use LTS\PHPQA\Tests\Support\FixedTmpDirProbe;
 use LTS\PHPQA\Tests\Support\FixedTurboProbe;
 use LTS\PHPQA\Turbo\TurboStatus;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -60,6 +61,7 @@ use Symfony\Component\Process\Process;
 #[UsesClass(\LTS\PHPQA\Turbo\TurboPlatform::class)]
 #[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe::class)]
 #[Small]
 final class PhpstanToolTest extends TestCase
 {
@@ -111,10 +113,13 @@ final class PhpstanToolTest extends TestCase
 
     private FixedTurboProbe $turbo;
 
+    private FixedTmpDirProbe $tmpDirProbe;
+
     protected function setUp(): void
     {
-        $this->factory = ContextFactory::create();
-        $this->turbo   = new FixedTurboProbe(TurboStatus::fromDiagnose(self::TURBO_ENABLED, true));
+        $this->factory     = ContextFactory::create();
+        $this->turbo       = new FixedTurboProbe(TurboStatus::fromDiagnose(self::TURBO_ENABLED, true));
+        $this->tmpDirProbe = new FixedTmpDirProbe();
     }
 
     protected function tearDown(): void
@@ -164,16 +169,21 @@ final class PhpstanToolTest extends TestCase
         self::assertSame([], $this->turbo->askedAbout);
     }
 
-    /** The shipped lane (ShippedTools builds it with no arguments) asks the phar itself, through diagnose. */
+    /**
+     * The shipped lane (ShippedTools builds it with no arguments) asks the phar itself: for the
+     * merged tmpDir through dump-parameters, then for Turbo through diagnose.
+     */
     #[Test]
-    public function theShippedLaneAsksThePharThroughDiagnose(): void
+    public function theShippedLaneAsksThePharThroughDumpParametersAndDiagnose(): void
     {
+        $this->factory->processes->willSucceed('{"tmpDir":"/t/phpstan","sysGetTempDir":"/t"}');
         $this->factory->processes->willSucceed(self::TURBO_ENABLED);
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
         new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
 
-        self::assertSame('diagnose', $this->toolArgs($this->factory->processes->specs[0])[0]);
+        self::assertSame('dump-parameters', $this->toolArgs($this->factory->processes->specs[0])[0]);
+        self::assertSame('diagnose', $this->toolArgs($this->factory->processes->specs[1])[0]);
         self::assertSame(self::ANALYSE, $this->toolArgs($this->factory->processes->lastSpec())[0]);
         self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
     }
@@ -342,6 +352,28 @@ final class PhpstanToolTest extends TestCase
         );
         self::assertDirectoryDoesNotExist($this->factory->project->path . '/' . self::VAR_QA_PREFIX . 'cache/phpstan');
         self::assertStringContainsString('PHPStan: cache in the tmpDir qaConfig/phpstan.neon sets', $this->factory->output->fetch());
+        self::assertSame([], $this->tmpDirProbe->askedAbout, 'the walk named the file, so PHPStan is not asked');
+    }
+
+    /**
+     * A tmpDir the walk cannot reach (behind a `%parameter%` or PHP include) is still the
+     * project's when PHPStan resolves one other than its default (#140).
+     */
+    #[Test]
+    public function aTmpDirOnlyPhpstanCanResolveIsLeftInPlace(): void
+    {
+        $this->tmpDirProbe = new FixedTmpDirProbe('/ci-cache/phpstan');
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $context = $this->factory->context($this->factory->builder(ci: true)->build());
+
+        $this->tool()->run($context);
+
+        self::assertStringNotContainsString(
+            'tmpDir',
+            $this->factory->project->read(self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON),
+        );
+        self::assertStringContainsString("PHPStan: cache in the tmpDir the project's PHPStan configuration sets, /ci-cache/phpstan", $this->factory->output->fetch());
+        self::assertSame([[$context->configPath('phpstan.neon'), null]], $this->tmpDirProbe->askedAbout, 'PHPStan is asked about the resolved config, with no autoload file');
     }
 
     #[Test]
@@ -858,7 +890,7 @@ final class PhpstanToolTest extends TestCase
 
     private function tool(): PhpstanTool
     {
-        return new PhpstanTool($this->turbo);
+        return new PhpstanTool($this->turbo, $this->tmpDirProbe);
     }
 
     /** A PHPStan JSON report placing $count findings against one absolute file path. */

@@ -19,8 +19,13 @@ use Nette\Neon\Neon;
  * A `tmpDir` the project's own config chain already sets is the project's
  * decision (a CI cache directory, say) and is left in place: the wrapper is the
  * outermost file, so a line written there would override it silently. The
- * chain is read the way PHPStan merges it, includes and all, through
- * NeonIncludeChain; an include that chain cannot follow is not searched.
+ * chain is read first the way PHPStan merges it, includes and all, through
+ * NeonIncludeChain, which names the file that sets it. That walk cannot follow
+ * an include built from a `%parameter%` other than `%currentWorkingDirectory%`,
+ * a PHP config file, or a missing or non-NEON file, so when it finds nothing
+ * PHPStan itself is asked for the merged value (TmpDirProbeInterface); one
+ * other than PHPStan's default is the project's too. When PHPStan cannot
+ * answer, the walk's "none" stands.
  *
  * @internal
  */
@@ -30,19 +35,32 @@ final readonly class TmpDirNeon
 
     private const string TMP_DIR = 'tmpDir';
 
+    public function __construct(private TmpDirProbeInterface $probe = new DumpParametersTmpDirProbe())
+    {
+    }
+
     /**
      * The wrapper-neon line for a lane whose cache is `var/qa/cache/<cacheDir>`,
      * or nothing when the project sets its own; says which, under `$label`.
      * Each lane passes its own directory: PHPStan keeps one result cache per
      * tmpDir, so two configurations sharing one would invalidate each other's
-     * on every alternation.
+     * on every alternation. `$autoloadFile` is the `--autoload-file` the lane
+     * passes PHPStan, so PHPStan is asked about the configuration it will run.
      */
-    public function forLane(ToolContext $context, string $label, string $cacheDir): string
+    public function forLane(ToolContext $context, string $label, string $cacheDir, ?string $autoloadFile = null): string
     {
         $paths     = $context->config->paths;
-        $declaring = $this->declaredBy($context->configPath('phpstan.neon'), $paths->projectRoot);
+        $config    = $context->configPath('phpstan.neon');
+        $declaring = $this->declaredBy($config, $paths->projectRoot);
         if (null !== $declaring) {
             $context->writeln(\sprintf('%s: cache in the tmpDir %s sets', $label, $declaring));
+
+            return '';
+        }
+
+        $resolved = $this->probe->projectTmpDir($context, $config, $autoloadFile);
+        if (null !== $resolved) {
+            $context->writeln(\sprintf("%s: cache in the tmpDir the project's PHPStan configuration sets, %s", $label, $resolved));
 
             return '';
         }
