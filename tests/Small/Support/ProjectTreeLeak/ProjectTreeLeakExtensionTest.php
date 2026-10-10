@@ -40,6 +40,7 @@ final class ProjectTreeLeakExtensionTest extends TestCase
         }
 
         foreach (\Safe\glob($this->root . '/var/qa/project-tree-leaks/*/*/' . $this->probe) as $kept) {
+            self::assertIsString($kept);
             \Safe\unlink($kept);
             \Safe\rmdir(\dirname($kept));
             $processDirectory = \dirname($kept, 2);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Support\ProjectTreeLeak;
 
+use InvalidArgumentException;
 use LTS\PHPQA\Tests\Support\ProjectTreeLeak\ProjectTreeLedger;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -23,6 +24,14 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ProjectTreeLedgerTest extends TestCase
 {
+    private const string SOURCE = '<?php';
+
+    private const string LEAKY = 'FooTest::leaky';
+
+    private const string NEXT = 'FooTest::next';
+
+    private const string EXISTING = '/src/Existing.php';
+
     private TempDir $directory;
 
     private string $root;
@@ -35,9 +44,9 @@ final class ProjectTreeLedgerTest extends TestCase
         $this->root       = $this->directory->mkdir('project');
         $this->quarantine = $this->directory->path . '/project/var/qa/project-tree-leaks/123';
         $this->directory->write('project/composer.json', '{}');
-        $this->directory->write('project/src/Existing.php', '<?php');
-        $this->directory->write('project/tests/ExistingTest.php', '<?php');
-        $this->directory->write('project/vendor/autoload.php', '<?php');
+        $this->directory->write('project/src/Existing.php', self::SOURCE);
+        $this->directory->write('project/tests/ExistingTest.php', self::SOURCE);
+        $this->directory->write('project/vendor/autoload.php', self::SOURCE);
         $this->directory->mkdir('project/var');
     }
 
@@ -64,8 +73,8 @@ final class ProjectTreeLedgerTest extends TestCase
         $this->directory->write('project/linux-gnu-x86_64/phpstan_turbo_core.so', 'ELF');
         $this->directory->mkdir('project/php:');
 
-        $ledger->sweep('FooTest::leaky');
-        $ledger->sweep('FooTest::next');
+        $ledger->sweep(self::LEAKY);
+        $ledger->sweep(self::NEXT);
 
         self::assertSame(
             [\sprintf('FooTest::leaky wrote linux-gnu-x86_64, php: into the project tree (moved to %s/1)', $this->quarantine)],
@@ -81,7 +90,7 @@ final class ProjectTreeLedgerTest extends TestCase
     public function aNewEntryInsideAWatchedDirectoryIsChargedAndMoved(): void
     {
         $ledger = $this->ledger();
-        $this->directory->write('project/src/Leaked.php', '<?php');
+        $this->directory->write('project/src/Leaked.php', self::SOURCE);
 
         $ledger->sweep('FooTest::writesIntoSrc');
 
@@ -90,7 +99,7 @@ final class ProjectTreeLedgerTest extends TestCase
             $ledger->leaks(),
         );
         self::assertFileDoesNotExist($this->root . '/src/Leaked.php');
-        self::assertFileExists($this->root . '/src/Existing.php');
+        self::assertFileExists($this->root . self::EXISTING);
         self::assertFileExists($this->quarantine . '/1/src/Leaked.php');
     }
 
@@ -101,10 +110,10 @@ final class ProjectTreeLedgerTest extends TestCase
         $ledger = $this->ledger();
         $this->directory->write('project/stray.txt', '');
 
-        $ledger->sweep('FooTest::leaky');
+        $ledger->sweep(self::LEAKY);
 
         self::assertSame('mine', \Safe\file_get_contents($this->root . '/untracked-but-present.txt'));
-        self::assertSame('<?php', \Safe\file_get_contents($this->root . '/src/Existing.php'));
+        self::assertSame(self::SOURCE, \Safe\file_get_contents($this->root . self::EXISTING));
         self::assertFileExists($this->root . '/composer.json');
         self::assertFileDoesNotExist($this->root . '/stray.txt');
     }
@@ -115,7 +124,7 @@ final class ProjectTreeLedgerTest extends TestCase
     {
         $ledger = $this->ledger();
         $this->directory->write('project/var/qa/phpunit.cache/test-results', '{}');
-        $this->directory->write('project/vendor/composer/installed.php', '<?php');
+        $this->directory->write('project/vendor/composer/installed.php', self::SOURCE);
 
         $ledger->sweep('FooTest::writesTheCache');
 
@@ -131,7 +140,7 @@ final class ProjectTreeLedgerTest extends TestCase
         $this->directory->write('project/build-output/a.txt', '');
         $this->directory->write('project/build-output/b.txt', '');
 
-        $ledger->sweep('FooTest::leaky');
+        $ledger->sweep(self::LEAKY);
 
         self::assertSame(
             [\sprintf('FooTest::leaky wrote build-output into the project tree (moved to %s/1)', $this->quarantine)],
@@ -144,10 +153,10 @@ final class ProjectTreeLedgerTest extends TestCase
     public function anEntryThatVanishesDuringATestIsChargedOnce(): void
     {
         $ledger = $this->ledger();
-        \Safe\unlink($this->root . '/src/Existing.php');
+        \Safe\unlink($this->root . self::EXISTING);
 
         $ledger->sweep('FooTest::deletes');
-        $ledger->sweep('FooTest::next');
+        $ledger->sweep(self::NEXT);
 
         self::assertSame(['FooTest::deletes deleted src/Existing.php from the project tree'], $ledger->leaks());
     }
@@ -172,8 +181,36 @@ final class ProjectTreeLedgerTest extends TestCase
         self::assertFileExists($this->quarantine . '/2/second.txt');
     }
 
-    private function ledger(): ProjectTreeLedger
+    /** A path that cannot be moved is still charged, with the reason, and the next sweep does not charge it again. */
+    #[Test]
+    public function aPathThatCannotBeMovedIsChargedWithTheReason(): void
     {
-        return new ProjectTreeLedger($this->root, $this->quarantine, 'var', 'vendor');
+        $this->directory->write('project/var/occupied', '');
+        $ledger = $this->ledger($this->root . '/var/occupied/leaks');
+        $this->directory->write('project/stray.txt', '');
+
+        $ledger->sweep(self::LEAKY);
+        $ledger->sweep(self::NEXT);
+
+        self::assertCount(1, $ledger->leaks());
+        self::assertStringStartsWith(
+            \sprintf('FooTest::leaky wrote stray.txt into the project tree (moved to %s/var/occupied/leaks/1); could not move stray.txt: ', $this->root),
+            $ledger->leaks()[0],
+        );
+    }
+
+    /** A quarantine the ledger itself reads would charge every moved path a second time. */
+    #[Test]
+    public function aQuarantineInsideAWatchedEntryIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('under the watched src');
+
+        $this->ledger($this->root . '/src/leaks');
+    }
+
+    private function ledger(?string $quarantine = null): ProjectTreeLedger
+    {
+        return new ProjectTreeLedger($this->root, $quarantine ?? $this->quarantine, 'var', 'vendor');
     }
 }

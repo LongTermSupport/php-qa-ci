@@ -20,6 +20,7 @@
     </testsuite>
   </testsuites>
   <extensions>
+    <bootstrap class="LTS\PHPQA\Tests\Support\ProjectTreeLeak\ProjectTreeLeakExtension"/>
     <bootstrap class="LTS\PHPQA\Tests\Support\TempLeak\TempLeakExtension"/>
   </extensions>
   <source>
