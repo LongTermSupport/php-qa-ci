@@ -305,15 +305,18 @@ final readonly class QaApplication
         return \Safe\getmypid();
     }
 
-    /** Half the CPU threads, minimum one: the shared parallelism default for the heavy tools. */
+    /**
+     * Half the CPU threads: the shared parallelism default for the heavy tools.
+     * The floor of one is QaConfigBuilder::defaults()'s, not repeated here.
+     */
     private function halfCpuThreads(ProcessRunnerInterface $processes, string $cwd): int
     {
         $result = $processes->run(new ProcessSpecDto(['nproc'], $cwd, streamOutput: false));
-        $count  = $result->succeeded() ? (int)trim($result->output) : 0;
+        $count  = $result->succeeded() ? (int)$result->output : 0;
         if ($count < 1 && is_readable('/proc/cpuinfo')) {
             $count = substr_count(\Safe\file_get_contents('/proc/cpuinfo'), 'processor');
         }
 
-        return max(1, intdiv(max(1, $count), 2));
+        return intdiv($count, 2);
     }
 }
