@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use UnexpectedValueException;
 
 /**
  * The probe behind ProjectTreeLeakExtension: a path that appears in the
@@ -32,6 +33,8 @@ final class ProjectTreeLedgerTest extends TestCase
     private const string NEXT = 'FooTest::next';
 
     private const string EXISTING = '/src/Existing.php';
+
+    private const string SRC = '/src';
 
     private TempDir $directory;
 
@@ -174,7 +177,7 @@ final class ProjectTreeLedgerTest extends TestCase
     public function aDirectoryThatVanishesBetweenTheCheckAndTheReadIsChargedOnceAsDeleted(): void
     {
         $ledger = $this->ledger(root: VanishingDirectoryStreamWrapper::SCHEME . '://' . $this->root);
-        VanishingDirectoryStreamWrapper::vanishOnOpen($this->root . '/src');
+        VanishingDirectoryStreamWrapper::vanishOnOpen($this->root . self::SRC);
         $warnings = [];
         set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
             $warnings[] = $message;
@@ -191,7 +194,19 @@ final class ProjectTreeLedgerTest extends TestCase
 
         self::assertSame([], $warnings);
         self::assertSame(['FooTest::racesAnotherProcess deleted src from the project tree'], $ledger->leaks());
-        self::assertDirectoryDoesNotExist($this->root . '/src');
+        self::assertDirectoryDoesNotExist($this->root . self::SRC);
+    }
+
+    /** A directory that is still there but cannot be read is a real failure, and is not swallowed. */
+    #[Test]
+    public function aDirectoryThatCannotBeReadButIsStillThereIsAnError(): void
+    {
+        $ledger = $this->ledger(root: VanishingDirectoryStreamWrapper::SCHEME . '://' . $this->root);
+        VanishingDirectoryStreamWrapper::refuseOpen($this->root . self::SRC);
+
+        $this->expectException(UnexpectedValueException::class);
+
+        $ledger->sweep('FooTest::cannotBeRead');
     }
 
     #[Test]
