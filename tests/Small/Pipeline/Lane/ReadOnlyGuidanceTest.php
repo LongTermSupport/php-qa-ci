@@ -57,6 +57,42 @@ final class ReadOnlyGuidanceTest extends TestCase
         self::assertStringContainsString('Then push. CI passes because no pending changes remain.', $printed);
     }
 
+    /** The whole block, line for line: its layout is what a reader scanning a failed CI log finds. */
+    #[Test]
+    public function itPrintsTheWholeRemediationBlock(): void
+    {
+        ReadOnlyGuidance::wouldModify($this->factory->context(), 'PHP CS Fixer', 'fixer');
+
+        self::assertSame(<<<'BLOCK'
+
+
+                ==================================================
+
+                    PHP CS Fixer: pending changes in a READ-ONLY run
+
+                --------------------------------------------------
+
+                This run is read-only (qaReadOnly=true), so PHP CS Fixer did NOT modify any
+                files. It found changes it WOULD make, which fails the gate. The diff is
+                shown above.
+
+                Read-only mode is auto-enabled on GitHub Actions. It is INDEPENDENT of CI /
+                interactivity: a Claude Code or local run is non-interactive (so it never
+                hangs) but still WRITES, so you can apply fixes there.
+
+                TO FIX -- apply the changes where writes are allowed, then commit them:
+
+                    QA_READONLY=0 vendor/bin/qa -t fixer
+                    git add -A && git commit
+
+                Then push. CI passes because no pending changes remain.
+
+                ==================================================
+
+
+            BLOCK, $this->factory->output->fetch());
+    }
+
     #[Test]
     public function itPrintsTheBlockBetweenRules(): void
     {
