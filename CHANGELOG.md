@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- **A failed run no longer ends with the `COMPLETED` banner.** The closing banner said `<host> qa <args> COMPLETED` after every run, including one that exited 1, so a reader skimming for the verdict could take a failure for a pass. A run that fails now ends with `<host> qa <args> FAILED (exit N)`, in aggregate and fail-fast mode alike; a passing run still ends with `COMPLETED`. Anything that matched the old banner to detect the end of a run should match both words. ([#112](https://github.com/LongTermSupport/php-qa-ci/issues/112))
+
 ## 85.7.0 — 2026-10-09
 
 ### Added

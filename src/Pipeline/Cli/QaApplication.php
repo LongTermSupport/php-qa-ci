@@ -268,7 +268,9 @@ final readonly class QaApplication
 
         $decoration->writeln('');
         $decoration->writeln(self::RULE);
-        $decoration->writeln(\sprintf('%s qa %s COMPLETED', \Safe\gethostname(), implode(' ', $this->argv)));
+        // The line a reader skims for the verdict, so a failed run must not end on a word that reads as success.
+        $verdict = 0 === $exit ? 'COMPLETED' : \sprintf('FAILED (exit %d)', $exit);
+        $decoration->writeln(\sprintf('%s qa %s %s', \Safe\gethostname(), implode(' ', $this->argv), $verdict));
         $decoration->writeln(self::RULE);
 
         return $exit;
