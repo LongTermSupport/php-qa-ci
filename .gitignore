@@ -4,6 +4,7 @@
 /vendor/
 /bin/*
 !/bin/arkitect-rule
+!/bin/autoload-included-files
 !/bin/bootstrap.php
 !/bin/changelog-release
 !/bin/composer-require-checker
