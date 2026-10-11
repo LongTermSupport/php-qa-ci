@@ -1,6 +1,6 @@
 # Plan 00021: process stream in class
 
-**Status**: In Progress
+**Status**: Complete (#161 merged as 392f067)
 **Created**: 2026-10-11
 **Owner**: dev
 **Priority**: High
@@ -126,7 +126,11 @@ class, then fixes every instance by handing the stream in.
   At `ab9339d`, Infection over `src/Pipeline/Tool/ToolRegistry.php` with coverage generated fresh
   ran the whole suite, then all 109 mutants, and exited 0. Before the fix it died at exit 143 part
   way through the initial run.
-- [ ] ⬜ **Task 2.3**: Gate, PR, verification, merge
+- [x] ✅ **Task 2.3**: Gate, PR, verification, merge. The first gate failed on the diff floor (MSI 76%)
+  and composer-require-checker; `83ff6bd` made the ShellCheck and Turbo downloads testable offline
+  and the next gate passed (MSI 88%). Three fresh verifiers passed #161 with notes; the notes were
+  fixed on the branch except one rare false positive and a changelog wording, which are #162.
+  #161 merged as `392f067`.
 
 ## Success Criteria
 
@@ -136,4 +140,7 @@ class, then fixes every instance by handing the stream in.
 
 ## Delivery & Milestones
 
-- <!-- delivery commit hashes -->
+- `ce28dd6`: the rule, with every instance still present (the red commit)
+- `ac445cf`: the rule widened to technique 3's finding
+- `d439472`: all 21 instances fixed
+- `392f067`: #161 merged into `php8.5`
