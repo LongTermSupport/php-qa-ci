@@ -69,7 +69,7 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
-        self::assertStringNotContainsString(ComposerDependencyAnalyserTool::IDENTIFIER, $this->factory->output->fetch());
+        self::assertSame('', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -85,62 +85,67 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
     }
 
     #[Test]
-    public function findingsFailTheLaneWithGuidanceCoveringEveryErrorTypeAndTheIdentifier(): void
+    public function findingsFailTheLaneWithTheWholeGuidanceAndTheIdentifier(): void
     {
         $this->factory->processes->willFail(1, 'Found 2 unused dependencies!');
 
-        $result  = new ComposerDependencyAnalyserTool()->run($this->factory->context());
-        $printed = $this->factory->output->fetch();
+        $result = new ComposerDependencyAnalyserTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('composer-dependency-analyser reported problems (exit 1)', $result->summary);
-        self::assertStringContainsString('UNUSED DEPENDENCY', $printed);
-        self::assertStringContainsString('SHADOW DEPENDENCY', $printed);
-        self::assertStringContainsString('DEV DEPENDENCY IN PROD', $printed);
-        self::assertStringContainsString('PROD DEPENDENCY ONLY IN DEV', $printed);
-        self::assertStringContainsString('UNKNOWN CLASS / FUNCTION', $printed);
-        self::assertStringContainsString(ComposerDependencyAnalyserTool::IDENTIFIER, $printed);
-    }
+        self::assertSame(
+            <<<'TEXT'
 
-    #[Test]
-    public function theGuidanceSpellsOutTheFixForEveryErrorTypeTheToolCanReport(): void
-    {
-        $this->factory->processes->willFail(1, 'Found 2 unused dependencies!');
 
-        new ComposerDependencyAnalyserTool()->run($this->factory->context());
-        $printed = $this->factory->output->fetch();
+                HOW TO FIX
+                ----------
+                The tool exits 1 for findings AND for its own errors, so read the output above
+                first: a red "Error:" line means it could not run (a bad config path, an
+                unreadable composer.json) and nothing was analysed.
 
-        foreach ([
-            'HOW TO FIX',
-            'declared in composer.json, used nowhere in the scanned',
-            'Remove it. If it is used at run time in a way no static scan can see',
-            '->ignoreErrorsOnPackage()',
-            'used in your code but only installed because something',
-            'Require it explicitly; the package that pulls it in today',
-            'production code uses a require-dev package. A',
-            '--no-dev install will not have it',
-            'required for production but only ever used by',
-            'Move it to require-dev so a production install stops carrying it.',
-            'the symbol could not be autoloaded, so its package',
-            '->ignoreUnknownClassesRegex()',
-            'qaConfig/composer-dependency-analyser.php',
-            'replaces the',
-        ] as $expected) {
-            self::assertStringContainsString($expected, $printed);
-        }
-    }
+                Otherwise each finding has its own fix:
 
-    #[Test]
-    public function theGuidanceSaysExitOneIsAmbiguousBetweenFindingsAndFailure(): void
-    {
-        $this->factory->processes->willFail(1, 'Error: config not found');
+                  UNUSED DEPENDENCY — declared in composer.json, used nowhere in the scanned
+                  paths. Remove it. If it is used at run time in a way no static scan can see
+                  (a plugin, a binary you invoke, an extension a tool needs), keep it and say so
+                  with ->ignoreErrorsOnPackage() in your config, which records the reason in
+                  version control instead of leaving the package unexplained.
 
-        new ComposerDependencyAnalyserTool()->run($this->factory->context());
+                  SHADOW DEPENDENCY — used in your code but only installed because something
+                  else depends on it. Require it explicitly; the package that pulls it in today
+                  is free to drop it tomorrow.
 
-        self::assertStringContainsString(
-            'The tool exits 1 for findings AND for its own errors',
+                  DEV DEPENDENCY IN PROD — production code uses a require-dev package. A
+                  --no-dev install will not have it. Move the package to require, or move the
+                  usage out of production code.
+
+                  PROD DEPENDENCY ONLY IN DEV — required for production but only ever used by
+                  tests. Move it to require-dev so a production install stops carrying it.
+
+                  UNKNOWN CLASS / FUNCTION — the symbol could not be autoloaded, so its package
+                  could not be determined and it was NOT checked. Classes supplied by a PHAR
+                  (PHPStan, PHPArkitect) land here legitimately: list them with
+                  ->ignoreUnknownClassesRegex() rather than leaving the check blind.
+
+                Configuration goes in qaConfig/composer-dependency-analyser.php, which replaces the
+                shipped default entirely.
+
+                🪪  phpqaci.composerDependencyAnalyser  (vendor/bin/rule-doc phpqaci.composerDependencyAnalyser)
+
+                TEXT,
             $this->factory->output->fetch(),
         );
+    }
+
+    #[Test]
+    public function theSummaryCarriesTheToolsOwnExitCode(): void
+    {
+        $this->factory->processes->willFail(255, 'Error: config not found');
+
+        $result = new ComposerDependencyAnalyserTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('composer-dependency-analyser reported problems (exit 255)', $result->summary);
     }
 
     #[Test]
