@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Tool;
 
+use LTS\PHPQA\Pipeline\Config\PlatformEnum;
+use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\Exception\UnknownPhaseException;
 use LTS\PHPQA\Pipeline\Tool\Exception\UnknownToolException;
@@ -28,7 +30,7 @@ use PHPUnit\Framework\TestCase;
 #[\PHPUnit\Framework\Attributes\UsesClass(UnknownPhaseException::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(ToolGateEnum::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(PhaseEnum::class)]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(PhaseDto::class)]
 #[Small]
 final class ToolRegistryTest extends TestCase
 {
@@ -40,12 +42,22 @@ final class ToolRegistryTest extends TestCase
 
     private const string CHANGELOG = 'changelog';
 
+    private const string INFECTION = 'infection';
+
+    private const string STAN = 'stan';
+
+    private const string ALL_LINTS = 'allLints';
+
+    private const string LINT_A = 'lintA';
+
+    private const string PHP_ARKITECT = 'phpArkitect';
+
     #[Test]
     public function anAliasResolvesToItsCanonicalDefinition(): void
     {
         $registry = ToolRegistry::shipped();
 
-        self::assertSame(self::PHPSTAN, $registry->resolve('stan')->name);
+        self::assertSame(self::PHPSTAN, $registry->resolve(self::STAN)->name);
         self::assertSame(self::PHPSTAN, $registry->resolve(self::PHPSTAN)->name);
         self::assertSame(self::PHPUNIT, $registry->resolve('uniterate')->target);
     }
@@ -77,8 +89,8 @@ final class ToolRegistryTest extends TestCase
     {
         $registry = ToolRegistry::shipped();
 
-        self::assertSame(PhaseEnum::Linting->value, $registry->resolve('allLints')->phase);
-        self::assertTrue($registry->resolve('allLints')->isPhaseRunner);
+        self::assertSame(PhaseEnum::Linting->value, $registry->resolve(self::ALL_LINTS)->phase);
+        self::assertTrue($registry->resolve(self::ALL_LINTS)->isPhaseRunner);
         self::assertFalse($registry->resolve('lint')->isPhaseRunner);
     }
 
@@ -98,7 +110,7 @@ final class ToolRegistryTest extends TestCase
     {
         $registry = ToolRegistry::shipped();
 
-        self::assertTrue($registry->supportsPaths('stan'));
+        self::assertTrue($registry->supportsPaths(self::STAN));
         self::assertTrue($registry->supportsPaths(self::PHPSTAN));
         self::assertFalse($registry->supportsPaths('cr'));
         self::assertFalse($registry->supportsPaths(self::UNKNOWN_TOKEN));
@@ -169,11 +181,11 @@ final class ToolRegistryTest extends TestCase
     {
         $registry = new ToolRegistry(
             [PhaseEnum::Linting->phase()],
-            [new ToolDefinitionDto('lintA', ['a'], 'a', PhaseEnum::Linting->value, false), new ToolDefinitionDto('pseudo', ['p'], 'p', null, false)],
+            [new ToolDefinitionDto(self::LINT_A, ['a'], 'a', PhaseEnum::Linting->value, false), new ToolDefinitionDto('pseudo', ['p'], 'p', null, false)],
         );
 
         self::assertSame(
-            ['allLintingTools', 'lintA', 'pseudo'],
+            ['allLintingTools', self::LINT_A, 'pseudo'],
             array_map(static fn (ToolDefinitionDto $tool): string => $tool->name, $registry->all()),
         );
     }
@@ -185,5 +197,143 @@ final class ToolRegistryTest extends TestCase
 
         self::assertTrue($registry->definition(self::PHPSTAN)->supportsJson);
         self::assertFalse($registry->definition(self::PHPUNIT)->supportsJson);
+    }
+
+    /**
+     * Every shipped row, in registry order: tokens, phase, path support, gate, runner flag,
+     * target, JSON and agent-mode support. A changed flag is a changed CLI, so it shows here.
+     */
+    #[Test]
+    public function theShippedRegistryIsExactlyThisTable(): void
+    {
+        $rows = [];
+        foreach (ToolRegistry::shipped()->all() as $tool) {
+            $rows[$tool->name] = implode(' ', [
+                $tool->display(),
+                $tool->phase ?? '-',
+                $tool->supportsPaths ? 'paths' : '-',
+                $tool->gate->name,
+                $tool->isPhaseRunner ? 'runner' : '-',
+                $tool->target ?? '-',
+                $tool->supportsJson ? 'json' : '-',
+                $tool->supportsAgentMode ? 'agent' : '-',
+            ]);
+        }
+
+        self::assertSame(
+            [
+                'allCodingStandardsTools'    => 'allCS codingStandards - None runner - - -',
+                'allLintingTools'            => 'allLints linting - None runner - - -',
+                'allStaticAnalysisTools'     => 'allStatic staticAnalysis - None runner - - -',
+                'allTestingTools'            => 'allTests testing - None runner - - -',
+                'rector'                     => 'r|rector codingStandards paths None - - - -',
+                'phpCsFixer'                 => 'f|fixer|csfixer codingStandards paths None - - - -',
+                'twigCsFixer'                => 'twigcs codingStandards - None - - - -',
+                'markdownFormat'             => 'mdf|markdownFormat codingStandards - None - - - -',
+                'psr4Validate'               => 'psr|psr4 linting - None - - - -',
+                'composerChecks'             => 'com|composer linting - None - - - -',
+                'packageType'                => 'pt|packagetype|packageType linting - None - - - -',
+                'configTemplateIgnoreList'   => 'cti|configTemplateIgnoreList linting - None - - - -',
+                'infectionConfigSourceDirs'  => 'icsd|infectionConfigSourceDirs linting - None - - - -',
+                'analysedPaths'              => 'ap|analysedPaths linting - None - - - -',
+                'versionPins'                => 'vp|versionPins linting - None - - - -',
+                self::CHANGELOG              => 'cl|changelog linting - None - - - -',
+                'phpStrictTypes'             => 'st|stricttypes linting paths None - - - -',
+                'phpLint'                    => 'lint|phplint linting paths None - - - -',
+                'opcache'                    => 'oc|opcache linting paths None - - - -',
+                'composerRequireChecker'     => 'cr linting - None - - - -',
+                'composerDependencyAnalyser' => 'cda linting - None - - - -',
+                'markdownLinks'              => 'ml|markdown linting - None - - - -',
+                'docsProse'                  => 'dp|prose|docsProse linting - None - - - -',
+                'yamlLint'                   => 'yaml linting - None - - - -',
+                'shellCheck'                 => 'sc|shellcheck|shellCheck linting paths None - - - -',
+                'branchNamePolicy'           => 'bnp|branchNamePolicy staticAnalysis - None - - - -',
+                'phpstanIgnoreJustification' => 'pij|phpstanIgnoreJustification staticAnalysis - None - - - -',
+                self::PHPSTAN                => 'stan|phpstan staticAnalysis paths NotQuick - - json agent',
+                'deadCode'                   => 'dcd|deadcode|deadCode staticAnalysis - NotQuick - - - -',
+                self::PHP_ARKITECT           => 'arch|arkitect|phparkitect staticAnalysis - None - - - agent',
+                'sensitiveParameterUsage'    => 'spu|sensitiveparameter|sensitiveParameterUsage staticAnalysis - None - - - -',
+                self::PHPUNIT                => 'unit|phpunit testing paths NotQuick - - - -',
+                self::INFECTION              => 'infect|infection testing - Infection - - - -',
+                'phpcpd'                     => 'cpd|phpcpd - paths None - - - -',
+                'uniterate'                  => 'uniterate - - None - phpunit - -',
+            ],
+            $rows,
+        );
+    }
+
+    #[Test]
+    public function thePhasesAreAListInExecutionOrder(): void
+    {
+        self::assertSame(
+            [PhaseEnum::CodingStandards->value, PhaseEnum::Linting->value, PhaseEnum::StaticAnalysis->value, PhaseEnum::Testing->value],
+            array_map(static fn (PhaseDto $phase): string => $phase->name, ToolRegistry::shipped()->phases()),
+        );
+    }
+
+    #[Test]
+    public function onlySymfonyAddsALaneAndOnlyToTheLintingPhase(): void
+    {
+        $lanes = ToolRegistry::platformLanes(PlatformEnum::Symfony, PhaseEnum::Linting->value);
+
+        self::assertCount(1, $lanes);
+        self::assertSame('twigLint', $lanes[0]->name);
+        self::assertSame([], $lanes[0]->aliases);
+        self::assertSame(PhaseEnum::Linting->value, $lanes[0]->phase);
+        self::assertFalse($lanes[0]->supportsPaths);
+        self::assertSame('Running Twig Linter', $lanes[0]->banner);
+        self::assertSame([], ToolRegistry::platformLanes(PlatformEnum::Symfony, PhaseEnum::Testing->value));
+        self::assertSame([], ToolRegistry::platformLanes(PlatformEnum::Generic, PhaseEnum::Linting->value));
+    }
+
+    #[Test]
+    public function theAgentModeToolsAreListedInRegistryOrder(): void
+    {
+        self::assertSame([self::PHPSTAN, self::PHP_ARKITECT], ToolRegistry::shipped()->agentModeTools());
+    }
+
+    /** Every token of every path-supporting tool, the canonical name included even when it is not an alias. */
+    #[Test]
+    public function thePathSupportingTokensAreEveryTokenOfEveryPathSupportingTool(): void
+    {
+        self::assertSame(
+            ['r', 'rector', 'phpCsFixer', 'f', 'fixer', 'csfixer', 'phpStrictTypes', 'st', 'stricttypes', 'phpLint', 'lint', 'phplint', 'oc', 'opcache', 'sc', 'shellcheck', 'shellCheck', self::STAN, self::PHPSTAN, 'unit', self::PHPUNIT, 'cpd', 'phpcpd'],
+            ToolRegistry::shipped()->pathSupportingTokens(),
+        );
+    }
+
+    /** A canonical name that is not one of its aliases still answers for its path support. */
+    #[Test]
+    public function aCanonicalNameAnswersForPathSupportWhenItIsNoAlias(): void
+    {
+        $registry = ToolRegistry::shipped();
+
+        self::assertTrue($registry->supportsPaths('phpCsFixer'));
+        self::assertFalse($registry->supportsPaths('psr4Validate'));
+    }
+
+    /** A pseudo-tool placed in a phase is not one of that phase's tools: it runs another tool. */
+    #[Test]
+    public function aPhasedPseudoToolIsNotOneOfItsPhasesTools(): void
+    {
+        $registry = new ToolRegistry(
+            [PhaseEnum::Linting->phase()],
+            [
+                new ToolDefinitionDto(self::LINT_A, ['a'], 'a', PhaseEnum::Linting->value, false),
+                new ToolDefinitionDto('lintAgain', ['again'], 'again', PhaseEnum::Linting->value, false, target: self::LINT_A),
+            ],
+        );
+
+        self::assertSame([self::LINT_A], array_map(static fn (ToolDefinitionDto $tool): string => $tool->name, $registry->toolsForPhase(PhaseEnum::Linting->value)));
+        self::assertSame('allLintingTools', $registry->resolve(self::ALL_LINTS)->name);
+    }
+
+    #[Test]
+    public function thereIsOneUsageLinePerTool(): void
+    {
+        $registry = ToolRegistry::shipped();
+
+        self::assertCount(\count($registry->all()), $registry->usageLines());
+        self::assertSame(\sprintf('%-26s %s', 'uniterate', 'phpunit iterative mode - prioritise broken tests and fail on error'), $registry->usageLines()[34]);
     }
 }
