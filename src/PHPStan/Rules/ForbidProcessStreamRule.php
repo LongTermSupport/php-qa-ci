@@ -65,8 +65,8 @@ final readonly class ForbidProcessStreamRule implements Rule
     /** A stream name that opens one of the process's own descriptors, in any case. */
     private const string PROCESS_STREAM_NAME = '~^php://(stdin|stdout|stderr|fd/)~i';
 
-    /** Its class string, not ::class: PHPUnit is a dev dependency, and the rule ships. */
-    private const string RUNNER_EXTENSION = 'PHPUnit\Runner\Extension\Extension';
+    /** What a PHPUnit runner extension implements; ::class does not load it, so PHPUnit need not be installed. */
+    private const string RUNNER_EXTENSION = \PHPUnit\Runner\Extension\Extension::class;
 
     public function getNodeType(): string
     {
@@ -89,8 +89,8 @@ final readonly class ForbidProcessStreamRule implements Rule
 
         return [
             RuleErrorBuilder::message(
-                $stream . ' inside a function reaches the process\'s own stream, which a test can neither capture nor assert,'
-                . ' and a write to stderr stops Infection\'s initial test run. Take the stream as a parameter and let the entry script pass it.'
+                $stream . " inside a function reaches the process's own stream, which a test can neither capture nor assert,"
+                . " and a write to stderr stops Infection's initial test run. Take the stream as a parameter and let the entry script pass it."
                 . ' See docs/phpstan-rules/forbid-process-stream.md.',
             )->identifier(self::IDENTIFIER)->build(),
         ];
@@ -155,7 +155,7 @@ final readonly class ForbidProcessStreamRule implements Rule
         }
 
         foreach ($scope->getType($argument->value)->getConstantStrings() as $name) {
-            if (1 === preg_match(self::PROCESS_STREAM_NAME, $name->getValue())) {
+            if (1 === \Safe\preg_match(self::PROCESS_STREAM_NAME, $name->getValue())) {
                 return $name->getValue();
             }
         }
@@ -175,13 +175,7 @@ final readonly class ForbidProcessStreamRule implements Rule
             return true;
         }
 
-        foreach ($types as $type) {
-            if (!\in_array($type, self::ERROR_LOG_ELSEWHERE, true)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($types, static fn ($type): bool => !\in_array($type, self::ERROR_LOG_ELSEWHERE, true));
     }
 
     /**
@@ -190,13 +184,13 @@ final readonly class ForbidProcessStreamRule implements Rule
      */
     private function isInsideAFunction(Scope $scope): bool
     {
-        return $scope->isInClass() || null !== $scope->getFunction() || $scope->isInAnonymousFunction();
+        return $scope->isInClass() || $scope->getFunction() instanceof \PHPStan\Reflection\Php\PhpFunctionFromParserNodeReflection || $scope->isInAnonymousFunction();
     }
 
     private function isARunnerExtension(Scope $scope): bool
     {
         $class = $scope->getClassReflection();
 
-        return null !== $class && $class->implementsInterface(self::RUNNER_EXTENSION);
+        return $class instanceof \PHPStan\Reflection\ClassReflection && $class->implementsInterface(self::RUNNER_EXTENSION);
     }
 }

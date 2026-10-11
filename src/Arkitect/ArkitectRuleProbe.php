@@ -21,6 +21,7 @@ use LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment;
 use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * The single-rule harness for PHPArkitect, behind `bin/arkitect-rule <because>
@@ -94,10 +95,10 @@ final readonly class ArkitectRuleProbe
      *
      * @return int {@see self::EXIT_NOT_FIRED}, {@see self::EXIT_FIRED} or {@see self::EXIT_NO_VERDICT}
      */
-    public static function main(string $libraryRoot, string $autoloadPath, string ...$args): int
+    public static function main(string $libraryRoot, string $autoloadPath, OutputInterface $output, OutputInterface $errors, string ...$args): int
     {
         if (2 !== \count($args) || str_starts_with($args[0], '-')) {
-            \Safe\fwrite(\STDERR, self::USAGE);
+            $errors->write(self::USAGE, false, OutputInterface::OUTPUT_RAW);
 
             return self::EXIT_NO_VERDICT;
         }
@@ -118,12 +119,12 @@ final readonly class ArkitectRuleProbe
             );
             $result = $probe->probe($args[0], $args[1]);
         } catch (ProbeFailedException|ProjectLayoutException $exception) {
-            \Safe\fwrite(\STDERR, $exception->getMessage() . "\n");
+            $errors->writeln($exception->getMessage(), OutputInterface::OUTPUT_RAW);
 
             return self::EXIT_NO_VERDICT;
         }
 
-        \Safe\fwrite(\STDOUT, $result->render());
+        $output->write($result->render(), false, OutputInterface::OUTPUT_RAW);
 
         return $result->fired() ? self::EXIT_FIRED : self::EXIT_NOT_FIRED;
     }

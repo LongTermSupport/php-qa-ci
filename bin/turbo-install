@@ -15,4 +15,5 @@ require __DIR__.'/bootstrap.php';
 exit(\LTS\PHPQA\Turbo\TurboInstaller::main(
     \dirname(__DIR__),
     $argv[1] ?? \LTS\PHPQA\Turbo\TurboInstaller::MODE_INSTALL,
+    new \Symfony\Component\Console\Output\ConsoleOutput(),
 ));

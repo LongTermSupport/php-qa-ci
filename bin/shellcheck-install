@@ -13,4 +13,5 @@ require __DIR__.'/bootstrap.php';
 die(\LTS\PHPQA\ShellCheck\ShellCheckInstaller::main(
     \dirname(__DIR__),
     $argv[1] ?? \LTS\PHPQA\ShellCheck\ShellCheckInstaller::MODE_INSTALL,
+    new \Symfony\Component\Console\Output\ConsoleOutput(),
 ));

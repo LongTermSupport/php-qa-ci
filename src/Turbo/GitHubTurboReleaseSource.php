@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Turbo;
 
+use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
 /**
@@ -27,6 +28,11 @@ final readonly class GitHubTurboReleaseSource implements TurboReleaseSourceInter
 
     /** Long enough for a 7 MB core on a slow runner, short enough not to hang a composer event. */
     private const int TIMEOUT_SECONDS = 60;
+
+    /** @param OutputInterface $errors where a failed request's cause is noted */
+    public function __construct(private OutputInterface $errors)
+    {
+    }
 
     public function tree(string $version): ?string
     {
@@ -59,7 +65,7 @@ final readonly class GitHubTurboReleaseSource implements TurboReleaseSourceInter
         } catch (Throwable $throwable) {
             // The caller decides what a failed request means; the cause is still worth printing,
             // or a rate limit looks the same as a missing release.
-            \Safe\fwrite(\STDERR, 'Note: could not fetch ' . $url . ': ' . $throwable->getMessage() . \PHP_EOL);
+            $this->errors->writeln('Note: could not fetch ' . $url . ': ' . $throwable->getMessage(), OutputInterface::OUTPUT_RAW);
 
             return null;
         }

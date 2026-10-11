@@ -8,6 +8,8 @@ use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\Pipeline\Config\ShellCheckBinary;
 use PharData;
 use RuntimeException;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
 use Throwable;
 
@@ -49,10 +51,16 @@ final readonly class ShellCheckInstaller
     /** Long enough for a 3.7 MB asset on a slow runner, short enough not to hang a composer event. */
     private const int TIMEOUT_SECONDS = 60;
 
+    public function __construct(
+        private OutputInterface $output,
+        private OutputInterface $errors,
+    ) {
+    }
+
     /** @return int the process exit code */
-    public static function main(string $libraryRoot, string $mode): int
+    public static function main(string $libraryRoot, string $mode, ConsoleOutputInterface $output): int
     {
-        return new self()->run($libraryRoot, $mode);
+        return new self($output, $output->getErrorOutput())->run($libraryRoot, $mode);
     }
 
     public function run(string $libraryRoot, string $mode): int
@@ -92,14 +100,13 @@ final readonly class ShellCheckInstaller
 
     private function reportBroken(string $message, string $libraryRoot, ?string $pinned): int
     {
-        $this->write('ERROR: ' . $message . '.', \STDERR);
-        $this->write(\sprintf('Expected: %s (%s)', ShellCheckBinary::path($libraryRoot), ShellCheckBinary::ARCHITECTURE), \STDERR);
-        $this->write('This indicates a corrupted or incomplete checkout. Re-clone, or restore it with:', \STDERR);
-        $this->write(
+        $this->error('ERROR: ' . $message . '.');
+        $this->error(\sprintf('Expected: %s (%s)', ShellCheckBinary::path($libraryRoot), ShellCheckBinary::ARCHITECTURE));
+        $this->error('This indicates a corrupted or incomplete checkout. Re-clone, or restore it with:');
+        $this->error(
             null === $pinned
                 ? '  scripts/tool-install.bash update   (re-pins to the newest release)'
                 : '  ' . ShellCheckBinary::fetchCommand($libraryRoot, $pinned),
-            \STDERR,
         );
 
         return 1;
@@ -128,7 +135,7 @@ final readonly class ShellCheckInstaller
             \Safe\file_put_contents($libraryRoot . '/' . ShellCheckBinary::VERSION_FILE, $version . "\n");
         } catch (Throwable $throwable) {
             $staging->remove();
-            $this->write('ERROR: could not install ShellCheck ' . $version . ': ' . $throwable->getMessage(), \STDERR);
+            $this->error('ERROR: could not install ShellCheck ' . $version . ': ' . $throwable->getMessage());
 
             return 1;
         }
@@ -150,7 +157,7 @@ final readonly class ShellCheckInstaller
         try {
             $release = \Safe\json_decode($body, true);
         } catch (Throwable $throwable) {
-            $this->write('Note: the GitHub release API returned something unreadable: ' . $throwable->getMessage(), \STDERR);
+            $this->error('Note: the GitHub release API returned something unreadable: ' . $throwable->getMessage());
 
             return null;
         }
@@ -199,7 +206,7 @@ final readonly class ShellCheckInstaller
             // Not fatal on its own: the caller decides, and for a release
             // lookup the answer is to leave the pin alone. The cause is still
             // worth printing, or a rate limit looks like an empty release list.
-            $this->write('Note: could not fetch ' . $url . ': ' . $throwable->getMessage(), \STDERR);
+            $this->error('Note: could not fetch ' . $url . ': ' . $throwable->getMessage());
 
             return null;
         }
@@ -210,9 +217,13 @@ final readonly class ShellCheckInstaller
         return null !== new ExecutableFinder()->find('phive');
     }
 
-    /** @param resource $stream */
-    private function write(string $line, $stream = \STDOUT): void
+    private function write(string $line): void
     {
-        \Safe\fwrite($stream, $line . \PHP_EOL);
+        $this->output->writeln($line, OutputInterface::OUTPUT_RAW);
+    }
+
+    private function error(string $line): void
+    {
+        $this->errors->writeln($line, OutputInterface::OUTPUT_RAW);
     }
 }

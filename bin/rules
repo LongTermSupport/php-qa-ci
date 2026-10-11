@@ -60,7 +60,7 @@ if (false === $projectRoot) {
 $qaCiRoot = \dirname(__DIR__);
 
 try {
-    $lister  = new \LTS\PHPQA\PHPStan\ActiveRulesLister($qaCiRoot);
+    $lister  = new \LTS\PHPQA\PHPStan\ActiveRulesLister($qaCiRoot, new \Symfony\Component\Console\Output\StreamOutput(STDERR));
     $listing = $lister->list($projectRoot);
 } catch (\InvalidArgumentException|\RuntimeException $e) {
     fwrite(STDERR, $e->getMessage()."\n");

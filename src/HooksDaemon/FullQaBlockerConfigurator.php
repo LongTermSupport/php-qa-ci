@@ -8,7 +8,6 @@ use LTS\PHPQA\Pipeline\Config\ComposerBinDirReader;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\ProcessRunnerInterface;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
@@ -58,9 +57,9 @@ final readonly class FullQaBlockerConfigurator
     ) {
     }
 
-    public static function main(string $projectRoot, string $daemonConfig): int
+    public static function main(string $projectRoot, string $daemonConfig, OutputInterface $output): int
     {
-        return new self(new SymfonyProcessRunner(new NullOutput()), new ConsoleOutput())->run($projectRoot, $daemonConfig);
+        return new self(new SymfonyProcessRunner(new NullOutput()), $output)->run($projectRoot, $daemonConfig);
     }
 
     /** @return int the exit code: 0 whatever was decided, 1 only when the attempt itself broke */

@@ -9,7 +9,6 @@ use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use RuntimeException;
 use Safe\Exceptions\FilesystemException;
 use Safe\Exceptions\JsonException;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -58,17 +57,13 @@ final class IssueMonitor
     }
 
     /**
-     * `scripts/issue-monitor <owner/repo>`: poll until stopped. Events go to stdout,
-     * everything else to stderr; state lives in `untracked/issue-monitor/`.
+     * `scripts/issue-monitor <owner/repo>`: poll until stopped. Events go to $events
+     * (stdout), everything else to $log (stderr); state lives in `untracked/issue-monitor/`.
      *
      * @param list<string> $argv
      */
-    public static function main(string $projectRoot, array $argv, ?OutputInterface $events = null, ?OutputInterface $log = null, int $polls = \PHP_INT_MAX): int
+    public static function main(string $projectRoot, array $argv, OutputInterface $events, OutputInterface $log, int $polls = \PHP_INT_MAX): int
     {
-        $console = new ConsoleOutput();
-        $events ??= $console;
-        $log    ??= $console->getErrorOutput();
-
         $repository = $argv[1] ?? null;
         if (null === $repository || 1 !== \Safe\preg_match('#^[\w.-]+/[\w.-]+$#', $repository)) {
             $log->writeln('usage: scripts/issue-monitor <owner/repo>');

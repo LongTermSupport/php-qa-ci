@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Output\NullOutput;
 
 /**
  * Toolchain specification 7.1 and 7.2 on this repository and in the block it
@@ -31,7 +32,7 @@ final class AgentContextIsCurrentTest extends TestCase
     public function theActiveDefencesInClaudeMdMatchTheConfiguration(): void
     {
         $root    = \Safe\realpath(self::ROOT);
-        $current = new ActiveDefencesSummary()->render(new ActiveRulesLister($root)->list($root), $root);
+        $current = new ActiveDefencesSummary()->render(new ActiveRulesLister($root, new NullOutput())->list($root), $root);
 
         self::assertSame(
             $current,

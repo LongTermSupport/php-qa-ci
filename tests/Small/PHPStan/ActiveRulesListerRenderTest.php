@@ -10,6 +10,7 @@ use LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto;
 use LTS\PHPQA\PHPStan\Dto\PipelineLaneDto;
 use LTS\PHPQA\PHPStan\Dto\ProjectRecordEntryDto;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Output\NullOutput;
 
 /**
  * Exact-output coverage for ActiveRulesLister::renderText()/renderJson(),
@@ -38,7 +39,7 @@ final class ActiveRulesListerRenderTest extends TestCase
 
     public function testRenderTextProducesTheExactExpectedString(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = $this->listing();
 
         $expected = <<<'TEXT'
@@ -79,7 +80,7 @@ final class ActiveRulesListerRenderTest extends TestCase
 
     public function testRenderTextEmptyListingsShowNoneMarkers(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = new ActiveDefencesListingDto(self::CONFIG_PATH, [], [], []);
 
         $expected = <<<'TEXT'
@@ -100,7 +101,7 @@ final class ActiveRulesListerRenderTest extends TestCase
 
     public function testRenderJsonProducesTheExactExpectedStructureAndPreservesSlashesUnescaped(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = $this->listing();
 
         $json = $lister->renderJson($listing);

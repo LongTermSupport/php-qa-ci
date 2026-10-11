@@ -28,7 +28,7 @@ final class ForbidProcessStreamRuleTest extends RuleTestCase
 
     private const string ERROR_LOG = 'error_log() to the SAPI logger';
 
-    private const string ADVICE =' inside a function reaches the process\'s own stream, which a test can neither capture nor assert, and a write to stderr stops Infection\'s initial test run. Take the stream as a parameter and let the entry script pass it. See docs/phpstan-rules/forbid-process-stream.md.';
+    private const string ADVICE =" inside a function reaches the process's own stream, which a test can neither capture nor assert, and a write to stderr stops Infection's initial test run. Take the stream as a parameter and let the entry script pass it. See docs/phpstan-rules/forbid-process-stream.md.";
 
     #[Test]
     public function everyStreamConstantAndEveryStreamOpenedByNameInsideAFunctionIsReported(): void

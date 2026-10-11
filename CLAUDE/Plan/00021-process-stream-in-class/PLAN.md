@@ -108,21 +108,27 @@ class, then fixes every instance by handing the stream in.
 
 - [x] ✅ **Task 1.1**: The rule, test first, with fixtures for each reported and each narrowed form
 - [x] ✅ **Task 1.2**: Documentation page, index entry, `rules-optional.neon` entry, changelog entry
-- [ ] 🔄 **Task 1.3**: Red run through the pipeline, every instance reported; commit with the instances present.
-  The `phpstan` lane reported 16 in `src/`: `ArkitectRuleProbe` 3, `ActiveRulesLister` 2,
+- [x] ✅ **Task 1.3**: Red run through the pipeline, every instance reported; commit with the instances present.
+  `ce28dd6`: the `phpstan` lane reported 16 in `src/`: `ArkitectRuleProbe` 3, `ActiveRulesLister` 2,
   `SingleRuleReport` 2, `ShellCheckInstaller` 8 (one a parameter default), `GitHubTurboReleaseSource` 1.
   That is every instance technique 2 found; the two runner extensions were not reported.
+  `ac445cf` widened the rule to technique 3's finding: 19 reported, adding the five `main()`s that
+  build a `ConsoleOutput`.
 
 ### Phase 2: The fix
 
-- [ ] ⬜ **Task 2.1**: Each instance takes its stream as a parameter; each test asserts the written text
+- [x] ✅ **Task 2.1**: Each instance takes its stream or its output as a parameter, and the entry
+  script under `bin/` or `scripts/` supplies the real one. Each instance's test asserts the exact
+  text written. `ShellCheckInstaller` had no test and has one now, for its install mode.
+  `ActiveRulesLister`'s two warnings and `ArkitectRuleProbe::main()`'s refusals had no test and
+  have them now. The `phpstan` lane reports nothing, and the whole suite writes nothing to stderr.
 - [ ] ⬜ **Task 2.2**: Full Infection initial run (no `--skip-initial-tests`) completes
 - [ ] ⬜ **Task 2.3**: Gate, PR, verification, merge
 
 ## Success Criteria
 
-- [ ] The rule reports every instance in the red commit and none after the fix
-- [ ] The suite writes nothing to stderr
+- [x] The rule reports every instance in the red commit and none after the fix
+- [x] The suite writes nothing to stderr
 - [ ] An Infection run without `--skip-initial-tests` gets past its initial test run
 
 ## Delivery & Milestones

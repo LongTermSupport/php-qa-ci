@@ -6,7 +6,6 @@ namespace LTS\PHPQA\PhpstanDocs;
 
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use RuntimeException;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
 use Throwable;
@@ -51,9 +50,9 @@ final readonly class PhpstanDocsInstaller
     }
 
     /** @return int the process exit code */
-    public static function main(string $libraryRoot, string $mode): int
+    public static function main(string $libraryRoot, string $mode, OutputInterface $output): int
     {
-        return new self(new ConsoleOutput())->run($libraryRoot, $mode);
+        return new self($output)->run($libraryRoot, $mode);
     }
 
     public function run(string $libraryRoot, string $mode): int
