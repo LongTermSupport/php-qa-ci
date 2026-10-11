@@ -131,9 +131,55 @@ final class IteratorInput
         Runner::fromShellCommandline('cat', null, null, $this->lines());
     }
 
+    /** setInput() returns the process, so the variable it is assigned to has the input too. */
+    public function theProcessSetInputReturns(Process $process): void
+    {
+        $copy = $process->setInput($this->lines());
+        try {
+            $process->run();
+        } finally {
+            $process->stop(0);
+        }
+
+        $copy->run();
+    }
+
+    public function aNewProcessReturnedFromAVariable(): Process
+    {
+        $process = new Process(['cat'], null, null, $this->lines());
+
+        return $process;
+    }
+
+    /** The factory called through an instance: the class comes from the expression's type. */
+    public function theFactoryThroughAnInstance(Process $process): void
+    {
+        $fed = $process::fromShellCommandline('cat', null, null, $this->lines());
+        $fed->run();
+    }
+
+    /** Another function: the input inputGivenButNotRunHere() gives is not seen here. */
+    public function runsThePropertyElsewhere(): void
+    {
+        $this->process->run();
+    }
+
     /** @return \Generator<int, string> */
     private function lines(): \Generator
     {
         yield "a\n";
+    }
+}
+
+/** Another class, with a method of the same name: the input IteratorInput gives is not seen here either. */
+final class IteratorInputElsewhere
+{
+    public function __construct(private readonly Process $process)
+    {
+    }
+
+    public function inputGivenButNotRunHere(): void
+    {
+        $this->process->run();
     }
 }

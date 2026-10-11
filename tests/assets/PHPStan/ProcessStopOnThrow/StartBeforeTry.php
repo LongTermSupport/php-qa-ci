@@ -115,6 +115,8 @@ final class StartBeforeTry
         if (0 === $kind) {
             $this->work();
         } elseif (1 === $kind) {
+            $this->work();
+        } elseif (2 === $kind) {
             $process->start();
             try {
                 $process->wait();
@@ -130,6 +132,7 @@ final class StartBeforeTry
             }
         }
 
+        // The outer finally stops nothing, so only the statement lists guard these.
         try {
             $process->start();
             try {
@@ -137,6 +140,8 @@ final class StartBeforeTry
             } finally {
                 $process->stop(0);
             }
+        } catch (\LogicException) {
+            $this->work();
         } catch (\RuntimeException) {
             $process->start();
             try {
@@ -145,12 +150,26 @@ final class StartBeforeTry
                 $process->stop(0);
             }
         } finally {
+            $this->work();
+        }
+
+        try {
+            $this->work();
+        } finally {
             $process->start();
             try {
                 $process->wait();
             } finally {
                 $process->stop(0);
             }
+        }
+
+        // A static call before the try has no receiver to stop.
+        Launcher::start();
+        try {
+            $process->wait();
+        } finally {
+            $process->stop(0);
         }
 
         switch ($kind) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
+use PhpParser\Node\Expr\CallLike;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\NullsafeMethodCall;
 use PhpParser\Node\Expr\StaticCall;
@@ -31,17 +32,18 @@ use PHPUnit\Framework\TestCase;
  * it: one level deep, so a stop two helpers down is not seen.
  *
  * Only the nearest tearDown() runs, and it runs an ancestor's only through
- * parent::tearDown(); every #[After] method in the hierarchy runs. A class's
- * own method replaces a trait's of the same name. The rule assembles each
- * class from these values and walks the hierarchy.
+ * parent::tearDown(); every #[After] method in the hierarchy runs. PHPStan
+ * analyses a trait's method in the class that uses it only when the class does
+ * not declare one of that name, which is the method PHP runs. The rule
+ * assembles each class from these values and walks the hierarchy.
  *
- * Each value is [class name, lower-cased method name, taken from a trait, is
- * an #[After] method, calls parent::tearDown(), receivers it stops, lower-cased
- * names of the methods it calls on the class].
+ * Each value is [class name, lower-cased method name, is an #[After] method,
+ * calls parent::tearDown(), receivers it stops, lower-cased names of the
+ * methods it calls on the class].
  *
  * @internal
  *
- * @implements Collector<InClassMethodNode, array{string, string, bool, bool, bool, list<string>, list<string>}>
+ * @implements Collector<InClassMethodNode, array{string, string, bool, bool, list<string>, list<string>}>
  */
 final readonly class ProcessStoppingTearDownCollector implements Collector
 {
@@ -58,7 +60,7 @@ final readonly class ProcessStoppingTearDownCollector implements Collector
     }
 
     /**
-     * @return array{string, string, bool, bool, bool, list<string>, list<string>}|null
+     * @return array{string, string, bool, bool, list<string>, list<string>}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -73,7 +75,6 @@ final readonly class ProcessStoppingTearDownCollector implements Collector
         return [
             $class->getName(),
             $method->name->toLowerString(),
-            $scope->isInTrait(),
             $this->isAfterHook($method),
             $this->callsParentTearDown($stmts),
             $this->stops->receiversStoppedBy($stmts),
@@ -89,25 +90,27 @@ final readonly class ProcessStoppingTearDownCollector implements Collector
     private function methodsCalledOnTheClass(array $stmts): array
     {
         $names = [];
-        foreach (new NodeFinder()->find($stmts, $this->isACallOnTheClass(...)) as $call) {
-            if (($call instanceof MethodCall || $call instanceof NullsafeMethodCall || $call instanceof StaticCall)
-                && $call->name instanceof Identifier) {
-                $names[] = $call->name->toLowerString();
+        foreach (new NodeFinder()->find($stmts, static fn (Node $found): bool => $found instanceof CallLike) as $call) {
+            $name = $this->nameCalledOnTheClass($call);
+            if (null !== $name) {
+                $names[] = $name;
             }
         }
 
         return $names;
     }
 
-    private function isACallOnTheClass(Node $node): bool
+    private function nameCalledOnTheClass(Node $call): ?string
     {
-        if ($node instanceof StaticCall) {
-            return $node->class instanceof Name && \in_array($node->class->toLowerString(), ['self', 'static'], true);
+        if ($call instanceof StaticCall) {
+            $onTheClass = $call->class instanceof Name && \in_array($call->class->toLowerString(), ['self', 'static'], true);
+        } elseif ($call instanceof MethodCall || $call instanceof NullsafeMethodCall) {
+            $onTheClass = $call->var instanceof Variable && 'this' === $call->var->name;
+        } else {
+            return null;
         }
 
-        return ($node instanceof MethodCall || $node instanceof NullsafeMethodCall)
-            && $node->var instanceof Variable
-            && 'this' === $node->var->name;
+        return $onTheClass && $call->name instanceof Identifier ? $call->name->toLowerString() : null;
     }
 
     /**

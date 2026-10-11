@@ -9,7 +9,6 @@ use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\NullsafeMethodCall;
 use PhpParser\Node\FunctionLike;
-use PhpParser\Node\Identifier;
 use PhpParser\Node\Stmt\Block;
 use PhpParser\Node\Stmt\Case_;
 use PhpParser\Node\Stmt\Catch_;
@@ -121,32 +120,21 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
         }
 
         $stopped = $this->stops->receiversStoppedBy($finally->stmts);
-        $start   = $previous instanceof Expression ? $this->startCall($previous) : null;
+        // Only a start() call's offset is ever looked up, so any method call's is recorded.
+        $call = $previous instanceof Expression ? $previous->expr : null;
 
         return [
             $try->getStartFilePos(),
             $finally->getStartFilePos(),
             $excluded,
             $stopped,
-            null !== $start && \in_array($this->printer->prettyPrintExpr($start->var), $stopped, true)
-                ? $start->getStartFilePos()
+            ($call instanceof MethodCall || $call instanceof NullsafeMethodCall)
+                && \in_array($this->printer->prettyPrintExpr($call->var), $stopped, true)
+                ? $call->getStartFilePos()
                 : null,
             $this->stops->loopsIn([...$try->stmts, ...$try->catches]),
             $this->stops->receiversStoppedPerIteration($finally->stmts),
         ];
-    }
-
-    private function startCall(Expression $statement): MethodCall|NullsafeMethodCall|null
-    {
-        $call = $statement->expr;
-        if (($call instanceof MethodCall || $call instanceof NullsafeMethodCall)
-            && $call->name instanceof Identifier
-            && 'start' === $call->name->toLowerString()
-            && !$call->isFirstClassCallable()) {
-            return $call;
-        }
-
-        return null;
     }
 
     /**
@@ -154,11 +142,11 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
      * the interface it implements and the method it has: PHPStan does not
      * promise that an instanceof on one of its classes stays true.
      *
-     * @return list<array<array-key, mixed>>
+     * @return array<array-key, array<array-key, mixed>>
      */
     private function statementLists(Node $node): array
     {
-        return array_values(match (true) {
+        return match (true) {
             $node instanceof VirtualNode                                                                       => method_exists($node, 'getNodes') && \is_array($nodes = $node->getNodes()) ? [$nodes] : [],
             $node instanceof If_                                                                               => [
                 $node->stmts,
@@ -175,6 +163,6 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
             $node instanceof Closure, $node instanceof Function_, $node instanceof For_, $node instanceof Foreach_,
             $node instanceof While_, $node instanceof Do_, $node instanceof Namespace_, $node instanceof Block => [$node->stmts],
             default                                                                                            => [],
-        });
+        };
     }
 }

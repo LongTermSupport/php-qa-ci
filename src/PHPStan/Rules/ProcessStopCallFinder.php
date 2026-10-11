@@ -117,10 +117,9 @@ final readonly class ProcessStopCallFinder
         foreach (new NodeFinder()->find($nodes, static fn (Node $found): bool => $found instanceof Foreach_
             || $found instanceof For_ || $found instanceof While_ || $found instanceof Do_) as $loop) {
             $assigned = $loop instanceof Foreach_ ? [$loop->keyVar, $loop->valueVar] : [];
-            foreach (new NodeFinder()->find([$loop], static fn (Node $found): bool => $found instanceof Assign || $found instanceof AssignRef) as $assign) {
-                if ($assign instanceof Assign || $assign instanceof AssignRef) {
-                    $assigned[] = $assign->var;
-                }
+            $finder   = new NodeFinder();
+            foreach ([...$finder->findInstanceOf([$loop], Assign::class), ...$finder->findInstanceOf([$loop], AssignRef::class)] as $assign) {
+                $assigned[] = $assign->var;
             }
 
             $loops[] = [$loop->getStartFilePos(), $loop->getEndFilePos(), $this->assignedBy(...$assigned)];

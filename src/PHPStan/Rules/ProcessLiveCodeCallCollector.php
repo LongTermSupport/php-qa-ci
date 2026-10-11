@@ -42,8 +42,9 @@ use Traversable;
  *
  * Inputs: the constructor, fromShellCommandline() and setInput() given an
  * input whose type is a Traversable or may be one, that is any type the scope
- * cannot prove is not one. The receiver is setInput()'s, or the variable a new
- * Process is assigned to; a new Process held in no variable has none.
+ * cannot prove is not one. The receiver is setInput()'s, and the variable the
+ * call's result is assigned to, if it is; a new Process held in no variable has
+ * none (UNHELD).
  *
  * Each value is [method as declared, printed receiver or UNHELD, line, start
  * offset in the file, the enclosing class and its ancestors (nearest first),
@@ -97,11 +98,11 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
-        // A new Process assigned to a variable: its input belongs to that receiver.
+        // The variable a Process given an input is assigned to (a new one, or setInput()'s return) holds it too.
         if ($node instanceof Assign) {
             $input = $this->inputGiven($node->expr, $scope);
 
-            return null === $input || self::UNHELD !== $input[1] ? null : $this->entry($input[0], $this->printer->prettyPrintExpr($node->var), $node->expr, $scope, false, $input[2]);
+            return null === $input ? null : $this->entry($input[0], $this->printer->prettyPrintExpr($node->var), $node->expr, $scope, $input[2]);
         }
 
         if (!$node instanceof CallLike || $node->isFirstClassCallable()) {
@@ -110,7 +111,7 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
 
         $input = $this->inputGiven($node, $scope);
         if (null !== $input) {
-            return $this->entry($input[0], $input[1], $node, $scope, false, $input[2]);
+            return $this->entry($input[0], $input[1], $node, $scope, $input[2]);
         }
 
         if (!$node instanceof MethodCall && !$node instanceof NullsafeMethodCall) {
@@ -126,13 +127,13 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
             return null;
         }
 
-        return $this->entry($method, $this->printer->prettyPrintExpr($node->var), $node, $scope, $this->givesACallback($node, $scope), null);
+        return $this->entry($method, $this->printer->prettyPrintExpr($node->var), $node, $scope, null, $this->givesACallback($node, $scope));
     }
 
     /**
      * @return array{string, string, int, int, list<string>, bool, string, string|null}
      */
-    private function entry(string $method, string $receiver, Expr $node, Scope $scope, bool $givesACallback, ?string $inputType): array
+    private function entry(string $method, string $receiver, Expr $node, Scope $scope, ?string $inputType, bool $givesACallback = false): array
     {
         $class   = $scope->getClassReflection();
         $lineage = $class instanceof ClassReflection ? [$class->getName(), ...$class->getParentClassesNames()] : [];
@@ -144,7 +145,7 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
             $node->getStartFilePos(),
             $lineage,
             $givesACallback,
-            implode('::', [...$lineage, $scope->getFunctionName()]),
+            implode('::', [$class?->getName(), $scope->getFunctionName()]),
             $inputType,
         ];
     }
@@ -160,28 +161,28 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
      */
     private function inputGiven(Expr $call, Scope $scope): ?array
     {
-        [$name, $type, $receiver] = match (true) {
-            $call instanceof New_                                                                                     => ['__construct', $scope->getType($call), self::UNHELD],
-            $call instanceof StaticCall && $call->class instanceof Name && $call->name instanceof Identifier          => [
-                $call->name->toLowerString(),
-                $scope->resolveTypeByName($call->class),
-                self::UNHELD,
-            ],
-            ($call instanceof MethodCall || $call instanceof NullsafeMethodCall) && $call->name instanceof Identifier => [
-                $call->name->toLowerString(),
-                TypeCombinator::removeNull($scope->getType($call->var)),
-                $this->printer->prettyPrintExpr($call->var),
-            ],
-            default                                                                                                   => ['', null, self::UNHELD],
-        };
-        $method = self::INPUT_METHODS[$name] ?? null;
-        if (null === $method || !$call instanceof CallLike || !$type instanceof Type || !$this->isAProcess($type)) {
+        $receiver = self::UNHELD;
+        if ($call instanceof New_) {
+            $name = '__construct';
+            $type = $scope->getType($call);
+        } elseif ($call instanceof StaticCall && $call->name instanceof Identifier) {
+            $name = $call->name->toLowerString();
+            $type = $call->class instanceof Name ? $scope->resolveTypeByName($call->class) : $scope->getType($call->class);
+        } elseif (($call instanceof MethodCall || $call instanceof NullsafeMethodCall) && $call->name instanceof Identifier) {
+            $name     = $call->name->toLowerString();
+            $type     = TypeCombinator::removeNull($scope->getType($call->var));
+            $receiver = $this->printer->prettyPrintExpr($call->var);
+        } else {
             return null;
         }
 
-        $reflection = $scope->getMethodReflection($type, $method);
-        $index      = null;
-        foreach ($reflection?->getVariants() ?? [] as $variant) {
+        $method = self::INPUT_METHODS[$name] ?? null;
+        if (null === $method || !$this->isAProcess($type)) {
+            return null;
+        }
+
+        $index = null;
+        foreach ($type->getMethod($method, $scope)->getVariants() as $variant) {
             foreach ($variant->getParameters() as $position => $parameter) {
                 if (self::INPUT === $parameter->getName()) {
                     $index = $position;

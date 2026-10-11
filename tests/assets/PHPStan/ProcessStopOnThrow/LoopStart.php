@@ -107,6 +107,103 @@ final class LoopStart
         }
     }
 
+    /** @param iterable<Process, string> $labels */
+    public function theForeachKey(iterable $labels): void
+    {
+        try {
+            foreach ($labels as $process => $label) {
+                $process->start();
+                echo $label;
+            }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
+    /** @param list<Process> $processes */
+    public function theSecondLoopInTheTry(array $processes, iterable $items): void
+    {
+        try {
+            foreach ($items as $item) {
+                echo 'x';
+            }
+
+            foreach ($processes as $process) {
+                $process->start();
+            }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
+    /** @param list<Process> $processes */
+    public function aLoopInTheSecondCatch(array $processes): void
+    {
+        try {
+            $this->work();
+        } catch (\LogicException) {
+            $this->work();
+        } catch (\RuntimeException) {
+            foreach ($processes as $process) {
+                $process->start();
+            }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
+    /** @param list<self> $holders */
+    public function aNullsafePropertyOfTheLoopVariable(array $holders): void
+    {
+        try {
+            foreach ($holders as $holder) {
+                $holder?->process?->start();
+            }
+        } finally {
+            $holder?->process?->stop(0);
+        }
+    }
+
+    /** @param list<list<Process>> $groups */
+    public function anElementOfTheLoopVariable(array $groups): void
+    {
+        try {
+            foreach ($groups as $group) {
+                $group[0]->start();
+            }
+        } finally {
+            $group[0]->stop(0);
+        }
+    }
+
+    /** A destructuring assignment after the process's own does not hide it. */
+    public function assignedBeforeADestructuring(iterable $items): void
+    {
+        try {
+            foreach ($items as $item) {
+                $process = new Process(['true']);
+                [$name] = [$item];
+                $process->start();
+                echo $name;
+            }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
+    /** @param list<Process> $processes */
+    public function assignedByReference(array $processes): void
+    {
+        try {
+            for ($i = 0; $i < 2; ++$i) {
+                $process = &$processes[$i];
+                $process->start();
+            }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
     /** @param list<Process> $processes */
     public function finallyStopsEveryOne(array $processes): void
     {
@@ -158,6 +255,64 @@ final class LoopStart
                 $process->start();
                 $process->wait();
             }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
+    /** @param list<array{Process, Process}> $pairs */
+    public function finallyStopsBothOfEveryPair(array $pairs): void
+    {
+        try {
+            foreach ($pairs as [$first, $second]) {
+                $first->start();
+                $second->start();
+            }
+        } finally {
+            foreach ($pairs as [$first, $second]) {
+                $first->stop(0);
+                $second->stop(0);
+            }
+        }
+    }
+
+    /** A branch is not a loop: it runs once. */
+    public function assignedInABranch(Process $fresh, bool $go): void
+    {
+        try {
+            if ($go) {
+                $process = $fresh;
+                $process->start();
+            }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
+    /** $proc is the loop variable; $process only starts with the same letters. */
+    public function aLoopVariableWhoseNamePrefixesTheReceiver(Process $process, iterable $items): void
+    {
+        try {
+            foreach ($items as $proc) {
+                $process->start();
+                $process->wait();
+                echo $proc;
+            }
+        } finally {
+            $process->stop(0);
+        }
+    }
+
+    /** The loop that sets $process ends before the start. */
+    public function startedAfterTheLoop(Process $fresh, iterable $processes): void
+    {
+        try {
+            foreach ($processes as $process) {
+                echo 'x';
+            }
+
+            $process = $fresh;
+            $process->start();
         } finally {
             $process->stop(0);
         }

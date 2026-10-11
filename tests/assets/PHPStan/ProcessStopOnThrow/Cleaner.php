@@ -10,4 +10,8 @@ final class Cleaner
     public static function tearDown(): void
     {
     }
+
+    public static function stopChild(): void
+    {
+    }
 }

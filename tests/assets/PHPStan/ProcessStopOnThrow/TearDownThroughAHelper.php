@@ -15,16 +15,28 @@ final class TearDownThroughAHelper extends TestCase
 
     private ?Process $other = null;
 
+    private ?Process $third = null;
+
+    /** Every helper it calls counts, not only the first. */
     protected function tearDown(): void
     {
+        $this->forget();
         $this->stopChild();
         parent::tearDown();
     }
 
+    /** Its own stop counts as well as its helper's. */
     #[After]
     public function afterEach(): void
     {
+        $this->third?->stop(0);
         static::stopOther();
+    }
+
+    public function startsTheThird(): void
+    {
+        $this->third = new Process(['sleep', '60']);
+        $this->third->start();
     }
 
     public function startsTheChild(): void
@@ -42,6 +54,11 @@ final class TearDownThroughAHelper extends TestCase
     private function stopChild(): void
     {
         $this->child?->stop(0);
+    }
+
+    private function forget(): void
+    {
+        $this->third = null;
     }
 
     /** Called as static::stopOther(), which on an instance method still runs with $this. */

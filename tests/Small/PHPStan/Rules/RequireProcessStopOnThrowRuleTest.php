@@ -41,6 +41,8 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
 
     private const string WAIT = 'wait';
 
+    private const string GENERATOR = 'Generator<int, string, mixed, mixed>';
+
     #[Test]
     public function everyCallThatRunsCodeWhileTheChildLivesWithoutAStoppingFinallyIsReported(): void
     {
@@ -75,7 +77,11 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
     public function onlyACallbackFreeStartImmediatelyBeforeAStoppingTryIsClean(): void
     {
         $this->analyse(
-            [self::FIXTURES . '/StartBeforeTry.php', self::FIXTURES . '/start-before-try-script.php'],
+            [
+                self::FIXTURES . '/StartBeforeTry.php',
+                self::FIXTURES . '/start-before-try-script.php',
+                self::FIXTURES . '/start-before-try-namespaced-script.php',
+            ],
             [
                 [$this->message(self::START, self::LOCAL), 58],
                 [$this->message(self::START, self::LOCAL), 70],
@@ -100,8 +106,11 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 [$this->message(self::START, self::LOCAL), 51],
                 [$this->message(self::RUN, self::LOCAL), 62],
                 [$this->message(self::RUN, self::LOCAL), 68],
-                [$this->inputMessage('setInput', '$this->process', 'Generator<int, string, mixed, mixed>'), 74],
-                [$this->inputMessage('__construct', null, 'Generator<int, string, mixed, mixed>'), 79],
+                [$this->inputMessage('setInput', '$this->process', self::GENERATOR), 74],
+                [$this->inputMessage('__construct', null, self::GENERATOR), 79],
+                [$this->message(self::RUN, '$copy'), 144],
+                [$this->inputMessage('__construct', self::LOCAL, self::GENERATOR), 149],
+                [$this->message(self::RUN, '$fed'), 158],
             ],
         );
     }
@@ -119,6 +128,13 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 [$this->message(self::START, self::LOCAL), 77],
                 [$this->message(self::START, self::LOCAL), 89],
                 [$this->message(self::START, self::LOCAL), 103],
+                [$this->message(self::START, self::LOCAL), 115],
+                [$this->message(self::START, self::LOCAL), 132],
+                [$this->message(self::START, self::LOCAL), 148],
+                [$this->message(self::START, '$holder?->process'), 160],
+                [$this->message(self::START, '$group[0]'), 172],
+                [$this->message(self::START, self::LOCAL), 186],
+                [$this->message(self::START, self::LOCAL), 200],
             ],
         );
     }
@@ -141,7 +157,7 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 [$this->message(self::START, self::LOCAL), 35],
                 [$this->inputMessage('setInput', self::CHILD, InputStream::class), 42],
                 [$this->message(self::START, self::CHILD), 22],
-                [$this->message(self::START, self::CHILD), 30],
+                [$this->message(self::START, self::CHILD), 33],
             ],
         );
     }

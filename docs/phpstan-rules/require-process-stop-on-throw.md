@@ -29,7 +29,9 @@ iterators run inside the iteration), another `Process` and a plain `ArrayIterato
 the rule does not look inside the iterator, and the fix for one that runs no code of yours is to
 pass a string. A string, a resource or `null` does not count.
 
-The input is matched to the calls by receiver within one function, so the input itself fires
+The input belongs to the receiver it is given to and to the variable the call's result is
+assigned to (`$process = new Process(...)`, `$same = $process->setInput(...)`). It is matched to
+the calls by receiver within one function, so the input itself fires
 when that function starts or runs nothing on the same receiver: a `setInput()` on a property
 that another method runs, or a `new Process(..., $generator)` held in no variable (returned,
 passed on). The fix is to give the input in the function that runs the process, inside the

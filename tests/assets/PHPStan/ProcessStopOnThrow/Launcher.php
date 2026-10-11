@@ -11,4 +11,8 @@ final class Launcher
     {
         $callback();
     }
+
+    public static function start(): void
+    {
+    }
 }

@@ -79,11 +79,8 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
         // Class => method => [is an #[After] method, calls parent::tearDown(), stops, methods it calls on the class].
         $methods = [];
         foreach ($node->get(ProcessStoppingTearDownCollector::class) as $collected) {
-            foreach ($collected as [$class, $method, $fromATrait, $isAfter, $callsParentTearDown, $stops, $calls]) {
-                // A class's own method replaces a trait's of the same name.
-                if (!$fromATrait || !isset($methods[$class][$method])) {
-                    $methods[$class][$method] = [$isAfter, $callsParentTearDown, $stops, $calls];
-                }
+            foreach ($collected as [$class, $method, $isAfter, $callsParentTearDown, $stops, $calls]) {
+                $methods[$class][$method] = [$isAfter, $callsParentTearDown, $stops, $calls];
             }
         }
 
@@ -108,29 +105,27 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
         $errors = [];
         foreach ($node->get(ProcessLiveCodeCallCollector::class) as $file => $collected) {
             // Keyed by position: PHPStan also walks a nullsafe call as a plain method call there.
-            $calls  = [];
+            $calls = [];
+            // Position => every receiver an input given there reaches (the call's, and the variable it is assigned to).
             $inputs = [];
-            // Enclosing function => receiver => true, for every call and for every iterator input.
+            // Enclosing function => receivers, for every call and for every iterator input.
             $called = [];
             $fed    = [];
             foreach ($collected as $entry) {
                 [, $receiver, , $position, , , $function, $inputType] = $entry;
                 if (null === $inputType) {
-                    $calls[$position]             = $entry;
-                    $called[$function][$receiver] = true;
+                    $calls[$position]     = $entry;
+                    $called[$function][]  = $receiver;
 
                     continue;
                 }
 
-                // A new Process assigned to a variable is also seen alone, held in no variable.
-                if (ProcessLiveCodeCallCollector::UNHELD !== $receiver || !isset($inputs[$position])) {
-                    $inputs[$position]         = $entry;
-                    $fed[$function][$receiver] = true;
-                }
+                $inputs[$position][] = $entry;
+                $fed[$function][]    = $receiver;
             }
 
             foreach ($calls as [$method, $receiver, $line, $position, $lineage, $givesACallback, $function]) {
-                $runsNoCodeOfItsOwn = !$givesACallback && !isset($fed[$function][$receiver]);
+                $runsNoCodeOfItsOwn = !$givesACallback && !\in_array($receiver, $fed[$function] ?? [], true);
                 if (($runsNoCodeOfItsOwn && \in_array($method, self::CALLBACK_ONLY, true))
                     || $this->isGuarded($receiver, $position, ...$guards[$file] ?? [])
                     || ($runsNoCodeOfItsOwn && $this->startsImmediatelyBeforeAGuard($position, ...$guards[$file] ?? []))
@@ -146,12 +141,18 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
                 ))->file($file)->line($line)->identifier(self::IDENTIFIER)->build();
             }
 
-            foreach ($inputs as [$method, $receiver, $line, , $lineage, , $function, $inputType]) {
-                if (isset($called[$function][$receiver]) || $this->isStoppedAfterEachTest($receiver, $testCases, ...$lineage)) {
+            foreach ($inputs as $reached) {
+                // A new Process is also seen alone, held in no variable, beside the variable it is assigned to.
+                $held     = array_values(array_filter($reached, static fn (array $input): bool => ProcessLiveCodeCallCollector::UNHELD !== $input[1]));
+                $reached  = [] === $held ? $reached : $held;
+                $isMet    = array_any($reached, fn (array $input): bool => \in_array($input[1], $called[$input[6]] ?? [], true)
+                    || $this->isStoppedAfterEachTest($input[1], $testCases, ...$input[4]));
+                if ($isMet) {
                     continue;
                 }
 
-                $errors[] = RuleErrorBuilder::message(\sprintf(
+                [$method, $receiver, $line, , , , , $inputType] = $reached[0];
+                $errors[]                                       = RuleErrorBuilder::message(\sprintf(
                     'Process::%1$s() gives %2$s an input of type %3$s, which Symfony iterates while the child is alive, '
                     . 'and %2$s is not started or run in this function, where a finally that stops it could be seen: '
                     . 'if iterating the input throws, the child is left running.',

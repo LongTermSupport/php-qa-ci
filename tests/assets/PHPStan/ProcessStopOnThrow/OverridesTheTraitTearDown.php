@@ -9,8 +9,8 @@ use Symfony\Component\Process\Process;
 
 /**
  * The class's own tearDown() replaces the trait's, and stops nothing; the
- * helper it calls is another object's, not this class's stopChild(). The
- * trait's #[After] method still runs.
+ * stopChild() it calls is another object's or another class's, not this
+ * class's. The trait's #[After] method still runs.
  */
 final class OverridesTheTraitTearDown extends TestCase
 {
@@ -20,7 +20,10 @@ final class OverridesTheTraitTearDown extends TestCase
 
     protected function tearDown(): void
     {
+        $registry = $this->registry;
+        $registry?->stopChild();
         $this->registry?->stopChild();
+        Cleaner::stopChild();
         $this->clearOutput();
     }
 
