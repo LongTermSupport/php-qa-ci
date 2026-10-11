@@ -53,6 +53,13 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
     /** The calls that run first-party code only through a callback or an iterator input; start() runs the caller's after it, and waitUntil() always takes a callback. */
     private const array CALLBACK_ONLY = ['run', 'mustRun', 'wait'];
 
+    private ProcessStopCallFinder $stops;
+
+    public function __construct()
+    {
+        $this->stops = new ProcessStopCallFinder();
+    }
+
     public function getNodeType(): string
     {
         return CollectedDataNode::class;
@@ -136,16 +143,34 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
     }
 
     /**
-     * @param array{int, int, list<array{int, int}>, list<string>, int|null} ...$guards
+     * @param array{int, int, list<array{int, int}>, list<string>, int|null, list<array{int, int, list<string>}>, list<string>} ...$guards
      */
     private function isGuarded(string $receiver, int $position, array ...$guards): bool
     {
-        foreach ($guards as [$start, $end, $excluded, $stopped]) {
-            if ($position < $start || $position >= $end || !\in_array($receiver, $stopped, true)) {
+        foreach ($guards as [$start, $end, $excluded, $stopped, , $loops, $stoppedPerIteration]) {
+            if ($position < $start || $position >= $end || $this->isInsideAny($position, ...$excluded)) {
                 continue;
             }
 
-            if (!$this->isInsideAny($position, ...$excluded)) {
+            $stops = $this->changesOnEachPass($receiver, $position, ...$loops) ? $stoppedPerIteration : $stopped;
+            if (\in_array($receiver, $stops, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A receiver rooted at a variable that a loop around the call sets is a
+     * different process on each pass, so one stop of it stops only the last.
+     *
+     * @param array{int, int, list<string>} ...$loops
+     */
+    private function changesOnEachPass(string $receiver, int $position, array ...$loops): bool
+    {
+        foreach ($loops as [$start, $end, $variables]) {
+            if ($position >= $start && $position <= $end && $this->stops->isRootedAtAny($receiver, ...$variables)) {
                 return true;
             }
         }
@@ -159,7 +184,7 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
      * of the caller's to run before the guard is entered. The collector records
      * the start() only when the finally stops that receiver.
      *
-     * @param array{int, int, list<array{int, int}>, list<string>, int|null} ...$guards
+     * @param array{int, int, list<array{int, int}>, list<string>, int|null, list<array{int, int, list<string>}>, list<string>} ...$guards
      */
     private function startsImmediatelyBeforeAGuard(int $position, array ...$guards): bool
     {

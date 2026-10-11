@@ -107,6 +107,23 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function aLoopVariableStartedInTheTryIsGuardedOnlyByAStopThatLoopsToo(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/LoopStart.php'],
+            [
+                [$this->message(self::START, self::LOCAL), 24],
+                [$this->message(self::START, self::LOCAL), 38],
+                [$this->message(self::START, '$holder->process'), 50],
+                [$this->message(self::START, self::LOCAL), 62],
+                [$this->message(self::START, self::LOCAL), 77],
+                [$this->message(self::START, self::LOCAL), 89],
+                [$this->message(self::START, self::LOCAL), 103],
+            ],
+        );
+    }
+
+    #[Test]
     public function aTestCasePropertyNoTearDownOrAfterMethodThatRunsStopsIsReported(): void
     {
         $this->analyse(

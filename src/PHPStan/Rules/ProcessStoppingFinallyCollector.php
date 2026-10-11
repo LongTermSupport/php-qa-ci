@@ -57,11 +57,17 @@ use PHPStan\Node\VirtualNode;
  * Each value lists, for each try statement with a finally in the lists the
  * node owns, [range start, range end (exclusive), excluded spans as
  * [start, end] inclusive, stopped receivers, start offset of the start() call
- * immediately before the try, or null].
+ * immediately before the try, or null, the loops in the try and catch blocks
+ * as ProcessStopCallFinder::loopsIn() gives them, receivers the finally stops
+ * once per pass of a foreach over them].
+ *
+ * A process started in a loop and held in a variable the loop sets is a
+ * different process on each pass, so a finally that stops that variable once
+ * stops only the last; the rule counts only a stop that loops too for it.
  *
  * @internal
  *
- * @implements Collector<Node, list<array{int, int, list<array{int, int}>, list<string>, int|null}>>
+ * @implements Collector<Node, list<array{int, int, list<array{int, int}>, list<string>, int|null, list<array{int, int, list<string>}>, list<string>}>>
  */
 final readonly class ProcessStoppingFinallyCollector implements Collector
 {
@@ -81,7 +87,7 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
     }
 
     /**
-     * @return list<array{int, int, list<array{int, int}>, list<string>, int|null}>|null
+     * @return list<array{int, int, list<array{int, int}>, list<string>, int|null, list<array{int, int, list<string>}>, list<string>}>|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -101,7 +107,7 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
     }
 
     /**
-     * @return array{int, int, list<array{int, int}>, list<string>, int|null}
+     * @return array{int, int, list<array{int, int}>, list<string>, int|null, list<array{int, int, list<string>}>, list<string>}
      */
     private function guard(TryCatch $try, Finally_ $finally, mixed $previous): array
     {
@@ -125,6 +131,8 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
             null !== $start && \in_array($this->printer->prettyPrintExpr($start->var), $stopped, true)
                 ? $start->getStartFilePos()
                 : null,
+            $this->stops->loopsIn([...$try->stmts, ...$try->catches]),
+            $this->stops->receiversStoppedPerIteration($finally->stmts),
         ];
     }
 

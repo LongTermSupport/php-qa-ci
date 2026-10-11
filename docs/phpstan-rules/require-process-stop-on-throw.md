@@ -52,6 +52,26 @@ A call inside the `finally` itself fires: code there that throws skips the rest 
 `finally`. So does a call in a closure defined inside the `try`, because the closure runs later,
 outside it.
 
+A call in a loop inside the `try`, on a variable that loop sets (a `foreach` key or value, or
+anything assigned in the loop), or a property or element of one, is a different process on each
+pass, so a `finally` that stops that variable once stops only the last. It counts as guarded only
+when the `finally` stops it inside a `foreach` over that same variable:
+
+```php
+try {
+    foreach ($processes as $process) {
+        $process->start(); // fires: the finally stops only the last one
+    }
+} finally {
+    $process->stop(0.0);
+}
+```
+
+The rule does not check that the `finally`'s `foreach` walks the same collection, and it treats
+any variable assigned in the loop as changing, even one assigned the same process each pass. A
+false report of that kind has the fix below, which is correct either way; reporting it is the
+deliberate choice over missing a child left running.
+
 ## Why this is a hazard
 
 If the callback, or the code after `start()`, throws, nothing stops the child. A `Process`
@@ -82,7 +102,21 @@ try {
 ```
 
 The same shape holds for `start()`: start inside the `try`, do the work, `wait()`, and stop in
-the `finally`.
+the `finally`. Processes started in a loop are stopped in a loop:
+
+```php
+try {
+    foreach ($processes as $process) {
+        $process->start();
+    }
+
+    // ... the work
+} finally {
+    foreach ($processes as $process) {
+        $process->stop(0.0);
+    }
+}
+```
 
 Where no code of yours needs to run while the child is alive, call `run()` or `mustRun()` with no
 callback and no iterator input, and read the output afterwards with `getOutput()`; the rule does
@@ -159,7 +193,10 @@ Raised by [#154](https://github.com/LongTermSupport/php-qa-ci/issues/154).
   `run()` leaves the child running). Those calls are reported as a callback is, and the input
   itself is reported when the function that gives it starts or runs nothing on that receiver.
   Neither search technique found an instance: nothing in this repository calls `setInput()` or
-  passes an input to `new Process` or `fromShellCommandline()`.
+  passes an input to `new Process` or `fromShellCommandline()`. A `finally` that stops a loop
+  variable once no longer guards the processes a loop in the `try` started under it, because it
+  stops only the last; `TempLeakDirectoryTest`, the one instance of a loop of starts, already
+  stops them in a loop.
 - **Narrowing**: `run()`/`mustRun()`/`wait()` with NO callback and NO iterator input are
   excluded, because no first-party code runs while the child is alive, and Symfony stops the
   child itself before throwing its timeout exception. A `$this->` property of a PHPUnit test case that the running

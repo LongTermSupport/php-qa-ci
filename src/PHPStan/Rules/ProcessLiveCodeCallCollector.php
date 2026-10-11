@@ -60,6 +60,7 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
 {
     /** The receiver recorded for a new Process held in no variable; no printed expression reads like it. */
     public const string UNHELD = 'a Process held in no variable';
+
     /** Lower-cased method name => the name Process declares; start() runs code after it, the rest a callback. */
     private const array METHODS = [
         'start'     => 'start',
