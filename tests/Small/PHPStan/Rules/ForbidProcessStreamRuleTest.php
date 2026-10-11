@@ -69,6 +69,19 @@ final class ForbidProcessStreamRuleTest extends RuleTestCase
         $this->analyse([self::FIXTURES . '/Script.php'], []);
     }
 
+    /** An unqualified call means the namespace's own function of that name when there is one, as PHP resolves it. */
+    #[Test]
+    public function aNamespacesOwnReadlineIsNotReportedAndPhpsQualifiedOneIs(): void
+    {
+        $this->analyse([self::FIXTURES . '/Shadowing.php'], [['readline()' . self::ADVICE, 28]]);
+    }
+
+    /** @return list<string> */
+    public static function getAdditionalConfigFiles(): array
+    {
+        return [...parent::getAdditionalConfigFiles(), self::FIXTURES . '/shadowing.neon'];
+    }
+
     protected function getRule(): Rule
     {
         return new ForbidProcessStreamRule($this->createReflectionProvider());

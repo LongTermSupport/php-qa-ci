@@ -1,0 +1,5 @@
+# Makes Shadowing.php's functions known to the reflection provider, as a project's own autoloaded
+# functions are, so an unqualified call there can be resolved to the namespace's own function.
+parameters:
+    scanFiles:
+        - Shadowing.php
