@@ -28,6 +28,7 @@ final class NotReportable
         $buffered = new BufferedOutput();
         error_log($message, 3, '/tmp/report.log');
         $lines = readlineCount($message);
+        $first = readline_first($message);
     }
 
     /** @return list<string> */
@@ -48,6 +49,12 @@ final class NotReportable
 function readlineCount(string $text): int
 {
     return substr_count($text, "\n");
+}
+
+/** This namespace's own function, which an unqualified call resolves to before the global readline_*(). */
+function readline_first(string $text): string
+{
+    return strtok($text, "\n") ?: '';
 }
 
 final class RunnerExtension implements Extension
