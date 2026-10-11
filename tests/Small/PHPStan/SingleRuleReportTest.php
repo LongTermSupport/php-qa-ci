@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan;
 
 use InvalidArgumentException;
+use JsonException;
 use LTS\PHPQA\PHPStan\SingleRuleReport;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,6 +29,8 @@ final class SingleRuleReportTest extends TestCase
     private const string PHPQACI_NESTED_TERNARY = 'phpqaci.nestedTernary';
 
     private const string PHPQACI_EMPTY_CATCH_BLOCK = 'phpqaci.emptyCatchBlock';
+
+    private const string NO_FILES_KEY = 'Expected PHPStan --error-format=json output with a "files" key';
 
     private const string JSON = <<<'JSON'
         {
@@ -88,14 +91,47 @@ final class SingleRuleReportTest extends TestCase
         $perFile  = '{"totals":{"errors":0,"file_errors":1},"files":{"/p/A.php":{"errors":1,"messages":[{"message":"Internal error: Unclosed \'{\' on line 49","line":null,"ignorable":false,"identifier":"phpstan.internal"}]}},"errors":[]}';
         $topLevel = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Internal error: boom from fixture rule while analysing file /p/A.php"]}';
 
-        foreach (['per file' => $perFile, 'top level' => $topLevel] as $shape => $json) {
+        foreach ([
+            "PHPStan abandoned the analysis on internal errors, so this run cannot say whether the rule fired: Internal error: Unclosed '{' on line 49"                              => $perFile,
+            'PHPStan abandoned the analysis on internal errors, so this run cannot say whether the rule fired: Internal error: boom from fixture rule while analysing file /p/A.php' => $topLevel,
+        ] as $expected => $json) {
             try {
                 SingleRuleReport::fromJson($json);
-                self::fail('an abandoned analysis was read as an answer: ' . $shape);
+                self::fail('an abandoned analysis was read as an answer: ' . $expected);
             } catch (InvalidArgumentException $invalidArgumentException) {
-                self::assertStringContainsString('abandoned the analysis', $invalidArgumentException->getMessage(), $shape);
+                self::assertSame($expected, $invalidArgumentException->getMessage());
             }
         }
+    }
+
+    #[Test]
+    public function aRuleIsFoundAfterAnotherRulesMessageInTheSameFile(): void
+    {
+        self::assertSame(['/repo/src/A.php:12 Something else'], SingleRuleReport::fromJson(self::JSON)->firingsOf('argument.type'));
+    }
+
+    #[Test]
+    public function aDocumentThatIsNotAnObjectIsRefused(): void
+    {
+        $this->expectExceptionObject(new InvalidArgumentException(self::NO_FILES_KEY));
+
+        SingleRuleReport::fromJson('"just a string"');
+    }
+
+    #[Test]
+    public function aFilesValueThatIsNotAnObjectIsRefused(): void
+    {
+        $this->expectExceptionObject(new InvalidArgumentException(self::NO_FILES_KEY));
+
+        SingleRuleReport::fromJson('{"files": "nope", "errors": []}');
+    }
+
+    #[Test]
+    public function aMissingFilesKeyIsRefused(): void
+    {
+        $this->expectExceptionObject(new InvalidArgumentException(self::NO_FILES_KEY));
+
+        SingleRuleReport::fromJson('{"errors": []}');
     }
 
     #[Test]
@@ -107,11 +143,16 @@ final class SingleRuleReportTest extends TestCase
     }
 
     #[Test]
-    public function outputThatIsNotPhpstanJsonIsAnError(): void
+    public function outputThatIsNotPhpstanJsonIsAnErrorThatKeepsTheParseFailure(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-
-        SingleRuleReport::fromJson('not json');
+        try {
+            SingleRuleReport::fromJson('not json');
+            self::fail('output that is not JSON was read as an answer');
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            self::assertSame('Expected PHPStan --error-format=json output: Syntax error', $invalidArgumentException->getMessage());
+            self::assertSame(0, $invalidArgumentException->getCode());
+            self::assertInstanceOf(JsonException::class, $invalidArgumentException->getPrevious());
+        }
     }
 
     #[Test]
