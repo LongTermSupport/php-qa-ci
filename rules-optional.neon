@@ -49,6 +49,15 @@
 #                                          this is a rule and not a grep. See
 #                                          docs/phpstan-rules/forbid-debug-output-functions.md
 #
+# THE PROCESS'S OWN STREAMS:
+#   ForbidProcessStreamRule              — STDIN/STDOUT/STDERR, or php://stdin, stdout, stderr
+#                                          or fd/N opened by name, inside a class, function or
+#                                          closure. A test can neither capture nor assert the
+#                                          output, and a stderr write stops Infection's initial
+#                                          test run; take the stream as a parameter. Script-level
+#                                          code and PHPUnit runner extensions are exempt. See
+#                                          docs/phpstan-rules/forbid-process-stream.md
+#
 # REPEATED STRING LITERAL:
 #   ForbidRepeatedStringLiteralRule      — the same string literal (3+ chars) written 3+
 #                                          times in one class is an undeclared constant;
@@ -147,6 +156,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidAmbiguousArrayDocRule
     - LTS\PHPQA\PHPStan\Rules\ForbidInsecureFunctionsRule
     - LTS\PHPQA\PHPStan\Rules\ForbidDebugOutputFunctionsRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
 
 parameters:
     phpqaciFactorySealed:

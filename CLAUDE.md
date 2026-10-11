@@ -77,6 +77,7 @@ dir) prints its page offline.
 - `phpqaci.ambiguousArrayDoc` — A docblock array type must state its keys: `list<T>` or `array<K, V>`, never `T[]` or `array<T>` (`docs/phpstan-rules/forbid-ambiguous-array-doc.md`)
 - `phpqaci.insecureFunction` — No broken hashes, predictable randomness or unparameterised SQL (`docs/phpstan-rules/forbid-insecure-functions.md`)
 - `phpqaci.debugOutputFunction` — No var_dump/print_r/var_export left printing (`docs/phpstan-rules/forbid-debug-output-functions.md`)
+- `phpqaci.processStream` — No `STDIN`/`STDOUT`/`STDERR` inside a class or function; take the stream as a parameter (`docs/phpstan-rules/forbid-process-stream.md`)
 - `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
 - `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
 - `typeCoverage.paramTypeCoverage` — a rule from `tomasvotruba/type-coverage`
