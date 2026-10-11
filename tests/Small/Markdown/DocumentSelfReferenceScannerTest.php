@@ -171,6 +171,48 @@ final class DocumentSelfReferenceScannerTest extends TestCase
         self::assertEquals($withoutSlash, $this->scanner->scan($project->path . '/'));
     }
 
+    /** A project with no docs tree still has its README scanned. */
+    #[Test]
+    public function aProjectWithOnlyAReadmeIsScanned(): void
+    {
+        $project = $this->project();
+        $project->write(self::README, self::PAGE_USED_TO_PROSE);
+
+        self::assertEquals(
+            [new DocumentSelfReferenceFinding(self::README, 1, self::PAGE_USED_TO, self::PAGE_USED_TO_PROSE)],
+            $this->scanner->scan($project->path),
+        );
+    }
+
+    #[Test]
+    public function mainPrintsNothingAndReturnsZeroForACleanProject(): void
+    {
+        $this->expectOutputString('');
+
+        self::assertSame(0, DocumentSelfReferenceScanner::main(self::PROJECT_CLEAN));
+    }
+
+    /** Each finding is printed as file:line, the quoted phrase and its paragraph, then a count; the exit code is 1. */
+    #[Test]
+    public function mainPrintsEveryFindingAndTheCountAndReturnsOne(): void
+    {
+        $project = $this->project();
+        $project->write(self::README, self::PAGE_USED_TO_PROSE);
+        $project->write('docs/a.md', "# A\n\n" . self::SECTION_MOVED_PROSE);
+
+        $this->expectOutputString(
+            "README.md:1\n"
+            . "    says 'this page used to' — that is about this document, not about what it documents\n"
+            . '    ' . self::PAGE_USED_TO_PROSE . "\n\n"
+            . "docs/a.md:3\n"
+            . "    says 'this section has been moved' — that is about this document, not about what it documents\n"
+            . '    ' . self::SECTION_MOVED_PROSE . "\n\n"
+            . "2 place(s) where a document describes itself rather than its subject.\n",
+        );
+
+        self::assertSame(1, DocumentSelfReferenceScanner::main($project->path));
+    }
+
     #[Test]
     public function itReportsNothingForDocumentationThatDescribesTheTool(): void
     {
