@@ -37,9 +37,10 @@ rules:
     # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
     - LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule
     # RequireProcessStopOnThrowRule — a Symfony Process whose child is alive while
-    # first-party code runs (after start(), or in a callback given to run,
-    # mustRun, wait or waitUntil) is stopped in a finally, or a throw leaves the
-    # child running until the cycle collector happens to free the Process. Its
+    # first-party code runs (after start(), in a callback given to run, mustRun,
+    # wait or waitUntil, or while they iterate a Traversable input) is stopped
+    # in a finally, or a throw leaves the child running until the cycle
+    # collector happens to free the Process. Its
     # three collectors are registered below as phpstan.collector services.
     # docs/phpstan-rules/require-process-stop-on-throw.md
     - LTS\PHPQA\PHPStan\Rules\RequireProcessStopOnThrowRule

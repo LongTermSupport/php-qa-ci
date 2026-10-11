@@ -132,6 +132,8 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 self::FIXTURES . '/OverridesTheStop.php',
                 self::FIXTURES . '/TearDownStopsAnother.php',
                 self::FIXTURES . '/NotATestCase.php',
+                self::FIXTURES . '/StopsTheChildAfterEachTest.php',
+                self::FIXTURES . '/OverridesTheTraitTearDown.php',
             ],
             [
                 [$this->message(self::START, self::CHILD), 26],
@@ -139,6 +141,7 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 [$this->message(self::START, self::LOCAL), 35],
                 [$this->inputMessage('setInput', self::CHILD, InputStream::class), 42],
                 [$this->message(self::START, self::CHILD), 22],
+                [$this->message(self::START, self::CHILD), 30],
             ],
         );
     }
@@ -154,6 +157,9 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 self::FIXTURES . '/ChainsToTheStop.php',
                 // UnanalysedMiddle.php, between it and the base, is deliberately left out.
                 self::FIXTURES . '/InheritsThroughAnUnanalysedBase.php',
+                self::FIXTURES . '/TearDownThroughAHelper.php',
+                self::FIXTURES . '/StopsTheChildAfterEachTest.php',
+                self::FIXTURES . '/UsesTheStoppingTrait.php',
             ],
             [],
         );

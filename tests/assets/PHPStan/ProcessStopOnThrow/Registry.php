@@ -17,6 +17,10 @@ final class Registry
         $this->processes[] = $process;
     }
 
+    public function stopChild(): void
+    {
+    }
+
     public function remove(Process $process): void
     {
         $this->processes = array_values(array_filter(

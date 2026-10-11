@@ -22,7 +22,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  * A call is clean when it sits in the try or a catch block of a try statement
  * whose finally calls stop() on the same receiver expression, or when, in a
  * PHPUnit test case, the receiver is a `$this->` property that the tearDown()
- * or an #[After] method PHPUnit runs after the test stops. PHPStan nodes carry
+ * or an #[After] method PHPUnit runs after the test stops, itself or through a
+ * method of the class it calls (a trait's included). PHPStan nodes carry
  * no parent links, so the calls (typed through the scope, never by name), the
  * stopping try statements and the stopping test cases are gathered by three
  * collectors and matched here.
@@ -75,11 +76,33 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
             $guards[$file] = array_merge(...$collected);
         }
 
-        $testCases = [];
+        // Class => method => [is an #[After] method, calls parent::tearDown(), stops, methods it calls on the class].
+        $methods = [];
         foreach ($node->get(ProcessStoppingTearDownCollector::class) as $collected) {
-            foreach ($collected as [$class, $runsParentTearDown, $tearDownStops, $afterStops]) {
-                $testCases[$class] = [$runsParentTearDown, $tearDownStops, $afterStops];
+            foreach ($collected as [$class, $method, $fromATrait, $isAfter, $callsParentTearDown, $stops, $calls]) {
+                // A class's own method replaces a trait's of the same name.
+                if (!$fromATrait || !isset($methods[$class][$method])) {
+                    $methods[$class][$method] = [$isAfter, $callsParentTearDown, $stops, $calls];
+                }
             }
+        }
+
+        $testCases = [];
+        foreach ($methods as $class => $byName) {
+            $tearDown   = $byName['teardown'] ?? null;
+            $afterStops = [];
+            foreach ($byName as $method) {
+                if ($method[0]) {
+                    $afterStops = [...$afterStops, ...$this->stopsMadeBy($method, $byName)];
+                }
+            }
+
+            // A class that declares no tearDown() runs its parent's.
+            $testCases[$class] = [
+                null === $tearDown || $tearDown[1],
+                null === $tearDown ? [] : $this->stopsMadeBy($tearDown, $byName),
+                $afterStops,
+            ];
         }
 
         $errors = [];
@@ -189,6 +212,25 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
     private function startsImmediatelyBeforeAGuard(int $position, array ...$guards): bool
     {
         return array_any($guards, static fn (array $guard): bool => $position === $guard[4]);
+    }
+
+    /**
+     * The receivers a method stops itself or through a method of its class it
+     * calls, one level deep.
+     *
+     * @param array{bool, bool, list<string>, list<string>}                $method
+     * @param array<string, array{bool, bool, list<string>, list<string>}> $byName
+     *
+     * @return list<string>
+     */
+    private function stopsMadeBy(array $method, array $byName): array
+    {
+        $stops = $method[2];
+        foreach ($method[3] as $called) {
+            $stops = [...$stops, ...$byName[$called][2] ?? []];
+        }
+
+        return $stops;
     }
 
     /**

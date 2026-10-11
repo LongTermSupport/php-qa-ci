@@ -160,12 +160,27 @@ A `$this->` property of a PHPUnit test case that the `tearDown()` PHPUnit runs, 
 `#[After]` method in its hierarchy, stops. This is a Narrowing: PHPUnit runs those after a test
 method that throws, so the child is stopped. Only the nearest `tearDown()` runs, and an
 ancestor's only through `parent::tearDown()`, and the rule follows that. A base test case is
-seen only when its file is analysed in the same run, which a full run always does.
+seen only when its file is analysed in the same run, which a full run always does. A
+`tearDown()` or `#[After]` method a trait provides counts, unless the class declares its own
+method of that name, and so does a stop made by a method of the class that the hook calls on
+`$this`, `self` or `static`. That is followed one level deep: a stop two helpers down, or in a
+helper given the process as an argument, is not seen, and the start is reported; call the
+stopping helper from the hook directly, or stop the property in the hook.
 
 A call on anything that is not a `Process` is not looked at, whatever its method names.
 
-Not covered: a call whose method name is built at run time (`$process->{$method}($callback)`).
-The rule cannot tell which method it is, so it does not report it; write the method name out.
+Not covered:
+
+- A call whose method name is built at run time (`$process->{$method}($callback)`). The rule
+  cannot tell which method it is, so it does not report it; write the method name out.
+- A call on a receiver whose type is not provably a `Process`: `mixed`, an untyped parameter or
+  property, or a union with something that is not a `Process`. The rule decides by the
+  receiver's type, so it does not report these; declare the type.
+- An iterator input given in one function to a process another function runs, when the giving
+  function also starts or runs it: only the calls in the giving function are judged as having
+  that input.
+- A subtype of `Process` whose constructor or factory has no parameter named `input`: what it
+  passes to its parent is not looked at.
 
 ## Defence Before Fix record
 
@@ -200,8 +215,9 @@ Raised by [#154](https://github.com/LongTermSupport/php-qa-ci/issues/154).
 - **Narrowing**: `run()`/`mustRun()`/`wait()` with NO callback and NO iterator input are
   excluded, because no first-party code runs while the child is alive, and Symfony stops the
   child itself before throwing its timeout exception. A `$this->` property of a PHPUnit test case that the running
-  `tearDown()` or an `#[After]` method stops is excluded, because PHPUnit runs those after a
-  test method that throws, so the child is stopped. A call in a `catch` block of a `try` whose
+  `tearDown()` or an `#[After]` method stops, itself, through a method of the class it calls,
+  or as a trait's method, is excluded, because PHPUnit runs those after a test method that
+  throws, so the child is stopped. A call in a `catch` block of a `try` whose
   `finally` stops the receiver is not reported, because PHP runs the `finally` after the catch
   block whether it completes or throws. A `start()` with no callback and no iterator input that is the statement
   immediately before a `try` whose `finally` stops the receiver is excluded, because nothing of
