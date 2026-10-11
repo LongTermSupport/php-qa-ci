@@ -12,11 +12,29 @@ never its name) after which first-party code runs while the child is alive:
 - `start()`, because the code after it runs with the child running;
 - `run()`, `mustRun()`, `wait()` or `waitUntil()` given a callback, because the callback runs
   with the child running;
+- `run()`, `mustRun()` or `wait()` with no callback, when the same function gives the same
+  receiver an iterator input (see below), because Symfony iterates the input inside them, with
+  the child running;
 
 unless the call is in the `try` block, or a `catch` block, of a `try` statement whose `finally`
 calls `stop()` on the same receiver expression (`$process`, `$this->process`), or, in a PHPUnit
 test case, the receiver is a `$this->` property that the `tearDown()` or an `#[After]` method
 PHPUnit runs after the test stops.
+
+An **iterator input** is an input given to the constructor, `fromShellCommandline()` or
+`setInput()` whose type is a `Traversable` or may be one: anything but a type the analyser can
+prove is not one, so `mixed`, `object` and `iterable` count, as does an unpacked argument list
+that may carry the input. A generator, an `InputStream` (whose `onEmpty()` callback and written
+iterators run inside the iteration), another `Process` and a plain `ArrayIterator` all count:
+the rule does not look inside the iterator, and the fix for one that runs no code of yours is to
+pass a string. A string, a resource or `null` does not count.
+
+The input is matched to the calls by receiver within one function, so the input itself fires
+when that function starts or runs nothing on the same receiver: a `setInput()` on a property
+that another method runs, or a `new Process(..., $generator)` held in no variable (returned,
+passed on). The fix is to give the input in the function that runs the process, inside the
+guarded `try`. A `$this->` property stopped by the test case's `tearDown()` or `#[After]`
+method does not fire either way.
 
 ```php
 $this->running->add($process);
@@ -67,7 +85,8 @@ The same shape holds for `start()`: start inside the `try`, do the work, `wait()
 the `finally`.
 
 Where no code of yours needs to run while the child is alive, call `run()` or `mustRun()` with no
-callback and read the output afterwards with `getOutput()`; the rule does not apply.
+callback and no iterator input, and read the output afterwards with `getOutput()`; the rule does
+not apply. An input you can build in full beforehand is a string.
 
 In a test, where the child outlives one method (a helper starts it, the test asserts against
 it), hold it in a property and stop it in `tearDown()`, which PHPUnit runs after a failing test:
@@ -83,15 +102,16 @@ protected function tearDown(): void
 
 ## What is still allowed
 
-`run()`, `mustRun()` and `wait()` with no callback, or a `null` one. This is a Narrowing:
-no first-party code runs while the child is alive, and Symfony stops the child itself before
-throwing its timeout exception.
+`run()`, `mustRun()` and `wait()` with no callback, or a `null` one, and no iterator input.
+This is a Narrowing: no first-party code runs while the child is alive, and Symfony stops the
+child itself before throwing its timeout exception.
 
-A `start()` with no callback that is the statement immediately before a `try` whose `finally`
-stops the same receiver. This is a Narrowing: nothing of the caller's runs between `start()`
-returning and the `try` being entered, and with no callback, `start()` runs only Symfony's own
-code, so the child is never alive outside the guard. A `start($callback)` there is still
-reported, because the callback can run inside `start()`; so is a statement between the two.
+A `start()` with no callback and no iterator input that is the statement immediately before a
+`try` whose `finally` stops the same receiver. This is a Narrowing: nothing of the caller's runs
+between `start()` returning and the `try` being entered, and `start()` itself runs only Symfony's
+own code, so the child is never alive outside the guard. A `start($callback)` there is still
+reported, because the callback can run inside `start()`, as is a `start()` whose iterator input
+it iterates, and a statement between the two.
 
 ```php
 $process->start();
@@ -133,13 +153,20 @@ Raised by [#154](https://github.com/LongTermSupport/php-qa-ci/issues/154).
   instances, and the tearDown Narrowing below excludes them. That leaves eight instances: the
   runner, and seven `start()` calls in `ProcessTreeTest` (`$finished`), `RunningProcessesTest`
   (two), `RunLockSignalTest`, `ProjectTreeLedgerTest` and `TempLeakDirectoryTest` (two).
-- **Narrowing**: `run()`/`mustRun()`/`wait()` with NO callback are excluded, because no
-  first-party code runs while the child is alive, and Symfony stops the child itself before
-  throwing its timeout exception. A `$this->` property of a PHPUnit test case that the running
+- **Widened**: a `Process` given an input that is or may be a `Traversable` runs first-party
+  code while the child is alive inside `start()`, `run()`, `mustRun()` and `wait()`, with no
+  callback, because Symfony iterates the input there (reproduced: a generator that throws during
+  `run()` leaves the child running). Those calls are reported as a callback is, and the input
+  itself is reported when the function that gives it starts or runs nothing on that receiver.
+  Neither search technique found an instance: nothing in this repository calls `setInput()` or
+  passes an input to `new Process` or `fromShellCommandline()`.
+- **Narrowing**: `run()`/`mustRun()`/`wait()` with NO callback and NO iterator input are
+  excluded, because no first-party code runs while the child is alive, and Symfony stops the
+  child itself before throwing its timeout exception. A `$this->` property of a PHPUnit test case that the running
   `tearDown()` or an `#[After]` method stops is excluded, because PHPUnit runs those after a
   test method that throws, so the child is stopped. A call in a `catch` block of a `try` whose
   `finally` stops the receiver is not reported, because PHP runs the `finally` after the catch
-  block whether it completes or throws. A `start()` with no callback that is the statement
+  block whether it completes or throws. A `start()` with no callback and no iterator input that is the statement
   immediately before a `try` whose `finally` stops the receiver is excluded, because nothing of
   the caller's runs between `start()` returning and the `try` being entered.
 - **Next wider rule, not built**: any child process that keeps running past a throw without a

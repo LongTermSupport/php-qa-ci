@@ -15,4 +15,8 @@ final class Runner
     public function start(): void
     {
     }
+
+    public static function fromShellCommandline(string $command, ?string $cwd, ?array $env, mixed $input): void
+    {
+    }
 }

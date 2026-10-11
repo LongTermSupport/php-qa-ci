@@ -63,4 +63,16 @@ final class TearDownGuarded extends TestCase
             echo $buffer;
         });
     }
+
+    /** The input is given here and the child run elsewhere; tearDown stops it either way. */
+    public function feedsTheChild(): void
+    {
+        $this->child?->setInput($this->lines());
+    }
+
+    /** @return \Generator<int, string> */
+    private function lines(): \Generator
+    {
+        yield "a\n";
+    }
 }

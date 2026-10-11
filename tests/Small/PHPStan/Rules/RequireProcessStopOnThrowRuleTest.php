@@ -14,6 +14,7 @@ use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\Process\InputStream;
 
 /**
  * @internal
@@ -37,6 +38,8 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
     private const string RUN = 'run';
 
     private const string START = 'start';
+
+    private const string WAIT = 'wait';
 
     #[Test]
     public function everyCallThatRunsCodeWhileTheChildLivesWithoutAStoppingFinallyIsReported(): void
@@ -84,6 +87,26 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function aProcessWhoseInputMayBeATraversableIsReportedWithOrWithoutACallback(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/IteratorInput.php'],
+            [
+                [$this->message(self::RUN, self::LOCAL), 24],
+                [$this->message('mustRun', self::LOCAL), 30],
+                [$this->message(self::START, self::LOCAL), 36],
+                [$this->message(self::WAIT, self::LOCAL), 37],
+                [$this->message(self::WAIT, self::LOCAL), 44],
+                [$this->message(self::START, self::LOCAL), 51],
+                [$this->message(self::RUN, self::LOCAL), 62],
+                [$this->message(self::RUN, self::LOCAL), 68],
+                [$this->inputMessage('setInput', '$this->process', 'Generator<int, string, mixed, mixed>'), 74],
+                [$this->inputMessage('__construct', null, 'Generator<int, string, mixed, mixed>'), 79],
+            ],
+        );
+    }
+
+    #[Test]
     public function aTestCasePropertyNoTearDownOrAfterMethodThatRunsStopsIsReported(): void
     {
         $this->analyse(
@@ -95,8 +118,9 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
             ],
             [
                 [$this->message(self::START, self::CHILD), 26],
-                [$this->message(self::START, self::CHILD), 27],
-                [$this->message(self::START, self::LOCAL), 34],
+                [$this->message(self::START, self::CHILD), 28],
+                [$this->message(self::START, self::LOCAL), 35],
+                [$this->inputMessage('setInput', self::CHILD, InputStream::class), 42],
                 [$this->message(self::START, self::CHILD), 22],
             ],
         );
@@ -139,6 +163,18 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
             . 'whose finally stops %2$s: if that code throws, the child is left running.',
             $method,
             $receiver,
+        );
+    }
+
+    private function inputMessage(string $method, ?string $receiver, string $type): string
+    {
+        return \sprintf(
+            'Process::%1$s() gives %2$s an input of type %3$s, which Symfony iterates while the child is alive, '
+            . 'and %2$s is not started or run in this function, where a finally that stops it could be seen: '
+            . 'if iterating the input throws, the child is left running.',
+            $method,
+            $receiver ?? 'a Process held in no variable',
+            $type,
         );
     }
 }

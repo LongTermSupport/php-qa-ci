@@ -27,11 +27,17 @@ use PHPStan\Rules\RuleErrorBuilder;
  * stopping try statements and the stopping test cases are gathered by three
  * collectors and matched here.
  *
- * Not reported: run(), mustRun() and wait() with no callback, because no
- * first-party code runs while the child is alive and Symfony stops the child
- * itself before throwing its timeout exception; and a start() with no callback
- * that is the statement immediately before a try whose finally stops its
- * receiver, because nothing of the caller's runs before the guard is entered.
+ * Symfony iterates a Traversable input inside start(), run(), mustRun() and
+ * wait(), so a call with no callback on a receiver the same function gives
+ * such an input is reported as one with a callback is, and the input itself is
+ * reported when that function starts or runs nothing on the receiver.
+ *
+ * Not reported: run(), mustRun() and wait() with no callback and no iterator
+ * input, because no first-party code runs while the child is alive and
+ * Symfony stops the child itself before throwing its timeout exception; and a
+ * start() with neither that is the statement immediately before a try whose
+ * finally stops its receiver, because nothing of the caller's runs before the
+ * guard is entered.
  *
  * See: docs/phpstan-rules/require-process-stop-on-throw.md
  *
@@ -41,7 +47,11 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final readonly class RequireProcessStopOnThrowRule implements Rule
 {
+    /** The stable identifier every finding of this rule carries. */
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.processStopOnThrow';
+
+    /** The calls that run first-party code only through a callback or an iterator input; start() runs the caller's after it, and waitUntil() always takes a callback. */
+    private const array CALLBACK_ONLY = ['run', 'mustRun', 'wait'];
 
     public function getNodeType(): string
     {
@@ -66,24 +76,58 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
         }
 
         $errors = [];
-        foreach ($node->get(ProcessLiveCodeCallCollector::class) as $file => $calls) {
-            // PHPStan also walks a nullsafe call as a plain method call at the same position.
-            $seen = [];
-            foreach ($calls as [$method, $receiver, $line, $position, $lineage, $givesACallback]) {
-                if (isset($seen[$position])
-                    || $this->isGuarded($receiver, $position, ...$guards[$file] ?? [])
-                    || (!$givesACallback && $this->startsImmediatelyBeforeAGuard($position, ...$guards[$file] ?? []))
-                    || $this->isStoppedAfterEachTest($receiver, $testCases, ...$lineage)) {
+        foreach ($node->get(ProcessLiveCodeCallCollector::class) as $file => $collected) {
+            // Keyed by position: PHPStan also walks a nullsafe call as a plain method call there.
+            $calls  = [];
+            $inputs = [];
+            // Enclosing function => receiver => true, for every call and for every iterator input.
+            $called = [];
+            $fed    = [];
+            foreach ($collected as $entry) {
+                [, $receiver, , $position, , , $function, $inputType] = $entry;
+                if (null === $inputType) {
+                    $calls[$position]             = $entry;
+                    $called[$function][$receiver] = true;
+
                     continue;
                 }
 
-                $seen[$position] = $line;
+                // A new Process assigned to a variable is also seen alone, held in no variable.
+                if (ProcessLiveCodeCallCollector::UNHELD !== $receiver || !isset($inputs[$position])) {
+                    $inputs[$position]         = $entry;
+                    $fed[$function][$receiver] = true;
+                }
+            }
+
+            foreach ($calls as [$method, $receiver, $line, $position, $lineage, $givesACallback, $function]) {
+                $runsNoCodeOfItsOwn = !$givesACallback && !isset($fed[$function][$receiver]);
+                if (($runsNoCodeOfItsOwn && \in_array($method, self::CALLBACK_ONLY, true))
+                    || $this->isGuarded($receiver, $position, ...$guards[$file] ?? [])
+                    || ($runsNoCodeOfItsOwn && $this->startsImmediatelyBeforeAGuard($position, ...$guards[$file] ?? []))
+                    || $this->isStoppedAfterEachTest($receiver, $testCases, ...$lineage)) {
+                    continue;
+                }
 
                 $errors[] = RuleErrorBuilder::message(\sprintf(
                     'Process::%1$s() lets first-party code run while the child of %2$s is alive, and is not inside a try '
                     . 'whose finally stops %2$s: if that code throws, the child is left running.',
                     $method,
                     $receiver,
+                ))->file($file)->line($line)->identifier(self::IDENTIFIER)->build();
+            }
+
+            foreach ($inputs as [$method, $receiver, $line, , $lineage, , $function, $inputType]) {
+                if (isset($called[$function][$receiver]) || $this->isStoppedAfterEachTest($receiver, $testCases, ...$lineage)) {
+                    continue;
+                }
+
+                $errors[] = RuleErrorBuilder::message(\sprintf(
+                    'Process::%1$s() gives %2$s an input of type %3$s, which Symfony iterates while the child is alive, '
+                    . 'and %2$s is not started or run in this function, where a finally that stops it could be seen: '
+                    . 'if iterating the input throws, the child is left running.',
+                    $method,
+                    $receiver,
+                    $inputType,
                 ))->file($file)->line($line)->identifier(self::IDENTIFIER)->build();
             }
         }

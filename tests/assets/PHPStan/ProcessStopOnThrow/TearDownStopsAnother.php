@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Assets\PHPStan\ProcessStopOnThrow;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\InputStream;
 use Symfony\Component\Process\Process;
 
 /** The tearDown stops a different property, and a local variable is out of its reach. */
@@ -33,5 +34,11 @@ final class TearDownStopsAnother extends TestCase
         $process = new Process(['sleep', '60']);
         $process->start();
         self::assertTrue($process->isRunning());
+    }
+
+    /** The input is given here and the child run elsewhere, and the tearDown stops another. */
+    public function feedsTheChild(): void
+    {
+        $this->child?->setInput(new InputStream());
     }
 }
