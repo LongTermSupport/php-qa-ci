@@ -38,6 +38,7 @@ final class Reportable
     {
         $output = new ConsoleOutput();
         $answer = readline('> ');
+        readline_add_history($answer);
         error_log($message);
         error_log($message, 4);
     }

@@ -49,9 +49,10 @@ final class ForbidProcessStreamRuleTest extends RuleTestCase
                 [self::PHP_STDERR . self::ADVICE, 34],
                 ['new ConsoleOutput()' . self::ADVICE, 39],
                 ['readline()' . self::ADVICE, 40],
-                [self::ERROR_LOG . self::ADVICE, 41],
+                ['readline_add_history()' . self::ADVICE, 41],
                 [self::ERROR_LOG . self::ADVICE, 42],
-                [self::STDERR . self::ADVICE, 48],
+                [self::ERROR_LOG . self::ADVICE, 43],
+                [self::STDERR . self::ADVICE, 49],
             ],
         );
     }

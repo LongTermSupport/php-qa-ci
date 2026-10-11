@@ -27,6 +27,7 @@ final class NotReportable
         $output = new StreamOutput($stream);
         $buffered = new BufferedOutput();
         error_log($message, 3, '/tmp/report.log');
+        $lines = readlineCount($message);
     }
 
     /** @return list<string> */
@@ -41,6 +42,12 @@ final class NotReportable
     {
         return \in_array($target, self::LOG_TARGETS, true);
     }
+}
+
+/** Named like the readline functions, but reads nothing from the process. */
+function readlineCount(string $text): int
+{
+    return substr_count($text, "\n");
 }
 
 final class RunnerExtension implements Extension
