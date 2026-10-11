@@ -229,6 +229,7 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and `.env` files itself; auto-skips on non-Symfony projects. Full guidance: [phpstan-rules/forbid-http-prefixed-env-vars.md](../phpstan-rules/forbid-http-prefixed-env-vars.md)
 - **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path. Use `VendoredCodeDetector`. Full guidance: [phpstan-rules/forbid-unanchored-vendor-substring-check.md](../phpstan-rules/forbid-unanchored-vendor-substring-check.md)
 - **ForbidInlinePhpstanIgnoreRule** -- Bans inline `@phpstan-ignore` annotations. A suppression that is genuinely irreducible goes in `phpstan.neon` `ignoreErrors`, where it is visible in review; inline, it silences the finding at the one place nobody looks.
+- **RequireProcessStopOnThrowRule** -- A Symfony `Process` started with `start()`, or run with a callback, sits in a `try` whose `finally` stops it, or a throw leaves the child running. Full guidance: [phpstan-rules/require-process-stop-on-throw.md](../phpstan-rules/require-process-stop-on-throw.md)
 
 `rules-default.neon` is the single source of truth for the always-on set. Read the whole file
 rather than just its `rules:` block: `ForbidMockingFinalClassRule`,

@@ -40,7 +40,12 @@ final readonly class ProcessTree
         return $this->below($pid, $this->childrenByParent());
     }
 
-    /** Running, as opposed to gone or exited and waiting to be reaped. */
+    /**
+     * Running, as opposed to gone or exited and waiting to be reaped. The answer
+     * changes as processes exit, so two calls may disagree.
+     *
+     * @phpstan-impure
+     */
     public function isAlive(int $pid): bool
     {
         $fields = $this->statFields($pid);

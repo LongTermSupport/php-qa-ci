@@ -47,6 +47,8 @@ final class SymfonyProcessRunnerTest extends TestCase
 
     private const string WAIT_THEN_FINISH = 'echo str_repeat("r", 3), "\n"; fflush(STDOUT); sleep(5); echo "done";';
 
+    private const string IGNORE_SIGTERM_THEN_WAIT = 'pcntl_signal(SIGTERM, SIG_IGN); echo str_repeat("r", 3), "\n"; fflush(STDOUT); sleep(5);';
+
     #[Test]
     public function aChildThatNamesNoXdebugModeGetsOffWhateverTheParentHas(): void
     {
@@ -181,7 +183,7 @@ final class SymfonyProcessRunnerTest extends TestCase
         self::assertStringNotContainsString('done', $result->output, 'stopping it ended the child before it finished');
     }
 
-    /** A run that ends by throwing still deregisters its child: the registration lasts exactly as long as the run. */
+    /** A run that ends by throwing still deregisters its child, and stops it: nothing outlives the run. */
     #[Test]
     public function aRunThatThrowsLeavesNothingRegistered(): void
     {
@@ -213,11 +215,49 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         self::assertSame(0, $running->stopAll(0.0), 'nothing is left registered once the run has ended');
 
-        // The abandoned Process is held by a reference cycle; collected here, its destructor stops the
-        // child inside this test rather than during whichever test the collector next runs in.
-        unset($runtimeException);
-        gc_collect_cycles();
         $tree = new ProcessTree();
-        self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'no child outlives the test');
+        self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'the child was stopped, not left running unregistered');
+    }
+
+    /**
+     * The run has already failed, so the child it abandons is killed at once: a
+     * child that ignores SIGTERM is not waited for.
+     */
+    #[Test]
+    public function aRunThatThrowsKillsItsChildWithoutWaiting(): void
+    {
+        $output = new class(self::READY) extends BufferedOutput {
+            public ?float $thrownAt = null;
+
+            public function __construct(private readonly string $failOn)
+            {
+                parent::__construct();
+            }
+
+            protected function doWrite(string $message, bool $newline): void
+            {
+                if (str_contains($message, $this->failOn)) {
+                    $this->thrownAt = microtime(true);
+
+                    throw new RuntimeException('the console went away');
+                }
+
+                parent::doWrite($message, $newline);
+            }
+        };
+
+        try {
+            new SymfonyProcessRunner($output, new RunningProcesses())
+                ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::IGNORE_SIGTERM_THEN_WAIT], \Safe\getcwd(), timeout: 30.0))
+            ;
+            self::fail('the failed write must propagate');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame('the console went away', $runtimeException->getMessage());
+        }
+
+        self::assertNotNull($output->thrownAt);
+        self::assertLessThan(0.5, microtime(true) - $output->thrownAt, 'the child was killed, not given a grace period');
+        $tree = new ProcessTree();
+        self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'and it is gone');
     }
 }

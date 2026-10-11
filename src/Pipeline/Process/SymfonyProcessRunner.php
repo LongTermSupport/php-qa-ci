@@ -71,6 +71,8 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
             });
         } finally {
             $this->running->remove($process);
+            // A no-op once the child has exited; a run ended by a throw would otherwise leave it running, unregistered.
+            $process->stop(0);
         }
 
         return new ProcessResultDto($process->getExitCode() ?? 1, $captured, $stdout);

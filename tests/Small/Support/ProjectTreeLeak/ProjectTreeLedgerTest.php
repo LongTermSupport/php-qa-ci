@@ -215,17 +215,21 @@ final class ProjectTreeLedgerTest extends TestCase
         $directory = $this->root . '/tests';
         \Safe\unlink($directory . '/ExistingTest.php');
         $remover = new Process([\PHP_BINARY, '-r', 'usleep(500000); rmdir($argv[1]);', $directory]);
-        $remover->start();
+        try {
+            $remover->start();
 
-        $presentBefore = is_dir($directory);
-        $polls         = 0;
-        while (file_exists($directory) && $polls++ < 1000) {
-            usleep(10000);
+            $presentBefore = is_dir($directory);
+            $polls         = 0;
+            while (file_exists($directory) && $polls++ < 1000) {
+                usleep(10000);
+            }
+
+            $names = Closure::bind(static fn (ProjectTreeLedger $ledger, string $directory): ?array => $ledger->names($directory), null, ProjectTreeLedger::class);
+            $read  = $names($ledger, $directory);
+            $remover->wait();
+        } finally {
+            $remover->stop(0);
         }
-
-        $names = Closure::bind(static fn (ProjectTreeLedger $ledger, string $directory): ?array => $ledger->names($directory), null, ProjectTreeLedger::class);
-        $read  = $names($ledger, $directory);
-        $remover->wait();
 
         self::assertTrue($presentBefore, 'the stat came before the removal');
         self::assertTrue($remover->isSuccessful(), $remover->getErrorOutput());

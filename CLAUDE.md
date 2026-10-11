@@ -59,6 +59,7 @@ dir) prints its page offline.
 - `phpqaci.ruleIdentifierMustBeConstant` — A PHPStan rule's identifier must be a class constant (`docs/phpstan-rules/require-rule-identifier-constant.md`)
 - `phpqaci.unanchoredVendorSubstringCheck` — Decide ownership against the project root, not a `vendor/` substring (`docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md`)
 - `phpqaci.inlinePhpstanIgnore` — No inline `@phpstan-ignore`; use `ignoreErrors` in the config (`docs/phpstan-rules/forbid-inline-phpstan-ignore.md`)
+- `phpqaci.processStopOnThrow` — A Process whose child runs alongside your code is stopped in a finally (`docs/phpstan-rules/require-process-stop-on-throw.md`)
 - `phpqaci.mockFinalClass` — Mock an interface, never a final class (`docs/phpstan-rules/forbid-mocking-final-class.md`)
 - `phpqaci.httpPrefixedEnvVars` — No Symfony env var named `HTTP_*` (`docs/phpstan-rules/forbid-http-prefixed-env-vars.md`)
 - `phpqaci.devNamespaceInProductionSource` — Dev-only code belongs under `autoload-dev` (`docs/phpstan-rules/forbid-dev-namespace-in-production-source.md`)

@@ -179,12 +179,18 @@ final class TempLeakDirectoryTest extends TestCase
             }
 
             $claims = [$this->claimProcess($parent->path), $this->claimProcess($parent->path)];
-            foreach ($claims as $claim) {
-                $claim->start();
-            }
+            try {
+                foreach ($claims as $claim) {
+                    $claim->start();
+                }
 
-            foreach ($claims as $claim) {
-                $claim->wait();
+                foreach ($claims as $claim) {
+                    $claim->wait();
+                }
+            } finally {
+                foreach ($claims as $claim) {
+                    $claim->stop(0);
+                }
             }
 
             foreach ($claims as $claim) {
@@ -202,12 +208,16 @@ final class TempLeakDirectoryTest extends TestCase
     private function deadPid(): int
     {
         $process = new Process(['sleep', '30']);
-        $process->start();
+        try {
+            $process->start();
+            $pid = $process->getPid();
+            self::assertIsInt($pid);
+            $process->signal(9);
+            $process->wait();
+        } finally {
+            $process->stop(0);
+        }
 
-        $pid = $process->getPid();
-        self::assertIsInt($pid);
-        $process->signal(9);
-        $process->wait();
         self::assertDirectoryDoesNotExist('/proc/' . $pid);
 
         return $pid;

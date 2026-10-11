@@ -38,6 +38,8 @@ final class RunLockSignalTest extends TestCase
 
     private FixtureConsumer $consumer;
 
+    private ?Process $qa = null;
+
     protected function setUp(): void
     {
         $this->consumer = FixtureConsumer::create('qa-signal');
@@ -72,6 +74,7 @@ final class RunLockSignalTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->qa?->stop(0);
         foreach ([self::GRANDCHILD_PID_FILE, self::CHILD_PID_FILE] as $file) {
             $pid = $this->pidFrom($file);
             if (null !== $pid && $this->isAlive($pid)) {
@@ -143,21 +146,21 @@ final class RunLockSignalTest extends TestCase
     /** @return array{Process, int} the running qa process and its child's pid */
     private function runUntilTheChildIsUp(): array
     {
-        $qa = $this->consumer->qa([], '-t', self::SLEEPER);
-        $qa->start();
+        // Held by the test, so tearDown() stops it whether or not the test gets that far.
+        $this->qa = $this->consumer->qa([], '-t', self::SLEEPER);
+        $this->qa->start();
 
         $deadline = microtime(true) + self::WAIT_SECONDS;
         do {
             $child = $this->pidFrom(self::CHILD_PID_FILE);
             if (null !== $child) {
-                return [$qa, $child];
+                return [$this->qa, $child];
             }
 
             usleep(50_000);
-        } while ($qa->isRunning() && microtime(true) < $deadline);
+        } while ($this->qa->isRunning() && microtime(true) < $deadline);
 
-        $qa->stop(0);
-        self::fail('the sleeper tool never started its child: ' . $qa->getOutput() . $qa->getErrorOutput());
+        self::fail('the sleeper tool never started its child: ' . $this->qa->getOutput() . $this->qa->getErrorOutput());
     }
 
     /** The pid the sleeper tool's shell wrote to $relative, once it has. */
