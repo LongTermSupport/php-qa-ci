@@ -305,7 +305,8 @@ too, naming the entry, since what Infection mutates cannot be worked out without
   are still not killed through the first load, so the report stands. The one way it reports too
   much: an Infection `phpUnit.customPath` naming a PHPUnit PHAR, which loads the project's
   autoloader only through the bootstrap, after the interceptor. The lane then crashes on a file
-  Infection could swap; the fix above is still sound, and the lane never reports too little.
+  Infection could swap; the fix above is still sound. For the project's own `vendor/autoload.php`,
+  the lane never reports too little.
 - **Next wider rule, not built**: a source file loaded before the interceptor by a PHPUnit other
   than the project's own `vendor/autoload.php` (Infection's `phpUnit.customPath` pointing at a
   PHPUnit with a different autoloader, or a Composer `vendor-dir` other than `vendor`). The
