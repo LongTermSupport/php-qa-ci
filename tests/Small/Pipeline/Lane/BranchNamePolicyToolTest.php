@@ -54,6 +54,53 @@ final class BranchNamePolicyToolTest extends TestCase
     private const string ORIGIN_MAIN = 'refs/remotes/origin/main
 ';
 
+    private const string GUIDANCE = <<<'TXT'
+
+        ==============================================================================
+        branchNamePolicy: DISALLOWED BRANCH
+        ==============================================================================
+
+        Current branch: %s
+
+        Allowed prefixes:
+            - feature/
+            - bugfix/
+            - chore/
+            - hotfix/
+
+        Rule:
+            A PR represents a new feature or a bug fix, never a single plan.
+            Plans land as commits on feature/bugfix branches.
+
+        Full convention: vendor/lts/php-qa-ci/CLAUDE/branch-policy.md
+
+        To extend the allow-list for this project (additive only), create qaConfig/branchNamePolicy.yaml with:
+            extra_allowed_prefixes:
+              - release/
+            extra_exempt_branches:
+              - integration
+
+
+        TXT;
+
+    private const string PLAN_GUIDANCE = <<<'TXT'
+        ==============================================================================
+        ‼  PLAN BRANCH DETECTED — STOP AND READ
+        ==============================================================================
+
+        You are on a plan/* branch. Plans are atomic pieces of work and MUST NOT be the unit of a PR.
+        A feature/bugfix branch may carry zero or more plans, each landing as one (or more) commit(s).
+
+        What to do:
+          1. git checkout -b feature/your-feature-name   # or bugfix/, chore/, hotfix/
+          2. Bring your plan commits onto the feature branch (cherry-pick or merge).
+          3. Open the PR from the feature branch — never from plan/*.
+
+
+        TXT;
+
+    private const string IDENTIFIER_LINE = "\n🪪  phpqaci.branchNamePolicy  (vendor/bin/rule-doc phpqaci.branchNamePolicy)\n";
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -104,9 +151,11 @@ final class BranchNamePolicyToolTest extends TestCase
         $result = new BranchNamePolicyTool()->run($this->factory->context());
 
         self::assertTrue($result->isSuccess());
-        $printed = $this->factory->output->fetch();
-        self::assertStringContainsString('Default branch detected: main', $printed);
-        self::assertStringContainsString("PASS — branch 'feature/thing' matches allowed prefix 'feature/'", $printed);
+        self::assertSame(
+            self::header('feature/thing')
+            . "[branchNamePolicy] PASS — branch 'feature/thing' matches allowed prefix 'feature/'.\n",
+            $this->factory->output->fetch(),
+        );
         self::assertSame(['git rev-parse --abbrev-ref HEAD', 'git symbolic-ref refs/remotes/origin/HEAD'], $this->factory->processes->commandLines());
     }
 
@@ -132,9 +181,14 @@ final class BranchNamePolicyToolTest extends TestCase
         $this->factory->processes->willSucceed("php8.5\n")->willFail(128)->willFail(128);
 
         self::assertTrue(new BranchNamePolicyTool()->run($this->factory->context())->isSuccess());
-        $printed = $this->factory->output->fetch();
-        self::assertStringContainsString('WARNING: could not detect default branch', $printed);
-        self::assertStringContainsString('Loading project overrides from', $printed);
+        self::assertSame(
+            "[branchNamePolicy] Current branch: php8.5\n"
+            . '[branchNamePolicy] WARNING: could not detect default branch via git symbolic-ref or git ls-remote.'
+            . " If this branch should be exempt, add it to qaConfig/branchNamePolicy.yaml under extra_exempt_branches.\n"
+            . '[branchNamePolicy] Loading project overrides from ' . $this->factory->project->path . "/qaConfig/branchNamePolicy.yaml\n"
+            . "[branchNamePolicy] PASS — branch 'php8.5' is exempt (default/protected).\n",
+            $this->factory->output->fetch(),
+        );
 
         $this->factory->processes->willSucceed("release/1.2\n")->willSucceed(self::ORIGIN_MAIN);
         self::assertTrue(new BranchNamePolicyTool()->run($this->factory->context())->isSuccess());
@@ -145,14 +199,13 @@ final class BranchNamePolicyToolTest extends TestCase
     {
         $this->factory->processes->willSucceed("wip-stuff\n")->willSucceed(self::ORIGIN_MAIN);
 
-        $result  = new BranchNamePolicyTool()->run($this->factory->context());
-        $printed = $this->factory->output->fetch();
+        $result = new BranchNamePolicyTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('DISALLOWED BRANCH', $printed);
-        self::assertStringContainsString('    - feature/', $printed);
-        self::assertStringNotContainsString('PLAN BRANCH DETECTED', $printed);
-        self::assertStringContainsString(BranchNamePolicyTool::IDENTIFIER, $printed);
+        self::assertSame(
+            self::header('wip-stuff') . \sprintf(self::GUIDANCE, 'wip-stuff') . self::IDENTIFIER_LINE,
+            $this->factory->output->fetch(),
+        );
     }
 
     #[Test]
@@ -163,7 +216,10 @@ final class BranchNamePolicyToolTest extends TestCase
         $result = new BranchNamePolicyTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('PLAN BRANCH DETECTED', $this->factory->output->fetch());
+        self::assertSame(
+            self::header('plan/00003-x') . \sprintf(self::GUIDANCE, 'plan/00003-x') . self::PLAN_GUIDANCE . self::IDENTIFIER_LINE,
+            $this->factory->output->fetch(),
+        );
     }
 
     #[Test]
@@ -178,5 +234,13 @@ final class BranchNamePolicyToolTest extends TestCase
         $this->factory->processes->willSucceed("HEAD\n");
         self::assertSame(ToolOutcomeEnum::Skipped, new BranchNamePolicyTool()->run($this->factory->context())->outcome);
         self::assertStringContainsString('Detached HEAD', $this->factory->output->fetch());
+    }
+
+    /**
+     * What every run on a branch prints before its verdict, with `main` detected as the default branch.
+     */
+    private static function header(string $branch): string
+    {
+        return '[branchNamePolicy] Current branch: ' . $branch . "\n[branchNamePolicy] Default branch detected: main\n";
     }
 }
