@@ -14,7 +14,7 @@ entry script passes the real one. Reported:
   `Safe\` wrappers) or `new SplFileObject()`, whether the name is written in the call or held in a
   variable or constant whose value PHPStan knows;
 - `new ConsoleOutput()`, Symfony's output for the process's own stdout and stderr;
-- `readline()` and the other `readline_*()` functions, which read the process's stdin;
+- PHP's `readline()` and its other `readline_*()` functions, which read the process's stdin;
 - `error_log()` with no message type, or one of `0` or `4`: both go to the SAPI logger, which is
   stderr on the command line unless `error_log` is set in `php.ini`.
 
@@ -43,6 +43,10 @@ process's stream goes past the runner:
 - **A `php://` name held as data**, such as a log target in a configuration array or a value a
   test compares: only a name that reaches one of the opening calls above is a use.
 - **`error_log()` to mail or a file** (message type `1` or `3`).
+- **A project's own function named like a readline function**, such as `readlineCount()`, or a
+  namespace's own `readline()` reached by an unqualified call there, which PHP resolves to the
+  namespace's function before its own. The namespace's function must be one PHPStan knows, from
+  an analysed path or the autoloader; one it cannot see is taken for PHP's and reported.
 - **`new StreamOutput($stream)`** with a stream the code was handed, and `BufferedOutput`.
 
 A stream name handed to a library that opens it, such as Monolog's
