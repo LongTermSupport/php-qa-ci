@@ -68,11 +68,19 @@ final class ShellCheckInstallerTest extends TestCase
     /** @var list<list<string>> the headers sent with each request, in order */
     private array $headers = [];
 
+    /** @var list<string> every URL asked for that the test gave no answer to */
+    private array $unanswered = [];
+
     protected function setUp(): void
     {
         $this->library = TempDir::create('phpqa-shellcheck-installer');
         $this->output  = new BufferedOutput();
         $this->errors  = new BufferedOutput();
+    }
+
+    protected function assertPostConditions(): void
+    {
+        self::assertSame([], $this->unanswered, 'the installer asked for a URL the test did not expect');
     }
 
     protected function tearDown(): void
@@ -284,7 +292,8 @@ final class ShellCheckInstallerTest extends TestCase
 
     /**
      * The installer, its requests answered from $responses by URL: a string is the body, a
-     * Throwable is the failure. A URL with no answer fails the test.
+     * Throwable is the failure. A URL with no answer fails too, and fails the test after it: the
+     * installer catches every failed request, so the test cannot be failed from inside one.
      *
      * @param array<string, string|Throwable> $responses
      */
@@ -296,7 +305,13 @@ final class ShellCheckInstallerTest extends TestCase
             function (string $url, string ...$headers) use ($responses): string {
                 $this->requests[] = $url;
                 $this->headers[]  = array_values($headers);
-                $response         = $responses[$url] ?? self::fail('unexpected request: ' . $url);
+                if (!\array_key_exists($url, $responses)) {
+                    $this->unanswered[] = $url;
+
+                    throw new RuntimeException('unexpected request: ' . $url);
+                }
+
+                $response = $responses[$url];
 
                 return \is_string($response) ? $response : throw $response;
             },
