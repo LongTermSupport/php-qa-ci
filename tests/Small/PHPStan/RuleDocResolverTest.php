@@ -8,8 +8,11 @@ use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\Dto\RuleDocEntryDto;
 use LTS\PHPQA\PHPStan\RuleDocResolver;
 use LTS\PHPQA\PHPStan\Rules\ForbidEmptyCatchBlockRule;
+use LTS\PHPQA\PHPStan\Rules\ForbidNullCoalescingFalseRule;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -51,6 +54,216 @@ final class RuleDocResolverTest extends TestCase
 
     /** The same, for the row that also carries a remediation link. */
     private const string PROJECT_RULE_LINKED = 'fixtureApp.projectRuleLinked';
+
+    /** Where a project declares its own indexes, relative to the project root. */
+    private const string DECLARATION = 'qaConfig/rule-docs.json';
+
+    /** Where the resolver reads this package's own index, relative to the library root. */
+    private const string OWN_INDEX = 'docs/phpstan-rules/README.md';
+
+    /** The carried PHPStan catalogue's version file: the phar version, then the source it came from. */
+    private const string CARRIED_VERSION = "2.1.99\nphpstan/phpstan 2.1.x@abc1234\n";
+
+    /** A built library or project root, removed after the test. */
+    private ?TempDir $temp = null;
+
+    protected function tearDown(): void
+    {
+        $this->temp?->remove();
+    }
+
+    #[Test]
+    public function anUnknownIdentifierNamesTheIndexThatListsTheKnownOnes(): void
+    {
+        $this->expectExceptionObject(new InvalidArgumentException(
+            'Unknown rule identifier "phpqaci.noSuchRule". Known identifiers are listed in ' . self::REPO_ROOT . '/' . self::OWN_INDEX,
+        ));
+
+        $this->resolver()->resolve('phpqaci.noSuchRule');
+    }
+
+    #[Test]
+    public function renderingAnEntryPrintsItsFieldsThenTheWholePage(): void
+    {
+        $entry = $this->resolver()->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER);
+        self::assertNotNull($entry->docPath);
+
+        self::assertSame(
+            ForbidEmptyCatchBlockRule::IDENTIFIER . "\n\n"
+            . 'Rule:    ' . self::EMPTY_CATCH_RULE_CLASS . "\n"
+            . "Bundle:  rules-default.neon\n"
+            . 'Source:  ' . $entry->sourcePath . "\n"
+            . 'Summary: ' . $entry->summary . "\n"
+            . "\n" . \Safe\file_get_contents($entry->docPath),
+            $this->resolver()->render(ForbidEmptyCatchBlockRule::IDENTIFIER),
+        );
+    }
+
+    /**
+     * The shipped index has two tables: always-on rows carry no bundle cell, and
+     * opt-in rows carry one that links the neon file they are switched on from.
+     */
+    #[Test]
+    public function aRowsBundleIsTheNeonItsBundleCellLinksOrTheDefaultWhenItHasNone(): void
+    {
+        $resolver = $this->resolver();
+
+        self::assertSame('rules-default.neon', $resolver->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER)->bundle);
+        self::assertSame('rules-optional.neon', $resolver->resolve(ForbidNullCoalescingFalseRule::IDENTIFIER)->bundle);
+    }
+
+    #[Test]
+    public function aProjectRowsNamedSummaryIsNeverReportedAsItsBundle(): void
+    {
+        $entry = $this->projectResolver()->resolve(self::PROJECT_RULE);
+
+        self::assertNotSame($entry->summary, $entry->bundle);
+    }
+
+    #[Test]
+    public function aCarriedPhpstanPageIsPrintedWithItsProvenanceAndShortDescriptionAndWithoutItsFrontMatter(): void
+    {
+        $library = $this->library();
+        $library->write(
+            PhpstanDocsCatalogue::PAGES . '/fixture.carried.md',
+            "---\ntitle: \"fixture.carried\"\nshortDescription: \"Quotes \\\"this\\\" back\"\n---\n\n# Body heading\n\nBody text.\n",
+        );
+
+        self::assertSame(
+            "fixture.carried\n\n"
+            . "Catalogue: PHPStan's, carried offline in vendor-docs/phpstan (phpstan/phpstan 2.1.x@abc1234, alongside phpstan.phar 2.1.99)\n"
+            . "Summary:   Quotes \"this\" back\n"
+            . "Online:    https://phpstan.org/error-identifiers/fixture.carried\n"
+            . "\n# Body heading\n\nBody text.\n",
+            new RuleDocResolver($library->path)->render('fixture.carried'),
+        );
+    }
+
+    #[Test]
+    public function aCarriedPageWithNoFrontMatterHasNoSummaryLine(): void
+    {
+        $library = $this->library();
+        $library->write(PhpstanDocsCatalogue::PAGES . '/fixture.plain.md', "\n\n# Plain page\n");
+
+        self::assertSame(
+            "fixture.plain\n\n"
+            . "Catalogue: PHPStan's, carried offline in vendor-docs/phpstan (phpstan/phpstan 2.1.x@abc1234, alongside phpstan.phar 2.1.99)\n"
+            . "Online:    https://phpstan.org/error-identifiers/fixture.plain\n"
+            . "\n# Plain page\n",
+            new RuleDocResolver($library->path)->render('fixture.plain'),
+        );
+    }
+
+    #[Test]
+    public function anExtensionPageIsPrintedAsThisPackagesOwnNotAsPhpstans(): void
+    {
+        $library = $this->library();
+        $library->write('docs/phpstan-extension-rules/fixture.extension.md', "# Extension page\n");
+
+        self::assertSame(
+            "fixture.extension\n\nCatalogue: php-qa-ci's page for a PHPStan extension it installs\n\n# Extension page\n",
+            new RuleDocResolver($library->path)->render('fixture.extension'),
+        );
+    }
+
+    #[Test]
+    public function anIdentifierInNoCatalogueNamesTheCarriedVersionAndPhpstansOnlinePage(): void
+    {
+        self::assertSame(
+            "noSuch.anywhere\n\n"
+            . "This identifier is in none of the catalogues php-qa-ci carries offline: its own,\n"
+            . "PHPStan's at 2.1.99, and the pages for the PHPStan extensions it installs. A newer PHPStan\n"
+            . "or an extension php-qa-ci does not ship may print it. PHPStan documents its own at:\n"
+            . "  https://phpstan.org/error-identifiers/noSuch.anywhere\n",
+            new RuleDocResolver($this->library()->path)->render('noSuch.anywhere'),
+        );
+    }
+
+    /**
+     * This package owns the phpqaci.* namespace: a project row claiming one of
+     * its identifiers would make that failure resolve to the project's page.
+     */
+    #[Test]
+    public function aProjectRowCannotShadowAShippedIdentifier(): void
+    {
+        $project = $this->project(
+            '{"indexes": ["rules.md"]}',
+            ['rules.md' => '| `' . ForbidEmptyCatchBlockRule::IDENTIFIER . "` | `ShadowRule` | A project row claiming a shipped identifier |\n"],
+        );
+
+        self::assertSame(
+            self::EMPTY_CATCH_RULE_CLASS,
+            new RuleDocResolver(self::REPO_ROOT, $project->path)->resolve(ForbidEmptyCatchBlockRule::IDENTIFIER)->ruleClass,
+        );
+    }
+
+    #[Test]
+    #[DataProvider('malformedDeclarations')]
+    public function aMalformedDeclarationAddsNothingAndBreaksNothing(string $declaration): void
+    {
+        $project = $this->project($declaration, ['rules.md' => "| `fixtureApp.ignored` | `IgnoredRule` | Never read |\n"]);
+
+        self::assertSame(
+            $this->resolver()->identifiers(),
+            new RuleDocResolver(self::REPO_ROOT, $project->path)->identifiers(),
+        );
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function malformedDeclarations(): iterable
+    {
+        yield 'not an object' => ['"rules.md"'];
+        yield 'no indexes key' => ['{"index": ["rules.md"]}'];
+        yield 'indexes not a list' => ['{"indexes": "rules.md"}'];
+    }
+
+    /**
+     * A bare class cell resolves beside its index unless the declaration names a
+     * rulesDir, a class cell with a slash resolves under the project root, and a
+     * declared path's leading and trailing slashes are not part of it. None of the
+     * classes exists, so each path is reported exactly as it was built.
+     */
+    #[Test]
+    public function eachProjectClassCellResolvesUnderTheRootItsDeclarationGives(): void
+    {
+        $project = $this->project(
+            '{"indexes": ["/rules/index.md", {"path": "rules/more.md", "rulesDir": "/lib/Rules/"}]}',
+            [
+                'rules/index.md' => "| `fixtureApp.bareRule` | `BareRule` | A bare class cell beside its index |\n"
+                    . "| `fixtureApp.pathRule` | `src/Checks/PathRule` | A class cell that is a project path |\n",
+                'rules/more.md'  => "| `fixtureApp.declaredRule` | `DeclaredRule` | A bare class cell under the declared rules dir |\n",
+            ],
+        );
+        $resolver = new RuleDocResolver(self::REPO_ROOT, $project->path);
+
+        self::assertSame($project->path . '/rules/BareRule.php', $resolver->resolve('fixtureApp.bareRule')->sourcePath);
+        self::assertSame($project->path . '/src/Checks/PathRule.php', $resolver->resolve('fixtureApp.pathRule')->sourcePath);
+        self::assertSame($project->path . '/lib/Rules/DeclaredRule.php', $resolver->resolve('fixtureApp.declaredRule')->sourcePath);
+    }
+
+    /**
+     * A table indented under a list item still has its header read, and a row
+     * that stops short of the named summary column falls back to its last cell
+     * rather than reading a cell that is not there.
+     */
+    #[Test]
+    public function anIndentedHeaderIsReadAndAShortRowFallsBackToItsLastCell(): void
+    {
+        $project = $this->project(
+            '{"indexes": ["rules.md"]}',
+            ['rules.md' => "  | Identifier | Rule class | Summary | Origin |\n"
+                . "  | --- | --- | --- | --- |\n"
+                . "| `fixtureApp.indented` | `IndentedRule` | The summary column | Plan 00009 |\n"
+                . "\n"
+                . "| Identifier | Rule class | Origin | Notes | Summary |\n"
+                . "| --- | --- | --- | --- | --- |\n"
+                . "| `fixtureApp.shortRow` | `ShortRule` | A row that stops before its summary column |\n"],
+        );
+        $resolver = new RuleDocResolver(self::REPO_ROOT, $project->path);
+
+        self::assertSame('The summary column', $resolver->resolve('fixtureApp.indented')->summary);
+        self::assertSame('A row that stops before its summary column', $resolver->resolve('fixtureApp.shortRow')->summary);
+    }
 
     #[Test]
     public function anIdentifierWithARemediationPageResolvesToThatPage(): void
@@ -109,15 +322,6 @@ final class RuleDocResolverTest extends TestCase
         self::assertNotNull($entry->docPath, 'a bracketed span in link text must not break resolution');
         self::assertStringEndsWith('fixture-nested.md', $entry->docPath);
         self::assertSame('`#[\Attr]` in the link text', $entry->summary);
-    }
-
-    #[Test]
-    public function anUnknownIdentifierIsAnError(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIsOrContains('phpqaci.noSuchRule');
-
-        $this->resolver()->resolve('phpqaci.noSuchRule');
     }
 
     /**
@@ -287,5 +491,32 @@ final class RuleDocResolverTest extends TestCase
     private function resolver(): RuleDocResolver
     {
         return new RuleDocResolver(self::REPO_ROOT);
+    }
+
+    /** A library root with an empty own index and a carried PHPStan catalogue at a known version. */
+    private function library(): TempDir
+    {
+        $this->temp = TempDir::create('rule-doc-library');
+        $this->temp->write(self::OWN_INDEX, "# An index with no rows\n");
+        $this->temp->write(PhpstanDocsCatalogue::VERSION_FILE, self::CARRIED_VERSION);
+        $this->temp->mkdir(PhpstanDocsCatalogue::PAGES);
+
+        return $this->temp;
+    }
+
+    /**
+     * A project root with the given rule-docs.json and index files.
+     *
+     * @param array<string, string> $indexes project-relative path => contents
+     */
+    private function project(string $declaration, array $indexes): TempDir
+    {
+        $this->temp = TempDir::create('rule-doc-project');
+        $this->temp->write(self::DECLARATION, $declaration);
+        foreach ($indexes as $path => $contents) {
+            $this->temp->write($path, $contents);
+        }
+
+        return $this->temp;
     }
 }
