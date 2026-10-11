@@ -39,6 +39,8 @@ final class ForbidMagicStringAssertionRuleTest extends TestCase
 
     private const string FIXTURE_VALUE = 'desk';
 
+    private const string STATUS_VALUE = 'active';
+
     private ForbidMagicStringAssertionRule $rule;
 
     protected function setUp(): void
@@ -67,7 +69,7 @@ final class ForbidMagicStringAssertionRuleTest extends TestCase
     {
         // $this->assertSame('active', $x)
         $call  = new MethodCall(new Variable('this'), new Identifier(self::ASSERT_SAME), [
-            new Arg(new String_('active')),
+            new Arg(new String_(self::STATUS_VALUE)),
             new Arg(new Variable('x')),
         ]);
         $scope = $this->scopeReturning(new StringType());
@@ -181,12 +183,77 @@ final class ForbidMagicStringAssertionRuleTest extends TestCase
         // a general string from domain code → still a smell.
         $call  = $this->staticAssert(
             self::ASSERT_SAME,
-            new String_('active'),
+            new String_(self::STATUS_VALUE),
             new MethodCall(new Variable('repo'), new Identifier('getStatus')),
         );
         $scope = $this->scopeReturning(new StringType());
 
         self::assertCount(1, $this->rule->processNode($call, $scope));
+    }
+
+    #[Test]
+    public function theErrorNamesTheLiteralBothWaysAndCarriesTheIdentifier(): void
+    {
+        $call  = $this->staticAssert(self::ASSERT_SAME, new String_(self::FIXTURE_VALUE), new Variable('x'));
+        $scope = $this->scopeReturning(new StringType());
+
+        $errors = $this->rule->processNode($call, $scope);
+
+        self::assertCount(1, $errors);
+        self::assertSame(
+            'Asserting the magic string "desk" against a plain string value — a test is bridging certainty that a '
+            . 'type or a single definition should provide. Fix it one of two ways: '
+            . '(1) DOMAIN value (a closed set like a status, type, or action): model it as a backed enum (or a '
+            . 'domain constant) in production and assert the enum case / constant — the type system then '
+            . 'guarantees it and the assertion becomes unnecessary; '
+            . '(2) TEST DATA (a fixture id, key, or sample value): hoist "desk" to a test-level private const and '
+            . 'reference it from both the arrange step and the assertion, so the value is defined once instead of '
+            . 'duplicated. Either way, do not pin a raw magic string in the assertion.',
+            $errors[0]->getMessage(),
+        );
+        self::assertSame(ForbidMagicStringAssertionRule::IDENTIFIER, $errors[0]->getIdentifier());
+    }
+
+    #[Test]
+    public function bothOperandsLiteralIsNotFlaggedEvenWhenTheScopeSaysGeneralString(): void
+    {
+        // The literal-pair branch must refuse on the node shape alone, not lean
+        // on the constant-string type gate further down.
+        $call  = $this->staticAssert(self::ASSERT_SAME, new String_(self::FIXTURE_VALUE), new String_(self::STATUS_VALUE));
+        $scope = $this->scopeReturning(new StringType());
+
+        self::assertSame([], $this->rule->processNode($call, $scope));
+    }
+
+    #[Test]
+    public function noLiteralOperandIsNotFlagged(): void
+    {
+        $call  = $this->staticAssert(self::ASSERT_SAME, new Variable('expected'), new Variable('x'));
+        $scope = $this->scopeReturning(new StringType());
+
+        self::assertSame([], $this->rule->processNode($call, $scope));
+    }
+
+    #[Test]
+    public function aStaticCallNamedLikeAMetadataAccessorStillFlags(): void
+    {
+        // Only an instance call is the Reflection / PSR-7 accessor; Status::getName()
+        // is a domain value like any other.
+        $call  = $this->staticAssert(
+            self::ASSERT_SAME,
+            new String_(self::STATUS_VALUE),
+            new StaticCall(new Name('Status'), new Identifier('getName')),
+        );
+        $scope = $this->scopeReturning(new StringType());
+
+        self::assertCount(1, $this->rule->processNode($call, $scope));
+    }
+
+    #[Test]
+    public function anIdentifierIsAtMostFortyCharacters(): void
+    {
+        self::assertTrue(ForbidMagicStringAssertionRule::isIdentifierLike(str_repeat('a', 40)));
+        self::assertFalse(ForbidMagicStringAssertionRule::isIdentifierLike(str_repeat('a', 41)));
     }
 
     #[Test]
