@@ -6,17 +6,21 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use Closure;
 use FilesystemIterator;
+use InvalidArgumentException;
 use JsonException;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\Infection\AutoloadIncludedFilesProbe;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig;
+use LTS\PHPQA\Pipeline\Lane\Infection\IncludedFilesProbeInterface;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffBaseResolver;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionFullRunTriggers;
+use LTS\PHPQA\Pipeline\Lane\Infection\PreloadedSourceFinder;
 use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -55,7 +59,10 @@ use SplFileInfo;
  * composer.lock and the rest of qaConfig/ do not. A file whose change is only
  * comments, docblocks or whitespace is named and not mutated. Uncommitted
  * work refuses an explicit base; in auto mode it is mutated as it is on disk
- * and named in a warning. The phar runs at low CPU priority.
+ * and named in a warning. Before coverage is generated, the lane crashes
+ * when a file it would mutate is already loaded by the time PHPUnit's
+ * bootstrap starts (checkPreloadedSource()), since Infection cannot swap such
+ * a file for a mutant. The phar runs at low CPU priority.
  *
  * @internal
  */
@@ -76,6 +83,9 @@ final readonly class InfectionTool implements ToolInterface
     /** The line pointing at the JSON log, which holds every judged mutant's test output. */
     private const string EVERY_MUTANT = '           Every mutant, with its test output: ';
 
+    /** The indent of every line after the first of a message. */
+    private const string INDENT = '           ';
+
     public function __construct(
         private InfectionArguments $arguments = new InfectionArguments(),
         private InfectionDiffFilter $diffFilter = new InfectionDiffFilter(),
@@ -84,6 +94,8 @@ final readonly class InfectionTool implements ToolInterface
         private ?EnvironmentReader $environment = null,
         private InfectionFullRunTriggers $fullRunTriggers = new InfectionFullRunTriggers(),
         private VacuousKillDetector $vacuousKills = new VacuousKillDetector(),
+        private IncludedFilesProbeInterface $includedFiles = new AutoloadIncludedFilesProbe(),
+        private PreloadedSourceFinder $preloadedSource = new PreloadedSourceFinder(),
     ) {
     }
 
@@ -114,7 +126,7 @@ final readonly class InfectionTool implements ToolInterface
             return $runConfig;
         }
 
-        [$configPath, $jsonLog] = $runConfig;
+        [$configPath, $jsonLog, $source] = $runConfig;
 
         $base = $this->diffBaseResolver->resolve(
             $options,
@@ -132,6 +144,11 @@ final readonly class InfectionTool implements ToolInterface
             }
 
             $positionalPaths = $scope;
+        }
+
+        $preloaded = $this->checkPreloadedSource($context, $source, ...$positionalPaths);
+        if ($preloaded instanceof ToolResultDto) {
+            return $preloaded;
         }
 
         $logsDir        = $paths->varDir . '/phpunit_logs';
@@ -183,7 +200,7 @@ final readonly class InfectionTool implements ToolInterface
      * judgeKills() to read. Returns the lane's result instead when the config
      * cannot be read or every source directory is ignored.
      *
-     * @return array{string, string}|ToolResultDto the config path and the JSON log path
+     * @return array{string, string, array<array-key, mixed>}|ToolResultDto the config path, the JSON log path and the config's `source`
      */
     private function runConfig(ToolContext $context): array|ToolResultDto
     {
@@ -226,7 +243,73 @@ final readonly class InfectionTool implements ToolInterface
             $context->writeln('Infection: the ignored paths under its source directories are excluded through ' . $path);
         }
 
-        return [$path, $jsonLog];
+        return [$path, $jsonLog, $source];
+    }
+
+    /**
+     * Infection swaps a file for its mutant by intercepting the include that
+     * loads it, from its own bootstrap on; PHPUnit's runner loads Composer's
+     * autoloader, and so runs every autoload `files` entry, before any
+     * bootstrap. A file Infection mutates that is loaded by then keeps its
+     * original code in every mutant run, and each of its mutants escapes
+     * whatever the tests assert (#155). The project's autoloader is loaded as
+     * PHPUnit loads it (IncludedFilesProbeInterface) and what that included is
+     * held against the files this run mutates (PreloadedSourceFinder): the
+     * config's source directories less its excludes, and on a diff run only
+     * $scope. Any such file crashes the lane before coverage is paid for, and
+     * so does a probe that cannot say, since then no score could be trusted.
+     *
+     * @param array<array-key, mixed> $source   the `source` of the config Infection runs with
+     * @param string                  ...$scope the files a diff run passes Infection; none for a full run
+     */
+    private function checkPreloadedSource(ToolContext $context, array $source, string ...$scope): ?ToolResultDto
+    {
+        $autoload = $context->config->paths->projectRoot . '/vendor/autoload.php';
+        $loaded   = $this->includedFiles->includedFiles($context, $autoload);
+        if (\is_string($loaded)) {
+            $context->writeln(\sprintf("Infection: loading %s as PHPUnit's runner loads it, to check that no file Infection mutates is loaded before Infection can swap it for a mutant, failed: %s", $autoload, str_replace("\n", "\n" . self::INDENT, $loaded)));
+            $context->writeln(self::INDENT . 'PHPUnit loads that autoloader before every test, so no mutant run can start until it loads.');
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::crashed('the autoloader could not be loaded as PHPUnit loads it');
+        }
+
+        try {
+            $found = $this->preloadedSource->find($this->strings($source['directories'] ?? null), $this->strings($source['excludes'] ?? null), $loaded, ...$scope);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            $context->writeln('Infection: ' . $invalidArgumentException->getMessage() . '.');
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::crashed('an infection.json source exclude is not a valid regular expression');
+        }
+
+        if ([] === $found) {
+            return null;
+        }
+
+        $context->writeln(\sprintf("Infection: %d file(s) it would mutate are already loaded when PHPUnit's bootstrap starts, so none of their mutants can be killed:", \count($found)));
+        foreach (\array_slice($found, 0, self::UNMAPPED_SHOWN) as $file) {
+            $context->writeln(self::INDENT . $file);
+        }
+
+        if (\count($found) > self::UNMAPPED_SHOWN) {
+            $context->writeln(\sprintf('%sand %d more', self::INDENT, \count($found) - self::UNMAPPED_SHOWN));
+        }
+
+        $context->writeln(self::INDENT . 'PHPUnit loads Composer\'s autoloader before any bootstrap, and Composer runs every autoload "files" entry then.');
+        $context->writeln(self::INDENT . 'Infection swaps a file for its mutant only when the file is included after its own bootstrap starts, so these');
+        $context->writeln(self::INDENT . 'keep their original code in every mutant run: each of their mutants escapes whatever the tests assert.');
+        $context->writeln(self::INDENT . 'Load nothing Infection mutates from an autoload or autoload-dev "files" entry in composer.json, directly or');
+        $context->writeln(self::INDENT . 'through a class it uses, as docs/tools/infection.md describes.');
+        $context->writeIdentifier(self::IDENTIFIER);
+
+        return ToolResultDto::crashed(\sprintf('%d file(s) Infection mutates are loaded before it can swap them for mutants', \count($found)));
+    }
+
+    /** @return list<string> */
+    private function strings(mixed $value): array
+    {
+        return \is_array($value) ? array_values(array_filter($value, \is_string(...))) : [];
     }
 
     /**

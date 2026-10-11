@@ -109,6 +109,7 @@
   },
   "bin": [
     "bin/arkitect-rule",
+    "bin/autoload-included-files",
     "bin/changelog-release",
     "bin/composer-require-checker",
     "bin/config-template-ignorelist-check",
