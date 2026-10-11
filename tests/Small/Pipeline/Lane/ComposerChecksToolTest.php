@@ -304,7 +304,7 @@ final class ComposerChecksToolTest extends TestCase
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
 
         self::assertSame(
-            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . self::heading('Checking Composer Normalisation (read-only)') . self::DUMP_HEADING,
+            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . $this->heading('Checking Composer Normalisation (read-only)') . self::DUMP_HEADING,
             $this->factory->output->fetch(),
         );
     }
@@ -317,7 +317,7 @@ final class ComposerChecksToolTest extends TestCase
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(
-            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . self::heading('Running Composer Normalise') . self::DUMP_HEADING,
+            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . $this->heading('Running Composer Normalise') . self::DUMP_HEADING,
             $this->factory->output->fetch(),
         );
     }
@@ -391,7 +391,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->project->write('path-bin/composer', "#!/bin/sh\n");
         $bin = $this->factory->project->path . '/path-bin';
-        chmod($bin . '/composer', 0o755);
+        \Safe\chmod($bin . '/composer', 0o755);
         $this->factory->processes->willSucceed()->willFail(1);
 
         $this->runWithPath($bin);
@@ -422,16 +422,16 @@ final class ComposerChecksToolTest extends TestCase
     private function runWithPath(string $directory): void
     {
         $path = getenv('PATH');
-        putenv('PATH=' . $directory);
+        \Safe\putenv('PATH=' . $directory);
         try {
             new ComposerChecksTool()->run($this->factory->context());
         } finally {
-            putenv(false === $path ? 'PATH' : 'PATH=' . $path);
+            \Safe\putenv(false === $path ? 'PATH' : 'PATH=' . $path);
         }
     }
 
     /** A step heading as the lane prints it: two blank lines, the title, the rule and a blank line. */
-    private static function heading(string $title): string
+    private function heading(string $title): string
     {
         return "\n\n" . $title . "\n---------------------\n\n";
     }
