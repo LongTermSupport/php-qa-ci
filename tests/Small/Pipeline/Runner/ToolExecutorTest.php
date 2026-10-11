@@ -50,6 +50,10 @@ final class ToolExecutorTest extends TestCase
 
     private const string STAN = 'stan';
 
+    private const string LINT_RAN = "[lint ran]\n";
+
+    private const string DEFENCE_BEFORE_FIX_LINE = 'Defence Before Fix (DBF): https://defence-before-fix.github.io/ - agent prompt: https://defence-before-fix.github.io/defence-before-fix-project-prompt.md';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -73,6 +77,7 @@ final class ToolExecutorTest extends TestCase
         self::assertTrue($execution->result->isSuccess());
         self::assertFalse($execution->retried);
         self::assertSame(1, $locator->stub(self::TOOL_LINT)->runs);
+        self::assertSame(self::LINT_RAN, $this->factory->output->fetch(), 'a pass prints no banner');
     }
 
     #[Test]
@@ -86,10 +91,19 @@ final class ToolExecutorTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $execution->result->outcome);
         self::assertFalse($execution->retried);
         self::assertSame(1, $locator->stub(self::TOOL_LINT)->runs);
-        $printed = $this->factory->output->fetch();
-        self::assertStringContainsString('lint Failed...', $printed);
-        self::assertStringContainsString('3 files', $printed);
-        self::assertStringContainsString("        Defence Before Fix (DBF): https://defence-before-fix.github.io/ - agent prompt: https://defence-before-fix.github.io/defence-before-fix-project-prompt.md\n", $printed);
+        self::assertSame(self::LINT_RAN . $this->banner("        lint Failed...\n        3 files\n"), $this->factory->output->fetch());
+    }
+
+    /** A failure with no summary prints the banner without a summary line. */
+    #[Test]
+    public function aFailureWithNoSummaryPrintsTheBannerWithoutASummaryLine(): void
+    {
+        $locator  = new FakeToolLocator()->register(new StubTool(self::TOOL_LINT, ToolResultDto::failed('')));
+        $executor = new ToolExecutor($locator, new NonInteractiveRetryPrompt(), $this->factory->output);
+
+        $executor->execute(self::TOOL_LINT, $this->factory->context());
+
+        self::assertSame(self::LINT_RAN . $this->banner("        lint Failed...\n"), $this->factory->output->fetch());
     }
 
     #[Test]
@@ -130,6 +144,14 @@ final class ToolExecutorTest extends TestCase
         self::assertStringContainsString('invalid choice: maybe', $output->fetch());
         self::assertFalse($prompt->shouldRetry(self::TOOL_LINT));
         self::assertFalse($prompt->shouldRetry(self::TOOL_LINT), 'end of input is a no');
+    }
+
+    /** The whole failure banner around the given heading lines, as the executor prints it. */
+    private function banner(string $heading): string
+    {
+        $rule = "    ==================================================\n";
+
+        return "\n" . $rule . "\n" . $heading . "\n        " . self::DEFENCE_BEFORE_FIX_LINE . "\n\n" . $rule . "\n";
     }
 }
 
