@@ -53,6 +53,14 @@ final class RectorToolTest extends TestCase
 
     private const string PHP85_CONFIG = 'rector-php85.php';
 
+    private const string PHPUNIT_PASS_LINE = 'Running PHPUnit Rector on ';
+
+    private const string RECTOR_TMP = '/rector';
+
+    private const string EMPTY_CONFIG = "<?php\n";
+
+    private const string IDENTIFIER_FOOTER ="\n🪪  phpqaci.rector  (vendor/bin/rule-doc phpqaci.rector)\n";
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -81,7 +89,7 @@ final class RectorToolTest extends TestCase
 
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString("Running Rector ('Safe') in read-only check mode", $printed);
-        self::assertStringContainsString('Running PHPUnit Rector on ' . $context->config->paths->testsDir, $printed);
+        self::assertStringContainsString(self::PHPUNIT_PASS_LINE . $context->config->paths->testsDir, $printed);
         self::assertStringContainsString("Running Rector ('PHP 8.5') in read-only check mode", $printed);
         self::assertStringNotContainsString(self::ADVISORY, $printed);
     }
@@ -112,7 +120,7 @@ final class RectorToolTest extends TestCase
 
         $testFile = $context->config->paths->testsDir . '/Unit/OneTest.php';
         self::assertSame($this->expectedArgs($context, self::PHPUNIT_CONFIG, true, $testFile), $this->toolArgs(1));
-        self::assertStringContainsString('Running PHPUnit Rector on ' . $testFile, $this->factory->output->fetch());
+        self::assertStringContainsString(self::PHPUNIT_PASS_LINE . $testFile, $this->factory->output->fetch());
     }
 
     /** `./` and `..` segments name the same file, so they must not move it outside the tests directory. */
@@ -164,10 +172,38 @@ final class RectorToolTest extends TestCase
             self::assertNotContains('--dry-run', $spec->command);
         }
 
-        $printed = $this->factory->output->fetch();
-        self::assertStringContainsString("Running Rector ('Safe')", $printed);
-        self::assertStringContainsString(self::ADVISORY, $printed);
-        self::assertStringContainsString('Roll with Rector. It is part of the gate, not an obstacle to it.', $printed);
+        $rule = str_repeat('-', 78) . "\n";
+        self::assertSame(
+            "Running Rector ('Safe')\n"
+            . self::PHPUNIT_PASS_LINE . $context->config->paths->testsDir . "\n"
+            . "Running Rector ('PHPUnit')\n"
+            . "Running Rector ('PHP 8.5')\n"
+            . "\n"
+            . $rule
+            . self::ADVISORY . "\n"
+            . $rule
+            . "Rector is a DETERMINISTIC, CONFIG-DRIVEN autofixer. Every edit it just made is\n"
+            . "intentional and part of the standard — treat it as authoritative, not as a\n"
+            . "suggestion to negotiate:\n"
+            . "\n"
+            . "  - Do NOT revert, undo, partially back out, or hand-\"tidy\" a Rector edit to\n"
+            . "    keep a smaller or \"cleaner\" diff. The change is reproducible from the config,\n"
+            . "    so a local revert is simply re-applied on the next run — reverting Rector is\n"
+            . "    wasted effort and is forbidden.\n"
+            . "  - KEEP every change. When a Rector edit surfaces a DOWNSTREAM error (most\n"
+            . "    commonly a PHPStan type error from a newly-precise \\Safe\\* return type, or\n"
+            . "    mutation debt dragged in when a touched file enters the diff-MSI gate), fix\n"
+            . "    the CAUSE the honest way — narrow the type, write the missing test — NEVER by\n"
+            . "    reverting the Rector edit or suppressing the follow-on check.\n"
+            . "  - COMMIT what Rector produced. Prefer an ATOMIC commit of just the autofix\n"
+            . "    output (e.g. \"style: apply Rector autofixes\"), kept separate from your\n"
+            . "    feature/bugfix change so the mechanical rewrite is trivial to review.\n"
+            . "\n"
+            . "Roll with Rector. It is part of the gate, not an obstacle to it.\n"
+            . $rule
+            . "\n",
+            $this->factory->output->fetch(),
+        );
     }
 
     #[Test]
@@ -181,7 +217,7 @@ final class RectorToolTest extends TestCase
 
         foreach ($this->rectorSpecs() as $spec) {
             self::assertSame($config->paths->projectRoot, $spec->cwd);
-            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated", 'TMPDIR' => $config->paths->cacheDir . '/rector', 'XDEBUG_MODE' => 'off'], $spec->env);
+            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated", 'TMPDIR' => $config->paths->cacheDir . self::RECTOR_TMP, 'XDEBUG_MODE' => 'off'], $spec->env);
             self::assertContains($config->paths->pharDir . '/rector.phar', $spec->command);
         }
     }
@@ -191,7 +227,7 @@ final class RectorToolTest extends TestCase
     {
         $this->queuePasses(0, 0, 0);
         $config = $this->factory->builder(readOnly: true)->build();
-        $tmpDir = $config->paths->cacheDir . '/rector';
+        $tmpDir = $config->paths->cacheDir . self::RECTOR_TMP;
         self::assertDirectoryDoesNotExist($tmpDir);
 
         new RectorTool()->run($this->factory->context($config));
@@ -214,8 +250,8 @@ final class RectorToolTest extends TestCase
     public function aProjectRectorReplacesThePhp85Pass(): void
     {
         $this->queuePasses(0, 0, 0, 0);
-        $rootConfig     = $this->factory->project->write('rector.php', "<?php\n");
-        $qaConfigConfig = $this->factory->project->write('qaConfig/rector.php', "<?php\n");
+        $rootConfig     = $this->factory->project->write('rector.php', self::EMPTY_CONFIG);
+        $qaConfigConfig = $this->factory->project->write('qaConfig/rector.php', self::EMPTY_CONFIG);
         $context        = $this->context(readOnly: true);
 
         $result = new RectorTool()->run($context);
@@ -313,11 +349,74 @@ final class RectorToolTest extends TestCase
         $result  = new RectorTool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
+        $phar = $noPhars->pharDir . '/rector.phar';
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('Rector PHAR not found at ' . $phar, $result->summary);
         self::assertSame([], $this->rectorSpecs());
-        self::assertStringContainsString('ERROR: Rector PHAR not found at ' . $noPhars->pharDir . '/rector.phar', $printed);
-        self::assertStringContainsString('scripts/build-rector-phar.bash', $printed);
-        self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
+        self::assertSame(
+            'ERROR: Rector PHAR not found at ' . $phar . "\n"
+            . "It should be committed under vendor-phar/. Reinstall php-qa-ci, or\n"
+            . "(maintainer) rebuild it: scripts/build-rector-phar.bash\n"
+            . self::IDENTIFIER_FOOTER,
+            $printed,
+        );
+    }
+
+    /** Each project config is looked for on its own: a missing root rector.php does not end the search. */
+    #[Test]
+    public function aQaConfigRectorWithNoRootRectorStillReplacesThePhp85Pass(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $qaConfigConfig = $this->factory->project->write('qaConfig/rector.php', self::EMPTY_CONFIG);
+        $context        = $this->context(readOnly: true);
+
+        $result = new RectorTool()->run($context);
+
+        self::assertTrue($result->isSuccess());
+        self::assertCount(3, $this->rectorSpecs());
+        self::assertSame($this->expectedArgsForConfig($context, $qaConfigConfig, true, ...$context->config->pathsToCheck), $this->toolArgs(2));
+        self::assertStringContainsString('Skipping standard PHP 8.5 Rector as we assume its handled in project rector', $this->factory->output->fetch());
+    }
+
+    /** `tests` begins with `test`, but `test/` is not its parent, so the PHPUnit pass has nothing to run on. */
+    #[Test]
+    public function aCheckedPathThatIsOnlyAStringPrefixOfTheTestsDirectoryDoesNotContainIt(): void
+    {
+        $this->queuePasses(0, 0);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, specifiedPath: 'test')->build());
+
+        new RectorTool()->run($context);
+
+        self::assertCount(2, $this->rectorSpecs(), 'only the Safe and PHP 8.5 passes run');
+        self::assertStringContainsString('Skipping PHPUnit Rector: no checked path is inside ' . $context->config->paths->testsDir, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function twoCheckedPathsThatBothNameTheTestsDirectoryGiveThePhpunitPassItOnce(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $config  = $this->factory->builder(readOnly: true, specifiedPath: '.')->withCheckedPaths('tests')->build();
+        $context = $this->factory->context($config);
+
+        new RectorTool()->run($context);
+
+        self::assertSame($this->expectedArgs($context, self::PHPUNIT_CONFIG, true, $config->paths->testsDir), $this->toolArgs(1));
+    }
+
+    #[Test]
+    public function theRectorTempDirectoryIsCreatedWithFullPermissionsLessTheUmask(): void
+    {
+        $this->queuePasses(0, 0, 0);
+        $config   = $this->factory->builder(readOnly: true)->build();
+        $previous = umask(0o022);
+
+        try {
+            new RectorTool()->run($this->factory->context($config));
+        } finally {
+            umask($previous);
+        }
+
+        self::assertSame(0o755, \Safe\fileperms($config->paths->cacheDir . self::RECTOR_TMP) & 0o7777);
     }
 
     #[Test]
