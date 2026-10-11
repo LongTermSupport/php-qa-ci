@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Safe\Exceptions\PosixException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process;
 
@@ -289,8 +290,17 @@ final class RunningProcessesTest extends TestCase
     {
         $tree = new ProcessTree();
         foreach ($pids as $pid) {
-            if ($tree->isAlive($pid)) {
+            if (!$tree->isAlive($pid)) {
+                continue;
+            }
+
+            try {
                 \Safe\posix_kill($pid, \SIGKILL);
+            } catch (PosixException $posixException) {
+                // It exited between the check and the kill; a failure here would hide the test's own.
+                if ($tree->isAlive($pid)) {
+                    throw $posixException;
+                }
             }
         }
     }
