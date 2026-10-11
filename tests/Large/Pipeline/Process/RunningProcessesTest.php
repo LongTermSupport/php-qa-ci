@@ -95,6 +95,35 @@ final class RunningProcessesTest extends TestCase
         }
     }
 
+    /**
+     * The grace period is an upper bound, not a wait: once the child and every
+     * descendant have gone, stopAll returns. The child itself is ended by the
+     * SIGTERM sent through Symfony, so it reports 128 + 15.
+     */
+    #[Test]
+    public function stopAllReturnsAsSoonAsTheChildAndItsDescendantsHaveGone(): void
+    {
+        $running     = new RunningProcesses();
+        $tool        = $this->toolWithDescendants(self::EXEC_SLEEP);
+        $descendants = [];
+
+        try {
+            $tool->start();
+            $running->add($tool);
+            $descendants = $this->reportedDescendants($tool);
+
+            $started = microtime(true);
+            self::assertSame(1, $running->stopAll(1.0));
+            $elapsed = microtime(true) - $started;
+
+            self::assertLessThan(0.5, $elapsed, 'nothing was left alive, so nothing waited out the grace period');
+            self::assertSame(143, $tool->getExitCode(), 'the child was sent SIGTERM itself');
+        } finally {
+            $tool->stop(0);
+            $this->killLeftovers(...$descendants);
+        }
+    }
+
     /** The tree of every registered child is read, not only the last one's. */
     #[Test]
     public function stopAllTakesTheDescendantsOfEveryChild(): void
@@ -178,6 +207,70 @@ final class RunningProcessesTest extends TestCase
         } finally {
             $tool->stop(0);
             $this->killLeftovers(...$descendants);
+        }
+    }
+
+    /**
+     * SIGKILL goes only to the descendants the tree still reports alive once
+     * the grace period is up: a pid that has gone may already belong to an
+     * unrelated process. The tree here is a fake /proc naming a real process
+     * that ignores SIGTERM as the child's descendant, in a state (zombie) the
+     * tree counts as gone, so a SIGKILL sent regardless would end it.
+     */
+    #[Test]
+    public function aDescendantTheTreeReportsGoneIsNotSentSigkill(): void
+    {
+        $proc      = \Safe\tempnam(sys_get_temp_dir(), 'fake-proc-');
+        $child     = $this->sleeper();
+        $bystander = new Process(
+            [\PHP_BINARY, '-r', 'pcntl_signal(SIGTERM, SIG_IGN); echo "ready\n"; fflush(STDOUT); sleep(60);'],
+            null,
+            ['XDEBUG_MODE' => 'off'],
+        );
+        $statDir  = '';
+        $statFile = '';
+
+        try {
+            \Safe\unlink($proc);
+            \Safe\mkdir($proc);
+            $child->start();
+            $bystander->start();
+            $bystander->waitUntil(static fn (string $type, string $output): bool => str_contains($output, 'ready'));
+            $bystanderPid = $bystander->getPid();
+            $childPid     = $child->getPid();
+            self::assertIsInt($bystanderPid);
+            self::assertIsInt($childPid);
+            $statDir = $proc . '/' . $bystanderPid;
+            \Safe\mkdir($statDir);
+            $statFile = $statDir . '/stat';
+            \Safe\file_put_contents($statFile, \sprintf("%d (php) Z %d 0 0\n", $bystanderPid, $childPid));
+
+            $running = new RunningProcesses(new ProcessTree($proc));
+            $running->add($child);
+
+            self::assertSame(1, $running->stopAll(5.0));
+            self::assertSame(143, $child->getExitCode(), 'the child itself was stopped by SIGTERM');
+            // SIGKILL lands asynchronously, so give one sent in error the time to take effect.
+            $deadline = microtime(true) + 0.5;
+            while ($bystander->isRunning() && microtime(true) < $deadline) {
+                usleep(10_000);
+            }
+
+            self::assertTrue($bystander->isRunning(), 'a descendant the tree reports gone was sent SIGKILL');
+        } finally {
+            $child->stop(0);
+            $bystander->stop(0);
+            if ('' !== $statFile && is_file($statFile)) {
+                \Safe\unlink($statFile);
+            }
+
+            if ('' !== $statDir && is_dir($statDir)) {
+                \Safe\rmdir($statDir);
+            }
+
+            if (is_dir($proc)) {
+                \Safe\rmdir($proc);
+            }
         }
     }
 
