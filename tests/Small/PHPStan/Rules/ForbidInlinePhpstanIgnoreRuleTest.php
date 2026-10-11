@@ -53,11 +53,35 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
         $errors = $this->rule->processNode($node, $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP));
 
         self::assertCount(1, $errors);
-        self::assertStringContainsString('Inline PHPStan suppression annotations are forbidden', $errors[0]->getMessage());
+        self::assertSame(
+            'Inline PHPStan suppression annotations are forbidden. Fix the underlying type issue instead '
+            . '(use type guards, array shapes, \Safe\ functions, etc.). If truly irreducible, manage via ignoreErrors '
+            . 'in phpstan.neon with a specific identifier and path.',
+            $errors[0]->getMessage(),
+        );
         self::assertSame(ForbidInlinePhpstanIgnoreRule::IDENTIFIER, $errors[0]->getIdentifier());
         // The rule pins the diagnostic to the offending comment's line via ->line().
         self::assertInstanceOf(\PHPStan\Rules\LineRuleError::class, $errors[0]);
         self::assertSame(42, $errors[0]->getLine());
+    }
+
+    /** Every comment on the statement is read: an ordinary one first does not hide a suppression after it. */
+    #[Test]
+    public function everySuppressionAmongAStatementsCommentsIsFlaggedAtItsOwnLine(): void
+    {
+        $node = new Nop(['comments' => [
+            new Comment('// just an ordinary explanatory comment', 7),
+            new Comment(self::SUPPRESSION, 8),
+            new Comment(self::SUPPRESSION, 9),
+        ]]);
+
+        $lines = [];
+        foreach ($this->rule->processNode($node, $this->scope(self::APP_SERVICE, self::SERVICE_FOO_PHP)) as $error) {
+            self::assertInstanceOf(\PHPStan\Rules\LineRuleError::class, $error);
+            $lines[] = $error->getLine();
+        }
+
+        self::assertSame([8, 9], $lines);
     }
 
     #[Test]
