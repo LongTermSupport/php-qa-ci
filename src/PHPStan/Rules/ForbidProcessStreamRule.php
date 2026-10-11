@@ -133,7 +133,7 @@ final readonly class ForbidProcessStreamRule implements Rule
             return $this->processStreamNamedBy($call->args[0] ?? null, $scope);
         }
 
-        if ((self::READLINE === $function || str_starts_with($function, self::READLINE . '_')) && $this->isBuiltIn($function)) {
+        if ((self::READLINE === $function || str_starts_with($function, self::READLINE . '_')) && $this->callsBuiltIn($call, $scope)) {
             return $function . '()';
         }
 
@@ -192,12 +192,18 @@ final readonly class ForbidProcessStreamRule implements Rule
         return $scope->isInClass() || null !== $scope->getFunctionName() || $scope->isInAnonymousFunction();
     }
 
-    /** Whether PHP itself provides the function: a project's own function of a readline name reads nothing. */
-    private function isBuiltIn(string $function): bool
+    /**
+     * Whether the call reaches a function PHP itself provides. An unqualified call resolves as PHP
+     * resolves it, to the namespace's own function of that name when there is one; a project's own
+     * function of a readline name reads nothing.
+     */
+    private function callsBuiltIn(FuncCall $call, Scope $scope): bool
     {
-        $name = new Name\FullyQualified($function);
+        $name = $call->name;
 
-        return $this->reflectionProvider->hasFunction($name, null) && $this->reflectionProvider->getFunction($name, null)->isBuiltin();
+        return $name instanceof Name
+            && $this->reflectionProvider->hasFunction($name, $scope)
+            && $this->reflectionProvider->getFunction($name, $scope)->isBuiltin();
     }
 
     private function isARunnerExtension(Scope $scope): bool
