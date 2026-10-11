@@ -32,6 +32,8 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
 
     private const string LOCAL = '$process';
 
+    private const string CHILD = '$this->child';
+
     private const string RUN = 'run';
 
     private const string START = 'start';
@@ -42,17 +44,20 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
         $this->analyse(
             [self::FIXTURES . '/Reportable.php'],
             [
-                [$this->message(self::RUN, self::LOCAL), 22],
-                [$this->message(self::RUN, self::LOCAL), 33],
-                [$this->message('mustRun', self::LOCAL), 44],
-                [$this->message(self::START, self::LOCAL), 52],
-                [$this->message(self::RUN, self::LOCAL), 62],
-                [$this->message(self::START, self::LOCAL), 75],
-                [$this->message(self::START, self::LOCAL), 88],
-                [$this->message('wait', '$this->process'), 97],
-                [$this->message('waitUntil', self::LOCAL), 104],
-                [$this->message(self::RUN, self::LOCAL), 109],
-                [$this->message(self::START, self::LOCAL), 116],
+                [$this->message(self::RUN, self::LOCAL), 26],
+                [$this->message(self::RUN, self::LOCAL), 37],
+                [$this->message('mustRun', self::LOCAL), 48],
+                [$this->message(self::START, self::LOCAL), 56],
+                [$this->message(self::RUN, self::LOCAL), 66],
+                [$this->message(self::START, self::LOCAL), 79],
+                [$this->message(self::START, self::LOCAL), 94],
+                [$this->message('wait', '$this->process'), 103],
+                [$this->message('waitUntil', self::LOCAL), 110],
+                [$this->message(self::RUN, self::LOCAL), 115],
+                [$this->message(self::START, self::LOCAL), 122],
+                [$this->message(self::START, self::LOCAL), 129],
+                [$this->message(self::START, self::LOCAL), 139],
+                [$this->message(self::START, self::LOCAL), 155],
             ],
         );
     }
@@ -71,11 +76,13 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 self::FIXTURES . '/AbstractStoppingTestCase.php',
                 self::FIXTURES . '/OverridesTheStop.php',
                 self::FIXTURES . '/TearDownStopsAnother.php',
+                self::FIXTURES . '/NotATestCase.php',
             ],
             [
-                [$this->message(self::START, '$this->child'), 19],
-                [$this->message(self::START, '$this->child'), 25],
-                [$this->message(self::START, self::LOCAL), 32],
+                [$this->message(self::START, self::CHILD), 26],
+                [$this->message(self::START, self::CHILD), 27],
+                [$this->message(self::START, self::LOCAL), 34],
+                [$this->message(self::START, self::CHILD), 22],
             ],
         );
     }
@@ -89,6 +96,8 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
                 self::FIXTURES . '/TearDownGuarded.php',
                 self::FIXTURES . '/InheritsTheStop.php',
                 self::FIXTURES . '/ChainsToTheStop.php',
+                // UnanalysedMiddle.php, between it and the base, is deliberately left out.
+                self::FIXTURES . '/InheritsThroughAnUnanalysedBase.php',
             ],
             [],
         );

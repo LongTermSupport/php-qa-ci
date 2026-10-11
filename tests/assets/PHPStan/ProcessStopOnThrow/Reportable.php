@@ -13,6 +13,10 @@ use Symfony\Component\Process\Process;
  */
 final class Reportable
 {
+    public bool $stop = false;
+
+    public ?\Closure $stopLater = null;
+
     public function __construct(private readonly Process $process)
     {
     }
@@ -84,6 +88,8 @@ final class Reportable
     public function callInAClosureDefinedInTheTry(Process $process): callable
     {
         try {
+            $this->work();
+
             return static function () use ($process): void {
                 $process->start();
             };
@@ -114,6 +120,43 @@ final class Reportable
     public function nullsafeStart(?Process $process): void
     {
         $process?->start();
+    }
+
+    /** The stop is in a closure the finally only defines, so it never runs there. */
+    public function finallyDefinesAStopItNeverCalls(Process $process): void
+    {
+        try {
+            $process->start();
+        } finally {
+            $this->stopLater = static fn (): ?int => $process->stop();
+        }
+    }
+
+    /** The finally calls the process, but not stop(); and assigns a property named stop. */
+    public function finallyCallsSomethingElseOnTheProcess(Process $process): void
+    {
+        try {
+            $process->start();
+        } finally {
+            $process->clearOutput();
+            $this->stop = true;
+        }
+    }
+
+    /** The closure is defined in the second catch, but runs later, after the finally. */
+    public function closureDefinedInACatch(Process $process): void
+    {
+        try {
+            $this->work();
+        } catch (\LogicException) {
+            $this->work();
+        } catch (RuntimeException) {
+            $this->stopLater = static function () use ($process): void {
+                $process->start();
+            };
+        } finally {
+            $process->stop();
+        }
     }
 
     private function work(): void

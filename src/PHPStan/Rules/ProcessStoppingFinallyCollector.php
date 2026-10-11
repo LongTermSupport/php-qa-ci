@@ -6,7 +6,6 @@ namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
 use PhpParser\Node\FunctionLike;
-use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\TryCatch;
 use PhpParser\NodeFinder;
@@ -56,22 +55,20 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
             return null;
         }
 
-        $stopped = $this->stops->receiversStoppedBy($node->finally->stmts);
-        if ([] === $stopped) {
-            return null;
+        $excluded     = [];
+        $declarations = new NodeFinder()->find(
+            [...$node->stmts, ...$node->catches],
+            static fn (Node $found): bool => $found instanceof FunctionLike || $found instanceof ClassLike,
+        );
+        foreach ($declarations as $declaration) {
+            $excluded[] = [$declaration->getStartFilePos(), $declaration->getEndFilePos()];
         }
 
-        $excluded = [];
-        foreach ([$node->stmts, ...array_map(static fn (Catch_ $catch): array => $catch->stmts, $node->catches)] as $block) {
-            $declarations = new NodeFinder()->find(
-                $block,
-                static fn (Node $found): bool => $found instanceof FunctionLike || $found instanceof ClassLike,
-            );
-            foreach ($declarations as $declaration) {
-                $excluded[] = [$declaration->getStartFilePos(), $declaration->getEndFilePos()];
-            }
-        }
-
-        return [$node->getStartFilePos(), $node->finally->getStartFilePos(), $excluded, $stopped];
+        return [
+            $node->getStartFilePos(),
+            $node->finally->getStartFilePos(),
+            $excluded,
+            $this->stops->receiversStoppedBy($node->finally->stmts),
+        ];
     }
 }

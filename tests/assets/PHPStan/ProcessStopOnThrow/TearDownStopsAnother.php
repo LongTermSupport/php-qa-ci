@@ -14,9 +14,11 @@ final class TearDownStopsAnother extends TestCase
 
     private ?Process $other = null;
 
+    /** The local it stops is not the local a test method starts, whatever their names. */
     protected function tearDown(): void
     {
-        $this->other?->stop(0);
+        $process = $this->other;
+        $process?->stop(0);
     }
 
     public function startsTheChild(): void

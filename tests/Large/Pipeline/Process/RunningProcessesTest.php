@@ -34,6 +34,10 @@ final class RunningProcessesTest extends TestCase
 
     private const string FOREVER = '60';
 
+    private const string EXEC_SLEEP = 'exec sleep 60';
+
+    private const string DESCENDANT = 'descendant ';
+
     #[Test]
     public function stopAllTerminatesEveryRegisteredRunningProcess(): void
     {
@@ -67,30 +71,96 @@ final class RunningProcessesTest extends TestCase
     #[Test]
     public function stopAllTakesTheChildsOwnDescendantsWithIt(): void
     {
-        $running = new RunningProcesses();
-        $tool    = $this->toolWithDescendants('sleep 60');
+        $running     = new RunningProcesses();
+        $tool        = $this->toolWithDescendants(self::EXEC_SLEEP);
+        $descendants = [];
 
         try {
             $tool->start();
             $running->add($tool);
             $descendants = $this->reportedDescendants($tool);
 
+            $started = microtime(true);
             self::assertSame(1, $running->stopAll(5.0));
 
+            self::assertLessThan(2.5, microtime(true) - $started, 'all of them obey SIGTERM, so nothing waits out the grace period');
             self::assertFalse($tool->isRunning());
             foreach ($descendants as $pid) {
-                self::assertFalse(new ProcessTree()->isAlive($pid), 'descendant ' . $pid . ' was left running');
+                self::assertFalse(new ProcessTree()->isAlive($pid), self::DESCENDANT . $pid . ' was left running');
             }
         } finally {
             $tool->stop(0);
+            $this->killLeftovers(...$descendants);
+        }
+    }
+
+    /** The tree of every registered child is read, not only the last one's. */
+    #[Test]
+    public function stopAllTakesTheDescendantsOfEveryChild(): void
+    {
+        $running     = new RunningProcesses();
+        $first       = $this->toolWithDescendants(self::EXEC_SLEEP);
+        $second      = $this->toolWithDescendants(self::EXEC_SLEEP);
+        $descendants = [];
+
+        try {
+            $first->start();
+            $running->add($first);
+            $second->start();
+            $running->add($second);
+            $descendants = [...$this->reportedDescendants($first), ...$this->reportedDescendants($second)];
+
+            self::assertSame(2, $running->stopAll(5.0));
+
+            foreach ($descendants as $pid) {
+                self::assertFalse(new ProcessTree()->isAlive($pid), self::DESCENDANT . $pid . ' was left running');
+            }
+        } finally {
+            $first->stop(0);
+            $second->stop(0);
+            $this->killLeftovers(...$descendants);
+        }
+    }
+
+    /**
+     * A child that ignores SIGTERM is waited for, without spinning, for the whole
+     * grace period, then killed at once: Symfony is not given a grace of its own.
+     */
+    #[Test]
+    public function aChildThatIgnoresSigtermIsGivenTheGracePeriodThenKilled(): void
+    {
+        $running = new RunningProcesses();
+        $child   = new Process(
+            [\PHP_BINARY, '-r', 'pcntl_signal(SIGTERM, SIG_IGN); echo "ready\n"; fflush(STDOUT); sleep(60);'],
+            null,
+            ['XDEBUG_MODE' => 'off'],
+        );
+
+        try {
+            $child->start();
+            $child->waitUntil(static fn (string $type, string $output): bool => str_contains($output, 'ready'));
+            $running->add($child);
+
+            $cpu     = $this->cpuSeconds();
+            $started = microtime(true);
+            self::assertSame(1, $running->stopAll(0.5));
+            $elapsed = microtime(true) - $started;
+
+            self::assertGreaterThanOrEqual(0.5, $elapsed, 'it was given the grace period');
+            self::assertLessThan(1.2, $elapsed, 'and then killed, not given a second grace period');
+            self::assertLessThan(0.25, $this->cpuSeconds() - $cpu, 'the wait polls; it does not spin');
+            self::assertFalse($child->isRunning(), 'it was killed once the grace period was up');
+        } finally {
+            $child->stop(0);
         }
     }
 
     #[Test]
     public function aDescendantThatIgnoresSigtermIsKilledOnceTheGracePeriodIsUp(): void
     {
-        $running = new RunningProcesses();
-        $tool    = $this->toolWithDescendants('trap \"\" TERM; sleep 60');
+        $running     = new RunningProcesses();
+        $tool        = $this->toolWithDescendants('trap \"\" TERM; exec sleep 60');
+        $descendants = [];
 
         try {
             $tool->start();
@@ -102,10 +172,11 @@ final class RunningProcessesTest extends TestCase
 
             self::assertGreaterThanOrEqual(0.5, microtime(true) - $started, 'it was given the grace period first');
             foreach ($descendants as $pid) {
-                self::assertFalse(new ProcessTree()->isAlive($pid), 'descendant ' . $pid . ' survived SIGKILL');
+                self::assertFalse(new ProcessTree()->isAlive($pid), self::DESCENDANT . $pid . ' survived SIGKILL');
             }
         } finally {
             $tool->stop(0);
+            $this->killLeftovers(...$descendants);
         }
     }
 
@@ -181,7 +252,8 @@ final class RunningProcessesTest extends TestCase
 
     /**
      * A shell running $body in two background shells (one nested a level
-     * deeper), each of which reports its pid before running it. Not started:
+     * deeper), each of which reports its pid before running it; a body that
+     * execs keeps that pid, so a leftover can be killed by it. Not started:
      * the test starts it inside the try whose finally stops it.
      */
     private function toolWithDescendants(string $body): Process
@@ -210,6 +282,33 @@ final class RunningProcessesTest extends TestCase
     private function sleeper(): Process
     {
         return new Process([self::SLEEP, self::FOREVER]);
+    }
+
+    /** A failed assertion must not leave a descendant running past the test. */
+    private function killLeftovers(int ...$pids): void
+    {
+        $tree = new ProcessTree();
+        foreach ($pids as $pid) {
+            if ($tree->isAlive($pid)) {
+                \Safe\posix_kill($pid, \SIGKILL);
+            }
+        }
+    }
+
+    /** User and system CPU time this process has used so far. */
+    private function cpuSeconds(): float
+    {
+        $usage = \Safe\getrusage();
+        $total = 0.0;
+        foreach (['ru_utime', 'ru_stime'] as $clock) {
+            $seconds      = $usage[$clock . '.tv_sec']  ?? null;
+            $microseconds = $usage[$clock . '.tv_usec'] ?? null;
+            self::assertIsInt($seconds);
+            self::assertIsInt($microseconds);
+            $total += $seconds + $microseconds / 1_000_000;
+        }
+
+        return $total;
     }
 }
 

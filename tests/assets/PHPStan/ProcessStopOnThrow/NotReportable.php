@@ -104,6 +104,16 @@ final class NotReportable
             echo $line;
         });
         $runner->start();
+        Launcher::run(static function (): void {
+        });
+    }
+
+    /** A method named at run time cannot be told apart from any other, so it is not looked at. */
+    public function dynamicMethodName(Process $process, string $method): void
+    {
+        $process->{$method}(static function (string $type, string $buffer): void {
+            echo $buffer;
+        });
     }
 
     private function work(): void

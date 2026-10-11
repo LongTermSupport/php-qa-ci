@@ -56,7 +56,7 @@ final class RunningProcesses
      */
     public function stopAll(float $graceSeconds): int
     {
-        $children        = array_values(array_filter($this->processes, static fn (Process $process): bool => $process->isRunning()));
+        $children        = array_filter($this->processes, static fn (Process $process): bool => $process->isRunning());
         $this->processes = [];
 
         $descendants = [];
@@ -75,20 +75,14 @@ final class RunningProcesses
             $this->signal($pid, \SIGTERM);
         }
 
-        $deadline = microtime(true) + $graceSeconds;
-        while ($this->anyAlive($children, ...$descendants) && microtime(true) < $deadline) {
-            usleep(self::POLL_MICROSECONDS);
-        }
+        $this->waitWhileAnyAlive($graceSeconds, $children, ...$descendants);
 
-        $killed = array_values(array_filter($descendants, $this->tree->isAlive(...)));
+        $killed = array_filter($descendants, $this->tree->isAlive(...));
         foreach ($killed as $pid) {
             $this->signal($pid, \SIGKILL);
         }
 
-        $deadline = microtime(true) + self::KILL_WAIT_SECONDS;
-        while ($this->anyAlive([], ...$killed) && microtime(true) < $deadline) {
-            usleep(self::POLL_MICROSECONDS);
-        }
+        $this->waitWhileAnyAlive(self::KILL_WAIT_SECONDS, [], ...$killed);
 
         foreach ($children as $child) {
             // Already gone, so this only settles Symfony's view of it; a child
@@ -99,7 +93,20 @@ final class RunningProcesses
         return \count($children);
     }
 
-    /** @param list<Process> $children */
+    /**
+     * Polls, for at most $seconds, until none of them is left alive.
+     *
+     * @param array<int, Process> $children keyed by object id, as registered
+     */
+    private function waitWhileAnyAlive(float $seconds, array $children, int ...$descendants): void
+    {
+        $deadline = microtime(true) + $seconds;
+        while ($this->anyAlive($children, ...$descendants) && microtime(true) < $deadline) {
+            usleep(self::POLL_MICROSECONDS);
+        }
+    }
+
+    /** @param array<int, Process> $children keyed by object id, as registered */
     private function anyAlive(array $children, int ...$descendants): bool
     {
         foreach ($children as $child) {

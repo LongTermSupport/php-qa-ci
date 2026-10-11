@@ -95,6 +95,9 @@ seen only when its file is analysed in the same run, which a full run always doe
 
 A call on anything that is not a `Process` is not looked at, whatever its method names.
 
+Not covered: a call whose method name is built at run time (`$process->{$method}($callback)`).
+The rule cannot tell which method it is, so it does not report it; write the method name out.
+
 ## Defence Before Fix record
 
 Raised by [#154](https://github.com/LongTermSupport/php-qa-ci/issues/154).
@@ -131,4 +134,7 @@ Raised by [#154](https://github.com/LongTermSupport/php-qa-ci/issues/154).
   alive and its caller terminates the server in a `finally`, and the two `tests/assets/deploySkills/` runners run only global stream functions,
   which return `false` rather than throw, between `proc_open()` and `proc_close()`.
 - **Runner check**: `SymfonyProcessRunnerTest::aRunThatThrowsLeavesNothingRegistered` pins the
-  reported behaviour: a run whose output write throws must leave nothing registered.
+  reported behaviour: a run whose output write throws must leave nothing registered, and no
+  child of the test process may be left alive once the run has thrown.
+  `aRunThatThrowsKillsItsChildWithoutWaiting` adds that a child ignoring SIGTERM is killed at
+  once rather than waited for.

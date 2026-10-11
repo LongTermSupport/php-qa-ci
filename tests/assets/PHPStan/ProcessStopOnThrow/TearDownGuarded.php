@@ -25,10 +25,28 @@ final class TearDownGuarded extends TestCase
         }
     }
 
+    private ?Process $third = null;
+
+    private ?Process $spare = null;
+
     #[After]
     public function stopTheOther(): void
     {
         $this->other?->stop(0);
+    }
+
+    /** Every #[After] method runs, and every stop in it counts, not only the first. */
+    #[After]
+    public function stopTheSpareAndTheThird(): void
+    {
+        $this->spare?->stop(0);
+        $this->third?->stop(0);
+    }
+
+    public function startsTheThird(): void
+    {
+        $this->third = new Process(['sleep', '60']);
+        $this->third->start();
     }
 
     public function startsTheChild(): void

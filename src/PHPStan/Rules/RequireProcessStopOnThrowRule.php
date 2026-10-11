@@ -54,8 +54,8 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
         $guards    = $node->get(ProcessStoppingFinallyCollector::class);
         $testCases = [];
         foreach ($node->get(ProcessStoppingTearDownCollector::class) as $collected) {
-            foreach ($collected as [$class, $declaresTearDown, $callsParent, $tearDownStops, $afterStops]) {
-                $testCases[$class] = [$declaresTearDown, $callsParent, $tearDownStops, $afterStops];
+            foreach ($collected as [$class, $runsParentTearDown, $tearDownStops, $afterStops]) {
+                $testCases[$class] = [$runsParentTearDown, $tearDownStops, $afterStops];
             }
         }
 
@@ -70,7 +70,7 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
                     continue;
                 }
 
-                $seen[$position] = true;
+                $seen[$position] = $line;
 
                 $errors[] = RuleErrorBuilder::message(\sprintf(
                     'Process::%1$s() lets first-party code run while the child of %2$s is alive, and is not inside a try '
@@ -108,8 +108,8 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
      * parent::tearDown(); every #[After] method in the hierarchy runs. A class
      * in the lineage that was not analysed is passed over.
      *
-     * @param array<string, array{bool, bool, list<string>, list<string>}> $testCases
-     * @param string                                                       ...$lineage the call's class, then its ancestors
+     * @param array<string, array{bool, list<string>, list<string>}> $testCases
+     * @param string                                                 ...$lineage the call's class, then its ancestors
      */
     private function isStoppedAfterEachTest(string $receiver, array $testCases, string ...$lineage): bool
     {
@@ -123,18 +123,16 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
                 continue;
             }
 
-            [$declaresTearDown, $callsParent, $tearDownStops, $afterStops] = $testCases[$class];
+            [$runsParentTearDown, $tearDownStops, $afterStops] = $testCases[$class];
             if (\in_array($receiver, $afterStops, true)) {
                 return true;
             }
 
-            if ($tearDownRuns && $declaresTearDown) {
-                if (\in_array($receiver, $tearDownStops, true)) {
-                    return true;
-                }
-
-                $tearDownRuns = $callsParent;
+            if ($tearDownRuns && \in_array($receiver, $tearDownStops, true)) {
+                return true;
             }
+
+            $tearDownRuns = $tearDownRuns && $runsParentTearDown;
         }
 
         return false;

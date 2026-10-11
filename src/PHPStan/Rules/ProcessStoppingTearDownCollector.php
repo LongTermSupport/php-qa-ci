@@ -17,21 +17,23 @@ use PHPUnit\Framework\Attributes\After;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Collects, for each PHPUnit test case, the `$this->...` receivers its
- * tearDown() and its #[After] methods stop. PHPUnit runs both after a test
- * method that throws, so a child held in such a property is stopped.
+ * Collects, for each PHPUnit test case, the receivers its tearDown() and its
+ * #[After] methods stop. PHPUnit runs both after a test method that throws, so
+ * a child held in a property they stop is stopped; the rule keeps only the
+ * `$this->` receivers.
  *
  * Only the nearest tearDown() runs, and it runs an ancestor's only through
  * parent::tearDown(); every #[After] method in the hierarchy runs. So each
- * value records whether the class declares tearDown() and whether that calls
- * the parent's, and RequireProcessStopOnThrowRule walks the hierarchy with it.
+ * value records whether the parent's tearDown() still runs (it does when the
+ * class declares none), and RequireProcessStopOnThrowRule walks the hierarchy
+ * with it.
  *
- * Each value is [class name, declares tearDown, its tearDown calls the
- * parent's, receivers its tearDown stops, receivers its #[After] methods stop].
+ * Each value is [class name, the parent's tearDown runs, receivers its
+ * tearDown stops, receivers its #[After] methods stop].
  *
  * @internal
  *
- * @implements Collector<InClassNode, array{string, bool, bool, list<string>, list<string>}>
+ * @implements Collector<InClassNode, array{string, bool, list<string>, list<string>}>
  */
 final readonly class ProcessStoppingTearDownCollector implements Collector
 {
@@ -48,7 +50,7 @@ final readonly class ProcessStoppingTearDownCollector implements Collector
     }
 
     /**
-     * @return array{string, bool, bool, list<string>, list<string>}|null
+     * @return array{string, bool, list<string>, list<string>}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -57,16 +59,15 @@ final readonly class ProcessStoppingTearDownCollector implements Collector
             return null;
         }
 
-        $declaresTearDown   = false;
-        $callsParent        = false;
+        // A class that declares no tearDown() runs its parent's.
+        $runsParentTearDown = true;
         $tearDownStops      = [];
         $afterStops         = [];
         foreach ($node->getOriginalNode()->getMethods() as $method) {
             $stmts = $method->stmts ?? [];
             if ('teardown' === $method->name->toLowerString()) {
-                $declaresTearDown = true;
-                $callsParent      = $this->callsParentTearDown($stmts);
-                $tearDownStops    = $this->stops->receiversStoppedBy($stmts);
+                $runsParentTearDown = $this->callsParentTearDown($stmts);
+                $tearDownStops      = $this->stops->receiversStoppedBy($stmts);
             }
 
             if ($this->isAfterHook($method)) {
@@ -74,24 +75,7 @@ final readonly class ProcessStoppingTearDownCollector implements Collector
             }
         }
 
-        return [
-            $class->getName(),
-            $declaresTearDown,
-            $callsParent,
-            $this->ownProperties(...$tearDownStops),
-            $this->ownProperties(...$afterStops),
-        ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function ownProperties(string ...$receivers): array
-    {
-        return array_values(array_unique(array_filter(
-            $receivers,
-            static fn (string $receiver): bool => str_starts_with($receiver, '$this->'),
-        )));
+        return [$class->getName(), $runsParentTearDown, $tearDownStops, $afterStops];
     }
 
     /**

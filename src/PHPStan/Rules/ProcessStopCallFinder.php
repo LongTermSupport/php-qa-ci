@@ -62,6 +62,7 @@ final readonly class ProcessStopCallFinder
         };
         new NodeTraverser($visitor)->traverse($stmts);
 
-        return array_values(array_unique(array_map($this->printer->prettyPrintExpr(...), $visitor->receivers)));
+        // Only ever searched with in_array(), so a receiver stopped twice is listed twice.
+        return array_map($this->printer->prettyPrintExpr(...), $visitor->receivers);
     }
 }
