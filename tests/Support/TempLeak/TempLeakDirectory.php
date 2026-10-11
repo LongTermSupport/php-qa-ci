@@ -6,8 +6,8 @@ namespace LTS\PHPQA\Tests\Support\TempLeak;
 
 use ErrorException;
 use FilesystemIterator;
-use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use RuntimeException;
+use Safe\Exceptions\PosixException;
 use SplFileInfo;
 use UnexpectedValueException;
 
@@ -76,29 +76,47 @@ final class TempLeakDirectory
      * SIGKILL, and no shutdown function runs then. Only a real directory owned
      * by $uid (the owner of the directory this process has just created),
      * named exactly as claim() names one, whose pid is not running, is
-     * removed; a symlink is never followed. A reused pid only keeps a stale
-     * directory until a later claim. Without /proc this process does not look
-     * alive to itself, and then nothing can be judged dead, so nothing goes.
+     * removed; a symlink is never followed. A reused pid, or a killed process
+     * not yet reaped, only keeps a stale directory until a later claim.
      */
     private static function removeAbandoned(string $shared, int $uid): void
     {
-        $processes = new ProcessTree();
-        if (!$processes->isAlive(\Safe\getmypid())) {
-            return;
-        }
-
         foreach (self::entriesOf($shared) ?? [] as $name => $path) {
             $pid = self::ownerPid($name);
             if (null === $pid
                 || is_link($path)
                 || !is_dir($path)
-                || $processes->isAlive($pid)
+                || self::isRunning($pid)
                 || !self::ownedBy($path, $uid)) {
                 continue;
             }
 
             self::removeTree($path);
         }
+    }
+
+    /**
+     * Whether $pid names a process this user could signal, asked with signal
+     * 0, which delivers nothing. No such process (ESRCH) is dead; one owned by
+     * another user (EPERM) holds a reused pid, so the process of this user that
+     * named the directory is dead too. claim() runs from a Composer files entry,
+     * before Infection's bootstrap, so it must load nothing from src/: a source
+     * file loaded there is never swapped for a mutant (#155). That is why this
+     * does not use LTS\PHPQA\Pipeline\Process\ProcessTree.
+     */
+    private static function isRunning(int $pid): bool
+    {
+        try {
+            \Safe\posix_kill($pid, 0);
+        } catch (PosixException $posixException) {
+            if (!\in_array(posix_get_last_error(), [\PCNTL_ESRCH, \PCNTL_EPERM], true)) {
+                throw $posixException;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /** The pid in a name claim() gives a directory, or null for any other name. */

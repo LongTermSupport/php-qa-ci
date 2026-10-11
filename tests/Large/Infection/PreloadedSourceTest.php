@@ -85,11 +85,11 @@ final class PreloadedSourceTest extends TestCase
 
     /**
      * The instance #155 was found on: tests/Support/TempLeak/claim-before-bootstrap.php, an
-     * autoload-dev files entry, reaches TempLeakDirectory::claim(), which uses ProcessTree. Under
-     * this repository's own infection.json that file is mutated, so the lane crashes here.
+     * autoload-dev files entry, reached TempLeakDirectory::claim(), which used ProcessTree, so no
+     * mutant of ProcessTree could be killed. The autoloader now loads nothing Infection mutates.
      */
     #[Test]
-    public function thisRepositorysOwnAutoloaderLoadsProcessTreeBeforeAnyBootstrap(): void
+    public function thisRepositorysOwnAutoloaderLoadsNothingInfectionMutates(): void
     {
         $library = \Safe\realpath(self::LIBRARY);
 
@@ -105,8 +105,9 @@ final class PreloadedSourceTest extends TestCase
         self::assertContainsOnlyString($source['directories']);
         self::assertContainsOnlyString($source['excludes']);
 
+        self::assertNotContains($library . '/src/Pipeline/Process/ProcessTree.php', $included);
         self::assertSame(
-            [$library . '/src/Pipeline/Process/ProcessTree.php'],
+            [],
             new PreloadedSourceFinder()->find(
                 array_map(static fn (string $directory): string => $library . '/qaConfig/' . $directory, $source['directories']),
                 $source['excludes'],
