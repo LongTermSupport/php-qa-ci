@@ -37,25 +37,25 @@ final class ConfigTemplateIgnoreListCheckTest extends TestCase
         self::assertSame(0, $check->run());
     }
 
-    public function testItFailsAndNamesTheUncoveredFileAndItsWouldBeFailurePath(): void
+    /**
+     * The whole report is compared, so a dropped line, separator or blank line fails here.
+     */
+    public function testItFailsAndPrintsTheUncoveredFileTheFixAndTheIdentifier(): void
     {
         $check = new ConfigTemplateIgnoreListCheck(new ConfigTemplateIgnoreListAuditor(
             self::VIOLATING_ASSETS . self::CONFIG_DEFAULTS_GENERIC,
             self::VIOLATING_ASSETS . self::GENERIC_PSR4_VALIDATE_IGNORE_LIST_TXT,
         ));
 
-        self::expectOutputRegex('/uncovered_template\.php.*qaConfig\/uncovered_template\.php/s');
+        self::expectOutputString(
+            \PHP_EOL
+            . 'ERROR — config templates the PSR-4 ignore list does not cover' . \PHP_EOL
+            . '------------------------------------------------------------' . \PHP_EOL
+            . '  uncovered_template.php -> would fail psr4Validate as qaConfig/uncovered_template.php' . \PHP_EOL
+            . \PHP_EOL
+            . 'Add a matching line to configDefaults/generic/psr4-validate-ignore-list.txt, in the shape of the existing entries.' . \PHP_EOL
+            . '🪪  phpqaci.configTemplateIgnoreList  (vendor/bin/rule-doc phpqaci.configTemplateIgnoreList)' . \PHP_EOL,
+        );
         self::assertSame(1, $check->run());
-    }
-
-    public function testFailureMessageCarriesTheIdentifierAndTheRuleDocCommand(): void
-    {
-        $check = new ConfigTemplateIgnoreListCheck(new ConfigTemplateIgnoreListAuditor(
-            self::VIOLATING_ASSETS . self::CONFIG_DEFAULTS_GENERIC,
-            self::VIOLATING_ASSETS . self::GENERIC_PSR4_VALIDATE_IGNORE_LIST_TXT,
-        ));
-
-        self::expectOutputRegex('/phpqaci\.configTemplateIgnoreList.*rule-doc phpqaci\.configTemplateIgnoreList/s');
-        $check->run();
     }
 }
