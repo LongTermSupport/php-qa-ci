@@ -60,6 +60,8 @@ final class QaConfigBuilderTest extends TestCase
 
     private const string UNANALYSED_DIR = 'migrations';
 
+    private const string README = 'README.md';
+
     private const string UNANALYSED_REASON ='Symfony container configuration, linted by lint:container';
 
     #[Test]
@@ -565,6 +567,102 @@ final class QaConfigBuilderTest extends TestCase
         } catch (LogicException $logicException) {
             self::assertStringContainsString('declared unanalysed twice', $logicException->getMessage());
         }
+    }
+
+    #[Test]
+    public function aReasonOfExactlyTwoWordsIsAcceptedAndStoredTrimmed(): void
+    {
+        $config = $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, "  generated code\n")->build();
+
+        self::assertSame([self::UNANALYSED_DIR => 'generated code'], $config->unanalysedPaths);
+    }
+
+    #[Test]
+    public function anUnanalysedPathIsNormalisedOfSurroundingWhitespaceAndRepeatedSlashes(): void
+    {
+        $config = $this->defaults()
+            ->withUnanalysedPath(' legacy/ ', self::UNANALYSED_REASON)
+            ->withUnanalysedPath('.//' . self::UNANALYSED_DIR, self::UNANALYSED_REASON)
+            ->build()
+        ;
+
+        self::assertSame(['legacy' => self::UNANALYSED_REASON, self::UNANALYSED_DIR => self::UNANALYSED_REASON], $config->unanalysedPaths);
+    }
+
+    #[Test]
+    public function theUnanalysedPathRefusalsNameTheCallAndExplainThemselves(): void
+    {
+        try {
+            $this->defaults()->withUnanalysedPath('../shared', self::UNANALYSED_REASON);
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertSame(
+                "withUnanalysedPath('../shared', ...) must name a directory or file inside the project: the project root, or a path leaving it, would excuse PHP nobody has looked at.",
+                $logicException->getMessage(),
+            );
+        }
+
+        try {
+            $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, 'legacy');
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertSame(
+                "withUnanalysedPath('migrations', ...) needs a reason of at least two words: it is printed beside the path on every run, and is the only record of why this PHP is not analysed.",
+                $logicException->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * PHP collects named arguments to a variadic under string keys; every
+     * list the built config carries is still a list.
+     */
+    #[Test]
+    public function theListWithersReturnListsWhenCalledWithNamedArguments(): void
+    {
+        $named  = ['first' => 'one', 'second' => 'two'];
+        $config = $this->defaults()
+            ->withIgnoredPaths(...$named)
+            ->withCheckedPaths(...$named)
+            ->withArkitectExcludedPaths(...$named)
+            ->withShellCheckGlobs(...$named)
+            ->withChangelogWatchedPaths(...$named)
+            ->withTwigDirectories(...$named)
+            ->withYamlDirectories(...$named)
+            ->withMarkdownFormatPaths(...$named)
+            ->withDeadCodeDetection(true)
+            ->withDeadCodeEntryPoints(...$named)
+            ->build()
+        ;
+
+        $relative = ['one', 'two'];
+        $absolute = ['/p/one', '/p/two'];
+        self::assertSame($relative, $config->pathsToIgnore);
+        self::assertSame([self::PROJECT_TESTS, self::PROJECT_SRC, ...$absolute], $config->pathsToCheck);
+        self::assertSame($relative, $config->arkitectExcludePaths);
+        self::assertSame($relative, $config->shellCheckGlobs);
+        self::assertSame($relative, $config->changelogWatchedPaths);
+        self::assertSame($absolute, $config->twigDirectories);
+        self::assertSame($absolute, $config->yamlDirectories);
+        self::assertSame($relative, $config->markdownFormatPaths);
+        self::assertSame($absolute, $config->deadCode->entryPoints);
+    }
+
+    #[Test]
+    public function markdownFormatPathsDefaultToTheProjectsOwnMarkdownAndAreReplacedNotAccumulated(): void
+    {
+        self::assertSame([self::README, 'CLAUDE.md', 'CHANGELOG.md', 'docs', 'CLAUDE'], $this->defaults()->build()->markdownFormatPaths);
+
+        $config = $this->defaults()->withMarkdownFormatPaths('docs')->withMarkdownFormatPaths(self::README, 'guides')->build();
+        self::assertSame([self::README, 'guides'], $config->markdownFormatPaths);
+    }
+
+    #[Test]
+    public function aLaterDiffFloorReplacesAnEarlierOne(): void
+    {
+        $config = $this->defaults()->withInfectionDiffBase(self::DIFF_BASE, 95)->withInfectionDiffBase(self::DIFF_BASE, 90)->build();
+
+        self::assertSame(90, $config->infection->diffCoveredMsi);
     }
 
     #[Test]
