@@ -59,6 +59,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectPathsResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Exception\ProjectLayoutException::class)]
 #[Small]
 final class ArkitectRuleProbeTest extends TestCase
 {
