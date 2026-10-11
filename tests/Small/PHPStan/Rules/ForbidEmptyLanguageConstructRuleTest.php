@@ -44,7 +44,11 @@ final class ForbidEmptyLanguageConstructRuleTest extends TestCase
         $errors = $this->rule->processNode(new Empty_(new Variable('array')), $this->scope());
 
         self::assertCount(1, $errors);
-        self::assertStringContainsString('empty() is banned', $errors[0]->getMessage());
+        self::assertSame(
+            'empty() is banned. Use strict comparison instead: "[] === $var" for arrays, "$var === \'\'" for strings, '
+            . '"$var === null" for nullable. empty() hides type errors and silently accepts undefined variables.',
+            $errors[0]->getMessage(),
+        );
         self::assertSame(ForbidEmptyLanguageConstructRule::IDENTIFIER, $errors[0]->getIdentifier());
     }
 
