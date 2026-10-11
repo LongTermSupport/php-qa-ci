@@ -70,9 +70,30 @@ final class PreflightTest extends TestCase
         self::assertSame("\n*\n!.gitignore\n", $this->factory->project->read('var/qa/.gitignore'));
         self::assertSame("\n*\n!.gitignore\n", $this->factory->project->read('var/qa/cache/.gitignore'));
         $root = $this->factory->project->read(self::GITIGNORE);
-        self::assertStringStartsWith("/vendor/\n", $root, 'a missing trailing newline is added before the block');
+        self::assertSame("/vendor/\n\n", $this->beforeTheBlock($root), 'a missing trailing newline is added before the block');
         self::assertSame(1, substr_count($root, DirectoryPreparer::MARKER_START), 'the block is idempotent');
         self::assertStringContainsString('**/.qa-lock/', $root);
+        self::assertStringEndsWith("# END php-qa-ci managed QA runtime excludes\n", $root);
+    }
+
+    #[Test]
+    public function aRootGitignoreEndingInANewlineGetsNoExtraOne(): void
+    {
+        $this->factory->project->write(self::GITIGNORE, "/vendor/\n");
+
+        new DirectoryPreparer()->prepare($this->factory->paths());
+
+        self::assertSame("/vendor/\n\n", $this->beforeTheBlock($this->factory->project->read(self::GITIGNORE)));
+    }
+
+    #[Test]
+    public function anEmptyRootGitignoreGetsOnlyTheBlock(): void
+    {
+        $this->factory->project->write(self::GITIGNORE, '');
+
+        new DirectoryPreparer()->prepare($this->factory->paths());
+
+        self::assertSame("\n", $this->beforeTheBlock($this->factory->project->read(self::GITIGNORE)));
     }
 
     #[Test]
@@ -80,7 +101,24 @@ final class PreflightTest extends TestCase
     {
         new DirectoryPreparer()->prepare($this->factory->paths());
 
-        self::assertStringContainsString(DirectoryPreparer::MARKER_START, $this->factory->project->read(self::GITIGNORE));
+        self::assertSame("\n", $this->beforeTheBlock($this->factory->project->read(self::GITIGNORE)));
+    }
+
+    /** The directories take the full default mode, which only the caller's umask narrows; a zero umask shows every bit. */
+    #[Test]
+    public function theDirectoriesAreCreatedWithTheFullDefaultMode(): void
+    {
+        $paths = $this->factory->paths();
+
+        $previous = umask(0);
+        try {
+            new DirectoryPreparer()->prepare($paths);
+        } finally {
+            umask($previous);
+        }
+
+        self::assertSame(0o777, \Safe\fileperms($paths->varDir) & 0o7777);
+        self::assertSame(0o777, \Safe\fileperms($paths->cacheDir) & 0o7777);
     }
 
     #[Test]
@@ -168,5 +206,14 @@ final class PreflightTest extends TestCase
     {
         self::assertStringContainsString('qaConfig.inc.bash is no longer read', LegacyBashConfigException::qaConfig('/p/qaConfig')->getMessage());
         self::assertStringContainsString('tools/phpstan.inc.bash is no longer sourced', LegacyBashConfigException::toolOverride('phpstan', '/p/qaConfig')->getMessage());
+    }
+
+    /** What a root .gitignore holds before the managed block's marker line. */
+    private function beforeTheBlock(string $gitignore): string
+    {
+        $before = strstr($gitignore, DirectoryPreparer::MARKER_START, true);
+        self::assertIsString($before, 'the managed block is present');
+
+        return $before;
     }
 }
