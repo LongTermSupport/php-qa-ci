@@ -40,6 +40,14 @@ final class InfectionDiffFilterTest extends TestCase
 
     private const string TESTS_SPEC = '/p/tests';
 
+    private const string DIFF_BASE = 'origin/main';
+
+    private const string QA_CONFIG_SPEC = '/p/qaConfig';
+
+    private const string SRC_DIR = '/src';
+
+    private const string TESTS_DIR = '/tests';
+
     private const string PHPUNIT_XML = 'qaConfig/phpunit.xml';
 
     private const string HELPER = 'tests/Support/Helper.php';
@@ -67,7 +75,7 @@ final class InfectionDiffFilterTest extends TestCase
     #[Test]
     public function theGitDiffIsAThreeDotNulSeparatedRenameAwareDiffOfCommittedHistory(): void
     {
-        $args = new InfectionDiffFilter()->gitDiffArguments('origin/main', self::SRC_SPEC, self::TESTS_SPEC);
+        $args = new InfectionDiffFilter()->gitDiffArguments(self::DIFF_BASE, self::SRC_SPEC, self::TESTS_SPEC);
 
         self::assertSame(['--no-pager', 'diff', 'origin/main...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', self::SRC_SPEC, self::TESTS_SPEC], $args);
     }
@@ -75,9 +83,9 @@ final class InfectionDiffFilterTest extends TestCase
     #[Test]
     public function theConfigurationPathsAreDiffedAlongsideTheSourceAndTests(): void
     {
-        $args = new InfectionDiffFilter()->gitDiffArguments('origin/main', self::SRC_SPEC, self::TESTS_SPEC, '/p/qaConfig', '/p/composer.lock');
+        $args = new InfectionDiffFilter()->gitDiffArguments(self::DIFF_BASE, self::SRC_SPEC, self::TESTS_SPEC, self::QA_CONFIG_SPEC, '/p/composer.lock');
 
-        self::assertSame(['--', self::SRC_SPEC, self::TESTS_SPEC, '/p/qaConfig', '/p/composer.lock'], \array_slice($args, -5));
+        self::assertSame(['--', self::SRC_SPEC, self::TESTS_SPEC, self::QA_CONFIG_SPEC, '/p/composer.lock'], \array_slice($args, -5));
     }
 
     #[Test]
@@ -419,8 +427,8 @@ final class InfectionDiffFilterTest extends TestCase
         $filter = new InfectionDiffFilter()->fromGitDiffOutput(
             $this->records(['M', 'src/Legacy/Old.php'], ['M', 'src/Kept.php'], ['A', 'src/LegacyExtra/New.php'], ['M', 'src/Domain/Legacy/Deep.php'], ['M', 'tests/Legacy/OldTest.php']),
             $this->cwd,
-            $this->cwd . '/src',
-            $this->cwd . '/tests',
+            $this->cwd . self::SRC_DIR,
+            $this->cwd . self::TESTS_DIR,
             new IgnoredPaths($this->cwd, 'src/Legacy'),
         );
 
@@ -446,10 +454,129 @@ final class InfectionDiffFilterTest extends TestCase
         self::assertTrue($this->filter("R100\0src/Old.php\0")->isEmpty());
     }
 
+    #[Test]
+    public function theGitDiffArgumentsAreAListEvenForNamedTriggers(): void
+    {
+        $args = new InfectionDiffFilter()->gitDiffArguments(self::DIFF_BASE, self::SRC_SPEC, self::TESTS_SPEC, ...['config' => self::QA_CONFIG_SPEC]);
+
+        self::assertSame(['--no-pager', 'diff', 'origin/main...HEAD', '-z', '-M', '--name-status', '--diff-filter=AMRCD', '--relative', '--', self::SRC_SPEC, self::TESTS_SPEC, self::QA_CONFIG_SPEC], $args);
+    }
+
+    #[Test]
+    public function aOneCharacterPathIsAStatusRecord(): void
+    {
+        self::assertSame($this->records(['M', 'x'], ['A', 'y']), new InfectionDiffFilter()->nameStatusFromGitStatus(" M x\0?? y\0"));
+    }
+
+    #[Test]
+    public function aWorkingTreeDeletionIsASingleDeletion(): void
+    {
+        self::assertSame($this->records(['D', self::COMMITTED]), new InfectionDiffFilter()->nameStatusFromGitStatus(' D ' . self::COMMITTED . "\0"));
+    }
+
+    #[Test]
+    public function aTypeChangeOrAnUnmergedPathIsAModification(): void
+    {
+        $status = 'T  ' . self::COMMITTED . "\0UU " . self::ADDED . "\0";
+
+        self::assertSame($this->records(['M', self::COMMITTED], ['M', self::ADDED]), new InfectionDiffFilter()->nameStatusFromGitStatus($status));
+    }
+
+    #[Test]
+    public function aStatusOutputMissingItsFinalNulStillYieldsTheRename(): void
+    {
+        self::assertSame(
+            $this->records(['R', self::COMMITTED, self::ADDED]),
+            new InfectionDiffFilter()->nameStatusFromGitStatus('R  ' . self::ADDED . "\0" . self::COMMITTED),
+            'rtrim() strips a trailing NUL, so a caller that trims the output must not lose the last record',
+        );
+    }
+
+    #[Test]
+    public function aRenameCutShortBeforeItsOriginIsNeverReadPastTheEnd(): void
+    {
+        self::assertSame($this->records(['M', self::ADDED]), new InfectionDiffFilter()->nameStatusFromGitStatus('R  ' . self::ADDED));
+    }
+
+    #[Test]
+    public function withoutPrefixMakesEveryStatusPathProjectRelative(): void
+    {
+        $status = " M app/src/Edited.php\0R  app/src/After.php\0app/src/Before.php\0?? other/x.php\0";
+
+        self::assertSame(
+            " M src/Edited.php\0R  src/After.php\0src/Before.php\0?? other/x.php\0",
+            new InfectionDiffFilter()->withoutPrefix($status, 'app/'),
+        );
+    }
+
+    #[Test]
+    public function aSiblingDirectorySharingTheSourceOrTestsNameIsNeitherSourceNorTest(): void
+    {
+        $filter = $this->filter($this->records(['M', 'srcLegacy/Old.php'], ['M', 'tests-e2e/Lane/ToolTest.php']));
+
+        self::assertTrue($filter->isEmpty());
+        self::assertSame([], $filter->mirrored);
+        self::assertSame([], $filter->unmappedTests);
+    }
+
+    #[Test]
+    public function aRenameThatIsCommentOnlyButEditedAgainUnderItsNewPathIsMutatedNotListed(): void
+    {
+        $this->project->write(self::ADDED, self::CODE_DOCUMENTED);
+        $filter = $this->filter($this->records(['R091', self::COMMITTED, self::ADDED], ['M', self::ADDED]), base: $this->base([self::COMMITTED => self::CODE]));
+
+        self::assertSame([self::ADDED], $filter->relativePaths);
+        self::assertSame([], $filter->commentOnly, 'a path that is mutated is never also reported as comment-only');
+    }
+
+    #[Test]
+    public function aWorkingPathThatIsADirectoryIsNeverComparedEvenWithAnEmptyBase(): void
+    {
+        $this->project->write(self::ADDED . '/inside.txt', 'a directory where the file should be');
+        $filter = $this->filter($this->records(['M', self::ADDED]), base: $this->base([self::ADDED => '']));
+
+        self::assertSame([self::ADDED], $filter->relativePaths);
+        self::assertSame([], $filter->commentOnly);
+    }
+
+    #[Test]
+    public function aDiffCutShortAfterItsStatusIsIgnored(): void
+    {
+        self::assertTrue($this->filter('M')->isEmpty());
+        self::assertTrue($this->filter("R100\0src/Old.php")->isEmpty());
+    }
+
+    #[Test]
+    public function aPathIsNeverReadAsAStatusInASourceDirectoryNamedLikeOne(): void
+    {
+        $filter = new InfectionDiffFilter()->fromGitDiffOutput(
+            $this->records(['M', 'Classes/A.php'], ['D', 'Classes/B.php']),
+            $this->cwd,
+            $this->cwd . '/Classes',
+            $this->cwd . '/Tests',
+            new IgnoredPaths($this->cwd),
+        );
+
+        self::assertSame(['Classes/A.php'], $filter->relativePaths, 'a TYPO3-style Classes/ path starts with C, the copy status letter');
+    }
+
+    #[Test]
+    public function aTrailingSlashOnTheCwdOrADirectoryDoesNotChangeTheScope(): void
+    {
+        $records = $this->records(['M', self::COMMITTED], ['M', self::HELPER]);
+        $cwd     = new InfectionDiffFilter()->fromGitDiffOutput($records, $this->cwd . '/', $this->cwd . self::SRC_DIR, $this->cwd . self::TESTS_DIR, new IgnoredPaths($this->cwd));
+        $dirs    = new InfectionDiffFilter()->fromGitDiffOutput($records, $this->cwd, $this->cwd . '/src/', $this->cwd . '/tests/', new IgnoredPaths($this->cwd));
+
+        self::assertSame([self::COMMITTED], $cwd->relativePaths);
+        self::assertSame([self::HELPER], $cwd->unmappedTests);
+        self::assertSame([self::COMMITTED], $dirs->relativePaths);
+        self::assertSame([self::HELPER], $dirs->unmappedTests);
+    }
+
     /** @param Closure(string): ?string|null $base */
     private function filter(string $output, ?Closure $base = null, string ...$triggers): InfectionDiffFilterDto
     {
-        return new InfectionDiffFilter()->fromGitDiffOutput($output, $this->cwd, $this->cwd . '/src', $this->cwd . '/tests', new IgnoredPaths($this->cwd), $base, ...$triggers);
+        return new InfectionDiffFilter()->fromGitDiffOutput($output, $this->cwd, $this->cwd . self::SRC_DIR, $this->cwd . self::TESTS_DIR, new IgnoredPaths($this->cwd), $base, ...$triggers);
     }
 
     /**
