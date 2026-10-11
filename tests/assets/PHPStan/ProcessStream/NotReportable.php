@@ -8,6 +8,8 @@ use PHPUnit\Runner\Extension\Extension;
 use PHPUnit\Runner\Extension\Facade;
 use PHPUnit\Runner\Extension\ParameterCollection;
 use PHPUnit\TextUI\Configuration\Configuration;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\StreamOutput;
 
 final class NotReportable
 {
@@ -22,8 +24,22 @@ final class NotReportable
         print $message;
         $memory = fopen('php://memory', 'w+');
         $file = fopen('/tmp/report.txt', 'w');
-        $target = self::LOG_TARGETS[0];
-        $opened = fopen($target, 'w');
+        $output = new StreamOutput($stream);
+        $buffered = new BufferedOutput();
+        error_log($message, 3, '/tmp/report.log');
+    }
+
+    /** @return list<string> */
+    public function aStreamNameAsData(): array
+    {
+        $this->compare('php://stderr');
+
+        return self::LOG_TARGETS;
+    }
+
+    private function compare(string $target): bool
+    {
+        return \in_array($target, self::LOG_TARGETS, true);
     }
 }
 

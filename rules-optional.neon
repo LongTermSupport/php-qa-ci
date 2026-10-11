@@ -50,9 +50,11 @@
 #                                          docs/phpstan-rules/forbid-debug-output-functions.md
 #
 # THE PROCESS'S OWN STREAMS:
-#   ForbidProcessStreamRule              — STDIN/STDOUT/STDERR, or php://stdin, stdout, stderr
-#                                          or fd/N opened by name, inside a class, function or
-#                                          closure. A test can neither capture nor assert the
+#   ForbidProcessStreamRule              — STDIN/STDOUT/STDERR; php://stdin, stdout, stderr
+#                                          or fd/N opened by name; new ConsoleOutput();
+#                                          readline(); error_log() to the SAPI logger: inside
+#                                          a class, function or closure, where a test can
+#                                          call it. A test can neither capture nor assert the
 #                                          output, and a stderr write stops Infection's initial
 #                                          test run; take the stream as a parameter. Script-level
 #                                          code and PHPUnit runner extensions are exempt. See

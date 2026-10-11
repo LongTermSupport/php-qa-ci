@@ -4,12 +4,19 @@
 
 ## What it requires
 
-Code inside a class, function or closure must not reach for the process's own standard streams:
-the `STDIN`, `STDOUT` and `STDERR` constants, or a `php://stdin`, `php://stdout`, `php://stderr`
-or `php://fd/N` stream opened by name with `fopen()`, `file_put_contents()`,
-`file_get_contents()`, `file()`, `readfile()` (or their `Safe\` wrappers) or `new SplFileObject()`.
-It takes the stream it writes to, or reads from, as a parameter, and the entry script passes the
-real one.
+Code inside a class, function or closure must not reach for the process's own standard streams.
+It takes the stream, or the Symfony output, it writes to or reads from as a parameter, and the
+entry script passes the real one. Reported:
+
+- the `STDIN`, `STDOUT` and `STDERR` constants, including as a parameter default;
+- a `php://stdin`, `php://stdout`, `php://stderr` or `php://fd/N` stream opened by name with
+  `fopen()`, `file_put_contents()`, `file_get_contents()`, `file()`, `readfile()` (or their
+  `Safe\` wrappers) or `new SplFileObject()`, whether the name is written in the call or held in a
+  variable or constant whose value PHPStan knows;
+- `new ConsoleOutput()`, Symfony's output for the process's own stdout and stderr;
+- `readline()` and the other `readline_*()` functions, which read the process's stdin;
+- `error_log()` with no message type, or one of `0` or `4`: both go to the SAPI logger, which is
+  stderr on the command line unless `error_log` is set in `php.ini`.
 
 ## Why
 
@@ -33,8 +40,14 @@ process's stream goes past the runner:
 - **A PHPUnit runner extension** (a class implementing `PHPUnit\Runner\Extension\Extension`):
   the runner calls it and no test does, so its streams are the runner's own.
 - **`echo` and `print`**: they go through the output buffer, which PHPUnit captures.
-- **A `php://` name held as data**, such as a log target in a configuration array: only a name
-  passed as the first argument to one of the opening calls above is a use.
+- **A `php://` name held as data**, such as a log target in a configuration array or a value a
+  test compares: only a name that reaches one of the opening calls above is a use.
+- **`error_log()` to mail or a file** (message type `1` or `3`).
+- **`new StreamOutput($stream)`** with a stream the code was handed, and `BufferedOutput`.
+
+A stream name handed to a library that opens it, such as Monolog's
+`new StreamHandler('php://stderr')`, is not reported: whether a library opens a name it is given
+is that library's behaviour, which the rule cannot read.
 
 A parameter default of `STDERR` is reported: a call that leaves the argument out reaches the
 process's stream exactly as if the method named it.
@@ -82,8 +95,10 @@ rewind($stderr);
 self::assertSame("not PHPStan JSON\n", stream_get_contents($stderr));
 ```
 
-A class that is constructed once and writes in several places takes the stream in its
-constructor instead.
+A class that is constructed once and writes in several places takes the stream, or an
+`OutputInterface`, in its constructor instead. A static `main()` that builds a `ConsoleOutput`
+for its `run()` is reported too: a test can call `main()` as easily as `run()`, so the entry
+script builds the `ConsoleOutput` and passes it in.
 
 ## Why it is opt-in
 

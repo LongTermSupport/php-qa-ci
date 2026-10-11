@@ -24,6 +24,10 @@ final class ForbidProcessStreamRuleTest extends RuleTestCase
 
     private const string STDERR = 'STDERR';
 
+    private const string PHP_STDERR = 'php://stderr';
+
+    private const string ERROR_LOG = 'error_log() to the SAPI logger';
+
     private const string ADVICE =' inside a function reaches the process\'s own stream, which a test can neither capture nor assert, and a write to stderr stops Infection\'s initial test run. Take the stream as a parameter and let the entry script pass it. See docs/phpstan-rules/forbid-process-stream.md.';
 
     #[Test]
@@ -32,23 +36,28 @@ final class ForbidProcessStreamRuleTest extends RuleTestCase
         $this->analyse(
             [self::FIXTURES . '/Reportable.php'],
             [
-                [self::STDERR . self::ADVICE, 11],
-                ['STDOUT' . self::ADVICE, 12],
-                ['STDIN' . self::ADVICE, 13],
-                [self::STDERR . self::ADVICE, 14],
+                [self::STDERR . self::ADVICE, 15],
+                ['STDOUT' . self::ADVICE, 16],
+                ['STDIN' . self::ADVICE, 17],
                 [self::STDERR . self::ADVICE, 18],
-                ['php://stderr' . self::ADVICE, 24],
-                ['PHP://STDOUT' . self::ADVICE, 25],
-                ['php://stderr' . self::ADVICE, 26],
-                ['php://stdin' . self::ADVICE, 27],
-                ['php://fd/3' . self::ADVICE, 28],
-                [self::STDERR . self::ADVICE, 34],
+                [self::STDERR . self::ADVICE, 22],
+                [self::PHP_STDERR . self::ADVICE, 28],
+                ['PHP://STDOUT' . self::ADVICE, 29],
+                [self::PHP_STDERR . self::ADVICE, 30],
+                ['php://stdin' . self::ADVICE, 31],
+                ['php://fd/3' . self::ADVICE, 32],
+                [self::PHP_STDERR . self::ADVICE, 34],
+                ['new ConsoleOutput()' . self::ADVICE, 39],
+                ['readline()' . self::ADVICE, 40],
+                [self::ERROR_LOG . self::ADVICE, 41],
+                [self::ERROR_LOG . self::ADVICE, 42],
+                [self::STDERR . self::ADVICE, 48],
             ],
         );
     }
 
     #[Test]
-    public function aHandedStreamOutputBufferedPrintingAStreamNameHeldAsDataAndARunnerExtensionAreNotReported(): void
+    public function aHandedStreamBufferedOutputAFileLogAStreamNameAsDataAndARunnerExtensionAreNotReported(): void
     {
         $this->analyse([self::FIXTURES . '/NotReportable.php'], []);
     }

@@ -46,13 +46,35 @@ class, then fixes every instance by handing the stream in.
   Infection log targets or `-r` code run in a child process, and so not uses.
   `configDefaults/generic/phparkitect.php` writes from the closure PHPArkitect calls; that file is
   declared unanalysed and runs only inside the PHPArkitect phar's own process, whose output the lane
-  and the Large test capture. Technique 2 found everything technique 1 found and more, so the
-  search is saturated at technique 2.
+  and the Large test capture. Technique 2 found everything technique 1 found and more.
 
-- **Bounds**: wider than the originating instance (every stream constant, not `STDERR` alone, and
-  the `php://` opens, which carry the same hazard with no constant). Not wider still: an `echo` or
-  `print` goes through PHP's output buffer, which PHPUnit captures and `expectOutputString()`
-  asserts, so it has no hazard.
+- **Technique 3, reading how the code that writes output is built**: `TurboInstaller::main()` builds
+  a `ConsoleOutput`, which opens `php://stdout` and `php://stderr` inside Symfony, the same reach
+  with no token for technique 2 to find. A search for constructed Symfony outputs found five
+  `main()`s doing so: `FullQaBlockerConfigurator`, `IssueMonitor`, `PhpstanDocsInstaller`,
+  `PhpstanReplaceSync` and `TurboInstaller`. `QaApplication` builds `StreamOutput`s from streams
+  it is handed, which is the correct construction. A search for the functions that reach a stream
+  implicitly (`error_log()`, `readline()`) found none. Technique 3 found what technique 2 missed,
+  so the class was widened to it.
+
+- **Bounds**: wider than the originating instance. The rule covers:
+
+  - every stream constant, not `STDERR` alone;
+  - a process-stream name reaching an opening call, as a literal or through a variable or
+    constant PHPStan knows the value of;
+  - `new ConsoleOutput()`;
+  - `readline()`;
+  - `error_log()` to the SAPI logger.
+
+  Not wider: an `echo` or `print` goes through PHP's output buffer, which PHPUnit captures and
+  `expectOutputString()` asserts, so it has no hazard.
+
+- **Next wider rule, referred to the Owner**: a stream name handed to a third-party API that opens
+  it (Monolog's `new StreamHandler('php://stderr')`). The hazard is real, but whether a library
+  opens a name it is given is that library's semantics. A rule reporting any call given such a
+  name would also report a test comparing one, which has no hazard. There are no instances in
+  this repository. Leaving it unbuilt is an Owner decision (method 3.1, section 4), stated in the
+  pull request.
 
 - **Narrowings**, each with the sentence why the hazard cannot arise:
 
