@@ -59,6 +59,15 @@ final class PhpunitToolTest extends TestCase
 
     private const string JUNIT_WITH_TESTS = "<?xml version=\"1.0\"?>\n<testsuites><testsuite name=\"t\" tests=\"1\"/></testsuites>\n";
 
+    private const string IDENTIFIER_FOOTER = "\n🪪  phpqaci.phpunit  (vendor/bin/rule-doc phpqaci.phpunit)\n";
+
+    private const string RUN_PREAMBLE = "PHPUnit Major Version: 12\nChecking for paratest\n";
+
+    private const string ARCHIVAL = "\nLog Archival\n============\n"
+        . "Full test suite run\nLog: phpunit.junit.{TS}.xml\n"
+        . "\n"
+        . "Full test suite run\nLog: phpunit.{TS}.log\n";
+
     private ContextFactory $factory;
 
     private string $root;
@@ -104,12 +113,21 @@ final class PhpunitToolTest extends TestCase
         self::assertSame($this->root, $run->cwd);
         self::assertTrue($run->streamOutput);
 
-        self::assertStringContainsString('PHPUnit Major Version: 12', $printed);
-        self::assertStringContainsString('Result: Tests: 3, Assertions: 7, Failures: 0.', $printed, 'the summary line is printed with the colour codes stripped');
-        self::assertStringContainsString('Log Archival', $printed);
-        self::assertStringContainsString('Full test suite run', $printed);
+        $this->assertPrinted(self::RUN_PREAMBLE
+        . self::ARCHIVAL
+        . "Result: Tests: 3, Assertions: 7, Failures: 0.\n", $printed, 'the summary line is printed with the colour codes stripped, and no identifier on a pass');
         self::assertStringContainsString('Tests: 3', $this->factory->project->read('var/qa/phpunit_logs/phpunit.log'));
-        self::assertStringNotContainsString(PhpunitTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function aSummaryLineWithACarriageReturnIsPrintedWithoutIt(): void
+    {
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
+        $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed("OK\r\nTests: 3, Assertions: 7.\r\n");
+
+        new PhpunitTool()->run($this->context($this->factory->builder()));
+
+        self::assertStringEndsWith("Result: Tests: 3, Assertions: 7.\n", $this->factory->output->fetch());
     }
 
     #[Test]
@@ -200,9 +218,20 @@ final class PhpunitToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('ERROR - no tests have been run!', $printed);
-        self::assertStringContainsString('at least one valid test suite configured in your phpunit.xml', $printed);
-        self::assertStringContainsString(PhpunitTool::IDENTIFIER, $printed);
+        self::assertSame('PHPUnit Tests failed (exit 1)', $result->summary, 'a run with no tests is a plain failure, exit 1');
+        $this->assertPrinted(self::RUN_PREAMBLE
+        . "\n"
+        . "        ERROR - no tests have been run!\n"
+        . "\n"
+        . "        Please ensure you have at least one valid test suite configured in your phpunit.xml file\n"
+        . "\n"
+        . "\n"
+        . "Log Archival\n"
+        . "============\n"
+        . "\n"
+        . "Full test suite run\n"
+        . "Log: phpunit.{TS}.log\n"
+        . self::IDENTIFIER_FOOTER, $printed, 'with no junit log there is nothing to archive under it, only the stdout log');
     }
 
     #[Test]
@@ -260,9 +289,14 @@ final class PhpunitToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('PHPUnit crashed (exit 255)', $result->summary);
-        self::assertStringContainsString('PHPUnit Crashed', $printed);
-        self::assertStringContainsString('Running again with Debug mode...', $printed);
-        self::assertStringContainsString(PhpunitTool::IDENTIFIER, $printed);
+        $this->assertPrinted(self::RUN_PREAMBLE
+        . self::ARCHIVAL
+        . "\n\n\n"
+        . "PHPUnit Crashed\n"
+        . "\n"
+        . "Running again with Debug mode...\n"
+        . "\n\n"
+        . self::IDENTIFIER_FOOTER, $printed);
 
         $debug = $this->factory->processes->lastSpec();
         self::assertSame(
@@ -275,13 +309,18 @@ final class PhpunitToolTest extends TestCase
     #[Test]
     public function anUnparseableVersionProbeIsACrash(): void
     {
-        $this->factory->processes->willFail(1, 'Could not open input file');
+        $this->factory->processes->willFail(1, "  Could not open input file\n");
 
         $result = new PhpunitTool()->run($this->context($this->factory->builder()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('PHPUnit version probe failed', $result->summary);
         self::assertCount(1, $this->factory->processes->specs);
-        self::assertStringContainsString('could not determine the PHPUnit version', $this->factory->output->fetch());
+        self::assertSame(
+            "ERROR: could not determine the PHPUnit version from: Could not open input file\n" . self::IDENTIFIER_FOOTER,
+            $this->factory->output->fetch(),
+            'the probe output is quoted trimmed, after the message, and the identifier follows',
+        );
     }
 
     #[Test]
@@ -296,6 +335,14 @@ final class PhpunitToolTest extends TestCase
     private function context(QaConfigBuilder $builder): ToolContext
     {
         return $this->factory->context($builder->build());
+    }
+
+    /** The whole output, where `{TS}` stands for an archive's timestamp. */
+    private function assertPrinted(string $expected, string $printed, string $message = ''): void
+    {
+        $pattern = str_replace(preg_quote('{TS}', '/'), '\d{8}-\d{6}', preg_quote($expected, '/'));
+
+        self::assertMatchesRegularExpression('/\A' . $pattern . '\z/', $printed, $message);
     }
 
     private function configPath(): string
