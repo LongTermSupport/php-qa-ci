@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use UnexpectedValueException;
 
 /**
  * The dead-code detector reaches PHPStan as plain files. With Turbo active PHPStan forks its
@@ -74,5 +75,35 @@ final class DetectorUnpackerTest extends TestCase
         $directory = new DetectorUnpacker()->unpack(self::PHAR, $this->cache->path);
 
         self::assertSame(['.', '..', basename($directory)], \Safe\scandir(\dirname($directory)), 'no staging directory left behind');
+    }
+
+    /** One directory per PHAR content: named by the first 16 hex digits of the PHAR's SHA-256. */
+    #[Test]
+    public function theCopyIsNamedAfterTheStartOfThePharsHash(): void
+    {
+        $directory = new DetectorUnpacker()->unpack(self::PHAR, $this->cache->path);
+
+        self::assertSame(
+            $this->cache->path . '/' . DetectorUnpacker::DIR . '/' . substr(\Safe\hash_file('sha256', self::PHAR), 0, 16),
+            $directory,
+        );
+    }
+
+    #[Test]
+    public function aPharThatCannotBeUnpackedLeavesNoStagingDirectoryBehind(): void
+    {
+        $notAPhar = $this->cache->path . '/broken.phar';
+        \Safe\file_put_contents($notAPhar, 'not a phar');
+
+        $thrown = null;
+
+        try {
+            new DetectorUnpacker()->unpack($notAPhar, $this->cache->path);
+        } catch (UnexpectedValueException $unexpectedValueException) {
+            $thrown = $unexpectedValueException;
+        }
+
+        self::assertInstanceOf(UnexpectedValueException::class, $thrown);
+        self::assertSame(['.', '..'], \Safe\scandir($this->cache->path . '/' . DetectorUnpacker::DIR));
     }
 }
