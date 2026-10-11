@@ -7,7 +7,6 @@ namespace LTS\PHPQA\Tests\Support\TempLeak;
 use ErrorException;
 use FilesystemIterator;
 use RuntimeException;
-use Safe\Exceptions\PosixException;
 use SplFileInfo;
 use UnexpectedValueException;
 
@@ -78,9 +77,15 @@ final class TempLeakDirectory
      * named exactly as claim() names one, whose pid is not running, is
      * removed; a symlink is never followed. A reused pid, or a killed process
      * not yet reaped, only keeps a stale directory until a later claim.
+     * Without /proc this process does not look alive to itself, and then
+     * nothing can be judged dead, so nothing goes.
      */
     private static function removeAbandoned(string $shared, int $uid): void
     {
+        if (!self::isRunning(\Safe\getmypid())) {
+            return;
+        }
+
         foreach (self::entriesOf($shared) ?? [] as $name => $path) {
             $pid = self::ownerPid($name);
             if (null === $pid
@@ -96,27 +101,15 @@ final class TempLeakDirectory
     }
 
     /**
-     * Whether $pid names a process this user could signal, asked with signal
-     * 0, which delivers nothing. No such process (ESRCH) is dead; one owned by
-     * another user (EPERM) holds a reused pid, so the process of this user that
-     * named the directory is dead too. claim() runs from a Composer files entry,
-     * before Infection's bootstrap, so it must load nothing from src/: a source
-     * file loaded there is never swapped for a mutant (#155). That is why this
-     * does not use LTS\PHPQA\Pipeline\Process\ProcessTree.
+     * Whether the kernel still lists $pid in /proc. claim() runs from a
+     * Composer files entry, before Infection's bootstrap, so it must load
+     * nothing from src/: a source file loaded there is never swapped for a
+     * mutant (#155). That is why this does not use
+     * LTS\PHPQA\Pipeline\Process\ProcessTree.
      */
     private static function isRunning(int $pid): bool
     {
-        try {
-            \Safe\posix_kill($pid, 0);
-        } catch (PosixException $posixException) {
-            if (!\in_array(posix_get_last_error(), [\PCNTL_ESRCH, \PCNTL_EPERM], true)) {
-                throw $posixException;
-            }
-
-            return false;
-        }
-
-        return true;
+        return is_dir('/proc/' . $pid);
     }
 
     /** The pid in a name claim() gives a directory, or null for any other name. */
