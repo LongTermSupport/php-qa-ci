@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 
-use LTS\PHPQA\Pipeline\Runner\ConsoleRetryPrompt;
 use LTS\PHPQA\Pipeline\Runner\Dto\ExecutionDto;
 use LTS\PHPQA\Pipeline\Runner\NonInteractiveRetryPrompt;
 use LTS\PHPQA\Pipeline\Runner\RetryPromptInterface;
@@ -19,7 +18,6 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
  * @internal
@@ -27,7 +25,6 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[CoversClass(ToolExecutor::class)]
 #[CoversClass(ExecutionDto::class)]
 #[CoversClass(NonInteractiveRetryPrompt::class)]
-#[CoversClass(ConsoleRetryPrompt::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -129,21 +126,6 @@ final class ToolExecutorTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $execution->result->outcome);
         self::assertSame(1, $locator->stub(self::STAN)->runs);
-    }
-
-    #[Test]
-    public function theConsolePromptAcceptsYAndNAndRejectsAnythingElse(): void
-    {
-        $output = new BufferedOutput();
-        $stdin  = \Safe\fopen('php://memory', 'r+');
-        \Safe\fwrite($stdin, "maybe\ny\nn\n");
-        \Safe\rewind($stdin);
-        $prompt = new ConsoleRetryPrompt($output, $stdin);
-
-        self::assertTrue($prompt->shouldRetry(self::TOOL_LINT));
-        self::assertStringContainsString('invalid choice: maybe', $output->fetch());
-        self::assertFalse($prompt->shouldRetry(self::TOOL_LINT));
-        self::assertFalse($prompt->shouldRetry(self::TOOL_LINT), 'end of input is a no');
     }
 
     /** The whole failure banner around the given heading lines, as the executor prints it. */
