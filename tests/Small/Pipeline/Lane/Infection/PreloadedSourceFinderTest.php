@@ -26,6 +26,8 @@ final class PreloadedSourceFinderTest extends TestCase
 {
     private const string LEGACY = 'Legacy';
 
+    private const string PHP = '<?php';
+
     private TempDir $project;
 
     private string $src;
@@ -38,7 +40,7 @@ final class PreloadedSourceFinderTest extends TestCase
     {
         $this->project = TempDir::create('phpqa-preloaded');
         foreach (['src/Process/Tree.php', 'src/Legacy/Old.php', 'src/Domain/Legacy/Kept.php', 'src/ComposerPlugin/Plugin.php', 'src/view.phtml', 'src2/Other.php', 'vendor/autoload.php', 'lib/Extra.php'] as $file) {
-            $this->project->write($file, '<?php');
+            $this->project->write($file, self::PHP);
         }
 
         $this->src  = $this->project->path . '/src';
@@ -78,6 +80,60 @@ final class PreloadedSourceFinderTest extends TestCase
     public function aFileNotNamedDotPhpIsNotMutatedSoNotFound(): void
     {
         self::assertSame([], $this->found([$this->src], [], [], $this->src . '/view.phtml'));
+    }
+
+    /**
+     * Infection's Finder ignores dot files and version-control directories, so a
+     * file under one is never mutated, whatever loads it.
+     */
+    #[Test]
+    #[DataProvider('pathsFinderIgnores')]
+    public function aFileFinderIgnoresIsNotMutatedSoNotFound(string $relative): void
+    {
+        $file = $this->project->write('src/' . $relative, self::PHP);
+
+        self::assertSame([], $this->found([$this->src], [], [], $file));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function pathsFinderIgnores(): iterable
+    {
+        yield 'a dot file' => ['.Hidden.php'];
+        yield 'under a dot directory' => ['.cache/Hidden.php'];
+        yield 'under a deeper dot directory' => ['Process/.old/Hidden.php'];
+        yield 'under CVS' => ['Process/CVS/Hidden.php'];
+        yield 'under _svn' => ['_svn/Hidden.php'];
+        yield 'under _darcs' => ['_darcs/Hidden.php'];
+    }
+
+    /**
+     * Only a whole directory name is a version-control directory, and only a
+     * name starting with a dot is hidden: these are mutated.
+     */
+    #[Test]
+    #[DataProvider('pathsFinderKeeps')]
+    public function aFileFinderKeepsIsFound(string $relative): void
+    {
+        $file = $this->project->write('src/' . $relative, self::PHP);
+
+        self::assertSame([\Safe\realpath($file)], $this->found([$this->src], [], [], \Safe\realpath($file)));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function pathsFinderKeeps(): iterable
+    {
+        yield 'a dot inside a name' => ['Process/Tree.dist.php'];
+        yield 'a directory containing CVS' => ['CVSImport/Kept.php'];
+        yield 'a file named CVS' => ['Process/CVS.php'];
+    }
+
+    /** The source directory itself may sit under a dot directory: only the path below it counts. */
+    #[Test]
+    public function aSourceDirectoryUnderADotDirectoryIsSearched(): void
+    {
+        $file = $this->project->write('.build/src/Kept.php', self::PHP);
+
+        self::assertSame([\Safe\realpath($file)], $this->found([$this->project->path . '/.build/src'], [], [], \Safe\realpath($file)));
     }
 
     #[Test]

@@ -251,7 +251,9 @@ mutants escapes whatever the tests assert, and the score cannot tell that from a
 Before any coverage is generated, the lane therefore loads `vendor/autoload.php` as PHPUnit's
 runner does (`bin/autoload-included-files`, run without Xdebug from the project root), reads the
 files PHP has included by then, and keeps those Infection would mutate: `*.php` files under the
-source directories of the config Infection runs with, not matched by a `source.excludes` entry
+source directories of the config Infection runs with, not under a part of the path Finder skips
+(one whose name starts with a dot, or a version-control directory such as `CVS`), not matched by a
+`source.excludes` entry
 (read as Infection's Finder reads it: a delimited regex as that regex, anything else as a
 substring of the path relative to the source directory), and on a diff run only the files the
 run mutates. If any remain, the lane crashes with `phpqaci.infection`, naming each file:
@@ -300,7 +302,10 @@ too, naming the entry, since what Infection mutates cannot be worked out without
   being included a second time after the bootstrap. A class, interface, trait, enum or function
   file cannot be included twice, and Composer includes each `files` entry once. That leaves only
   a plain script reached from a `files` entry and required again by the tests, and its mutants
-  are still not killed through the first load, so the report stands.
+  are still not killed through the first load, so the report stands. The one way it reports too
+  much: an Infection `phpUnit.customPath` naming a PHPUnit PHAR, which loads the project's
+  autoloader only through the bootstrap, after the interceptor. The lane then crashes on a file
+  Infection could swap; the fix above is still sound, and the lane never reports too little.
 - **Next wider rule, not built**: a source file loaded before the interceptor by a PHPUnit other
   than the project's own `vendor/autoload.php` (Infection's `phpUnit.customPath` pointing at a
   PHPUnit with a different autoloader, or a Composer `vendor-dir` other than `vendor`). The

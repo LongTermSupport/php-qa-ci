@@ -15,8 +15,9 @@ use InvalidArgumentException;
  * original code in every mutant run, so none of its mutants can be killed.
  *
  * What Infection mutates is decided the way its source collector decides it:
- * a `*.php` file under a source directory, not matched by a `source.excludes`
- * entry, and, in a diff run, one of the files the lane passes it. Infection
+ * a `*.php` file under a source directory, not hidden from Finder by a dot or
+ * a version-control directory, not matched by a `source.excludes` entry, and,
+ * in a diff run, one of the files the lane passes it. Infection
  * hands every exclude to Symfony Finder's `notPath()`, which matches it
  * against the path relative to the source directory: a string Finder takes
  * for a regex (delimited, with optional modifiers) as that regex, any other
@@ -32,6 +33,9 @@ final readonly class PreloadedSourceFinder
 
     /** The bracket pairs Finder accepts as a regex's opening and closing delimiters. */
     private const array BRACKETS = ['{' => '}', '(' => ')', '[' => ']', '<' => '>'];
+
+    /** The version-control directories Finder skips whose names do not start with a dot, which it skips anyway. */
+    private const array VCS_DIRECTORIES = ['_svn', 'CVS', '_darcs'];
 
     /**
      * @param list<string> $sourceDirectories absolute, as the lane's derived infection.json states them
@@ -54,7 +58,7 @@ final readonly class PreloadedSourceFinder
             }
 
             foreach ($roots as $root) {
-                if (str_starts_with($file, $root) && !$this->excluded(substr($file, \strlen($root)), ...$excludes)) {
+                if (str_starts_with($file, $root) && $this->collected(substr($file, \strlen($root))) && !$this->excluded(substr($file, \strlen($root)), ...$excludes)) {
                     $found[] = $file;
 
                     break;
@@ -63,6 +67,20 @@ final readonly class PreloadedSourceFinder
         }
 
         return $found;
+    }
+
+    /**
+     * Whether Finder, at its defaults, lists the file at $relative below a
+     * source directory: it skips any path with a part starting with a dot, and
+     * any under a version-control directory.
+     */
+    private function collected(string $relative): bool
+    {
+        $directories = explode('/', $relative);
+        $name        = array_pop($directories);
+
+        return !str_starts_with($name, '.')
+            && !array_any($directories, static fn (string $directory): bool => str_starts_with($directory, '.') || \in_array($directory, self::VCS_DIRECTORIES, true));
     }
 
     private function excluded(string $relative, string ...$excludes): bool
