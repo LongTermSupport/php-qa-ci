@@ -577,6 +577,18 @@ final class QaConfigBuilderTest extends TestCase
         self::assertSame([self::UNANALYSED_DIR => 'generated code'], $config->unanalysedPaths);
     }
 
+    /** A NUL byte is not whitespace to the word split, so only the trim keeps it from counting as a word. */
+    #[Test]
+    public function aOneWordReasonEdgedWithANulByteIsStillRefused(): void
+    {
+        try {
+            $this->defaults()->withUnanalysedPath(self::UNANALYSED_DIR, "\0 legacy");
+            self::fail(self::EXPECTED_LOGIC_EXCEPTION);
+        } catch (LogicException $logicException) {
+            self::assertStringContainsString('needs a reason of at least two words', $logicException->getMessage());
+        }
+    }
+
     #[Test]
     public function anUnanalysedPathIsNormalisedOfSurroundingWhitespaceAndRepeatedSlashes(): void
     {
