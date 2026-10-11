@@ -74,6 +74,18 @@ final class PhpArkitectToolTest extends TestCase
 
     private const string LEGACY = 'src/Legacy';
 
+    private const string ENTRY_FILE = '/phparkitect.php';
+
+    private const string USING_CONFIG = 'PHPArkitect: using config ';
+
+    private const string CONFIG_FLAG = '--config=';
+
+    private const string VAR_QA = 'var/qa/';
+
+    private const string TESTS_ASSETS = 'tests/assets';
+
+    private const string CRASHED = 'crashed';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -97,14 +109,14 @@ final class PhpArkitectToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $defaults = \dirname(__DIR__, 4) . '/configDefaults/generic';
-        self::assertStringContainsString('PHPArkitect: using config ' . $defaults . '/phparkitect.php', $printed);
+        self::assertStringContainsString(self::USING_CONFIG . $defaults . self::ENTRY_FILE, $printed);
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(\dirname(__DIR__, 4) . '/vendor-phar/phparkitect.phar', $this->script($spec));
         self::assertSame(
             [
                 'check',
-                '--config=' . $defaults . '/phparkitect.php',
+                self::CONFIG_FLAG . $defaults . self::ENTRY_FILE,
                 '--autoload=' . $this->factory->project->path . '/vendor/autoload.php',
                 '--no-interaction',
                 self::SKIP_BASELINE,
@@ -129,7 +141,7 @@ final class PhpArkitectToolTest extends TestCase
             $spec->env,
         );
 
-        $logDir = 'var/qa/' . PhpArkitectTool::LOG_DIR;
+        $logDir = self::VAR_QA . PhpArkitectTool::LOG_DIR;
         self::assertSame("✓ no violations\n", $this->factory->project->read($logDir . '/' . PhpArkitectTool::LOG_FILE));
         $archived = array_filter($this->factory->project->files($logDir), static fn (string $f): bool => 1 === \Safe\preg_match('/^phparkitect\.\d{8}-\d{6}\.log$/', $f));
         self::assertCount(1, $archived, 'the log is archived with a timestamp');
@@ -156,7 +168,7 @@ final class PhpArkitectToolTest extends TestCase
         new PhpArkitectTool()->run($this->factory->context());
 
         $spec = $this->factory->processes->lastSpec();
-        self::assertContains('--config=' . $entry, $this->toolArgs($spec));
+        self::assertContains(self::CONFIG_FLAG . $entry, $this->toolArgs($spec));
         self::assertSame($default, $spec->env['PHPQACI_ARKITECT_RULES_DEFAULT']);
         self::assertSame(\dirname(__DIR__, 4) . '/configDefaults/generic/phparkitect-rules-optional.php', $spec->env['PHPQACI_ARKITECT_RULES_OPTIONAL']);
     }
@@ -165,7 +177,7 @@ final class PhpArkitectToolTest extends TestCase
     public function theIgnoredPathsAndTheClassSetFactoryAreExported(): void
     {
         $this->factory->processes->willSucceed();
-        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY, 'tests/assets')->build();
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY, self::TESTS_ASSETS)->build();
 
         new PhpArkitectTool()->run($this->factory->context($config));
 
@@ -182,16 +194,73 @@ final class PhpArkitectToolTest extends TestCase
     #[Test]
     public function aProjectEntryConfigThatBuildsItsOwnClassSetFailsWhileASourcePathIsIgnored(): void
     {
-        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
-        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY)->build();
+        $entry  = $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
+        $config = $this->factory->builder()->withIgnoredPaths(self::LEGACY, self::TESTS_ASSETS, 'src/Old')->build();
 
         $result = new PhpArkitectTool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('the project entry config does not honour withIgnoredPaths()', $result->summary);
         self::assertSame([], $this->factory->processes->specs, 'arkitect must not run on a class set that still holds the ignored path');
-        $printed = $this->factory->output->fetch();
-        self::assertStringContainsString('PHPQACI_ARKITECT_CLASS_SET', $printed);
-        self::assertStringContainsString(self::LEGACY, $printed);
+        self::assertSame($this->unhonouredReport($entry, self::LEGACY, 'src/Old'), $this->factory->output->fetch());
+    }
+
+    /**
+     * Paths written with a trailing slash name the same directories, so the
+     * report still names each ignored path relative to the project root.
+     */
+    #[Test]
+    public function pathsWithATrailingSlashReportTheSameUnhonouredPaths(): void
+    {
+        $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
+        $root  = $this->factory->project->path;
+        $paths = $this->factory->paths();
+        $paths = new \LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto(
+            projectRoot: $root . '/',
+            libraryRoot: $paths->libraryRoot,
+            binDir: $paths->binDir,
+            srcDir: $root . '/src/',
+            testsDir: $paths->testsDir,
+            projectConfigDir: $root . '/qaConfig/',
+            varDir: $paths->varDir,
+            cacheDir: $paths->cacheDir,
+            pharDir: $paths->pharDir,
+            configDefaultsDir: $paths->configDefaultsDir,
+        );
+        $config  = $this->factory->builder(paths: $paths)->withIgnoredPaths(self::LEGACY)->build();
+        $context = $this->factory->context($config);
+
+        $result = new PhpArkitectTool()->run($context);
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame($this->unhonouredReport($context->configPath('phparkitect.php'), self::LEGACY), $this->factory->output->fetch());
+    }
+
+    /**
+     * Only an entry config inside qaConfig/ is the project's own; a default
+     * resolved from a directory that merely starts with the same name is not.
+     */
+    #[Test]
+    public function anEntryConfigOutsideTheProjectConfigDirIsNotHeldToTheClassSetFactory(): void
+    {
+        $defaultsDir = $this->factory->project->mkdir('qaConfig-defaults/generic');
+        $this->factory->project->write('qaConfig-defaults/generic/phparkitect.php', self::OWN_CLASS_SET_CONFIG);
+        $this->factory->processes->willSucceed();
+
+        $paths   = $this->factory->paths();
+        $config  = $this->factory->builder()->withIgnoredPaths(self::LEGACY)->build();
+        $context = new ToolContext(
+            config: $config,
+            configPaths: new ConfigPathResolver($paths->projectConfigDir, \dirname($defaultsDir), $config->platform),
+            processes: $this->factory->processes,
+            php: new PhpInvoker($this->factory->processes, $config->phpBinPath, $config->memoryLimit, $paths->varDir),
+            logs: new LogArchiver($this->factory->output),
+            output: $this->factory->output,
+            stdout: $this->factory->stdout,
+        );
+
+        self::assertSame(ToolOutcomeEnum::Passed, new PhpArkitectTool()->run($context)->outcome);
+        self::assertCount(1, $this->factory->processes->specs);
     }
 
     #[Test]
@@ -200,7 +269,7 @@ final class PhpArkitectToolTest extends TestCase
         $this->factory->project->write(self::PROJECT_ENTRY_CONFIG, self::OWN_CLASS_SET_CONFIG);
         $this->factory->processes->willSucceed();
 
-        $config = $this->factory->builder()->withIgnoredPaths('tests/assets', 'srcGenerated')->build();
+        $config = $this->factory->builder()->withIgnoredPaths(self::TESTS_ASSETS, 'srcGenerated')->build();
 
         self::assertSame(ToolOutcomeEnum::Passed, new PhpArkitectTool()->run($this->factory->context($config))->outcome);
     }
@@ -226,8 +295,8 @@ final class PhpArkitectToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString(PhpArkitectTool::IDENTIFIER, $printed);
-        self::assertStringNotContainsString('crashed', $printed);
-        self::assertSame(self::VIOLATION_OUTPUT, $this->factory->project->read('var/qa/' . PhpArkitectTool::LOG_DIR . '/' . PhpArkitectTool::LOG_FILE));
+        self::assertStringNotContainsString(self::CRASHED, $printed);
+        self::assertSame(self::VIOLATION_OUTPUT, $this->factory->project->read(self::VAR_QA . PhpArkitectTool::LOG_DIR . '/' . PhpArkitectTool::LOG_FILE));
     }
 
     #[Test]
@@ -239,10 +308,23 @@ final class PhpArkitectToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('PHPArkitect crashed (exit 2)', $result->summary);
         self::assertFalse($result->outcome->isRetryable());
-        self::assertStringContainsString('PHPArkitect crashed (exit 2) — this is an ERROR, not a rule violation.', $printed);
-        self::assertStringContainsString('an INCOMPLETE autoloader does NOT crash', $printed);
-        self::assertStringContainsString("run 'composer dump-autoload'", $printed);
+        self::assertStringEndsWith(
+            <<<'TEXT'
+                .log
+
+                PHPArkitect crashed (exit 2) — this is an ERROR, not a rule violation.
+                Likely causes: an invalid phparkitect config, an unparseable source file, or a bad
+                ClassSet path. Inspect the output above; retrying will not help.
+                NOTE: an INCOMPLETE autoloader does NOT crash — instead the optional/symfony tiers'
+                ancestry rules (IsA) silently match nothing (a false green). If those rules seem to
+                find no violations, make your classes autoloadable: run 'composer dump-autoload'.
+
+
+                TEXT,
+            $printed,
+        );
         self::assertStringNotContainsString(PhpArkitectTool::IDENTIFIER, $printed);
         self::assertCount(1, $this->factory->processes->specs);
     }
@@ -326,8 +408,70 @@ final class PhpArkitectToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertContains(self::SKIP_BASELINE, $this->toolArgs($this->factory->processes->lastSpec()));
-        self::assertStringContainsString('PHPArkitect: phparkitect-baseline.json is not read.', $printed);
-        self::assertStringContainsString('qaConfig/qa.php', $printed);
+        self::assertStringStartsWith(
+            self::USING_CONFIG . \dirname(__DIR__, 4) . "/configDefaults/generic/phparkitect.php\n"
+            . "PHPArkitect: phparkitect-baseline.json is not read. A baseline hides violations outside the project record:\n"
+            . "             fix what it lists, or record a deliberate exception in qaConfig/qa.php\n"
+            . "             (withArkitectExcludedPaths) or a project rule tier under qaConfig/. See docs/tools/phpArkitect.md.\n"
+            . "Full test suite run\n",
+            $printed,
+        );
+    }
+
+    #[Test]
+    public function agentModeRunsTheSameCheckForJsonAndKeepsTheJsonAsItsLog(): void
+    {
+        $json = '{"totalViolations": 0, "details": []}';
+        $this->factory->processes->willSucceed($json);
+        $defaults = \dirname(__DIR__, 4) . '/configDefaults/generic';
+
+        new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        $spec = $this->factory->processes->lastSpec();
+        self::assertSame(\dirname(__DIR__, 4) . '/vendor-phar/phparkitect.phar', $this->script($spec));
+        self::assertSame(
+            [
+                'check',
+                self::CONFIG_FLAG . $defaults . self::ENTRY_FILE,
+                '--autoload=' . $this->factory->project->path . '/vendor/autoload.php',
+                '--no-interaction',
+                self::SKIP_BASELINE,
+                '--format=json',
+            ],
+            $this->toolArgs($spec),
+        );
+        self::assertFalse($spec->streamOutput, 'agent mode keeps the JSON off the terminal');
+        self::assertSame($this->factory->project->path, $spec->cwd);
+        self::assertSame($defaults . '/phparkitect-class-set.php', $spec->env['PHPQACI_ARKITECT_CLASS_SET']);
+        self::assertSame($json, $this->factory->project->read(self::VAR_QA . PhpArkitectTool::LOG_DIR . '/' . PhpArkitectTool::JSON_FILE));
+    }
+
+    #[Test]
+    public function anAgentModeCrashIsRecordedInACrashReportAndTheIndex(): void
+    {
+        $this->factory->processes->willFail(255, "PHP Fatal error: bad config\n");
+
+        $result = new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('PHPArkitect crashed (exit 255)', $result->summary);
+        $crash = $this->decode($this->reportsDir() . '/' . PhpArkitectTool::RULE_FALLBACK_DIR . '/crash.json');
+        self::assertSame(self::CRASHED, $crash['status']);
+        $index = $this->decode($this->reportsDir() . '/' . FileReportWriter::INDEX_FILE);
+        self::assertSame(self::CRASHED, $index['status']);
+        self::assertSame(['PHPArkitect crashed (exit 255)'], $index['global_errors']);
+    }
+
+    #[Test]
+    public function aFallbackReportIsNamedForTheRuleInLowerCaseAndCappedInLength(): void
+    {
+        $rule = 'Classes in App\Domain MUST NOT depend on App\Infrastructure because the domain is the stable core of the system';
+        $this->factory->processes->willFail(1, $this->report(['Vendor\Absent' => [$rule]]));
+
+        new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
+
+        $slug = 'classes-in-app-domain-must-not-depend-on-app-infrastructure-because-the-domain-i';
+        self::assertFileExists($this->reportsDir() . '/' . PhpArkitectTool::RULE_FALLBACK_DIR . '/' . $slug . '.json');
     }
 
     #[Test]
@@ -414,7 +558,7 @@ final class PhpArkitectToolTest extends TestCase
         $result = new PhpArkitectTool()->run($this->factory->context($this->agentConfig()));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
-        self::assertStringContainsString('crashed', $this->stdoutLines()[0]);
+        self::assertStringContainsString(self::CRASHED, $this->stdoutLines()[0]);
         self::assertStringNotContainsString('composer dump-autoload', $this->factory->stdout->fetch());
     }
 
@@ -434,6 +578,22 @@ final class PhpArkitectToolTest extends TestCase
         $result = new PhpArkitectTool()->run($this->factory->context($this->factory->builder(agentMode: true)->withArkitect(false)->build()));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+    }
+
+    /** What the lane prints when a project entry config would still check these ignored source paths. */
+    private function unhonouredReport(string $entry, string ...$relative): string
+    {
+        $listed = '';
+        foreach ($relative as $path) {
+            $listed .= '             ' . $path . "\n";
+        }
+
+        return self::USING_CONFIG . $entry . "\n"
+            . 'PHPArkitect: ' . $entry . " builds its own class set, so these ignored paths would still be checked:\n"
+            . $listed
+            . "             Build it from the shipped factory instead: (require getenv('PHPQACI_ARKITECT_CLASS_SET'))(\$srcDir).\n"
+            . "             templates/qaConfig-phparkitect.php shows the line. See docs/tools/phpArkitect.md.\n"
+            . "\n🪪  phpqaci.phpArkitect  (vendor/bin/rule-doc phpqaci.phpArkitect)\n";
     }
 
     private function agentConfig(): \LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto
