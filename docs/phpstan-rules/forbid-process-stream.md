@@ -45,7 +45,8 @@ process's stream goes past the runner:
 - **`error_log()` to mail or a file** (message type `1` or `3`).
 - **A project's own function named like a readline function**, such as `readlineCount()`, or a
   namespace's own `readline()` reached by an unqualified call there, which PHP resolves to the
-  namespace's function before its own.
+  namespace's function before its own. The namespace's function must be one PHPStan knows, from
+  an analysed path or the autoloader; one it cannot see is taken for PHP's and reported.
 - **`new StreamOutput($stream)`** with a stream the code was handed, and `BufferedOutput`.
 
 A stream name handed to a library that opens it, such as Monolog's
