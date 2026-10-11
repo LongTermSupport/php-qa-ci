@@ -184,7 +184,7 @@ final readonly class ForbidProcessStreamRule implements Rule
      */
     private function isInsideAFunction(Scope $scope): bool
     {
-        return $scope->isInClass() || $scope->getFunction() instanceof \PHPStan\Reflection\Php\PhpFunctionFromParserNodeReflection || $scope->isInAnonymousFunction();
+        return $scope->isInClass() || null !== $scope->getFunctionName() || $scope->isInAnonymousFunction();
     }
 
     private function isARunnerExtension(Scope $scope): bool

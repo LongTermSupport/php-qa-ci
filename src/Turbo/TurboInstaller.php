@@ -57,7 +57,7 @@ final readonly class TurboInstaller
     public static function main(string $libraryRoot, string $mode, ConsoleOutputInterface $output): int
     {
         return new self(
-            new GitHubTurboReleaseSource($output->getErrorOutput()),
+            GitHubTurboReleaseSource::overHttp($output->getErrorOutput()),
             TurboPlatform::fromRuntime(),
             null !== new ExecutableFinder()->find('phive'),
             $output,

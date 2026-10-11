@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\ShellCheck;
 
+use Closure;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\Pipeline\Config\ShellCheckBinary;
 use PharData;
@@ -51,16 +52,27 @@ final readonly class ShellCheckInstaller
     /** Long enough for a 3.7 MB asset on a slow runner, short enough not to hang a composer event. */
     private const int TIMEOUT_SECONDS = 60;
 
+    /**
+     * @param Closure(string, string...): string $fetch      the body at a URL, given the request headers; throws when the request fails
+     * @param bool                               $maintainer whether this is a maintainer build, the only kind an update changes
+     */
     public function __construct(
         private OutputInterface $output,
         private OutputInterface $errors,
+        private Closure $fetch,
+        private bool $maintainer,
     ) {
     }
 
     /** @return int the process exit code */
     public static function main(string $libraryRoot, string $mode, ConsoleOutputInterface $output): int
     {
-        return new self($output, $output->getErrorOutput())->run($libraryRoot, $mode);
+        return new self(
+            $output,
+            $output->getErrorOutput(),
+            self::httpGet(...),
+            null !== new ExecutableFinder()->find('phive'),
+        )->run($libraryRoot, $mode);
     }
 
     public function run(string $libraryRoot, string $mode): int
@@ -70,7 +82,7 @@ final readonly class ShellCheckInstaller
         $present = is_file($binary);
         $decider = new InstallDecider();
 
-        if (self::MODE_UPDATE === $mode && !$this->isMaintainerEnvironment()) {
+        if (self::MODE_UPDATE === $mode && !$this->maintainer) {
             $this->write('ShellCheck left as committed — skipping update (not a maintainer build).');
 
             return 0;
@@ -192,16 +204,8 @@ final readonly class ShellCheckInstaller
             $headers[] = 'Authorization: Bearer ' . $token;
         }
 
-        $context = stream_context_create([
-            'http' => [
-                'header'        => implode("\r\n", $headers),
-                'timeout'       => self::TIMEOUT_SECONDS,
-                'ignore_errors' => false,
-            ],
-        ]);
-
         try {
-            return \Safe\file_get_contents($url, false, $context);
+            return ($this->fetch)($url, ...$headers);
         } catch (Throwable $throwable) {
             // Not fatal on its own: the caller decides, and for a release
             // lookup the answer is to leave the pin alone. The cause is still
@@ -212,9 +216,18 @@ final readonly class ShellCheckInstaller
         }
     }
 
-    private function isMaintainerEnvironment(): bool
+    /** The body at a URL, fetched over HTTP with the request headers given. */
+    private static function httpGet(string $url, string ...$headers): string
     {
-        return null !== new ExecutableFinder()->find('phive');
+        $context = stream_context_create([
+            'http' => [
+                'header'        => implode("\r\n", $headers),
+                'timeout'       => self::TIMEOUT_SECONDS,
+                'ignore_errors' => false,
+            ],
+        ]);
+
+        return \Safe\file_get_contents($url, false, $context);
     }
 
     private function write(string $line): void

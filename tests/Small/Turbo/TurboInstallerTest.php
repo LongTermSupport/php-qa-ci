@@ -52,6 +52,14 @@ final class TurboInstallerTest extends TestCase
 
     private const string CORE_BYTES = "\x7fELF the turbo core";
 
+    private const string STAMP = self::BINARY . '.source';
+
+    private const string DIGEST = 'sha256';
+
+    private const string DOWNLOAD_WARNING = 'WARNING: could not download turbo-ext/';
+
+    private const string WITHOUT_TURBO = "; PHPStan runs without Turbo until the next composer install.\n";
+
     private TempDir $library;
 
     private BufferedOutput $output;
@@ -137,7 +145,7 @@ final class TurboInstallerTest extends TestCase
 
         self::assertFileDoesNotExist($this->library->path . '/' . self::BINARY);
         self::assertFileDoesNotExist($this->library->path . '/' . self::CORE, 'a verified core must not be placed beside a binary that failed');
-        self::assertStringContainsString('SHA-256', $this->errors->fetch());
+        self::assertSame(\sprintf("ERROR: turbo-ext/%s has SHA-256 %s, but %s pins %s. Nothing was installed.\n", self::BINARY_PATH, hash(self::DIGEST, self::BINARY_BYTES), TurboManifest::PATH, str_repeat('0', 64)), $this->errors->fetch());
     }
 
     /** Offline, an install still succeeds: PHPStan runs without Turbo, and says why on the next install. */
@@ -149,7 +157,7 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
         self::assertFileDoesNotExist($this->library->path . '/' . self::BINARY);
-        self::assertStringContainsString('without Turbo', $this->errors->fetch());
+        self::assertSame(self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO, $this->errors->fetch());
     }
 
     #[Test]
@@ -170,7 +178,7 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertStringContainsString('2.2.16', $this->errors->fetch());
+        self::assertSame("ERROR: vendor-phar/turbo-ext.json is for PHPStan 2.2.16 but the shipped phpstan.phar is 2.3.1; a binary from another release does not load. Run scripts/tool-install.bash update.\n", $this->errors->fetch());
     }
 
     #[Test]
@@ -180,7 +188,7 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertStringContainsString(TurboManifest::PATH, $this->errors->fetch());
+        self::assertSame("ERROR: vendor-phar/turbo-ext.json has no \"phpstan\" version. Restore it from git, or run scripts/tool-install.bash update.\n", $this->errors->fetch());
     }
 
     #[Test]
@@ -220,7 +228,8 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []), maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE));
 
         self::assertSame($before, $this->library->read(TurboManifest::PATH));
-        self::assertStringContainsString('left as it is', $this->errors->fetch());
+        self::assertSame("WARNING: could not read the phpstan/phpstan 2.3.1 tree; vendor-phar/turbo-ext.json left as it is.\n"
+            . self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO, $this->errors->fetch());
     }
 
     #[Test]
@@ -233,7 +242,118 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(1, $this->installer($source, maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE));
 
         self::assertSame($before, $this->library->read(TurboManifest::PATH));
-        self::assertStringContainsString('truncated', $this->errors->fetch());
+        self::assertSame("ERROR: the phpstan/phpstan tree response is truncated, so a manifest from it would pin only some of the Turbo files.\n", $this->errors->fetch());
+    }
+
+    #[Test]
+    public function anInstallStampsTheBinaryWithWhatItWasInstalledFromAndLeavesNoStagingBehind(): void
+    {
+        $this->writeManifest($this->digests());
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame($this->stamp(), $this->library->read(self::STAMP));
+        self::assertSame(
+            ['phpstan_turbo-8.5.so', 'phpstan_turbo-8.5.so.source', 'phpstan_turbo_core.so'],
+            $this->platformDirectory(),
+        );
+    }
+
+    /** Without the stamp nothing says which files are installed, so they are fetched again. */
+    #[Test]
+    public function aDeletedStampIsFetchedAgain(): void
+    {
+        $source = $this->source();
+        $this->writeManifest($this->digests());
+        $this->installer($source)->run($this->library->path, TurboInstaller::MODE_INSTALL);
+        \Safe\unlink($this->library->path . '/' . self::STAMP);
+
+        self::assertSame(0, $this->installer($source)->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame(4, $source->downloads);
+        self::assertSame($this->stamp(), $this->library->read(self::STAMP));
+    }
+
+    #[Test]
+    public function anUpdateWithEverythingInPlaceSaysSo(): void
+    {
+        $source = $this->source();
+        $this->writeManifest($this->digests());
+        $this->installer($source)->run($this->library->path, TurboInstaller::MODE_INSTALL);
+        $this->output->fetch();
+
+        self::assertSame(0, $this->installer($source)->run($this->library->path, TurboInstaller::MODE_UPDATE));
+
+        self::assertSame("PHPStan Turbo 2.3.1 present for Linux x86_64, libc gnu, PHP 8.5.\n", $this->output->fetch());
+        self::assertSame('', $this->errors->fetch());
+    }
+
+    #[Test]
+    public function aFileThatCannotBePlacedFailsTheInstallAndLeavesNoStagingBehind(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->mkdir(self::BINARY . '/in-the-way');
+
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $exitCode = $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame(1, $exitCode);
+        self::assertCount(1, $warnings, 'the rename onto the directory in the way');
+        self::assertStringStartsWith('ERROR: could not install the Turbo files: ', $this->errors->fetch());
+        // The core goes first, so what is left is a core with no binary to load it.
+        self::assertSame(['phpstan_turbo-8.5.so', 'phpstan_turbo_core.so'], $this->platformDirectory());
+    }
+
+    /** A maintainer offline still gets an install: the committed manifest stands. */
+    #[Test]
+    public function anUpdateThatCannotDownloadATreeFileKeepsTheManifestAndWarns(): void
+    {
+        $this->writeManifest($this->digests());
+        $before = $this->library->read(TurboManifest::PATH);
+
+        self::assertSame(0, $this->installer(new FakeTurboReleaseSource($this->treeJson(), []), maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE));
+
+        self::assertSame($before, $this->library->read(TurboManifest::PATH));
+        self::assertSame(
+            self::DOWNLOAD_WARNING . self::BINARY_PATH . "; vendor-phar/turbo-ext.json left as it is.\n"
+            . self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO,
+            $this->errors->fetch(),
+        );
+    }
+
+    #[Test]
+    public function anUpdateWhoseTreeMatchesTheManifestRewritesNothing(): void
+    {
+        $this->writeManifest($this->digests());
+        $source = $this->source(tree: $this->treeJson(self::BINARY_PATH, self::CORE_PATH));
+
+        self::assertSame(0, $this->installer($source, maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE), $this->errors->fetch());
+
+        self::assertSame("Installing PHPStan Turbo 2.3.1 for Linux x86_64, libc gnu, PHP 8.5...\n", $this->output->fetch(), 'a manifest that is current is not rewritten');
+    }
+
+    /** The stamp the installer writes beside the binary: the files in the order placed, the core first. */
+    private function stamp(): string
+    {
+        return TurboInstallDecider::stamp([self::CORE_PATH => hash(self::DIGEST, self::CORE_BYTES), self::BINARY_PATH => hash(self::DIGEST, self::BINARY_BYTES)]) . "\n";
+    }
+
+    /** @return list<string> the entries of the directory the binary is in */
+    private function platformDirectory(): array
+    {
+        $entries = array_values(array_filter(\Safe\scandir(\dirname($this->library->path . '/' . self::BINARY)), is_string(...)));
+
+        return array_values(array_diff($entries, ['.', '..']));
     }
 
     private function installer(FakeTurboReleaseSource $source, ?TurboPlatform $platform = null, bool $maintainer = false): TurboInstaller
@@ -261,14 +381,14 @@ final class TurboInstallerTest extends TestCase
     /** @return array<string, string> the digests of the two files, sorted as the manifest sorts them */
     private function digests(): array
     {
-        return [self::BINARY_PATH => hash('sha256', self::BINARY_BYTES), self::CORE_PATH => hash('sha256', self::CORE_BYTES)];
+        return [self::BINARY_PATH => hash(self::DIGEST, self::BINARY_BYTES), self::CORE_PATH => hash(self::DIGEST, self::CORE_BYTES)];
     }
 
     /** What GitHub's tree API says phpstan/phpstan holds under turbo-ext/ at the tag. */
-    private function treeJson(): string
+    private function treeJson(string ...$paths): string
     {
         $entries = [];
-        foreach (['.version', self::BINARY_PATH, self::CORE_PATH] as $path) {
+        foreach ([] === $paths ? ['.version', self::BINARY_PATH, self::CORE_PATH] : $paths as $path) {
             $entries[] = ['path' => 'turbo-ext/' . $path, 'type' => 'blob'];
         }
 
