@@ -12,6 +12,7 @@ use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Name;
 use PHPStan\Analyser\Scope;
+use PHPStan\Reflection\ReflectionProvider;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
@@ -67,6 +68,10 @@ final readonly class ForbidProcessStreamRule implements Rule
 
     /** What a PHPUnit runner extension implements; ::class does not load it, so PHPUnit need not be installed. */
     private const string RUNNER_EXTENSION = \PHPUnit\Runner\Extension\Extension::class;
+
+    public function __construct(private ReflectionProvider $reflectionProvider)
+    {
+    }
 
     public function getNodeType(): string
     {
@@ -128,7 +133,7 @@ final readonly class ForbidProcessStreamRule implements Rule
             return $this->processStreamNamedBy($call->args[0] ?? null, $scope);
         }
 
-        if (self::READLINE === $function || str_starts_with($function, self::READLINE . '_')) {
+        if ((self::READLINE === $function || str_starts_with($function, self::READLINE . '_')) && $this->isBuiltIn($function)) {
             return $function . '()';
         }
 
@@ -185,6 +190,14 @@ final readonly class ForbidProcessStreamRule implements Rule
     private function isInsideAFunction(Scope $scope): bool
     {
         return $scope->isInClass() || null !== $scope->getFunctionName() || $scope->isInAnonymousFunction();
+    }
+
+    /** Whether PHP itself provides the function: a project's own function of a readline name reads nothing. */
+    private function isBuiltIn(string $function): bool
+    {
+        $name = new Name\FullyQualified($function);
+
+        return $this->reflectionProvider->hasFunction($name, null) && $this->reflectionProvider->getFunction($name, null)->isBuiltin();
     }
 
     private function isARunnerExtension(Scope $scope): bool

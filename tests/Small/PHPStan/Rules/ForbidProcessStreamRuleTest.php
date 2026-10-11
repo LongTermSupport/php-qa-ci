@@ -71,6 +71,6 @@ final class ForbidProcessStreamRuleTest extends RuleTestCase
 
     protected function getRule(): Rule
     {
-        return new ForbidProcessStreamRule();
+        return new ForbidProcessStreamRule($this->createReflectionProvider());
     }
 }
