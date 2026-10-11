@@ -112,8 +112,8 @@ class, then fixes every instance by handing the stream in.
   `ce28dd6`: the `phpstan` lane reported 16 in `src/`: `ArkitectRuleProbe` 3, `ActiveRulesLister` 2,
   `SingleRuleReport` 2, `ShellCheckInstaller` 8 (one a parameter default), `GitHubTurboReleaseSource` 1.
   That is every instance technique 2 found; the two runner extensions were not reported.
-  `ac445cf` widened the rule to technique 3's finding: 19 reported, adding the five `main()`s that
-  build a `ConsoleOutput`.
+  `ac445cf` widened the rule to technique 3's finding: 21 reported, the 16 plus the five `main()`s
+  that build a `ConsoleOutput`. `d439472` fixes all 21.
 
 ### Phase 2: The fix
 
