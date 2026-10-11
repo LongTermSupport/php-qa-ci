@@ -9,6 +9,7 @@ use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\NullsafeMethodCall;
 use PhpParser\Node\FunctionLike;
+use PhpParser\Node\PropertyHook;
 use PhpParser\Node\Stmt\Block;
 use PhpParser\Node\Stmt\Case_;
 use PhpParser\Node\Stmt\Catch_;
@@ -160,6 +161,8 @@ final readonly class ProcessStoppingFinallyCollector implements Collector
             ],
             $node instanceof Switch_                                                                           => array_map(static fn (Case_ $case): array => $case->stmts, $node->cases),
             $node instanceof ClassMethod, $node instanceof Declare_                                            => [$node->stmts ?? []],
+            // A hook written `get => expr` has an expression for a body, which holds no statement.
+            $node instanceof PropertyHook                                                                      => \is_array($node->body) ? [$node->body] : [],
             $node instanceof Closure, $node instanceof Function_, $node instanceof For_, $node instanceof Foreach_,
             $node instanceof While_, $node instanceof Do_, $node instanceof Namespace_, $node instanceof Block => [$node->stmts],
             default                                                                                            => [],

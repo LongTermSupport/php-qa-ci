@@ -74,6 +74,17 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function aPropertyHooksStoppingTryGuardsLikeAMethods(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/PropertyHook.php'],
+            [
+                [$this->message(self::START, self::LOCAL), 43],
+            ],
+        );
+    }
+
+    #[Test]
     public function onlyACallbackFreeStartImmediatelyBeforeAStoppingTryIsClean(): void
     {
         $this->analyse(
