@@ -29,7 +29,9 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * Not reported: run(), mustRun() and wait() with no callback, because no
  * first-party code runs while the child is alive and Symfony stops the child
- * itself before throwing its timeout exception.
+ * itself before throwing its timeout exception; and a start() with no callback
+ * that is the statement immediately before a try whose finally stops its
+ * receiver, because nothing of the caller's runs before the guard is entered.
  *
  * See: docs/phpstan-rules/require-process-stop-on-throw.md
  *
@@ -51,7 +53,11 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        $guards    = $node->get(ProcessStoppingFinallyCollector::class);
+        $guards = [];
+        foreach ($node->get(ProcessStoppingFinallyCollector::class) as $file => $collected) {
+            $guards[$file] = array_merge(...$collected);
+        }
+
         $testCases = [];
         foreach ($node->get(ProcessStoppingTearDownCollector::class) as $collected) {
             foreach ($collected as [$class, $runsParentTearDown, $tearDownStops, $afterStops]) {
@@ -63,9 +69,10 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
         foreach ($node->get(ProcessLiveCodeCallCollector::class) as $file => $calls) {
             // PHPStan also walks a nullsafe call as a plain method call at the same position.
             $seen = [];
-            foreach ($calls as [$method, $receiver, $line, $position, $lineage]) {
+            foreach ($calls as [$method, $receiver, $line, $position, $lineage, $givesACallback]) {
                 if (isset($seen[$position])
                     || $this->isGuarded($receiver, $position, ...$guards[$file] ?? [])
+                    || (!$givesACallback && $this->startsImmediatelyBeforeAGuard($position, ...$guards[$file] ?? []))
                     || $this->isStoppedAfterEachTest($receiver, $testCases, ...$lineage)) {
                     continue;
                 }
@@ -85,7 +92,7 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
     }
 
     /**
-     * @param array{int, int, list<array{int, int}>, list<string>} ...$guards
+     * @param array{int, int, list<array{int, int}>, list<string>, int|null} ...$guards
      */
     private function isGuarded(string $receiver, int $position, array ...$guards): bool
     {
@@ -100,6 +107,19 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
         }
 
         return false;
+    }
+
+    /**
+     * A start() that runs no first-party code itself, and is the statement
+     * immediately before a try whose finally stops its receiver, leaves nothing
+     * of the caller's to run before the guard is entered. The collector records
+     * the start() only when the finally stops that receiver.
+     *
+     * @param array{int, int, list<array{int, int}>, list<string>, int|null} ...$guards
+     */
+    private function startsImmediatelyBeforeAGuard(int $position, array ...$guards): bool
+    {
+        return array_any($guards, static fn (array $guard): bool => $position === $guard[4]);
     }
 
     /**

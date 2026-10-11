@@ -69,6 +69,21 @@ final class RequireProcessStopOnThrowRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function onlyACallbackFreeStartImmediatelyBeforeAStoppingTryIsClean(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/StartBeforeTry.php', self::FIXTURES . '/start-before-try-script.php'],
+            [
+                [$this->message(self::START, self::LOCAL), 58],
+                [$this->message(self::START, self::LOCAL), 70],
+                [$this->message(self::START, self::LOCAL), 81],
+                [$this->message(self::START, self::LOCAL), 91],
+                [$this->message(self::START, self::LOCAL), 109],
+            ],
+        );
+    }
+
+    #[Test]
     public function aTestCasePropertyNoTearDownOrAfterMethodThatRunsStopsIsReported(): void
     {
         $this->analyse(

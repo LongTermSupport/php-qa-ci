@@ -87,6 +87,21 @@ protected function tearDown(): void
 no first-party code runs while the child is alive, and Symfony stops the child itself before
 throwing its timeout exception.
 
+A `start()` with no callback that is the statement immediately before a `try` whose `finally`
+stops the same receiver. This is a Narrowing: nothing of the caller's runs between `start()`
+returning and the `try` being entered, and with no callback, `start()` runs only Symfony's own
+code, so the child is never alive outside the guard. A `start($callback)` there is still
+reported, because the callback can run inside `start()`; so is a statement between the two.
+
+```php
+$process->start();
+try {
+    $process->wait();
+} finally {
+    $process->stop(0.0);
+}
+```
+
 A `$this->` property of a PHPUnit test case that the `tearDown()` PHPUnit runs, or any
 `#[After]` method in its hierarchy, stops. This is a Narrowing: PHPUnit runs those after a test
 method that throws, so the child is stopped. Only the nearest `tearDown()` runs, and an
@@ -124,7 +139,9 @@ Raised by [#154](https://github.com/LongTermSupport/php-qa-ci/issues/154).
   `tearDown()` or an `#[After]` method stops is excluded, because PHPUnit runs those after a
   test method that throws, so the child is stopped. A call in a `catch` block of a `try` whose
   `finally` stops the receiver is not reported, because PHP runs the `finally` after the catch
-  block whether it completes or throws.
+  block whether it completes or throws. A `start()` with no callback that is the statement
+  immediately before a `try` whose `finally` stops the receiver is excluded, because nothing of
+  the caller's runs between `start()` returning and the `try` being entered.
 - **Next wider rule, not built**: any child process that keeps running past a throw without a
   `finally` that ends it, whatever started it: `proc_open()` without
   `proc_terminate()`/`proc_close()` in a `finally`, as well as `Process`. It is not built because

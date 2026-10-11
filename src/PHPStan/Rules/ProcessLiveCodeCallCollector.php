@@ -24,14 +24,15 @@ use Symfony\Component\Process\Process;
  * stops the child itself before throwing its timeout exception.
  *
  * Each value is [method as declared, printed receiver, line, start offset in
- * the file, the enclosing class and its ancestors, nearest first].
+ * the file, the enclosing class and its ancestors, nearest first, whether a
+ * callback is given].
  * RequireProcessStopOnThrowRule matches them against the try ranges of
  * ProcessStoppingFinallyCollector and the test cases of
  * ProcessStoppingTearDownCollector.
  *
  * @internal
  *
- * @implements Collector<CallLike, array{string, string, int, int, list<string>}>
+ * @implements Collector<CallLike, array{string, string, int, int, list<string>, bool}>
  */
 final readonly class ProcessLiveCodeCallCollector implements Collector
 {
@@ -57,7 +58,7 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
     }
 
     /**
-     * @return array{string, string, int, int, list<string>}|null
+     * @return array{string, string, int, int, list<string>, bool}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -79,14 +80,15 @@ final readonly class ProcessLiveCodeCallCollector implements Collector
             return null;
         }
 
-        if ('start' !== $method && !$this->givesACallback($node, $scope)) {
+        $givesACallback = $this->givesACallback($node, $scope);
+        if ('start' !== $method && !$givesACallback) {
             return null;
         }
 
         $class   = $scope->getClassReflection();
         $lineage = $class instanceof \PHPStan\Reflection\ClassReflection ? [$class->getName(), ...$class->getParentClassesNames()] : [];
 
-        return [$method, $this->printer->prettyPrintExpr($node->var), $node->getStartLine(), $node->getStartFilePos(), $lineage];
+        return [$method, $this->printer->prettyPrintExpr($node->var), $node->getStartLine(), $node->getStartFilePos(), $lineage, $givesACallback];
     }
 
     /**
