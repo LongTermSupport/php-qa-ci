@@ -238,6 +238,86 @@ leaves a suite that runs no test unrecognised. PHPUnit's own report of a bootstr
 configuration it cannot load is printed before any extension is loaded, so it is recognised
 either way.
 
+### Source files loaded before Infection's bootstrap
+
+Infection swaps a source file for its mutant by intercepting the `include` that loads it. Its
+mutant bootstrap turns that interceptor on and only then requires your PHPUnit bootstrap. But
+PHPUnit's runner loads Composer's autoloader first, with the constant `PHPUNIT_COMPOSER_INSTALL`
+defined, and Composer runs every `autoload` and `autoload-dev` `files` entry at that point. A
+source file one of those entries loads, directly or through a class it uses, is already declared
+when the interceptor starts, so it keeps its original code in every mutant run: each of its
+mutants escapes whatever the tests assert, and the score cannot tell that from a missing test.
+
+Before any coverage is generated, the lane therefore loads `vendor/autoload.php` as PHPUnit's
+runner does (`bin/autoload-included-files`, run without Xdebug from the project root), reads the
+files PHP has included by then, and keeps those Infection would mutate: `*.php` files under the
+source directories of the config Infection runs with, not under a part of the path Finder skips
+(one whose name starts with a dot, or a version-control directory such as `CVS`), not matched by a
+`source.excludes` entry
+(read as Infection's Finder reads it: a delimited regex as that regex, anything else as a
+substring of the path relative to the source directory), and on a diff run only the files the
+run mutates. If any remain, the lane crashes with `phpqaci.infection`, naming each file:
+
+```text
+Infection: 1 file(s) it would mutate are already loaded when PHPUnit's bootstrap starts, so none of their mutants can be killed:
+           /project/src/Process/ProcessTree.php
+```
+
+**How to fix it.** Load nothing Infection mutates from an `autoload` or `autoload-dev` `files`
+entry. An entry that must run before every bootstrap (one that sets the temp directory, say)
+should use only its own code, PHP's functions and vendor classes; one that needs your classes
+belongs in the PHPUnit bootstrap instead, which runs after the interceptor. Excluding the file
+from mutation only hides it: its code is then untested by Infection rather than unkillable.
+
+The lane also crashes when the autoloader cannot be loaded that way (the child fails, prints no
+list because a `files` entry exits, or prints something else), naming what PHP said. PHPUnit loads
+the same autoloader before every test, so no mutant run could start either, and a score from such
+a run would rest on nothing. A `source.excludes` regex that does not compile crashes the lane
+too, naming the entry, since what Infection mutates cannot be worked out without it.
+
+#### Defence record (#155)
+
+- **Class**: a source file in Infection's mutation set is loaded before Infection's include
+  interceptor is enabled, so its mutants cannot be killed.
+- **Hazard**: the lane reports a mutation score for code it never mutated (every such mutant
+  counted as escaped, or on a diff run the floor judged against unkillable mutants), so a gap in
+  the tests is indistinguishable from untestable code.
+- **Search 1, reading what the autoloader runs**: every `files` entry in `composer.json`
+  (`autoload` has none; `autoload-dev` has `tests/Support/TempLeak/claim-before-bootstrap.php`)
+  and in the generated `vendor/composer/autoload_files.php` (otherwise only vendor packages:
+  polyfills, `thecodingmachine/safe`, PHPUnit's assertion functions, `symfony/string`,
+  `myclabs/deep-copy`, `symfony/deprecation-contracts`), each traced to what it loads.
+  `claim-before-bootstrap.php` calls `TempLeakDirectory::claim()`, whose only use of `src/` is
+  `ProcessTree`: one instance, `src/Pipeline/Process/ProcessTree.php`.
+- **Search 2, observing the process**: `get_included_files()` after requiring
+  `vendor/autoload.php` with `PHPUNIT_COMPOSER_INSTALL` defined, as PHPUnit's runner does: 181
+  files, of which three are outside `vendor/`: `claim-before-bootstrap.php`,
+  `TempLeakDirectory.php` and `ProcessTree.php`. The same single instance, confirmed by a
+  targeted Infection run on `ProcessTree.php` that killed none of its 69 mutants.
+- **Bounds**: the check is drawn at the mechanism, a file loaded before the interceptor, not at
+  `files` entries or at this repository's entry, so it also covers a file reached transitively
+  and a php.ini `auto_prepend_file` (the probe runs under the same php.ini). It reports only
+  files Infection mutates, read from the config the run uses, so an excluded, ignored or
+  out-of-scope file is never reported. The one way a reported file could still be swapped is
+  being included a second time after the bootstrap. A class, interface, trait, enum or function
+  file cannot be included twice, and Composer includes each `files` entry once. That leaves only
+  a plain script reached from a `files` entry and required again by the tests, and its mutants
+  are still not killed through the first load, so the report stands. The one way it reports too
+  much: an Infection `phpUnit.customPath` naming a PHPUnit PHAR, which loads the project's
+  autoloader only through the bootstrap, after the interceptor. The lane then crashes on a file
+  Infection could swap; the fix above is still sound. For the project's own `vendor/autoload.php`,
+  the lane never reports too little.
+- **Next wider rule, not built**: a source file loaded before the interceptor by a PHPUnit other
+  than the project's own `vendor/autoload.php` (Infection's `phpUnit.customPath` pointing at a
+  PHPUnit with a different autoloader, or a Composer `vendor-dir` other than `vendor`). The
+  pipeline itself requires `vendor/autoload.php` (`bin/qa` derives the project root from it), so
+  such a project cannot run the pipeline, and no project here has one. Checking it would mean
+  observing Infection's own mutant process rather than the autoloader.
+- **Runner check**: `tests/Large/Infection/PreloadedSourceTest.php` runs the shipped script on a
+  fixture whose `files` entry loads a source file under PHPUnit and drives the lane to its crash,
+  and holds this repository's own autoloader to the check; the decision logic is unit-tested in
+  `PreloadedSourceFinderTest`, `AutoloadIncludedFilesProbeTest` and `InfectionToolTest`.
+
 ### Per-thread resources: `TEST_TOKEN`
 
 Infection starts every mutant run with `TEST_TOKEN` set to its thread number (`1` to the thread
@@ -266,12 +346,13 @@ vendor/bin/qa
 
 ## How the lane runs
 
-The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infection`). Its pure parts are split out under `Lane/Infection/`: `InfectionDiffBaseResolver` (the auto-mode decision), `InfectionDiffFilter` and `TestSourceMirror` (the changed-file list from `git diff`), `InfectionFullRunTriggers` (the files that force a full run), `CommentOnlyChange` (the token comparison) and `InfectionArguments` (the argv for the full and diff lanes), all unit-tested without a real process.
+The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infection`). Its pure parts are split out under `Lane/Infection/`: `InfectionDiffBaseResolver` (the auto-mode decision), `InfectionDiffFilter` and `TestSourceMirror` (the changed-file list from `git diff`), `InfectionFullRunTriggers` (the files that force a full run), `CommentOnlyChange` (the token comparison), `PreloadedSourceFinder` (which loaded files Infection mutates) and `InfectionArguments` (the argv for the full and diff lanes), all unit-tested without a real process. `AutoloadIncludedFilesProbe` runs `bin/autoload-included-files`.
 
 1. Without Xdebug there is no coverage, so the lane skips.
 2. The scope is decided and printed (see [What is mutated](#what-is-mutated)).
 3. A diff run checks `git status --porcelain=v1 -z --untracked-files=all` over `src`, `tests` and the full-run triggers (`InfectionFullRunTriggers`): an explicit base refuses a dirty tree; auto mode adds the uncommitted files (made project-relative with `git rev-parse --show-prefix`) to the change and names them in a warning.
 4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A trigger in it makes the run full. Each modified or renamed PHP file is compared with `git show <merge base>:<path>` and left out when only its comments or whitespace changed, unless either version has a comment carrying a tool directive. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
-5. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
-6. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
-7. `VacuousKillDetector` reads the JSON log, before the exit code is judged: no test ran for any killed mutant, an unreadable log, or a passing run with no log crashes the lane; some kills with no test run are named, a passing run whose floors hold only by counting them crashes, and the exit code then decides.
+5. The project's `vendor/autoload.php` is loaded as PHPUnit's runner loads it, and a file Infection would mutate that is already loaded by then crashes the lane, as does an autoloader that cannot be loaded (see [Source files loaded before Infection's bootstrap](#source-files-loaded-before-infections-bootstrap)).
+6. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
+7. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
+8. `VacuousKillDetector` reads the JSON log, before the exit code is judged: no test ran for any killed mutant, an unreadable log, or a passing run with no log crashes the lane; some kills with no test run are named, a passing run whose floors hold only by counting them crashes, and the exit code then decides.

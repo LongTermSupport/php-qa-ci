@@ -15,6 +15,7 @@ use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffBaseResolver;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionFullRunTriggers;
+use LTS\PHPQA\Pipeline\Lane\Infection\PreloadedSourceFinder;
 use LTS\PHPQA\Pipeline\Lane\Infection\TestSourceMirror;
 use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
@@ -23,6 +24,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
+use LTS\PHPQA\Tests\Support\FakeIncludedFilesProbe;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -54,6 +56,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(EnvironmentReader::class)]
 #[UsesClass(QaConfigBuilder::class)]
 #[UsesClass(VacuousKillDetector::class)]
+#[UsesClass(PreloadedSourceFinder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto::class)]
 #[UsesClass(ProcessResultDto::class)]
@@ -81,6 +84,10 @@ final class InfectionToolTest extends TestCase
     private const string CONFIGURATION_ARG = '--configuration=';
 
     private const string LEGACY = 'src/Legacy';
+
+    private const string LEGACY_OLD = 'src/Legacy/Old.php';
+
+    private const string SRC_CONFIG = '{"source": {"directories": ["../src"]}}';
 
     // A full run unless a test says otherwise: auto mode's git probes are tested on their own below.
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4', 'infectionDiffBase' => 'full'];
@@ -119,6 +126,8 @@ final class InfectionToolTest extends TestCase
     private ContextFactory $factory;
 
     private string $root;
+
+    private FakeIncludedFilesProbe $probe;
 
     protected function setUp(): void
     {
@@ -1086,7 +1095,7 @@ final class InfectionToolTest extends TestCase
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
-            ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC], ['M', 'src/Legacy/Old.php']))
+            ->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC], ['M', self::LEGACY_OLD]))
             ->willRun($this->infection())
         ;
 
@@ -1105,7 +1114,7 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed(self::GIT_STATUS_CLEAN)
-            ->willSucceed($this->nameStatus(['M', 'src/Legacy/Old.php']))
+            ->willSucceed($this->nameStatus(['M', self::LEGACY_OLD]))
         ;
 
         $result = $this->tool()->run($this->context($this->diffBuilder()->withIgnoredPaths(self::LEGACY)));
@@ -1175,6 +1184,163 @@ final class InfectionToolTest extends TestCase
         self::assertStringContainsString("'git diff' against base 'origin/main' failed (exit 128)", $printed);
         self::assertStringContainsString("'git fetch origin' first", $printed);
         self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
+    }
+
+    /**
+     * Issue #155: PHPUnit loads the autoloader, and so every autoload `files` entry, before
+     * Infection's bootstrap turns on the include interceptor that swaps in a mutant. A source
+     * file loaded by then is never mutated, so the lane stops before coverage is paid for.
+     */
+    #[Test]
+    public function aFileItMutatesThatIsLoadedBeforeTheBootstrapCrashesTheLaneBeforeCoverage(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
+        $preloaded = $this->sourceFile('src/Process/Tree.php');
+
+        $result  = $this->tool([$this->root . '/vendor/autoload.php', $preloaded])->run($this->context($this->factory->builder(env: self::FLOORS, singleTool: self::INFECTION)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'its mutants escape whatever the tests assert, so the score would not be a measurement');
+        self::assertSame('1 file(s) Infection mutates are loaded before it can swap them for mutants', $result->summary);
+        self::assertSame([$this->root . '/vendor/autoload.php'], $this->probe->asked, "the project's autoloader is the one PHPUnit loads");
+        self::assertSame([], $this->factory->processes->specs, 'no coverage run and no phar');
+        self::assertStringContainsString(
+            "Infection: 1 file(s) it would mutate are already loaded when PHPUnit's bootstrap starts, so none of their mutants can be killed:\n"
+            . '           ' . $preloaded . "\n"
+            . "           PHPUnit loads Composer's autoloader before any bootstrap, and Composer runs every autoload \"files\" entry then.\n"
+            . "           Infection swaps a file for its mutant only when the file is included after its own bootstrap starts, so these\n"
+            . "           keep their original code in every mutant run: each of their mutants escapes whatever the tests assert.\n"
+            . "           Load nothing Infection mutates from an autoload or autoload-dev \"files\" entry in composer.json, directly or\n"
+            . "           through a class it uses, as docs/tools/infection.md describes.\n",
+            $printed,
+        );
+        self::assertStringEndsWith(InfectionTool::IDENTIFIER . ")\n", $printed);
+    }
+
+    #[Test]
+    public function manyPreloadedFilesAreSummarisedAfterTheFirstTen(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
+        $files = array_map(fn (int $n): string => $this->sourceFile(\sprintf('src/F%02d.php', $n)), range(1, 12));
+
+        $result  = $this->tool($files)->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame('12 file(s) Infection mutates are loaded before it can swap them for mutants', $result->summary);
+        self::assertStringContainsString($files[9] . "\n           and 2 more\n", $printed);
+        self::assertStringNotContainsString($files[10], $printed);
+    }
+
+    /** Exactly ten are all named, with nothing summarised. */
+    #[Test]
+    public function tenPreloadedFilesAreAllNamed(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
+        $files = array_map(fn (int $n): string => $this->sourceFile(\sprintf('src/F%02d.php', $n)), range(1, 10));
+
+        $this->tool($files)->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringContainsString($files[9] . "\n", $printed);
+        self::assertStringNotContainsString(' more', $printed);
+    }
+
+    /** A probe that cannot say is no answer, and a pass without one would rest on nothing. */
+    #[Test]
+    public function anAutoloaderThatCannotBeLoadedCrashesTheLaneWithWhatPhpSaid(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
+
+        $result  = $this->tool("it exited 255:\nPHP Fatal error:  Failed opening required")->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('the autoloader could not be loaded as PHPUnit loads it', $result->summary);
+        self::assertSame([], $this->factory->processes->specs);
+        self::assertStringContainsString(\sprintf("Infection: loading %s/vendor/autoload.php as PHPUnit's runner loads it, to check that no file Infection mutates is loaded before Infection can swap it for a mutant, failed: it exited 255:\n           PHP Fatal error:  Failed opening required\n", $this->root), $printed);
+        self::assertStringContainsString("\n           PHPUnit loads that autoloader before every test, so no mutant run can start until it loads.\n", $printed);
+        self::assertStringEndsWith(InfectionTool::IDENTIFIER . ")\n", $printed);
+    }
+
+    /** Only the files Infection mutates count: an excluded one is never swapped in, so it is not reported. */
+    #[Test]
+    public function aPreloadedFileTheConfigExcludesIsNotReported(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"], "excludes": ["Legacy"]}}');
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection());
+
+        $result = $this->tool([$this->sourceFile(self::LEGACY_OLD)])->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+    }
+
+    /** An exclude that is not a string is no pattern; the strings beside it still exclude. */
+    #[Test]
+    public function anExcludeThatIsNotAStringIsPassedOver(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"], "excludes": [1, "Legacy"]}}');
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection());
+
+        $result = $this->tool([$this->sourceFile(self::LEGACY_OLD)])->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+    }
+
+    /** The excludes are read from the config Infection runs with, so an ignored path counts as excluded. */
+    #[Test]
+    public function aPreloadedFileUnderAnIgnoredPathIsNotReported(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willRun($this->infection());
+
+        $result = $this->tool([$this->sourceFile(self::LEGACY_OLD)])->run($this->context($this->factory->builder(env: self::FLOORS)->withIgnoredPaths(self::LEGACY)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+    }
+
+    #[Test]
+    public function anExcludeThatIsNotAValidRegexCrashesTheLaneNamingIt(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"], "excludes": ["/(Legacy/"]}}');
+
+        $result  = $this->tool([$this->sourceFile(self::LEGACY_OLD)])->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('an infection.json source exclude is not a valid regular expression', $result->summary);
+        self::assertStringContainsString('Infection: source.excludes entry "/(Legacy/" is not a valid regular expression (', $printed);
+        self::assertStringContainsString("), so what Infection mutates cannot be worked out.\n", $printed);
+        self::assertStringEndsWith(InfectionTool::IDENTIFIER . ")\n", $printed);
+    }
+
+    /** A diff run mutates only its changed files, so a preloaded file outside them costs it nothing. */
+    #[Test]
+    public function aDiffRunIsHeldOnlyToTheFilesItMutates(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
+        $this->sourceFile(self::COMMITTED_SRC);
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))->willSucceed(self::MERGE_BASE)->willFail(128)->willRun($this->infection());
+
+        $result = $this->tool([$this->sourceFile('src/Other.php')])->run($this->context($this->diffBuilder()));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+    }
+
+    #[Test]
+    public function aDiffRunWhoseChangedFileIsPreloadedCrashes(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
+        $committed = $this->sourceFile(self::COMMITTED_SRC);
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', self::COMMITTED_SRC]))->willSucceed(self::MERGE_BASE)->willFail(128);
+
+        $result = $this->tool([$committed])->run($this->context($this->diffBuilder()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertCount(4, $this->factory->processes->specs, 'git status, git diff and the comment-only probes only: no coverage run');
     }
 
     #[Test]
@@ -1249,16 +1415,31 @@ final class InfectionToolTest extends TestCase
         return "\n           Every mutant, with its test output: " . $this->root . '/' . self::JSON_LOG . "\n";
     }
 
+    /** A source file written under the fixture project, by the real path PHP would record it under. */
+    private function sourceFile(string $relative): string
+    {
+        $this->factory->project->write($relative, "<?php\n");
+
+        return \Safe\realpath($this->root . '/' . $relative);
+    }
+
     /** The infection.json the lane hands Infection, always the copy under var/qa/. */
     private function derivedConfigPath(): string
     {
         return $this->root . '/var/qa/' . InfectionTool::DERIVED_CONFIG;
     }
 
-    /** An environment-free lane, so a GITHUB_BASE_REF in the test runner's own environment cannot steer it. */
-    private function tool(): InfectionTool
+    /**
+     * An environment-free lane, so a GITHUB_BASE_REF in the test runner's own environment cannot steer it.
+     * Its autoloader probe answers $included (by default only a vendor file) without running anything.
+     *
+     * @param list<string>|string $included
+     */
+    private function tool(array|string $included = ['/project/vendor/autoload.php']): InfectionTool
     {
-        return new InfectionTool(environment: new EnvironmentReader([]));
+        $this->probe = new FakeIncludedFilesProbe($included);
+
+        return new InfectionTool(environment: new EnvironmentReader([]), includedFiles: $this->probe);
     }
 
     /**

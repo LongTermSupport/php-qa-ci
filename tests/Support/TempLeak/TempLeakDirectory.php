@@ -6,7 +6,6 @@ namespace LTS\PHPQA\Tests\Support\TempLeak;
 
 use ErrorException;
 use FilesystemIterator;
-use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use RuntimeException;
 use SplFileInfo;
 use UnexpectedValueException;
@@ -76,14 +75,14 @@ final class TempLeakDirectory
      * SIGKILL, and no shutdown function runs then. Only a real directory owned
      * by $uid (the owner of the directory this process has just created),
      * named exactly as claim() names one, whose pid is not running, is
-     * removed; a symlink is never followed. A reused pid only keeps a stale
-     * directory until a later claim. Without /proc this process does not look
-     * alive to itself, and then nothing can be judged dead, so nothing goes.
+     * removed; a symlink is never followed. A reused pid, or a killed process
+     * not yet reaped, only keeps a stale directory until a later claim.
+     * Without /proc this process does not look alive to itself, and then
+     * nothing can be judged dead, so nothing goes.
      */
     private static function removeAbandoned(string $shared, int $uid): void
     {
-        $processes = new ProcessTree();
-        if (!$processes->isAlive(\Safe\getmypid())) {
+        if (!self::isRunning(\Safe\getmypid())) {
             return;
         }
 
@@ -92,13 +91,25 @@ final class TempLeakDirectory
             if (null === $pid
                 || is_link($path)
                 || !is_dir($path)
-                || $processes->isAlive($pid)
+                || self::isRunning($pid)
                 || !self::ownedBy($path, $uid)) {
                 continue;
             }
 
             self::removeTree($path);
         }
+    }
+
+    /**
+     * Whether the kernel still lists $pid in /proc. claim() runs from a
+     * Composer files entry, before Infection's bootstrap, so it must load
+     * nothing from src/: a source file loaded there is never swapped for a
+     * mutant (#155). That is why this does not use
+     * LTS\PHPQA\Pipeline\Process\ProcessTree.
+     */
+    private static function isRunning(int $pid): bool
+    {
+        return is_dir('/proc/' . $pid);
     }
 
     /** The pid in a name claim() gives a directory, or null for any other name. */

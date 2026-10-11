@@ -1,0 +1,23 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Loads the Composer autoloader the first argument names as PHPUnit's runner
+ * loads it, with PHPUNIT_COMPOSER_INSTALL defined, then prints every file
+ * included by then as a JSON list after a marker line, for the infection
+ * lane's preloaded-source check (LTS\PHPQA\Pipeline\Lane\Infection\
+ * AutoloadIncludedFilesProbe, which holds the same marker). Composer runs each
+ * autoload "files" entry while the autoloader loads, so the list holds what is
+ * loaded before any PHPUnit bootstrap. Exit 2 without an argument.
+ */
+
+if (!isset($argv[1]) || !\is_string($argv[1]) || '' === $argv[1]) {
+    fwrite(STDERR, "usage: autoload-included-files <path to vendor/autoload.php>\n");
+    exit(2);
+}
+
+define('PHPUNIT_COMPOSER_INSTALL', $argv[1]);
+
+require PHPUNIT_COMPOSER_INSTALL;
+
+echo "\n", 'PHPQACI-AUTOLOAD-INCLUDED-FILES ', json_encode(get_included_files(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), "\n";
