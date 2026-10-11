@@ -64,6 +64,8 @@ final class AnalysedPathsToolTest extends TestCase
 
     private const string ROOT_SCRIPT = 'rector.php';
 
+    private const string IDENTIFIER_FOOTER = "\n🪪  phpqaci.analysedPaths  (vendor/bin/rule-doc phpqaci.analysedPaths)\n";
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -90,7 +92,44 @@ final class AnalysedPathsToolTest extends TestCase
         $result = new AnalysedPathsTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString('2 PHP file(s)', $this->factory->output->fetch());
+        self::assertSame(
+            "2 PHP file(s), every one under an analysed path (tests/, src/) or declared unanalysed\n",
+            $this->factory->output->fetch(),
+            'with nothing declared, a pass prints no declaration heading',
+        );
+    }
+
+    /**
+     * A source dir at the project root analyses the whole project, and a
+     * checked path outside the project accounts for none of its files, even
+     * one whose name starts with the project's own.
+     */
+    #[Test]
+    public function aCheckedPathAtTheRootIsTheWholeProjectAndOneOutsideItIsDropped(): void
+    {
+        $this->tracked(self::SRC_FILE, self::SERVICES, self::ROOT_SCRIPT);
+        $root   = $this->factory->project->path;
+        $paths  = $this->factory->paths();
+        $config = $this->factory->builder(paths: new \LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto(
+            projectRoot: $root,
+            libraryRoot: $paths->libraryRoot,
+            binDir: $paths->binDir,
+            srcDir: $root,
+            testsDir: $root . '-tests',
+            projectConfigDir: $paths->projectConfigDir,
+            varDir: $paths->varDir,
+            cacheDir: $paths->cacheDir,
+            pharDir: $paths->pharDir,
+            configDefaultsDir: $paths->configDefaultsDir,
+        ))->build();
+
+        $result = new AnalysedPathsTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            "3 PHP file(s), every one under an analysed path (the whole project) or declared unanalysed\n",
+            $this->factory->output->fetch(),
+        );
     }
 
     #[Test]
@@ -98,14 +137,24 @@ final class AnalysedPathsToolTest extends TestCase
     {
         $this->tracked(self::SRC_FILE, self::TEST_FILE, self::SERVICES);
 
-        $result  = new AnalysedPathsTool()->run($this->factory->context());
-        $printed = $this->factory->output->fetch();
+        $result = new AnalysedPathsTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString(self::CONFIG_DIR, $printed);
-        self::assertStringContainsString("withCheckedPaths('config')", $printed);
-        self::assertStringContainsString("withUnanalysedPath('config', '", $printed);
-        self::assertStringContainsString(AnalysedPathsTool::IDENTIFIER, $printed);
+        self::assertSame('PHP that is neither analysed nor declared unanalysed, or a declaration that does not hold', $result->summary);
+        self::assertSame(
+            <<<'TEXT'
+                PHP that no analysed path reaches and no declaration accounts for:
+                  config/ (1 PHP file(s))
+                      analyse it:   ->withCheckedPaths('config')
+                      or declare:   ->withUnanalysedPath('config', '<why this PHP is not analysed>')
+
+                PHPStan, Rector, PHP-CS-Fixer and the lint lanes read only the checked paths (tests/, src/), so no rule
+                has seen these files. Classify each in qaConfig/qa.php: analyse it, which is right for
+                code you maintain, or declare it unanalysed with the reason, which every run prints.
+
+                TEXT . self::IDENTIFIER_FOOTER,
+            $this->factory->output->fetch(),
+        );
     }
 
     #[Test]
@@ -122,15 +171,24 @@ final class AnalysedPathsToolTest extends TestCase
     #[Test]
     public function aDirectoryDeclaredUnanalysedPassesAndTheRunPrintsTheReason(): void
     {
-        $this->tracked(self::SRC_FILE, self::SERVICES);
-        $config = $this->factory->builder()->withUnanalysedPath(self::CONFIG, self::REASON)->build();
+        $this->tracked(self::SRC_FILE, self::SERVICES, self::ROOT_SCRIPT);
+        $config = $this->factory->builder()
+            ->withUnanalysedPath(self::CONFIG, self::REASON)
+            ->withUnanalysedPath(self::ROOT_SCRIPT, 'Rector configuration, read by Rector itself')
+            ->build()
+        ;
 
-        $result  = new AnalysedPathsTool()->run($this->factory->context($config));
-        $printed = $this->factory->output->fetch();
+        $result = new AnalysedPathsTool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString(self::CONFIG_DIR, $printed);
-        self::assertStringContainsString(self::REASON, $printed);
+        self::assertSame(
+            "3 PHP file(s), every one under an analysed path (tests/, src/) or declared unanalysed\n"
+            . "Declared unanalysed in qaConfig/qa.php:\n"
+            . '  ' . self::CONFIG_DIR . ' (1 PHP file(s)): ' . self::REASON . "\n"
+            . "  rector.php (1 PHP file(s)): Rector configuration, read by Rector itself\n",
+            $this->factory->output->fetch(),
+            'a declared directory is shown with its trailing slash, a declared file without one',
+        );
     }
 
     #[Test]
@@ -175,8 +233,12 @@ final class AnalysedPathsToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('migrations', $printed);
-        self::assertStringContainsString('no PHP file', $printed);
+        self::assertSame(
+            "withUnanalysedPath('migrations', ...) names a path with no PHP file: remove the declaration, or it would excuse PHP added there later unexamined.\n"
+            . self::IDENTIFIER_FOOTER,
+            $printed,
+            'with nothing unclassified, the unclassified report and its explanation are not printed',
+        );
     }
 
     #[Test]
