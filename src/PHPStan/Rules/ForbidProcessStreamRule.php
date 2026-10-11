@@ -53,7 +53,7 @@ final readonly class ForbidProcessStreamRule implements Rule
     /** Symfony's output for the process's own stdout and stderr, lower-cased. */
     private const string CONSOLE_OUTPUT = 'symfony\component\console\output\consoleoutput';
 
-    /** How every readline function's name begins; each reads the process's stdin. */
+    /** readline(), and the prefix of the other readline functions; each reads the process's stdin. */
     private const string READLINE = 'readline';
 
     /** The function whose default destination is the SAPI logger. */
@@ -128,7 +128,7 @@ final readonly class ForbidProcessStreamRule implements Rule
             return $this->processStreamNamedBy($call->args[0] ?? null, $scope);
         }
 
-        if (str_starts_with($function, self::READLINE)) {
+        if (self::READLINE === $function || str_starts_with($function, self::READLINE . '_')) {
             return $function . '()';
         }
 
