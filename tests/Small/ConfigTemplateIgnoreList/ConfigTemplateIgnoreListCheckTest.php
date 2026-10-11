@@ -38,6 +38,15 @@ final class ConfigTemplateIgnoreListCheckTest extends TestCase
     }
 
     /**
+     * main() audits the package's own configDefaults/generic; a wrong path throws rather than passing.
+     */
+    public function testTheShippedTemplatesAreAllCovered(): void
+    {
+        self::expectOutputString('Every namespace-less configDefaults/generic template is covered by psr4-validate-ignore-list.txt.' . \PHP_EOL);
+        self::assertSame(0, ConfigTemplateIgnoreListCheck::main());
+    }
+
+    /**
      * The whole report is compared, so a dropped line, separator or blank line fails here.
      */
     public function testItFailsAndPrintsTheUncoveredFileTheFixAndTheIdentifier(): void
