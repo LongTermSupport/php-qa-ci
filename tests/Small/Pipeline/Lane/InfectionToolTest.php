@@ -94,6 +94,10 @@ final class InfectionToolTest extends TestCase
 
     private const array AUTO = [...self::FLOORS, 'infectionDiffBase' => 'auto'];
 
+    private const string PHPUNIT_LOGS = '/var/qa/phpunit_logs';
+
+    private const string IDENTIFIER_FOOTER ="\n🪪  phpqaci.infection  (vendor/bin/rule-doc phpqaci.infection)\n";
+
     private const string GIT_STATUS_CLEAN = '';
 
     private const string NO_PREFIX = "\n";
@@ -169,7 +173,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame([
             '/usr/bin/php', '-d', 'memory_limit=4G',
             '-f', \dirname(__DIR__, 4) . '/vendor-phar/infection.phar', '--',
-            '--coverage=' . $this->root . '/var/qa/phpunit_logs',
+            '--coverage=' . $this->root . self::PHPUNIT_LOGS,
             '--skip-initial-tests',
             '--threads=4',
             self::CONFIGURATION_ARG . $this->derivedConfigPath(),
@@ -559,6 +563,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('generating fresh coverage (xdebug)', $printed);
         self::assertFileDoesNotExist($this->root . '/var/qa/phpunit_logs/coverage-xml/stale.xml', 'stale coverage is removed before regeneration');
+        self::assertDirectoryDoesNotExist($this->root . '/var/qa/phpunit_logs/coverage-xml', 'the directory goes too, so PHPUnit writes it afresh');
 
         $coverage = $this->factory->processes->specs[0];
         self::assertSame([
@@ -575,11 +580,71 @@ final class InfectionToolTest extends TestCase
     public function aFullRunWithNoCoverageOnDiskGeneratesIt(): void
     {
         $this->factory->processes->willSucceed()->willRun($this->infection());
+        $previous = umask(0o022);
 
-        $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        try {
+            $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        } finally {
+            umask($previous);
+        }
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString('generating fresh coverage', $this->factory->output->fetch());
+        self::assertStringContainsString(
+            "Infection: generating fresh coverage (xdebug) before mutation testing.\n"
+            . "           (this also proves the suite is green, which lets Infection skip its initial run)\n",
+            $this->factory->output->fetch(),
+        );
+        self::assertSame(0o755, \Safe\fileperms($this->root . self::PHPUNIT_LOGS) & 0o7777, 'the logs directory is created, full permissions less the umask');
+    }
+
+    #[Test]
+    public function anEmptyCoverageDirectoryIsNotReusedButRegenerated(): void
+    {
+        $this->factory->project->mkdir('var/qa/phpunit_logs/coverage-xml');
+        $this->factory->processes->willSucceed()->willRun($this->infection());
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('generating fresh coverage (xdebug)', $printed);
+        self::assertStringNotContainsString('reusing the coverage', $printed);
+        self::assertCount(2, $this->factory->processes->specs, 'a coverage run, then Infection');
+    }
+
+    /** The pull-request target comes from the environment the lane was given, not the process's own. */
+    #[Test]
+    public function aPullRequestTargetInTheGivenEnvironmentChoosesTheBase(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willFail(1)->willFail(1)->willRun($this->infection());
+        $this->probe = new FakeIncludedFilesProbe(['/project/vendor/autoload.php']);
+        $tool        = new InfectionTool(environment: new EnvironmentReader(['GITHUB_BASE_REF' => 'release-train']), includedFiles: $this->probe);
+
+        $result = $tool->run($this->context($this->factory->builder(env: self::AUTO)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('neither origin/release-train nor release-train is in this clone', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aConfigurationFileChangedBothInHistoryAndOnDiskIsNamedOnce(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::FEATURE_BRANCH)
+            ->willSucceed(self::ORIGIN_DEFAULT)
+            ->willSucceed(self::RESOLVED)
+            ->willSucceed(self::MERGE_BASE)
+            ->willSucceed(' M ' . self::PROJECT_CONFIG . "\0")
+            ->willSucceed(self::NO_PREFIX)
+            ->willSucceed($this->nameStatus(['M', self::PROJECT_CONFIG]))
+            ->willRun($this->infection())
+        ;
+
+        $this->tool()->run($this->context($this->factory->builder(env: self::AUTO)));
+
+        self::assertStringContainsString('configuration every mutant depends on (qaConfig/infection.json), which', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -622,10 +687,34 @@ final class InfectionToolTest extends TestCase
         self::assertCount(2, $this->factory->processes->specs, 'only the status and its path prefix run before the refusal');
         self::assertSame(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', ...$this->pathspecs()], $this->factory->processes->specs[0]->command);
         self::assertFalse($this->factory->processes->specs[0]->streamOutput);
-        self::assertStringContainsString('REFUSED', $printed);
-        self::assertStringContainsString('src/Dirty.php', $printed);
-        self::assertStringContainsString('commit', strtolower($printed));
-        self::assertStringContainsString(InfectionTool::IDENTIFIER, $printed);
+        self::assertSame('Infection diff mode refused: dirty src/tests tree', $result->summary);
+        self::assertStringEndsWith(
+            "Infection: diff mode REFUSED — uncommitted changes under the source, tests or configuration paths:\n"
+            . "           src/Dirty.php\n"
+            . "           A dirty-tree diff run can silently under-report (mutants for the uncommitted\n"
+            . "           code may never be generated), producing a false green. Commit the work first\n"
+            . "           (a WIP commit is fine), then re-run the diff lane against the committed state.\n"
+            . self::IDENTIFIER_FOOTER,
+            $printed,
+        );
+    }
+
+    /**
+     * `git status -z` names a rename or a copy by its new path and then its old one; the old
+     * path is skipped whichever column holds the R or C. A record too short to hold a path is
+     * passed over without ending the list, and a one-character path is still a path.
+     */
+    #[Test]
+    public function theRefusalNamesARenameByItsNewPathOnlyAndSkipsARecordTooShortToHoldAPath(): void
+    {
+        $this->factory->processes
+            ->willSucceed("R  src/New.php\0src/Old.php\0 R src/Moved.php\0src/Was.php\0C  src/Copy.php\0src/Original.php\0\0?? x\0")
+            ->willSucceed(self::NO_PREFIX)
+        ;
+
+        $this->tool()->run($this->context($this->diffBuilder()));
+
+        self::assertStringContainsString("REFUSED — uncommitted changes under the source, tests or configuration paths:\n           src/New.php,src/Moved.php,src/Copy.php,x\n", $this->factory->output->fetch());
     }
 
     #[Test]
@@ -636,7 +725,8 @@ final class InfectionToolTest extends TestCase
         $result = $this->tool()->run($this->context($this->diffBuilder()));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString("'git status' failed; cannot verify the working tree is clean", $this->factory->output->fetch());
+        self::assertSame('Infection diff mode: git status failed', $result->summary);
+        self::assertStringEndsWith("Infection: diff mode — 'git status' failed; cannot verify the working tree is clean.\n" . self::IDENTIFIER_FOOTER, $this->factory->output->fetch());
     }
 
     #[Test]
@@ -664,7 +754,7 @@ final class InfectionToolTest extends TestCase
 
         $phar = $this->factory->processes->lastSpec();
         self::assertSame([
-            '--coverage=' . $this->root . '/var/qa/phpunit_logs',
+            '--coverage=' . $this->root . self::PHPUNIT_LOGS,
             '--skip-initial-tests',
             '--threads=4',
             self::CONFIGURATION_ARG . $this->derivedConfigPath(),
@@ -750,7 +840,11 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, 'local work in progress must not fail the default mode');
-        self::assertStringContainsString('Infection: auto diff mode — WARNING: uncommitted edits are in scope and mutated as they are on disk, so this verdict is not reproducible from committed history: src/Wip.php,src/Fresh.php,src/Committed.php', $printed);
+        self::assertStringContainsString(
+            "Infection: auto diff mode — WARNING: uncommitted edits are in scope and mutated as they are on disk, so this verdict is not reproducible from committed history: src/Wip.php,src/Fresh.php,src/Committed.php\n"
+            . "           Commit them (a WIP commit is fine) for a result that matches what CI will see.\n",
+            $printed,
+        );
         self::assertStringNotContainsString('REFUSED', $printed);
         self::assertSame(
             [$this->root . '/' . self::COMMITTED_SRC, $this->root . '/src/Wip.php', $this->root . '/src/Fresh.php'],
@@ -950,7 +1044,11 @@ final class InfectionToolTest extends TestCase
         $result = $this->tool()->run($this->context($this->diffBuilder()));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString("'git rev-parse --show-prefix' failed", $this->factory->output->fetch());
+        self::assertSame('Infection diff mode: git rev-parse failed', $result->summary);
+        self::assertStringEndsWith(
+            "Infection: diff mode — 'git rev-parse --show-prefix' failed; cannot place the uncommitted files relative to the project.\n" . self::IDENTIFIER_FOOTER,
+            $this->factory->output->fetch(),
+        );
         self::assertCount(2, $this->factory->processes->specs);
     }
 
@@ -1146,8 +1244,13 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertCount(2, $this->factory->processes->specs);
-        self::assertStringContainsString("no PHP source change, and no changed test named after a source file, against 'origin/main'; there are no new mutants to check. SKIPPING.", $printed);
+        self::assertStringEndsWith(
+            "no PHP source change, and no changed test named after a source file, against 'origin/main'; there are no new mutants to check. SKIPPING.\n"
+            . "           Nothing to mutate, so no coverage run is started.\n",
+            $printed,
+        );
         self::assertStringNotContainsString('full run', $printed, 'only a change with nothing mutable skips; a configuration change runs in full');
+        self::assertStringNotContainsString('named after no source file', $printed, 'with no unmapped test there is nothing to report');
     }
 
     #[Test]
