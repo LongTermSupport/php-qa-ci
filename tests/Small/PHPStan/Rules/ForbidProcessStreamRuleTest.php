@@ -69,17 +69,17 @@ final class ForbidProcessStreamRuleTest extends RuleTestCase
         $this->analyse([self::FIXTURES . '/Script.php'], []);
     }
 
-    /** An unqualified call means the namespace's own function of that name when there is one, as PHP resolves it. */
+    /**
+     * An unqualified call means the namespace's own function of that name when there is one, as PHP
+     * resolves it. The fixture is loaded first so its functions are known to the reflection provider,
+     * as a project's autoloaded functions are: the test harness does not read the analysed file's own.
+     */
     #[Test]
     public function aNamespacesOwnReadlineIsNotReportedAndPhpsQualifiedOneIs(): void
     {
-        $this->analyse([self::FIXTURES . '/Shadowing.php'], [['readline()' . self::ADVICE, 28]]);
-    }
+        require_once self::FIXTURES . '/Shadowing.php';
 
-    /** @return list<string> */
-    public static function getAdditionalConfigFiles(): array
-    {
-        return [...parent::getAdditionalConfigFiles(), self::FIXTURES . '/shadowing.neon'];
+        $this->analyse([self::FIXTURES . '/Shadowing.php'], [['readline()' . self::ADVICE, 28]]);
     }
 
     protected function getRule(): Rule
