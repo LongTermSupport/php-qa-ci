@@ -122,14 +122,17 @@ class, then fixes every instance by handing the stream in.
   text written. `ShellCheckInstaller` had no test and has one now, for its install mode.
   `ActiveRulesLister`'s two warnings and `ArkitectRuleProbe::main()`'s refusals had no test and
   have them now. The `phpstan` lane reports nothing, and the whole suite writes nothing to stderr.
-- [ ] ⬜ **Task 2.2**: Full Infection initial run (no `--skip-initial-tests`) completes
+- [x] ✅ **Task 2.2**: Full Infection initial run (no `--skip-initial-tests`) completes.
+  At `ab9339d`, Infection over `src/Pipeline/Tool/ToolRegistry.php` with coverage generated fresh
+  ran the whole suite, then all 109 mutants, and exited 0. Before the fix it died at exit 143 part
+  way through the initial run.
 - [ ] ⬜ **Task 2.3**: Gate, PR, verification, merge
 
 ## Success Criteria
 
 - [x] The rule reports every instance in the red commit and none after the fix
 - [x] The suite writes nothing to stderr
-- [ ] An Infection run without `--skip-initial-tests` gets past its initial test run
+- [x] An Infection run without `--skip-initial-tests` gets past its initial test run
 
 ## Delivery & Milestones
 
