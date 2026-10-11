@@ -44,11 +44,19 @@ final class ComposerChecksToolTest extends TestCase
 
     private const string DRY_RUN = '--dry-run';
 
-    private const string COMPOSER = '/usr/local/bin/composer';
+    private const string COMPOSER = '/opt/fixture/bin/composer';
 
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
     private const string COMPOSER_JSON = '/composer.json';
+
+    private const string DIAGNOSE_HEADING = "\n\nChecking Composer Issues - Fix Any Red Stuff (wont fail the process)\n---------------------\n\n";
+
+    private const string AUDIT_HEADING = "\n\nAuditing Dependencies For Known Advisories\n---------------------\n\n";
+
+    private const string DUMP_HEADING = "\n\nDumping Composer Autoloader\n---------------------\n\n";
+
+    private const string IDENTIFIER_FOOTER = "\n🪪  phpqaci.composerChecks  (vendor/bin/rule-doc phpqaci.composerChecks)\n";
 
     private ContextFactory $factory;
 
@@ -287,18 +295,118 @@ final class ComposerChecksToolTest extends TestCase
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $this->factory->output->fetch());
     }
 
+    /** The lane's own output on a clean read-only run is exactly its four step headings. */
     #[Test]
-    public function withoutAnExplicitPathComposerIsLocatedOrDefaultsToItsBareName(): void
+    public function aCleanReadOnlyRunPrintsExactlyItsStepHeadings(): void
     {
-        $this->factory->processes
-            ->willSucceed()
-            ->willFail(1, 'stop here')
-        ;
+        $this->factory->processes->willSucceed()->willSucceed()->willSucceed()->willSucceed();
 
-        new ComposerChecksTool()->run($this->factory->context());
+        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
 
-        $script = $this->factory->processes->specs[0]->command[4];
-        self::assertTrue('composer' === $script || str_ends_with($script, '/composer') || str_ends_with($script, '/composer.phar'), $script);
+        self::assertSame(
+            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . $this->heading('Checking Composer Normalisation (read-only)') . self::DUMP_HEADING,
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function aCleanWritableRunPrintsExactlyItsStepHeadings(): void
+    {
+        $this->factory->processes->willSucceed()->willSucceed()->willSucceed()->willSucceed();
+
+        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
+
+        self::assertSame(
+            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . $this->heading('Running Composer Normalise') . self::DUMP_HEADING,
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function aFailedAuditPrintsTheWholeRemediationAndTheIdentifier(): void
+    {
+        $this->factory->processes->willSucceed()->willFail(1);
+
+        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+
+        self::assertSame(
+            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . <<<'TEXT'
+
+                composer audit did not pass (output above). Either a locked dependency has a
+                published security advisory, or the advisory database could not be reached.
+
+                TO FIX
+                  - Update the affected package to a patched release and commit composer.lock:
+                        composer update <vendor/package> --with-all-dependencies
+                  - If no patched release exists yet, pin an explicit exception in composer.json
+                    under config.audit.ignore with the advisory id and a comment saying why.
+                  - An abandoned package is reported, not failed: plan its replacement.
+                  - Offline builds: ->withComposerAudit(false) in qaConfig/qa.php, or
+                    useComposerAudit=0 for one run.
+
+                TEXT . self::IDENTIFIER_FOOTER,
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function aRedundantSuggestPrintsEachEntryAndTheWholeRemediation(): void
+    {
+        $this->factory->project->write('composer.json', <<<'JSON'
+            {
+              "name": "fixture/ctx",
+              "type": "project",
+              "require": { "acme/thing": "^1.0" },
+              "require-dev": { "acme/other": "^2.0" },
+              "suggest": { "acme/thing": "already required", "acme/other": "already a dev requirement" }
+            }
+            JSON);
+        $this->factory->processes->willSucceed()->willSucceed();
+
+        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+
+        self::assertSame(
+            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . <<<'TEXT'
+
+                ERROR: composer.json suggests a package it already requires:
+
+                  - acme/thing (require)
+                  - acme/other (require-dev)
+
+                A suggestion is advice to install something the consumer does not already
+                get. Advice they cannot act on is noise, and noise in that block trains the
+                reader to skip the rest of it.
+
+                TO FIX: delete the entry from "suggest". If the package should be optional
+                rather than required, move it out of "require"/"require-dev" instead.
+
+                TEXT . self::IDENTIFIER_FOOTER,
+            $this->factory->output->fetch(),
+        );
+    }
+
+    /** Composer is looked up on PATH when no path is given, and the path found is the one run. */
+    #[Test]
+    public function withoutAnExplicitPathTheComposerFoundOnPathIsRun(): void
+    {
+        $this->factory->project->write('path-bin/composer', "#!/bin/sh\n");
+        $bin = $this->factory->project->path . '/path-bin';
+        \Safe\chmod($bin . '/composer', 0o755);
+        $this->factory->processes->willSucceed()->willFail(1);
+
+        $this->runWithPath($bin);
+
+        self::assertSame($bin . '/composer', $this->factory->processes->specs[0]->command[4]);
+    }
+
+    #[Test]
+    public function withoutAnExplicitPathAndNoComposerOnPathTheBareNameIsRun(): void
+    {
+        $this->factory->processes->willSucceed()->willFail(1);
+
+        $this->runWithPath($this->factory->project->path);
+
+        self::assertSame('composer', $this->factory->processes->specs[0]->command[4]);
     }
 
     #[Test]
@@ -308,6 +416,24 @@ final class ComposerChecksToolTest extends TestCase
 
         self::assertSame('composerChecks', $tool->name());
         self::assertSame('phpqaci.composerChecks', $tool->identifier());
+    }
+
+    /** Run the lane with no composer path given and PATH set to the one directory, restoring PATH after. */
+    private function runWithPath(string $directory): void
+    {
+        $path = getenv('PATH');
+        \Safe\putenv('PATH=' . $directory);
+        try {
+            new ComposerChecksTool()->run($this->factory->context());
+        } finally {
+            \Safe\putenv(false === $path ? 'PATH' : 'PATH=' . $path);
+        }
+    }
+
+    /** A step heading as the lane prints it: two blank lines, the title, the rule and a blank line. */
+    private function heading(string $title): string
+    {
+        return "\n\n" . $title . "\n---------------------\n\n";
     }
 
     /** @return list<list<string>> the composer arguments of every composer invocation, in order */
