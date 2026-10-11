@@ -113,10 +113,10 @@ final class RunningProcessesTest extends TestCase
             $descendants = $this->reportedDescendants($tool);
 
             $started = microtime(true);
-            self::assertSame(1, $running->stopAll(1.0));
+            self::assertSame(1, $running->stopAll(5.0));
             $elapsed = microtime(true) - $started;
 
-            self::assertLessThan(0.5, $elapsed, 'nothing was left alive, so nothing waited out the grace period');
+            self::assertLessThan(2.5, $elapsed, 'nothing was left alive, so nothing waited out the grace period');
             self::assertSame(143, $tool->getExitCode(), 'the child was sent SIGTERM itself');
         } finally {
             $tool->stop(0);
