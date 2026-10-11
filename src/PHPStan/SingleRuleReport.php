@@ -132,13 +132,15 @@ final readonly class SingleRuleReport
      * no verdict. A dead worker leaves JSON that reads like any general finding,
      * so that line is the only sign of it. Exit 0 when the rule did not fire,
      * 1 when it did, 2 when the input was not a PHPStan JSON run at all or
-     * PHPStan reached no verdict.
+     * PHPStan reached no verdict, said on $stderr.
+     *
+     * @param resource $stderr
      */
-    public static function main(string $identifier, string $json, string $qaLog = ''): int
+    public static function main(string $identifier, string $json, $stderr, string $qaLog = ''): int
     {
         $noVerdict = PhpstanCrash::noVerdictIn($qaLog);
         if (null !== $noVerdict) {
-            \Safe\fwrite(STDERR, $noVerdict . ", so this run cannot say whether the rule fired\n");
+            \Safe\fwrite($stderr, $noVerdict . ", so this run cannot say whether the rule fired\n");
 
             return 2;
         }
@@ -146,7 +148,7 @@ final readonly class SingleRuleReport
         try {
             $report = self::fromJson($json);
         } catch (InvalidArgumentException $invalidArgumentException) {
-            \Safe\fwrite(STDERR, $invalidArgumentException->getMessage() . "\n");
+            \Safe\fwrite($stderr, $invalidArgumentException->getMessage() . "\n");
 
             return 2;
         }

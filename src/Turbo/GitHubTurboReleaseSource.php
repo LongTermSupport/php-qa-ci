@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Turbo;
 
+use Closure;
+use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
 /**
@@ -28,6 +30,22 @@ final readonly class GitHubTurboReleaseSource implements TurboReleaseSourceInter
     /** Long enough for a 7 MB core on a slow runner, short enough not to hang a composer event. */
     private const int TIMEOUT_SECONDS = 60;
 
+    /**
+     * @param OutputInterface                    $errors where a failed request's cause is noted
+     * @param Closure(string, string...): string $fetch  the body at a URL, given the request headers; throws when the request fails
+     */
+    public function __construct(
+        private OutputInterface $errors,
+        private Closure $fetch,
+    ) {
+    }
+
+    /** The source that asks GitHub itself. */
+    public static function overHttp(OutputInterface $errors): self
+    {
+        return new self($errors, self::httpGet(...));
+    }
+
     public function tree(string $version): ?string
     {
         return $this->get(\sprintf(self::TREE_API, rawurlencode($version)));
@@ -46,6 +64,20 @@ final readonly class GitHubTurboReleaseSource implements TurboReleaseSourceInter
             $headers[] = 'Authorization: Bearer ' . $token;
         }
 
+        try {
+            return ($this->fetch)($url, ...$headers);
+        } catch (Throwable $throwable) {
+            // The caller decides what a failed request means; the cause is still worth printing,
+            // or a rate limit looks the same as a missing release.
+            $this->errors->writeln('Note: could not fetch ' . $url . ': ' . $throwable->getMessage(), OutputInterface::OUTPUT_RAW);
+
+            return null;
+        }
+    }
+
+    /** The body at a URL, fetched over HTTP with the request headers given. */
+    private static function httpGet(string $url, string ...$headers): string
+    {
         $context = stream_context_create([
             'http' => [
                 'header'        => implode("\r\n", $headers),
@@ -54,14 +86,6 @@ final readonly class GitHubTurboReleaseSource implements TurboReleaseSourceInter
             ],
         ]);
 
-        try {
-            return \Safe\file_get_contents($url, false, $context);
-        } catch (Throwable $throwable) {
-            // The caller decides what a failed request means; the cause is still worth printing,
-            // or a rate limit looks the same as a missing release.
-            \Safe\fwrite(\STDERR, 'Note: could not fetch ' . $url . ': ' . $throwable->getMessage() . \PHP_EOL);
-
-            return null;
-        }
+        return \Safe\file_get_contents($url, false, $context);
     }
 }

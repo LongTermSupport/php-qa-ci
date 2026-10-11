@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\ShellCheck;
 
+use Closure;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\Pipeline\Config\ShellCheckBinary;
 use PharData;
 use RuntimeException;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
 use Throwable;
 
@@ -49,10 +52,27 @@ final readonly class ShellCheckInstaller
     /** Long enough for a 3.7 MB asset on a slow runner, short enough not to hang a composer event. */
     private const int TIMEOUT_SECONDS = 60;
 
+    /**
+     * @param Closure(string, string...): string $fetch      the body at a URL, given the request headers; throws when the request fails
+     * @param bool                               $maintainer whether this is a maintainer build, the only kind an update changes
+     */
+    public function __construct(
+        private OutputInterface $output,
+        private OutputInterface $errors,
+        private Closure $fetch,
+        private bool $maintainer,
+    ) {
+    }
+
     /** @return int the process exit code */
-    public static function main(string $libraryRoot, string $mode): int
+    public static function main(string $libraryRoot, string $mode, ConsoleOutputInterface $output): int
     {
-        return new self()->run($libraryRoot, $mode);
+        return new self(
+            $output,
+            $output->getErrorOutput(),
+            self::httpGet(...),
+            null !== new ExecutableFinder()->find('phive'),
+        )->run($libraryRoot, $mode);
     }
 
     public function run(string $libraryRoot, string $mode): int
@@ -62,7 +82,7 @@ final readonly class ShellCheckInstaller
         $present = is_file($binary);
         $decider = new InstallDecider();
 
-        if (self::MODE_UPDATE === $mode && !$this->isMaintainerEnvironment()) {
+        if (self::MODE_UPDATE === $mode && !$this->maintainer) {
             $this->write('ShellCheck left as committed — skipping update (not a maintainer build).');
 
             return 0;
@@ -92,14 +112,13 @@ final readonly class ShellCheckInstaller
 
     private function reportBroken(string $message, string $libraryRoot, ?string $pinned): int
     {
-        $this->write('ERROR: ' . $message . '.', \STDERR);
-        $this->write(\sprintf('Expected: %s (%s)', ShellCheckBinary::path($libraryRoot), ShellCheckBinary::ARCHITECTURE), \STDERR);
-        $this->write('This indicates a corrupted or incomplete checkout. Re-clone, or restore it with:', \STDERR);
-        $this->write(
+        $this->error('ERROR: ' . $message . '.');
+        $this->error(\sprintf('Expected: %s (%s)', ShellCheckBinary::path($libraryRoot), ShellCheckBinary::ARCHITECTURE));
+        $this->error('This indicates a corrupted or incomplete checkout. Re-clone, or restore it with:');
+        $this->error(
             null === $pinned
                 ? '  scripts/tool-install.bash update   (re-pins to the newest release)'
                 : '  ' . ShellCheckBinary::fetchCommand($libraryRoot, $pinned),
-            \STDERR,
         );
 
         return 1;
@@ -128,7 +147,7 @@ final readonly class ShellCheckInstaller
             \Safe\file_put_contents($libraryRoot . '/' . ShellCheckBinary::VERSION_FILE, $version . "\n");
         } catch (Throwable $throwable) {
             $staging->remove();
-            $this->write('ERROR: could not install ShellCheck ' . $version . ': ' . $throwable->getMessage(), \STDERR);
+            $this->error('ERROR: could not install ShellCheck ' . $version . ': ' . $throwable->getMessage());
 
             return 1;
         }
@@ -150,7 +169,7 @@ final readonly class ShellCheckInstaller
         try {
             $release = \Safe\json_decode($body, true);
         } catch (Throwable $throwable) {
-            $this->write('Note: the GitHub release API returned something unreadable: ' . $throwable->getMessage(), \STDERR);
+            $this->error('Note: the GitHub release API returned something unreadable: ' . $throwable->getMessage());
 
             return null;
         }
@@ -185,6 +204,21 @@ final readonly class ShellCheckInstaller
             $headers[] = 'Authorization: Bearer ' . $token;
         }
 
+        try {
+            return ($this->fetch)($url, ...$headers);
+        } catch (Throwable $throwable) {
+            // Not fatal on its own: the caller decides, and for a release
+            // lookup the answer is to leave the pin alone. The cause is still
+            // worth printing, or a rate limit looks like an empty release list.
+            $this->error('Note: could not fetch ' . $url . ': ' . $throwable->getMessage());
+
+            return null;
+        }
+    }
+
+    /** The body at a URL, fetched over HTTP with the request headers given. */
+    private static function httpGet(string $url, string ...$headers): string
+    {
         $context = stream_context_create([
             'http' => [
                 'header'        => implode("\r\n", $headers),
@@ -193,26 +227,16 @@ final readonly class ShellCheckInstaller
             ],
         ]);
 
-        try {
-            return \Safe\file_get_contents($url, false, $context);
-        } catch (Throwable $throwable) {
-            // Not fatal on its own: the caller decides, and for a release
-            // lookup the answer is to leave the pin alone. The cause is still
-            // worth printing, or a rate limit looks like an empty release list.
-            $this->write('Note: could not fetch ' . $url . ': ' . $throwable->getMessage(), \STDERR);
-
-            return null;
-        }
+        return \Safe\file_get_contents($url, false, $context);
     }
 
-    private function isMaintainerEnvironment(): bool
+    private function write(string $line): void
     {
-        return null !== new ExecutableFinder()->find('phive');
+        $this->output->writeln($line, OutputInterface::OUTPUT_RAW);
     }
 
-    /** @param resource $stream */
-    private function write(string $line, $stream = \STDOUT): void
+    private function error(string $line): void
     {
-        \Safe\fwrite($stream, $line . \PHP_EOL);
+        $this->errors->writeln($line, OutputInterface::OUTPUT_RAW);
     }
 }

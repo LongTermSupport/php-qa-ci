@@ -8,6 +8,8 @@ use LTS\PHPQA\PHPStan\ActiveRulesLister;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\NullOutput;
 
 /**
  * Defence for the class "a project's active defences can only be learned by
@@ -82,9 +84,11 @@ final class ActiveRulesListerTest extends TestCase
 
     private const string LEGACY_IGNORED_IDENTIFIER = 'class.notFound';
 
+    private const string PROJECT_NEON = 'qaConfig/phpstan.neon';
+
     public function testTextOutputListsRulesLanesAndProjectRecordExactly(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = $lister->list(self::FIXTURE_PROJECT);
 
         self::assertSame(self::FIXTURE_PROJECT . '/qaConfig/phpstan.neon', $listing->configPath);
@@ -172,7 +176,7 @@ final class ActiveRulesListerTest extends TestCase
      */
     public function testEveryListedLaneOffersADocumentationRoute(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = $lister->list(self::FIXTURE_PROJECT);
 
         $lanesByName = [];
@@ -210,7 +214,7 @@ final class ActiveRulesListerTest extends TestCase
      */
     public function testEveryLaneWithAnIdentifierResolvesToAnExistingPage(): void
     {
-        $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list(self::FIXTURE_PROJECT);
+        $listing = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput())->list(self::FIXTURE_PROJECT);
 
         $unresolved = [];
         foreach ($listing->pipelineLanes as $lane) {
@@ -231,7 +235,7 @@ final class ActiveRulesListerTest extends TestCase
 
     public function testJsonOutputIsValidAndStructured(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = $lister->list(self::FIXTURE_PROJECT);
 
         $json    = $lister->renderJson($listing);
@@ -264,7 +268,7 @@ final class ActiveRulesListerTest extends TestCase
 
     public function testProjectWithNoQaConfigFallsBackToTheShippedDefault(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = $lister->list(sys_get_temp_dir());
 
         self::assertSame(
@@ -282,7 +286,7 @@ final class ActiveRulesListerTest extends TestCase
      */
     public function testACyclicIncludeAndPhpstansOwnConfigurationAreWalkedOnce(): void
     {
-        $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list(__DIR__ . '/../../assets/ActiveRulesLister/cyclicProject');
+        $listing = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput())->list(__DIR__ . '/../../assets/ActiveRulesLister/cyclicProject');
 
         self::assertSame(
             [\LTS\PHPQA\PHPStan\Rules\ForbidDangerousFunctionsRule::class, \LTS\PHPQA\Tests\Assets\ActiveRulesLister\FixtureProjectRule::class],
@@ -301,14 +305,14 @@ final class ActiveRulesListerTest extends TestCase
 
         try {
             $project->write('vendor/acme/rules/rules.neon', "rules:\n    - LTS\\PHPQA\\PHPStan\\Rules\\ForbidDangerousFunctionsRule\n    - Acme\\Rules\\NoIdentifierRule\n");
-            $project->write('qaConfig/phpstan.neon', "includes:\n    - ../vendor/acme/rules/rules.neon\n\nrules:\n    - LTS\\PHPQA\\Tests\\Assets\\ActiveRulesLister\\FixtureProjectRule\n");
+            $project->write(self::PROJECT_NEON, "includes:\n    - ../vendor/acme/rules/rules.neon\n\nrules:\n    - LTS\\PHPQA\\Tests\\Assets\\ActiveRulesLister\\FixtureProjectRule\n");
             $project->write(
                 'vendor/phpstan/extension-installer/src/GeneratedConfig.php',
                 "<?php\nnamespace PHPStan\\ExtensionInstaller;\nfinal class GeneratedConfig\n{\n    public const EXTENSIONS = ['acme/rules' => ['relative_install_path' => '../../../acme/rules', 'extra' => ['includes' => ['rules.neon', 'more.neon']]]];\n}\n",
             );
             $project->write('vendor/acme/rules/more.neon', "conditionalTags:\n    Acme\\Rules\\OtherRule:\n        phpstan.rules.rule: %acme.otherRule%\n    Acme\\Rules\\NotARule:\n        phpstan.broker.dynamicMethodReturnTypeExtension: true\n");
 
-            $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list($project->path);
+            $listing = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput())->list($project->path);
         } finally {
             $project->remove();
         }
@@ -334,9 +338,9 @@ final class ActiveRulesListerTest extends TestCase
         $project = \LTS\PHPQA\Tests\Support\TempDir::create('phpqa-lister-phar');
 
         try {
-            $project->write('qaConfig/phpstan.neon', "includes:\n    - phar://phpstan.phar/conf/bleedingEdge.neon\n\nrules:\n    - LTS\\PHPQA\\Tests\\Assets\\ActiveRulesLister\\FixtureProjectRule\n");
+            $project->write(self::PROJECT_NEON, "includes:\n    - phar://phpstan.phar/conf/bleedingEdge.neon\n\nrules:\n    - LTS\\PHPQA\\Tests\\Assets\\ActiveRulesLister\\FixtureProjectRule\n");
 
-            $listing = new ActiveRulesLister(self::QA_CI_ROOT)->list($project->path);
+            $listing = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput())->list($project->path);
         } finally {
             $project->remove();
         }
@@ -350,7 +354,7 @@ final class ActiveRulesListerTest extends TestCase
     public function testAnIncludeThatCannotBeFollowedIsAnError(): void
     {
         try {
-            new ActiveRulesLister(self::QA_CI_ROOT)->list(__DIR__ . '/../../assets/ActiveRulesLister/missingIncludeProject');
+            new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput())->list(__DIR__ . '/../../assets/ActiveRulesLister/missingIncludeProject');
             self::fail('expected the missing include to be an error');
         } catch (RuntimeException $runtimeException) {
             self::assertSame(
@@ -362,10 +366,37 @@ final class ActiveRulesListerTest extends TestCase
 
     public function testUnparseableNeonIsAnError(): void
     {
-        $lister = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
 
         $this->expectException(RuntimeException::class);
         $lister->list(__DIR__ . '/../../assets/ActiveRulesLister/unparseableProject');
+    }
+
+    public function testARuleWhoseIdentifierTheDocIndexLacksIsListedAndNoted(): void
+    {
+        $warnings  = new BufferedOutput();
+        [$listing] = $this->listWithRuleFile('phpqa-lister-unindexed', "<?php\nnamespace Acme\\Rules;\nfinal class ProbeRule\n{\n    public const IDENTIFIER = 'phpqaci.notInTheIndex';\n}\n", $warnings);
+
+        self::assertSame('phpqaci.notInTheIndex', $listing->rules[0]->identifier);
+        self::assertNull($listing->rules[0]->docPath);
+        self::assertSame(
+            'ActiveRulesLister: Acme\Rules\ProbeRule declares identifier "phpqaci.notInTheIndex" but it did not resolve against the doc index: '
+            . 'Unknown rule identifier "phpqaci.notInTheIndex". Known identifiers are listed in ' . self::QA_CI_ROOT . "/docs/phpstan-rules/README.md\n",
+            $warnings->fetch(),
+        );
+    }
+
+    public function testARuleFileThatDoesNotParseIsListedWithoutAnIdentifierAndNoted(): void
+    {
+        $warnings             = new BufferedOutput();
+        [$listing, $ruleFile] = $this->listWithRuleFile('phpqa-lister-unparseable', "<?php\nnamespace Acme\\Rules;\nfinal class ProbeRule\n{\n", $warnings);
+
+        self::assertSame('Acme\Rules\ProbeRule', $listing->rules[0]->ruleClass);
+        self::assertNull($listing->rules[0]->identifier);
+        self::assertSame(
+            'ActiveRulesLister: could not parse ' . $ruleFile . ' while resolving Acme\Rules\ProbeRule::IDENTIFIER: Syntax error, unexpected EOF on line 5' . "\n",
+            $warnings->fetch(),
+        );
     }
 
     /**
@@ -388,7 +419,7 @@ final class ActiveRulesListerTest extends TestCase
 
         self::assertNotEmpty($expectedLaneNames, 'Expected at least one registered tool in the tool registry.');
 
-        $lister    = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister    = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing   = $lister->list(self::FIXTURE_PROJECT);
         $laneNames = array_map(
             static fn (\LTS\PHPQA\PHPStan\Dto\PipelineLaneDto $lane): string => $lane->name,
@@ -404,6 +435,30 @@ final class ActiveRulesListerTest extends TestCase
                     $expectedLaneName,
                 ),
             );
+        }
+    }
+
+    /**
+     * Lists a project whose only rule, Acme\Rules\ProbeRule, is the given file, found the way
+     * the lister finds any rule: through a Composer class loader, here one for that project alone.
+     *
+     * @return array{\LTS\PHPQA\PHPStan\Dto\ActiveDefencesListingDto, string} the listing, and the rule file's path
+     */
+    private function listWithRuleFile(string $name, string $ruleFile, BufferedOutput $warnings): array
+    {
+        $project = \LTS\PHPQA\Tests\Support\TempDir::create($name);
+        $loader  = new \Composer\Autoload\ClassLoader();
+
+        try {
+            $project->write('rules/ProbeRule.php', $ruleFile);
+            $project->write(self::PROJECT_NEON, "rules:\n    - Acme\\Rules\\ProbeRule\n");
+            $loader->addPsr4('Acme\Rules\\', $project->path . '/rules');
+            $loader->register();
+
+            return [new ActiveRulesLister(self::QA_CI_ROOT, $warnings)->list($project->path), $project->path . '/rules/ProbeRule.php'];
+        } finally {
+            $loader->unregister();
+            $project->remove();
         }
     }
 }

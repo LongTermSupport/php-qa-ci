@@ -28,6 +28,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
  * The mechanism behind `bin/arkitect-rule <because> <path>`: run the project's
@@ -58,6 +59,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(PhpInvoker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectPathsResolver::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\Exception\ProjectLayoutException::class)]
 #[Small]
 final class ArkitectRuleProbeTest extends TestCase
 {
@@ -267,6 +270,35 @@ final class ArkitectRuleProbeTest extends TestCase
 
         self::assertStringContainsString(self::NOT_FIRED, $rendered);
         self::assertStringContainsString('configDefaults/generic/phparkitect.php', $rendered);
+    }
+
+    #[Test]
+    public function theCommandRefusesAnythingButABecauseClauseAndAPathWithItsUsage(): void
+    {
+        foreach ([[], ['only-one'], ['--help', 'path'], ['a', 'b', 'c']] as $args) {
+            $output = new BufferedOutput();
+            $errors = new BufferedOutput();
+
+            self::assertSame(ArkitectRuleProbe::EXIT_NO_VERDICT, ArkitectRuleProbe::main('/library', self::AUTOLOAD, $output, $errors, ...$args));
+            self::assertSame(ArkitectRuleProbe::USAGE, $errors->fetch());
+            self::assertSame('', $output->fetch());
+        }
+    }
+
+    #[Test]
+    public function theCommandReportsAProjectItCannotResolveAsNoVerdict(): void
+    {
+        $output = new BufferedOutput();
+        $errors = new BufferedOutput();
+        $empty  = $this->factory->project->path . '/empty';
+        $this->factory->project->mkdir('empty/vendor');
+
+        self::assertSame(ArkitectRuleProbe::EXIT_NO_VERDICT, ArkitectRuleProbe::main('/library', $empty . '/vendor/autoload.php', $output, $errors, self::INTERFACE_BECAUSE, self::FIXTURE_DIR));
+        self::assertSame(
+            \sprintf("You have no 'src' directory under %s. This is not supported: create at least an empty one, e.g. mkdir -p %s/src\n", $empty, $empty),
+            $errors->fetch(),
+        );
+        self::assertSame('', $output->fetch());
     }
 
     private function probe(): ArkitectRuleProbe

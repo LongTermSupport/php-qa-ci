@@ -22,6 +22,7 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use RuntimeException;
+use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
 /**
@@ -51,8 +52,10 @@ final readonly class ActiveRulesLister
 
     private RuleDocResolver $ruleDocResolver;
 
+    /** @param OutputInterface $warnings where a rule whose identifier cannot be read or resolved is noted */
     public function __construct(
         private string $qaCiRoot,
+        private OutputInterface $warnings,
         private NeonIncludeChain $includeChain = new NeonIncludeChain(),
         private InstalledPhpstanExtensions $installedExtensions = new InstalledPhpstanExtensions(),
     ) {
@@ -445,8 +448,11 @@ final readonly class ActiveRulesLister
         try {
             $entry = $this->ruleDocResolver->resolve($identifier);
         } catch (InvalidArgumentException $invalidArgumentException) {
-            \Safe\fwrite(\STDERR, \sprintf('ActiveRulesLister: %s declares identifier "%s" but it did not ', $ruleClass, $identifier)
-                . \sprintf('resolve against the doc index: %s%s', $invalidArgumentException->getMessage(), PHP_EOL));
+            $this->warnings->writeln(
+                \sprintf('ActiveRulesLister: %s declares identifier "%s" but it did not ', $ruleClass, $identifier)
+                . \sprintf('resolve against the doc index: %s', $invalidArgumentException->getMessage()),
+                OutputInterface::OUTPUT_RAW,
+            );
 
             return new ActiveRuleEntryDto($ruleClass, $identifier, null, null);
         }
@@ -519,7 +525,10 @@ final readonly class ActiveRulesLister
         try {
             $ast = $parser->parse(\Safe\file_get_contents($file));
         } catch (Throwable $throwable) {
-            \Safe\fwrite(\STDERR, \sprintf('ActiveRulesLister: could not parse %s while resolving %s::%s: %s%s', $file, $class, $constantName, $throwable->getMessage(), PHP_EOL));
+            $this->warnings->writeln(
+                \sprintf('ActiveRulesLister: could not parse %s while resolving %s::%s: %s', $file, $class, $constantName, $throwable->getMessage()),
+                OutputInterface::OUTPUT_RAW,
+            );
 
             return null;
         }

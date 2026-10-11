@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PhpstanReplace;
 
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
-use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -40,9 +39,9 @@ final readonly class PhpstanReplaceSync
     }
 
     /** @return int the process exit code */
-    public static function main(string $libraryRoot, string $mode): int
+    public static function main(string $libraryRoot, string $mode, OutputInterface $output): int
     {
-        return new self(new ConsoleOutput())->run($libraryRoot, $mode);
+        return new self($output)->run($libraryRoot, $mode);
     }
 
     public function run(string $libraryRoot, string $mode): int

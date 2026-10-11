@@ -12,4 +12,6 @@
 
 require \dirname(__DIR__).'/bin/bootstrap.php';
 
-die(\LTS\PHPQA\IssueMonitor\IssueMonitor::main(\dirname(__DIR__), $argv ?? []));
+$console = new \Symfony\Component\Console\Output\ConsoleOutput();
+
+die(\LTS\PHPQA\IssueMonitor\IssueMonitor::main(\dirname(__DIR__), $argv ?? [], $console, $console->getErrorOutput()));

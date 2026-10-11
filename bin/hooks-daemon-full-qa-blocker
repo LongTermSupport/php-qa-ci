@@ -17,4 +17,5 @@ $projectRoot = $argv[1] ?? \LTS\PHPQA\Helper::getProjectRootDirectory();
 die(\LTS\PHPQA\HooksDaemon\FullQaBlockerConfigurator::main(
     $projectRoot,
     $argv[2] ?? $projectRoot.'/.claude/hooks-daemon.yaml',
+    new \Symfony\Component\Console\Output\ConsoleOutput(),
 ));

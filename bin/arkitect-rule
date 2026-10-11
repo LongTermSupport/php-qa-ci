@@ -22,4 +22,12 @@ if (!isset($phpQaCiBootstrapAutoloadPath) || !\is_string($phpQaCiBootstrapAutolo
     exit(2);
 }
 
-exit(\LTS\PHPQA\Arkitect\ArkitectRuleProbe::main(\dirname(__DIR__), $phpQaCiBootstrapAutoloadPath, ...array_slice($argv ?? [], 1)));
+$console = new \Symfony\Component\Console\Output\ConsoleOutput();
+
+exit(\LTS\PHPQA\Arkitect\ArkitectRuleProbe::main(
+    \dirname(__DIR__),
+    $phpQaCiBootstrapAutoloadPath,
+    $console,
+    $console->getErrorOutput(),
+    ...array_slice($argv ?? [], 1),
+));

@@ -6,7 +6,7 @@ namespace LTS\PHPQA\Turbo;
 
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
-use Symfony\Component\Console\Output\ConsoleOutput;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
 use Throwable;
@@ -54,12 +54,10 @@ final readonly class TurboInstaller
     }
 
     /** @return int the process exit code */
-    public static function main(string $libraryRoot, string $mode): int
+    public static function main(string $libraryRoot, string $mode, ConsoleOutputInterface $output): int
     {
-        $output = new ConsoleOutput();
-
         return new self(
-            new GitHubTurboReleaseSource(),
+            GitHubTurboReleaseSource::overHttp($output->getErrorOutput()),
             TurboPlatform::fromRuntime(),
             null !== new ExecutableFinder()->find('phive'),
             $output,

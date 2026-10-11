@@ -8,6 +8,7 @@ use LTS\PHPQA\PHPStan\ActiveRulesLister;
 use LTS\PHPQA\PHPStan\RuleDocResolver;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Output\NullOutput;
 
 /**
  * Pins ActiveRulesLister's output to docs/phpstan-rules/README.md's index:
@@ -89,7 +90,7 @@ final class ActiveRulesListerSelfCheckTest extends TestCase
 
     public function testEveryIndexedRuleRegisteredInThisPackageAppearsInTheListing(): void
     {
-        $lister  = new ActiveRulesLister(self::QA_CI_ROOT);
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
         $listing = $lister->list(self::QA_CI_ROOT);
 
         $listedByClass = [];

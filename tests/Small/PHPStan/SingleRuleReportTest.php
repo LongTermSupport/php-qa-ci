@@ -134,17 +134,59 @@ final class SingleRuleReportTest extends TestCase
     #[Test]
     public function aRunTheLaneReportedAsNoVerdictIsNotAnAnswer(): void
     {
-        $json  = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Child process error (exit code 3):  while running parallel worker"]}';
-        $qaLog = "Running Single Tool: phpstan\n" . PhpstanCrash::noVerdictLine(PhpstanCrash::INCOMPLETE_REASON) . "\n";
+        $json   = '{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Child process error (exit code 3):  while running parallel worker"]}';
+        $qaLog  = "Running Single Tool: phpstan\n" . PhpstanCrash::noVerdictLine(PhpstanCrash::INCOMPLETE_REASON) . "\n";
+        $stderr = $this->stream();
 
         $this->expectOutputString('');
-        self::assertSame(2, SingleRuleReport::main(self::PHPQACI_NESTED_TERNARY, $json, $qaLog));
+        self::assertSame(2, SingleRuleReport::main(self::PHPQACI_NESTED_TERNARY, $json, $stderr, $qaLog));
+        self::assertSame(
+            "PHPStan abandoned the analysis on internal errors (result incomplete), so this run cannot say whether the rule fired\n",
+            $this->written($stderr),
+        );
     }
 
     #[Test]
     public function aRunTheLaneReportedAsAVerdictIsAnswered(): void
     {
+        $stderr = $this->stream();
+
         $this->expectOutputString("phpqaci.emptyCatchBlock did not fire\n");
-        self::assertSame(0, SingleRuleReport::main(self::PHPQACI_EMPTY_CATCH_BLOCK, self::JSON, "Running Single Tool: phpstan\n"));
+        self::assertSame(0, SingleRuleReport::main(self::PHPQACI_EMPTY_CATCH_BLOCK, self::JSON, $stderr, "Running Single Tool: phpstan\n"));
+        self::assertSame('', $this->written($stderr));
+    }
+
+    #[Test]
+    public function aRuleThatFiredExitsOne(): void
+    {
+        $stderr = $this->stream();
+
+        $this->expectOutputString("phpqaci.nestedTernary FIRED (2)\n/repo/src/A.php:10 No nested ternary\n/repo/src/B.php:3 No nested ternary\n");
+        self::assertSame(1, SingleRuleReport::main(self::PHPQACI_NESTED_TERNARY, self::JSON, $stderr));
+        self::assertSame('', $this->written($stderr));
+    }
+
+    #[Test]
+    public function inputThatIsNotPhpstanJsonIsRefusedOnStderr(): void
+    {
+        $stderr = $this->stream();
+
+        $this->expectOutputString('');
+        self::assertSame(2, SingleRuleReport::main(self::PHPQACI_NESTED_TERNARY, 'not json', $stderr));
+        self::assertSame("Expected PHPStan --error-format=json output: Syntax error\n", $this->written($stderr));
+    }
+
+    /** @return resource */
+    private function stream()
+    {
+        return \Safe\fopen('php://memory', 'w+');
+    }
+
+    /** @param resource $stream */
+    private function written($stream): string
+    {
+        \Safe\rewind($stream);
+
+        return \Safe\stream_get_contents($stream);
     }
 }
