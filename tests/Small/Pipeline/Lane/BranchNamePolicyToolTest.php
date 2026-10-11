@@ -152,7 +152,7 @@ final class BranchNamePolicyToolTest extends TestCase
 
         self::assertTrue($result->isSuccess());
         self::assertSame(
-            self::header('feature/thing')
+            $this->header('feature/thing')
             . "[branchNamePolicy] PASS — branch 'feature/thing' matches allowed prefix 'feature/'.\n",
             $this->factory->output->fetch(),
         );
@@ -203,7 +203,7 @@ final class BranchNamePolicyToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame(
-            self::header('wip-stuff') . \sprintf(self::GUIDANCE, 'wip-stuff') . self::IDENTIFIER_LINE,
+            $this->header('wip-stuff') . \sprintf(self::GUIDANCE, 'wip-stuff') . self::IDENTIFIER_LINE,
             $this->factory->output->fetch(),
         );
     }
@@ -217,7 +217,7 @@ final class BranchNamePolicyToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame(
-            self::header('plan/00003-x') . \sprintf(self::GUIDANCE, 'plan/00003-x') . self::PLAN_GUIDANCE . self::IDENTIFIER_LINE,
+            $this->header('plan/00003-x') . \sprintf(self::GUIDANCE, 'plan/00003-x') . self::PLAN_GUIDANCE . self::IDENTIFIER_LINE,
             $this->factory->output->fetch(),
         );
     }
@@ -239,7 +239,7 @@ final class BranchNamePolicyToolTest extends TestCase
     /**
      * What every run on a branch prints before its verdict, with `main` detected as the default branch.
      */
-    private static function header(string $branch): string
+    private function header(string $branch): string
     {
         return '[branchNamePolicy] Current branch: ' . $branch . "\n[branchNamePolicy] Default branch detected: main\n";
     }
