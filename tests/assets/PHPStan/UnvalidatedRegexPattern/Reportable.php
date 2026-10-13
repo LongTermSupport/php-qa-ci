@@ -363,6 +363,16 @@ final readonly class Reportable
         return $instance;
     }
 
+    public function changedThroughAForeachReferenceToItsArray(string $value, string $subject): void
+    {
+        $patterns = ['/a/', '/b/'];
+        foreach ($patterns as &$entry) {
+            $entry = $value;
+        }
+        unset($entry);
+        preg_match($patterns[0], $subject);
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;
@@ -386,6 +396,19 @@ final readonly class Reportable
         static $value = '/x/';
 
         return $value;
+    }
+}
+
+/** A subclass may declare a constructor taking the pattern by reference. */
+class LateStaticallyConstructed
+{
+    public function make(string $value, string $subject): static
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $made    = new static($pattern);
+        preg_match($pattern, $subject);
+
+        return $made;
     }
 }
 
