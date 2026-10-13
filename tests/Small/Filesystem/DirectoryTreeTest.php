@@ -33,8 +33,8 @@ final class DirectoryTreeTest extends TestCase
 
     private const string LINK = '/link';
 
-    /** The walk that has to know about links, spelt so this file does not contain it. */
-    private const string CHILD_FIRST_WALK = 'RecursiveIteratorIterator::' . 'CHILD_FIRST';
+    // The walk that has to know about links, spelt so this file does not contain it.
+    private const string CHILD_FIRST_WALK = RecursiveIteratorIterator::class . '::CHILD_FIRST';
 
     #[Test]
     public function removingATreeRemovesEverythingInIt(): void

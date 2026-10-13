@@ -26,6 +26,12 @@ final class GitFilesCopyTest extends TestCase
 {
     private const string SCRIPT = 'bin/run.bash';
 
+    private const string COPY = '/copy';
+
+    private const string README = '/README.md';
+
+    private const string LINKED = '/linked';
+
     private GitSandbox $sandbox;
 
     private TempDir $target;
@@ -33,9 +39,9 @@ final class GitFilesCopyTest extends TestCase
     protected function setUp(): void
     {
         $this->sandbox = GitSandbox::create([
-            '.gitignore'  => "untracked/\nvendor/\n",
-            'README.md'   => 'readme',
-            self::SCRIPT  => "#!/usr/bin/env bash\n",
+            '.gitignore'     => "untracked/\nvendor/\n",
+            'README.md'      => 'readme',
+            self::SCRIPT     => "#!/usr/bin/env bash\n",
             'src/Deep/A.php' => '<?php',
         ]);
         $this->target = TempDir::create('phpqa-git-files-copy');
@@ -57,10 +63,10 @@ final class GitFilesCopyTest extends TestCase
         \Safe\mkdir($work . '/vendor');
         \Safe\file_put_contents($work . '/vendor/autoload.php', 'x');
 
-        GitFilesCopy::copy($work, $this->target->path . '/copy');
+        GitFilesCopy::copy($work, $this->target->path . self::COPY);
 
-        $copy = $this->target->path . '/copy';
-        self::assertSame('readme', \Safe\file_get_contents($copy . '/README.md'));
+        $copy = $this->target->path . self::COPY;
+        self::assertSame('readme', \Safe\file_get_contents($copy . self::README));
         self::assertSame('<?php', \Safe\file_get_contents($copy . '/src/Deep/A.php'));
         self::assertSame('not yet added', \Safe\file_get_contents($copy . '/NEW.md'));
         self::assertDirectoryDoesNotExist($copy . '/untracked');
@@ -73,23 +79,23 @@ final class GitFilesCopyTest extends TestCase
     {
         \Safe\chmod($this->sandbox->work . '/' . self::SCRIPT, 0o755);
 
-        GitFilesCopy::copy($this->sandbox->work, $this->target->path . '/copy');
+        GitFilesCopy::copy($this->sandbox->work, $this->target->path . self::COPY);
 
-        self::assertTrue(is_executable($this->target->path . '/copy/' . self::SCRIPT));
+        self::assertTrue(is_executable($this->target->path . self::COPY . '/' . self::SCRIPT));
     }
 
     #[Test]
     public function aLinkIsCopiedAsALinkAndATrackedFileDeletedFromTheTreeIsSkipped(): void
     {
         $work = $this->sandbox->work;
-        \Safe\symlink('src', $work . '/linked');
-        \Safe\unlink($work . '/README.md');
+        \Safe\symlink('src', $work . self::LINKED);
+        \Safe\unlink($work . self::README);
 
-        GitFilesCopy::copy($work, $this->target->path . '/copy');
+        GitFilesCopy::copy($work, $this->target->path . self::COPY);
 
-        $copy = $this->target->path . '/copy';
-        self::assertTrue(is_link($copy . '/linked'));
-        self::assertSame('src', \Safe\readlink($copy . '/linked'));
-        self::assertFileDoesNotExist($copy . '/README.md');
+        $copy = $this->target->path . self::COPY;
+        self::assertTrue(is_link($copy . self::LINKED));
+        self::assertSame('src', \Safe\readlink($copy . self::LINKED));
+        self::assertFileDoesNotExist($copy . self::README);
     }
 }

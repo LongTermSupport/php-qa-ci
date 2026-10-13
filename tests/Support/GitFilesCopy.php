@@ -27,7 +27,8 @@ final readonly class GitFilesCopy
             throw new RuntimeException(\sprintf('git ls-files failed in %s: %s', $from, $process->getErrorOutput()));
         }
 
-        foreach (array_unique(array_filter(explode("\0", $process->getOutput()))) as $path) {
+        $paths = array_filter(explode("\0", $process->getOutput()), static fn (string $path): bool => '' !== $path);
+        foreach (array_unique($paths) as $path) {
             self::copyOne($from . '/' . $path, $to . '/' . $path);
         }
     }
