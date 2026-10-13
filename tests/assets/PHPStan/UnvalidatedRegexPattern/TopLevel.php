@@ -27,3 +27,8 @@ preg_match($offsetPattern, $subject);
 $globalPattern = '/c/';
 phpqaciFixtureOverwriteGlobalPattern($argv[4] ?? '');
 preg_match($globalPattern, $subject);
+
+$aliasedPattern = '/d/';
+$globalAlias    = &$aliasedPattern;
+phpqaciFixtureOverwriteGlobalAlias($argv[5] ?? '');
+preg_match($aliasedPattern, $subject);

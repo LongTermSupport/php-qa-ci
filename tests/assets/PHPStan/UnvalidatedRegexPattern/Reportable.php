@@ -235,6 +235,30 @@ final readonly class Reportable
         preg_match($pattern, $subject);
     }
 
+    public function aliasedForACallThatTakesItsArgumentsAsAnArray(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        call_user_func_array([self::class, 'overwrite'], [&$pattern, $value]);
+        preg_match($pattern, $subject);
+    }
+
+    public function changedThroughAForeachReference(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        foreach ([&$pattern] as &$entry) {
+            $entry = $value;
+        }
+        preg_match($pattern, $subject);
+    }
+
+    public function aliasedForACallThatCannotBeResolved(callable $callback, string $subject): void
+    {
+        $pattern = '/a/';
+        $alias   = &$pattern;
+        $callback($alias);
+        preg_match($pattern, $subject);
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;

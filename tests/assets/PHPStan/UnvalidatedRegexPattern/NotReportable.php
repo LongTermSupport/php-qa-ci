@@ -131,6 +131,16 @@ final readonly class NotReportable
         preg_match('/' . preg_quote($word, '/') . '/', $subject);
     }
 
+    /** A class with no constructor has no parameter to take the pattern by reference. */
+    public function passesAPatternToAClassWithNoConstructor(string $subject): self
+    {
+        $pattern  = '/a/';
+        $instance = new self($pattern);
+        preg_match($pattern, $subject);
+
+        return $instance;
+    }
+
     /** @return literal-string */
     private function literal(): string
     {

@@ -7,3 +7,9 @@ function phpqaciFixtureOverwriteGlobalPattern(string $value): void
     global $globalPattern;
     $globalPattern = $value;
 }
+
+function phpqaciFixtureOverwriteGlobalAlias(string $value): void
+{
+    global $globalAlias;
+    $globalAlias = $value;
+}
