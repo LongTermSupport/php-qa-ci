@@ -34,6 +34,8 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
 
     private const string PREG_MATCH = 'preg_match';
 
+    private const int DENSE_COPIES_SECONDS = 20;
+
     /** Loaded first, as the other fixture is, so the by-reference method it calls can be resolved. */
     #[Test]
     public function aPatternTheCodeDoesNotOwnIsReportedWhereverNothingWouldNameIt(): void
@@ -159,6 +161,25 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
                 [$this->message(self::PREG_MATCH), 37],
             ],
         );
+    }
+
+    /**
+     * Ownership and unseen writes are decided over the function's copies, which may form a dense
+     * cycle: each variable is taken once, or the walk grows with every route and never finishes.
+     * The alarm turns a walk that does not finish into a failure rather than a hung suite.
+     */
+    #[Test]
+    public function aDenseCycleOfCopiesIsDecidedWithoutWalkingEachRoute(): void
+    {
+        pcntl_async_signals(true);
+        pcntl_signal(\SIGALRM, static fn (): never => throw new \RuntimeException('the rule did not finish on a dense cycle of copies within ' . self::DENSE_COPIES_SECONDS . ' seconds'));
+        pcntl_alarm(self::DENSE_COPIES_SECONDS);
+        try {
+            $this->analyse([self::FIXTURES . '/DenseCopies.php'], []);
+        } finally {
+            pcntl_alarm(0);
+            pcntl_signal(\SIGALRM, \SIG_DFL);
+        }
     }
 
     protected function getRule(): Rule
