@@ -31,10 +31,13 @@ variable is owned when every write to it in its function is owned. These writes 
   or `foreach ($rows as [&$entry])`.
 
 A pattern naming a variable written by an unresolvable call or through a reference is not owned
-even when PHPStan still types it as a literal string. Neither is one naming a copy of such a
-variable, made by an assignment or a foreach by value (`$first = $patterns[0]`,
-`foreach ($patterns as $copy)`), however many copies away. A value given to `preg_quote()` is not
-followed, since the pattern holds it literally.
+even when PHPStan still types it as a literal string. Neither is one naming a variable written,
+by an assignment or a foreach, with a value that reads such a variable, however many writes away:
+`$first = $patterns[0]`, `foreach ($patterns as $copy)`, and also
+`$pattern = [] === $patterns ? '/a/' : '/b/'`, since any variable the value reads counts, not only
+one it copies. The order of the statements is not followed either, so a copy taken before the
+reference write counts too. A value given to `preg_quote()` is not followed, since the pattern
+holds it literally.
 
 A function that writes a variable the rule cannot name owns no local that a pattern names. Such a
 write is `$$name = …`, `extract()`, or an `include`, `require` or `eval`, which runs in the

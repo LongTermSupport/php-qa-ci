@@ -116,54 +116,69 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
     {
         return [] !== $named && (
             \array_key_exists(RegexPatternVariableWriteCollector::ANY_VARIABLE, $functionWrites)
-            || array_any($named, fn (string $variable): bool => $this->isWrittenUnseen($variable, $functionWrites))
-        );
-    }
-
-    /**
-     * Written where PHPStan does not follow, directly or in a variable a value
-     * was copied from. One already being followed adds nothing.
-     *
-     * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
-     * @param list<string>                           $following
-     */
-    private function isWrittenUnseen(string $variable, array $functionWrites, array $following = []): bool
-    {
-        if (\in_array($variable, $following, true)) {
-            return false;
-        }
-
-        return \array_key_exists(RegexPatternVariableWriteCollector::UNSEEN_WRITE . $variable, $functionWrites)
             || array_any(
-                $functionWrites[RegexPatternVariableWriteCollector::COPIED_FROM . $variable] ?? [],
-                fn (?array $sources): bool => array_any(
-                    $sources ?? [],
-                    fn (string $source): bool => $this->isWrittenUnseen($source, $functionWrites, [...$following, $variable]),
-                ),
-            );
+                array_keys($this->reachable($functionWrites, RegexPatternVariableWriteCollector::COPIED_FROM, ...$named)),
+                static fn (string $variable): bool => \array_key_exists(RegexPatternVariableWriteCollector::UNSEEN_WRITE . $variable, $functionWrites),
+            )
+        );
     }
 
     /**
      * A variable is owned when it is written and every write is, given the
-     * variables each is built from are. One already being resolved is taken
-     * as owned, so `$p .= 'x'` is judged by the other writes to $p.
+     * variables each is built from are, and a cycle of them is owned unless
+     * something in it is not, so `$p .= 'x'` is judged by the other writes to
+     * $p. Every variable it depends on is struck out until none is left to
+     * strike; what remains is owned.
      *
      * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
-     * @param list<string>                           $resolving
      */
-    private function isOwned(string $variable, array $functionWrites, array $resolving = []): bool
+    private function isOwned(string $variable, array $functionWrites): bool
     {
-        if (\in_array($variable, $resolving, true)) {
-            return true;
+        $owned = $this->reachable($functionWrites, '', $variable);
+        do {
+            $struck = false;
+            foreach (array_keys($owned) as $candidate) {
+                $variableWrites = $functionWrites[$candidate] ?? [];
+                if ([] === $variableWrites || array_any(
+                    $variableWrites,
+                    static fn (?array $dependencies): bool => null === $dependencies
+                        || array_any($dependencies, static fn (string $dependency): bool => !isset($owned[$dependency])),
+                )) {
+                    unset($owned[$candidate]);
+                    $struck = true;
+                }
+            }
+        } while ($struck);
+
+        return isset($owned[$variable]);
+    }
+
+    /**
+     * Every variable reachable from the given ones through the variables each
+     * write under the prefixed name lists, each taken once however many
+     * routes lead to it.
+     *
+     * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
+     *
+     * @return array<string, true>
+     */
+    private function reachable(array $functionWrites, string $prefix, string ...$from): array
+    {
+        $reached = [];
+        $pending = $from;
+        while ([] !== $pending) {
+            $variable = array_pop($pending);
+            if (isset($reached[$variable])) {
+                continue;
+            }
+
+            $reached[$variable] = true;
+            foreach ($functionWrites[$prefix . $variable] ?? [] as $dependencies) {
+                $pending = [...$pending, ...$dependencies ?? []];
+            }
         }
 
-        $variableWrites = $functionWrites[$variable] ?? [];
-
-        return [] !== $variableWrites && array_all(
-            $variableWrites,
-            fn (?array $dependencies): bool => null !== $dependencies
-                && array_all($dependencies, fn (string $dependency): bool => $this->isOwned($dependency, $functionWrites, [...$resolving, $variable])),
-        );
+        return $reached;
     }
 
     /**

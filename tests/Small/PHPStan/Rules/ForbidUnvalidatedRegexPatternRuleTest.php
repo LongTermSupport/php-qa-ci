@@ -15,6 +15,7 @@ use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 
 /**
  * @internal
@@ -172,13 +173,13 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
     public function aDenseCycleOfCopiesIsDecidedWithoutWalkingEachRoute(): void
     {
         pcntl_async_signals(true);
-        pcntl_signal(\SIGALRM, static fn (): never => throw new \RuntimeException('the rule did not finish on a dense cycle of copies within ' . self::DENSE_COPIES_SECONDS . ' seconds'));
+        \Safe\pcntl_signal(\SIGALRM, static fn (): never => throw new RuntimeException('the rule did not finish on a dense cycle of copies within ' . self::DENSE_COPIES_SECONDS . ' seconds'));
         pcntl_alarm(self::DENSE_COPIES_SECONDS);
         try {
             $this->analyse([self::FIXTURES . '/DenseCopies.php'], []);
         } finally {
             pcntl_alarm(0);
-            pcntl_signal(\SIGALRM, \SIG_DFL);
+            \Safe\pcntl_signal(\SIGALRM, \SIG_DFL);
         }
     }
 
