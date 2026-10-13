@@ -24,9 +24,11 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * UnownedRegexPatternCollector finds the calls, RegexPatternVariableWriteCollector
  * every write to a local variable, ErrorHandlerRestoringFinallyCollector the
- * guarded ranges and ErrorHandlerInstallCollector the handlers installed. A call
- * is not reported when its pattern is a local variable every write to which is
- * owned, or when it is inside a guarded range after its function installs a handler.
+ * guarded ranges and ErrorHandlerInstallCollector each function's body and the
+ * handlers installed directly in it. A call is not reported when its pattern is
+ * a local variable every write to which is owned, in a function with no write
+ * to a variable it cannot name, or when it is inside a guarded range after the
+ * innermost function holding it installs a handler.
  *
  * See: docs/phpstan-rules/forbid-unvalidated-regex-pattern.md.
  *
@@ -54,12 +56,10 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
             $guards[$file] = $collected;
         }
 
-        // File => function key => where each set_error_handler() call starts.
-        $installs = [];
+        // File => [body start, body end, where each set_error_handler() directly in it starts] per function.
+        $bodies = [];
         foreach ($node->get(ErrorHandlerInstallCollector::class) as $file => $collected) {
-            foreach ($collected as [$functionKey, $position]) {
-                $installs[$file][$functionKey][] = $position;
-            }
+            $bodies[$file] = $collected;
         }
 
         // File => function key => variable => the dependencies of each write to it, null for one not owned.
@@ -72,10 +72,11 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
 
         $errors = [];
         foreach ($node->get(UnownedRegexPatternCollector::class) as $file => $calls) {
-            foreach ($calls as [$function, $line, $position, $dependencies, $functionKey]) {
+            foreach ($calls as [$function, $line, $position, $dependencies, $functionKey, $named]) {
                 $functionWrites = $writes[$file][$functionKey] ?? [];
-                if ((null !== $dependencies && array_all($dependencies, fn (string $variable): bool => $this->isOwned($variable, $functionWrites)))
-                    || $this->isGuarded($position, $installs[$file] ?? [], ...$guards[$file] ?? [])) {
+                $unnamedWrite   = [] !== $named && \array_key_exists(RegexPatternVariableWriteCollector::ANY_VARIABLE, $functionWrites);
+                if ((!$unnamedWrite && null !== $dependencies && array_all($dependencies, fn (string $variable): bool => $this->isOwned($variable, $functionWrites)))
+                    || $this->isGuarded($position, $bodies[$file] ?? [], ...$guards[$file] ?? [])) {
                     continue;
                 }
 
@@ -115,20 +116,21 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
     }
 
     /**
-     * In a guarded range, outside any function declared in it, after its function
-     * installs an error handler.
+     * In a guarded range, outside any function declared in it, after the
+     * innermost function holding the call installs an error handler.
      *
-     * @param array<string, list<int>>                       $installs  function key => set_error_handler() offsets
-     * @param array{int, int, list<array{int, int}>, string} ...$guards
+     * @param list<array{int, int, list<int>}>       $bodies each function's body start, end and set_error_handler() offsets
+     * @param array{int, int, list<array{int, int}>} ...$guards
      */
-    private function isGuarded(int $position, array $installs, array ...$guards): bool
+    private function isGuarded(int $position, array $bodies, array ...$guards): bool
     {
-        foreach ($guards as [$start, $end, $excluded, $functionKey]) {
-            if ($position < $start || $position >= $end) {
-                continue;
-            }
+        $installs = $this->innermostBody($position, ...$bodies)[2] ?? [];
+        if (!array_any($installs, static fn (int $install): bool => $install < $position)) {
+            return false;
+        }
 
-            if (!array_any($installs[$functionKey] ?? [], static fn (int $install): bool => $install < $position)) {
+        foreach ($guards as [$start, $end, $excluded]) {
+            if ($position < $start || $position >= $end) {
                 continue;
             }
 
@@ -138,5 +140,25 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
         }
 
         return false;
+    }
+
+    /**
+     * The body holding the position that starts last: a function declared
+     * inside another starts after it, and the file's top-level code at 0.
+     *
+     * @param array{int, int, list<int>} ...$bodies
+     *
+     * @return array{int, int, list<int>}|null
+     */
+    private function innermostBody(int $position, array ...$bodies): ?array
+    {
+        $innermost = null;
+        foreach ($bodies as $body) {
+            if ($position >= $body[0] && $position <= $body[1] && (null === $innermost || $body[0] > $innermost[0])) {
+                $innermost = $body;
+            }
+        }
+
+        return $innermost;
     }
 }

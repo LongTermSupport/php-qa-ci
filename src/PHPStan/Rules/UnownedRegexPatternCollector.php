@@ -7,7 +7,9 @@ namespace LTS\PHPQA\PHPStan\Rules;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
+use PhpParser\NodeFinder;
 use PHPStan\Analyser\Scope;
 use PHPStan\Collectors\Collector;
 use PHPStan\Reflection\ReflectionProvider;
@@ -21,13 +23,18 @@ use PHPStan\Reflection\ReflectionProvider;
  * them is, which the rule decides from RegexPatternVariableWriteCollector, so
  * the variables are recorded with the call.
  *
+ * A local variable PHPStan types as a literal string is owned without that, but
+ * PHPStan does not see every write: extract() may replace it with anything. So
+ * every variable the pattern names is recorded too, for the rule to refuse the
+ * call where its function writes a variable that cannot be named.
+ *
  * Each value is [the function's name as written, line, start offset, the
  * local variables the pattern is built from, or null when it is not owned
- * whatever they hold, function key].
+ * whatever they hold, function key, every variable the pattern names].
  *
  * @internal
  *
- * @implements Collector<FuncCall, array{string, int, int, list<string>|null, string}>
+ * @implements Collector<FuncCall, array{string, int, int, list<string>|null, string, list<string>}>
  */
 final readonly class UnownedRegexPatternCollector implements Collector
 {
@@ -66,7 +73,7 @@ final readonly class UnownedRegexPatternCollector implements Collector
     }
 
     /**
-     * @return array{string, int, int, list<string>|null, string}|null
+     * @return array{string, int, int, list<string>|null, string, list<string>}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -81,7 +88,8 @@ final readonly class UnownedRegexPatternCollector implements Collector
 
         $pattern      = $this->patternArgument($node);
         $dependencies = $pattern instanceof Expr ? $this->ownership->dependencies($pattern, $scope, self::PATTERN_FUNCTIONS[$function]) : null;
-        if ([] === $dependencies) {
+        $named        = $pattern instanceof Expr ? $this->variablesNamed($pattern) : [];
+        if ([] === $dependencies && [] === $named) {
             return null;
         }
 
@@ -91,7 +99,21 @@ final readonly class UnownedRegexPatternCollector implements Collector
             $node->getStartFilePos(),
             $dependencies,
             RegexPatternOwnership::functionKey($scope),
+            $named,
         ];
+    }
+
+    /** @return list<string> */
+    private function variablesNamed(Expr $pattern): array
+    {
+        $names = [];
+        foreach (new NodeFinder()->findInstanceOf($pattern, Variable::class) as $variable) {
+            if (\is_string($variable->name) && 'this' !== $variable->name) {
+                $names[] = $variable->name;
+            }
+        }
+
+        return array_values(array_unique($names));
     }
 
     /** The pattern, by name or as the first positional argument; null when the arguments are unpacked and it cannot be seen. */

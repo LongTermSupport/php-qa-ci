@@ -6,20 +6,30 @@ namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Name;
+use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor;
+use PhpParser\NodeVisitorAbstract;
 use PHPStan\Analyser\Scope;
 use PHPStan\Collectors\Collector;
+use PHPStan\Node\FileNode;
 
 /**
- * Collects each set_error_handler() call, so a try whose finally restores the
- * handler guards a PCRE call only where its function installed one before it:
- * a finally restoring a handler nobody installed guards nothing.
+ * Collects each function, method, closure and arrow function, and the file's
+ * top-level code, with where each set_error_handler() call directly in its body
+ * starts. A try whose finally restores the handler guards a PCRE call only
+ * where the innermost function holding the call installed one before it: a
+ * finally restoring a handler nobody installed guards nothing, and one
+ * installed in a closure runs only when that closure is called.
  *
- * Each value is [function key, call start offset].
+ * Each value is [body start, body end (inclusive), set_error_handler() start
+ * offsets]; the top-level code spans the whole file.
  *
  * @internal
  *
- * @implements Collector<FuncCall, array{string, int}>
+ * @implements Collector<Node, array{int, int, list<int>}>
  */
 final readonly class ErrorHandlerInstallCollector implements Collector
 {
@@ -27,18 +37,53 @@ final readonly class ErrorHandlerInstallCollector implements Collector
 
     public function getNodeType(): string
     {
-        return FuncCall::class;
+        return Node::class;
     }
 
     /**
-     * @return array{string, int}|null
+     * @return array{int, int, list<int>}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
-        if (!$node->name instanceof Name || self::INSTALL !== $node->name->toLowerString()) {
-            return null;
-        }
+        return match (true) {
+            $node instanceof FunctionLike => [$node->getStartFilePos(), $node->getEndFilePos(), $this->installs($node->getStmts() ?? [])],
+            $node instanceof FileNode     => [0, \PHP_INT_MAX, $this->installs($node->getNodes())],
+            default                       => null,
+        };
+    }
 
-        return [RegexPatternOwnership::functionKey($scope), $node->getStartFilePos()];
+    /**
+     * A call in a function or class declared inside runs elsewhere, so it is that one's.
+     *
+     * @param array<Node> $stmts
+     *
+     * @return list<int>
+     */
+    private function installs(array $stmts): array
+    {
+        $visitor = new class(self::INSTALL) extends NodeVisitorAbstract {
+            /** @var list<int> */
+            public array $found = [];
+
+            public function __construct(private readonly string $install)
+            {
+            }
+
+            public function enterNode(Node $node): ?int
+            {
+                if ($node instanceof FunctionLike || $node instanceof ClassLike) {
+                    return NodeVisitor::DONT_TRAVERSE_CHILDREN;
+                }
+
+                if ($node instanceof FuncCall && $node->name instanceof Name && $this->install === $node->name->toLowerString()) {
+                    $this->found[] = $node->getStartFilePos();
+                }
+
+                return null;
+            }
+        };
+        new NodeTraverser($visitor)->traverse($stmts);
+
+        return $visitor->found;
     }
 }

@@ -42,7 +42,11 @@ use PHPStan\Reflection\ReflectionProvider;
  * variables it is built from are. A write whose value cannot be read here is
  * not: by reference, by destructuring, by a foreach, by `static` or `global`,
  * by any other compound assignment, or as the argument of a by-reference
- * parameter of a call whose callee can be resolved.
+ * parameter of a call whose callee can be resolved. `$alias = &$pattern` writes
+ * both, since a later write to either changes the other.
+ *
+ * A write whose target cannot be named here, `$$name = …` or extract(), may
+ * write any local, and is recorded against {@see self::ANY_VARIABLE}.
  *
  * Each value lists [function key, variable name, the local variables the
  * written value is built from, or null when it is not owned] for each variable
@@ -54,6 +58,11 @@ use PHPStan\Reflection\ReflectionProvider;
  */
 final readonly class RegexPatternVariableWriteCollector implements Collector
 {
+    /** Stands for every local: no variable can be named `*`, since `${'*'}` is itself a write to one not named here. */
+    public const string ANY_VARIABLE = '*';
+
+    private const string EXTRACT = 'extract';
+
     private RegexPatternOwnership $ownership;
 
     public function __construct(private ReflectionProvider $reflectionProvider)
@@ -79,10 +88,12 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
                 $node->var,
                 $this->ownership->dependencies($node->expr, $scope, false),
             ),
-            $node instanceof AssignOp, $node instanceof AssignRef                => $this->write($node->var, null),
+            $node instanceof AssignRef                                           => [...$this->write($node->var, null), ...$this->write($node->expr, null)],
+            $node instanceof AssignOp                                            => $this->write($node->var, null),
             $node instanceof Foreach_                                            => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
             $node instanceof Static_                                             => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
             $node instanceof Global_                                             => array_merge(...array_map(fn (Expr $var): array => $this->write($var, null), $node->vars)),
+            $node instanceof FuncCall && $node->name instanceof Name && self::EXTRACT === $node->name->toLowerString() => [[self::ANY_VARIABLE, null]],
             $node instanceof CallLike                                            => $this->byReferenceWrites($node, $scope),
             default                                                              => [],
         };
@@ -102,7 +113,11 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
      */
     private function write(Expr $var, ?array $dependencies): array
     {
-        return $var instanceof Variable && \is_string($var->name) ? [[$var->name, $dependencies]] : [];
+        if (!$var instanceof Variable) {
+            return [];
+        }
+
+        return \is_string($var->name) ? [[$var->name, $dependencies]] : [[self::ANY_VARIABLE, null]];
     }
 
     /**
