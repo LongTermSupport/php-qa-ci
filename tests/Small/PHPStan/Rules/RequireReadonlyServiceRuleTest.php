@@ -16,17 +16,17 @@ use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
+use PHPStan\Reflection\ReflectionProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Exercises every branch reachable with a mocked Scope. The excluded-interface
- * branch relies on scope->getClassReflection() returning a real
+ * Exercises every branch reachable with a mocked Scope and a reflection provider
+ * that knows no class. The excluded-interface branch needs a real
  * PHPStan\Reflection\ClassReflection, which is final and cannot be doubled, so
- * that single skip path is not covered here (mirrors FactorySealedRuleTest's
- * documented ClassReflection limitation).
+ * RequireReadonlyServiceRuleAnalysisTest pins it against a fixture.
  *
  * @internal
  */
@@ -44,7 +44,7 @@ final class RequireReadonlyServiceRuleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->rule = new RequireReadonlyServiceRule();
+        $this->rule = new RequireReadonlyServiceRule(self::createStub(ReflectionProvider::class));
     }
 
     #[Test]
@@ -59,8 +59,37 @@ final class RequireReadonlyServiceRuleTest extends TestCase
         $errors = $this->rule->processNode($this->class(self::WIDGET_CLASS, Modifiers::FINAL), $this->scope(self::APP_DOMAIN));
 
         self::assertCount(1, $errors);
-        self::assertStringContainsString('should be "final readonly class"', $errors[0]->getMessage());
+        self::assertSame(
+            'Service class Widget should be "final readonly class". Mutable services cause hidden state bugs. If per-call state is needed, extract it into a context DTO.',
+            $errors[0]->getMessage(),
+        );
         self::assertSame(RequireReadonlyServiceRule::IDENTIFIER, $errors[0]->getIdentifier());
+    }
+
+    #[Test]
+    public function finalClassWhosePropertiesAreAllReadonlyIsFlagged(): void
+    {
+        $property = new Property(Modifiers::READONLY, [new PropertyItem('clock')]);
+        $class    = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, [], null, $property);
+
+        self::assertCount(1, $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
+    }
+
+    /** Doctrine's attribute is named however it was imported; PHPStan resolves it to its full name. */
+    #[Test]
+    public function entityAttributeByItsFullNameIsNotFlagged(): void
+    {
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, attributeNames: ['Doctrine\ORM\Mapping\Entity']);
+
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
+    }
+
+    #[Test]
+    public function classWithAnAttributeThatIsNotAnEntityIsFlagged(): void
+    {
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, attributeNames: ['App\Attribute\Audited']);
+
+        self::assertCount(1, $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
@@ -133,8 +162,22 @@ final class RequireReadonlyServiceRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS, Modifiers::FINAL), $this->scope(null)));
     }
 
+    /** An anonymous class is never final, since PHP refuses `new final class`, so it never reaches the name. */
+    #[Test]
+    public function anonymousClassIsNotFlagged(): void
+    {
+        self::assertSame([], $this->rule->processNode($this->class(null, 0), $this->scope(self::APP_DOMAIN)));
+    }
+
+    /** The parser accepts `new final class`, which PHP then refuses to compile; the rule names no class for it. */
+    #[Test]
+    public function anonymousClassMarkedFinalIsNotFlagged(): void
+    {
+        self::assertSame([], $this->rule->processNode($this->class(null, Modifiers::FINAL), $this->scope(self::APP_DOMAIN)));
+    }
+
     /** @param list<string> $attributeNames */
-    private function class(string $name, int $flags, array $attributeNames = [], ?Name $extends = null, \PhpParser\Node\Stmt ...$stmts): Class_
+    private function class(?string $name, int $flags, array $attributeNames = [], ?Name $extends = null, \PhpParser\Node\Stmt ...$stmts): Class_
     {
         $attrGroups = [];
         foreach ($attributeNames as $attributeName) {
