@@ -19,3 +19,11 @@ try {
     restore_error_handler();
     restore_error_handler();
 }
+
+$offsetPattern            = '/b/';
+$GLOBALS['offsetPattern'] = $argv[3] ?? '';
+preg_match($offsetPattern, $subject);
+
+$globalPattern = '/c/';
+phpqaciFixtureOverwriteGlobalPattern($argv[4] ?? '');
+preg_match($globalPattern, $subject);

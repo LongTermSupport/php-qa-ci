@@ -124,6 +124,13 @@ final readonly class NotReportable
         preg_match($grown, $subject);
     }
 
+    public function quotesAValuePassedToACallThatCannotBeResolved(callable $callback, string $value, string $subject): void
+    {
+        $word = $value;
+        $callback($word);
+        preg_match('/' . preg_quote($word, '/') . '/', $subject);
+    }
+
     /** @return literal-string */
     private function literal(): string
     {

@@ -83,6 +83,9 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
                 [$this->message(self::PREG_MATCH), 191],
                 [$this->message(self::PREG_MATCH), 201],
                 [$this->message(self::PREG_MATCH), 208],
+                [$this->message(self::PREG_MATCH), 221],
+                [$this->message(self::PREG_MATCH), 228],
+                [$this->message(self::PREG_MATCH), 235],
             ],
         );
     }
@@ -100,11 +103,21 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
         $this->analyse([self::FIXTURES . '/NotReportable.php'], []);
     }
 
-    /** A script's top-level code is one body: a guard there counts only after a handler installed there. */
+    /**
+     * A script's top-level code is one body: a guard there counts only after a handler installed there,
+     * and its variables are written through $GLOBALS and by any function, in any file, declaring them global.
+     */
     #[Test]
     public function aTopLevelCallIsGuardedOnlyAfterATopLevelInstall(): void
     {
-        $this->analyse([self::FIXTURES . '/TopLevel.php'], [[$this->message(self::PREG_MATCH), 9]]);
+        $this->analyse(
+            [self::FIXTURES . '/TopLevel.php', self::FIXTURES . '/TopLevelGlobalWriter.php'],
+            [
+                [$this->message(self::PREG_MATCH), 9],
+                [$this->message(self::PREG_MATCH), 25],
+                [$this->message(self::PREG_MATCH), 29],
+            ],
+        );
     }
 
     protected function getRule(): Rule

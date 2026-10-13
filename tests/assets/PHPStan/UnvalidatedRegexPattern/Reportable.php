@@ -213,6 +213,28 @@ final readonly class Reportable
         return $install;
     }
 
+    public function aliasedThroughAnArrayReference(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $refs    = [&$pattern];
+        $refs[0] = $value;
+        preg_match($pattern, $subject);
+    }
+
+    public function writtenByAnInclude(string $file, string $subject): void
+    {
+        $pattern = '/a/';
+        include $file;
+        preg_match($pattern, $subject);
+    }
+
+    public function changedThroughAnOffset(string $value, string $subject): void
+    {
+        $pattern    = '/a/';
+        $pattern[1] = $value;
+        preg_match($pattern, $subject);
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;
