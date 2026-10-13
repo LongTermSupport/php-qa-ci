@@ -36,7 +36,8 @@ records the alternatives and why they lost.
   use the daemon of the repository holding it.
 - A main checkout whose git directory was moved out of it (`git clone --separate-git-dir`) cannot
   be found from a worktree: git records no path from that directory back to the checkout, so its
-  worktrees have no daemon and the lane skips there.
+  worktrees have no daemon and the lane skips there. The directory holding that git directory is
+  looked in instead when the git directory is itself named `.git`.
 - **Without the daemon the lane skips**, and says so. That includes CI, where nothing rewrites
   markdown either, so there is nothing to agree with.
 - It formats the paths from `withMarkdownFormatPaths()` in `qaConfig/qa.php`. The default is

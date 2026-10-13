@@ -49,7 +49,9 @@ final readonly class HooksDaemonCliLocator
      */
     public function locate(string $projectRoot): ?string
     {
-        $directory = $projectRoot;
+        // Its place in a work tree is read off its path, so a relative one is resolved first.
+        $projectRoot = str_starts_with($projectRoot, '/') ? $projectRoot : \Safe\realpath($projectRoot);
+        $directory   = $projectRoot;
         while (true) {
             $cli = $directory . '/' . self::CLI;
             if (is_file($cli)) {
