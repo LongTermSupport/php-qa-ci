@@ -191,6 +191,22 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
+    public function clearingThePreviousOutputRemovesALinkToADirectoryAndLeavesItsTarget(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->project->write('elsewhere/keep.txt', 'kept');
+        $this->factory->project->write('var/qa/infection/log.txt', 'stale');
+        \Safe\symlink($this->root . '/elsewhere', $this->root . '/var/qa/infection/linked');
+        $this->factory->processes->willRun($this->infection());
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertFalse(is_link($this->root . '/var/qa/infection/linked'), 'the link itself is removed');
+        self::assertFileExists($this->root . '/elsewhere/keep.txt', 'the directory it points at is not emptied');
+    }
+
+    #[Test]
     public function theConfigInfectionRunsWithAlwaysWritesTheJsonLogTheLaneReads(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
