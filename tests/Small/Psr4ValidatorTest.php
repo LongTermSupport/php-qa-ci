@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use InvalidArgumentException;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\Psr4Validator;
 use PHPUnit\Framework\TestCase;
@@ -111,6 +112,20 @@ Magento\'s composer includes this by default, it should be removed from the psr-
         ];
 
         self::assertSame($expected, $actual);
+    }
+
+    /**
+     * An ignore pattern that does not compile is named when the validator is made, not reported
+     * by PCRE as an anonymous warning and PREG_INTERNAL_ERROR at the first file it is tried on.
+     */
+    public function testAnIgnorePatternThatDoesNotCompileIsRefusedByName(): void
+    {
+        $projectRoot = \Safe\realpath(__DIR__ . '/../assets/psr4/projectAllValid/');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains("ignore pattern \"--help\" is not a valid regular expression: preg_match(): Unknown modifier 'h'");
+
+        new Psr4Validator(['%IgnoredStuff%', '--help'], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
     }
 
     /**
