@@ -63,6 +63,20 @@ final readonly class NotReportable
         }
     }
 
+    public function aClosureThatGuardsItsOwnCall(string $pattern, string $subject): callable
+    {
+        return static function () use ($pattern, $subject): bool {
+            set_error_handler(static function (int $level, string $message) use ($pattern): never {
+                throw new InvalidArgumentException(\sprintf('"%s" is not a valid regular expression: %s', $pattern, $message), $level);
+            });
+            try {
+                return 1 === preg_match($pattern, $subject);
+            } finally {
+                restore_error_handler();
+            }
+        };
+    }
+
     public function aFirstClassCallableCompilesNothing(): callable
     {
         return preg_match(...);

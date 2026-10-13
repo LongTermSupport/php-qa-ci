@@ -77,6 +77,10 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
                 [$this->message(self::PREG_MATCH), 145],
                 [$this->message(self::PREG_MATCH), 151],
                 [$this->message(self::PREG_MATCH), 161],
+                [$this->message(self::PREG_MATCH), 169],
+                [$this->message(self::PREG_MATCH), 176],
+                [$this->message(self::PREG_MATCH), 184],
+                [$this->message(self::PREG_MATCH), 191],
             ],
         );
     }

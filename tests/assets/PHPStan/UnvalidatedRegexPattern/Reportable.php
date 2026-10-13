@@ -161,6 +161,41 @@ final readonly class Reportable
         preg_match($pattern, $subject);
     }
 
+    public function changedThroughAnAlias(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $alias   = &$pattern;
+        $alias   = $value;
+        preg_match($pattern, $subject);
+    }
+
+    public function writtenThroughAVariableVariable(string $name, string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $$name   = $value;
+        preg_match($pattern, $subject);
+    }
+
+    /** @param array<string, string> $values */
+    public function writtenByExtract(array $values, string $subject): void
+    {
+        $pattern = '/a/';
+        extract($values);
+        preg_match($pattern, $subject);
+    }
+
+    public function aHandlerInstalledOnlyInAClosureNeverCalled(string $pattern, string $subject): Closure
+    {
+        $install = static fn (): mixed => set_error_handler(static fn (): bool => true);
+        try {
+            preg_match($pattern, $subject);
+        } finally {
+            restore_error_handler();
+        }
+
+        return $install;
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;
