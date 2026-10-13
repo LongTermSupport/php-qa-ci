@@ -146,7 +146,7 @@ final class HooksDaemonCliLocatorTest extends TestCase
         $this->root->write(self::WORKTREE . self::WORK_TREE_MARKER, self::GITDIR_POINTER . $this->root->path . '/' . self::WORKTREE_GITDIR . "\n");
         $package = $this->root->mkdir(self::WORKTREE . self::PACKAGE);
 
-        self::assertSame($mainCli, new HooksDaemonCliLocator()->locate($worktree . '/..'), 'the directory holding the worktree is in the main checkout');
+        self::assertSame($mainCli, new HooksDaemonCliLocator()->locate($worktree . '/./..'), 'the directory holding the worktree is in the main checkout');
 
         $workingDirectory = \Safe\getcwd();
         \Safe\chdir($package);

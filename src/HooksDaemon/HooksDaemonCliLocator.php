@@ -49,7 +49,7 @@ final readonly class HooksDaemonCliLocator
      */
     public function locate(string $projectRoot): ?string
     {
-        $directory = $projectRoot;
+        $directory = str_starts_with($projectRoot, '/') ? $this->withoutDotSegments($projectRoot) : \Safe\realpath($projectRoot);
         // The directories climbed out of, so the walk in a main checkout retraces them exactly.
         $place = '';
         while (true) {
@@ -72,6 +72,27 @@ final readonly class HooksDaemonCliLocator
             $place     = '/' . basename($directory) . $place;
             $directory = $parent;
         }
+    }
+
+    /**
+     * An absolute path with each `.` dropped and each `..` taking the name
+     * before it with it, so every name the walk climbs out of is a directory.
+     * Nothing is resolved: a project reached through a symlink is walked from
+     * where the symlink puts it. A relative root is resolved instead, since the
+     * directory it names depends on where the process stands.
+     */
+    private function withoutDotSegments(string $path): string
+    {
+        $names = [];
+        foreach (explode('/', $path) as $name) {
+            if ('..' === $name) {
+                array_pop($names);
+            } elseif ('' !== $name && '.' !== $name) {
+                $names[] = $name;
+            }
+        }
+
+        return '/' . implode('/', $names);
     }
 
     /**
