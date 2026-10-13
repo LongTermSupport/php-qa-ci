@@ -27,10 +27,14 @@ variable is owned when every write to it in its function is owned. These writes 
   through the alias changes it wherever that write is made: in a callee, through an object or a
   `foreach` by reference;
 - iterating it by reference, as in `foreach ($patterns as &$entry)`, which writes each element
-  through `$entry`.
+  through `$entry`, or destructuring it with a reference into it, as in `[, &$second] = $patterns`
+  or `foreach ($rows as [&$entry])`.
 
 A pattern naming a variable written by an unresolvable call or through a reference is not owned
-even when PHPStan still types it as a literal string.
+even when PHPStan still types it as a literal string. Neither is one naming a copy of such a
+variable, made by an assignment or a foreach by value (`$first = $patterns[0]`,
+`foreach ($patterns as $copy)`), however many copies away. A value given to `preg_quote()` is not
+followed, since the pattern holds it literally.
 
 A function that writes a variable the rule cannot name owns no local that a pattern names. Such a
 write is `$$name = …`, `extract()`, or an `include`, `require` or `eval`, which runs in the

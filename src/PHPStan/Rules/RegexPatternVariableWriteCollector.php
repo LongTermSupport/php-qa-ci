@@ -57,8 +57,10 @@ use PHPStan\Reflection\ReflectionProvider;
  * is recorded as a write to {@see self::UNSEEN_WRITE} followed by its name,
  * which the rule holds against any pattern naming the variable. So is either
  * side of `$alias = &$pattern`, the variable in `[&$pattern]`, and the one a
- * foreach iterates by reference: a later write through the alias changes it,
- * wherever that write is made.
+ * foreach iterates or a destructuring reads with a reference into it: a later
+ * write through the alias changes it, wherever that write is made. A copy of
+ * such a variable keeps its stale type too, so each write records the
+ * variables its value is read from ({@see self::COPIED_FROM}).
  *
  * A script's top-level variables are also written from inside any function:
  * through `$GLOBALS`, or after a `global` declaration. Those writes are keyed
@@ -80,6 +82,9 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
 
     /** Prefixes a variable's name for a write PHPStan's types may not show; no variable name starts with it. */
     public const string UNSEEN_WRITE = '&';
+
+    /** Prefixes a variable's name for a write copying other variables' values into it; no variable name starts with it. */
+    public const string COPIED_FROM = '<';
 
     /** Keys a write to a top-level variable made from any function; it holds no `::`, so no function key equals it. */
     public const string GLOBAL_SCOPE = 'globals';
@@ -111,19 +116,25 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     public function processNode(Node $node, Scope $scope): ?array
     {
         $writes = match (true) {
-            $node instanceof Assign                                                                                    => $node->var instanceof Variable
-                ? $this->write($node->var, $this->ownership->dependencies($node->expr, $scope, false))
-                : $this->unownedWrites($node->var),
-            $node instanceof AssignOp\Concat, $node instanceof AssignOp\Coalesce                                       => $this->write(
-                $node->var,
-                $this->ownership->dependencies($node->expr, $scope, false),
-            ),
+            $node instanceof Assign                                                                                    => [
+                ...($node->var instanceof Variable
+                    ? $this->write($node->var, $this->ownership->dependencies($node->expr, $scope, false))
+                    : $this->unownedWrites($node->var)),
+                ...$this->copies($node->var, $node->expr, $scope),
+                ...($this->destructuresByReference($node->var) ? $this->unseenWrites($node->expr) : []),
+            ],
+            $node instanceof AssignOp\Concat, $node instanceof AssignOp\Coalesce                                       => [
+                ...$this->write($node->var, $this->ownership->dependencies($node->expr, $scope, false)),
+                ...$this->copies($node->var, $node->expr, $scope),
+            ],
             $node instanceof AssignRef                                                                                 => $this->unseenWrites($node->var, $node->expr),
-            $node instanceof AssignOp                                                                                  => $this->write($node->var, null),
+            $node instanceof AssignOp                                                                                  => [...$this->write($node->var, null), ...$this->copies($node->var, $node->expr, $scope)],
             $node instanceof Foreach_                                                                                  => [
                 ...$this->unownedWrites($node->keyVar),
                 ...$this->unownedWrites($node->valueVar),
-                ...($node->byRef ? $this->unseenWrites($node->expr) : []),
+                ...$this->copies($node->keyVar, $node->expr, $scope),
+                ...$this->copies($node->valueVar, $node->expr, $scope),
+                ...($node->byRef || $this->destructuresByReference($node->valueVar) ? $this->unseenWrites($node->expr) : []),
             ],
             $node instanceof Static_                                                                                   => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
             $node instanceof Global_                                                                                   => array_merge(...array_map($this->globalWrites(...), $node->vars)),
@@ -314,6 +325,43 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
         $last = array_last($parameters);
 
         return $parameters[$index] ?? (null !== $last && $last->isVariadic() ? $last : null);
+    }
+
+    /**
+     * A write of a value read from other variables, recorded as a write to
+     * {@see self::COPIED_FROM} followed by each target's name, listing them: a
+     * copy holds what an unseen write left in its source, whatever type PHPStan
+     * gives it. A value preg_quote() is given is not among them; what it returns
+     * is matched literally whatever that holds.
+     *
+     * @return list<array{string, list<string>|null, string|null}>
+     */
+    private function copies(?Expr $target, Expr $source, Scope $scope): array
+    {
+        $sources = $this->ownership->variablesNamed($source, $scope);
+        if ([] === $sources) {
+            return [];
+        }
+
+        $copies = [];
+        foreach ($this->unownedWrites($target) as [$name, , $key]) {
+            $copies[] = [self::COPIED_FROM . $name, $sources, $key];
+        }
+
+        return $copies;
+    }
+
+    /** A destructuring target holding `&$item` at any depth takes a reference into the value it destructures. */
+    private function destructuresByReference(?Expr $target): bool
+    {
+        if (!$target instanceof List_ && !$target instanceof Array_) {
+            return false;
+        }
+
+        return array_any(
+            $target->items,
+            fn (?ArrayItem $item): bool => $item instanceof ArrayItem && ($item->byRef || $this->destructuresByReference($item->value)),
+        );
     }
 
     /**

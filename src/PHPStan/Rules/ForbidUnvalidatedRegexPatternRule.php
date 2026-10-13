@@ -107,7 +107,8 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
     /**
      * Whether a variable the pattern names may hold what PHPStan's type for it
      * does not show: its function writes a variable it cannot name, or passes
-     * this one to a call whose callee cannot be resolved.
+     * this one, or one it was copied from, to a call whose callee cannot be
+     * resolved.
      *
      * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
      */
@@ -115,8 +116,31 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
     {
         return [] !== $named && (
             \array_key_exists(RegexPatternVariableWriteCollector::ANY_VARIABLE, $functionWrites)
-            || array_any($named, static fn (string $variable): bool => \array_key_exists(RegexPatternVariableWriteCollector::UNSEEN_WRITE . $variable, $functionWrites))
+            || array_any($named, fn (string $variable): bool => $this->isWrittenUnseen($variable, $functionWrites))
         );
+    }
+
+    /**
+     * Written where PHPStan does not follow, directly or in a variable a value
+     * was copied from. One already being followed adds nothing.
+     *
+     * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
+     * @param list<string>                           $following
+     */
+    private function isWrittenUnseen(string $variable, array $functionWrites, array $following = []): bool
+    {
+        if (\in_array($variable, $following, true)) {
+            return false;
+        }
+
+        return \array_key_exists(RegexPatternVariableWriteCollector::UNSEEN_WRITE . $variable, $functionWrites)
+            || array_any(
+                $functionWrites[RegexPatternVariableWriteCollector::COPIED_FROM . $variable] ?? [],
+                fn (?array $sources): bool => array_any(
+                    $sources ?? [],
+                    fn (string $source): bool => $this->isWrittenUnseen($source, $functionWrites, [...$following, $variable]),
+                ),
+            );
     }
 
     /**

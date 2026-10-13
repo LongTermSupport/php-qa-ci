@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
-use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
-use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
-use PhpParser\NodeFinder;
 use PHPStan\Analyser\Scope;
 use PHPStan\Collectors\Collector;
 use PHPStan\Reflection\ReflectionProvider;
@@ -62,9 +59,6 @@ final readonly class UnownedRegexPatternCollector implements Collector
     /** The name PHP and thecodingmachine/safe both give the pattern argument. */
     private const string PATTERN_PARAMETER = 'pattern';
 
-    /** Escapes the value it is given, so a pattern holds that value literally. */
-    private const string QUOTE = 'preg_quote';
-
     private RegexPatternOwnership $ownership;
 
     public function __construct(private ReflectionProvider $reflectionProvider)
@@ -93,7 +87,7 @@ final readonly class UnownedRegexPatternCollector implements Collector
 
         $pattern      = $this->patternArgument($node);
         $dependencies = $pattern instanceof Expr ? $this->ownership->dependencies($pattern, $scope, self::PATTERN_FUNCTIONS[$function]) : null;
-        $named        = $pattern instanceof Expr ? $this->variablesNamed($pattern, $scope) : [];
+        $named        = $pattern instanceof Expr ? $this->ownership->variablesNamed($pattern, $scope) : [];
         if ([] === $dependencies && [] === $named) {
             return null;
         }
@@ -106,35 +100,6 @@ final readonly class UnownedRegexPatternCollector implements Collector
             RegexPatternOwnership::functionKey($scope),
             $named,
         ];
-    }
-
-    /**
-     * Every variable the pattern names, but the value preg_quote() is given: the
-     * pattern is owned or not whatever that holds, since it is matched literally.
-     *
-     * @return list<string>
-     */
-    private function variablesNamed(Expr $pattern, Scope $scope): array
-    {
-        $finder = new NodeFinder();
-        $quoted = [];
-        foreach ($finder->findInstanceOf($pattern, FuncCall::class) as $call) {
-            $value = $call->isFirstClassCallable() ? null : $call->getArgs()[0] ?? null;
-            if ($value instanceof Arg && $call->name instanceof Name && self::QUOTE === $this->reflectionProvider->resolveFunctionName($call->name, $scope)) {
-                foreach ($finder->findInstanceOf($value->value, Variable::class) as $variable) {
-                    $quoted[spl_object_id($variable)] = true;
-                }
-            }
-        }
-
-        $names = [];
-        foreach ($finder->findInstanceOf($pattern, Variable::class) as $variable) {
-            if (\is_string($variable->name) && 'this' !== $variable->name && !isset($quoted[spl_object_id($variable)])) {
-                $names[] = $variable->name;
-            }
-        }
-
-        return array_values(array_unique($names));
     }
 
     /** The pattern, by name or as the first positional argument; null when the arguments are unpacked and it cannot be seen. */
