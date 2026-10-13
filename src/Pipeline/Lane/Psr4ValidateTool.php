@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use Exception;
+use InvalidArgumentException;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
@@ -12,6 +13,7 @@ use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use LTS\PHPQA\Psr4Validator;
+use LTS\PHPQA\Regex\RegexPattern;
 
 /**
  * Every PHP file's namespace and class must match the composer.json autoload
@@ -37,13 +39,13 @@ final readonly class Psr4ValidateTool implements ToolInterface
 
     public function run(ToolContext $context): ToolResultDto
     {
-        $root     = $context->config->paths->projectRoot;
-        $patterns = [
-            ...$this->ignorePatterns($context->configPath('psr4-validate-ignore-list.txt')),
-            ...$this->ignoredPathPatterns(IgnoredPaths::of($context->config)),
-        ];
+        $root = $context->config->paths->projectRoot;
 
         try {
+            $patterns = [
+                ...$this->ignorePatterns($context->configPath('psr4-validate-ignore-list.txt')),
+                ...$this->ignoredPathPatterns(IgnoredPaths::of($context->config)),
+            ];
             $errors = new Psr4Validator($patterns, $root, Helper::getComposerJsonDecoded($root . '/composer.json'))->main();
         } catch (Exception $exception) {
             $context->writeln('');
@@ -83,7 +85,13 @@ final readonly class Psr4ValidateTool implements ToolInterface
         );
     }
 
-    /** @return list<string> */
+    /**
+     * Each line compiled here, so one that does not compile is named with the file it is in.
+     *
+     * @return list<string>
+     *
+     * @throws InvalidArgumentException naming the file and the first line that does not compile
+     */
     private function ignorePatterns(string $file): array
     {
         if (!is_file($file)) {
@@ -94,7 +102,7 @@ final readonly class Psr4ValidateTool implements ToolInterface
         foreach (explode("\n", \Safe\file_get_contents($file)) as $line) {
             $line = trim($line);
             if ('' !== $line) {
-                $patterns[] = $line;
+                $patterns[] = RegexPattern::compile($line, $file . ' entry')->pattern;
             }
         }
 

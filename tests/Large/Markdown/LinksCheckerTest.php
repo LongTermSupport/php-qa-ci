@@ -140,6 +140,26 @@ reason: GitHub URLs cannot be verified anonymously'
     }
 
     /**
+     * The project root is stripped from a docs file's directory to resolve a relative link, and a
+     * root holding a regex metacharacter must be matched literally: `a+b` as a pattern does not
+     * match the path `a+b`, so every relative link under docs/ was reported as broken.
+     *
+     * @throws Exception
+     */
+    public function testARelativeLinkResolvesUnderAProjectRootHoldingARegexMetacharacter(): void
+    {
+        $dir              = TempDir::create('linksCheckerMetacharacter');
+        $this->tempDirs[] = $dir;
+        $projectDir       = $dir->path . '/project+one (copy)';
+        \Safe\mkdir($projectDir . '/docs', 0o755, true);
+        \Safe\file_put_contents($projectDir . '/README.md', "[guide](docs/guide.md)\n");
+        \Safe\file_put_contents($projectDir . '/docs/guide.md', "[other page](other.md)\n");
+        \Safe\file_put_contents($projectDir . '/docs/other.md', "nothing to link\n");
+
+        $this->assertResult($projectDir, 0, '');
+    }
+
+    /**
      * @throws Exception
      */
     protected function assertResult(string $pathToProject, int $expectedExitCode, string $expectedOutput): void

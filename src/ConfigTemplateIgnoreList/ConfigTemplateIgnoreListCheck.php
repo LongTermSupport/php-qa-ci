@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\ConfigTemplateIgnoreList;
 
+use InvalidArgumentException;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 
 /**
@@ -25,7 +26,14 @@ final readonly class ConfigTemplateIgnoreListCheck
 
     public function run(): int
     {
-        $violations = $this->auditor->main();
+        try {
+            $violations = $this->auditor->main();
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            echo \PHP_EOL . 'ERROR — ' . $invalidArgumentException->getMessage() . \PHP_EOL
+                . '🪪  ' . self::IDENTIFIER . '  (vendor/bin/rule-doc ' . self::IDENTIFIER . ')' . \PHP_EOL;
+
+            return 1;
+        }
 
         if ([] === $violations) {
             echo 'Every namespace-less configDefaults/generic template is covered by psr4-validate-ignore-list.txt.' . \PHP_EOL;

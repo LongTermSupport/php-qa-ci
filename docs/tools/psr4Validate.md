@@ -24,6 +24,18 @@ the tree.
 - Every `withIgnoredPaths()` path adds one more pattern, anchored to its real path, so it skips
   the path and what is below it and never a sibling sharing its prefix. A fixture tree in the
   ignored paths needs no entry in the ignore list.
+- A pattern that does not compile fails the run before any file is checked, naming the pattern,
+  where it came from and PCRE's reason, for example
+  `/path/to/project/qaConfig/psr4-validate-ignore-list.txt entry "#/src/(unclosed#" is not a valid regular expression: preg_match(): Compilation failed: missing closing parenthesis at offset 14`.
+  The config template audit names a bad entry the same way, and fails its lane.
+
+## Standalone binary
+
+`bin/psr4-validate [<ignore-pattern> ...]` validates the project it is run from. Each argument
+is a pattern with its delimiters, such as `'#/src/Legacy/#'`; `--help` or `-h` prints the usage
+and checks nothing. An argument that is not a valid pattern is refused by name with a pointer to
+`--help`, and a directory with no `composer.json` is refused with a message saying so. It exits 0
+when every file agrees with the mapping and 1 otherwise.
 
 ## How to fix a failure
 
@@ -36,5 +48,7 @@ a PSR-4 class, such as a config template.
 ## Implementation
 
 - Decision: [`Psr4Validator`](../../src/Psr4Validator.php).
-- Lane: [`Psr4ValidateTool`](../../src/Pipeline/Lane/Psr4ValidateTool.php); standalone binary
-  `bin/psr4-validate <ignore-regex>...`.
+- Lane: [`Psr4ValidateTool`](../../src/Pipeline/Lane/Psr4ValidateTool.php).
+- Standalone binary: [`Psr4ValidateCommand`](../../src/Psr4Validate/Psr4ValidateCommand.php)
+  behind `bin/psr4-validate`.
+- Pattern compilation: [`RegexPattern`](../../src/Regex/RegexPattern.php).

@@ -381,6 +381,8 @@ final class RuleDocumentationTest extends TestCase
      * \Safe\preg_match_all's loosely-typed $matches out-param, so callers get
      * a real list<string> without a suppression.
      *
+     * @param literal-string $pattern
+     *
      * @return list<string>
      */
     private function matchAllGroup(string $pattern, string $subject, int $group): array

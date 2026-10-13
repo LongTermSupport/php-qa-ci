@@ -143,7 +143,7 @@ final readonly class LinksChecker
         $start = rtrim($projectRootDirectory, '/');
         if ('/' !== $path[0] || str_starts_with($path, './')) {
             $relativeSubdirs = \Safe\preg_replace(
-                '%^' . $projectRootDirectory . '%',
+                '%^' . preg_quote($projectRootDirectory, '%') . '%',
                 '',
                 \dirname($file)
             );

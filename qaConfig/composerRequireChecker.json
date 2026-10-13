@@ -34,6 +34,8 @@
     "PHPStan\\Node\\InClassNode",
     "PHPStan\\Node\\VirtualNode",
     "PHPStan\\Reflection\\ClassReflection",
+    "PHPStan\\Reflection\\ParameterReflection",
+    "PHPStan\\Reflection\\ParametersAcceptorSelector",
     "PHPStan\\Reflection\\ReflectionProvider",
     "PHPStan\\Rules\\Rule",
     "PHPStan\\Type\\MixedType",

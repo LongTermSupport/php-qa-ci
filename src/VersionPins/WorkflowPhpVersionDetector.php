@@ -121,6 +121,8 @@ final readonly class WorkflowPhpVersionDetector
     /**
      * Every capture of one group across all matches, as a typed list.
      *
+     * @param literal-string $pattern
+     *
      * @return list<string>
      */
     private function matchAll(string $pattern, string $subject, int $group): array
