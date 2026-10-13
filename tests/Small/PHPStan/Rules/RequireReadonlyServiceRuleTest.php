@@ -133,8 +133,22 @@ final class RequireReadonlyServiceRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS, Modifiers::FINAL), $this->scope(null)));
     }
 
+    /** An anonymous class is never final, since PHP refuses `new final class`, so it never reaches the name. */
+    #[Test]
+    public function anonymousClassIsNotFlagged(): void
+    {
+        self::assertSame([], $this->rule->processNode($this->class(null, 0), $this->scope(self::APP_DOMAIN)));
+    }
+
+    /** The parser accepts `new final class`, which PHP then refuses to compile; the rule names no class for it. */
+    #[Test]
+    public function anonymousClassMarkedFinalIsNotFlagged(): void
+    {
+        self::assertSame([], $this->rule->processNode($this->class(null, Modifiers::FINAL), $this->scope(self::APP_DOMAIN)));
+    }
+
     /** @param list<string> $attributeNames */
-    private function class(string $name, int $flags, array $attributeNames = [], ?Name $extends = null, \PhpParser\Node\Stmt ...$stmts): Class_
+    private function class(?string $name, int $flags, array $attributeNames = [], ?Name $extends = null, \PhpParser\Node\Stmt ...$stmts): Class_
     {
         $attrGroups = [];
         foreach ($attributeNames as $attributeName) {
