@@ -23,11 +23,16 @@ use PHPUnit\Framework\Attributes\Test;
 #[Medium]
 final class RequireReadonlyServiceRuleAnalysisTest extends RuleTestCase
 {
+    private const string FIXTURE = __DIR__ . '/../../../assets/PHPStan/ReadonlyService/Services.php';
+
+    /** The fixture is loaded first so the reflection provider knows its classes, as a project's autoloaded ones are. */
     #[Test]
     public function aClassImplementingAnExcludedInterfaceIsNotFlaggedAndAnyOtherInterfaceChangesNothing(): void
     {
+        require_once self::FIXTURE;
+
         $this->analyse(
-            [__DIR__ . '/../../../assets/PHPStan/ReadonlyService/Services.php'],
+            [self::FIXTURE],
             [
                 [$this->message('Mailer'), 9],
                 [$this->message('Clock'), 23],
@@ -37,7 +42,7 @@ final class RequireReadonlyServiceRuleAnalysisTest extends RuleTestCase
 
     protected function getRule(): Rule
     {
-        return new RequireReadonlyServiceRule();
+        return new RequireReadonlyServiceRule(self::createReflectionProvider());
     }
 
     private function message(string $class): string

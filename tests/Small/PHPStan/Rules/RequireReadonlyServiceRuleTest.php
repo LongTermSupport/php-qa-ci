@@ -16,17 +16,17 @@ use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
+use PHPStan\Reflection\ReflectionProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Exercises every branch reachable with a mocked Scope. The excluded-interface
- * branch relies on scope->getClassReflection() returning a real
+ * Exercises every branch reachable with a mocked Scope and a reflection provider
+ * that knows no class. The excluded-interface branch needs a real
  * PHPStan\Reflection\ClassReflection, which is final and cannot be doubled, so
- * that single skip path is not covered here (mirrors FactorySealedRuleTest's
- * documented ClassReflection limitation).
+ * RequireReadonlyServiceRuleAnalysisTest pins it against a fixture.
  *
  * @internal
  */
@@ -44,7 +44,7 @@ final class RequireReadonlyServiceRuleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->rule = new RequireReadonlyServiceRule();
+        $this->rule = new RequireReadonlyServiceRule(self::createStub(ReflectionProvider::class));
     }
 
     #[Test]
