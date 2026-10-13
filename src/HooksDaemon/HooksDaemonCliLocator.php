@@ -49,9 +49,9 @@ final readonly class HooksDaemonCliLocator
      */
     public function locate(string $projectRoot): ?string
     {
-        // Its place in a work tree is read off its path, so a relative one is resolved first.
-        $projectRoot = str_starts_with($projectRoot, '/') ? $projectRoot : \Safe\realpath($projectRoot);
-        $directory   = $projectRoot;
+        $directory = $projectRoot;
+        // The directories climbed out of, so the walk in a main checkout retraces them exactly.
+        $place = '';
         while (true) {
             $cli = $directory . '/' . self::CLI;
             if (is_file($cli)) {
@@ -62,13 +62,14 @@ final readonly class HooksDaemonCliLocator
             if (file_exists($directory . '/' . self::GIT)) {
                 $main = $this->mainCheckout($directory . '/' . self::GIT);
 
-                return null === $main ? null : $this->inMainCheckout($main, substr($projectRoot, \strlen($directory)));
+                return null === $main ? null : $this->inMainCheckout($main, $place);
             }
 
             if ($parent === $directory) {
                 return null;
             }
 
+            $place     = '/' . basename($directory) . $place;
             $directory = $parent;
         }
     }
@@ -77,9 +78,9 @@ final readonly class HooksDaemonCliLocator
      * The walk again in the main checkout, from the directory at the project's
      * place in it up to its root, so a package's own daemon serves that package.
      */
-    private function inMainCheckout(string $main, string $relative): ?string
+    private function inMainCheckout(string $main, string $place): ?string
     {
-        $directory = $main . $relative;
+        $directory = $main . $place;
         while (true) {
             $cli = $directory . '/' . self::CLI;
             if (is_file($cli)) {
