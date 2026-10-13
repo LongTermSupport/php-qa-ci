@@ -5,97 +5,95 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Assets\PHPStan\UnvalidatedRegexPattern;
 
 /**
- * Forty locals, each rebuilt in a loop from three others, so the copies form one dense cycle.
- * Every write is owned and none is unseen: the pattern is owned, and deciding so must take each
- * variable once, not once per route through the others.
+ * Forty steps, each building two locals from both of the step before, so 2^40 routes lead from the
+ * pattern back to the first. Every write is owned and none is unseen: the pattern is owned, and
+ * deciding so must take each variable once, not once per route through the others.
  */
 final readonly class DenseCopies
 {
-    public function rebuildsEachFromOthers(string $value, string $subject, int $rounds): void
+    public function buildsEachStepFromBothBefore(string $value, string $subject): void
     {
-        $v0  = '/' . preg_quote($value, '/') . '/';
-        $v1  = '/a/';
-        $v2  = '/a/';
-        $v3  = '/a/';
-        $v4  = '/a/';
-        $v5  = '/a/';
-        $v6  = '/a/';
-        $v7  = '/a/';
-        $v8  = '/a/';
-        $v9  = '/a/';
-        $v10 = '/a/';
-        $v11 = '/a/';
-        $v12 = '/a/';
-        $v13 = '/a/';
-        $v14 = '/a/';
-        $v15 = '/a/';
-        $v16 = '/a/';
-        $v17 = '/a/';
-        $v18 = '/a/';
-        $v19 = '/a/';
-        $v20 = '/a/';
-        $v21 = '/a/';
-        $v22 = '/a/';
-        $v23 = '/a/';
-        $v24 = '/a/';
-        $v25 = '/a/';
-        $v26 = '/a/';
-        $v27 = '/a/';
-        $v28 = '/a/';
-        $v29 = '/a/';
-        $v30 = '/a/';
-        $v31 = '/a/';
-        $v32 = '/a/';
-        $v33 = '/a/';
-        $v34 = '/a/';
-        $v35 = '/a/';
-        $v36 = '/a/';
-        $v37 = '/a/';
-        $v38 = '/a/';
-        $v39 = '/a/';
-        for ($round = 0; $round < $rounds; ++$round) {
-            $v0  = $v1 . $v5 . $v11;
-            $v1  = $v2 . $v6 . $v12;
-            $v2  = $v3 . $v7 . $v13;
-            $v3  = $v4 . $v8 . $v14;
-            $v4  = $v5 . $v9 . $v15;
-            $v5  = $v6 . $v10 . $v16;
-            $v6  = $v7 . $v11 . $v17;
-            $v7  = $v8 . $v12 . $v18;
-            $v8  = $v9 . $v13 . $v19;
-            $v9  = $v10 . $v14 . $v20;
-            $v10 = $v11 . $v15 . $v21;
-            $v11 = $v12 . $v16 . $v22;
-            $v12 = $v13 . $v17 . $v23;
-            $v13 = $v14 . $v18 . $v24;
-            $v14 = $v15 . $v19 . $v25;
-            $v15 = $v16 . $v20 . $v26;
-            $v16 = $v17 . $v21 . $v27;
-            $v17 = $v18 . $v22 . $v28;
-            $v18 = $v19 . $v23 . $v29;
-            $v19 = $v20 . $v24 . $v30;
-            $v20 = $v21 . $v25 . $v31;
-            $v21 = $v22 . $v26 . $v32;
-            $v22 = $v23 . $v27 . $v33;
-            $v23 = $v24 . $v28 . $v34;
-            $v24 = $v25 . $v29 . $v35;
-            $v25 = $v26 . $v30 . $v36;
-            $v26 = $v27 . $v31 . $v37;
-            $v27 = $v28 . $v32 . $v38;
-            $v28 = $v29 . $v33 . $v39;
-            $v29 = $v30 . $v34 . $v0;
-            $v30 = $v31 . $v35 . $v1;
-            $v31 = $v32 . $v36 . $v2;
-            $v32 = $v33 . $v37 . $v3;
-            $v33 = $v34 . $v38 . $v4;
-            $v34 = $v35 . $v39 . $v5;
-            $v35 = $v36 . $v0 . $v6;
-            $v36 = $v37 . $v1 . $v7;
-            $v37 = $v38 . $v2 . $v8;
-            $v38 = $v39 . $v3 . $v9;
-            $v39 = $v0 . $v4 . $v10;
-        }
-
-        preg_match($v0, $subject);
+        $a0  = '/' . preg_quote($value, '/') . '/';
+        $b0  = $a0;
+        $a1  = $a0 . $b0;
+        $b1  = $b0 . $a0;
+        $a2  = $a1 . $b1;
+        $b2  = $b1 . $a1;
+        $a3  = $a2 . $b2;
+        $b3  = $b2 . $a2;
+        $a4  = $a3 . $b3;
+        $b4  = $b3 . $a3;
+        $a5  = $a4 . $b4;
+        $b5  = $b4 . $a4;
+        $a6  = $a5 . $b5;
+        $b6  = $b5 . $a5;
+        $a7  = $a6 . $b6;
+        $b7  = $b6 . $a6;
+        $a8  = $a7 . $b7;
+        $b8  = $b7 . $a7;
+        $a9  = $a8 . $b8;
+        $b9  = $b8 . $a8;
+        $a10 = $a9 . $b9;
+        $b10 = $b9 . $a9;
+        $a11 = $a10 . $b10;
+        $b11 = $b10 . $a10;
+        $a12 = $a11 . $b11;
+        $b12 = $b11 . $a11;
+        $a13 = $a12 . $b12;
+        $b13 = $b12 . $a12;
+        $a14 = $a13 . $b13;
+        $b14 = $b13 . $a13;
+        $a15 = $a14 . $b14;
+        $b15 = $b14 . $a14;
+        $a16 = $a15 . $b15;
+        $b16 = $b15 . $a15;
+        $a17 = $a16 . $b16;
+        $b17 = $b16 . $a16;
+        $a18 = $a17 . $b17;
+        $b18 = $b17 . $a17;
+        $a19 = $a18 . $b18;
+        $b19 = $b18 . $a18;
+        $a20 = $a19 . $b19;
+        $b20 = $b19 . $a19;
+        $a21 = $a20 . $b20;
+        $b21 = $b20 . $a20;
+        $a22 = $a21 . $b21;
+        $b22 = $b21 . $a21;
+        $a23 = $a22 . $b22;
+        $b23 = $b22 . $a22;
+        $a24 = $a23 . $b23;
+        $b24 = $b23 . $a23;
+        $a25 = $a24 . $b24;
+        $b25 = $b24 . $a24;
+        $a26 = $a25 . $b25;
+        $b26 = $b25 . $a25;
+        $a27 = $a26 . $b26;
+        $b27 = $b26 . $a26;
+        $a28 = $a27 . $b27;
+        $b28 = $b27 . $a27;
+        $a29 = $a28 . $b28;
+        $b29 = $b28 . $a28;
+        $a30 = $a29 . $b29;
+        $b30 = $b29 . $a29;
+        $a31 = $a30 . $b30;
+        $b31 = $b30 . $a30;
+        $a32 = $a31 . $b31;
+        $b32 = $b31 . $a31;
+        $a33 = $a32 . $b32;
+        $b33 = $b32 . $a32;
+        $a34 = $a33 . $b33;
+        $b34 = $b33 . $a33;
+        $a35 = $a34 . $b34;
+        $b35 = $b34 . $a34;
+        $a36 = $a35 . $b35;
+        $b36 = $b35 . $a35;
+        $a37 = $a36 . $b36;
+        $b37 = $b36 . $a36;
+        $a38 = $a37 . $b37;
+        $b38 = $b37 . $a37;
+        $a39 = $a38 . $b38;
+        $b39 = $b38 . $a38;
+        $a40 = $a39 . $b39;
+        preg_match($a40, $subject);
     }
 }

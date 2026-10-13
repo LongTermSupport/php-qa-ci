@@ -165,15 +165,17 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
     }
 
     /**
-     * Ownership and unseen writes are decided over the function's copies, which may form a dense
-     * cycle: each variable is taken once, or the walk grows with every route and never finishes.
-     * The alarm turns a walk that does not finish into a failure rather than a hung suite.
+     * Ownership and unseen writes are decided over the function's copies, which may reach one
+     * variable by many routes: each variable is taken once, or the walk grows with every route and
+     * never finishes. The fixture has no loop, so PHPStan's own inference stays cheap and the
+     * test stays fast under coverage. The alarm turns a walk that does not finish into a failure
+     * rather than a hung suite.
      */
     #[Test]
-    public function aDenseCycleOfCopiesIsDecidedWithoutWalkingEachRoute(): void
+    public function aDenseWebOfCopiesIsDecidedWithoutWalkingEachRoute(): void
     {
         pcntl_async_signals(true);
-        \Safe\pcntl_signal(\SIGALRM, static fn (): never => throw new RuntimeException('the rule did not finish on a dense cycle of copies within ' . self::DENSE_COPIES_SECONDS . ' seconds'));
+        \Safe\pcntl_signal(\SIGALRM, static fn (): never => throw new RuntimeException('the rule did not finish on a dense web of copies within ' . self::DENSE_COPIES_SECONDS . ' seconds'));
         pcntl_alarm(self::DENSE_COPIES_SECONDS);
         try {
             $this->analyse([self::FIXTURES . '/DenseCopies.php'], []);
