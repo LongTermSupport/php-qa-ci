@@ -33,6 +33,7 @@ use Throwable;
  */
 #[CoversClass(ShellCheckInstaller::class)]
 #[UsesClass(TemporaryDirectory::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[UsesClass(InstallDecider::class)]
 #[UsesClass(InstallDecisionDto::class)]
 #[UsesClass(InstallActionEnum::class)]

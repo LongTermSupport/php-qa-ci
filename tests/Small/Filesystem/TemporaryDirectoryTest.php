@@ -8,6 +8,7 @@ use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -18,6 +19,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(TemporaryDirectory::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
 final class TemporaryDirectoryTest extends TestCase
 {

@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Filesystem;
 
-use FilesystemIterator;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
-
 /**
  * A directory created empty for one job and removed with everything in it
  * afterwards: where the installers stage a download before moving the part
@@ -47,27 +42,7 @@ final readonly class TemporaryDirectory
     /** Removes the directory and everything under it; a symlink is removed, never followed. */
     public function remove(): void
     {
-        if (!is_dir($this->path)) {
-            return;
-        }
-
-        $entries = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->path, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($entries as $entry) {
-            if (!$entry instanceof SplFileInfo) {
-                continue;
-            }
-
-            if ($entry->isDir() && !$entry->isLink()) {
-                \Safe\rmdir($entry->getPathname());
-            } else {
-                \Safe\unlink($entry->getPathname());
-            }
-        }
-
-        \Safe\rmdir($this->path);
+        DirectoryTree::remove($this->path);
     }
 
     private static function in(string $parent, string $prefix): self

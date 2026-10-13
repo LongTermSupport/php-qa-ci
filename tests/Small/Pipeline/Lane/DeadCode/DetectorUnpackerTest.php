@@ -24,6 +24,7 @@ use UnexpectedValueException;
  */
 #[CoversClass(DetectorUnpacker::class)]
 #[UsesClass(TemporaryDirectory::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
 final class DetectorUnpackerTest extends TestCase
 {

@@ -66,6 +66,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
 #[UsesClass(ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
 final class InfectionToolTest extends TestCase
 {
@@ -120,6 +121,8 @@ final class InfectionToolTest extends TestCase
 
     private const string JSON_LOG = 'var/qa/infection/infection-log.json';
 
+    private const string STALE = 'stale';
+
     private const string PHPUNIT_HEADER = "PHPUnit 13.4.1 by Sebastian Bergmann and contributors.\n\nRuntime:       PHP 8.5.11\n\n";
 
     // What a mutant run printed when the suite could not start under Infection (issue #122).
@@ -158,8 +161,8 @@ final class InfectionToolTest extends TestCase
     public function aFullRunReusesThisRunsCoverageAndRunsThePharAtLowPriority(): void
     {
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
-        $this->factory->project->write('var/qa/infection/log.txt', 'stale');
-        $this->factory->project->write('var/qa/infection/tmp/deep/file', 'stale');
+        $this->factory->project->write('var/qa/infection/log.txt', self::STALE);
+        $this->factory->project->write('var/qa/infection/tmp/deep/file', self::STALE);
         $this->factory->processes->willRun($this->infection());
 
         $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
@@ -188,6 +191,22 @@ final class InfectionToolTest extends TestCase
         self::assertDirectoryExists($this->root . '/var/qa/infection');
         self::assertSame([basename(self::JSON_LOG)], $this->factory->project->files('var/qa/infection'), 'previous infection output is cleared');
         self::assertDirectoryDoesNotExist($this->root . '/var/qa/infection/tmp');
+    }
+
+    #[Test]
+    public function clearingThePreviousOutputRemovesALinkToADirectoryAndLeavesItsTarget(): void
+    {
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->project->write('elsewhere/keep.txt', 'kept');
+        $this->factory->project->write('var/qa/infection/log.txt', self::STALE);
+        \Safe\symlink($this->root . '/elsewhere', $this->root . '/var/qa/infection/linked');
+        $this->factory->processes->willRun($this->infection());
+
+        $result = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertFalse(is_link($this->root . '/var/qa/infection/linked'), 'the link itself is removed');
+        self::assertFileExists($this->root . '/elsewhere/keep.txt', 'the directory it points at is not emptied');
     }
 
     #[Test]

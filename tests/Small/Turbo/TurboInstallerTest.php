@@ -30,6 +30,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 #[CoversClass(TurboInstaller::class)]
 #[UsesClass(TemporaryDirectory::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[UsesClass(PhpstanDocsCatalogue::class)]
 #[UsesClass(TurboDecisionDto::class)]
 #[UsesClass(TurboInstallDecider::class)]

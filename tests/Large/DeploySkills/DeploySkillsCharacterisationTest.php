@@ -7,6 +7,8 @@ namespace LTS\PHPQA\Tests\Large\DeploySkills;
 use FilesystemIterator;
 use LTS\PHPQA\Tests\Assets\DeploySkills\DeployProcessRunner;
 use LTS\PHPQA\Tests\Assets\DeploySkills\ShellRunner;
+use LTS\PHPQA\Tests\Support\GitFilesCopy;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
@@ -76,7 +78,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->tempBases as $base) {
-            $this->removeTree($base);
+            TempDir::removeTree($base);
         }
 
         $this->tempBases = [];
@@ -419,10 +421,11 @@ final class DeploySkillsCharacterisationTest extends TestCase
         $consumer = $this->newConsumer(daemon: false);
 
         // A throwaway copy of the package whose manifest promises a skill that
-        // is not there. Copying keeps the real package untouched.
+        // is not there. Copying keeps the real package untouched; only what git
+        // sees is copied, not the checkout's ignored worktrees and vendor/.
         $brokenQaci = $this->makeTempBase() . '/qaci';
-        $this->runShell(\sprintf('cp -r %s %s', escapeshellarg($this->qaciPath), escapeshellarg($brokenQaci)));
-        $this->runShell(\sprintf('rm -rf %s', escapeshellarg($brokenQaci . '/.claude/skills/qa')));
+        GitFilesCopy::copy($this->qaciPath, $brokenQaci);
+        TempDir::removeTree($brokenQaci . '/.claude/skills/qa');
 
         $result = DeployProcessRunner::run($brokenQaci . '/scripts/deploy-skills.bash', $brokenQaci, $consumer);
 
@@ -620,13 +623,6 @@ final class DeploySkillsCharacterisationTest extends TestCase
         return $hashes;
     }
 
-    /** Run a shell command for fixture setup, asserting it succeeded. */
-    private function runShell(string $command): void
-    {
-        $result = ShellRunner::run($command);
-        self::assertSame(0, $result['exit'], \sprintf("fixture command failed: %s\n%s", $command, $result['output']));
-    }
-
     private function makeTempBase(): string
     {
         $base = sys_get_temp_dir() . '/phpqaci-deploy-' . bin2hex(random_bytes(8));
@@ -691,31 +687,5 @@ final class DeploySkillsCharacterisationTest extends TestCase
         sort($files);
 
         return $files;
-    }
-
-    private function removeTree(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($iterator as $fileInfo) {
-            if (!$fileInfo instanceof SplFileInfo) {
-                continue;
-            }
-
-            if ($fileInfo->isDir()) {
-                \Safe\rmdir($fileInfo->getPathname());
-                continue;
-            }
-
-            \Safe\unlink($fileInfo->getPathname());
-        }
-
-        \Safe\rmdir($dir);
     }
 }

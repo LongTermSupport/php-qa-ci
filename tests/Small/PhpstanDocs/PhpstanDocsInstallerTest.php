@@ -28,6 +28,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[CoversClass(PhpstanDocsInstaller::class)]
 #[UsesClass(PhpstanDocsCatalogue::class)]
 #[UsesClass(TemporaryDirectory::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
 final class PhpstanDocsInstallerTest extends TestCase
 {
