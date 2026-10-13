@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support;
 
-use LTS\PHPQA\Filesystem\DirectoryTree;
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 
 /**
  * A throwaway directory under the system temp dir, removed recursively on
@@ -77,6 +80,34 @@ final readonly class TempDir
 
     public function remove(): void
     {
-        DirectoryTree::remove($this->path);
+        self::removeTree($this->path);
+    }
+
+    /**
+     * Removes a directory and everything in it; a link is removed, never
+     * followed. The test-side twin of DirectoryTree::remove(): test support
+     * cannot call into src/, because every test would then execute production
+     * code its coverage metadata does not list.
+     */
+    public static function removeTree(string $path): void
+    {
+        if (!is_dir($path) || is_link($path)) {
+            return;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        /** @var SplFileInfo $item */
+        foreach ($iterator as $item) {
+            if ($item->isDir() && !$item->isLink()) {
+                \Safe\rmdir($item->getPathname());
+            } else {
+                \Safe\unlink($item->getPathname());
+            }
+        }
+
+        \Safe\rmdir($path);
     }
 }

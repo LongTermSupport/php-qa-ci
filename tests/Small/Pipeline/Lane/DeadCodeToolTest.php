@@ -49,6 +49,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(DetectorUnpacker::class)]
 #[UsesClass(\LTS\PHPQA\Filesystem\TemporaryDirectory::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
 final class DeadCodeToolTest extends TestCase
 {

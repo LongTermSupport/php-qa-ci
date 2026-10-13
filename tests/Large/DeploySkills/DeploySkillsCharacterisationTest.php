@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Large\DeploySkills;
 
 use FilesystemIterator;
-use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Tests\Assets\DeploySkills\DeployProcessRunner;
 use LTS\PHPQA\Tests\Assets\DeploySkills\ShellRunner;
 use LTS\PHPQA\Tests\Support\GitFilesCopy;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
@@ -78,7 +78,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->tempBases as $base) {
-            DirectoryTree::remove($base);
+            TempDir::removeTree($base);
         }
 
         $this->tempBases = [];
@@ -425,7 +425,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
         // sees is copied, not the checkout's ignored worktrees and vendor/.
         $brokenQaci = $this->makeTempBase() . '/qaci';
         GitFilesCopy::copy($this->qaciPath, $brokenQaci);
-        DirectoryTree::remove($brokenQaci . '/.claude/skills/qa');
+        TempDir::removeTree($brokenQaci . '/.claude/skills/qa');
 
         $result = DeployProcessRunner::run($brokenQaci . '/scripts/deploy-skills.bash', $brokenQaci, $consumer);
 

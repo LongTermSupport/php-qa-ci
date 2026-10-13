@@ -6,7 +6,7 @@ namespace LTS\PHPQA\Tests\Small\Filesystem;
 
 use FilesystemIterator;
 use LTS\PHPQA\Filesystem\DirectoryTree;
-use LTS\PHPQA\Filesystem\TemporaryDirectory;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -39,7 +39,7 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function removingATreeRemovesEverythingInIt(): void
     {
-        $directory = TemporaryDirectory::create(self::PREFIX);
+        $directory = TempDir::create(self::PREFIX);
         \Safe\mkdir($directory->path . '/nested/deeper', 0o700, true);
         \Safe\file_put_contents($directory->path . '/top.txt', 'x');
         \Safe\file_put_contents($directory->path . '/nested/deeper/file.txt', 'x');
@@ -52,8 +52,8 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function aLinkToADirectoryIsRemovedAndItsTargetKept(): void
     {
-        $outside   = TemporaryDirectory::create('phpqa-directory-tree-target');
-        $directory = TemporaryDirectory::create(self::PREFIX);
+        $outside   = TempDir::create('phpqa-directory-tree-target');
+        $directory = TempDir::create(self::PREFIX);
         \Safe\file_put_contents($outside->path . self::KEEP, 'x');
         \Safe\mkdir($directory->path . '/nested');
         \Safe\symlink($outside->path, $directory->path . '/nested' . self::LINK);
@@ -71,8 +71,8 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function emptyingADirectoryKeepsTheDirectoryAndRemovesWhatIsInIt(): void
     {
-        $outside   = TemporaryDirectory::create('phpqa-directory-tree-target');
-        $directory = TemporaryDirectory::create(self::PREFIX);
+        $outside   = TempDir::create('phpqa-directory-tree-target');
+        $directory = TempDir::create(self::PREFIX);
         \Safe\file_put_contents($outside->path . self::KEEP, 'x');
         \Safe\mkdir($directory->path . '/nested/deeper', 0o700, true);
         \Safe\file_put_contents($directory->path . '/nested/deeper/file.txt', 'x');
@@ -92,7 +92,7 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function aPathThatIsNotADirectoryIsLeftAlone(): void
     {
-        $directory = TemporaryDirectory::create(self::PREFIX);
+        $directory = TempDir::create(self::PREFIX);
         $file      = $directory->path . '/file.txt';
         \Safe\file_put_contents($file, 'x');
 
@@ -109,15 +109,17 @@ final class DirectoryTreeTest extends TestCase
     }
 
     /**
-     * The link handling lives in one place. Every other child-first walk in
-     * the repository is a second copy of it, which is how two of them came to
+     * The link handling lives in two places: DirectoryTree for src/, and
+     * TempDir for test support, which cannot call into src/ without every test
+     * executing production code its coverage metadata does not list. Any other
+     * child-first walk is a further copy, which is how two of them came to
      * rmdir() a link.
      */
     #[Test]
     public function noOtherCodeWalksATreeChildFirst(): void
     {
         $root   = \dirname(__DIR__, 3);
-        $owner  = $root . '/src/Filesystem/DirectoryTree.php';
+        $owners = [$root . '/src/Filesystem/DirectoryTree.php', $root . '/tests/Support/TempDir.php'];
         $copies = [];
         foreach (['src', 'tests', 'bin', 'scripts'] as $top) {
             $entries = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $top, FilesystemIterator::SKIP_DOTS));
@@ -127,7 +129,7 @@ final class DirectoryTreeTest extends TestCase
                 }
 
                 $path = $entry->getPathname();
-                if ($path === $owner || str_starts_with($path, $root . '/tests/assets/')) {
+                if (\in_array($path, $owners, true) || str_starts_with($path, $root . '/tests/assets/')) {
                     continue;
                 }
 
@@ -138,6 +140,6 @@ final class DirectoryTreeTest extends TestCase
         }
 
         sort($copies);
-        self::assertSame([], $copies, 'remove or empty a tree with ' . DirectoryTree::class . ', which removes a link instead of following it');
+        self::assertSame([], $copies, 'remove or empty a tree with ' . DirectoryTree::class . ' (or, in test support, ' . TempDir::class . '::removeTree()), which removes a link instead of following it');
     }
 }

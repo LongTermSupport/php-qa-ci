@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support\TempLeak;
 
-use LTS\PHPQA\Filesystem\DirectoryTree;
+use LTS\PHPQA\Tests\Support\TempDir;
 
 /**
  * Charges whatever is left in the run's temp directory to the test that just
@@ -80,6 +80,6 @@ final class TempLeakLedger
             return;
         }
 
-        DirectoryTree::remove($path);
+        TempDir::removeTree($path);
     }
 }
