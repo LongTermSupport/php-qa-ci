@@ -28,7 +28,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  * handlers installed directly in it. A call is not reported when its pattern is
  * a local variable every write to which is owned, in a function with no write
  * to a variable it cannot name, or when it is inside a guarded range after the
- * innermost function holding it installs a handler.
+ * innermost function holding it installs a handler. A top-level call also
+ * answers for every write any function makes to a top-level variable.
  *
  * See: docs/phpstan-rules/forbid-unvalidated-regex-pattern.md.
  *
@@ -62,11 +63,17 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
             $bodies[$file] = $collected;
         }
 
-        // File => function key => variable => the dependencies of each write to it, null for one not owned.
-        $writes = [];
+        // File => function key => variable => the dependencies of each write to it, null for one not owned;
+        // a write any function makes to a top-level variable counts in every file's top-level code.
+        $writes       = [];
+        $globalWrites = [];
         foreach ($node->get(RegexPatternVariableWriteCollector::class) as $file => $collected) {
             foreach (array_merge(...$collected) as [$functionKey, $variable, $dependencies]) {
-                $writes[$file][$functionKey][$variable][] = $dependencies;
+                if (RegexPatternVariableWriteCollector::GLOBAL_SCOPE === $functionKey) {
+                    $globalWrites[$variable][] = $dependencies;
+                } else {
+                    $writes[$file][$functionKey][$variable][] = $dependencies;
+                }
             }
         }
 
@@ -74,6 +81,12 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
         foreach ($node->get(UnownedRegexPatternCollector::class) as $file => $calls) {
             foreach ($calls as [$function, $line, $position, $dependencies, $functionKey, $named]) {
                 $functionWrites = $writes[$file][$functionKey] ?? [];
+                if (RegexPatternOwnership::TOP_LEVEL === $functionKey) {
+                    foreach ($globalWrites as $variable => $variableWrites) {
+                        $functionWrites[$variable] = [...$functionWrites[$variable] ?? [], ...$variableWrites];
+                    }
+                }
+
                 if ((!$this->hasUnseenWrite($functionWrites, ...$named) && null !== $dependencies && array_all($dependencies, fn (string $variable): bool => $this->isOwned($variable, $functionWrites)))
                     || $this->isGuarded($position, $bodies[$file] ?? [], ...$guards[$file] ?? [])) {
                     continue;

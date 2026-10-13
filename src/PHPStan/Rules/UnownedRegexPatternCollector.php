@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
+use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Variable;
@@ -25,8 +26,9 @@ use PHPStan\Reflection\ReflectionProvider;
  *
  * A local variable PHPStan types as a literal string is owned without that, but
  * PHPStan does not see every write: extract() may replace it with anything. So
- * every variable the pattern names is recorded too, for the rule to refuse the
- * call where its function writes a variable that cannot be named.
+ * every variable the pattern names outside a preg_quote() value is recorded
+ * too, for the rule to refuse the call where its function writes a variable
+ * that cannot be named.
  *
  * Each value is [the function's name as written, line, start offset, the
  * local variables the pattern is built from, or null when it is not owned
@@ -60,6 +62,9 @@ final readonly class UnownedRegexPatternCollector implements Collector
     /** The name PHP and thecodingmachine/safe both give the pattern argument. */
     private const string PATTERN_PARAMETER = 'pattern';
 
+    /** Escapes the value it is given, so a pattern holds that value literally. */
+    private const string QUOTE = 'preg_quote';
+
     private RegexPatternOwnership $ownership;
 
     public function __construct(private ReflectionProvider $reflectionProvider)
@@ -88,7 +93,7 @@ final readonly class UnownedRegexPatternCollector implements Collector
 
         $pattern      = $this->patternArgument($node);
         $dependencies = $pattern instanceof Expr ? $this->ownership->dependencies($pattern, $scope, self::PATTERN_FUNCTIONS[$function]) : null;
-        $named        = $pattern instanceof Expr ? $this->variablesNamed($pattern) : [];
+        $named        = $pattern instanceof Expr ? $this->variablesNamed($pattern, $scope) : [];
         if ([] === $dependencies && [] === $named) {
             return null;
         }
@@ -103,12 +108,28 @@ final readonly class UnownedRegexPatternCollector implements Collector
         ];
     }
 
-    /** @return list<string> */
-    private function variablesNamed(Expr $pattern): array
+    /**
+     * Every variable the pattern names, but the value preg_quote() is given: the
+     * pattern is owned or not whatever that holds, since it is matched literally.
+     *
+     * @return list<string>
+     */
+    private function variablesNamed(Expr $pattern, Scope $scope): array
     {
+        $finder = new NodeFinder();
+        $quoted = [];
+        foreach ($finder->findInstanceOf($pattern, FuncCall::class) as $call) {
+            $value = $call->isFirstClassCallable() ? null : $call->getArgs()[0] ?? null;
+            if ($value instanceof Arg && $call->name instanceof Name && self::QUOTE === $this->reflectionProvider->resolveFunctionName($call->name, $scope)) {
+                foreach ($finder->findInstanceOf($value->value, Variable::class) as $variable) {
+                    $quoted[spl_object_id($variable)] = true;
+                }
+            }
+        }
+
         $names = [];
-        foreach (new NodeFinder()->findInstanceOf($pattern, Variable::class) as $variable) {
-            if (\is_string($variable->name) && 'this' !== $variable->name) {
+        foreach ($finder->findInstanceOf($pattern, Variable::class) as $variable) {
+            if (\is_string($variable->name) && 'this' !== $variable->name && !isset($quoted[spl_object_id($variable)])) {
                 $names[] = $variable->name;
             }
         }

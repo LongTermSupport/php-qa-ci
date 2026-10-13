@@ -33,6 +33,9 @@ use PHPStan\Reflection\ReflectionProvider;
  */
 final readonly class RegexPatternOwnership
 {
+    /** The function key of a script's top-level code: no class and no function. */
+    public const string TOP_LEVEL = '::';
+
     /** Each bracket delimiter => the one that closes the pattern. */
     private const array CLOSING_DELIMITERS = ['(' => ')', '[' => ']', '{' => '}', '<' => '>'];
 

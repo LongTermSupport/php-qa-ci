@@ -9,11 +9,14 @@ use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
+use PhpParser\Node\Expr\ArrayDimFetch;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\AssignOp;
 use PhpParser\Node\Expr\AssignRef;
 use PhpParser\Node\Expr\CallLike;
+use PhpParser\Node\Expr\Eval_;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\Include_;
 use PhpParser\Node\Expr\List_;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\New_;
@@ -22,6 +25,7 @@ use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\StaticVar;
 use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\Global_;
@@ -42,16 +46,23 @@ use PHPStan\Reflection\ReflectionProvider;
  * An assignment or a `.=` / `??=` of an owned value is owned, given the local
  * variables it is built from are. A write whose value cannot be read here is
  * not: by reference, by destructuring, by a foreach, by `static` or `global`,
- * by any other compound assignment, or as the argument of a by-reference
- * parameter of a call whose callee can be resolved. `$alias = &$pattern` writes
- * both, since a later write to either changes the other.
+ * by any other compound assignment, to an offset of the variable, or as the
+ * argument of a by-reference parameter of a call whose callee can be resolved.
+ * `$alias = &$pattern` and `[&$pattern]` write the variable, since a later write
+ * through the alias changes it, and the alias too.
  *
- * A write whose target cannot be named here, `$$name = …` or extract(), may
- * write any local, and is recorded against {@see self::ANY_VARIABLE}. A
- * variable passed to a call whose callee cannot be resolved may be written by
- * reference without PHPStan seeing it, so it keeps the literal type it was
- * assigned; that is recorded as a write to {@see self::UNSEEN_WRITE} followed by
- * its name, which the rule holds against any pattern naming the variable.
+ * A write whose target cannot be named here, `$$name = …`, extract(), or an
+ * `include`, `require` or `eval` running in the caller's scope, may write any
+ * local, and is recorded against {@see self::ANY_VARIABLE}. A variable passed
+ * to a call whose callee cannot be resolved may be written by reference
+ * without PHPStan seeing it, so it keeps the literal type it was assigned; that
+ * is recorded as a write to {@see self::UNSEEN_WRITE} followed by its name,
+ * which the rule holds against any pattern naming the variable.
+ *
+ * A script's top-level variables are also written from inside any function:
+ * through `$GLOBALS`, or after a `global` declaration. Those writes are keyed
+ * {@see self::GLOBAL_SCOPE}, for the rule to hold against top-level code in
+ * every file, since the function may be called from any of them.
  *
  * Each value lists [function key, variable name, the local variables the
  * written value is built from, or null when it is not owned] for each variable
@@ -69,8 +80,14 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     /** Prefixes a variable's name for a write PHPStan's types may not show; no variable name starts with it. */
     public const string UNSEEN_WRITE = '&';
 
+    /** Keys a write to a top-level variable made from any function; it holds no `::`, so no function key equals it. */
+    public const string GLOBAL_SCOPE = 'globals';
+
     /** Writes a local for each key of the array it is given, so may write any. */
     private const string EXTRACT = 'extract';
+
+    /** The superglobal whose offsets are the top-level variables. */
+    private const string GLOBALS = 'GLOBALS';
 
     private RegexPatternOwnership $ownership;
 
@@ -101,8 +118,10 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
             $node instanceof AssignOp                                                                                  => $this->write($node->var, null),
             $node instanceof Foreach_                                                                                  => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
             $node instanceof Static_                                                                                   => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
-            $node instanceof Global_                                                                                   => array_merge(...array_map(fn (Expr $var): array => $this->write($var, null), $node->vars)),
-            $node instanceof FuncCall && $node->name instanceof Name && self::EXTRACT === $node->name->toLowerString() => [[self::ANY_VARIABLE, null]],
+            $node instanceof Global_                                                                                   => array_merge(...array_map($this->globalWrites(...), $node->vars)),
+            $node instanceof ArrayItem                                                                                 => $node->byRef ? $this->write($node->value, null) : [],
+            $node instanceof Include_, $node instanceof Eval_                                                          => [[self::ANY_VARIABLE, null, null]],
+            $node instanceof FuncCall && $node->name instanceof Name && self::EXTRACT === $node->name->toLowerString() => [[self::ANY_VARIABLE, null, null]],
             $node instanceof CallLike                                                                                  => $this->byReferenceWrites($node, $scope),
             default                                                                                                    => [],
         };
@@ -112,28 +131,78 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
 
         $key = RegexPatternOwnership::functionKey($scope);
 
-        return array_map(static fn (array $write): array => [$key, $write[0], $write[1]], $writes);
+        return array_map(static fn (array $write): array => [$write[2] ?? $key, $write[0], $write[1]], $writes);
     }
 
     /**
+     * Each write is [variable name, dependencies, the key it is made under, or null for the function's own].
+     *
      * @param list<string>|null $dependencies
      *
-     * @return list<array{string, list<string>|null}>
+     * @return list<array{string, list<string>|null, string|null}>
      */
     private function write(Expr $var, ?array $dependencies): array
     {
+        if ($var instanceof ArrayDimFetch) {
+            return $this->offsetWrite($var);
+        }
+
         if (!$var instanceof Variable) {
             return [];
         }
 
-        return \is_string($var->name) ? [[$var->name, $dependencies]] : [[self::ANY_VARIABLE, null]];
+        return \is_string($var->name) ? [[$var->name, $dependencies, null]] : [[self::ANY_VARIABLE, null, null]];
+    }
+
+    /**
+     * Writing an offset changes the variable holding it, a string in place
+     * included; through `$GLOBALS`, the top-level variable the offset names.
+     *
+     * @return list<array{string, list<string>|null, string|null}>
+     */
+    private function offsetWrite(ArrayDimFetch $fetch): array
+    {
+        if ($fetch->var instanceof Variable && self::GLOBALS === $fetch->var->name) {
+            return $this->topLevelWrites($fetch->dim instanceof String_ ? $fetch->dim->value : self::ANY_VARIABLE);
+        }
+
+        return $this->write($fetch->var, null);
+    }
+
+    /**
+     * `global $name` binds the local to the top-level variable, so a later
+     * write to either is a write to both.
+     *
+     * @return list<array{string, list<string>|null, string|null}>
+     */
+    private function globalWrites(Expr $var): array
+    {
+        $writes = [];
+        foreach ($this->write($var, null) as [$name]) {
+            $writes = [...$writes, [$name, null, null], ...$this->topLevelWrites($name)];
+        }
+
+        return $writes;
+    }
+
+    /**
+     * A write to a top-level variable from elsewhere, which PHPStan's type for
+     * it at the top level does not show.
+     *
+     * @return list<array{string, list<string>|null, string|null}>
+     */
+    private function topLevelWrites(string $name): array
+    {
+        return self::ANY_VARIABLE === $name
+            ? [[$name, null, self::GLOBAL_SCOPE]]
+            : [[$name, null, self::GLOBAL_SCOPE], [self::UNSEEN_WRITE . $name, null, self::GLOBAL_SCOPE]];
     }
 
     /**
      * Every variable passed to a by-reference parameter of a call whose callee
      * can be resolved: the callee may write anything to it.
      *
-     * @return list<array{string, list<string>|null}>
+     * @return list<array{string, list<string>|null, string|null}>
      */
     private function byReferenceWrites(CallLike $call, Scope $scope): array
     {
@@ -162,16 +231,16 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     /**
      * Every variable passed to a call whose callee cannot be resolved, which may take it by reference.
      *
-     * @return list<array{string, list<string>|null}>
+     * @return list<array{string, list<string>|null, string|null}>
      */
     private function unseenWrites(Arg ...$args): array
     {
         $writes = [];
         foreach ($args as $arg) {
-            foreach ($this->write($arg->value, null) as [$name]) {
-                $writes[] = [$name, null];
+            foreach ($this->write($arg->value, null) as [$name, , $key]) {
+                $writes[] = [$name, null, $key];
                 if (self::ANY_VARIABLE !== $name) {
-                    $writes[] = [self::UNSEEN_WRITE . $name, null];
+                    $writes[] = [self::UNSEEN_WRITE . $name, null, $key];
                 }
             }
         }
@@ -230,7 +299,7 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     /**
      * Every variable a destructuring target writes, or the variable itself.
      *
-     * @return list<array{string, list<string>|null}>
+     * @return list<array{string, list<string>|null, string|null}>
      */
     private function unownedWrites(?Expr $target): array
     {

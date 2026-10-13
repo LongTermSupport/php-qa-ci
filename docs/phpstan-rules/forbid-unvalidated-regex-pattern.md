@@ -16,12 +16,26 @@ The code owns a pattern that is `literal-string` typed, or built from literal st
 delimiter can be read from its leftmost literal, that one (or the closing bracket of a bracket
 pair): with none, or another, a value holding the delimiter ends the pattern early. A fragment
 quoted on its own, with no delimiter beside it, is checked only for being given one. A local
-variable is owned when every write to it in its function is owned; passing it to a by-reference
-parameter of a call is a write it does not own, and so is passing it to any call whose callee the
-rule cannot resolve, such as `$callback($pattern)`, which may take it by reference. `$alias = &$pattern` is a write to both, since a later write to either changes the other. A function that
-writes a variable the rule cannot name, `$$name = …` or `extract()`, owns no local that a pattern
-names. A parameter, a property, an array element, a foreach variable or any other value is not
-owned.
+variable is owned when every write to it in its function is owned. These writes are not owned:
+
+- passing it to a by-reference parameter of a call;
+- passing it to any call whose callee the rule cannot resolve, such as `$callback($pattern)`, which
+  may take it by reference (a local closure called through its variable is one of these);
+- writing to one of its offsets, such as `$pattern[1] = $value`;
+- taking a reference to it, as in `$alias = &$pattern` or `[&$pattern]`, since a later write
+  through the alias changes it.
+
+A function that writes a variable the rule cannot name owns no local that a pattern names. Such a
+write is `$$name = …`, `extract()`, or an `include`, `require` or `eval`, which runs in the
+caller's scope.
+
+A script's top-level variables are also written from inside a function: through `$GLOBALS`, or
+after `global $pattern`. Either write counts against top-level code in every file, since the
+function may be called from any of them.
+
+A parameter, a property, an array element, a foreach variable or any other value is not owned. A
+variable inside `preg_quote()` is not judged at all: the pattern holds its value literally,
+whatever it is.
 
 ## Why this is a hazard
 
