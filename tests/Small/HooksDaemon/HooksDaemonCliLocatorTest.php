@@ -69,6 +69,36 @@ final class HooksDaemonCliLocatorTest extends TestCase
         self::assertNull(new HooksDaemonCliLocator()->locate($checkout));
     }
 
+    /**
+     * A linked worktree is another checkout of the same repository: its `.git` file
+     * points into the main checkout's `.git/worktrees/`, whose `commondir` leads back
+     * to the main `.git`. The daemon, gitignored, exists only in the main checkout.
+     */
+    #[Test]
+    public function aLinkedWorktreeUsesTheDaemonOfItsMainCheckout(): void
+    {
+        $cli = $this->root->write('main/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write('main/.git/worktrees/feature/commondir', "../..\n");
+        $worktree = $this->root->mkdir('main/untracked/worktrees/feature');
+        $this->root->write('main/untracked/worktrees/feature/' . self::WORK_TREE_MARKER, 'gitdir: ' . $this->root->path . "/main/.git/worktrees/feature\n");
+        $package = $this->root->mkdir('main/untracked/worktrees/feature/' . self::PACKAGE);
+
+        self::assertSame($cli, new HooksDaemonCliLocator()->locate($worktree));
+        self::assertSame($cli, new HooksDaemonCliLocator()->locate($package));
+    }
+
+    /** A submodule's gitdir has no `commondir`: the repository above it is another project. */
+    #[Test]
+    public function aSubmoduleDoesNotUseTheDaemonOfTheRepositoryHoldingIt(): void
+    {
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->mkdir('.git/modules/library');
+        $submodule = $this->root->mkdir('library');
+        $this->root->write('library/' . self::WORK_TREE_MARKER, "gitdir: ../.git/modules/library\n");
+
+        self::assertNull(new HooksDaemonCliLocator()->locate($submodule));
+    }
+
     #[Test]
     public function noDaemonAnywhereIsNull(): void
     {
