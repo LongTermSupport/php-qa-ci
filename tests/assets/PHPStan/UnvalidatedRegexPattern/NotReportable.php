@@ -168,6 +168,23 @@ final readonly class NotReportable
         return $instance;
     }
 
+    /** A copy is held to what it was copied from, and copies of one another end the search. */
+    public function copiesAPatternBackAndForth(string $value, string $subject): void
+    {
+        $other   = 'x';
+        $alias   = &$other;
+        $alias   = $value;
+        $first   = '/a/';
+        $second  = $first;
+        $first   = $second;
+        $patterns = ['/b/'];
+        foreach ($patterns as $copy) {
+            preg_match($copy, $subject);
+        }
+
+        preg_match($first, $subject);
+    }
+
     /** @return literal-string */
     private function literal(): string
     {

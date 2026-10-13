@@ -373,6 +373,55 @@ final readonly class Reportable
         preg_match($patterns[0], $subject);
     }
 
+    public function copiedFromAnArrayChangedThroughAForeachReference(string $value, string $subject): void
+    {
+        $patterns = ['/a/', '/b/'];
+        foreach ($patterns as &$entry) {
+            $entry = $value;
+        }
+        unset($entry);
+        foreach ($patterns as $copy) {
+            preg_match($copy, $subject);
+        }
+
+        $first = $patterns[0];
+        preg_match($first, $subject);
+    }
+
+    public function copiedFromAVariableChangedThroughAnAlias(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $alias   = &$pattern;
+        $alias   = $value;
+        $copy    = $pattern;
+        preg_match($copy, $subject);
+    }
+
+    public function changedThroughADestructuringReferenceToItsArray(string $value, string $subject): void
+    {
+        $patterns     = ['/a/', '/b/'];
+        [, &$second]  = $patterns;
+        $second       = $value;
+        preg_match($patterns[1], $subject);
+    }
+
+    public function changedThroughAForeachDestructuringReferenceToItsArray(string $value, string $subject): void
+    {
+        $rows = [['/a/'], ['/b/']];
+        foreach ($rows as [&$entry]) {
+            $entry = $value;
+        }
+        unset($entry);
+        preg_match($rows[0][0], $subject);
+
+        $keyed = [['p' => '/a/']];
+        foreach ($keyed as ['p' => &$named]) {
+            $named = $value;
+        }
+        unset($named);
+        preg_match($keyed[0]['p'], $subject);
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;
