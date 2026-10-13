@@ -184,6 +184,23 @@ final readonly class Reportable
         preg_match($pattern, $subject);
     }
 
+    public function passedToACallThatCannotBeResolved(callable $callback, string $subject): void
+    {
+        $pattern = '/a/';
+        $callback($pattern);
+        preg_match($pattern, $subject);
+    }
+
+    public function writtenByAClosureThroughItsUse(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $write   = static function () use (&$pattern, $value): void {
+            $pattern = $value;
+        };
+        $write();
+        preg_match($pattern, $subject);
+    }
+
     public function aHandlerInstalledOnlyInAClosureNeverCalled(string $pattern, string $subject): Closure
     {
         $install = static fn (): mixed => set_error_handler(static fn (): bool => true);
