@@ -134,6 +134,29 @@ final class HooksDaemonCliLocatorTest extends TestCase
         }
     }
 
+    /** A root's `.` and `..` name directories, not steps of the walk, whether the root is absolute or relative. */
+    #[Test]
+    public function aRootThroughDotSegmentsIsTheDirectoryItNames(): void
+    {
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $mainCli    = $this->root->write(self::MAIN_CHECKOUT . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $packageCli = $this->root->write(self::MAIN_CHECKOUT . self::PACKAGE . '/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write(self::WORKTREE_COMMONDIR, self::COMMONDIR_TO_MAIN_GIT);
+        $worktree = $this->root->mkdir(self::WORKTREE);
+        $this->root->write(self::WORKTREE . self::WORK_TREE_MARKER, self::GITDIR_POINTER . $this->root->path . '/' . self::WORKTREE_GITDIR . "\n");
+        $package = $this->root->mkdir(self::WORKTREE . self::PACKAGE);
+
+        self::assertSame($mainCli, new HooksDaemonCliLocator()->locate($worktree . '/..'), 'the directory holding the worktree is in the main checkout');
+
+        $workingDirectory = \Safe\getcwd();
+        \Safe\chdir($package);
+        try {
+            self::assertSame($packageCli, new HooksDaemonCliLocator()->locate('.'));
+        } finally {
+            \Safe\chdir($workingDirectory);
+        }
+    }
+
     /** A pointer that exists but cannot be read is not the same as no daemon: the failure reaches the caller. */
     #[Test]
     public function aPointerThatCannotBeReadFailsRatherThanFindingNoDaemon(): void
