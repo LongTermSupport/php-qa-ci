@@ -12,6 +12,13 @@ namespace LTS\PHPQA\Pipeline\Tool;
  */
 enum ToolGateEnum
 {
+    /** Always runs. */
+    case None;
+    /** Skipped when phpqaQuickTests=1. */
+    case NotQuick;
+    /** Skipped when phpqaQuickTests=1, and only runs when Infection is enabled. */
+    case Infection;
+
     public function allows(bool $quickTests, bool $infectionEnabled): bool
     {
         return match ($this) {
@@ -20,11 +27,4 @@ enum ToolGateEnum
             self::Infection => !$quickTests && $infectionEnabled,
         };
     }
-
-    /** Always runs. */
-    case None;
-    /** Skipped when phpqaQuickTests=1. */
-    case NotQuick;
-    /** Skipped when phpqaQuickTests=1, and only runs when Infection is enabled. */
-    case Infection;
 }

@@ -20,6 +20,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FakeToolLocator;
+use LTS\PHPQA\Tests\Support\RewritingTool;
 use LTS\PHPQA\Tests\Support\StubTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -64,12 +65,17 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(\LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue::class)]
 #[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Runner\RepeatUntilSettled::class)]
 #[Small]
 final class PipelineTest extends TestCase
 {
     private const string ALL_TESTS_PASSING = 'ALL TESTS PASSING';
 
     private const string PHP_LINT = 'phpLint';
+
+    private const string PHP_CS_FIXER = 'phpCsFixer';
+
+    private const string RECTOR = 'rector';
 
     private const string PHPSTAN = 'phpstan';
 
@@ -249,6 +255,74 @@ final class PipelineTest extends TestCase
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::PHP_LINT)->build());
 
         self::assertSame(1, $this->pipeline()->run($context));
+    }
+
+    #[Test]
+    public function aWritableRunRepeatsTheCodingStandardsPhaseUntilAPassChangesNothing(): void
+    {
+        $fixer = new RewritingTool(self::PHP_CS_FIXER, 1);
+        $this->tools->register($fixer);
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertSame(2, $fixer->runs);
+        self::assertSame(2, $this->tools->stub(self::RECTOR)->runs, 'the tool before the one that rewrote sees its changes');
+        self::assertSame(1, $this->tools->stub(self::PHP_LINT)->runs, 'only the coding-standards phase repeats');
+        self::assertStringContainsString("1 file(s) changed on pass 1; running the phase again so each tool sees the others' changes", $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function theCodingStandardsRunnerRepeatsToo(): void
+    {
+        $fixer = new RewritingTool(self::PHP_CS_FIXER, 2);
+        $this->tools->register($fixer);
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: 'allCodingStandardsTools')->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertSame(3, $fixer->runs);
+        self::assertSame(3, $this->tools->stub(self::RECTOR)->runs);
+    }
+
+    #[Test]
+    public function aReadOnlyRunChecksOnce(): void
+    {
+        $fixer = new RewritingTool(self::PHP_CS_FIXER, 1);
+        $this->tools->register($fixer);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: false)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertSame(1, $fixer->runs);
+        self::assertSame(1, $this->tools->stub(self::RECTOR)->runs);
+    }
+
+    #[Test]
+    public function aPhaseThatDoesNotRepeatRunsOnceWhateverItsToolsWrite(): void
+    {
+        $lint = new RewritingTool(self::PHP_LINT, 1);
+        $this->tools->register($lint);
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertSame(1, $lint->runs);
+    }
+
+    #[Test]
+    public function aFailureInTheCodingStandardsPhaseIsReportedOnceAndNotRepeated(): void
+    {
+        $fixer = new RewritingTool(self::PHP_CS_FIXER, 1, ToolResultDto::failed('pending'));
+        $this->tools->register($fixer);
+        $aggregate = $this->factory->context($this->factory->builder(readOnly: false, aggregate: true)->build());
+
+        self::assertSame(1, $this->pipeline()->run($aggregate));
+        self::assertSame(1, $fixer->runs);
+        self::assertSame(1, substr_count($this->factory->output->fetch(), '>>> phpCsFixer FAILED'));
+        self::assertSame(1, $this->tools->stub(self::PHP_LINT)->runs, 'an aggregate run carries on to the next phase');
+
+        $failFast = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($failFast));
+        self::assertSame(2, $fixer->runs);
+        self::assertSame(1, $this->tools->stub(self::PHP_LINT)->runs, 'a fail-fast run stops at the failing phase');
     }
 
     #[Test]

@@ -45,6 +45,22 @@ time on one host would otherwise clear each other's `/tmp/rector_cached_files`.
   offers a retry. After every pass succeeds the writable advisory is printed.
 - A missing `vendor-phar/rector.phar` crashes the lane before any pass runs.
 
+### A writable run repeats until nothing changes
+
+Each tool in the coding-standards phase reads what the tools before it wrote, never what the tools
+after it write. PHP CS Fixer runs after Rector and can create work for it: `final_class` makes a
+class final, and only then do Rector's final-class rules (`PrivatizeFinalClassConstantRector`,
+`RemoveFinalFromConstRector`, ...) apply. One pass would leave that work for the read-only run,
+which would then fail on a tree a writable run had just fixed.
+
+So in a writable run, the full pipeline and `-t allCS` repeat the whole phase until a pass leaves
+every file under the checked paths as it found it, at most three passes
+([`RepeatUntilSettled`](../../src/Pipeline/Runner/RepeatUntilSettled.php)). Each repeat is
+announced with the number of files the previous pass changed. A phase still changing files on
+the third pass has tools that undo each other: the run prints a warning naming those files and
+carries on, and the read-only run reports what is left. A pass in which a tool fails is not
+repeated. A read-only run, and a single tool such as `-t rector`, run once.
+
 ## How to fix a failure
 
 - **Pending changes in a read-only run**: apply them where writes are allowed and commit:

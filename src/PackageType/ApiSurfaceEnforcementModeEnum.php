@@ -33,6 +33,10 @@ use InvalidArgumentException;
  */
 enum ApiSurfaceEnforcementModeEnum: string
 {
+    case Auto   = 'auto';
+    case Always = 'always';
+    case Never  = 'never';
+
     /**
      * Parse a config token (case-insensitive, trimmed) into a mode, failing fast
      * with a listing of the valid tokens rather than a bare \ValueError — the value
@@ -52,8 +56,4 @@ enum ApiSurfaceEnforcementModeEnum: string
 
         return $mode;
     }
-
-    case Auto   = 'auto';
-    case Always = 'always';
-    case Never  = 'never';
 }
