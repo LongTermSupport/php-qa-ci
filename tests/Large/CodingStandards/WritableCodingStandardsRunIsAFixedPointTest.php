@@ -4,30 +4,34 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\CodingStandards;
 
+use LTS\PHPQA\Pipeline\Runner\RepeatUntilSettled;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process;
 
 /**
- * Defence for the class "one writable allCS pass is not a fixed point": the shipped
- * Rector configs and the shipped PHP CS Fixer config disagree, and because the fixer
- * runs after Rector, Rector never sees what the fixer did. The read-only run that
- * follows (CI) then fails on a tree a writable run has just fixed (#193).
+ * Defence for the class "a writable allCS run is not a fixed point": PHP CS Fixer
+ * runs after Rector, so Rector never sees what the fixer did, and the read-only run
+ * that follows (CI) fails on a tree a writable run has just fixed (#193). The fixer
+ * can disagree with Rector (a reordered member left without the blank line Rector
+ * wants) or create Rector's work (final_class makes a class final, and Rector's
+ * final-class rules then apply).
  *
- * The corpus holds every class-like kind, with the member kinds the fixer orders and
- * separates written in the reverse of the shipped order and without blank lines, so
- * every reorder and every separation the fixer makes is one Rector then reads.
- * One writable pass, run as the rector and phpCsFixer lanes run it, must leave
- * nothing for either tool's read-only check.
+ * The corpus holds every class-like kind, a class that is not final, and the member
+ * kinds the fixer orders and separates written in the reverse of the shipped order
+ * without blank lines. The writable run is RepeatUntilSettled over the rector and
+ * phpCsFixer lanes' invocations, as the coding-standards phase runs them; it must
+ * leave nothing for either tool's read-only check.
  *
  * @internal
  */
 #[CoversNothing]
 #[Large]
-final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
+final class WritableCodingStandardsRunIsAFixedPointTest extends TestCase
 {
     /** The php-qa-ci checkout whose shipped configs and phars are under test. */
     private const string REPO_ROOT = __DIR__ . '/../../..';
@@ -37,6 +41,9 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
 
     /** The option both tools take for their read-only check. */
     private const string DRY_RUN = '--dry-run';
+
+    /** The probe project's checked path, which holds the corpus. */
+    private const string SOURCE = 'src';
 
     /** The Rector configs the rector lane runs over source paths, in its order. */
     private const array RECTOR_CONFIGS = ['rector-safe.php', 'rector-php85.php'];
@@ -59,13 +66,20 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
     }
 
     #[Test]
-    public function oneWritablePassLeavesNothingForTheReadOnlyChecks(): void
+    public function aWritableRunLeavesNothingForTheReadOnlyChecks(): void
     {
-        foreach (self::RECTOR_CONFIGS as $config) {
-            $this->assertTool($this->rector($config), 'Rector ' . $config . ' could not process the corpus', 0);
-        }
+        $output = new BufferedOutput();
+        new RepeatUntilSettled($output)->run(function (): bool {
+            foreach (self::RECTOR_CONFIGS as $config) {
+                $this->assertTool($this->rector($config), 'Rector ' . $config . ' could not process the corpus', 0);
+            }
 
-        $this->assertTool($this->fixer(), 'PHP CS Fixer could not process the corpus', 0, 8);
+            $this->assertTool($this->fixer(), 'PHP CS Fixer could not process the corpus', 0);
+
+            return true;
+        }, $this->project->path, self::SOURCE);
+
+        self::assertStringNotContainsString('WARNING', $output->fetch(), 'the tools undo each other');
 
         $pending = [];
         foreach (self::RECTOR_CONFIGS as $config) {
@@ -80,7 +94,7 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
             $pending[] = "PHP CS Fixer:\n" . $process->getOutput();
         }
 
-        self::assertSame([], $pending, 'After one writable Rector + PHP CS Fixer pass, the read-only checks still have changes to make, so the shipped configs disagree.');
+        self::assertSame([], $pending, 'After a writable Rector + PHP CS Fixer run, the read-only checks still have changes to make.');
     }
 
     private function rector(string $config, string ...$options): Process
@@ -93,7 +107,7 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
             '--clear-cache',
             '--no-progress-bar',
             ...$options,
-            ...['src'],
+            ...[self::SOURCE],
         );
     }
 
@@ -106,7 +120,7 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
             '--allow-risky=yes',
             'fix',
             ...$options,
-            ...['src'],
+            ...[self::SOURCE],
         );
     }
 

@@ -290,6 +290,8 @@ The pipeline runs tools in 4 distinct phases, each lane being a class under `src
 3. **Twig CS Fixer** (`twigCsFixer`) - Twig coding standards; skips unless `twig/twig` is installed
 4. **Markdown Format** (`markdownFormat`) - Markdown in the hooks daemon's format, by the daemon's own formatter; skips without the daemon (see [docs/tools/markdownFormat.md](docs/tools/markdownFormat.md))
 
+In a writable run, the full pipeline and `-t allCS` repeat this phase until a pass changes no file under the checked paths, at most three passes ([RepeatUntilSettled](src/Pipeline/Runner/RepeatUntilSettled.php)). A tool never sees what the tools after it wrote; the fixer's `final_class`, for example, creates work for Rector.
+
 ### Phase 2: Linting Tools (validation only)
 
 03. **PSR-4 Validation** (`psr4Validate`) - Validates namespace/directory structure

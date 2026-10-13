@@ -24,7 +24,7 @@ enum PhaseEnum: string
     public function phase(): PhaseDto
     {
         return match ($this) {
-            self::CodingStandards => new PhaseDto($this->value, 'Running All Coding Standards Tools (That Might Make Code Changes)', 'allCodingStandardsTools', ['allCS'], 'all coding standards tools'),
+            self::CodingStandards => new PhaseDto($this->value, 'Running All Coding Standards Tools (That Might Make Code Changes)', 'allCodingStandardsTools', ['allCS'], 'all coding standards tools', repeatsUntilSettled: true),
             self::Linting         => new PhaseDto($this->value, 'Running All Linting Tools', 'allLintingTools', ['allLints'], 'all linting tools'),
             self::StaticAnalysis  => new PhaseDto($this->value, 'Running All Static Analysis Tools', 'allStaticAnalysisTools', ['allStatic'], 'all static analysis tools'),
             self::Testing         => new PhaseDto($this->value, 'Running All Testing Tools', 'allTestingTools', ['allTests'], 'all testing tools'),

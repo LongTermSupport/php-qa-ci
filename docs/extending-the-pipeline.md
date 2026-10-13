@@ -21,11 +21,11 @@ can name anything registered here. The file is optional; a template ships at
 
 Three withers, all immutable:
 
-| Wither                                       | Effect                                                                                                                                                               |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `withTool(ToolDefinitionDto, ToolInterface)` | Appends the tool to the end of its phase. A definition under an existing name replaces that tool in place. The definition's name and the tool's `name()` must agree. |
-| `withPhase(PhaseDto, ?string $before)`       | Appends a phase, or inserts it before the named one. Every phase derives its own `-t all...` runner from the DTO.                                                    |
-| `withPhaseOrder(string ...$names)`           | Sets the complete execution order; every phase exactly once.                                                                                                         |
+| Wither                                       | Effect                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `withTool(ToolDefinitionDto, ToolInterface)` | Appends the tool to the end of its phase. A definition under an existing name replaces that tool in place. The definition's name and the tool's `name()` must agree.                                                                                                                                                                   |
+| `withPhase(PhaseDto, ?string $before)`       | Appends a phase, or inserts it before the named one. Every phase derives its own `-t all...` runner from the DTO. `repeatsUntilSettled: true` makes a writable run repeat the phase until a pass changes no checked file, as the coding-standards phase does ([Rector](tools/rector.md#a-writable-run-repeats-until-nothing-changes)). |
+| `withPhaseOrder(string ...$names)`           | Sets the complete execution order; every phase exactly once.                                                                                                                                                                                                                                                                           |
 
 A phase is named by a string; the shipped four are `PhaseEnum::CodingStandards->value`,
 `PhaseEnum::Linting->value`, `PhaseEnum::StaticAnalysis->value` and `PhaseEnum::Testing->value`.

@@ -9,6 +9,7 @@ use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
+use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
@@ -89,17 +90,17 @@ final readonly class Pipeline
         if (null !== $config->singleTool) {
             $definition = $this->registry->definition($config->singleTool);
             $this->banner(\sprintf('Running Single Tool: %s', $definition->name), '-');
-            $tools = $definition->isPhaseRunner && null !== $definition->phase
-                ? $this->toolsFor($definition->phase, $config->platform)
-                : [$definition];
-            $ok = $this->runTools($context, $failed, $retried, $definition->isPhaseRunner, ...$tools);
+            $phase = $definition->isPhaseRunner ? $this->phase($definition->phase) : null;
+            $ok    = $phase instanceof PhaseDto
+                ? $this->runPhase($context, $phase, $failed, $retried)
+                : $this->runTools($context, $failed, $retried, false, $definition);
 
             return $this->finish($ok, $retried, $config->aggregate, ...$failed);
         }
 
         foreach ($this->registry->phases() as $phase) {
             $this->banner($phase->banner, '=');
-            if (!$this->runTools($context, $failed, $retried, true, ...$this->toolsFor($phase->name, $config->platform))) {
+            if (!$this->runPhase($context, $phase, $failed, $retried)) {
                 return $this->finish(false, $retried, $config->aggregate, ...$failed);
             }
         }
@@ -145,6 +146,43 @@ final readonly class Pipeline
         new TerseReporter($context->stdout)->lockHeld($tool, $holder instanceof LockInfoDto ? $holder->describe() : 'holder unknown');
 
         return AgentStatusEnum::LockHeld->exitCode();
+    }
+
+    private function phase(?string $name): ?PhaseDto
+    {
+        return array_find($this->registry->phases(), static fn (PhaseDto $phase): bool => $phase->name === $name);
+    }
+
+    /**
+     * Every tool of one phase. A writable run repeats a phase that rewrites the
+     * checked paths until a pass changes nothing; a pass that records a failure
+     * ends the repeats, so an aggregate run reports each failure once.
+     *
+     * @param list<string> $failed
+     *
+     * @return bool false when a tool failed in fail-fast mode
+     */
+    private function runPhase(ToolContext $context, PhaseDto $phase, array &$failed, bool &$retried): bool
+    {
+        $config = $context->config;
+        $tools  = $this->toolsFor($phase->name, $config->platform);
+        if ($config->readOnly || !$phase->repeatsUntilSettled) {
+            return $this->runTools($context, $failed, $retried, true, ...$tools);
+        }
+
+        $ok = true;
+        new RepeatUntilSettled($this->output)->run(
+            function () use ($context, &$failed, &$retried, &$ok, $tools): bool {
+                $failures = \count($failed);
+                $ok       = $this->runTools($context, $failed, $retried, true, ...$tools);
+
+                return $ok && $failures === \count($failed);
+            },
+            $config->paths->projectRoot,
+            ...$config->pathsToCheck,
+        );
+
+        return $ok;
     }
 
     /**

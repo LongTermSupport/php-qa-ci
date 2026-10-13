@@ -13,13 +13,17 @@ project-wide additions (aligned operators, `final` classes, strict comparison, o
 class elements). The pipeline owns the arguments; a project changes rules by overriding the config
 file, not by passing flags.
 
-The shipped ruleset agrees with the shipped Rector configs, so one writable `allCS` pass leaves
-nothing for a read-only run to change: enum cases come first among class elements, and constants,
-properties and methods keep one blank line between them wherever the element ordering moves them,
-as Rector's `NewlineBetweenClassLikeStmtsRector` requires.
-[`OneCodingStandardsPassIsAFixedPointTest`](../../tests/Large/CodingStandards/OneCodingStandardsPassIsAFixedPointTest.php)
-runs both tools over every class-like kind with its members out of order and fails when they disagree.
-A project that overrides `php_cs.php` takes on keeping its copy in agreement.
+The fixer runs after Rector, so Rector does not see what the fixer wrote in the same pass. A
+writable run therefore repeats the coding-standards phase until a pass changes no checked file, at
+most three passes (see [Rector](rector.md#a-writable-run-repeats-until-nothing-changes)), and
+leaves nothing for a read-only run to change. The shipped ruleset also agrees with the shipped
+Rector configs, so the repeat is needed only where one tool creates the other's work, such as
+`final_class` making a class final for Rector's final-class rules. Enum cases come first among
+class elements, and constants, properties and methods keep one blank line between them, as
+Rector's `NewlineBetweenClassLikeStmtsRector` requires.
+[`WritableCodingStandardsRunIsAFixedPointTest`](../../tests/Large/CodingStandards/WritableCodingStandardsRunIsAFixedPointTest.php)
+runs both tools that way over every class-like kind, a class that is not final, and members out of
+order, and fails when a read-only check still has a change to make.
 
 ## How it runs
 
