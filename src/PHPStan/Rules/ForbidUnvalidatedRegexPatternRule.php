@@ -74,8 +74,7 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
         foreach ($node->get(UnownedRegexPatternCollector::class) as $file => $calls) {
             foreach ($calls as [$function, $line, $position, $dependencies, $functionKey, $named]) {
                 $functionWrites = $writes[$file][$functionKey] ?? [];
-                $unnamedWrite   = [] !== $named && \array_key_exists(RegexPatternVariableWriteCollector::ANY_VARIABLE, $functionWrites);
-                if ((!$unnamedWrite && null !== $dependencies && array_all($dependencies, fn (string $variable): bool => $this->isOwned($variable, $functionWrites)))
+                if ((!$this->hasUnseenWrite($functionWrites, ...$named) && null !== $dependencies && array_all($dependencies, fn (string $variable): bool => $this->isOwned($variable, $functionWrites)))
                     || $this->isGuarded($position, $bodies[$file] ?? [], ...$guards[$file] ?? [])) {
                     continue;
                 }
@@ -90,6 +89,21 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
         }
 
         return $errors;
+    }
+
+    /**
+     * Whether a variable the pattern names may hold what PHPStan's type for it
+     * does not show: its function writes a variable it cannot name, or passes
+     * this one to a call whose callee cannot be resolved.
+     *
+     * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
+     */
+    private function hasUnseenWrite(array $functionWrites, string ...$named): bool
+    {
+        return [] !== $named && (
+            \array_key_exists(RegexPatternVariableWriteCollector::ANY_VARIABLE, $functionWrites)
+            || array_any($named, static fn (string $variable): bool => \array_key_exists(RegexPatternVariableWriteCollector::UNSEEN_WRITE . $variable, $functionWrites))
+        );
     }
 
     /**
@@ -119,13 +133,12 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
      * In a guarded range, outside any function declared in it, after the
      * innermost function holding the call installs an error handler.
      *
-     * @param list<array{int, int, list<int>}>       $bodies each function's body start, end and set_error_handler() offsets
+     * @param list<array{int, int, list<int>}>       $bodies    each function's body start, end and set_error_handler() offsets
      * @param array{int, int, list<array{int, int}>} ...$guards
      */
     private function isGuarded(int $position, array $bodies, array ...$guards): bool
     {
-        $installs = $this->innermostBody($position, ...$bodies)[2] ?? [];
-        if (!array_any($installs, static fn (int $install): bool => $install < $position)) {
+        if (!array_any($this->innermostInstalls($position, ...$bodies), static fn (int $install): bool => $install < $position)) {
             return false;
         }
 
@@ -143,22 +156,27 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
     }
 
     /**
-     * The body holding the position that starts last: a function declared
-     * inside another starts after it, and the file's top-level code at 0.
+     * The handlers installed in the body holding the position that starts last:
+     * a function declared inside another starts after it, and the file's
+     * top-level code, recorded once per install, at 0.
      *
      * @param array{int, int, list<int>} ...$bodies
      *
-     * @return array{int, int, list<int>}|null
+     * @return list<int>
      */
-    private function innermostBody(int $position, array ...$bodies): ?array
+    private function innermostInstalls(int $position, array ...$bodies): array
     {
-        $innermost = null;
-        foreach ($bodies as $body) {
-            if ($position >= $body[0] && $position <= $body[1] && (null === $innermost || $body[0] > $innermost[0])) {
-                $innermost = $body;
+        $start    = -1;
+        $installs = [];
+        foreach ($bodies as [$bodyStart, $bodyEnd, $bodyInstalls]) {
+            if ($position < $bodyStart || $position > $bodyEnd || $bodyStart < $start) {
+                continue;
             }
+
+            $installs = $bodyStart > $start ? $bodyInstalls : [...$installs, ...$bodyInstalls];
+            $start    = $bodyStart;
         }
 
-        return $innermost;
+        return $installs;
     }
 }

@@ -16,6 +16,7 @@ use PhpParser\Node\Expr\CallLike;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\List_;
 use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\NullsafeMethodCall;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\Variable;
@@ -46,7 +47,11 @@ use PHPStan\Reflection\ReflectionProvider;
  * both, since a later write to either changes the other.
  *
  * A write whose target cannot be named here, `$$name = …` or extract(), may
- * write any local, and is recorded against {@see self::ANY_VARIABLE}.
+ * write any local, and is recorded against {@see self::ANY_VARIABLE}. A
+ * variable passed to a call whose callee cannot be resolved may be written by
+ * reference without PHPStan seeing it, so it keeps the literal type it was
+ * assigned; that is recorded as a write to {@see self::UNSEEN_WRITE} followed by
+ * its name, which the rule holds against any pattern naming the variable.
  *
  * Each value lists [function key, variable name, the local variables the
  * written value is built from, or null when it is not owned] for each variable
@@ -61,6 +66,10 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     /** Stands for every local: no variable can be named `*`, since `${'*'}` is itself a write to one not named here. */
     public const string ANY_VARIABLE = '*';
 
+    /** Prefixes a variable's name for a write PHPStan's types may not show; no variable name starts with it. */
+    public const string UNSEEN_WRITE = '&';
+
+    /** Writes a local for each key of the array it is given, so may write any. */
     private const string EXTRACT = 'extract';
 
     private RegexPatternOwnership $ownership;
@@ -81,21 +90,21 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     public function processNode(Node $node, Scope $scope): ?array
     {
         $writes = match (true) {
-            $node instanceof Assign                                              => $node->var instanceof Variable
+            $node instanceof Assign                                                                                    => $node->var instanceof Variable
                 ? $this->write($node->var, $this->ownership->dependencies($node->expr, $scope, false))
                 : $this->unownedWrites($node->var),
-            $node instanceof AssignOp\Concat, $node instanceof AssignOp\Coalesce => $this->write(
+            $node instanceof AssignOp\Concat, $node instanceof AssignOp\Coalesce                                       => $this->write(
                 $node->var,
                 $this->ownership->dependencies($node->expr, $scope, false),
             ),
-            $node instanceof AssignRef                                           => [...$this->write($node->var, null), ...$this->write($node->expr, null)],
-            $node instanceof AssignOp                                            => $this->write($node->var, null),
-            $node instanceof Foreach_                                            => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
-            $node instanceof Static_                                             => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
-            $node instanceof Global_                                             => array_merge(...array_map(fn (Expr $var): array => $this->write($var, null), $node->vars)),
+            $node instanceof AssignRef                                                                                 => [...$this->write($node->var, null), ...$this->write($node->expr, null)],
+            $node instanceof AssignOp                                                                                  => $this->write($node->var, null),
+            $node instanceof Foreach_                                                                                  => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
+            $node instanceof Static_                                                                                   => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
+            $node instanceof Global_                                                                                   => array_merge(...array_map(fn (Expr $var): array => $this->write($var, null), $node->vars)),
             $node instanceof FuncCall && $node->name instanceof Name && self::EXTRACT === $node->name->toLowerString() => [[self::ANY_VARIABLE, null]],
-            $node instanceof CallLike                                            => $this->byReferenceWrites($node, $scope),
-            default                                                              => [],
+            $node instanceof CallLike                                                                                  => $this->byReferenceWrites($node, $scope),
+            default                                                                                                    => [],
         };
         if ([] === $writes) {
             return null;
@@ -132,12 +141,12 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
             return [];
         }
 
+        $args     = $call->getArgs();
         $variants = $this->callee($call, $scope)?->getVariants();
         if (null === $variants) {
-            return [];
+            return $this->unseenWrites(...$args);
         }
 
-        $args       = $call->getArgs();
         $parameters = ParametersAcceptorSelector::selectFromArgs($scope, $args, $variants)->getParameters();
         $writes     = [];
         foreach ($args as $index => $arg) {
@@ -150,8 +159,40 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
         return $writes;
     }
 
+    /**
+     * Every variable passed to a call whose callee cannot be resolved, which may take it by reference.
+     *
+     * @return list<array{string, list<string>|null}>
+     */
+    private function unseenWrites(Arg ...$args): array
+    {
+        $writes = [];
+        foreach ($args as $arg) {
+            foreach ($this->write($arg->value, null) as [$name]) {
+                $writes[] = [$name, null];
+                if (self::ANY_VARIABLE !== $name) {
+                    $writes[] = [self::UNSEEN_WRITE . $name, null];
+                }
+            }
+        }
+
+        return $writes;
+    }
+
     private function callee(CallLike $call, Scope $scope): FunctionReflection|ExtendedMethodReflection|null
     {
+        if ($call instanceof New_) {
+            if (!$call->class instanceof Name) {
+                return null;
+            }
+
+            $class = $scope->resolveName($call->class);
+
+            return $this->reflectionProvider->hasClass($class) && $this->reflectionProvider->getClass($class)->hasConstructor()
+                ? $this->reflectionProvider->getClass($class)->getConstructor()
+                : null;
+        }
+
         if ($call instanceof FuncCall) {
             return $call->name instanceof Name && $this->reflectionProvider->hasFunction($call->name, $scope)
                 ? $this->reflectionProvider->getFunction($call->name, $scope)

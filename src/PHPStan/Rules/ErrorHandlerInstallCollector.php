@@ -14,18 +14,17 @@ use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitorAbstract;
 use PHPStan\Analyser\Scope;
 use PHPStan\Collectors\Collector;
-use PHPStan\Node\FileNode;
 
 /**
- * Collects each function, method, closure and arrow function, and the file's
- * top-level code, with where each set_error_handler() call directly in its body
- * starts. A try whose finally restores the handler guards a PCRE call only
- * where the innermost function holding the call installed one before it: a
- * finally restoring a handler nobody installed guards nothing, and one
- * installed in a closure runs only when that closure is called.
+ * Collects each function, method, closure and arrow function with where each
+ * set_error_handler() call directly in its body starts, and each such call in
+ * the file's top-level code. A try whose finally restores the handler guards a
+ * PCRE call only where the innermost function holding the call installed one
+ * before it: a finally restoring a handler nobody installed guards nothing, and
+ * one installed in a closure runs only when that closure is called.
  *
  * Each value is [body start, body end (inclusive), set_error_handler() start
- * offsets]; the top-level code spans the whole file.
+ * offsets]; a top-level call is recorded alone, as a body spanning the whole file.
  *
  * @internal
  *
@@ -45,17 +44,24 @@ final readonly class ErrorHandlerInstallCollector implements Collector
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
-        return match (true) {
-            $node instanceof FunctionLike => [$node->getStartFilePos(), $node->getEndFilePos(), $this->installs($node->getStmts() ?? [])],
-            $node instanceof FileNode     => [0, \PHP_INT_MAX, $this->installs($node->getNodes())],
-            default                       => null,
-        };
+        if ($node instanceof FunctionLike) {
+            return [$node->getStartFilePos(), $node->getEndFilePos(), $this->installs($node->getStmts() ?? [])];
+        }
+
+        $topLevel = null === $scope->getFunctionName() && !$scope->isInAnonymousFunction();
+
+        return $topLevel && $this->isInstall($node) ? [0, \PHP_INT_MAX, [$node->getStartFilePos()]] : null;
+    }
+
+    private function isInstall(Node $node): bool
+    {
+        return $node instanceof FuncCall && $node->name instanceof Name && self::INSTALL === $node->name->toLowerString();
     }
 
     /**
      * A call in a function or class declared inside runs elsewhere, so it is that one's.
      *
-     * @param array<Node> $stmts
+     * @param array<array-key, Node> $stmts
      *
      * @return list<int>
      */

@@ -17,10 +17,11 @@ delimiter can be read from its leftmost literal, that one (or the closing bracke
 pair): with none, or another, a value holding the delimiter ends the pattern early. A fragment
 quoted on its own, with no delimiter beside it, is checked only for being given one. A local
 variable is owned when every write to it in its function is owned; passing it to a by-reference
-parameter of a call the rule can resolve is a write it does not own, and `$alias = &$pattern` is a
-write to both, since a later write to either changes the other. A function that writes a variable
-the rule cannot name, `$$name = …` or `extract()`, owns no local that a pattern names. A
-parameter, a property, an array element, a foreach variable or any other value is not owned.
+parameter of a call is a write it does not own, and so is passing it to any call whose callee the
+rule cannot resolve, such as `$callback($pattern)`, which may take it by reference. `$alias = &$pattern` is a write to both, since a later write to either changes the other. A function that
+writes a variable the rule cannot name, `$$name = …` or `extract()`, owns no local that a pattern
+names. A parameter, a property, an array element, a foreach variable or any other value is not
+owned.
 
 ## Why this is a hazard
 
@@ -111,8 +112,7 @@ makes PHPStan check every caller passes a pattern the code wrote.
   the call is one of those values. A call in a `try` whose `finally` restores the error handler,
   after the innermost function holding it calls `set_error_handler()`, is excluded, because it runs
   under a handler that function installed for it. The rule does not read the handler itself, so one
-  that does not throw is still trusted; and a by-reference write through a call it cannot resolve
-  (a dynamic call such as `$callback($pattern)`) is not seen.
+  that does not throw is still trusted.
 - **Next wider rule, not built**: any pattern language fed a value the code does not own — `glob()`
   and `fnmatch()` as well as PCRE. Not built because the hazard is absent: neither fails to compile
   a pattern, so neither produces the anonymous error this class is about. A bad glob matches

@@ -100,6 +100,13 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
         $this->analyse([self::FIXTURES . '/NotReportable.php'], []);
     }
 
+    /** A script's top-level code is one body: a guard there counts only after a handler installed there. */
+    #[Test]
+    public function aTopLevelCallIsGuardedOnlyAfterATopLevelInstall(): void
+    {
+        $this->analyse([self::FIXTURES . '/TopLevel.php'], [[$this->message(self::PREG_MATCH), 9]]);
+    }
+
     protected function getRule(): Rule
     {
         return new ForbidUnvalidatedRegexPatternRule();
