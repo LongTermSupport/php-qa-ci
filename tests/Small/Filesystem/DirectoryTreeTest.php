@@ -109,11 +109,62 @@ final class DirectoryTreeTest extends TestCase
     }
 
     /**
-     * The link handling lives in two places: DirectoryTree for src/, and
-     * TempDir for test support, which cannot call into src/ without every test
-     * executing production code its coverage metadata does not list. Any other
-     * child-first walk is a further copy, which is how two of them came to
-     * rmdir() a link.
+     * A project may point an output directory such as var/qa/infection at
+     * another disk. Emptying it empties what it points at, as `rm -rf dir/*`
+     * would, and still never follows a link found inside.
+     */
+    #[Test]
+    public function emptyingALinkToADirectoryEmptiesItsTargetAndKeepsTheLink(): void
+    {
+        $target    = TempDir::create('phpqa-directory-tree-target');
+        $elsewhere = TempDir::create('phpqa-directory-tree-elsewhere');
+        $directory = TempDir::create(self::PREFIX);
+        \Safe\file_put_contents($elsewhere->path . self::KEEP, 'x');
+        \Safe\mkdir($target->path . '/nested');
+        \Safe\file_put_contents($target->path . '/nested/stale.txt', 'x');
+        \Safe\symlink($elsewhere->path, $target->path . self::LINK);
+        \Safe\symlink($target->path, $directory->path . self::LINK);
+
+        try {
+            DirectoryTree::empty($directory->path . self::LINK);
+
+            self::assertTrue(is_link($directory->path . self::LINK));
+            self::assertSame(['.', '..'], \Safe\scandir($target->path));
+            self::assertFileExists($elsewhere->path . self::KEEP);
+        } finally {
+            $directory->remove();
+            $target->remove();
+            $elsewhere->remove();
+        }
+    }
+
+    #[Test]
+    public function removingALinkToADirectoryRemovesTheLinkAndLeavesItsTarget(): void
+    {
+        $target    = TempDir::create('phpqa-directory-tree-target');
+        $directory = TempDir::create(self::PREFIX);
+        \Safe\file_put_contents($target->path . self::KEEP, 'x');
+        \Safe\symlink($target->path, $directory->path . self::LINK);
+
+        try {
+            DirectoryTree::remove($directory->path . self::LINK);
+
+            self::assertFalse(is_link($directory->path . self::LINK));
+            self::assertFileExists($target->path . self::KEEP);
+        } finally {
+            $directory->remove();
+            $target->remove();
+        }
+    }
+
+    /**
+     * The child-first iterator walk lives in two places: DirectoryTree for
+     * src/, and TempDir for test support, which cannot call into src/ without
+     * every test executing production code its coverage metadata does not
+     * list. Any other copy is how two of them came to rmdir() a link. Every
+     * file is read, not only *.php: the bin/ entry points have no extension.
+     * TempLeakDirectory's race-tolerant recursion is a separate walk, kept
+     * because it must load nothing from src/ (#155); it checks is_link() too.
      */
     #[Test]
     public function noOtherCodeWalksATreeChildFirst(): void
@@ -124,7 +175,7 @@ final class DirectoryTreeTest extends TestCase
         foreach (['src', 'tests', 'bin', 'scripts'] as $top) {
             $entries = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $top, FilesystemIterator::SKIP_DOTS));
             foreach ($entries as $entry) {
-                if (!$entry instanceof SplFileInfo || 'php' !== $entry->getExtension()) {
+                if (!$entry instanceof SplFileInfo || !$entry->isFile()) {
                     continue;
                 }
 
