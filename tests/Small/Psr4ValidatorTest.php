@@ -16,6 +16,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(Psr4Validator::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(Helper::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
 #[\PHPUnit\Framework\Attributes\Small]
 final class Psr4ValidatorTest extends TestCase
 {

@@ -15,6 +15,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ConfigTemplateIgnoreListCheck::class)]
 #[CoversClass(ConfigTemplateIgnoreListAuditor::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
 #[Small]
 final class ConfigTemplateIgnoreListCheckTest extends TestCase
 {
