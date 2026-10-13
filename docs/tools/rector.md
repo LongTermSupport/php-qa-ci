@@ -28,7 +28,10 @@ Up to four passes, each a separate Rector process over the committed
 
 The `Project Specific` and `PHP 8.5` passes are alternatives: when a project ships its own
 `rector.php` in either location the shipped PHP 8.5 config is skipped, on the assumption that the
-project config covers it.
+project config covers it. Its `skip()` list is then the project's own: a project config that
+includes the `CODING_STYLE` set should skip `SplitGroupedClassConstantsRector`, as the shipped
+one does, or a split grouped constant loses its declared type
+([rectorphp/rector#9928](https://github.com/rectorphp/rector/issues/9928)).
 
 Each process runs from the project root with `--autoload-file vendor/autoload.php`,
 `--clear-cache`, and the ignored paths exported newline-joined in the `rectorIgnorePaths`
@@ -57,8 +60,9 @@ So in a writable run, the full pipeline and `-t allCS` repeat the whole phase un
 every file under the checked paths as it found it, at most three passes
 ([`RepeatUntilSettled`](../../src/Pipeline/Runner/RepeatUntilSettled.php)). Each repeat is
 announced with the number of files the previous pass changed. A phase still changing files on
-the third pass has tools that undo each other: the run prints a warning naming those files and
-carries on, and the read-only run reports what is left. A pass in which a tool fails is not
+the third pass has tools that undo each other, or a chain of changes longer than three passes:
+the run prints a warning naming those files and carries on, and the read-only run reports what
+is left. A pass in which a tool fails is not
 repeated. A read-only run, and a single tool such as `-t rector`, run once.
 
 ## How to fix a failure
