@@ -87,12 +87,60 @@ final class HooksDaemonCliLocatorTest extends TestCase
         self::assertSame($cli, new HooksDaemonCliLocator()->locate($package));
     }
 
+    /** Git writes a worktree's gitdir relative to it when `worktree.useRelativePaths` is set. */
+    #[Test]
+    public function aLinkedWorktreeWithARelativeGitdirUsesTheDaemonOfItsMainCheckout(): void
+    {
+        $cli = $this->root->write('main/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write('main/.git/worktrees/feature/commondir', "../..\n");
+        $worktree = $this->root->mkdir('main/untracked/worktrees/feature');
+        $this->root->write('main/untracked/worktrees/feature/' . self::WORK_TREE_MARKER, "gitdir: ../../../.git/worktrees/feature\n");
+
+        self::assertSame($cli, new HooksDaemonCliLocator()->locate($worktree));
+    }
+
+    /** A bare repository has no checkout of its own to hold the daemon. */
+    #[Test]
+    public function aWorktreeOfABareRepositoryHasNoMainCheckout(): void
+    {
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write('repository.git/worktrees/feature/commondir', "../..\n");
+
+        $worktree = $this->root->mkdir('feature');
+        $this->root->write('feature/' . self::WORK_TREE_MARKER, 'gitdir: ' . $this->root->path . "/repository.git/worktrees/feature\n");
+
+        self::assertNull(new HooksDaemonCliLocator()->locate($worktree));
+    }
+
+    #[Test]
+    public function aWorktreeWhoseRepositoryIsGoneHasNoMainCheckout(): void
+    {
+        $this->root->write('main/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write('main/.git/worktrees/feature/commondir', "../../../gone/.git\n");
+
+        $worktree = $this->root->mkdir('main/feature');
+        $this->root->write('main/feature/' . self::WORK_TREE_MARKER, 'gitdir: ' . $this->root->path . "/main/.git/worktrees/feature\n");
+
+        self::assertNull(new HooksDaemonCliLocator()->locate($worktree));
+    }
+
+    #[Test]
+    public function aGitFileThatNamesNoGitdirEndsTheWalk(): void
+    {
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $checkout = $this->root->mkdir('checkout');
+        $this->root->write('checkout/' . self::WORK_TREE_MARKER, "not a pointer\n");
+
+        self::assertNull(new HooksDaemonCliLocator()->locate($checkout));
+    }
+
     /** A submodule's gitdir has no `commondir`: the repository above it is another project. */
     #[Test]
     public function aSubmoduleDoesNotUseTheDaemonOfTheRepositoryHoldingIt(): void
     {
         $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
         $this->root->mkdir('.git/modules/library');
+
         $submodule = $this->root->mkdir('library');
         $this->root->write('library/' . self::WORK_TREE_MARKER, "gitdir: ../.git/modules/library\n");
 
