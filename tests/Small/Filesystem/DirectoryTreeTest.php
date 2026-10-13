@@ -33,6 +33,10 @@ final class DirectoryTreeTest extends TestCase
 
     private const string LINK = '/link';
 
+    private const string TARGET_PREFIX = 'phpqa-directory-tree-target';
+
+    private const string NESTED = '/nested';
+
     // The walk that has to know about links, spelt so this file does not contain it.
     private const string CHILD_FIRST_WALK = RecursiveIteratorIterator::class . '::CHILD_FIRST';
 
@@ -52,11 +56,11 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function aLinkToADirectoryIsRemovedAndItsTargetKept(): void
     {
-        $outside   = TempDir::create('phpqa-directory-tree-target');
+        $outside   = TempDir::create(self::TARGET_PREFIX);
         $directory = TempDir::create(self::PREFIX);
         \Safe\file_put_contents($outside->path . self::KEEP, 'x');
-        \Safe\mkdir($directory->path . '/nested');
-        \Safe\symlink($outside->path, $directory->path . '/nested' . self::LINK);
+        \Safe\mkdir($directory->path . self::NESTED);
+        \Safe\symlink($outside->path, $directory->path . self::NESTED . self::LINK);
 
         try {
             DirectoryTree::remove($directory->path);
@@ -71,7 +75,7 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function emptyingADirectoryKeepsTheDirectoryAndRemovesWhatIsInIt(): void
     {
-        $outside   = TempDir::create('phpqa-directory-tree-target');
+        $outside   = TempDir::create(self::TARGET_PREFIX);
         $directory = TempDir::create(self::PREFIX);
         \Safe\file_put_contents($outside->path . self::KEEP, 'x');
         \Safe\mkdir($directory->path . '/nested/deeper', 0o700, true);
@@ -116,12 +120,12 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function emptyingALinkToADirectoryEmptiesItsTargetAndKeepsTheLink(): void
     {
-        $target    = TempDir::create('phpqa-directory-tree-target');
+        $target    = TempDir::create(self::TARGET_PREFIX);
         $elsewhere = TempDir::create('phpqa-directory-tree-elsewhere');
         $directory = TempDir::create(self::PREFIX);
         \Safe\file_put_contents($elsewhere->path . self::KEEP, 'x');
-        \Safe\mkdir($target->path . '/nested');
-        \Safe\file_put_contents($target->path . '/nested/stale.txt', 'x');
+        \Safe\mkdir($target->path . self::NESTED);
+        \Safe\file_put_contents($target->path . self::NESTED . '/stale.txt', 'x');
         \Safe\symlink($elsewhere->path, $target->path . self::LINK);
         \Safe\symlink($target->path, $directory->path . self::LINK);
 
@@ -141,7 +145,7 @@ final class DirectoryTreeTest extends TestCase
     #[Test]
     public function removingALinkToADirectoryRemovesTheLinkAndLeavesItsTarget(): void
     {
-        $target    = TempDir::create('phpqa-directory-tree-target');
+        $target    = TempDir::create(self::TARGET_PREFIX);
         $directory = TempDir::create(self::PREFIX);
         \Safe\file_put_contents($target->path . self::KEEP, 'x');
         \Safe\symlink($target->path, $directory->path . self::LINK);

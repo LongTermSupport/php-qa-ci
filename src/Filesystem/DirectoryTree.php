@@ -10,9 +10,12 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 
 /**
- * Removes a directory tree, or what is in one. A link is removed, never
- * followed: a link to a directory reports isDir(), and rmdir() on it fails
- * with "Not a directory", while following it would empty its target.
+ * Removes a directory tree, or what is in one. A link found inside the tree
+ * is removed, never followed: a link to a directory reports isDir(), and
+ * rmdir() on it fails with "Not a directory", while following it would empty
+ * its target. The path the caller names may itself be a link to a directory,
+ * as when a project points an output directory at another disk: remove()
+ * removes that link, and empty() empties what it points at.
  *
  * @internal
  */
@@ -22,10 +25,16 @@ final readonly class DirectoryTree
     {
     }
 
-    /** Removes the directory and everything under it; a path that is not a directory is left alone. */
+    /** Removes the directory and everything under it, or the link to it; a path that is not a directory is left alone. */
     public static function remove(string $path): void
     {
-        if (!self::isDirectory($path)) {
+        if (!is_dir($path)) {
+            return;
+        }
+
+        if (is_link($path)) {
+            \Safe\unlink($path);
+
             return;
         }
 
@@ -33,10 +42,10 @@ final readonly class DirectoryTree
         \Safe\rmdir($path);
     }
 
-    /** Removes everything under the directory and keeps the directory; a path that is not a directory is left alone. */
+    /** Removes everything under the directory, or under the one a link points at, and keeps it; a path that is not a directory is left alone. */
     public static function empty(string $path): void
     {
-        if (!self::isDirectory($path)) {
+        if (!is_dir($path)) {
             return;
         }
 
@@ -55,10 +64,5 @@ final readonly class DirectoryTree
                 \Safe\unlink($entry->getPathname());
             }
         }
-    }
-
-    private static function isDirectory(string $path): bool
-    {
-        return is_dir($path) && !is_link($path);
     }
 }
