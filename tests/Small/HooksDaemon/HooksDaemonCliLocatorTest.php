@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Safe\Exceptions\FilesystemException;
 
 /**
  * The daemon CLI is found in the project, or in a directory above it up to the
@@ -97,6 +98,75 @@ final class HooksDaemonCliLocatorTest extends TestCase
 
         self::assertSame($cli, new HooksDaemonCliLocator()->locate($worktree));
         self::assertSame($cli, new HooksDaemonCliLocator()->locate($package));
+    }
+
+    /** From a worktree, the main checkout is walked from the same place, so a package's own daemon serves that package. */
+    #[Test]
+    public function aDaemonInAPackageOfTheMainCheckoutServesThatPackageInAWorktree(): void
+    {
+        $cli = $this->root->write(self::MAIN_CHECKOUT . self::PACKAGE . '/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write(self::WORKTREE_COMMONDIR, self::COMMONDIR_TO_MAIN_GIT);
+        $worktree = $this->root->mkdir(self::WORKTREE);
+        $this->root->write(self::WORKTREE . self::WORK_TREE_MARKER, self::GITDIR_POINTER . $this->root->path . '/' . self::WORKTREE_GITDIR . "\n");
+        $package = $this->root->mkdir(self::WORKTREE . self::PACKAGE);
+
+        self::assertSame($cli, new HooksDaemonCliLocator()->locate($package));
+        self::assertNull(new HooksDaemonCliLocator()->locate($worktree), 'the package daemon serves only its package');
+    }
+
+    /** A relative project root is the same directory as the absolute one, its place in the main checkout included. */
+    #[Test]
+    public function aRelativeProjectRootInAWorktreeIsWalkedFromItsPlaceInTheMainCheckout(): void
+    {
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $cli = $this->root->write(self::MAIN_CHECKOUT . self::PACKAGE . '/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write(self::WORKTREE_COMMONDIR, self::COMMONDIR_TO_MAIN_GIT);
+        $worktree = $this->root->mkdir(self::WORKTREE);
+        $this->root->write(self::WORKTREE . self::WORK_TREE_MARKER, self::GITDIR_POINTER . $this->root->path . '/' . self::WORKTREE_GITDIR . "\n");
+        $this->root->mkdir(self::WORKTREE . self::PACKAGE);
+
+        $workingDirectory = \Safe\getcwd();
+        \Safe\chdir($worktree);
+        try {
+            self::assertSame($cli, new HooksDaemonCliLocator()->locate(self::PACKAGE));
+        } finally {
+            \Safe\chdir($workingDirectory);
+        }
+    }
+
+    /** A root's `.` and `..` name directories, not steps of the walk, whether the root is absolute or relative. */
+    #[Test]
+    public function aRootThroughDotSegmentsIsTheDirectoryItNames(): void
+    {
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $mainCli    = $this->root->write(self::MAIN_CHECKOUT . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $packageCli = $this->root->write(self::MAIN_CHECKOUT . self::PACKAGE . '/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write(self::WORKTREE_COMMONDIR, self::COMMONDIR_TO_MAIN_GIT);
+        $worktree = $this->root->mkdir(self::WORKTREE);
+        $this->root->write(self::WORKTREE . self::WORK_TREE_MARKER, self::GITDIR_POINTER . $this->root->path . '/' . self::WORKTREE_GITDIR . "\n");
+        $package = $this->root->mkdir(self::WORKTREE . self::PACKAGE);
+
+        self::assertSame($mainCli, new HooksDaemonCliLocator()->locate($worktree . '/./..'), 'the directory holding the worktree is in the main checkout');
+
+        $workingDirectory = \Safe\getcwd();
+        \Safe\chdir($package);
+        try {
+            self::assertSame($packageCli, new HooksDaemonCliLocator()->locate('.'));
+        } finally {
+            \Safe\chdir($workingDirectory);
+        }
+    }
+
+    /** A pointer that exists but cannot be read is not the same as no daemon: the failure reaches the caller. */
+    #[Test]
+    public function aPointerThatCannotBeReadFailsRatherThanFindingNoDaemon(): void
+    {
+        $this->root->write(self::WORK_TREE_MARKER, self::GITDIR_POINTER . "/elsewhere\n");
+        $locator = new HooksDaemonCliLocator(static fn (string $path): string => throw new FilesystemException('cannot read ' . $path));
+
+        $this->expectExceptionObject(new FilesystemException('cannot read ' . $this->root->path . '/' . self::WORK_TREE_MARKER));
+
+        $locator->locate($this->root->path);
     }
 
     /** Git writes a worktree's gitdir relative to it when `worktree.useRelativePaths` is set. */
