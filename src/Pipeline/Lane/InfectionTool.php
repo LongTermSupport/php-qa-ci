@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use Closure;
-use FilesystemIterator;
 use InvalidArgumentException;
 use JsonException;
+use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
@@ -27,9 +27,6 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
 
 /**
  * Mutation testing: does the test suite kill injected faults? Self-contained
@@ -162,7 +159,7 @@ final readonly class InfectionTool implements ToolInterface
             ? $this->arguments->full($options, $logsDir, $configPath)
             : $this->arguments->diff($options, $logsDir, $configPath, ...$positionalPaths);
 
-        $this->clearDirectory($paths->varDir . '/infection');
+        DirectoryTree::empty($paths->varDir . '/infection');
         if (is_file($jsonLog)) {
             \Safe\unlink($jsonLog);
         }
@@ -587,10 +584,7 @@ final readonly class InfectionTool implements ToolInterface
 
         $context->writeln('Infection: generating fresh coverage (xdebug) before mutation testing.');
         $context->writeln('           (this also proves the suite is green, which lets Infection skip its initial run)');
-        if (is_dir($coverageXmlDir)) {
-            $this->clearDirectory($coverageXmlDir);
-            \Safe\rmdir($coverageXmlDir);
-        }
+        DirectoryTree::remove($coverageXmlDir);
 
         if (!is_dir($logsDir)) {
             \Safe\mkdir($logsDir, 0o777, true);
@@ -646,26 +640,5 @@ final readonly class InfectionTool implements ToolInterface
     private function isEmptyDirectory(string $dir): bool
     {
         return array_all(\Safe\scandir($dir), static fn ($entry): bool => !(\is_string($entry) && '.' !== $entry && '..' !== $entry));
-    }
-
-    /** Remove everything under $dir, keeping $dir itself (the `rm -rf dir/*` of the Bash fragment). */
-    private function clearDirectory(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        /** @var SplFileInfo $item */
-        foreach ($iterator as $item) {
-            if ($item->isDir()) {
-                \Safe\rmdir($item->getPathname());
-            } else {
-                \Safe\unlink($item->getPathname());
-            }
-        }
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Large\DeploySkills;
 
 use FilesystemIterator;
+use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Tests\Assets\DeploySkills\DeployProcessRunner;
 use LTS\PHPQA\Tests\Assets\DeploySkills\ShellRunner;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -76,7 +77,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->tempBases as $base) {
-            $this->removeTree($base);
+            DirectoryTree::remove($base);
         }
 
         $this->tempBases = [];
@@ -691,31 +692,5 @@ final class DeploySkillsCharacterisationTest extends TestCase
         sort($files);
 
         return $files;
-    }
-
-    private function removeTree(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($iterator as $fileInfo) {
-            if (!$fileInfo instanceof SplFileInfo) {
-                continue;
-            }
-
-            if ($fileInfo->isDir()) {
-                \Safe\rmdir($fileInfo->getPathname());
-                continue;
-            }
-
-            \Safe\unlink($fileInfo->getPathname());
-        }
-
-        \Safe\rmdir($dir);
     }
 }

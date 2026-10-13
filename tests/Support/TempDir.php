@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support;
 
-use FilesystemIterator;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
+use LTS\PHPQA\Filesystem\DirectoryTree;
 
 /**
  * A throwaway directory under the system temp dir, removed recursively on
@@ -80,24 +77,6 @@ final readonly class TempDir
 
     public function remove(): void
     {
-        if (!is_dir($this->path)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->path, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        /** @var SplFileInfo $item */
-        foreach ($iterator as $item) {
-            // A symlink to a directory reports isDir() true but is removed like a file.
-            if ($item->isDir() && !$item->isLink()) {
-                \Safe\rmdir($item->getPathname());
-            } else {
-                \Safe\unlink($item->getPathname());
-            }
-        }
-
-        \Safe\rmdir($this->path);
+        DirectoryTree::remove($this->path);
     }
 }
