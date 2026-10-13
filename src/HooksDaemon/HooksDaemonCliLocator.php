@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\HooksDaemon;
 
+use Closure;
+use Safe\Exceptions\FilesystemException;
+
 /**
  * Finds the hooks daemon's CLI for a project: in the project itself, or in a
  * directory above it up to the root of the git work tree the project sits in,
@@ -12,8 +15,9 @@ namespace LTS\PHPQA\HooksDaemon;
  *
  * A linked worktree is a checkout of the same repository, and the daemon,
  * which the repository ignores, is installed only in the main one; so at a
- * linked worktree's root the walk continues at the main checkout's root. A
- * submodule's root does not: the repository holding it is another project.
+ * linked worktree's root the walk continues in the main checkout, from the
+ * project's place in it up to its root. A submodule's root does not: the
+ * repository holding it is another project.
  *
  * @internal
  */
@@ -31,6 +35,18 @@ final readonly class HooksDaemonCliLocator
     /** In a linked worktree's git directory only: the path to the repository's own `.git`. */
     private const string COMMONDIR = 'commondir';
 
+    /**
+     * @param Closure(string): string $read reads a file whole, and throws when it cannot: a
+     *                                      pointer that exists but cannot be read leaves the
+     *                                      daemon's presence unknown, which is not its absence
+     */
+    public function __construct(private Closure $read = \Safe\file_get_contents(...))
+    {
+    }
+
+    /**
+     * @throws FilesystemException when a worktree's pointer to its main checkout cannot be read
+     */
     public function locate(string $projectRoot): ?string
     {
         $directory = $projectRoot;
@@ -44,7 +60,7 @@ final readonly class HooksDaemonCliLocator
             if (file_exists($directory . '/' . self::GIT)) {
                 $main = $this->mainCheckout($directory . '/' . self::GIT);
 
-                return null !== $main && is_file($main . '/' . self::CLI) ? $main . '/' . self::CLI : null;
+                return null === $main ? null : $this->inMainCheckout($main, substr($projectRoot, \strlen($directory)));
             }
 
             if ($parent === $directory) {
@@ -52,6 +68,27 @@ final readonly class HooksDaemonCliLocator
             }
 
             $directory = $parent;
+        }
+    }
+
+    /**
+     * The walk again in the main checkout, from the directory at the project's
+     * place in it up to its root, so a package's own daemon serves that package.
+     */
+    private function inMainCheckout(string $main, string $relative): ?string
+    {
+        $directory = $main . $relative;
+        while (true) {
+            $cli = $directory . '/' . self::CLI;
+            if (is_file($cli)) {
+                return $cli;
+            }
+
+            if ($directory === $main) {
+                return null;
+            }
+
+            $directory = \dirname($directory);
         }
     }
 
@@ -65,7 +102,7 @@ final readonly class HooksDaemonCliLocator
             return null;
         }
 
-        $pointer = trim(\Safe\file_get_contents($git));
+        $pointer = trim(($this->read)($git));
         if (!str_starts_with($pointer, self::GITDIR_PREFIX)) {
             return null;
         }
@@ -76,7 +113,7 @@ final readonly class HooksDaemonCliLocator
             return null;
         }
 
-        $repository = $this->resolve($gitDir, trim(\Safe\file_get_contents($commonDir)));
+        $repository = $this->resolve($gitDir, trim(($this->read)($commonDir)));
         if (!is_dir($repository)) {
             return null;
         }
