@@ -56,8 +56,9 @@ use PHPStan\Reflection\ReflectionProvider;
  * without PHPStan seeing it, so it keeps the literal type it was assigned; that
  * is recorded as a write to {@see self::UNSEEN_WRITE} followed by its name,
  * which the rule holds against any pattern naming the variable. So is either
- * side of `$alias = &$pattern`, and the variable in `[&$pattern]`: a later
- * write through the alias changes it, wherever that write is made.
+ * side of `$alias = &$pattern`, the variable in `[&$pattern]`, and the one a
+ * foreach iterates by reference: a later write through the alias changes it,
+ * wherever that write is made.
  *
  * A script's top-level variables are also written from inside any function:
  * through `$GLOBALS`, or after a `global` declaration. Those writes are keyed
@@ -89,6 +90,9 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     /** The superglobal whose offsets are the top-level variables. */
     private const string GLOBALS = 'GLOBALS';
 
+    /** Names whatever class the call is made on, which a subclass may be. */
+    private const string LATE_STATIC = 'static';
+
     private RegexPatternOwnership $ownership;
 
     public function __construct(private ReflectionProvider $reflectionProvider)
@@ -116,7 +120,11 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
             ),
             $node instanceof AssignRef                                                                                 => $this->unseenWrites($node->var, $node->expr),
             $node instanceof AssignOp                                                                                  => $this->write($node->var, null),
-            $node instanceof Foreach_                                                                                  => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
+            $node instanceof Foreach_                                                                                  => [
+                ...$this->unownedWrites($node->keyVar),
+                ...$this->unownedWrites($node->valueVar),
+                ...($node->byRef ? $this->unseenWrites($node->expr) : []),
+            ],
             $node instanceof Static_                                                                                   => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
             $node instanceof Global_                                                                                   => array_merge(...array_map($this->globalWrites(...), $node->vars)),
             $node instanceof ArrayItem                                                                                 => $node->byRef ? $this->unseenWrites($node->value) : [],
@@ -250,10 +258,10 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
         return $writes;
     }
 
-    /** A class with no constructor has no parameter to take anything by reference. */
+    /** A class with no constructor has no parameter to take anything by reference; `new static` may build a subclass that has one. */
     private function constructsWithoutAConstructor(CallLike $call, Scope $scope): bool
     {
-        if (!$call instanceof New_ || !$call->class instanceof Name) {
+        if (!$call instanceof New_ || !$call->class instanceof Name || self::LATE_STATIC === $call->class->toLowerString()) {
             return false;
         }
 
@@ -265,7 +273,7 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     private function callee(CallLike $call, Scope $scope): FunctionReflection|ExtendedMethodReflection|null
     {
         if ($call instanceof New_) {
-            if (!$call->class instanceof Name) {
+            if (!$call->class instanceof Name || self::LATE_STATIC === $call->class->toLowerString()) {
                 return null;
             }
 

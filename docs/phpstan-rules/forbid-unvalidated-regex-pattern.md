@@ -20,12 +20,14 @@ variable is owned when every write to it in its function is owned. These writes 
 
 - passing it to a by-reference parameter of a call;
 - passing it to any call whose callee the rule cannot resolve, such as `$callback($pattern)`, which
-  may take it by reference (a local closure called through its variable is one of these; a class
-  with no constructor is not);
+  may take it by reference (a local closure called through its variable is one of these, and so is
+  `new static`, whose class may be a subclass; a class with no constructor is not);
 - writing to one of its offsets, such as `$pattern[1] = $value`;
 - taking a reference to it, as in `$alias = &$pattern` or `[&$pattern]`, since a later write
   through the alias changes it wherever that write is made: in a callee, through an object or a
-  `foreach` by reference.
+  `foreach` by reference;
+- iterating it by reference, as in `foreach ($patterns as &$entry)`, which writes each element
+  through `$entry`.
 
 A pattern naming a variable written by an unresolvable call or through a reference is not owned
 even when PHPStan still types it as a literal string.
