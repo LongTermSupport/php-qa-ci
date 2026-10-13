@@ -109,6 +109,12 @@ makes PHPStan check every caller passes a pattern the code wrote.
   and exits 0, and an argument that does not compile fails naming it. `Psr4ValidatorTest`,
   `ConfigTemplateIgnoreListAuditorTest` and `RegexPatternTest` pin the same message for the ignore
   list and the class.
+- **Fix**: the two that take input compile every pattern through
+  [`RegexPattern`](../../src/Regex/RegexPattern.php), as does the `psr4Validate` lane's ignore list;
+  `LinksChecker`, `BundledToolVersions`, the two `@api` rules and `RequireEnumOverLiteralUnionRule`
+  escape the value with `preg_quote()`; `LogArchiver` takes a matcher closure instead of a pattern;
+  the helpers take a `literal-string` pattern, which PHPStan holds every caller to. The sweep now
+  finds none.
 
 ## Why it is opt-in
 

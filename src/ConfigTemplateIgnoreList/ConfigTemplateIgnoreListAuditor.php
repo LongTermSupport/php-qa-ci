@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\ConfigTemplateIgnoreList;
 
+use InvalidArgumentException;
+use LTS\PHPQA\Regex\RegexPattern;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
@@ -96,19 +98,23 @@ final readonly class ConfigTemplateIgnoreListAuditor
         return 1 === \Safe\preg_match('%^\s*namespace\s+[A-Za-z_\\\][A-Za-z0-9_\\\]*\s*;%m', $contents);
     }
 
-    private function isCovered(string $copyDestination, string ...$ignorePatterns): bool
+    private function isCovered(string $copyDestination, RegexPattern ...$ignorePatterns): bool
     {
-        return array_any($ignorePatterns, static fn (string $pattern): bool => 1 === \Safe\preg_match($pattern, $copyDestination));
+        return array_any($ignorePatterns, static fn (RegexPattern $pattern): bool => $pattern->matches($copyDestination));
     }
 
-    /** @return list<string> */
+    /**
+     * @return list<RegexPattern>
+     *
+     * @throws InvalidArgumentException naming the list and the first entry that does not compile
+     */
     private function loadIgnorePatterns(): array
     {
         $patterns = [];
         foreach (explode("\n", \Safe\file_get_contents($this->ignoreListPath)) as $line) {
             $line = trim($line);
             if ('' !== $line) {
-                $patterns[] = $line;
+                $patterns[] = RegexPattern::compile($line, $this->ignoreListPath . ' entry');
             }
         }
 

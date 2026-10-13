@@ -38,35 +38,35 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
         $this->analyse(
             [self::FIXTURES . '/Reportable.php'],
             [
-                [self::message(self::PREG_MATCH), 20],
-                [self::message('Safe\preg_match'), 21],
-                [self::message('preg_match_all'), 22],
-                [self::message('preg_replace'), 23],
-                [self::message('preg_replace_callback'), 24],
-                [self::message('preg_split'), 25],
-                [self::message('preg_grep'), 26],
-                [self::message('preg_filter'), 27],
-                [self::message('preg_replace_callback_array'), 28],
-                [self::message('Safe\preg_replace'), 29],
-                [self::message(self::PREG_MATCH), 30],
-                [self::message(self::PREG_MATCH), 36],
-                [self::message(self::PREG_MATCH), 41],
-                [self::message(self::PREG_MATCH), 46],
-                [self::message(self::PREG_MATCH), 47],
-                [self::message(self::PREG_MATCH), 48],
-                [self::message(self::PREG_MATCH), 49],
-                [self::message(self::PREG_MATCH), 55],
-                [self::message(self::PREG_MATCH), 64],
-                [self::message(self::PREG_MATCH), 74],
-                [self::message(self::PREG_MATCH), 87],
-                [self::message(self::PREG_MATCH), 94],
-                [self::message(self::PREG_MATCH), 104],
-                [self::message(self::PREG_MATCH), 110],
-                [self::message(self::PREG_MATCH), 116],
-                [self::message(self::PREG_MATCH), 125],
-                [self::message(self::PREG_MATCH), 131],
-                [self::message(self::PREG_MATCH), 137],
-                [self::message(self::PREG_MATCH), 138],
+                [$this->message(self::PREG_MATCH), 20],
+                [$this->message('Safe\preg_match'), 21],
+                [$this->message('preg_match_all'), 22],
+                [$this->message('preg_replace'), 23],
+                [$this->message('preg_replace_callback'), 24],
+                [$this->message('preg_split'), 25],
+                [$this->message('preg_grep'), 26],
+                [$this->message('preg_filter'), 27],
+                [$this->message('preg_replace_callback_array'), 28],
+                [$this->message('Safe\preg_replace'), 29],
+                [$this->message(self::PREG_MATCH), 30],
+                [$this->message(self::PREG_MATCH), 36],
+                [$this->message(self::PREG_MATCH), 41],
+                [$this->message(self::PREG_MATCH), 46],
+                [$this->message(self::PREG_MATCH), 47],
+                [$this->message(self::PREG_MATCH), 48],
+                [$this->message(self::PREG_MATCH), 49],
+                [$this->message(self::PREG_MATCH), 55],
+                [$this->message(self::PREG_MATCH), 64],
+                [$this->message(self::PREG_MATCH), 74],
+                [$this->message(self::PREG_MATCH), 87],
+                [$this->message(self::PREG_MATCH), 94],
+                [$this->message(self::PREG_MATCH), 104],
+                [$this->message(self::PREG_MATCH), 110],
+                [$this->message(self::PREG_MATCH), 116],
+                [$this->message(self::PREG_MATCH), 125],
+                [$this->message(self::PREG_MATCH), 131],
+                [$this->message(self::PREG_MATCH), 137],
+                [$this->message(self::PREG_MATCH), 138],
             ],
         );
     }
@@ -98,7 +98,7 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
         ];
     }
 
-    private static function message(string $function): string
+    private function message(string $function): string
     {
         return $function . '() compiles a pattern that is not built from literal strings and preg_quote(), so a pattern that does not compile is reported as a bare PCRE warning that names neither the pattern nor where it came from. '
             . 'Compile it under an error handler that throws naming both, restored in a finally. See docs/phpstan-rules/forbid-unvalidated-regex-pattern.md.';

@@ -74,7 +74,8 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
                     ->identifier(self::IDENTIFIER)
                     ->file($file)
                     ->line($line)
-                    ->build();
+                    ->build()
+                ;
             }
         }
 

@@ -2,26 +2,9 @@
 <?php declare(strict_types=1);
 
 use LTS\PHPQA\Helper;
+use LTS\PHPQA\Psr4Validate\Psr4ValidateCommand;
+use Symfony\Component\Console\Output\ConsoleOutput;
 
 require __DIR__.'/bootstrap.php';
 
-$ignoredRegexPatterns = array_slice($argv ?? [], 1);
-
-try {
-    $errors = (new \LTS\PHPQA\Psr4Validator(
-        $ignoredRegexPatterns,
-        Helper::getProjectRootDirectory(),
-        Helper::getComposerJsonDecoded()
-    ))->main();
-    if ([] !== $errors) {
-        echo "\nErrors found:\n"
-             .\var_export($errors, true);
-        throw new \RuntimeException(
-            'Errors validating PSR4'
-        );
-    }
-} catch (\Exception $e) {
-    echo "\n".$e->getMessage()."\n";
-    exit(1);
-}
-echo "\nNo errors found\n";
+exit(new Psr4ValidateCommand(Helper::getProjectRootDirectory(...), new ConsoleOutput())->run(...array_slice($argv ?? [], 1)));

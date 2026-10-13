@@ -13,10 +13,10 @@ use PhpParser\Node\Expr\AssignOp;
 use PhpParser\Node\Expr\AssignRef;
 use PhpParser\Node\Expr\List_;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\StaticVar;
 use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\Global_;
 use PhpParser\Node\Stmt\Static_;
-use PhpParser\Node\StaticVar;
 use PHPStan\Analyser\Scope;
 use PHPStan\Collectors\Collector;
 use PHPStan\Reflection\ReflectionProvider;
@@ -59,18 +59,18 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     public function processNode(Node $node, Scope $scope): ?array
     {
         $writes = match (true) {
-            $node instanceof Assign           => $node->var instanceof Variable
+            $node instanceof Assign                                              => $node->var instanceof Variable
                 ? $this->write($node->var, $this->ownership->dependencies($node->expr, $scope, false))
                 : $this->unownedWrites($node->var),
             $node instanceof AssignOp\Concat, $node instanceof AssignOp\Coalesce => $this->write(
                 $node->var,
                 $this->ownership->dependencies($node->expr, $scope, false),
             ),
-            $node instanceof AssignOp, $node instanceof AssignRef => $this->write($node->var, null),
-            $node instanceof Foreach_         => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
-            $node instanceof Static_          => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
-            $node instanceof Global_          => array_merge(...array_map(fn (Expr $var): array => $this->write($var, null), $node->vars)),
-            default                           => [],
+            $node instanceof AssignOp, $node instanceof AssignRef                => $this->write($node->var, null),
+            $node instanceof Foreach_                                            => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
+            $node instanceof Static_                                             => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
+            $node instanceof Global_                                             => array_merge(...array_map(fn (Expr $var): array => $this->write($var, null), $node->vars)),
+            default                                                              => [],
         };
         if ([] === $writes) {
             return null;
@@ -99,7 +99,7 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     private function unownedWrites(?Expr $target): array
     {
         if (!$target instanceof List_ && !$target instanceof Array_) {
-            return null === $target ? [] : $this->write($target, null);
+            return $target instanceof Expr ? $this->write($target, null) : [];
         }
 
         $writes = [];

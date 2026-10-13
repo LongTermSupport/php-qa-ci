@@ -39,15 +39,6 @@ final class Psr4ValidateCommandTest extends TestCase
         $this->output = new BufferedOutput();
     }
 
-    /**
-     * @return iterable<string, array{string}>
-     */
-    public static function helpOptions(): iterable
-    {
-        yield 'long' => ['--help'];
-        yield 'short' => ['-h'];
-    }
-
     #[Test]
     #[\PHPUnit\Framework\Attributes\DataProvider('helpOptions')]
     public function theHelpOptionPrintsTheUsageAndValidatesNothing(string $option): void
@@ -58,6 +49,15 @@ final class Psr4ValidateCommandTest extends TestCase
         self::assertSame(Psr4ValidateCommand::EXIT_PASSED, $exitCode);
         self::assertStringStartsWith('Usage: psr4-validate [<ignore-pattern> ...]', $output);
         self::assertStringNotContainsString('Errors found', $output);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function helpOptions(): iterable
+    {
+        yield 'long' => ['--help'];
+        yield 'short' => ['-h'];
     }
 
     #[Test]
@@ -89,14 +89,24 @@ final class Psr4ValidateCommandTest extends TestCase
 
         self::assertSame(Psr4ValidateCommand::EXIT_FAILED, $exitCode);
         self::assertStringContainsString("\nErrors found:\n", $output);
-        self::assertStringContainsString('In\Valid\Nested\Deep', $output);
+        self::assertStringContainsString("'actualNamespace' => 'Totally'", $output);
         self::assertStringEndsWith("\nErrors validating PSR4\n", $output);
+    }
+
+    #[Test]
+    public function aProjectWithoutAComposerJsonFailsWithTheReason(): void
+    {
+        $root     = \Safe\realpath(__DIR__);
+        $exitCode = $this->command($root)->run();
+
+        self::assertSame(Psr4ValidateCommand::EXIT_FAILED, $exitCode);
+        self::assertSame("\nNo composer.json in " . $root . "; run psr4-validate from the project root.\n", $this->output->fetch());
     }
 
     private function command(string $project): Psr4ValidateCommand
     {
         $root = \Safe\realpath($project);
 
-        return new Psr4ValidateCommand($root, Helper::getComposerJsonDecoded($root . '/composer.json'), $this->output);
+        return new Psr4ValidateCommand(static fn (): string => $root, $this->output);
     }
 }

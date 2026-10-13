@@ -39,7 +39,7 @@ final readonly class RegexPatternOwnership
     /** Variables are grouped by the function that holds them; a closure's share its enclosing function's. */
     public static function functionKey(Scope $scope): string
     {
-        return ($scope->getClassReflection()?->getName() ?? '') . '::' . ($scope->getFunctionName() ?? '');
+        return \sprintf('%s::%s', $scope->getClassReflection()?->getName(), $scope->getFunctionName());
     }
 
     /**
@@ -82,12 +82,12 @@ final readonly class RegexPatternOwnership
     private function callDependencies(FuncCall $call, Scope $scope): ?array
     {
         $args = $call->getArgs();
-        if (!$call->name instanceof Name || $call->isFirstClassCallable() || array_any($args, static fn (Arg $arg): bool => $arg->unpack || null !== $arg->name)) {
+        if (!$call->name instanceof Name || $call->isFirstClassCallable() || array_any($args, static fn (Arg $arg): bool => $arg->unpack || $arg->name instanceof \PhpParser\Node\Identifier)) {
             return null;
         }
 
         return match ($this->reflectionProvider->resolveFunctionName($call->name, $scope)) {
-            'preg_quote' => 2 === \count($args) ? [] : null,
+            'preg_quote' => 2  === \count($args) ? [] : null,
             'sprintf'    => [] === $args ? null : $this->merged($scope, ...array_map(static fn (Arg $arg): Expr => $arg->value, $args)),
             default      => null,
         };
@@ -113,7 +113,7 @@ final readonly class RegexPatternOwnership
     private function isParameter(string $name, Scope $scope): bool
     {
         $parameters = [
-            ...$scope->getFunction()?->getOnlyVariant()->getParameters() ?? [],
+            ...$scope->getFunction()?->getOnlyVariant()->getParameters()  ?? [],
             ...$scope->getAnonymousFunctionReflection()?->getParameters() ?? [],
         ];
 

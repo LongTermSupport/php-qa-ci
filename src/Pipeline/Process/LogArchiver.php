@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Process;
 
+use Closure;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -64,7 +65,7 @@ final readonly class LogArchiver
         $this->output->writeln($runType);
         $this->output->writeln('Log: ' . basename($archive));
 
-        $matching = $this->matching($logDir, $pattern);
+        $matching = $this->matching($logDir, static fn (string $entry): bool => 1 === \Safe\preg_match($pattern, $entry));
         if (\count($matching) > self::KEEP) {
             $evicted = \array_slice($matching, self::KEEP);
             foreach ($evicted as $old) {
@@ -90,7 +91,7 @@ final readonly class LogArchiver
             preg_quote($extension, '/'),
         );
 
-        $archives = $this->matching($logDir, $anyArchive);
+        $archives = $this->matching($logDir, static fn (string $entry): bool => 1 === \Safe\preg_match($anyArchive, $entry));
         if (\count($archives) <= self::DIRECTORY_CAP) {
             return;
         }
@@ -108,12 +109,16 @@ final readonly class LogArchiver
         ));
     }
 
-    /** @return list<string> newest first */
-    private function matching(string $logDir, string $pattern): array
+    /**
+     * @param Closure(string): bool $isArchive whether a directory entry is one of the archives wanted
+     *
+     * @return list<string> newest first
+     */
+    private function matching(string $logDir, Closure $isArchive): array
     {
         $files = [];
         foreach (\Safe\scandir($logDir) as $entry) {
-            if (\is_string($entry) && 1 === \Safe\preg_match($pattern, $entry)) {
+            if (\is_string($entry) && $isArchive($entry)) {
                 $files[] = $logDir . '/' . $entry;
             }
         }

@@ -50,6 +50,7 @@ final readonly class UnownedRegexPatternCollector implements Collector
         'safe\preg_replace_callback_array' => true,
     ];
 
+    /** The name PHP and thecodingmachine/safe both give the pattern argument. */
     private const string PATTERN_PARAMETER = 'pattern';
 
     private RegexPatternOwnership $ownership;
