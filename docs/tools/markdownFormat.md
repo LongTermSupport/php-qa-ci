@@ -30,8 +30,14 @@ records the alternatives and why they lost.
 - The daemon CLI is `.claude/hooks-daemon/bin/hooks-daemon`, found in the project or in a
   directory above it, up to the root of the git work tree (one daemon serving a monorepo). It is
   never looked for above that root, except from a linked worktree (`git worktree add`), which uses
-  the daemon of its main checkout, the only checkout it is installed in. A submodule does not use
-  the daemon of the repository holding it.
+  the daemon of its main checkout, the only checkout it is installed in. There it is looked for
+  the same way, from the project's place in the main checkout up to its root, so a daemon a
+  monorepo installs in one package serves that package in every worktree. A submodule does not
+  use the daemon of the repository holding it.
+- A main checkout whose git directory was moved out of it (`git clone --separate-git-dir`) cannot
+  be found from a worktree: git records no path from that directory back to the checkout, so its
+  worktrees have no daemon and the lane skips there. The directory holding that git directory is
+  looked in instead when the git directory is itself named `.git`.
 - **Without the daemon the lane skips**, and says so. That includes CI, where nothing rewrites
   markdown either, so there is nothing to agree with.
 - It formats the paths from `withMarkdownFormatPaths()` in `qaConfig/qa.php`. The default is
@@ -55,7 +61,9 @@ records the alternatives and why they lost.
 
 Any other failure, an error from the daemon, a CLI without `format-markdown` or a
 `git check-ignore` that cannot run, is a **crash**:
-it is not a formatting finding, and the daemon's own message is printed.
+it is not a formatting finding, and the daemon's own message is printed. So is a worktree's `.git`
+file, or the `commondir` it leads to, that exists but cannot be read: whether the daemon is
+installed is then unknown, which is not the same as its absence, and the crash names the file.
 
 ## How to fix a failure
 
