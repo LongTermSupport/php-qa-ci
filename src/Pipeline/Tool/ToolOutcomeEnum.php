@@ -11,6 +11,15 @@ namespace LTS\PHPQA\Pipeline\Tool;
  */
 enum ToolOutcomeEnum
 {
+    /** The tool ran and found nothing to report. */
+    case Passed;
+    /** The tool ran and reported violations; interactively this is retried. */
+    case Failed;
+    /** The tool itself broke (bad config, parse failure); never retried. */
+    case Crashed;
+    /** The tool decided not to run (opted out, nothing to do). Counts as passed. */
+    case Skipped;
+
     public function isSuccess(): bool
     {
         return match ($this) {
@@ -23,13 +32,4 @@ enum ToolOutcomeEnum
     {
         return self::Failed === $this;
     }
-
-    /** The tool ran and found nothing to report. */
-    case Passed;
-    /** The tool ran and reported violations; interactively this is retried. */
-    case Failed;
-    /** The tool itself broke (bad config, parse failure); never retried. */
-    case Crashed;
-    /** The tool decided not to run (opted out, nothing to do). Counts as passed. */
-    case Skipped;
 }

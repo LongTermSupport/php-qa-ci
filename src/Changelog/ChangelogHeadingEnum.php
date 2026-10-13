@@ -17,6 +17,14 @@ use InvalidArgumentException;
  */
 enum ChangelogHeadingEnum: string
 {
+    case ChangedBreaking = 'Changed — breaking';
+    case Removed         = 'Removed';
+    case Added           = 'Added';
+    case Changed         = 'Changed';
+    case Deprecated      = 'Deprecated';
+    case Fixed           = 'Fixed';
+    case Security        = 'Security';
+
     public function bump(): ReleaseBumpEnum
     {
         return match ($this) {
@@ -60,12 +68,4 @@ enum ChangelogHeadingEnum: string
             implode(', ', array_map(static fn (self $heading): string => \sprintf('%s (%s)', $heading->value, $heading->slug()), self::cases())),
         ));
     }
-
-    case ChangedBreaking = 'Changed — breaking';
-    case Removed         = 'Removed';
-    case Added           = 'Added';
-    case Changed         = 'Changed';
-    case Deprecated      = 'Deprecated';
-    case Fixed           = 'Fixed';
-    case Security        = 'Security';
 }

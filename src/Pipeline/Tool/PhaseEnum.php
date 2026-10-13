@@ -16,6 +16,11 @@ use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
  */
 enum PhaseEnum: string
 {
+    case CodingStandards = 'codingStandards';
+    case Linting         = 'linting';
+    case StaticAnalysis  = 'staticAnalysis';
+    case Testing         = 'testing';
+
     public function phase(): PhaseDto
     {
         return match ($this) {
@@ -25,9 +30,4 @@ enum PhaseEnum: string
             self::Testing         => new PhaseDto($this->value, 'Running All Testing Tools', 'allTestingTools', ['allTests'], 'all testing tools'),
         };
     }
-
-    case CodingStandards = 'codingStandards';
-    case Linting         = 'linting';
-    case StaticAnalysis  = 'staticAnalysis';
-    case Testing         = 'testing';
 }

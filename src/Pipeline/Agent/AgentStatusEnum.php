@@ -17,6 +17,14 @@ namespace LTS\PHPQA\Pipeline\Agent;
  */
 enum AgentStatusEnum: string
 {
+    case Clean = 'clean';
+
+    case Errors = 'errors';
+
+    case Crashed = 'crashed';
+
+    case LockHeld = 'lock-held';
+
     public static function forErrorCount(int $errors): self
     {
         return $errors > 0 ? self::Errors : self::Clean;
@@ -31,12 +39,4 @@ enum AgentStatusEnum: string
             self::Crashed  => 3,
         };
     }
-
-    case Clean = 'clean';
-
-    case Errors = 'errors';
-
-    case Crashed = 'crashed';
-
-    case LockHeld = 'lock-held';
 }

@@ -39,9 +39,21 @@ $rules = [
     'concat_space'                        => ['spacing' => 'one'],
     'declare_strict_types'                => true,
     'final_class'                         => true,
+    // One blank line between members, as Rector's NewlineBetweenClassLikeStmtsRector requires:
+    // ordered_class_elements below moves members, and a member it moves must not land
+    // against its new neighbour, or the next Rector run changes the file again.
+    'class_attributes_separation'         => [
+        'elements' => [
+            'const'        => 'one',
+            'method'       => 'one',
+            'property'     => 'one',
+            'trait_import' => 'none',
+        ],
+    ],
     'ordered_class_elements'              => [
         'order' => [
             'use_trait',
+            'case',
             'constant_public',
             'constant_protected',
             'constant_private',

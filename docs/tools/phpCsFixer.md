@@ -13,6 +13,14 @@ project-wide additions (aligned operators, `final` classes, strict comparison, o
 class elements). The pipeline owns the arguments; a project changes rules by overriding the config
 file, not by passing flags.
 
+The shipped ruleset agrees with the shipped Rector configs, so one writable `allCS` pass leaves
+nothing for a read-only run to change: enum cases come first among class elements, and constants,
+properties and methods keep one blank line between them wherever the element ordering moves them,
+as Rector's `NewlineBetweenClassLikeStmtsRector` requires.
+[`OneCodingStandardsPassIsAFixedPointTest`](../../tests/Large/CodingStandards/OneCodingStandardsPassIsAFixedPointTest.php)
+runs both tools over every class-like kind with its members out of order and fails when they disagree.
+A project that overrides `php_cs.php` takes on keeping its copy in agreement.
+
 ## How it runs
 
 One process over the committed `vendor-phar/php-cs-fixer.phar`, from the project root:

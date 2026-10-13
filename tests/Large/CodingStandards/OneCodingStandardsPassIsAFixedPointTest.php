@@ -43,7 +43,7 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
     protected function setUp(): void
     {
         $this->project = TempDir::create('phpqa-cs-fixed-point');
-        $this->project->write('composer.json', '{"name": "probe/probe", "type": "project", "require": {"php": "^8.5", "thecodingmachine/safe": "^3.0"},"autoload": {"psr-4": {"Probe\\\\": "src/"}}}');
+        $this->project->write('composer.json', '{"name": "probe/probe", "type": "project", "require": {"php": "^8.5", "thecodingmachine/safe": "^3.0"},"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
         foreach (\Safe\scandir(self::CORPUS) as $name) {
             if (str_ends_with($name, '.php')) {
                 $this->project->write('src/' . $name, \Safe\file_get_contents(self::CORPUS . '/' . $name));
