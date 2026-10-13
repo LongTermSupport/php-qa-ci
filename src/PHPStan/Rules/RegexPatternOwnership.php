@@ -13,6 +13,7 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\InterpolatedStringPart;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\InterpolatedString;
+use PhpParser\NodeFinder;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ParameterReflection;
 use PHPStan\Reflection\ReflectionProvider;
@@ -33,8 +34,14 @@ use PHPStan\Reflection\ReflectionProvider;
  */
 final readonly class RegexPatternOwnership
 {
+    /** The function key of a script's top-level code: no class and no function. */
+    public const string TOP_LEVEL = '::';
+
     /** Each bracket delimiter => the one that closes the pattern. */
     private const array CLOSING_DELIMITERS = ['(' => ')', '[' => ']', '{' => '}', '<' => '>'];
+
+    /** Escapes the value it is given, so a pattern holds that value literally. */
+    private const string QUOTE = 'preg_quote';
 
     public function __construct(private ReflectionProvider $reflectionProvider)
     {
@@ -60,6 +67,35 @@ final readonly class RegexPatternOwnership
         }
 
         return $patternIsKeys ? null : $this->partsDependencies($pattern, $scope, $this->delimiter($pattern, $scope));
+    }
+
+    /**
+     * Every variable the expression names, but the value preg_quote() is given: a
+     * pattern is owned or not whatever that holds, since it is matched literally.
+     *
+     * @return list<string>
+     */
+    public function variablesNamed(Expr $expr, Scope $scope): array
+    {
+        $finder = new NodeFinder();
+        $quoted = [];
+        foreach ($finder->findInstanceOf($expr, FuncCall::class) as $call) {
+            $value = $call->isFirstClassCallable() ? null : $call->getArgs()[0] ?? null;
+            if ($value instanceof Arg && $call->name instanceof Name && self::QUOTE === $this->reflectionProvider->resolveFunctionName($call->name, $scope)) {
+                foreach ($finder->findInstanceOf($value->value, Variable::class) as $variable) {
+                    $quoted[spl_object_id($variable)] = true;
+                }
+            }
+        }
+
+        $names = [];
+        foreach ($finder->findInstanceOf($expr, Variable::class) as $variable) {
+            if (\is_string($variable->name) && 'this' !== $variable->name && !isset($quoted[spl_object_id($variable)])) {
+                $names[] = $variable->name;
+            }
+        }
+
+        return array_values(array_unique($names));
     }
 
     /**
@@ -132,7 +168,7 @@ final readonly class RegexPatternOwnership
         }
 
         return match ($this->reflectionProvider->resolveFunctionName($call->name, $scope)) {
-            'preg_quote' => $this->quotesDelimiter($scope, $delimiter, ...$args) ? [] : null,
+            self::QUOTE  => $this->quotesDelimiter($scope, $delimiter, ...$args) ? [] : null,
             'sprintf'    => [] === $args ? null : $this->merged($scope, $delimiter, ...array_map(static fn (Arg $arg): Expr => $arg->value, $args)),
             default      => null,
         };

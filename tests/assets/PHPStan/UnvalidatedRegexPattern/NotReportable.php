@@ -63,6 +63,20 @@ final readonly class NotReportable
         }
     }
 
+    public function aClosureThatGuardsItsOwnCall(string $pattern, string $subject): callable
+    {
+        return static function () use ($pattern, $subject): bool {
+            set_error_handler(static function (int $level, string $message) use ($pattern): never {
+                throw new InvalidArgumentException(\sprintf('"%s" is not a valid regular expression: %s', $pattern, $message), $level);
+            });
+            try {
+                return 1 === preg_match($pattern, $subject);
+            } finally {
+                restore_error_handler();
+            }
+        };
+    }
+
     public function aFirstClassCallableCompilesNothing(): callable
     {
         return preg_match(...);
@@ -110,9 +124,82 @@ final readonly class NotReportable
         preg_match($grown, $subject);
     }
 
+    public function quotesAValuePassedToACallThatCannotBeResolved(callable $callback, string $value, string $subject): void
+    {
+        $word = $value;
+        $callback($word);
+        preg_match('/' . preg_quote($word, '/') . '/', $subject);
+    }
+
+    public function defaultedToAnOwnedValue(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $pattern ??= '/^' . preg_quote($value, '/') . '$/';
+        preg_match($pattern, $subject);
+    }
+
+    public function writesAPropertyBesideAnOwnedPattern(string $value, string $subject): object
+    {
+        $pattern       = '/' . preg_quote($value, '/') . '/';
+        $holder        = new \stdClass();
+        $holder->value = $value;
+        preg_match($pattern, $subject);
+
+        return $holder;
+    }
+
+    public function passesAPatternByValue(string $value, string $subject): PatternHolder
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        self::accept($pattern);
+        $holder = new PatternHolder($pattern);
+        preg_match($pattern, $subject);
+
+        return $holder;
+    }
+
+    /** A class with no constructor has no parameter to take the pattern by reference. */
+    public function passesAPatternToAClassWithNoConstructor(string $subject): self
+    {
+        $pattern  = '/a/';
+        $instance = new self($pattern);
+        preg_match($pattern, $subject);
+
+        return $instance;
+    }
+
+    /** A copy is held to what it was copied from, and copies of one another end the search. */
+    public function copiesAPatternBackAndForth(string $value, string $subject): void
+    {
+        $other   = 'x';
+        $alias   = &$other;
+        $alias   = $value;
+        $first   = '/a/';
+        $second  = $first;
+        $first   = $second;
+        $patterns = ['/b/'];
+        foreach ($patterns as $copy) {
+            preg_match($copy, $subject);
+        }
+
+        preg_match($first, $subject);
+    }
+
     /** @return literal-string */
     private function literal(): string
     {
         return 'abc';
+    }
+
+    private static function accept(string $pattern): string
+    {
+        return $pattern;
+    }
+}
+
+final readonly class PatternHolder
+{
+    public function __construct(public string $pattern)
+    {
     }
 }

@@ -30,12 +30,12 @@ use PHPStan\Collectors\Collector;
  * elsewhere, whenever it is called, so its span is recorded as excluded.
  *
  * Each value is [range start, range end (exclusive), excluded spans as
- * [start, end] inclusive, function key]. The rule counts the range only where
- * the function installs a handler before the call ({@see ErrorHandlerInstallCollector}).
+ * [start, end] inclusive]. The rule counts the range only where the innermost
+ * function holding the call installs a handler before it ({@see ErrorHandlerInstallCollector}).
  *
  * @internal
  *
- * @implements Collector<TryCatch, array{int, int, list<array{int, int}>, string}>
+ * @implements Collector<TryCatch, array{int, int, list<array{int, int}>}>
  */
 final readonly class ErrorHandlerRestoringFinallyCollector implements Collector
 {
@@ -47,7 +47,7 @@ final readonly class ErrorHandlerRestoringFinallyCollector implements Collector
     }
 
     /**
-     * @return array{int, int, list<array{int, int}>, string}|null
+     * @return array{int, int, list<array{int, int}>}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -60,7 +60,7 @@ final readonly class ErrorHandlerRestoringFinallyCollector implements Collector
             $excluded[] = [$declaration->getStartFilePos(), $declaration->getEndFilePos()];
         }
 
-        return [$node->getStartFilePos(), $node->finally->getStartFilePos(), $excluded, RegexPatternOwnership::functionKey($scope)];
+        return [$node->getStartFilePos(), $node->finally->getStartFilePos(), $excluded];
     }
 
     /** A call in a function or class declared in the finally runs elsewhere, so it does not count. */

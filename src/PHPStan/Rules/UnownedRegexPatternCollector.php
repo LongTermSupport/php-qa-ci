@@ -21,13 +21,19 @@ use PHPStan\Reflection\ReflectionProvider;
  * them is, which the rule decides from RegexPatternVariableWriteCollector, so
  * the variables are recorded with the call.
  *
+ * A local variable PHPStan types as a literal string is owned without that, but
+ * PHPStan does not see every write: extract() may replace it with anything. So
+ * every variable the pattern names outside a preg_quote() value is recorded
+ * too, for the rule to refuse the call where its function writes a variable
+ * that cannot be named.
+ *
  * Each value is [the function's name as written, line, start offset, the
  * local variables the pattern is built from, or null when it is not owned
- * whatever they hold, function key].
+ * whatever they hold, function key, every variable the pattern names].
  *
  * @internal
  *
- * @implements Collector<FuncCall, array{string, int, int, list<string>|null, string}>
+ * @implements Collector<FuncCall, array{string, int, int, list<string>|null, string, list<string>}>
  */
 final readonly class UnownedRegexPatternCollector implements Collector
 {
@@ -66,7 +72,7 @@ final readonly class UnownedRegexPatternCollector implements Collector
     }
 
     /**
-     * @return array{string, int, int, list<string>|null, string}|null
+     * @return array{string, int, int, list<string>|null, string, list<string>}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -81,7 +87,8 @@ final readonly class UnownedRegexPatternCollector implements Collector
 
         $pattern      = $this->patternArgument($node);
         $dependencies = $pattern instanceof Expr ? $this->ownership->dependencies($pattern, $scope, self::PATTERN_FUNCTIONS[$function]) : null;
-        if ([] === $dependencies) {
+        $named        = $pattern instanceof Expr ? $this->ownership->variablesNamed($pattern, $scope) : [];
+        if ([] === $dependencies && [] === $named) {
             return null;
         }
 
@@ -91,6 +98,7 @@ final readonly class UnownedRegexPatternCollector implements Collector
             $node->getStartFilePos(),
             $dependencies,
             RegexPatternOwnership::functionKey($scope),
+            $named,
         ];
     }
 

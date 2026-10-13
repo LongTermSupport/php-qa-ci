@@ -16,9 +16,41 @@ The code owns a pattern that is `literal-string` typed, or built from literal st
 delimiter can be read from its leftmost literal, that one (or the closing bracket of a bracket
 pair): with none, or another, a value holding the delimiter ends the pattern early. A fragment
 quoted on its own, with no delimiter beside it, is checked only for being given one. A local
-variable is owned when every write to it in its function is owned; passing it to a by-reference
-parameter of a call the rule can resolve is a write it does not own. A parameter, a property, an
-array element, a foreach variable or any other value is not owned.
+variable is owned when every write to it in its function is owned. These writes are not owned:
+
+- passing it to a by-reference parameter of a call;
+- passing it to any call whose callee the rule cannot resolve, such as `$callback($pattern)`, which
+  may take it by reference (a local closure called through its variable is one of these, and so is
+  `new static`, whose class may be a subclass; a class with no constructor is not);
+- writing to one of its offsets, such as `$pattern[1] = $value`;
+- taking a reference to it, as in `$alias = &$pattern` or `[&$pattern]`, since a later write
+  through the alias changes it wherever that write is made: in a callee, through an object or a
+  `foreach` by reference;
+- iterating it by reference, as in `foreach ($patterns as &$entry)`, which writes each element
+  through `$entry`, or destructuring it with a reference into it, as in `[, &$second] = $patterns`
+  or `foreach ($rows as [&$entry])`.
+
+A pattern naming a variable written by an unresolvable call or through a reference is not owned
+even when PHPStan still types it as a literal string. Neither is one naming a variable written,
+by an assignment or a foreach, with a value that reads such a variable, however many writes away:
+`$first = $patterns[0]`, `foreach ($patterns as $copy)`, and also
+`$pattern = [] === $patterns ? '/a/' : '/b/'`, since any variable the value reads counts, not only
+one it copies. The order of the statements is not followed either, so a copy taken before the
+reference write counts too. A value given to `preg_quote()` is not followed, since the pattern
+holds it literally.
+
+A function that writes a variable the rule cannot name owns no local that a pattern names. Such a
+write is `$$name = …`, `extract()`, or an `include`, `require` or `eval`, which runs in the
+caller's scope.
+
+A script's top-level variables are also written from inside a function: through `$GLOBALS`, or
+once a function declares `global $pattern`, whether or not it then writes it. Either counts against
+top-level code in every file, since the function may be called from any of them, and a
+`$GLOBALS[$name]` whose offset is not a literal counts as a write to every top-level variable.
+
+A parameter, a property, an array element, a foreach variable or any other value is not owned. A
+variable inside `preg_quote()` is not judged at all: the pattern holds its value literally,
+whatever it is.
 
 ## Why this is a hazard
 
@@ -75,10 +107,11 @@ makes PHPStan check every caller passes a pattern the code wrote.
 - A pattern built in the call or in a local variable from those, from `preg_quote($value, $delimiter)`
   and from other owned locals.
 - A call inside a `try` whose `finally` restores the error handler, including in its `catch`
-  blocks, after its function calls `set_error_handler()`: the handler the function installed is the
-  one in force there. A `finally` that restores a handler the function never installed guards
-  nothing, and a closure or class declared inside the `try` is not covered, because it runs
-  whenever it is called.
+  blocks, after the innermost function holding the call calls `set_error_handler()`: the handler
+  that function installed is the one in force there. A `finally` that restores a handler the
+  function never installed guards nothing, and neither does one installed in a closure, which runs
+  only when it is called. A closure or class declared inside the `try` is not covered, because it
+  runs whenever it is called; a closure that installs its own handler and guards its own call is.
 - A first-class callable, `preg_match(...)`, which compiles nothing where it is written.
 
 ## Defence Before Fix record
@@ -106,10 +139,9 @@ makes PHPStan check every caller passes a pattern the code wrote.
   `RuleDocumentationTest`. Generated and vendored code is not swept.
 - **Narrowing**: a local variable every write to which is owned is owned, because what it holds at
   the call is one of those values. A call in a `try` whose `finally` restores the error handler,
-  after its function calls `set_error_handler()`, is excluded, because it runs under a handler the
-  function installed for it. The rule does not read the handler itself, so one that does not throw
-  is still trusted; and a write through a call it cannot resolve (a dynamic call, `extract()`) is
-  not seen.
+  after the innermost function holding it calls `set_error_handler()`, is excluded, because it runs
+  under a handler that function installed for it. The rule does not read the handler itself, so one
+  that does not throw is still trusted.
 - **Next wider rule, not built**: any pattern language fed a value the code does not own — `glob()`
   and `fnmatch()` as well as PCRE. Not built because the hazard is absent: neither fails to compile
   a pattern, so neither produces the anonymous error this class is about. A bad glob matches

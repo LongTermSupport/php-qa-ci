@@ -15,6 +15,7 @@ use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 
 /**
  * @internal
@@ -33,6 +34,8 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
     private const string FIXTURES = __DIR__ . '/../../../assets/PHPStan/UnvalidatedRegexPattern';
 
     private const string PREG_MATCH = 'preg_match';
+
+    private const int DENSE_COPIES_SECONDS = 20;
 
     /** Loaded first, as the other fixture is, so the by-reference method it calls can be resolved. */
     #[Test]
@@ -77,6 +80,41 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
                 [$this->message(self::PREG_MATCH), 145],
                 [$this->message(self::PREG_MATCH), 151],
                 [$this->message(self::PREG_MATCH), 161],
+                [$this->message(self::PREG_MATCH), 169],
+                [$this->message(self::PREG_MATCH), 176],
+                [$this->message(self::PREG_MATCH), 184],
+                [$this->message(self::PREG_MATCH), 191],
+                [$this->message(self::PREG_MATCH), 201],
+                [$this->message(self::PREG_MATCH), 208],
+                [$this->message(self::PREG_MATCH), 221],
+                [$this->message(self::PREG_MATCH), 228],
+                [$this->message(self::PREG_MATCH), 235],
+                [$this->message(self::PREG_MATCH), 242],
+                [$this->message(self::PREG_MATCH), 251],
+                [$this->message(self::PREG_MATCH), 259],
+                [$this->message(self::PREG_MATCH), 266],
+                [$this->message(self::PREG_MATCH), 273],
+                [$this->message(self::PREG_MATCH), 280],
+                [$this->message(self::PREG_MATCH), 290],
+                [$this->message(self::PREG_MATCH), 297],
+                [$this->message(self::PREG_MATCH), 305],
+                [$this->message(self::PREG_MATCH), 313],
+                [$this->message(self::PREG_MATCH), 320],
+                [$this->message(self::PREG_MATCH), 328],
+                [$this->message(self::PREG_MATCH), 336],
+                [$this->message(self::PREG_MATCH), 344],
+                [$this->message(self::PREG_MATCH), 351],
+                [$this->message(self::PREG_MATCH), 361],
+                [$this->message(self::PREG_MATCH), 373],
+                [$this->message(self::PREG_MATCH), 384],
+                [$this->message(self::PREG_MATCH), 388],
+                [$this->message(self::PREG_MATCH), 397],
+                [$this->message(self::PREG_MATCH), 405],
+                [$this->message(self::PREG_MATCH), 415],
+                [$this->message(self::PREG_MATCH), 422],
+                [$this->message(self::PREG_MATCH), 433],
+                [$this->message(self::PREG_MATCH), 446],
+                [$this->message(self::PREG_MATCH), 482],
             ],
         );
     }
@@ -92,6 +130,61 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
         require_once self::FIXTURES . '/NotReportable.php';
 
         $this->analyse([self::FIXTURES . '/NotReportable.php'], []);
+    }
+
+    /**
+     * A script's top-level code is one body: a guard there counts only after a handler installed there,
+     * and its variables are written through $GLOBALS and by any function, in any file, declaring them global.
+     */
+    #[Test]
+    public function aTopLevelCallIsGuardedOnlyAfterATopLevelInstall(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/TopLevel.php', self::FIXTURES . '/TopLevelGlobalWriter.php'],
+            [
+                [$this->message(self::PREG_MATCH), 9],
+                [$this->message(self::PREG_MATCH), 25],
+                [$this->message(self::PREG_MATCH), 29],
+                [$this->message(self::PREG_MATCH), 34],
+            ],
+        );
+    }
+
+    /** A $GLOBALS offset the rule cannot name may be any top-level variable, so no top-level local is owned. */
+    #[Test]
+    public function aGlobalsWriteToAnUnnamedOffsetCountsAgainstEveryTopLevelVariable(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/TopLevel.php', self::FIXTURES . '/TopLevelGlobalWriter.php', self::FIXTURES . '/TopLevelDynamicGlobalWriter.php'],
+            [
+                [$this->message(self::PREG_MATCH), 9],
+                [$this->message(self::PREG_MATCH), 25],
+                [$this->message(self::PREG_MATCH), 29],
+                [$this->message(self::PREG_MATCH), 34],
+                [$this->message(self::PREG_MATCH), 37],
+            ],
+        );
+    }
+
+    /**
+     * Ownership and unseen writes are decided over the function's copies, which may reach one
+     * variable by many routes: each variable is taken once, or the walk grows with every route and
+     * never finishes. The fixture has no loop, so PHPStan's own inference stays cheap and the
+     * test stays fast under coverage. The alarm turns a walk that does not finish into a failure
+     * rather than a hung suite.
+     */
+    #[Test]
+    public function aDenseWebOfCopiesIsDecidedWithoutWalkingEachRoute(): void
+    {
+        pcntl_async_signals(true);
+        \Safe\pcntl_signal(\SIGALRM, static fn (): never => throw new RuntimeException('the rule did not finish on a dense web of copies within ' . self::DENSE_COPIES_SECONDS . ' seconds'));
+        pcntl_alarm(self::DENSE_COPIES_SECONDS);
+        try {
+            $this->analyse([self::FIXTURES . '/DenseCopies.php'], []);
+        } finally {
+            pcntl_alarm(0);
+            \Safe\pcntl_signal(\SIGALRM, \SIG_DFL);
+        }
     }
 
     protected function getRule(): Rule

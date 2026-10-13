@@ -161,9 +161,307 @@ final readonly class Reportable
         preg_match($pattern, $subject);
     }
 
+    public function changedThroughAnAlias(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $alias   = &$pattern;
+        $alias   = $value;
+        preg_match($pattern, $subject);
+    }
+
+    public function writtenThroughAVariableVariable(string $name, string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $$name   = $value;
+        preg_match($pattern, $subject);
+    }
+
+    /** @param array<string, string> $values */
+    public function writtenByExtract(array $values, string $subject): void
+    {
+        $pattern = '/a/';
+        extract($values);
+        preg_match($pattern, $subject);
+    }
+
+    public function passedToACallThatCannotBeResolved(callable $callback, string $subject): void
+    {
+        $pattern = '/a/';
+        $callback($pattern);
+        preg_match($pattern, $subject);
+    }
+
+    public function writtenByAClosureThroughItsUse(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $write   = static function () use (&$pattern, $value): void {
+            $pattern = $value;
+        };
+        $write();
+        preg_match($pattern, $subject);
+    }
+
+    public function aHandlerInstalledOnlyInAClosureNeverCalled(string $pattern, string $subject): Closure
+    {
+        $install = static fn (): mixed => set_error_handler(static fn (): bool => true);
+        try {
+            preg_match($pattern, $subject);
+        } finally {
+            restore_error_handler();
+        }
+
+        return $install;
+    }
+
+    public function aliasedThroughAnArrayReference(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $refs    = [&$pattern];
+        $refs[0] = $value;
+        preg_match($pattern, $subject);
+    }
+
+    public function writtenByAnInclude(string $file, string $subject): void
+    {
+        $pattern = '/a/';
+        include $file;
+        preg_match($pattern, $subject);
+    }
+
+    public function changedThroughAnOffset(string $value, string $subject): void
+    {
+        $pattern    = '/a/';
+        $pattern[1] = $value;
+        preg_match($pattern, $subject);
+    }
+
+    public function aliasedForACallThatTakesItsArgumentsAsAnArray(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        call_user_func_array([self::class, 'overwrite'], [&$pattern, $value]);
+        preg_match($pattern, $subject);
+    }
+
+    public function changedThroughAForeachReference(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        foreach ([&$pattern] as &$entry) {
+            $entry = $value;
+        }
+        preg_match($pattern, $subject);
+    }
+
+    public function aliasedForACallThatCannotBeResolved(callable $callback, string $subject): void
+    {
+        $pattern = '/a/';
+        $alias   = &$pattern;
+        $callback($alias);
+        preg_match($pattern, $subject);
+    }
+
+    public function declaredStaticBesideAnOwnedWrite(string $value, string $subject): void
+    {
+        static $pattern = '/a/';
+        $pattern        = '/' . preg_quote($value, '/') . '/';
+        preg_match($pattern, $subject);
+    }
+
+    public function changedByAnotherCompoundAssignment(int $factor, string $subject): void
+    {
+        $count = 2;
+        $count *= $factor;
+        preg_match('/a{' . $count . '}/', $subject);
+    }
+
+    public function writtenByAnEval(string $code, string $subject): void
+    {
+        $pattern = '/a/';
+        eval($code);
+        preg_match($pattern, $subject);
+    }
+
+    /** @param array<string, string> $replacements */
+    public function overwrittenAsAForeachKey(array $replacements, string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        foreach ($replacements as $pattern => $replacement) {
+            $subject = $replacement;
+        }
+        preg_match($pattern, $subject);
+    }
+
+    public function reboundToAGlobal(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        global $pattern, $unrelated;
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenAsTheFirstOfTwoReferences(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $other   = '';
+        self::overwriteBoth($pattern, $other, $value);
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenAsTheSecondOfTwoReferences(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $other   = '';
+        self::overwriteBoth($other, $pattern, $value);
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenThroughANamedArgument(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        self::overwrite(value: $value, target: $pattern);
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenThroughAVariadicReference(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $other   = '';
+        self::overwriteAll($value, $other, $pattern);
+        preg_match($pattern, $subject);
+    }
+
+    /** @param list<string> $values */
+    public function overwrittenFirstByDestructuring(array $values, string $value, string $subject): void
+    {
+        $pattern           = '/' . preg_quote($value, '/') . '/';
+        [$pattern, $other] = $values;
+        preg_match($pattern, $subject . $other);
+    }
+
+    /** @param list<string> $values */
+    public function overwrittenLastByDestructuring(array $values, string $value, string $subject): void
+    {
+        $pattern           = '/' . preg_quote($value, '/') . '/';
+        [$other, $pattern] = $values;
+        preg_match($pattern, $subject . $other);
+    }
+
+    public function overwrittenByAConstructor(string $value, string $subject): ReferenceTaker
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $taker   = new ReferenceTaker($pattern, $value);
+        preg_match($pattern, $subject);
+
+        return $taker;
+    }
+
+    /** @param class-string $class */
+    public function passedToAConstructorThatCannotBeResolved(string $class, string $value, string $subject): object
+    {
+        $pattern  = '/' . preg_quote($value, '/') . '/';
+        $instance = new $class($pattern);
+        preg_match($pattern, $subject);
+
+        return $instance;
+    }
+
+    public function changedThroughAForeachReferenceToItsArray(string $value, string $subject): void
+    {
+        $patterns = ['/a/', '/b/'];
+        foreach ($patterns as &$entry) {
+            $entry = $value;
+        }
+        unset($entry);
+        preg_match($patterns[0], $subject);
+    }
+
+    public function copiedFromAnArrayChangedThroughAForeachReference(string $value, string $subject): void
+    {
+        $patterns = ['/a/', '/b/'];
+        foreach ($patterns as &$entry) {
+            $entry = $value;
+        }
+        unset($entry);
+        foreach ($patterns as $copy) {
+            preg_match($copy, $subject);
+        }
+
+        $first = $patterns[0];
+        preg_match($first, $subject);
+    }
+
+    public function copiedFromAVariableChangedThroughAnAlias(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        $alias   = &$pattern;
+        $alias   = $value;
+        $copy    = $pattern;
+        preg_match($copy, $subject);
+    }
+
+    public function changedThroughADestructuringReferenceToItsArray(string $value, string $subject): void
+    {
+        $patterns     = ['/a/', '/b/'];
+        [, &$second]  = $patterns;
+        $second       = $value;
+        preg_match($patterns[1], $subject);
+    }
+
+    public function changedThroughAForeachDestructuringReferenceToItsArray(string $value, string $subject): void
+    {
+        $rows = [['/a/'], ['/b/']];
+        foreach ($rows as [&$entry]) {
+            $entry = $value;
+        }
+        unset($entry);
+        preg_match($rows[0][0], $subject);
+
+        $keyed = [['p' => '/a/']];
+        foreach ($keyed as ['p' => &$named]) {
+            $named = $value;
+        }
+        unset($named);
+        preg_match($keyed[0]['p'], $subject);
+    }
+
+    public function builtThroughAChainFromAValueItDoesNotOwn(string $value, string $subject): void
+    {
+        $v0 = $value;
+        $v1 = $v0 . 'a';
+        $v2 = $v1 . $v0;
+        $v3 = $v2 . $v1;
+        $v4 = $v3 . $v2;
+        $v5 = $v4 . $v3;
+        preg_match($v5, $subject);
+    }
+
+    public function builtInACycleOneWriteOfWhichItDoesNotOwn(string $value, string $subject, int $times): void
+    {
+        $a = '/a/';
+        $b = '/b/';
+        $c = '/c/';
+        for ($i = 0; $i < $times; ++$i) {
+            $a = $b . 'x';
+            $b = $c . 'y';
+            $c = $a . $value;
+        }
+        preg_match($a, $subject);
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;
+    }
+
+    private static function overwriteBoth(string &$first, string &$second, string $value): void
+    {
+        $first  = $value;
+        $second = $value;
+    }
+
+    private static function overwriteAll(string $value, string &...$targets): void
+    {
+        foreach ($targets as &$target) {
+            $target = $value;
+        }
     }
 
     private function &reference(): string
@@ -171,5 +469,26 @@ final readonly class Reportable
         static $value = '/x/';
 
         return $value;
+    }
+}
+
+/** A subclass may declare a constructor taking the pattern by reference. */
+class LateStaticallyConstructed
+{
+    public function make(string $value, string $subject): static
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $made    = new static($pattern);
+        preg_match($pattern, $subject);
+
+        return $made;
+    }
+}
+
+final class ReferenceTaker
+{
+    public function __construct(string &$target, string $value)
+    {
+        $target = $value;
     }
 }
