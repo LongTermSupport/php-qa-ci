@@ -7,6 +7,7 @@ namespace LTS\PHPQA\PHPStan\Rules;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Class_;
 use PHPStan\Analyser\Scope;
+use PHPStan\Reflection\ReflectionProvider;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
 
@@ -87,6 +88,10 @@ final readonly class RequireReadonlyServiceRule implements Rule
         \Symfony\Contracts\Service\ResetInterface::class,
     ];
 
+    public function __construct(private ReflectionProvider $reflectionProvider)
+    {
+    }
+
     public function getNodeType(): string
     {
         return Class_::class;
@@ -141,9 +146,9 @@ final readonly class RequireReadonlyServiceRule implements Rule
             }
         }
 
-        $classReflection = $scope->getClassReflection();
-        if ($classReflection instanceof \PHPStan\Reflection\ClassReflection) {
-            $interfaceNames = array_keys($classReflection->getInterfaces());
+        // Read through the reflection provider: the scope a Class_ node is processed in is the one outside the class.
+        if ($this->reflectionProvider->hasClass($fqcn)) {
+            $interfaceNames = array_keys($this->reflectionProvider->getClass($fqcn)->getInterfaces());
             foreach ($interfaceNames as $interfaceName) {
                 if (\in_array($interfaceName, self::EXCLUDED_INTERFACES, true)) {
                     return [];
@@ -167,8 +172,8 @@ final readonly class RequireReadonlyServiceRule implements Rule
     {
         foreach ($node->attrGroups as $attrGroup) {
             foreach ($attrGroup->attrs as $attr) {
-                $attrName = $attr->name->toString();
-                if ('ORM\Entity' === $attrName || str_ends_with($attrName, '\Entity')) {
+                // `ORM\Entity` as written, or `Doctrine\ORM\Mapping\Entity` once PHPStan resolves it.
+                if (str_ends_with($attr->name->toString(), '\Entity')) {
                     return true;
                 }
             }
