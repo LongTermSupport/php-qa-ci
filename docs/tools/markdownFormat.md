@@ -29,7 +29,9 @@ records the alternatives and why they lost.
 
 - The daemon CLI is `.claude/hooks-daemon/bin/hooks-daemon`, found in the project or in a
   directory above it, up to the root of the git work tree (one daemon serving a monorepo). It is
-  never looked for above that root.
+  never looked for above that root, except from a linked worktree (`git worktree add`), which uses
+  the daemon of its main checkout, the only checkout it is installed in. A submodule does not use
+  the daemon of the repository holding it.
 - **Without the daemon the lane skips**, and says so. That includes CI, where nothing rewrites
   markdown either, so there is nothing to agree with.
 - It formats the paths from `withMarkdownFormatPaths()` in `qaConfig/qa.php`. The default is
