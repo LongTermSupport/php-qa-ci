@@ -29,10 +29,13 @@ use Symfony\Component\Process\Process;
 #[Large]
 final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
 {
+    /** The php-qa-ci checkout whose shipped configs and phars are under test. */
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
+    /** The class-likes written against the shipped order, copied into the probe project. */
     private const string CORPUS = self::REPO_ROOT . '/tests/assets/codingStandardsFixedPoint';
 
+    /** The option both tools take for their read-only check. */
     private const string DRY_RUN = '--dry-run';
 
     /** The Rector configs the rector lane runs over source paths, in its order. */
@@ -44,10 +47,9 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
     {
         $this->project = TempDir::create('phpqa-cs-fixed-point');
         $this->project->write('composer.json', '{"name": "probe/probe", "type": "project", "require": {"php": "^8.5", "thecodingmachine/safe": "^3.0"},"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
-        foreach (\Safe\scandir(self::CORPUS) as $name) {
-            if (str_ends_with($name, '.php')) {
-                $this->project->write('src/' . $name, \Safe\file_get_contents(self::CORPUS . '/' . $name));
-            }
+        foreach (\Safe\glob(self::CORPUS . '/*.php') as $path) {
+            self::assertIsString($path);
+            $this->project->write('src/' . basename($path), \Safe\file_get_contents($path));
         }
     }
 
@@ -60,10 +62,10 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
     public function oneWritablePassLeavesNothingForTheReadOnlyChecks(): void
     {
         foreach (self::RECTOR_CONFIGS as $config) {
-            $this->assertTool($this->rector($config), [0], 'Rector ' . $config . ' could not process the corpus');
+            $this->assertTool($this->rector($config), 'Rector ' . $config . ' could not process the corpus', 0);
         }
 
-        $this->assertTool($this->fixer(), [0, 8], 'PHP CS Fixer could not process the corpus');
+        $this->assertTool($this->fixer(), 'PHP CS Fixer could not process the corpus', 0, 8);
 
         $pending = [];
         foreach (self::RECTOR_CONFIGS as $config) {
@@ -122,8 +124,7 @@ final class OneCodingStandardsPassIsAFixedPointTest extends TestCase
         return $process;
     }
 
-    /** @param list<int> $passing */
-    private function assertTool(Process $process, array $passing, string $message): void
+    private function assertTool(Process $process, string $message, int ...$passing): void
     {
         self::assertContains($process->getExitCode(), $passing, $message . ":\n" . $process->getOutput() . $process->getErrorOutput());
     }
