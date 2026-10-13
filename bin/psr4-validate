@@ -1,10 +1,10 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
-use LTS\PHPQA\Helper;
 use LTS\PHPQA\Psr4Validate\Psr4ValidateCommand;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
 require __DIR__.'/bootstrap.php';
 
-exit(new Psr4ValidateCommand(Helper::getProjectRootDirectory(...), new ConsoleOutput())->run(...array_slice($argv ?? [], 1)));
+// The project is the directory it is run from; the command refuses one without a composer.json.
+exit(new Psr4ValidateCommand(static fn (): string => \Safe\getcwd(), new ConsoleOutput())->run(...array_slice($argv ?? [], 1)));

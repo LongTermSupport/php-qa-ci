@@ -23,9 +23,10 @@ use PHPStan\Rules\RuleErrorBuilder;
  * installed to throw naming the pattern.
  *
  * UnownedRegexPatternCollector finds the calls, RegexPatternVariableWriteCollector
- * every write to a local variable, and ErrorHandlerRestoringFinallyCollector
- * the guarded ranges. A call is not reported when its pattern is a local
- * variable every write to which is owned, or when it is inside a guarded range.
+ * every write to a local variable, ErrorHandlerRestoringFinallyCollector the
+ * guarded ranges and ErrorHandlerInstallCollector the handlers installed. A call
+ * is not reported when its pattern is a local variable every write to which is
+ * owned, or when it is inside a guarded range after its function installs a handler.
  *
  * See: docs/phpstan-rules/forbid-unvalidated-regex-pattern.md.
  *
@@ -53,6 +54,14 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
             $guards[$file] = $collected;
         }
 
+        // File => function key => where each set_error_handler() call starts.
+        $installs = [];
+        foreach ($node->get(ErrorHandlerInstallCollector::class) as $file => $collected) {
+            foreach ($collected as [$functionKey, $position]) {
+                $installs[$file][$functionKey][] = $position;
+            }
+        }
+
         // File => function key => variable => the dependencies of each write to it, null for one not owned.
         $writes = [];
         foreach ($node->get(RegexPatternVariableWriteCollector::class) as $file => $collected) {
@@ -66,7 +75,7 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
             foreach ($calls as [$function, $line, $position, $dependencies, $functionKey]) {
                 $functionWrites = $writes[$file][$functionKey] ?? [];
                 if ((null !== $dependencies && array_all($dependencies, fn (string $variable): bool => $this->isOwned($variable, $functionWrites)))
-                    || $this->isGuarded($position, ...$guards[$file] ?? [])) {
+                    || $this->isGuarded($position, $installs[$file] ?? [], ...$guards[$file] ?? [])) {
                     continue;
                 }
 
@@ -106,12 +115,20 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
     }
 
     /**
-     * @param array{int, int, list<array{int, int}>} ...$guards
+     * In a guarded range, outside any function declared in it, after its function
+     * installs an error handler.
+     *
+     * @param array<string, list<int>>                       $installs  function key => set_error_handler() offsets
+     * @param array{int, int, list<array{int, int}>, string} ...$guards
      */
-    private function isGuarded(int $position, array ...$guards): bool
+    private function isGuarded(int $position, array $installs, array ...$guards): bool
     {
-        foreach ($guards as [$start, $end, $excluded]) {
+        foreach ($guards as [$start, $end, $excluded, $functionKey]) {
             if ($position < $start || $position >= $end) {
+                continue;
+            }
+
+            if (!array_any($installs[$functionKey] ?? [], static fn (int $install): bool => $install < $position)) {
                 continue;
             }
 

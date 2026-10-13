@@ -134,11 +134,12 @@
 #                                          whose pattern is neither literal-string typed nor
 #                                          built in the call from literals and preg_quote()
 #                                          with its delimiter must run inside a try whose
-#                                          finally restores an error handler: PCRE only warns
+#                                          finally restores an error handler its function
+#                                          installed before the call: PCRE only warns
 #                                          on a pattern that does not compile, naming neither
 #                                          the pattern nor where it came from. A local
 #                                          variable counts as owned when every write to it in
-#                                          its function is. Its three collectors are
+#                                          its function is. Its four collectors are
 #                                          registered under services: below. See
 #                                          docs/phpstan-rules/forbid-unvalidated-regex-pattern.md
 #
@@ -206,5 +207,9 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerRestoringFinallyCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector
         tags:
             - phpstan.collector

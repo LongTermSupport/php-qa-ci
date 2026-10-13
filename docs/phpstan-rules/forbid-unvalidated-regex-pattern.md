@@ -7,14 +7,18 @@
 A call to a PCRE function, PHP's own (`preg_match`, `preg_match_all`, `preg_replace`,
 `preg_replace_callback`, `preg_replace_callback_array`, `preg_filter`, `preg_split`,
 `preg_grep`) or the `thecodingmachine/safe` one of the same name, whose pattern the code does
-not own, outside a `try` whose `finally` restores the error handler.
+not own, unless its function installs an error handler before it and the call is inside a `try`
+whose `finally` restores the handler.
 
 The code owns a pattern that is `literal-string` typed, or built from literal strings,
 `preg_quote()` results and owned local variables, joined by `.`, interpolation, a ternary or
-`sprintf()`. `preg_quote()` counts only when it is given the delimiter: without it a value
-holding the delimiter ends the pattern early. A local variable is owned when every write to it
-in its function is owned. A parameter, a property, an array element, a foreach variable or any
-other value is not owned.
+`sprintf()`. `preg_quote()` counts only when it is given a delimiter and, where the pattern's own
+delimiter can be read from its leftmost literal, that one (or the closing bracket of a bracket
+pair): with none, or another, a value holding the delimiter ends the pattern early. A fragment
+quoted on its own, with no delimiter beside it, is checked only for being given one. A local
+variable is owned when every write to it in its function is owned; passing it to a by-reference
+parameter of a call the rule can resolve is a write it does not own. A parameter, a property, an
+array element, a foreach variable or any other value is not owned.
 
 ## Why this is a hazard
 
@@ -71,8 +75,10 @@ makes PHPStan check every caller passes a pattern the code wrote.
 - A pattern built in the call or in a local variable from those, from `preg_quote($value, $delimiter)`
   and from other owned locals.
 - A call inside a `try` whose `finally` restores the error handler, including in its `catch`
-  blocks: the handler the function installed is the one in force there. A closure or class declared
-  inside the `try` is not covered, because it runs whenever it is called.
+  blocks, after its function calls `set_error_handler()`: the handler the function installed is the
+  one in force there. A `finally` that restores a handler the function never installed guards
+  nothing, and a closure or class declared inside the `try` is not covered, because it runs
+  whenever it is called.
 - A first-class callable, `preg_match(...)`, which compiles nothing where it is written.
 
 ## Defence Before Fix record
@@ -99,14 +105,18 @@ makes PHPStan check every caller passes a pattern the code wrote.
   helpers of the same shape in `DefenceBeforeFixDeclarationTest`, `GitHubActionsTemplatesTest` and
   `RuleDocumentationTest`. Generated and vendored code is not swept.
 - **Narrowing**: a local variable every write to which is owned is owned, because what it holds at
-  the call is one of those values. A call in a `try` whose `finally` restores the error handler is
-  excluded, because it runs under a handler the function installed for it.
+  the call is one of those values. A call in a `try` whose `finally` restores the error handler,
+  after its function calls `set_error_handler()`, is excluded, because it runs under a handler the
+  function installed for it. The rule does not read the handler itself, so one that does not throw
+  is still trusted; and a write through a call it cannot resolve (a dynamic call, `extract()`) is
+  not seen.
 - **Next wider rule, not built**: any pattern language fed a value the code does not own — `glob()`
   and `fnmatch()` as well as PCRE. Not built because the hazard is absent: neither fails to compile
   a pattern, so neither produces the anonymous error this class is about. A bad glob matches
   nothing, which is a different hazard with a different defence.
 - **Runner check**: `Psr4ValidateCommandTest` pins the reported behaviour: `--help` prints the usage
-  and exits 0, and an argument that does not compile fails naming it. `Psr4ValidatorTest`,
+  and exits 0, and an argument that does not compile fails naming it; `Psr4ValidateBinaryTest` runs
+  `bin/psr4-validate` itself, from a directory with no `composer.json`. `Psr4ValidatorTest`,
   `ConfigTemplateIgnoreListAuditorTest` and `RegexPatternTest` pin the same message for the ignore
   list and the class.
 - **Fix**: the two that take input compile every pattern through
@@ -127,5 +137,6 @@ helper class, the rule is offered and switched on where it fits; php-qa-ci runs 
 - Rule: [`ForbidUnvalidatedRegexPatternRule`](../../src/PHPStan/Rules/ForbidUnvalidatedRegexPatternRule.php)
 - Collectors: [`UnownedRegexPatternCollector`](../../src/PHPStan/Rules/UnownedRegexPatternCollector.php),
   [`RegexPatternVariableWriteCollector`](../../src/PHPStan/Rules/RegexPatternVariableWriteCollector.php),
-  [`ErrorHandlerRestoringFinallyCollector`](../../src/PHPStan/Rules/ErrorHandlerRestoringFinallyCollector.php)
+  [`ErrorHandlerRestoringFinallyCollector`](../../src/PHPStan/Rules/ErrorHandlerRestoringFinallyCollector.php),
+  [`ErrorHandlerInstallCollector`](../../src/PHPStan/Rules/ErrorHandlerInstallCollector.php)
 - What counts as owned: [`RegexPatternOwnership`](../../src/PHPStan/Rules/RegexPatternOwnership.php)

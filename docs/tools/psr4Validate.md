@@ -26,8 +26,8 @@ the tree.
   ignored paths needs no entry in the ignore list.
 - A pattern that does not compile fails the run before any file is checked, naming the pattern,
   where it came from and PCRE's reason, for example
-  `qaConfig/psr4-validate-ignore-list.txt entry "#/src/(unclosed#" is not a valid regular expression: preg_match(): Compilation failed: missing closing parenthesis at offset 14`.
-  The config template audit names a bad entry the same way.
+  `/path/to/project/qaConfig/psr4-validate-ignore-list.txt entry "#/src/(unclosed#" is not a valid regular expression: preg_match(): Compilation failed: missing closing parenthesis at offset 14`.
+  The config template audit names a bad entry the same way, and fails its lane.
 
 ## Standalone binary
 

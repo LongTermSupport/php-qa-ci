@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
+use LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector;
 use LTS\PHPQA\PHPStan\Rules\ErrorHandlerRestoringFinallyCollector;
 use LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule;
 use LTS\PHPQA\PHPStan\Rules\RegexPatternOwnership;
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(RegexPatternVariableWriteCollector::class)]
 #[CoversClass(RegexPatternOwnership::class)]
 #[CoversClass(ErrorHandlerRestoringFinallyCollector::class)]
+#[CoversClass(ErrorHandlerInstallCollector::class)]
 #[Medium]
 final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
 {
@@ -32,9 +34,12 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
 
     private const string PREG_MATCH = 'preg_match';
 
+    /** Loaded first, as the other fixture is, so the by-reference method it calls can be resolved. */
     #[Test]
     public function aPatternTheCodeDoesNotOwnIsReportedWhereverNothingWouldNameIt(): void
     {
+        require_once self::FIXTURES . '/Reportable.php';
+
         $this->analyse(
             [self::FIXTURES . '/Reportable.php'],
             [
@@ -67,6 +72,11 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
                 [$this->message(self::PREG_MATCH), 131],
                 [$this->message(self::PREG_MATCH), 137],
                 [$this->message(self::PREG_MATCH), 138],
+                [$this->message(self::PREG_MATCH), 143],
+                [$this->message(self::PREG_MATCH), 144],
+                [$this->message(self::PREG_MATCH), 145],
+                [$this->message(self::PREG_MATCH), 151],
+                [$this->message(self::PREG_MATCH), 161],
             ],
         );
     }
@@ -95,6 +105,7 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
             new UnownedRegexPatternCollector(self::createReflectionProvider()),
             new RegexPatternVariableWriteCollector(self::createReflectionProvider()),
             new ErrorHandlerRestoringFinallyCollector(),
+            new ErrorHandlerInstallCollector(),
         ];
     }
 

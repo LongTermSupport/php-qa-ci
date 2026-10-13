@@ -27,6 +27,8 @@ final class ConfigTemplateIgnoreListCheckTest extends TestCase
 
     private const string CLEAN_ASSETS      = __DIR__ . '/../../assets/configTemplateIgnoreList/clean';
 
+    private const string INVALID_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/invalidPattern';
+
     public function testItPassesAndPrintsOkWhenEverythingIsCovered(): void
     {
         $check = new ConfigTemplateIgnoreListCheck(new ConfigTemplateIgnoreListAuditor(
@@ -64,6 +66,26 @@ final class ConfigTemplateIgnoreListCheckTest extends TestCase
             . '  uncovered_template.php -> would fail psr4Validate as qaConfig/uncovered_template.php' . \PHP_EOL
             . \PHP_EOL
             . 'Add a matching line to configDefaults/generic/psr4-validate-ignore-list.txt, in the shape of the existing entries.' . \PHP_EOL
+            . '🪪  phpqaci.configTemplateIgnoreList  (vendor/bin/rule-doc phpqaci.configTemplateIgnoreList)' . \PHP_EOL,
+        );
+        self::assertSame(1, $check->run());
+    }
+
+    /**
+     * A bad entry fails the lane with its identifier, as an uncovered template does, rather than
+     * ending the run.
+     */
+    public function testAnIgnoreListEntryThatDoesNotCompileFailsNamingItAndTheIdentifier(): void
+    {
+        $ignoreList = self::INVALID_ASSETS . self::GENERIC_PSR4_VALIDATE_IGNORE_LIST_TXT;
+        $check      = new ConfigTemplateIgnoreListCheck(new ConfigTemplateIgnoreListAuditor(
+            self::INVALID_ASSETS . self::CONFIG_DEFAULTS_GENERIC,
+            $ignoreList,
+        ));
+
+        self::expectOutputString(
+            \PHP_EOL
+            . 'ERROR — ' . $ignoreList . ' entry "#qaConfig/(unclosed#" is not a valid regular expression: preg_match(): Compilation failed: missing closing parenthesis at offset 18' . \PHP_EOL
             . '🪪  phpqaci.configTemplateIgnoreList  (vendor/bin/rule-doc phpqaci.configTemplateIgnoreList)' . \PHP_EOL,
         );
         self::assertSame(1, $check->run());

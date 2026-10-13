@@ -138,6 +138,34 @@ final readonly class Reportable
         preg_match('/^' . preg_quote($value, '/') . ('' === $suffix ? '' : $suffix) . '/', $subject);
     }
 
+    public function quotedWithAnotherDelimiter(string $value, string $subject): void
+    {
+        preg_match('%^' . preg_quote($value, '/') . '%', $subject);
+        preg_match(\sprintf('#%s#', preg_quote($value, '/')), $subject);
+        preg_match('/^' . preg_quote($value, $value) . '/', $subject);
+    }
+
+    public function restoredWithoutInstallingAHandler(string $pattern, string $subject): void
+    {
+        try {
+            preg_match($pattern, $subject);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    public function overwrittenThroughAReference(string $value, string $subject): void
+    {
+        $pattern = '/a/';
+        self::overwrite($pattern, $value);
+        preg_match($pattern, $subject);
+    }
+
+    private static function overwrite(string &$target, string $value): void
+    {
+        $target = $value;
+    }
+
     private function &reference(): string
     {
         static $value = '/x/';

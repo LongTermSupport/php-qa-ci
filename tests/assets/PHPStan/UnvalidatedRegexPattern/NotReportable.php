@@ -35,6 +35,12 @@ final readonly class NotReportable
         \Safe\preg_match('#' . preg_quote($value, '#') . '#', $subject);
     }
 
+    public function quotedWithABracketDelimiter(string $value, string $subject): void
+    {
+        preg_match('{' . preg_quote($value, '}') . '}', $subject);
+        preg_match('(' . preg_quote($value, '(') . ')', $subject);
+    }
+
     /** @param literal-string $pattern */
     public function aLiteralStringParameter(string $pattern, string $subject): bool
     {

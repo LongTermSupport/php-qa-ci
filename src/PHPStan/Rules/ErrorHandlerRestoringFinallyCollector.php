@@ -30,11 +30,12 @@ use PHPStan\Collectors\Collector;
  * elsewhere, whenever it is called, so its span is recorded as excluded.
  *
  * Each value is [range start, range end (exclusive), excluded spans as
- * [start, end] inclusive].
+ * [start, end] inclusive, function key]. The rule counts the range only where
+ * the function installs a handler before the call ({@see ErrorHandlerInstallCollector}).
  *
  * @internal
  *
- * @implements Collector<TryCatch, array{int, int, list<array{int, int}>}>
+ * @implements Collector<TryCatch, array{int, int, list<array{int, int}>, string}>
  */
 final readonly class ErrorHandlerRestoringFinallyCollector implements Collector
 {
@@ -46,7 +47,7 @@ final readonly class ErrorHandlerRestoringFinallyCollector implements Collector
     }
 
     /**
-     * @return array{int, int, list<array{int, int}>}|null
+     * @return array{int, int, list<array{int, int}>, string}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -59,7 +60,7 @@ final readonly class ErrorHandlerRestoringFinallyCollector implements Collector
             $excluded[] = [$declaration->getStartFilePos(), $declaration->getEndFilePos()];
         }
 
-        return [$node->getStartFilePos(), $node->finally->getStartFilePos(), $excluded];
+        return [$node->getStartFilePos(), $node->finally->getStartFilePos(), $excluded, RegexPatternOwnership::functionKey($scope)];
     }
 
     /** A call in a function or class declared in the finally runs elsewhere, so it does not count. */
