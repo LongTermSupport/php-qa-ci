@@ -8,6 +8,7 @@ use FilesystemIterator;
 use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Tests\Assets\DeploySkills\DeployProcessRunner;
 use LTS\PHPQA\Tests\Assets\DeploySkills\ShellRunner;
+use LTS\PHPQA\Tests\Support\GitFilesCopy;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
@@ -420,10 +421,11 @@ final class DeploySkillsCharacterisationTest extends TestCase
         $consumer = $this->newConsumer(daemon: false);
 
         // A throwaway copy of the package whose manifest promises a skill that
-        // is not there. Copying keeps the real package untouched.
+        // is not there. Copying keeps the real package untouched; only what git
+        // sees is copied, not the checkout's ignored worktrees and vendor/.
         $brokenQaci = $this->makeTempBase() . '/qaci';
-        $this->runShell(\sprintf('cp -r %s %s', escapeshellarg($this->qaciPath), escapeshellarg($brokenQaci)));
-        $this->runShell(\sprintf('rm -rf %s', escapeshellarg($brokenQaci . '/.claude/skills/qa')));
+        GitFilesCopy::copy($this->qaciPath, $brokenQaci);
+        DirectoryTree::remove($brokenQaci . '/.claude/skills/qa');
 
         $result = DeployProcessRunner::run($brokenQaci . '/scripts/deploy-skills.bash', $brokenQaci, $consumer);
 
@@ -619,13 +621,6 @@ final class DeploySkillsCharacterisationTest extends TestCase
         ksort($hashes);
 
         return $hashes;
-    }
-
-    /** Run a shell command for fixture setup, asserting it succeeded. */
-    private function runShell(string $command): void
-    {
-        $result = ShellRunner::run($command);
-        self::assertSame(0, $result['exit'], \sprintf("fixture command failed: %s\n%s", $command, $result['output']));
     }
 
     private function makeTempBase(): string
