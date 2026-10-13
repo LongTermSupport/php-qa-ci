@@ -114,6 +114,26 @@ final class HooksDaemonCliLocatorTest extends TestCase
         self::assertNull(new HooksDaemonCliLocator()->locate($worktree), 'the package daemon serves only its package');
     }
 
+    /** A relative project root is the same directory as the absolute one, its place in the main checkout included. */
+    #[Test]
+    public function aRelativeProjectRootInAWorktreeIsWalkedFromItsPlaceInTheMainCheckout(): void
+    {
+        $this->root->write(HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $cli = $this->root->write(self::MAIN_CHECKOUT . self::PACKAGE . '/' . HooksDaemonCliLocator::CLI, self::CLI_SCRIPT);
+        $this->root->write(self::WORKTREE_COMMONDIR, self::COMMONDIR_TO_MAIN_GIT);
+        $worktree = $this->root->mkdir(self::WORKTREE);
+        $this->root->write(self::WORKTREE . self::WORK_TREE_MARKER, self::GITDIR_POINTER . $this->root->path . '/' . self::WORKTREE_GITDIR . "\n");
+        $this->root->mkdir(self::WORKTREE . self::PACKAGE);
+
+        $workingDirectory = \Safe\getcwd();
+        \Safe\chdir($worktree);
+        try {
+            self::assertSame($cli, new HooksDaemonCliLocator()->locate(self::PACKAGE));
+        } finally {
+            \Safe\chdir($workingDirectory);
+        }
+    }
+
     /** A pointer that exists but cannot be read is not the same as no daemon: the failure reaches the caller. */
     #[Test]
     public function aPointerThatCannotBeReadFailsRatherThanFindingNoDaemon(): void
