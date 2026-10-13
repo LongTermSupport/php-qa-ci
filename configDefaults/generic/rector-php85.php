@@ -57,8 +57,15 @@ return static function (RectorConfig $rectorConfig): void {
     // argument to (string), and where PHPStan already proves a string, level max rejects the cast. No
     // set above registers it, so it is not in the list (Rector warns on a skip it never registers);
     // RectorSkipListMatchesTheShippedSetsTest fails if a Rector release puts it back into a set.
+    //
+    // SplitGroupedClassConstantsRector splits `const int B = 2, C = 3;` without copying the type to
+    // the new statements, so `C` loses `int` in any class-like AddTypeToConstRector does not re-type
+    // (one that is not final, an interface, a trait). PHP CS Fixer's single_class_element_per_statement
+    // makes the same split and keeps the type, so the split is left to it.
+    // ShippedRectorKeepsConstantTypesTest fails if the type is lost again.
     $rectorConfig->skip([
         Rector\Php70\Rector\Ternary\TernaryToNullCoalescingRector::class,
+        Rector\CodingStyle\Rector\ClassConst\SplitGroupedClassConstantsRector::class,
     ]);
 
     // Support for ignoring paths via environment variable
