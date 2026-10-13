@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Safe\Exceptions\FilesystemException;
 
 /**
  * The lane hands markdown to the hooks daemon's own formatter, so what it
@@ -182,6 +183,23 @@ final class MarkdownFormatToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('the hooks daemon formatter could not run (exit 2)', $result->summary);
+    }
+
+    /** A worktree pointer that cannot be read leaves the daemon unknown: neither a pass nor a skip, and not the whole run's failure. */
+    #[Test]
+    public function aWorktreePointerThatCannotBeReadIsACrashNamingIt(): void
+    {
+        \Safe\rmdir($this->factory->project->path . '/.git');
+        $this->factory->project->write('.git', "gitdir: /elsewhere\n");
+        $this->writeReadme();
+        $unreadable = static fn (string $path): string => throw new FilesystemException($path . ': Permission denied');
+
+        $result = new MarkdownFormatTool(new HooksDaemonCliLocator($unreadable))->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('the hooks daemon could not be looked for: ' . $this->factory->project->path . '/.git: Permission denied', $result->summary);
+        self::assertSame([], $this->factory->processes->specs, 'nothing may run without the daemon');
+        self::assertStringContainsString(MarkdownFormatTool::IDENTIFIER, $this->factory->output->fetch());
     }
 
     #[Test]
