@@ -20,18 +20,24 @@ variable is owned when every write to it in its function is owned. These writes 
 
 - passing it to a by-reference parameter of a call;
 - passing it to any call whose callee the rule cannot resolve, such as `$callback($pattern)`, which
-  may take it by reference (a local closure called through its variable is one of these);
+  may take it by reference (a local closure called through its variable is one of these; a class
+  with no constructor is not);
 - writing to one of its offsets, such as `$pattern[1] = $value`;
 - taking a reference to it, as in `$alias = &$pattern` or `[&$pattern]`, since a later write
-  through the alias changes it.
+  through the alias changes it wherever that write is made: in a callee, through an object or a
+  `foreach` by reference.
+
+A pattern naming a variable written by an unresolvable call or through a reference is not owned
+even when PHPStan still types it as a literal string.
 
 A function that writes a variable the rule cannot name owns no local that a pattern names. Such a
 write is `$$name = …`, `extract()`, or an `include`, `require` or `eval`, which runs in the
 caller's scope.
 
 A script's top-level variables are also written from inside a function: through `$GLOBALS`, or
-after `global $pattern`. Either write counts against top-level code in every file, since the
-function may be called from any of them.
+once a function declares `global $pattern`, whether or not it then writes it. Either counts against
+top-level code in every file, since the function may be called from any of them, and a
+`$GLOBALS[$name]` whose offset is not a literal counts as a write to every top-level variable.
 
 A parameter, a property, an array element, a foreach variable or any other value is not owned. A
 variable inside `preg_quote()` is not judged at all: the pattern holds its value literally,

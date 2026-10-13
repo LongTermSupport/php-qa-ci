@@ -48,8 +48,6 @@ use PHPStan\Reflection\ReflectionProvider;
  * not: by reference, by destructuring, by a foreach, by `static` or `global`,
  * by any other compound assignment, to an offset of the variable, or as the
  * argument of a by-reference parameter of a call whose callee can be resolved.
- * `$alias = &$pattern` and `[&$pattern]` write the variable, since a later write
- * through the alias changes it, and the alias too.
  *
  * A write whose target cannot be named here, `$$name = …`, extract(), or an
  * `include`, `require` or `eval` running in the caller's scope, may write any
@@ -57,7 +55,9 @@ use PHPStan\Reflection\ReflectionProvider;
  * to a call whose callee cannot be resolved may be written by reference
  * without PHPStan seeing it, so it keeps the literal type it was assigned; that
  * is recorded as a write to {@see self::UNSEEN_WRITE} followed by its name,
- * which the rule holds against any pattern naming the variable.
+ * which the rule holds against any pattern naming the variable. So is either
+ * side of `$alias = &$pattern`, and the variable in `[&$pattern]`: a later
+ * write through the alias changes it, wherever that write is made.
  *
  * A script's top-level variables are also written from inside any function:
  * through `$GLOBALS`, or after a `global` declaration. Those writes are keyed
@@ -114,12 +114,12 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
                 $node->var,
                 $this->ownership->dependencies($node->expr, $scope, false),
             ),
-            $node instanceof AssignRef                                                                                 => [...$this->write($node->var, null), ...$this->write($node->expr, null)],
+            $node instanceof AssignRef                                                                                 => $this->unseenWrites($node->var, $node->expr),
             $node instanceof AssignOp                                                                                  => $this->write($node->var, null),
             $node instanceof Foreach_                                                                                  => [...$this->unownedWrites($node->keyVar), ...$this->unownedWrites($node->valueVar)],
             $node instanceof Static_                                                                                   => array_merge(...array_map(fn (StaticVar $var): array => $this->write($var->var, null), $node->vars)),
             $node instanceof Global_                                                                                   => array_merge(...array_map($this->globalWrites(...), $node->vars)),
-            $node instanceof ArrayItem                                                                                 => $node->byRef ? $this->write($node->value, null) : [],
+            $node instanceof ArrayItem                                                                                 => $node->byRef ? $this->unseenWrites($node->value) : [],
             $node instanceof Include_, $node instanceof Eval_                                                          => [[self::ANY_VARIABLE, null, null]],
             $node instanceof FuncCall && $node->name instanceof Name && self::EXTRACT === $node->name->toLowerString() => [[self::ANY_VARIABLE, null, null]],
             $node instanceof CallLike                                                                                  => $this->byReferenceWrites($node, $scope),
@@ -206,14 +206,14 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
      */
     private function byReferenceWrites(CallLike $call, Scope $scope): array
     {
-        if ($call->isFirstClassCallable()) {
+        if ($call->isFirstClassCallable() || $this->constructsWithoutAConstructor($call, $scope)) {
             return [];
         }
 
         $args     = $call->getArgs();
         $variants = $this->callee($call, $scope)?->getVariants();
         if (null === $variants) {
-            return $this->unseenWrites(...$args);
+            return $this->unseenWrites(...array_map(static fn (Arg $arg): Expr => $arg->value, $args));
         }
 
         $parameters = ParametersAcceptorSelector::selectFromArgs($scope, $args, $variants)->getParameters();
@@ -229,15 +229,17 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
     }
 
     /**
-     * Every variable passed to a call whose callee cannot be resolved, which may take it by reference.
+     * Every variable a later write may change where PHPStan does not follow it:
+     * one passed to a call whose callee cannot be resolved, which may take it by
+     * reference, and either side of a reference, written through the other.
      *
      * @return list<array{string, list<string>|null, string|null}>
      */
-    private function unseenWrites(Arg ...$args): array
+    private function unseenWrites(Expr ...$vars): array
     {
         $writes = [];
-        foreach ($args as $arg) {
-            foreach ($this->write($arg->value, null) as [$name, , $key]) {
+        foreach ($vars as $var) {
+            foreach ($this->write($var, null) as [$name, , $key]) {
                 $writes[] = [$name, null, $key];
                 if (self::ANY_VARIABLE !== $name) {
                     $writes[] = [self::UNSEEN_WRITE . $name, null, $key];
@@ -246,6 +248,18 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
         }
 
         return $writes;
+    }
+
+    /** A class with no constructor has no parameter to take anything by reference. */
+    private function constructsWithoutAConstructor(CallLike $call, Scope $scope): bool
+    {
+        if (!$call instanceof New_ || !$call->class instanceof Name) {
+            return false;
+        }
+
+        $class = $scope->resolveName($call->class);
+
+        return $this->reflectionProvider->hasClass($class) && !$this->reflectionProvider->getClass($class)->hasConstructor();
     }
 
     private function callee(CallLike $call, Scope $scope): FunctionReflection|ExtendedMethodReflection|null
@@ -257,9 +271,7 @@ final readonly class RegexPatternVariableWriteCollector implements Collector
 
             $class = $scope->resolveName($call->class);
 
-            return $this->reflectionProvider->hasClass($class) && $this->reflectionProvider->getClass($class)->hasConstructor()
-                ? $this->reflectionProvider->getClass($class)->getConstructor()
-                : null;
+            return $this->reflectionProvider->hasClass($class) ? $this->reflectionProvider->getClass($class)->getConstructor() : null;
         }
 
         if ($call instanceof FuncCall) {
