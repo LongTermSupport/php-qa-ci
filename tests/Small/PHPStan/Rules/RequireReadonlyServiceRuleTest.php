@@ -59,8 +59,37 @@ final class RequireReadonlyServiceRuleTest extends TestCase
         $errors = $this->rule->processNode($this->class(self::WIDGET_CLASS, Modifiers::FINAL), $this->scope(self::APP_DOMAIN));
 
         self::assertCount(1, $errors);
-        self::assertStringContainsString('should be "final readonly class"', $errors[0]->getMessage());
+        self::assertSame(
+            'Service class Widget should be "final readonly class". Mutable services cause hidden state bugs. If per-call state is needed, extract it into a context DTO.',
+            $errors[0]->getMessage(),
+        );
         self::assertSame(RequireReadonlyServiceRule::IDENTIFIER, $errors[0]->getIdentifier());
+    }
+
+    #[Test]
+    public function finalClassWhosePropertiesAreAllReadonlyIsFlagged(): void
+    {
+        $property = new Property(Modifiers::READONLY, [new PropertyItem('clock')]);
+        $class    = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, [], null, $property);
+
+        self::assertCount(1, $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
+    }
+
+    /** Doctrine's attribute is named however it was imported; PHPStan resolves it to its full name. */
+    #[Test]
+    public function entityAttributeByItsFullNameIsNotFlagged(): void
+    {
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, attributeNames: ['Doctrine\ORM\Mapping\Entity']);
+
+        self::assertSame([], $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
+    }
+
+    #[Test]
+    public function classWithAnAttributeThatIsNotAnEntityIsFlagged(): void
+    {
+        $class = $this->class(self::WIDGET_CLASS, Modifiers::FINAL, attributeNames: ['App\Attribute\Audited']);
+
+        self::assertCount(1, $this->rule->processNode($class, $this->scope(self::APP_DOMAIN)));
     }
 
     #[Test]
