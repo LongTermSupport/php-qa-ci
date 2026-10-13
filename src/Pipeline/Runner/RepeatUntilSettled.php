@@ -22,8 +22,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * on a tree a writable run has just fixed (#193).
  *
  * A failed pass ends the loop. A phase still changing files after MAX_PASSES has
- * tools that undo each other; the files are named, and the read-only run
- * reports what is left.
+ * tools that undo each other, or a chain longer than MAX_PASSES; the files are
+ * named, and the read-only run reports what is left.
  *
  * @internal
  */
@@ -55,7 +55,7 @@ final readonly class RepeatUntilSettled
             }
 
             if (self::MAX_PASSES === $number) {
-                $this->output->writeln(\sprintf('WARNING: the phase still changed %d file(s) on pass %d of %d, so its tools undo each other; a read-only run reports what is left:', \count($changed), $number, self::MAX_PASSES));
+                $this->output->writeln(\sprintf('WARNING: the phase still changed %d file(s) on pass %d of %d: its tools undo each other, or need more passes than that; a read-only run reports what is left:', \count($changed), $number, self::MAX_PASSES));
                 foreach ($changed as $file) {
                     $this->output->writeln('  ' . $file);
                 }
