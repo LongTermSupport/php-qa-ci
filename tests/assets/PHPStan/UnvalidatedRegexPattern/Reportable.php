@@ -259,9 +259,126 @@ final readonly class Reportable
         preg_match($pattern, $subject);
     }
 
+    public function declaredStaticBesideAnOwnedWrite(string $value, string $subject): void
+    {
+        static $pattern = '/a/';
+        $pattern        = '/' . preg_quote($value, '/') . '/';
+        preg_match($pattern, $subject);
+    }
+
+    public function changedByAnotherCompoundAssignment(int $factor, string $subject): void
+    {
+        $count = 2;
+        $count *= $factor;
+        preg_match('/a{' . $count . '}/', $subject);
+    }
+
+    public function writtenByAnEval(string $code, string $subject): void
+    {
+        $pattern = '/a/';
+        eval($code);
+        preg_match($pattern, $subject);
+    }
+
+    /** @param array<string, string> $replacements */
+    public function overwrittenAsAForeachKey(array $replacements, string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        foreach ($replacements as $pattern => $replacement) {
+            $subject = $replacement;
+        }
+        preg_match($pattern, $subject);
+    }
+
+    public function reboundToAGlobal(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        global $pattern, $unrelated;
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenAsTheFirstOfTwoReferences(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $other   = '';
+        self::overwriteBoth($pattern, $other, $value);
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenAsTheSecondOfTwoReferences(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $other   = '';
+        self::overwriteBoth($other, $pattern, $value);
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenThroughANamedArgument(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        self::overwrite(value: $value, target: $pattern);
+        preg_match($pattern, $subject);
+    }
+
+    public function overwrittenThroughAVariadicReference(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $other   = '';
+        self::overwriteAll($value, $other, $pattern);
+        preg_match($pattern, $subject);
+    }
+
+    /** @param list<string> $values */
+    public function overwrittenFirstByDestructuring(array $values, string $value, string $subject): void
+    {
+        $pattern           = '/' . preg_quote($value, '/') . '/';
+        [$pattern, $other] = $values;
+        preg_match($pattern, $subject . $other);
+    }
+
+    /** @param list<string> $values */
+    public function overwrittenLastByDestructuring(array $values, string $value, string $subject): void
+    {
+        $pattern           = '/' . preg_quote($value, '/') . '/';
+        [$other, $pattern] = $values;
+        preg_match($pattern, $subject . $other);
+    }
+
+    public function overwrittenByAConstructor(string $value, string $subject): ReferenceTaker
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $taker   = new ReferenceTaker($pattern, $value);
+        preg_match($pattern, $subject);
+
+        return $taker;
+    }
+
+    /** @param class-string $class */
+    public function passedToAConstructorThatCannotBeResolved(string $class, string $value, string $subject): object
+    {
+        $pattern  = '/' . preg_quote($value, '/') . '/';
+        $instance = new $class($pattern);
+        preg_match($pattern, $subject);
+
+        return $instance;
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;
+    }
+
+    private static function overwriteBoth(string &$first, string &$second, string $value): void
+    {
+        $first  = $value;
+        $second = $value;
+    }
+
+    private static function overwriteAll(string $value, string &...$targets): void
+    {
+        foreach ($targets as &$target) {
+            $target = $value;
+        }
     }
 
     private function &reference(): string
@@ -269,5 +386,13 @@ final readonly class Reportable
         static $value = '/x/';
 
         return $value;
+    }
+}
+
+final class ReferenceTaker
+{
+    public function __construct(string &$target, string $value)
+    {
+        $target = $value;
     }
 }

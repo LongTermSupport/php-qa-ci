@@ -131,6 +131,33 @@ final readonly class NotReportable
         preg_match('/' . preg_quote($word, '/') . '/', $subject);
     }
 
+    public function defaultedToAnOwnedValue(string $value, string $subject): void
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        $pattern ??= '/^' . preg_quote($value, '/') . '$/';
+        preg_match($pattern, $subject);
+    }
+
+    public function writesAPropertyBesideAnOwnedPattern(string $value, string $subject): object
+    {
+        $pattern       = '/' . preg_quote($value, '/') . '/';
+        $holder        = new \stdClass();
+        $holder->value = $value;
+        preg_match($pattern, $subject);
+
+        return $holder;
+    }
+
+    public function passesAPatternByValue(string $value, string $subject): PatternHolder
+    {
+        $pattern = '/' . preg_quote($value, '/') . '/';
+        self::accept($pattern);
+        $holder = new PatternHolder($pattern);
+        preg_match($pattern, $subject);
+
+        return $holder;
+    }
+
     /** A class with no constructor has no parameter to take the pattern by reference. */
     public function passesAPatternToAClassWithNoConstructor(string $subject): self
     {
@@ -145,5 +172,17 @@ final readonly class NotReportable
     private function literal(): string
     {
         return 'abc';
+    }
+
+    private static function accept(string $pattern): string
+    {
+        return $pattern;
+    }
+}
+
+final readonly class PatternHolder
+{
+    public function __construct(public string $pattern)
+    {
     }
 }

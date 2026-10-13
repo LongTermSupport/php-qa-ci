@@ -89,6 +89,19 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
                 [$this->message(self::PREG_MATCH), 242],
                 [$this->message(self::PREG_MATCH), 251],
                 [$this->message(self::PREG_MATCH), 259],
+                [$this->message(self::PREG_MATCH), 266],
+                [$this->message(self::PREG_MATCH), 273],
+                [$this->message(self::PREG_MATCH), 280],
+                [$this->message(self::PREG_MATCH), 290],
+                [$this->message(self::PREG_MATCH), 297],
+                [$this->message(self::PREG_MATCH), 305],
+                [$this->message(self::PREG_MATCH), 313],
+                [$this->message(self::PREG_MATCH), 320],
+                [$this->message(self::PREG_MATCH), 328],
+                [$this->message(self::PREG_MATCH), 336],
+                [$this->message(self::PREG_MATCH), 344],
+                [$this->message(self::PREG_MATCH), 351],
+                [$this->message(self::PREG_MATCH), 361],
             ],
         );
     }
@@ -120,6 +133,22 @@ final class ForbidUnvalidatedRegexPatternRuleTest extends RuleTestCase
                 [$this->message(self::PREG_MATCH), 25],
                 [$this->message(self::PREG_MATCH), 29],
                 [$this->message(self::PREG_MATCH), 34],
+            ],
+        );
+    }
+
+    /** A $GLOBALS offset the rule cannot name may be any top-level variable, so no top-level local is owned. */
+    #[Test]
+    public function aGlobalsWriteToAnUnnamedOffsetCountsAgainstEveryTopLevelVariable(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/TopLevel.php', self::FIXTURES . '/TopLevelGlobalWriter.php', self::FIXTURES . '/TopLevelDynamicGlobalWriter.php'],
+            [
+                [$this->message(self::PREG_MATCH), 9],
+                [$this->message(self::PREG_MATCH), 25],
+                [$this->message(self::PREG_MATCH), 29],
+                [$this->message(self::PREG_MATCH), 34],
+                [$this->message(self::PREG_MATCH), 37],
             ],
         );
     }

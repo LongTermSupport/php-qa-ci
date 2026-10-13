@@ -32,3 +32,6 @@ $aliasedPattern = '/d/';
 $globalAlias    = &$aliasedPattern;
 phpqaciFixtureOverwriteGlobalAlias($argv[5] ?? '');
 preg_match($aliasedPattern, $subject);
+
+$quotedPattern = '/' . preg_quote($argv[6] ?? '', '/') . '/';
+preg_match($quotedPattern, $subject);
