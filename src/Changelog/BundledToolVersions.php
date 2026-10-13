@@ -103,7 +103,7 @@ final readonly class BundledToolVersions
 
     private function attribute(string $tag, string $attribute): ?string
     {
-        if (1 !== \Safe\preg_match('/\s' . $attribute . '="([^"]+)"/', $tag, $matches) || !isset($matches[1])) {
+        if (1 !== \Safe\preg_match('/\s' . preg_quote($attribute, '/') . '="([^"]+)"/', $tag, $matches) || !isset($matches[1])) {
             return null;
         }
 

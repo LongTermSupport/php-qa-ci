@@ -245,7 +245,11 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
             ...$this->files(self::PLAN_DIR . '/Completed/' . $plan . '-*/*.md'),
         ];
 
-        return array_any($files, fn (string $file): bool => null !== $this->group('/^#{2,3} Decision ' . $number . ':/m', \Safe\file_get_contents($file), 0));
+        return array_any($files, fn (string $file): bool => \in_array(
+            $number,
+            $this->matchAll('/(?<=^## Decision |^### Decision )\d+(?=:)/m', \Safe\file_get_contents($file)),
+            true,
+        ));
     }
 
     /**
@@ -337,7 +341,11 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
         return $declaration;
     }
 
-    /** One capture group of the first match, or null when the pattern does not match. */
+    /**
+     * One capture group of the first match, or null when the pattern does not match.
+     *
+     * @param literal-string $pattern
+     */
     private function group(string $pattern, string $subject, int $group): ?string
     {
         if (1 !== \Safe\preg_match($pattern, $subject, $matches)) {
@@ -351,6 +359,8 @@ final class DefenceBeforeFixDeclarationTest extends TestCase
 
     /**
      * Every whole match of the pattern, as strings.
+     *
+     * @param literal-string $pattern
      *
      * @return list<string>
      */

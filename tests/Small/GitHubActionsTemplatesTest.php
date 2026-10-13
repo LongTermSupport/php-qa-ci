@@ -166,7 +166,11 @@ final class GitHubActionsTemplatesTest extends TestCase
         self::assertNotSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#GATING_WORKFLOWS#'), 'That step must judge the runs of the GATING_WORKFLOWS.');
     }
 
-    /** @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern */
+    /**
+     * @param literal-string $pattern
+     *
+     * @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern
+     */
     private function executedLinesIn(string $file, string $pattern): array
     {
         $hits = [];
@@ -179,7 +183,11 @@ final class GitHubActionsTemplatesTest extends TestCase
         return $hits;
     }
 
-    /** @return list<string> "<file>:<line>: <text>" for every non-comment line matching $pattern */
+    /**
+     * @param literal-string $pattern
+     *
+     * @return list<string> "<file>:<line>: <text>" for every non-comment line matching $pattern
+     */
     private function executedLinesMatching(string $pattern): array
     {
         $hits = [];

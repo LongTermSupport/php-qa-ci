@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\ConfigTemplateIgnoreList;
 
+use InvalidArgumentException;
 use LTS\PHPQA\ConfigTemplateIgnoreList\ConfigTemplateIgnoreListAuditor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -18,12 +19,15 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(ConfigTemplateIgnoreListAuditor::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
 #[Small]
 final class ConfigTemplateIgnoreListAuditorTest extends TestCase
 {
     private const string VIOLATING_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/violating';
 
     private const string CLEAN_ASSETS      = __DIR__ . '/../../assets/configTemplateIgnoreList/clean';
+
+    private const string INVALID_PATTERN_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/invalidPattern';
 
     private const string GENERIC_DIR = '/configDefaults/generic';
 
@@ -42,6 +46,21 @@ final class ConfigTemplateIgnoreListAuditorTest extends TestCase
             ['uncovered_template.php' => 'qaConfig/uncovered_template.php'],
             $actual,
         );
+    }
+
+    public function testAnIgnoreListEntryThatDoesNotCompileIsNamedWithItsFile(): void
+    {
+        $auditor = new ConfigTemplateIgnoreListAuditor(
+            self::INVALID_PATTERN_ASSETS . self::GENERIC_DIR,
+            self::INVALID_PATTERN_ASSETS . self::IGNORE_LIST,
+        );
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains(
+            self::INVALID_PATTERN_ASSETS . self::IGNORE_LIST . ' entry "#qaConfig/(unclosed#" is not a valid regular expression: preg_match(): Compilation failed: missing closing parenthesis',
+        );
+
+        $auditor->main();
     }
 
     public function testItIsQuietWhenEveryNamespaceLessTemplateIsCovered(): void

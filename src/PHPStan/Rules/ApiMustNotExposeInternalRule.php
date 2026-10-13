@@ -207,6 +207,6 @@ final readonly class ApiMustNotExposeInternalRule implements Rule
      */
     private function hasTag(string $docText, string $tag): bool
     {
-        return 1 === \Safe\preg_match('/@' . $tag . '(?![\w-])/', $docText);
+        return 1 === \Safe\preg_match('/@' . preg_quote($tag, '/') . '(?![\w-])/', $docText);
     }
 }

@@ -7,6 +7,7 @@ namespace LTS\PHPQA;
 use Exception;
 use Generator;
 use InvalidArgumentException;
+use LTS\PHPQA\Regex\RegexPattern;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
@@ -26,15 +27,24 @@ final class Psr4Validator
     /** @var array<string, string> keyed by the missing path */
     private array $missingPaths = [];
 
+    /** @var list<RegexPattern> */
+    private readonly array $ignorePatterns;
+
     /**
      * Psr4Validator constructor.
      *
      * @param array<array-key, string> $ignoreRegexPatterns Set of regex patterns used to exclude files or
      *                                                      directories
      * @param array<int|string,mixed>  $decodedComposerJson
+     *
+     * @throws InvalidArgumentException naming the first ignore pattern that does not compile
      */
-    public function __construct(private readonly array $ignoreRegexPatterns, private readonly string $pathToProjectRoot, private readonly array $decodedComposerJson)
+    public function __construct(array $ignoreRegexPatterns, private readonly string $pathToProjectRoot, private readonly array $decodedComposerJson)
     {
+        $this->ignorePatterns = array_map(
+            static fn (string $pattern): RegexPattern => RegexPattern::compile($pattern, 'ignore pattern'),
+            array_values($ignoreRegexPatterns),
+        );
     }
 
     /**
@@ -125,9 +135,9 @@ final class Psr4Validator
                             continue;
                         }
 
-                        foreach ($this->ignoreRegexPatterns as $pattern) {
+                        foreach ($this->ignorePatterns as $pattern) {
                             $path = (string)$fileInfo->getRealPath();
-                            if (1 === \Safe\preg_match($pattern, $path)) {
+                            if ($pattern->matches($path)) {
                                 $this->ignoredFiles[] = $path;
                                 continue 2;
                             }

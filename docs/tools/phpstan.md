@@ -265,11 +265,11 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 15 additional opt-in rules split across two files:
+PHP-QA-CI ships 19 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 11 generic rules suitable for any PHP project (9 in its `rules:` block
+- **`rules-optional.neon`** — 15 generic rules suitable for any PHP project (13 in its `rules:` block
   plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (15 total)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (19 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -337,6 +337,7 @@ rules:
 | `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                                        |
 | `RequireVariadicOverArrayParameterRule` | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
 | `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum                       |
+| `ForbidUnvalidatedRegexPatternRule`     | `rules-optional.neon`           | A `preg_*` pattern the code does not own, compiled where a bad one is not reported by name           |
 | `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
 | `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |
 | `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                                           |

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use InvalidArgumentException;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\Psr4Validator;
 use PHPUnit\Framework\TestCase;
@@ -15,14 +16,17 @@ use PHPUnit\Framework\TestCase;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(Psr4Validator::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(Helper::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
 #[\PHPUnit\Framework\Attributes\Small]
 final class Psr4ValidatorTest extends TestCase
 {
     private const string COMPOSER_JSON = '/composer.json';
 
+    private const string VALID_PROJECT = __DIR__ . '/../assets/psr4/projectAllValid/';
+
     public function testItFindsNoErrorsOnAValidProject(): void
     {
-        $assetsPath  = __DIR__ . '/../assets/psr4/projectAllValid/';
+        $assetsPath  = self::VALID_PROJECT;
         $projectRoot = \Safe\realpath($assetsPath);
         $validator   = new Psr4Validator(
             [],
@@ -55,7 +59,7 @@ final class Psr4ValidatorTest extends TestCase
         // debug info is DELIBERATELY suppressed when there are no real errors —
         // main() returns early with an empty result the moment the error set is
         // empty, so a clean run never leaks the "Ignored Files:" block.
-        $assetsPath  = __DIR__ . '/../assets/psr4/projectAllValid/';
+        $assetsPath  = self::VALID_PROJECT;
         $projectRoot = \Safe\realpath($assetsPath);
         $validator   = new Psr4Validator(
             ['%Nested/Deep%'],
@@ -111,6 +115,20 @@ Magento\'s composer includes this by default, it should be removed from the psr-
         ];
 
         self::assertSame($expected, $actual);
+    }
+
+    /**
+     * An ignore pattern that does not compile is named when the validator is made, not reported
+     * by PCRE as an anonymous warning and PREG_INTERNAL_ERROR at the first file it is tried on.
+     */
+    public function testAnIgnorePatternThatDoesNotCompileIsRefusedByName(): void
+    {
+        $projectRoot = \Safe\realpath(self::VALID_PROJECT);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains("ignore pattern \"--help\" is not a valid regular expression: preg_match(): Unknown modifier 'h'");
+
+        new Psr4Validator(['%IgnoredStuff%', '--help'], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
     }
 
     /**

@@ -129,6 +129,20 @@
 #                                          maps. See
 #                                          docs/phpstan-rules/forbid-ambiguous-array-doc.md
 #
+# A REGEX PATTERN THE CODE DOES NOT OWN:
+#   ForbidUnvalidatedRegexPatternRule    — a preg_* call (PHP's or thecodingmachine/safe's)
+#                                          whose pattern is neither literal-string typed nor
+#                                          built in the call from literals and preg_quote()
+#                                          with its delimiter must run inside a try whose
+#                                          finally restores an error handler its function
+#                                          installed before the call: PCRE only warns
+#                                          on a pattern that does not compile, naming neither
+#                                          the pattern nor where it came from. A local
+#                                          variable counts as owned when every write to it in
+#                                          its function is. Its four collectors are
+#                                          registered under services: below. See
+#                                          docs/phpstan-rules/forbid-unvalidated-regex-pattern.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -159,6 +173,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidInsecureFunctionsRule
     - LTS\PHPQA\PHPStan\Rules\ForbidDebugOutputFunctionsRule
     - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
 
 parameters:
     phpqaciFactorySealed:
@@ -181,3 +196,20 @@ services:
         class: LTS\PHPQA\PHPStan\Rules\ForbidDeprecatedPhpunitMethodRule
         tags:
             - phpstan.rules.rule
+    # The collectors ForbidUnvalidatedRegexPatternRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\UnownedRegexPatternCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\RegexPatternVariableWriteCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerRestoringFinallyCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector
+        tags:
+            - phpstan.collector
