@@ -72,7 +72,7 @@ final class RepeatUntilSettledTest extends TestCase
 
         self::assertSame(RepeatUntilSettled::MAX_PASSES, $this->passes);
         $printed = $this->output->fetch();
-        self::assertStringContainsString('WARNING: the phase still changed 1 file(s) on pass 3 of 3', $printed);
+        self::assertStringContainsString('WARNING: the phase still changed 1 file(s) on pass 3 of 3: its tools undo each other, or need more passes than that', $printed);
         self::assertStringContainsString($this->project->path . '/' . self::SOURCE, $printed);
     }
 
