@@ -422,6 +422,30 @@ final readonly class Reportable
         preg_match($keyed[0]['p'], $subject);
     }
 
+    public function builtThroughAChainFromAValueItDoesNotOwn(string $value, string $subject): void
+    {
+        $v0 = $value;
+        $v1 = $v0 . 'a';
+        $v2 = $v1 . $v0;
+        $v3 = $v2 . $v1;
+        $v4 = $v3 . $v2;
+        $v5 = $v4 . $v3;
+        preg_match($v5, $subject);
+    }
+
+    public function builtInACycleOneWriteOfWhichItDoesNotOwn(string $value, string $subject, int $times): void
+    {
+        $a = '/a/';
+        $b = '/b/';
+        $c = '/c/';
+        for ($i = 0; $i < $times; ++$i) {
+            $a = $b . 'x';
+            $b = $c . 'y';
+            $c = $a . $value;
+        }
+        preg_match($a, $subject);
+    }
+
     private static function overwrite(string &$target, string $value): void
     {
         $target = $value;
