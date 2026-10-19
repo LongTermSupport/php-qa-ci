@@ -129,20 +129,22 @@ PHPStan together with its Turbo binary as one unit, and `vendor-bin/shellcheck`
   (`php`, `ext-*`, `composer-plugin-api`) are not dependencies of this kind. Both are skipped by
   rule, not by register entry, and the page states it.
 
+## Owner rulings
+
+- **Q1: majors block.** A dependency behind its latest major (or a `0.x` minor under a `^0.x`
+  PHIVE constraint) blocks the release unless a holdback entry with a reason and a review-by
+  date covers it. Constraints are raised by hand; Task 5.2 stays optional.
+- **Q2: direct dependencies block, transitive ones warn.** A transitive package is held where it
+  is by the direct dependency that requires it, and php-qa-ci cannot force it higher, so the gate
+  reports a stale transitive and does not fail on it. The Owner's premise is that no transitive
+  package is load-bearing: anything php-qa-ci's code uses must be declared in `composer.json`.
+  That is already enforced by two lanes, `composerRequireChecker` (a used symbol from an
+  undeclared package) and `composerDependencyAnalyser` (shadow dependencies), so the gate does
+  not re-check it. At the time of the ruling the root lock held 13 direct and 35 transitive
+  packages.
+
 ## Open Questions (Owner decisions)
 
-- **Q1: majors.** Recommendation: the gate compares against the absolute latest stable release.
-  A major behind (or a `0.x` minor for a `^0.x` PHIVE constraint) therefore blocks the release
-  until someone raises the constraint by hand or the Owner registers a holdback. The daily update
-  does not raise constraints today. An optional later phase (Task 5.2) could make it attempt
-  `composer require pkg:^N` and `phive.xml` constraint bumps and let QA judge the result. Is
-  "block, and fix by hand" acceptable, or should major bumps be automated first?
-- **Q2: transitive packages in the root lock.** Recommendation: include them (today only
-  `symfony/string` is behind). The Owner's wording is "all dependencies", and a full
-  `composer update` brings them along anyway, so a stale transitive dependency means the update
-  did not run. Counter-argument: the root lock is not shipped to consumers (php-qa-ci is a
-  library), so the lock only describes php-qa-ci's own QA environment. Include, or limit to
-  `--direct`?
 - **Q3: constraint floors in `composer.json`.** Consumers receive the constraints, not the lock.
   Should a release also require each `require` floor to be raised to the locked minor (e.g.
   `phpunit/phpunit: ^13.3` to `^13.4`)? That forces consumers up, and the changelog lane rules a
@@ -179,8 +181,8 @@ PHPStan together with its Turbo binary as one unit, and `vendor-bin/shellcheck`
   `changelog-release`) for any currency question. Bound it both ways (branch pins and platform
   packages are not instances). Runner-check status. Next wider rule: a currency check for
   consumer projects (Q4).
-- [ ] ⬜ **Task 1.2**: Get the Owner's answers to Q1–Q7 and record them under Technical
-  Decisions before Phase 2.
+- [ ] 🔄 **Task 1.2**: Get the Owner's answers to Q1–Q7 and record them under Owner rulings
+  before Phase 2 (Q1 and Q2 ruled; Q3–Q7 open).
 
 ### Phase 2: the detector, red first (TDD)
 
@@ -189,8 +191,8 @@ PHPStan together with its Turbo binary as one unit, and `vendor-bin/shellcheck`
   project clock and never `new DateTime`), each malformed case a named failure.
 - [ ] ⬜ **Task 2.2**: `CurrencyDecider` (pure) + tests per branch: current, behind, behind but
   held, held and stale (latest satisfies `heldTo`), held but not newest within range, expired,
-  subject gone, branch pin skipped, platform package skipped, major behind (per Q1), PHPStan and
-  Turbo version mismatch.
+  subject gone, branch pin skipped, platform package skipped, major behind (blocks, per Q1),
+  transitive behind (a warning, never a failure, per Q2), PHPStan and Turbo version mismatch.
 - [ ] ⬜ **Task 2.3**: Installed-version readers: reuse `BundledToolVersions`; add the root
   `composer.lock` (direct/transitive per Q2), with fixture-based tests.
 - [ ] ⬜ **Task 2.4**: Latest-version sources behind `LatestReleaseSourceInterface`: Packagist
