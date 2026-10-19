@@ -1,6 +1,6 @@
 # Plan 00022: CLAUDE.md progressive disclosure
 
-**Status**: In Progress
+**Status**: Complete (merged #215 as e501b8d3)
 **Created**: 2026-10-19
 **Owner**: dev
 **Priority**: High
@@ -36,7 +36,7 @@ with it.
 The method follows the owner-supplied
 [docs-optimisation prompt](https://gist.github.com/edmondscommerce/a5921ecb5b096439a6e505716e3a6a0d),
 adapted to the hooks-daemon documentation strategy
-([CLAUDE/core/DocumentationStrategy.core.md](../../core/DocumentationStrategy.core.md)). Where
+([CLAUDE/core/DocumentationStrategy.core.md](../../../core/DocumentationStrategy.core.md)). Where
 the two differ, the daemon's rules win, except for Decision 1, a recorded project deviation from
 core R2/R3.
 
@@ -221,7 +221,7 @@ Stale facts are corrected as the text lands.
     Yaml Lint a platform lane);
   - a php-qa-ci issue on the vendored `CLAUDE.md` carrying this repository's `<hooksdaemon>`
     block into consumer sessions.
-- [ ] 🔄 **Task 6.7** (left to the coordinator: full gate, push, PR): Pre-push gate (`CLAUDE/prepush-verification.md`), open the pull request,
+- [x] ✅ **Task 6.7** (gate green on 5aa616b8; PR #215 verified PASS WITH NOTES, merged as e501b8d3): Pre-push gate (`CLAUDE/prepush-verification.md`), open the pull request,
   PR verification (`CLAUDE/pr-verification.md`), merge.
 
 ## Success Criteria
@@ -238,7 +238,7 @@ Stale facts are corrected as the text lands.
 - [x] Every Task 6.1 instrument is clean.
 - [x] Every path rule and nested file is shown to load on a matching file, live, and every
   Task 6.3 scenario reached its canonical doc.
-- [ ] The independent reviewer reports no unresolved major findings, and the pre-push gate is
+- [x] The independent reviewer reports no unresolved major findings, and the pre-push gate is
   green.
 
 ## Review disposition
@@ -261,6 +261,6 @@ are adopted. Declined:
 
 - Plan drafted; inventory and mechanics reports in `subagent-reports/`.
 - Plan revised for the independent review (APPROVE-WITH-CHANGES).
-- **Branch dependency**: this branch stacks on `chore/hooks-daemon-v3.70.0`, which is not yet on
-  `php8.5`. The pull request opens only after that one merges and `php8.5` has been merged into
-  this branch.
+- Delivered: #215, merged as e501b8d3, after its base #207 (the daemon upgrade) merged as 3d39c894.
+- Follow-ups filed: #216 (retire the `docs/phpqa-tools.md` roster) and #217 (the vendored
+  `<hooksdaemon>` block; Owner decision). The upstream hooks-daemon report draft awaits the Owner.
