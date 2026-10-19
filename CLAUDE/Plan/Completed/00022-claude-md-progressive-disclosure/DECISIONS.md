@@ -35,7 +35,7 @@ Source: [subagent-reports/261019-loading-mechanics-claude-code-guide.md](subagen
   canon says "canonical here" in prose and claims no R4a restatement.
 - **R5**: a derived roster (tool list, phase order, gates) is stated only by its generator
   (`ToolRegistry`, which produces `bin/qa -h` and the active-defences region).
-- **Defence Before Fix §3.2** ([CLAUDE/DefenceBeforeFix.md](../../DefenceBeforeFix.md)): a test
+- **Defence Before Fix §3.2** ([CLAUDE/DefenceBeforeFix.md](../../../DefenceBeforeFix.md)): a test
   must not serve as the Detector.
 - The daemon writes `<hooksdaemon>`, re-runs its markdown formatter over the whole of
   `CLAUDE.md`, and auto-commits the file on a restart in the main checkout. Its injector skips
@@ -81,7 +81,7 @@ Source: [subagent-reports/261019-loading-mechanics-claude-code-guide.md](subagen
    Chosen: option (c), per R5. Root `CLAUDE.md` keeps no roster, and `docs/pipeline.md`'s
    numbered per-phase lane lists and gate sentence become each phase's purpose plus a pointer to
    `bin/qa -h`, the identifier index `docs/phpstan-rules/README.md` and
-   [ToolGateEnum](../../../src/Pipeline/Tool/ToolGateEnum.php). The remaining hand roster,
+   [ToolGateEnum](../../../../src/Pipeline/Tool/ToolGateEnum.php). The remaining hand roster,
    `docs/phpqa-tools.md`, is filed as an issue for retirement (Task 6.6). The other stale facts
    (`qaConfig/pipeline.php` and `--agent-mode` missing from preflight, "project's vendor/bin is
    used", "validation only") are corrected where their text lands.
