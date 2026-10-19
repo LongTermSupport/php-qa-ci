@@ -166,8 +166,15 @@ written down. The PR title made it unclear what user-visible change was shipping
 
 ## Enforcement
 
-- Tool: `bin/qa -t branchNamePolicy`
-- Runs as part of: `bin/qa -t allStatic` (CI gate)
+- Tool: `bin/qa -t branchNamePolicy` (alias `-t bnp`); identifier `phpqaci.branchNamePolicy`
+- Runs as part of: `bin/qa -t allStatic` (CI gate). Always on, and the first lane of the
+  static-analysis phase
+- Lane: [`BranchNamePolicyTool`](../src/Pipeline/Lane/BranchNamePolicyTool.php); git probes in
+  [`GitBranches`](../src/Pipeline/Lane/BranchNamePolicy/GitBranches.php) (through the pipeline's
+  process runner), the YAML file read by
+  [`BranchNamePolicyConfig`](../src/Pipeline/Lane/BranchNamePolicy/BranchNamePolicyConfig.php),
+  and the pure verdict in
+  [`BranchNamePolicyDecision`](../src/Pipeline/Lane/BranchNamePolicy/BranchNamePolicyDecision.php)
 - Single-source-of-truth doc: this file
 - Project root signpost: auto-generated `<phpqaci>...</phpqaci>` block in
   `CLAUDE.md` (written on every `composer install`/`update`)

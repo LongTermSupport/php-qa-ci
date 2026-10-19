@@ -68,8 +68,11 @@ Different questions, different failure guidance, different times you would run o
 - Keep aliases short and few. Two is usually right: a short form and the canonical name.
 - Register it everywhere at once, or the tests will tell you which one you missed: the
   registry, `ShippedTools`, the characterisation goldens, `PipelineTest`'s order golden,
-  `docs/tools/<name>.md`, the identifier index, and the tool list in `CLAUDE.md` and
-  `docs/pipeline.md`.
+  `docs/tools/<name>.md`, the identifier index, and the active-defences region of `CLAUDE.md`
+  (regenerate it with `php bin/rules . --write-agent-summary=CLAUDE.md`). `docs/pipeline.md`
+  keeps no tool list; it describes each phase and points at `bin/qa -h` and the identifier
+  index. `docs/phpqa-tools.md` is still a hand roster, pending retirement: add the tool there
+  until it is gone.
 - Add `#[UsesClass(<Name>Tool::class)]` to the five tests that walk the whole shipped set:
   `PipelineBuilderTest`, `ShippedToolLocatorTest`, `InProcessLanesTest`,
   `ActiveRulesListerTest` and `ActiveRulesListerSelfCheckTest`. They construct every lane,

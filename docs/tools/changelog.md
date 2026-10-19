@@ -78,7 +78,7 @@ In GitHub Actions that means `fetch-depth: 0` on `actions/checkout`.
 
 ## Enabling it
 
-Off by default. A project switches it on in `qaConfig/qa.php` and names the paths whose changes a
+Off by default; php-qa-ci switches it on for itself. A project switches it on in `qaConfig/qa.php` and names the paths whose changes a
 consumer can notice:
 
 ```php

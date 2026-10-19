@@ -48,6 +48,8 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the dependency update: phpstan/phpstan (in rector.phar) 2.2.16 → 2.3.1; rector/rector 2.6.7 → 2.7.0.
 
+- **php-qa-ci's own `CLAUDE.md` is much smaller, and three routing `CLAUDE.md` files join it.** A consumer's agent that reads a file under `vendor/lts/php-qa-ci/` loads that `CLAUDE.md`; it now holds the binding rules, the active defences and a map to the documents that carry the depth, and its hand-written part is about a tenth of its former size. `src/Pipeline/CLAUDE.md`, `src/PHPStan/CLAUDE.md` and `scripts/CLAUDE.md` load when a file in their directory is read and point at the contributor documentation for that area. Nothing a consumer configures or runs changes.
+
 - **Bundled tool versions updated** by the dependency update: infection 0.35.6 → 0.35.8.
 
 ### Fixed

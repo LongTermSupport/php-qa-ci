@@ -96,7 +96,7 @@ files, or none, or a binary without its core, and the phar runs without Turbo, s
   PHPStan still runs, without Turbo, and the next install tries again.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
-  (see [PHAR verification](../../CLAUDE.md#preflight-phase-configuration--setup)).
+  (see [PHAR verification](../pipeline.md#2-preparation)).
 - **Hosts without a build** (Windows, an Intel Mac, a ZTS PHP on macOS) run PHPStan without
   Turbo, as before. The install says so.
 

@@ -25,7 +25,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  * only when the ANALYSED PROJECT's own source can never itself sit under a
  * path containing the substring 'vendor/'. php-qa-ci is routinely developed
  * in place inside a consuming project's `vendor/lts/php-qa-ci/` checkout (see
- * this project's own CLAUDE.md, "dogfooding" section) — so php-qa-ci's own
+ * this project's own CLAUDE/dogfooding.md) — so php-qa-ci's own
  * final classes ALSO matched the substring, and the rule went silently dark
  * for the one project it is most often edited inside.
  *

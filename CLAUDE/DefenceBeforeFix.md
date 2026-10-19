@@ -307,6 +307,10 @@ report, is recorded there against the clause it fails, and the package does not 
 whilst that list is non-empty. The key is machine-readable so a consumer checks the claim against
 the installed artefact rather than against a sentence in a README.
 
+A gap found is closed, not accepted: recording it is the first step, not the outcome. Upstream
+grades this package clause by clause in its
+[tools register](../remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md).
+
 The declaration carries two levels, graded separately, because they have different readers:
 
 - The top-level `method`, `toolchain` and `known-gaps` describe the **artefact**: what a

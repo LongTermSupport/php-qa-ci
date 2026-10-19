@@ -42,8 +42,9 @@ Here are some general PHPQA environment variables you might want to set:
 
 `phpqaQuickTests`
 
-Setting this to `1` **skips whole phases**, not just slow tests: PHPStan (Phase 3) and both
-PHPUnit and Infection (Phase 4) are skipped entirely. Use it for a fast lint/style/validation
+Setting this to `1` **skips whole tools**, not just slow tests: every tool gated `NotQuick` or
+`Infection` in its registry row (PHPStan and Dead Code Detection in Phase 3, PHPUnit and
+Infection in Phase 4; see [the gates](pipeline.md#gates)) is skipped entirely. Use it for a fast lint/style/validation
 pass. Do not confuse it with `phpUnitQuickTests`, which is narrower — it still runs PHPUnit but
 lets individual tests take a faster path (see the PHPUnit docs).
 
@@ -51,13 +52,29 @@ lets individual tests take a faster path (see the PHPUnit docs).
 
 `CI`
 
-Will not prompt for user input.
+Will not prompt for user input: no retry prompt and no retry loop. It is switched on
+automatically in a Claude Code session (`CLAUDECODE=1`) and whenever stdin or stdout is not a
+TTY. `CI` controls interactivity only; it does not decide whether the fixers may write.
+
+##### Read-only runs:
+
+`QA_READONLY`
+
+Whether the mutating tools (Rector, PHP CS Fixer, PHP Strict Types and the other fixers) may
+write is decided separately from `CI`: `QA_READONLY=1` (or `true`) is read-only,
+`QA_READONLY=0` (or `false`) is writable; when it is unset, GitHub Actions (`GITHUB_ACTIONS=true`)
+is read-only and everything else (a local terminal, a Claude Code session, cron) is writable. In
+a read-only run the fixers run in dry-run mode and a pending change fails the run instead of
+being applied, and the run defaults to [aggregate mode](pipeline.md#fail-fast-aggregate-and-retries)
+(`QA_FAIL_FAST=1` turns that off). `CI=true` alone does not make a run read-only: to reproduce
+a CI failure locally, run `QA_READONLY=1 vendor/bin/qa`.
 
 ##### Memory limit:
 
 `phpqaMemoryLimit`
 
-Global memory limit for all QA tools. Default: `4G`.
+Global memory limit for all QA tools. Default: `4G`. It is applied to every PHP process the
+pipeline starts, including the Xdebug-enabled coverage runs.
 
 ```bash
 # Override via environment variable
@@ -116,7 +133,12 @@ To create your own override:
 
 1. Make a directory in your project root called `qaConfig`
 2. Copy the configuration from [configDefaults/generic](./../configDefaults/generic) into your project `qaConfig` folder
-3. Customise the copied config as you see fit
+3. Check every relative path in the copy: a reference built from `__DIR__` now resolves from
+   `qaConfig/`, not from `configDefaults/generic/`. For example, `php_cs.php` falls back to
+   `__DIR__ . '/php_cs_finder.php'` when the project has no `qaConfig/php_cs_finder.php`, so a
+   copied `php_cs.php` needs either a copied finder or that path pointed at
+   `__DIR__ . '/../vendor/lts/php-qa-ci/configDefaults/generic/php_cs_finder.php'`
+4. Customise the copied config as you see fit
 
 For example, for PHPStan:
 
@@ -137,7 +159,9 @@ vim qaConfig/phpstan.neon
 Settings that are not a tool's own config file (memory limit, ignored paths, mutation floors,
 opt-outs) live in `qaConfig/qa.php`. The file returns a closure that receives the pipeline's
 `QaConfigBuilder`, seeded from the defaults and the environment variables above, and returns the
-adjusted builder. Every setting is a typed method, so a misspelt one fails at load time:
+adjusted builder, so a setting in `qa.php` wins over the environment. `build()` then derives the
+dependent values (coverage needs Xdebug, Infection needs coverage), so a project cannot switch on
+what the host cannot run. Every setting is a typed method, so a misspelt one fails at load time:
 
 ```php
 <?php
@@ -158,6 +182,16 @@ too. Each lane's page under [tools/](tools/) says how it hands them to its tool,
 not repeated in any tool's own config. Lanes whose scope is not the checked paths (the Composer
 checks, the Twig and YAML lanes, the Markdown lanes, PHPUnit) do not read the setting.
 
+The settings most projects change:
+
+| To                                     | Call                                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Skip mutation testing                  | `withInfection(false)`                                                                                            |
+| Check another directory as well        | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the set for one run) |
+| Exclude paths from every scanning lane | `withIgnoredPaths('tests/assets')`                                                                                |
+| Raise the memory limit                 | `withMemoryLimit('8G')`                                                                                           |
+| Turn off PHPArkitect                   | `withArkitect(false)`                                                                                             |
+
 The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at
 `templates/qaConfig-qa.php`. This repository's own [qaConfig/qa.php](./../qaConfig/qa.php) is
@@ -170,3 +204,31 @@ Per-tool overrides (`qaConfig/tools/<tool>.php` returning a `ToolInterface`) and
 hooks (`qaConfig/hookPre.php`, `qaConfig/hookPost.php` returning a callable) are described on the
 same page. A Bash-era `qaConfig.inc.bash`, `tools/*.inc.bash` or `hook*.bash` is refused with a
 message pointing at the replacement.
+
+## The pipeline is not a tool proxy
+
+`vendor/bin/qa` enforces one standard configuration per tool: the same PHPStan level and the same
+PHP CS Fixer rules in every project, tools run in a fixed order, PHARs and cache directories
+managed for you, and the same Xdebug and memory settings everywhere. It does not pass arbitrary
+arguments through to the tools, so `vendor/bin/qa -t stan --help` is not a PHPStan help screen.
+
+What it does take is a tool and a path, so a run can be narrowed without changing how the tool
+is configured:
+
+```bash
+vendor/bin/qa -t stan -p src
+vendor/bin/qa -t fixer -p src/Domain
+vendor/bin/qa -p tests/Unit
+```
+
+When a tool needs something the pipeline does not offer:
+
+- for a lasting change, put it in the tool's config file under `qaConfig/` or in `qaConfig/qa.php`
+  (above);
+- for a one-off run with custom flags, call the tool directly, for example
+  `vendor/bin/phpstan analyse --help`;
+- for a custom workflow, write a wrapper script that calls the tools directly.
+
+A development script (a `docker.bash`, a CI wrapper) should call `vendor/bin/qa -t <tool>` with
+`-p` for standard runs and fall back to calling a tool directly only when it genuinely needs a
+flag the pipeline does not offer.
