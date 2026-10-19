@@ -66,7 +66,11 @@ final readonly class GitSandbox
         $this->root->remove();
     }
 
-    /** @return array<string, string> the environment that isolates git from the host's configuration */
+    /**
+     * An array shape, so PHPStan sees both isolating keys at every call (phpqaci.unisolatedGitProcess).
+     *
+     * @return array{GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'Sandbox', GIT_AUTHOR_EMAIL: 'sandbox@example.invalid', GIT_COMMITTER_NAME: 'Sandbox', GIT_COMMITTER_EMAIL: 'sandbox@example.invalid'} the environment that isolates git from the host's configuration
+     */
     public static function environment(): array
     {
         return [

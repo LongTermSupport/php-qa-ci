@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\GitSandbox;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -62,7 +63,7 @@ final class ComposerBinManifestTest extends TestCase
     public function noDeclaredEntryIsIgnoredByGit(): void
     {
         $root    = \dirname(__DIR__, 2);
-        $process = new Process(['git', 'check-ignore', '--', ...$this->declaredBins($root)], $root);
+        $process = new Process(['git', 'check-ignore', '--', ...$this->declaredBins($root)], $root, GitSandbox::environment());
         $process->run();
 
         // check-ignore exits 1 when no path is ignored, 0 when one is, 128 on error.
@@ -79,7 +80,7 @@ final class ComposerBinManifestTest extends TestCase
     public function everyDeclaredEntryIsExecutableInGit(): void
     {
         $root    = \dirname(__DIR__, 2);
-        $process = new Process(['git', 'ls-files', '--stage', '--', ...$this->declaredBins($root)], $root);
+        $process = new Process(['git', 'ls-files', '--stage', '--', ...$this->declaredBins($root)], $root, GitSandbox::environment());
         $process->mustRun();
 
         $notExecutable = [];
