@@ -43,6 +43,12 @@ reason, on a developer's machine.
   `$command` is a `list<string>` of unknown content: the rule reports what it can show runs git.
 - **git started indirectly**, by a script, a hook or production code the test calls. No static
   rule sees what a child process runs; the suite-wide isolation below covers it.
+- **git started through any other spawner**: `exec()`, `shell_exec()`, `system()`, `passthru()`,
+  `popen()` and backticks. These are not read; the suite-wide isolation covers them.
+- **git that is not the first program of a shell line**, such as `cd x && git status` or
+  `['bash', '-c', 'git status']`: only the first program is read.
+- **An environment whose isolating keys are present but unset**: Symfony Process treats a
+  `false` value as removing the variable, and the rule counts the key as present.
 
 ## How to fix it
 

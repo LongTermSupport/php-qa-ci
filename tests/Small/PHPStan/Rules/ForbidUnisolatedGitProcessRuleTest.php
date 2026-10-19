@@ -5,11 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule;
-use PhpParser\Node\Arg;
-use PhpParser\Node\Expr\Array_;
-use PhpParser\Node\Expr\New_;
-use PhpParser\Node\Name\FullyQualified;
-use PhpParser\Node\Scalar\String_;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,9 +24,41 @@ use PHPUnit\Framework\Attributes\Test;
 #[Medium]
 final class ForbidUnisolatedGitProcessRuleTest extends RuleTestCase
 {
-    use ScopeStubTrait;
+    /** Every spelling of a git run the rule reads, isolated and not, in a test namespace. */
+    private const string FIXTURE =__DIR__ . '/../../../assets/PHPStan/UnisolatedGitProcess/GitCallsTest.php';
 
-    private const string FIXTURE = __DIR__ . '/../../../assets/PHPStan/UnisolatedGitProcess/GitCallsTest.php';
+    /** One unisolated git run in a namespace that does not mark it as test code; the call is on line 13. */
+    private const string UNISOLATED_GIT = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace App\Git;
+
+        use Symfony\Component\Process\Process;
+
+        final class Status
+        {
+            public function run(): void
+            {
+                new Process(['git', 'status'])->run();
+            }
+        }
+        PHP;
+
+    private TempDir $project;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->project = TempDir::create('phpqaci-unisolated-git');
+    }
+
+    protected function tearDown(): void
+    {
+        $this->project->remove();
+        parent::tearDown();
+    }
 
     /** The fixture is loaded first so the reflection provider knows its constants, as a project's autoloaded ones are. */
     #[Test]
@@ -59,13 +87,14 @@ final class ForbidUnisolatedGitProcessRuleTest extends RuleTestCase
     #[Test]
     public function codeOutsideATestIsNotReported(): void
     {
-        $scope = self::scopeStub();
-        $scope->method('getNamespace')->willReturn('App\Git');
-        $scope->method('getFile')->willReturn('/app/src/Git/Status.php');
+        $this->analyse([$this->project->write('src/Git/Status.php', self::UNISOLATED_GIT)], []);
+    }
 
-        $call = new New_(new FullyQualified(\Symfony\Component\Process\Process::class), [new Arg(new Array_([new \PhpParser\Node\ArrayItem(new String_('git'))]))]);
-
-        self::assertSame([], new ForbidUnisolatedGitProcessRule()->processNode($call, $scope));
+    /** The same call in a file under tests/ is test code even when its namespace does not say so. */
+    #[Test]
+    public function aFileUnderTestsIsTestCodeWhateverItsNamespace(): void
+    {
+        $this->analyse([$this->project->write('tests/Git/StatusTest.php', self::UNISOLATED_GIT)], [[ForbidUnisolatedGitProcessRule::MESSAGE, 13]]);
     }
 
     protected function getRule(): Rule
