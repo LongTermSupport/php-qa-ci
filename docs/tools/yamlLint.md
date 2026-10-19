@@ -19,8 +19,9 @@ as `!php/const` and `!tagged_iterator`; on a project that uses none, the flag ch
   `symfony/yaml` (which ships `Resources/bin/yaml-lint`) and `symfony/console` (which the script
   needs). Either absent, it skips cleanly with a message. A Symfony application always has both;
   a generic project gets the lane by requiring them.
-- In the full pipeline, in the linting phase after the generic lanes.
-- Standalone: `vendor/bin/qa -t yamlLint` (alias `-t yaml`).
+- In the full pipeline, in the linting phase after [Documentation Prose](docsProse.md) and before
+  [ShellCheck](shellCheck.md).
+- Standalone: `vendor/bin/qa -t yaml`.
 - The configured directories default to `<projectRoot>/config` on every platform and can be
   changed with `withYamlDirectories()` in the project's `qaConfig/qa.php`.
 - `yaml-lint` errors on a path that does not exist, so the lane first drops every configured

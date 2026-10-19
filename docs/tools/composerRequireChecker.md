@@ -14,7 +14,7 @@ the symbol silently. Explicit is better than implicit. If you use it, declare it
 
 ## How it runs
 
-- In the full pipeline, in the linting phase after PHP Lint.
+- In the full pipeline, in the linting phase after OPcache.
 - Standalone: `vendor/bin/qa -t cr`.
 - Runs the shipped `vendor-phar/composer-require-checker.phar` without Xdebug, from the project
   root, as `check --config-file=<config> -- <project>/composer.json`.
@@ -22,6 +22,13 @@ the symbol silently. Explicit is better than implicit. If you use it, declare it
   shipped `configDefaults/generic/` default. It carries the symbol whitelist, the list of PHP
   core extensions, and the `scan-files` of `thecodingmachine/safe` generated function files.
 - A non-zero exit fails the lane and prints the HOW TO FIX guidance.
+- The `thecodingmachine/safe` `scan-files` entries are checked against the running PHP by the
+  [Version Pins](versionPins.md) lane, which is handed the same resolved config.
+
+The usual findings: a Symfony component used directly but only installed through another
+package (`Symfony\Component\HttpKernel\Kernel` needs `symfony/http-kernel` even when
+`symfony/framework-bundle` pulls it in), a `\Safe\*` function Rector's Safe pass introduced, and a
+PSR interface used without its PSR package in `require`.
 
 ## How to fix a failure
 

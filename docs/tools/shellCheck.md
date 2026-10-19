@@ -28,7 +28,9 @@ release tag in `vendor-bin/shellcheck.version`. The lane compares the two on eve
 because it is not PHP: ShellCheck is a compiled Haskell executable.
 
 Maintainers refresh it through `bin/shellcheck-install update`, which `scripts/tool-install.bash`
-calls, and which `composer update` and the scheduled `update-deps.yml` workflow already run. That
+calls, and which `composer update` and the scheduled `update-deps.yml` workflow already run. An
+update is the maintainer path, so it does nothing unless `phive` is installed, as the PHAR
+rebuilds need Box. That
 updater is PHP rather than Bash — an HTTP release lookup and a `PharData` extract, with the
 decision table unit-tested — per the "Bash is for invocation, PHP is for logic" rule in
 [CLAUDE/architecture.md](../../CLAUDE/architecture.md#bash-is-for-invocation-php-is-for-logic-owner-ruling-non-negotiable).
@@ -60,7 +62,8 @@ configuration, not a clean result.
 
 ## How it runs
 
-- In the full pipeline, last in the linting phase.
+- In the full pipeline, last of the shipped lanes in the linting phase (a Symfony project's
+  [Twig Lint](twigLint.md) follows it).
 - Standalone: `vendor/bin/qa -t shellCheck` (aliases `-t sc`, `-t shellcheck`).
 - `-p <path>` narrows the discovered set to files under that path.
 - One invocation: `vendor-bin/shellcheck --severity=warning -- <files...>` from the project root.

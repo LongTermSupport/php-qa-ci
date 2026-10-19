@@ -141,7 +141,7 @@ Stale facts are corrected as the text lands.
 - [x] ✅ **Task 3.4**: `CLAUDE/claude-code-integration.md` for the Claude Code hooks deploy and
   the daemon full-QA blocker pointer, linking `.claude/hooks/README.md` rather than repeating it.
   Same commit: repoint `.claude/hooks/README.md:419`.
-- [ ] ⬜ **Task 3.5**: Pipeline order, preflight, configuration, platform, PHP 8.5 notes,
+- [x] ✅ **Task 3.5**: Pipeline order, preflight, configuration, platform, PHP 8.5 notes,
   built-in hooks, overrides, requirements, customisation, the Tools Reference and the consumer
   half of "not a tool proxy" (to `docs/configuration.md`): per-fact check against the
   inventory's duplication map; each CLAUDE.md-only fact goes to its `docs/` canon or, if

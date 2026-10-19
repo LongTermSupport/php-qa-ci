@@ -29,8 +29,7 @@ moves on nothing else in the pipeline notices:
 
 ## How it runs
 
-- In the full pipeline, in the linting phase, immediately after the Infection config source
-  directories check.
+- In the full pipeline, in the linting phase, immediately after the Analysed Paths check.
 - Standalone: `vendor/bin/qa -t versionPins`, alias `-t vp`.
 - Binary: `bin/version-pins-check <project-root> <phpunit.xml> <composerRequireChecker.json>`,
   delegating to `LTS\PHPQA\VersionPins\VersionPinsCheck::main()`.

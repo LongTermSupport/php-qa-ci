@@ -156,3 +156,18 @@ keeping, reason given). The Tools Reference rows are in
 | Q19 | Common Customizations          | `withCheckedPaths()` appends to `tests/` + `src/`; `withIgnoredPaths()`; `-p` replaces the set for one run           | PRESENT                                                       | `docs/upgrading-to-8.5.md`    | `replaces the whole set for one run`    |
 | Q20 | Overriding Tool Configurations | Copy the default config into `qaConfig/` and customise                                                               | PRESENT                                                       | `docs/configuration.md`       | `To create your own override`           |
 | Q21 | Overriding Tool Configurations | Update relative paths in a copied config (`php_cs.php`'s `$finderPath`)                                              | ADDED                                                         | `docs/configuration.md`       | `Check every relative path in the copy` |
+
+## Tools Reference and Important Notes
+
+The Tools Reference (176 facts, 27 subsections) is mapped fact by fact in
+[subagent-reports/261019-tools-reference-fact-map.md](subagent-reports/261019-tools-reference-fact-map.md):
+151 PRESENT, 11 ADDED, 12 DROPPED (generic), 2 STALE (corrected, not copied).
+
+| ID  | Baseline section  | Fact                                                                   | Status                                    | Destination                  | Key                               |
+| --- | ----------------- | ---------------------------------------------------------------------- | ----------------------------------------- | ---------------------------- | --------------------------------- |
+| U01 | Tools Reference   | Every lane prints `phpqaci.<lane>`; `rule-doc` resolves it to its page | PRESENT                                   | `docs/phpqa-tools.md`        | `resolves it to its page`         |
+| U02 | Important Notes 1 | Phase 1 modifies code, which is why Rector and PHP CS Fixer run first  | PRESENT                                   | `docs/pipeline.md`           | `run first, so every later phase` |
+| U03 | Important Notes 2 | "Project's vendor/bin is used"                                         | CORRECTED (tools run from `vendor-phar/`) | `CLAUDE/architecture.md`     | `phpqaci.binDirTool`              |
+| U04 | Important Notes 3 | Configuration is typed PHP that fails at load time when misspelt       | PRESENT                                   | `docs/configuration.md`      | `fails at load time`              |
+| U05 | Important Notes 4 | Platform detection is automatic; no override switch                    | PRESENT                                   | `docs/platform-detection.md` | `runs during the preflight`       |
+| U06 | Important Notes 5 | Fail-fast except interactive retry and read-only aggregate mode        | PRESENT                                   | `docs/pipeline.md`           | `is **aggregate**`                |

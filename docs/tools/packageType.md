@@ -1,5 +1,7 @@
 # Package Type Declaration Check
 
+**Identifier**: `phpqaci.packageType`
+
 An **always-on** php-qa-ci pipeline tool that fails the build unless the
 project's `composer.json` declares its `type` **explicitly**.
 

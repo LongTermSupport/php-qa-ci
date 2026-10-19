@@ -12,7 +12,9 @@ Some conventions are structural rather than semantic: an interface ends in `Inte
 final and readonly and lives in a `Dto` namespace, one layer must not depend on another.
 PHPStan can express these only awkwardly; PHPArkitect states them directly against a class set.
 Where a convention needs finer, method-level or semantic detection it belongs in a PHPStan rule
-instead, never in both engines at once. See the
+instead. One engine owns each convention by preference: where arkitect can express a rule that
+lives in PHPStan, migrate it; an overlap is acceptable only when both are kept in sync and the
+overlap is documented in both places. See the
 [README "Where does a rule belong"](../../README.md#where-does-a-rule-belong--phparkitect-or-phpstan)
 guide.
 

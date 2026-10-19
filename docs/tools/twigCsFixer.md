@@ -2,12 +2,12 @@
 
 **Identifier**: `phpqaci.twigCsFixer`
 
-A Symfony platform lane: coding standards for Twig templates, in the coding-standards phase
-alongside Rector and PHP CS Fixer.
+Coding standards for Twig templates, in the coding-standards phase after Rector and PHP CS Fixer,
+on any project that has `twig/twig` installed.
 
 ## What it is about
 
-PHP CS Fixer does not read Twig. On a Symfony project a large amount of presentation logic
+PHP CS Fixer does not read Twig. On a Twig project a large amount of presentation logic
 lives in `.twig` files that no formatter in the pipeline has ever touched, so they drift into
 whatever each contributor's editor does — inconsistent delimiter spacing, mixed quote styles,
 stray whitespace — and every template change produces a diff bigger than the change.
@@ -17,9 +17,10 @@ treatment PHP already gets.
 
 ## How it runs
 
-- Appended to the **coding-standards phase** on a Symfony project only (detected by
-  `symfony.lock`). It is not `-t` selectable, like the other platform lanes.
-- Skipped cleanly when the project is not Symfony, and when none of the configured twig
+- In the full pipeline, in the **coding-standards phase** after PHP CS Fixer. It is gated on the
+  library, not the platform: a shipped lane, not a Symfony platform lane.
+- Standalone: `vendor/bin/qa -t twigcs`.
+- Skipped cleanly when `vendor/twig/twig` is absent, and when none of the configured twig
   directories exist.
 - The tool is the shipped `vendor-phar/twig-cs-fixer.phar`, verified by PHIVE against the
   maintainer's signing key. Nothing is fetched at run time.
