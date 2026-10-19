@@ -133,7 +133,7 @@ Stale facts are corrected as the text lands.
   `src/PHPStan/Rules/RequireDeclareStrictTypesRule.php:18`.
 - [x] ✅ **Task 3.2**: `CLAUDE/dogfooding.md` from the dogfooding section. Same commit: repoint
   the docblock in `src/PHPStan/Rules/ForbidUnanchoredVendorSubstringCheckRule.php:28`.
-- [ ] ⬜ **Task 3.3**: `CLAUDE/release-lines.md` from the release-line section. Per-fact check
+- [x] ✅ **Task 3.3**: `CLAUDE/release-lines.md` from the release-line section. Per-fact check
   against `README.md#branches-and-versions` and `.github/ISSUE_TEMPLATE/bug_report.yml`: the new
   file carries only what those do not (the #36 exception, "not backported proactively", the
   issue-states-its-line trigger, the Owner-decision framing) and links README for the rest

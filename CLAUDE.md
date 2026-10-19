@@ -158,15 +158,9 @@ in `.claude/hooks-daemon.yaml`.
 
 ## Work happens on `php8.5` (binding, Owner decision)
 
-Every change, fix and feature is made on `php8.5`, the current line.
-
-- **`php8.4`** takes a bug fix only when a project running `php8.4` reports that bug. A bug
-  found on `php8.5`, or found on `php8.4` by working on this repository, is not backported
-  proactively; it stays a known `php8.4` issue until a `php8.4` project hits it. The single
-  exception is #36 (FlipAssertRector inverts assertions), backported on the Owner's go-ahead.
-- **`php8.3`** is dead: no fixes, no releases.
-- An issue states the release line it was found on, so a report against `php8.4` is
-  recognisable as the trigger for a backport.
+Every change is made on `php8.5`. `php8.4` takes a bug fix only when a `php8.4` project reports
+it (#36 the single exception); `php8.3` is dead. An issue states the release line it was found on.
+Canon: [CLAUDE/release-lines.md](CLAUDE/release-lines.md).
 
 ## Working on php-qa-ci from a consuming project's `vendor/` (binding)
 
