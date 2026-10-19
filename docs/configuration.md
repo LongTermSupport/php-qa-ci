@@ -170,3 +170,31 @@ Per-tool overrides (`qaConfig/tools/<tool>.php` returning a `ToolInterface`) and
 hooks (`qaConfig/hookPre.php`, `qaConfig/hookPost.php` returning a callable) are described on the
 same page. A Bash-era `qaConfig.inc.bash`, `tools/*.inc.bash` or `hook*.bash` is refused with a
 message pointing at the replacement.
+
+## The pipeline is not a tool proxy
+
+`vendor/bin/qa` enforces one standard configuration per tool: the same PHPStan level and the same
+PHP CS Fixer rules in every project, tools run in a fixed order, PHARs and cache directories
+managed for you, and the same Xdebug and memory settings everywhere. It does not pass arbitrary
+arguments through to the tools, so `vendor/bin/qa -t stan --help` is not a PHPStan help screen.
+
+What it does take is a tool and a path, so a run can be narrowed without changing how the tool
+is configured:
+
+```bash
+vendor/bin/qa -t stan -p src
+vendor/bin/qa -t fixer -p src/Domain
+vendor/bin/qa -p tests/Unit
+```
+
+When a tool needs something the pipeline does not offer:
+
+- for a lasting change, put it in the tool's config file under `qaConfig/` or in `qaConfig/qa.php`
+  (above);
+- for a one-off run with custom flags, call the tool directly, for example
+  `vendor/bin/phpstan analyse --help`;
+- for a custom workflow, write a wrapper script that calls the tools directly.
+
+A development script (a `docker.bash`, a CI wrapper) should call `vendor/bin/qa -t <tool>` with
+`-p` for standard runs and fall back to calling a tool directly only when it genuinely needs a
+flag the pipeline does not offer.

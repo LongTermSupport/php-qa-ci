@@ -93,7 +93,8 @@ R5, R7a, R7d, DBF §3.2, daemon auto-commit) are in [DECISIONS.md](DECISIONS.md)
   resident size from `/context` (or the token-count API), `git rev-parse HEAD`, and the
   `docs-qa --sweep --json` findings for `CLAUDE.md`.
 
-- [ ] 🚫 **Task 1.2** (blocked: a spawned `claude -p` is not logged in; see the journal): Live-test the mechanics with headless `claude -p` sessions and a scratch
+- [ ] 🔄 **Task 1.2** ((a) and (b) evidenced by the coordinator's live session, see the journal;
+  (c) blocked: a spawned `claude -p` is not logged in): Live-test the mechanics with headless `claude -p` sessions and a scratch
   `settings.json` that registers an `InstructionsLoaded` hook logging to `untracked/scratch/`:
 
   - (a) in this worktree: a sentinel `paths:` rule loads on a matching Read, and only then; a
@@ -126,7 +127,7 @@ Each commit adds the destination text, removes the section from `CLAUDE.md`, and
 coupling into that section, so no commit leaves a broken anchor or a dangling procedure step.
 Stale facts are corrected as the text lands.
 
-- [ ] ⬜ **Task 3.1**: `CLAUDE/architecture.md` takes core components, the run walk-through, the
+- [x] ✅ **Task 3.1**: `CLAUDE/architecture.md` takes core components, the run walk-through, the
   tool-runner invariants, "Bash is for invocation" with its ShellCheck example, and the
   contributor half of "not a tool proxy". Same commit: repoint `docs/tools/shellCheck.md:33` and
   `src/PHPStan/Rules/RequireDeclareStrictTypesRule.php:18`.

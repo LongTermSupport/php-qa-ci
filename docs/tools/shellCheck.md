@@ -30,7 +30,8 @@ because it is not PHP: ShellCheck is a compiled Haskell executable.
 Maintainers refresh it through `bin/shellcheck-install update`, which `scripts/tool-install.bash`
 calls, and which `composer update` and the scheduled `update-deps.yml` workflow already run. That
 updater is PHP rather than Bash — an HTTP release lookup and a `PharData` extract, with the
-decision table unit-tested — per the "real scripting is PHP" rule in `CLAUDE.md`.
+decision table unit-tested — per the "Bash is for invocation, PHP is for logic" rule in
+[CLAUDE/architecture.md](../../CLAUDE/architecture.md#bash-is-for-invocation-php-is-for-logic-owner-ruling-non-negotiable).
 
 ## What gets checked
 

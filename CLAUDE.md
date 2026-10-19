@@ -203,53 +203,11 @@ clone required:
   `composer install` is the package's own dev environment, isolated from the
   consumer's tree.
 
-## Overview
+## Bash is for invocation, PHP is for logic (binding, Owner ruling)
 
-PHP-QA-CI is a quality assurance pipeline for PHP projects. It orchestrates the standard PHP
-quality tools in a fixed sequence designed to fail fast and give rapid feedback. The pipeline
-itself is PHP: `bin/qa` is a PHP entrypoint and every lane is a class under `src/Pipeline/`.
-
-### Real scripting is PHP, not Bash (owner ruling, non-negotiable)
-
-**Bash is for invocation, PHP is for logic.** A shell script may locate things, set environment
-variables and hand off. The moment there is real work — branching on state, parsing a response,
-unpacking an archive, deciding between outcomes — it belongs in a class under `src/` with a thin
-`bin/` entry point, because that is the only form the test suite and PHPStan can see. Untested
-Bash logic is a blind spot inside a quality tool.
-
-The worked example is the ShellCheck updater: the decision table is
-[`InstallDecider`](src/ShellCheck/InstallDecider.php) with unit tests per branch, the I/O is
-[`ShellCheckInstaller`](src/ShellCheck/ShellCheckInstaller.php) (an HTTP fetch and a `PharData`
-extract, nothing shelled out), the entry point is `bin/shellcheck-install`, and
-`scripts/tool-install.bash` contributes one `php` call. Prefer this shape over adding to a
-`scripts/*.bash`.
-
-Bash therefore survives only as thin wrappers (`ci.bash`, the `bin/` redirect stubs) and the
-invocation shell of the maintainer scripts under `scripts/`.
-
-## Architecture
-
-### Core Components
-
-1. **Entrypoint**: `bin/qa` boots [src/Pipeline/Cli/QaApplication.php](src/Pipeline/Cli/QaApplication.php), the composition root that parses arguments, reads the environment, builds the configuration and runs the pipeline
-2. **Tool registry**: [src/Pipeline/Tool/ToolRegistry.php](src/Pipeline/Tool/ToolRegistry.php) is the single source of truth for tool names, `-t` aliases, phase membership and order, path support, gates and banners; the CLI usage text is derived from it. Each phase is a [PhaseDto](src/Pipeline/Tool/Dto/PhaseDto.php) that contributes its own `all*` runner
-3. **Lanes**: one `ToolInterface` class per tool under [src/Pipeline/Lane/](src/Pipeline/Lane/), wired by name in [src/Pipeline/Tool/ShippedTools.php](src/Pipeline/Tool/ShippedTools.php). **A new tool extends the public CLI/agent API** (`-t` tokens, help text, pipeline order, a stable identifier, a docs page), so whether a check is a new tool or an assertion inside an existing one is a considered decision — the test to apply is in [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md)
-4. **Pipeline builder**: [src/Pipeline/Tool/PipelineBuilder.php](src/Pipeline/Tool/PipelineBuilder.php) assembles the registry and the lane map the run uses; `defaults()` is the shipped pipeline, and immutable withers add a phase, set the phase order or add a tool without forking the registry. A project extends it from `qaConfig/pipeline.php` (see [docs/extending-the-pipeline.md](docs/extending-the-pipeline.md))
-5. **Runner**: [src/Pipeline/Runner/Pipeline.php](src/Pipeline/Runner/Pipeline.php) walks the phases and applies the gate, retry and aggregate policies; [src/Pipeline/Runner/ToolExecutor.php](src/Pipeline/Runner/ToolExecutor.php) runs one lane with the retry prompt
-6. **Configuration**: a typed, immutable [QaConfigBuilder](src/Pipeline/Config/QaConfigBuilder.php) seeded from defaults and environment variables, adjusted by the project's `qaConfig/qa.php`; config files resolve through [ConfigPathResolver](src/Pipeline/Config/ConfigPathResolver.php)
-7. **Platform detection**: [PlatformDetector](src/Pipeline/Config/PlatformDetector.php) recognises Symfony (via `symfony.lock`); everything else is generic
-
-### How It Works
-
-When you run `vendor/bin/qa` in your project:
-
-1. `bin/qa` locates the project's `vendor/autoload.php`; the project root is its parent directory and the library root is the directory `bin/qa` lives in
-2. `QaApplication` parses the arguments, reads the environment, resolves the project paths and detects the platform
-3. The configuration is built from the shipped defaults, then adjusted by `qaConfig/qa.php` if present
-4. Tools run from your project's bin directory and the library's `vendor-phar/` (never from php-qa-ci's own `vendor/`)
-5. The shipped four phases execute in an order designed to modify code first, then validate it
-
-**Note on bin directory location**: The qa script is installed in the directory specified by the `bin-dir` config in your composer.json. By default this is `vendor/bin`, but it can be configured to any directory (e.g., `bin`). All examples in this documentation assume the default `vendor/bin` location.
+Real logic goes in a class under `src/` with a thin `bin/` entry point, never in a Bash script.
+Canon: [CLAUDE/architecture.md](CLAUDE/architecture.md). How the pipeline is built (components,
+a run end to end, the tool runner's invariants) is in the same file.
 
 ## Pipeline Execution Order
 
@@ -392,7 +350,7 @@ Infection needs coverage), so a project's overrides take effect without being ab
 what the host cannot run. Every setting is a typed `with*()` method; the full list and the
 mapping from each environment variable is in
 [docs/upgrading-to-8.5.md](docs/upgrading-to-8.5.md). Per-tool overrides live in
-`{project}/qaConfig/tools/{toolName}.php` (see "Tool Runner System").
+`{project}/qaConfig/tools/{toolName}.php` (see [CLAUDE/architecture.md](CLAUDE/architecture.md#the-tool-runner)).
 
 ### Read-Only / CI Verification Mode
 
@@ -466,29 +424,6 @@ There is no Laravel/`artisan` detection. A platform contributes extra lanes thro
 `ToolRegistry::platformLanes()`: Symfony appends `twigLint` to the linting phase (`twigCsFixer` and `yamlLint` are shipped lanes that gate themselves on Twig and on `symfony/yaml`, not platform lanes).
 Their directories default to `templates/` and `config/` and are set with `withTwigDirectories()`
 and `withYamlDirectories()` in `qaConfig/qa.php`. See [docs/platform-detection.md](docs/platform-detection.md).
-
-## Tool Runner System
-
-[ToolExecutor](src/Pipeline/Runner/ToolExecutor.php) runs one lane at a time:
-
-1. [ShippedToolLocator](src/Pipeline/Runner/ShippedToolLocator.php) resolves the lane by its canonical name:
-
-   - `{project}/qaConfig/tools/{toolName}.php` (project override: the file returns a `ToolInterface`)
-   - the shipped lane from `ShippedTools::all()`
-
-   A Bash-era `tools/{toolName}.inc.bash` is refused with migration guidance rather than ignored.
-
-2. The lane's `run(ToolContext)` prints its own detail to the context's output and returns a
-   [ToolResultDto](src/Pipeline/Tool/Dto/ToolResultDto.php): passed, failed, crashed or skipped.
-   A lane never calls `exit`, and a failing lane ends with its stable identifier
-   (`phpqaci.<lane>`, resolved by `vendor/bin/rule-doc`).
-
-3. On a **failure** the executor prints the failure banner and, in an interactive run,
-   asks "try again? (y/n)" ([ConsoleRetryPrompt](src/Pipeline/Runner/ConsoleRetryPrompt.php));
-   in CI mode the answer is always no. A **crash** (a tool exit code outside its documented
-   pass/fail set) is never retried.
-
-The retry, aggregate and exit-code policies belong to the runner, not to the lanes.
 
 ## PHP 8.5 Compatibility (php8.5 branch)
 
@@ -1010,69 +945,11 @@ Every lane prints a stable identifier (`phpqaci.<lane>`) when it fails; `vendor/
 4. **Platform detection is automatic** - Symfony adds its lanes; there is no override switch
 5. **Fail-fast design** - Pipeline stops on the first tool failure (except in interactive retry mode, and except in read-only aggregate mode, where every failing tool is collected and reported together — see "Read-Only / CI Verification Mode")
 
-## Design Philosophy: Standardized Configuration
+## The pipeline is not a tool proxy (binding, Owner ruling)
 
-### The QA Pipeline is NOT a Tool Proxy
-
-**CRITICAL UNDERSTANDING**: The PHP-QA-CI pipeline is designed to enforce consistent, standardized tool configurations across projects. It is **NOT** intended to be a flexible proxy that passes arbitrary arguments to underlying tools.
-
-#### What the QA Pipeline IS For:
-
-- ✅ **Enforcing consistent configurations** - Same PHPStan level, same CS Fixer rules across projects
-- ✅ **Orchestrating tool execution** - Running tools in the correct order with proper dependencies
-- ✅ **Managing tool dependencies** - Handling PHIVE installs, cache directories, etc.
-- ✅ **Path specification** - Running tools against specific directories: `vendor/bin/qa -t stan -p src/Domain`
-- ✅ **Standardized environments** - Consistent Xdebug settings, memory limits, etc.
-
-#### What the QA Pipeline is NOT For:
-
-- ❌ **Arbitrary tool flags** - Don't expect `vendor/bin/qa -t stan --help` to work
-- ❌ **Custom tool arguments** - The pipeline controls all tool arguments for consistency
-- ❌ **Tool-specific customization per run** - Use project config files instead
-- ❌ **Direct tool replacement** - Not a substitute for running tools directly when needed
-
-### Why This Design?
-
-1. **Consistency** - Every project using the QA pipeline runs tools with the same standards
-2. **Maintainability** - Tool configurations are managed centrally, not scattered across command invocations
-3. **Reliability** - No chance of accidentally running with wrong flags or missing dependencies
-4. **Standardization** - Teams can depend on consistent tool behavior across projects
-
-### When You Need Flexibility
-
-If you need to run a tool with custom arguments that the QA pipeline doesn't support:
-
-1. **For configuration changes**: Create/modify project config files in `qaConfig/`
-2. **For one-off runs**: Call the tool binary directly: `vendor/bin/phpstan analyse --help`
-3. **For custom workflows**: Create your own wrapper scripts that call tools directly
-
-### Path Specification Examples
-
-The QA pipeline DOES support specifying which paths to scan:
-
-```bash
-# Run PHPStan only on src directory
-vendor/bin/qa -t stan -p src
-
-# Run PHP CS Fixer only on Domain namespace
-vendor/bin/qa -t fixer -p src/Domain
-
-# Run full pipeline on specific path
-vendor/bin/qa -p tests/Unit
-```
-
-This maintains consistency while allowing targeted execution.
-
-### Integration with Development Tools
-
-Development scripts (like docker.bash) should:
-
-- ✅ Use `vendor/bin/qa -t toolname` for standardized runs
-- ✅ Support path specification: `-p src/specific/path`
-- ❌ Try to pass arbitrary tool flags through the QA pipeline
-- ✅ Fall back to direct tool execution when custom flags are actually needed
-
-**Remember**: The QA pipeline's strength is its consistency, not its flexibility. Use it for what it's designed for.
+`bin/qa` enforces one standard configuration per tool and takes only a tool and a path; never add
+pass-through tool flags. Canon: [CLAUDE/architecture.md](CLAUDE/architecture.md#the-pipeline-is-not-a-tool-proxy-owner-ruling);
+the consumer side is [docs/configuration.md](docs/configuration.md#the-pipeline-is-not-a-tool-proxy).
 
 <hooksdaemon>
 <!-- Auto-generated by hooks daemon on restart. Do not edit this section — changes will be overwritten. -->
