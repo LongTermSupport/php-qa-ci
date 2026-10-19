@@ -18,7 +18,7 @@ measured once is not agreement kept.
   strict-rules, every `phpqaci.*` rule). It is the final say. Nothing in this invariant asks
   PHPStan to change.
 - **E (the enabled set)** is every Mago linter rule enabled at a failing level plus every
-  analyser code on the allow-list, read from Mago's *effective* configuration (what the binary
+  analyser code on the allow-list (none in the first delivery, per D1), read from Mago's *effective* configuration (what the binary
   reports it will run), never from the toml as written.
 - **R** is this repository's checked paths (`src/`, `tests/`, minus what PHPStan excludes).
   R is PHPStan-clean by construction: the pipeline is green.

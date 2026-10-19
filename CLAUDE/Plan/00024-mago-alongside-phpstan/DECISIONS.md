@@ -2,8 +2,9 @@
 
 Evidence: [subagent-reports/261019-mago-research.md](subagent-reports/261019-mago-research.md)
 (Mago 1.57.0 measured against this repository; raw artefacts under
-`untracked/scratch/mago-research/`). Section references below are to that report. Nothing here
-is decided: each item is a recommendation the facts support, then the decision the Owner owns.
+`untracked/scratch/mago-research/`). Section references below are to that report. Each item is
+a recommendation the facts support, then the decision the Owner owns; the rulings made are
+recorded under Owner rulings, the rest stay open.
 
 ## What the facts say
 

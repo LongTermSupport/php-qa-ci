@@ -12,8 +12,8 @@ Bring [Mago](https://github.com/carthage-software/mago) (a Rust PHP linter, anal
 formatter) into php-qa-ci without ever creating a state where **PHPStan says A and Mago says B**,
 which would make a green build impossible. The primary goal is Mago as a fast lint-on-edit
 check in the Edmonds Commerce hooks daemon, in agreement with PHPStan, so agents get edit-time
-feedback in milliseconds while PHPStan stays the in-depth final say. A Mago lane before PHPStan
-in the pipeline is a later, separately decided step.
+feedback in milliseconds while PHPStan stays the in-depth final say. Per the D1 ruling, the first
+delivery is the linter only, both on edit and as a fast lane before PHPStan (Phase 6).
 
 The research ([subagent-reports/261019-mago-research.md](subagent-reports/261019-mago-research.md))
 measured Mago 1.57.0 against this repository. It is fast (one-file lint ~15ms) and, contrary to
@@ -26,8 +26,9 @@ The core deliverable is therefore not "Mago runs" but **the agreement invariant 
 detector** ([AGREEMENT.md](AGREEMENT.md)): an automated test, run on every pipeline and so in the
 daily dependency update, that fails on any Mago finding on PHPStan-clean code and on any
 construct one tool requires and the other forbids. Facts, recommendations and the open Owner
-decisions are in [DECISIONS.md](DECISIONS.md). No up-front decision is taken here: every phase
-past the facts-and-defences phases is gated on a named decision.
+decisions are in [DECISIONS.md](DECISIONS.md). Nothing was decided up front: every phase past
+the facts-and-defences phases is gated on a named decision, and the rulings made so far are
+recorded there.
 
 ## Goals
 
@@ -107,7 +108,7 @@ past the facts-and-defences phases is gated on a named decision.
 - [ ] The agreement test runs in the full pipeline, and Task 3.7 shows it fails when agreement breaks.
 - [ ] The `@mago-*` suppression rule is live with identifier, page and `bin/rules` entry before any Mago rule is enabled.
 - [ ] No Mago `ignore` entry or baseline exists without a recorded Owner decision.
-- [ ] The Mago binary is pinned and digest-verified at update time; nothing is downloaded at run time.
+- [ ] The Mago binary is pinned and digest-verified when it is fetched at install time (D6); nothing is downloaded at run time.
 - [ ] On edit, p95 of the wrapper is under 5 seconds and the Mago step under 1 second on this repository, measured by Task 4.4.
 - [ ] A consumer can run the agreement command on their own code.
 

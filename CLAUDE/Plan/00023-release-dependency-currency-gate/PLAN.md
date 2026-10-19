@@ -34,8 +34,9 @@ PHPStan together with its Turbo binary as one unit, and `vendor-bin/shellcheck`
 
 ## Goals
 
-- A release pull request cannot be merged while any covered dependency is older than its latest
-  stable release, unless a valid holdback covers it
+- A release pull request cannot be merged while any covered direct dependency is older than its
+  latest stable release, unless a valid holdback covers it; a stale transitive one is reported
+  (Q2)
 - A failing gate starts the daily update (`update-deps.yml`), so the gate also drives the remedy
 - Every holdback is recorded in one committed register: the subject, the range it is held to, the
   reason, an issue link and the Owner's sign-off. Each release's notes list the active holdbacks
@@ -133,14 +134,15 @@ PHPStan together with its Turbo binary as one unit, and `vendor-bin/shellcheck`
 
 - **Q1: majors block.** A dependency behind its latest major (or a `0.x` minor under a `^0.x`
   PHIVE constraint) blocks the release unless a holdback entry with a reason and a review-by
-  date covers it. Constraints are raised by hand; Task 5.2 stays optional.
+  date covers it. Constraints are raised by hand, so Task 5.2 is dropped.
 - **Q2: direct dependencies block, transitive ones warn.** A transitive package is held where it
   is by the direct dependency that requires it, and php-qa-ci cannot force it higher, so the gate
   reports a stale transitive and does not fail on it. The Owner's premise is that no transitive
   package is load-bearing: anything php-qa-ci's code uses must be declared in `composer.json`.
   That is already enforced by two lanes, `composerRequireChecker` (a used symbol from an
   undeclared package) and `composerDependencyAnalyser` (shadow dependencies), so the gate does
-  not re-check it. At the time of the ruling the root lock held 13 direct and 35 transitive
+  not re-check it. The split applies to every covered lock: in a `build/<tool>/` lock the direct
+  dependencies are those its own `composer.json` requires. At the time of the ruling the root lock held 13 direct and 35 transitive
   packages.
 
 ## Open Questions (Owner decisions)
@@ -239,8 +241,8 @@ PHPStan together with its Turbo binary as one unit, and `vendor-bin/shellcheck`
   sentence pointing to them. `docs/github-actions.md` covers the release template change.
   `CHANGELOG.md` gets an `Added` entry (the command and identifier) and, if the template step is
   on for consumers, a `Changed — breaking` entry.
-- [ ] ⬜ **Task 5.2** (only if Q1 says automate): `update-deps.yml` attempts constraint bumps for
-  majors in a separate pull request.
+- Task 5.2 (automated constraint bumps for majors) is dropped: Q1 rules that constraints are
+  raised by hand.
 
 ## Success Criteria
 
