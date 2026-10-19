@@ -69,7 +69,7 @@ final class MarkdownFormatToolGitTest extends TestCase
     {
         $project = TempDir::create('phpqa-mdf-nogit');
         try {
-            $probe = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $project->path);
+            $probe = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $project->path, GitSandbox::environment());
             $probe->run();
             self::assertFalse($probe->isSuccessful(), 'the temp directory sits inside a git work tree, so this test cannot exercise the outside-git case');
 

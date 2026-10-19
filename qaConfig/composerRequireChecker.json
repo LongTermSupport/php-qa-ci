@@ -38,6 +38,8 @@
     "PHPStan\\Reflection\\ParametersAcceptorSelector",
     "PHPStan\\Reflection\\ReflectionProvider",
     "PHPStan\\Rules\\Rule",
+    "PHPStan\\Type\\Constant\\ConstantIntegerType",
+    "PHPStan\\Type\\Constant\\ConstantStringType",
     "PHPStan\\Type\\MixedType",
     "PHPStan\\Type\\ObjectType",
     "PHPStan\\Type\\Type",
