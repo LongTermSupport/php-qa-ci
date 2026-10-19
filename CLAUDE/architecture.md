@@ -102,8 +102,8 @@ Invariants a lane keeps:
 The pipeline enforces one standard configuration per tool across every project; it is not a
 proxy that passes arbitrary arguments through to the tools. For a contributor that means:
 
-- Do not add pass-through flags or per-run tool arguments to `bin/qa`. `-t`, `-p`, `--json` and
-  `--agent-mode` are the whole interface; a need for another flag is a configuration setting
+- Do not add pass-through flags or per-run tool arguments to `bin/qa`. `-t`, `-p`, `--json`,
+  `--agent-mode` and `-h` are the whole interface; a need for another flag is a configuration setting
   (a typed `with*()` on `QaConfigBuilder`) or a config file under `qaConfig/`.
 - The pipeline owns every tool argument, the PHAR delivery, the cache directories, the Xdebug
   mode and the memory limit, so that a tool behaves the same in every consumer.

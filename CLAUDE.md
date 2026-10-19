@@ -19,7 +19,9 @@ document before acting on its topic.
 - **Defence Before Fix**: found a defect? Do not fix it yet; build the detector for its class
   first. A new check is a defence: a stable identifier, a page stating the correct construction,
   an entry in the identifier index `docs/phpstan-rules/README.md` and a place in `bin/rules`. A suppression, a baseline or a
-  narrowing is an Owner decision, never a silent edit. [CLAUDE/DefenceBeforeFix.md](CLAUDE/DefenceBeforeFix.md)
+  narrowing is an Owner decision, never a silent edit; a gap found is closed, not accepted.
+  [CLAUDE/DefenceBeforeFix.md](CLAUDE/DefenceBeforeFix.md); lane or assertion:
+  [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md)
 - **Segfaults halt**: any segfault (exit 139, or a `segfault at …` line in the host's kernel log,
   even under a command that reported success) is never retried past: halt → debug → file →
   defend. [CLAUDE/segfault-policy.md](CLAUDE/segfault-policy.md)

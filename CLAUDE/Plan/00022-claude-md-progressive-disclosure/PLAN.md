@@ -201,7 +201,7 @@ Stale facts are corrected as the text lands.
   recording which canonical doc the agent opened before acting: add a new lane; fix a php-qa-ci
   bug from a consumer's `vendor/`; prepare a release entry; a test exited 139; tune a consumer's
   `qa.php`. A miss is a navigation-map or trigger defect, fixed before merge.
-- [ ] ⬜ **Task 6.4**: A fresh, sceptical reviewer re-audits from the files alone: the import
+- [x] ✅ **Task 6.4**: A fresh, sceptical reviewer re-audits from the files alone: the import
   audit, knowledge preservation against `git show <baseline>:CLAUDE.md`, every `FLOOR` row
   against the new `CLAUDE.md`, the SSoT split, the globs and nested files, and regressions this
   work introduced. Every major finding is fixed.

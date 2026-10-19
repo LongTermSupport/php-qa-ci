@@ -6,12 +6,12 @@ body_sha256: 219510010e119373f2807714bc63f86324299a0fda3124ee28f38e757ae53cc7
 
 ## The injected hooksdaemon CLAUDE.md block costs about 22.6k resident tokens, most of it mdformat column padding; some rows also break on an unescaped pipe
 
-| | |
-| --- | --- |
-| Daemon version | 3.70.0 |
-| Install mode | normal |
-| Platform | Linux x86_64, Python 3.11.2 |
-| Handler | _not stated_ |
+|                |                             |
+| -------------- | --------------------------- |
+| Daemon version | 3.70.0                      |
+| Install mode   | normal                      |
+| Platform       | Linux x86_64, Python 3.11.2 |
+| Handler        | _not stated_                |
 
 ## Expected
 
@@ -19,7 +19,7 @@ The handler-guidance block that the daemon injects into a project's root CLAUDE.
 
 ## Observed
 
-1. In a project whose hand-written CLAUDE.md is about 1.5k tokens, the hooksdaemon block is 90,374 chars, 85% of the file. Its 130 rule-table rows are 79,300 chars raw against 32,468 chars with the column padding squeezed to one space: mdformat pads every cell to the widest cell in its column, so the longest row sets the width for all 130. 2. Rows whose Blocked/Fix text contains a literal pipe inside a code span (R-CURL-PIPE-SHELL, R-PIPE-TO-TAIL, R-PIPE-TO-HEAD, R-ERROR-HIDING, R-BASH-SAFE-MODE-PRELUDE-MISSING, R-VERIFICATION-RESULT-NOT-CONSUMED) are split at the pipe, so their Why/Fix columns show fragments such as 'wget ...' and 'tail`'. 3. The longest rows (after squeezing) are R-LSP-CONFIG-EXCLUDE, R-CRON-SUBAGENT-STOP-DECLARED, R-GIT-PUSH-DELETE-REMOTE, R-CRON-STOP-DECLARED, R-USAGE-PAUSE-PROMPT and R-STOP-IDLE-WITH-WORKABLE-ISSUE, each about 400 chars.
+1. In a project whose hand-written CLAUDE.md is about 1.5k tokens, the hooksdaemon block is 90,374 chars, 85% of the file. Its 130 rule-table rows are 79,300 chars raw against 32,468 chars with the column padding squeezed to one space: mdformat pads every cell to the widest cell in its column, so the longest row sets the width for all 130. 2. Rows whose Blocked/Fix text contains a literal pipe inside a code span (R-CURL-PIPE-SHELL, R-PIPE-TO-TAIL, R-PIPE-TO-HEAD, R-ERROR-HIDING, R-BASH-SAFE-MODE-PRELUDE-MISSING, R-VERIFICATION-RESULT-NOT-CONSUMED) are split at the pipe, so their Why/Fix columns show fragments such as 'wget ...' and 'tail\`'. 3. The longest rows (after squeezing) are R-LSP-CONFIG-EXCLUDE, R-CRON-SUBAGENT-STOP-DECLARED, R-GIT-PUSH-DELETE-REMOTE, R-CRON-STOP-DECLARED, R-USAGE-PAUSE-PROMPT and R-STOP-IDLE-WITH-WORKABLE-ISSUE, each about 400 chars.
 
 **Checks run when this report was generated:**
 
@@ -33,7 +33,7 @@ Restart the daemon in a project with the default handler set, then measure the i
 
 ## Configuration ruled out
 
-- `handlers.post_tool_use.markdown_table_formatter` — Disabling it does not help: the injector runs the shared formatter over the whole file itself (claude_md_injector.py:473, _format_or_reuse), so the padding is produced on every restart regardless; the four-column table is declared at claude_md_injector.py:112.
+- `handlers.post_tool_use.markdown_table_formatter` — Disabling it does not help: the injector runs the shared formatter over the whole file itself (claude_md_injector.py:473, \_format_or_reuse), so the padding is produced on every restart regardless; the four-column table is declared at claude_md_injector.py:112.
 - `disabling individual handlers` — It removes the protection, and the padding cost follows the widest cell per column, not the number of rules.
 
 ## Source read

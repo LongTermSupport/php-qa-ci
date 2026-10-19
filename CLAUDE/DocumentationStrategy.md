@@ -47,7 +47,7 @@ restatement.
 One trigger mechanism per subtree. A directory-shaped trigger that matters when php-qa-ci is
 worked on from a consumer's `vendor/lts/php-qa-ci/` gets an R7d routing-table `CLAUDE.md` (at most
 15 lines, pointers only): `src/Pipeline/`, `src/PHPStan/`, `scripts/`. Nested `CLAUDE.md` files
-load lazily from a vendored checkout too; `.claude/rules/` are expected not to. A file-shaped or
+load lazily from a vendored checkout too; `.claude/rules/` may or may not, and are never relied on. A file-shaped or
 cross-cutting trigger gets a `phpqaci-*` path rule (R7a), which is an accelerator only: every
 pointer it carries is also reachable from the root navigation map. No `CLAUDE.md` goes under
 `docs/`, which ships and which `docsProse` and `markdownLinks` scan.

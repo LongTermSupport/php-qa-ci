@@ -95,7 +95,7 @@ The tools that rewrite code (Rector, PHP CS Fixer, Twig CS Fixer, Markdown Forma
 
 #### Phase 2: Linting and Validation
 
-Cheap checks of structure, dependencies, syntax and documentation, so that static analysis never runs on code that does not parse or on a broken autoloader. These validate rather than modify, with one exception: in a writable run PHP Strict Types adds a missing `declare(strict_types=1)`.
+Cheap checks of structure, dependencies, syntax and documentation, so that static analysis never runs on code that does not parse or on a broken autoloader. These validate rather than modify, with two exceptions in a writable run: PHP Strict Types adds a missing `declare(strict_types=1)`, and Composer Checks normalizes `composer.json`.
 
 On a Symfony project the platform lane **[Twig Lint](./tools/twigLint.md)** is appended to this phase. It is not `-t` selectable.
 

@@ -21,7 +21,7 @@ Facts a contributor changing the deploy needs:
 - The classic `php-qa-ci__*.py` hooks are copied, made executable and registered in
   `.claude/settings.json` when no hooks daemon is detected. The legacy-name migration (old hook
   names without the `php-qa-ci__` prefix, rewritten in `.claude/settings.json`) runs on every
-  deploy (`scripts/lib/deploy-classic-hooks.inc.bash`).
+  deploy where `.claude/settings.json` exists (`scripts/lib/deploy-classic-hooks.inc.bash`).
 - With the hooks daemon at v3.67.0 or later, the daemon phase also declares
   `subagent_full_qa_blocker`, so a sub-agent's full pipeline run is denied and the full gate stays
   with the coordinating session. The logic is [src/HooksDaemon/](../src/HooksDaemon/) behind
