@@ -52,13 +52,29 @@ lets individual tests take a faster path (see the PHPUnit docs).
 
 `CI`
 
-Will not prompt for user input.
+Will not prompt for user input: no retry prompt and no retry loop. It is switched on
+automatically in a Claude Code session (`CLAUDECODE=1`) and whenever stdin or stdout is not a
+TTY. `CI` controls interactivity only; it does not decide whether the fixers may write.
+
+##### Read-only runs:
+
+`QA_READONLY`
+
+Whether the mutating tools (Rector, PHP CS Fixer, PHP Strict Types and the other fixers) may
+write is decided separately from `CI`: `QA_READONLY=1` (or `true`) is read-only,
+`QA_READONLY=0` (or `false`) is writable; when it is unset, GitHub Actions (`GITHUB_ACTIONS=true`)
+is read-only and everything else (a local terminal, a Claude Code session, cron) is writable. In
+a read-only run the fixers run in dry-run mode and a pending change fails the run instead of
+being applied, and the run defaults to [aggregate mode](pipeline.md#fail-fast-aggregate-and-retries)
+(`QA_FAIL_FAST=1` turns that off). `CI=true` alone does not make a run read-only: to reproduce
+a CI failure locally, run `QA_READONLY=1 vendor/bin/qa`.
 
 ##### Memory limit:
 
 `phpqaMemoryLimit`
 
-Global memory limit for all QA tools. Default: `4G`.
+Global memory limit for all QA tools. Default: `4G`. It is applied to every PHP process the
+pipeline starts, including the Xdebug-enabled coverage runs.
 
 ```bash
 # Override via environment variable
@@ -138,7 +154,9 @@ vim qaConfig/phpstan.neon
 Settings that are not a tool's own config file (memory limit, ignored paths, mutation floors,
 opt-outs) live in `qaConfig/qa.php`. The file returns a closure that receives the pipeline's
 `QaConfigBuilder`, seeded from the defaults and the environment variables above, and returns the
-adjusted builder. Every setting is a typed method, so a misspelt one fails at load time:
+adjusted builder, so a setting in `qa.php` wins over the environment. `build()` then derives the
+dependent values (coverage needs Xdebug, Infection needs coverage), so a project cannot switch on
+what the host cannot run. Every setting is a typed method, so a misspelt one fails at load time:
 
 ```php
 <?php

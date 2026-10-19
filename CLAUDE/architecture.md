@@ -90,6 +90,10 @@ Invariants a lane keeps:
 - A lane never calls `exit` and never builds a shell string. It prints through
   `$context->writeln()` and runs commands through `$context->php` (PHP scripts and PHARs, with
   Xdebug off and the memory limit applied) or `$context->processes` (any other command).
+- A lane finds its config file through `$context->configPath('<file>')` on its
+  [ToolContext](../src/Pipeline/Tool/ToolContext.php) (project `qaConfig/`, then
+  `configDefaults/{platform}/`, then `configDefaults/generic/`). The generic path is returned
+  even when it does not exist, so a lane can report the path it looked for.
 - A failing lane ends with its stable identifier (`phpqaci.<lane>`, resolved by `rule-doc`).
 - The retry, aggregate and exit-code policies belong to the runner, not to the lanes.
 

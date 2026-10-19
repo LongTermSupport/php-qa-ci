@@ -23,6 +23,11 @@ the findings that actually need a person. A read-only run turns "the fixer would
 reformat one file" into a failure you then repair by hand, for no reason. Commit
 what the fixers applied and move on.
 
+Read-only is orthogonal to `CI`. `CI` controls interactivity only (no prompts, no retry loops)
+and is on automatically in a Claude Code session, so `CI=true` alone does not make a run
+read-only: reproduce a CI failure with `QA_READONLY=1`, not `CI=true`. The decision table is in
+[docs/configuration.md](../docs/configuration.md#read-only-runs).
+
 `QA_READONLY=1` has exactly one use: reproducing a CI failure you cannot explain.
 It is not a stricter check and it verifies nothing extra — the same lanes run with
 the same rules; the only difference is that the fixers report instead of fixing.

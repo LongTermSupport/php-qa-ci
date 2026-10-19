@@ -177,94 +177,11 @@ a run end to end, the tool runner's invariants) is in the same file.
 
 [docs/pipeline.md](docs/pipeline.md); the tool roster in pipeline order is `bin/qa -h`.
 
-## Configuration System
+## Configuration
 
-### Configuration Cascade
-
-Config **files** are resolved by [ConfigPathResolver](src/Pipeline/Config/ConfigPathResolver.php),
-a 3-level lookup — the first that exists wins:
-
-1. **Project override** — `{project}/qaConfig/{relativePath}` (e.g. `qaConfig/phpstan.neon`)
-2. **Platform default** — `configDefaults/{platform}/{relativePath}` — only `generic` ships,
-   so this rung is normally absent and the lookup falls through
-3. **Generic default** — `configDefaults/generic/{relativePath}` (e.g. `php_cs.php`,
-   `phpstan.neon`)
-
-The generic path is returned even when it does not exist, so a lane can report the path it
-looked for. Lanes call `$context->configPath('phpstan.neon')` on their
-[ToolContext](src/Pipeline/Tool/ToolContext.php).
-
-Config **values** cascade through the builder: `QaConfigBuilder::defaults()` seeds every setting
-from the environment variables (`phpqaMemoryLimit`, `phpUnitCoverage`, `useInfection`,
-`mutationScoreIndicator`, `coveredCodeMSI`, `useArkitect`, `useSensitiveParameterCheck`, ...),
-then `{project}/qaConfig/qa.php` receives the builder and returns an adjusted copy, so it wins
-over the environment. `build()` applies the derivations afterwards (coverage needs Xdebug,
-Infection needs coverage), so a project's overrides take effect without being able to enable
-what the host cannot run. Every setting is a typed `with*()` method; the full list and the
-mapping from each environment variable is in
-[docs/upgrading-to-8.5.md](docs/upgrading-to-8.5.md). Per-tool overrides live in
-`{project}/qaConfig/tools/{toolName}.php` (see [CLAUDE/architecture.md](CLAUDE/architecture.md#the-tool-runner)).
-
-### Read-Only / CI Verification Mode
-
-Whether the mutating tools (Rector, PHP CS Fixer, Strict Types) may WRITE is governed by the
-read-only flag, which is **orthogonal to `CI`**:
-
-- **`CI`** controls interactivity only (no prompts, no retry loops). It is auto-enabled for
-  Claude Code (`CLAUDECODE=1`) and non-TTY shells. `CI=true` does **not** make a run read-only.
-- **Read-only** controls writes, decided by `EnvironmentReader::isReadOnly()`:
-  `QA_READONLY=1`/`true` → read-only; `QA_READONLY=0`/`false` → writable; else GitHub Actions
-  (`GITHUB_ACTIONS=true`) → read-only; everything else (local TTY, Claude sessions, cron) →
-  writable. In a read-only run the fixers run `--dry-run` and a pending change FAILS the gate
-  instead of being applied. **To reproduce a CI failure locally, run `QA_READONLY=1 vendor/bin/qa`,
-  not `CI=true vendor/bin/qa`.**
-
-**Aggregate mode**: a read-only run also defaults to aggregate (non-fail-fast) mode, collecting
-every failing tool in one pass and reporting them together at the end
-([AggregateReport](src/Pipeline/Runner/AggregateReport.php)) rather than stopping at the first.
-Force it off with `QA_FAIL_FAST=1`. `--json` (PHPStan only) sends the structured output to the
-real stdout and every line of decoration to stderr.
-
-### Key Configuration Variables
-
-Environment variables are read once by `EnvironmentReader`; `"1"`/`"true"` and `"0"`/`"false"`
-are the accepted boolean spellings. Defaults:
-
-| Variable                                        | Default                | Builder method                                                                                                                                                                                                                     |
-| ----------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PHP_QA_CI_PHP_EXECUTABLE`                      | `php`                  | (none: PHP binary for every tool)                                                                                                                                                                                                  |
-| `phpqaQuickTests`                               | `0`                    | (none: skips PHPStan, PHPUnit and Infection)                                                                                                                                                                                       |
-| `phpUnitQuickTests`                             | `0`                    | (none: passed through to the test suite)                                                                                                                                                                                           |
-| `phpUnitCoverage`                               | `1`                    | `withPhpUnitCoverage(bool)`                                                                                                                                                                                                        |
-| `phpUnitIterativeMode`                          | `0`                    | `withPhpUnitIterativeMode(bool)` (the `uniterate` pseudo-tool)                                                                                                                                                                     |
-| `useInfection`                                  | `1`                    | `withInfection(bool)`                                                                                                                                                                                                              |
-| `mutationScoreIndicator` / `coveredCodeMSI`     | `60` / `80`            | `withInfectionFloors(int, int)`                                                                                                                                                                                                    |
-| `infectionThreads`                              | half the CPU threads   | `withInfectionThreads(int)`                                                                                                                                                                                                        |
-| `infectionDiffBase` / `infectionDiffCoveredMsi` | `auto` / covered floor | `withInfectionDiffBase(?string, ?int)` (null = `auto`: diff against the merge base with the default branch on any other branch, full on the default branch); `withInfectionFullRun()` = `full` (every MSI floor must be below 100) |
-| `useComposerAudit`                              | `1`                    | `withComposerAudit(bool)`                                                                                                                                                                                                          |
-| (none)                                          | all floors off         | `withTypeCoverageFloors(?int $returnType, ?int $paramType, ?int $propertyType, ?int $constantType)`                                                                                                                                |
-| `useArkitect`                                   | `1`                    | `withArkitect(bool)`                                                                                                                                                                                                               |
-| `useSensitiveParameterCheck`                    | `1`                    | `withSensitiveParameterCheck(bool)`                                                                                                                                                                                                |
-| `useChangelogCheck`                             | `0`                    | `withChangelogCheck(bool)` (needs `withChangelogWatchedPaths(string ...)`)                                                                                                                                                         |
-| `CI`                                            | `false`                | (none: interactivity)                                                                                                                                                                                                              |
-
-### Memory Configuration
-
-The pipeline provides a global memory limit that applies to all QA tools (default: 4G). It is
-applied by [PhpInvoker](src/Pipeline/Process/PhpInvoker.php) to every PHP process the pipeline
-starts, including the Xdebug-enabled coverage runs.
-
-**How to Override**:
-
-```php
-// In qaConfig/qa.php (project-level):
-return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa->withMemoryLimit('8G');
-```
-
-```bash
-# Or via environment variable:
-phpqaMemoryLimit=2G vendor/bin/qa
-```
+Settings, environment variables, the config-file cascade and read-only runs:
+[docs/configuration.md](docs/configuration.md). The working default is writable; reproduce a CI
+failure with `QA_READONLY=1`, not `CI=true` ([CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)).
 
 ## Platform Detection
 

@@ -168,6 +168,11 @@ back on. Keep permanent policy in `qa.php` and leave ad-hoc switches to the envi
 | *(new in 8.5)*                       | `withUnanalysedPath('config', '<reason>')`                                                  | Declares PHP outside the checked paths deliberately unanalysed; the reason is required and printed on every run. Without it, or `withCheckedPaths()`, the analysedPaths lane fails. See [analysedPaths.md](tools/analysedPaths.md). |
 | *(new in 8.5)*                       | `withComposerAudit(false)`                                                                  | Turns off `composer audit` in the composerChecks lane, which an offline build needs. `useComposerAudit=0` for one run.                                                                                                              |
 
+An environment variable is read once, and `1`/`true` and `0`/`false` are the accepted boolean
+spellings. The switches default on (`phpUnitCoverage`, `useInfection`, `useComposerAudit`,
+`useArkitect`, `useSensitiveParameterCheck`); `useChangelogCheck`, `phpUnitIterativeMode` and
+dead-code detection default off; the Infection floors default to 60 (MSI) and 80 (covered MSI).
+
 Variables that stay **environment-only** (no builder method; set them in CI or on the command
 line, never in `qa.php`):
 
@@ -176,7 +181,7 @@ line, never in `qa.php`):
 | `CI`                       | Non-interactive: no retry prompt. Auto-on under Claude Code and without a TTY. |
 | `QA_READONLY`              | Fixers dry-run and a pending change fails. Auto-on under GitHub Actions.       |
 | `QA_FAIL_FAST`             | Turn aggregate mode off in a read-only run.                                    |
-| `phpqaQuickTests`          | Skip PHPStan, PHPUnit and Infection.                                           |
+| `phpqaQuickTests`          | Skip PHPStan, Dead Code Detection, PHPUnit and Infection.                      |
 | `phpUnitQuickTests`        | Passed through to the test suite as before.                                    |
 | `infectionOnlyCovered`     | No effect: the bundled Infection mutates only covered code by default.         |
 | `PHP_QA_CI_PHP_EXECUTABLE` | The PHP binary for every tool.                                                 |
