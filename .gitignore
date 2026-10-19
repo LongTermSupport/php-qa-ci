@@ -68,3 +68,11 @@ untracked/*
 # Hooks daemon sensitive_content word lists (never commit)
 *.secret
 *.secrets
+
+# Hooks daemon protected paths: their contents may never be read, so never committed
+*.secret*
+.vault-pass*
+*.vault-password
+*vault_pass*
+id_rsa
+id_ed25519
