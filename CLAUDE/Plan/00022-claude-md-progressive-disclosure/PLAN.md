@@ -131,7 +131,7 @@ Stale facts are corrected as the text lands.
   tool-runner invariants, "Bash is for invocation" with its ShellCheck example, and the
   contributor half of "not a tool proxy". Same commit: repoint `docs/tools/shellCheck.md:33` and
   `src/PHPStan/Rules/RequireDeclareStrictTypesRule.php:18`.
-- [ ] ⬜ **Task 3.2**: `CLAUDE/dogfooding.md` from the dogfooding section. Same commit: repoint
+- [x] ✅ **Task 3.2**: `CLAUDE/dogfooding.md` from the dogfooding section. Same commit: repoint
   the docblock in `src/PHPStan/Rules/ForbidUnanchoredVendorSubstringCheckRule.php:28`.
 - [ ] ⬜ **Task 3.3**: `CLAUDE/release-lines.md` from the release-line section. Per-fact check
   against `README.md#branches-and-versions` and `.github/ISSUE_TEMPLATE/bug_report.yml`: the new

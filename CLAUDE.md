@@ -168,40 +168,10 @@ Every change, fix and feature is made on `php8.5`, the current line.
 - An issue states the release line it was found on, so a report against `php8.4` is
   recognisable as the trigger for a backport.
 
-## Working on php-qa-ci from a consuming project's `vendor/` (dogfooding)
+## Working on php-qa-ci from a consuming project's `vendor/` (binding)
 
-php-qa-ci is frequently installed **from source** into a consuming project, so
-`vendor/lts/php-qa-ci/` is a real git checkout with its own `.git`. When a harness
-change is needed while working inside the consumer, work on it in place — no separate
-clone required:
-
-- **Edit and commit in the vendored checkout.** Change the include/config/test under
-  `vendor/lts/php-qa-ci/` and `git commit` there. Pushing follows the consuming
-  project's policy for `lts/*` (typically: commit locally, a human pushes/releases).
-
-- **Dogfood against real consumer code.** The vendored copy is the live copy the
-  consumer's `vendor/bin/qa` runs from, so the consumer's next QA run exercises the
-  change with no reinstall.
-
-- **Also pass php-qa-ci's OWN battery before any push.** php-qa-ci ships its own
-  `composer.json` + `composer.lock` + `qaConfig/`, so run its own QA against its own
-  `src/`/`tests/`:
-
-  ```bash
-  cd vendor/lts/php-qa-ci
-  composer install
-  ```
-
-  Then run the battery. **Which command, and when, is defined once** in
-  [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md) — the single source of
-  truth. Follow it there rather than inventing a variant here; in particular the working
-  default is writable, so the fixers fix.
-
-  A consumer's `bin/qa` validates the CONSUMER's code; running it inside
-  `vendor/lts/php-qa-ci` validates php-qa-ci itself (its `Large` include-level tests,
-  PHPStan, Rector/CS-Fixer). The nested `vendor/lts/php-qa-ci/vendor/` from
-  `composer install` is the package's own dev environment, isolated from the
-  consumer's tree.
+`vendor/lts/php-qa-ci/` is often a real git checkout: edit and commit there, and pass php-qa-ci's
+own pre-push battery before any push. Canon: [CLAUDE/dogfooding.md](CLAUDE/dogfooding.md).
 
 ## Bash is for invocation, PHP is for logic (binding, Owner ruling)
 
