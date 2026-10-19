@@ -194,10 +194,10 @@ Stale facts are corrected as the text lands.
   - the `@`-import audit (no `^\s*@` or `[@` outside fences in any loaded file);
   - every `FACT-MAP.md` row resolves to a present line;
   - token figures from `/context` and chars ÷ 4, journalled.
-- [ ] 🔄 **Task 6.2** (partly evidenced by the coordinator, see the journal; the new nested files and rules are for the coordinator to probe): Live trigger test: touching one file per path rule injects that rule
+- [ ] 🔄 **Task 6.2** (every nested file and path rule probed in the coordinator's live session and loaded as designed, see the journal; only the scratch-consumer probe is unrun): Live trigger test: touching one file per path rule injects that rule
   (including an extensionless `bin/` stub), and touching a file under each nested-file subtree
   loads that file, here and from the scratch consumer of Task 1.2.
-- [ ] 🔄 **Task 6.3** (left to the coordinator: needs a logged-in headless session): Surfacing check: five headless scenario prompts from a fresh session, each
+- [x] ✅ **Task 6.3** (run as fresh sub-agents of the coordinator's logged-in session; 5/5 reached their canonical doc, the `qa.php` gap fixed in `docs/configuration.md`; see the journal): Surfacing check: five headless scenario prompts from a fresh session, each
   recording which canonical doc the agent opened before acting: add a new lane; fix a php-qa-ci
   bug from a consumer's `vendor/`; prepare a release entry; a test exited 139; tune a consumer's
   `qa.php`. A miss is a navigation-map or trigger defect, fixed before merge.

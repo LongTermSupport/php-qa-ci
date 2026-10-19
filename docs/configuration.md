@@ -182,6 +182,16 @@ too. Each lane's page under [tools/](tools/) says how it hands them to its tool,
 not repeated in any tool's own config. Lanes whose scope is not the checked paths (the Composer
 checks, the Twig and YAML lanes, the Markdown lanes, PHPUnit) do not read the setting.
 
+The settings most projects change:
+
+| To                                     | Call                                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Skip mutation testing                  | `withInfection(false)`                                                                                            |
+| Check another directory as well        | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the set for one run) |
+| Exclude paths from every scanning lane | `withIgnoredPaths('tests/assets')`                                                                                |
+| Raise the memory limit                 | `withMemoryLimit('8G')`                                                                                           |
+| Turn off PHPArkitect                   | `withArkitect(false)`                                                                                             |
+
 The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at
 `templates/qaConfig-qa.php`. This repository's own [qaConfig/qa.php](./../qaConfig/qa.php) is
