@@ -1,6 +1,6 @@
 # Plan 00022: CLAUDE.md progressive disclosure
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-10-19
 **Owner**: dev
 **Priority**: High
@@ -89,11 +89,11 @@ R5, R7a, R7d, DBF §3.2, daemon auto-commit) are in [DECISIONS.md](DECISIONS.md)
 
 ### Phase 1: Baseline and live verification
 
-- [ ] ⬜ **Task 1.1**: Journal the baseline: `CLAUDE.md` byte, line and token split, the real
+- [x] ✅ **Task 1.1**: Journal the baseline: `CLAUDE.md` byte, line and token split, the real
   resident size from `/context` (or the token-count API), `git rev-parse HEAD`, and the
   `docs-qa --sweep --json` findings for `CLAUDE.md`.
 
-- [ ] ⬜ **Task 1.2**: Live-test the mechanics with headless `claude -p` sessions and a scratch
+- [ ] 🚫 **Task 1.2** (blocked: a spawned `claude -p` is not logged in; see the journal): Live-test the mechanics with headless `claude -p` sessions and a scratch
   `settings.json` that registers an `InstructionsLoaded` hook logging to `untracked/scratch/`:
 
   - (a) in this worktree: a sentinel `paths:` rule loads on a matching Read, and only then; a
