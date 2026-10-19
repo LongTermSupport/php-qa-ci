@@ -189,7 +189,7 @@ code.
 | possibly-null-array-index             | 1     | Warning | 0   | 0   | 1   | 0   | 0   | F18: `DefenceBeforeFixDeclarationTest.php:181`                                                                                                                                                                                                                                                                                                                                                                                          |
 | redundant-type-comparison             | 1     | Help    | 0   | 0   | 0   | 1   | 0   | C1: `src/Helper.php:45` `!\is_string($_SERVER['PWD'])`, which PHPStan requires (`return.type` without it). The local-variable form is accepted by both                                                                                                                                                                                                                                                                                  |
 
-Totals: 72 A, 73 B, 63 Bw, 2 C, 1 D, making 211.
+Totals: 72 A, 136 B (73 plain B plus 63 Bw), 2 C, 1 D, making 211.
 
 ### Notes on single findings
 
