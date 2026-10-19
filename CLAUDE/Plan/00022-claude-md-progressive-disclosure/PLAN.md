@@ -174,9 +174,9 @@ Stale facts are corrected as the text lands.
 
 ### Phase 5: Accelerators
 
-- [ ] ⬜ **Task 5.1**: Nested routing files per Decision 7 (`src/Pipeline/CLAUDE.md`,
+- [x] ✅ **Task 5.1**: Nested routing files per Decision 7 (`src/Pipeline/CLAUDE.md`,
   `src/PHPStan/CLAUDE.md`, `scripts/CLAUDE.md`), each at most 15 lines of pointers.
-- [ ] ⬜ **Task 5.2**: Path rules (prefix `phpqaci-`, R7a shape) for the file-shaped triggers in
+- [x] ✅ **Task 5.2**: Path rules (prefix `phpqaci-`, R7a shape) for the file-shaped triggers in
   Decision 7, with the inventory's validated globs minus any subtree a nested file now covers.
   `**/*.sh` is dropped: every tracked `.sh` file is daemon-owned under `.claude/`.
 - [x] ✅ **Task 5.3**: Set `autoMemoryEnabled: false` in `.claude/settings.json`.
@@ -205,7 +205,7 @@ Stale facts are corrected as the text lands.
   audit, knowledge preservation against `git show <baseline>:CLAUDE.md`, every `FLOOR` row
   against the new `CLAUDE.md`, the SSoT split, the globs and nested files, and regressions this
   work introduced. Every major finding is fixed.
-- [ ] ⬜ **Task 6.5**: Changelog. Each commit touching a watched path (`qaConfig/qa.php`
+- [x] ✅ **Task 6.5**: Changelog. Each commit touching a watched path (`qaConfig/qa.php`
   `withChangelogWatchedPaths`, which includes `src/`, `bin/` and `scripts/`) carries a
   `## Unreleased` entry or a `Changelog: none — <reason>` trailer: the two `src/` docblocks and
   the nested files under `src/` and `scripts/`. Add a `Changed` entry for the slimmer vendored
