@@ -1,6 +1,6 @@
 # Plan 00024: mago alongside phpstan
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-10-19
 **Owner**: dev
 **Priority**: Medium
@@ -55,12 +55,13 @@ recorded there.
 
 ### Phase 0: Facts the decisions need
 
-- [ ] ⬜ **Task 0.1**: Establish whether Mago can run "everything off except an allow-list" for linter rules and analyser codes, from its docs and a probe; record the answer against DECISIONS.md Recommendation 5.
-- [ ] ⬜ **Task 0.2**: Establish Mago's exit code on a crash, an unreadable file and a config error (report §2 marks it unverified); the detector and wrapper depend on it (I7).
-- [ ] ⬜ **Task 0.3**: Measure per-file `qa -t phpstan -p {file}` after a real edit, warm and cold, and with the run lock held by a full run (exit 75), against the daemon's 15-second command limit.
-- [ ] ⬜ **Task 0.4**: For install-time delivery (D6 ruling): establish where Mago publishes per-release sha256 digests, whether GitHub attestation can be verified without shelling out (or only by `gh attestation verify` in the workflow), and how a Composer install hook can fetch it without network access becoming a silent skip.
-- [ ] ⬜ **Task 0.5**: Classify the 211 analyser disagreements by code into: both-accept code fix, Mago false positive, contradiction (C1 class); output feeds D4 and the corpus.
-- [ ] 🔄 **Task 0.6**: Present DECISIONS.md D1–D11 to the Owner and record the rulings there (D1 and D6 ruled; the rest open).
+- [x] ✅ **Task 0.1**: Establish whether Mago can run "everything off except an allow-list" for linter rules and analyser codes, from its docs and a probe; record the answer against DECISIONS.md Recommendation 5. No default-off key exists; DECISIONS.md "Phase 0 facts" records the modified Recommendation 5.
+- [x] ✅ **Task 0.2**: Establish Mago's exit code on a crash, an unreadable file and a config error (report §2 marks it unverified); the detector and wrapper depend on it (I7). Four path cases exit 0 with nothing checked; I7 is tightened in AGREEMENT.md.
+- [x] ✅ **Task 0.3**: Measure per-file `qa -t phpstan -p {file}` after a real edit, warm and cold, and with the run lock held by a full run (exit 75), against the daemon's 15-second command limit. About 5.4 s warm, within 15 s but over the 5 s criterion; the setup cost is [#219](https://github.com/LongTermSupport/php-qa-ci/issues/219).
+- [x] ✅ **Task 0.4**: For install-time delivery (D6 ruling): establish where Mago publishes per-release sha256 digests, whether GitHub attestation can be verified without shelling out (or only by `gh attestation verify` in the workflow), and how a Composer install hook can fetch it without network access becoming a silent skip. Release API `digest`; attestation in the update workflow; Turbo's installer is the model.
+- [x] ✅ **Task 0.5**: Classify the 211 analyser disagreements by code into: both-accept code fix, Mago false positive, contradiction (C1 class); output feeds D4 and the corpus.
+- [ ] 🔄 **Task 0.6**: Present DECISIONS.md D1–D12 to the Owner and record the rulings there (D1 and D6 ruled; the rest open).
+- [ ] 🔄 **Task 0.7**: Segfault policy for the Mago crash found in Task 0.2 (C18): halt, debug, file, defend. Halted and debugged to a minimal reproduction (UPSTREAM-DRAFTS.md U1, present in 1.58.2); filing awaits D12; the defence is I7 and C18, built in Phase 3. No Mago pin is taken and no Mago-running phase starts until U1 is filed.
 
 ### Phase 1: Suppression defence (before Mago is enabled anywhere)
 
@@ -115,3 +116,6 @@ recorded there.
 ## Delivery & Milestones
 
 - Plan created; research report filed in `subagent-reports/`.
+- Phase 0 facts gathered (Tasks 0.1–0.5); the `subagent-reports/261019-phase0-*.md` reports are
+  the evidence. A Mago segfault was found and debugged (Task 0.7); everything past Phase 0 now
+  waits on the open decisions in DECISIONS.md, D12 first.

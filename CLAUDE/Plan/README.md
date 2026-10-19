@@ -10,7 +10,7 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00024: Mago alongside PHPStan](00024-mago-alongside-phpstan/PLAN.md) - Not Started — Mago's linter as a fast lint-on-edit check and a lane ahead of PHPStan, never in disagreement with it: the agreement invariant and its detector first, the `@mago-*` suppression route closed, the binary fetched at install time against a pinned sha256 (#208)
+- [00024: Mago alongside PHPStan](00024-mago-alongside-phpstan/PLAN.md) - In Progress — Mago's linter as a fast lint-on-edit check and a lane ahead of PHPStan, never in disagreement with it: the agreement invariant and its detector first, the `@mago-*` suppression route closed, the binary fetched at install time against a pinned sha256 (#208)
 
 - [00023: release dependency currency gate](00023-release-dependency-currency-gate/PLAN.md) - Not Started — a release is fully upgraded: a gate that blocks on any direct dependency behind its latest release (majors included) unless a documented holdback covers it, and warns on stale transitive ones
 
