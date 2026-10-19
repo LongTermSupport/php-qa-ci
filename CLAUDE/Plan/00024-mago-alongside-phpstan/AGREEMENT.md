@@ -32,15 +32,15 @@ measured once is not agreement kept.
 
 ## The invariant
 
-| ID  | Statement                                                                                                                                                      | Catches                                                      |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| I1  | For every file in R ∪ P+, Mago(E) reports nothing.                                                                                                             | A Mago-only finding on PHPStan-clean code (the 211 / C4–C11) |
-| I2  | For every pair in P±, PHPStan accepts `fixed` and Mago(E) accepts `fixed`.                                                                                     | "Fix it for Mago" leading into a PHPStan error (C13)         |
-| I3  | Every code in E has at least one P± pair.                                                                                                                      | A code enabled with no demonstrated both-accept fix          |
-| I4  | No construct in P+ that PHPStan *requires* (a P− file whose fix adds it, e.g. the C1 guard) is flagged by Mago(E).                                             | Contradiction, C1 class                                      |
-| I5  | E equals the declared allow-list exactly.                                                                                                                      | A rule a new Mago release turns on by default                |
-| I6  | For each mirrored rule, on that rule's probe set: Mago flags a file ⇔ the owning PHPStan rule flags it.                                                        | A mirror that drifts from its owner                          |
-| I7  | Mago exits with a documented code (0 clean, 1 findings) and produces parseable output for every corpus file; any other outcome fails as a crash, never a pass. | A Mago crash read as "no findings"                           |
+| ID  | Statement                                                                                                                                                                                                                                                                                                                                            | Catches                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| I1  | For every file in R ∪ P+, Mago(E) reports nothing.                                                                                                                                                                                                                                                                                                   | A Mago-only finding on PHPStan-clean code (the 211 / C4–C11)                                              |
+| I2  | For every pair in P±, PHPStan accepts `fixed` and Mago(E) accepts `fixed`.                                                                                                                                                                                                                                                                           | "Fix it for Mago" leading into a PHPStan error (C13)                                                      |
+| I3  | Every code in E has at least one P± pair.                                                                                                                                                                                                                                                                                                            | A code enabled with no demonstrated both-accept fix                                                       |
+| I4  | No construct in P+ that PHPStan *requires* (a P− file whose fix adds it, e.g. the C1 guard) is flagged by Mago(E).                                                                                                                                                                                                                                   | Contradiction, C1 class                                                                                   |
+| I5  | E equals the declared allow-list exactly.                                                                                                                                                                                                                                                                                                            | A rule a new Mago release turns on by default                                                             |
+| I6  | For each mirrored rule, on that rule's probe set: Mago flags a file ⇔ the owning PHPStan rule flags it.                                                                                                                                                                                                                                              | A mirror that drifts from its owner                                                                       |
+| I7  | Mago exits with a documented code (0 clean, 1 findings) and produces parseable output for every corpus file; any other outcome fails as a crash, never a pass. Every path handed to Mago was checked first to exist as a regular, non-excluded file, and an `error[parse]` / `error[syntax]` on a file PHP accepts is a disagreement, not a finding. | A Mago crash read as "no findings"; a path Mago skipped with exit 0; a depth limit read as a syntax error |
 
 **Not required:** PHPStan-only findings. PHPStan is the in-depth gate and Mago may miss things;
 that is a capability gap, not a disagreement.
@@ -58,23 +58,26 @@ explicitly, because R only contains a requirement if some file happens to need i
   reports hundreds of unknown classes, which I7 must treat as a broken run, not findings.
 - Seeded from the research report's C1–C15 (section 3b) and the annotation probe (P1–P8):
 
-| Case | Probe                                                                                     | Kind             |
-| ---- | ----------------------------------------------------------------------------------------- | ---------------- |
-| C1   | `isset($_SERVER['PWD']) && \is_string(...)` guard, and the unguarded form                 | P+ (guarded), P− |
-| C2   | `self::assert*` vs `static::assert*`                                                      | P+ / I5          |
-| C4   | `$x = require $f;` then narrowing                                                         | P+               |
-| C5   | `\Safe\preg_match(..., $matches)` with and without `$matches = null;`                     | P+, P±           |
-| C6   | nullable property narrowed then read after `$this->` calls in a loop; local-variable form | P+, P±           |
-| C7   | `str_repeat(' ', $int)` and the `int<0,max>` form                                         | P+, P±           |
-| C8   | boolean flag updated later in the same loop                                               | P+               |
-| C9   | `'uniterate' === $x`; `const HTTP_API_KEY = 'HTTP_API_KEY'`                               | P+               |
-| C10  | a class over Mago's metric thresholds                                                     | P+ (unless D3)   |
-| C11  | `isset()`; literal positional arguments                                                   | P+               |
-| C12  | `@` error-control operator                                                                | per D10          |
-| C13  | `is_string` guard on a Safe match group                                                   | P− (PHPStan)     |
-| C14  | `@mago-ignore` / `@mago-expect` in source                                                 | P− (new rule)    |
-| C15  | constructs `missing-docs`, `yoda-conditions` forbid, `check-missing-override` would flag  | P+ / I5          |
-| P1–8 | annotation probe: aliases, shapes, generics, conditional returns, asserts, masks          | P+ and P−        |
+| Case | Probe                                                                                                                                                                         | Kind                 |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| C1   | `isset($_SERVER['PWD']) && \is_string(...)` guard, and the unguarded form; the local-variable form `$pwd = $_SERVER['PWD'] ?? null; if (!\is_string($pwd))` both tools accept | P+ (guarded), P−, P± |
+| C2   | `self::assert*` vs `static::assert*`                                                                                                                                          | P+ / I5              |
+| C4   | `$x = require $f;` then narrowing                                                                                                                                             | P+                   |
+| C5   | `\Safe\preg_match(..., $matches)` with and without `$matches = null;`                                                                                                         | P+, P±               |
+| C6   | nullable property narrowed then read after `$this->` calls in a loop; local-variable form                                                                                     | P+, P±               |
+| C7   | `str_repeat(' ', $int)` and the `int<0,max>` form                                                                                                                             | P+, P±               |
+| C8   | boolean flag updated later in the same loop                                                                                                                                   | P+                   |
+| C9   | `'uniterate' === $x`; `const HTTP_API_KEY = 'HTTP_API_KEY'`                                                                                                                   | P+                   |
+| C10  | a class over Mago's metric thresholds                                                                                                                                         | P+ (unless D3)       |
+| C11  | `isset()`; literal positional arguments                                                                                                                                       | P+                   |
+| C12  | `@` error-control operator                                                                                                                                                    | per D10              |
+| C13  | `is_string` guard on a Safe match group                                                                                                                                       | P− (PHPStan)         |
+| C14  | `@mago-ignore` / `@mago-expect` in source                                                                                                                                     | P− (new rule)        |
+| C15  | constructs `missing-docs`, `yoda-conditions` forbid, `check-missing-override` would flag                                                                                      | P+ / I5              |
+| C16  | `@extends SplHeap<SplFileInfo>`: the guard PHPStan requires in `compare()` is flagged redundant by Mago; the `usort` list form both accept (Task 0.5)                         | P+, P± (C13 class)   |
+| C17  | valid PHP nested past about 512 parentheses: Mago reports `error[parse]`, PHP and PHPStan accept it (Task 0.2)                                                                | P+ / I7              |
+| C18  | a binary-operator chain past about 8,500 operands: Mago 1.57.0–1.58.2 segfaults (exit 139) at the default 8 MB stack (Task 0.7)                                               | I7 (crash)           |
+| P1–8 | annotation probe: aliases, shapes, generics, conditional returns, asserts, masks                                                                                              | P+ and P−            |
 
 ## Where it runs
 
