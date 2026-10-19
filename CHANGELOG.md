@@ -47,6 +47,8 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the dependency update: phpstan/phpstan (in rector.phar) 2.2.16 → 2.3.1; rector/rector 2.6.7 → 2.7.0.
 
+- **Bundled tool versions updated** by the dependency update: infection 0.35.6 → 0.35.8.
+
 ### Fixed
 
 - **The `infection` lane resolves a relative `logs.debugEvents` against your `infection.json`'s directory.** Infection 0.35.7 added the `logs.debugEvents` setting (a JSONL trace of Infection's internal events), which Infection resolves against the directory of the config file, as it does every other log path. The lane runs Infection from a copy of the config under `var/qa/`, and it makes every such path absolute in that copy, but it did not know this setting. So a relative `logs.debugEvents` resolved against `var/qa/infection-config/` and the trace was written there instead of where your config named. The copy now makes it absolute too. ([#205](https://github.com/LongTermSupport/php-qa-ci/issues/205))
