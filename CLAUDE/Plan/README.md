@@ -10,6 +10,12 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00024: Mago alongside PHPStan](00024-mago-alongside-phpstan/PLAN.md) - Not Started — Mago's linter as a fast lint-on-edit check and a lane ahead of PHPStan, never in disagreement with it: the agreement invariant and its detector first, the `@mago-*` suppression route closed, the binary fetched at install time against a pinned sha256 (#208)
+
+- [00023: release dependency currency gate](00023-release-dependency-currency-gate/PLAN.md) - Not Started — a release is fully upgraded: a gate that blocks on any direct dependency behind its latest release (majors included) unless a documented holdback covers it, and warns on stale transitive ones
+
+- [00022: CLAUDE.md progressive disclosure](00022-claude-md-progressive-disclosure/PLAN.md) - In Progress — the root `CLAUDE.md` cut to the binding floor, the generated defences and a navigation map, with the depth in canonical `CLAUDE/` and `docs/` pages reached through nested routing files and path rules
+
 - [00020: tool currency and phpstan turbo](00020-tool-currency-and-phpstan-turbo/PLAN.md) - In Progress — the Owner's ruling that tracking the latest tools that pass QA is a standing process: the dependency update that judges itself as its pull request will and lands when green, PHPStan 2.3.0, and PHPStan Turbo shipped beside the phar for every consumer
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)

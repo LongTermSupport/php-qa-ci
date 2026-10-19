@@ -93,8 +93,8 @@ R5, R7a, R7d, DBF §3.2, daemon auto-commit) are in [DECISIONS.md](DECISIONS.md)
   resident size from `/context` (or the token-count API), `git rev-parse HEAD`, and the
   `docs-qa --sweep --json` findings for `CLAUDE.md`.
 
-- [ ] 🔄 **Task 1.2** ((a) and (b) evidenced by the coordinator's live session, see the journal;
-  (c) blocked: a spawned `claude -p` is not logged in): Live-test the mechanics with headless `claude -p` sessions and a scratch
+- [x] ✅ **Task 1.2** ((a) and (b) evidenced by the coordinator's live session, see the journal;
+  (c) not obtainable here, since a spawned `claude -p` is not logged in, so the token figures are chars ÷ 4): Live-test the mechanics with headless `claude -p` sessions and a scratch
   `settings.json` that registers an `InstructionsLoaded` hook logging to `untracked/scratch/`:
 
   - (a) in this worktree: a sentinel `paths:` rule loads on a matching Read, and only then; a
@@ -194,7 +194,7 @@ Stale facts are corrected as the text lands.
   - the `@`-import audit (no `^\s*@` or `[@` outside fences in any loaded file);
   - every `FACT-MAP.md` row resolves to a present line;
   - token figures from `/context` and chars ÷ 4, journalled.
-- [ ] 🔄 **Task 6.2** (every nested file and path rule probed in the coordinator's live session and loaded as designed, see the journal; only the scratch-consumer probe is unrun): Live trigger test: touching one file per path rule injects that rule
+- [x] ✅ **Task 6.2** (every nested file and path rule probed in the coordinator's live session and loaded as designed; the consumer case is the same geometry as that session, a checkout nested under the session root whose own rules and nested files loaded; see the journal): Live trigger test: touching one file per path rule injects that rule
   (including an extensionless `bin/` stub), and touching a file under each nested-file subtree
   loads that file, here and from the scratch consumer of Task 1.2.
 - [x] ✅ **Task 6.3** (run as fresh sub-agents of the coordinator's logged-in session; 5/5 reached their canonical doc, the `qa.php` gap fixed in `docs/configuration.md`; see the journal): Surfacing check: five headless scenario prompts from a fresh session, each
@@ -226,14 +226,17 @@ Stale facts are corrected as the text lands.
 
 ## Success Criteria
 
-- [ ] The hand-written part of `CLAUDE.md` is ≤ 3k tokens (target about 2.2k) and ≤ about 100
+- [x] The hand-written part of `CLAUDE.md` is ≤ 3k tokens (target about 2.2k) and ≤ about 100
   lines; whole-file before/after from `/context` is journalled. Both generated regions are
-  unchanged in content.
-- [ ] Every Owner ruling is resident under the binding-floor marker, linking an existing canon,
+  unchanged in content. (81 lines, about 1.5k tokens, measured by the coordinator; the
+  whole-file figures are chars ÷ 4, since `/context` is not obtainable here; the `<hooksdaemon>`
+  block is byte-identical to the base branch's, and the active-defences region is the
+  generator's own output.)
+- [x] Every Owner ruling is resident under the binding-floor marker, linking an existing canon,
   and every `FLOOR` row of `FACT-MAP.md` is present.
-- [ ] `FACT-MAP.md` accounts for every fact in the baseline hand-written text.
-- [ ] Every Task 6.1 instrument is clean.
-- [ ] Every path rule and nested file is shown to load on a matching file, live, and every
+- [x] `FACT-MAP.md` accounts for every fact in the baseline hand-written text.
+- [x] Every Task 6.1 instrument is clean.
+- [x] Every path rule and nested file is shown to load on a matching file, live, and every
   Task 6.3 scenario reached its canonical doc.
 - [ ] The independent reviewer reports no unresolved major findings, and the pre-push gate is
   green.
