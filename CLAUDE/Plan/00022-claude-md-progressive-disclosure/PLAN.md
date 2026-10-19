@@ -183,7 +183,7 @@ Stale facts are corrected as the text lands.
 
 ### Phase 6: Verification, review and delivery
 
-- [ ] ⬜ **Task 6.1**: Deterministic checks, with named instruments. The daemon CLI lives in the
+- [x] ✅ **Task 6.1**: Deterministic checks, with named instruments. The daemon CLI lives in the
   main checkout (`/workspace/.claude/hooks-daemon/bin/hooks-daemon`); run it with
   `--project-root` set to this worktree's absolute path (a relative one makes `--lint` fail):
   - `docs-qa --sweep --json`: no `pointer-resolves`, `duplicate-block`, `rules-file-shape` or
@@ -194,10 +194,10 @@ Stale facts are corrected as the text lands.
   - the `@`-import audit (no `^\s*@` or `[@` outside fences in any loaded file);
   - every `FACT-MAP.md` row resolves to a present line;
   - token figures from `/context` and chars ÷ 4, journalled.
-- [ ] ⬜ **Task 6.2**: Live trigger test: touching one file per path rule injects that rule
+- [ ] 🔄 **Task 6.2** (partly evidenced by the coordinator, see the journal; the new nested files and rules are for the coordinator to probe): Live trigger test: touching one file per path rule injects that rule
   (including an extensionless `bin/` stub), and touching a file under each nested-file subtree
   loads that file, here and from the scratch consumer of Task 1.2.
-- [ ] ⬜ **Task 6.3**: Surfacing check: five headless scenario prompts from a fresh session, each
+- [ ] 🔄 **Task 6.3** (left to the coordinator: needs a logged-in headless session): Surfacing check: five headless scenario prompts from a fresh session, each
   recording which canonical doc the agent opened before acting: add a new lane; fix a php-qa-ci
   bug from a consumer's `vendor/`; prepare a release entry; a test exited 139; tune a consumer's
   `qa.php`. A miss is a navigation-map or trigger defect, fixed before merge.
@@ -210,7 +210,7 @@ Stale facts are corrected as the text lands.
   `## Unreleased` entry or a `Changelog: none — <reason>` trailer: the two `src/` docblocks and
   the nested files under `src/` and `scripts/`. Add a `Changed` entry for the slimmer vendored
   `CLAUDE.md`, since consumer agents that read vendored files load it.
-- [ ] ⬜ **Task 6.6**: Upstream and follow-ups:
+- [x] ✅ **Task 6.6** (drafts in this folder, unfiled; filing is the coordinator's or the Owner's): Upstream and follow-ups:
   - an upstream report via the daemon CLI's `issue-report`: mdformat column padding inflates
     the injected rules section (about 83.7k chars raw, of which the table rows are 80.5k,
     against about 36k squeezed), asking for a
@@ -221,7 +221,7 @@ Stale facts are corrected as the text lands.
     Yaml Lint a platform lane);
   - a php-qa-ci issue on the vendored `CLAUDE.md` carrying this repository's `<hooksdaemon>`
     block into consumer sessions.
-- [ ] ⬜ **Task 6.7**: Pre-push gate (`CLAUDE/prepush-verification.md`), open the pull request,
+- [ ] 🔄 **Task 6.7** (left to the coordinator: full gate, push, PR): Pre-push gate (`CLAUDE/prepush-verification.md`), open the pull request,
   PR verification (`CLAUDE/pr-verification.md`), merge.
 
 ## Success Criteria
