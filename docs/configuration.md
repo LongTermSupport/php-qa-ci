@@ -42,8 +42,9 @@ Here are some general PHPQA environment variables you might want to set:
 
 `phpqaQuickTests`
 
-Setting this to `1` **skips whole phases**, not just slow tests: PHPStan (Phase 3) and both
-PHPUnit and Infection (Phase 4) are skipped entirely. Use it for a fast lint/style/validation
+Setting this to `1` **skips whole tools**, not just slow tests: every tool gated `NotQuick` or
+`Infection` in its registry row (PHPStan and Dead Code Detection in Phase 3, PHPUnit and
+Infection in Phase 4; see [the gates](pipeline.md#gates)) is skipped entirely. Use it for a fast lint/style/validation
 pass. Do not confuse it with `phpUnitQuickTests`, which is narrower — it still runs PHPUnit but
 lets individual tests take a faster path (see the PHPUnit docs).
 
