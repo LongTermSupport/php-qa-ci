@@ -143,6 +143,16 @@
 #                                          registered under services: below. See
 #                                          docs/phpstan-rules/forbid-unvalidated-regex-pattern.md
 #
+# GIT IN A TEST, ISOLATED FROM THE HOST:
+#   ForbidUnisolatedGitProcessRule       — test code (a Tests namespace or a /tests/ path)
+#                                          that runs git through a Symfony Process,
+#                                          Process::fromShellCommandline or proc_open must
+#                                          give it an environment PHPStan can see sets
+#                                          GIT_CONFIG_GLOBAL and GIT_CONFIG_NOSYSTEM: the
+#                                          host's signing, hooks or default branch otherwise
+#                                          decide what the test sees. See
+#                                          docs/phpstan-rules/forbid-unisolated-git-process.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -174,6 +184,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidDebugOutputFunctionsRule
     - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
 
 parameters:
     phpqaciFactorySealed:
