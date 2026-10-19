@@ -109,14 +109,14 @@ R5, R7a, R7d, DBF §3.2, daemon auto-commit) are in [DECISIONS.md](DECISIONS.md)
 
 ### Phase 2: Recorded decisions
 
-- [ ] ⬜ **Task 2.1**: In `CLAUDE/DocumentationStrategy.md` under project-specific additions,
+- [x] ✅ **Task 2.1**: In `CLAUDE/DocumentationStrategy.md` under project-specific additions,
   record: Decision 1 as a deviation from core R2/R3 with its justification; the R4a marker and
   its placement; Decision 7's split between nested files and path rules; and whether
   `documentation.qa.generated_docs` can declare the active-defences **region**. If it cannot,
   record the accepted R10 advisory.
-- [ ] ⬜ **Task 2.2**: Add `.claude/rules/phpqaci-reference-docs.md` (R7a shape) stating the
+- [x] ✅ **Task 2.2**: Add `.claude/rules/phpqaci-reference-docs.md` (R7a shape) stating the
   Decision 1 exception and linking `CLAUDE/DocumentationStrategy.md`, before any `docs/` edit.
-- [ ] ⬜ **Task 2.3**: Journal the Defence Before Fix disposition of the stale-roster class
+- [x] ✅ **Task 2.3**: Journal the Defence Before Fix disposition of the stale-roster class
   (Decision 5): class attributed, option (a) excluded by §3.2, option (c) applied, instances
   listed with their sweep (`CLAUDE.md`, `docs/pipeline.md`, `docs/phpqa-tools.md`).
 
