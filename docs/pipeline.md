@@ -53,7 +53,10 @@ The pre hook runs after configuration and PHAR verification, before the run lock
 
 - Pushing code to CI
 - Rebuilding example code
-- Generating reports
+- Generating reports, such as coverage reports
+- Sending notifications
+- Deploying artefacts
+- Collecting custom metrics
 
 ## The Pipeline
 

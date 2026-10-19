@@ -133,7 +133,12 @@ To create your own override:
 
 1. Make a directory in your project root called `qaConfig`
 2. Copy the configuration from [configDefaults/generic](./../configDefaults/generic) into your project `qaConfig` folder
-3. Customise the copied config as you see fit
+3. Check every relative path in the copy: a reference built from `__DIR__` now resolves from
+   `qaConfig/`, not from `configDefaults/generic/`. For example, `php_cs.php` falls back to
+   `__DIR__ . '/php_cs_finder.php'` when the project has no `qaConfig/php_cs_finder.php`, so a
+   copied `php_cs.php` needs either a copied finder or that path pointed at
+   `__DIR__ . '/../vendor/lts/php-qa-ci/configDefaults/generic/php_cs_finder.php'`
+4. Customise the copied config as you see fit
 
 For example, for PHPStan:
 

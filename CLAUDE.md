@@ -183,213 +183,23 @@ Settings, environment variables, the config-file cascade and read-only runs:
 [docs/configuration.md](docs/configuration.md). The working default is writable; reproduce a CI
 failure with `QA_READONLY=1`, not `CI=true` ([CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)).
 
-## Platform Detection
-
-[PlatformDetector](src/Pipeline/Config/PlatformDetector.php) checks for:
-
-- **Symfony**: Presence of `symfony.lock` file
-- **Generic**: Default for all other PHP projects (anything without `symfony.lock`)
-
-There is no Laravel/`artisan` detection. A platform contributes extra lanes through
-`ToolRegistry::platformLanes()`: Symfony appends `twigLint` to the linting phase (`twigCsFixer` and `yamlLint` are shipped lanes that gate themselves on Twig and on `symfony/yaml`, not platform lanes).
-Their directories default to `templates/` and `config/` and are set with `withTwigDirectories()`
-and `withYamlDirectories()` in `qaConfig/qa.php`. See [docs/platform-detection.md](docs/platform-detection.md).
-
-## PHP 8.5 Compatibility (php8.5 branch)
-
-- **Code style is PHP CS Fixer only** - there is no PHP_CodeSniffer in the pipeline
-- **PHP CS Fixer** runs the `@PHP8x5Migration` ruleset (cumulative over the 8.4 set)
-- **Nullable type rules** `nullable_type_declaration_for_default_null_value` and `nullable_type_declaration` are on, for PHP 8.4+'s deprecation of implicit nullable parameters
-- **Rector** runs `LevelSetList::UP_TO_PHP_85` via `rector-php85.php`
-- **PHP CS Fixer 3.95+** supports PHP 8.5 natively
-
-### PHP 8.5 Specific Configuration
-
-```php
-// In configDefaults/generic/php_cs.php
-'@PHP8x5Migration' => true,
-'nullable_type_declaration_for_default_null_value' => true,
-'nullable_type_declaration' => ['syntax' => 'question_mark'],
-```
-
-## Hook System
-
-The pipeline provides multiple extension points for customization:
-
-### Built-in Hooks
-
-- `qaConfig/hookPre.php` - Runs after configuration and PHAR verification, before the lock and the first tool
-- `qaConfig/hookPost.php` - Runs after all tools complete successfully (after PHPCPD)
-
-Each file returns a callable that receives the [ToolContext](src/Pipeline/Tool/ToolContext.php).
-To fail the run from a hook, throw. A Bash-era `hookPre.bash` / `hookPost.bash` is refused with
-migration guidance.
-
-```php
-<?php
-
-declare(strict_types=1);
-
-use LTS\PHPQA\Pipeline\Tool\ToolContext;
-
-return static function (ToolContext $context): void {
-    $context->writeln('warming the cache');
-    $context->php->withoutXdebug('bin/console', ['cache:warmup'], $context->config->paths->projectRoot);
-};
-```
-
-The post-hook only executes if the entire pipeline succeeds. This makes it ideal for:
-
-- Generating coverage reports
-- Sending notifications
-- Updating documentation
-- Deploying artifacts
-- Custom metrics collection
-
-### Per-Tool Overrides
-
-Each tool can be completely replaced by creating:
-
-- `qaConfig/tools/{toolName}.php` - returns a `ToolInterface` that replaces the shipped lane
-
-This allows for arbitrary customization of any tool's behavior, including:
-
-- Changing command-line arguments
-- Adding pre/post processing
-- Completely replacing the tool with custom logic
-- Conditionally skipping tools based on custom criteria
-
-Example override:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
-use LTS\PHPQA\Pipeline\Tool\ToolContext;
-use LTS\PHPQA\Pipeline\Tool\ToolInterface;
-
-return new class implements ToolInterface {
-    public function name(): string
-    {
-        return 'phpstan';
-    }
-
-    public function identifier(): string
-    {
-        return 'myproject.phpstan';
-    }
-
-    public function run(ToolContext $context): ToolResultDto
-    {
-        $context->writeln('Running custom PHPStan with project-specific rules');
-        $result = $context->php->withoutXdebug(
-            $context->config->paths->pharDir . '/phpstan.phar',
-            ['analyse', '--configuration=custom-phpstan.neon', '--level=8', ...$context->config->pathsToCheck],
-            $context->config->paths->projectRoot,
-        );
-
-        return $result->succeeded() ? ToolResultDto::passed() : ToolResultDto::failed('PHPStan reported errors');
-    }
-};
-```
-
-A tool prints through `$context->writeln()` and runs commands through `$context->php` (PHP
-scripts and PHARs, with Xdebug switched off and the memory limit applied) or `$context->processes`
-(any other command). It never calls `exit` or builds a shell string.
-
 ## Claude Code integration
 
 The skills, agents and hooks php-qa-ci deploys into a consumer, and the hooks daemon full-QA
 blocker: [CLAUDE/claude-code-integration.md](CLAUDE/claude-code-integration.md).
 
-## Managed Source
+## Managed source
 
-php-qa-ci can generate small PHP artefacts into a consumer's own production
-namespace (a locked `<RootNs>\PhpQaCi\` tree), regenerated on every composer
-install/update and drift-checked via `bin/managed-source check`. First artefact:
-the `FactorySealedBy` attribute. See [CLAUDE/managed-source.md](CLAUDE/managed-source.md).
+Generated PHP artefacts in a consumer's locked `<RootNs>\PhpQaCi\` tree:
+[CLAUDE/managed-source.md](CLAUDE/managed-source.md).
 
-## Environment Requirements
+## Consumer-facing reference
 
-- Linux/Unix environment (uses bash)
-- PHP 8.5 or higher on this branch (`composer.json` requires `^8.5`; the `php8.5` branch targets PHP 8.5; `php8.4` takes reported fixes only and `php8.3` is unmaintained, see "Work happens on `php8.5`")
-- Composer-installed project with php-qa-ci as a dependency
-
-### Custom PHP Executable
-
-You can specify which PHP binary to use via the `PHP_QA_CI_PHP_EXECUTABLE` environment variable:
-
-```bash
-# Use specific PHP version (assuming default vendor/bin location)
-PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.5 vendor/bin/qa
-
-# Or export for the session
-export PHP_QA_CI_PHP_EXECUTABLE=/usr/bin/php8.5
-vendor/bin/qa
-```
-
-This is useful when:
-
-- Running multiple PHP versions on the same system
-- Testing compatibility across PHP versions
-- Using custom PHP builds
-
-## Common Customizations
-
-### Override a Specific Tool
-
-Create `qaConfig/tools/{toolName}.php` returning a `ToolInterface` (see "Per-Tool Overrides"
-under "Hook System" for a complete example). The override receives the same `ToolContext` as
-the shipped lane: the built configuration, the config-path resolver, the process runner and
-the PHP invoker.
-
-### Skip Specific Tools
-
-In `qaConfig/qa.php`:
-
-```php
-return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
-    // Skip infection testing
-    ->withInfection(false);
-```
-
-The environment variable form (`useInfection=0 vendor/bin/qa`) still works for a single run.
-
-### Add Custom Paths
-
-In `qaConfig/qa.php`:
-
-```php
-return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
-    ->withCheckedPaths('custom/path')
-    ->withIgnoredPaths('tests/assets', 'src/Generated');
-```
-
-Paths are project-relative. `withCheckedPaths()` appends to the default `tests/` + `src/` set;
-`-p <path>` on the command line replaces that set for one run.
-
-## Overriding Tool Configurations
-
-To override any tool's default configuration:
-
-1. **Copy the default config** from `vendor/lts/php-qa-ci/configDefaults/generic/` to your `qaConfig/` directory
-2. **Update relative paths** - Change paths like `__DIR__` or relative references to work from your project root
-3. **Customize as needed** - Modify rules, paths, and settings
-
-Example for PHP CS Fixer:
-
-```bash
-# Copy default config
-cp vendor/lts/php-qa-ci/configDefaults/generic/php_cs.php qaConfig/
-
-# Edit qaConfig/php_cs.php
-# Change: $finderPath = __DIR__ . '/php_cs_finder.php';
-# To:     $finderPath = __DIR__ . '/../vendor/lts/php-qa-ci/configDefaults/generic/php_cs_finder.php';
-```
-
-**Warning**: Always check and update relative paths when copying configs!
+Platform detection [docs/platform-detection.md](docs/platform-detection.md); coding standards
+and the PHP 8.5 rule sets [docs/coding-standards.md](docs/coding-standards.md); hooks
+[docs/pipeline.md](docs/pipeline.md#hooks); overrides, `qa.php` and copied configs
+[docs/configuration.md](docs/configuration.md); requirements and `PHP_QA_CI_PHP_EXECUTABLE`
+[README.md](README.md).
 
 ## Tools Reference
 
