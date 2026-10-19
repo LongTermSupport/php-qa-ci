@@ -1,0 +1,31 @@
+{
+  "intelephense": {
+    "command": "intelephense",
+    "args": [
+      "--stdio"
+    ],
+    "extensionToLanguage": {
+      ".php": "php"
+    },
+    "settings": {
+      "intelephense.files.exclude": [
+        "**/.build",
+        "**/.next",
+        "**/.venv",
+        "**/build",
+        "**/coverage",
+        "**/dist",
+        "**/node_modules",
+        "**/target",
+        "**/third_party",
+        "**/vendor/**/vendor/**",
+        "**/vendor/**/{Tests,tests}/**",
+        "**/venv",
+        ".claude/ccy/plugins",
+        "CLAUDE/Plan",
+        "remote-docs",
+        "untracked"
+      ]
+    }
+  }
+}
