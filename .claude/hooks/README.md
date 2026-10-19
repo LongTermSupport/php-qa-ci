@@ -416,7 +416,7 @@ For full migration guide, see `/untracked/claude-code-hook-format-migration.md` 
 - Claude Code hooks documentation: `.claude/` directory in any Claude Code project
 - Hook format examples: All `.py` files in this directory
 - Deployment script: `scripts/deploy-skills.bash`
-- PHP-QA-CI main docs: `CLAUDE.md` and `docs/`
+- PHP-QA-CI main docs: `CLAUDE/claude-code-integration.md` (the deploy, for contributors) and `docs/`
 
 ---
 

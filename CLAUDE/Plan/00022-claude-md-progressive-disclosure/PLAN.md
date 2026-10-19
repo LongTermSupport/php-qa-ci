@@ -138,7 +138,7 @@ Stale facts are corrected as the text lands.
   file carries only what those do not (the #36 exception, "not backported proactively", the
   issue-states-its-line trigger, the Owner-decision framing) and links README for the rest
   (Decision 2). Same commit: repoint the comments in `tests/Small/IssueFormsTest.php:16,42`.
-- [ ] ⬜ **Task 3.4**: `CLAUDE/claude-code-integration.md` for the Claude Code hooks deploy and
+- [x] ✅ **Task 3.4**: `CLAUDE/claude-code-integration.md` for the Claude Code hooks deploy and
   the daemon full-QA blocker pointer, linking `.claude/hooks/README.md` rather than repeating it.
   Same commit: repoint `.claude/hooks/README.md:419`.
 - [ ] ⬜ **Task 3.5**: Pipeline order, preflight, configuration, platform, PHP 8.5 notes,
