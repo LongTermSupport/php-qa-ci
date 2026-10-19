@@ -179,7 +179,7 @@ Stale facts are corrected as the text lands.
 - [ ] ⬜ **Task 5.2**: Path rules (prefix `phpqaci-`, R7a shape) for the file-shaped triggers in
   Decision 7, with the inventory's validated globs minus any subtree a nested file now covers.
   `**/*.sh` is dropped: every tracked `.sh` file is daemon-owned under `.claude/`.
-- [ ] ⬜ **Task 5.3**: Set `autoMemoryEnabled: false` in `.claude/settings.json`.
+- [x] ✅ **Task 5.3**: Set `autoMemoryEnabled: false` in `.claude/settings.json`.
 
 ### Phase 6: Verification, review and delivery
 

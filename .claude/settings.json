@@ -1,5 +1,6 @@
 {
   "plansDirectory": "./CLAUDE/Plan",
+  "autoMemoryEnabled": false,
   "permissions": {
     "deny": [
       "Edit(//tmp/**)",
