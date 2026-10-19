@@ -19,6 +19,11 @@
       <directory suffix="Test.php">../tests/Large</directory>
     </testsuite>
   </testsuites>
+  <php>
+    <!-- git started by any test, directly or by the code and scripts it runs, reads no host git config (#206) -->
+    <env name="GIT_CONFIG_GLOBAL" value="/dev/null" force="true"/>
+    <env name="GIT_CONFIG_NOSYSTEM" value="1" force="true"/>
+  </php>
   <extensions>
     <bootstrap class="LTS\PHPQA\Tests\Support\ProjectTreeLeak\ProjectTreeLeakExtension"/>
     <bootstrap class="LTS\PHPQA\Tests\Support\TempLeak\TempLeakExtension"/>
