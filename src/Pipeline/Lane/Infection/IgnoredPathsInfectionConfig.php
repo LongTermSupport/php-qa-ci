@@ -42,6 +42,7 @@ final readonly class IgnoredPathsInfectionConfig
         'logs.perMutator',
         'logs.gitlab',
         'logs.summaryJson',
+        'logs.debugEvents',
         'tmpDir',
         'phpUnit.configDir',
         'phpUnit.customPath',
