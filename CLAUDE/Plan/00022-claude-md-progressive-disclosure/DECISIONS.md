@@ -62,14 +62,17 @@ Source: [subagent-reports/261019-loading-mechanics-claude-code-guide.md](subagen
    canonical page in the same commit.
 3. **Every ruling has a canon.** Knowledge & memory stays canonical in root (its floor bullet is
    the canon). The release-line policy gets `CLAUDE/release-lines.md`, which also gives
-   `IssueFormsTest`'s comments a stable link target. Dogfooding gets `CLAUDE/dogfooding.md`.
+   `IssueFormsTest`'s comments a stable link target; it links `README.md#branches-and-versions`
+   for what README already states rather than restating it. Dogfooding gets `CLAUDE/dogfooding.md`.
    "Bash is for invocation" and the contributor half of "not a tool proxy" go to
    `CLAUDE/architecture.md`; the consumer half of "not a tool proxy" goes to
    `docs/configuration.md` (Decision 1).
 4. **No new skills.** Every skill's description is resident on every turn, and project skills
    ship to every consumer through the deploy manifest, so a new description would be resident in
-   consumer sessions too. The intent-keyed navigation map is the intent brace, and unlike
-   php-qa-ci's `.claude/skills` it also works when dogfooding.
+   consumer sessions too. The intent-keyed navigation map is the intent brace. (Nested
+   `.claude/skills/` are documented to load when a file in their subdirectory is touched, so
+   skills may work when dogfooding too; the decision rests on the resident-description cost
+   alone.)
 5. **The stale-roster class is removed at its source (DBF, review R10).** The stale facts
    (`deadCode` missing, its gate missing, broken phase numbering, Yaml Lint called a platform
    lane) are one class: a hand-maintained tool roster drifting from `ToolRegistry`. Option (a), a

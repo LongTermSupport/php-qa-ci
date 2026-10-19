@@ -12,8 +12,11 @@ tokens (chars ÷ 4). Two generated regions, which this plan does not edit, accou
 of that: the hooks-daemon `<hooksdaemon>` block (about 22.6k) and the `bin/rules`
 active-defences region (about 2.5k). The remaining 993 lines (about 17.5k tokens) are
 hand-written. Most of them paraphrase or copy pages under `docs/`, they hold several stale
-facts, and five Owner rulings exist only here: knowledge & memory, release lines, dogfooding,
-"Bash is for invocation, PHP is for logic" and "the pipeline is not a tool proxy". Measured
+facts, and the canonical text of five Owner rulings exists only here: knowledge & memory,
+release lines, dogfooding, "Bash is for invocation, PHP is for logic" and "the pipeline is not a
+tool proxy". Partial restatements exist elsewhere (the release-line policy in
+`README.md#branches-and-versions` and `.github/ISSUE_TEMPLATE/bug_report.yml`; the memory
+ruling in a comment in `.claude/hooks-daemon.yaml`), and the per-fact check covers them. Measured
 inventory: [subagent-reports/261019-claude-md-inventory-opus.md](subagent-reports/261019-claude-md-inventory-opus.md).
 Independent review, whose required changes this plan incorporates:
 [subagent-reports/261019-plan-review-opus.md](subagent-reports/261019-plan-review-opus.md).
@@ -129,8 +132,11 @@ Stale facts are corrected as the text lands.
   `src/PHPStan/Rules/RequireDeclareStrictTypesRule.php:18`.
 - [ ] ⬜ **Task 3.2**: `CLAUDE/dogfooding.md` from the dogfooding section. Same commit: repoint
   the docblock in `src/PHPStan/Rules/ForbidUnanchoredVendorSubstringCheckRule.php:28`.
-- [ ] ⬜ **Task 3.3**: `CLAUDE/release-lines.md` from the release-line section. Same commit:
-  repoint the comments in `tests/Small/IssueFormsTest.php:16,42`.
+- [ ] ⬜ **Task 3.3**: `CLAUDE/release-lines.md` from the release-line section. Per-fact check
+  against `README.md#branches-and-versions` and `.github/ISSUE_TEMPLATE/bug_report.yml`: the new
+  file carries only what those do not (the #36 exception, "not backported proactively", the
+  issue-states-its-line trigger, the Owner-decision framing) and links README for the rest
+  (Decision 2). Same commit: repoint the comments in `tests/Small/IssueFormsTest.php:16,42`.
 - [ ] ⬜ **Task 3.4**: `CLAUDE/claude-code-integration.md` for the Claude Code hooks deploy and
   the daemon full-QA blocker pointer, linking `.claude/hooks/README.md` rather than repeating it.
   Same commit: repoint `.claude/hooks/README.md:419`.
@@ -143,7 +149,11 @@ Stale facts are corrected as the text lands.
   `docs/pipeline.md#2-preparation`), and the phase-list and Tools Reference removal carries the
   rewritten new-tool step in `CLAUDE/tool-boundaries.md:70-72`. Keep `FACT-MAP.md` in this plan
   folder: one row per paragraph or bullet with a stable fact ID (section → destination → line),
-  binding clauses marked `FLOOR`, seeded from [FLOOR-CLAUSES.md](FLOOR-CLAUSES.md).
+  binding clauses marked `FLOOR`, seeded from [FLOOR-CLAUSES.md](FLOOR-CLAUSES.md). The
+  Read-Only/CI removal carries a new sentence in `CLAUDE/prepush-verification.md`: `CI` controls
+  interactivity only, read-only is orthogonal to it, and `CI=true` alone does not make a run
+  read-only (F13's canon does not say this today). The memory floor bullet stays the canon;
+  the comment in `.claude/hooks-daemon.yaml` is checked against it and left as a pointer.
 
 ### Phase 4: The new root CLAUDE.md
 
@@ -201,7 +211,8 @@ Stale facts are corrected as the text lands.
   `CLAUDE.md`, since consumer agents that read vendored files load it.
 - [ ] ⬜ **Task 6.6**: Upstream and follow-ups:
   - an upstream report via the daemon CLI's `issue-report`: mdformat column padding inflates
-    the injected rules table (about 83.7k chars raw against about 36k squeezed), asking for a
+    the injected rules section (about 83.7k chars raw, of which the table rows are 80.5k,
+    against about 36k squeezed), asking for a
     compact rendering; and a request for an option that marks a human-tree subtree as canonical
     reference documentation (Decision 1);
   - a journal note for the Owner listing the handlers whose rows cost the most;
