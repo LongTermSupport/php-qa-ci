@@ -1,41 +1,55 @@
-# PHP-QA-CI Library Documentation
-
-## Knowledge & Memory Policy (binding)
-
-Persistent Claude memory is DISABLED for this project — never write to the
-harness memory store (`~/.claude/projects/*/memory/`). ALL knowledge, memory
-and context MUST be tracked in-repo, clean of secrets: durable operational
-knowledge in `CLAUDE/*.md` (e.g. [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
-— the mandatory pre-push battery; pushing `php8.5` deploys to production — and
-[CLAUDE/qa-orchestration.md](CLAUDE/qa-orchestration.md) — the run → fix → run cycle the
-`qa` skill follows — and [CLAUDE/pr-verification.md](CLAUDE/pr-verification.md) — the
-separate sub-agent that must verify a pull request before an agent merges it unreviewed),
-programme/work records in `CLAUDE/Plan/`.
-
-## Defence Before Fix is what this package is for (binding)
+# php-qa-ci
 
 php-qa-ci is the PHP reference toolchain for
-[Defence Before Fix](https://defence-before-fix.github.io/). The rule bundle, the stable
-identifiers, `bin/rules`, `bin/rule-doc`, `bin/phpstan-rule` and the justification lane are
-not features that happen to be here — they are the method's requirements, met.
+[Defence Before Fix](https://defence-before-fix.github.io/): a QA pipeline consumers install, whose
+entry point `bin/qa` is PHP and whose every lane is a class under `src/Pipeline/`, plus the rule
+bundle, the stable identifiers, `bin/rules`, `bin/rule-doc`, `bin/phpstan-rule` and the
+justification lane the method requires. This file holds the binding floor, the generated list of
+active defences and a map to everything else. The depth is one link away: open the linked
+document before acting on its topic.
 
-**Found a defect? Do not fix it yet.** Build the detector for its class first.
-[CLAUDE/DefenceBeforeFix.md](CLAUDE/DefenceBeforeFix.md) is the single source of truth for
-the procedure, what an agent may decide, and what only the Owner may. The three
-specifications are vendored verbatim under
-[remote-docs/defence-before-fix.github.io/](remote-docs/defence-before-fix.github.io/), and
-the versions this package is audited against are declared in `composer.json`
-`extra.defence-before-fix` with its known gaps, of which there are none at either level. Upstream
-grades us clause by clause in its
-[tools register](remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md). A gap found is
-closed, not accepted: `DefenceBeforeFixDeclarationTest` fails an accepted gap whose probe shows
-it closed.
+## Binding floor
 
-Two consequences bind every change here. A new check is a **defence** and inherits the
-method's requirements — a stable identifier, a page stating the correct construction, and a
-place in `bin/rules`; see [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md) for whether
-it is a lane or an assertion. And a suppression, a baseline or a narrowing is an **Owner
-decision**, never a silent edit.
+<!-- binding-floor: each bullet cites its canon -->
+
+- **Knowledge & memory** (canonical here): never write to the harness memory store
+  (`~/.claude/projects/*/memory/`); auto memory is off in `.claude/settings.json`. Durable
+  knowledge goes in `CLAUDE/*.md` and work records in `CLAUDE/Plan/`, tracked in-repo and clean
+  of secrets.
+- **Defence Before Fix**: found a defect? Do not fix it yet; build the detector for its class
+  first. A new check is a defence: a stable identifier, a page stating the correct construction,
+  an entry in the identifier index `docs/phpstan-rules/README.md` and a place in `bin/rules`. A suppression, a baseline or a
+  narrowing is an Owner decision, never a silent edit. [CLAUDE/DefenceBeforeFix.md](CLAUDE/DefenceBeforeFix.md)
+- **Segfaults halt**: any segfault (exit 139, or a `segfault at …` line in the host's kernel log,
+  even under a command that reported success) is never retried past: halt → debug → file →
+  defend. [CLAUDE/segfault-policy.md](CLAUDE/segfault-policy.md)
+- **Releases come from the changelog**: never choose a version or cut a tag by hand. A change a
+  consumer receives carries an `## Unreleased` entry, or a `Changelog: none — <reason>` trailer
+  when no consumer could notice it; a green push to `php8.5` opens the release pull request.
+  [CLAUDE/releases.md](CLAUDE/releases.md)
+- **Tools stay current** (Owner decision): at the start and end of every session, check for an
+  open update pull request, an `update-deps-failure` issue and any open issue with no reply yet.
+  Merge a green update PR after a fresh sub-agent's verification (a standing authorisation); fix
+  a red one under Defence Before Fix. [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md)
+- **Issue loop**: the `HOOKS_DAEMON_HOSTNAME=gh-sdlc` session runs `scripts/issue-monitor` and
+  works each issue from an approved author to a merged pull request; the approved authors are
+  listed once, in `.claude/hooks-daemon.yaml`. [CLAUDE/issue-sdlc.md](CLAUDE/issue-sdlc.md)
+- **Release lines** (Owner decision): every change is made on `php8.5`. `php8.4` takes a bug fix
+  only when a `php8.4` project reports it (#36 the single exception); `php8.3` is dead. An issue
+  states the release line it was found on. [CLAUDE/release-lines.md](CLAUDE/release-lines.md)
+- **Pre-push gate**: the pre-push battery is mandatory, and pushing `php8.5` deploys to
+  production. Before an agent merges a pull request unreviewed, a separate sub-agent verifies it.
+  [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md), [CLAUDE/pr-verification.md](CLAUDE/pr-verification.md)
+- **Writable by default**: the working default is writable, so the fixers fix; reproduce a CI
+  failure with `QA_READONLY=1`, not `CI=true`. [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)
+- **Dogfooding**: from a consumer's `vendor/lts/php-qa-ci/` (often a real git checkout), edit and
+  commit in place, and pass php-qa-ci's own pre-push battery before any push.
+  [CLAUDE/dogfooding.md](CLAUDE/dogfooding.md)
+- **Bash is for invocation, PHP is for logic** (Owner ruling): real logic goes in a class under
+  `src/` with a thin `bin/` entry point, never in a Bash script. [CLAUDE/architecture.md](CLAUDE/architecture.md)
+- **Not a tool proxy** (Owner ruling): `bin/qa` takes a tool and a path and enforces one standard
+  configuration per tool; never add pass-through tool flags.
+  [CLAUDE/architecture.md](CLAUDE/architecture.md#the-pipeline-is-not-a-tool-proxy-owner-ruling)
 
 <!-- phpqaci-active-defences:start -->
 
@@ -121,91 +135,30 @@ dir) prints its page offline.
 
 <!-- phpqaci-active-defences:end -->
 
-## Segfaults are a halt condition (binding)
+## Where to look
 
-**A PHP segfault is never accepted, worked around, or retried past.** Any segfault —
-exit 139, or a `segfault at …` line in the host's kernel log, even under a command that
-reported success — triggers halt → debug → file → defend, in that order.
-[CLAUDE/segfault-policy.md](CLAUDE/segfault-policy.md) is the procedure, the archetype
-(the OPcache const-vs-const crash, php-src GH-23644) and the container core-dump
-caveat: `coredumpctl` inside the container is empty by design, so the kernel log and the
-core have to be requested from the host, with matching debug symbols.
-
-## Releases come from the changelog (binding)
-
-Versions are never chosen and tags are never cut by hand. Every change to a path a consumer
-receives carries an entry under `## Unreleased` in `CHANGELOG.md` (or, when no consumer could
-notice it, a `Changelog: none — <reason>` commit trailer), the `changelog` lane fails the build
-otherwise, and a green push to `php8.5` opens a release pull request whose merge is the release.
-[CLAUDE/releases.md](CLAUDE/releases.md) is the procedure: which heading a change belongs under,
-the trailer, how the release pull request works, and the repository settings it relies on.
-
-## Tools stay current (binding, Owner decision)
-
-php-qa-ci runs on the latest release of every tool it bundles that passes QA against this
-repository. The dependency update runs daily. At the start and end of every session, check for an
-open update pull request, for an `update-deps-failure` issue, and for any other open issue that
-has no reply yet (`gh issue list --state open`): a consumer's report is acted on, not left to wait. Merge a green update pull request
-after a fresh sub-agent's verification; this is a standing authorisation. Fix a red one or a failure
-issue (Defence Before Fix). [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md) is the procedure.
-
-## The GitHub issue loop
-
-The session launched with `HOOKS_DAEMON_HOSTNAME=gh-sdlc` keeps `scripts/issue-monitor` running under
-the Monitor tool and works each new issue from an approved author through to a merged pull request.
-[CLAUDE/issue-sdlc.md](CLAUDE/issue-sdlc.md) is the procedure; the approved authors are listed once,
-in `.claude/hooks-daemon.yaml`.
-
-## Work happens on `php8.5` (binding, Owner decision)
-
-Every change is made on `php8.5`. `php8.4` takes a bug fix only when a `php8.4` project reports
-it (#36 the single exception); `php8.3` is dead. An issue states the release line it was found on.
-Canon: [CLAUDE/release-lines.md](CLAUDE/release-lines.md).
-
-## Working on php-qa-ci from a consuming project's `vendor/` (binding)
-
-`vendor/lts/php-qa-ci/` is often a real git checkout: edit and commit there, and pass php-qa-ci's
-own pre-push battery before any push. Canon: [CLAUDE/dogfooding.md](CLAUDE/dogfooding.md).
-
-## Bash is for invocation, PHP is for logic (binding, Owner ruling)
-
-Real logic goes in a class under `src/` with a thin `bin/` entry point, never in a Bash script.
-Canon: [CLAUDE/architecture.md](CLAUDE/architecture.md). How the pipeline is built (components,
-a run end to end, the tool runner's invariants) is in the same file.
-
-## Pipeline order and preparation
-
-[docs/pipeline.md](docs/pipeline.md); the tool roster in pipeline order is `bin/qa -h`.
-
-## Configuration
-
-Settings, environment variables, the config-file cascade and read-only runs:
-[docs/configuration.md](docs/configuration.md). The working default is writable; reproduce a CI
-failure with `QA_READONLY=1`, not `CI=true` ([CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md)).
-
-## Claude Code integration
-
-The skills, agents and hooks php-qa-ci deploys into a consumer, and the hooks daemon full-QA
-blocker: [CLAUDE/claude-code-integration.md](CLAUDE/claude-code-integration.md).
-
-## Managed source
-
-Generated PHP artefacts in a consumer's locked `<RootNs>\PhpQaCi\` tree:
-[CLAUDE/managed-source.md](CLAUDE/managed-source.md).
-
-## Consumer-facing reference
-
-Platform detection [docs/platform-detection.md](docs/platform-detection.md); coding standards
-and the PHP 8.5 rule sets [docs/coding-standards.md](docs/coding-standards.md); hooks
-[docs/pipeline.md](docs/pipeline.md#hooks); overrides, `qa.php` and copied configs
-[docs/configuration.md](docs/configuration.md); requirements and `PHP_QA_CI_PHP_EXECUTABLE`
-[README.md](README.md).
-
-## The pipeline is not a tool proxy (binding, Owner ruling)
-
-`bin/qa` enforces one standard configuration per tool and takes only a tool and a path; never add
-pass-through tool flags. Canon: [CLAUDE/architecture.md](CLAUDE/architecture.md#the-pipeline-is-not-a-tool-proxy-owner-ruling);
-the consumer side is [docs/configuration.md](docs/configuration.md#the-pipeline-is-not-a-tool-proxy).
+- How the pipeline is built (components, a run end to end, the tool runner):
+  [CLAUDE/architecture.md](CLAUDE/architecture.md)
+- A new check, as a lane or an assertion in an existing one: [CLAUDE/tool-boundaries.md](CLAUDE/tool-boundaries.md)
+- Phases, preparation, hooks and exit codes: [docs/pipeline.md](docs/pipeline.md); the tool
+  roster in pipeline order: `bin/qa -h`
+- Settings, environment variables, the config cascade, overrides and read-only runs:
+  [docs/configuration.md](docs/configuration.md)
+- A failure's identifier: `bin/rule-doc <identifier>`; the identifier index:
+  [docs/phpstan-rules/README.md](docs/phpstan-rules/README.md)
+- Running QA tools, the run → fix → run cycle: [CLAUDE/qa-orchestration.md](CLAUDE/qa-orchestration.md)
+- Before a push: [CLAUDE/prepush-verification.md](CLAUDE/prepush-verification.md); before
+  merging a pull request: [CLAUDE/pr-verification.md](CLAUDE/pr-verification.md)
+- Branch names: [CLAUDE/branch-policy.md](CLAUDE/branch-policy.md)
+- Plans, journals and worktrees: [CLAUDE/PlanWorkflow.md](CLAUDE/PlanWorkflow.md),
+  [CLAUDE/PlanJournalling.md](CLAUDE/PlanJournalling.md), [CLAUDE/Worktree.md](CLAUDE/Worktree.md)
+- Where a documentation fact belongs: [CLAUDE/DocumentationStrategy.md](CLAUDE/DocumentationStrategy.md)
+- The skills, agents and hooks php-qa-ci deploys, and the daemon full-QA blocker:
+  [CLAUDE/claude-code-integration.md](CLAUDE/claude-code-integration.md)
+- Generated PHP in a consumer's `<RootNs>\PhpQaCi\` tree: [CLAUDE/managed-source.md](CLAUDE/managed-source.md)
+- Platform detection: [docs/platform-detection.md](docs/platform-detection.md); coding standards
+  and the PHP 8.5 rule sets: [docs/coding-standards.md](docs/coding-standards.md); requirements
+  and `PHP_QA_CI_PHP_EXECUTABLE`: [README.md](README.md)
 
 <hooksdaemon>
 <!-- Auto-generated by hooks daemon on restart. Do not edit this section — changes will be overwritten. -->

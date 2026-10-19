@@ -158,12 +158,12 @@ Stale facts are corrected as the text lands.
 
 ### Phase 4: The new root CLAUDE.md
 
-- [ ] ⬜ **Task 4.1**: Rewrite the remaining hand-written part as a short orientation, the
+- [x] ✅ **Task 4.1**: Rewrite the remaining hand-written part as a short orientation, the
   binding floor (one bullet per Owner ruling, 1–4 lines, ending in its canonical link, under the
   single block-level marker), and the navigation map (task → document, plain links, no `@`).
   Every `FLOOR` row stays resident. No `## Overview`/`## Summary` headings, ✅ + status words or
   ISO dates.
-- [ ] ⬜ **Task 4.2**: Generated regions. The `<hooksdaemon>` block is not regenerated in the
+- [x] ✅ **Task 4.2**: Generated regions. The `<hooksdaemon>` block is not regenerated in the
   worktree; it is kept byte-identical to the target branch's block, verified by extracting the
   span and diffing it against `git show origin/php8.5:CLAUDE.md` after `php8.5` is merged in
   (Delivery); on a merge conflict, php8.5's block is taken verbatim. Before committing, run the
