@@ -13,6 +13,7 @@ use LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool;
 use LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool;
 use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
 use LTS\PHPQA\Pipeline\Lane\DocsProseTool;
+use LTS\PHPQA\Pipeline\Lane\DocumentedQaCommandsTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionTool;
 use LTS\PHPQA\Pipeline\Lane\MarkdownFormatTool;
@@ -59,6 +60,7 @@ final readonly class ShippedTools
             new SensitiveParameterUsageTool(),
             new MarkdownLinksTool(),
             new DocsProseTool(),
+            new DocumentedQaCommandsTool(ToolRegistry::shipped()),
             new PhpStrictTypesTool(),
             new BranchNamePolicyTool(),
             new PhpLintTool(),

@@ -26,7 +26,7 @@ Your job:
 **DO NOT**:
 
 - ❌ Run {bin}/qa commands (that's the runner agent's job)
-- ❌ Run allCS/allStatic (the cycle will handle this)
+- ❌ Run allCS/allStatic (the caller decides what else runs)
 - ❌ Run PHPStan to verify (the runner will re-run)
 - ❌ Use Bash tool at all
 
@@ -35,9 +35,11 @@ The qa skill orchestrates a run→fix→run cycle. You are the "fix" step.
 After you make code changes and return, the cycle will automatically:
 
 1. Re-run PHPStan via runner agent
-2. Run code standards if needed
-3. Check if your fixes worked
-4. Repeat if necessary
+2. Check if your fixes worked
+3. Repeat if necessary
+
+The cycle runs no coding standards between iterations: the caller can run them on the
+files you list, and the full pipeline runs them first.
 
 **Just fix the code and return with a summary. The cycle handles the rest.**
 
@@ -181,7 +183,9 @@ Parameter #1 $foo of method bar() expects int, string given.
 2. **Group by pattern** (property never read, instanceof, etc.)
 3. **Fix most common pattern first** (e.g., if 10 "property never read", fix those first)
 4. **Make minimal changes** - don't refactor unrelated code
-5. **Run allCS after fixes**: `{bin}/qa -t allCs -p [changed-files]`
+5. **List every file you changed**: you have no Bash tool, so the caller can run
+   `{bin}/qa -t r -p <file>` and `{bin}/qa -t f -p <file>` on them after you return (the full
+   pipeline runs the coding standards first)
 6. **Report what was fixed**
 
 ## Output Format
@@ -273,7 +277,7 @@ This is more efficient than fixing one at a time.
 
 ## After Fixing
 
-1. Run `{bin}/qa -t allCs -p [changed-files]` on all modified files
+1. List every file you changed, so the caller can run the coding standards on them
 2. Report all changes made with file:line references
 3. Recommend re-running PHPStan
 4. Highlight any remaining issues that need escalation
@@ -284,6 +288,6 @@ You are a FIXER, not a RUNNER. Your job is to:
 
 - Analyze error logs
 - Implement fixes for common patterns
-- Run code standards on changed files
+- List the changed files, so the caller can run the coding standards on them
 - Escalate complex issues
 - NOT re-run PHPStan yourself (that's the runner's job)

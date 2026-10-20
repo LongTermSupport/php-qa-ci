@@ -107,6 +107,7 @@ final readonly class ToolRegistry
                 new ToolDefinitionDto('composerDependencyAnalyser', ['cda'], 'unused, shadow and misplaced dependencies', $linting, false, banner: 'Running Composer Dependency Analyser'),
                 new ToolDefinitionDto('markdownLinks', ['ml', 'markdown'], 'markdown validation', $linting, false, banner: 'Running Markdown Links Checker'),
                 new ToolDefinitionDto('docsProse', ['dp', 'prose', 'docsProse'], 'documentation prose describes its subject, not itself', $linting, false, banner: 'Checking Documentation Prose'),
+                new ToolDefinitionDto('documentedQaCommands', ['dqc', 'documentedQaCommands'], 'documented qa commands name tools qa accepts', $linting, false, banner: 'Checking Documented qa Commands'),
                 new ToolDefinitionDto('yamlLint', ['yaml'], 'YAML syntax (when symfony/yaml is installed)', $linting, false, banner: 'Running Yaml Linter'),
                 new ToolDefinitionDto('shellCheck', ['sc', 'shellcheck', 'shellCheck'], 'ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships', $linting, true, banner: 'Running ShellCheck'),
                 new ToolDefinitionDto('branchNamePolicy', ['bnp', 'branchNamePolicy'], 'Branch naming policy (PR convention)', $staticAnalysis, false, banner: 'Checking Branch Name Policy'),
@@ -162,6 +163,12 @@ final readonly class ToolRegistry
         }
 
         return $this->definitions[$name];
+    }
+
+    /** Whether `-t <token>` names a tool: the question resolve() answers, without the exception. */
+    public function accepts(string $token): bool
+    {
+        return isset($this->byToken[$token]);
     }
 
     /** Look up by canonical name. */

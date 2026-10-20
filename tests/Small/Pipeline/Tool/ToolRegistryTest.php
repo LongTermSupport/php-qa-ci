@@ -71,6 +71,18 @@ final class ToolRegistryTest extends TestCase
     }
 
     #[Test]
+    public function acceptsAnswersExactlyWhatResolveAccepts(): void
+    {
+        $registry = ToolRegistry::shipped();
+
+        self::assertTrue($registry->accepts(self::STAN));
+        self::assertTrue($registry->accepts('allCS'));
+        self::assertFalse($registry->accepts('allCs'), 'tokens are case-sensitive');
+        self::assertFalse($registry->accepts('markdownLinks'), 'a canonical name that is not also an alias is not a token');
+        self::assertFalse($registry->accepts(self::UNKNOWN_TOKEN));
+    }
+
+    #[Test]
     public function theUnknownToolExceptionNamesTheToken(): void
     {
         try {
@@ -245,6 +257,7 @@ final class ToolRegistryTest extends TestCase
                 'composerDependencyAnalyser' => 'cda linting - None - - - -',
                 'markdownLinks'              => 'ml|markdown linting - None - - - -',
                 'docsProse'                  => 'dp|prose|docsProse linting - None - - - -',
+                'documentedQaCommands'       => 'dqc|documentedQaCommands linting - None - - - -',
                 'yamlLint'                   => 'yaml linting - None - - - -',
                 'shellCheck'                 => 'sc|shellcheck|shellCheck linting paths None - - - -',
                 'branchNamePolicy'           => 'bnp|branchNamePolicy staticAnalysis - None - - - -',
@@ -334,6 +347,6 @@ final class ToolRegistryTest extends TestCase
         $registry = ToolRegistry::shipped();
 
         self::assertCount(\count($registry->all()), $registry->usageLines());
-        self::assertSame(\sprintf('%-26s %s', 'uniterate', 'phpunit iterative mode - prioritise broken tests and fail on error'), $registry->usageLines()[34]);
+        self::assertSame(\sprintf('%-26s %s', 'uniterate', 'phpunit iterative mode - prioritise broken tests and fail on error'), $registry->usageLines()[35]);
     }
 }
