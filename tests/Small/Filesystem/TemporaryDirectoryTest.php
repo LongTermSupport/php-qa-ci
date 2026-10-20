@@ -45,6 +45,9 @@ final class TemporaryDirectoryTest extends TestCase
     /** What a file that must survive the cleanup holds. */
     private const string KEPT = 'kept';
 
+    /** A target that is a directory, as the detector the deadCode lane unpacks is. */
+    private const string TARGET_DIRECTORY = 'target';
+
     /** A directory inside a leftover, which a test makes the cleanup fail on. */
     private const string HELD = 'held';
 
@@ -155,9 +158,7 @@ final class TemporaryDirectoryTest extends TestCase
         $parent   = TemporaryDirectory::create(self::PARENT);
         $leftover = $this->stagingIn($parent->path, 1);
         $inUse    = $this->stagingIn($parent->path, 2);
-        \Safe\mkdir($leftover . '/nested', 0o700, true);
-        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
-        \Safe\touch($leftover, time() - 2 * 3600);
+        $this->plantLeftover($leftover);
         \Safe\mkdir($inUse);
         \Safe\file_put_contents($parent->path . '/' . self::TARGET, self::KEPT);
         $file     = $this->stagingIn($parent->path, 3);
@@ -351,7 +352,7 @@ final class TemporaryDirectoryTest extends TestCase
 
         try {
             TemporaryDirectory::besides($target, $prefix);
-            self::fail('a prefix the target\'s own name begins with was accepted');
+            self::fail("a prefix the target's own name begins with was accepted");
         } catch (InvalidArgumentException $invalidArgumentException) {
             self::assertSame(\sprintf('A staging directory beside %s needs a prefix its name does not begin with, not "%s": the target would be one of its leftovers', $target, $prefix), $invalidArgumentException->getMessage());
             self::assertSame(['.', '..', $name], \Safe\scandir($parent->path), 'nothing beside the target was touched');
@@ -364,9 +365,9 @@ final class TemporaryDirectoryTest extends TestCase
     /** @return iterable<string, array{string, string}> */
     public static function prefixesTheTargetsNameBeginsWith(): iterable
     {
-        yield 'a prefix of its name' => ['target', 'targ'];
-        yield 'its whole name' => ['target', 'target'];
-        yield 'a real caller\'s prefix' => ['.phpqa-shellcheck-x', '.phpqa-shellcheck'];
+        yield 'a prefix of its name' => [self::TARGET_DIRECTORY, 'targ'];
+        yield 'its whole name' => [self::TARGET_DIRECTORY, self::TARGET_DIRECTORY];
+        yield "a real caller's prefix" => ['.phpqa-shellcheck-x', '.phpqa-shellcheck'];
         yield 'a name shaped as staging' => ['.unpack0123456789abcdef', '.unpack'];
     }
 
@@ -416,9 +417,7 @@ final class TemporaryDirectoryTest extends TestCase
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
         $leftover = $this->stagingIn($parent->path, 11);
-        \Safe\mkdir($leftover . '/nested', 0o700, true);
-        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
-        \Safe\touch($leftover, time() - 2 * 3600);
+        $this->plantLeftover($leftover);
         $this->registerTheWrapper();
         VanishingDirectoryStreamWrapper::vanishOnChangeOnceRenamed($leftover);
 
@@ -445,9 +444,7 @@ final class TemporaryDirectoryTest extends TestCase
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
         $leftover = $this->stagingIn($parent->path, 6);
-        \Safe\mkdir($leftover . '/nested', 0o700, true);
-        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
-        \Safe\touch($leftover, time() - 2 * 3600);
+        $this->plantLeftover($leftover);
         $this->registerTheWrapper();
         VanishingDirectoryStreamWrapper::vanishOnChange($leftover);
 
@@ -634,6 +631,14 @@ final class TemporaryDirectoryTest extends TestCase
     private function overTheWrapper(string $path): string
     {
         return VanishingDirectoryStreamWrapper::SCHEME . '://' . $path;
+    }
+
+    /** Leaves at $leftover what a run killed mid-download leaves: a staging directory, with a file in it, unchanged for two hours. */
+    private function plantLeftover(string $leftover): void
+    {
+        \Safe\mkdir($leftover . '/nested', 0o700, true);
+        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
+        \Safe\touch($leftover, time() - 2 * 3600);
     }
 
     /** The path of a directory in $parent named as a staging directory is: the prefix, then $number as 16 hex digits. */

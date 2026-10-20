@@ -111,14 +111,14 @@ final class VanishingDirectoryStreamWrapper
 
     public static function reset(): void
     {
-        self::$vanishes         = null;
-        self::$refused          = null;
-        self::$vanishesOnChange = null;
-        self::$vanishedOnChange = false;
+        self::$vanishes            = null;
+        self::$refused             = null;
+        self::$vanishesOnChange    = null;
+        self::$vanishedOnChange    = false;
         self::$vanishesOnceRenamed = null;
-        self::$refusedName      = null;
-        self::$unremovableName  = null;
-        self::$renameThrows     = null;
+        self::$refusedName         = null;
+        self::$unremovableName     = null;
+        self::$renameThrows        = null;
     }
 
     /** @return array<int|string, mixed>|false */
