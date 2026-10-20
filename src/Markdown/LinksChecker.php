@@ -93,6 +93,13 @@ final readonly class LinksChecker
     private static function getMainReadme(string $projectRootDirectory): string
     {
         $path = $projectRootDirectory . '/README.md';
+        if (UnresolvablePath::is($path)) {
+            throw new RuntimeException(
+                "\n\nREADME.md is a symlink whose target does not exist, so its real path cannot be resolved"
+                . "\n\nPoint it at an existing file, or replace it with one, to pass QA"
+            );
+        }
+
         if (!is_file($path)) {
             throw new RuntimeException(
                 "\n\nYou have no README.md file in your project"

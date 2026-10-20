@@ -25,6 +25,8 @@ final class LinksCheckerTest extends TestCase
 
     private const string GITHUB_TOKEN_VAR = 'GITHUB_TOKEN';
 
+    private const string README = '/README.md';
+
     /** @var list<TempDir> */
     private array $tempDirs = [];
 
@@ -62,7 +64,7 @@ Bad link for "incorrect link" to "./foo.md"
     public function testMainNoReadmeFile(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('You have no README.md file in your project');
+        $this->expectExceptionMessageIsOrContains('You have no README.md file in your project');
         LinksChecker::main(__DIR__ . '/../../assets/linksChecker/projectNoReadme');
     }
 
@@ -76,7 +78,7 @@ Bad link for "incorrect link" to "./foo.md"
     {
         $dir              = TempDir::create('linksCheckerDanglingReadme');
         $this->tempDirs[] = $dir;
-        \Safe\symlink('missing-target.md', $dir->path . '/README.md');
+        \Safe\symlink('missing-target.md', $dir->path . self::README);
 
         try {
             LinksChecker::main($dir->path);
@@ -175,7 +177,7 @@ reason: GitHub URLs cannot be verified anonymously'
         $this->tempDirs[] = $dir;
         $projectDir       = $dir->path . '/project+one (copy)';
         \Safe\mkdir($projectDir . '/docs', 0o755, true);
-        \Safe\file_put_contents($projectDir . '/README.md', "[guide](docs/guide.md)\n");
+        \Safe\file_put_contents($projectDir . self::README, "[guide](docs/guide.md)\n");
         \Safe\file_put_contents($projectDir . '/docs/guide.md', "[other page](other.md)\n");
         \Safe\file_put_contents($projectDir . '/docs/other.md', "nothing to link\n");
 
@@ -283,7 +285,7 @@ Bad link for "gone" to "nothere.md"
         $projectDir       = $dir->path;
 
         \Safe\file_put_contents(
-            $projectDir . '/README.md',
+            $projectDir . self::README,
             "contains links to external resource and in page links\n\n"
             . '[valid link](' . $baseUrl . "/200)\n\n"
             . '[invalid link](' . $baseUrl . "/404);\n\n"
