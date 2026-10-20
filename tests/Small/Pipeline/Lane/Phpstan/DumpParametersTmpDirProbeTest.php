@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Phpstan;
 
 use LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupCache;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Tests\Support\ContextFactory;
@@ -34,6 +35,12 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(PhpstanSetupCache::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupKey::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[Small]
 final class DumpParametersTmpDirProbeTest extends TestCase
 {
@@ -196,6 +203,28 @@ final class DumpParametersTmpDirProbeTest extends TestCase
         $this->factory->processes->willReturn(new ProcessResultDto(0, "PHP Warning: something\n" . $json, $json));
 
         self::assertSame(self::PROJECT_TMP_DIR, new DumpParametersTmpDirProbe()->projectTmpDir($this->factory->context(), self::CONFIG, null));
+    }
+
+    /**
+     * A warm `-p` run reuses the last dump that answered and starts no PHPStan; a
+     * dump that failed is not kept, so the next run asks again.
+     */
+    #[Test]
+    public function aCachedProbeKeepsOnlyADumpThatAnswered(): void
+    {
+        $config  = $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    level: 1\n");
+        $context = $this->factory->context($this->factory->builder(specifiedPath: 'src/Kernel.php')->build());
+        $probe   = new DumpParametersTmpDirProbe();
+        $this->factory->processes->willFail(1, 'Invalid configuration')->willSucceed($this->dump(self::PROJECT_TMP_DIR, self::PROBE_TEMP));
+
+        $failed   = $probe->projectTmpDir($context, $config, null);
+        $answered = $probe->projectTmpDir($context, $config, null);
+        $warm     = $probe->projectTmpDir($context, $config, null);
+
+        self::assertNull($failed);
+        self::assertSame(self::PROJECT_TMP_DIR, $answered);
+        self::assertSame(self::PROJECT_TMP_DIR, $warm);
+        self::assertCount(2, $this->factory->processes->specs, 'the warm run starts no PHPStan');
     }
 
     private function dump(string $tmpDir, string $sysGetTempDir): string

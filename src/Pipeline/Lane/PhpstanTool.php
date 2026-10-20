@@ -32,7 +32,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * and found errors only when its output reports findings; an abandoned analysis,
  * an error before any analysis, and anything above 1, are crashes (PhpstanCrash), which in text mode are
  * re-run with --debug so the fatal that stopped it is visible. Text mode first says whether
- * PHPStan runs with Turbo (TurboProbeInterface). In --json mode the
+ * PHPStan runs with Turbo (TurboProbeInterface). The shipped probes keep their answers in a
+ * PhpstanSetupCache, so a warm `-p` run starts one PHPStan process, the analysis. In --json mode the
  * report goes to the real stdout untouched and nothing is retried. In agent
  * mode the same JSON is turned into one report file per analysed source file
  * and stdout is held to a count, a path and an instruction.
