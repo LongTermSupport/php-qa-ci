@@ -29,7 +29,9 @@ structural false positive in eleven reports, the rest genuine (Plan 00005, journ
   `rules.neon` from `vendor-phar/dead-code-detector.phar`; the detector's classes load through
   `--autoload-file`. PHPStan gets the detector unpacked into `var/qa/cache/dead-code-detector/`,
   once per PHAR version, rather than the PHAR itself: with Turbo, PHPStan forks its workers, and
-  forked workers reading a second PHAR corrupt each other's reads. Nothing is installed through
+  forked workers reading a second PHAR corrupt each other's reads. Each run removes everything
+  else in that directory (copies of earlier PHARs, staging a killed run left); an entry it cannot
+  remove is named in a `WARNING:` line and left for you to delete. Nothing is installed through
   Composer, so the PHPStan gate never sees the detector.
 - PHPStan's cache (its `tmpDir`) is `var/qa/cache/deadCode/`, apart from the PHPStan lane's
   `var/qa/cache/phpstan/`: PHPStan keeps one result cache per `tmpDir`, so two configurations

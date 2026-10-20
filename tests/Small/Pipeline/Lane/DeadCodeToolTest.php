@@ -11,11 +11,13 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FixedTmpDirProbe;
+use LTS\PHPQA\Tests\Support\UnremovableTree;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Output\NullOutput;
 
 /**
  * @internal
@@ -78,6 +80,8 @@ final class DeadCodeToolTest extends TestCase
 
     private FixedTmpDirProbe $tmpDirProbe;
 
+    private ?string $unremovable = null;
+
     protected function setUp(): void
     {
         $this->factory     = ContextFactory::create();
@@ -86,6 +90,10 @@ final class DeadCodeToolTest extends TestCase
 
     protected function tearDown(): void
     {
+        if (null !== $this->unremovable) {
+            UnremovableTree::remove($this->unremovable);
+        }
+
         $this->factory->project->remove();
     }
 
@@ -116,7 +124,7 @@ final class DeadCodeToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         $wrapper  = $this->factory->project->read(self::WRAPPER);
-        $detector = new DetectorUnpacker()->unpack($paths->pharDir . '/dead-code-detector.phar', $paths->cacheDir);
+        $detector = new DetectorUnpacker(new NullOutput())->unpack($paths->pharDir . '/dead-code-detector.phar', $paths->cacheDir);
         self::assertStringContainsString("includes:\n    - " . \dirname(__DIR__, 4) . "/configDefaults/generic/phpstan.neon\n    - " . $detector . '/' . DetectorUnpacker::RULES_NEON . "\n", $wrapper);
         self::assertStringContainsString("    paths:\n        - " . $paths->srcDir . "\n        - " . $paths->testsDir . "\n        - " . $paths->projectRoot . "/bin/console\n        - /abs/bin/tool\n", $wrapper);
         self::assertStringContainsString("    shipmonkDeadCode:\n        usageExcluders:\n            tests:\n                enabled: true\n", $wrapper);
@@ -227,7 +235,7 @@ final class DeadCodeToolTest extends TestCase
 
         $this->tool()->run($context);
 
-        $detector = new DetectorUnpacker()->unpack($config->paths->pharDir . '/dead-code-detector.phar', $config->paths->cacheDir);
+        $detector = new DetectorUnpacker(new NullOutput())->unpack($config->paths->pharDir . '/dead-code-detector.phar', $config->paths->cacheDir);
         self::assertStringNotContainsString(self::TMP_DIR, $this->factory->project->read(self::WRAPPER));
         self::assertStringContainsString("Dead code: cache in the tmpDir the project's PHPStan configuration sets, /ci-cache/phpstan", $this->factory->output->fetch());
         self::assertSame([[$context->configPath('phpstan.neon'), $detector . '/' . DetectorUnpacker::AUTOLOAD]], $this->tmpDirProbe->askedAbout);
@@ -411,6 +419,23 @@ final class DeadCodeToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertStringContainsString('incomplete', $result->summary);
         self::assertStringNotContainsString('withDeadCodeEntryPoints', $printed, 'no dead-code guidance for a run that reported none');
+    }
+
+    /** A stale detector copy the lane cannot remove is reported on the lane's output, not a failure. */
+    #[Test]
+    public function aStaleDetectorCopyThatCannotBeRemovedIsAWarningNotAFailure(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
+        $config            = $this->factory->builder(ci: true)->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+        $this->unremovable = $config->paths->cacheDir . '/' . DetectorUnpacker::DIR . '/0123456789abcdef';
+        UnremovableTree::plant($this->unremovable);
+
+        $result = $this->tool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('WARNING: could not remove ' . $this->unremovable . ',', $this->factory->output->fetch());
     }
 
     #[Test]

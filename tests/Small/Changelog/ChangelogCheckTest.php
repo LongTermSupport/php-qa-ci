@@ -96,6 +96,8 @@ final class ChangelogCheckTest extends TestCase
 
     private const string EMPTY_BASE_CHANGELOG = "## Unreleased\n";
 
+    private const string MISPLACED_MESSAGE = "0123456789abcdef\0Tidy the tests\n\nChangelog: none — tests only, misplaced\n\nCo-Authored-By: X <x@example.invalid>\n\0\0";
+
     private TempDir $project;
 
     private FakeProcessRunner $processes;
@@ -153,7 +155,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, self::WITH_ENTRY);
         $this->featureBranch("src/A.php\0CHANGELOG.md\0");
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG);
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $result = $this->check();
 
@@ -172,7 +174,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, self::WITH_ENTRY);
         $this->featureBranch("src/A.php\0src/B.php\0");
         $this->processes->willFail(128);
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $result = $this->check();
 
@@ -186,7 +188,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, self::WITH_ENTRY);
         $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed("# Changelog\n\n- Old fix.\n");
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         self::assertSame(self::RECORDED_ONE, $this->check()->report[2]);
     }
@@ -197,7 +199,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
         $this->featureBranch("src/A.php\0tests/ATest.php\0");
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed("none\n");
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $result = $this->check();
 
@@ -222,7 +224,7 @@ final class ChangelogCheckTest extends TestCase
 
         $this->featureBranch($files);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed();
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $problem = $this->check()->problems[0];
 
@@ -243,7 +245,7 @@ final class ChangelogCheckTest extends TestCase
 
         $this->featureBranch($files);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed();
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $problem = $this->check()->problems[0];
 
@@ -257,7 +259,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
         $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed();
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         self::assertStringEndsWith(
             "\n    src/A.php"
@@ -274,7 +276,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n\n### Fixed\n\n- Old fix.\n\n- New fix.\n\n- Another new fix.\n");
         $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG);
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         self::assertSame('1 watched file changed; recorded by 2 new "## Unreleased" entries.', $this->check()->report[2]);
     }
@@ -285,7 +287,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n\n### Fixed\n\n- Old fix.\n\n- New fix.\n\n- Another new fix.\n");
         $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed("# Changelog\n\n- Old fix.\n");
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         self::assertSame('1 watched file changed; recorded by 2 new "## Unreleased" entries.', $this->check()->report[2]);
     }
@@ -295,7 +297,7 @@ final class ChangelogCheckTest extends TestCase
     {
         $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n");
         $this->featureBranch("tests/ATest.php\0");
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $result = $this->check();
 
@@ -309,7 +311,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
         $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG)->willSucceed("none — internal refactor only\n");
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $result = $this->check();
 
@@ -318,11 +320,57 @@ final class ChangelogCheckTest extends TestCase
     }
 
     #[Test]
+    public function aMisplacedChangelogLineOnABranchFailsNamingTheCommitAndTheRemedy(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
+        $this->featureBranch("tests/ATest.php\0");
+        $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+        $this->processes->willSucceed(self::MISPLACED_MESSAGE);
+
+        $result = $this->check();
+
+        self::assertSame(
+            ['1 "Changelog:" line in the range is not a commit trailer: git reads trailers only from a message\'s final paragraph, and this one sits in a paragraph above it:'
+            . "\n    0123456789ab Changelog: none — tests only, misplaced"
+            . "\n  Reword each commit (git rebase -i --rebase-merges base1, which keeps merges) and"
+            . "\n  move each line into the final trailer block, the last paragraph with Co-Authored-By: and the"
+            . "\n  other trailers, with no blank line between them."],
+            $result->problems,
+        );
+    }
+
+    #[Test]
+    public function misplacedChangelogLinesOnTheDefaultBranchAreReportedNotFailed(): void
+    {
+        $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
+        $this->processes
+            ->willSucceed(self::NOT_SHALLOW)
+            ->willSucceed(self::ORIGIN_HEAD)
+            ->willSucceed(self::DEFAULT_BRANCH)
+            ->willSucceed("85.1.0\n")
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed()
+            ->willSucceed(self::COMPOSER)
+            ->willSucceed(self::MISPLACED_MESSAGE . "fedcba9876543210\0Tidy more\nChangelog: none — a second, misplaced\n\0\0")
+        ;
+
+        $result = $this->check(policy: ReleaseVersionPolicy::lockedMajorFromPhpRequirement());
+
+        self::assertSame([], $result->problems);
+        self::assertSame([
+            '2 "Changelog:" lines since the last release are not commit trailers; history already on the default branch is not rewritten, so it is reported, not failed:',
+            '    0123456789ab Changelog: none — tests only, misplaced',
+            '    fedcba987654 Changelog: none — a second, misplaced',
+        ], \array_slice($result->report, 3));
+    }
+
+    #[Test]
     public function nothingWatchedChangingNeedsNoEntry(): void
     {
         $this->project->write(ChangelogCheck::CHANGELOG, self::BASE_CHANGELOG);
         $this->featureBranch("tests/ATest.php\0docs/a.md\0");
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $result = $this->check();
 
@@ -338,6 +386,7 @@ final class ChangelogCheckTest extends TestCase
         $this->featureBranch(self::CHANGED_COMPOSER);
         $this->processes->willSucceed()->willSucceed(self::BASE_CHANGELOG);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+        $this->noMessages();
 
         $result = $this->check();
 
@@ -355,6 +404,7 @@ final class ChangelogCheckTest extends TestCase
         $this->featureBranch(self::CHANGED_COMPOSER);
         $this->processes->willFail(128);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+        $this->noMessages();
 
         self::assertTrue($this->check()->passed());
     }
@@ -389,7 +439,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(ChangelogCheck::CHANGELOG, "# Changelog\n\n## Unreleased\n\n## 85.1.0 — 2026-10-09\n\n### Fixed\n\n- A fix.\n\n## 85.0.0 — 2026-10-02\n\n### Added\n\n- First.\n");
         $this->featureBranch(self::CHANGED_SOURCE);
         $this->processes->willSucceed()->willSucceed("# Changelog\n\n## Unreleased\n\n## 85.0.0 — 2026-10-02\n\n### Added\n\n- First.\n");
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
 
         $result = $this->check();
 
@@ -405,11 +455,12 @@ final class ChangelogCheckTest extends TestCase
         $this->featureBranch(self::CHANGED_COMPOSER);
         $this->processes->willSucceed()->willSucceed(self::EMPTY_BASE_CHANGELOG);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+        $this->noMessages();
 
         $result = $this->check();
 
         self::assertSame([], $result->problems);
-        self::assertCount(11, $this->processes->specs, 'the base CHANGELOG.md is read once, for both checks');
+        self::assertCount(12, $this->processes->specs, 'the base CHANGELOG.md is read once, for both checks');
     }
 
     #[Test]
@@ -420,6 +471,7 @@ final class ChangelogCheckTest extends TestCase
         $this->featureBranch(self::CHANGED_COMPOSER);
         $this->processes->willSucceed()->willSucceed(self::EMPTY_BASE_CHANGELOG);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+        $this->noMessages();
 
         self::assertSame([], $this->check()->problems);
     }
@@ -431,6 +483,7 @@ final class ChangelogCheckTest extends TestCase
         $this->project->write(self::COMPOSER_JSON, self::COMPOSER_WITH_PCNTL);
         $this->featureBranch(self::CHANGED_COMPOSER);
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+        $this->noMessages();
 
         $result = $this->check(new WatchedPaths('src/'));
 
@@ -481,7 +534,7 @@ final class ChangelogCheckTest extends TestCase
             ->willSucceed()
             ->willSucceed()
         ;
-        $this->composerUnchanged();
+        $this->composerUnchangedAndNoMessages();
     }
 
     private function featureBranch(string $changedFiles): void
@@ -497,9 +550,16 @@ final class ChangelogCheckTest extends TestCase
         ;
     }
 
-    private function composerUnchanged(): void
+    private function composerUnchangedAndNoMessages(): void
     {
         $this->processes->willSucceed()->willSucceed(self::COMPOSER);
+        $this->noMessages();
+    }
+
+    /** The answer to the last git call, the range's commit messages: an empty range. */
+    private function noMessages(): void
+    {
+        $this->processes->willSucceed();
     }
 
     private function check(?WatchedPaths $watched = null, ReleaseVersionPolicy $policy = new ReleaseVersionPolicy()): ChangelogCheckResultDto
