@@ -68,9 +68,9 @@ final class SecondFilesystemTest extends TestCase
     {
         try {
             $made = SecondFilesystem::directory(self::PREFIX, $candidate);
-        } catch (SkippedWithMessageException $skipped) {
-            self::assertStringContainsString($reason, $skipped->getMessage());
-            self::assertStringContainsString($candidate, $skipped->getMessage(), 'the reason names the directory');
+        } catch (SkippedWithMessageException $skippedWithMessageException) {
+            self::assertStringContainsString($reason, $skippedWithMessageException->getMessage());
+            self::assertStringContainsString($candidate, $skippedWithMessageException->getMessage(), 'the reason names the directory');
 
             return;
         }

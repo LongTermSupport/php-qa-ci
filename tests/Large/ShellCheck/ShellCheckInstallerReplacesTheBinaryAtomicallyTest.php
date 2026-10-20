@@ -34,7 +34,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
  * still holds the old bytes.
  *
  * The library is put on /dev/shm, a different filesystem from the system temp directory on Linux,
- * because the defect only shows across filesystems.
+ * because the defect only shows across filesystems. Where there is no such second filesystem,
+ * SecondFilesystem skips the test, saying why.
  *
  * @internal
  */
@@ -60,8 +61,6 @@ final class ShellCheckInstallerReplacesTheBinaryAtomicallyTest extends TestCase
 
     private const string NEWEST_ASSET = 'https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz';
 
-    private const string SECOND_FILESYSTEM = '/dev/shm';
-
     private TempDir $library;
 
     protected function setUp(): void
@@ -73,18 +72,15 @@ final class ShellCheckInstallerReplacesTheBinaryAtomicallyTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->library->remove();
+        // Unset when setUp skipped the test for want of a second filesystem.
+        if (isset($this->library)) {
+            $this->library->remove();
+        }
     }
 
     #[Test]
     public function anUpdateReplacesTheBinaryWithoutRewritingTheOneInUse(): void
     {
-        self::assertNotSame(
-            $this->device(self::SECOND_FILESYSTEM),
-            $this->device(sys_get_temp_dir()),
-            'this test needs /dev/shm and the system temp directory on different filesystems',
-        );
-
         $binary = ShellCheckBinary::path($this->library->path);
         $inUse  = $this->library->path . '/in-use-shellcheck';
         \Safe\link($binary, $inUse);
@@ -110,14 +106,6 @@ final class ShellCheckInstallerReplacesTheBinaryAtomicallyTest extends TestCase
             'the old binary was rewritten in place, so a ShellCheck running it would execute a partial file',
         );
         self::assertSame([], \Safe\glob(\dirname($binary) . '/.phpqa-shellcheck*'), 'the staging directory is removed');
-    }
-
-    private function device(string $path): int
-    {
-        $stat = stat($path);
-        self::assertIsArray($stat, 'cannot stat ' . $path);
-
-        return $stat['dev'];
     }
 
     /** The bytes of a `.tar.gz` laid out as the published release asset is. */
