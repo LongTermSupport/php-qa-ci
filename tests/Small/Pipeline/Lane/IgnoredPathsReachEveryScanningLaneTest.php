@@ -97,6 +97,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         'sensitiveParameterUsage'    => 'asserts a usage exists somewhere in src/ and reports no file',
         'markdownLinks'              => 'reads README.md and docs/',
         'docsProse'                  => 'reads README.md and docs/',
+        'documentedQaCommands'       => 'reads the documentation and agent markdown, never PHP',
         'branchNamePolicy'           => 'reads the git branch name',
         'composerChecks'             => 'reads composer.json and composer.lock',
         'composerRequireChecker'     => 'a dependency is real wherever the autoloader ships the code that uses it, ignored or not',

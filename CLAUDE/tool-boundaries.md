@@ -72,9 +72,10 @@ Different questions, different failure guidance, different times you would run o
   (regenerate it with `php bin/rules . --write-agent-summary=CLAUDE.md`). `docs/pipeline.md`
   keeps no tool list; it describes each phase and points at `bin/qa -h` and the identifier
   index. No other page lists the tools by hand either: link the new page, never add a roster.
-- Add `#[UsesClass(<Name>Tool::class)]` to the five tests that walk the whole shipped set:
+- Add `#[UsesClass(<Name>Tool::class)]` to the six tests that walk the whole shipped set:
   `PipelineBuilderTest`, `ShippedToolLocatorTest`, `InProcessLanesTest`,
-  `ActiveRulesListerTest` and `ActiveRulesListerSelfCheckTest`. They construct every lane,
+  `ActiveRulesListerTest`, `ActiveRulesListerSelfCheckTest` and
+  `DocumentedQaCommandsToolTest` (that lane builds the project's registry). They construct every lane,
   so a new one makes each of them risky under `--fail-on-risky` — nineteen failures that
   say nothing about the lane. Unit tests pass either way; only the full pipeline catches
   it, which is one more reason it is the only proof.
