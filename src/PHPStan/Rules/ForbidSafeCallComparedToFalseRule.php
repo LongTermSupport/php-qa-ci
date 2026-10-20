@@ -19,6 +19,7 @@ use PhpParser\Node\Expr\BinaryOp\NotEqual;
 use PhpParser\Node\Expr\BinaryOp\NotIdentical;
 use PhpParser\Node\Expr\BooleanNot;
 use PhpParser\Node\Expr\ConstFetch;
+use PhpParser\Node\Expr\ErrorSuppress;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Ternary;
 use PhpParser\Node\Name;
@@ -28,6 +29,8 @@ use PhpParser\Node\Stmt\For_;
 use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\While_;
 use PHPStan\Analyser\Scope;
+use PHPStan\Reflection\FunctionReflection;
+use PHPStan\Reflection\ParametersAcceptorSelector;
 use PHPStan\Reflection\ReflectionProvider;
 use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
@@ -43,13 +46,17 @@ use PHPStan\Type\Type;
  * is then dead, and the code throws on the very case the check exists for.
  *
  * Reported:
- * - the call compared with false by ===, !==, == or !=, in either operand
- *   order, where the Safe function's own return type cannot be false (==/!=
- *   test truthiness, so they are judged as a condition);
+ * - the call compared with false by === or !==, in either operand order,
+ *   where the Safe function's declared return type cannot be false;
  * - the call used as a condition (if, elseif, while, do-while, for, a ternary
- *   or short ternary, !, &&, ||, and, or, xor) where its return type is always
- *   truthy or a non-empty string, so the condition can only have been asking
- *   whether it failed.
+ *   or short ternary, !, &&, ||, and, or, xor), or compared with false by ==
+ *   or !=, which test the same truthiness, where its declared return type is
+ *   always truthy or a non-empty string, so the condition can only have been
+ *   asking whether it failed.
+ *
+ * The call is seen through @ and an assignment of it, in any combination. The
+ * type judged is the one the function declares, never the call's type in the
+ * scope, which PHPStan narrows after an earlier check of the same call.
  *
  * A Safe function whose result can itself be falsy (preg_match's 0, an empty
  * string) is not reported as a condition: the condition still tests a value
@@ -105,14 +112,19 @@ final readonly class ForbidSafeCallComparedToFalseRule implements Rule
             return [];
         }
 
-        $safeName = $this->safeFunctionName($operand, $scope);
-        if (null === $safeName || !$scope->getType($operand)->isFalse()->no()) {
+        $call     = $this->unwrapCall($operand);
+        $function = $call instanceof FuncCall ? $this->safeFunction($call, $scope) : null;
+        if (!$call instanceof FuncCall || !$function instanceof FunctionReflection) {
+            return [];
+        }
+
+        if (!$this->declaredReturnType($function, $call, $scope)->isFalse()->no()) {
             return [];
         }
 
         return [
             RuleErrorBuilder::message(
-                $safeName . '() never returns false: it throws a Safe\Exceptions exception on failure, so this '
+                $function->getName() . '() never returns false: it throws a Safe\Exceptions exception on failure, so this '
                 . 'comparison with false can never hold and the failure it was written for throws instead.'
                 . self::ADVICE,
             )->identifier(self::IDENTIFIER)->build(),
@@ -126,13 +138,18 @@ final readonly class ForbidSafeCallComparedToFalseRule implements Rule
     {
         $errors = [];
         foreach ($conditions as $condition) {
-            $safeName = $this->safeFunctionName($condition, $scope);
-            if (null === $safeName || !$this->isTruthyUnlessFailed($scope->getType($condition))) {
+            $call     = $this->unwrapCall($condition);
+            $function = $call instanceof FuncCall ? $this->safeFunction($call, $scope) : null;
+            if (!$call instanceof FuncCall || !$function instanceof FunctionReflection) {
+                continue;
+            }
+
+            if (!$this->isTruthyUnlessFailed($this->declaredReturnType($function, $call, $scope))) {
                 continue;
             }
 
             $errors[] = RuleErrorBuilder::message(
-                $safeName . '() never returns false: it throws a Safe\Exceptions exception on failure, so this '
+                $function->getName() . '() never returns false: it throws a Safe\Exceptions exception on failure, so this '
                 . 'condition holds whenever the call returns and never sees the failure it was written for.'
                 . self::ADVICE,
             )->identifier(self::IDENTIFIER)->line($condition->getStartLine())->build();
@@ -196,30 +213,48 @@ final readonly class ForbidSafeCallComparedToFalseRule implements Rule
     }
 
     /**
-     * The name of the Safe\ function the expression calls, looking through an
-     * assignment of the call, or null when it calls none.
+     * The function call the expression makes, looking through an assignment of
+     * the call and the @ operator in any combination. Parentheses leave no
+     * node, so they need no unwrapping.
      */
-    private function safeFunctionName(Expr $expr, Scope $scope): ?string
+    private function unwrapCall(Expr $expr): ?FuncCall
     {
-        while ($expr instanceof Assign) {
+        while ($expr instanceof Assign || $expr instanceof ErrorSuppress) {
             $expr = $expr->expr;
         }
 
-        if (!$expr instanceof FuncCall || !$expr->name instanceof Name) {
+        return $expr instanceof FuncCall ? $expr : null;
+    }
+
+    /**
+     * The Safe\ function the call names, or null when it names none.
+     */
+    private function safeFunction(FuncCall $call, Scope $scope): ?FunctionReflection
+    {
+        if (!$call->name instanceof Name || !$this->reflectionProvider->hasFunction($call->name, $scope)) {
             return null;
         }
 
-        if (!$this->reflectionProvider->hasFunction($expr->name, $scope)) {
-            return null;
-        }
-
-        $name     = $this->reflectionProvider->getFunction($expr->name, $scope)->getName();
-        $segments = explode('\\', $name);
+        $function = $this->reflectionProvider->getFunction($call->name, $scope);
+        $segments = explode('\\', $function->getName());
 
         if (\count($segments) < 2 || self::SAFE_NAMESPACE !== strtolower($segments[0])) {
             return null;
         }
 
-        return $name;
+        return $function;
+    }
+
+    /**
+     * The return type the function declares for these arguments. The call's
+     * own type in the scope is not used: PHPStan narrows a repeated call after
+     * an earlier check of it, and the narrowed type says nothing about what
+     * the function can return.
+     */
+    private function declaredReturnType(FunctionReflection $function, FuncCall $call, Scope $scope): Type
+    {
+        return ParametersAcceptorSelector::selectFromArgs($scope, $call->getArgs(), $function->getVariants())
+            ->getReturnType()
+        ;
     }
 }

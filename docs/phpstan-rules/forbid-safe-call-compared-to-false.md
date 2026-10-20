@@ -17,15 +17,25 @@ if (false === \Safe\realpath($path)) {
 
 Reported:
 
-- the call compared with `false` by `===`, `!==`, `==` or `!=`, with `false` on either side, where
-  the `Safe\` function's own return type cannot be `false`. An assignment inside the comparison,
-  `false === ($real = \Safe\realpath($path))`, is the same call;
+- the call compared with `false` by `===` or `!==`, with `false` on either side, where the
+  `Safe\` function's declared return type cannot be `false`;
 - the call used as a condition: `if`, `elseif`, `while`, `do … while`, `for`, a ternary or short
-  ternary (`?:`), `!`, `&&`, `||`, `and`, `or` and `xor`, where the result is always truthy or is a
-  non-empty string, so the condition can only have been asking whether the call failed. A loose
-  `== false` or `!= false` is judged the same way, as it tests the same truthiness.
+  ternary (`?:`), `!`, `&&`, `||`, `and`, `or` and `xor`, where the declared return type is always
+  truthy or is a non-empty string, so the condition can only have been asking whether the call
+  failed. A loose `== false` or `!= false` is judged as a condition, as it tests the same
+  truthiness: `\Safe\realpath($p) == false` is reported, `\Safe\file_get_contents($f) == false`
+  is not.
 
 The call may be fully qualified (`\Safe\realpath()`) or imported (`use function Safe\realpath;`).
+It is seen through the `@` operator and through an assignment of it, in any combination:
+`false === @\Safe\realpath($path)`, `if (@\Safe\realpath($path))` and
+`false === ($real = @\Safe\realpath($path))` are the same call.
+
+The type judged is the one the function declares for the call's arguments, not the call's type at
+that point in the code. PHPStan narrows a repeated call after an earlier check of it, so after
+`if (false === \Safe\json_decode($json)) { return; }` a second `\Safe\json_decode($json) !== false`
+reads as "never `false`", though `Safe\json_decode()` can return `false`; the rule does not report
+it, and the same holds for a repeated condition.
 
 ## Why this is a hazard
 
@@ -79,7 +89,17 @@ What it does not report, and why:
   `Safe\file_get_contents()` empty string: the condition still tests a value the function returns,
   and nothing in the code says whether it was written for the failure or for the empty value;
 - a comparison with anything but `false` (`1 === \Safe\preg_match(...)`), and the native function;
-- a non-`Safe\` namespaced function, whatever its name.
+- a non-`Safe\` namespaced function, whatever its name;
+- a cast, `(bool) \Safe\realpath($path)`: the rule judges comparisons with `false` and conditions,
+  and a cast is neither;
+- a `void` `Safe\` function used as a condition, such as `if (!\Safe\mkdir($dir))`: `void` is not
+  truthy, so the rule leaves it to PHPStan core, which reports it as `function.void`.
+  `false === \Safe\mkdir($dir)` is reported.
+
+The rule takes any function whose first namespace segment is `Safe` for a
+[thecodingmachine/safe](https://github.com/thecodingmachine/safe) one, so a project's own
+`Safe\Foo\bar()` is judged the same way. A function in a namespace that only begins with the word,
+such as `SafeHelpers\realpath()`, is not.
 
 A non-empty string is falsy only as `"0"`, which no `Safe\` function returns as a signal, so a
 condition on one (`Safe\realpath()` is typed `non-empty-string`) is reported.
