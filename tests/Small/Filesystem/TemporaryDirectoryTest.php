@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Filesystem;
 
+use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * The staging directory the installers download into. Removing it removes
@@ -24,6 +26,9 @@ use PHPUnit\Framework\TestCase;
 final class TemporaryDirectoryTest extends TestCase
 {
     private const string PREFIX = 'phpqa-temporary-directory-test';
+
+    /** A directory path this long leaves no room under PATH_MAX (4096 on Linux) for a staging name in it. */
+    private const int NO_ROOM_FOR_A_NAME = 4070;
 
     #[Test]
     public function aNewDirectoryIsEmptyAndUnderTheSystemTempDirectory(): void
@@ -57,6 +62,49 @@ final class TemporaryDirectoryTest extends TestCase
         } finally {
             $directory->remove();
             $parent->remove();
+        }
+    }
+
+    /**
+     * Defence for the class "staging meant to be beside the target silently lands in the system
+     * temp directory" (issue #251). tempnam() falls back to the system temp directory, with only a
+     * notice, whenever it cannot create its file in the directory it is given, which brings back
+     * the cross-filesystem rename that rewrites a file in place.
+     *
+     * A directory whose path leaves no room for the staging name under PATH_MAX is the condition
+     * used here: it makes tempnam() fall back even for root, which a directory without write
+     * permission does not, and it needs no second filesystem.
+     */
+    #[Test]
+    public function aDirectoryThatCannotBeCreatedBesideTheTargetFailsNamingItRatherThanStagingInTheSystemTempDirectory(): void
+    {
+        $prefix = self::PREFIX . '-not-beside';
+        $parent = TemporaryDirectory::create('phpqa-temporary-directory-parent');
+        $deep   = $parent->path;
+        while (\strlen($deep) < self::NO_ROOM_FOR_A_NAME - 201) {
+            $deep .= '/' . str_repeat('d', 200);
+        }
+
+        $deep .= '/' . str_repeat('e', self::NO_ROOM_FOR_A_NAME - \strlen($deep) - 1);
+        \Safe\mkdir($deep, 0o700, true);
+
+        try {
+            TemporaryDirectory::besides($deep . '/library.so', $prefix);
+            self::fail('a staging directory was made somewhere other than beside the target');
+        } catch (RuntimeException $failure) {
+            self::assertStringContainsString($deep, $failure->getMessage(), 'the failure names the directory');
+        } finally {
+            $strays = \Safe\glob(sys_get_temp_dir() . '/' . $prefix . '*');
+            foreach ($strays as $stray) {
+                if (is_dir($stray)) {
+                    DirectoryTree::remove($stray);
+                } else {
+                    \Safe\unlink($stray);
+                }
+            }
+
+            $parent->remove();
+            self::assertSame([], $strays, 'nothing was staged in the system temp directory');
         }
     }
 
