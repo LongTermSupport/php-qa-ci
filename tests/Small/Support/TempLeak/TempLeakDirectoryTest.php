@@ -12,8 +12,6 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
-use ReflectionProperty;
 use SplFileInfo;
 use Symfony\Component\Process\Process;
 
@@ -39,6 +37,8 @@ final class TempLeakDirectoryTest extends TestCase
     private const string KEPT = 'kept';
 
     private const int NOBODY = 65534;
+
+    private const string COULD_NOT_REMOVE = 'WARNING: could not remove ';
 
     #[Test]
     public function thisRunsTempDirectoryIsTheOneClaimedForIt(): void
@@ -303,7 +303,7 @@ final class TempLeakDirectoryTest extends TestCase
 
             self::assertSame(0, $process->getExitCode(), $process->getErrorOutput());
             self::assertSame('', $process->getErrorOutput(), 'nothing on stderr');
-            self::assertStringContainsString('WARNING: could not remove ' . $parent->path . '/' . self::MARKER . $dead . self::RANDOM, $process->getOutput());
+            self::assertStringContainsString(self::COULD_NOT_REMOVE . $parent->path . '/' . self::MARKER . $dead . self::RANDOM, $process->getOutput());
             self::assertStringEndsWith('the run went on', $process->getOutput());
             self::assertFileExists($kept);
             self::assertDirectoryDoesNotExist(\dirname($other), 'the other dead directories still go');
@@ -336,7 +336,7 @@ final class TempLeakDirectoryTest extends TestCase
             });
 
             self::assertFileExists($kept, 'nothing is removed where the symlink points');
-            self::assertStringStartsWith('WARNING: could not remove ' . $abandoned . ',', $printed);
+            self::assertStringStartsWith(self::COULD_NOT_REMOVE . $abandoned . ',', $printed);
             self::assertStringContainsString('was replaced while it was being removed', $printed);
         } finally {
             $parent->remove();
@@ -366,7 +366,7 @@ final class TempLeakDirectoryTest extends TestCase
 
             self::assertDirectoryExists($elsewhere . '/a', 'nothing is removed where the walk landed');
             self::assertDirectoryExists($abandoned, 'the removal stopped');
-            self::assertStringStartsWith('WARNING: could not remove ' . $abandoned . ',', $printed);
+            self::assertStringStartsWith(self::COULD_NOT_REMOVE . $abandoned . ',', $printed);
             self::assertStringContainsString('was moved while it was being removed', $printed);
         } finally {
             $parent->remove();
@@ -382,16 +382,13 @@ final class TempLeakDirectoryTest extends TestCase
      */
     private function reapInProcess(string $parent, Closure $interleave): string
     {
-        $hook = new ReflectionProperty(TempLeakDirectory::class, 'interleave');
-        $hook->setValue(null, $interleave);
         $cwd = \Safe\getcwd();
-        ob_start();
+        \Safe\ob_start();
 
         try {
-            new ReflectionMethod(TempLeakDirectory::class, 'removeAbandoned')->invoke(null, $parent, new SplFileInfo($parent)->getOwner());
+            TempLeakDirectory::reapInterleaved($parent, new SplFileInfo($parent)->getOwner(), $interleave);
         } finally {
             $printed = \Safe\ob_get_clean();
-            $hook->setValue(null, null);
         }
 
         self::assertSame($cwd, \Safe\getcwd(), 'the walk returns to where it started');

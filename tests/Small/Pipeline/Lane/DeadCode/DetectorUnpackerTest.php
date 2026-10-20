@@ -37,6 +37,9 @@ final class DetectorUnpackerTest extends TestCase
     /** A file planted in an unpacked copy, to tell a reused copy from a fresh one. */
     private const string MARKER = '/marker';
 
+    /** Where a test plants an UnremovableTree inside an incomplete copy. */
+    private const string STUCK = '/stuck';
+
     private TempDir $cache;
 
     private ?string $unremovable = null;
@@ -214,7 +217,7 @@ final class DetectorUnpackerTest extends TestCase
     public function anIncompleteCopyThatCannotBeRemovedIsNamedAndTheRunGoesOn(): void
     {
         $target = $this->expectedTarget();
-        UnremovableTree::plant($target . '/stuck');
+        UnremovableTree::plant($target . self::STUCK);
         $output   = new BufferedOutput();
         $unpacker = new DetectorUnpacker($output);
 
@@ -228,7 +231,7 @@ final class DetectorUnpackerTest extends TestCase
         self::assertSame($target, $first);
         self::assertSame($first, $second, 'every run goes on, not only the first');
         self::assertFileExists($first . '/' . DetectorUnpacker::AUTOLOAD);
-        self::assertDirectoryDoesNotExist($first . '/stuck', 'the incomplete copy is replaced, not merged into');
+        self::assertDirectoryDoesNotExist($first . self::STUCK, 'the incomplete copy is replaced, not merged into');
         self::assertIsString($this->unremovable);
         self::assertStringContainsString('/.discard', $this->unremovable, 'the incomplete copy was moved aside');
         $discard = \dirname($this->unremovable, 2);
@@ -252,9 +255,11 @@ final class DetectorUnpackerTest extends TestCase
     /** Finds where the tree planted under $target was moved to, wherever the run left it, so tearDown() can take it down. */
     private function trackMovedUnremovable(string $target): void
     {
-        $this->unremovable = $target . '/stuck';
-        foreach (\Safe\glob(\dirname($target) . '/.discard*/incomplete/stuck') as $moved) {
-            $this->unremovable = $moved;
+        $this->unremovable = $target . self::STUCK;
+        foreach (\Safe\glob(\dirname($target) . '/.discard*/incomplete' . self::STUCK) as $moved) {
+            if (\is_string($moved)) {
+                $this->unremovable = $moved;
+            }
         }
     }
 

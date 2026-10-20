@@ -41,18 +41,22 @@ final readonly class DetectorUnpacker
     /**
      * Everything else in the directory is removed: copies of earlier PHARs and staging left by a
      * killed run. Safe because the caller holds the run lock, so no other run is reading them.
-     * Unpacking the current copy fails loudly; removing the others is best-effort (prune()).
+     * Unpacking the current copy fails loudly; removing anything else is best-effort (prune(),
+     * and the incomplete copy extract() moves aside), so the prune runs first: an entry this
+     * run leaves is named once in this run, and again by the next run's prune.
      *
      * @return string the directory holding the unpacked detector
      */
     public function unpack(string $phar, string $cacheDir): string
     {
         $target = $cacheDir . '/' . self::DIR . '/' . substr(\Safe\hash_file('sha256', $phar), 0, 16);
+        if (is_dir(\dirname($target))) {
+            $this->prune($target);
+        }
+
         if (!is_file($target . '/' . self::AUTOLOAD)) {
             $this->extract($phar, $target);
         }
-
-        $this->prune($target);
 
         return $target;
     }
@@ -77,7 +81,9 @@ final readonly class DetectorUnpacker
             \Safe\rename($staging->path, $target);
         } finally {
             $staging->remove();
-            $discard?->remove();
+            if ($discard instanceof TemporaryDirectory) {
+                $this->removeOrWarn($discard->path, 'moved aside as an incomplete copy', $target);
+            }
         }
     }
 
@@ -94,18 +100,23 @@ final readonly class DetectorUnpacker
                 continue;
             }
 
-            $path = $directory . '/' . $entry;
+            $this->removeOrWarn($directory . '/' . $entry, 'left in the dead-code detector cache by an earlier run', $target);
+        }
+    }
 
-            try {
-                $this->remove($path);
-            } catch (FilesystemException|UnexpectedValueException $exception) {
-                $this->output->writeln(\sprintf(
-                    'WARNING: could not remove %s, left in the dead-code detector cache by an earlier run; the lane goes on with %s. Remove it by hand (another user may own it): %s',
-                    $path,
-                    $target,
-                    $exception->getMessage(),
-                ));
-            }
+    /** Removes $path, or names it in a warning saying how it came to be there ($origin) and goes on. */
+    private function removeOrWarn(string $path, string $origin, string $target): void
+    {
+        try {
+            $this->remove($path);
+        } catch (FilesystemException|UnexpectedValueException $exception) {
+            $this->output->writeln(\sprintf(
+                'WARNING: could not remove %s, %s; the lane goes on with %s. Remove it by hand (another user may own it): %s',
+                $path,
+                $origin,
+                $target,
+                $exception->getMessage(),
+            ));
         }
     }
 
