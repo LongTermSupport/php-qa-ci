@@ -136,18 +136,19 @@ final readonly class PhpstanSetupCache
     private function write(ToolContext $context, string $file, string $key, string $answer): void
     {
         $directory = \dirname($file);
-        $temporary = $file . '.' . bin2hex(random_bytes(6)) . '.tmp';
+        $temporary = null;
 
         try {
             if (!is_dir($directory)) {
                 \Safe\mkdir($directory, 0o777, true);
             }
 
+            $temporary = \Safe\tempnam($directory, basename($file) . '.');
             \Safe\file_put_contents($temporary, \Safe\json_encode([self::SCHEMA => self::ENTRY_SCHEMA, self::KEY => $key, self::OUTPUT => $answer]));
             \Safe\rename($temporary, $file);
         } catch (SafeExceptionInterface $safeException) {
             $context->writeln(\sprintf('PHPStan: setup answer not cached (%s)', $safeException->getMessage()));
-            if (is_file($temporary)) {
+            if (null !== $temporary && is_file($temporary)) {
                 \Safe\unlink($temporary);
             }
         }
