@@ -355,9 +355,9 @@ final class ShellCheckInstallerTest extends TestCase
         }
     }
 
-    /** @return list<string> */
+    /** @return list<string> the staging directories beside the binary, where the installer stages */
     private function stagingDirectories(): array
     {
-        return array_values(array_filter(\Safe\glob(sys_get_temp_dir() . '/phpqa-shellcheck*'), is_string(...)));
+        return array_values(array_filter(\Safe\glob(\dirname(ShellCheckBinary::path($this->library->path)) . '/.phpqa-shellcheck*'), is_string(...)));
     }
 }
