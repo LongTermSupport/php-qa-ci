@@ -18,6 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PhpLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
@@ -77,6 +78,32 @@ final class PhpLintToolTest extends TestCase
         self::assertSame(
             ['--', '--exclude', $root . '/tests/Asset', '--exclude', $root . '/src/Generated', $root . '/tests', $root . '/src'],
             \array_slice($this->factory->processes->lastSpec()->command, 5),
+        );
+    }
+
+    /** parallel-lint reports a dangling symlink as an unexplained "Unknown error" (#241). */
+    #[Test]
+    public function aDanglingSymlinkItWouldLintIsNamedAsSkippedAndExcluded(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('src/Real.php', "<?php\n");
+        \Safe\symlink('missing-target.php', $root . '/src/Gone.PHP');
+        \Safe\symlink('missing-target.txt', $root . '/src/Gone.txt');
+        $this->factory->project->write('tests/Asset/keep.txt', '');
+        \Safe\symlink('missing-target.php', $root . '/tests/Asset/Ignored.php');
+        $config = $this->factory->builder()->withIgnoredPaths('tests/Asset')->build();
+
+        $result = new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            ['--', '--exclude', $root . '/tests/Asset', '--exclude', $root . '/src/Gone.PHP', $root . '/tests', $root . '/src'],
+            \array_slice($this->factory->processes->lastSpec()->command, 5),
+        );
+        self::assertSame(
+            "PHP Lint skipped src/Gone.PHP: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n",
+            $this->factory->output->fetch(),
         );
     }
 
