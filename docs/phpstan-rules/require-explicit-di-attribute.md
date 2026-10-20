@@ -107,8 +107,9 @@ declaration.
 
 The rule skips abstract and anonymous classes, a class named `…Kernel`, a PHP attribute class,
 test code (a file under the project's `tests/`, or a namespace segment ending in `Tests`), a
-Doctrine migration (a class extending `Doctrine\Migrations\AbstractMigration`, in any namespace,
-including Symfony's default `DoctrineMigrations`), and a class in a namespace one of whose
+Doctrine migration (a class extending `Doctrine\Migrations\AbstractMigration` directly, in any
+namespace, including Symfony's default `DoctrineMigrations`; a migration extending a base class of
+your own is not recognised, and is reported until it carries `#[Exclude]` itself), and a class in a namespace one of whose
 segments is exactly `PHPStan`, `Migrations` or `Generated`.
 That last match is on whole segments and case-sensitive: `App\Migrations\Version1` and
 `Vendor\Pkg\PHPStan\Rule` are skipped, `App\GeneratedReports\Invoice` and
