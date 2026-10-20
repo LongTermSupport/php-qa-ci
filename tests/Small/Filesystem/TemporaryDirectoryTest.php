@@ -21,10 +21,11 @@ use RuntimeException;
  * @internal
  */
 #[CoversClass(TemporaryDirectory::class)]
-#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
+#[UsesClass(DirectoryTree::class)]
 #[Small]
 final class TemporaryDirectoryTest extends TestCase
 {
+    /** Begins the name of every staging directory this test makes. */
     private const string PREFIX = 'phpqa-temporary-directory-test';
 
     /** A directory path this long leaves no room under PATH_MAX (4096 on Linux) for a staging name in it. */
@@ -91,10 +92,10 @@ final class TemporaryDirectoryTest extends TestCase
         try {
             TemporaryDirectory::besides($deep . '/library.so', $prefix);
             self::fail('a staging directory was made somewhere other than beside the target');
-        } catch (RuntimeException $failure) {
-            self::assertStringContainsString($deep, $failure->getMessage(), 'the failure names the directory');
+        } catch (RuntimeException $runtimeException) {
+            self::assertStringContainsString($deep, $runtimeException->getMessage(), 'the failure names the directory');
         } finally {
-            $strays = \Safe\glob(sys_get_temp_dir() . '/' . $prefix . '*');
+            $strays = array_filter(\Safe\glob(sys_get_temp_dir() . '/' . $prefix . '*'), \is_string(...));
             foreach ($strays as $stray) {
                 if (is_dir($stray)) {
                     DirectoryTree::remove($stray);
