@@ -8,6 +8,7 @@ use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Tests\Support\PhpstanJsonRunFailure;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -55,6 +56,22 @@ final class PhpstanJsonRunFailureTest extends TestCase
 
         self::assertNotNull($reason, 'a general error in the JSON errors list passed unnoticed');
         self::assertStringContainsString('Ignored error pattern #^A pattern no error matches\.$# was not matched', $reason);
+    }
+
+    /** A run that exits 0 without a JSON report never reached a verdict, so it cannot be a clean analysis. */
+    #[Test]
+    #[DataProvider('outputsThatAreNotAReport')]
+    public function aSuccessfulExitWithoutAJsonReportIsAFailure(string $stdout): void
+    {
+        self::assertNotNull(PhpstanJsonRunFailure::reason(new ProcessResultDto(0, $stdout, $stdout)));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function outputsThatAreNotAReport(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'not JSON' => ['PHP Fatal error: something went wrong'];
+        yield 'truncated' => ['{"totals":{"errors":0,"file_errors":0},"files":'];
     }
 
     private function captured(string $file, string $stderr): ProcessResultDto
