@@ -31,8 +31,9 @@ The haystack is known to be a path when it is:
   - `root` after another word: `$absPathRoot`, `$projectRoot`;
   - a directory as the last word, or last two run together: `dir`, `dirname`, `directory`,
     `workdir`, `cwd` or `folder` (`$cacheDir`, `$rootDir`, `$workingDirectory`, `$imageFolder`);
-  - `path`, `pathname` or `filepath` after `abs`, `absolute`, `real` or `full` (`$absPath`,
-    `$realPath`, `$fullPath`, `$absoluteFilePath`), or the one word `$realpath`;
+  - `path`, `pathname` or `filepath` as the last word, in a name that also has `abs`, `absolute`,
+    `real` or `full` anywhere in it (`$absPath`, `$realPath`, `$fullPath`, `$absoluteFilePath`),
+    or the one word `$realpath`;
 - either of the last two reached through `?->`, judged by its value when the receiver is not null;
 - a concatenation or an interpolated string that starts with one of these, or a string cast of one;
 - a local variable no write in the function gives anything but one of these, and which is either
@@ -55,6 +56,11 @@ wherever it is checked out.
 ```php
 private function isMagentoProject(): bool
 {
+    $name = $this->decodedComposerJson['name'] ?? null;
+    if (\is_string($name) && str_starts_with($name, 'magento/')) {
+        return true;
+    }
+
     $require = $this->decodedComposerJson['require'] ?? [];
     foreach (array_keys(\is_array($require) ? $require : []) as $package) {
         if (str_starts_with((string)$package, 'magento/')) {
