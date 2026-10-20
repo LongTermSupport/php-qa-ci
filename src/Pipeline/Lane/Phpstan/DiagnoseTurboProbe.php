@@ -13,7 +13,9 @@ use LTS\PHPQA\Turbo\TurboStatus;
  * Asks the shipped phpstan.phar whether it runs with Turbo, through `diagnose`, invoked as the
  * lane invokes `analyse`: Xdebug off, the memory limit, the lane's wrapper config. The answer is
  * judged against the committed manifest: a host it pins a build for is one where Turbo should be
- * running, so its absence there is a fault rather than the expected fallback.
+ * running, so its absence there is a fault rather than the expected fallback. A `-p` run reuses
+ * the last diagnose while nothing Turbo's verdict rests on has changed (PhpstanSetupCache); the
+ * manifest is read afresh every time.
  *
  * @internal
  */
@@ -28,6 +30,14 @@ final readonly class DiagnoseTurboProbe implements TurboProbeInterface
 
     public function status(ToolContext $context, string $wrapperNeon): TurboStatus
     {
+        $output = new PhpstanSetupCache()->diagnose($context, $wrapperNeon, fn (): ?string => $this->diagnose($context, $wrapperNeon));
+
+        return TurboStatus::fromDiagnose(null === $output ? '' : $output, $this->shippedForHost($context->config->paths->pharDir));
+    }
+
+    /** What diagnose printed, or null when it failed: a failed run's lines are not its report. */
+    private function diagnose(ToolContext $context, string $wrapperNeon): ?string
+    {
         $paths  = $context->config->paths;
         $result = $context->php->withoutXdebug(
             $paths->pharDir . self::PHAR,
@@ -36,7 +46,7 @@ final readonly class DiagnoseTurboProbe implements TurboProbeInterface
             streamOutput: false,
         );
 
-        return TurboStatus::fromDiagnose($result->succeeded() ? $result->output : '', $this->shippedForHost($paths->pharDir));
+        return $result->succeeded() ? $result->output : null;
     }
 
     private function shippedForHost(string $pharDir): bool

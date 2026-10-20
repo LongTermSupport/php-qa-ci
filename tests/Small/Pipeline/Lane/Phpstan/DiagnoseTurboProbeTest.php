@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Phpstan;
 
 use LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupCache;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Tests\Support\ContextFactory;
@@ -44,6 +45,12 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
+#[UsesClass(PhpstanSetupCache::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupKey::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[Small]
 final class DiagnoseTurboProbeTest extends TestCase
 {
@@ -95,7 +102,7 @@ final class DiagnoseTurboProbeTest extends TestCase
     {
         $this->factory->processes->willSucceed(self::NOT_LOADED);
 
-        $status = $this->probe(new TurboPlatform('Windows', 'AMD64', '', '8.5', false))->status($this->factory->context(), self::WRAPPER);
+        $status = $this->probe($this->unshippedHost())->status($this->factory->context(), self::WRAPPER);
 
         self::assertSame(TurboStateEnum::NotBuiltForHost, $status->state);
     }
@@ -114,6 +121,27 @@ final class DiagnoseTurboProbeTest extends TestCase
         self::assertSame(TurboStateEnum::Unknown, $status->state);
     }
 
+    /**
+     * A warm `-p` run reuses what diagnose printed and starts no PHPStan; whether a
+     * missing Turbo is a fault is still judged against the host and the manifest on every run.
+     */
+    #[Test]
+    public function aCachedProbeReusesDiagnoseOnAWarmPathRun(): void
+    {
+        $wrapper = $this->factory->project->write('var/qa/phpstan_logs/phpstan-parallel.neon', "parameters:\n    level: 1\n");
+        $runtime = \Safe\json_encode(['binary' => \PHP_BINARY, 'ini' => false, 'scanned' => false]);
+        $this->factory->processes->willSucceed($runtime)->willSucceed(self::NOT_LOADED)->willSucceed($runtime);
+        $context = $this->factory->context($this->factory->builder(specifiedPath: 'src/Kernel.php')->build());
+
+        $cold = $this->probe($this->shippedHost())->status($context, $wrapper);
+        $warm = $this->probe($this->unshippedHost())->status($context, $wrapper);
+
+        self::assertSame(TurboStateEnum::Missing, $cold->state);
+        self::assertSame(TurboStateEnum::NotBuiltForHost, $warm->state);
+        $diagnoses = array_filter($this->factory->processes->specs, static fn (ProcessSpecDto $spec): bool => \in_array('diagnose', $spec->command, true));
+        self::assertCount(1, $diagnoses, 'the warm run starts no diagnose');
+    }
+
     private function probe(TurboPlatform $platform): DiagnoseTurboProbe
     {
         return new DiagnoseTurboProbe($platform);
@@ -123,6 +151,12 @@ final class DiagnoseTurboProbeTest extends TestCase
     private function shippedHost(): TurboPlatform
     {
         return new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false);
+    }
+
+    /** Windows on x86_64, a host upstream builds no Turbo for. */
+    private function unshippedHost(): TurboPlatform
+    {
+        return new TurboPlatform('Windows', 'AMD64', '', '8.5', false);
     }
 
     private function indexOf(string $argument, string ...$command): int
