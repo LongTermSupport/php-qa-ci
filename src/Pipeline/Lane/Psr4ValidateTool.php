@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use Exception;
 use InvalidArgumentException;
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
@@ -19,7 +20,9 @@ use LTS\PHPQA\Regex\RegexPattern;
  * Every PHP file's namespace and class must match the composer.json autoload
  * mapping. Ignore patterns (one PHP regex per line) come from
  * psr4-validate-ignore-list.txt, project override first, and each of the
- * project's ignored paths adds one more, anchored to its real path.
+ * project's ignored paths adds one more, anchored to its real path. A file
+ * whose real path cannot be resolved (a dangling symlink) is not checked, and
+ * is named as skipped.
  *
  * @internal
  */
@@ -46,13 +49,18 @@ final readonly class Psr4ValidateTool implements ToolInterface
                 ...$this->ignorePatterns($context->configPath('psr4-validate-ignore-list.txt')),
                 ...$this->ignoredPathPatterns(IgnoredPaths::of($context->config)),
             ];
-            $errors = new Psr4Validator($patterns, $root, Helper::getComposerJsonDecoded($root . '/composer.json'))->main();
+            $validator = new Psr4Validator($patterns, $root, Helper::getComposerJsonDecoded($root . '/composer.json'));
+            $errors    = $validator->main();
         } catch (Exception $exception) {
             $context->writeln('');
             $context->writeln($exception->getMessage());
             $context->writeIdentifier(self::IDENTIFIER);
 
             return ToolResultDto::failed('PSR-4 validation failed: ' . $exception->getMessage());
+        }
+
+        foreach ($validator->unresolvable() as $file) {
+            $context->writeln(UnresolvablePath::skipped('PSR-4 validation', $file, $root));
         }
 
         if ([] === $errors) {

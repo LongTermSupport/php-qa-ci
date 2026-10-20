@@ -76,6 +76,11 @@ forbids — as this one does above.
 Plan folders and journals are outside it by design, being records of a moment rather than
 documentation, as are vendored documents under `remote-docs/`.
 
+A document whose real path cannot be resolved, such as a dangling symlink, is not read; it used
+to stop the lane without naming it ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)).
+The lane prints `Docs prose skipped <path>: its real path cannot be resolved ...` for each one,
+and a skipped document does not fail the lane.
+
 ## Running it
 
 ```bash

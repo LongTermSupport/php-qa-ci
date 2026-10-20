@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Small;
 use InvalidArgumentException;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\Psr4Validator;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -17,6 +18,7 @@ use PHPUnit\Framework\TestCase;
 #[\PHPUnit\Framework\Attributes\CoversClass(Psr4Validator::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(Helper::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[\PHPUnit\Framework\Attributes\Small]
 final class Psr4ValidatorTest extends TestCase
 {
@@ -76,6 +78,34 @@ final class Psr4ValidatorTest extends TestCase
         );
 
         self::assertSame([], $validator->main());
+    }
+
+    public function testADanglingSymlinkIsSkippedAndListedByItsDirectorysRealPath(): void
+    {
+        $project = $this->projectWithADanglingSymlink();
+
+        try {
+            $validator = new Psr4Validator([], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
+
+            self::assertSame([], $validator->main());
+            self::assertSame([\Safe\realpath($project->path) . '/src/Gone.php'], $validator->unresolvable());
+        } finally {
+            $project->remove();
+        }
+    }
+
+    public function testADanglingSymlinkAnIgnorePatternMatchesIsIgnoredNotListed(): void
+    {
+        $project = $this->projectWithADanglingSymlink();
+
+        try {
+            $validator = new Psr4Validator(['#/src/Gone\.php$#'], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
+
+            self::assertSame([], $validator->main());
+            self::assertSame([], $validator->unresolvable());
+        } finally {
+            $project->remove();
+        }
     }
 
     public function testItFindsErrorsAndThrowsAnExceptionOnAnInvalidProject(): void
@@ -240,5 +270,16 @@ which doesn\'t exist
         }
 
         return $patterns;
+    }
+
+    /** A valid project whose PSR-4 root holds a symlink to a file that does not exist (#241). */
+    private function projectWithADanglingSymlink(): TempDir
+    {
+        $project = TempDir::create('phpqa-psr4-dangling');
+        $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+        $project->write('src/Real.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class Real\n{\n}\n");
+        \Safe\symlink('missing-target.php', $project->path . '/src/Gone.php');
+
+        return $project;
     }
 }

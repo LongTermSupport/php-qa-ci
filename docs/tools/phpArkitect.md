@@ -48,6 +48,7 @@ guide.
   | `PHPQACI_ARKITECT_CLASS_SET`              | resolved `phparkitect-class-set.php`                        |
   | `PHPQACI_ARKITECT_IGNORED_PATHS`          | `withIgnoredPaths()`, absolute, newline-delimited           |
   | `PHPQACI_ARKITECT_EXCLUDE_PATHS`          | `arkitectExcludePaths`, newline-delimited, empty when unset |
+  | `PHPQACI_ARKITECT_UNRESOLVED_LIST`        | `var/qa/phparkitect_logs/unresolved-paths.txt`              |
 
   Each `resolved` file honours a `qaConfig/` override of the same name.
 
@@ -57,6 +58,14 @@ guide.
   leaves out `Generated`, each `withArkitectExcludedPaths()` glob (matched anywhere below `src/`,
   as arkitect matches it) and each `withIgnoredPaths()` path, anchored: ignoring `src/Legacy`
   drops `src/Legacy/` and keeps `src/Domain/Legacy/`.
+
+- The class set also drops each file whose real path cannot be resolved, such as a dangling
+  symlink. Arkitect fails to read one and used to report the failure as a rule violation that
+  named no file ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)). The set appends
+  each such file not under an ignored path to `PHPQACI_ARKITECT_UNRESOLVED_LIST`, which the lane
+  empties before the run and reads after it, printing
+  `PHPArkitect skipped <path>: its real path cannot be resolved ...` for each one. A skipped file
+  does not fail the lane. A project entry config that builds its own class set drops nothing.
 
 - A project entry config that does not build its class set from `PHPQACI_ARKITECT_CLASS_SET`
   fails the lane while one of the ignored paths is under the source directory, naming them,

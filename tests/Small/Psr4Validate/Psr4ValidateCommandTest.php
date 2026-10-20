@@ -8,6 +8,7 @@ use LTS\PHPQA\Helper;
 use LTS\PHPQA\Psr4Validate\Psr4ValidateCommand;
 use LTS\PHPQA\Psr4Validator;
 use LTS\PHPQA\Regex\RegexPattern;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -25,6 +26,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(Psr4Validator::class)]
 #[UsesClass(RegexPattern::class)]
 #[UsesClass(Helper::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[Small]
 final class Psr4ValidateCommandTest extends TestCase
 {
@@ -91,6 +93,28 @@ final class Psr4ValidateCommandTest extends TestCase
         self::assertStringContainsString("\nErrors found:\n", $output);
         self::assertStringContainsString("'actualNamespace' => 'Totally'", $output);
         self::assertStringEndsWith("\nErrors validating PSR4\n", $output);
+    }
+
+    #[Test]
+    public function aDanglingSymlinkIsNamedAsSkippedAndTheRestStillValidates(): void
+    {
+        $project = TempDir::create('phpqa-psr4-command-dangling');
+
+        try {
+            $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+            $project->write('src/Real.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class Real\n{\n}\n");
+            \Safe\symlink('missing-target.php', $project->path . '/src/Gone.php');
+
+            $exitCode = $this->command($project->path)->run();
+
+            self::assertSame(Psr4ValidateCommand::EXIT_PASSED, $exitCode);
+            self::assertSame(
+                "\npsr4-validate skipped src/Gone.php: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n\nNo errors found\n",
+                $this->output->fetch(),
+            );
+        } finally {
+            $project->remove();
+        }
     }
 
     #[Test]

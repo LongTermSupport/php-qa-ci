@@ -7,6 +7,7 @@ namespace LTS\PHPQA;
 use Exception;
 use Generator;
 use InvalidArgumentException;
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Regex\RegexPattern;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -29,6 +30,9 @@ final class Psr4Validator
 
     /** @var array<string, string> keyed by the missing path */
     private array $missingPaths = [];
+
+    /** @var list<string> */
+    private array $unresolvable = [];
 
     /** @var list<RegexPattern> */
     private readonly array $ignorePatterns;
@@ -85,6 +89,18 @@ final class Psr4Validator
     }
 
     /**
+     * The files main() skipped because their real path cannot be resolved (a dangling
+     * symlink), each named by its directory's real path; one an ignore pattern matches is
+     * ignored instead, and not listed here.
+     *
+     * @return list<string>
+     */
+    public function unresolvable(): array
+    {
+        return $this->unresolvable;
+    }
+
+    /**
      * @throws Exception
      */
     private function loop(): void
@@ -138,12 +154,18 @@ final class Psr4Validator
                             continue;
                         }
 
+                        $unresolvable = UnresolvablePath::is($fileInfo->getPathname());
+                        $path         = $unresolvable ? UnresolvablePath::nominal($fileInfo->getPathname()) : (string)$fileInfo->getRealPath();
                         foreach ($this->ignorePatterns as $pattern) {
-                            $path = (string)$fileInfo->getRealPath();
                             if ($pattern->matches($path)) {
                                 $this->ignoredFiles[] = $path;
                                 continue 2;
                             }
+                        }
+
+                        if ($unresolvable) {
+                            $this->unresolvable[] = $path;
+                            continue;
                         }
 
                         yield [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane;
 
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\FilteredFinderConfig;
@@ -57,7 +58,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
         $paths    = $context->config->paths;
         $readOnly = $context->config->readOnly;
         $config   = $this->config($context);
-        $this->forgetUnresolved($context);
+        UnresolvablePath::forget($this->unresolvedList($context));
         if ($readOnly) {
             $context->writeln('Running PHP CS Fixer in read-only check mode');
             $result = $this->fix($context, $config, self::NO_CACHE, '--dry-run');
@@ -181,33 +182,14 @@ final readonly class PhpCsFixerTool implements ToolInterface
         return $context->config->paths->varDir . '/' . self::UNRESOLVED_LIST;
     }
 
-    /** The list a previous run left would otherwise be reported again by this one. */
-    private function forgetUnresolved(ToolContext $context): void
-    {
-        $list = $this->unresolvedList($context);
-        if (is_file($list)) {
-            \Safe\unlink($list);
-        }
-    }
-
     /**
-     * One line per file the finder yielded that the fixer could not be given, named
-     * relative to the project root, so a skipped file is never silently unchecked.
+     * One line per file the finder yielded that the fixer could not be given, so a
+     * skipped file is never silently unchecked.
      */
     private function reportUnresolved(ToolContext $context): void
     {
-        $list = $this->unresolvedList($context);
-        if (!is_file($list)) {
-            return;
-        }
-
-        $root  = \Safe\realpath($context->config->paths->projectRoot) . '/';
-        $files = array_unique(array_filter(explode("\n", \Safe\file_get_contents($list)), static fn (string $line): bool => '' !== $line));
-        foreach ($files as $file) {
-            $context->writeln(\sprintf(
-                'PHP CS Fixer skipped %s: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked',
-                str_starts_with($file, $root) ? substr($file, \strlen($root)) : $file,
-            ));
+        foreach (UnresolvablePath::listedIn($this->unresolvedList($context)) as $file) {
+            $context->writeln(UnresolvablePath::skipped('PHP CS Fixer', $file, $context->config->paths->projectRoot));
         }
     }
 }
