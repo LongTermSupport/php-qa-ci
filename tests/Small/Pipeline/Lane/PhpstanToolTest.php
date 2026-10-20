@@ -170,6 +170,32 @@ final class PhpstanToolTest extends TestCase
     }
 
     /**
+     * A warm `-p` run is the edit-time lint, paid on every Write and Edit, and it starts one
+     * PHPStan process: the analysis. What dump-parameters and diagnose answer depends only on the
+     * configuration, the phar, Turbo's binaries and the PHP that runs them, none of which a
+     * source edit changes, so asking again is seconds spent on an answer already known (#219).
+     */
+    #[Test]
+    public function aWarmPathRunStartsOnlyTheAnalysis(): void
+    {
+        $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        for ($answer = 0; $answer < 20; ++$answer) {
+            $this->factory->processes->willRun($this->answerByCommand(...));
+        }
+
+        $config = $this->factory->builder(ci: true, specifiedPath: self::KERNEL)->build();
+        $tool   = new PhpstanTool();
+        $tool->run($this->factory->context($config));
+        $this->factory->processes->specs = [];
+
+        $result = $tool->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame([self::ANALYSE], $this->phpstanCommands(), 'a warm -p run starts no PHPStan process but the analysis');
+        self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
+    }
+
+    /**
      * The shipped lane (ShippedTools builds it with no arguments) asks the phar itself: for the
      * merged tmpDir through dump-parameters, then for Turbo through diagnose.
      */
@@ -997,6 +1023,37 @@ final class PhpstanToolTest extends TestCase
     }
 
     /** @return list<string> everything after the "--" separator */
+    /**
+     * What each process the shipped lane starts would print, chosen by its command: PHPStan's
+     * default tmpDir from dump-parameters, Turbo enabled from diagnose, a clean analysis, and for
+     * any other PHP the runtime this test runs on.
+     */
+    private function answerByCommand(ProcessSpecDto $spec): ProcessResultDto
+    {
+        $command = $spec->commandLine();
+        $output  = match (true) {
+            str_contains($command, 'dump-parameters') => '{"tmpDir":"/t/phpstan","sysGetTempDir":"/t"}',
+            str_contains($command, 'diagnose')        => self::TURBO_ENABLED,
+            str_contains($command, self::ANALYSE)     => self::NO_ERRORS,
+            default                                   => \Safe\json_encode(['binary' => \PHP_BINARY, 'version' => \PHP_VERSION, 'ini' => false, 'scanned' => false]),
+        };
+
+        return new ProcessResultDto(0, $output, $output);
+    }
+
+    /** @return list<string> the PHPStan command of every phpstan.phar process started, in order */
+    private function phpstanCommands(): array
+    {
+        $commands = [];
+        foreach ($this->factory->processes->specs as $spec) {
+            if (str_ends_with($this->script($spec), '/phpstan.phar')) {
+                $commands[] = $this->toolArgs($spec)[0];
+            }
+        }
+
+        return $commands;
+    }
+
     private function toolArgs(ProcessSpecDto $spec): array
     {
         $separator = array_search('--', $spec->command, true);
