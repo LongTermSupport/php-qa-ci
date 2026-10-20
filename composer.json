@@ -102,6 +102,9 @@
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\RepeatedStringLiteral\\": [
         "tests/assets/PHPStan/RepeatedStringLiteral/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SafeCallComparedToFalse\\": [
+        "tests/assets/PHPStan/SafeCallComparedToFalse/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SensitiveParameter\\": [
         "tests/assets/PHPStan/SensitiveParameter/"
       ],

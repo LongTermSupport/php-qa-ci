@@ -119,6 +119,7 @@ Loaded automatically via the PHPStan extension installer. Registered in
 | `phpqaci.inlinePhpstanIgnore`                | `ForbidInlinePhpstanIgnoreRule`                | [No inline `@phpstan-ignore`; use `ignoreErrors` in the config](forbid-inline-phpstan-ignore.md)                     |
 | `phpqaci.mockFinalClass`                     | `ForbidMockingFinalClassRule`                  | [Mock an interface, never a final class](forbid-mocking-final-class.md)                                              |
 | `phpqaci.processStopOnThrow`                 | `RequireProcessStopOnThrowRule`                | [A Process whose child runs alongside your code is stopped in a finally](require-process-stop-on-throw.md)           |
+| `phpqaci.safeCallComparedToFalse`            | `ForbidSafeCallComparedToFalseRule`            | [A `Safe\` function throws; never test its result for `false`](forbid-safe-call-compared-to-false.md)                |
 | `phpqaci.ruleIdentifierMustBeConstant`       | `RequireRuleIdentifierConstantRule`            | [A PHPStan rule's identifier must be a class constant](require-rule-identifier-constant.md)                          |
 | `phpqaci.devNamespaceInProductionSource`     | `ForbidDevNamespaceInProductionSourceRule`     | [Dev-only code belongs under `autoload-dev`](forbid-dev-namespace-in-production-source.md)                           |
 | `phpqaci.requireSensitiveParameterAttribute` | `RequireSensitiveParameterAttributeRule`       | [`#[\SensitiveParameter]` on plaintext credential parameters](require-sensitive-parameter-attribute.md)              |
@@ -240,3 +241,9 @@ A new rule is not finished until it appears here. In order:
 4. Add it to [`docs/tools/phpstan.md`](../tools/phpstan.md) and correct the count stated there.
 
 Step 4 is the one that gets skipped, and the stated count is what makes the omission visible.
+
+Registering the rule in a bundle also puts it under
+[`BundledRulesDoNotCrashOnValidPhpTest`](../../tests/Large/PHPStan/BundledRulesDoNotCrashOnValidPhpTest.php),
+which fails when any bundled rule makes PHPStan report an internal error on valid PHP. When a
+rule meets a parser shape its own fixture lacks, such as a first-class callable, add the shape to
+that test's fixture as well.
