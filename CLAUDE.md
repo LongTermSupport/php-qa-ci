@@ -128,6 +128,7 @@ dir) prints its page offline.
 - `phpqaci.composerDependencyAnalyser` — unused, shadow and misplaced dependencies (`docs/tools/composerDependencyAnalyser.md`)
 - `phpqaci.markdownLinks` — markdown validation (`docs/tools/markdownLinks.md`)
 - `phpqaci.docsProse` — documentation prose describes its subject, not itself (`docs/tools/docsProse.md`)
+- `phpqaci.documentedQaCommands` — documented qa commands name tools qa accepts (`docs/tools/documentedQaCommands.md`)
 - `phpqaci.yamlLint` — YAML syntax (when symfony/yaml is installed) (`docs/tools/yamlLint.md`)
 - `phpqaci.shellCheck` — ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships (`docs/tools/shellCheck.md`)
 - `phpqaci.branchNamePolicy` — Branch naming policy (PR convention) (`CLAUDE/branch-policy.md`)
