@@ -28,7 +28,11 @@ use UnexpectedValueException;
 #[Small]
 final class DetectorUnpackerTest extends TestCase
 {
-    private const string PHAR = __DIR__ . '/../../../../../vendor-phar/dead-code-detector.phar';
+    /** The detector PHAR php-qa-ci ships, unpacked for real. */
+    private const string PHAR =__DIR__ . '/../../../../../vendor-phar/dead-code-detector.phar';
+
+    /** A file planted in an unpacked copy, to tell a reused copy from a fresh one. */
+    private const string MARKER = '/marker';
 
     private TempDir $cache;
 
@@ -62,12 +66,12 @@ final class DetectorUnpackerTest extends TestCase
     {
         $unpacker = new DetectorUnpacker();
         $first    = $unpacker->unpack(self::PHAR, $this->cache->path);
-        \Safe\file_put_contents($first . '/marker', 'kept');
+        \Safe\file_put_contents($first . self::MARKER, 'kept');
 
         $second = $unpacker->unpack(self::PHAR, $this->cache->path);
 
         self::assertSame($first, $second);
-        self::assertFileExists($second . '/marker', 'reused, not unpacked again');
+        self::assertFileExists($second . self::MARKER, 'reused, not unpacked again');
     }
 
     #[Test]
@@ -84,10 +88,7 @@ final class DetectorUnpackerTest extends TestCase
     {
         $directory = new DetectorUnpacker()->unpack(self::PHAR, $this->cache->path);
 
-        self::assertSame(
-            $this->cache->path . '/' . DetectorUnpacker::DIR . '/' . substr(\Safe\hash_file('sha256', self::PHAR), 0, 16),
-            $directory,
-        );
+        self::assertSame($this->expectedTarget(), $directory);
     }
 
     /**
@@ -97,7 +98,7 @@ final class DetectorUnpackerTest extends TestCase
     #[Test]
     public function anIncompleteCopyIsReplacedByAFreshOne(): void
     {
-        $target = $this->cache->path . '/' . DetectorUnpacker::DIR . '/' . substr(\Safe\hash_file('sha256', self::PHAR), 0, 16);
+        $target = $this->expectedTarget();
         \Safe\mkdir($target . '/vendor', 0o755, true);
         \Safe\file_put_contents($target . '/partial', 'left by an interrupted copy');
 
@@ -114,7 +115,7 @@ final class DetectorUnpackerTest extends TestCase
     #[Test]
     public function aFileWhereTheCopyBelongsIsReplaced(): void
     {
-        $target = $this->cache->path . '/' . DetectorUnpacker::DIR . '/' . substr(\Safe\hash_file('sha256', self::PHAR), 0, 16);
+        $target = $this->expectedTarget();
         \Safe\mkdir(\dirname($target), 0o755, true);
         \Safe\file_put_contents($target, 'not a directory');
 
@@ -144,11 +145,11 @@ final class DetectorUnpackerTest extends TestCase
     {
         $unpacker  = new DetectorUnpacker();
         $directory = $unpacker->unpack(self::PHAR, $this->cache->path);
-        \Safe\file_put_contents($directory . '/marker', 'kept');
+        \Safe\file_put_contents($directory . self::MARKER, 'kept');
         \Safe\mkdir(\dirname($directory) . '/fedcba9876543210/vendor', 0o755, true);
 
         self::assertSame($directory, $unpacker->unpack(self::PHAR, $this->cache->path));
-        self::assertFileExists($directory . '/marker', 'the current copy is reused');
+        self::assertFileExists($directory . self::MARKER, 'the current copy is reused');
         self::assertSame(['.', '..', basename($directory)], \Safe\scandir(\dirname($directory)));
     }
 
@@ -168,5 +169,10 @@ final class DetectorUnpackerTest extends TestCase
 
         self::assertInstanceOf(UnexpectedValueException::class, $thrown);
         self::assertSame(['.', '..'], \Safe\scandir($this->cache->path . '/' . DetectorUnpacker::DIR));
+    }
+
+    private function expectedTarget(): string
+    {
+        return $this->cache->path . '/' . DetectorUnpacker::DIR . '/' . substr(\Safe\hash_file('sha256', self::PHAR), 0, 16);
     }
 }
