@@ -33,9 +33,34 @@ treatment PHP already gets.
 
 ### Read-only versus writable
 
-- **Read-only run** (`QA_READONLY=1`, GitHub Actions): check only. A fixable violation fails the
-  gate with the standard "pending changes in a READ-ONLY run" guidance.
-- **Writable run**: `--fix` is added and fixes are applied.
+- **Read-only run** (`QA_READONLY=1`, GitHub Actions): check only, with `--no-cache`, so every
+  template is judged as CI judges it. A fixable violation fails the gate with the standard
+  "pending changes in a READ-ONLY run" guidance, and deletes the writable run's cache.
+- **Writable run**: `--fix` is added and fixes are applied, in one pass.
+
+### The cache
+
+twig-cs-fixer skips a template whose content its cache records as clean, and by default keeps
+that cache in `.twig-cs-fixer.cache` in the project root. The lane keeps it out of both places
+where it could do harm:
+
+- A read-only run reads and writes no cache, so the gate cannot pass on what a cache says
+  ([#237](https://github.com/LongTermSupport/php-qa-ci/issues/237)).
+- A writable run caches in `var/qa/cache/twig-cs-fixer.cache`, never in the project root. The
+  cache file is a config setting, not a command-line option, so the lane runs a config it
+  generates at `var/qa/twigCsFixer/.twig-cs-fixer.php` on every writable run: the resolved
+  `.twig-cs-fixer.php`, required unchanged, with its cache file set there. A cache manager the
+  project config sets is dropped, because it would take precedence over that file.
+- A read-only run that finds a pending fix deletes that cache, so the writable run the failure
+  asks for checks every template rather than trusting a cache that may record one as clean.
+
+One writable pass is enough, unlike PHP CS Fixer
+([phpCsFixer.md](phpCsFixer.md)): twig-cs-fixer repeats its rules until a pass changes nothing,
+and caches a template only when a lint of what it left is clean. A Large test pins that it
+settles a template in one invocation, so a release that stops doing so fails the test.
+
+A `.twig-cs-fixer.cache` an earlier version left in the project root is no longer read or
+written; delete it.
 
 There is one wrinkle worth knowing. `--fix` **still exits non-zero when a violation it cannot
 fix remains**, so a writable run that ends non-zero does not mean nothing was fixed — it means
@@ -69,7 +94,10 @@ edit the ruleset there. The project copy replaces the default outright; it is no
 
 ## Implementation
 
-- Lane: [`TwigCsFixerTool`](../../src/Pipeline/Lane/TwigCsFixerTool.php).
+- Lane: [`TwigCsFixerTool`](../../src/Pipeline/Lane/TwigCsFixerTool.php); the generated config:
+  [`CacheFileConfig`](../../src/Pipeline/Lane/TwigCsFixer/CacheFileConfig.php); the cache file,
+  shared with the phpCsFixer lane: [`FormatterCache`](../../src/Pipeline/Lane/FormatterCache.php).
+- Test: [`TwigCsFixerToolCacheTest`](../../tests/Large/Pipeline/Lane/TwigCsFixerToolCacheTest.php).
 - Upstream: [vincentlanglet/twig-cs-fixer](https://github.com/VincentLanglet/Twig-CS-Fixer).
 - See also [twigLint.md](twigLint.md), which checks templates *parse*; this lane checks how they
   are written.
