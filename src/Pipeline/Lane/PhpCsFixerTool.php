@@ -6,7 +6,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
-use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\IgnoredPathsConfig;
+use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\FilteredFinderConfig;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
@@ -14,7 +14,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 
 /**
  * PHP CS Fixer over the checked paths with the resolved php_cs.php config,
- * less the project's ignored paths. The fixer mutates code; a read-only run
+ * less the project's ignored paths and any file whose real path cannot be
+ * resolved, each of which is named as skipped. The fixer mutates code; a read-only run
  * passes --dry-run and a pending fix fails the lane with remediation
  * guidance, while a writable run applies it.
  * The fixer is not idempotent on every input (#235), and its cache records
@@ -29,7 +30,9 @@ final readonly class PhpCsFixerTool implements ToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.phpCsFixer';
 
-    public const string IGNORED_PATHS_CONFIG = 'phpCsFixer/php_cs.php';
+    public const string FINDER_CONFIG = 'phpCsFixer/php_cs.php';
+
+    public const string UNRESOLVED_LIST = 'phpCsFixer/unresolved-paths.txt';
 
     private const int EXIT_PENDING_FIXES = 8;
 
@@ -54,6 +57,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
         $paths    = $context->config->paths;
         $readOnly = $context->config->readOnly;
         $config   = $this->config($context);
+        $this->forget($this->unresolvedList($context));
         if ($readOnly) {
             $context->writeln('Running PHP CS Fixer in read-only check mode');
             $result = $this->fix($context, $config, self::NO_CACHE, '--dry-run');
@@ -73,6 +77,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
         }
 
         \Safe\file_put_contents($paths->varDir . '/php-cs-fixer-output.log', $output);
+        $this->reportUnresolved($context);
 
         if (str_contains($output, self::LINT_ERROR_MARKER)) {
             $context->writeln('');
@@ -99,7 +104,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
 
         if (self::EXIT_PENDING_FIXES === $result->exitCode) {
             // The cache may record the pending files as clean, and the writable run asked for below would skip them
-            $this->forgetCache($context);
+            $this->forget($this->cacheFile($context));
             ReadOnlyGuidance::wouldModify($context, 'PHP CS Fixer', 'fixer');
             $context->writeIdentifier(self::IDENTIFIER);
 
@@ -120,11 +125,10 @@ final readonly class PhpCsFixerTool implements ToolInterface
         return $context->config->paths->varDir . '/cache/php_cs.cache';
     }
 
-    private function forgetCache(ToolContext $context): void
+    private function forget(string $file): void
     {
-        $cache = $this->cacheFile($context);
-        if (is_file($cache)) {
-            \Safe\unlink($cache);
+        if (is_file($file)) {
+            \Safe\unlink($file);
         }
     }
 
@@ -161,23 +165,47 @@ final readonly class PhpCsFixerTool implements ToolInterface
     }
 
     /**
-     * The config the fixer runs: the resolved php_cs.php itself, or, when the
-     * project ignores paths, a wrapper generated at IGNORED_PATHS_CONFIG under
-     * var/qa/ that takes them out of its finder (IgnoredPathsConfig says why
-     * it has to be the finder).
+     * The config the fixer runs: a wrapper generated at FINDER_CONFIG under
+     * var/qa/ around the resolved php_cs.php, whose finder drops the project's
+     * ignored paths and lists each file it drops for an unresolvable real path
+     * at UNRESOLVED_LIST (FilteredFinderConfig says why it has to be the finder).
      */
     private function config(ToolContext $context): string
     {
-        $resolved = $context->configPath('php_cs.php');
-        $ignored  = IgnoredPaths::of($context->config);
-        if ($ignored->isEmpty()) {
-            return $resolved;
-        }
-
-        $context->logDir(\dirname(self::IGNORED_PATHS_CONFIG));
-        $wrapper = $context->config->paths->varDir . '/' . self::IGNORED_PATHS_CONFIG;
-        \Safe\file_put_contents($wrapper, new IgnoredPathsConfig()->source($resolved, $ignored));
+        $context->logDir(\dirname(self::FINDER_CONFIG));
+        $wrapper = $context->config->paths->varDir . '/' . self::FINDER_CONFIG;
+        \Safe\file_put_contents($wrapper, new FilteredFinderConfig()->source(
+            $context->configPath('php_cs.php'),
+            IgnoredPaths::of($context->config),
+            $this->unresolvedList($context),
+        ));
 
         return $wrapper;
+    }
+
+    private function unresolvedList(ToolContext $context): string
+    {
+        return $context->config->paths->varDir . '/' . self::UNRESOLVED_LIST;
+    }
+
+    /**
+     * One line per file the finder yielded that the fixer could not be given, named
+     * relative to the project root, so a skipped file is never silently unchecked.
+     */
+    private function reportUnresolved(ToolContext $context): void
+    {
+        $list = $this->unresolvedList($context);
+        if (!is_file($list)) {
+            return;
+        }
+
+        $root  = \Safe\realpath($context->config->paths->projectRoot) . '/';
+        $files = array_unique(array_filter(explode("\n", \Safe\file_get_contents($list)), static fn (string $line): bool => '' !== $line));
+        foreach ($files as $file) {
+            $context->writeln(\sprintf(
+                'PHP CS Fixer skipped %s: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked',
+                str_starts_with($file, $root) ? substr($file, \strlen($root)) : $file,
+            ));
+        }
     }
 }
