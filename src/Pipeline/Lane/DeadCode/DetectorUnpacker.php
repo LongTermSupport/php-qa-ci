@@ -7,6 +7,9 @@ namespace LTS\PHPQA\Pipeline\Lane\DeadCode;
 use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use Phar;
+use Safe\Exceptions\FilesystemException;
+use Symfony\Component\Console\Output\OutputInterface;
+use UnexpectedValueException;
 
 /**
  * The dead-code detector as plain files, unpacked from its PHAR into the project's QA cache
@@ -30,9 +33,15 @@ final readonly class DetectorUnpacker
     /** The detector's PHPStan config, for the wrapper neon's includes. */
     public const string RULES_NEON = 'vendor/shipmonk/dead-code-detector/rules.neon';
 
+    /** @param OutputInterface $output where an entry the prune cannot remove is reported */
+    public function __construct(private OutputInterface $output)
+    {
+    }
+
     /**
      * Everything else in the directory is removed: copies of earlier PHARs and staging left by a
      * killed run. Safe because the caller holds the run lock, so no other run is reading them.
+     * Unpacking the current copy fails loudly; removing the others is best-effort (prune()).
      *
      * @return string the directory holding the unpacked detector
      */
@@ -72,6 +81,11 @@ final readonly class DetectorUnpacker
         }
     }
 
+    /**
+     * Housekeeping that never decides the lane's verdict: an entry that cannot be removed (one
+     * a root container run left in a user's cache) is named in a warning and skipped, where a
+     * throw would fail every run until someone removed it by hand.
+     */
     private function prune(string $target): void
     {
         $directory = \dirname($target);
@@ -81,11 +95,26 @@ final readonly class DetectorUnpacker
             }
 
             $path = $directory . '/' . $entry;
-            if (is_dir($path)) {
-                DirectoryTree::remove($path);
-            } else {
-                \Safe\unlink($path);
+
+            try {
+                $this->remove($path);
+            } catch (FilesystemException|UnexpectedValueException $exception) {
+                $this->output->writeln(\sprintf(
+                    'WARNING: could not remove %s, left in the dead-code detector cache by an earlier run; the lane goes on with %s. Remove it by hand (another user may own it): %s',
+                    $path,
+                    $target,
+                    $exception->getMessage(),
+                ));
             }
+        }
+    }
+
+    private function remove(string $path): void
+    {
+        if (is_dir($path)) {
+            DirectoryTree::remove($path);
+        } else {
+            \Safe\unlink($path);
         }
     }
 }

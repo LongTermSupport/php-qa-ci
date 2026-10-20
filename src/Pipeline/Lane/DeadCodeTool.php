@@ -82,7 +82,7 @@ final readonly class DeadCodeTool implements ToolInterface
         }
 
         $logDir   = $context->logDir(self::LOG_DIR);
-        $detector = new DetectorUnpacker()->unpack($config->paths->pharDir . '/' . self::PHAR, $config->paths->cacheDir);
+        $detector = new DetectorUnpacker($context->output)->unpack($config->paths->pharDir . '/' . self::PHAR, $config->paths->cacheDir);
         $wrapper  = $this->writeWrapperNeon($context, $logDir, $detector);
         // The detector's classes must exist when PHPStan compiles its container,
         // which is before any bootstrapFiles run; --autoload-file is the hook for that.

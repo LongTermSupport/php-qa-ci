@@ -427,6 +427,7 @@ final class DeadCodeToolTest extends TestCase
     {
         $this->factory->processes->willSucceed(self::NO_ERRORS);
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+
         $config            = $this->factory->builder(ci: true)->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
         $this->unremovable = $config->paths->cacheDir . '/' . DetectorUnpacker::DIR . '/0123456789abcdef';
         UnremovableTree::plant($this->unremovable);

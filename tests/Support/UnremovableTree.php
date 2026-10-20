@@ -12,9 +12,10 @@ namespace LTS\PHPQA\Tests\Support;
  */
 final readonly class UnremovableTree
 {
-    /** 25 levels of 200 characters: about 5,000, past Linux's PATH_MAX of 4,096. */
+    /** Levels below the planted path: 25 of NAME_LENGTH is about 5,000, past Linux's PATH_MAX of 4,096. */
     private const int DEPTH = 25;
 
+    /** Characters in each level's name, under NAME_MAX (255) so each one alone can be created. */
     private const int NAME_LENGTH = 200;
 
     private function __construct()
