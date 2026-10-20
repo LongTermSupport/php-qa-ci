@@ -154,7 +154,7 @@ final class VanishingDirectoryStreamWrapper
         return true;
     }
 
-    public function rmdir(string $path, int $options): bool
+    public function rmdir(string $path): bool
     {
         $real = $this->real($path);
         $this->vanishOnChangeTo($real);

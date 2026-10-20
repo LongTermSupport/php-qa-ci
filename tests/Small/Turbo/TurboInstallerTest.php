@@ -325,7 +325,10 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertStringStartsWith('ERROR: could not install the Turbo files: mkdir(): File exists', $this->errors->fetch());
+        self::assertSame(
+            \sprintf("ERROR: could not install the Turbo files: Cannot create a staging directory in %s: mkdir(): File exists\n", \dirname($this->library->path . '/' . self::BINARY)),
+            $this->errors->fetch(),
+        );
     }
 
     /** A staging leftover the install cannot remove is named in a warning; the install goes on. */

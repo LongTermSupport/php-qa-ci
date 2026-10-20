@@ -52,6 +52,8 @@ final class ShellCheckInstallerTest extends TestCase
 
     private const string NEWEST = 'v0.11.0';
 
+    private const string NEWEST_BUILD = 'the newest build';
+
     private const string TOKEN_VARIABLE = 'GITHUB_AUTH_TOKEN';
 
     private const string RELEASE_API = 'https://api.github.com/repos/koalaman/shellcheck/releases/latest';
@@ -233,7 +235,7 @@ final class ShellCheckInstallerTest extends TestCase
 
         $installer = $this->installer([
             self::RELEASE_API   => $this->release(self::NEWEST),
-            self::NEWEST_ASSET  => $this->releaseArchive(self::NEWEST, 'the newest build'),
+            self::NEWEST_ASSET  => $this->releaseArchive(self::NEWEST, self::NEWEST_BUILD),
         ]);
 
         self::assertSame(0, $installer->run($this->library->path, ShellCheckInstaller::MODE_UPDATE));
@@ -246,7 +248,7 @@ final class ShellCheckInstallerTest extends TestCase
         self::assertSame([self::RELEASE_API, self::NEWEST_ASSET], $this->requests);
 
         $binary = ShellCheckBinary::path($this->library->path);
-        self::assertSame('the newest build', \Safe\file_get_contents($binary));
+        self::assertSame(self::NEWEST_BUILD, \Safe\file_get_contents($binary));
         self::assertSame(0o755, \Safe\fileperms($binary) & 0o777);
         self::assertSame(self::NEWEST, ShellCheckBinary::pinnedVersion($this->library->path));
         self::assertSame(self::NEWEST . "\n", $this->library->read(ShellCheckBinary::VERSION_FILE));
@@ -285,7 +287,10 @@ final class ShellCheckInstallerTest extends TestCase
         $installer = $this->installer([self::RELEASE_API => $this->release(self::NEWEST)]);
 
         self::assertSame(1, $installer->run($this->library->path, ShellCheckInstaller::MODE_UPDATE));
-        self::assertStringStartsWith('ERROR: could not install ShellCheck v0.11.0: mkdir(): File exists', $this->errors->fetch());
+        self::assertSame(
+            \sprintf("ERROR: could not install ShellCheck v0.11.0: Cannot create a staging directory in %s: mkdir(): File exists\n", \dirname(ShellCheckBinary::path($this->library->path))),
+            $this->errors->fetch(),
+        );
     }
 
     /** A staging leftover the update cannot remove is named in a warning; the update goes on. */
@@ -299,7 +304,7 @@ final class ShellCheckInstallerTest extends TestCase
 
         $installer = $this->installer([
             self::RELEASE_API  => $this->release(self::NEWEST),
-            self::NEWEST_ASSET => $this->releaseArchive(self::NEWEST, 'the newest build'),
+            self::NEWEST_ASSET => $this->releaseArchive(self::NEWEST, self::NEWEST_BUILD),
         ]);
 
         try {
@@ -311,7 +316,7 @@ final class ShellCheckInstallerTest extends TestCase
             }
         }
 
-        self::assertSame('the newest build', \Safe\file_get_contents(ShellCheckBinary::path($this->library->path)));
+        self::assertSame(self::NEWEST_BUILD, \Safe\file_get_contents(ShellCheckBinary::path($this->library->path)));
         self::assertCount(1, $kept);
         self::assertStringStartsWith(\sprintf('WARNING: could not remove %s, a staging directory a killed update left: ', $kept[0]), $this->errors->fetch());
     }

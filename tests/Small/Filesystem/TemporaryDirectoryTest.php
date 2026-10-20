@@ -41,6 +41,9 @@ final class TemporaryDirectoryTest extends TestCase
     /** The file a staging directory beside a target is made for. */
     private const string TARGET = 'library.so';
 
+    /** What a file that must survive the cleanup holds. */
+    private const string KEPT = 'kept';
+
     #[Test]
     public function aNewDirectoryIsEmptyAndUnderTheSystemTempDirectory(): void
     {
@@ -120,6 +123,23 @@ final class TemporaryDirectoryTest extends TestCase
         }
     }
 
+    /** The target's directory, when it cannot be made, fails the same way, naming it, with no warning printed besides. */
+    #[Test]
+    public function aTargetsDirectoryThatCannotBeMadeFailsNamingIt(): void
+    {
+        $parent = TemporaryDirectory::create(self::PARENT);
+        \Safe\file_put_contents($parent->path . '/a-file', 'x');
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessageIsOrContains(\sprintf('Cannot create a staging directory in %s/a-file/library: mkdir(): Not a directory', $parent->path));
+
+            TemporaryDirectory::besides($parent->path . '/a-file/library/' . self::TARGET, self::PREFIX);
+        } finally {
+            $parent->remove();
+        }
+    }
+
     /**
      * A run killed between making its staging directory and removing it leaves the directory
      * beside the file it was replacing, in a library directory a project may commit (issue #251).
@@ -135,9 +155,9 @@ final class TemporaryDirectoryTest extends TestCase
         \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
         \Safe\touch($leftover, time() - 2 * 3600);
         \Safe\mkdir($inUse);
-        \Safe\file_put_contents($parent->path . '/' . self::TARGET, 'kept');
+        \Safe\file_put_contents($parent->path . '/' . self::TARGET, self::KEPT);
         $file     = $parent->path . '/' . self::PREFIX . 'file';
-        \Safe\file_put_contents($file, 'kept');
+        \Safe\file_put_contents($file, self::KEPT);
         \Safe\touch($file, time() - 2 * 3600);
 
         $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
@@ -283,7 +303,7 @@ final class TemporaryDirectoryTest extends TestCase
         $grandparent = TemporaryDirectory::create(self::PARENT);
         $parent      = $grandparent->path . '/library';
         \Safe\mkdir($parent);
-        \Safe\file_put_contents($parent . '/' . self::TARGET, 'kept');
+        \Safe\file_put_contents($parent . '/' . self::TARGET, self::KEPT);
         \Safe\touch($parent, time() - 2 * 3600);
         \Safe\touch($grandparent->path, time() - 2 * 3600);
 
@@ -359,7 +379,7 @@ final class TemporaryDirectoryTest extends TestCase
 
             self::assertDirectoryExists($directory->path, 'the staging directory is made all the same');
             self::assertCount(1, $directory->unremovedLeftovers);
-            $kept = (string)array_key_first($directory->unremovedLeftovers);
+            $kept = array_key_first($directory->unremovedLeftovers);
             self::assertStringStartsWith($parent->path . '/' . self::PREFIX, $kept);
             self::assertDirectoryExists($kept);
             self::assertStringContainsString('File name too long', $directory->unremovedLeftovers[$kept]);
