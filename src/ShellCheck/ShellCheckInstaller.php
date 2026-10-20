@@ -128,7 +128,10 @@ final readonly class ShellCheckInstaller
     {
         $this->write($message);
 
-        $staging = TemporaryDirectory::create('phpqa-shellcheck');
+        // Staged beside the binary, so the rename swaps the inode: a ShellCheck running the old
+        // binary keeps it, and an interrupted update never leaves a partial one in its place.
+        $binary  = ShellCheckBinary::path($libraryRoot);
+        $staging = TemporaryDirectory::besides($binary, '.phpqa-shellcheck');
 
         try {
             $archive = $staging->path . '/shellcheck.tar.gz';
@@ -137,13 +140,8 @@ final readonly class ShellCheckInstaller
             $entry = \sprintf('shellcheck-%s/shellcheck', $version);
             new PharData($archive)->extractTo($staging->path, $entry, true);
 
-            $binary = ShellCheckBinary::path($libraryRoot);
-            if (!is_dir(\dirname($binary))) {
-                \Safe\mkdir(\dirname($binary), 0o755, true);
-            }
-
+            \Safe\chmod($staging->path . '/' . $entry, 0o755);
             \Safe\rename($staging->path . '/' . $entry, $binary);
-            \Safe\chmod($binary, 0o755);
             \Safe\file_put_contents($libraryRoot . '/' . ShellCheckBinary::VERSION_FILE, $version . "\n");
         } catch (Throwable $throwable) {
             $staging->remove();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Filesystem;
 
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
+use PhpToken;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -32,7 +33,8 @@ use SplFileInfo;
 #[Small]
 final class SystemTempStagingCallersTest extends TestCase
 {
-    private const string SOURCE = __DIR__ . '/../../../src';
+    /** The production source every caller is searched for in. */
+    private const string SOURCE =__DIR__ . '/../../../src';
 
     /**
      * Each file under src/ that may stage with TemporaryDirectory::create(), and why.
@@ -69,7 +71,7 @@ final class SystemTempStagingCallersTest extends TestCase
     public function theGuardFindsTheCallInEverySpellingAndNothingElse(): void
     {
         self::assertTrue($this->callsCreate('<?php $s = TemporaryDirectory::create("x");'));
-        self::assertTrue($this->callsCreate('<?php $s = \LTS\PHPQA\Filesystem\TemporaryDirectory::create("x");'));
+        self::assertTrue($this->callsCreate('<?php $s = ' . TemporaryDirectory::class . '::create("x");'));
         self::assertTrue($this->callsCreate('<?php $s = Filesystem\TemporaryDirectory :: create("x");'));
         self::assertTrue($this->callsCreate('<?php $f = TemporaryDirectory::create(...);'));
         self::assertFalse($this->callsCreate('<?php $s = TemporaryDirectory::besides($t, "x");'));
@@ -81,8 +83,8 @@ final class SystemTempStagingCallersTest extends TestCase
     private function callsCreate(string $code): bool
     {
         $tokens = array_values(array_filter(
-            \PhpToken::tokenize($code),
-            static fn (\PhpToken $token): bool => !$token->isIgnorable(),
+            PhpToken::tokenize($code),
+            static fn (PhpToken $token): bool => !$token->isIgnorable(),
         ));
 
         $class = explode('\\', TemporaryDirectory::class);

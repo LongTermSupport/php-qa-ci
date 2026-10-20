@@ -108,7 +108,7 @@ final class ShellCheckInstallerReplacesTheBinaryAtomicallyTest extends TestCase
             \Safe\file_get_contents($inUse),
             'the old binary was rewritten in place, so a ShellCheck running it would execute a partial file',
         );
-        self::assertSame(['shellcheck', 'shellcheck.version'], $this->entries(\dirname($binary)), 'the staging directory is removed');
+        self::assertSame([], \Safe\glob(\dirname($binary) . '/.phpqa-shellcheck*'), 'the staging directory is removed');
     }
 
     private function device(string $path): int
@@ -117,12 +117,6 @@ final class ShellCheckInstallerReplacesTheBinaryAtomicallyTest extends TestCase
         self::assertIsArray($stat, 'cannot stat ' . $path);
 
         return $stat['dev'];
-    }
-
-    /** @return list<string> */
-    private function entries(string $directory): array
-    {
-        return array_values(array_diff(\Safe\scandir($directory), ['.', '..']));
     }
 
     /** The bytes of a `.tar.gz` laid out as the published release asset is. */
