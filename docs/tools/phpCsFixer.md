@@ -48,7 +48,8 @@ uses the cache only where it cannot decide an outcome:
 
 - **A read-only run** passes `--using-cache=no`, so the run that decides pass or fail checks
   every file, exactly as CI does. A cache left by any earlier run, a hand-run fixer included,
-  cannot make it pass.
+  cannot make it pass. When it finds a pending fix it deletes the cache, which may record that
+  file as clean, so the writable run it asks for fixes the file instead of skipping it.
 - **A writable run** passes `--cache-file=var/qa/cache/php_cs.cache`, and when that pass changed
   a file (its `Fixed N of M files` summary is not `Fixed 0`, or it printed no summary) the lane
   runs the fixer once more with `--using-cache=no`. That pass makes the change the cached pass
