@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\Support\TempLeak;
 
 use LTS\PHPQA\Tests\Support\TempDir;
 use LTS\PHPQA\Tests\Support\TempLeak\TempLeakDirectory;
+use LTS\PHPQA\Tests\Support\UnremovableTree;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
@@ -32,6 +33,9 @@ final class TempLeakDirectoryTest extends TestCase
     private const string RANDOM = '-0123abcd';
 
     private const string KEPT = 'kept';
+
+    /** The overflow uid: mapped in no user namespace the tests create. */
+    private const int NOBODY = 65534;
 
     #[Test]
     public function thisRunsTempDirectoryIsTheOneClaimedForIt(): void
@@ -204,6 +208,73 @@ final class TempLeakDirectoryTest extends TestCase
         }
     }
 
+    /**
+     * A test killed while it holds a tree nested past PATH_MAX leaves it in its directory, and
+     * a walk by absolute path cannot open the deep levels. Were that fatal, every later PHPUnit
+     * process on the host would die before its bootstrap until someone removed the tree by hand.
+     */
+    #[Test]
+    public function aClaimRemovesADeadProcessTreeTooDeepForAnAbsolutePath(): void
+    {
+        $parent = TempDir::create(self::PARENT);
+        $dead   = $this->deadPid();
+        $stuck  = $parent->path . '/' . self::MARKER . $dead . self::RANDOM . '/phpqa-ctx-abc/stuck';
+        try {
+            UnremovableTree::plant($stuck);
+
+            $this->claimUnder($parent->path);
+
+            self::assertDirectoryDoesNotExist($parent->path . '/' . self::MARKER . $dead . self::RANDOM);
+        } finally {
+            UnremovableTree::remove($stuck);
+            $parent->remove();
+        }
+    }
+
+    /**
+     * Whatever the claim still cannot remove is named and left, and the run goes on. The
+     * warning goes to stdout: Infection stops its initial test run at the first byte on stderr.
+     */
+    #[Test]
+    public function aDeadProcessDirectoryTheClaimCannotRemoveIsNamedAndTheRunGoesOn(): void
+    {
+        $parent = TempDir::create(self::PARENT);
+        $dead   = $this->deadPid();
+        $locked = $parent->mkdir(self::MARKER . $dead . self::RANDOM . '/locked');
+        try {
+            $kept = $parent->write(self::MARKER . $dead . self::RANDOM . '/locked/file', self::KEPT);
+            $parent->write(self::MARKER . $dead . '-89abcdef/file', '');
+            $this->lock($locked);
+
+            $process = $this->claimProcess($parent->path, 'echo "the run went on";');
+            $process->run();
+
+            self::assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+            self::assertSame('', $process->getErrorOutput(), 'nothing on stderr');
+            self::assertStringContainsString('WARNING: could not remove ' . $parent->path . '/' . self::MARKER . $dead . self::RANDOM, $process->getOutput());
+            self::assertStringEndsWith('the run went on', $process->getOutput());
+            self::assertFileExists($kept);
+            self::assertDirectoryDoesNotExist($parent->path . '/' . self::MARKER . $dead . '-89abcdef', 'the other dead directories still go');
+        } finally {
+            \Safe\chmod($locked, 0o700);
+            $parent->remove();
+        }
+    }
+
+    /**
+     * Makes $directory one whose entries the claim's process cannot remove. A mode bit is enough
+     * for an ordinary user. Root overrides mode bits, so then the directory is given to an
+     * unmapped user and the claim runs as root in a user namespace of its own, which holds no
+     * capability over that directory.
+     */
+    private function lock(string $directory): void
+    {
+        \Safe\chmod($directory, 0o500);
+        if (0 === posix_geteuid()) {
+            \Safe\chown($directory, self::NOBODY);
+        }
+    }
+
     /** A pid that was alive a moment ago and is not now: a process started and killed as Infection kills one. */
     private function deadPid(): int
     {
@@ -232,16 +303,15 @@ final class TempLeakDirectoryTest extends TestCase
         self::assertSame('', $process->getOutput() . $process->getErrorOutput(), 'no notice or warning');
     }
 
-    private function claimProcess(string $parent): Process
+    /** A PHPUnit-like child that claims under $parent, then runs $then; as root it runs in a user namespace (see lock()). */
+    private function claimProcess(string $parent, string $then = ''): Process
     {
-        return new Process(
-            [\PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'error_reporting=-1', '-r', <<<'PHP_WRAP'
-                define('PHPUNIT_COMPOSER_INSTALL', $argv[1] . '/vendor/autoload.php');
-                require PHPUNIT_COMPOSER_INSTALL;
-                PHP_WRAP, \dirname(__DIR__, 4)],
-            null,
-            ['TMPDIR' => $parent],
-        );
+        $command = [\PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'error_reporting=-1', '-r', <<<'PHP_WRAP'
+            define('PHPUNIT_COMPOSER_INSTALL', $argv[1] . '/vendor/autoload.php');
+            require PHPUNIT_COMPOSER_INSTALL;
+            PHP_WRAP . $then, \dirname(__DIR__, 4)];
+
+        return new Process(0 === posix_geteuid() ? ['unshare', '--user', '--map-root-user', ...$command] : $command, null, ['TMPDIR' => $parent]);
     }
 
     private function child(string $code): string
