@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\FactorySealedDetector;
+use LTS\PHPQA\PHPStan\Rules\TestCodeDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,16 +22,34 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(FactorySealedDetector::class)]
+#[UsesClass(TestCodeDetector::class)]
 #[Small]
 final class FactorySealedDetectorTest extends TestCase
 {
     private const string FACTORY = 'Acme\Widget\WidgetFactory';
 
+    private const string SERVICE = 'Acme\Widget\SomeService';
+
     private FactorySealedDetector $detector;
 
     protected function setUp(): void
     {
-        $this->detector = new FactorySealedDetector();
+        $this->detector = new FactorySealedDetector(new TestCodeDetector('/project'));
+    }
+
+    /** A checkout under a directory named tests: its production code is not exempted. */
+    public function testConstructionInProductionCodeOfACheckoutUnderATestsDirectoryIsAViolation(): void
+    {
+        $detector = new FactorySealedDetector(new TestCodeDetector('/home/ci/tests/project'));
+
+        self::assertTrue(
+            $detector->isViolation(
+                sealedFactory: self::FACTORY,
+                enclosingClass: self::SERVICE,
+                filePath: '/home/ci/tests/project/src/SomeService.php',
+            ),
+            "Only the project's own tests/ exempts a construction, not a tests directory above the project",
+        );
     }
 
     public function testConstructionInANonFactoryClassIsAViolation(): void
@@ -37,7 +57,7 @@ final class FactorySealedDetectorTest extends TestCase
         self::assertTrue(
             $this->detector->isViolation(
                 sealedFactory: self::FACTORY,
-                enclosingClass: 'Acme\Widget\SomeService',
+                enclosingClass: self::SERVICE,
                 filePath: '/project/src/SomeService.php',
             ),
             'A new <sealed>() in a non-factory production class must be a violation',
@@ -73,7 +93,7 @@ final class FactorySealedDetectorTest extends TestCase
         self::assertFalse(
             $this->detector->isViolation(
                 sealedFactory: null,
-                enclosingClass: 'Acme\Widget\SomeService',
+                enclosingClass: self::SERVICE,
                 filePath: '/project/src/SomeService.php',
             ),
             'A type with no sealing attribute is never a violation',

@@ -70,7 +70,10 @@ hole the rule closes.
 ## What is still allowed
 
 Test files are skipped: constructing a mutable `DateTime` to assert behaviour against it, or to
-exercise a third-party API that demands one, is legitimate and contained.
+exercise a third-party API that demands one, is legitimate and contained. A test file is one under
+the project's own `tests/` directory or in a namespace with a `Tests` segment; a directory named
+`tests` above the project root, or a namespace such as `App\Contests`, does not make a file test
+code.
 
 `DateTimeImmutable`, `DateInterval`, `DatePeriod` and `DateTimeZone` are untouched. Receiving a
 `DateTime` from a library you do not own is not flagged either — only constructing one is.

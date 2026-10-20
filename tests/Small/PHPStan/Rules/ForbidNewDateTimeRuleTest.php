@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidNewDateTimeRule;
+use LTS\PHPQA\PHPStan\Rules\TestCodeDetector;
 use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
@@ -15,12 +16,14 @@ use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
 #[CoversClass(ForbidNewDateTimeRule::class)]
+#[UsesClass(TestCodeDetector::class)]
 #[Small]
 final class ForbidNewDateTimeRuleTest extends TestCase
 {
@@ -36,7 +39,7 @@ final class ForbidNewDateTimeRuleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->rule = new ForbidNewDateTimeRule();
+        $this->rule = new ForbidNewDateTimeRule(new TestCodeDetector('/app'));
     }
 
     #[Test]
@@ -89,6 +92,32 @@ final class ForbidNewDateTimeRuleTest extends TestCase
         );
 
         self::assertSame([], $errors);
+    }
+
+    /** A checkout under a directory named tests: its production code is still checked. */
+    #[Test]
+    public function newDateTimeInProductionCodeOfACheckoutUnderATestsDirectoryIsFlagged(): void
+    {
+        $rule = new ForbidNewDateTimeRule(new TestCodeDetector('/home/ci/tests/app'));
+
+        $errors = $rule->processNode(
+            new New_(new Name(self::DATE_TIME)),
+            $this->scope(self::APP_SERVICE, '/home/ci/tests/app/src/Service/Foo.php', self::DATE_TIME),
+        );
+
+        self::assertCount(1, $errors);
+    }
+
+    /** `Contests` contains the word `Tests` but is not a test namespace. */
+    #[Test]
+    public function newDateTimeInAContestsNamespaceIsFlagged(): void
+    {
+        $errors = $this->rule->processNode(
+            new New_(new Name(self::DATE_TIME)),
+            $this->scope('App\Contests\Service', self::SERVICE_FOO_PHP, self::DATE_TIME),
+        );
+
+        self::assertCount(1, $errors);
     }
 
     #[Test]

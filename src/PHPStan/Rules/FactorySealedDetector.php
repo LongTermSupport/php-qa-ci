@@ -13,13 +13,20 @@ namespace LTS\PHPQA\PHPStan\Rules;
  *
  * Decision (given the resolved facts):
  *   - target is not sealed (no sealing attribute) → no violation;
- *   - file lives under tests/                      → no violation;
+ *   - file lives under the project's tests/        → no violation;
  *   - enclosing class IS the authorised factory    → no violation;
  *   - otherwise                                     → violation.
+ *
+ * "The project's tests/" is decided by {@see TestCodeDetector}, anchored on the
+ * analysed project's root, so a checkout under a directory named tests is not
+ * exempted wholesale.
  */
 final readonly class FactorySealedDetector
 {
-    private const string TESTS_PATH_FRAGMENT = '/tests/';
+    public function __construct(
+        private TestCodeDetector $testCodeDetector,
+    ) {
+    }
 
     /**
      * @param string|null $sealedFactory  the authorised factory FQCN read from the
@@ -35,7 +42,7 @@ final readonly class FactorySealedDetector
             return false;
         }
 
-        if (str_contains($filePath, self::TESTS_PATH_FRAGMENT)) {
+        if ($this->testCodeDetector->isTestCode($filePath, null)) {
             return false;
         }
 

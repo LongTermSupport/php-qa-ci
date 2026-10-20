@@ -141,6 +141,12 @@ services:
         class: LTS\PHPQA\PHPStan\Rules\VendoredCodeDetector
         arguments:
             currentWorkingDirectory: %currentWorkingDirectory%
+    # Decides test code against the project root for every rule that exempts it
+    # (here and in rules-optional.neon). See ForbidUnanchoredTestsSubstringCheckRule.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\TestCodeDetector
+        arguments:
+            currentWorkingDirectory: %currentWorkingDirectory%
     -
         class: LTS\PHPQA\PHPStan\Rules\ForbidMockingFinalClassRule
         tags:

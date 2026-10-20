@@ -66,7 +66,9 @@ second `new` — add it to the authorised factory so the invariant stays in one 
 
 ## What is deliberately not flagged
 
-**Tests construct freely.** A test under `tests/` may `new` a sealed class directly, because
+**Tests construct freely.** A test under the project's own `tests/` directory (anchored on the
+project root, so a checkout that itself sits under a directory named `tests` is still checked) may
+`new` a sealed class directly, because
 building a specific state is the job and the factory's validation is often what the test is
 working around.
 

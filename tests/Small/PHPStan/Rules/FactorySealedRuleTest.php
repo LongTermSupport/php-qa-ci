@@ -32,6 +32,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(FactorySealedRule::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\Rules\FactorySealedDetector::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\Rules\SealingAttributeReader::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\Rules\TestCodeDetector::class)]
 #[Small]
 final class FactorySealedRuleTest extends TestCase
 {
@@ -62,7 +63,7 @@ final class FactorySealedRuleTest extends TestCase
 
     public function testItDoesNotFlagConstructionInsideATestFile(): void
     {
-        // The detector exempts any path containing /tests/ before it even
+        // The detector exempts any path under the project's tests/ before it even
         // compares the enclosing class, so this holds regardless of where the
         // `new` sits. (The enclosing-class-IS-the-factory exemption is covered
         // purely in FactorySealedDetectorTest; PHPStan's ClassReflection is final
@@ -110,7 +111,7 @@ final class FactorySealedRuleTest extends TestCase
         $reflectionProvider = self::createStub(ReflectionProvider::class);
         $reflectionProvider->method('hasClass')->willReturn(true);
 
-        return new FactorySealedRule($reflectionProvider);
+        return new FactorySealedRule($reflectionProvider, new \LTS\PHPQA\PHPStan\Rules\TestCodeDetector('/project'));
     }
 
     /**

@@ -31,9 +31,9 @@ use PHPStan\Type\Type;
  * `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`, provably: PHPStan must know both keys are there.
  *
  * Recognised: a Symfony Process constructed with, or built by fromShellCommandline from, a git
- * command, and PHP's or Safe's proc_open given one. Only test code is checked (a namespace
- * containing `Tests` or a path containing `/tests/`): production code runs git on the user's own
- * repository, where the user's configuration is wanted.
+ * command, and PHP's or Safe's proc_open given one. Only test code is checked (TestCodeDetector:
+ * a namespace with a `Tests` segment or a file under the project's `tests/`): production code runs
+ * git on the user's own repository, where the user's configuration is wanted.
  *
  * See: docs/phpstan-rules/forbid-unisolated-git-process.md.
  *
@@ -74,6 +74,11 @@ final readonly class ForbidUnisolatedGitProcessRule implements Rule
     /** The program this rule is about. */
     private const string GIT = 'git';
 
+    public function __construct(
+        private TestCodeDetector $testCodeDetector,
+    ) {
+    }
+
     public function getNodeType(): string
     {
         return CallLike::class;
@@ -86,7 +91,7 @@ final readonly class ForbidUnisolatedGitProcessRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if (!$this->isTestContext($scope) || $node->isFirstClassCallable()) {
+        if (!$this->testCodeDetector->isTestCode($scope->getFile(), $scope->getNamespace()) || $node->isFirstClassCallable()) {
             return [];
         }
 
@@ -202,15 +207,5 @@ final readonly class ForbidUnisolatedGitProcessRule implements Rule
     private static function hasKey(Type $environment, string $variable): bool
     {
         return $environment->isArray()->yes() && $environment->hasOffsetValueType(new ConstantStringType($variable))->yes();
-    }
-
-    private function isTestContext(Scope $scope): bool
-    {
-        $namespace = $scope->getNamespace();
-        if (null !== $namespace && str_contains($namespace, 'Tests')) {
-            return true;
-        }
-
-        return str_contains($scope->getFile(), '/tests/');
     }
 }

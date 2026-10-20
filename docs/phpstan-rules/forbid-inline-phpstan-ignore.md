@@ -73,7 +73,9 @@ without one.
 
 Test files and `qaConfig/` are skipped: a test that deliberately constructs a badly-typed value
 to assert the behaviour around it is not hiding anything, and the QA config is where
-suppression is configured.
+suppression is configured. A test file is one under the project's own `tests/` directory or in a
+namespace with a `Tests` segment; a directory named `tests` above the project root, or a
+namespace such as `App\Contests`, does not make a file test code.
 
 `@phpstan-var`, `@phpstan-param` and the other type-*stating* annotations are not suppressions
 and are untouched, though note that overriding an inferred type with `@var` to silence an error
