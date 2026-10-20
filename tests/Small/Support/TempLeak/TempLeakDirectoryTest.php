@@ -269,9 +269,21 @@ final class TempLeakDirectoryTest extends TestCase
     private function lock(string $directory): void
     {
         \Safe\chmod($directory, 0o500);
-        if (0 === posix_geteuid()) {
+        if ($this->runsAsRoot()) {
             \Safe\chown($directory, self::NOBODY);
         }
+    }
+
+    /**
+     * Whether this process's effective user is root, asked of `id -u` so that only Safe's
+     * wrappers, which the dependency analyser credits to thecodingmachine/safe, call into posix.
+     */
+    private function runsAsRoot(): bool
+    {
+        $process = new Process(['id', '-u']);
+        $process->mustRun();
+
+        return '0' === trim($process->getOutput());
     }
 
     /** A pid that was alive a moment ago and is not now: a process started and killed as Infection kills one. */
@@ -310,7 +322,7 @@ final class TempLeakDirectoryTest extends TestCase
             require PHPUNIT_COMPOSER_INSTALL;
             PHP_WRAP . $then, \dirname(__DIR__, 4)];
 
-        return new Process(0 === posix_geteuid() ? ['unshare', '--user', '--map-root-user', ...$command] : $command, null, ['TMPDIR' => $parent]);
+        return new Process($this->runsAsRoot() ? ['unshare', '--user', '--map-root-user', ...$command] : $command, null, ['TMPDIR' => $parent]);
     }
 
     private function child(string $code): string
