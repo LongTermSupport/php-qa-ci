@@ -37,6 +37,12 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class PhpLintToolTest extends TestCase
 {
+    private const string SRC = '/src';
+
+    private const string TESTS = '/tests';
+
+    private const string EXCLUDE = '--exclude';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -59,7 +65,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->factory->context()->config->paths->pharDir . '/parallel-lint.phar', '--', $root . '/tests', $root . '/src'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->factory->context()->config->paths->pharDir . '/parallel-lint.phar', '--', $root . self::TESTS, $root . self::SRC],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -76,7 +82,7 @@ final class PhpLintToolTest extends TestCase
         new PhpLintTool()->run($this->factory->context($config));
 
         self::assertSame(
-            ['--', '--exclude', $root . '/tests/Asset', '--exclude', $root . '/src/Generated', $root . '/tests', $root . '/src'],
+            ['--', self::EXCLUDE, $root . '/tests/Asset', self::EXCLUDE, $root . '/src/Generated', $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 5),
         );
     }
@@ -98,7 +104,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['--', '--exclude', $root . '/tests/Asset', '--exclude', $root . '/src/Gone.PHP', $root . '/tests', $root . '/src'],
+            ['--', self::EXCLUDE, $root . '/tests/Asset', self::EXCLUDE, $root . '/src/Gone.PHP', $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 5),
         );
         self::assertSame(

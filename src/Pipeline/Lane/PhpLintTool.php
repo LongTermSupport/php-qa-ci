@@ -34,7 +34,6 @@ final readonly class PhpLintTool implements ToolInterface
 
     private const string PHAR = 'parallel-lint.phar';
 
-    /** The file names parallel-lint lints by default, as its own walk matches them. */
     private const string LINTED_FILE = '`\.(?:php|phtml|php3|php4|php5|phpt)$`iD';
 
     private const string EXCLUDE = '--exclude';

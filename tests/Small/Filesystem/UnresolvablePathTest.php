@@ -26,6 +26,8 @@ final class UnresolvablePathTest extends TestCase
 
     private const string REAL = '/dir/Real.php';
 
+    private const string TOOL = 'Probe';
+
     private TempDir $directory;
 
     protected function setUp(): void
@@ -84,11 +86,11 @@ final class UnresolvablePathTest extends TestCase
     {
         self::assertSame(
             'Probe skipped dir/Gone.php: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked',
-            UnresolvablePath::skipped('Probe', $this->directory->path . self::DANGLING, $this->directory->path),
+            UnresolvablePath::skipped(self::TOOL, $this->directory->path . self::DANGLING, $this->directory->path),
         );
         self::assertSame(
             'Probe skipped dir/Gone.php: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked',
-            UnresolvablePath::skipped('Probe', \Safe\realpath($this->directory->path) . self::DANGLING, $this->directory->path . '/'),
+            UnresolvablePath::skipped(self::TOOL, \Safe\realpath($this->directory->path) . self::DANGLING, $this->directory->path . '/'),
         );
     }
 
@@ -97,7 +99,7 @@ final class UnresolvablePathTest extends TestCase
     {
         self::assertStringStartsWith(
             'Probe skipped /elsewhere/Gone.php: ',
-            UnresolvablePath::skipped('Probe', '/elsewhere/Gone.php', $this->directory->path),
+            UnresolvablePath::skipped(self::TOOL, '/elsewhere/Gone.php', $this->directory->path),
         );
     }
 

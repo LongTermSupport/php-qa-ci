@@ -220,7 +220,7 @@ final class DocumentSelfReferenceScannerTest extends TestCase
     {
         $project = $this->project();
         $project->write(self::README, self::PAGE_USED_TO_PROSE);
-        $project->write('docs/a.md', "# A\n");
+        $project->write('docs/clean.md', "# Clean\n");
         \Safe\symlink('missing-target.md', $project->path . '/docs/Gone.md');
 
         self::assertSame([$project->path . '/docs/Gone.md'], $this->scanner->unresolvable($project->path . '/'));
