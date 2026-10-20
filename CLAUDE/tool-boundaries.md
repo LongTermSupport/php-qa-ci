@@ -71,8 +71,7 @@ Different questions, different failure guidance, different times you would run o
   `docs/tools/<name>.md`, the identifier index, and the active-defences region of `CLAUDE.md`
   (regenerate it with `php bin/rules . --write-agent-summary=CLAUDE.md`). `docs/pipeline.md`
   keeps no tool list; it describes each phase and points at `bin/qa -h` and the identifier
-  index. `docs/phpqa-tools.md` is still a hand roster, pending retirement: add the tool there
-  until it is gone.
+  index. No other page lists the tools by hand either: link the new page, never add a roster.
 - Add `#[UsesClass(<Name>Tool::class)]` to the five tests that walk the whole shipped set:
   `PipelineBuilderTest`, `ShippedToolLocatorTest`, `InProcessLanesTest`,
   `ActiveRulesListerTest` and `ActiveRulesListerSelfCheckTest`. They construct every lane,
