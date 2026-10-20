@@ -30,11 +30,35 @@ order, and fails when a read-only check still has a change to make.
 One process over the committed `vendor-phar/php-cs-fixer.phar`, from the project root:
 
 ```
-fix --config=<php_cs.php> --cache-file=var/qa/cache/php_cs.cache --allow-risky=yes \
+fix --config=<php_cs.php> <cache option> --allow-risky=yes \
     --show-progress=dots --path-mode=intersection -vvv [--dry-run] <checked paths>
 ```
 
 The process output is streamed and also written to `var/qa/php-cs-fixer-output.log`.
+
+### The cache
+
+The fixer's cache (`var/qa/cache/php_cs.cache`) records each file a pass left as clean, and
+later cached runs skip a recorded file whose content has not changed since. The fixer is not
+idempotent on every input: on a heredoc whose blank lines carry whitespace, one pass of
+`heredoc_indentation` re-indents the heredoc and only the next pass strips the blank lines. A
+cached pass would record the half-fixed file as clean, and every cached run after it would skip
+the file while a run without the cache (CI, a fresh clone) fails it ([#235](https://github.com/LongTermSupport/php-qa-ci/issues/235)). The lane therefore
+uses the cache only where it cannot decide an outcome:
+
+- **A read-only run** passes `--using-cache=no`, so the run that decides pass or fail checks
+  every file, exactly as CI does. A cache left by any earlier run, a hand-run fixer included,
+  cannot make it pass.
+- **A writable run** passes `--cache-file=var/qa/cache/php_cs.cache`, and when that pass changed
+  a file (its `Fixed N of M files` summary is not `Fixed 0`, or it printed no summary) the lane
+  runs the fixer once more with `--using-cache=no`. That pass makes the change the cached pass
+  could not see, so the coding-standards phase sees a changed file and repeats, and the cache's
+  record of the half-fixed content no longer matches the file. A writable run that changed
+  nothing costs one cached pass.
+
+[`PhpCsFixerToolCacheTest`](../../tests/Large/Pipeline/Lane/PhpCsFixerToolCacheTest.php) runs
+the lane over that heredoc and fails when a read-only run, a single writable run or a settled
+writable phase disagrees with an uncached read-only check.
 
 With `--path-mode=intersection` the checked paths only narrow what the config's finder yields, so
 an exclusion has to be in the finder. When `qaConfig/qa.php` sets `withIgnoredPaths()`, the lane
@@ -45,10 +69,11 @@ its own for an ignored path.
 
 - In the full pipeline, second in the coding-standards phase.
 - Standalone: `vendor/bin/qa -t fixer` (aliases `-t f`, `-t csfixer`); supports `-p <path>`.
-- **Read-only run** (`QA_READONLY=1`, GitHub Actions): `--dry-run` is passed. Exit 0 passes; exit
-  8 (pending fixes) fails with the read-only remediation block; any other exit is a genuine error
-  and crashes the lane, which is never retried.
-- **Writable run**: fixes are applied. Any non-zero exit fails the lane, and an interactive run
+- **Read-only run** (`QA_READONLY=1`, GitHub Actions): `--dry-run` and `--using-cache=no` are
+  passed. Exit 0 passes; exit 8 (pending fixes) fails with the read-only remediation block; any
+  other exit is a genuine error and crashes the lane, which is never retried.
+- **Writable run**: fixes are applied, by a cached pass and, when it changed a file, an uncached
+  one (see [the cache](#the-cache)). Any non-zero exit fails the lane, and an interactive run
   offers a retry.
 - **Lint errors** in either mode: when the output reports `Files that were not fixed due to errors`, a scanned file could not be parsed. The lane crashes regardless of the exit code, because
   the fixer cannot check or fix a file it cannot parse.
