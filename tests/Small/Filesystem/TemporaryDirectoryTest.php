@@ -7,7 +7,6 @@ namespace LTS\PHPQA\Tests\Small\Filesystem;
 use InvalidArgumentException;
 use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
-use LTS\PHPQA\Tests\Support\UnremovableTree;
 use LTS\PHPQA\Tests\Support\VanishingDirectoryStreamWrapper;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -43,6 +42,9 @@ final class TemporaryDirectoryTest extends TestCase
 
     /** What a file that must survive the cleanup holds. */
     private const string KEPT = 'kept';
+
+    /** A directory inside a leftover, which a test makes the cleanup fail on. */
+    private const string HELD = 'held';
 
     #[Test]
     public function aNewDirectoryIsEmptyAndUnderTheSystemTempDirectory(): void
@@ -347,7 +349,7 @@ final class TemporaryDirectoryTest extends TestCase
         VanishingDirectoryStreamWrapper::vanishOnChange($leftover);
 
         try {
-            $directory = TemporaryDirectory::besides(VanishingDirectoryStreamWrapper::SCHEME . '://' . $parent->path . '/' . self::TARGET, self::PREFIX);
+            $directory = TemporaryDirectory::besides($this->overTheWrapper($parent->path . '/' . self::TARGET), self::PREFIX);
             $directory->remove();
 
             self::assertTrue(VanishingDirectoryStreamWrapper::hasVanishedOnChange(), 'the cleanup reached the leftover');
@@ -362,35 +364,50 @@ final class TemporaryDirectoryTest extends TestCase
 
     /**
      * A leftover this run cannot remove is kept, and named with the reason, for a caller that can
-     * warn; it does not stop the staging. Here it is a tree nested past PATH_MAX, which nothing
-     * walking it by absolute path can remove, even as root.
+     * warn; it does not stop the staging. A directory in it is refused, by name, wherever the
+     * cleanup has moved it: one it cannot read, or one it cannot remove. (A real tree nested past
+     * PATH_MAX would do as well, but one a mutant moved out of reach of this test's cleanup would
+     * stop every later run on the host, which reaps the temp directory the same way.).
+     *
+     * @param bool $unreadable whether the directory cannot be read, rather than removed
      */
     #[Test]
-    public function aDirectoryBesideATargetKeepsALeftoverItCannotRemoveAndNamesIt(): void
+    #[DataProvider('refusals')]
+    public function aDirectoryBesideATargetKeepsALeftoverItCannotRemoveAndNamesIt(bool $unreadable, string $why): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
         $leftover = $parent->path . '/' . self::PREFIX . 'stuck';
-        UnremovableTree::plant($leftover);
+        \Safe\mkdir($leftover . '/' . self::HELD, 0o700, true);
         \Safe\touch($leftover, time() - 2 * 3600);
-        $directory = null;
+        \Safe\stream_wrapper_register(VanishingDirectoryStreamWrapper::SCHEME, VanishingDirectoryStreamWrapper::class);
+        if ($unreadable) {
+            VanishingDirectoryStreamWrapper::refuseOpenNamed(self::HELD);
+        } else {
+            VanishingDirectoryStreamWrapper::refuseRemovalNamed(self::HELD);
+        }
 
         try {
-            $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
+            $directory = TemporaryDirectory::besides($this->overTheWrapper($parent->path . '/' . self::TARGET), self::PREFIX);
+            $directory->remove();
 
-            self::assertDirectoryExists($directory->path, 'the staging directory is made all the same');
             self::assertCount(1, $directory->unremovedLeftovers);
             $kept = array_key_first($directory->unremovedLeftovers);
-            self::assertStringStartsWith($parent->path . '/' . self::PREFIX, $kept);
-            self::assertDirectoryExists($kept);
-            self::assertStringContainsString('File name too long', $directory->unremovedLeftovers[$kept]);
+            self::assertStringStartsWith($this->overTheWrapper($parent->path . '/' . self::PREFIX), $kept);
+            self::assertDirectoryExists($kept . '/' . self::HELD, 'what could not be removed is still there');
+            self::assertStringContainsString($kept . '/' . self::HELD, $directory->unremovedLeftovers[$kept]);
+            self::assertStringContainsString($why, $directory->unremovedLeftovers[$kept]);
         } finally {
-            $directory?->remove();
-            foreach (array_filter(\Safe\glob($parent->path . '/' . self::PREFIX . '*'), \is_string(...)) as $stuck) {
-                UnremovableTree::remove($stuck);
-            }
-
+            \Safe\stream_wrapper_unregister(VanishingDirectoryStreamWrapper::SCHEME);
+            VanishingDirectoryStreamWrapper::reset();
             $parent->remove();
         }
+    }
+
+    /** @return iterable<string, array{bool, string}> */
+    public static function refusals(): iterable
+    {
+        yield 'a directory in it that cannot be read' => [true, 'Failed to open directory'];
+        yield 'a directory in it that cannot be removed' => [false, 'Operation not permitted'];
     }
 
     #[Test]
@@ -433,6 +450,16 @@ final class TemporaryDirectoryTest extends TestCase
         $directory->remove();
 
         self::assertDirectoryDoesNotExist($directory->path);
+    }
+
+    /**
+     * The path as the test stream wrapper serves it.
+     *
+     * @return non-empty-string
+     */
+    private function overTheWrapper(string $path): string
+    {
+        return VanishingDirectoryStreamWrapper::SCHEME . '://' . $path;
     }
 
     /** Matches the name of a staging directory: the prefix, then 16 random hex digits. */

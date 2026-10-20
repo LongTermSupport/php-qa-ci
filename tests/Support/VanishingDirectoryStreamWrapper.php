@@ -21,6 +21,9 @@ use LTS\PHPQA\Filesystem\DirectoryTree;
  * renamed, unlinked or removed, so that change fails as the real call does when
  * another process got there first.
  *
+ * A directory named by refuseOpenNamed() or refuseRemovalNamed() is matched by
+ * its name, wherever it has been moved to, and cannot be opened, or removed.
+ *
  * Each is spent by the first call it fails. The method names are PHP's stream
  * wrapper protocol. PHP's stream layer is what calls them, so the class is
  * tagged as API: an entry point to the dead-code detector, as a Composer
@@ -42,6 +45,10 @@ final class VanishingDirectoryStreamWrapper
     private static ?string $vanishesOnChange = null;
 
     private static bool $vanishedOnChange = false;
+
+    private static ?string $refusedName = null;
+
+    private static ?string $unremovableName = null;
 
     /** @var resource|null */
     private $handle;
@@ -68,12 +75,26 @@ final class VanishingDirectoryStreamWrapper
         return self::$vanishedOnChange;
     }
 
+    /** The first directory named $name, wherever it is, to be opened fails to open and stays. */
+    public static function refuseOpenNamed(string $name): void
+    {
+        self::$refusedName = $name;
+    }
+
+    /** The first directory named $name, wherever it is, to be removed is refused, with the warning rmdir() gives. */
+    public static function refuseRemovalNamed(string $name): void
+    {
+        self::$unremovableName = $name;
+    }
+
     public static function reset(): void
     {
         self::$vanishes         = null;
         self::$refused          = null;
         self::$vanishesOnChange = null;
         self::$vanishedOnChange = false;
+        self::$refusedName      = null;
+        self::$unremovableName  = null;
     }
 
     /** @return array<int|string, mixed>|false */
@@ -92,6 +113,12 @@ final class VanishingDirectoryStreamWrapper
         $real = $this->real($path);
         if ($real === self::$refused) {
             self::$refused = null;
+
+            return false;
+        }
+
+        if (basename($real) === self::$refusedName) {
+            self::$refusedName = null;
 
             return false;
         }
@@ -157,6 +184,13 @@ final class VanishingDirectoryStreamWrapper
     public function rmdir(string $path): bool
     {
         $real = $this->real($path);
+        if (basename($real) === self::$unremovableName) {
+            self::$unremovableName = null;
+            trigger_error(\sprintf('rmdir(%s): Operation not permitted', $path), \E_USER_WARNING);
+
+            return false;
+        }
+
         $this->vanishOnChangeTo($real);
         \Safe\rmdir($real);
 
