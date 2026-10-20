@@ -62,7 +62,29 @@ Bad link for "incorrect link" to "./foo.md"
     public function testMainNoReadmeFile(): void
     {
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('You have no README.md file in your project');
         LinksChecker::main(__DIR__ . '/../../assets/linksChecker/projectNoReadme');
+    }
+
+    /**
+     * A root README.md that is a dangling symlink still fails the check, naming the dangling
+     * symlink as the cause rather than claiming there is no README.md (#241).
+     *
+     * @throws Exception
+     */
+    public function testADanglingRootReadmeFailsNamingTheSymlink(): void
+    {
+        $dir              = TempDir::create('linksCheckerDanglingReadme');
+        $this->tempDirs[] = $dir;
+        \Safe\symlink('missing-target.md', $dir->path . '/README.md');
+
+        try {
+            LinksChecker::main($dir->path);
+            self::fail('A dangling root README.md did not fail the check');
+        } catch (RuntimeException $runtimeException) {
+            self::assertStringContainsString('README.md is a symlink whose target does not exist', $runtimeException->getMessage());
+            self::assertStringNotContainsString('You have no README.md', $runtimeException->getMessage());
+        }
     }
 
     /**
