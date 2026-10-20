@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support\TempLeak;
 
+use Closure;
 use FilesystemIterator;
 use RuntimeException;
 use Safe\Exceptions\DirException;
@@ -37,6 +38,16 @@ final class TempLeakDirectory
     private static ?string $claimed = null;
 
     private static bool $adopted = false;
+
+    /**
+     * Run at each step of the reaper's walk where another process could change the tree under
+     * it, given the step ('enter' or 'climb') and the name it is about to act on: what
+     * TempLeakDirectoryTest sets, by reflection, to make that change at a known moment. Null
+     * everywhere else.
+     *
+     * @var (Closure(string, string): void)|null
+     */
+    private static ?Closure $interleave = null;
 
     /** This process's temp directory, created and made TMPDIR on the first call. */
     public static function claim(): string
@@ -176,6 +187,7 @@ final class TempLeakDirectory
                 if (self::enter($name)) {
                     try {
                         self::emptyCurrentDirectory();
+                        self::interleave('climb', $name);
                     } finally {
                         \Safe\chdir('..');
                     }
@@ -201,7 +213,12 @@ final class TempLeakDirectory
         $listed = [];
         if (!self::unlessGone($directory, static function (string $path) use (&$listed): void {
             $listed = \Safe\lstat($path);
-        }) || !self::unlessGone($directory, \Safe\chdir(...))) {
+        })) {
+            return false;
+        }
+
+        self::interleave('enter', $directory);
+        if (!self::unlessGone($directory, \Safe\chdir(...))) {
             return false;
         }
 
@@ -211,6 +228,13 @@ final class TempLeakDirectory
         }
 
         return true;
+    }
+
+    private static function interleave(string $step, string $name): void
+    {
+        if (null !== self::$interleave) {
+            (self::$interleave)($step, $name);
+        }
     }
 
     /**

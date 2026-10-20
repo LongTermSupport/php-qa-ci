@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Support\TempLeak;
 
+use Closure;
 use LTS\PHPQA\Tests\Support\TempDir;
 use LTS\PHPQA\Tests\Support\TempLeak\TempLeakDirectory;
 use LTS\PHPQA\Tests\Support\UnremovableTree;
@@ -11,6 +12,9 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+use ReflectionProperty;
+use SplFileInfo;
 use Symfony\Component\Process\Process;
 
 /**
@@ -307,6 +311,92 @@ final class TempLeakDirectoryTest extends TestCase
             \Safe\chmod($locked, 0o700);
             $parent->remove();
         }
+    }
+
+    /**
+     * The walk enters each directory by name. A symlink put in place of one after it was listed
+     * and before it is entered would take the walk into whatever it points at, so the walk
+     * compares what it entered with what it listed and stops that removal, with a warning,
+     * before it removes anything there.
+     */
+    #[Test]
+    public function theWalkStopsWhereADirectoryWasSwappedForASymlinkBeforeItIsEntered(): void
+    {
+        $parent    = TempDir::create(self::PARENT);
+        $abandoned = $parent->path . '/' . self::MARKER . $this->deadPid() . self::RANDOM;
+        try {
+            $parent->write(basename($abandoned) . '/a/file', '');
+            $kept = $parent->write('elsewhere/' . self::KEPT, self::KEPT);
+
+            $printed = $this->reapInProcess($parent->path, static function (string $step, string $name) use ($parent): void {
+                if ('enter' === $step && 'a' === $name) {
+                    \Safe\rename('a', $parent->path . '/moved-a');
+                    \Safe\symlink($parent->path . '/elsewhere', 'a');
+                }
+            });
+
+            self::assertFileExists($kept, 'nothing is removed where the symlink points');
+            self::assertStringStartsWith('WARNING: could not remove ' . $abandoned . ',', $printed);
+            self::assertStringContainsString('was replaced while it was being removed', $printed);
+        } finally {
+            $parent->remove();
+        }
+    }
+
+    /**
+     * The walk climbs back out of each directory by '..'. A directory moved elsewhere while the
+     * walk is inside it would land the walk in the directory it was moved to, and the walk would
+     * go on removing names there, so it checks where it landed and stops that removal, with a
+     * warning, when that is not the directory it came from.
+     */
+    #[Test]
+    public function theWalkStopsWhereADirectoryWasMovedWhileItWasInside(): void
+    {
+        $parent    = TempDir::create(self::PARENT);
+        $abandoned = $parent->path . '/' . self::MARKER . $this->deadPid() . self::RANDOM;
+        try {
+            $parent->write(basename($abandoned) . '/a/file', '');
+            $elsewhere = $parent->mkdir('elsewhere');
+
+            $printed = $this->reapInProcess($parent->path, static function (string $step, string $name) use ($abandoned, $elsewhere): void {
+                if ('climb' === $step && 'a' === $name) {
+                    \Safe\rename($abandoned . '/a', $elsewhere . '/a');
+                }
+            });
+
+            self::assertDirectoryExists($elsewhere . '/a', 'nothing is removed where the walk landed');
+            self::assertDirectoryExists($abandoned, 'the removal stopped');
+            self::assertStringStartsWith('WARNING: could not remove ' . $abandoned . ',', $printed);
+            self::assertStringContainsString('was moved while it was being removed', $printed);
+        } finally {
+            $parent->remove();
+        }
+    }
+
+    /**
+     * Reaps the dead processes' directories under $parent in this process, with $interleave run
+     * at each step of the walk where another process could change the tree, and returns what
+     * the reaper printed.
+     *
+     * @param Closure(string, string): void $interleave
+     */
+    private function reapInProcess(string $parent, Closure $interleave): string
+    {
+        $hook = new ReflectionProperty(TempLeakDirectory::class, 'interleave');
+        $hook->setValue(null, $interleave);
+        $cwd = \Safe\getcwd();
+        ob_start();
+
+        try {
+            new ReflectionMethod(TempLeakDirectory::class, 'removeAbandoned')->invoke(null, $parent, new SplFileInfo($parent)->getOwner());
+        } finally {
+            $printed = \Safe\ob_get_clean();
+            $hook->setValue(null, null);
+        }
+
+        self::assertSame($cwd, \Safe\getcwd(), 'the walk returns to where it started');
+
+        return $printed;
     }
 
     /**
