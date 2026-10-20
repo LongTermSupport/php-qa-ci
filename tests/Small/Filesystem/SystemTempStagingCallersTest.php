@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Small\Filesystem;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use PhpToken;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -35,6 +36,9 @@ final class SystemTempStagingCallersTest extends TestCase
 {
     /** The production source every caller is searched for in. */
     private const string SOURCE =__DIR__ . '/../../../src';
+
+    /** One file per spelling of the call, and per near miss. */
+    private const string FIXTURES = __DIR__ . '/../../assets/systemTempStagingCallers';
 
     /**
      * Each file under src/ that may stage with TemporaryDirectory::create(), and why.
@@ -77,6 +81,56 @@ final class SystemTempStagingCallersTest extends TestCase
         self::assertFalse($this->callsCreate('<?php $s = TemporaryDirectory::besides($t, "x");'));
         self::assertFalse($this->callsCreate('<?php // TemporaryDirectory::create("x")' . "\n"));
         self::assertFalse($this->callsCreate('<?php $s = OtherDirectory::create("x");'));
+    }
+
+    /**
+     * One file per spelling of a call to create() that the guard must find (issue #251).
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function callers(): iterable
+    {
+        foreach (\Safe\glob(self::FIXTURES . '/callers/*.php') as $fixture) {
+            yield basename($fixture, '.php') => [$fixture];
+        }
+    }
+
+    /**
+     * One file per near miss the guard must not report: besides(), or another class's create().
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function notCallers(): iterable
+    {
+        foreach (\Safe\glob(self::FIXTURES . '/notCallers/*.php') as $fixture) {
+            yield basename($fixture, '.php') => [$fixture];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('callers')]
+    public function theGuardFindsTheCallSpelledAsInTheFixture(string $fixture): void
+    {
+        self::assertTrue($this->callsCreate(\Safe\file_get_contents($fixture)));
+    }
+
+    #[Test]
+    #[DataProvider('notCallers')]
+    public function theGuardDoesNotReportTheNearMissInTheFixture(string $fixture): void
+    {
+        self::assertFalse($this->callsCreate(\Safe\file_get_contents($fixture)));
+    }
+
+    /** The PHP that ships: src/, and the PHP entry points in bin/, which are named without .php. */
+    #[Test]
+    public function theGuardSearchesSrcAndThePhpEntryPointsInBin(): void
+    {
+        $searched = array_keys(iterator_to_array($this->sourceFiles()));
+
+        self::assertContains('src/Filesystem/TemporaryDirectory.php', $searched);
+        self::assertContains('bin/qa', $searched, 'a PHP entry point in bin/');
+        self::assertContains('bin/bootstrap.php', $searched);
+        self::assertNotContains('bin/phpstan', $searched, 'a Bash script in bin/ is not PHP');
     }
 
     /** Whether the code calls TemporaryDirectory::create(), by its class's short name in any spelling. */
