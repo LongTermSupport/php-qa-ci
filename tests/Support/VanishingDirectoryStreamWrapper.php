@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Support;
 
 use LTS\PHPQA\Filesystem\DirectoryTree;
+use Throwable;
 
 /**
  * The real filesystem, under SCHEME://<absolute path>, except for one
@@ -21,10 +22,14 @@ use LTS\PHPQA\Filesystem\DirectoryTree;
  * renamed, unlinked or removed, so that change fails as the real call does when
  * another process got there first.
  *
- * A directory named by refuseOpenNamed() or refuseRemovalNamed() is matched by
- * its name, wherever it has been moved to, and cannot be opened, or removed.
+ * Each of those is spent by the first call it fails.
  *
- * Each is spent by the first call it fails. The method names are PHP's stream
+ * Every directory with the name given to refuseOpenNamed() cannot be opened,
+ * and every one with the name given to refuseRemovalNamed() cannot be removed
+ * or moved, as one another user owns in a sticky directory, wherever it is,
+ * until reset(). The next rename after throwOnRename() throws what it is given.
+ *
+ * The method names are PHP's stream
  * wrapper protocol. PHP's stream layer is what calls them, so the class is
  * tagged as API: an entry point to the dead-code detector, as a Composer
  * plugin is.
@@ -49,6 +54,8 @@ final class VanishingDirectoryStreamWrapper
     private static ?string $refusedName = null;
 
     private static ?string $unremovableName = null;
+
+    private static ?Throwable $renameThrows = null;
 
     /** @var resource|null */
     private $handle;
@@ -75,16 +82,19 @@ final class VanishingDirectoryStreamWrapper
         return self::$vanishedOnChange;
     }
 
-    /** The first directory named $name, wherever it is, to be opened fails to open and stays. */
     public static function refuseOpenNamed(string $name): void
     {
         self::$refusedName = $name;
     }
 
-    /** The first directory named $name, wherever it is, to be removed is refused, with the warning rmdir() gives. */
     public static function refuseRemovalNamed(string $name): void
     {
         self::$unremovableName = $name;
+    }
+
+    public static function throwOnRename(Throwable $throwable): void
+    {
+        self::$renameThrows = $throwable;
     }
 
     public static function reset(): void
@@ -95,6 +105,7 @@ final class VanishingDirectoryStreamWrapper
         self::$vanishedOnChange = false;
         self::$refusedName      = null;
         self::$unremovableName  = null;
+        self::$renameThrows     = null;
     }
 
     /** @return array<int|string, mixed>|false */
@@ -118,8 +129,6 @@ final class VanishingDirectoryStreamWrapper
         }
 
         if (basename($real) === self::$refusedName) {
-            self::$refusedName = null;
-
             return false;
         }
 
@@ -174,7 +183,20 @@ final class VanishingDirectoryStreamWrapper
 
     public function rename(string $from, string $to): bool
     {
+        $throwable = self::$renameThrows;
+        if ($throwable instanceof Throwable) {
+            self::$renameThrows = null;
+
+            throw $throwable;
+        }
+
         $real = $this->real($from);
+        if (basename($real) === self::$unremovableName) {
+            trigger_error(\sprintf('rename(%s,%s): Operation not permitted', $from, $to), \E_USER_WARNING);
+
+            return false;
+        }
+
         $this->vanishOnChangeTo($real);
         \Safe\rename($real, $this->real($to));
 
@@ -185,7 +207,6 @@ final class VanishingDirectoryStreamWrapper
     {
         $real = $this->real($path);
         if (basename($real) === self::$unremovableName) {
-            self::$unremovableName = null;
             trigger_error(\sprintf('rmdir(%s): Operation not permitted', $path), \E_USER_WARNING);
 
             return false;

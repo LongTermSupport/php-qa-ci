@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Filesystem;
 
+use Closure;
 use InvalidArgumentException;
+use LogicException;
 use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\Tests\Support\VanishingDirectoryStreamWrapper;
@@ -345,7 +347,7 @@ final class TemporaryDirectoryTest extends TestCase
         \Safe\mkdir($leftover . '/nested', 0o700, true);
         \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
         \Safe\touch($leftover, time() - 2 * 3600);
-        \Safe\stream_wrapper_register(VanishingDirectoryStreamWrapper::SCHEME, VanishingDirectoryStreamWrapper::class);
+        $this->registerTheWrapper();
         VanishingDirectoryStreamWrapper::vanishOnChange($leftover);
 
         try {
@@ -356,8 +358,7 @@ final class TemporaryDirectoryTest extends TestCase
             self::assertSame([], $directory->unremovedLeftovers, 'a leftover already gone is not one kept');
             self::assertDirectoryDoesNotExist($leftover);
         } finally {
-            \Safe\stream_wrapper_unregister(VanishingDirectoryStreamWrapper::SCHEME);
-            VanishingDirectoryStreamWrapper::reset();
+            $this->unregisterTheWrapper();
             $parent->remove();
         }
     }
@@ -369,17 +370,22 @@ final class TemporaryDirectoryTest extends TestCase
      * PATH_MAX would do as well, but one a mutant moved out of reach of this test's cleanup would
      * stop every later run on the host, which reaps the temp directory the same way.).
      *
+     * Each leftover is first moved to a fresh staging name, so that only one run removes it; each
+     * one kept is named there.
+     *
      * @param bool $unreadable whether the directory cannot be read, rather than removed
      */
     #[Test]
     #[DataProvider('refusals')]
-    public function aDirectoryBesideATargetKeepsALeftoverItCannotRemoveAndNamesIt(bool $unreadable, string $why): void
+    public function aDirectoryBesideATargetKeepsEachLeftoverItCannotRemoveAndNamesIt(bool $unreadable, string $why): void
     {
-        $parent   = TemporaryDirectory::create(self::PARENT);
-        $leftover = $parent->path . '/' . self::PREFIX . 'stuck';
-        \Safe\mkdir($leftover . '/' . self::HELD, 0o700, true);
-        \Safe\touch($leftover, time() - 2 * 3600);
-        \Safe\stream_wrapper_register(VanishingDirectoryStreamWrapper::SCHEME, VanishingDirectoryStreamWrapper::class);
+        $parent = TemporaryDirectory::create(self::PARENT);
+        foreach (['one', 'two'] as $name) {
+            \Safe\mkdir($parent->path . '/' . self::PREFIX . $name . '/' . self::HELD, 0o700, true);
+            \Safe\touch($parent->path . '/' . self::PREFIX . $name, time() - 2 * 3600);
+        }
+
+        $this->registerTheWrapper();
         if ($unreadable) {
             VanishingDirectoryStreamWrapper::refuseOpenNamed(self::HELD);
         } else {
@@ -390,15 +396,16 @@ final class TemporaryDirectoryTest extends TestCase
             $directory = TemporaryDirectory::besides($this->overTheWrapper($parent->path . '/' . self::TARGET), self::PREFIX);
             $directory->remove();
 
-            self::assertCount(1, $directory->unremovedLeftovers);
-            $kept = array_key_first($directory->unremovedLeftovers);
-            self::assertStringStartsWith($this->overTheWrapper($parent->path . '/' . self::PREFIX), $kept);
-            self::assertDirectoryExists($kept . '/' . self::HELD, 'what could not be removed is still there');
-            self::assertStringContainsString($kept . '/' . self::HELD, $directory->unremovedLeftovers[$kept]);
-            self::assertStringContainsString($why, $directory->unremovedLeftovers[$kept]);
+            self::assertCount(2, $directory->unremovedLeftovers);
+            foreach ($directory->unremovedLeftovers as $kept => $reason) {
+                self::assertSame($this->overTheWrapper($parent->path), \dirname($kept));
+                self::assertMatchesRegularExpression($this->stagingName(), basename($kept), 'moved to a fresh staging name');
+                self::assertDirectoryExists($kept . '/' . self::HELD, 'what could not be removed is still there');
+                self::assertStringContainsString($kept . '/' . self::HELD, $reason);
+                self::assertStringContainsString($why, $reason);
+            }
         } finally {
-            \Safe\stream_wrapper_unregister(VanishingDirectoryStreamWrapper::SCHEME);
-            VanishingDirectoryStreamWrapper::reset();
+            $this->unregisterTheWrapper();
             $parent->remove();
         }
     }
@@ -408,6 +415,61 @@ final class TemporaryDirectoryTest extends TestCase
     {
         yield 'a directory in it that cannot be read' => [true, 'Failed to open directory'];
         yield 'a directory in it that cannot be removed' => [false, 'Operation not permitted'];
+    }
+
+    /** A leftover that cannot even be moved aside is kept under its own name. */
+    #[Test]
+    public function aDirectoryBesideATargetKeepsALeftoverItCannotMoveUnderItsOwnName(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $leftover = $parent->path . '/' . self::PREFIX . 'stuck';
+        \Safe\mkdir($leftover);
+        \Safe\touch($leftover, time() - 2 * 3600);
+        $this->registerTheWrapper();
+        VanishingDirectoryStreamWrapper::refuseRemovalNamed(self::PREFIX . 'stuck');
+
+        try {
+            $directory = TemporaryDirectory::besides($this->overTheWrapper($parent->path . '/' . self::TARGET), self::PREFIX);
+            $directory->remove();
+
+            self::assertSame([$this->overTheWrapper($leftover)], array_keys($directory->unremovedLeftovers));
+            self::assertStringStartsWith('rename(' . $this->overTheWrapper($leftover) . ',', $directory->unremovedLeftovers[$this->overTheWrapper($leftover)]);
+            self::assertStringEndsWith('): Operation not permitted', $directory->unremovedLeftovers[$this->overTheWrapper($leftover)]);
+            self::assertDirectoryExists($leftover);
+        } finally {
+            $this->unregisterTheWrapper();
+            $parent->remove();
+        }
+    }
+
+    /**
+     * Only a filesystem failure is a leftover kept: anything else thrown while one is removed is
+     * not caught, and PHP's warnings are its own again afterwards.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetLetsAnythingButAFilesystemFailurePass(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $leftover = $parent->path . '/' . self::PREFIX . 'killed';
+        \Safe\mkdir($leftover);
+        \Safe\touch($leftover, time() - 2 * 3600);
+        $this->registerTheWrapper();
+        $thrown = new LogicException('not a filesystem failure');
+        VanishingDirectoryStreamWrapper::throwOnRename($thrown);
+
+        try {
+            TemporaryDirectory::besides($this->overTheWrapper($parent->path . '/' . self::TARGET), self::PREFIX);
+            self::fail('what the cleanup threw was caught');
+        } catch (LogicException $logicException) {
+            self::assertSame($thrown, $logicException);
+        } finally {
+            $handler = set_error_handler(static fn (): bool => false);
+            restore_error_handler();
+            $this->unregisterTheWrapper();
+            $parent->remove();
+        }
+
+        self::assertNotInstanceOf(Closure::class, $handler, 'the error handler the cleanup set is restored');
     }
 
     #[Test]
@@ -450,6 +512,17 @@ final class TemporaryDirectoryTest extends TestCase
         $directory->remove();
 
         self::assertDirectoryDoesNotExist($directory->path);
+    }
+
+    private function registerTheWrapper(): void
+    {
+        \Safe\stream_wrapper_register(VanishingDirectoryStreamWrapper::SCHEME, VanishingDirectoryStreamWrapper::class);
+    }
+
+    private function unregisterTheWrapper(): void
+    {
+        \Safe\stream_wrapper_unregister(VanishingDirectoryStreamWrapper::SCHEME);
+        VanishingDirectoryStreamWrapper::reset();
     }
 
     /**

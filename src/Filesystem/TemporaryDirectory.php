@@ -98,7 +98,7 @@ final readonly class TemporaryDirectory
 
         $unremoved = [];
         set_error_handler(static function (int $level, string $message): never {
-            throw new FilesystemException($message, 0, $level);
+            throw new FilesystemException($message, severity: $level);
         });
         try {
             foreach ($candidates as $path) {
