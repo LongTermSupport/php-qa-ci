@@ -114,6 +114,52 @@ final class PhpLintToolTest extends TestCase
     }
 
     /**
+     * parallel-lint drops a trailing slash from an --exclude (SplFileInfo), so it does not
+     * walk an ignored path spelt with one; nor may the lane, or it names a file nobody walks.
+     */
+    #[Test]
+    public function anIgnoredPathWithATrailingSlashIsNotEntered(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('src/Real.php', "<?php\n");
+        $this->factory->project->write('tests/Asset/keep.txt', '');
+        \Safe\symlink('missing-target.php', $root . '/tests/Asset/Ignored.php');
+        $config = $this->factory->builder()->withIgnoredPaths('tests/Asset/')->build();
+
+        $result = new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/tests/Asset/', $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 5),
+        );
+        self::assertSame('', $this->factory->output->fetch());
+    }
+
+    /**
+     * parallel-lint does not collapse a doubled slash in an --exclude, so it walks such an
+     * ignored path, and the lane must still exclude the dangling files it finds there.
+     */
+    #[Test]
+    public function anIgnoredPathParallelLintWouldStillWalkHasItsDanglingFilesExcluded(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('src/Real.php', "<?php\n");
+        $this->factory->project->write('tests/Asset/keep.txt', '');
+        \Safe\symlink('missing-target.php', $root . '/tests/Asset/Ignored.php');
+        $config = $this->factory->builder()->withIgnoredPaths('tests//Asset')->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/tests//Asset', self::EXCLUDE, $root . '/tests/Asset/Ignored.php', $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 5),
+        );
+    }
+
+    /**
      * Once its dangling symlinks are excluded, nothing is left for parallel-lint, which
      * then prints "No file found to check" and exits 254; a skipped file must not fail
      * the lane.
