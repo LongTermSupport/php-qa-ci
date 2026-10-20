@@ -43,6 +43,18 @@ final class PhpLintToolTest extends TestCase
 
     private const string EXCLUDE = '--exclude';
 
+    private const string PHP_FILE = "<?php\n";
+
+    private const string REAL = 'src/Real.php';
+
+    private const string MISSING = 'missing-target.php';
+
+    private const string ASSET_KEEP = 'tests/Asset/keep.txt';
+
+    private const string ASSET_DANGLING = '/tests/Asset/Ignored.php';
+
+    private const string SUB_DIR = 'src/a';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -93,11 +105,11 @@ final class PhpLintToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
         $root = $this->factory->project->path;
-        $this->factory->project->write('src/Real.php', "<?php\n");
-        \Safe\symlink('missing-target.php', $root . '/src/Gone.PHP');
+        $this->factory->project->write(self::REAL, self::PHP_FILE);
+        \Safe\symlink(self::MISSING, $root . '/src/Gone.PHP');
         \Safe\symlink('missing-target.txt', $root . '/src/Gone.txt');
-        $this->factory->project->write('tests/Asset/keep.txt', '');
-        \Safe\symlink('missing-target.php', $root . '/tests/Asset/Ignored.php');
+        $this->factory->project->write(self::ASSET_KEEP, '');
+        \Safe\symlink(self::MISSING, $root . self::ASSET_DANGLING);
         $config = $this->factory->builder()->withIgnoredPaths('tests/Asset')->build();
 
         $result = new PhpLintTool()->run($this->factory->context($config));
@@ -122,9 +134,9 @@ final class PhpLintToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
         $root = $this->factory->project->path;
-        $this->factory->project->write('src/Real.php', "<?php\n");
-        $this->factory->project->write('tests/Asset/keep.txt', '');
-        \Safe\symlink('missing-target.php', $root . '/tests/Asset/Ignored.php');
+        $this->factory->project->write(self::REAL, self::PHP_FILE);
+        $this->factory->project->write(self::ASSET_KEEP, '');
+        \Safe\symlink(self::MISSING, $root . self::ASSET_DANGLING);
         $config = $this->factory->builder()->withIgnoredPaths('tests/Asset/')->build();
 
         $result = new PhpLintTool()->run($this->factory->context($config));
@@ -146,15 +158,15 @@ final class PhpLintToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
         $root = $this->factory->project->path;
-        $this->factory->project->write('src/Real.php', "<?php\n");
-        $this->factory->project->write('tests/Asset/keep.txt', '');
-        \Safe\symlink('missing-target.php', $root . '/tests/Asset/Ignored.php');
+        $this->factory->project->write(self::REAL, self::PHP_FILE);
+        $this->factory->project->write(self::ASSET_KEEP, '');
+        \Safe\symlink(self::MISSING, $root . self::ASSET_DANGLING);
         $config = $this->factory->builder()->withIgnoredPaths('tests//Asset')->build();
 
         new PhpLintTool()->run($this->factory->context($config));
 
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/tests//Asset', self::EXCLUDE, $root . '/tests/Asset/Ignored.php', $root . self::TESTS, $root . self::SRC],
+            ['--', self::EXCLUDE, $root . '/tests//Asset', self::EXCLUDE, $root . self::ASSET_DANGLING, $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 5),
         );
     }
@@ -170,8 +182,8 @@ final class PhpLintToolTest extends TestCase
         $this->factory->processes->willFail(254, 'No file found to check.');
         $root = $this->factory->project->path;
         $this->factory->project->write('src/a/b/notes.txt', '');
-        \Safe\symlink('missing-target.php', $root . '/src/a/b/Deep.PHP');
-        $config = $this->factory->builder(specifiedPath: 'src/a')->build();
+        \Safe\symlink(self::MISSING, $root . '/src/a/b/Deep.PHP');
+        $config = $this->factory->builder(specifiedPath: self::SUB_DIR)->build();
 
         $result = new PhpLintTool()->run($this->factory->context($config));
 
@@ -190,7 +202,7 @@ final class PhpLintToolTest extends TestCase
         $this->factory->processes->willFail(254, 'No file found to check.');
         $root = $this->factory->project->path;
         $this->factory->project->write('src/a/notes.txt', '');
-        $config = $this->factory->builder(specifiedPath: 'src/a')->build();
+        $config = $this->factory->builder(specifiedPath: self::SUB_DIR)->build();
 
         $result = new PhpLintTool()->run($this->factory->context($config));
 
@@ -204,9 +216,9 @@ final class PhpLintToolTest extends TestCase
     {
         $this->factory->processes->willSucceed();
         $root = $this->factory->project->path;
-        $this->factory->project->write('src/a/Real.php', "<?php\n");
-        \Safe\symlink('missing-target.php', $root . '/src/a/Gone.php');
-        $config = $this->factory->builder(specifiedPath: 'src/a')->build();
+        $this->factory->project->write('src/a/Real.php', self::PHP_FILE);
+        \Safe\symlink(self::MISSING, $root . '/src/a/Gone.php');
+        $config = $this->factory->builder(specifiedPath: self::SUB_DIR)->build();
 
         $result = new PhpLintTool()->run($this->factory->context($config));
 
