@@ -30,6 +30,7 @@ The haystack is known to be a path when it is:
   `realpath`, `filepath`, `dir`, `dirname`, `directory`, `workdir`, `cwd`, `folder`, `file` or
   `filename`, or `root` after another word (`$absPathRoot`, `$projectRoot`, `$filePath`, `$rootDir`,
   `$fileName`);
+- either of the last two reached through `?->`, judged by its value when the receiver is not null;
 - a concatenation or an interpolated string that starts with one of these, or a string cast of one;
 - a local variable that every write in the function gives one of these.
 

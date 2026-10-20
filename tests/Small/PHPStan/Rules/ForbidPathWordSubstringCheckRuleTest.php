@@ -30,26 +30,37 @@ final class ForbidPathWordSubstringCheckRuleTest extends RuleTestCase
 
     private const string MAGENTO = 'Magento';
 
+    private const string SHOP = 'shop';
+
     #[Test]
     public function everyWordSearchOfAKnownAbsolutePathIsReported(): void
     {
         $this->analyse(
             [self::FIXTURES . '/Reportable.php'],
             [
-                [$this->message('stripos', '$absPathRoot', self::MAGENTO), 23],
-                [$this->message(self::STR_CONTAINS, '$this->projectRoot', 'drupal'), 28],
-                [$this->message(self::STR_CONTAINS, '$filePath', self::MAGENTO), 33],
-                [$this->message(self::STR_CONTAINS, '__DIR__', 'vendor'), 38],
-                [$this->message('strpos', '(string) getcwd()', 'magento'), 39],
-                [$this->message('stristr', "\\Safe\\realpath('.')", 'Symfony'), 40],
-                [$this->message(self::STR_CONTAINS, "__FILE__ . '/x'", 'Laravel'), 41],
-                [$this->message(self::STR_CONTAINS, '\dirname(__DIR__)', 'wordpress'), 42],
-                [$this->message(self::STR_CONTAINS, '(string) $info->getRealPath()', 'generated'), 47],
-                [$this->message(self::STR_CONTAINS, '$info->getPathname()', 'Generated'), 48],
-                [$this->message(self::STR_CONTAINS, '(string) $class->getFileName()', 'legacy'), 49],
-                [$this->message('strrpos', '$x', 'shop'), 56],
-                [$this->message(self::STR_CONTAINS, "\$this->projectRoot . '/' . \$relative", self::MAGENTO), 61],
-                [$this->message(self::STR_CONTAINS, '$rootDir', self::MAGENTO), 66],
+                [$this->message('stripos', '$absPathRoot', self::MAGENTO), 25],
+                [$this->message(self::STR_CONTAINS, '$this->projectRoot', 'drupal'), 30],
+                [$this->message(self::STR_CONTAINS, '$filePath', self::MAGENTO), 35],
+                [$this->message(self::STR_CONTAINS, '__DIR__', 'vendor'), 40],
+                [$this->message('strpos', '(string) getcwd()', 'magento'), 41],
+                [$this->message('stristr', "\\Safe\\realpath('.')", 'Symfony'), 42],
+                [$this->message(self::STR_CONTAINS, "__FILE__ . '/x'", 'Laravel'), 43],
+                [$this->message(self::STR_CONTAINS, '\dirname(__DIR__)', 'wordpress'), 44],
+                [$this->message(self::STR_CONTAINS, '(string) $info->getRealPath()', 'generated'), 49],
+                [$this->message(self::STR_CONTAINS, '$info->getPathname()', 'Generated'), 50],
+                [$this->message(self::STR_CONTAINS, '(string) $class->getFileName()', 'legacy'), 51],
+                [$this->message('strrpos', '$x', self::SHOP), 58],
+                [$this->message(self::STR_CONTAINS, "\$this->projectRoot . '/' . \$relative", self::MAGENTO), 63],
+                [$this->message(self::STR_CONTAINS, '$rootDir', self::MAGENTO), 68],
+                [$this->message(self::STR_CONTAINS, '"{$this->projectRoot}/app"', self::MAGENTO), 73],
+                [$this->message(self::STR_CONTAINS, '(string) $info?->getPathname()', 'generated'), 78],
+                [$this->message(self::STR_CONTAINS, '(string) $other?->projectRoot', 'drupal'), 79],
+                [$this->message(self::STR_CONTAINS, 'self::$cacheDir', 'phpstan'), 84],
+                [$this->message(self::STR_CONTAINS, '__DIR__', 'vendor'), 89],
+                [$this->message(self::STR_CONTAINS, '$x', self::SHOP), 97],
+                [$this->message(self::STR_CONTAINS, '$x', self::SHOP), 104],
+                [$this->message(self::STR_CONTAINS, '$x', self::SHOP), 111],
+                [$this->message(self::STR_CONTAINS, '$x', self::SHOP), 120],
             ],
         );
     }

@@ -22,6 +22,10 @@ final class Psr4ValidatorTest extends TestCase
 {
     private const string COMPOSER_JSON = '/composer.json';
 
+    private const string SHOP_ROOT = '/srv/shop';
+
+    private const string SHOP_NAME = 'acme/shop';
+
     private const string VALID_PROJECT = __DIR__ . '/../assets/psr4/projectAllValid/';
 
     private const string MISSING_MAGENTO_PATH = 'lib/internal/Magento/Framework/';
@@ -150,14 +154,24 @@ which doesn\'t exist
             false,
         ];
         yield 'a Magento project, by its requirement, under any other path' => [
-            '/srv/shop',
-            ['name' => 'acme/shop', 'require' => ['magento/product-community-edition' => '2.4.7']],
+            self::SHOP_ROOT,
+            ['name' => self::SHOP_NAME, 'require' => ['magento/product-community-edition' => '2.4.7']],
             true,
         ];
         yield 'Magento itself, by its own name' => [
             '/srv/checkout',
             ['name' => 'magento/magento2ce'],
             true,
+        ];
+        yield 'a Magento project, by a requirement written in capitals' => [
+            self::SHOP_ROOT,
+            ['name' => self::SHOP_NAME, 'require' => ['Magento/Framework' => '*']],
+            true,
+        ];
+        yield 'a project requiring another vendor whose name ends in magento' => [
+            self::SHOP_ROOT,
+            ['name' => self::SHOP_NAME, 'require' => ['openmagento/framework' => '*']],
+            false,
         ];
         yield 'a project that only develops against Magento' => [
             '/srv/module',

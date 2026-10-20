@@ -22,6 +22,7 @@ use PhpParser\Node\Scalar\MagicConst\File;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Type\ObjectType;
+use PHPStan\Type\TypeCombinator;
 use ReflectionClass;
 use ReflectionFunctionAbstract;
 use SplFileInfo;
@@ -33,7 +34,7 @@ use SplFileInfo;
  * or tempnam() (or their Safe\ wrappers), SplFileInfo::getRealPath(), getPathname() and getPath(),
  * a reflection's getFileName(), PHPStan's Scope::getFile(), a string variable or property NAMED as a
  * path (see {@see self::isPathName()}), and a concatenation or interpolation that starts with one.
- * A string cast of any of those is one too.
+ * A string cast of any of those is one too, and a nullsafe call or fetch is judged without its null.
  *
  * SplFileInfo::getFilename() is a basename, not a path, and method names are case-insensitive, so
  * a method counts only on the receiver types it is listed for.
@@ -63,6 +64,9 @@ final readonly class AbsolutePathExpression
     /** @var string the last word that says path only after a qualifier: `$projectRoot`, never a bare `$root` */
     private const string ROOT_WORD = 'root';
 
+    /** @var string a word of a name: lower case after any capitals, or capitals alone; underscores separate */
+    private const string WORD = '~[A-Z]*[^A-Z_]+|[A-Z]+~';
+
     /** @var string the namespace prefix of thecodingmachine/safe's wrappers, lower case */
     private const string SAFE_PREFIX = 'safe\\';
 
@@ -82,19 +86,10 @@ final readonly class AbsolutePathExpression
     /** True when the name's last word, or last two run together (`fileName`), split on underscores and case changes, says it holds a path. */
     public function isPathName(string $name): bool
     {
-        $snakeCase = '';
-        $previous  = '_';
-        foreach (str_split($name) as $character) {
-            $snakeCase .= (ctype_upper($character) && !ctype_upper($previous) ? '_' : '') . strtolower($character);
-            $previous = $character;
-        }
-
-        $words = array_values(array_filter(explode('_', $snakeCase), static fn (string $word): bool => '' !== $word));
+        \Safe\preg_match_all(self::WORD, $name, $matches);
+        /** @var array{list<string>} $matches */
+        $words = array_map(strtolower(...), $matches[0]);
         $last  = end($words);
-        if (false === $last) {
-            return false;
-        }
-
         if (self::ROOT_WORD === $last) {
             return \count($words) > 1;
         }
@@ -117,7 +112,7 @@ final readonly class AbsolutePathExpression
             return false;
         }
 
-        $name = strtolower(ltrim($call->name->toString(), '\\'));
+        $name = $call->name->toLowerString();
         if (str_starts_with($name, self::SAFE_PREFIX)) {
             $name = substr($name, \strlen(self::SAFE_PREFIX));
         }
@@ -131,7 +126,7 @@ final readonly class AbsolutePathExpression
             return false;
         }
 
-        $type = $scope->getType($call->var);
+        $type = TypeCombinator::removeNull($scope->getType($call->var));
 
         return array_any(self::PATH_METHODS[$call->name->toLowerString()] ?? [], static fn ($receiver): bool => new ObjectType($receiver)->isSuperTypeOf($type)->yes());
     }
@@ -148,6 +143,6 @@ final readonly class AbsolutePathExpression
             $name = $name->toString();
         }
 
-        return \is_string($name) && $this->isPathName($name) && $scope->getType($expr)->isString()->yes();
+        return \is_string($name) && $this->isPathName($name) && TypeCombinator::removeNull($scope->getType($expr))->isString()->yes();
     }
 }

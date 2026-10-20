@@ -15,8 +15,8 @@ use SplHeap;
 
 final class Psr4Validator
 {
-    /** The Composer vendor prefix of Magento's own packages. */
-    private const string MAGENTO_VENDOR = 'magento/';
+    /** A package of Magento's own Composer vendor, in any case. */
+    private const string MAGENTO_PACKAGE = '~^magento/~i';
 
     /** @var list<string> */
     private array $parseErrors = [];
@@ -178,10 +178,10 @@ final class Psr4Validator
         $require  = $this->decodedComposerJson['require'] ?? null;
         $packages = [
             ...(\is_string($name) ? [$name] : []),
-            ...(\is_array($require) ? array_map(strval(...), array_keys($require)) : []),
+            ...(\is_array($require) ? array_keys($require) : []),
         ];
 
-        return array_any($packages, static fn (string $package): bool => str_starts_with(strtolower($package), self::MAGENTO_VENDOR));
+        return [] !== \Safe\preg_grep(self::MAGENTO_PACKAGE, $packages);
     }
 
     /**

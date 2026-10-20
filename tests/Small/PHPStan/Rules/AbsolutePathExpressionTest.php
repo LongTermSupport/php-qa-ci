@@ -37,6 +37,9 @@ final class AbsolutePathExpressionTest extends TestCase
         yield 'a file path'               => ['filePath', true];
         yield 'a file'                    => ['file', true];
         yield 'a file name'               => ['fileName', true];
+        yield 'a qualified file name'     => ['configFileName', true];
+        yield 'a capitalised path'        => ['CACHE_DIR', true];
+        yield 'an acronym and a path'     => ['URLPath', false];
         yield 'a working directory'       => ['workingDirectory', true];
         yield 'a bare root, often text'   => ['root', false];
         yield 'a root namespace'          => ['rootNamespace', false];

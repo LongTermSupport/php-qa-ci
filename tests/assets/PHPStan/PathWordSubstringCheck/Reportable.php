@@ -14,6 +14,8 @@ final class Reportable
 {
     private const string PLATFORM = 'Magento';
 
+    private static string $cacheDir = '/tmp/cache';
+
     public function __construct(private readonly string $projectRoot)
     {
     }
@@ -64,5 +66,57 @@ final class Reportable
     public function namedArguments(string $rootDir): bool
     {
         return str_contains(needle: 'Magento', haystack: $rootDir);
+    }
+
+    public function interpolationStartingWithAPath(): bool
+    {
+        return str_contains("{$this->projectRoot}/app", 'Magento');
+    }
+
+    public function nullableReceivers(?SplFileInfo $info, ?self $other): bool
+    {
+        return str_contains((string)$info?->getPathname(), 'generated')
+            || str_contains((string)$other?->projectRoot, 'drupal');
+    }
+
+    public function staticProperty(): bool
+    {
+        return str_contains(self::$cacheDir, 'phpstan');
+    }
+
+    public function functionNamesAreCaseInsensitive(): bool
+    {
+        return STR_CONTAINS(__DIR__, 'vendor');
+    }
+
+    public function appendedToStaysAPath(string $relative): bool
+    {
+        $x = \Safe\realpath($relative);
+        $x .= '/app';
+
+        return str_contains($x, 'shop');
+    }
+
+    public function coalesceAssignedAPath(): bool
+    {
+        $x ??= __DIR__;
+
+        return str_contains($x, 'shop');
+    }
+
+    public function closureOverAParameterMadeAPath(string $x): bool
+    {
+        $x = \Safe\realpath($x);
+
+        return (static fn (): bool => str_contains($x, 'shop'))();
+    }
+
+    public function aRetypedLocalDoesNotHideALaterSearch(string $relative): bool
+    {
+        $text = \Safe\realpath($relative);
+        $text = \Safe\file_get_contents($text);
+        $x    = \Safe\realpath($relative);
+
+        return str_contains($text, 'shop') || str_contains($x, 'shop');
     }
 }

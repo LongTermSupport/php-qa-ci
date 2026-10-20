@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Assets\PHPStan\PathWordSubstringCheck;
 
+use Closure;
 use SplFileInfo;
 
 /**
@@ -12,6 +13,8 @@ use SplFileInfo;
  */
 final class NotReportable
 {
+    private const string CONFIG_FILE = 'composer.json';
+
     public function __construct(private readonly string $projectRoot)
     {
     }
@@ -63,5 +66,107 @@ final class NotReportable
     public function nonStringPathName(array $pathParts): bool
     {
         return \in_array('Magento', $pathParts, true);
+    }
+
+    public function aConstantIsALiteralNotAnAbsolutePath(): bool
+    {
+        return str_contains(self::CONFIG_FILE, 'composer');
+    }
+
+    /**
+     * @param Closure(): string $read
+     */
+    public function dynamicCallsAreNotKnownPaths(Closure $read, SplFileInfo $info, string $method): bool
+    {
+        return str_contains($read(), 'Magento') || str_contains($info->{$method}(), 'Magento');
+    }
+
+    public function interpolationStartingWithText(): bool
+    {
+        return str_contains("label {$this->projectRoot}", 'Magento');
+    }
+
+    public function firstClassCallable(): bool
+    {
+        return array_any(['Magento'], str_contains(...));
+    }
+
+    public function parameterSearchedBeforeItIsMadeAPath(string $x): string
+    {
+        if (str_contains($x, 'Magento')) {
+            $x = \Safe\realpath($x);
+        }
+
+        return $x;
+    }
+
+    /** @param array{string, string} $pair */
+    public function destructuredOver(string $relative, array $pair): bool
+    {
+        $x = \Safe\realpath($relative);
+        [$x, $other] = $pair;
+
+        return str_contains($x, 'Magento') || str_contains($other, 'Magento');
+    }
+
+    public function aliasedByReference(string $relative): bool
+    {
+        $x     = \Safe\realpath($relative);
+        $alias = &$x;
+        $alias = 'text';
+
+        return str_contains($x, 'Magento');
+    }
+
+    public function boundToAReference(string $relative, string $text): bool
+    {
+        $x = \Safe\realpath($relative);
+        $x = &$text;
+
+        return str_contains($x, 'Magento');
+    }
+
+    /** @param list<string> $list */
+    public function overwrittenByAForeachValue(string $relative, array $list): bool
+    {
+        $x = \Safe\realpath($relative);
+        foreach ($list as $x) {
+        }
+
+        return str_contains($x, 'Magento');
+    }
+
+    /** @param array<string, string> $map */
+    public function overwrittenByAForeachKey(string $relative, array $map): bool
+    {
+        $x = \Safe\realpath($relative);
+        foreach ($map as $x => $value) {
+        }
+
+        return str_contains($x, 'Magento');
+    }
+
+    public function aStaticKeepsAnEarlierCallsValue(string $relative): bool
+    {
+        static $x;
+        $x = \Safe\realpath($relative);
+
+        return str_contains($x, 'Magento');
+    }
+
+    public function aGlobalIsWrittenElsewhere(string $relative): bool
+    {
+        global $x;
+        $x = \Safe\realpath($relative);
+
+        return str_contains($x, 'Magento');
+    }
+
+    public function anotherCompoundAssignment(string $relative): bool
+    {
+        $x = \Safe\realpath($relative);
+        $x ^= 'mask';
+
+        return str_contains($x, 'Magento');
     }
 }

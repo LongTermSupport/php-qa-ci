@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
-use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\AssignOp;
@@ -92,11 +91,11 @@ final readonly class PathWordSubstringCheckCollector implements Collector
     /** @return array{string|null, int, string, string, string}|null */
     private function search(FuncCall $call, Scope $scope): ?array
     {
-        if (!$call->name instanceof Name) {
+        if (!$call->name instanceof Name || $call->isFirstClassCallable()) {
             return null;
         }
 
-        $function = strtolower(ltrim($call->name->toString(), '\\'));
+        $function = $call->name->toLowerString();
         if (!\in_array($function, self::SEARCH_FUNCTIONS, true)) {
             return null;
         }
@@ -126,11 +125,7 @@ final readonly class PathWordSubstringCheckCollector implements Collector
 
     private function argument(FuncCall $call, int $position, string $name): ?Expr
     {
-        foreach ($call->args as $index => $arg) {
-            if (!$arg instanceof Arg) {
-                return null;
-            }
-
+        foreach ($call->getArgs() as $index => $arg) {
             if ($arg->name instanceof Node\Identifier ? $arg->name->toString() === $name : $index === $position) {
                 return $arg->value;
             }
@@ -173,15 +168,14 @@ final readonly class PathWordSubstringCheckCollector implements Collector
     private function writes(Node $node, Scope $scope): array
     {
         return match (true) {
-            $node instanceof Assign && $node->var instanceof Variable            => $this->named($node->var, $this->paths->isPath($node->expr, $scope)),
-            $node instanceof Assign                                              => $this->variablesIn($node->var),
-            $node instanceof AssignRef                                           => [...$this->variablesIn($node->var), ...$this->variablesIn($node->expr)],
-            $node instanceof AssignOp\Concat                                     => [],
-            $node instanceof AssignOp\Coalesce && $node->var instanceof Variable => $this->named($node->var, $this->paths->isPath($node->expr, $scope)),
-            $node instanceof AssignOp                                            => $this->variablesIn($node->var),
-            $node instanceof Foreach_                                            => $this->variablesIn(...array_filter([$node->keyVar, $node->valueVar])),
-            $node instanceof Static_, $node instanceof Global_                   => $this->variablesIn($node),
-            default                                                              => [],
+            $node instanceof Assign && $node->var instanceof Variable                      => $this->named($node->var, $this->paths->isPath($node->expr, $scope)),
+            $node instanceof Assign                                                        => $this->variablesIn($node->var),
+            $node instanceof AssignOp\Concat                                               => [],
+            $node instanceof AssignOp\Coalesce && $node->var instanceof Variable           => $this->named($node->var, $this->paths->isPath($node->expr, $scope)),
+            $node instanceof AssignOp                                                      => $this->variablesIn($node->var),
+            $node instanceof Foreach_                                                      => $this->variablesIn(...array_filter([$node->keyVar, $node->valueVar])),
+            $node instanceof AssignRef, $node instanceof Static_, $node instanceof Global_ => $this->variablesIn($node),
+            default                                                                        => [],
         };
     }
 
@@ -194,12 +188,10 @@ final readonly class PathWordSubstringCheckCollector implements Collector
     /** @return list<array{string, bool}> each variable named in the nodes, written with something that is not known to be a path */
     private function variablesIn(Node ...$nodes): array
     {
-        $writes = [];
-        foreach (new NodeFinder()->findInstanceOf($nodes, Variable::class) as $variable) {
-            $writes = [...$writes, ...$this->named($variable, false)];
-        }
-
-        return $writes;
+        return array_merge(...array_map(
+            fn (Variable $variable): array => $this->named($variable, false),
+            new NodeFinder()->findInstanceOf($nodes, Variable::class),
+        ));
     }
 
     /** The class and function the scope is in; either part is empty outside one, which is a scope of its own. */
