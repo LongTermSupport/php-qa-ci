@@ -28,7 +28,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 final class ForbidUnisolatedGitProcessRuleTest extends RuleTestCase
 {
     /** Every spelling of a git run the rule reads, isolated and not, in a file under this project's tests/. */
-    private const string FIXTURE =__DIR__ . '/../../../assets/PHPStan/UnisolatedGitProcess/GitCallsTest.php';
+    private const string FIXTURE = __DIR__ . '/../../../assets/PHPStan/UnisolatedGitProcess/GitCallsTest.php';
 
     /** One unisolated git run in a namespace that does not mark it as test code; the call is on line 13. */
     private const string UNISOLATED_GIT = <<<'PHP'
