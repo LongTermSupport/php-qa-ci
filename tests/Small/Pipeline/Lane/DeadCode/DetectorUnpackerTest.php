@@ -90,6 +90,68 @@ final class DetectorUnpackerTest extends TestCase
         );
     }
 
+    /**
+     * A copy without its autoloader (a partial rm, a hand edit, a copied cache) is not reused,
+     * and must not block the rename either: every later run would fail until the cache is deleted.
+     */
+    #[Test]
+    public function anIncompleteCopyIsReplacedByAFreshOne(): void
+    {
+        $target = $this->cache->path . '/' . DetectorUnpacker::DIR . '/' . substr(\Safe\hash_file('sha256', self::PHAR), 0, 16);
+        \Safe\mkdir($target . '/vendor', 0o755, true);
+        \Safe\file_put_contents($target . '/partial', 'left by an interrupted copy');
+
+        $directory = new DetectorUnpacker()->unpack(self::PHAR, $this->cache->path);
+
+        self::assertSame($target, $directory);
+        self::assertFileExists($directory . '/' . DetectorUnpacker::AUTOLOAD);
+        self::assertFileExists($directory . '/' . DetectorUnpacker::RULES_NEON);
+        self::assertFileDoesNotExist($directory . '/partial', 'the incomplete copy is replaced, not merged into');
+        self::assertSame(['.', '..', basename($directory)], \Safe\scandir(\dirname($directory)), 'nothing of the incomplete copy left beside it');
+    }
+
+    /** A file where the copy belongs is replaced the same way. */
+    #[Test]
+    public function aFileWhereTheCopyBelongsIsReplaced(): void
+    {
+        $target = $this->cache->path . '/' . DetectorUnpacker::DIR . '/' . substr(\Safe\hash_file('sha256', self::PHAR), 0, 16);
+        \Safe\mkdir(\dirname($target), 0o755, true);
+        \Safe\file_put_contents($target, 'not a directory');
+
+        $directory = new DetectorUnpacker()->unpack(self::PHAR, $this->cache->path);
+
+        self::assertFileExists($directory . '/' . DetectorUnpacker::AUTOLOAD);
+    }
+
+    /** Each new detector PHAR is a new directory; the copies of earlier PHARs are removed. */
+    #[Test]
+    public function copiesOfOtherPharsAreRemovedWhenUnpacking(): void
+    {
+        $dir = $this->cache->path . '/' . DetectorUnpacker::DIR;
+        \Safe\mkdir($dir . '/0123456789abcdef/vendor', 0o755, true);
+        \Safe\file_put_contents($dir . '/0123456789abcdef/vendor/autoload.php', '<?php');
+        \Safe\mkdir($dir . '/.unpackAbC123/vendor', 0o755, true);
+        \Safe\file_put_contents($dir . '/stray', 'x');
+
+        $directory = new DetectorUnpacker()->unpack(self::PHAR, $this->cache->path);
+
+        self::assertSame(['.', '..', basename($directory)], \Safe\scandir($dir));
+    }
+
+    /** A cache that already holds the current copy is pruned too, so stale copies do not wait for the next PHAR. */
+    #[Test]
+    public function copiesOfOtherPharsAreRemovedWhenTheCurrentCopyIsReused(): void
+    {
+        $unpacker  = new DetectorUnpacker();
+        $directory = $unpacker->unpack(self::PHAR, $this->cache->path);
+        \Safe\file_put_contents($directory . '/marker', 'kept');
+        \Safe\mkdir(\dirname($directory) . '/fedcba9876543210/vendor', 0o755, true);
+
+        self::assertSame($directory, $unpacker->unpack(self::PHAR, $this->cache->path));
+        self::assertFileExists($directory . '/marker', 'the current copy is reused');
+        self::assertSame(['.', '..', basename($directory)], \Safe\scandir(\dirname($directory)));
+    }
+
     #[Test]
     public function aPharThatCannotBeUnpackedLeavesNoStagingDirectoryBehind(): void
     {
