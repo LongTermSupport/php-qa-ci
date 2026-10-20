@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Filesystem;
 
+use SplFileInfo;
+
 /**
  * A file a lane walks to whose real path cannot be resolved: a symlink whose target
  * does not exist, ordinary in a consumer checkout. A tool given one crashes, or fails
@@ -29,13 +31,13 @@ final readonly class UnresolvablePath
     /** A link with no real path; a path that is not there at all is not one. */
     public static function is(string $path): bool
     {
-        return is_link($path) && false === realpath($path);
+        return is_link($path) && false === self::realPath($path);
     }
 
     /** The real path of the directory holding it and its own name, or the path as given when the directory has none. */
     public static function nominal(string $path): string
     {
-        $directory = realpath(\dirname($path));
+        $directory = self::realPath(\dirname($path));
 
         return false === $directory ? $path : $directory . '/' . basename($path);
     }
@@ -73,7 +75,7 @@ final readonly class UnresolvablePath
     private static function relative(string $path, string $projectRoot): string
     {
         $roots = [rtrim($projectRoot, '/') . '/'];
-        $real  = realpath($projectRoot);
+        $real  = self::realPath($projectRoot);
         if (false !== $real) {
             $roots[] = $real . '/';
         }
@@ -85,5 +87,14 @@ final readonly class UnresolvablePath
         }
 
         return $path;
+    }
+
+    /**
+     * The real path, or false where there is none. Asked of SplFileInfo because "none" is
+     * the answer this class exists for, and the Safe library's realpath() throws instead.
+     */
+    private static function realPath(string $path): false|string
+    {
+        return new SplFileInfo($path)->getRealPath();
     }
 }
