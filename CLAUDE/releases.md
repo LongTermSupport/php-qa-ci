@@ -49,7 +49,9 @@ git commit --trailer 'Changelog: none — internal refactor, no behaviour change
 ```
 
 The reason is mandatory and must say why in at least two words: a bare `Changelog: none`, or
-`none — wip`, is refused. Do not use the trailer to skip an entry that is merely tedious: if a
+`none — wip`, is refused. The line must be in the message's final paragraph, beside
+`Co-Authored-By:`: git reads no trailer from a paragraph above it, and the lane fails a branch
+with such a line ([docs/tools/changelog.md](../docs/tools/changelog.md#what-it-checks)). Do not use the trailer to skip an entry that is merely tedious: if a
 consumer's build, output or install can differ, it needs an entry.
 
 ## How a release happens
