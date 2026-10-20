@@ -33,35 +33,40 @@ final readonly class PhpstanJsonRunFailure
             return $crash;
         }
 
-        if (!json_validate($result->stdout)) {
+        $generalErrors = self::generalErrors($result->stdout);
+        if (null === $generalErrors) {
             return self::NO_REPORT_REASON;
         }
-
-        $generalErrors = self::generalErrors($result->stdout);
 
         return [] === $generalErrors ? null : self::GENERAL_ERRORS_REASON . "\n" . implode("\n", $generalErrors);
     }
 
     /**
-     * The entries of the JSON report's `errors` list.
+     * The entries of the JSON report's `errors` list, or null when the output
+     * is not a PHPStan report: an object with a `totals` object and an
+     * `errors` list.
      *
-     * @return list<string>
+     * @return list<string>|null
      */
-    private static function generalErrors(string $stdout): array
+    private static function generalErrors(string $stdout): ?array
     {
+        if (!json_validate($stdout)) {
+            return null;
+        }
+
         $report = \Safe\json_decode($stdout, true);
-        if (!\is_array($report) || !\array_key_exists('errors', $report)) {
-            return [];
+        if (!\is_array($report) || !\is_array($report['totals'] ?? null)) {
+            return null;
         }
 
-        $errors = $report['errors'];
-        if (!\is_array($errors)) {
-            return ["the report's errors entry is not a list: " . get_debug_type($errors)];
+        $errors = $report['errors'] ?? null;
+        if (!\is_array($errors) || !array_is_list($errors)) {
+            return null;
         }
 
-        return array_values(array_map(
+        return array_map(
             static fn (mixed $error): string => \is_string($error) ? $error : get_debug_type($error),
             $errors,
-        ));
+        );
     }
 }
