@@ -74,7 +74,8 @@ final readonly class UnresolvablePath
 
     private static function relative(string $path, string $projectRoot): string
     {
-        $roots = [rtrim($projectRoot, '/') . '/'];
+        $path  = self::tidy($path);
+        $roots = [rtrim(self::tidy($projectRoot), '/') . '/'];
         $real  = self::realPath($projectRoot);
         if (false !== $real) {
             $roots[] = $real . '/';
@@ -84,6 +85,21 @@ final readonly class UnresolvablePath
             if (str_starts_with($path, $root)) {
                 return substr($path, \strlen($root));
             }
+        }
+
+        return $path;
+    }
+
+    /** The path for display, without doubled slashes or `.` segments; `..` is kept, as resolving it needs the filesystem. */
+    private static function tidy(string $path): string
+    {
+        do {
+            $before = $path;
+            $path   = str_replace(['//', '/./'], '/', $path);
+        } while ($before !== $path);
+
+        while (str_starts_with($path, './')) {
+            $path = substr($path, 2);
         }
 
         return $path;
