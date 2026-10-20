@@ -11,6 +11,7 @@ use LTS\PHPQA\ShellCheck\Dto\InstallDecisionDto;
 use LTS\PHPQA\ShellCheck\InstallActionEnum;
 use LTS\PHPQA\ShellCheck\InstallDecider;
 use LTS\PHPQA\ShellCheck\ShellCheckInstaller;
+use LTS\PHPQA\Tests\Support\SecondFilesystem;
 use LTS\PHPQA\Tests\Support\TempDir;
 use Phar;
 use PharData;
@@ -65,7 +66,7 @@ final class ShellCheckInstallerReplacesTheBinaryAtomicallyTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->library = TempDir::createUnder(self::SECOND_FILESYSTEM, 'shellcheck-atomic');
+        $this->library = SecondFilesystem::directory('shellcheck-atomic');
         $this->library->write(ShellCheckBinary::RELATIVE_PATH, self::OLD_BYTES);
         $this->library->write(ShellCheckBinary::VERSION_FILE, self::PINNED . "\n");
     }

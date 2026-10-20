@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Large\Turbo;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\Tests\Support\FakeTurboReleaseSource;
+use LTS\PHPQA\Tests\Support\SecondFilesystem;
 use LTS\PHPQA\Tests\Support\TempDir;
 use LTS\PHPQA\Turbo\Dto\TurboDecisionDto;
 use LTS\PHPQA\Turbo\TurboInstallDecider;
@@ -62,7 +63,7 @@ final class TurboInstallerReplacesTheBinaryAtomicallyTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->library = TempDir::createUnder(self::SECOND_FILESYSTEM, 'turbo-atomic');
+        $this->library = SecondFilesystem::directory('turbo-atomic');
         $this->library->write('phive.xml', \sprintf('<phive><phar name="phpstan" version="^2" installed="%s"/></phive>', self::VERSION));
     }
 
