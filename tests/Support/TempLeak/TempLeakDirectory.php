@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support\TempLeak;
 
-use ErrorException;
 use FilesystemIterator;
 use RuntimeException;
+use Safe\Exceptions\DirException;
+use Safe\Exceptions\FilesystemException;
 use SplFileInfo;
 use UnexpectedValueException;
 
@@ -79,6 +80,11 @@ final class TempLeakDirectory
      * not yet reaped, only keeps a stale directory until a later claim.
      * Without /proc this process does not look alive to itself, and then
      * nothing can be judged dead, so nothing goes.
+     *
+     * A directory that still cannot be removed is named in a WARNING and left,
+     * and the run goes on: this runs before every PHPUnit bootstrap, so a throw
+     * here would kill every later test run until someone removed it by hand.
+     * The warning goes to stdout, as stderr stops Infection's initial test run.
      */
     private static function removeAbandoned(string $shared, int $uid): void
     {
@@ -96,7 +102,11 @@ final class TempLeakDirectory
                 continue;
             }
 
-            self::removeTree($path);
+            try {
+                self::removeTree($path);
+            } catch (DirException|FilesystemException|UnexpectedValueException $exception) {
+                echo 'WARNING: could not remove ', $path, ', left by test process ', $pid, ' which died; the run goes on. Remove it by hand (rm -rf). ', $exception->getMessage(), \PHP_EOL;
+            }
         }
     }
 
@@ -138,20 +148,68 @@ final class TempLeakDirectory
      * Two processes may remove the same directory at once, so whatever has
      * already gone when it is reached was removed by the other one, which is
      * the outcome wanted. A failure on a path still there is real.
+     *
+     * The walk goes one relative step at a time from inside the tree, as
+     * UnremovableTree does, so a tree nested past PATH_MAX, which a killed
+     * test can leave, is removed too.
      */
     private static function removeTree(string $directory): void
     {
-        foreach (self::entriesOf($directory) ?? [] as $path) {
-            if (is_dir($path) && !is_link($path)) {
-                self::removeTree($path);
+        $cwd = \Safe\getcwd();
+        try {
+            if (self::enter($directory)) {
+                self::emptyCurrentDirectory();
+            }
+        } finally {
+            \Safe\chdir($cwd);
+        }
+
+        self::unlessGone($directory, \Safe\rmdir(...));
+    }
+
+    /** Removes everything in the working directory, by names relative to it. */
+    private static function emptyCurrentDirectory(): void
+    {
+        foreach (array_keys(self::entriesOf('.') ?? []) as $name) {
+            if (is_dir($name) && !is_link($name)) {
+                if (self::enter($name)) {
+                    try {
+                        self::emptyCurrentDirectory();
+                    } finally {
+                        \Safe\chdir('..');
+                    }
+                }
+
+                self::unlessGone($name, \Safe\rmdir(...));
 
                 continue;
             }
 
-            self::unlessGone($path, \Safe\unlink(...));
+            self::unlessGone($name, \Safe\unlink(...));
+        }
+    }
+
+    /**
+     * Makes $directory the working directory; false when it has already gone.
+     * The walk returns by '..', so landing anywhere but in the directory the
+     * caller listed (a symlink swapped in for it) stops the walk before it
+     * removes anything there.
+     */
+    private static function enter(string $directory): bool
+    {
+        $listed = [];
+        if (!self::unlessGone($directory, static function (string $path) use (&$listed): void {
+            $listed = \Safe\lstat($path);
+        }) || !self::unlessGone($directory, \Safe\chdir(...))) {
+            return false;
         }
 
-        self::unlessGone($directory, \Safe\rmdir(...));
+        $entered = \Safe\lstat('.');
+        if ($entered['dev'] !== $listed['dev'] || $entered['ino'] !== $listed['ino']) {
+            throw new FilesystemException($directory . ' was replaced while it was being removed');
+        }
+
+        return true;
     }
 
     /**
@@ -176,21 +234,31 @@ final class TempLeakDirectory
         return iterator_to_array($iterator);
     }
 
-    /** @param callable(string): void $remove */
-    private static function unlessGone(string $path, callable $remove): void
+    /**
+     * Applies $operation to $path, with its PHP warning raised as the exception instead.
+     *
+     * @param callable(string): void $operation
+     *
+     * @return bool false when $path had already gone
+     */
+    private static function unlessGone(string $path, callable $operation): bool
     {
         set_error_handler(static function (int $severity, string $message): never {
-            throw new ErrorException($message, 0, $severity);
+            throw new FilesystemException($message, 0, $severity);
         });
         try {
-            $remove($path);
-        } catch (ErrorException $errorException) {
+            $operation($path);
+        } catch (FilesystemException $filesystemException) {
             if (self::stillThere($path)) {
-                throw $errorException;
+                throw $filesystemException;
             }
+
+            return false;
         } finally {
             restore_error_handler();
         }
+
+        return true;
     }
 
     /**

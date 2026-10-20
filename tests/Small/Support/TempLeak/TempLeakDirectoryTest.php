@@ -34,7 +34,6 @@ final class TempLeakDirectoryTest extends TestCase
 
     private const string KEPT = 'kept';
 
-    /** The overflow uid: mapped in no user namespace the tests create. */
     private const int NOBODY = 65534;
 
     #[Test]
@@ -242,8 +241,8 @@ final class TempLeakDirectoryTest extends TestCase
         $dead   = $this->deadPid();
         $locked = $parent->mkdir(self::MARKER . $dead . self::RANDOM . '/locked');
         try {
-            $kept = $parent->write(self::MARKER . $dead . self::RANDOM . '/locked/file', self::KEPT);
-            $parent->write(self::MARKER . $dead . '-89abcdef/file', '');
+            $kept  = $parent->write(self::MARKER . $dead . self::RANDOM . '/locked/file', self::KEPT);
+            $other = $parent->write(self::MARKER . $dead . '-4567cdef/file', '');
             $this->lock($locked);
 
             $process = $this->claimProcess($parent->path, 'echo "the run went on";');
@@ -254,7 +253,7 @@ final class TempLeakDirectoryTest extends TestCase
             self::assertStringContainsString('WARNING: could not remove ' . $parent->path . '/' . self::MARKER . $dead . self::RANDOM, $process->getOutput());
             self::assertStringEndsWith('the run went on', $process->getOutput());
             self::assertFileExists($kept);
-            self::assertDirectoryDoesNotExist($parent->path . '/' . self::MARKER . $dead . '-89abcdef', 'the other dead directories still go');
+            self::assertDirectoryDoesNotExist(\dirname($other), 'the other dead directories still go');
         } finally {
             \Safe\chmod($locked, 0o700);
             $parent->remove();
