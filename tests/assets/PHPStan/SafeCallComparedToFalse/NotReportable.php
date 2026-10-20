@@ -53,4 +53,30 @@ final class NotReportable
     {
         return null === \Safe\realpath($path) || true === \Safe\realpath($path);
     }
+
+    public function aRepeatedCallIsJudgedByItsDeclaredTypeNotItsNarrowedOne(string $json): int
+    {
+        if (false === \Safe\json_decode($json)) {
+            return 0;
+        }
+
+        if (\Safe\json_decode($json) !== false) {
+            return 1;
+        }
+
+        return false === \Safe\json_decode($json) || \Safe\json_decode($json) !== false ? 2 : 3;
+    }
+
+    public function aRepeatedConditionIsJudgedByItsDeclaredTypeNotItsNarrowedOne(string $file): string
+    {
+        if (!\Safe\file_get_contents($file)) {
+            return '';
+        }
+
+        if (\Safe\file_get_contents($file)) {
+            return 'contents';
+        }
+
+        return \Safe\file_get_contents($file) ?: 'empty';
+    }
 }

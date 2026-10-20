@@ -96,4 +96,30 @@ final class Reportable
             break;
         }
     }
+
+    public function errorSuppressed(string $path): string
+    {
+        if (false === @\Safe\realpath($path)) {
+            return 'compared';
+        }
+
+        if (@\Safe\realpath($path)) {
+            return 'condition';
+        }
+
+        return $path;
+    }
+
+    public function errorSuppressedInsideAssignmentAndParentheses(string $path): string
+    {
+        if (false === ($resolved = @\Safe\realpath($path))) {
+            return $path;
+        }
+
+        if (false === @($real = \Safe\realpath($path))) {
+            return $resolved;
+        }
+
+        return ((@\Safe\realpath($path))) ? $real : $path;
+    }
 }

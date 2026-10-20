@@ -49,6 +49,11 @@ final class ForbidSafeCallComparedToFalseRuleTest extends RuleTestCase
                 [$this->conditionMessage('Safe\fopen'), 86],
                 [$condition, 93],
                 [$condition, 95],
+                [$comparison, 102],
+                [$condition, 106],
+                [$comparison, 115],
+                [$comparison, 119],
+                [$condition, 123],
             ],
         );
     }
