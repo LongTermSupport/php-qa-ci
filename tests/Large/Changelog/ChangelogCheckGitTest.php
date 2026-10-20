@@ -123,7 +123,47 @@ final class ChangelogCheckGitTest extends TestCase
         self::assertStringContainsString('    ' . substr($watchedCommit, 0, 12) . ' Changelog: none — misplaced above the trailers', $problem);
         self::assertStringContainsString('    ' . substr($unwatchedCommit, 0, 12) . ' Changelog: none — tests only, misplaced too', $problem);
         self::assertStringContainsString('move each line into the final trailer block', $problem);
+        self::assertStringContainsString('git rebase -i --rebase-merges ', $problem);
         self::assertStringNotContainsString('internal refactor only', $problem);
+    }
+
+    #[Test]
+    public function aChangelogLineInTheSubjectParagraphIsReportedButTheSubjectIsNot(): void
+    {
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// subject paragraph\n", "Tidy the tests\nChangelog: none — tests only, in the subject paragraph");
+        $commit = $this->head();
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// subject prose\n", 'Changelog: file the entry for the fix');
+
+        $problem = $this->onlyProblem();
+
+        self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, in the subject paragraph', $problem);
+        self::assertStringNotContainsString('file the entry', $problem);
+    }
+
+    #[Test]
+    public function aLowerCaseOrSpacedChangelogLineAboveTheBlockIsReported(): void
+    {
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// variants\n", 'Tidy the tests', "changelog: none — lower case, misplaced\nChangelog : none — spaced, misplaced", self::CO_AUTHOR);
+        $commit = $this->head();
+
+        $problem = $this->onlyProblem();
+
+        self::assertStringContainsString('2 "Changelog:" lines in the range are not commit trailers', $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' changelog: none — lower case, misplaced', $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog : none — spaced, misplaced', $problem);
+    }
+
+    #[Test]
+    public function aShorterChangelogLineAboveTheBlockIsTheOneNamed(): void
+    {
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// prefix\n", 'Tidy the tests', 'Changelog: none', "Changelog: none — tests only, placed\n" . self::CO_AUTHOR);
+        $commit = $this->head();
+
+        $problem = $this->onlyProblem();
+
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . " Changelog: none\n", $problem);
+        self::assertStringNotContainsString('tests only, placed', $problem);
     }
 
     #[Test]
@@ -199,6 +239,14 @@ final class ChangelogCheckGitTest extends TestCase
         $this->sandbox->git(self::CHECKOUT, GitSandbox::DEFAULT_BRANCH);
 
         self::assertStringContainsString('no 85.N.N release tag is in this clone', $this->check()->problems[0]);
+    }
+
+    private function onlyProblem(): string
+    {
+        $problems = $this->check()->problems;
+        self::assertCount(1, $problems, implode("\n", $problems));
+
+        return $problems[0];
     }
 
     private function head(): string

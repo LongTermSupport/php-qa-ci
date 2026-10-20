@@ -332,8 +332,9 @@ final class ChangelogCheckTest extends TestCase
         self::assertSame(
             ['1 "Changelog:" line in the range is not a commit trailer: git reads trailers only from a message\'s final paragraph, and this one sits in a paragraph above it:'
             . "\n    0123456789ab Changelog: none — tests only, misplaced"
-            . "\n  Reword each commit (git rebase -i base1) and move each line into the final trailer block, the last"
-            . "\n  paragraph with Co-Authored-By: and the other trailers, with no blank line between them."],
+            . "\n  Reword each commit (git rebase -i --rebase-merges base1, which keeps merges) and"
+            . "\n  move each line into the final trailer block, the last paragraph with Co-Authored-By: and the"
+            . "\n  other trailers, with no blank line between them."],
             $result->problems,
         );
     }

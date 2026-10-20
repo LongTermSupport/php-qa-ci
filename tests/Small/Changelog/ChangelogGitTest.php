@@ -187,16 +187,25 @@ final class ChangelogGitTest extends TestCase
     #[Test]
     public function messagesAreEachCommitsShaBodyAndChangelogTrailersInTheRange(): void
     {
-        $this->processes->willSucceed("sha1\0Body one\n\0Changelog: none — x y\n\0sha2\0\0\0");
+        $this->processes->willSucceed("sha1\0Subject one\n\nBody one\n\0Changelog: none — x y\n\0sha2\0Subject only\n\0\0sha3\0\0\0");
 
         self::assertSame(
             [
-                ['commit' => 'sha1', 'body' => "Body one\n", 'trailers' => "Changelog: none — x y\n"],
+                ['commit' => 'sha1', 'body' => "\nBody one\n", 'trailers' => "Changelog: none — x y\n"],
                 ['commit' => 'sha2', 'body' => '', 'trailers' => ''],
+                ['commit' => 'sha3', 'body' => '', 'trailers' => ''],
             ],
             $this->git->messages(self::BASE),
         );
-        self::assertSame(["git log -z '--format=%H%x00%b%x00%(trailers:key=Changelog,unfold)' abc123..HEAD"], $this->processes->commandLines());
+        self::assertSame(["git log -z '--format=%H%x00%B%x00%(trailers:key=Changelog,unfold)' abc123..HEAD"], $this->processes->commandLines());
+    }
+
+    #[Test]
+    public function theBodyKeepsTheRestOfTheSubjectParagraphAndDropsOnlyTheSubjectLine(): void
+    {
+        $this->processes->willSucceed("sha1\0Changelog: tidy the entry\nChangelog: none — x y\n\0\0");
+
+        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
     }
 
     #[Test]

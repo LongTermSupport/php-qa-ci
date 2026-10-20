@@ -95,11 +95,51 @@ final class ChangelogTrailersTest extends TestCase
     }
 
     #[Test]
-    public function onlyAColumnZeroCaseExactChangelogLineIsJudged(): void
+    public function anIndentedOrMidLineChangelogIsProseAndNotJudged(): void
     {
-        $body = "  Changelog: none — indented prose\nchangelog: lower case prose\nThe Changelog: mid-line\n";
+        $body = "  Changelog: none — indented prose\nThe Changelog: mid-line\n";
 
         self::assertSame([], new ChangelogTrailers()->misplaced($body, ''));
+    }
+
+    #[Test]
+    public function theKeyIsMatchedAsGitMatchesItInAnyCaseWithSpaceBeforeTheColon(): void
+    {
+        $body = "changelog: none — lower case above\nCHANGELOG : none — spaced above\n\nCo-Authored-By: X <x@example.invalid>\n";
+
+        self::assertSame(['changelog: none — lower case above', 'CHANGELOG : none — spaced above'], new ChangelogTrailers()->misplaced($body, ''));
+    }
+
+    #[Test]
+    public function aLowerCaseOrSpacedLineGitReadsAsATrailerIsNotMisplaced(): void
+    {
+        $body = "Why.\n\nchangelog : none — tests only\nCo-Authored-By: X <x@example.invalid>\n";
+
+        self::assertSame([], new ChangelogTrailers()->misplaced($body, "changelog: none — tests only\n"));
+    }
+
+    #[Test]
+    public function aShorterLineAboveTheBlockIsTheOneNamedNotTheFullLineInIt(): void
+    {
+        $body = "Changelog: none\n\n" . self::TRAILER_LINE . "Co-Authored-By: X <x@example.invalid>\n";
+
+        self::assertSame(['Changelog: none'], new ChangelogTrailers()->misplaced($body, self::TRAILER_LINE));
+    }
+
+    #[Test]
+    public function aBareKeyAboveTheBlockIsTheOneNamedNotTheLineInIt(): void
+    {
+        $body = "Changelog:\n\n" . self::TRAILER_LINE;
+
+        self::assertSame(['Changelog:'], new ChangelogTrailers()->misplaced($body, self::TRAILER_LINE));
+    }
+
+    #[Test]
+    public function aLineInsideAFencedBlockInTheBodyIsMisplaced(): void
+    {
+        $body = "For example:\n\n```\n" . self::TRAILER_LINE . "```\n\nCo-Authored-By: X <x@example.invalid>\n";
+
+        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, ''));
     }
 
     #[Test]
