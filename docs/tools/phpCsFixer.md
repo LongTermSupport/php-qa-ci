@@ -27,14 +27,16 @@ order, and fails when a read-only check still has a change to make.
 
 ## How it runs
 
-One process over the committed `vendor-phar/php-cs-fixer.phar`, from the project root:
+One process over the committed `vendor-phar/php-cs-fixer.phar`, from the project root, or two
+in a writable run that changed a file (see [the cache](#the-cache)):
 
 ```
 fix --config=<php_cs.php> <cache option> --allow-risky=yes \
     --show-progress=dots --path-mode=intersection -vvv [--dry-run] <checked paths>
 ```
 
-The process output is streamed and also written to `var/qa/php-cs-fixer-output.log`.
+The output is streamed and also written to `var/qa/php-cs-fixer-output.log`, both passes' output
+when there are two.
 
 ### The cache
 
