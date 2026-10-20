@@ -1,6 +1,6 @@
 # Plan 00024: mago alongside phpstan
 
-**Status**: In Progress
+**Status**: Cancelled — shelved until Mago 2.0 (DECISIONS.md D13); revisit tracked by #208, blocked on [carthage-software/mago#1931](https://github.com/carthage-software/mago/issues/1931)
 **Created**: 2026-10-19
 **Owner**: dev
 **Priority**: Medium
@@ -60,8 +60,8 @@ recorded there.
 - [x] ✅ **Task 0.3**: Measure per-file `qa -t phpstan -p {file}` after a real edit, warm and cold, and with the run lock held by a full run (exit 75), against the daemon's 15-second command limit. About 5.4 s warm, within 15 s but over the 5 s criterion; the setup cost is [#219](https://github.com/LongTermSupport/php-qa-ci/issues/219).
 - [x] ✅ **Task 0.4**: For install-time delivery (D6 ruling): establish where Mago publishes per-release sha256 digests, whether GitHub attestation can be verified without shelling out (or only by `gh attestation verify` in the workflow), and how a Composer install hook can fetch it without network access becoming a silent skip. Release API `digest`; attestation in the update workflow; Turbo's installer is the model.
 - [x] ✅ **Task 0.5**: Classify the 211 analyser disagreements by code into: both-accept code fix, Mago false positive, contradiction (C1 class); output feeds D4 and the corpus.
-- [ ] 🔄 **Task 0.6**: Present DECISIONS.md D1–D12 to the Owner and record the rulings there (D1 and D6 ruled; the rest open).
-- [ ] 🔄 **Task 0.7**: Segfault policy for the Mago crash found in Task 0.2 (C18): halt, debug, file, defend. Halted and debugged to a minimal reproduction (UPSTREAM-DRAFTS.md U1, present in 1.58.2); filing awaits D12; the defence is I7 and C18, built in Phase 3. No Mago pin is taken and no Mago-running phase starts until U1 is filed.
+- [ ] ⬜ **Task 0.6**: Present DECISIONS.md D1–D12 to the Owner and record the rulings there. D1, D6 and D13 (shelve) ruled; the rest lapsed with the plan, to be re-presented against Mago 2.0.
+- [ ] ⬜ **Task 0.7**: Segfault policy for the Mago crash found in Task 0.2 (C18): halt, debug, file, defend. Halted and debugged to a minimal reproduction (UPSTREAM-DRAFTS.md U1, present in 1.58.2). Not filed: with Mago not adopted, filing waits for the 2.0 revisit, where the probe is re-run first. No Mago pin is taken and no Mago-running phase starts until U1 is resolved.
 
 ### Phase 1: Suppression defence (before Mago is enabled anywhere)
 
@@ -117,5 +117,7 @@ recorded there.
 
 - Plan created; research report filed in `subagent-reports/`.
 - Phase 0 facts gathered (Tasks 0.1–0.5); the `subagent-reports/261019-phase0-*.md` reports are
-  the evidence. A Mago segfault was found and debugged (Task 0.7); everything past Phase 0 now
-  waits on the open decisions in DECISIONS.md, D12 first.
+  the evidence. A Mago segfault was found and debugged (Task 0.7).
+- Shelved by the Owner (D13): cancelled until Mago 2.0 is released. DECISIONS.md "Shelving facts"
+  records why and "Revisit when Mago 2.0 is released" the first steps back in. Phases 1–6 were
+  never started.
