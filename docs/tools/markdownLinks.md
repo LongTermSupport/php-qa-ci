@@ -25,6 +25,11 @@ tree navigable and catches a doc that was moved without its references being upd
   has nothing to stand on.
 - GitHub URLs are skipped when no `GH_TOKEN` / `GITHUB_TOKEN` is set, since a private repository
   answers 404 anonymously and cannot be told from a dead link.
+- A file under `docs/` whose real path cannot be resolved, such as a dangling symlink, is not
+  read; it used to stop the lane without naming it
+  ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)). The lane prints
+  `Markdown links skipped <path>: its real path cannot be resolved ...` for each one, and a
+  skipped file does not fail the lane.
 
 ## How to fix a failure
 
