@@ -31,14 +31,15 @@ whole project and reports nothing.
 
 That is a silent failure. The run is green, and the defence the rule provides is absent in exactly
 the environments nobody inspects. A namespace check has the same shape:
-`str_contains($namespace, 'Tests')` holds for `App\Contests\Entry`, so production code in such a
+`str_contains($namespace, 'Tests')` holds for `App\TestsHelper\Entry`, so production code in such a
 namespace is treated as test code too.
 
 ## The correct construction
 
 Inject `TestCodeDetector` and ask it. It is wired from PHPStan's `%currentWorkingDirectory%`, which
 PHPStan sets to the analysed project's root, so a file is test code when it is under
-`<project root>/tests/`, and a namespace is test code when one of its segments is exactly `Tests`:
+`<project root>/tests/`, and a namespace is test code when one of its segments ends with `Tests`,
+case-sensitively (`App\Tests`, `App\FunctionalTests`; not `App\TestsHelper` or `App\Contests`):
 
 ```php
 public function __construct(

@@ -108,16 +108,29 @@ final class ForbidNewDateTimeRuleTest extends TestCase
         self::assertCount(1, $errors);
     }
 
-    /** `Contests` contains the word `Tests` but is not a test namespace. */
+    /** `TestsHelper` contains `Tests` but no segment ends with it, and `Contests` ends in lower-case `tests`. */
     #[Test]
-    public function newDateTimeInAContestsNamespaceIsFlagged(): void
+    public function newDateTimeInANamespaceThatOnlyContainsTheWordIsFlagged(): void
+    {
+        foreach (['App\TestsHelper\Service', 'App\Contests\Service'] as $namespace) {
+            $errors = $this->rule->processNode(
+                new New_(new Name(self::DATE_TIME)),
+                $this->scope($namespace, self::SERVICE_FOO_PHP, self::DATE_TIME),
+            );
+
+            self::assertCount(1, $errors, $namespace);
+        }
+    }
+
+    #[Test]
+    public function newDateTimeInANamespaceSegmentEndingInTestsIsSkipped(): void
     {
         $errors = $this->rule->processNode(
             new New_(new Name(self::DATE_TIME)),
-            $this->scope('App\Contests\Service', self::SERVICE_FOO_PHP, self::DATE_TIME),
+            $this->scope('App\FunctionalTests\Service', self::SERVICE_FOO_PHP, self::DATE_TIME),
         );
 
-        self::assertCount(1, $errors);
+        self::assertSame([], $errors);
     }
 
     #[Test]

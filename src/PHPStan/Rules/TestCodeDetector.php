@@ -10,7 +10,7 @@ namespace LTS\PHPQA\PHPStan\Rules;
  * Shared by every rule that exempts test code, so they hold one definition, anchored on the
  * analysed project's root rather than on a substring of an absolute path. A bare `/tests/`
  * substring holds for every file of a checkout that itself sits under a directory named
- * `tests`, and `str_contains($namespace, 'Tests')` holds for `App\Contests`; either turns
+ * `tests`, and `str_contains($namespace, 'Tests')` holds for `App\TestsHelper`; either turns
  * production code into test code and silences the rule over it.
  *
  * PHPStan sets its current working directory to the analysed project root, so
@@ -30,11 +30,12 @@ final readonly class TestCodeDetector
 
     /**
      * Test code is a file under `<project root>/tests/`, or a namespace one of whose
-     * `\`-separated segments is exactly `Tests`.
+     * `\`-separated segments ends with `Tests`, case-sensitively (`Tests`, `FunctionalTests`;
+     * not `Contests` or `TestsHelper`).
      */
     public function isTestCode(string $fileName, ?string $namespace): bool
     {
-        if (null !== $namespace && \in_array(self::TESTS_SEGMENT, explode('\\', $namespace), true)) {
+        if (null !== $namespace && array_any(explode('\\', $namespace), static fn (string $segment): bool => str_ends_with($segment, self::TESTS_SEGMENT))) {
             return true;
         }
 

@@ -6,7 +6,8 @@
 
 Test code that runs git gives the process an environment that sets `GIT_CONFIG_GLOBAL` and
 `GIT_CONFIG_NOSYSTEM`, and PHPStan must be able to see both keys in it. Reported, in a namespace
-with a `Tests` segment (`App\Tests\Git`, not `App\Contests`) or a file under the project's own
+with a segment ending in `Tests` (`App\Tests\Git`, `App\FunctionalTests`; not `App\TestsHelper`
+or `App\Contests`) or a file under the project's own
 `tests/` directory (a directory named `tests` above the project root does not count):
 
 - `new Process([...])` (Symfony) whose first command element is `git` or a path ending in `/git`,

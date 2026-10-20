@@ -113,9 +113,7 @@ final class ForbidUnisolatedGitProcessRuleTest extends RuleTestCase
     #[Test]
     public function aFileInATestsNamespaceIsTestCode(): void
     {
-        $inTests = str_replace('namespace App\Git;', 'namespace App\Tests\Git;', self::UNISOLATED_GIT);
-
-        $this->analyse([$this->project->write(self::PRODUCTION_FILE, $inTests)], [[ForbidUnisolatedGitProcessRule::MESSAGE, 13]]);
+        $this->analyse([$this->project->write(self::PRODUCTION_FILE, $this->inNamespace('App\Tests\Git'))], [[ForbidUnisolatedGitProcessRule::MESSAGE, 13]]);
     }
 
     /** The checkout itself sits under a directory named tests: its production code is not test code. */
@@ -128,17 +126,35 @@ final class ForbidUnisolatedGitProcessRuleTest extends RuleTestCase
         $this->analyse([$checkout->write(self::PRODUCTION_FILE, self::UNISOLATED_GIT)], []);
     }
 
-    /** `Contests` contains the word `Tests` but is not a test namespace. */
+    /** `TestsHelper` contains `Tests` but no segment ends with it. */
+    #[Test]
+    public function aNamespaceThatOnlyContainsTheWordIsNotTestCode(): void
+    {
+        $this->analyse([$this->project->write(self::PRODUCTION_FILE, $this->inNamespace('App\TestsHelper\Git'))], []);
+    }
+
+    /** `Contests` ends in lower-case `tests`, which the case-sensitive match does not take. */
     #[Test]
     public function aContestsNamespaceIsNotTestCode(): void
     {
-        $inContests = str_replace('namespace App\Git;', 'namespace App\Contests\Git;', self::UNISOLATED_GIT);
+        $this->analyse([$this->project->write(self::PRODUCTION_FILE, $this->inNamespace('App\Contests\Git'))], []);
+    }
 
-        $this->analyse([$this->project->write(self::PRODUCTION_FILE, $inContests)], []);
+    /** A segment ending in `Tests`, such as `FunctionalTests`, is a test namespace. */
+    #[Test]
+    public function aFunctionalTestsNamespaceIsTestCode(): void
+    {
+        $this->analyse([$this->project->write(self::PRODUCTION_FILE, $this->inNamespace('App\FunctionalTests\Git'))], [[ForbidUnisolatedGitProcessRule::MESSAGE, 13]]);
     }
 
     protected function getRule(): Rule
     {
         return new ForbidUnisolatedGitProcessRule(new TestCodeDetector($this->root));
+    }
+
+    /** The unisolated git run, declared in the given namespace instead of `App\Git`. */
+    private function inNamespace(string $namespace): string
+    {
+        return str_replace('namespace App\Git;', 'namespace ' . $namespace . ';', self::UNISOLATED_GIT);
     }
 }

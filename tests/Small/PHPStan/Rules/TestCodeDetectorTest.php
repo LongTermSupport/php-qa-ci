@@ -57,18 +57,18 @@ final class TestCodeDetectorTest extends TestCase
     }
 
     #[Test]
-    public function aNamespaceWithATestsSegmentIsTestCode(): void
+    public function aNamespaceWithASegmentEndingInTestsIsTestCode(): void
     {
-        foreach (['App\Tests\Service', 'Tests', 'Tests\Unit', 'LTS\PHPQA\Tests'] as $namespace) {
+        foreach (['App\Tests', 'App\Tests\Service', 'Tests', 'Tests\Unit', 'LTS\PHPQA\Tests', 'App\FunctionalTests', 'Vendor\Pkg\IntegrationTests'] as $namespace) {
             self::assertTrue($this->detector->isTestCode(self::ROOT . '/src/Foo.php', $namespace), $namespace);
         }
     }
 
-    /** `Contests` and `TestsHelper` contain the word but have no segment that is it. */
+    /** The match is case-sensitive and at a segment's end: `Contests` ends in lower-case `tests`, `TestsHelper` only starts with it. */
     #[Test]
-    public function aNamespaceThatOnlyContainsTheWordIsNotTestCode(): void
+    public function aNamespaceWithNoSegmentEndingInTestsIsNotTestCode(): void
     {
-        foreach (['App\Contests\Entry', 'App\TestsHelper', 'App\Test', 'App\Unittests'] as $namespace) {
+        foreach (['App\Contests', 'App\Contests\Entry', 'App\TestsHelper', 'App\Test', 'App\Unittests'] as $namespace) {
             self::assertFalse($this->detector->isTestCode(self::ROOT . '/src/Foo.php', $namespace), $namespace);
         }
     }

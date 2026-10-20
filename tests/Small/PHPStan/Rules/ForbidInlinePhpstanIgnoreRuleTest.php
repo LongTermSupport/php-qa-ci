@@ -127,13 +127,23 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
         self::assertCount(1, $rule->processNode($node, $this->scope(self::APP_SERVICE, '/home/ci/tests/app/src/Service/Foo.php')));
     }
 
-    /** `Contests` contains the word `Tests` but is not a test namespace. */
+    /** `TestsHelper` contains `Tests` but no segment ends with it, and `Contests` ends in lower-case `tests`. */
     #[Test]
-    public function suppressionInAContestsNamespaceIsFlagged(): void
+    public function suppressionInANamespaceThatOnlyContainsTheWordIsFlagged(): void
     {
         $node = $this->stmtWithComment(self::SUPPRESSION, 5);
 
-        self::assertCount(1, $this->rule->processNode($node, $this->scope('App\Contests\Service', self::SERVICE_FOO_PHP)));
+        foreach (['App\TestsHelper\Service', 'App\Contests\Service'] as $namespace) {
+            self::assertCount(1, $this->rule->processNode($node, $this->scope($namespace, self::SERVICE_FOO_PHP)), $namespace);
+        }
+    }
+
+    #[Test]
+    public function suppressionInANamespaceSegmentEndingInTestsIsSkipped(): void
+    {
+        $node = $this->stmtWithComment(self::SUPPRESSION, 5);
+
+        self::assertSame([], $this->rule->processNode($node, $this->scope('App\FunctionalTests\Service', self::SERVICE_FOO_PHP)));
     }
 
     #[Test]
