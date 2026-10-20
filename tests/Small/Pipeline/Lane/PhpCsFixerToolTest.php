@@ -46,6 +46,14 @@ final class PhpCsFixerToolTest extends TestCase
 {
     private const string LINT_ERROR_LINE = "Files that were not fixed due to errors:\n   1) src/Broken.php\n";
 
+    private const string NO_CACHE = '--using-cache=no';
+
+    private const string OUTPUT_LOG = 'var/qa/php-cs-fixer-output.log';
+
+    private const string NOTHING_FIXED = "Fixed 0 of 3 files in 0.010 seconds\n";
+
+    private const string ONE_FIXED = "   1) src/A.php (heredoc_indentation)\n\nFixed 1 of 3 files in 0.010 seconds\n";
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -68,23 +76,73 @@ final class PhpCsFixerToolTest extends TestCase
 
         self::assertTrue($result->isSuccess());
         self::assertCount(1, $this->factory->processes->specs, 'the fixer, no version probe');
-        self::assertSame([...$this->expectedArgs($context), '--dry-run', ...$context->config->pathsToCheck], $this->toolArgs());
+        self::assertSame([...$this->expectedArgs($context, self::NO_CACHE), '--dry-run', ...$context->config->pathsToCheck], $this->toolArgs());
         self::assertSame($context->config->paths->projectRoot, $this->factory->processes->lastSpec()->cwd);
         self::assertContains($context->config->paths->pharDir . '/php-cs-fixer.phar', $this->factory->processes->lastSpec()->command);
         self::assertStringContainsString('Running PHP CS Fixer in read-only check mode', $this->factory->output->fetch());
     }
 
     #[Test]
-    public function aWritableRunOmitsDryRun(): void
+    public function aWritableRunThatFixedNothingRunsOnceWithTheCacheAndNoDryRun(): void
     {
-        $this->factory->processes->willSucceed();
+        $this->factory->processes->willSucceed(self::NOTHING_FIXED);
         $context = $this->context(readOnly: false);
 
         $result = new PhpCsFixerTool()->run($context);
 
         self::assertTrue($result->isSuccess());
-        self::assertSame([...$this->expectedArgs($context), ...$context->config->pathsToCheck], $this->toolArgs());
+        self::assertCount(1, $this->factory->processes->specs);
+        self::assertSame([...$this->expectedArgs($context, $this->cacheFile($context)), ...$context->config->pathsToCheck], $this->toolArgs());
         self::assertStringNotContainsString('read-only check mode', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aWritableRunThatFixedAFileRunsAgainWithoutTheCache(): void
+    {
+        $this->factory->processes->willSucceed(self::ONE_FIXED)->willSucceed(self::NOTHING_FIXED);
+        $context = $this->context(readOnly: false);
+
+        $result = new PhpCsFixerTool()->run($context);
+
+        self::assertTrue($result->isSuccess());
+        self::assertCount(2, $this->factory->processes->specs);
+        self::assertSame([...$this->expectedArgs($context, $this->cacheFile($context)), ...$context->config->pathsToCheck], $this->toolArgs(0));
+        self::assertSame([...$this->expectedArgs($context, self::NO_CACHE), ...$context->config->pathsToCheck], $this->toolArgs(1));
+        self::assertStringContainsString('running it again without the cache', $this->factory->output->fetch());
+        self::assertSame(self::ONE_FIXED . self::NOTHING_FIXED, $this->factory->project->read(self::OUTPUT_LOG));
+    }
+
+    #[Test]
+    public function aWritableRunWhoseOutputHasNoSummaryRunsAgainWithoutTheCache(): void
+    {
+        $this->factory->processes->willSucceed()->willSucceed(self::NOTHING_FIXED);
+        $context = $this->context(readOnly: false);
+
+        new PhpCsFixerTool()->run($context);
+
+        self::assertCount(2, $this->factory->processes->specs);
+        self::assertContains(self::NO_CACHE, $this->toolArgs(1));
+    }
+
+    #[Test]
+    public function aFailedUncachedPassFailsTheWritableRun(): void
+    {
+        $this->factory->processes->willSucceed(self::ONE_FIXED)->willFail(1);
+
+        $result = new PhpCsFixerTool()->run($this->context(readOnly: false));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('PHP CS Fixer failed (exit 1)', $result->summary);
+    }
+
+    #[Test]
+    public function aLintErrorInTheUncachedPassCrashesTheWritableRun(): void
+    {
+        $this->factory->processes->willSucceed(self::ONE_FIXED)->willFail(8, self::LINT_ERROR_LINE);
+
+        $result = new PhpCsFixerTool()->run($this->context(readOnly: false));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
     }
 
     #[Test]
@@ -94,7 +152,7 @@ final class PhpCsFixerToolTest extends TestCase
 
         new PhpCsFixerTool()->run($this->context(readOnly: true));
 
-        self::assertSame("Fixed 0 of 3 files\n", $this->factory->project->read('var/qa/php-cs-fixer-output.log'));
+        self::assertSame("Fixed 0 of 3 files\n", $this->factory->project->read(self::OUTPUT_LOG));
     }
 
     #[Test]
@@ -151,7 +209,7 @@ final class PhpCsFixerToolTest extends TestCase
         self::assertStringContainsString('ERROR: PHP CS Fixer encountered linting errors that prevented checking files', $printed);
         self::assertStringContainsString('These errors must be fixed before continuing', $printed);
         self::assertStringContainsString(PhpCsFixerTool::IDENTIFIER, $printed);
-        self::assertStringContainsString(self::LINT_ERROR_LINE, $this->factory->project->read('var/qa/php-cs-fixer-output.log'));
+        self::assertStringContainsString(self::LINT_ERROR_LINE, $this->factory->project->read(self::OUTPUT_LOG));
     }
 
     #[Test]
@@ -181,7 +239,7 @@ final class PhpCsFixerToolTest extends TestCase
             new IgnoredPathsConfig()->source($context->configPath('php_cs.php'), IgnoredPaths::of($config)),
             \Safe\file_get_contents($wrapper),
         );
-        self::assertSame([...\array_slice($this->expectedArgs($context), 1), '--dry-run', ...$config->pathsToCheck], \array_slice($this->toolArgs(), 1));
+        self::assertSame([...\array_slice($this->expectedArgs($context, self::NO_CACHE), 1), '--dry-run', ...$config->pathsToCheck], \array_slice($this->toolArgs(), 1));
     }
 
     #[Test]
@@ -198,22 +256,32 @@ final class PhpCsFixerToolTest extends TestCase
         return $this->factory->context($this->factory->builder(readOnly: $readOnly)->build());
     }
 
-    /** @return list<string> the argv after the `--` separator, i.e. what the fixer itself sees */
-    private function toolArgs(): array
+    /**
+     * @param int|null $index which process, in the order run; the last when null
+     *
+     * @return list<string> the argv after the `--` separator, i.e. what the fixer itself sees
+     */
+    private function toolArgs(?int $index = null): array
     {
-        $command   = $this->factory->processes->lastSpec()->command;
+        $spec      = null === $index ? $this->factory->processes->lastSpec() : $this->factory->processes->specs[$index];
+        $command   = $spec->command;
         $separator = array_search('--', $command, true);
         self::assertIsInt($separator);
 
         return \array_slice($command, $separator + 1);
     }
 
+    private function cacheFile(ToolContext $context): string
+    {
+        return '--cache-file=' . $context->config->paths->varDir . '/cache/php_cs.cache';
+    }
+
     /** @return list<string> the fixed leading options, before the optional --dry-run and the paths */
-    private function expectedArgs(ToolContext $context): array
+    private function expectedArgs(ToolContext $context, string $cache): array
     {
         return [
             '--config=' . $context->configPath('php_cs.php'),
-            '--cache-file=' . $context->config->paths->varDir . '/cache/php_cs.cache',
+            $cache,
             '--allow-risky=yes',
             '--show-progress=dots',
             '--path-mode=intersection',
