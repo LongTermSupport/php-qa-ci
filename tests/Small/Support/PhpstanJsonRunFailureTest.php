@@ -72,6 +72,13 @@ final class PhpstanJsonRunFailureTest extends TestCase
         yield 'empty' => [''];
         yield 'not JSON' => ['PHP Fatal error: something went wrong'];
         yield 'truncated' => ['{"totals":{"errors":0,"file_errors":0},"files":'];
+        yield 'an empty list' => ['[]'];
+        yield 'a string' => ['"x"'];
+        yield 'null' => ['null'];
+        yield 'a number' => ['0'];
+        yield 'an empty object' => ['{}'];
+        yield 'no errors key' => ['{"totals":{"errors":0,"file_errors":0},"files":[]}'];
+        yield 'no totals key' => ['{"errors":[]}'];
     }
 
     private function captured(string $file, string $stderr): ProcessResultDto
