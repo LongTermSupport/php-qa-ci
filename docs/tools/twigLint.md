@@ -15,7 +15,8 @@ turns that runtime error into a build failure.
 
 - Only on a Symfony project (detected via `symfony.lock`); on any other platform the lane is
   skipped before doing anything.
-- In the full pipeline, in the linting phase with the other Symfony lanes.
+- In the full pipeline, at the end of the linting phase: it is the only platform lane, appended
+  after the shipped linting lanes (see [Platform Detection](../platform-detection.md)).
 - It is a platform lane, so it has no `-t` token and runs only as part of the full pipeline or
   the linting phase (`vendor/bin/qa -t allLints`).
 - The lane first lists the console's commands (`bin/console`, output captured) and skips with

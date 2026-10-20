@@ -47,6 +47,10 @@ time on one host would otherwise clear each other's `/tmp/rector_cached_files`.
 - **Writable run**: changes are applied. Any non-zero exit fails the lane, and an interactive run
   offers a retry. After every pass succeeds the writable advisory is printed.
 - A missing `vendor-phar/rector.phar` crashes the lane before any pass runs.
+- The `Safe` pass needs `thecodingmachine/safe` (or `shish/safe`) in `composer.json`'s
+  `require`, not `require-dev`: the code it writes calls `\Safe\*` functions at run time. The
+  shipped `rector-safe.php` checks this before converting anything and otherwise stops the pass
+  with the `composer require` that fixes it.
 
 ### A writable run repeats until nothing changes
 

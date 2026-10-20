@@ -466,7 +466,7 @@ PHP-QA-CI registers three Composer plugins (`composer.json` `extra.class`):
 Comprehensive documentation is available in the [./docs](./docs) folder:
 
 - **[Pipeline Architecture](./docs/pipeline.md)** -- Tool execution order and phases
-- **[Tools Overview](./docs/phpqa-tools.md)** -- All tools with configuration details
+- **[The tools](./docs/pipeline.md#3-qa-tools-four-phases)** -- What each phase is for; `vendor/bin/qa -h` lists every tool in pipeline order, and the [identifier index](./docs/phpstan-rules/README.md#pipeline-lanes) links each lane's page under [docs/tools/](./docs/tools/)
 - **[Configuration](./docs/configuration.md)** -- Customizing tool settings and overrides
 - **[Extending the Pipeline](./docs/extending-the-pipeline.md)** -- Adding your own tools and phases from `qaConfig/pipeline.php`
 - **[Agent Mode](./docs/agent-mode.md)** -- `--agent-mode` / `PHPQACI_AGENT_MODE`: terse stdout plus a per-file JSON report, for a linting hook that feeds an agent
