@@ -123,6 +123,21 @@ final class PhpCsFixerToolCacheTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, new PhpCsFixerTool()->run($this->context(true, $readOnly))->outcome, $readOnly->fetch());
     }
 
+    #[Test]
+    public function aCacheRecordingAnUnsettledFileDoesNotOutliveTheReadOnlyRunThatFailsIt(): void
+    {
+        $this->fixCached();
+        self::assertSame(self::CLEAN, $this->cachedVerdict(), 'precondition: the cache records the once-fixed heredoc as clean');
+
+        $readOnly = new BufferedOutput();
+        self::assertSame(ToolOutcomeEnum::Failed, new PhpCsFixerTool()->run($this->context(true, $readOnly))->outcome, $readOnly->fetch());
+
+        $writable = new BufferedOutput();
+        new PhpCsFixerTool()->run($this->context(false, $writable));
+
+        self::assertSame(self::CLEAN, $this->uncachedVerdict(), "the writable run the read-only failure asks for trusted the cache and left the fix unmade, so the read-only run fails for ever:\n" . $writable->fetch());
+    }
+
     /**
      * A heredoc indented eight spaces, as `heredoc_indentation` would not leave it, whose
      * blank lines carry the eight spaces of the heredoc's indentation.
