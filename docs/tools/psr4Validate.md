@@ -24,6 +24,12 @@ the tree.
 - Every `withIgnoredPaths()` path adds one more pattern, anchored to its real path, so it skips
   the path and what is below it and never a sibling sharing its prefix. A fixture tree in the
   ignored paths needs no entry in the ignore list.
+- A file whose real path cannot be resolved, such as a dangling symlink, is not checked: it has
+  no content to read, and reading it used to stop the run without naming it
+  ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)). The ignore patterns are
+  matched against its directory's real path and its own name; one they do not match is named in
+  `PSR-4 validation skipped <path>: its real path cannot be resolved ...` (in the standalone
+  binary, `psr4-validate skipped <path>: ...`). A skipped file does not fail the lane.
 - A pattern that does not compile fails the run before any file is checked, naming the pattern,
   where it came from and PCRE's reason, for example
   `/path/to/project/qaConfig/psr4-validate-ignore-list.txt entry "#/src/(unclosed#" is not a valid regular expression: preg_match(): Compilation failed: missing closing parenthesis at offset 14`.

@@ -25,6 +25,12 @@ declare(strict_types=1);
  *
  * Arkitect's own excludePath() cannot anchor, since it builds an unanchored
  * regex, so the ignored paths are taken out of the set's iterator instead.
+ *
+ * The iterator also drops each file whose real path cannot be resolved (a
+ * symlink whose target does not exist), which arkitect would fail to read and
+ * report as a violation without naming it. Each one is appended, by its
+ * directory's real path, to the file PHPQACI_ARKITECT_UNRESOLVED_LIST names,
+ * which the lane reads back and reports as skipped.
  */
 
 use Arkitect\ClassSet;
@@ -75,14 +81,15 @@ return static function (string $srcDir): ClassSet {
         $classSet = $classSet->excludePath($glob);
     }
 
-    $ignored = array_map($canonical, $lines('PHPQACI_ARKITECT_IGNORED_PATHS'));
-    if ([] === $ignored) {
-        return $classSet;
-    }
+    $ignored    = array_map($canonical, $lines('PHPQACI_ARKITECT_IGNORED_PATHS'));
+    $unresolved = (string)getenv('PHPQACI_ARKITECT_UNRESOLVED_LIST');
 
-    return new class($classSet, $ignored) extends ClassSet {
-        /** @param list<string> $ignored lexically folded, without a trailing slash */
-        public function __construct(private readonly ClassSet $inner, private readonly array $ignored)
+    return new class($classSet, $ignored, $unresolved) extends ClassSet {
+        /**
+         * @param list<string> $ignored    lexically folded, without a trailing slash
+         * @param string       $unresolved the list each dropped unresolvable file is appended to, or '' for none
+         */
+        public function __construct(private readonly ClassSet $inner, private readonly array $ignored, private readonly string $unresolved)
         {
         }
 
@@ -106,6 +113,15 @@ return static function (string $srcDir): ClassSet {
                     if ($path === $ignored || str_starts_with($path, $ignored . '/')) {
                         continue 2;
                     }
+                }
+
+                if (false === $file->getRealPath()) {
+                    if ('' !== $this->unresolved) {
+                        $dir = realpath($file->getPath());
+                        file_put_contents($this->unresolved, (false === $dir ? $path : $dir . '/' . $file->getFilename()) . "\n", FILE_APPEND | LOCK_EX);
+                    }
+
+                    continue;
                 }
 
                 yield $key => $file;
