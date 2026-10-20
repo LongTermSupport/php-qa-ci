@@ -6,7 +6,9 @@
 
 Test code that runs git gives the process an environment that sets `GIT_CONFIG_GLOBAL` and
 `GIT_CONFIG_NOSYSTEM`, and PHPStan must be able to see both keys in it. Reported, in a namespace
-containing `Tests` or a file under a `/tests/` path:
+with a segment ending in `Tests` (`App\Tests\Git`, `App\FunctionalTests`; not `App\TestsHelper`
+or `App\Contests`) or a file under the project's own
+`tests/` directory (a directory named `tests` above the project root does not count):
 
 - `new Process([...])` (Symfony) whose first command element is `git` or a path ending in `/git`,
   given no environment, `null`, or one PHPStan cannot show holds both keys;
@@ -45,8 +47,9 @@ reason, on a developer's machine.
   rule sees what a child process runs; the suite-wide isolation below covers it.
 - **git started through any other spawner**: `exec()`, `shell_exec()`, `system()`, `passthru()`,
   `popen()` and backticks. These are not read; the suite-wide isolation covers them.
-- **git that is not the first program of a shell line**, such as `cd x && git status` or
-  `['bash', '-c', 'git status']`: only the first program is read.
+- **git that is not the first program of a shell line or command**, such as
+  `cd x && git status`, `['bash', '-c', 'git status']` or git behind `env`
+  (`['env', 'git', 'status']`, `env git status`): only the first program is read.
 - **An environment whose isolating keys are present but unset**: Symfony Process treats a
   `false` value as removing the variable, and the rule counts the key as present.
 

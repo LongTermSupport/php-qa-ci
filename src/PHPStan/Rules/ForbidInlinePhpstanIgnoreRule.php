@@ -20,7 +20,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  * If a suppression is truly irreducible, it must be managed in phpstan.neon
  * with a specific identifier and path instead of hidden inline.
  *
- * Skips test files and qaConfig files.
+ * Skips test code (TestCodeDetector) and qaConfig files.
  *
  * @implements Rule<Stmt>
  */
@@ -29,6 +29,11 @@ final readonly class ForbidInlinePhpstanIgnoreRule implements Rule
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.inlinePhpstanIgnore';
 
     private const string PATTERN = '/@phpstan\x2dignore/';
+
+    public function __construct(
+        private TestCodeDetector $testCodeDetector,
+    ) {
+    }
 
     public function getNodeType(): string
     {
@@ -40,7 +45,7 @@ final readonly class ForbidInlinePhpstanIgnoreRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        if ($this->isTestContext($scope)) {
+        if ($this->testCodeDetector->isTestCode($scope->getFile(), $scope->getNamespace())) {
             return [];
         }
 
@@ -76,15 +81,5 @@ final readonly class ForbidInlinePhpstanIgnoreRule implements Rule
     private function containsSuppressionAnnotation(Comment $comment): bool
     {
         return \Safe\preg_match(self::PATTERN, $comment->getText()) > 0;
-    }
-
-    private function isTestContext(Scope $scope): bool
-    {
-        $namespace = $scope->getNamespace();
-        if (null !== $namespace && str_contains($namespace, 'Tests')) {
-            return true;
-        }
-
-        return str_contains($scope->getFile(), '/tests/');
     }
 }

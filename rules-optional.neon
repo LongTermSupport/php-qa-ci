@@ -144,7 +144,9 @@
 #                                          docs/phpstan-rules/forbid-unvalidated-regex-pattern.md
 #
 # GIT IN A TEST, ISOLATED FROM THE HOST:
-#   ForbidUnisolatedGitProcessRule       — test code (a Tests namespace or a /tests/ path)
+#   ForbidUnisolatedGitProcessRule       — test code (TestCodeDetector: a file under the
+#                                          project's own tests/, or a namespace with a
+#                                          segment ending in Tests)
 #                                          that runs git through a Symfony Process,
 #                                          Process::fromShellCommandline or proc_open must
 #                                          give it an environment PHPStan can see sets

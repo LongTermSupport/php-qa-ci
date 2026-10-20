@@ -32,6 +32,11 @@ rules:
     # guards against (ForbidMockingFinalClassRule going dark when php-qa-ci is
     # itself analysed from inside a consumer's vendor/lts/php-qa-ci/ checkout).
     - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredVendorSubstringCheckRule
+    # Its sibling over test attribution: "is this file test code" decided with a
+    # bare 'tests/' substring of the absolute path makes every file of a checkout
+    # under a tests/ directory test code, so a rule that skips tests goes dark.
+    # docs/phpstan-rules/forbid-unanchored-tests-substring-check.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredTestsSubstringCheckRule
     # An inline @phpstan-ignore silences a finding at the point of the finding,
     # where nobody reviewing the config will see it. A suppression that is
     # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
@@ -134,6 +139,12 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\VendoredCodeDetector
+        arguments:
+            currentWorkingDirectory: %currentWorkingDirectory%
+    # Decides test code against the project root for every rule that exempts it
+    # (here and in rules-optional.neon). See ForbidUnanchoredTestsSubstringCheckRule.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\TestCodeDetector
         arguments:
             currentWorkingDirectory: %currentWorkingDirectory%
     -
