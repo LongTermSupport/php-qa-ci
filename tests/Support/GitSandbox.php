@@ -43,12 +43,12 @@ final readonly class GitSandbox
         return $sandbox;
     }
 
-    /** Write a file in the work clone and commit it, with an optional extra commit-message paragraph (a trailer). */
-    public function commit(string $path, string $contents, string $message = 'Change', ?string $trailer = null): void
+    /** Write a file in the work clone and commit it; each of $paragraphs is a further commit-message paragraph (the last one is where git reads trailers). */
+    public function commit(string $path, string $contents, string $message = 'Change', string ...$paragraphs): void
     {
         $this->root->write('work/' . $path, $contents);
         $this->git('add', '-A');
-        $this->git('commit', '-m', $message, ...(null === $trailer ? [] : ['-m', $trailer]));
+        $this->git('commit', '-m', $message, ...array_merge(...array_map(static fn (string $paragraph): array => ['-m', $paragraph], array_values($paragraphs))));
     }
 
     public function git(string ...$args): string

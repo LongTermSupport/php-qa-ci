@@ -183,4 +183,38 @@ final class ChangelogGitTest extends TestCase
         self::assertSame(['none — tests only', 'none'], $this->git->trailers(self::BASE));
         self::assertSame(["git log '--format=%(trailers:key=Changelog,valueonly)' abc123..HEAD"], $this->processes->commandLines());
     }
+
+    #[Test]
+    public function messagesAreEachCommitsShaBodyAndChangelogTrailersInTheRange(): void
+    {
+        $this->processes->willSucceed("sha1\0Body one\n\0Changelog: none — x y\n\0sha2\0\0\0");
+
+        self::assertSame(
+            [
+                ['commit' => 'sha1', 'body' => "Body one\n", 'trailers' => "Changelog: none — x y\n"],
+                ['commit' => 'sha2', 'body' => '', 'trailers' => ''],
+            ],
+            $this->git->messages(self::BASE),
+        );
+        self::assertSame(["git log -z '--format=%H%x00%b%x00%(trailers:key=Changelog,unfold)' abc123..HEAD"], $this->processes->commandLines());
+    }
+
+    #[Test]
+    public function anEmptyRangeHasNoMessages(): void
+    {
+        $this->processes->willSucceed();
+
+        self::assertSame([], $this->git->messages(self::BASE));
+    }
+
+    #[Test]
+    public function outputThatDoesNotSplitIntoWholeCommitsIsAHistoryProblem(): void
+    {
+        $this->processes->willSucceed("sha1\0Body\0");
+
+        $this->expectException(ChangelogHistoryException::class);
+        $this->expectExceptionMessage('could not be split into commits');
+
+        $this->git->messages(self::BASE);
+    }
 }

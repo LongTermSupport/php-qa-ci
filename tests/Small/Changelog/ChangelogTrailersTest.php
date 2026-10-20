@@ -77,6 +77,52 @@ final class ChangelogTrailersTest extends TestCase
     }
 
     #[Test]
+    public function aChangelogLineGitReadsAsATrailerIsNotMisplaced(): void
+    {
+        $body = "Why.\n\nChangelog: none — tests only\nCo-Authored-By: X <x@example.invalid>\n";
+
+        self::assertSame([], new ChangelogTrailers()->misplaced($body, "Changelog: none — tests only\n"));
+    }
+
+    #[Test]
+    public function aChangelogLineGitDoesNotReadAsATrailerIsMisplaced(): void
+    {
+        $body = "Changelog: none — tests only\n\nCo-Authored-By: X <x@example.invalid>\n";
+
+        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, ''));
+    }
+
+    #[Test]
+    public function onlyAColumnZeroCaseExactChangelogLineIsJudged(): void
+    {
+        $body = "  Changelog: none — indented prose\nchangelog: lower case prose\nThe Changelog: mid-line\n";
+
+        self::assertSame([], new ChangelogTrailers()->misplaced($body, ''));
+    }
+
+    #[Test]
+    public function eachTrailerAccountsForOneLineSoADuplicateAboveTheBlockIsMisplaced(): void
+    {
+        $body = "Changelog: none — tests only\n\nChangelog: none — tests only\n";
+
+        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, "Changelog: none — tests only\n"));
+    }
+
+    #[Test]
+    public function aFoldedTrailerAccountsForItsFirstLine(): void
+    {
+        $body = "Changelog: none — tests only,\n  continued here\n";
+
+        self::assertSame([], new ChangelogTrailers()->misplaced($body, "Changelog: none — tests only, continued here\n"));
+    }
+
+    #[Test]
+    public function trailingWhitespaceDoesNotMakeALineMisplaced(): void
+    {
+        self::assertSame([], new ChangelogTrailers()->misplaced("Changelog:  none — tests only \t\n", "Changelog: none — tests only\n"));
+    }
+
+    #[Test]
     public function noTrailersNeitherOptOutNorFail(): void
     {
         $verdict = new ChangelogTrailers()->verdict();

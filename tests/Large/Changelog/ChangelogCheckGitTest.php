@@ -47,6 +47,8 @@ final class ChangelogCheckGitTest extends TestCase
 
     private const string CHECKOUT = 'checkout';
 
+    private const string CO_AUTHOR = 'Co-Authored-By: Sandbox <sandbox@example.invalid>';
+
     private GitSandbox $sandbox;
 
     protected function setUp(): void
@@ -99,6 +101,40 @@ final class ChangelogCheckGitTest extends TestCase
 
         $this->sandbox->commit(self::SOURCE, "<?php\n// reasoned\n", 'Refactor', 'Changelog: none — internal refactor only');
         self::assertTrue($this->check()->passed());
+    }
+
+    #[Test]
+    public function aChangelogLineAboveTheFinalTrailerBlockIsReportedByCommitWhateverItTouches(): void
+    {
+        $this->sandbox->commit(self::SOURCE, "<?php\n// placed\n", 'Refactor', "Changelog: none — internal refactor only\n" . self::CO_AUTHOR);
+        $this->sandbox->commit(self::SOURCE, "<?php\n// misplaced, watched\n", 'Tidy the source', 'Changelog: none — misplaced above the trailers', self::CO_AUTHOR);
+        $watchedCommit = $this->head();
+        $this->sandbox->commit('tests/ATest.php', "<?php\n// misplaced, unwatched\n", 'Tidy the tests', 'Changelog: none — tests only, misplaced too', self::CO_AUTHOR);
+        $unwatchedCommit = $this->head();
+
+        $result = $this->check();
+
+        self::assertCount(1, $result->problems, implode("\n", $result->problems));
+        $problem = $result->problems[0];
+        self::assertStringContainsString('2 "Changelog:" lines in the range are not commit trailers', $problem);
+        self::assertStringContainsString('    ' . substr($watchedCommit, 0, 12) . ' Changelog: none — misplaced above the trailers', $problem);
+        self::assertStringContainsString('    ' . substr($unwatchedCommit, 0, 12) . ' Changelog: none — tests only, misplaced too', $problem);
+        self::assertStringContainsString('move each line into the final trailer block', $problem);
+        self::assertStringNotContainsString('internal refactor only', $problem);
+    }
+
+    #[Test]
+    public function onTheDefaultBranchAMisplacedChangelogLineIsReportedWithoutFailing(): void
+    {
+        $this->sandbox->git(self::CHECKOUT, GitSandbox::DEFAULT_BRANCH);
+        $this->sandbox->commit('tests/ATest.php', "<?php\n// merged already\n", 'Tidy the tests', 'Changelog: none — tests only, misplaced here', self::CO_AUTHOR);
+        $commit = $this->head();
+
+        $result = $this->check();
+
+        self::assertTrue($result->passed(), implode("\n", $result->problems));
+        self::assertContains('1 "Changelog:" line since the last release is not a commit trailer; history already on the default branch is not rewritten, so it is reported, not failed:', $result->report);
+        self::assertContains('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, misplaced here', $result->report);
     }
 
     #[Test]
@@ -159,6 +195,11 @@ final class ChangelogCheckGitTest extends TestCase
         $this->sandbox->git(self::CHECKOUT, GitSandbox::DEFAULT_BRANCH);
 
         self::assertStringContainsString('no 85.N.N release tag is in this clone', $this->check()->problems[0]);
+    }
+
+    private function head(): string
+    {
+        return trim($this->sandbox->git('rev-parse', 'HEAD'));
     }
 
     private function check(?string $root = null): ChangelogCheckResultDto
