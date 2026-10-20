@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Filesystem;
 
+use RuntimeException;
+
 /**
  * A directory created empty for one job and removed with everything in it
  * afterwards: where the installers stage a download before moving the part
@@ -45,11 +47,24 @@ final readonly class TemporaryDirectory
         DirectoryTree::remove($this->path);
     }
 
+    /**
+     * Made by mkdir() under the name it is given, so the directory is in $parent or not made at
+     * all. tempnam() is not used: where it cannot create its file in the directory it is given, it
+     * creates it in the system temp directory instead, with only a notice, which for besides()
+     * would bring back the rename across filesystems it exists to avoid. For the length of the
+     * mkdir() its warning becomes the exception, which names the directory.
+     */
     private static function in(string $parent, string $prefix): self
     {
-        $path = \Safe\tempnam($parent, $prefix);
-        \Safe\unlink($path);
-        \Safe\mkdir($path, 0o700, true);
+        $path = $parent . '/' . $prefix . bin2hex(random_bytes(8));
+        set_error_handler(static function (int $level, string $message) use ($parent): never {
+            throw new RuntimeException(\sprintf('Cannot create a staging directory in %s: %s', $parent, $message), $level);
+        });
+        try {
+            mkdir($path, 0o700);
+        } finally {
+            restore_error_handler();
+        }
 
         return new self($path);
     }
