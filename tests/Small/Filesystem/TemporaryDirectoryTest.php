@@ -153,14 +153,14 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetRemovesTheStagingAKilledRunLeftThere(): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
-        $leftover = $parent->path . '/' . self::PREFIX . 'killed';
-        $inUse    = $parent->path . '/' . self::PREFIX . 'running';
+        $leftover = $this->stagingIn($parent->path, 1);
+        $inUse    = $this->stagingIn($parent->path, 2);
         \Safe\mkdir($leftover . '/nested', 0o700, true);
         \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
         \Safe\touch($leftover, time() - 2 * 3600);
         \Safe\mkdir($inUse);
         \Safe\file_put_contents($parent->path . '/' . self::TARGET, self::KEPT);
-        $file     = $parent->path . '/' . self::PREFIX . 'file';
+        $file     = $this->stagingIn($parent->path, 3);
         \Safe\file_put_contents($file, self::KEPT);
         \Safe\touch($file, time() - 2 * 3600);
 
@@ -180,7 +180,7 @@ final class TemporaryDirectoryTest extends TestCase
 
     /**
      * A directory that is not staging is not a leftover, however old: only a name beginning with
-     * the prefix is.
+     * the prefix can be.
      */
     #[Test]
     public function aDirectoryBesideATargetKeepsAnOldDirectoryWithoutThePrefix(): void
@@ -209,7 +209,7 @@ final class TemporaryDirectoryTest extends TestCase
     {
         $outside = TemporaryDirectory::create('phpqa-temporary-directory-target');
         $parent  = TemporaryDirectory::create(self::PARENT);
-        $link    = $parent->path . '/' . self::PREFIX . 'link';
+        $link    = $this->stagingIn($parent->path, 4);
         \Safe\symlink($outside->path, $link);
         \Safe\touch($outside->path, time() - 2 * 3600);
 
@@ -233,7 +233,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetKeepsAStagingDirectoryChangedExactlyAnHourAgo(): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
-        $boundary = $parent->path . '/' . self::PREFIX . 'boundary';
+        $boundary = $this->stagingIn($parent->path, 5);
 
         try {
             for ($attempt = 0; $attempt < 5; ++$attempt) {
@@ -335,6 +335,107 @@ final class TemporaryDirectoryTest extends TestCase
     }
 
     /**
+     * Defence for the class "the cleanup deletes the target it stages beside": a prefix the
+     * target's own name begins with made an old target directory a leftover, and it was renamed
+     * and removed with everything in it. The prefix is refused before anything is touched.
+     */
+    #[Test]
+    #[DataProvider('prefixesTheTargetsNameBeginsWith')]
+    public function aDirectoryBesideATargetRefusesAPrefixTheTargetsOwnNameBeginsWith(string $name, string $prefix): void
+    {
+        $parent = TemporaryDirectory::create(self::PARENT);
+        $target = $parent->path . '/' . $name;
+        \Safe\mkdir($target);
+        \Safe\file_put_contents($target . '/' . self::TARGET, self::KEPT);
+        \Safe\touch($target, time() - 2 * 3600);
+
+        try {
+            TemporaryDirectory::besides($target, $prefix);
+            self::fail('a prefix the target\'s own name begins with was accepted');
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            self::assertSame(\sprintf('A staging directory beside %s needs a prefix its name does not begin with, not "%s": the target would be one of its leftovers', $target, $prefix), $invalidArgumentException->getMessage());
+            self::assertSame(['.', '..', $name], \Safe\scandir($parent->path), 'nothing beside the target was touched');
+            self::assertSame(self::KEPT, \Safe\file_get_contents($target . '/' . self::TARGET), 'the target is kept whole');
+        } finally {
+            $parent->remove();
+        }
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function prefixesTheTargetsNameBeginsWith(): iterable
+    {
+        yield 'a prefix of its name' => ['target', 'targ'];
+        yield 'its whole name' => ['target', 'target'];
+        yield 'a real caller\'s prefix' => ['.phpqa-shellcheck-x', '.phpqa-shellcheck'];
+        yield 'a name shaped as staging' => ['.unpack0123456789abcdef', '.unpack'];
+    }
+
+    /**
+     * Defence for the class "the cleanup deletes what this class did not make": an old directory
+     * whose name begins with the prefix but is not the prefix and 16 lowercase hex digits, as
+     * every staging directory is named, is kept.
+     */
+    #[Test]
+    #[DataProvider('namesWithThePrefixThatAreNotStaging')]
+    public function aDirectoryBesideATargetKeepsAnOldDirectoryWithThePrefixNotNamedAsStaging(string $suffix): void
+    {
+        $parent  = TemporaryDirectory::create(self::PARENT);
+        $another = $parent->path . '/' . self::PREFIX . $suffix;
+        \Safe\mkdir($another);
+        \Safe\file_put_contents($another . '/' . self::TARGET, self::KEPT);
+        \Safe\touch($another, time() - 2 * 3600);
+
+        $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
+
+        try {
+            self::assertSame(self::KEPT, \Safe\file_get_contents($another . '/' . self::TARGET), 'a directory not named as staging is not a leftover');
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function namesWithThePrefixThatAreNotStaging(): iterable
+    {
+        yield 'a word' => ['-user'];
+        yield 'nothing after it' => [''];
+        yield '15 digits' => ['0123456789abcde'];
+        yield '17 digits' => ['0123456789abcdef0'];
+        yield 'uppercase digits' => ['0123456789ABCDEF'];
+        yield 'a digit that is not hex' => ['0123456789abcdeg'];
+        yield 'a separator first' => ['-0123456789abcde'];
+    }
+
+    /**
+     * A leftover this run has claimed, which another run that listed it earlier claims again and
+     * removes while this one is emptying it, is passed over without a word: it is gone, not kept.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetPassesOverALeftoverAnotherRunRemovesWhileThisOneEmptiesIt(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $leftover = $this->stagingIn($parent->path, 11);
+        \Safe\mkdir($leftover . '/nested', 0o700, true);
+        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
+        \Safe\touch($leftover, time() - 2 * 3600);
+        $this->registerTheWrapper();
+        VanishingDirectoryStreamWrapper::vanishOnChangeOnceRenamed($leftover);
+
+        try {
+            $directory = TemporaryDirectory::besides($this->overTheWrapper($parent->path . '/' . self::TARGET), self::PREFIX);
+            $directory->remove();
+
+            self::assertTrue(VanishingDirectoryStreamWrapper::hasVanishedOnChange(), 'the cleanup reached the claimed leftover');
+            self::assertSame([], $directory->unremovedLeftovers, 'a leftover another run removed is not one kept');
+            self::assertSame(['.', '..'], \Safe\scandir($parent->path));
+        } finally {
+            $this->unregisterTheWrapper();
+            $parent->remove();
+        }
+    }
+
+    /**
      * Another run that reaches the same leftover first removes it; this one passes it over without
      * a word, and stages as usual. The leftover is removed from under the cleanup the moment it
      * first changes anything in it, which is where concurrent runs collided.
@@ -343,7 +444,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetPassesOverALeftoverAnotherRunRemovedFirst(): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
-        $leftover = $parent->path . '/' . self::PREFIX . 'raced';
+        $leftover = $this->stagingIn($parent->path, 6);
         \Safe\mkdir($leftover . '/nested', 0o700, true);
         \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
         \Safe\touch($leftover, time() - 2 * 3600);
@@ -380,9 +481,9 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetKeepsEachLeftoverItCannotRemoveAndNamesIt(bool $unreadable, string $why): void
     {
         $parent = TemporaryDirectory::create(self::PARENT);
-        foreach (['one', 'two'] as $name) {
-            \Safe\mkdir($parent->path . '/' . self::PREFIX . $name . '/' . self::HELD, 0o700, true);
-            \Safe\touch($parent->path . '/' . self::PREFIX . $name, time() - 2 * 3600);
+        foreach ([7, 8] as $number) {
+            \Safe\mkdir($this->stagingIn($parent->path, $number) . '/' . self::HELD, 0o700, true);
+            \Safe\touch($this->stagingIn($parent->path, $number), time() - 2 * 3600);
         }
 
         $this->registerTheWrapper();
@@ -422,11 +523,11 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetKeepsALeftoverItCannotMoveUnderItsOwnName(): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
-        $leftover = $parent->path . '/' . self::PREFIX . 'stuck';
+        $leftover = $this->stagingIn($parent->path, 9);
         \Safe\mkdir($leftover);
         \Safe\touch($leftover, time() - 2 * 3600);
         $this->registerTheWrapper();
-        VanishingDirectoryStreamWrapper::refuseRemovalNamed(self::PREFIX . 'stuck');
+        VanishingDirectoryStreamWrapper::refuseRemovalNamed(basename($leftover));
 
         try {
             $directory = TemporaryDirectory::besides($this->overTheWrapper($parent->path . '/' . self::TARGET), self::PREFIX);
@@ -450,7 +551,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetLetsAnythingButAFilesystemFailurePass(): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
-        $leftover = $parent->path . '/' . self::PREFIX . 'killed';
+        $leftover = $this->stagingIn($parent->path, 10);
         \Safe\mkdir($leftover);
         \Safe\touch($leftover, time() - 2 * 3600);
         $this->registerTheWrapper();
@@ -533,6 +634,12 @@ final class TemporaryDirectoryTest extends TestCase
     private function overTheWrapper(string $path): string
     {
         return VanishingDirectoryStreamWrapper::SCHEME . '://' . $path;
+    }
+
+    /** The path of a directory in $parent named as a staging directory is: the prefix, then $number as 16 hex digits. */
+    private function stagingIn(string $parent, int $number): string
+    {
+        return $parent . '/' . self::PREFIX . \sprintf('%016x', $number);
     }
 
     /** Matches the name of a staging directory: the prefix, then 16 random hex digits. */

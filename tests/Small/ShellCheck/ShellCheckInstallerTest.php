@@ -298,7 +298,7 @@ final class ShellCheckInstallerTest extends TestCase
     public function aStagingLeftoverThatCannotBeRemovedIsNamedAndTheUpdateSucceeds(): void
     {
         $this->pin();
-        $leftover = \dirname(ShellCheckBinary::path($this->library->path)) . '/.phpqa-shellcheck-killed';
+        $leftover = \dirname(ShellCheckBinary::path($this->library->path)) . '/.phpqa-shellcheck0123456789abcdef';
         UnremovableTree::plant($leftover);
         \Safe\touch($leftover, time() - 2 * 3600);
 

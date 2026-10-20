@@ -336,7 +336,7 @@ final class TurboInstallerTest extends TestCase
     public function aStagingLeftoverThatCannotBeRemovedIsNamedAndTheInstallSucceeds(): void
     {
         $this->writeManifest($this->digests());
-        $leftover = \dirname($this->library->path . '/' . self::BINARY) . '/.phpqa-turbo-killed';
+        $leftover = \dirname($this->library->path . '/' . self::BINARY) . '/.phpqa-turbo0123456789abcdef';
         UnremovableTree::plant($leftover);
         \Safe\touch($leftover, time() - 2 * 3600);
 

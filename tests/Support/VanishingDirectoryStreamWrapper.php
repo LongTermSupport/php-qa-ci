@@ -22,6 +22,10 @@ use Throwable;
  * renamed, unlinked or removed, so that change fails as the real call does when
  * another process got there first.
  *
+ * A directory named by vanishOnChangeOnceRenamed() is renamed as usual, and
+ * the directory it becomes then vanishes on change as above: another process
+ * that claims and removes it under its new name.
+ *
  * Each of those is spent by the first call it fails.
  *
  * Every directory with the name given to refuseOpenNamed() cannot be opened,
@@ -51,6 +55,8 @@ final class VanishingDirectoryStreamWrapper
 
     private static bool $vanishedOnChange = false;
 
+    private static ?string $vanishesOnceRenamed = null;
+
     private static ?string $refusedName = null;
 
     private static ?string $unremovableName = null;
@@ -74,6 +80,12 @@ final class VanishingDirectoryStreamWrapper
     {
         self::$vanishesOnChange = $directory;
         self::$vanishedOnChange = false;
+    }
+
+    public static function vanishOnChangeOnceRenamed(string $directory): void
+    {
+        self::$vanishesOnceRenamed = $directory;
+        self::$vanishedOnChange    = false;
     }
 
     /** Whether the directory named by vanishOnChange() has been removed under a change. */
@@ -103,6 +115,7 @@ final class VanishingDirectoryStreamWrapper
         self::$refused          = null;
         self::$vanishesOnChange = null;
         self::$vanishedOnChange = false;
+        self::$vanishesOnceRenamed = null;
         self::$refusedName      = null;
         self::$unremovableName  = null;
         self::$renameThrows     = null;
@@ -199,6 +212,10 @@ final class VanishingDirectoryStreamWrapper
 
         $this->vanishOnChangeTo($real);
         \Safe\rename($real, $this->real($to));
+        if ($real === self::$vanishesOnceRenamed) {
+            self::$vanishesOnceRenamed = null;
+            self::$vanishesOnChange    = $this->real($to);
+        }
 
         return true;
     }
