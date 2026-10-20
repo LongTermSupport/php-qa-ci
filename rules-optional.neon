@@ -155,6 +155,19 @@
 #                                          decide what the test sees. See
 #                                          docs/phpstan-rules/forbid-unisolated-git-process.md
 #
+# AN ARRAY KEY THAT MAY BE ALL DIGITS:
+#   ForbidNumericStringArrayKeyRule      — PHP stores an array key that is an all-digit
+#                                          string ('2024') as an int, but PHPStan types
+#                                          $map[$string] = … as string-keyed. A write under
+#                                          a key that may be all digits is reported when its
+#                                          array is a property declared string-keyed, or a
+#                                          local the same function returns, passes or
+#                                          assigns as string-keyed, or whose keys it reads.
+#                                          Declare such keys array-key and cast a key to
+#                                          string where one is read. Its collector is
+#                                          registered under services: below. See
+#                                          docs/phpstan-rules/forbid-numeric-string-array-key.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -187,6 +200,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule
 
 parameters:
     phpqaciFactorySealed:
@@ -224,5 +238,10 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector
+        tags:
+            - phpstan.collector
+    # The collector ForbidNumericStringArrayKeyRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector
         tags:
             - phpstan.collector
