@@ -60,7 +60,7 @@ final readonly class ShippedTools
             new SensitiveParameterUsageTool(),
             new MarkdownLinksTool(),
             new DocsProseTool(),
-            new DocumentedQaCommandsTool(),
+            new DocumentedQaCommandsTool(ToolRegistry::shipped()),
             new PhpStrictTypesTool(),
             new BranchNamePolicyTool(),
             new PhpLintTool(),

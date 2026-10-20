@@ -115,9 +115,16 @@ final readonly class PipelineBuilder
         );
     }
 
+    /** A RegistryAwareToolInterface tool is handed the registry built here. */
     public function build(): PipelineDefinitionDto
     {
-        return new PipelineDefinitionDto(new ToolRegistry($this->phases, array_values($this->definitions)), $this->tools);
+        $registry = new ToolRegistry($this->phases, array_values($this->definitions));
+        $tools    = array_map(
+            static fn (ToolInterface $tool): ToolInterface => $tool instanceof RegistryAwareToolInterface ? $tool->withRegistry($registry) : $tool,
+            $this->tools,
+        );
+
+        return new PipelineDefinitionDto($registry, $tools);
     }
 
     private function phaseIndex(string $name): ?int

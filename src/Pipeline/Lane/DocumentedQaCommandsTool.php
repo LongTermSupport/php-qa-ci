@@ -6,12 +6,10 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\Markdown\QaCommandTokenScanner;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
-use LTS\PHPQA\Pipeline\Config\PipelineConfigLoader;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
-use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
+use LTS\PHPQA\Pipeline\Tool\RegistryAwareToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
-use LTS\PHPQA\Pipeline\Tool\ToolInterface;
-use Symfony\Component\Console\Output\NullOutput;
+use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 
 /**
  * Every `qa -t <token>` command in the documentation and the agent files names
@@ -23,14 +21,24 @@ use Symfony\Component\Console\Output\NullOutput;
  * tool registry. A lane prints one identifier, and a token finding must resolve
  * to a page about tokens.
  *
- * The registry is the project's own, with qaConfig/pipeline.php applied, so a
- * token the project adds is a token its documents may use.
+ * The registry is the run's own, handed over by PipelineBuilder::build() after
+ * qaConfig/pipeline.php is applied, so a token the project adds is a token its
+ * documents may use, and that file is required once per run.
  *
  * @internal
  */
-final readonly class DocumentedQaCommandsTool implements ToolInterface
+final readonly class DocumentedQaCommandsTool implements RegistryAwareToolInterface
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.documentedQaCommands';
+
+    public function __construct(private ToolRegistry $registry)
+    {
+    }
+
+    public function withRegistry(ToolRegistry $registry): self
+    {
+        return new self($registry);
+    }
 
     public function name(): string
     {
@@ -44,9 +52,7 @@ final readonly class DocumentedQaCommandsTool implements ToolInterface
 
     public function run(ToolContext $context): ToolResultDto
     {
-        $paths    = $context->config->paths;
-        $registry = new PipelineConfigLoader(new NullOutput())->apply(PipelineBuilder::defaults(), $paths->projectConfigDir)->build()->registry;
-        $findings = new QaCommandTokenScanner($registry)->scan($paths->projectRoot);
+        $findings = new QaCommandTokenScanner($this->registry)->scan($context->config->paths->projectRoot);
         if ([] === $findings) {
             return ToolResultDto::passed();
         }

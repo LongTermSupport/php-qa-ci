@@ -12,6 +12,7 @@ use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\Exception\UnknownPhaseException;
 use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
+use LTS\PHPQA\Pipeline\Tool\RegistryAwareToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
@@ -240,6 +241,48 @@ final class PipelineBuilderTest extends TestCase
         $built = $defaults->build();
         self::assertSame($this->phaseNames(ToolRegistry::shipped()), $this->phaseNames($built->registry));
         self::assertArrayNotHasKey(self::SECURITY_AUDIT, $built->tools);
+    }
+
+    /** The tool reads the registry the run built, so the project's file is never applied a second time. */
+    #[Test]
+    public function aRegistryAwareToolIsHandedTheRegistryTheBuildMakes(): void
+    {
+        $aware = new readonly class(null) implements RegistryAwareToolInterface {
+            public function __construct(public ?ToolRegistry $registry)
+            {
+            }
+
+            public function name(): string
+            {
+                return 'aware';
+            }
+
+            public function identifier(): string
+            {
+                return 'phpqaci.fake';
+            }
+
+            public function run(ToolContext $context): ToolResultDto
+            {
+                return ToolResultDto::passed();
+            }
+
+            public function withRegistry(ToolRegistry $registry): self
+            {
+                return new self($registry);
+            }
+        };
+
+        $built = PipelineBuilder::defaults()
+            ->withPhase($this->phase())
+            ->withTool(new ToolDefinitionDto($aware->name(), [$aware->name()], 'registry aware', self::SECURITY, false), $aware)
+            ->build()
+        ;
+
+        $tool = $built->tools[$aware->name()];
+        self::assertInstanceOf($aware::class, $tool);
+        self::assertSame($built->registry, $tool->registry);
+        self::assertNull($aware->registry, 'the tool given to the builder is left as it was');
     }
 
     private function phase(): PhaseDto

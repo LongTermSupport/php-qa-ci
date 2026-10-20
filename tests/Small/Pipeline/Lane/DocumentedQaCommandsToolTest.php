@@ -6,14 +6,18 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use LTS\PHPQA\Markdown\QaCommandTokenFinding;
 use LTS\PHPQA\Markdown\QaCommandTokenScanner;
+use LTS\PHPQA\Pipeline\Config\PipelineConfigLoader;
 use LTS\PHPQA\Pipeline\Lane\DocumentedQaCommandsTool;
+use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
+use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Output\NullOutput;
 
 /**
  * @internal
@@ -103,7 +107,7 @@ final class DocumentedQaCommandsToolTest extends TestCase
     {
         $this->factory->project->write(self::AGENT, "Run `{bin}/qa -t allCS`, then `vendor/bin/qa -t stan -p src`.\n");
 
-        $result = new DocumentedQaCommandsTool()->run($this->factory->context());
+        $result = new DocumentedQaCommandsTool(ToolRegistry::shipped())->run($this->factory->context());
 
         self::assertTrue($result->isSuccess());
     }
@@ -113,7 +117,7 @@ final class DocumentedQaCommandsToolTest extends TestCase
     {
         $this->factory->project->write(self::AGENT, "# Fixer\n\nRun `{bin}/qa -t allCs -p [changed-files]`\n");
 
-        $result = new DocumentedQaCommandsTool()->run($this->factory->context());
+        $result = new DocumentedQaCommandsTool(ToolRegistry::shipped())->run($this->factory->context());
         $output = $this->factory->output->fetch();
 
         self::assertFalse($result->isSuccess());
@@ -123,6 +127,7 @@ final class DocumentedQaCommandsToolTest extends TestCase
         self::assertStringContainsString(DocumentedQaCommandsTool::IDENTIFIER, $output);
     }
 
+    /** The project's pipeline is applied once, as bin/qa applies it, and the build hands the lane its registry. */
     #[Test]
     public function aTokenTheProjectsOwnPipelineAddsIsAccepted(): void
     {
@@ -139,7 +144,8 @@ final class DocumentedQaCommandsToolTest extends TestCase
             PHP_WRAP);
         $this->factory->project->write('README.md', "vendor/bin/qa -t allSec\n");
 
-        $result = new DocumentedQaCommandsTool()->run($this->factory->context());
+        $built  = new PipelineConfigLoader(new NullOutput())->apply(PipelineBuilder::defaults(), $this->factory->paths()->projectConfigDir)->build();
+        $result = $built->tools['documentedQaCommands']->run($this->factory->context());
 
         self::assertTrue($result->isSuccess(), $this->factory->output->fetch());
     }
@@ -147,7 +153,7 @@ final class DocumentedQaCommandsToolTest extends TestCase
     #[Test]
     public function itIsNamedAndIdentifiedForTheRegistry(): void
     {
-        $tool = new DocumentedQaCommandsTool();
+        $tool = new DocumentedQaCommandsTool(ToolRegistry::shipped());
 
         self::assertSame('documentedQaCommands', $tool->name());
         self::assertSame('phpqaci.documentedQaCommands', $tool->identifier());
