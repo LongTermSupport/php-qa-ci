@@ -76,6 +76,7 @@ dir) prints its page offline.
 - `phpqaci.unanchoredVendorSubstringCheck` — Decide ownership against the project root, not a `vendor/` substring (`docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md`)
 - `phpqaci.unanchoredTestsSubstringCheck` — Decide test code against the project root, not a `tests/` substring (`docs/phpstan-rules/forbid-unanchored-tests-substring-check.md`)
 - `phpqaci.pathWordSubstringCheck` — Decide what a project is from the project, not a word in its path (`docs/phpstan-rules/forbid-path-word-substring-check.md`)
+- `phpqaci.unanchoredNamespaceSubstringCheck` — Compare namespace segments, not a substring of the name (`docs/phpstan-rules/forbid-unanchored-namespace-substring-check.md`)
 - `phpqaci.inlinePhpstanIgnore` — No inline `@phpstan-ignore`; use `ignoreErrors` in the config (`docs/phpstan-rules/forbid-inline-phpstan-ignore.md`)
 - `phpqaci.processStopOnThrow` — A Process whose child runs alongside your code is stopped in a finally (`docs/phpstan-rules/require-process-stop-on-throw.md`)
 - `phpqaci.mockFinalClass` — Mock an interface, never a final class (`docs/phpstan-rules/forbid-mocking-final-class.md`)

@@ -42,6 +42,11 @@ rules:
     # carrying the word. Its collector is registered below.
     # docs/phpstan-rules/forbid-path-word-substring-check.md
     - LTS\PHPQA\PHPStan\Rules\ForbidPathWordSubstringCheckRule
+    # And over namespace attribution: "is this class in a Generated namespace" decided
+    # with str_contains($className, 'Generated') also holds for App\GeneratedReports.
+    # Its two collectors are registered below as phpstan.collector services.
+    # docs/phpstan-rules/forbid-unanchored-namespace-substring-check.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredNamespaceSubstringCheckRule
     # An inline @phpstan-ignore silences a finding at the point of the finding,
     # where nobody reviewing the config will see it. A suppression that is
     # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
@@ -145,6 +150,15 @@ services:
     # The collector ForbidPathWordSubstringCheckRule (under rules: above) matches.
     -
         class: LTS\PHPQA\PHPStan\Rules\PathWordSubstringCheckCollector
+        tags:
+            - phpstan.collector
+    # The collectors ForbidUnanchoredNamespaceSubstringCheckRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NamespaceWordSubstringCallCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ClassNameVariableWriteCollector
         tags:
             - phpstan.collector
     -
