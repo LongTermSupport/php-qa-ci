@@ -24,6 +24,10 @@ final class Psr4ValidatorTest extends TestCase
 
     private const string VALID_PROJECT = __DIR__ . '/../assets/psr4/projectAllValid/';
 
+    private const string MISSING_MAGENTO_PATH = 'lib/internal/Magento/Framework/';
+
+    private const string MAGENTO_HINT = "Magento's composer includes this by default, it should be removed from the psr-4 section";
+
     public function testItFindsNoErrorsOnAValidProject(): void
     {
         $assetsPath  = self::VALID_PROJECT;
@@ -106,7 +110,7 @@ which doesn\'t exist
                 'missing/magento/path' => 'Namespace root \'In\Valid\\\'
 contains a path \'missing/magento/path\'
 which doesn\'t exist
-Magento\'s composer includes this by default, it should be removed from the psr-4 section',
+',
             ],
             'Ignored Files:' => [
                 0 => $projectRoot . '/src/IgnoredStuff/Ignored.php',
@@ -115,6 +119,51 @@ Magento\'s composer includes this by default, it should be removed from the psr-
         ];
 
         self::assertSame($expected, $actual);
+    }
+
+    /**
+     * Whether a project is a Magento project is decided from its composer.json, never from where
+     * it is checked out: a word in the path says nothing about the project (#231).
+     *
+     * @param array<string, mixed> $composerJson
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('magentoHintCases')]
+    public function testTheMagentoHintFollowsTheProjectNotItsPath(string $projectRoot, array $composerJson, bool $hinted): void
+    {
+        $composerJson['autoload'] = ['psr-4' => ['Magento\Framework\\' => self::MISSING_MAGENTO_PATH]];
+
+        $expected = "Namespace root 'Magento\\Framework\\'\ncontains a path '" . self::MISSING_MAGENTO_PATH . "'\nwhich doesn't exist\n"
+            . ($hinted ? self::MAGENTO_HINT : '');
+
+        self::assertSame(
+            ['Missing Paths:' => [self::MISSING_MAGENTO_PATH => $expected]],
+            new Psr4Validator([], $projectRoot, $composerJson)->main(),
+        );
+    }
+
+    /** @return iterable<string, array{string, array<string, mixed>, bool}> */
+    public static function magentoHintCases(): iterable
+    {
+        yield 'a non-Magento project under a path naming Magento' => [
+            '/home/ci/Magento-tools/my-app',
+            ['name' => 'acme/tooling', 'require' => ['php' => '^8.5']],
+            false,
+        ];
+        yield 'a Magento project, by its requirement, under any other path' => [
+            '/srv/shop',
+            ['name' => 'acme/shop', 'require' => ['magento/product-community-edition' => '2.4.7']],
+            true,
+        ];
+        yield 'Magento itself, by its own name' => [
+            '/srv/checkout',
+            ['name' => 'magento/magento2ce'],
+            true,
+        ];
+        yield 'a project that only develops against Magento' => [
+            '/srv/module',
+            ['name' => 'acme/module', 'require-dev' => ['magento/framework' => '*']],
+            false,
+        ];
     }
 
     /**
