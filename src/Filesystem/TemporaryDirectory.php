@@ -84,7 +84,8 @@ final readonly class TemporaryDirectory
      * all. tempnam() is not used: where it cannot create its file in the directory it is given, it
      * creates it in the system temp directory instead, with only a notice, which for besides()
      * would bring back the rename across filesystems it exists to avoid. For the length of the
-     * mkdir() its warning becomes the exception, which names the directory.
+     * mkdir() its warning becomes the exception, which names the directory. The name ends in 16
+     * random hex digits; mkdir() fails rather than reuse a directory already there.
      */
     private static function in(string $parent, string $prefix): self
     {
