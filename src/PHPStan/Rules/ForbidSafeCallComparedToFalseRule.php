@@ -215,7 +215,9 @@ final readonly class ForbidSafeCallComparedToFalseRule implements Rule
     /**
      * The function call the expression makes, looking through an assignment of
      * the call and the @ operator in any combination. Parentheses leave no
-     * node, so they need no unwrapping.
+     * node, so they need no unwrapping. A first-class callable, Safe\realpath(...),
+     * is not a call: it makes a Closure, has no result to compare and no
+     * arguments to select a variant by.
      */
     private function unwrapCall(Expr $expr): ?FuncCall
     {
@@ -223,7 +225,7 @@ final readonly class ForbidSafeCallComparedToFalseRule implements Rule
             $expr = $expr->expr;
         }
 
-        return $expr instanceof FuncCall ? $expr : null;
+        return $expr instanceof FuncCall && !$expr->isFirstClassCallable() ? $expr : null;
     }
 
     /**

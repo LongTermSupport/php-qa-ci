@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Safe\Exceptions\JsonException;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
@@ -122,7 +123,12 @@ final class BundledRulesDoNotCrashOnValidPhpTest extends TestCase
      */
     private function internalErrors(ProcessResultDto $result): string
     {
-        $report = json_decode($result->stdout, true);
+        try {
+            $report = \Safe\json_decode($result->stdout, true);
+        } catch (JsonException $jsonException) {
+            return $result->output . "\n" . $jsonException->getMessage();
+        }
+
         if (!\is_array($report) || !\is_array($report['errors'] ?? null)) {
             return $result->output;
         }

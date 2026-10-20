@@ -83,7 +83,7 @@ carries the reason, where the `false` carried none.
 
 What it does not report, and why:
 
-- a `Safe\` function whose own return type can be `false` (`Safe\json_decode()` returns `mixed`, and
+- a `Safe\` function whose declared return type can be `false` (`Safe\json_decode()` returns `mixed`, and
   `false` is valid JSON): the comparison tests a value the function returns;
 - a condition on a `Safe\` result that can itself be falsy, such as `Safe\preg_match()`'s `0` or a
   `Safe\file_get_contents()` empty string: the condition still tests a value the function returns,
@@ -94,7 +94,9 @@ What it does not report, and why:
   and a cast is neither;
 - a `void` `Safe\` function used as a condition, such as `if (!\Safe\mkdir($dir))`: `void` is not
   truthy, so the rule leaves it to PHPStan core, which reports it as `function.void`.
-  `false === \Safe\mkdir($dir)` is reported.
+  `false === \Safe\mkdir($dir)` is reported;
+- a first-class callable, such as `false === \Safe\realpath(...)` or `if (\Safe\realpath(...))`: it
+  makes a `Closure` and calls nothing, so there is no result to compare or test.
 
 The rule takes any function whose first namespace segment is `Safe` for a
 [thecodingmachine/safe](https://github.com/thecodingmachine/safe) one, so a project's own
@@ -111,7 +113,7 @@ $real = \Safe\realpath($path);
 if (false === $real) {
 ```
 
-The rule sees only the call itself, or an assignment of it inside the comparison. Following the
-variable needs data flow the rule does not do; PHPStan core reports the strict form as
+The rule sees only the call itself, under `@` or assigned inside the comparison or condition.
+Following the variable needs data flow the rule does not do; PHPStan core reports the strict form as
 `identical.alwaysFalse` or `notIdentical.alwaysTrue`, without naming the cause. No instance of the
 stored form was found when the rule was built.

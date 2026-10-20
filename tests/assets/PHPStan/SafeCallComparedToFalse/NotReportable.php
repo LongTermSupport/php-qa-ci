@@ -79,4 +79,19 @@ final class NotReportable
 
         return \Safe\file_get_contents($file) ?: 'empty';
     }
+
+    /**
+     * A first-class callable makes a Closure: it is not a call, so there is no
+     * result to compare with false or to test.
+     */
+    public function aFirstClassCallableIsNotACall(): string
+    {
+        $compared = false === \Safe\realpath(...) || \Safe\realpath(...) !== false || false == @\Safe\realpath(...);
+
+        if ($resolve = \Safe\realpath(...)) {
+            return \Safe\realpath(...) ? 'callable' : (!\Safe\realpath(...) ? 'never' : \gettype($resolve));
+        }
+
+        return $compared ? 'compared' : 'not';
+    }
 }
