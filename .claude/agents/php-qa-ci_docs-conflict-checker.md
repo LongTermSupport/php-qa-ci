@@ -23,11 +23,14 @@ Read and understand the project's documentation (CLAUDE.md, related .md files) a
 - Main context invokes `qa` skill
 - `qa` skill invokes `phpstan-runner` or `phpunit-runner` skills
 - Runner skills launch cheap haiku AGENTS (php-qa-ci_phpstan-runner, php-qa-ci_phpunit-runner)
-- Agents run `{bin}/qa -t toolname` commands in agent context (saves main context tokens!)
+- Agents run `{bin}/qa -t <tool>` commands in agent context (saves main context tokens!)
 - If errors found, runner reports to qa skill
 - `qa` skill invokes `phpstan-fixer` or `phpunit-fixer` skills
 - Fixer skills launch cheap sonnet AGENTS (php-qa-ci_phpstan-fixer, php-qa-ci_phpunit-fixer)
-- Fixer agents implement fixes and run `{bin}/qa -t allCs` on changed files
+- Fixer agents implement fixes and list the files they changed; they run no tools
+- The cycle runs no coding standards between iterations: the caller can run them on the files
+  a fixer lists, through the qa-tool-runner agent (`{bin}/qa -t r -p <file>`, then
+  `{bin}/qa -t f -p <file>`), and the full pipeline runs them first
 - Cycle repeats: run → fix → run → fix until clean
 - The full unfiltered pipeline (`{bin}/qa` with no `-t`) is the exception: the main
   (coordinating) session runs it itself, and no agent does
@@ -106,8 +109,7 @@ Read the project documentation (start with CLAUDE.md) and look for instructions 
    **EXCEPTION: Specialized php-qa-ci QA Agents**
    - ✅ php-qa-ci_phpstan-runner - ALLOWED to run {bin}/qa -t stan
    - ✅ php-qa-ci_phpunit-runner - ALLOWED to run {bin}/qa -t unit
-   - ✅ php-qa-ci_phpstan-fixer - ALLOWED to run {bin}/qa -t allCs
-   - ✅ php-qa-ci_phpunit-fixer - ALLOWED to run {bin}/qa -t allCs
+   - ✅ php-qa-ci_qa-tool-runner - ALLOWED to run {bin}/qa -t allCS and any other single tool
    - These agents exist specifically for QA tool execution
 
    **GENERAL subagents (general-purpose, Explore, Plan):**

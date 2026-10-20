@@ -166,6 +166,37 @@ final class QaEntrypointTest extends TestCase
         self::assertStringContainsString('security audit', $help->getErrorOutput());
     }
 
+    /**
+     * pipeline.php is PHP the project owns, so it may declare a helper. A run
+     * that required it twice would die with "Cannot redeclare"; documentedQaCommands
+     * reads the project's registry, so it must read the one the run built.
+     */
+    #[Test]
+    public function aProjectPipelinePhpThatDeclaresAFunctionIsLoadedOncePerRun(): void
+    {
+        $this->consumer->write('qaConfig/pipeline.php', <<<'PHP_WRAP'
+            <?php
+
+            declare(strict_types=1);
+
+            use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
+
+            function fixturePipelineHelper(PipelineBuilder $pipeline): PipelineBuilder
+            {
+                return $pipeline;
+            }
+
+            return static fn (PipelineBuilder $pipeline): PipelineBuilder => fixturePipelineHelper($pipeline);
+            PHP_WRAP);
+
+        $process = $this->qa(['QA_READONLY' => '1'], '-t', 'dqc');
+
+        $out = $process->getOutput() . $process->getErrorOutput();
+        self::assertStringNotContainsString('Cannot redeclare', $out);
+        self::assertSame(0, $process->getExitCode(), $out);
+        self::assertMatchesRegularExpression('/ qa -t dqc COMPLETED\n=+\n$/', $process->getOutput());
+    }
+
     #[Test]
     public function aBashEraQaConfigIsRefusedWithMigrationGuidance(): void
     {
