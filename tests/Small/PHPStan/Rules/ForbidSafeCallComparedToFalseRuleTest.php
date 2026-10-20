@@ -54,6 +54,14 @@ final class ForbidSafeCallComparedToFalseRuleTest extends RuleTestCase
                 [$comparison, 115],
                 [$comparison, 119],
                 [$condition, 123],
+                [$comparison, 128],
+                [$comparison, 132],
+                [$condition, 136],
+                [$condition, 140],
+                [$condition, 144],
+                [$comparison, 149],
+                [$condition, 153],
+                [$condition, 157],
             ],
         );
     }

@@ -122,4 +122,38 @@ final class Reportable
 
         return ((@\Safe\realpath($path))) ? $real : $path;
     }
+
+    public function pipedIntoASafeCallable(string $path): string
+    {
+        if (false === ($path |> \Safe\realpath(...))) {
+            return 'compared';
+        }
+
+        if ($path |> realpath(...) !== false) {
+            return 'imported, unparenthesised';
+        }
+
+        if ($path |> \Safe\realpath(...)) {
+            return 'condition';
+        }
+
+        if (!($path |> \Safe\realpath(...))) {
+            return 'negated';
+        }
+
+        return ($path |> \trim(...) |> \Safe\realpath(...)) ? 'chained' : $path;
+    }
+
+    public function pipedThroughSuppressionAndAssignment(string $path): string
+    {
+        if (false === @($path |> \Safe\realpath(...))) {
+            return 'suppressed';
+        }
+
+        if ($resolved = $path |> \Safe\realpath(...)) {
+            return $resolved;
+        }
+
+        return false == (@$path |> \Safe\realpath(...)) ? 'loose' : $path;
+    }
 }

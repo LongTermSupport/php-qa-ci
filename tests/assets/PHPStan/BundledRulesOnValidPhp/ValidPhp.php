@@ -218,6 +218,30 @@ final class Shapes
     }
 
     /**
+     * Pipes (PHP 8.5) into first-class callables of a Safe\, a global and a
+     * namespaced function, a method and a static method, and into a closure,
+     * compared with false, tested as conditions, under @ and assigned.
+     */
+    public function pipes(string $path, Target $target): string
+    {
+        $compared  = false === ($path |> \Safe\realpath(...)) || ($path |> \strlen(...)) !== false;
+        $suppressed = false === @($path |> \Safe\realpath(...));
+        $chained   = $path |> \trim(...) |> \Safe\realpath(...) |> namespacedFunction(...);
+        $method    = $path |> $target->run(...) |> Target::make(...);
+        $closure   = $path |> (static fn (string $value): string => $value);
+
+        if ($path |> \Safe\realpath(...)) {
+            return 'condition';
+        }
+
+        if (!($resolved = $path |> \Safe\realpath(...))) {
+            return 'assigned';
+        }
+
+        return ($path |> \Safe\file_get_contents(...)) ? $chained . $method . $closure . $resolved : \gettype($compared || $suppressed);
+    }
+
+    /**
      * Assertion methods called, and taken as first-class callables, whose
      * getArgs() has no expected and actual value.
      */
