@@ -83,8 +83,40 @@ it disagrees by reporting more.
   release and verifies it against a committed version and sha256; a mismatch, or no network,
   fails loudly rather than skipping the lane silently. The tool-currency update bumps the pin and
   checksum.
+- **D13: shelved until Mago 2.0.** The plan is cancelled for now, with the facts below kept for
+  the revisit. [#208](https://github.com/LongTermSupport/php-qa-ci/issues/208) stays open, blocked
+  on Mago 2.0
+  ([carthage-software/mago#1931](https://github.com/carthage-software/mago/issues/1931)). The
+  open decisions D2–D5 and D7–D12 lapse with the plan and are re-presented on the revisit, against
+  2.0. The Owner's intended model, which the revisit starts from: on edit, Mago runs **instead
+  of** PHPStan, to make the lint-on-edit loop fast; PHPStan runs only in a full QA run. The
+  edit-time wrapper is php-qa-ci's, aware of the hooks daemon but not coupled to it.
 
-## Open Owner decisions
+## Shelving facts
+
+The facts behind D13, as found while the Owner weighed whether to adopt Mago at all.
+
+| Question                         | Fact                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mago instead of PHPStan on edit  | One-file Mago lint is about 15 ms against about 5.4 s for `qa -t phpstan -p FILE`. The cost: edit time would lose PHPStan's type analysis and 28 of the 36 `phpqaci.*` rules, which have no Mago counterpart (§3a). An agent would pass on edit and fail at full QA. That is a delay, not an A-vs-B contradiction, as long as Mago never reports what PHPStan accepts. |
+| The cheaper speed lever          | About 3.4 s of the 5.4 s is per-run setup that depends only on config ([#219](https://github.com/LongTermSupport/php-qa-ci/issues/219)); the `analyse` call alone measured 1.8 s. Fixing #219 is estimated, not measured, to bring the edit-time PHPStan step to about 2 s with every rule still running.                                                              |
+| The 136 false positives          | All are from the analyser, which D1 already ruled out. The linter, with the aligned config, leaves 8 findings on this repository.                                                                                                                                                                                                                                      |
+| The segfault                     | Found by a generated probe file (one statement of 100,000 joined strings), not by real code. Real code is far below the threshold of about 8,500 operands; only generated code would reach it. It still crashes silently, so U1 stays a valid report.                                                                                                                  |
+| Mago 2.0                         | A ground-up rework of the analysis pipeline, labelled `bc-break`. The 2.0.0 milestone is due 2027-01-10, with 16 of 30 tracking-issue tasks done and 10 closed and 14 open milestone issues, as read on 2026-10-20. Releases come every few days (1.58.0, 1.58.1 and 1.58.2 all on 2026-10-19).                                                                        |
+| Custom rules (DBF compatibility) | Mago extensions exist since 1.47: PHP worker processes through the SDK in the Composer package, not sandboxed (§4). The 2.0 tracker still lists "Plugin system" as open, with the host language undecided, so the 1.x extension API is not a stable base. DBF's identifiers, `bin/rules`, `rule-doc` and the justification lane are PHPStan-only.                      |
+| Verdict                          | Mago cannot carry DBF defences today. It could add fast extra checks beside PHPStan, but not replace it as the place defences live.                                                                                                                                                                                                                                    |
+
+## Revisit when Mago 2.0 is released
+
+1. Re-run the Phase 0 probes against 2.0: default-off config, exit codes, the U1 segfault and
+   U2–U4, the analyser classification, and the speed.
+2. Read 2.0's plugin system: language, stability promise, cost per run, and whether a
+   `phpqaci.*` rule could live there with its identifier.
+3. Weigh the Owner's model (Mago instead of PHPStan on edit) against the edit-time PHPStan time
+   after #219.
+4. Re-present the lapsed decisions, and file U1 if 2.0 still crashes.
+
+## Lapsed Owner decisions (re-presented on the revisit, per D13)
 
 | ID  | Decision                                                                                                                                                                                                              | Recommendation                                                                                                               |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
