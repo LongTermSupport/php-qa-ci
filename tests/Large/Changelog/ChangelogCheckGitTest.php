@@ -49,7 +49,9 @@ final class ChangelogCheckGitTest extends TestCase
 
     private const string TEST_FILE = 'tests/ATest.php';
 
-    private const string CO_AUTHOR = 'Co-Authored-By: Sandbox <sandbox@example.invalid>';
+    private const string TIDY_TESTS = 'Tidy the tests';
+
+    private const string CO_AUTHOR ='Co-Authored-By: Sandbox <sandbox@example.invalid>';
 
     private GitSandbox $sandbox;
 
@@ -112,7 +114,7 @@ final class ChangelogCheckGitTest extends TestCase
         $this->sandbox->commit(self::SOURCE, "<?php\n// misplaced, watched\n", 'Tidy the source', 'Changelog: none — misplaced above the trailers', self::CO_AUTHOR);
 
         $watchedCommit = $this->head();
-        $this->sandbox->commit(self::TEST_FILE, "<?php\n// misplaced, unwatched\n", 'Tidy the tests', 'Changelog: none — tests only, misplaced too', self::CO_AUTHOR);
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// misplaced, unwatched\n", self::TIDY_TESTS, 'Changelog: none — tests only, misplaced too', self::CO_AUTHOR);
         $unwatchedCommit = $this->head();
 
         $result = $this->check();
@@ -144,7 +146,7 @@ final class ChangelogCheckGitTest extends TestCase
     #[Test]
     public function aLowerCaseOrSpacedChangelogLineAboveTheBlockIsReported(): void
     {
-        $this->sandbox->commit(self::TEST_FILE, "<?php\n// variants\n", 'Tidy the tests', "changelog: none — lower case, misplaced\nChangelog : none — spaced, misplaced", self::CO_AUTHOR);
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// variants\n", self::TIDY_TESTS, "changelog: none — lower case, misplaced\nChangelog : none — spaced, misplaced", self::CO_AUTHOR);
         $commit = $this->head();
 
         $problem = $this->onlyProblem();
@@ -157,7 +159,7 @@ final class ChangelogCheckGitTest extends TestCase
     #[Test]
     public function aShorterChangelogLineAboveTheBlockIsTheOneNamed(): void
     {
-        $this->sandbox->commit(self::TEST_FILE, "<?php\n// prefix\n", 'Tidy the tests', 'Changelog: none', "Changelog: none — tests only, placed\n" . self::CO_AUTHOR);
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// prefix\n", self::TIDY_TESTS, 'Changelog: none', "Changelog: none — tests only, placed\n" . self::CO_AUTHOR);
         $commit = $this->head();
 
         $problem = $this->onlyProblem();
@@ -170,7 +172,7 @@ final class ChangelogCheckGitTest extends TestCase
     public function onTheDefaultBranchAMisplacedChangelogLineIsReportedWithoutFailing(): void
     {
         $this->sandbox->git(self::CHECKOUT, GitSandbox::DEFAULT_BRANCH);
-        $this->sandbox->commit(self::TEST_FILE, "<?php\n// merged already\n", 'Tidy the tests', 'Changelog: none — tests only, misplaced here', self::CO_AUTHOR);
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// merged already\n", self::TIDY_TESTS, 'Changelog: none — tests only, misplaced here', self::CO_AUTHOR);
 
         $commit = $this->head();
 

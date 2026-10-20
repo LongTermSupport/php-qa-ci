@@ -20,6 +20,8 @@ final readonly class ChangelogTrailers
 
     private const int MIN_REASON_WORDS = 2;
 
+    private const string KEY_PATTERN = '/^' . ChangelogGit::TRAILER_KEY . '[ \t]*:(.*)$/i';
+
     public function verdict(string ...$values): ChangelogTrailerVerdictDto
     {
         $optsOut = false;
@@ -39,13 +41,16 @@ final readonly class ChangelogTrailers
 
     /**
      * The `Changelog:` lines of a commit body that git did not read as
-     * trailers. A line counts only when `Changelog:` starts it at column 0,
-     * case for case; anything else is prose. Each of $trailers (git's
-     * unfolded `Changelog` trailers of the same commit, one per line)
-     * accounts for one body line whose value it starts with, so a folded
-     * trailer accounts for its first line.
+     * trailers. A line counts when it starts at column 0 with the key as git
+     * matches it: in any case, with spaces or tabs allowed before the colon.
+     * Anything else is prose. Each of $trailers (git's unfolded `Changelog`
+     * trailers of the same commit, one per line) accounts for the one body
+     * line whose whole value, unfolded over its indented continuation lines,
+     * equals its own, whitespace runs aside. The body is walked from the
+     * bottom, where the trailer block is, so of two equal lines the one
+     * above the block is the one named.
      *
-     * @return list<string> the misplaced lines, trimmed
+     * @return list<string> the misplaced lines, trimmed, top to bottom
      */
     public function misplaced(string $body, string $trailers): array
     {
@@ -53,20 +58,16 @@ final readonly class ChangelogTrailers
         foreach (explode("\n", $trailers) as $trailer) {
             $separator = strpos($trailer, ':');
             if (false !== $separator) {
-                $read[] = trim(substr($trailer, $separator + 1));
+                $read[] = $this->normalised(substr($trailer, $separator + 1));
             }
         }
 
+        $lines     = explode("\n", $body);
         $misplaced = [];
-        foreach (explode("\n", $body) as $line) {
-            if (!str_starts_with($line, ChangelogGit::TRAILER_KEY . ':')) {
-                continue;
-            }
-
-            $value = trim(substr($line, \strlen(ChangelogGit::TRAILER_KEY) + 1));
-            $match = array_find_key($read, static fn (string $trailer): bool => str_starts_with($trailer, $value));
-            if (null === $match) {
-                $misplaced[] = trim($line);
+        foreach (array_reverse($this->declarations(...$lines), true) as $index => $value) {
+            $match = array_search($value, $read, true);
+            if (false === $match) {
+                $misplaced[] = trim($lines[$index]);
 
                 continue;
             }
@@ -74,7 +75,38 @@ final readonly class ChangelogTrailers
             unset($read[$match]);
         }
 
-        return $misplaced;
+        return array_reverse($misplaced);
+    }
+
+    /**
+     * Each `Changelog` line's normalised value, unfolded over the indented
+     * lines that follow it.
+     *
+     * @return array<int, string> line index => value
+     */
+    private function declarations(string ...$lines): array
+    {
+        $lines        = array_values($lines);
+        $declarations = [];
+        foreach ($lines as $index => $line) {
+            if (1 !== \Safe\preg_match(self::KEY_PATTERN, $line, $matches) || !isset($matches[1])) {
+                continue;
+            }
+
+            $value = $matches[1];
+            for ($next = $index + 1; isset($lines[$next]) && 1 === \Safe\preg_match('/^[ \t]+\S/', $lines[$next]); ++$next) {
+                $value .= ' ' . $lines[$next];
+            }
+
+            $declarations[$index] = $this->normalised($value);
+        }
+
+        return $declarations;
+    }
+
+    private function normalised(string $value): string
+    {
+        return implode(' ', array_filter(\Safe\preg_split('/\s+/', trim($value)), is_string(...)));
     }
 
     private function isOptOut(string $value): bool

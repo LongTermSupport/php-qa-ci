@@ -96,7 +96,7 @@ final class ChangelogCheckTest extends TestCase
 
     private const string EMPTY_BASE_CHANGELOG = "## Unreleased\n";
 
-    private const string MISPLACED_MESSAGE = "0123456789abcdef\0Changelog: none — tests only, misplaced\n\nCo-Authored-By: X <x@example.invalid>\n\0\0";
+    private const string MISPLACED_MESSAGE = "0123456789abcdef\0Tidy the tests\n\nChangelog: none — tests only, misplaced\n\nCo-Authored-By: X <x@example.invalid>\n\0\0";
 
     private TempDir $project;
 
@@ -352,7 +352,7 @@ final class ChangelogCheckTest extends TestCase
             ->willSucceed()
             ->willSucceed()
             ->willSucceed(self::COMPOSER)
-            ->willSucceed(self::MISPLACED_MESSAGE . "fedcba9876543210\0Changelog: none — a second, misplaced\n\n\0\0")
+            ->willSucceed(self::MISPLACED_MESSAGE . "fedcba9876543210\0Tidy more\nChangelog: none — a second, misplaced\n\0\0")
         ;
 
         $result = $this->check(policy: ReleaseVersionPolicy::lockedMajorFromPhpRequirement());

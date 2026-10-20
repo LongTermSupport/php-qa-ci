@@ -23,7 +23,9 @@ final class ChangelogTrailersTest extends TestCase
 {
     private const string BARE_NONE = 'none';
 
-    private const string TRAILER_LINE = "Changelog: none — tests only\n";
+    private const string TRAILER = 'Changelog: none — tests only';
+
+    private const string TRAILER_LINE = self::TRAILER . "\n";
 
     #[Test]
     #[DataProvider('validOptOuts')]
@@ -91,7 +93,7 @@ final class ChangelogTrailersTest extends TestCase
     {
         $body = "Changelog: none — tests only\n\nCo-Authored-By: X <x@example.invalid>\n";
 
-        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, ''));
+        self::assertSame([self::TRAILER], new ChangelogTrailers()->misplaced($body, ''));
     }
 
     #[Test]
@@ -139,7 +141,7 @@ final class ChangelogTrailersTest extends TestCase
     {
         $body = "For example:\n\n```\n" . self::TRAILER_LINE . "```\n\nCo-Authored-By: X <x@example.invalid>\n";
 
-        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, ''));
+        self::assertSame([self::TRAILER], new ChangelogTrailers()->misplaced($body, ''));
     }
 
     #[Test]
@@ -147,7 +149,7 @@ final class ChangelogTrailersTest extends TestCase
     {
         $body = self::TRAILER_LINE . "\n" . self::TRAILER_LINE;
 
-        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, self::TRAILER_LINE));
+        self::assertSame([self::TRAILER], new ChangelogTrailers()->misplaced($body, self::TRAILER_LINE));
     }
 
     #[Test]

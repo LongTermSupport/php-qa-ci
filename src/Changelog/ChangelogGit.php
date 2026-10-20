@@ -106,15 +106,16 @@ final readonly class ChangelogGit
     }
 
     /**
-     * Every commit in $base..HEAD: its sha, its body (the message after the
-     * subject, which git never reads trailers from) and the `Changelog`
-     * trailers git reads from it, unfolded, one per line.
+     * Every commit in $base..HEAD: its sha, its body and the `Changelog`
+     * trailers git reads from it, unfolded, one per line. The body is the
+     * whole message less its first line, the subject: the rest of the first
+     * paragraph is kept, since a line there is no trailer either.
      *
      * @return list<array{commit: string, body: string, trailers: string}>
      */
     public function messages(string $base): array
     {
-        $output = $this->required(self::LOG, '-z', '--format=%H%x00%b%x00%(trailers:key=' . self::TRAILER_KEY . ',unfold)', $base . '..HEAD')->stdout;
+        $output = $this->required(self::LOG, '-z', '--format=%H%x00%B%x00%(trailers:key=' . self::TRAILER_KEY . ',unfold)', $base . '..HEAD')->stdout;
         if ('' === $output) {
             return [];
         }
@@ -125,7 +126,9 @@ final readonly class ChangelogGit
         }
 
         $messages = [];
-        foreach (array_chunk($fields, 3) as [$commit, $body, $trailers]) {
+        foreach (array_chunk($fields, 3) as [$commit, $message, $trailers]) {
+            $subjectEnd = strpos($message, "\n");
+            $body       = false === $subjectEnd ? '' : substr($message, $subjectEnd + 1);
             $messages[] = ['commit' => $commit, 'body' => $body, 'trailers' => $trailers];
         }
 

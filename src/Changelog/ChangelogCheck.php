@@ -275,8 +275,9 @@ final readonly class ChangelogCheck
 
         return \sprintf(
             "%s %s: git reads trailers only from a message's final paragraph, and %s:\n%s"
-            . "\n  Reword each commit (git rebase -i %s) and move each line into the final trailer block, the last"
-            . "\n  paragraph with Co-Authored-By: and the other trailers, with no blank line between them.",
+            . "\n  Reword each commit (git rebase -i --rebase-merges %s, which keeps merges) and"
+            . "\n  move each line into the final trailer block, the last paragraph with Co-Authored-By: and the"
+            . "\n  other trailers, with no blank line between them.",
             $subject,
             1 === $count ? 'is not a commit trailer' : 'are not commit trailers',
             1 === $count ? 'this one sits in a paragraph above it' : 'these sit in a paragraph above it',

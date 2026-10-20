@@ -74,10 +74,15 @@ The section ends at the next `##` heading. Released sections below it are not ch
 4. **Every `Changelog:` line is a trailer.** Git reads trailers only from the last paragraph of
    a commit message, so a `Changelog: none — <reason>` line in a paragraph of its own above
    `Co-Authored-By:` is not a trailer, and the coverage check above never sees it. The lane reads
-   each commit in the range and reports every body line that starts with `Changelog:` at column 0
-   (case as written) that git does not return among the commit's `Changelog` trailers, by commit,
-   whether or not the commit touches a watched path. An indented line, a lower-case
-   `changelog:` and the subject line are prose and are not judged. On a branch or in a pull
+   each commit in the range and reports every line after the subject that starts with the
+   `Changelog` key at column 0 that git does not return among the commit's `Changelog` trailers,
+   by commit, whether or not the commit touches a watched path. The key is matched as git matches
+   it, in any case and with space allowed before the colon, so `changelog:` and `Changelog :`
+   count too. A line in the subject's own paragraph, under the subject with no blank line, is
+   judged, and so is a line inside a fenced code block in the body: git reads neither as a
+   trailer, so a message that quotes the trailer as an example indents it. An indented line, a
+   line with the key mid-line and the subject line itself are prose and are not judged; a subject
+   such as `Changelog: file the entry` stays prose. On a branch or in a pull
    request build each such line fails the lane; on the default branch, measured since the last
    release tag, they are listed in the report and do not fail it, because history already merged
    is not rewritten.
@@ -168,7 +173,8 @@ sets the prefix to match them.
   A bare `Changelog: none`, or a reason like `wip`, is refused and listed as ignored.
 
 - **A `Changelog:` line that is not a trailer** (the failure begins `N "Changelog:" lines in the range are not commit trailers`, and names each line by its commit): reword each commit named
-  (`git rebase -i <base>`, `reword`) so the line is in the message's final paragraph, together
+  (`git rebase -i --rebase-merges <base>`, `reword`; plain `git rebase -i` would flatten any merge
+  of the base into the branch) so the line is in the message's final paragraph, together
   with `Co-Authored-By:` and any other trailer, with no blank line between them:
 
   ```text
