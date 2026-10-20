@@ -94,6 +94,24 @@ final class UnresolvablePathTest extends TestCase
         );
     }
 
+    /** A path given as `-p ./dir//sub` is named without its `./` and doubled slashes; `..` is kept. */
+    #[Test]
+    public function theSkipLineNamesTheFileWithoutRedundantDotOrSlashSegments(): void
+    {
+        self::assertStringStartsWith(
+            'Probe skipped dir/sub/Gone.php: ',
+            UnresolvablePath::skipped(self::TOOL, $this->directory->path . '/./dir//sub/./Gone.php', $this->directory->path),
+        );
+        self::assertStringStartsWith(
+            'Probe skipped dir/Gone.php: ',
+            UnresolvablePath::skipped(self::TOOL, './dir//Gone.php', '/elsewhere'),
+        );
+        self::assertStringStartsWith(
+            'Probe skipped /elsewhere/../x/Gone.php: ',
+            UnresolvablePath::skipped(self::TOOL, '//elsewhere/./../x/Gone.php', $this->directory->path),
+        );
+    }
+
     #[Test]
     public function aFileOutsideTheProjectRootIsNamedInFull(): void
     {
