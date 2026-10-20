@@ -111,10 +111,13 @@ final readonly class InfectionDiffFilter
         $testsPrefix = $this->relative($testsDir, $cwd) . '/';
         $triggers    = array_map(fn (string $trigger): string => $this->relative($trigger, $cwd), $fullRunTriggers);
 
-        $changed     = [];
-        $mirrored    = [];
-        $unmapped    = [];
-        $config      = [];
+        /** @var array<array-key, true> $changed */
+        $changed = [];
+        /** @var array<array-key, string> $mirrored */
+        $mirrored = [];
+        $unmapped = [];
+        $config   = [];
+        /** @var array<array-key, true> $commentOnly */
         $commentOnly = [];
         foreach ($this->entries($gitDiffOutput) as [$status, $path, $previous]) {
             if ('R' === $status && null !== $previous) {
@@ -160,7 +163,7 @@ final readonly class InfectionDiffFilter
         }
 
         $mirrored = array_diff_key($mirrored, $changed);
-        $relative = [...array_keys($changed), ...array_keys($mirrored)];
+        $relative = $this->paths(...array_keys($changed), ...array_keys($mirrored));
 
         return new InfectionDiffFilterDto(
             array_map(static fn (string $file): string => $cwd . '/' . $file, $relative),
@@ -168,8 +171,18 @@ final readonly class InfectionDiffFilter
             $mirrored,
             $unmapped,
             $config,
-            array_keys(array_diff_key($commentOnly, $changed)),
+            $this->paths(...array_keys(array_diff_key($commentOnly, $changed))),
         );
+    }
+
+    /**
+     * The paths a map was keyed by, as strings: PHP keys a path such as '2024' by an int.
+     *
+     * @return list<string>
+     */
+    private function paths(int|string ...$keys): array
+    {
+        return array_map(static fn (int|string $key): string => (string) $key, array_values($keys));
     }
 
     /** `git status --porcelain=v1 -z` output with every path made relative to `$prefix` */

@@ -67,7 +67,7 @@ final readonly class RepeatUntilSettled
         }
     }
 
-    /** @return array<string, string> each file under the paths => a hash of its content */
+    /** @return array<array-key, string> each file under the paths => a hash of its content */
     private function fingerprint(string $root, string ...$paths): array
     {
         $hashes = [];
