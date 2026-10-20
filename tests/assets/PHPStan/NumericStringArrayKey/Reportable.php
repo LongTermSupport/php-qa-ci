@@ -142,6 +142,16 @@ final class Reportable
         return $copied;
     }
 
+    /** @return array<string, string> */
+    public function copiedBeforeReturned(string $path): array
+    {
+        $built        = [];
+        $built[$path] = 'x';
+        $result       = $built;
+
+        return $result;
+    }
+
     /** @param array<string, string> $map */
     private function accept(array $map): void
     {
