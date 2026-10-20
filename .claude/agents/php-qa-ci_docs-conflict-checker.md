@@ -28,7 +28,9 @@ Read and understand the project's documentation (CLAUDE.md, related .md files) a
 - `qa` skill invokes `phpstan-fixer` or `phpunit-fixer` skills
 - Fixer skills launch cheap sonnet AGENTS (php-qa-ci_phpstan-fixer, php-qa-ci_phpunit-fixer)
 - Fixer agents implement fixes and list the files they changed; they run no tools
-- The coding standards run through the qa-tool-runner agent (`{bin}/qa -t allCS`)
+- The cycle runs no coding standards between iterations: the caller can run them on the files
+  a fixer lists, through the qa-tool-runner agent (`{bin}/qa -t r -p <file>`, then
+  `{bin}/qa -t f -p <file>`), and the full pipeline runs them first
 - Cycle repeats: run → fix → run → fix until clean
 - The full unfiltered pipeline (`{bin}/qa` with no `-t`) is the exception: the main
   (coordinating) session runs it itself, and no agent does
