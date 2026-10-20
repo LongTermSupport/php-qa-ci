@@ -15,6 +15,9 @@ use SplHeap;
 
 final class Psr4Validator
 {
+    /** A package of Magento's own Composer vendor, in any case. */
+    private const string MAGENTO_PACKAGE = '~^magento/~i';
+
     /** @var list<string> */
     private array $parseErrors = [];
 
@@ -123,7 +126,7 @@ final class Psr4Validator
                 foreach ($paths as $path) {
                     $absPathRoot = $this->pathToProjectRoot . '/' . $path;
                     if (!file_exists($absPathRoot)) {
-                        $this->addMissingPathError($path, $namespaceRoot, $absPathRoot);
+                        $this->addMissingPathError($path, $namespaceRoot);
                         continue;
                     }
 
@@ -154,15 +157,31 @@ final class Psr4Validator
         }
     }
 
-    private function addMissingPathError(string $path, string $namespaceRoot, string $absPathRoot): void
+    private function addMissingPathError(string $path, string $namespaceRoot): void
     {
         $invalidPathMessage = "Namespace root '{$namespaceRoot}'\ncontains a path '{$path}'\nwhich doesn't exist\n";
-        if (false !== stripos($absPathRoot, 'Magento')) {
+        if ($this->isMagentoProject()) {
             $invalidPathMessage .= "Magento's composer includes this by default, "
                                    . 'it should be removed from the psr-4 section';
         }
 
         $this->missingPaths[$path] = $invalidPathMessage;
+    }
+
+    /**
+     * A Magento project says so in its composer.json: it is a Magento package itself, or it requires
+     * one. Where it is checked out says nothing about it.
+     */
+    private function isMagentoProject(): bool
+    {
+        $name     = $this->decodedComposerJson['name']    ?? null;
+        $require  = $this->decodedComposerJson['require'] ?? null;
+        $packages = [
+            ...(\is_string($name) ? [$name] : []),
+            ...(\is_array($require) ? array_keys($require) : []),
+        ];
+
+        return [] !== \Safe\preg_grep(self::MAGENTO_PACKAGE, $packages);
     }
 
     /**
