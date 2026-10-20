@@ -92,8 +92,9 @@ final class TempLeakDirectory
             return;
         }
 
-        foreach (self::entriesOf($shared) ?? [] as $name => $path) {
-            $pid = self::ownerPid($name);
+        foreach (self::namesIn($shared) ?? [] as $name) {
+            $path = $shared . '/' . $name;
+            $pid  = self::ownerPid($name);
             if (null === $pid
                 || is_link($path)
                 || !is_dir($path)
@@ -170,7 +171,7 @@ final class TempLeakDirectory
     /** Removes everything in the working directory, by names relative to it. */
     private static function emptyCurrentDirectory(): void
     {
-        foreach (array_keys(self::entriesOf('.') ?? []) as $name) {
+        foreach (self::namesIn('.') ?? [] as $name) {
             if (is_dir($name) && !is_link($name)) {
                 if (self::enter($name)) {
                     try {
@@ -215,13 +216,15 @@ final class TempLeakDirectory
     /**
      * FilesystemIterator turns a failed open into an exception without the PHP
      * warning scandir() emits first, as ProjectTreeLedger reads the project tree.
+     * The names are the iterator's values, never array keys: PHP makes a key
+     * such as '12' (a git object directory) an int.
      *
-     * @return array<string, string>|null paths by name; null when the directory has gone
+     * @return list<string>|null null when the directory has gone
      */
-    private static function entriesOf(string $directory): ?array
+    private static function namesIn(string $directory): ?array
     {
         try {
-            $iterator = new FilesystemIterator($directory, FilesystemIterator::KEY_AS_FILENAME | FilesystemIterator::CURRENT_AS_PATHNAME | FilesystemIterator::SKIP_DOTS);
+            $iterator = new FilesystemIterator($directory, FilesystemIterator::SKIP_DOTS);
         } catch (UnexpectedValueException $unexpectedValueException) {
             if (self::stillThere($directory)) {
                 throw $unexpectedValueException;
@@ -230,8 +233,14 @@ final class TempLeakDirectory
             return null;
         }
 
-        /** @var array<string, string> */
-        return iterator_to_array($iterator);
+        $names = [];
+        foreach ($iterator as $entry) {
+            if ($entry instanceof SplFileInfo) {
+                $names[] = $entry->getFilename();
+            }
+        }
+
+        return $names;
     }
 
     /**

@@ -177,7 +177,7 @@ final class TempLeakDirectoryTest extends TestCase
         try {
             $kept = [];
             foreach (['12345', '0', '-1'] as $name) {
-                $kept[] = $parent->write($name . '/file', self::KEPT);
+                $kept[] = $parent->write($name . '/' . self::KEPT, self::KEPT);
             }
 
             $kept[] = $parent->write('12', self::KEPT);
@@ -284,15 +284,17 @@ final class TempLeakDirectoryTest extends TestCase
     #[Test]
     public function aDeadProcessDirectoryTheClaimCannotRemoveIsNamedAndTheRunGoesOn(): void
     {
+        $asRoot = $this->runsAsRoot();
+        $wrap   = $asRoot ? $this->userNamespaceOrSkip() : [];
         $parent = TempDir::create(self::PARENT);
         $dead   = $this->deadPid();
         $locked = $parent->mkdir(self::MARKER . $dead . self::RANDOM . '/locked');
         try {
             $kept  = $parent->write(self::MARKER . $dead . self::RANDOM . '/locked/file', self::KEPT);
             $other = $parent->write(self::MARKER . $dead . '-4567cdef/file', '');
-            $this->lock($locked);
+            $this->lock($locked, $asRoot);
 
-            $process = $this->claimProcess($parent->path, 'echo "the run went on";');
+            $process = $this->claimProcess($parent->path, 'echo "the run went on";', ...$wrap);
             $process->run();
 
             self::assertSame(0, $process->getExitCode(), $process->getErrorOutput());
@@ -313,12 +315,31 @@ final class TempLeakDirectoryTest extends TestCase
      * unmapped user and the claim runs as root in a user namespace of its own, which holds no
      * capability over that directory.
      */
-    private function lock(string $directory): void
+    private function lock(string $directory, bool $asRoot): void
     {
         \Safe\chmod($directory, 0o500);
-        if ($this->runsAsRoot()) {
+        if ($asRoot) {
             \Safe\chown($directory, self::NOBODY);
         }
+    }
+
+    /**
+     * The command prefix that runs a child as root in a user namespace of its own (see lock()).
+     * A host without user namespaces (Docker's default seccomp profile, max_user_namespaces=0)
+     * or without unshare cannot lock a directory against root, so the test is skipped there.
+     *
+     * @return list<string>
+     */
+    private function userNamespaceOrSkip(): array
+    {
+        $prefix = ['unshare', '--user', '--map-root-user'];
+        $probe  = new Process([...$prefix, 'true']);
+        $probe->run();
+        if (!$probe->isSuccessful()) {
+            self::markTestSkipped('Running as root, a directory is locked against the claim only from a user namespace, and `unshare --user --map-root-user` is unavailable here: ' . trim($probe->getErrorOutput()));
+        }
+
+        return $prefix;
     }
 
     /**
@@ -361,15 +382,13 @@ final class TempLeakDirectoryTest extends TestCase
         self::assertSame('', $process->getOutput() . $process->getErrorOutput(), 'no notice or warning');
     }
 
-    /** A PHPUnit-like child that claims under $parent, then runs $then; as root it runs in a user namespace (see lock()). */
-    private function claimProcess(string $parent, string $then = ''): Process
+    /** A PHPUnit-like child that claims under $parent, then runs $then; started through $wrapper when one is given. */
+    private function claimProcess(string $parent, string $then = '', string ...$wrapper): Process
     {
-        $command = [\PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'error_reporting=-1', '-r', <<<'PHP_WRAP'
+        return new Process([...$wrapper, \PHP_BINARY, '-d', 'display_errors=stderr', '-d', 'error_reporting=-1', '-r', <<<'PHP_WRAP'
             define('PHPUNIT_COMPOSER_INSTALL', $argv[1] . '/vendor/autoload.php');
             require PHPUNIT_COMPOSER_INSTALL;
-            PHP_WRAP . $then, \dirname(__DIR__, 4)];
-
-        return new Process($this->runsAsRoot() ? ['unshare', '--user', '--map-root-user', ...$command] : $command, null, ['TMPDIR' => $parent]);
+            PHP_WRAP . $then, \dirname(__DIR__, 4)], null, ['TMPDIR' => $parent]);
     }
 
     private function child(string $code): string
