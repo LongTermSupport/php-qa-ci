@@ -59,7 +59,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
             $result = $this->fix($context, $config, self::NO_CACHE, '--dry-run');
             $output = $result->output;
         } else {
-            $result = $this->fix($context, $config, '--cache-file=' . $this->cacheFile($context));
+            $result = $this->fix($context, $config, '--cache-file=' . $this->cache($context)->path);
             $output = $result->output;
             if ($result->succeeded() && $this->fixedAny($result->output)) {
                 $context->writeln('PHP CS Fixer changed files; running it again without the cache, which records what one pass left as clean even where the next pass changes it again');
@@ -99,7 +99,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
 
         if (self::EXIT_PENDING_FIXES === $result->exitCode) {
             // The cache may record the pending files as clean, and the writable run asked for below would skip them
-            $this->forgetCache($context);
+            $this->cache($context)->forget();
             ReadOnlyGuidance::wouldModify($context, 'PHP CS Fixer', 'fixer');
             $context->writeIdentifier(self::IDENTIFIER);
 
@@ -115,17 +115,9 @@ final readonly class PhpCsFixerTool implements ToolInterface
         return ToolResultDto::crashed(\sprintf('PHP CS Fixer crashed (exit %d)', $result->exitCode));
     }
 
-    private function cacheFile(ToolContext $context): string
+    private function cache(ToolContext $context): FormatterCache
     {
-        return $context->config->paths->varDir . '/cache/php_cs.cache';
-    }
-
-    private function forgetCache(ToolContext $context): void
-    {
-        $cache = $this->cacheFile($context);
-        if (is_file($cache)) {
-            \Safe\unlink($cache);
-        }
+        return FormatterCache::in($context, 'php_cs.cache');
     }
 
     /** One fixer process over the checked paths, with the cache option and any trailing options given. */

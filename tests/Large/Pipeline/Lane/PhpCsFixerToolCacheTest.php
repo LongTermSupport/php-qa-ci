@@ -4,18 +4,11 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Pipeline\Lane;
 
-use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
-use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
-use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
-use LTS\PHPQA\Pipeline\Config\PlatformEnum;
-use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool;
-use LTS\PHPQA\Pipeline\Process\LogArchiver;
-use LTS\PHPQA\Pipeline\Process\PhpInvoker;
-use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Pipeline\Runner\RepeatUntilSettled;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
+use LTS\PHPQA\Tests\Support\RealLaneContext;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
@@ -168,45 +161,7 @@ final class PhpCsFixerToolCacheTest extends TestCase
 
     private function context(bool $readOnly, BufferedOutput $output): ToolContext
     {
-        $root  = $this->project->path;
-        $paths = new ProjectPathsDto(
-            projectRoot: $root,
-            libraryRoot: $this->library,
-            binDir: $root . '/vendor/bin',
-            srcDir: $root . '/src',
-            testsDir: $root . '/tests',
-            projectConfigDir: $root . '/qaConfig',
-            varDir: $root . '/var/qa',
-            cacheDir: $root . '/var/qa/cache',
-            pharDir: $this->library . '/vendor-phar',
-            configDefaultsDir: $this->library . '/configDefaults',
-        );
-        $config = QaConfigBuilder::defaults(
-            paths: $paths,
-            platform: PlatformEnum::Generic,
-            env: new EnvironmentReader([]),
-            phpBinPath: \PHP_BINARY,
-            xdebugEnabled: false,
-            halfCpuThreads: 1,
-            ci: false,
-            readOnly: $readOnly,
-            aggregate: true,
-            jsonOutput: false,
-            agentMode: false,
-            singleTool: null,
-            specifiedPath: self::SOURCE,
-        )->build();
-        $processes = new SymfonyProcessRunner($output);
-
-        return new ToolContext(
-            config: $config,
-            configPaths: new ConfigPathResolver($paths->projectConfigDir, $paths->configDefaultsDir, $config->platform),
-            processes: $processes,
-            php: new PhpInvoker($processes, $config->phpBinPath, $config->memoryLimit, $paths->varDir),
-            logs: new LogArchiver($output),
-            output: $output,
-            stdout: $output,
-        );
+        return RealLaneContext::over($this->project->path, $readOnly, $output, self::SOURCE);
     }
 
     /** One writable pass that records what it leaves in the lane's cache file, as any cached fixer run does. */
