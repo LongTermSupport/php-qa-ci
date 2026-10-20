@@ -51,7 +51,10 @@ if ([] !== array_intersect(self::SKIPPED, $segments)) {
 ```
 
 For one word, `in_array('Generated', explode('\\', $className), true)`. If a prefix is what you
-mean, say so with the separator: `str_starts_with($className, 'App\Generated\\')`.
+mean, say so with the separator: `str_starts_with($className, 'App\Generated\\')`. If a suffix of
+the short name is what you mean, such as every class named `…Controller`, say that:
+`str_ends_with($className, 'Controller')`. Better still, decide by what the class is, through its
+base class or interface, rather than by its name.
 
 ## The rule's bounds
 
@@ -67,6 +70,10 @@ What it does not report:
   variable written other than by plain assignment, such as by a `foreach` or by reference. A
   string PHPStan types only as `string` carries no record of where it came from, so the rule
   reads the sources listed above and nothing else.
+
+What it can report that is not a class-name check: a local variable assigned a class name and later
+reassigned to other text in the same function is still taken for a class name. Give the other text
+its own variable.
 
 [`phpqaci.unanchoredVendorSubstringCheck`](forbid-unanchored-vendor-substring-check.md) is the same
 kind of rule for deciding whether a file is a dependency's.

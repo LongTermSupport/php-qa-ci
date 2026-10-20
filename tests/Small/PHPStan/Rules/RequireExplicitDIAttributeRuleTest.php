@@ -10,6 +10,7 @@ use PhpParser\Modifiers;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Name;
+use PhpParser\Node\Name\FullyQualified;
 use PhpParser\Node\Stmt\Class_;
 use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\DependencyTracker;
@@ -137,6 +138,24 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
         foreach (['App\GeneratedReports', 'App\PHPStanAdapter', 'App\DataMigrations', 'App\generated', 'App\Billing'] as $namespace) {
             self::assertCount(1, $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope($namespace)), $namespace);
         }
+    }
+
+    /** A Doctrine migration is not a service, whatever its namespace: Symfony's default is DoctrineMigrations. */
+    #[Test]
+    public function doctrineMigrationIsSkippedInAnyNamespace(): void
+    {
+        foreach (['DoctrineMigrations', 'App\Database\Versions'] as $namespace) {
+            $migration = new Class_('Version20261020120000', ['extends' => new FullyQualified('Doctrine\Migrations\AbstractMigration')]);
+
+            self::assertSame([], $this->rule->processNode($migration, $this->scope($namespace)), $namespace);
+        }
+    }
+
+    /** Only the migration base class exempts: a service in that namespace is still checked. */
+    #[Test]
+    public function nonMigrationClassInTheDoctrineMigrationsNamespaceIsFlagged(): void
+    {
+        self::assertCount(1, $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope('DoctrineMigrations')));
     }
 
     /** The class's own name is not a namespace segment. */

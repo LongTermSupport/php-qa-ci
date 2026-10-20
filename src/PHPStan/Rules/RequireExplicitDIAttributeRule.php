@@ -91,6 +91,8 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
 
     public const string IDENTIFIER_CONFLICTING_DI_ATTRIBUTES     = RuleIdentifierInterface::PREFIX . '.conflictingDIAttributes';
 
+    private const string DOCTRINE_MIGRATION = 'Doctrine\Migrations\AbstractMigration';
+
     private const array ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
         'PHPStan',
         'Migrations',
@@ -126,6 +128,11 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
 
         // Skip PHPStan rules, migrations and generated code: a namespace segment equal to one of the words
         if ($this->isInAllowedNamespace($scope->getNamespace())) {
+            return [];
+        }
+
+        // Skip a Doctrine migration in any namespace (Symfony's default is DoctrineMigrations): a migration is never a service
+        if (self::DOCTRINE_MIGRATION === $node->extends?->toString()) {
             return [];
         }
 
