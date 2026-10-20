@@ -14,8 +14,8 @@ use LTS\PHPQA\Turbo\TurboActionEnum;
 final readonly class TurboDecisionDto
 {
     /**
-     * @param array<string, string> $files path under `turbo-ext/` => SHA-256, in the order to place them;
-     *                                     only set for TurboActionEnum::Fetch
+     * @param array<array-key, string> $files path under `turbo-ext/` => SHA-256, in the order to place them;
+     *                                        only set for TurboActionEnum::Fetch
      */
     public function __construct(
         public TurboActionEnum $action,
@@ -29,7 +29,7 @@ final readonly class TurboDecisionDto
         return new self(TurboActionEnum::Ready, $message);
     }
 
-    /** @param array<string, string> $files path under `turbo-ext/` => SHA-256 */
+    /** @param array<array-key, string> $files path under `turbo-ext/` => SHA-256 */
     public static function fetch(array $files, string $message): self
     {
         return new self(TurboActionEnum::Fetch, $message, $files);
