@@ -130,6 +130,28 @@ final class TemporaryDirectoryTest extends TestCase
         }
     }
 
+    /**
+     * The staging directory is made in the directory it is named for, never with directories
+     * under it that a prefix names and that are missing.
+     */
+    #[Test]
+    public function aNewDirectoryIsNotMadeUnderADirectoryThatIsMissing(): void
+    {
+        $missing = sys_get_temp_dir() . '/' . self::PREFIX . '-missing';
+
+        try {
+            TemporaryDirectory::create(self::PREFIX . '-missing/staging');
+            self::fail('a staging directory was made under a directory that was missing');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame(\sprintf('Cannot create a staging directory in %s: mkdir(): No such file or directory', sys_get_temp_dir()), $runtimeException->getMessage());
+        } finally {
+            $made = is_dir($missing);
+            DirectoryTree::remove($missing);
+        }
+
+        self::assertFalse($made, 'the missing directory was not made');
+    }
+
     /** The target's directory, when it cannot be made, fails the same way, naming it, with no warning printed besides. */
     #[Test]
     public function aTargetsDirectoryThatCannotBeMadeFailsNamingIt(): void
@@ -377,11 +399,11 @@ final class TemporaryDirectoryTest extends TestCase
      * every staging directory is named, is kept.
      */
     #[Test]
-    #[DataProvider('namesWithThePrefixThatAreNotStaging')]
-    public function aDirectoryBesideATargetKeepsAnOldDirectoryWithThePrefixNotNamedAsStaging(string $suffix): void
+    #[DataProvider('namesThatAreNotStaging')]
+    public function aDirectoryBesideATargetKeepsAnOldDirectoryNotNamedAsStaging(string $name): void
     {
         $parent  = TemporaryDirectory::create(self::PARENT);
-        $another = $parent->path . '/' . self::PREFIX . $suffix;
+        $another = $parent->path . '/' . $name;
         \Safe\mkdir($another);
         \Safe\file_put_contents($another . '/' . self::TARGET, self::KEPT);
         \Safe\touch($another, time() - 2 * 3600);
@@ -397,15 +419,16 @@ final class TemporaryDirectoryTest extends TestCase
     }
 
     /** @return iterable<string, array{string}> */
-    public static function namesWithThePrefixThatAreNotStaging(): iterable
+    public static function namesThatAreNotStaging(): iterable
     {
-        yield 'a word' => ['-user'];
-        yield 'nothing after it' => [''];
-        yield '15 digits' => ['0123456789abcde'];
-        yield '17 digits' => ['0123456789abcdef0'];
-        yield 'uppercase digits' => ['0123456789ABCDEF'];
-        yield 'a digit that is not hex' => ['0123456789abcdeg'];
-        yield 'a separator first' => ['-0123456789abcde'];
+        yield 'the prefix and a word' => [self::PREFIX . '-user'];
+        yield 'the prefix alone' => [self::PREFIX];
+        yield 'the prefix and 15 digits' => [self::PREFIX . '0123456789abcde'];
+        yield 'the prefix and 17 digits' => [self::PREFIX . '0123456789abcdef0'];
+        yield 'the prefix and uppercase digits' => [self::PREFIX . '0123456789ABCDEF'];
+        yield 'the prefix and a digit that is not hex' => [self::PREFIX . '0123456789abcdeg'];
+        yield 'the prefix and a separator first' => [self::PREFIX . '-0123456789abcde'];
+        yield 'another prefix as long, and 16 digits' => [substr(self::PREFIX, 0, -1) . 'X0123456789abcdef'];
     }
 
     /**
