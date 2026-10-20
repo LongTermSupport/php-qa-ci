@@ -77,6 +77,7 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
         }
 
         // Class => method => [is an #[After] method, calls parent::tearDown(), stops, methods it calls on the class].
+        /** @var array<array-key, array<array-key, array{bool, bool, list<string>, list<string>}>> $methods */
         $methods = [];
         foreach ($node->get(ProcessStoppingTearDownCollector::class) as $collected) {
             foreach ($collected as [$class, $method, $isAfter, $callsParentTearDown, $stops, $calls]) {
@@ -219,8 +220,8 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
      * The receivers a method stops itself or through a method of its class it
      * calls, one level deep.
      *
-     * @param array{bool, bool, list<string>, list<string>}                $method
-     * @param array<string, array{bool, bool, list<string>, list<string>}> $byName
+     * @param array{bool, bool, list<string>, list<string>}                   $method
+     * @param array<array-key, array{bool, bool, list<string>, list<string>}> $byName
      *
      * @return list<string>
      */
@@ -240,8 +241,8 @@ final readonly class RequireProcessStopOnThrowRule implements Rule
      * parent::tearDown(); every #[After] method in the hierarchy runs. A class
      * in the lineage that was not analysed is passed over.
      *
-     * @param array<string, array{bool, list<string>, list<string>}> $testCases
-     * @param string                                                 ...$lineage the call's class, then its ancestors
+     * @param array<array-key, array{bool, list<string>, list<string>}> $testCases
+     * @param string                                                    ...$lineage the call's class, then its ancestors
      */
     private function isStoppedAfterEachTest(string $receiver, array $testCases, string ...$lineage): bool
     {
