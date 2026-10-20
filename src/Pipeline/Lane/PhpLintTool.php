@@ -121,6 +121,7 @@ final readonly class PhpLintTool implements ToolInterface
     {
         $found    = [];
         $lintable = false;
+        $excluded = array_map(static fn (string $path): string => new SplFileInfo(self::excludeKey($path))->getPathname(), $excluded);
         foreach ($checked as $path) {
             if (!is_dir($path)) {
                 $lintable = true;
@@ -131,7 +132,7 @@ final readonly class PhpLintTool implements ToolInterface
             $walk = new RecursiveIteratorIterator(
                 new RecursiveCallbackFilterIterator(
                     new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
-                    static fn (SplFileInfo $entry): bool => !\in_array($entry->getPathname(), $excluded, true),
+                    static fn (SplFileInfo $entry): bool => !\in_array(self::excludeKey($entry->getPathname()), $excluded, true),
                 ),
                 RecursiveIteratorIterator::LEAVES_ONLY,
                 RecursiveIteratorIterator::CATCH_GET_CHILD,
@@ -150,5 +151,17 @@ final readonly class PhpLintTool implements ToolInterface
         }
 
         return [array_values(array_unique($found)), $lintable];
+    }
+
+    /**
+     * A path as parallel-lint compares it against its excludes: native separators and a
+     * leading `./`. Each exclude is further passed through SplFileInfo, which drops a
+     * trailing slash and nothing else.
+     */
+    private static function excludeKey(string $path): string
+    {
+        $path = str_replace(['\\', '/'], \DIRECTORY_SEPARATOR, $path);
+
+        return str_starts_with($path, '.' . \DIRECTORY_SEPARATOR) ? $path : '.' . \DIRECTORY_SEPARATOR . $path;
     }
 }

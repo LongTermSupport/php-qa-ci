@@ -22,7 +22,8 @@ syntax error before anything heavier runs.
   an `Unknown error` that does not say why
   ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)). The lane first walks the
   checked paths as parallel-lint does (its default extensions, in any case, not entering an
-  ignored path), prints `PHP Lint skipped <path>: its real path cannot be resolved ...` for each
+  ignored path, which is matched as parallel-lint matches an `--exclude`: a trailing slash is
+  dropped, a `./` or doubled slash is not collapsed), prints `PHP Lint skipped <path>: its real path cannot be resolved ...` for each
   such file and passes it as one more `--exclude`. A skipped file does not fail the lane: when
   every file the walk finds is skipped, parallel-lint is not run and the lane passes.
 - Any non-zero exit fails the lane, including parallel-lint's `No file found to check` (exit 254)
