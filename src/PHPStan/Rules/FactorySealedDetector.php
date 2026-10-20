@@ -13,7 +13,10 @@ namespace LTS\PHPQA\PHPStan\Rules;
  *
  * Decision (given the resolved facts):
  *   - target is not sealed (no sealing attribute) → no violation;
- *   - file lives under the project's tests/        → no violation;
+ *   - the construction is test code: the file lives under the project's
+ *     tests/, or the enclosing class's name has a segment ending in Tests
+ *     (a monorepo package's tests, e.g. packages/foo/tests/ in
+ *     Vendor\Pkg\Tests\…)                          → no violation;
  *   - enclosing class IS the authorised factory    → no violation;
  *   - otherwise                                     → violation.
  *
@@ -42,7 +45,7 @@ final readonly class FactorySealedDetector
             return false;
         }
 
-        if ($this->testCodeDetector->isTestCode($filePath, null)) {
+        if ($this->testCodeDetector->isTestCode($filePath, $enclosingClass)) {
             return false;
         }
 

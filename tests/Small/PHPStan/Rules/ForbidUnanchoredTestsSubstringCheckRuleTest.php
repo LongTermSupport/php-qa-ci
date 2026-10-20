@@ -192,6 +192,7 @@ final class ForbidUnanchoredTestsSubstringCheckRuleTest extends TestCase
             $this->funcCall(self::STR_STARTS_WITH, new Variable(self::NAMESPACE), new String_(self::TESTS_WORD)),
             $this->funcCall(self::STR_CONTAINS, new Variable(self::NAMESPACE), new String_('\Tests\\')),
             $this->funcCall(self::STR_CONTAINS, new Variable(self::NAMESPACE), new String_('TestsHelper')),
+            $this->funcCall(self::STR_CONTAINS, new Variable('output'), new String_('Tests: ')),
         ];
 
         foreach ($calls as $call) {

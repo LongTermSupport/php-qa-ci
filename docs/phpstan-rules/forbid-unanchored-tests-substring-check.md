@@ -74,12 +74,54 @@ wired from the same parameter in `rules-default.neon`:
 if (str_starts_with($fileName, rtrim($this->projectRoot, '/') . '/tests/')) {
 ```
 
-## What this rule does not cover
+## The rule's bounds
 
-For the `tests/` path fragment it sees a literal and a class constant; a fragment built at runtime,
-or held in a variable, is not reported, because a constant-valued `__DIR__ . '/tests/'` is anchored
-and would be reported wrongly. For the `Tests` word it sees any value PHPStan knows, but only the
-exact word: a needle such as `'Tests\\'` or `'IntegrationTests'` is not reported.
+What it reports:
+
+- a `tests/` fragment given to any of the five functions as a string literal or a class constant;
+- the exact word `Tests` given to `str_contains`, `strpos` or `stripos` as a literal or as any value
+  PHPStan knows may hold it.
+
+What it does not report:
+
+- a `tests/` fragment built at runtime or held in a variable, because a constant-valued
+  `__DIR__ . '/tests/'` is anchored and would be reported wrongly;
+- a needle that only contains the word, such as `'Tests\\'`, `'IntegrationTests'` or `'Tests: '`;
+- the word given to `str_starts_with` or `str_ends_with`, which are anchored at one end.
+
+## When the check is not about test code
+
+The rule reads the needle, not the intent, so it also reports a check that has nothing to do with
+deciding test code. That is still a string search that matches more than it names, and the fix is
+to say exactly what is being matched.
+
+A project-relative path, such as an entry from `git ls-files`, matched on its first directory:
+
+```php
+// Reported: the needle is a bare tests/ fragment
+if (str_starts_with($relativePath, 'tests/')) {
+
+// Name the segment you mean
+if ('tests' === explode('/', $relativePath, 2)[0]) {
+```
+
+If the path is absolute, or can be made so against the project root, ask `TestCodeDetector`
+instead, so that the definition of test code stays in one place.
+
+Text such as a message or a tool's output, searched for a word or a path:
+
+```php
+// Reported: 'Tests' matches any word containing it, 'tests/' any path
+if (str_contains($output, 'Tests')) {
+if (str_contains($message, 'tests/')) {
+
+// Match the structure you expect, with a pattern you own
+if (1 === \Safe\preg_match('/^Tests: \d+/m', $output)) {
+if (1 === \Safe\preg_match('~\bsee tests/README\.md\b~', $message)) {
+```
+
+A needle that carries its own context, such as `'Tests: '`, is not reported either; use one when a
+fixed string is genuinely what you are looking for.
 
 [`phpqaci.unanchoredVendorSubstringCheck`](forbid-unanchored-vendor-substring-check.md) is the same
 rule for deciding whether code is a dependency's.
