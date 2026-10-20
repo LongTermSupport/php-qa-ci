@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(Psr4Validator::class)]
 #[UsesClass(RegexPattern::class)]
 #[UsesClass(Helper::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]

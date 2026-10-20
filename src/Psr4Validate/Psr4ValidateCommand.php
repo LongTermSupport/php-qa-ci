@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Psr4Validate;
 use Closure;
 use Exception;
 use InvalidArgumentException;
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\Psr4Validator;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -35,7 +36,8 @@ final readonly class Psr4ValidateCommand
 
         Each <ignore-pattern> is a PCRE pattern with its delimiters, for example
         '#/src/Legacy/#', matched against a file's real path; a file it matches is not
-        checked.
+        checked. A file whose real path cannot be resolved (a symlink whose target does
+        not exist) is not checked either, and is named as skipped.
 
         Exit 0 when every file agrees with the mapping, 1 otherwise.
 
@@ -65,7 +67,8 @@ final readonly class Psr4ValidateCommand
         }
 
         try {
-            $errors = new Psr4Validator($arguments, $root, Helper::getComposerJsonDecoded($composer))->main();
+            $validator = new Psr4Validator($arguments, $root, Helper::getComposerJsonDecoded($composer));
+            $errors    = $validator->main();
         } catch (InvalidArgumentException $exception) {
             $this->write("\n" . $exception->getMessage() . "\nRun psr4-validate --help for the usage.\n");
 
@@ -74,6 +77,10 @@ final readonly class Psr4ValidateCommand
             $this->write("\n" . $exception->getMessage() . "\n");
 
             return self::EXIT_FAILED;
+        }
+
+        foreach ($validator->unresolvable() as $file) {
+            $this->write("\n" . UnresolvablePath::skipped('psr4-validate', $file, $root) . "\n");
         }
 
         if ([] !== $errors) {

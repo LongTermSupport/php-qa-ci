@@ -77,6 +77,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\SensitiveParameter\SensitiveParameterUsageResult::class)]
 #[UsesClass(\LTS\PHPQA\SensitiveParameter\SensitiveParameterUsageScanner::class)]
 #[UsesClass(\LTS\PHPQA\Helper::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[UsesClass(\LTS\PHPQA\Psr4Validator::class)]
 #[UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
 #[UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::class)]
