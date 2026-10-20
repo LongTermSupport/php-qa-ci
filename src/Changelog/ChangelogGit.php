@@ -22,6 +22,9 @@ final readonly class ChangelogGit
     /** The commit trailer that states a change needs no changelog entry. */
     public const string TRAILER_KEY = 'Changelog';
 
+    /** The git subcommand that reads commits and their messages. */
+    private const string LOG = 'log';
+
     public function __construct(private ProcessRunnerInterface $processes, private string $projectRoot)
     {
     }
@@ -84,7 +87,7 @@ final readonly class ChangelogGit
      */
     public function commitChanging(string $text, string $path): ?string
     {
-        $sha = trim($this->required('log', '-n1', '--format=%H', '-S' . $text, 'HEAD', '--', $path)->stdout);
+        $sha = trim($this->required(self::LOG, '-n1', '--format=%H', '-S' . $text, 'HEAD', '--', $path)->stdout);
 
         return '' === $sha ? null : $sha;
     }
@@ -97,9 +100,36 @@ final readonly class ChangelogGit
     public function trailers(string $base): array
     {
         return $this->lines(
-            $this->required('log', '--format=%(trailers:key=' . self::TRAILER_KEY . ',valueonly)', $base . '..HEAD')->stdout,
+            $this->required(self::LOG, '--format=%(trailers:key=' . self::TRAILER_KEY . ',valueonly)', $base . '..HEAD')->stdout,
             "\n",
         );
+    }
+
+    /**
+     * Every commit in $base..HEAD: its sha, its body (the message after the
+     * subject, which git never reads trailers from) and the `Changelog`
+     * trailers git reads from it, unfolded, one per line.
+     *
+     * @return list<array{commit: string, body: string, trailers: string}>
+     */
+    public function messages(string $base): array
+    {
+        $output = $this->required(self::LOG, '-z', '--format=%H%x00%b%x00%(trailers:key=' . self::TRAILER_KEY . ',unfold)', $base . '..HEAD')->stdout;
+        if ('' === $output) {
+            return [];
+        }
+
+        $fields = explode("\0", $output);
+        if ('' !== array_pop($fields) || 0 !== \count($fields) % 3) {
+            throw new ChangelogHistoryException(\sprintf('the commit messages of %s..HEAD could not be split into commits; git printed %d NUL-separated fields', $base, \count($fields)));
+        }
+
+        $messages = [];
+        foreach (array_chunk($fields, 3) as [$commit, $body, $trailers]) {
+            $messages[] = ['commit' => $commit, 'body' => $body, 'trailers' => $trailers];
+        }
+
+        return $messages;
     }
 
     /**

@@ -213,7 +213,7 @@ final class ChangelogGitTest extends TestCase
         $this->processes->willSucceed("sha1\0Body\0");
 
         $this->expectException(ChangelogHistoryException::class);
-        $this->expectExceptionMessage('could not be split into commits');
+        $this->expectExceptionMessageIs('the commit messages of abc123..HEAD could not be split into commits; git printed 2 NUL-separated fields');
 
         $this->git->messages(self::BASE);
     }

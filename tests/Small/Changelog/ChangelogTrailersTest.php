@@ -23,6 +23,8 @@ final class ChangelogTrailersTest extends TestCase
 {
     private const string BARE_NONE = 'none';
 
+    private const string TRAILER_LINE = "Changelog: none — tests only\n";
+
     #[Test]
     #[DataProvider('validOptOuts')]
     public function noneWithADashAndAReasonOptsOut(string $value): void
@@ -79,9 +81,9 @@ final class ChangelogTrailersTest extends TestCase
     #[Test]
     public function aChangelogLineGitReadsAsATrailerIsNotMisplaced(): void
     {
-        $body = "Why.\n\nChangelog: none — tests only\nCo-Authored-By: X <x@example.invalid>\n";
+        $body = "Why.\n\n" . self::TRAILER_LINE . "Co-Authored-By: X <x@example.invalid>\n";
 
-        self::assertSame([], new ChangelogTrailers()->misplaced($body, "Changelog: none — tests only\n"));
+        self::assertSame([], new ChangelogTrailers()->misplaced($body, self::TRAILER_LINE));
     }
 
     #[Test]
@@ -103,9 +105,9 @@ final class ChangelogTrailersTest extends TestCase
     #[Test]
     public function eachTrailerAccountsForOneLineSoADuplicateAboveTheBlockIsMisplaced(): void
     {
-        $body = "Changelog: none — tests only\n\nChangelog: none — tests only\n";
+        $body = self::TRAILER_LINE . "\n" . self::TRAILER_LINE;
 
-        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, "Changelog: none — tests only\n"));
+        self::assertSame(['Changelog: none — tests only'], new ChangelogTrailers()->misplaced($body, self::TRAILER_LINE));
     }
 
     #[Test]
@@ -119,7 +121,7 @@ final class ChangelogTrailersTest extends TestCase
     #[Test]
     public function trailingWhitespaceDoesNotMakeALineMisplaced(): void
     {
-        self::assertSame([], new ChangelogTrailers()->misplaced("Changelog:  none — tests only \t\n", "Changelog: none — tests only\n"));
+        self::assertSame([], new ChangelogTrailers()->misplaced("Changelog:  none — tests only \t\n", self::TRAILER_LINE));
     }
 
     #[Test]

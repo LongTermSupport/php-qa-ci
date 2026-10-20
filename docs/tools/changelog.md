@@ -71,6 +71,17 @@ The section ends at the next `##` heading. Released sections below it are not ch
    release. A removed requirement and `require-dev` changes are not breaking; a `composer.json`
    absent at the base has no earlier contract to break.
 
+4. **Every `Changelog:` line is a trailer.** Git reads trailers only from the last paragraph of
+   a commit message, so a `Changelog: none — <reason>` line in a paragraph of its own above
+   `Co-Authored-By:` is not a trailer, and the coverage check above never sees it. The lane reads
+   each commit in the range and reports every body line that starts with `Changelog:` at column 0
+   (case as written) that git does not return among the commit's `Changelog` trailers, by commit,
+   whether or not the commit touches a watched path. An indented line, a lower-case
+   `changelog:` and the subject line are prose and are not judged. On a branch or in a pull
+   request build each such line fails the lane; on the default branch, measured since the last
+   release tag, they are listed in the report and do not fail it, because history already merged
+   is not rewritten.
+
 History the check cannot read fails it, with the fetch that supplies it: a shallow clone, a
 default branch the clone cannot name, a target branch or release tag it does not have, a missing
 merge base. A check that passed on no evidence would be indistinguishable from one that looked.
@@ -155,6 +166,21 @@ sets the prefix to match them.
   ```
 
   A bare `Changelog: none`, or a reason like `wip`, is refused and listed as ignored.
+
+- **A `Changelog:` line that is not a trailer** (the failure begins `N "Changelog:" lines in the range are not commit trailers`, and names each line by its commit): reword each commit named
+  (`git rebase -i <base>`, `reword`) so the line is in the message's final paragraph, together
+  with `Co-Authored-By:` and any other trailer, with no blank line between them:
+
+  ```text
+  Tidy the lock handling
+
+  Why the change was made.
+
+  Changelog: none — internal refactor, no behaviour change
+  Co-Authored-By: A Person <a.person@example.com>
+  ```
+
+  `git commit --trailer` always puts the line in the right place.
 
 - **A requirement with no breaking entry**: add the entry under `### Changed — breaking`, saying
   what a consumer now needs.

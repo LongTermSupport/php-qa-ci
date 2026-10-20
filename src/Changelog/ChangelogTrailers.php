@@ -37,6 +37,46 @@ final readonly class ChangelogTrailers
         return new ChangelogTrailerVerdictDto($optsOut, $invalid);
     }
 
+    /**
+     * The `Changelog:` lines of a commit body that git did not read as
+     * trailers. A line counts only when `Changelog:` starts it at column 0,
+     * case for case; anything else is prose. Each of $trailers (git's
+     * unfolded `Changelog` trailers of the same commit, one per line)
+     * accounts for one body line whose value it starts with, so a folded
+     * trailer accounts for its first line.
+     *
+     * @return list<string> the misplaced lines, trimmed
+     */
+    public function misplaced(string $body, string $trailers): array
+    {
+        $read = [];
+        foreach (explode("\n", $trailers) as $trailer) {
+            $separator = strpos($trailer, ':');
+            if (false !== $separator) {
+                $read[] = trim(substr($trailer, $separator + 1));
+            }
+        }
+
+        $misplaced = [];
+        foreach (explode("\n", $body) as $line) {
+            if (!str_starts_with($line, ChangelogGit::TRAILER_KEY . ':')) {
+                continue;
+            }
+
+            $value = trim(substr($line, \strlen(ChangelogGit::TRAILER_KEY) + 1));
+            $match = array_find_key($read, static fn (string $trailer): bool => str_starts_with($trailer, $value));
+            if (null === $match) {
+                $misplaced[] = trim($line);
+
+                continue;
+            }
+
+            unset($read[$match]);
+        }
+
+        return $misplaced;
+    }
+
     private function isOptOut(string $value): bool
     {
         if (1 !== \Safe\preg_match('/^none\s*(?:—|-)\s*(.*)$/iu', trim($value), $matches) || !isset($matches[1])) {
