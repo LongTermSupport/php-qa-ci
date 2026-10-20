@@ -23,11 +23,13 @@ final class ForbidSafeCallComparedToFalseRuleTest extends RuleTestCase
 {
     private const string FIXTURES = __DIR__ . '/../../../assets/PHPStan/SafeCallComparedToFalse';
 
+    private const string REALPATH = 'Safe\realpath';
+
     #[Test]
     public function aSafeCallComparedWithFalseOrTestedAsAConditionIsReported(): void
     {
-        $comparison = $this->comparisonMessage();
-        $condition  = $this->conditionMessage();
+        $comparison = $this->comparisonMessage(self::REALPATH);
+        $condition  = $this->conditionMessage(self::REALPATH);
 
         $this->analyse(
             [self::FIXTURES . '/Reportable.php'],
@@ -39,11 +41,14 @@ final class ForbidSafeCallComparedToFalseRuleTest extends RuleTestCase
                 [$condition, 36],
                 [$comparison, 41],
                 [$condition, 50],
-                [$condition, 55],
-                [$condition, 58],
-                [$condition, 62],
-                [$condition, 67],
-                [$condition, 69],
+                [$condition, 61],
+                [$condition, 70],
+                [$condition, 74],
+                [$condition, 79],
+                [$condition, 81],
+                [$this->conditionMessage('Safe\fopen'), 86],
+                [$condition, 93],
+                [$condition, 95],
             ],
         );
     }
@@ -62,18 +67,18 @@ final class ForbidSafeCallComparedToFalseRuleTest extends RuleTestCase
         return new ForbidSafeCallComparedToFalseRule(self::getContainer()->getByType(ReflectionProvider::class));
     }
 
-    private function comparisonMessage(): string
+    private function comparisonMessage(string $function): string
     {
-        return 'Safe\realpath() never returns false: it throws a Safe\Exceptions exception on failure, so this '
+        return $function . '() never returns false: it throws a Safe\Exceptions exception on failure, so this '
             . 'comparison with false can never hold and the failure it was written for throws instead. Catch the '
             . 'Safe\Exceptions exception, or use an API that reports failure without throwing. '
             . 'See docs/phpstan-rules/forbid-safe-call-compared-to-false.md';
     }
 
-    private function conditionMessage(): string
+    private function conditionMessage(string $function): string
     {
-        return 'Safe\realpath() never returns false and its result is always truthy: it throws a Safe\Exceptions '
-            . 'exception on failure, so this condition never sees the failure it was written for. Catch the '
+        return $function . '() never returns false: it throws a Safe\Exceptions exception on failure, so this '
+            . 'condition holds whenever the call returns and never sees the failure it was written for. Catch the '
             . 'Safe\Exceptions exception, or use an API that reports failure without throwing. '
             . 'See docs/phpstan-rules/forbid-safe-call-compared-to-false.md';
     }

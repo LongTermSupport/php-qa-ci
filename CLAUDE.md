@@ -79,6 +79,7 @@ dir) prints its page offline.
 - `phpqaci.unanchoredNamespaceSubstringCheck` — Compare namespace segments, not a substring of the name (`docs/phpstan-rules/forbid-unanchored-namespace-substring-check.md`)
 - `phpqaci.inlinePhpstanIgnore` — No inline `@phpstan-ignore`; use `ignoreErrors` in the config (`docs/phpstan-rules/forbid-inline-phpstan-ignore.md`)
 - `phpqaci.processStopOnThrow` — A Process whose child runs alongside your code is stopped in a finally (`docs/phpstan-rules/require-process-stop-on-throw.md`)
+- `phpqaci.safeCallComparedToFalse` — A `Safe\` function throws; never test its result for `false` (`docs/phpstan-rules/forbid-safe-call-compared-to-false.md`)
 - `phpqaci.mockFinalClass` — Mock an interface, never a final class (`docs/phpstan-rules/forbid-mocking-final-class.md`)
 - `phpqaci.httpPrefixedEnvVars` — No Symfony env var named `HTTP_*` (`docs/phpstan-rules/forbid-http-prefixed-env-vars.md`)
 - `phpqaci.devNamespaceInProductionSource` — Dev-only code belongs under `autoload-dev` (`docs/phpstan-rules/forbid-dev-namespace-in-production-source.md`)

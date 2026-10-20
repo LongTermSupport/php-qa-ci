@@ -45,16 +45,28 @@ final class Reportable
         return $resolved;
     }
 
-    public function conditions(string $path): string
+    public function ifCondition(string $path): string
     {
         if (\Safe\realpath($path)) {
             return 'if';
         }
+
+        return $path;
+    }
+
+    public function elseIfNegatedCondition(string $path): string
+    {
         if ('' === $path) {
             return 'empty';
         } elseif (!\Safe\realpath($path)) {
             return 'not';
         }
+
+        return $path;
+    }
+
+    public function whileAndTernaryConditions(string $path): string
+    {
         while (\Safe\realpath($path)) {
             break;
         }
@@ -67,5 +79,21 @@ final class Reportable
         $resolved = \Safe\realpath($path) ?: $path;
 
         return (\Safe\realpath($path) && '' !== $resolved) ? $resolved : $path;
+    }
+
+    public function alwaysTruthyResult(string $path): bool
+    {
+        return !\Safe\fopen($path, 'r');
+    }
+
+    public function loopConditions(string $path): void
+    {
+        do {
+            $path .= '/';
+        } while (\Safe\realpath($path));
+
+        for ($i = 0; \Safe\realpath($path); ++$i) {
+            break;
+        }
     }
 }

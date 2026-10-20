@@ -59,6 +59,12 @@ rules:
     # three collectors are registered below as phpstan.collector services.
     # docs/phpstan-rules/require-process-stop-on-throw.md
     - LTS\PHPQA\PHPStan\Rules\RequireProcessStopOnThrowRule
+    # ForbidSafeCallComparedToFalseRule — a Safe\ function throws where its
+    # native form returns false, so comparing its result with false, or testing
+    # it as a condition that only a failure could make false, is dead code that
+    # throws on the case it was written for. Rector's Safe set makes the rewrite.
+    # docs/phpstan-rules/forbid-safe-call-compared-to-false.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidSafeCallComparedToFalseRule
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RequireSensitiveParameterAttributeRule — keep passwords/secrets out of traces.
