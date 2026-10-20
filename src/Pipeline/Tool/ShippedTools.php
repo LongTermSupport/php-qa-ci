@@ -45,7 +45,7 @@ use LTS\PHPQA\Pipeline\Lane\YamlLintTool;
  */
 final readonly class ShippedTools
 {
-    /** @return array<string, ToolInterface> */
+    /** @return array<array-key, ToolInterface> keyed by canonical name */
     public static function all(): array
     {
         $tools = [
