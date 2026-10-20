@@ -28,9 +28,10 @@ use PHPStan\Type\Constant\ConstantStringType;
  * each write to a local variable with whether it writes a path.
  *
  * A search is collected when the function is one of {@see self::SEARCH_FUNCTIONS}, its needle is, or
- * may be, a bare word ({@see self::WORD_PATTERN}), and its haystack is either known to be a path
- * ({@see AbsolutePathExpression}), recorded with a null variable, or a local variable that is not a
- * parameter, recorded by name for {@see ForbidPathWordSubstringCheckRule} to judge by its writes.
+ * may be, a bare word ({@see self::WORD_PATTERN}), and its haystack is either a local variable that
+ * is not a parameter, recorded by name for {@see ForbidPathWordSubstringCheckRule} to judge by its
+ * writes, with whether its name says it is a path; or another expression known to be a path
+ * ({@see AbsolutePathExpression}), recorded with a null variable.
  *
  * A write is an assignment, recorded as a path when {@see AbsolutePathExpression} says its value is
  * one; or a `??=` of a value, judged the same way. Every other write to a variable is recorded as not
@@ -38,12 +39,12 @@ use PHPStan\Type\Constant\ConstantStringType;
  * assignment other than `.=`, which appends to whatever the variable held and so keeps it a path.
  *
  * Each value is [function key, searches as [variable or null, line, function, printed haystack,
- * word], writes as [variable, is a path]]. The function key names the class and function the node is
- * in; a closure's is its enclosing function's.
+ * word, haystack known to be a path], writes as [variable, is a path]]. The function key names the
+ * class and function the node is in; a closure's is its enclosing function's.
  *
  * @internal
  *
- * @implements Collector<Node, array{string, list<array{string|null, int, string, string, string}>, list<array{string, bool}>}>
+ * @implements Collector<Node, array{string, list<array{string|null, int, string, string, string, bool}>, list<array{string, bool}>}>
  */
 final readonly class PathWordSubstringCheckCollector implements Collector
 {
@@ -74,7 +75,7 @@ final readonly class PathWordSubstringCheckCollector implements Collector
         return Node::class;
     }
 
-    /** @return array{string, list<array{string|null, int, string, string, string}>, list<array{string, bool}>}|null */
+    /** @return array{string, list<array{string|null, int, string, string, string, bool}>, list<array{string, bool}>}|null */
     public function processNode(Node $node, Scope $scope): ?array
     {
         if ($node instanceof FuncCall) {
@@ -88,7 +89,7 @@ final readonly class PathWordSubstringCheckCollector implements Collector
         return [] === $writes ? null : [$this->functionKey($scope), [], $writes];
     }
 
-    /** @return array{string|null, int, string, string, string}|null */
+    /** @return array{string|null, int, string, string, string, bool}|null */
     private function search(FuncCall $call, Scope $scope): ?array
     {
         if (!$call->name instanceof Name || $call->isFirstClassCallable()) {
@@ -112,12 +113,13 @@ final readonly class PathWordSubstringCheckCollector implements Collector
         }
 
         $printed = new Standard()->prettyPrintExpr($haystack);
-        if ($this->paths->isPath($haystack, $scope)) {
-            return [null, $call->getStartLine(), $function, $printed, $word];
+        $isPath  = $this->paths->isPath($haystack, $scope);
+        if ($haystack instanceof Variable && \is_string($haystack->name) && !$this->isParameter($haystack->name, $scope)) {
+            return [$haystack->name, $call->getStartLine(), $function, $printed, $word, $isPath];
         }
 
-        if ($haystack instanceof Variable && \is_string($haystack->name) && !$this->isParameter($haystack->name, $scope)) {
-            return [$haystack->name, $call->getStartLine(), $function, $printed, $word];
+        if ($isPath) {
+            return [null, $call->getStartLine(), $function, $printed, $word, $isPath];
         }
 
         return null;

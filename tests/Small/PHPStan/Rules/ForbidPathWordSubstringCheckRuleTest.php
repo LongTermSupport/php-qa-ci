@@ -40,7 +40,7 @@ final class ForbidPathWordSubstringCheckRuleTest extends RuleTestCase
             [
                 [$this->message('stripos', '$absPathRoot', self::MAGENTO), 25],
                 [$this->message(self::STR_CONTAINS, '$this->projectRoot', 'drupal'), 30],
-                [$this->message(self::STR_CONTAINS, '$filePath', self::MAGENTO), 35],
+                [$this->message(self::STR_CONTAINS, '$absoluteFilePath', self::MAGENTO), 35],
                 [$this->message(self::STR_CONTAINS, '__DIR__', 'vendor'), 40],
                 [$this->message('strpos', '(string) getcwd()', 'magento'), 41],
                 [$this->message('stristr', "\\Safe\\realpath('.')", 'Symfony'), 42],
@@ -61,12 +61,19 @@ final class ForbidPathWordSubstringCheckRuleTest extends RuleTestCase
                 [$this->message(self::STR_CONTAINS, '$x', self::SHOP), 104],
                 [$this->message(self::STR_CONTAINS, '$x', self::SHOP), 111],
                 [$this->message(self::STR_CONTAINS, '$x', self::SHOP), 120],
+                [$this->message(self::STR_CONTAINS, '$realPath', self::SHOP), 125],
+                [$this->message(self::STR_CONTAINS, '$fullPath', self::SHOP), 126],
+                [$this->message(self::STR_CONTAINS, '$workDir', self::SHOP), 127],
+                [$this->message(self::STR_CONTAINS, '$imageFolder', self::SHOP), 128],
+                [$this->message(self::STR_CONTAINS, '$cwd', self::SHOP), 129],
+                [$this->message(self::STR_CONTAINS, '$projectDir', 'magento'), 136],
+                [$this->message(self::STR_CONTAINS, '$cacheDir', self::SHOP), 141],
             ],
         );
     }
 
     #[Test]
-    public function textHaystacksNonWordNeedlesAndRetypedLocalsAreClean(): void
+    public function textHaystacksNonWordNeedlesUnqualifiedNamesAndRetypedLocalsAreClean(): void
     {
         $this->analyse([self::FIXTURES . '/NotReportable.php'], []);
     }

@@ -30,9 +30,9 @@ final class Reportable
         return str_contains($this->projectRoot, 'drupal');
     }
 
-    public function constantNeedle(string $filePath): bool
+    public function constantNeedle(string $absoluteFilePath): bool
     {
-        return str_contains($filePath, self::PLATFORM);
+        return str_contains($absoluteFilePath, self::PLATFORM);
     }
 
     public function pathFunctions(): bool
@@ -118,5 +118,26 @@ final class Reportable
         $x    = \Safe\realpath($relative);
 
         return str_contains($text, 'shop') || str_contains($x, 'shop');
+    }
+
+    public function namesThatStateAnAbsoluteLocation(string $realPath, string $fullPath, string $workDir, string $imageFolder, string $cwd): bool
+    {
+        return str_contains($realPath, 'shop')
+            || str_contains($fullPath, 'shop')
+            || str_contains($workDir, 'shop')
+            || str_contains($imageFolder, 'shop')
+            || str_contains($cwd, 'shop');
+    }
+
+    public function aPathNamedLocalWrittenOnlyAPath(): bool
+    {
+        $projectDir = $this->projectRoot . '/app';
+
+        return str_contains($projectDir, 'magento');
+    }
+
+    public function aPathNamedLocalNotWrittenInTheFunction(string $cacheDir): bool
+    {
+        return (static fn (): bool => str_contains($cacheDir, 'shop'))();
     }
 }

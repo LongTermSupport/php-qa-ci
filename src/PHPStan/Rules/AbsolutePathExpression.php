@@ -55,11 +55,20 @@ final readonly class AbsolutePathExpression
         'getfile'     => [Scope::class],
     ];
 
-    /** @var list<string> the last word of a name that says the value is a path */
-    private const array PATH_NAME_LAST_WORDS = [
-        'path', 'pathname', 'realpath', 'filepath', 'dir', 'dirname', 'directory', 'workdir', 'cwd', 'folder', 'file',
-        'filename',
-    ];
+    /** @var list<string> the last word, or last two run together, of a name that says the value is a directory */
+    private const array DIRECTORY_LAST_WORDS = ['dir', 'dirname', 'directory', 'workdir', 'cwd', 'folder'];
+
+    /** @var list<string> the last word, or last two run together, of a name that says path, absolute only when qualified */
+    private const array PATH_LAST_WORDS = ['path', 'pathname', 'filepath'];
+
+    /** @var list<string> a word in a path name that says the path is absolute: `$absPath`, `$realPath`, `$fullPath` */
+    private const array ABSOLUTE_QUALIFIERS = ['abs', 'absolute', 'real', 'full'];
+
+    /** @var string a one-word name for an absolute path, the way realpath() names it */
+    private const string REALPATH_WORD = 'realpath';
+
+    /** @var string a word that makes a name a relative path, whatever its other words say */
+    private const string RELATIVE_WORD = 'relative';
 
     /** @var string the last word that says path only after a qualifier: `$projectRoot`, never a bare `$root` */
     private const string ROOT_WORD = 'root';
@@ -83,20 +92,34 @@ final readonly class AbsolutePathExpression
         };
     }
 
-    /** True when the name's last word, or last two run together (`fileName`), split on underscores and case changes, says it holds a path. */
+    /**
+     * True when the name, split on underscores and case changes, states an absolute or root location:
+     * a qualified root (`$projectRoot`), a directory (`$cacheDir`, `$workingDirectory`), `$realpath`,
+     * or a path qualified as absolute (`$absPath`, `$realPath`, `$absoluteFilePath`). A bare `$path`,
+     * `$file` or `$fileName` is as often a URL, a basename or a relative path, and any name with the
+     * word `relative` in it says it is not absolute.
+     */
     public function isPathName(string $name): bool
     {
         \Safe\preg_match_all(self::WORD, $name, $matches);
         /** @var array{list<string>} $matches */
         $words = array_map(strtolower(...), $matches[0]);
-        $last  = end($words);
+        if (\in_array(self::RELATIVE_WORD, $words, true)) {
+            return false;
+        }
+
+        $last = end($words);
         if (self::ROOT_WORD === $last) {
             return \count($words) > 1;
         }
 
         $lastTwo = implode('', \array_slice($words, -2));
+        if (self::REALPATH_WORD === $last || \in_array($last, self::DIRECTORY_LAST_WORDS, true) || \in_array($lastTwo, self::DIRECTORY_LAST_WORDS, true)) {
+            return true;
+        }
 
-        return \in_array($last, self::PATH_NAME_LAST_WORDS, true) || \in_array($lastTwo, self::PATH_NAME_LAST_WORDS, true);
+        return (\in_array($last, self::PATH_LAST_WORDS, true) || \in_array($lastTwo, self::PATH_LAST_WORDS, true))
+            && [] !== array_intersect($words, self::ABSOLUTE_QUALIFIERS);
     }
 
     private function startsWithPath(InterpolatedString $string, Scope $scope): bool

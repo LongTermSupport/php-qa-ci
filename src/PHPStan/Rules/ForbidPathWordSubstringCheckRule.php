@@ -21,9 +21,10 @@ use PHPStan\Rules\RuleErrorBuilder;
  * path segment below the project root.
  *
  * Reported: a search for a bare word ({@see PathWordSubstringCheckCollector}) in a haystack known
- * to be a path ({@see AbsolutePathExpression}), or in a local variable every write in the function
- * gives a path. PHPStan nodes carry no parent links, so the searches and the writes are collected
- * per function and matched here.
+ * to be a path ({@see AbsolutePathExpression}), or in a local variable no write in the function
+ * gives anything but a path, and which is either named as a path or written at least once. PHPStan
+ * nodes carry no parent links, so the searches and the writes are collected per function and
+ * matched here.
  *
  * See docs/phpstan-rules/forbid-path-word-substring-check.md.
  *
@@ -62,8 +63,8 @@ final readonly class ForbidPathWordSubstringCheckRule implements Rule
                 }
             }
 
-            foreach ($searches as [$function, $variable, $line, $called, $haystack, $word]) {
-                if (null !== $variable && !$this->onlyEverAPath(...$writes[$function][$variable] ?? [])) {
+            foreach ($searches as [$function, $variable, $line, $called, $haystack, $word, $named]) {
+                if (null !== $variable && !$this->onlyEverAPath($named, ...$writes[$function][$variable] ?? [])) {
                     continue;
                 }
 
@@ -87,9 +88,9 @@ final readonly class ForbidPathWordSubstringCheckRule implements Rule
         return $errors;
     }
 
-    /** True when the variable is written at least once and every write gives it a path. */
-    private function onlyEverAPath(bool ...$writes): bool
+    /** True when no write gives the variable anything but a path, and its name says path or it is written at least once. */
+    private function onlyEverAPath(bool $named, bool ...$writes): bool
     {
-        return [] !== $writes && !\in_array(false, $writes, true);
+        return ($named || [] !== $writes) && !\in_array(false, $writes, true);
     }
 }

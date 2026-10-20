@@ -28,18 +28,61 @@ final class NotReportable
             || str_contains(\Safe\file_get_contents(__FILE__), 'strict_types');
     }
 
-    public function needlesThatAreNotWords(string $filePath, string $needle): bool
+    public function needlesThatAreNotWords(string $absoluteFilePath, string $needle): bool
     {
-        return str_contains($filePath, '/vendor/')
-            || str_contains($filePath, '.php')
-            || str_contains($filePath, '%')
-            || str_contains($filePath, $needle)
-            || str_contains($filePath, $this->projectRoot);
+        return str_contains($absoluteFilePath, '/vendor/')
+            || str_contains($absoluteFilePath, '.php')
+            || str_contains($absoluteFilePath, '%')
+            || str_contains($absoluteFilePath, $needle)
+            || str_contains($absoluteFilePath, $this->projectRoot);
     }
 
-    public function anchoredFunctions(string $filePath): bool
+    public function anchoredFunctions(string $absoluteFilePath): bool
     {
-        return str_starts_with($filePath, 'Magento') || str_ends_with($filePath, 'Magento');
+        return str_starts_with($absoluteFilePath, 'Magento') || str_ends_with($absoluteFilePath, 'Magento');
+    }
+
+    /** A URL path, a basename or a relative path is as often held under these names as an absolute path. */
+    public function namesThatDoNotStateAnAbsoluteLocation(
+        string $path,
+        string $requestPath,
+        string $filePath,
+        string $file,
+        string $filename,
+        string $fileName,
+        string $templateFile,
+        string $relativePath,
+        string $relativeDir,
+    ): bool {
+        return str_contains($path, 'admin')
+            || str_contains($requestPath, 'api')
+            || str_contains($filePath, 'Magento')
+            || str_contains($file, 'test')
+            || str_contains($filename, 'json')
+            || str_contains($fileName, 'Controller')
+            || str_contains($templateFile, 'admin')
+            || str_contains($relativePath, 'generated')
+            || str_contains($relativeDir, 'generated');
+    }
+
+    public function aPathNamedLocalWithAWriteThatIsNotAPath(string $text): bool
+    {
+        $cacheDir = \Safe\realpath($text);
+        $cacheDir = trim($text);
+
+        return str_contains($cacheDir, 'cache');
+    }
+
+    public function aPathNamedLocalWrittenText(): bool
+    {
+        $cacheDir = 'abc';
+
+        return str_contains($cacheDir, 'b');
+    }
+
+    public function aLocalNotNamedAsAPathAndNotWrittenInTheFunction(string $x): bool
+    {
+        return (static fn (): bool => str_contains($x, 'Magento'))();
     }
 
     public function basenameIsNotAPath(SplFileInfo $info): bool

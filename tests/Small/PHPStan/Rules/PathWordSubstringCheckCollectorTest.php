@@ -75,7 +75,7 @@ final class PathWordSubstringCheckCollectorTest extends TestCase
         $collector = new PathWordSubstringCheckCollector();
         $search    = new FuncCall(new Name(self::SEARCH), [new Arg(new Variable('x')), new Arg(new String_(self::WORD))]);
 
-        self::assertSame(['::', [['x', -1, self::SEARCH, '$x', self::WORD]], []], $collector->processNode($search, self::scopeStub()));
+        self::assertSame(['::', [['x', -1, self::SEARCH, '$x', self::WORD, false]], []], $collector->processNode($search, self::scopeStub()));
         self::assertSame(['::', [], [['x', true]]], $collector->processNode(new Assign(new Variable('x'), new Dir()), self::scopeStub()));
     }
 }
