@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\PHPStan;
 
-use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
+use LTS\PHPQA\Tests\Support\PhpstanJsonRunFailure;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
@@ -87,7 +87,7 @@ final class BundledRulesDoNotCrashOnValidPhpTest extends TestCase
 
         $result = $this->analyse($neon);
 
-        self::assertNull(PhpstanCrash::jsonReason($result), $this->internalErrors($result));
+        self::assertNull(PhpstanJsonRunFailure::reason($result), $this->internalErrors($result));
         foreach (self::PROOF_THE_RULES_RAN as $identifier) {
             self::assertStringContainsString('"' . $identifier . '"', $result->stdout, 'the bundled rule sets were not loaded: ' . $result->output);
         }
