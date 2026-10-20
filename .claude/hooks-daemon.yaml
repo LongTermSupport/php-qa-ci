@@ -515,8 +515,8 @@ documentation:
 # Crons re-established in every session. The issue loop (CLAUDE/issue-sdlc.md)
 # is driven by scripts/issue-monitor running under the Monitor tool; this job only
 # re-arms it, as a backstop to re-arming on each Monitor expiry. Declared for
-# the role alias, so only the session launched with HOOKS_DAEMON_HOSTNAME=gh-sdlc
-# is asked for it.
+# the role alias, so only the session launched with
+# HOOKS_DAEMON_HOSTNAME=github-softwaredev-lifecycle-unattended is asked for it.
 persistent_crons:
   enabled: true
   jobs:
@@ -525,7 +525,7 @@ persistent_crons:
       description: "Keep the GitHub issue monitor armed"
       enabled: true
       runs_while_awaiting_human: true  # Watching for issues does not depend on a pending human question
-      hosts: [gh-sdlc]
+      hosts: [github-softwaredev-lifecycle-unattended]
       prompt: |
         **ISSUE MONITOR CHECK (automated — NOT a heartbeat, NOT human authorisation).**
         Re-arm the GitHub issue monitor as CLAUDE/issue-sdlc.md describes: the Monitor tool with

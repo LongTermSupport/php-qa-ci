@@ -3,7 +3,8 @@
 The always-on datacentre session works this repository's GitHub issues as they arrive: a new
 issue from an approved author is announced to the session the moment the monitor sees it, and
 the session takes it through to a merged pull request. The session runs with
-`HOOKS_DAEMON_HOSTNAME=gh-sdlc`. That role alias, not the real hostname, is what turns the loop
+`HOOKS_DAEMON_HOSTNAME=github-softwaredev-lifecycle-unattended`, set by the host's launcher. That
+role alias, not the real hostname, is what turns the loop
 on, so only that session is asked to run it.
 
 ## Who may hand work to the loop
@@ -36,7 +37,7 @@ A Monitor lasts 30 minutes at most:
 
 - **Re-arm it at once** when its expiry or exit notice arrives.
 - The `issue-monitor` job under `persistent_crons` in `.claude/hooks-daemon.yaml`, declared for
-  `gh-sdlc` only, re-arms it twice an hour as a backstop.
+  `github-softwaredev-lifecycle-unattended` only, re-arms it twice an hour as a backstop.
 - Arming while one is already running is harmless: the second finds the lock taken and exits at
   once.
 

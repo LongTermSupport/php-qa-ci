@@ -33,7 +33,7 @@ document before acting on its topic.
   open update pull request, an `update-deps-failure` issue and any open issue with no reply yet.
   Merge a green update PR after a fresh sub-agent's verification (a standing authorisation); fix
   a red one under Defence Before Fix. [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md)
-- **Issue loop**: the `HOOKS_DAEMON_HOSTNAME=gh-sdlc` session runs `scripts/issue-monitor` and
+- **Issue loop**: the `HOOKS_DAEMON_HOSTNAME=github-softwaredev-lifecycle-unattended` session runs `scripts/issue-monitor` and
   works each issue from an approved author to a merged pull request; the approved authors are
   listed once, in `.claude/hooks-daemon.yaml`. [CLAUDE/issue-sdlc.md](CLAUDE/issue-sdlc.md)
 - **Release lines** (Owner decision): every change is made on `php8.5`. `php8.4` takes a bug fix
