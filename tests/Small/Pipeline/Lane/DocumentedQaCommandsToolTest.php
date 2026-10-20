@@ -25,10 +25,10 @@ use Symfony\Component\Console\Output\NullOutput;
 #[CoversClass(DocumentedQaCommandsTool::class)]
 #[UsesClass(QaCommandTokenScanner::class)]
 #[UsesClass(QaCommandTokenFinding::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Config\PipelineConfigLoader::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Tool\PipelineBuilder::class)]
+#[UsesClass(PipelineConfigLoader::class)]
+#[UsesClass(PipelineBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ShippedTools::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolRegistry::class)]
+#[UsesClass(ToolRegistry::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\PipelineDefinitionDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto::class)]
@@ -133,12 +133,12 @@ final class DocumentedQaCommandsToolTest extends TestCase
     {
         $this->factory->project->write('qaConfig/pipeline.php', <<<'PHP_WRAP'
             <?php
-        
+
             declare(strict_types=1);
-        
+
             use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
             use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
-        
+
             return static fn (PipelineBuilder $pipeline): PipelineBuilder => $pipeline
                 ->withPhase(new PhaseDto('security', 'Running All Security Tools', 'allSecurityTools', ['allSec'], 'all security tools'));
             PHP_WRAP);
