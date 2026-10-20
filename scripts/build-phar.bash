@@ -154,8 +154,12 @@ build_tool() {
         source "$BUILD_DIR/prepare.bash"
     fi
 
+    # Box adds the compiled files in the order its temporary directory lists
+    # them, which is the build host filesystem's order (hash order on ext4).
+    # --sort-compiled-files adds them in byte order, so another host's build of
+    # the same inputs is byte for byte the same.
     echo -e "${GREEN}Compiling $tool.phar via Box...${NC}"
-    run_box "$BOX_BIN" compile --config="$BOX_CONFIG" --working-dir="$BUILD_DIR" --no-parallel
+    run_box "$BOX_BIN" compile --config="$BOX_CONFIG" --working-dir="$BUILD_DIR" --no-parallel --sort-compiled-files
     mkdir -p "$PHAR_DIR"
     mv "$BUILD_DIR/$tool.phar" "$OUTPUT_PHAR"
     chmod 0755 "$OUTPUT_PHAR"
