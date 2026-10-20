@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Filesystem;
 
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -16,6 +17,12 @@ use RuntimeException;
  */
 final readonly class TemporaryDirectory
 {
+    /**
+     * A staging directory beside a target unchanged for longer is a leftover; one newer may be
+     * another run's, still downloading or unpacking into it.
+     */
+    private const int STALE_AFTER = 3600;
+
     private function __construct(public string $path)
     {
     }
@@ -30,13 +37,23 @@ final readonly class TemporaryDirectory
      * rename() from it is on one filesystem: the file is swapped atomically, and a process that
      * has the old one open or mapped keeps its inode. From the system temp directory on another
      * filesystem, rename() instead copies into the existing file and rewrites it in place.
+     *
+     * A staging directory with the same prefix that has not changed for STALE_AFTER seconds is one
+     * a killed run left there, and is removed first; the prefix must not be empty, or that would
+     * be every old directory beside the target.
      */
     public static function besides(string $target, string $prefix): self
     {
+        if ('' === $prefix) {
+            throw new InvalidArgumentException('A staging directory beside ' . $target . ' needs a prefix: its leftovers are found by it');
+        }
+
         $parent = \dirname($target);
         if (!is_dir($parent)) {
             \Safe\mkdir($parent, 0o755, true);
         }
+
+        self::removeLeftovers($parent, $prefix);
 
         return self::in($parent, $prefix);
     }
@@ -45,6 +62,21 @@ final readonly class TemporaryDirectory
     public function remove(): void
     {
         DirectoryTree::remove($this->path);
+    }
+
+    /** Removes each directory (not a link) in $parent whose name begins with $prefix and is older than STALE_AFTER. */
+    private static function removeLeftovers(string $parent, string $prefix): void
+    {
+        foreach (\Safe\scandir($parent) as $name) {
+            if (!\is_string($name) || !str_starts_with($name, $prefix)) {
+                continue;
+            }
+
+            $path = $parent . '/' . $name;
+            if (is_dir($path) && !is_link($path) && \Safe\filemtime($path) < time() - self::STALE_AFTER) {
+                DirectoryTree::remove($path);
+            }
+        }
     }
 
     /**
@@ -61,7 +93,7 @@ final readonly class TemporaryDirectory
             throw new RuntimeException(\sprintf('Cannot create a staging directory in %s: %s', $parent, $message), $level);
         });
         try {
-            mkdir($path, 0o700);
+            \Safe\mkdir($path, 0o700);
         } finally {
             restore_error_handler();
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Filesystem;
 
+use InvalidArgumentException;
 use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -31,6 +32,12 @@ final class TemporaryDirectoryTest extends TestCase
     /** A directory path this long leaves no room under PATH_MAX (4096 on Linux) for a staging name in it. */
     private const int NO_ROOM_FOR_A_NAME = 4070;
 
+    /** Begins the name of each directory a test makes to hold a target. */
+    private const string PARENT = 'phpqa-temporary-directory-parent';
+
+    /** The file a staging directory beside a target is made for. */
+    private const string TARGET = 'library.so';
+
     #[Test]
     public function aNewDirectoryIsEmptyAndUnderTheSystemTempDirectory(): void
     {
@@ -52,7 +59,7 @@ final class TemporaryDirectoryTest extends TestCase
     #[Test]
     public function aDirectoryBesideATargetIsCreatedInTheTargetsOwnDirectory(): void
     {
-        $parent    = TemporaryDirectory::create('phpqa-temporary-directory-parent');
+        $parent    = TemporaryDirectory::create(self::PARENT);
         $directory = TemporaryDirectory::besides($parent->path . '/missing/yet/library.so', self::PREFIX);
 
         try {
@@ -80,7 +87,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryThatCannotBeCreatedBesideTheTargetFailsNamingItRatherThanStagingInTheSystemTempDirectory(): void
     {
         $prefix = self::PREFIX . '-not-beside';
-        $parent = TemporaryDirectory::create('phpqa-temporary-directory-parent');
+        $parent = TemporaryDirectory::create(self::PARENT);
         $deep   = $parent->path;
         while (\strlen($deep) < self::NO_ROOM_FOR_A_NAME - 201) {
             $deep .= '/' . str_repeat('d', 200);
@@ -90,7 +97,7 @@ final class TemporaryDirectoryTest extends TestCase
         \Safe\mkdir($deep, 0o700, true);
 
         try {
-            TemporaryDirectory::besides($deep . '/library.so', $prefix);
+            TemporaryDirectory::besides($deep . '/' . self::TARGET, $prefix);
             self::fail('a staging directory was made somewhere other than beside the target');
         } catch (RuntimeException $runtimeException) {
             self::assertStringContainsString($deep, $runtimeException->getMessage(), 'the failure names the directory');
@@ -117,29 +124,40 @@ final class TemporaryDirectoryTest extends TestCase
     #[Test]
     public function aDirectoryBesideATargetRemovesTheStagingAKilledRunLeftThere(): void
     {
-        $parent   = TemporaryDirectory::create('phpqa-temporary-directory-parent');
+        $parent   = TemporaryDirectory::create(self::PARENT);
         $leftover = $parent->path . '/' . self::PREFIX . 'killed';
         $inUse    = $parent->path . '/' . self::PREFIX . 'running';
         \Safe\mkdir($leftover . '/nested', 0o700, true);
         \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
         \Safe\touch($leftover, time() - 2 * 3600);
         \Safe\mkdir($inUse);
-        \Safe\file_put_contents($parent->path . '/library.so', 'kept');
-        \Safe\file_put_contents($parent->path . '/' . self::PREFIX . 'file', 'kept');
-        \Safe\touch($parent->path . '/' . self::PREFIX . 'file', time() - 2 * 3600);
+        \Safe\file_put_contents($parent->path . '/' . self::TARGET, 'kept');
+        $file     = $parent->path . '/' . self::PREFIX . 'file';
+        \Safe\file_put_contents($file, 'kept');
+        \Safe\touch($file, time() - 2 * 3600);
 
-        $directory = TemporaryDirectory::besides($parent->path . '/library.so', self::PREFIX);
+        $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
 
         try {
             self::assertDirectoryDoesNotExist($leftover, 'a staging directory a killed run left is removed');
             self::assertDirectoryExists($inUse, 'a staging directory changed recently may be in use, and is kept');
-            self::assertFileExists($parent->path . '/library.so');
-            self::assertFileExists($parent->path . '/' . self::PREFIX . 'file', 'only a directory is staging');
+            self::assertFileExists($parent->path . '/' . self::TARGET);
+            self::assertFileExists($file, 'only a directory is staging');
             self::assertDirectoryExists($directory->path);
         } finally {
             $directory->remove();
             $parent->remove();
         }
+    }
+
+    /** With no prefix, every old directory beside the target would count as a leftover. */
+    #[Test]
+    public function aDirectoryBesideATargetNeedsAPrefix(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('needs a prefix');
+
+        TemporaryDirectory::besides(sys_get_temp_dir() . '/' . self::TARGET, '');
     }
 
     #[Test]
