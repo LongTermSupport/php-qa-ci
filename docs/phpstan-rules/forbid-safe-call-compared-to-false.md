@@ -31,6 +31,13 @@ It is seen through the `@` operator and through an assignment of it, in any comb
 `false === @\Safe\realpath($path)`, `if (@\Safe\realpath($path))` and
 `false === ($real = @\Safe\realpath($path))` are the same call.
 
+A PHP 8.5 pipe into the function's first-class callable calls it with the piped value, so
+`$path |> \Safe\realpath(...)` is the call `\Safe\realpath($path)`, and it is judged as that call
+in every form above: `false === ($path |> \Safe\realpath(...))`,
+`if ($path |> \Safe\realpath(...))`, and through `@`, an assignment and a chain of pipes
+(`$path |> trim(...) |> \Safe\realpath(...)`). The type judged is the one the function declares
+for the piped value.
+
 The type judged is the one the function declares for the call's arguments, not the call's type at
 that point in the code. PHPStan narrows a repeated call after an earlier check of it, so after
 `if (false === \Safe\json_decode($json)) { return; }` a second `\Safe\json_decode($json) !== false`
@@ -96,7 +103,12 @@ What it does not report, and why:
   truthy, so the rule leaves it to PHPStan core, which reports it as `function.void`.
   `false === \Safe\mkdir($dir)` is reported;
 - a first-class callable, such as `false === \Safe\realpath(...)` or `if (\Safe\realpath(...))`: it
-  makes a `Closure` and calls nothing, so there is no result to compare or test.
+  makes a `Closure` and calls nothing, so there is no result to compare or test. A pipe into one
+  does call it, and is reported as above;
+- a pipe into anything but a function's first-class callable: a closure
+  (`$path |> (fn (string $p) => \Safe\realpath($p))`), a method or static method
+  (`$path |> $this->resolve(...)`), or a callable held in a variable or a string, names no
+  `Safe\` function at the comparison or condition.
 
 The rule takes any function whose first namespace segment is `Safe` for a
 [thecodingmachine/safe](https://github.com/thecodingmachine/safe) one, so a project's own
@@ -113,7 +125,8 @@ $real = \Safe\realpath($path);
 if (false === $real) {
 ```
 
-The rule sees only the call itself, under `@` or assigned inside the comparison or condition.
+The rule sees only the call itself, or a pipe into it, under `@` or assigned inside the comparison
+or condition.
 Following the variable needs data flow the rule does not do; PHPStan core reports the strict form as
 `identical.alwaysFalse` or `notIdentical.alwaysTrue`, without naming the cause. No instance of the
 stored form was found when the rule was built.

@@ -298,11 +298,12 @@ fails the build if one is dropped.
 A rule that throws is worse than any finding: PHPStan abandons the file as an internal error,
 every other rule's result for it is lost, and a consumer's whole `phpstan` lane fails on correct
 code. `tests/Large/PHPStan/BundledRulesDoNotCrashOnValidPhpTest.php` runs every bundled rule and
-collector through the shipped phar over `tests/assets/PHPStan/BundledRulesOnValidPhp/`, valid PHP
-in the shapes a rule's own test tends to miss (first-class callables, whose `getArgs()` is no
-argument list, named and spread arguments, dynamic names, anonymous classes, enums), as both
-production and test code, and fails on any internal error. A shape that crashed a rule is added
-there as well as to the rule's own fixture.
+collector, the opt-in experimental ones no rule set loads included, through the shipped phar over
+`tests/assets/PHPStan/BundledRulesOnValidPhp/`, valid PHP in the shapes a rule's own test tends to
+miss (first-class callables, whose `getArgs()` is no argument list, pipes into them, named and spread
+arguments, dynamic names, anonymous classes, enums), as both production and test code. It fails
+on any internal error, and on any other entry in the JSON report's `errors` list. A shape that
+crashed a rule is added there as well as to the rule's own fixture.
 
 A new rule is not finished when it passes its own test. It is finished when somebody who has only
 its identifier can find out what to do.

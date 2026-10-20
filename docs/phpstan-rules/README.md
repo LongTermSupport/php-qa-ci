@@ -244,6 +244,7 @@ Step 4 is the one that gets skipped, and the stated count is what makes the omis
 
 Registering the rule in a bundle also puts it under
 [`BundledRulesDoNotCrashOnValidPhpTest`](../../tests/Large/PHPStan/BundledRulesDoNotCrashOnValidPhpTest.php),
-which fails when any bundled rule makes PHPStan report an internal error on valid PHP. When a
-rule meets a parser shape its own fixture lacks, such as a first-class callable, add the shape to
-that test's fixture as well.
+which fails when any bundled rule makes PHPStan report an internal error on valid PHP. An opt-in
+rule that no bundle registers goes in that test's `OPT_IN_RULES` instead. When a rule meets a
+parser shape its own fixture lacks, such as a first-class callable, add the shape to that test's
+fixture as well.

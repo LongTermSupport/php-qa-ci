@@ -45,6 +45,24 @@ final class Target
 }
 
 /**
+ * Assertion-named methods, so the opt-in magic-string rule has calls to judge.
+ *
+ * @api
+ */
+final class Assertions
+{
+    public function assertSame(mixed $expected, mixed $actual): bool
+    {
+        return $expected === $actual;
+    }
+
+    public static function assertEquals(mixed $expected, mixed $actual): bool
+    {
+        return $expected === $actual;
+    }
+}
+
+/**
  * @api
  */
 final class Shapes
@@ -200,11 +218,49 @@ final class Shapes
     }
 
     /**
-     * One finding from each rule set, so a run that loaded neither cannot pass.
+     * Pipes (PHP 8.5) into first-class callables of a Safe\, a global and a
+     * namespaced function, a method and a static method, and into a closure,
+     * compared with false, tested as conditions, under @ and assigned.
      */
-    public function firing(?string $value): string
+    public function pipes(string $path, Target $target): string
     {
-        return empty($value) ? 'empty' : ($value ?? '');
+        $compared   = false === ($path |> \Safe\realpath(...)) || ($path |> \strlen(...)) !== false;
+        $suppressed = false === @($path |> \Safe\realpath(...));
+        $chained    = $path |> \trim(...) |> \Safe\realpath(...) |> namespacedFunction(...);
+        $method     = $path |> $target->run(...) |> Target::make(...);
+        $closure    = $path |> (static fn (string $value): string => $value);
+
+        if ($path |> \Safe\realpath(...)) {
+            return 'condition';
+        }
+
+        if (!($resolved = $path |> \Safe\realpath(...))) {
+            return 'assigned';
+        }
+
+        return ($path |> \Safe\file_get_contents(...)) ? $chained . $method . $closure . $resolved : \gettype($compared || $suppressed);
+    }
+
+    /**
+     * Assertion methods called, and taken as first-class callables, whose
+     * getArgs() has no expected and actual value.
+     */
+    public function assertions(Assertions $assert, string $plain): bool
+    {
+        $same   = $assert->assertSame(...);
+        $equals = Assertions::assertEquals(...);
+        $static = $assert::assertEquals(...);
+
+        return $same($plain, 'token') && $equals('token', $plain) && $static($plain, $plain);
+    }
+
+    /**
+     * One finding from each rule set and the opt-in rule, so a run that loaded
+     * none of them cannot pass.
+     */
+    public function firing(?string $value, Assertions $assert, string $plain): string
+    {
+        return $assert->assertSame('token', $plain) && empty($value) ? 'empty' : ($value ?? '');
     }
 
     private function nullable(): ?Target

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\PHPStan;
 
-use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanCrash;
+use LTS\PHPQA\PHPStan\Rules\ForbidMagicStringAssertionRule;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
+use LTS\PHPQA\Tests\Support\PhpstanJsonRunFailure;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
@@ -25,11 +26,16 @@ use Symfony\Component\Console\Output\BufferedOutput;
  * shapes its author thought of; this runs every rule and collector a consumer
  * can include (rules-optional-symfony.neon includes rules-optional.neon) through
  * the shipped phar over the parser shapes most often missed, first-class
- * callables above all, whose getArgs() is not a list of arguments.
+ * callables above all, whose getArgs() is not a list of arguments. That includes
+ * the experimental ForbidMagicStringAssertionRule, which no rule set loads: it
+ * is listed under rules:, the way rules-optional.neon tells a consumer to
+ * cherry-pick it.
  *
  * The fixture is analysed as a library's src/ and, under a Tests namespace, as
  * its tests/, so rules that skip test code, and rules that only judge it, both
- * run on it. Findings are expected and ignored; an internal error fails.
+ * run on it. Findings are expected and ignored. An internal error fails, and so
+ * does any other entry in the JSON report's errors list (see
+ * PhpstanJsonRunFailure).
  *
  * @internal
  */
@@ -49,10 +55,16 @@ final class BundledRulesDoNotCrashOnValidPhpTest extends TestCase
         'rules-optional-symfony.neon',
     ];
 
-    /** @var list<string> one identifier from each of rules-default.neon and rules-optional.neon */
+    /** @var list<class-string> the bundled rules no rule set loads, which a consumer lists under rules: */
+    private const array OPT_IN_RULES = [
+        ForbidMagicStringAssertionRule::class,
+    ];
+
+    /** @var list<string> one identifier from each of rules-default.neon, rules-optional.neon and OPT_IN_RULES */
     private const array PROOF_THE_RULES_RAN = [
         'phpqaci.emptyLanguageConstruct',
         'phpqaci.nullCoalescingEmptyString',
+        ForbidMagicStringAssertionRule::IDENTIFIER,
     ];
 
     private TempDir $project;
@@ -87,7 +99,7 @@ final class BundledRulesDoNotCrashOnValidPhpTest extends TestCase
 
         $result = $this->analyse($neon);
 
-        self::assertNull(PhpstanCrash::jsonReason($result), $this->internalErrors($result));
+        self::assertNull(PhpstanJsonRunFailure::reason($result), $this->internalErrors($result));
         foreach (self::PROOF_THE_RULES_RAN as $identifier) {
             self::assertStringContainsString('"' . $identifier . '"', $result->stdout, 'the bundled rule sets were not loaded: ' . $result->output);
         }
@@ -100,7 +112,13 @@ final class BundledRulesDoNotCrashOnValidPhpTest extends TestCase
             $includes .= '    - ' . \Safe\realpath(self::REPO_ROOT . '/' . $ruleSet) . "\n";
         }
 
+        $rules = '';
+        foreach (self::OPT_IN_RULES as $rule) {
+            $rules .= '    - ' . $rule . "\n";
+        }
+
         return "includes:\n" . $includes
+            . "rules:\n" . $rules
             . "parameters:\n    level: max\n    paths:\n        - src\n        - tests\n"
             . '    tmpDir: ' . $this->project->path . "/cache\n";
     }
@@ -119,7 +137,7 @@ final class BundledRulesDoNotCrashOnValidPhpTest extends TestCase
     }
 
     /**
-     * The internal errors PHPStan reported, one per line, for the failure message.
+     * The errors of its own PHPStan reported, one per line, for the failure message.
      */
     private function internalErrors(ProcessResultDto $result): string
     {
@@ -133,7 +151,7 @@ final class BundledRulesDoNotCrashOnValidPhpTest extends TestCase
             return $result->output;
         }
 
-        return 'A bundled rule crashed PHPStan on valid PHP (tests/assets/PHPStan/BundledRulesOnValidPhp/ValidPhp.php):' . "\n"
+        return 'PHPStan reported errors of its own on valid PHP (tests/assets/PHPStan/BundledRulesOnValidPhp/ValidPhp.php):' . "\n"
             . implode("\n", array_map(strval(...), array_filter($report['errors'], \is_string(...))));
     }
 }

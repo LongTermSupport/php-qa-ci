@@ -94,4 +94,32 @@ final class NotReportable
 
         return $compared ? 'compared' : 'not';
     }
+
+    /**
+     * A pipe calls what it pipes into, so it is judged as that call: into a
+     * closure, a native or another namespace's function, a method, or a Safe\
+     * function whose result can be false or falsy, nothing is reported.
+     */
+    public function aPipeIsJudgedAsTheCallItMakes(string $path, string $json): bool
+    {
+        $closure = false === ($path |> (static fn (string $p): false|string => \realpath($p)));
+        $native  = false === ($path |> \realpath(...)) || !($path |> \realpath(...));
+        $other   = false === ($path |> Lookup\find(...)) || ($path |> Lookup\find(...) ? false : true);
+        $method  = false === ($path |> $this->resolved(...)) || false === ($path |> self::resolvedStatically(...));
+        $decoded = false === ($json |> \Safe\json_decode(...));
+        $falsy   = !($path |> \Safe\file_get_contents(...));
+        $used    = ($path |> \Safe\realpath(...)) . '/composer.json';
+
+        return $closure || $native || $other || $method || $decoded || $falsy || '/' === $used;
+    }
+
+    private function resolved(string $path): string
+    {
+        return \Safe\realpath($path);
+    }
+
+    private static function resolvedStatically(string $path): string
+    {
+        return \Safe\realpath($path);
+    }
 }

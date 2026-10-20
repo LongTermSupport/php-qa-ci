@@ -122,4 +122,36 @@ final class Reportable
 
         return ((@\Safe\realpath($path))) ? $real : $path;
     }
+
+    public function pipedAndCompared(string $path): bool
+    {
+        return false === ($path |> \Safe\realpath(...)) || $path |> realpath(...) !== false;
+    }
+
+    public function pipedAsConditions(string $path): string
+    {
+        if ($path |> \Safe\realpath(...)) {
+            return 'condition';
+        }
+
+        return !($path |> \Safe\realpath(...)) ? 'negated' : $path;
+    }
+
+    public function pipedThroughAChain(string $path): string
+    {
+        return ($path |> \trim(...) |> \Safe\realpath(...)) ? 'chained' : $path;
+    }
+
+    public function pipedThroughSuppressionAndAssignment(string $path): string
+    {
+        if (false === @($path |> \Safe\realpath(...))) {
+            return 'suppressed';
+        }
+
+        if ($resolved = $path |> \Safe\realpath(...)) {
+            return $resolved;
+        }
+
+        return false == (@$path |> \Safe\realpath(...)) ? 'loose' : $path;
+    }
 }
