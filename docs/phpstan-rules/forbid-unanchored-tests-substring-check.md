@@ -21,6 +21,21 @@ rule steers you towards:
 if (str_starts_with($fileName, $this->projectRoot . '/tests/')) {
 ```
 
+The same check on a namespace or class name fires too: `str_contains`, `strpos` or `stripos` where
+one argument is exactly `Tests`, as a literal or as a variable PHPStan knows may hold it, such as
+the value of a loop over a constant list:
+
+```php
+foreach (['PHPStan', 'Tests', 'Generated'] as $word) {
+    if (str_contains($className, $word)) {
+        return []; // App\TestsHelper\Mailer is skipped too
+    }
+}
+```
+
+`str_starts_with` and `str_ends_with` are anchored at one end and do not fire for the word, nor does
+a needle bounded by separators such as `'\Tests\\'`.
+
 ## Why this is a hazard
 
 `$scope->getFile()` and `ClassReflection::getFileName()` return absolute paths. The substring test
@@ -61,10 +76,10 @@ if (str_starts_with($fileName, rtrim($this->projectRoot, '/') . '/tests/')) {
 
 ## What this rule does not cover
 
-It sees a literal and a class constant. A `tests/` fragment built at runtime, or held in a variable,
-is not reported. A namespace substring check (`'Tests'` with no slash) is not reported, because
-the word alone is as often a class-name suffix as a path; review such a check by hand and compare
-whole namespace segments.
+For the `tests/` path fragment it sees a literal and a class constant; a fragment built at runtime,
+or held in a variable, is not reported, because a constant-valued `__DIR__ . '/tests/'` is anchored
+and would be reported wrongly. For the `Tests` word it sees any value PHPStan knows, but only the
+exact word: a needle such as `'Tests\\'` or `'IntegrationTests'` is not reported.
 
 [`phpqaci.unanchoredVendorSubstringCheck`](forbid-unanchored-vendor-substring-check.md) is the same
 rule for deciding whether code is a dependency's.

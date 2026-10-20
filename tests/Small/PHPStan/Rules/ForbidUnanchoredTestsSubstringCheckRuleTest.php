@@ -20,6 +20,7 @@ use PHPStan\Analyser\Scope;
 use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\Type;
+use PHPStan\Type\UnionType;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -43,6 +44,14 @@ final class ForbidUnanchoredTestsSubstringCheckRuleTest extends TestCase
     private const string TESTS_FRAGMENT = '/tests/';
 
     private const string SELF = 'self';
+
+    private const string NAMESPACE = 'namespace';
+
+    private const string STRPOS = 'strpos';
+
+    private const string STR_STARTS_WITH = 'str_starts_with';
+
+    private const string TESTS_WORD = 'Tests';
 
     private ForbidUnanchoredTestsSubstringCheckRule $rule;
 
@@ -76,7 +85,7 @@ final class ForbidUnanchoredTestsSubstringCheckRuleTest extends TestCase
     #[Test]
     public function everyTargetFunctionIsRead(): void
     {
-        foreach (['strpos', 'stripos', 'str_starts_with', 'str_ends_with', '\STR_CONTAINS'] as $function) {
+        foreach ([self::STRPOS, 'stripos', self::STR_STARTS_WITH, 'str_ends_with', '\STR_CONTAINS'] as $function) {
             $call = $this->funcCall($function, new Variable(self::FILE_NAME), new String_('tests/'));
 
             self::assertCount(1, $this->rule->processNode($call, self::scopeStub()), $function);
@@ -106,7 +115,7 @@ final class ForbidUnanchoredTestsSubstringCheckRuleTest extends TestCase
     #[Test]
     public function classConstantThatIsNotAStringIsAllowed(): void
     {
-        $call = $this->funcCall('strpos', new Variable(self::FILE_NAME), new ClassConstFetch(new Name(self::SELF), 'OFFSET'));
+        $call = $this->funcCall(self::STRPOS, new Variable(self::FILE_NAME), new ClassConstFetch(new Name(self::SELF), 'OFFSET'));
 
         self::assertSame([], $this->rule->processNode($call, $this->scopeTyping(new IntegerType())));
     }
@@ -115,7 +124,7 @@ final class ForbidUnanchoredTestsSubstringCheckRuleTest extends TestCase
     public function testsLiteralConcatenatedWithAProjectRootVariableIsAllowed(): void
     {
         $concat = new Concat(new Variable('projectRoot'), new String_(self::TESTS_FRAGMENT));
-        $call   = $this->funcCall('str_starts_with', new Variable(self::FILE_NAME), $concat);
+        $call   = $this->funcCall(self::STR_STARTS_WITH, new Variable(self::FILE_NAME), $concat);
 
         self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
     }
@@ -136,13 +145,58 @@ final class ForbidUnanchoredTestsSubstringCheckRuleTest extends TestCase
         self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
     }
 
-    /** `Tests` without the slash is a namespace word, not a path fragment. */
+    /** A bare `Tests` searched for anywhere in a name takes `App\TestsHelper` for test code. */
     #[Test]
-    public function literalWithoutTheSlashIsAllowed(): void
+    public function substringCheckForTheTestsWordIsFlagged(): void
     {
-        $call = $this->funcCall(self::STR_CONTAINS, new Variable('namespace'), new String_('Tests'));
+        foreach ([self::STR_CONTAINS, self::STRPOS, 'stripos'] as $function) {
+            $call   = $this->funcCall($function, new Variable(self::NAMESPACE), new String_(self::TESTS_WORD));
+            $errors = $this->rule->processNode($call, self::scopeStub());
 
-        self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
+            self::assertCount(1, $errors, $function);
+            self::assertSame(
+                "Unanchored 'Tests' name check: " . $function . "(..., 'Tests'). It takes any name containing the word, "
+                . 'such as App\TestsHelper, for test code. Use TestCodeDetector, which compares namespace segments. '
+                . 'See docs/phpstan-rules/forbid-unanchored-tests-substring-check.md',
+                $errors[0]->getMessage(),
+            );
+            self::assertSame(ForbidUnanchoredTestsSubstringCheckRule::IDENTIFIER, $errors[0]->getIdentifier());
+        }
+    }
+
+    /** The word held in a loop variable over a constant list, as `foreach (self::ALLOWED as $word)` gives it. */
+    #[Test]
+    public function variableThatMayHoldTheTestsWordIsFlagged(): void
+    {
+        $call  = $this->funcCall(self::STR_CONTAINS, new Variable('className'), new Variable(self::NAMESPACE));
+        $words = new UnionType([new ConstantStringType('PHPStan'), new ConstantStringType(self::TESTS_WORD), new ConstantStringType('Generated')]);
+
+        self::assertCount(1, $this->rule->processNode($call, self::scopeTyping($words)));
+    }
+
+    #[Test]
+    public function variableThatCannotHoldTheTestsWordIsAllowed(): void
+    {
+        $call  = $this->funcCall(self::STR_CONTAINS, new Variable('className'), new Variable(self::NAMESPACE));
+        $words = new UnionType([new ConstantStringType('PHPStan'), new ConstantStringType('Generated')]);
+
+        self::assertSame([], $this->rule->processNode($call, self::scopeTyping($words)));
+    }
+
+    /** Anchored at one end, or bounded by separators, the word is not an overmatching substring check. */
+    #[Test]
+    public function anchoredChecksForTheTestsWordAreAllowed(): void
+    {
+        $calls = [
+            $this->funcCall('str_ends_with', new Variable('segment'), new String_(self::TESTS_WORD)),
+            $this->funcCall(self::STR_STARTS_WITH, new Variable(self::NAMESPACE), new String_(self::TESTS_WORD)),
+            $this->funcCall(self::STR_CONTAINS, new Variable(self::NAMESPACE), new String_('\Tests\\')),
+            $this->funcCall(self::STR_CONTAINS, new Variable(self::NAMESPACE), new String_('TestsHelper')),
+        ];
+
+        foreach ($calls as $call) {
+            self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
+        }
     }
 
     #[Test]
