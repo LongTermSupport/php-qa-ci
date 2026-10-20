@@ -126,6 +126,21 @@ final class PipelineBuilderTest extends TestCase
         self::assertSame(self::SECURITY_AUDIT, $built->tools[self::SECURITY_AUDIT]->name());
     }
 
+    /** PHP makes the name '2024' an int key, and spreading an array renumbers its int keys (#256). */
+    #[Test]
+    public function aToolNamedInDigitsKeepsItsNameWhenAnotherToolIsAdded(): void
+    {
+        $built = PipelineBuilder::defaults()
+            ->withTool(new ToolDefinitionDto('2024', ['y2024'], 'a tool named in digits', self::LINTING, false), $this->tool('2024'))
+            ->withTool($this->definition(self::SECURITY_AUDIT, self::LINTING), $this->tool(self::SECURITY_AUDIT))
+            ->build()
+        ;
+
+        self::assertSame('2024', $built->registry->resolve('y2024')->name);
+        self::assertArrayHasKey('2024', $built->tools);
+        self::assertSame('2024', $built->tools['2024']->name());
+    }
+
     #[Test]
     public function aToolAddedUnderAnExistingNameReplacesItInPlace(): void
     {
