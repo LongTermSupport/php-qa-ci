@@ -63,12 +63,29 @@ uses the cache only where it cannot decide an outcome:
 the lane over that heredoc and fails when a read-only run, a single writable run or a settled
 writable phase disagrees with an uncached read-only check.
 
+### The generated config
+
 With `--path-mode=intersection` the checked paths only narrow what the config's finder yields, so
-an exclusion has to be in the finder. When `qaConfig/qa.php` sets `withIgnoredPaths()`, the lane
-therefore generates `var/qa/phpCsFixer/php_cs.php`, which requires the resolved `php_cs.php` and
-filters its finder by real path, and passes that as `--config`. This works whichever
-`php_cs.php` and `php_cs_finder.php` the project uses, so a copied config needs no exclusion of
-its own for an ignored path.
+an exclusion has to be in the finder. The lane therefore always generates
+`var/qa/phpCsFixer/php_cs.php`, which requires the resolved `php_cs.php`, filters its finder and
+is passed as `--config`. This works whichever `php_cs.php` and `php_cs_finder.php` the project
+uses, so a copied config needs no filtering of its own. The filter drops:
+
+- every file under a path `qaConfig/qa.php` names in `withIgnoredPaths()`, compared by real path;
+- every file whose real path cannot be resolved, such as a dangling symlink. The fixer narrows
+  its finder by real path, and a dangling `*.php` symlink anywhere the finder walks used to kill
+  it with a `TypeError` that named no file ([#239](https://github.com/LongTermSupport/php-qa-ci/issues/239)).
+  The lane prints one line per such file, so nothing goes unchecked silently:
+  `PHP CS Fixer skipped <path>: its real path cannot be resolved ...`. A skipped file does not
+  fail the lane, because it has no content to check.
+
+The shipped finder's `ignoreVCSIgnored(true)` does not filter out a dangling symlink, even a
+gitignored one. Symfony Finder decides whether a file is ignored from its real path, and a dangling
+symlink has none, so the Finder treats it as not ignored.
+
+[`PhpCsFixerToolUnresolvablePathTest`](../../tests/Large/Pipeline/Lane/PhpCsFixerToolUnresolvablePathTest.php)
+runs the lane over dangling symlinks in a tracked directory and in a gitignored one. It covers a
+read-only and a writable run, with and without ignored paths.
 
 - In the full pipeline, second in the coding-standards phase.
 - Standalone: `vendor/bin/qa -t fixer` (aliases `-t f`, `-t csfixer`); supports `-p <path>`.
@@ -96,7 +113,7 @@ its own for an ignored path.
 ## Implementation
 
 - Lane: [`PhpCsFixerTool`](../../src/Pipeline/Lane/PhpCsFixerTool.php); the generated config
-  for ignored paths: [`IgnoredPathsConfig`](../../src/Pipeline/Lane/PhpCsFixer/IgnoredPathsConfig.php).
+  around the resolved one: [`FilteredFinderConfig`](../../src/Pipeline/Lane/PhpCsFixer/FilteredFinderConfig.php).
 - Read-only remediation text: [`ReadOnlyGuidance`](../../src/Pipeline/Lane/ReadOnlyGuidance.php),
   shared with [Rector](rector.md).
 - Shipped config: [`php_cs.php`](../../configDefaults/generic/php_cs.php) and its finder
