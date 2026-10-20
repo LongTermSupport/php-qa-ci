@@ -109,6 +109,39 @@ final class TemporaryDirectoryTest extends TestCase
         }
     }
 
+    /**
+     * A run killed between making its staging directory and removing it leaves the directory
+     * beside the file it was replacing, in a library directory a project may commit (issue #251).
+     * The next run removes it; one changed recently may be another run's, still in use, and stays.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetRemovesTheStagingAKilledRunLeftThere(): void
+    {
+        $parent   = TemporaryDirectory::create('phpqa-temporary-directory-parent');
+        $leftover = $parent->path . '/' . self::PREFIX . 'killed';
+        $inUse    = $parent->path . '/' . self::PREFIX . 'running';
+        \Safe\mkdir($leftover . '/nested', 0o700, true);
+        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
+        \Safe\touch($leftover, time() - 2 * 3600);
+        \Safe\mkdir($inUse);
+        \Safe\file_put_contents($parent->path . '/library.so', 'kept');
+        \Safe\file_put_contents($parent->path . '/' . self::PREFIX . 'file', 'kept');
+        \Safe\touch($parent->path . '/' . self::PREFIX . 'file', time() - 2 * 3600);
+
+        $directory = TemporaryDirectory::besides($parent->path . '/library.so', self::PREFIX);
+
+        try {
+            self::assertDirectoryDoesNotExist($leftover, 'a staging directory a killed run left is removed');
+            self::assertDirectoryExists($inUse, 'a staging directory changed recently may be in use, and is kept');
+            self::assertFileExists($parent->path . '/library.so');
+            self::assertFileExists($parent->path . '/' . self::PREFIX . 'file', 'only a directory is staging');
+            self::assertDirectoryExists($directory->path);
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
     #[Test]
     public function removingItRemovesEverythingInIt(): void
     {
