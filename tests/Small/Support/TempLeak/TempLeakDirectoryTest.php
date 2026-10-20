@@ -145,6 +145,53 @@ final class TempLeakDirectoryTest extends TestCase
         }
     }
 
+    /**
+     * PHP makes an array key of a canonical decimal string ('12', '0', '-1') an int. A killed
+     * test's git repository holds such names (`.git/objects/12`), and a name taken back from
+     * an array key as an int would stop every later PHPUnit start with a TypeError.
+     */
+    #[Test]
+    public function aClaimRemovesADeadProcessDirectoryHoldingNamesThatLookLikeIntegers(): void
+    {
+        $parent = TempDir::create(self::PARENT);
+        try {
+            $dead      = $this->deadPid();
+            $abandoned = self::MARKER . $dead . self::RANDOM;
+            foreach (['repo/.git/objects/12/3456', '12', '0/0', '-1/12', 'repo/-1'] as $name) {
+                $parent->write($abandoned . '/' . $name, '');
+            }
+
+            $this->claimUnder($parent->path);
+
+            self::assertDirectoryDoesNotExist($parent->path . '/' . $abandoned);
+        } finally {
+            $parent->remove();
+        }
+    }
+
+    /** Any tool may leave a name such as `/tmp/12345` in the shared temp directory; it is not the claim's, and is no reason to fail. */
+    #[Test]
+    public function aClaimLeavesANameThatLooksLikeAnIntegerInTheSharedDirectoryAlone(): void
+    {
+        $parent = TempDir::create(self::PARENT);
+        try {
+            $kept = [];
+            foreach (['12345', '0', '-1'] as $name) {
+                $kept[] = $parent->write($name . '/file', self::KEPT);
+            }
+
+            $kept[] = $parent->write('12', self::KEPT);
+
+            $this->claimUnder($parent->path);
+
+            foreach ($kept as $file) {
+                self::assertFileExists($file);
+            }
+        } finally {
+            $parent->remove();
+        }
+    }
+
     /** A link is never followed: neither one with a matching name, nor one inside a dead process's directory. */
     #[Test]
     public function aClaimNeverFollowsASymlink(): void
