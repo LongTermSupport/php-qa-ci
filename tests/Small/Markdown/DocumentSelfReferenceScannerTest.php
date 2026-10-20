@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(DocumentSelfReferenceScanner::class)]
 #[CoversClass(DocumentSelfReferenceFinding::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[Small]
 final class DocumentSelfReferenceScannerTest extends TestCase
 {
@@ -208,6 +209,28 @@ final class DocumentSelfReferenceScannerTest extends TestCase
             . "    says 'this section has been moved' — that is about this document, not about what it documents\n"
             . '    ' . self::SECTION_MOVED_PROSE . "\n\n"
             . "2 place(s) where a document describes itself rather than its subject.\n",
+        );
+
+        self::assertSame(1, DocumentSelfReferenceScanner::main($project->path));
+    }
+
+    /** A document whose real path cannot be resolved is named as skipped, and the rest is still scanned (#241). */
+    #[Test]
+    public function mainNamesADanglingSymlinkAsSkippedAndScansTheRest(): void
+    {
+        $project = $this->project();
+        $project->write(self::README, self::PAGE_USED_TO_PROSE);
+        $project->write('docs/a.md', "# A\n");
+        \Safe\symlink('missing-target.md', $project->path . '/docs/Gone.md');
+
+        self::assertSame([$project->path . '/docs/Gone.md'], $this->scanner->unresolvable($project->path . '/'));
+
+        $this->expectOutputString(
+            "Docs prose skipped docs/Gone.md: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n"
+            . "README.md:1\n"
+            . "    says 'this page used to' — that is about this document, not about what it documents\n"
+            . '    ' . self::PAGE_USED_TO_PROSE . "\n\n"
+            . "1 place(s) where a document describes itself rather than its subject.\n",
         );
 
         self::assertSame(1, DocumentSelfReferenceScanner::main($project->path));

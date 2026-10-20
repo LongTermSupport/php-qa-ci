@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Markdown;
 
 use Exception;
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Helper;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -26,6 +27,12 @@ final readonly class LinksChecker
         $projectRootDirectory ??= Helper::getProjectRootDirectory();
         $files                = self::getFiles($projectRootDirectory);
         foreach ($files as $file) {
+            if (UnresolvablePath::is($file)) {
+                echo UnresolvablePath::skipped('Markdown links', $file, $projectRootDirectory) . PHP_EOL;
+
+                continue;
+            }
+
             $relativeFile = str_replace($projectRootDirectory, '', $file);
             $title        = PHP_EOL . $relativeFile . PHP_EOL . str_repeat('-', \strlen($relativeFile)) . "\n";
             $errors       = [];
@@ -77,6 +84,8 @@ final readonly class LinksChecker
                 $files[] = $file[0];
             }
         }
+
+        sort($files);
 
         return $files;
     }

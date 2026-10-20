@@ -17,6 +17,7 @@ use Throwable;
  * @internal
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(LinksChecker::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[\PHPUnit\Framework\Attributes\Large]
 final class LinksCheckerTest extends TestCase
 {
@@ -157,6 +158,29 @@ reason: GitHub URLs cannot be verified anonymously'
         \Safe\file_put_contents($projectDir . '/docs/other.md', "nothing to link\n");
 
         $this->assertResult($projectDir, 0, '');
+    }
+
+    /**
+     * A docs file whose real path cannot be resolved is named as skipped, and the rest is
+     * still checked (#241).
+     *
+     * @throws Exception
+     */
+    public function testADanglingSymlinkIsNamedAsSkippedAndTheRestStillChecked(): void
+    {
+        $dir              = TempDir::create('linksCheckerDangling');
+        $this->tempDirs[] = $dir;
+        $dir->write('README.md', "[guide](docs/guide.md)\n");
+        $dir->write('docs/guide.md', "[gone](nothere.md)\n");
+        \Safe\symlink('missing-target.md', $dir->path . '/docs/Gone.md');
+
+        $this->assertResult($dir->path, 1, 'Markdown links skipped docs/Gone.md: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked
+
+/docs/guide.md
+--------------
+
+Bad link for "gone" to "nothere.md"
+');
     }
 
     /**
