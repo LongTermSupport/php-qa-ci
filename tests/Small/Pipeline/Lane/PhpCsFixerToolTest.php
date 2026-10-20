@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PhpCsFixerTool::class)]
 #[UsesClass(ReadOnlyGuidance::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\FormatterCache::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]

@@ -57,13 +57,13 @@ final readonly class PhpCsFixerTool implements ToolInterface
         $paths    = $context->config->paths;
         $readOnly = $context->config->readOnly;
         $config   = $this->config($context);
-        $this->forget($this->unresolvedList($context));
+        $this->forgetUnresolved($context);
         if ($readOnly) {
             $context->writeln('Running PHP CS Fixer in read-only check mode');
             $result = $this->fix($context, $config, self::NO_CACHE, '--dry-run');
             $output = $result->output;
         } else {
-            $result = $this->fix($context, $config, '--cache-file=' . $this->cacheFile($context));
+            $result = $this->fix($context, $config, '--cache-file=' . $this->cache($context)->path);
             $output = $result->output;
             if ($result->succeeded() && $this->fixedAny($result->output)) {
                 $context->writeln('PHP CS Fixer changed files; running it again without the cache, which records what one pass left as clean even where the next pass changes it again');
@@ -104,7 +104,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
 
         if (self::EXIT_PENDING_FIXES === $result->exitCode) {
             // The cache may record the pending files as clean, and the writable run asked for below would skip them
-            $this->forget($this->cacheFile($context));
+            $this->cache($context)->forget();
             ReadOnlyGuidance::wouldModify($context, 'PHP CS Fixer', 'fixer');
             $context->writeIdentifier(self::IDENTIFIER);
 
@@ -120,16 +120,9 @@ final readonly class PhpCsFixerTool implements ToolInterface
         return ToolResultDto::crashed(\sprintf('PHP CS Fixer crashed (exit %d)', $result->exitCode));
     }
 
-    private function cacheFile(ToolContext $context): string
+    private function cache(ToolContext $context): FormatterCache
     {
-        return $context->config->paths->varDir . '/cache/php_cs.cache';
-    }
-
-    private function forget(string $file): void
-    {
-        if (is_file($file)) {
-            \Safe\unlink($file);
-        }
+        return FormatterCache::in($context, 'php_cs.cache');
     }
 
     /** One fixer process over the checked paths, with the cache option and any trailing options given. */
@@ -186,6 +179,15 @@ final readonly class PhpCsFixerTool implements ToolInterface
     private function unresolvedList(ToolContext $context): string
     {
         return $context->config->paths->varDir . '/' . self::UNRESOLVED_LIST;
+    }
+
+    /** The list a previous run left would otherwise be reported again by this one. */
+    private function forgetUnresolved(ToolContext $context): void
+    {
+        $list = $this->unresolvedList($context);
+        if (is_file($list)) {
+            \Safe\unlink($list);
+        }
     }
 
     /**
