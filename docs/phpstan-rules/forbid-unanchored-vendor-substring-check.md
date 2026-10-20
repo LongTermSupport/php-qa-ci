@@ -6,12 +6,16 @@
 ## What fires
 
 A call to `str_contains`, `strpos`, `stripos`, `str_starts_with` or `str_ends_with` where one
-argument is a bare string literal containing `vendor/`.
+argument is a string literal, or a class constant whose value PHPStan knows, containing `vendor/`.
 
 ```php
 if (str_contains($fileName, '/vendor/')) {
     return []; // "third-party, skip it"
 }
+
+private const string VENDOR_DIR = '/vendor/';
+
+if (str_contains($fileName, self::VENDOR_DIR)) { // the same check, by a constant
 ```
 
 A literal concatenated onto a root variable does not fire, because that is the anchored form this
@@ -63,6 +67,7 @@ if (str_starts_with($fileName, rtrim($this->projectRoot, '/') . '/vendor/')) {
 
 ## What this rule does not cover
 
-It sees a literal. A `vendor/` fragment built at runtime, or held in a constant and concatenated
-without a root, is not reported. The rule's own detection call is excluded by class name, because
-its subject is the text of a string node under analysis, not a filesystem path.
+It sees a literal or a class constant passed as the argument itself. A `vendor/` fragment built at
+runtime, held in a variable, or concatenated onto something other than the root, is not reported.
+The rule's own match is a regular expression rather than one of the calls it reports, so it needs
+no exclusion of its own.

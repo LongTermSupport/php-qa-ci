@@ -105,6 +105,16 @@ The rule is Symfony-tier and opt-in, because it only makes sense against the glo
 pattern. A project wiring its services explicitly in YAML has no such default and needs no such
 declaration.
 
+The rule skips abstract and anonymous classes, a class named `…Kernel`, a PHP attribute class,
+test code (a file under the project's `tests/`, or a namespace segment ending in `Tests`), a
+Doctrine migration (a class extending `Doctrine\Migrations\AbstractMigration` directly, in any
+namespace, including Symfony's default `DoctrineMigrations`; a migration extending a base class of
+your own is not recognised, and is reported until it carries `#[Exclude]` itself), and a class in a namespace one of whose
+segments is exactly `PHPStan`, `Migrations` or `Generated`.
+That last match is on whole segments and case-sensitive: `App\Migrations\Version1` and
+`Vendor\Pkg\PHPStan\Rule` are skipped, `App\GeneratedReports\Invoice` and
+`App\PHPStanAdapter\Client` are checked.
+
 ## If you believe an instance is legitimate
 
 A class that is neither a service nor a domain object usually turns out to be a static utility,
