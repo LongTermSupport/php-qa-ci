@@ -34,6 +34,23 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   `bootstrapFiles` run once for it as well, before the analysis. If the dump fails, the lane uses
   its own `tmpDir` and the analysis reports the broken configuration.
 
+- **A `-p` run starts one PHPStan process when nothing has changed: the analysis.** The answers of
+  `dump-parameters` and of `diagnose` (below) depend on the configuration, the phar and the PHP
+  that runs it, not on the analysed path, and each costs a PHPStan start of one to two seconds.
+  Every run that asks writes the answer to `var/qa/cache/phpstan-setup/`, keyed by a hash of
+  everything the answer rests on, and a `-p` run whose key matches reuses it
+  ([#219](https://github.com/LongTermSupport/php-qa-ci/issues/219)). The key covers the bytes of
+  `phpstan.phar`; every NEON file in the `includes:` chain and in the configs
+  `phpstan/extension-installer` adds; the `--autoload-file` the dump is given; the lane's wrapper;
+  every file under `vendor-phar/turbo-ext/` and its manifest; and the PHP that runs PHPStan, asked
+  about itself in one short `php -r` (its binary and every ini file it loads, by content, its
+  version, thread safety and platform, whether Turbo is already loaded, and `PHPRC`,
+  `PHP_INI_SCAN_DIR` and `BLACKFIRE_AGENT_SOCKET`). A change to any of them is a miss, and
+  PHPStan is asked again. A config that reads the environment (`%env.NAME%`), includes a PHP
+  config file, or has an include the lane cannot follow is never cached. A run without `-p`
+  always asks and rewrites the cache, so the cost stays out of the edit-time lint while a full run
+  still gets fresh answers. Deleting `var/qa/` resets it.
+
 - Each path given to `withIgnoredPaths()` in `qaConfig/qa.php` is written into the wrapper as an
   `excludePaths.analyse` entry, absolute and optional (`(?)`), so a fixture's deliberate
   violations are never reported and the project does not repeat the path in its own
@@ -115,7 +132,8 @@ analyses:
 - `PHPStan Turbo: not running; upstream publishes no build for this host`: the expected fallback.
 
 `--json` and agent mode do not ask, so their single-path runs pay no extra PHPStan start (about
-a second). To ask by hand:
+a second). A text-mode `-p` run reuses the last answer while nothing it rests on has changed (see
+[How the lane runs](#how-the-lane-runs)). To ask by hand:
 
 ```bash
 php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar diagnose

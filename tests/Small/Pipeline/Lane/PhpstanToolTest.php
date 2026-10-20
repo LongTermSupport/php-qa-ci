@@ -62,6 +62,9 @@ use Symfony\Component\Process\Process;
 #[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupCache::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupKey::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
 #[Small]
 final class PhpstanToolTest extends TestCase
 {
@@ -99,6 +102,14 @@ final class PhpstanToolTest extends TestCase
 
     private const string TURBO_ENABLED = "Turbo extension: enabled (version 6351afb)\n";
 
+    private const string TURBO_ENABLED_REPORT = 'PHPStan Turbo: enabled (version 6351afb)';
+
+    private const string DUMP_PARAMETERS = 'dump-parameters';
+
+    private const string DIAGNOSE = 'diagnose';
+
+    private const array SETUP_AND_ANALYSE = [self::DUMP_PARAMETERS, self::DIAGNOSE, self::ANALYSE];
+
     private const string PHPSTAN_PHAR = '/vendor-phar/phpstan.phar';
 
     private const string PHARS = 'phars';
@@ -135,7 +146,7 @@ final class PhpstanToolTest extends TestCase
 
         $this->tool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
 
-        self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
+        self::assertStringContainsString(self::TURBO_ENABLED_REPORT, $this->factory->output->fetch());
         self::assertSame([$this->factory->project->path . '/' . self::VAR_QA_PREFIX . PhpstanTool::LOG_DIR . '/' . PhpstanTool::WRAPPER_NEON], $this->turbo->askedAbout);
     }
 
@@ -186,32 +197,52 @@ final class PhpstanToolTest extends TestCase
         $config = $this->factory->builder(ci: true, specifiedPath: self::KERNEL)->build();
         $tool   = new PhpstanTool();
         $tool->run($this->factory->context($config));
+
         $this->factory->processes->specs = [];
 
         $result = $tool->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame([self::ANALYSE], $this->phpstanCommands(), 'a warm -p run starts no PHPStan process but the analysis');
-        self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
+        self::assertStringContainsString(self::TURBO_ENABLED_REPORT, $this->factory->output->fetch());
     }
 
     /**
      * The shipped lane (ShippedTools builds it with no arguments) asks the phar itself: for the
-     * merged tmpDir through dump-parameters, then for Turbo through diagnose.
+     * merged tmpDir through dump-parameters, then for Turbo through diagnose. A whole-project run
+     * asks every time, warm or not, and refreshes what the `-p` runs reuse.
      */
     #[Test]
     public function theShippedLaneAsksThePharThroughDumpParametersAndDiagnose(): void
     {
-        $this->factory->processes->willSucceed('{"tmpDir":"/t/phpstan","sysGetTempDir":"/t"}');
-        $this->factory->processes->willSucceed(self::TURBO_ENABLED);
-        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        for ($answer = 0; $answer < 20; ++$answer) {
+            $this->factory->processes->willRun($this->answerByCommand(...));
+        }
 
-        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true)->build()));
+        $tool = new PhpstanTool();
+        $tool->run($this->factory->context($this->factory->builder(ci: true)->build()));
 
-        self::assertSame('dump-parameters', $this->toolArgs($this->factory->processes->specs[0])[0]);
-        self::assertSame('diagnose', $this->toolArgs($this->factory->processes->specs[1])[0]);
-        self::assertSame(self::ANALYSE, $this->toolArgs($this->factory->processes->lastSpec())[0]);
-        self::assertStringContainsString('PHPStan Turbo: enabled (version 6351afb)', $this->factory->output->fetch());
+        $cold                            = $this->phpstanCommands();
+        $this->factory->processes->specs = [];
+        $tool->run($this->factory->context($this->factory->builder(ci: true)->build()));
+
+        self::assertSame(self::SETUP_AND_ANALYSE, $cold);
+        self::assertSame(self::SETUP_AND_ANALYSE, $this->phpstanCommands());
+        self::assertStringContainsString(self::TURBO_ENABLED_REPORT, $this->factory->output->fetch());
+    }
+
+    /** A cold `-p` run, the first after any input the answers rest on changed, asks PHPStan as a full run does. */
+    #[Test]
+    public function aColdPathRunAsksThePhar(): void
+    {
+        $this->factory->project->write(self::KERNEL, self::PHP_OPEN);
+        for ($answer = 0; $answer < 20; ++$answer) {
+            $this->factory->processes->willRun($this->answerByCommand(...));
+        }
+
+        new PhpstanTool()->run($this->factory->context($this->factory->builder(ci: true, specifiedPath: self::KERNEL)->build()));
+
+        self::assertSame(self::SETUP_AND_ANALYSE, $this->phpstanCommands());
     }
 
     #[Test]
@@ -1022,7 +1053,6 @@ final class PhpstanToolTest extends TestCase
         return $directories;
     }
 
-    /** @return list<string> everything after the "--" separator */
     /**
      * What each process the shipped lane starts would print, chosen by its command: PHPStan's
      * default tmpDir from dump-parameters, Turbo enabled from diagnose, a clean analysis, and for
@@ -1032,10 +1062,10 @@ final class PhpstanToolTest extends TestCase
     {
         $command = $spec->commandLine();
         $output  = match (true) {
-            str_contains($command, 'dump-parameters') => '{"tmpDir":"/t/phpstan","sysGetTempDir":"/t"}',
-            str_contains($command, 'diagnose')        => self::TURBO_ENABLED,
-            str_contains($command, self::ANALYSE)     => self::NO_ERRORS,
-            default                                   => \Safe\json_encode(['binary' => \PHP_BINARY, 'version' => \PHP_VERSION, 'ini' => false, 'scanned' => false]),
+            str_contains($command, self::DUMP_PARAMETERS) => '{"tmpDir":"/t/phpstan","sysGetTempDir":"/t"}',
+            str_contains($command, self::DIAGNOSE)        => self::TURBO_ENABLED,
+            str_contains($command, self::ANALYSE)         => self::NO_ERRORS,
+            default                                       => \Safe\json_encode(['binary' => \PHP_BINARY, 'version' => \PHP_VERSION, 'ini' => false, 'scanned' => false]),
         };
 
         return new ProcessResultDto(0, $output, $output);
@@ -1046,7 +1076,7 @@ final class PhpstanToolTest extends TestCase
     {
         $commands = [];
         foreach ($this->factory->processes->specs as $spec) {
-            if (str_ends_with($this->script($spec), '/phpstan.phar')) {
+            if (\in_array('-f', $spec->command, true) && str_ends_with($this->script($spec), '/phpstan.phar')) {
                 $commands[] = $this->toolArgs($spec)[0];
             }
         }
@@ -1054,6 +1084,7 @@ final class PhpstanToolTest extends TestCase
         return $commands;
     }
 
+    /** @return list<string> everything after the "--" separator */
     private function toolArgs(ProcessSpecDto $spec): array
     {
         $separator = array_search('--', $spec->command, true);

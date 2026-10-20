@@ -270,6 +270,28 @@ final class NeonIncludeChainTest extends TestCase
         );
     }
 
+    /** PHPStan runs every PHP include, so each is named, whether or not it is a problem for the justification check. */
+    #[Test]
+    public function everyPhpIncludeIsNamed(): void
+    {
+        $this->dir->write(self::ENTRY, "includes:\n    - baseline.php\n    - plain.php\n    - b.neon\n");
+        $this->dir->write('qaConfig/baseline.php', "<?php return ['parameters' => ['ignoreErrors' => []]];\n");
+        $this->dir->write('qaConfig/plain.php', "<?php return ['parameters' => ['level' => 5]];\n");
+        $this->dir->write(self::B_NEON, "parameters: {level: 4}\n");
+
+        $root = \Safe\realpath($this->dir->path);
+        self::assertSame([$root . '/qaConfig/baseline.php', $root . '/qaConfig/plain.php'], $this->chain()->phpIncludes);
+    }
+
+    #[Test]
+    public function aChainOfNeonOnlyNamesNoPhpInclude(): void
+    {
+        $this->dir->write(self::ENTRY, "includes:\n    - b.neon\n");
+        $this->dir->write(self::B_NEON, "parameters: {level: 3}\n");
+
+        self::assertSame([], $this->chain()->phpIncludes);
+    }
+
     #[Test]
     public function theDeclaredEntriesAreCountedFromTheDecodedFile(): void
     {
