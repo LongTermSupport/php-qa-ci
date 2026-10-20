@@ -25,6 +25,8 @@ use SplFileInfo;
  * paths as parallel-lint does first: the same extensions, any case, an excluded
  * path not entered. Each such file is named as skipped and passed as one more
  * --exclude, which parallel-lint matches against the exact path its walk yields.
+ * When such files are all it would lint, it is not run, since it fails on finding
+ * nothing to check.
  *
  * @internal
  */
@@ -79,10 +81,15 @@ final readonly class PhpLintTool implements ToolInterface
             $args[] = $exclude;
         }
 
-        foreach ($this->unresolvable($excluded, ...$checked) as $file) {
+        [$unresolvable, $lintable] = $this->walk($excluded, ...$checked);
+        foreach ($unresolvable as $file) {
             $context->writeln(UnresolvablePath::skipped(self::LABEL, $file, $paths->projectRoot));
             $args[] = self::EXCLUDE;
             $args[] = $file;
+        }
+
+        if ([] !== $unresolvable && !$lintable) {
+            return ToolResultDto::passed();
         }
 
         $result = $context->php->withoutXdebug(
@@ -102,17 +109,22 @@ final readonly class PhpLintTool implements ToolInterface
 
     /**
      * Each file parallel-lint would lint under the checked directories whose real path
-     * cannot be resolved, spelt as its walk spells it.
+     * cannot be resolved, spelt as its walk spells it, and whether anything else is left
+     * for it: a real file it would lint, or a checked path that is not a directory, which
+     * parallel-lint judges itself.
      *
      * @param list<string> $excluded
      *
-     * @return list<string>
+     * @return array{list<string>, bool}
      */
-    private function unresolvable(array $excluded, string ...$checked): array
+    private function walk(array $excluded, string ...$checked): array
     {
-        $found = [];
+        $found    = [];
+        $lintable = false;
         foreach ($checked as $path) {
             if (!is_dir($path)) {
+                $lintable = true;
+
                 continue;
             }
 
@@ -125,14 +137,18 @@ final readonly class PhpLintTool implements ToolInterface
                 RecursiveIteratorIterator::CATCH_GET_CHILD,
             );
             foreach ($walk as $entry) {
-                if ($entry instanceof SplFileInfo
-                    && 1 === \Safe\preg_match(self::LINTED_FILE, $entry->getFilename())
-                    && UnresolvablePath::is($entry->getPathname())) {
+                if (!$entry instanceof SplFileInfo || 1 !== \Safe\preg_match(self::LINTED_FILE, $entry->getFilename())) {
+                    continue;
+                }
+
+                if (UnresolvablePath::is($entry->getPathname())) {
                     $found[] = $entry->getPathname();
+                } else {
+                    $lintable = true;
                 }
             }
         }
 
-        return array_values(array_unique($found));
+        return [array_values(array_unique($found)), $lintable];
     }
 }
