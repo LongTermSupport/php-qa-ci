@@ -111,8 +111,6 @@ PHPUnit, then Infection's mutation testing.
 
 Each tool's [ToolGateEnum](../src/Pipeline/Tool/ToolGateEnum.php) gate is declared on its registry row. A `NotQuick` tool is skipped when `phpqaQuickTests=1`; an `Infection` tool is skipped when quick tests are on or Infection is disabled. Gates apply to phase runs, not to a single tool selected with `-t`.
 
-To read about each tool in detail, see [PHPQA's suite of tools](./phpqa-tools.md).
-
 ### 4. Copy/Paste Report and Post Hook
 
 If all tests pass, [PHPCPD](./tools/phpcpd.md) reports duplicated code. It is informational and cannot fail the run.

@@ -227,7 +227,7 @@ final readonly class Pipeline
 
     /**
      * A phase's generic lanes followed by the platform's own (Symfony's twig
-     * and yaml linters after the generic linting lanes).
+     * linter after the generic linting lanes).
      *
      * @return list<ToolDefinitionDto>
      */

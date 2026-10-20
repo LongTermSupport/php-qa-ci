@@ -40,27 +40,16 @@ export CI=true && {bin}/qa -t {tool}
 export CI=true && {bin}/qa -t {tool} -p {path}
 ```
 
-### Common tool aliases
+### Tool tokens
 
-| Tool Name   | Aliases    | Type                           |
-| ----------- | ---------- | ------------------------------ |
-| rector      | r          | Self-fixing (modifies files)   |
-| fixer       | f, csfixer | Self-fixing (modifies files)   |
-| phplint     | lint       | Report-only                    |
-| infection   | infect     | Report-only (mutation testing) |
-| stricttypes | st         | Report-only                    |
-| psr4        | psr        | Report-only                    |
-| composer    | com        | Report-only                    |
-| markdown    | ml         | Report-only                    |
-| loc         | l          | Report-only (lines of code)    |
-| allStatic   | -          | Meta (runs multiple tools)     |
-| allCs       | -          | Meta (runs multiple tools)     |
-| allTests    | -          | Meta (runs multiple tools)     |
-| allLints    | -          | Meta (runs multiple tools)     |
+`{bin}/qa -h` lists every tool with the `-t` tokens it accepts, in pipeline order. Use a token
+from that list exactly as printed: tokens are case-sensitive, and a lane's canonical name is
+not always one of them. The tools in the coding-standards phase (listed first) modify files in
+a writable run.
 
 ## Timeout
 
-Use a timeout of 300000ms (5 minutes) for most tools. For meta tools (allStatic, allCs, allTests, allLints) use 600000ms (10 minutes).
+Use a timeout of 300000ms (5 minutes) for most tools. For the phase runners (allCS, allLints, allStatic, allTests) use 600000ms (10 minutes).
 
 ## Output Format
 

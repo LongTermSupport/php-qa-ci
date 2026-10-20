@@ -242,38 +242,18 @@ A Bash override was arbitrary shell sourced in place of a lane. A PHP override i
 returns an object implementing `LTS\PHPQA\Pipeline\Tool\ToolInterface`. It replaces the shipped
 lane for that tool in every run, including `-t <tool>`.
 
-The file name is the tool's **canonical registry name**, not an alias:
+The file name is the lane's **canonical name**, `tools/<name>.php`, which is not always a `-t`
+token: `composerRequireChecker` is selected with `-t cr`, but its override is
+`tools/composerRequireChecker.php`. The names are not listed here, because a hand-kept list
+drifts from the registry:
 
-| File                                          | Replaces                                      | Aliases (for `-t`, not for the file name) |
-| --------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
-| `tools/rector.php`                            | Rector                                        | `r`, `rector`                             |
-| `tools/phpCsFixer.php`                        | PHP CS Fixer                                  | `f`, `fixer`, `csfixer`                   |
-| `tools/psr4Validate.php`                      | PSR-4 validation                              | `psr`, `psr4`                             |
-| `tools/composerChecks.php`                    | composer diagnose / normalize / dump-autoload | `com`, `composer`                         |
-| `tools/packageType.php`                       | package type declaration                      | `pt`                                      |
-| `tools/configTemplateIgnoreList.php`          | template ignore-list audit                    | `cti`                                     |
-| `tools/infectionConfigSourceDirs.php`         | infection.json source dirs                    | `icsd`                                    |
-| `tools/analysedPaths.php`                     | analysed paths                                | `ap`                                      |
-| `tools/versionPins.php`                       | version pins                                  | `vp`                                      |
-| `tools/changelog.php`                         | changelog                                     | `cl`                                      |
-| `tools/phpStrictTypes.php`                    | strict types                                  | `st`, `stricttypes`                       |
-| `tools/phpLint.php`                           | parallel lint                                 | `lint`, `phplint`                         |
-| `tools/composerRequireChecker.php`            | composer-require-checker                      | `cr`                                      |
-| `tools/composerDependencyAnalyser.php`        | composer-dependency-analyser                  | `cda`                                     |
-| `tools/phpcpd.php`                            | PHPCPD copy/paste detection                   | `cpd`, `phpcpd`                           |
-| `tools/markdownLinks.php`                     | markdown links                                | `ml`, `markdown`                          |
-| `tools/branchNamePolicy.php`                  | branch name policy                            | `bnp`                                     |
-| `tools/phpstanIgnoreJustification.php`        | ignoreErrors justification                    | `pij`                                     |
-| `tools/phpstan.php`                           | PHPStan                                       | `stan`, `phpstan`                         |
-| `tools/phpArkitect.php`                       | PHPArkitect                                   | `arch`, `arkitect`, `phparkitect`         |
-| `tools/sensitiveParameterUsage.php`           | SensitiveParameter usage                      | `spu`                                     |
-| `tools/phpunit.php`                           | PHPUnit                                       | `unit`, `phpunit`                         |
-| `tools/infection.php`                         | Infection                                     | `infect`, `infection`                     |
-| `tools/yamlLint.php`                          | Yaml Lint (when `symfony/yaml` is installed)  | `yaml`                                    |
-| `tools/shellCheck.php`                        | ShellCheck over git-tracked shell scripts     | `sc`, `shellcheck`                        |
-| `tools/twigCsFixer.php`, `tools/twigLint.php` | Twig lanes (library-gated / Symfony platform) | `twigcs` / none                           |
+- `vendor/bin/rules .` lists every lane of the project's pipeline under its canonical name
+  ("Pipeline lanes"), except PHPStan, whose name is `phpstan`;
+- the Symfony-only Twig Lint lane, which neither list shows, is `twigLint`;
+- `vendor/bin/qa -h` lists the `-t` tokens of each tool.
 
-`uniterate` and the `all*Tools` phase runners are not lanes and cannot be overridden.
+`uniterate` and the `all*Tools` phase runners are not lanes and cannot be overridden;
+`uniterate` runs the `phpunit` lane, so a `tools/phpunit.php` override applies to it.
 
 ### 5.2 A complete override
 
@@ -451,7 +431,7 @@ setting (`withInfection(false)`, `withArkitect(false)`, `withSensitiveParameterC
 or return `ToolResultDto::skipped('...')` from a two-line override for lanes without a switch.
 
 Done when: every `tools/*.inc.bash` is deleted, each replacement `tools/<name>.php` returns a
-`ToolInterface`, and `vendor/bin/qa -t <name>` runs it (the run prints the override's own
+`ToolInterface`, and `vendor/bin/qa -t <token>`, with a token `-h` lists for that tool, runs it (the run prints the override's own
 output, not the shipped banner text).
 
 ## 6. `hookPre.bash` / `hookPost.bash` become `hookPre.php` / `hookPost.php`
@@ -513,19 +493,19 @@ CI=true vendor/bin/qa -t <name>
 
 Errors you can see and what each one means:
 
-| Message (abridged)                                                                | Cause                                                                                  | Fix                                                                                                             |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `qaConfig/qaConfig.inc.bash is no longer read: configuration is PHP now`          | The Bash config still exists.                                                          | Finish section 4 and delete the file.                                                                           |
-| `qaConfig/tools/<t>.inc.bash is no longer sourced: tool overrides are PHP now`    | A Bash override still exists for `<t>`.                                                | Finish section 5 for that tool and delete the file.                                                             |
-| `qaConfig/hookPre.bash is no longer run: hooks are PHP now` (or `hookPost`)       | A Bash hook still exists.                                                              | Finish section 6 and delete the file.                                                                           |
-| `qa.php must return a closure taking and returning a QaConfigBuilder, got <type>` | The file does not `return` a callable.                                                 | Return the closure.                                                                                             |
-| `qa.php must return the adjusted QaConfigBuilder, got <type>`                     | The closure returned `null`, `void` or `$qa` after a chain whose result was discarded. | Return the result of the `with*()` chain.                                                                       |
-| `Call to undefined method ...QaConfigBuilder::withX()`                            | A misspelt or non-existent setting.                                                    | Use a method from the table in 4.2.                                                                             |
-| `tools/<t>.php must return a LTS\PHPQA\Pipeline\Tool\ToolInterface, got <type>`   | The override file returns the wrong thing.                                             | Return an object implementing the interface.                                                                    |
-| `hookPre.php must return a callable that accepts a ToolContext, got <type>`       | The hook file returns the wrong thing.                                                 | Return a closure.                                                                                               |
-| `Invalid tool: <name>` on `-t`                                                    | The override file name is fine but `-t` needs an alias or canonical name.              | Use a value from the aliases column in 5.1.                                                                     |
-| `Another QA run holds the lock`                                                   | A concurrent run.                                                                      | Wait; the holder is alive, since the lock frees itself when it dies. Never delete `qaConfig/.qa-lock/` by hand. |
-| A fixer reports pending changes in a READ-ONLY run                                | Expected in CI when files need fixing.                                                 | `QA_READONLY=0 vendor/bin/qa -t fixer` (or `-t rector`), commit, re-run.                                        |
+| Message (abridged)                                                                | Cause                                                                                                                        | Fix                                                                                                             |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `qaConfig/qaConfig.inc.bash is no longer read: configuration is PHP now`          | The Bash config still exists.                                                                                                | Finish section 4 and delete the file.                                                                           |
+| `qaConfig/tools/<t>.inc.bash is no longer sourced: tool overrides are PHP now`    | A Bash override still exists for `<t>`.                                                                                      | Finish section 5 for that tool and delete the file.                                                             |
+| `qaConfig/hookPre.bash is no longer run: hooks are PHP now` (or `hookPost`)       | A Bash hook still exists.                                                                                                    | Finish section 6 and delete the file.                                                                           |
+| `qa.php must return a closure taking and returning a QaConfigBuilder, got <type>` | The file does not `return` a callable.                                                                                       | Return the closure.                                                                                             |
+| `qa.php must return the adjusted QaConfigBuilder, got <type>`                     | The closure returned `null`, `void` or `$qa` after a chain whose result was discarded.                                       | Return the result of the `with*()` chain.                                                                       |
+| `Call to undefined method ...QaConfigBuilder::withX()`                            | A misspelt or non-existent setting.                                                                                          | Use a method from the table in 4.2.                                                                             |
+| `tools/<t>.php must return a LTS\PHPQA\Pipeline\Tool\ToolInterface, got <type>`   | The override file returns the wrong thing.                                                                                   | Return an object implementing the interface.                                                                    |
+| `hookPre.php must return a callable that accepts a ToolContext, got <type>`       | The hook file returns the wrong thing.                                                                                       | Return a closure.                                                                                               |
+| `Invalid tool: <name>` on `-t`                                                    | `-t` takes only the tokens `vendor/bin/qa -h` lists, which for some lanes exclude the canonical name the override file uses. | Use a token from `vendor/bin/qa -h` (section 5.1).                                                              |
+| `Another QA run holds the lock`                                                   | A concurrent run.                                                                                                            | Wait; the holder is alive, since the lock frees itself when it dies. Never delete `qaConfig/.qa-lock/` by hand. |
+| A fixer reports pending changes in a READ-ONLY run                                | Expected in CI when files need fixing.                                                                                       | `QA_READONLY=0 vendor/bin/qa -t fixer` (or `-t rector`), commit, re-run.                                        |
 
 Done when: the full read-only battery exits 0 and prints `ALL TESTS PASSING`.
 
