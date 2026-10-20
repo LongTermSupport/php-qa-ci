@@ -91,6 +91,8 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
 
     public const string IDENTIFIER_CONFLICTING_DI_ATTRIBUTES     = RuleIdentifierInterface::PREFIX . '.conflictingDIAttributes';
 
+    private const string DOCTRINE_MIGRATION = 'Doctrine\Migrations\AbstractMigration';
+
     private const array ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
         'PHPStan',
         'Migrations',
@@ -124,11 +126,14 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
             return [];
         }
 
-        // Skip PHPStan rules, migrations and generated code
-        foreach (self::ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE as $namespace) {
-            if (str_contains($className, $namespace)) {
-                return [];
-            }
+        // Skip PHPStan rules, migrations and generated code: a namespace segment equal to one of the words
+        if ($this->isInAllowedNamespace($scope->getNamespace())) {
+            return [];
+        }
+
+        // Skip a Doctrine migration in any namespace (Symfony's default is DoctrineMigrations): a migration is never a service
+        if (self::DOCTRINE_MIGRATION === $node->extends?->toString()) {
+            return [];
         }
 
         // Skip Kernel.php
@@ -217,6 +222,16 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
         }
 
         return [];
+    }
+
+    /**
+     * Whole segments, case-sensitively: `App\Migrations` and `Vendor\Pkg\PHPStan` are exempt,
+     * `App\GeneratedReports` and `App\PHPStanAdapter` are not.
+     */
+    private function isInAllowedNamespace(?string $namespace): bool
+    {
+        return null !== $namespace
+            && []   !== array_intersect(self::ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE, explode('\\', $namespace));
     }
 
     /**

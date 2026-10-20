@@ -37,6 +37,11 @@ rules:
     # under a tests/ directory test code, so a rule that skips tests goes dark.
     # docs/phpstan-rules/forbid-unanchored-tests-substring-check.md
     - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredTestsSubstringCheckRule
+    # And over namespace attribution: "is this class in a Generated namespace" decided
+    # with str_contains($className, 'Generated') also holds for App\GeneratedReports.
+    # Its two collectors are registered below as phpstan.collector services.
+    # docs/phpstan-rules/forbid-unanchored-namespace-substring-check.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredNamespaceSubstringCheckRule
     # An inline @phpstan-ignore silences a finding at the point of the finding,
     # where nobody reviewing the config will see it. A suppression that is
     # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
@@ -135,6 +140,15 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\ProcessStoppingTearDownCollector
+        tags:
+            - phpstan.collector
+    # The collectors ForbidUnanchoredNamespaceSubstringCheckRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NamespaceWordSubstringCallCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ClassNameVariableWriteCollector
         tags:
             - phpstan.collector
     -
