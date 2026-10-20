@@ -45,6 +45,24 @@ final class Target
 }
 
 /**
+ * Assertion-named methods, so the opt-in magic-string rule has calls to judge.
+ *
+ * @api
+ */
+final class Assertions
+{
+    public function assertSame(mixed $expected, mixed $actual): bool
+    {
+        return $expected === $actual;
+    }
+
+    public static function assertEquals(mixed $expected, mixed $actual): bool
+    {
+        return $expected === $actual;
+    }
+}
+
+/**
  * @api
  */
 final class Shapes
@@ -200,11 +218,25 @@ final class Shapes
     }
 
     /**
-     * One finding from each rule set, so a run that loaded neither cannot pass.
+     * Assertion methods called, and taken as first-class callables, whose
+     * getArgs() has no expected and actual value.
      */
-    public function firing(?string $value): string
+    public function assertions(Assertions $assert, string $plain): bool
     {
-        return empty($value) ? 'empty' : ($value ?? '');
+        $same   = $assert->assertSame(...);
+        $equals = Assertions::assertEquals(...);
+        $static = $assert::assertEquals(...);
+
+        return $same($plain, 'token') && $equals('token', $plain) && $static($plain, $plain);
+    }
+
+    /**
+     * One finding from each rule set and the opt-in rule, so a run that loaded
+     * none of them cannot pass.
+     */
+    public function firing(?string $value, Assertions $assert, string $plain): string
+    {
+        return $assert->assertSame('token', $plain) && empty($value) ? 'empty' : ($value ?? '');
     }
 
     private function nullable(): ?Target
