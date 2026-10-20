@@ -111,6 +111,28 @@ final class NotReportable
         $this->acceptAnyKey($copy);
     }
 
+    /**
+     * A string PHP left as a key is never all digits, so the key of a foreach
+     * over an array, untouched in the loop, cannot become an int.
+     *
+     * @param array<mixed> $decoded
+     *
+     * @return array<string, int>
+     */
+    public function keyAnArrayAlreadyHeld(array $decoded): array
+    {
+        $copied = [];
+        foreach ($decoded as $key => $value) {
+            if (!\is_string($key)) {
+                continue;
+            }
+
+            $copied[$key] = 1;
+        }
+
+        return $copied;
+    }
+
     /** @param array<array-key, string> $map */
     private function acceptAnyKey(array $map): void
     {

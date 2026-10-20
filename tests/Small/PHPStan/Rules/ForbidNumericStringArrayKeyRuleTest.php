@@ -66,6 +66,8 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::BY_YEAR, self::BY_YEAR_PASSED), 102],
                 [$this->message(self::BY_YEAR, self::BY_YEAR_PASSED), 103],
                 [$this->message('$groups', 'line 111 passes it to acceptGroups() as array<string, list<string>>'), 110],
+                [$this->message('$trimmed', 'line 127 returns it as array<string, int>'), 124],
+                [$this->message('$copied', 'line 142 returns it as array<string, int>'), 139],
             ],
         );
     }

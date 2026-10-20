@@ -111,6 +111,37 @@ final class Reportable
         $this->acceptGroups($groups);
     }
 
+    /**
+     * @param array<mixed> $decoded
+     *
+     * @return array<string, int>
+     */
+    public function keyRewrittenInTheLoop(array $decoded): array
+    {
+        $trimmed = [];
+        foreach ($decoded as $key => $value) {
+            $key           = trim((string) $key);
+            $trimmed[$key] = 1;
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * @param iterable<string, int> $pairs
+     *
+     * @return array<string, int>
+     */
+    public function keyOfATraversable(iterable $pairs): array
+    {
+        $copied = [];
+        foreach ($pairs as $key => $value) {
+            $copied[$key] = $value;
+        }
+
+        return $copied;
+    }
+
     /** @param array<string, string> $map */
     private function accept(array $map): void
     {
