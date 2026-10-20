@@ -7,7 +7,10 @@ namespace LTS\PHPQA\Tests\Small\Filesystem;
 use InvalidArgumentException;
 use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
+use LTS\PHPQA\Tests\Support\UnremovableTree;
+use LTS\PHPQA\Tests\Support\VanishingDirectoryStreamWrapper;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -265,6 +268,109 @@ final class TemporaryDirectoryTest extends TestCase
         $this->expectExceptionMessageIsOrContains('A staging directory beside ' . $target . ' needs a prefix');
 
         TemporaryDirectory::besides($target, '');
+    }
+
+    /**
+     * Defence for the class "a prefix that is not part of a file name reaches outside the staging
+     * names": `.` and `..` begin the names of the directory itself and its parent, so an old one
+     * was emptied as a leftover, the target with it; one with a slash names another directory.
+     * The prefix is refused before anything beside the target is touched.
+     */
+    #[Test]
+    #[DataProvider('prefixesThatAreNotANamePart')]
+    public function aDirectoryBesideATargetRefusesAPrefixThatIsNotPartOfAFileName(string $prefix): void
+    {
+        $grandparent = TemporaryDirectory::create(self::PARENT);
+        $parent      = $grandparent->path . '/library';
+        \Safe\mkdir($parent);
+        \Safe\file_put_contents($parent . '/' . self::TARGET, 'kept');
+        \Safe\touch($parent, time() - 2 * 3600);
+        \Safe\touch($grandparent->path, time() - 2 * 3600);
+
+        try {
+            TemporaryDirectory::besides($parent . '/' . self::TARGET, $prefix);
+            self::fail('a prefix that is not part of a file name was accepted');
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            self::assertStringContainsString('needs a prefix', $invalidArgumentException->getMessage());
+        } finally {
+            $left = \Safe\scandir($parent);
+            $grandparent->remove();
+        }
+
+        self::assertSame(['.', '..', self::TARGET], $left, 'nothing beside the target was touched');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function prefixesThatAreNotANamePart(): iterable
+    {
+        yield 'the directory itself' => ['.'];
+        yield 'its parent' => ['..'];
+        yield 'a path' => ['staging/'];
+        yield 'an absolute path' => ['/staging'];
+        yield 'a NUL byte' => ["staging\0"];
+    }
+
+    /**
+     * Another run that reaches the same leftover first removes it; this one passes it over without
+     * a word, and stages as usual. The leftover is removed from under the cleanup the moment it
+     * first changes anything in it, which is where concurrent runs collided.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetPassesOverALeftoverAnotherRunRemovedFirst(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $leftover = $parent->path . '/' . self::PREFIX . 'raced';
+        \Safe\mkdir($leftover . '/nested', 0o700, true);
+        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
+        \Safe\touch($leftover, time() - 2 * 3600);
+        \Safe\stream_wrapper_register(VanishingDirectoryStreamWrapper::SCHEME, VanishingDirectoryStreamWrapper::class);
+        VanishingDirectoryStreamWrapper::vanishOnChange($leftover);
+
+        try {
+            $directory = TemporaryDirectory::besides(VanishingDirectoryStreamWrapper::SCHEME . '://' . $parent->path . '/' . self::TARGET, self::PREFIX);
+            $directory->remove();
+
+            self::assertTrue(VanishingDirectoryStreamWrapper::hasVanishedOnChange(), 'the cleanup reached the leftover');
+            self::assertSame([], $directory->unremovedLeftovers, 'a leftover already gone is not one kept');
+            self::assertDirectoryDoesNotExist($leftover);
+        } finally {
+            \Safe\stream_wrapper_unregister(VanishingDirectoryStreamWrapper::SCHEME);
+            VanishingDirectoryStreamWrapper::reset();
+            $parent->remove();
+        }
+    }
+
+    /**
+     * A leftover this run cannot remove is kept, and named with the reason, for a caller that can
+     * warn; it does not stop the staging. Here it is a tree nested past PATH_MAX, which nothing
+     * walking it by absolute path can remove, even as root.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetKeepsALeftoverItCannotRemoveAndNamesIt(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $leftover = $parent->path . '/' . self::PREFIX . 'stuck';
+        UnremovableTree::plant($leftover);
+        \Safe\touch($leftover, time() - 2 * 3600);
+        $directory = null;
+
+        try {
+            $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
+
+            self::assertDirectoryExists($directory->path, 'the staging directory is made all the same');
+            self::assertCount(1, $directory->unremovedLeftovers);
+            $kept = (string)array_key_first($directory->unremovedLeftovers);
+            self::assertStringStartsWith($parent->path . '/' . self::PREFIX, $kept);
+            self::assertDirectoryExists($kept);
+            self::assertStringContainsString('File name too long', $directory->unremovedLeftovers[$kept]);
+        } finally {
+            $directory?->remove();
+            foreach (array_filter(\Safe\glob($parent->path . '/' . self::PREFIX . '*'), \is_string(...)) as $stuck) {
+                UnremovableTree::remove($stuck);
+            }
+
+            $parent->remove();
+        }
     }
 
     #[Test]

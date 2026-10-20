@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support;
 
+use LTS\PHPQA\Filesystem\DirectoryTree;
+
 /**
  * The real filesystem, under SCHEME://<absolute path>, except for one
  * directory named by vanishOnOpen(): it is a directory to is_dir(), and is
@@ -14,7 +16,12 @@ namespace LTS\PHPQA\Tests\Support;
  * A directory named by refuseOpen() instead fails to open and stays where it
  * is: the read fails for a reason other than the directory having gone.
  *
- * Each is spent by the first open it fails. The method names are PHP's stream
+ * A directory named by vanishOnChange() opens and reads as usual, and is
+ * removed, with everything in it, at the moment anything in it, or it, is
+ * renamed, unlinked or removed, so that change fails as the real call does when
+ * another process got there first.
+ *
+ * Each is spent by the first call it fails. The method names are PHP's stream
  * wrapper protocol. PHP's stream layer is what calls them, so the class is
  * tagged as API: an entry point to the dead-code detector, as a Composer
  * plugin is.
@@ -32,6 +39,10 @@ final class VanishingDirectoryStreamWrapper
 
     private static ?string $refused = null;
 
+    private static ?string $vanishesOnChange = null;
+
+    private static bool $vanishedOnChange = false;
+
     /** @var resource|null */
     private $handle;
 
@@ -45,10 +56,24 @@ final class VanishingDirectoryStreamWrapper
         self::$refused = $directory;
     }
 
+    public static function vanishOnChange(string $directory): void
+    {
+        self::$vanishesOnChange = $directory;
+        self::$vanishedOnChange = false;
+    }
+
+    /** Whether the directory named by vanishOnChange() has been removed under a change. */
+    public static function hasVanishedOnChange(): bool
+    {
+        return self::$vanishedOnChange;
+    }
+
     public static function reset(): void
     {
-        self::$vanishes = null;
-        self::$refused  = null;
+        self::$vanishes         = null;
+        self::$refused          = null;
+        self::$vanishesOnChange = null;
+        self::$vanishedOnChange = false;
     }
 
     /** @return array<int|string, mixed>|false */
@@ -111,6 +136,53 @@ final class VanishingDirectoryStreamWrapper
         }
 
         return true;
+    }
+
+    public function mkdir(string $path, int $mode, int $options): bool
+    {
+        \Safe\mkdir($this->real($path), $mode, 0 !== ($options & \STREAM_MKDIR_RECURSIVE));
+
+        return true;
+    }
+
+    public function rename(string $from, string $to): bool
+    {
+        $real = $this->real($from);
+        $this->vanishOnChangeTo($real);
+        \Safe\rename($real, $this->real($to));
+
+        return true;
+    }
+
+    public function rmdir(string $path, int $options): bool
+    {
+        $real = $this->real($path);
+        $this->vanishOnChangeTo($real);
+        \Safe\rmdir($real);
+
+        return true;
+    }
+
+    public function unlink(string $path): bool
+    {
+        $real = $this->real($path);
+        $this->vanishOnChangeTo($real);
+        \Safe\unlink($real);
+
+        return true;
+    }
+
+    /** Removes the directory named by vanishOnChange() when $real is it or is in it. */
+    private function vanishOnChangeTo(string $real): void
+    {
+        $directory = self::$vanishesOnChange;
+        if (null === $directory || ($real !== $directory && !str_starts_with($real, $directory . '/'))) {
+            return;
+        }
+
+        self::$vanishesOnChange = null;
+        self::$vanishedOnChange = true;
+        DirectoryTree::remove($directory);
     }
 
     private function real(string $path): string

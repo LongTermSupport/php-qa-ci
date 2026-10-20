@@ -11,6 +11,7 @@ use LTS\PHPQA\ShellCheck\InstallActionEnum;
 use LTS\PHPQA\ShellCheck\InstallDecider;
 use LTS\PHPQA\ShellCheck\ShellCheckInstaller;
 use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\UnremovableTree;
 use Phar;
 use PharData;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -273,6 +274,46 @@ final class ShellCheckInstallerTest extends TestCase
         self::assertSame(self::PINNED, ShellCheckBinary::pinnedVersion($this->library->path));
         self::assertSame(self::BINARY_BYTES, \Safe\file_get_contents(ShellCheckBinary::path($this->library->path)));
         self::assertSame($stagedBefore, $this->stagingDirectories(), 'the staging directory is removed');
+    }
+
+    /** A staging directory that cannot be made beside the binary fails the update as any other step does. */
+    #[Test]
+    public function aStagingDirectoryThatCannotBeMadeFailsTheUpdateSayingWhy(): void
+    {
+        $this->library->write(\dirname(ShellCheckBinary::RELATIVE_PATH), 'a file where the binary directory belongs');
+
+        $installer = $this->installer([self::RELEASE_API => $this->release(self::NEWEST)]);
+
+        self::assertSame(1, $installer->run($this->library->path, ShellCheckInstaller::MODE_UPDATE));
+        self::assertStringStartsWith('ERROR: could not install ShellCheck v0.11.0: mkdir(): File exists', $this->errors->fetch());
+    }
+
+    /** A staging leftover the update cannot remove is named in a warning; the update goes on. */
+    #[Test]
+    public function aStagingLeftoverThatCannotBeRemovedIsNamedAndTheUpdateSucceeds(): void
+    {
+        $this->pin();
+        $leftover = \dirname(ShellCheckBinary::path($this->library->path)) . '/.phpqa-shellcheck-killed';
+        UnremovableTree::plant($leftover);
+        \Safe\touch($leftover, time() - 2 * 3600);
+
+        $installer = $this->installer([
+            self::RELEASE_API  => $this->release(self::NEWEST),
+            self::NEWEST_ASSET => $this->releaseArchive(self::NEWEST, 'the newest build'),
+        ]);
+
+        try {
+            self::assertSame(0, $installer->run($this->library->path, ShellCheckInstaller::MODE_UPDATE));
+            $kept = $this->stagingDirectories();
+        } finally {
+            foreach ($this->stagingDirectories() as $stuck) {
+                UnremovableTree::remove($stuck);
+            }
+        }
+
+        self::assertSame('the newest build', \Safe\file_get_contents(ShellCheckBinary::path($this->library->path)));
+        self::assertCount(1, $kept);
+        self::assertStringStartsWith(\sprintf('WARNING: could not remove %s, a staging directory a killed update left: ', $kept[0]), $this->errors->fetch());
     }
 
     #[Test]
