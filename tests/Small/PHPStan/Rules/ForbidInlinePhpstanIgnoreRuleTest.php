@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidInlinePhpstanIgnoreRule;
+use LTS\PHPQA\PHPStan\Rules\TestCodeDetector;
 use PhpParser\Comment;
 use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Nop;
@@ -15,12 +16,14 @@ use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
 #[CoversClass(ForbidInlinePhpstanIgnoreRule::class)]
+#[UsesClass(TestCodeDetector::class)]
 #[Small]
 final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
 {
@@ -37,7 +40,7 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->rule = new ForbidInlinePhpstanIgnoreRule();
+        $this->rule = new ForbidInlinePhpstanIgnoreRule(new TestCodeDetector('/app'));
     }
 
     #[Test]
@@ -112,6 +115,35 @@ final class ForbidInlinePhpstanIgnoreRuleTest extends TestCase
         $node = $this->stmtWithComment(self::SUPPRESSION, 5);
 
         self::assertSame([], $this->rule->processNode($node, $this->scope(self::APP_SERVICE, '/app/tests/Service/FooTest.php')));
+    }
+
+    /** A checkout under a directory named tests: its production code is still checked. */
+    #[Test]
+    public function suppressionInProductionCodeOfACheckoutUnderATestsDirectoryIsFlagged(): void
+    {
+        $rule = new ForbidInlinePhpstanIgnoreRule(new TestCodeDetector('/home/ci/tests/app'));
+        $node = $this->stmtWithComment(self::SUPPRESSION, 5);
+
+        self::assertCount(1, $rule->processNode($node, $this->scope(self::APP_SERVICE, '/home/ci/tests/app/src/Service/Foo.php')));
+    }
+
+    /** `TestsHelper` contains `Tests` but no segment ends with it, and `Contests` ends in lower-case `tests`. */
+    #[Test]
+    public function suppressionInANamespaceThatOnlyContainsTheWordIsFlagged(): void
+    {
+        $node = $this->stmtWithComment(self::SUPPRESSION, 5);
+
+        foreach (['App\TestsHelper\Service', 'App\Contests\Service'] as $namespace) {
+            self::assertCount(1, $this->rule->processNode($node, $this->scope($namespace, self::SERVICE_FOO_PHP)), $namespace);
+        }
+    }
+
+    #[Test]
+    public function suppressionInANamespaceSegmentEndingInTestsIsSkipped(): void
+    {
+        $node = $this->stmtWithComment(self::SUPPRESSION, 5);
+
+        self::assertSame([], $this->rule->processNode($node, $this->scope('App\FunctionalTests\Service', self::SERVICE_FOO_PHP)));
     }
 
     #[Test]

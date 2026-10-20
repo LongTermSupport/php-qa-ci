@@ -22,7 +22,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  * `new` operator.
  *
  * A `new <sealed>(...)` is flagged unless the enclosing class is the authorised
- * factory or the file is under `tests/` (tests construct freely). Dynamic
+ * factory or the file is under the project's `tests/` (tests construct freely). Dynamic
  * `new $var` is skipped (the class is not statically known). Only the `new`
  * keyword is covered — reflection-based and de-serialisation construction are a
  * documented residual gap.
@@ -60,10 +60,11 @@ final readonly class FactorySealedRule implements Rule
      */
     public function __construct(
         private ReflectionProvider $reflectionProvider,
+        TestCodeDetector $testCodeDetector,
         array $sealingAttributes = [],
     ) {
         $this->reader            = new SealingAttributeReader();
-        $this->detector          = new FactorySealedDetector();
+        $this->detector          = new FactorySealedDetector($testCodeDetector);
         $this->sealingAttributes = [] === $sealingAttributes
             ? [FactorySealedBy::class]
             : $sealingAttributes;
