@@ -121,6 +121,39 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
         }
     }
 
+    /** A namespace one of whose segments is exactly PHPStan, Migrations or Generated is exempt. */
+    #[Test]
+    public function classInAnExemptNamespaceSegmentIsSkipped(): void
+    {
+        foreach (['App\Migrations', 'Vendor\Pkg\PHPStan', 'App\Generated\Api', 'Generated'] as $namespace) {
+            self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope($namespace)), $namespace);
+        }
+    }
+
+    /** A segment that only contains the word, or differs in case, is not the exempt namespace. */
+    #[Test]
+    public function classInANamespaceThatOnlyContainsAnExemptWordIsFlagged(): void
+    {
+        foreach (['App\GeneratedReports', 'App\PHPStanAdapter', 'App\DataMigrations', 'App\generated', 'App\Billing'] as $namespace) {
+            self::assertCount(1, $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope($namespace)), $namespace);
+        }
+    }
+
+    /** The class's own name is not a namespace segment. */
+    #[Test]
+    public function classNamedLikeAnExemptNamespaceIsFlagged(): void
+    {
+        foreach (['Generated', 'PHPStanRuleHelper', 'MigrationsRunner'] as $name) {
+            self::assertCount(1, $this->rule->processNode($this->class($name), $this->scope(self::APP_DOMAIN)), $name);
+        }
+    }
+
+    #[Test]
+    public function classInTheGlobalNamespaceIsChecked(): void
+    {
+        self::assertCount(1, $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope(null)));
+    }
+
     #[Test]
     public function classInAFileUnderTheProjectsTestsIsSkipped(): void
     {
@@ -175,7 +208,7 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
         return new Class_($name, ['flags' => $flags, 'attrGroups' => $attrGroups]);
     }
 
-    private function scope(string $namespace, string $file = self::ROOT . '/src/Domain/Widget.php'): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
+    private function scope(?string $namespace, string $file = self::ROOT . '/src/Domain/Widget.php'): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);

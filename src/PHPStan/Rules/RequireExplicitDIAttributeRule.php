@@ -124,11 +124,9 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
             return [];
         }
 
-        // Skip PHPStan rules, migrations and generated code
-        foreach (self::ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE as $namespace) {
-            if (str_contains($className, $namespace)) {
-                return [];
-            }
+        // Skip PHPStan rules, migrations and generated code: a namespace segment equal to one of the words
+        if ($this->isInAllowedNamespace($scope->getNamespace())) {
+            return [];
         }
 
         // Skip Kernel.php
@@ -217,6 +215,16 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
         }
 
         return [];
+    }
+
+    /**
+     * Whole segments, case-sensitively: `App\Migrations` and `Vendor\Pkg\PHPStan` are exempt,
+     * `App\GeneratedReports` and `App\PHPStanAdapter` are not.
+     */
+    private function isInAllowedNamespace(?string $namespace): bool
+    {
+        return null !== $namespace
+            && []   !== array_intersect(self::ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE, explode('\\', $namespace));
     }
 
     /**
