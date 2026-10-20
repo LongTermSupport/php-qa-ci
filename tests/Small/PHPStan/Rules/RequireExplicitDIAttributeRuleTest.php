@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\RequireExplicitDIAttributeRule;
+use LTS\PHPQA\PHPStan\Rules\TestCodeDetector;
 use PhpParser\Modifiers;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
@@ -17,12 +18,14 @@ use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
 #[CoversClass(RequireExplicitDIAttributeRule::class)]
+#[UsesClass(TestCodeDetector::class)]
 #[Small]
 final class RequireExplicitDIAttributeRuleTest extends TestCase
 {
@@ -32,11 +35,13 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
 
     private const string APP_DOMAIN = 'App\Domain';
 
+    private const string ROOT = '/app';
+
     private RequireExplicitDIAttributeRule $rule;
 
     protected function setUp(): void
     {
-        $this->rule = new RequireExplicitDIAttributeRule();
+        $this->rule = new RequireExplicitDIAttributeRule(new TestCodeDetector(self::ROOT));
     }
 
     #[Test]
@@ -110,10 +115,34 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
     #[Test]
     public function classInAnAllowedNamespaceIsSkipped(): void
     {
-        // className contains "Tests" → exempt without any attribute.
-        $class = $this->class(self::WIDGET_CLASS);
+        // A namespace segment ending in "Tests" → exempt without any attribute.
+        foreach (['App\Tests\Domain', 'App\FunctionalTests\Domain'] as $namespace) {
+            self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope($namespace)), $namespace);
+        }
+    }
 
-        self::assertSame([], $this->rule->processNode($class, $this->scope('App\Tests\Domain')));
+    #[Test]
+    public function classInAFileUnderTheProjectsTestsIsSkipped(): void
+    {
+        self::assertSame([], $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope(self::APP_DOMAIN, self::ROOT . '/tests/Widget.php')));
+    }
+
+    /** `TestsHelper` contains `Tests` but no segment ends with it; `Contests` ends in lower-case `tests`. */
+    #[Test]
+    public function classInANamespaceThatOnlyContainsTheWordIsFlagged(): void
+    {
+        foreach (['App\TestsHelper\Domain', 'App\Contests\Domain'] as $namespace) {
+            self::assertCount(1, $this->rule->processNode($this->class(self::WIDGET_CLASS), $this->scope($namespace)), $namespace);
+        }
+    }
+
+    /** A checkout under a directory named tests: its production classes are still checked. */
+    #[Test]
+    public function classInProductionCodeOfACheckoutUnderATestsDirectoryIsFlagged(): void
+    {
+        $rule = new RequireExplicitDIAttributeRule(new TestCodeDetector('/home/ci/tests/app'));
+
+        self::assertCount(1, $rule->processNode($this->class(self::WIDGET_CLASS), $this->scope(self::APP_DOMAIN, '/home/ci/tests/app/src/Domain/Widget.php')));
     }
 
     #[Test]
@@ -146,10 +175,11 @@ final class RequireExplicitDIAttributeRuleTest extends TestCase
         return new Class_($name, ['flags' => $flags, 'attrGroups' => $attrGroups]);
     }
 
-    private function scope(string $namespace): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
+    private function scope(string $namespace, string $file = self::ROOT . '/src/Domain/Widget.php'): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
         $scope = self::scopeStub();
         $scope->method('getNamespace')->willReturn($namespace);
+        $scope->method('getFile')->willReturn($file);
 
         return $scope;
     }

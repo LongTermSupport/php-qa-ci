@@ -93,10 +93,14 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
 
     private const array ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE = [
         'PHPStan',
-        'Tests',
         'Migrations',
         'Generated',
     ];
+
+    public function __construct(
+        private TestCodeDetector $testCodeDetector,
+    ) {
+    }
 
     public function getNodeType(): string
     {
@@ -115,7 +119,12 @@ final readonly class RequireExplicitDIAttributeRule implements Rule
 
         $className = $scope->getNamespace() . '\\' . $node->name->toString();
 
-        // Skip test classes and PHPStan rules
+        // Skip test classes: a file under the project's tests/, or a name with a segment ending in Tests
+        if ($this->testCodeDetector->isTestCode($scope->getFile(), $className)) {
+            return [];
+        }
+
+        // Skip PHPStan rules, migrations and generated code
         foreach (self::ALLOWED_NAMESPACES_WITHOUT_ATTRIBUTE as $namespace) {
             if (str_contains($className, $namespace)) {
                 return [];
