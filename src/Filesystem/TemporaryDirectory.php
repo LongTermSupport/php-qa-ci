@@ -26,6 +26,9 @@ final readonly class TemporaryDirectory
      */
     private const int STALE_AFTER = 3600;
 
+    /** The random bytes in a staging directory's name, after its prefix, as twice as many hex digits. */
+    private const int RANDOM_BYTES = 8;
+
     /**
      * @param string                $path               the directory
      * @param array<string, string> $unremovedLeftovers each leftover besides() found and could not remove => why
@@ -48,9 +51,10 @@ final readonly class TemporaryDirectory
      * filesystem, rename() instead copies into the existing file and rewrites it in place.
      *
      * A staging directory with the same prefix that has not changed for STALE_AFTER seconds is one
-     * a killed run left there, and is removed first. The prefix is the start of a file name: empty,
-     * it would match every old directory beside the target; `.` or `..`, the directory itself or
-     * its parent; with a slash, a name in another directory.
+     * a killed run left there, and is removed first. Only a directory named exactly as this class
+     * names one, the prefix and then 16 lowercase hex digits, is a staging directory. The prefix is
+     * the start of a file name: empty, `.` or `..`, or with a slash, it is refused, as is one the
+     * target's own name begins with, which could make the target a leftover.
      *
      * Removing a leftover is best effort: one another run removed first is passed over, and one
      * that cannot be removed is kept and listed in unremovedLeftovers for the caller to warn about.
@@ -60,6 +64,10 @@ final readonly class TemporaryDirectory
     {
         if (\in_array($prefix, ['', '.', '..'], true) || false !== strpbrk($prefix, "/\0")) {
             throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a prefix that is the start of a file name, not "%s": its leftovers are found by it', $target, $prefix));
+        }
+
+        if (str_starts_with(basename($target), $prefix)) {
+            throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a prefix its name does not begin with, not "%s": the target would be one of its leftovers', $target, $prefix));
         }
 
         $parent = \dirname($target);
@@ -79,8 +87,9 @@ final readonly class TemporaryDirectory
     }
 
     /**
-     * Removes each directory (not a link, nor `.` or `..`) in $parent whose name begins with
-     * $prefix and is older than STALE_AFTER. Each is first renamed to a fresh name with the prefix,
+     * Removes each directory (not a link) in $parent that is named as a staging directory with
+     * $prefix and is older than STALE_AFTER. The target is never one: besides() refuses a prefix
+     * its name begins with. Each is first renamed to a fresh name with the prefix,
      * which only one of the runs that reach it can do, so that run alone removes it, and a
      * leftover gone by then was claimed by another. For the length of the cleanup a warning
      * becomes the exception, so a failure is reported once, by what is returned.
@@ -91,7 +100,7 @@ final readonly class TemporaryDirectory
     {
         $candidates = [];
         foreach (new FilesystemIterator($parent, FilesystemIterator::SKIP_DOTS | FilesystemIterator::CURRENT_AS_PATHNAME) as $path) {
-            if (\is_string($path) && str_starts_with(basename($path), $prefix)) {
+            if (\is_string($path) && self::isStagingName(basename($path), $prefix)) {
                 $candidates[] = $path;
             }
         }
@@ -102,7 +111,7 @@ final readonly class TemporaryDirectory
         });
         try {
             foreach ($candidates as $path) {
-                $unremoved += self::removeLeftover($path, $parent . '/' . $prefix . bin2hex(random_bytes(8)));
+                $unremoved += self::removeLeftover($path, $parent . '/' . self::stagingName($prefix));
             }
         } finally {
             restore_error_handler();
@@ -131,10 +140,26 @@ final readonly class TemporaryDirectory
         try {
             DirectoryTree::remove($claimed);
         } catch (FilesystemException|UnexpectedValueException $exception) {
-            return [$claimed => $exception->getMessage()];
+            return file_exists($claimed) ? [$claimed => $exception->getMessage()] : [];
         }
 
         return [];
+    }
+
+    /** A fresh name for a staging directory: the prefix, then 16 random lowercase hex digits. */
+    private static function stagingName(string $prefix): string
+    {
+        return $prefix . bin2hex(random_bytes(self::RANDOM_BYTES));
+    }
+
+    /** Whether $name is one stagingName() makes with $prefix: the prefix, then exactly 16 lowercase hex digits. */
+    private static function isStagingName(string $name, string $prefix): bool
+    {
+        $length = \strlen($prefix);
+
+        return \strlen($name) === $length + 2 * self::RANDOM_BYTES
+            && str_starts_with($name, $prefix)
+            && 2 * self::RANDOM_BYTES === strspn($name, '0123456789abcdef', $length);
     }
 
     /**
@@ -148,7 +173,7 @@ final readonly class TemporaryDirectory
      */
     private static function in(string $parent, string $prefix): string
     {
-        $path = $parent . '/' . $prefix . bin2hex(random_bytes(8));
+        $path = $parent . '/' . self::stagingName($prefix);
         self::makeDirectory($path, 0o700, false, $parent);
 
         return $path;
