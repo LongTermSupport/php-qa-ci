@@ -11,7 +11,7 @@ namespace LTS\PHPQA\Pipeline\Lane\TwigCsFixer;
  * twig-cs-fixer takes no cache path on its command line, only `--no-cache`, and otherwise
  * caches in `.twig-cs-fixer.cache` in its working directory, the project root. The cache
  * file is a config setting, so the lane wraps whatever config resolves, as the phpCsFixer
- * lane's IgnoredPathsConfig does, rather than relying on the shipped default, which a
+ * lane's FilteredFinderConfig does, rather than relying on the shipped default, which a
  * project copy in qaConfig/ replaces. A cache manager wins over the cache file, so one the
  * project set is dropped. The project's config is required inside a closure so its
  * variables cannot collide with the wrapper's.

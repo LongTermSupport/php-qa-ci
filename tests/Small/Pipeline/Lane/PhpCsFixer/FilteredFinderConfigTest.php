@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\PhpCsFixer;
 
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
-use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\IgnoredPathsConfig;
+use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\FilteredFinderConfig;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -22,14 +22,20 @@ use SplFileInfo;
  *
  * @internal
  */
-#[CoversClass(IgnoredPathsConfig::class)]
+#[CoversClass(FilteredFinderConfig::class)]
 #[UsesClass(IgnoredPaths::class)]
 #[Small]
-final class IgnoredPathsConfigTest extends TestCase
+final class FilteredFinderConfigTest extends TestCase
 {
     private const string INNER = 'qaConfig/php_cs.php';
 
     private const string WRAPPER = 'var/php_cs.php';
+
+    private const string UNRESOLVED = 'var/unresolved.txt';
+
+    private const string DANGLING = 'src/Gone.php';
+
+    private const string LEGACY = 'src/Legacy';
 
     private TempDir $project;
 
@@ -39,6 +45,9 @@ final class IgnoredPathsConfigTest extends TestCase
         foreach (['src/Kept.php', 'src/Legacy/Fixture.php', 'src/Legacy/deep/Fixture.php', 'src/LegacyExtra/Kept.php', 'tests/assets/Fixture.php'] as $file) {
             $this->project->write($file, "<?php\n");
         }
+
+        \Safe\symlink('missing-target.php', $this->project->path . '/' . self::DANGLING);
+        \Safe\symlink('missing-target.php', $this->project->path . '/src/Legacy/Gone.php');
 
         $this->project->write(self::INNER, <<<'PHP'
             <?php
@@ -55,7 +64,7 @@ final class IgnoredPathsConfigTest extends TestCase
                 public function __construct(string $root)
                 {
                     $files = [];
-                    foreach (['src/Kept.php', 'src/Legacy/Fixture.php', 'src/Legacy/deep/Fixture.php', 'src/LegacyExtra/Kept.php', 'tests/assets/Fixture.php'] as $file) {
+                    foreach (['src/Kept.php', 'src/Gone.php', 'src/Legacy/Fixture.php', 'src/Legacy/Gone.php', 'src/Legacy/deep/Fixture.php', 'src/LegacyExtra/Kept.php', 'tests/assets/Fixture.php'] as $file) {
                         $files[$root . '/' . $file] = new SplFileInfo($root . '/' . $file);
                     }
 
@@ -85,7 +94,7 @@ final class IgnoredPathsConfigTest extends TestCase
     #[Test]
     public function theFinderYieldsEverythingButTheIgnoredPathsAndKeepsItsKeys(): void
     {
-        $finder = $this->finderFromWrapper(new IgnoredPaths($this->project->path, 'src/Legacy', 'tests/assets'));
+        $finder = $this->finderFromWrapper(new IgnoredPaths($this->project->path, self::LEGACY, 'tests/assets'));
 
         // The stand-in roots its finder at qaConfig/.., so a match on the
         // spelling of the path rather than on the real path would miss.
@@ -102,17 +111,41 @@ final class IgnoredPathsConfigTest extends TestCase
     }
 
     #[Test]
-    public function anIgnoredPathThatDoesNotExistExcludesNothing(): void
+    public function anIgnoredPathThatDoesNotExistExcludesNothingButTheUnresolvable(): void
     {
-        $finder = $this->finderFromWrapper(new IgnoredPaths($this->project->path, 'src/Gone'));
+        $finder = $this->finderFromWrapper(new IgnoredPaths($this->project->path, 'src/Missing'));
 
         self::assertCount(5, iterator_to_array($finder));
     }
 
     #[Test]
+    public function aFileWhoseRealPathCannotBeResolvedIsDroppedAndListedEachTimeTheFinderIsRead(): void
+    {
+        $finder = $this->finderFromWrapper(new IgnoredPaths($this->project->path));
+
+        self::assertFileDoesNotExist($this->project->path . '/' . self::UNRESOLVED, 'the list is written as the finder is read, not when the config loads');
+        self::assertNotContains($this->project->path . '/qaConfig/../' . self::DANGLING, array_keys(iterator_to_array($finder)));
+        iterator_to_array($finder);
+
+        // Named by the real path of its directory, not the finder's spelling of it.
+        $root   = \Safe\realpath($this->project->path);
+        $listed = $root . '/' . self::DANGLING . "\n";
+        $legacy = $root . "/src/Legacy/Gone.php\n";
+        self::assertSame($listed . $legacy . $listed . $legacy, $this->project->read(self::UNRESOLVED));
+    }
+
+    #[Test]
+    public function anUnresolvableFileUnderAnIgnoredPathIsDroppedUnlisted(): void
+    {
+        iterator_to_array($this->finderFromWrapper(new IgnoredPaths($this->project->path, self::LEGACY)));
+
+        self::assertSame(\Safe\realpath($this->project->path) . '/' . self::DANGLING . "\n", $this->project->read(self::UNRESOLVED));
+    }
+
+    #[Test]
     public function theProjectConfigIsRequiredByItsAbsolutePath(): void
     {
-        $source = new IgnoredPathsConfig()->source($this->project->path . '/' . self::INNER, new IgnoredPaths($this->project->path, 'src/Legacy'));
+        $source = new FilteredFinderConfig()->source($this->project->path . '/' . self::INNER, new IgnoredPaths($this->project->path, self::LEGACY), $this->project->path . '/' . self::UNRESOLVED);
 
         self::assertStringContainsString("require '" . $this->project->path . '/' . self::INNER . "'", $source);
         self::assertStringStartsWith("<?php\n\ndeclare(strict_types=1);\n", $source);
@@ -121,7 +154,7 @@ final class IgnoredPathsConfigTest extends TestCase
     /** @return iterable<mixed, SplFileInfo> */
     private function finderFromWrapper(IgnoredPaths $ignored): iterable
     {
-        $wrapper = $this->project->write(self::WRAPPER, new IgnoredPathsConfig()->source($this->project->path . '/' . self::INNER, $ignored));
+        $wrapper = $this->project->write(self::WRAPPER, new FilteredFinderConfig()->source($this->project->path . '/' . self::INNER, $ignored, $this->project->path . '/' . self::UNRESOLVED));
         $config  = require $wrapper;
         self::assertIsObject($config);
         self::assertTrue(method_exists($config, 'getFinder'));

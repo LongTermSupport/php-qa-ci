@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
-use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\IgnoredPathsConfig;
+use LTS\PHPQA\Pipeline\Lane\PhpCsFixer\FilteredFinderConfig;
 use LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool;
 use LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -32,9 +34,9 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(IgnoredPaths::class)]
-#[UsesClass(IgnoredPathsConfig::class)]
+#[UsesClass(FilteredFinderConfig::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
+#[UsesClass(ProcessResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
@@ -225,22 +227,64 @@ final class PhpCsFixerToolTest extends TestCase
         self::assertStringContainsString('ERROR: PHP CS Fixer encountered linting errors that prevented fixing files', $printed);
     }
 
+    /** @param list<string> $ignored */
     #[Test]
-    public function withIgnoredPathsTheFixerRunsAGeneratedConfigWrappingTheResolvedOne(): void
+    #[DataProvider('ignoredPaths')]
+    public function theFixerRunsAGeneratedConfigWrappingTheResolvedOne(array $ignored): void
     {
         $this->factory->processes->willSucceed();
-        $config  = $this->factory->builder(readOnly: true)->withIgnoredPaths('tests/assets')->build();
+        $config  = $this->factory->builder(readOnly: true)->withIgnoredPaths(...$ignored)->build();
         $context = $this->factory->context($config);
 
         new PhpCsFixerTool()->run($context);
 
-        $wrapper = $config->paths->varDir . '/' . PhpCsFixerTool::IGNORED_PATHS_CONFIG;
+        $wrapper = $config->paths->varDir . '/' . PhpCsFixerTool::FINDER_CONFIG;
         self::assertSame('--config=' . $wrapper, $this->toolArgs()[0]);
         self::assertSame(
-            new IgnoredPathsConfig()->source($context->configPath('php_cs.php'), IgnoredPaths::of($config)),
+            new FilteredFinderConfig()->source($context->configPath('php_cs.php'), IgnoredPaths::of($config), $config->paths->varDir . '/' . PhpCsFixerTool::UNRESOLVED_LIST),
             \Safe\file_get_contents($wrapper),
         );
-        self::assertSame([...\array_slice($this->expectedArgs($context, self::NO_CACHE), 1), '--dry-run', ...$config->pathsToCheck], \array_slice($this->toolArgs(), 1));
+        self::assertSame([...$this->expectedArgs($context, self::NO_CACHE), '--dry-run', ...$config->pathsToCheck], $this->toolArgs());
+    }
+
+    /** @return iterable<string, array{list<string>}> */
+    public static function ignoredPaths(): iterable
+    {
+        yield 'no ignored paths' => [[]];
+        yield 'ignored paths' => [['tests/assets']];
+    }
+
+    #[Test]
+    public function eachFileTheFinderCouldNotResolveIsNamedOnceRelativeToTheProjectRoot(): void
+    {
+        $context = $this->context(readOnly: false);
+        $root    = $context->config->paths->projectRoot;
+        $list    = $context->config->paths->varDir . '/' . PhpCsFixerTool::UNRESOLVED_LIST;
+        $skip    = static function () use ($list, $root): ProcessResultDto {
+            \Safe\file_put_contents($list, $root . "/src/Gone.php\n/elsewhere/Away.php\n", \FILE_APPEND);
+
+            return new ProcessResultDto(0, self::ONE_FIXED, '');
+        };
+        $this->factory->processes->willRun($skip)->willRun($skip);
+
+        $result  = new PhpCsFixerTool()->run($context);
+        $printed = $this->factory->output->fetch();
+
+        self::assertTrue($result->isSuccess());
+        self::assertSame(1, substr_count($printed, 'PHP CS Fixer skipped src/Gone.php: its real path cannot be resolved'), $printed);
+        self::assertSame(1, substr_count($printed, 'PHP CS Fixer skipped /elsewhere/Away.php:'), $printed);
+    }
+
+    #[Test]
+    public function aListLeftByAnEarlierRunIsNotReported(): void
+    {
+        $context = $this->context(readOnly: true);
+        $this->factory->project->write('var/qa/' . PhpCsFixerTool::UNRESOLVED_LIST, "/stale/Gone.php\n");
+        $this->factory->processes->willSucceed();
+
+        new PhpCsFixerTool()->run($context);
+
+        self::assertStringNotContainsString('skipped', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -281,7 +325,7 @@ final class PhpCsFixerToolTest extends TestCase
     private function expectedArgs(ToolContext $context, string $cache): array
     {
         return [
-            '--config=' . $context->configPath('php_cs.php'),
+            '--config=' . $context->config->paths->varDir . '/' . PhpCsFixerTool::FINDER_CONFIG,
             $cache,
             '--allow-risky=yes',
             '--show-progress=dots',
