@@ -46,6 +46,7 @@ final class TemporaryDirectoryTest extends TestCase
         try {
             self::assertDirectoryExists($directory->path);
             self::assertStringStartsWith(sys_get_temp_dir() . '/' . self::PREFIX, $directory->path);
+            self::assertMatchesRegularExpression($this->stagingName(), basename($directory->path), 'the prefix, then 16 random hex digits');
             self::assertSame(['.', '..'], \Safe\scandir($directory->path));
         } finally {
             $directory->remove();
@@ -65,7 +66,7 @@ final class TemporaryDirectoryTest extends TestCase
         try {
             self::assertDirectoryExists($directory->path);
             self::assertSame($parent->path . '/missing/yet', \dirname($directory->path), "created in the target's directory, which is created if absent");
-            self::assertStringStartsWith(self::PREFIX, basename($directory->path));
+            self::assertMatchesRegularExpression($this->stagingName(), basename($directory->path), 'the prefix, then 16 random hex digits');
             self::assertSame(['.', '..'], \Safe\scandir($directory->path));
         } finally {
             $directory->remove();
@@ -150,14 +151,120 @@ final class TemporaryDirectoryTest extends TestCase
         }
     }
 
+    /**
+     * A directory that is not staging is not a leftover, however old: only a name beginning with
+     * the prefix is.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetKeepsAnOldDirectoryWithoutThePrefix(): void
+    {
+        $parent  = TemporaryDirectory::create(self::PARENT);
+        $another = $parent->path . '/vendor-' . self::PREFIX;
+        \Safe\mkdir($another);
+        \Safe\touch($another, time() - 2 * 3600);
+
+        $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
+
+        try {
+            self::assertDirectoryExists($another, 'a directory whose name does not begin with the prefix is not staging');
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
+    /**
+     * A link whose name begins with the prefix was not made by mkdir() here, so it is not staging,
+     * even when what it points at is an old directory.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetKeepsAnOldLinkWithThePrefix(): void
+    {
+        $outside = TemporaryDirectory::create('phpqa-temporary-directory-target');
+        $parent  = TemporaryDirectory::create(self::PARENT);
+        $link    = $parent->path . '/' . self::PREFIX . 'link';
+        \Safe\symlink($outside->path, $link);
+        \Safe\touch($outside->path, time() - 2 * 3600);
+
+        $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
+
+        try {
+            self::assertTrue(is_link($link), 'a link is not staging, and is kept');
+        } finally {
+            $directory->remove();
+            $parent->remove();
+            $outside->remove();
+        }
+    }
+
+    /**
+     * A leftover is a staging directory unchanged for longer than an hour; one changed exactly an
+     * hour ago is not yet. The check is repeated until it runs within one second of the clock, the
+     * second the age was set in.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetKeepsAStagingDirectoryChangedExactlyAnHourAgo(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $boundary = $parent->path . '/' . self::PREFIX . 'boundary';
+
+        try {
+            for ($attempt = 0; $attempt < 5; ++$attempt) {
+                if (!is_dir($boundary)) {
+                    \Safe\mkdir($boundary);
+                }
+
+                $now = time();
+                \Safe\touch($boundary, $now - 3600);
+                TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX)->remove();
+                if (time() === $now) {
+                    self::assertDirectoryExists($boundary, 'a staging directory exactly an hour old is not yet a leftover');
+
+                    return;
+                }
+            }
+
+            self::fail('the clock moved on during every attempt');
+        } finally {
+            $parent->remove();
+        }
+    }
+
+    /**
+     * The staging directory is private to the run; a directory made to hold the target is one
+     * other users may read, as the target itself is meant to be read.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetIsPrivateAndTheDirectoryMadeForTheTargetIsNot(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $previous = umask(0);
+
+        try {
+            $directory = TemporaryDirectory::besides($parent->path . '/missing/' . self::TARGET, self::PREFIX);
+        } finally {
+            umask($previous);
+        }
+
+        try {
+            self::assertSame(0o755, \Safe\fileperms($parent->path . '/missing') & 0o777, "the target's directory");
+            self::assertSame(0o700, \Safe\fileperms($directory->path) & 0o777, 'the staging directory');
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
     /** With no prefix, every old directory beside the target would count as a leftover. */
     #[Test]
     public function aDirectoryBesideATargetNeedsAPrefix(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIsOrContains('needs a prefix');
+        $target = sys_get_temp_dir() . '/' . self::TARGET;
 
-        TemporaryDirectory::besides(sys_get_temp_dir() . '/' . self::TARGET, '');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('A staging directory beside ' . $target . ' needs a prefix');
+
+        TemporaryDirectory::besides($target, '');
     }
 
     #[Test]
@@ -200,5 +307,11 @@ final class TemporaryDirectoryTest extends TestCase
         $directory->remove();
 
         self::assertDirectoryDoesNotExist($directory->path);
+    }
+
+    /** Matches the name of a staging directory: the prefix, then 16 random hex digits. */
+    private function stagingName(): string
+    {
+        return '/^' . preg_quote(self::PREFIX, '/') . '[0-9a-f]{16}$/';
     }
 }
