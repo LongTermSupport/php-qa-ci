@@ -127,6 +127,7 @@ final class ChangelogToolTest extends TestCase
             ->willSucceed()
             ->willSucceed()
             ->willSucceed(self::EMPTY_COMPOSER)
+            ->willSucceed()
         ;
 
         $result  = new ChangelogTool(new EnvironmentReader([]))->run($this->factory->context($this->enabled()));
@@ -190,6 +191,7 @@ final class ChangelogToolTest extends TestCase
             ->willSucceed()
             ->willSucceed()
             ->willSucceed(self::EMPTY_COMPOSER)
+            ->willSucceed()
         ;
 
         $result = new ChangelogTool(new EnvironmentReader(['GITHUB_BASE_REF' => 'release-train']))->run($this->factory->context($this->enabled()));
@@ -215,6 +217,7 @@ final class ChangelogToolTest extends TestCase
             ->willSucceed()
             ->willSucceed()
             ->willSucceed(self::EMPTY_COMPOSER)
+            ->willSucceed()
         ;
 
         $result  = new ChangelogTool(new EnvironmentReader([]))->run($this->factory->context($this->enabled()));
@@ -251,6 +254,7 @@ final class ChangelogToolTest extends TestCase
             ->willSucceed()
             ->willSucceed()
             ->willSucceed(self::EMPTY_COMPOSER)
+            ->willSucceed()
         ;
     }
 

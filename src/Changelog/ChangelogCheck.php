@@ -17,7 +17,7 @@ use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
 
 /**
- * The changelog lane's judgement, in three checks:
+ * The changelog lane's judgement, in four checks:
  *
  *  1. CHANGELOG.md's `## Unreleased` section is valid (ChangelogParser).
  *  2. Coverage: when a watched path changed in the range
@@ -25,6 +25,8 @@ use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
  *     the range carries a valid `Changelog: none — <reason>` trailer.
  *  3. A runtime requirement added or re-constrained in composer.json is
  *     recorded under `### Changed — breaking`.
+ *  4. No commit in the range carries a `Changelog:` line git does not read
+ *     as a trailer; on the default branch this is reported, not failed.
  *
  * The record is `## Unreleased` plus any version section the range base does
  * not have (ReleasedSections::since()), so the merged release pull request
@@ -44,6 +46,8 @@ final readonly class ChangelogCheck
     private const string COMPOSER_JSON = 'composer.json';
 
     private const int LISTED_FILES = 20;
+
+    private const int SHORT_SHA = 12;
 
     private const string WATCHED = 'watched ';
 
@@ -114,6 +118,15 @@ final readonly class ChangelogCheck
                     ChangelogParser::UNRELEASED_HEADING,
                     ChangelogHeadingEnum::ChangedBreaking->value,
                 );
+            }
+
+            $misplaced = $this->misplacedTrailers($git, $range);
+            if ('' !== $misplaced) {
+                if ($range->sinceRelease) {
+                    array_push($report, ...explode("\n", $misplaced));
+                } else {
+                    $problems[] = $misplaced;
+                }
             }
 
             return new ChangelogCheckResultDto($report, $problems);
@@ -225,6 +238,52 @@ final readonly class ChangelogCheck
         }
 
         return $problem;
+    }
+
+    /**
+     * Every `Changelog:` line in the range that git does not read as a
+     * trailer, because it is not in the message's final paragraph. Each
+     * commit in the range is judged, watched paths or not: the author meant
+     * a declaration and none was made. Empty when there is none; otherwise
+     * one line per misplaced line under a heading, and, on a branch, the
+     * remedy. The default branch's history is not rewritten, so there the
+     * lines are reported without the remedy.
+     */
+    private function misplacedTrailers(ChangelogGit $git, ChangelogRangeDto $range): string
+    {
+        $lines = [];
+        foreach ($git->messages($range->base) as $message) {
+            foreach ($this->trailers->misplaced($message['body'], $message['trailers']) as $line) {
+                $lines[] = \sprintf('    %s %s', substr($message['commit'], 0, self::SHORT_SHA), $line);
+            }
+        }
+
+        if ([] === $lines) {
+            return '';
+        }
+
+        $count   = \count($lines);
+        $subject = \sprintf('%d "%s:" %s %s', $count, ChangelogGit::TRAILER_KEY, 1 === $count ? 'line' : 'lines', $range->sinceRelease ? 'since the last release' : 'in the range');
+        if ($range->sinceRelease) {
+            return \sprintf(
+                '%s %s; history already on the default branch is not rewritten, so it is reported, not failed:' . "\n%s",
+                $subject,
+                1 === $count ? 'is not a commit trailer' : 'are not commit trailers',
+                implode("\n", $lines),
+            );
+        }
+
+        return \sprintf(
+            "%s %s: git reads trailers only from a message's final paragraph, and %s:\n%s"
+            . "\n  Reword each commit (git rebase -i --rebase-merges %s, which keeps merges) and"
+            . "\n  move each line into the final trailer block, the last paragraph with Co-Authored-By: and the"
+            . "\n  other trailers, with no blank line between them.",
+            $subject,
+            1 === $count ? 'is not a commit trailer' : 'are not commit trailers',
+            1 === $count ? 'this one sits in a paragraph above it' : 'these sit in a paragraph above it',
+            implode("\n", $lines),
+            $range->base,
+        );
     }
 
     /**
