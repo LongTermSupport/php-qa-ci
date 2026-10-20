@@ -241,3 +241,9 @@ A new rule is not finished until it appears here. In order:
 4. Add it to [`docs/tools/phpstan.md`](../tools/phpstan.md) and correct the count stated there.
 
 Step 4 is the one that gets skipped, and the stated count is what makes the omission visible.
+
+Registering the rule in a bundle also puts it under
+[`BundledRulesDoNotCrashOnValidPhpTest`](../../tests/Large/PHPStan/BundledRulesDoNotCrashOnValidPhpTest.php),
+which fails when any bundled rule makes PHPStan report an internal error on valid PHP. When a
+rule meets a parser shape its own fixture lacks, such as a first-class callable, add the shape to
+that test's fixture as well.
