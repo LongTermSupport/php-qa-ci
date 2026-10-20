@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
+use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\BinaryOp;
@@ -17,6 +18,7 @@ use PhpParser\Node\Expr\BinaryOp\LogicalOr;
 use PhpParser\Node\Expr\BinaryOp\LogicalXor;
 use PhpParser\Node\Expr\BinaryOp\NotEqual;
 use PhpParser\Node\Expr\BinaryOp\NotIdentical;
+use PhpParser\Node\Expr\BinaryOp\Pipe;
 use PhpParser\Node\Expr\BooleanNot;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\ErrorSuppress;
@@ -54,9 +56,12 @@ use PHPStan\Type\Type;
  *   always truthy or a non-empty string, so the condition can only have been
  *   asking whether it failed.
  *
- * The call is seen through @ and an assignment of it, in any combination. The
- * type judged is the one the function declares, never the call's type in the
- * scope, which PHPStan narrows after an earlier check of the same call.
+ * The call is seen through @ and an assignment of it, in any combination, and
+ * as a pipe into the function's first-class callable, $path |>
+ * \Safe\realpath(...), which calls it with the piped value. The type judged is
+ * the one the function declares for the arguments it is called with, never
+ * the call's type in the scope, which PHPStan narrows after an earlier check
+ * of the same call.
  *
  * A Safe function whose result can itself be falsy (preg_match's 0, an empty
  * string) is not reported as a condition: the condition still tests a value
@@ -217,12 +222,18 @@ final readonly class ForbidSafeCallComparedToFalseRule implements Rule
      * the call and the @ operator in any combination. Parentheses leave no
      * node, so they need no unwrapping. A first-class callable, Safe\realpath(...),
      * is not a call: it makes a Closure, has no result to compare and no
-     * arguments to select a variant by.
+     * arguments to select a variant by. A pipe into one is: $path |>
+     * Safe\realpath(...) is the call Safe\realpath($path), and is returned as it.
+     * A pipe into anything else, a closure or a method, calls no named function.
      */
     private function unwrapCall(Expr $expr): ?FuncCall
     {
         while ($expr instanceof Assign || $expr instanceof ErrorSuppress) {
             $expr = $expr->expr;
+        }
+
+        if ($expr instanceof Pipe && $expr->right instanceof FuncCall && $expr->right->isFirstClassCallable()) {
+            return new FuncCall($expr->right->name, [new Arg($expr->left)], $expr->right->getAttributes());
         }
 
         return $expr instanceof FuncCall && !$expr->isFirstClassCallable() ? $expr : null;

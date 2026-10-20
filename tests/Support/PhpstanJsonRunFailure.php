@@ -55,7 +55,7 @@ final readonly class PhpstanJsonRunFailure
 
         $errors = $report['errors'];
         if (!\is_array($errors)) {
-            return ['the report\'s errors entry is not a list: ' . get_debug_type($errors)];
+            return ["the report's errors entry is not a list: " . get_debug_type($errors)];
         }
 
         return array_values(array_map(

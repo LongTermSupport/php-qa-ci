@@ -224,11 +224,11 @@ final class Shapes
      */
     public function pipes(string $path, Target $target): string
     {
-        $compared  = false === ($path |> \Safe\realpath(...)) || ($path |> \strlen(...)) !== false;
+        $compared   = false === ($path |> \Safe\realpath(...)) || ($path |> \strlen(...)) !== false;
         $suppressed = false === @($path |> \Safe\realpath(...));
-        $chained   = $path |> \trim(...) |> \Safe\realpath(...) |> namespacedFunction(...);
-        $method    = $path |> $target->run(...) |> Target::make(...);
-        $closure   = $path |> (static fn (string $value): string => $value);
+        $chained    = $path |> \trim(...) |> \Safe\realpath(...) |> namespacedFunction(...);
+        $method     = $path |> $target->run(...) |> Target::make(...);
+        $closure    = $path |> (static fn (string $value): string => $value);
 
         if ($path |> \Safe\realpath(...)) {
             return 'condition';

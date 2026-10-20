@@ -300,7 +300,7 @@ every other rule's result for it is lost, and a consumer's whole `phpstan` lane 
 code. `tests/Large/PHPStan/BundledRulesDoNotCrashOnValidPhpTest.php` runs every bundled rule and
 collector, the opt-in experimental ones no rule set loads included, through the shipped phar over
 `tests/assets/PHPStan/BundledRulesOnValidPhp/`, valid PHP in the shapes a rule's own test tends to
-miss (first-class callables, whose `getArgs()` is no argument list, named and spread
+miss (first-class callables, whose `getArgs()` is no argument list, pipes into them, named and spread
 arguments, dynamic names, anonymous classes, enums), as both production and test code. It fails
 on any internal error, and on any other entry in the JSON report's `errors` list. A shape that
 crashed a rule is added there as well as to the rule's own fixture.

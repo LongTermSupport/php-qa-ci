@@ -123,24 +123,22 @@ final class Reportable
         return ((@\Safe\realpath($path))) ? $real : $path;
     }
 
-    public function pipedIntoASafeCallable(string $path): string
+    public function pipedAndCompared(string $path): bool
     {
-        if (false === ($path |> \Safe\realpath(...))) {
-            return 'compared';
-        }
+        return false === ($path |> \Safe\realpath(...)) || $path |> realpath(...) !== false;
+    }
 
-        if ($path |> realpath(...) !== false) {
-            return 'imported, unparenthesised';
-        }
-
+    public function pipedAsConditions(string $path): string
+    {
         if ($path |> \Safe\realpath(...)) {
             return 'condition';
         }
 
-        if (!($path |> \Safe\realpath(...))) {
-            return 'negated';
-        }
+        return !($path |> \Safe\realpath(...)) ? 'negated' : $path;
+    }
 
+    public function pipedThroughAChain(string $path): string
+    {
         return ($path |> \trim(...) |> \Safe\realpath(...)) ? 'chained' : $path;
     }
 
