@@ -113,6 +113,64 @@ final class PhpLintToolTest extends TestCase
         );
     }
 
+    /**
+     * Once its dangling symlinks are excluded, nothing is left for parallel-lint, which
+     * then prints "No file found to check" and exits 254; a skipped file must not fail
+     * the lane.
+     */
+    #[Test]
+    public function aCheckedDirectoryWhosePhpFilesAreAllDanglingPassesWithoutRunningParallelLint(): void
+    {
+        $this->factory->processes->willFail(254, 'No file found to check.');
+        $root = $this->factory->project->path;
+        $this->factory->project->write('src/a/b/notes.txt', '');
+        \Safe\symlink('missing-target.php', $root . '/src/a/b/Deep.PHP');
+        $config = $this->factory->builder(specifiedPath: 'src/a')->build();
+
+        $result = new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame([], $this->factory->processes->commandLines());
+        self::assertSame(
+            "PHP Lint skipped src/a/b/Deep.PHP: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
+    /** An empty checked directory is parallel-lint's to judge: it is still run over it. */
+    #[Test]
+    public function aCheckedDirectoryWithNoPhpFilesAtAllIsStillGivenToParallelLint(): void
+    {
+        $this->factory->processes->willFail(254, 'No file found to check.');
+        $root = $this->factory->project->path;
+        $this->factory->project->write('src/a/notes.txt', '');
+        $config = $this->factory->builder(specifiedPath: 'src/a')->build();
+
+        $result = new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('PHP Lint failed (exit 254)', $result->summary);
+        self::assertSame(['--', $root . '/src/a'], \array_slice($this->factory->processes->lastSpec()->command, 5));
+    }
+
+    #[Test]
+    public function aDanglingSymlinkBesideARealPhpFileStillRunsParallelLintOverTheRealOne(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('src/a/Real.php', "<?php\n");
+        \Safe\symlink('missing-target.php', $root . '/src/a/Gone.php');
+        $config = $this->factory->builder(specifiedPath: 'src/a')->build();
+
+        $result = new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/src/a/Gone.php', $root . '/src/a'],
+            \array_slice($this->factory->processes->lastSpec()->command, 5),
+        );
+    }
+
     #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
