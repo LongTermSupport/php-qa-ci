@@ -181,7 +181,8 @@ Parameter #1 $foo of method bar() expects int, string given.
 2. **Group by pattern** (property never read, instanceof, etc.)
 3. **Fix most common pattern first** (e.g., if 10 "property never read", fix those first)
 4. **Make minimal changes** - don't refactor unrelated code
-5. **Run allCS after fixes**: `{bin}/qa -t allCs -p [changed-files]`
+5. **List every file you changed**: you have no Bash tool, so the coding standards run on them
+   after you return (the full pipeline runs them first)
 6. **Report what was fixed**
 
 ## Output Format
@@ -273,7 +274,7 @@ This is more efficient than fixing one at a time.
 
 ## After Fixing
 
-1. Run `{bin}/qa -t allCs -p [changed-files]` on all modified files
+1. List every file you changed, so the coding standards can run on them
 2. Report all changes made with file:line references
 3. Recommend re-running PHPStan
 4. Highlight any remaining issues that need escalation
@@ -284,6 +285,6 @@ You are a FIXER, not a RUNNER. Your job is to:
 
 - Analyze error logs
 - Implement fixes for common patterns
-- Run code standards on changed files
+- List the changed files, so the coding standards run on them
 - Escalate complex issues
 - NOT re-run PHPStan yourself (that's the runner's job)

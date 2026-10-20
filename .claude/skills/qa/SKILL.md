@@ -3,7 +3,7 @@ name: qa
 description: |
   🔄 PHP-QA-CI TOOL ORCHESTRATOR - Automatic run→fix→run cycling for php-qa-ci tools.
 
-  **ONLY for php-qa-ci pipeline tools** ({bin}/qa -t toolname)
+  **ONLY for php-qa-ci pipeline tools** ({bin}/qa -t <tool>)
   NOT for ad-hoc tool execution outside php-qa-ci.
 
   Use when user requests QA tools via php-qa-ci:
