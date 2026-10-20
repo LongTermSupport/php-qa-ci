@@ -93,6 +93,9 @@
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\FactorySealed\\": [
         "tests/assets/PHPStan/FactorySealed/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\PathWordSubstringCheck\\": [
+        "tests/assets/PHPStan/PathWordSubstringCheck/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ProcessStopOnThrow\\": [
         "tests/assets/PHPStan/ProcessStopOnThrow/"
       ],

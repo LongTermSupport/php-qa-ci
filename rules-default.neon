@@ -37,6 +37,11 @@ rules:
     # under a tests/ directory test code, so a rule that skips tests goes dark.
     # docs/phpstan-rules/forbid-unanchored-tests-substring-check.md
     - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredTestsSubstringCheckRule
+    # The same class for any word: deciding what a project is from a word found
+    # anywhere in its absolute path holds for any checkout under a directory
+    # carrying the word. Its collector is registered below.
+    # docs/phpstan-rules/forbid-path-word-substring-check.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidPathWordSubstringCheckRule
     # An inline @phpstan-ignore silences a finding at the point of the finding,
     # where nobody reviewing the config will see it. A suppression that is
     # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
@@ -135,6 +140,11 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\ProcessStoppingTearDownCollector
+        tags:
+            - phpstan.collector
+    # The collector ForbidPathWordSubstringCheckRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\PathWordSubstringCheckCollector
         tags:
             - phpstan.collector
     -
