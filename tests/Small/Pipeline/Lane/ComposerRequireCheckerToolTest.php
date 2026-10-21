@@ -60,7 +60,7 @@ final class ComposerRequireCheckerToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
             [
-                '/usr/bin/php', '-d', 'memory_limit=4G',
+                '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr',
                 '-f', $library . '/vendor-phar/composer-require-checker.phar', '--',
                 'check', '--config-file=' . $library . '/configDefaults/generic/composerRequireChecker.json', '--', $root . '/composer.json',
             ],

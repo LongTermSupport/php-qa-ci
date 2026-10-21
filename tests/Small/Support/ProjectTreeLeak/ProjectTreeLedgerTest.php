@@ -214,7 +214,7 @@ final class ProjectTreeLedgerTest extends TestCase
         $ledger    = $this->ledger();
         $directory = $this->root . '/tests';
         \Safe\unlink($directory . '/ExistingTest.php');
-        $remover = new Process([\PHP_BINARY, '-r', 'usleep(500000); rmdir($argv[1]);', $directory]);
+        $remover = new Process([\PHP_BINARY, '-d', 'display_errors=stderr', '-r', 'usleep(500000); rmdir($argv[1]);', $directory]);
         try {
             $remover->start();
 

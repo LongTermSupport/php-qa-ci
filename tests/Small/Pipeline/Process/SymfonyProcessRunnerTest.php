@@ -46,6 +46,8 @@ final class SymfonyProcessRunnerTest extends TestCase
 
     private const string COVERAGE = 'coverage';
 
+    private const string DISPLAY_ERRORS = 'display_errors=stderr';
+
     // Built by the child, so the echoed command line does not contain it.
     private const string READY = 'rrr';
 
@@ -83,7 +85,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function aRealChildWithNoEnvironmentOfItsOwnSeesXdebugOff(): void
     {
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::PRINT_MODE], \Safe\getcwd(), streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::PRINT_MODE], \Safe\getcwd(), streamOutput: false))
         ;
 
         self::assertSame(self::OFF, trim($result->output));
@@ -93,7 +95,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function aRealChildAskingForCoverageSeesCoverage(): void
     {
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::PRINT_MODE], \Safe\getcwd(), [self::XDEBUG_MODE => self::COVERAGE], streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::PRINT_MODE], \Safe\getcwd(), [self::XDEBUG_MODE => self::COVERAGE], streamOutput: false))
         ;
 
         // A live Xdebug may print the JIT warning ahead of the answer; the answer is the last word.
@@ -105,7 +107,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function itEchoesTheCommandThenStreamsTheChildsOutputRaw(): void
     {
         $output = new BufferedOutput();
-        $spec   = new ProcessSpecDto([\PHP_BINARY, '-r', 'echo "a"; fflush(STDOUT); usleep(100000); fwrite(STDERR, "b");'], \Safe\getcwd());
+        $spec   = new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'echo "a"; fflush(STDOUT); usleep(100000); fwrite(STDERR, "b");'], \Safe\getcwd());
 
         new SymfonyProcessRunner($output, new RunningProcesses())->run($spec);
 
@@ -117,7 +119,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function itCapturesEveryChunkOfBothStreamsAndStdoutAlone(): void
     {
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::INTERLEAVE], \Safe\getcwd(), streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::INTERLEAVE], \Safe\getcwd(), streamOutput: false))
         ;
 
         // Across the two pipes the order depends on scheduling, so the combined capture is compared as a set of lines.
@@ -133,7 +135,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function aLowPriorityChildRunsNicedAndAnOrdinaryOneDoesNot(): void
     {
         $runner = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses());
-        $print  = [\PHP_BINARY, '-r', 'echo pcntl_getpriority();'];
+        $print  = [\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'echo pcntl_getpriority();'];
 
         self::assertSame('19', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
         self::assertSame((string)\Safe\pcntl_getpriority(), $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false))->stdout);
@@ -155,9 +157,9 @@ final class SymfonyProcessRunnerTest extends TestCase
             // The executable is looked up on this process's PATH, not on the child's environment.
             \Safe\putenv('PATH=' . $bin->path . ':' . $path);
             $runner = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses());
-            $print  = [\PHP_BINARY, '-r', 'echo "plain";'];
+            $print  = [\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'echo "plain";'];
 
-            self::assertSame('-n|19|' . \PHP_BINARY . '|-r|echo "plain";|', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
+            self::assertSame('-n|19|' . \PHP_BINARY . '|-d|' . self::DISPLAY_ERRORS . '|-r|echo "plain";|', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
             self::assertSame('plain', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false))->stdout);
         } finally {
             \Safe\putenv('PATH=' . $path);
@@ -247,7 +249,7 @@ final class SymfonyProcessRunnerTest extends TestCase
         $signalled = new SignalledChildren();
 
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses(), $signalled)
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', 'exit(143);'], \Safe\getcwd(), streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'exit(143);'], \Safe\getcwd(), streamOutput: false))
         ;
 
         self::assertSame(143, $result->exitCode);
@@ -280,7 +282,7 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         $signalled = new SignalledChildren();
         $result    = new SymfonyProcessRunner($output, $running, $signalled)
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
         ;
 
         self::assertSame(1, $stopped, 'the child was registered while it ran');
@@ -311,7 +313,7 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         try {
             new SymfonyProcessRunner($output, $running)
-                ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
+                ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
             ;
             self::fail('the failed write must propagate');
         } catch (RuntimeException $runtimeException) {
@@ -353,7 +355,7 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         try {
             new SymfonyProcessRunner($output, new RunningProcesses())
-                ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::IGNORE_SIGTERM_THEN_WAIT], \Safe\getcwd(), timeout: 30.0))
+                ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::IGNORE_SIGTERM_THEN_WAIT], \Safe\getcwd(), timeout: 30.0))
             ;
             self::fail('the failed write must propagate');
         } catch (RuntimeException $runtimeException) {

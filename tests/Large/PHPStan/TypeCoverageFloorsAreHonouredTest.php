@@ -62,6 +62,8 @@ final class TypeCoverageFloorsAreHonouredTest extends TestCase
 
         $process = new Process([
             \PHP_BINARY,
+            '-d',
+            'display_errors=stderr',
             \Safe\realpath(self::REPO_ROOT . '/vendor-phar/phpstan.phar'),
             'analyse',
             '--configuration=phpstan.neon',

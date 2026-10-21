@@ -111,7 +111,7 @@ final class YamlLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', YamlLintTool::YAML_LINT, '--', '--parse-tags', $root . '/config'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', YamlLintTool::YAML_LINT, '--', '--parse-tags', $root . '/config'],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -137,7 +137,7 @@ final class YamlLintToolTest extends TestCase
 
         self::assertSame(
             ['--', '--parse-tags', $root . '/config', $root . '/translations'],
-            \array_slice($this->factory->processes->lastSpec()->command, 5),
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
 

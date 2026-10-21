@@ -215,6 +215,44 @@ final class ShellFileFinderTest extends TestCase
         );
     }
 
+    /** A workflow's run scripts are shell too, though ShellCheck is not handed the YAML around them. */
+    #[Test]
+    public function theTrackedWorkflowsAreFoundBesideTheShellFiles(): void
+    {
+        $qa      = '.github/workflows/qa.yml';
+        $release = '.github/workflows/release.yaml';
+        $nested  = '.github/workflows/vendored/old.yml';
+        foreach ([$qa, $release, $nested, '.github/dependabot.yml'] as $yaml) {
+            $this->project->write($yaml, "on: push\n");
+        }
+
+        $this->project->write(self::BUILD, self::BODY);
+
+        self::assertSame(
+            [$qa, $release],
+            new ShellFileFinder($this->project->path)->workflows(
+                [$release, $qa, $nested, '.github/dependabot.yml', '.github/workflows/deleted.yml', self::BUILD],
+                '.github/workflows/vendored',
+            ),
+        );
+    }
+
+    /** The project's own PHP scripts, by file name, so a shell line running one by its path is known to run PHP. */
+    #[Test]
+    public function theTrackedPhpScriptsAreNamedByTheirShebang(): void
+    {
+        $entry = 'bin/entry';
+        $this->project->write($entry, "#!/usr/bin/env php\n<?php\n");
+        $this->project->write('bin/release', "#!/usr/bin/php8.5\n<?php\n");
+        $this->project->write(self::WRAPPER, self::BASH_SHEBANG);
+        $this->project->write('src/Helper.php', "<?php\n");
+
+        self::assertSame(
+            ['entry', 'release'],
+            new ShellFileFinder($this->project->path)->phpScripts($entry, 'bin/release', self::WRAPPER, 'src/Helper.php', 'bin/deleted'),
+        );
+    }
+
     /** @return list<string> */
     private function find(string ...$tracked): array
     {

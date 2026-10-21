@@ -115,7 +115,7 @@ final class OpcacheToolTest extends TestCase
         $paths = $this->factory->context()->config->paths;
         self::assertSame(
             [
-                '/usr/bin/php', '-d', 'memory_limit=4G',
+                '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr',
                 '-d', 'opcache.enable_cli=1',
                 '-d', 'opcache.optimization_level=0x7FFEBFFF',
                 '-d', 'opcache.opt_debug_level=0x20000',

@@ -86,7 +86,7 @@ final class DumpParametersTmpDirProbeTest extends TestCase
         $spec  = $this->factory->processes->lastSpec();
         $probe = $paths->cacheDir . '/' . DumpParametersTmpDirProbe::TEMP_DIR;
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'dump-parameters', '-c', self::CONFIG, '--json'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', $paths->pharDir . '/phpstan.phar', '--', 'dump-parameters', '-c', self::CONFIG, '--json'],
             $spec->command,
         );
         self::assertSame($paths->projectRoot, $spec->cwd);
@@ -122,7 +122,7 @@ final class DumpParametersTmpDirProbeTest extends TestCase
 
         self::assertSame(
             ['dump-parameters', '-c', self::CONFIG, '--json', '--autoload-file', '/detector/vendor/autoload.php'],
-            \array_slice($this->factory->processes->lastSpec()->command, 6),
+            \array_slice($this->factory->processes->lastSpec()->command, 8),
         );
     }
 

@@ -113,13 +113,21 @@ expects; `php vendor-phar/phpstan.phar diagnose` reports one that is not as `ina
   [phpstan/phpstan](https://github.com/phpstan/phpstan) tag matching the shipped phar. A download
   whose digest differs is refused and nothing is installed. A failed download is only a warning:
   PHPStan still runs, without Turbo, and the next install tries again. Any other failure exits
-  non-zero, and its `ERROR:` line is followed by what it left: either no binary beside its core,
-  so PHPStan runs without Turbo, or a `WARNING:` that `phpstan.phar` may still load the binary
-  named there, which the install could not vouch for. Delete that binary to run without Turbo.
-  An install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
-  Composer plugin then runs `bin/turbo-install state`, a read-only check of the same thing, and
-  relays its answer; if the check fails too, it says what the install left is unknown and gives
-  the command to run.
+  non-zero, and its `ERROR:` line is followed by what it left, judged against the `.source` stamp
+  an install writes beside the binary once it has verified and placed both files. It says one of
+  three things. With no binary beside its core, PHPStan runs without Turbo. A binary and core that
+  match the digests in their stamp are a pair an install verified: `phpstan.phar` loads the
+  binary, and activates it when its extension version is the one the phar expects, since a stamp
+  records files and digests rather than a release. Any other pair gets a `WARNING:` that
+  `phpstan.phar` may still load the binary named there, which the install could not vouch for;
+  delete that binary to run without Turbo. When the binary, its core or the stamp cannot be read,
+  the warning ends with the reason. An
+  install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
+  Composer plugin, and `scripts/tool-install.bash` in php-qa-ci itself, then run
+  `bin/turbo-install state`, a read-only check of the same thing. The plugin relays its answer,
+  with PHP's own warnings sent to stderr so they are not taken for it. If the check fails too,
+  both say what the install left is unknown and give the command to run, and the script still
+  exits with the installer's status.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
   (see [PHAR verification](../pipeline.md#2-preparation)).
@@ -147,6 +155,36 @@ a second). A text-mode `-p` run reuses the last answer while nothing it rests on
 ```bash
 php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar diagnose
 ```
+
+### Defence Before Fix record: what an install left, judged without its stamp
+
+Recorded here because the class has no rule, so no rule page, and the work had no plan folder
+([#279](https://github.com/LongTermSupport/php-qa-ci/issues/279)).
+
+- **Class**: a report about files on disk that ignores the record vouching for them. Before
+  #279, the line saying what a failed or killed Turbo install left warned about, and advised
+  deleting, any binary beside its core, including a pair whose `.source` stamp records it.
+- **Hazard**: the report advises destroying a verified install, and Turbo is lost for nothing.
+- **Search, technique 1 (the tokens)**: `STAMP_SUFFIX`, `.source`, `installedStamp`, `hash_file`
+  and `sha256` across `src/` and `bin/`. Only `TurboInstaller` reads a stamp. The other digests
+  key a cache (`DetectorUnpacker`, `PhpstanSetupKey`) or pin a download (`TurboManifest`), and none
+  of them reports on files a person might delete.
+- **Search, technique 2 (the consumers)**: every message that tells a person to delete or remove
+  something (`Delete it`, `Remove it`, `remove the entry`). Each was read for whether it judges
+  files that a record vouches for. Only the Turbo warning does. `DetectorUnpacker`'s "Remove it by
+  hand" names a directory it failed to remove, and the rest are configuration advice.
+- **Detector**: none, so this is a toolchain gap. Which record vouches for which files
+  (`<binary>.source` for the binary and its core) is a fact of this domain, and so is whether a
+  line is a report about those files. No AST or type carries either fact. A rule keyed on these
+  names would catch only this instance, and a rule on "a warning after `is_file()`" would report
+  code without the hazard.
+- **Next wider rule, not built**: "a message advising deletion consults a stamp". It was not built
+  for the same reason: the search found no second instance, and the rule could not tell a
+  vouching record from any other file.
+- **Pinned by**: `TurboInstallerTest`. It covers:
+  - a stamped pair, a pair from an earlier release and an unstamped pair;
+  - a pair that differs from its stamp in its binary or its core;
+  - an unreadable binary, core or stamp.
 
 ## How to fix a failure
 
@@ -296,12 +334,12 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 23 additional opt-in rules split across two files:
+PHP-QA-CI ships 24 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 19 generic rules suitable for any PHP project (16 in its `rules:` block
+- **`rules-optional.neon`** — 20 generic rules suitable for any PHP project (17 in its `rules:` block
   plus 3 service-registered: `FactorySealedRule`, `ForbidDeprecatedPhpunitMethodRule` and
   `ForbidUnautoloadableClassReferenceRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (23 total)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (24 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -370,6 +408,7 @@ rules:
 | `RequireVariadicOverArrayParameterRule`  | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
 | `RequireEnumOverLiteralUnionRule`        | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum                       |
 | `ForbidUnvalidatedRegexPatternRule`      | `rules-optional.neon`           | A `preg_*` pattern the code does not own, compiled where a bad one is not reported by name           |
+| `ForbidPhpWarningsInCapturedOutputRule`  | `rules-optional.neon`           | PHP run with its output captured without `-d display_errors=stderr`, so a warning lands in the value |
 | `ForbidNumericStringArrayKeyRule`        | `rules-optional.neon`           | An array keyed by a string that may be all digits, which PHP makes an int, taken as string-keyed     |
 | `FactorySealedRule`                      | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
 | `ForbidDeprecatedPhpunitMethodRule`      | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |

@@ -171,7 +171,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
 
     private function composer(string ...$args): void
     {
-        $process = new Process([\PHP_BINARY, $this->composerBinary(), ...array_values($args)], $this->app, $this->environment());
+        $process = new Process([\PHP_BINARY, '-d', 'display_errors=stderr', $this->composerBinary(), ...array_values($args)], $this->app, $this->environment());
         $process->run();
         if (!$process->isSuccessful()) {
             throw new RuntimeException(\sprintf('composer %s failed: %s', implode(' ', $args), $process->getErrorOutput() . $process->getOutput()));

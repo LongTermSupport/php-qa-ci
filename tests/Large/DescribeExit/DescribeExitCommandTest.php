@@ -61,7 +61,7 @@ final class DescribeExitCommandTest extends TestCase
 
     private function describe(string ...$arguments): Process
     {
-        $process = new Process([\PHP_BINARY, self::COMMAND, ...$arguments]);
+        $process = new Process([\PHP_BINARY, '-d', 'display_errors=stderr', self::COMMAND, ...$arguments]);
         $process->run();
 
         return $process;

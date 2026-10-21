@@ -133,7 +133,7 @@ final class ComposerChecksToolTest extends TestCase
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
 
         $normalize = $this->factory->processes->specs[2];
-        self::assertSame($this->factory->paths()->pharDir . '/' . self::NORMALIZE_PHAR, $normalize->command[4]);
+        self::assertSame($this->factory->paths()->pharDir . '/' . self::NORMALIZE_PHAR, $normalize->command[6]);
         self::assertSame($this->factory->project->path, $normalize->cwd);
         self::assertTrue($normalize->streamOutput);
         foreach ($this->factory->processes->specs as $spec) {
@@ -156,7 +156,7 @@ final class ComposerChecksToolTest extends TestCase
 
         $first = $this->factory->processes->specs[0];
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', self::COMPOSER, '--', self::DIAGNOSE],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', self::COMPOSER, '--', self::DIAGNOSE],
             $first->command,
         );
         self::assertSame($root, $first->cwd);
@@ -396,7 +396,7 @@ final class ComposerChecksToolTest extends TestCase
 
         $this->runWithPath($bin);
 
-        self::assertSame($bin . '/composer', $this->factory->processes->specs[0]->command[4]);
+        self::assertSame($bin . '/composer', $this->factory->processes->specs[0]->command[6]);
     }
 
     #[Test]
@@ -406,7 +406,7 @@ final class ComposerChecksToolTest extends TestCase
 
         $this->runWithPath($this->factory->project->path);
 
-        self::assertSame('composer', $this->factory->processes->specs[0]->command[4]);
+        self::assertSame('composer', $this->factory->processes->specs[0]->command[6]);
     }
 
     #[Test]
@@ -444,7 +444,7 @@ final class ComposerChecksToolTest extends TestCase
             static fn (ProcessSpecDto $spec): bool => \in_array(self::COMPOSER, $spec->command, true),
         ));
 
-        return array_map(static fn (ProcessSpecDto $spec): array => \array_slice($spec->command, 6), $composerSpecs);
+        return array_map(static fn (ProcessSpecDto $spec): array => \array_slice($spec->command, 8), $composerSpecs);
     }
 
     /** @return list<string> the arguments given to the composer-normalize PHAR */
@@ -452,10 +452,10 @@ final class ComposerChecksToolTest extends TestCase
     {
         $pharSpecs = array_values(array_filter(
             $this->factory->processes->specs,
-            static fn (ProcessSpecDto $spec): bool => isset($spec->command[4]) && str_ends_with($spec->command[4], self::NORMALIZE_PHAR),
+            static fn (ProcessSpecDto $spec): bool => isset($spec->command[6]) && str_ends_with($spec->command[6], self::NORMALIZE_PHAR),
         ));
         self::assertCount(1, $pharSpecs, 'the normalize PHAR runs exactly once');
 
-        return \array_slice($pharSpecs[0]->command, 6);
+        return \array_slice($pharSpecs[0]->command, 8);
     }
 }
