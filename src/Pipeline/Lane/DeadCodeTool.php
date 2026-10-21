@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 use LTS\PHPQA\PackageType\ProjectComposerTypeReader;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\DeadCode\BinEntryPointScripts;
 use LTS\PHPQA\Pipeline\Lane\DeadCode\DetectorUnpacker;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\ExcludePathsNeon;
@@ -27,7 +28,9 @@ use SplFileInfo;
  * the PHPStan gate. PHPStan gets it unpacked into the QA cache (DetectorUnpacker),
  * never as a second PHAR its forked workers would share. Opt-in per project; the tests excluder is always on
  * (a member reached only from tests is dead in production) and the project's
- * PHP entry-point scripts are analysed alongside src/ and tests/.
+ * PHP entry-point scripts are analysed alongside src/ and tests/. Every PHP
+ * script directly under bin/ must be one of them (BinEntryPointScripts), or the
+ * lane fails before running anything.
  *
  * A library's public surface is its `@api` classes, which the detector treats
  * as entry points. A library with none would have every public member
@@ -79,6 +82,16 @@ final readonly class DeadCodeTool implements ToolInterface
             $context->writeIdentifier(self::IDENTIFIER);
 
             return ToolResultDto::failed('no @api tag in src/; a library needs its public surface declared before dead-code detection means anything');
+        }
+
+        $undeclared = new BinEntryPointScripts()->undeclared($config->paths->projectRoot, ...$config->deadCode->entryPoints);
+        if ([] !== $undeclared) {
+            $this->undeclaredGuidance($context, ...$undeclared);
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::failed(1 === \count($undeclared)
+                ? '1 PHP script under bin/ is not a declared entry point: ' . $undeclared[0]
+                : \count($undeclared) . ' PHP scripts under bin/ are not declared entry points: ' . implode(', ', $undeclared));
         }
 
         $logDir   = $context->logDir(self::LOG_DIR);
@@ -174,6 +187,20 @@ final readonly class DeadCodeTool implements ToolInterface
         $context->writeln('@api class as an entry point, and a library with none has every public member');
         $context->writeln('reported as dead. Classify every public class-like as @api or @internal first');
         $context->writeln('(RequireApiOrInternalTagRule enforces exactly that), then run this lane again.');
+    }
+
+    private function undeclaredGuidance(ToolContext $context, string ...$undeclared): void
+    {
+        $context->writeln('');
+        $context->writeln('PHP scripts under bin/ not declared as dead-code entry points:');
+        foreach ($undeclared as $script) {
+            $context->writeln('  ' . $script);
+        }
+
+        $context->writeln('');
+        $context->writeln('The detector reads a script under bin/ only when it is declared: one left off the');
+        $context->writeln('list is analysed by nothing, and every member only it reaches is reported dead.');
+        $context->writeln('List each with withDeadCodeEntryPoints() in qaConfig/qa.php.');
     }
 
     private function findingsGuidance(ToolContext $context): void

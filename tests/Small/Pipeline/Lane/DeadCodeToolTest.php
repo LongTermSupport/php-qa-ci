@@ -53,6 +53,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(DetectorUnpacker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCode\BinEntryPointScripts::class)]
 #[UsesClass(\LTS\PHPQA\Filesystem\TemporaryDirectory::class)]
 #[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
@@ -75,6 +76,10 @@ final class DeadCodeToolTest extends TestCase
     private const string TMP_DIR = 'tmpDir';
 
     private const string IDENTIFIER_LINE = "🪪  phpqaci.deadCode  (vendor/bin/rule-doc phpqaci.deadCode)\n";
+
+    private const string CONSOLE = 'bin/console';
+
+    private const string PHP_SCRIPT = "#!/usr/bin/env php\n<?php\n\necho 'hi';\n";
 
     private ContextFactory $factory;
 
@@ -328,6 +333,71 @@ final class DeadCodeToolTest extends TestCase
         $this->factory->processes->willSucceed();
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write(self::THING, "<?php\n\nfinal class Thing {}\n");
+
+        self::assertSame(ToolOutcomeEnum::Passed, $this->tool()->run($this->factory->context($config))->outcome);
+    }
+
+    /**
+     * A PHP script under bin/ the project did not declare is analysed by nothing, so every
+     * member only it reaches would be reported dead and its own code never read (#277).
+     */
+    #[Test]
+    public function anUndeclaredPhpScriptUnderBinFailsBeforeAnythingRuns(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->factory->project->write('bin/worker', self::PHP_SCRIPT);
+        $this->factory->project->write('bin/cron', self::PHP_SCRIPT);
+        $this->factory->project->write('bin/deploy', "#!/usr/bin/env bash\necho deploying\n");
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withDeadCodeEntryPoints(self::CONSOLE)->build();
+
+        $result  = $this->tool()->run($this->factory->context($config));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('2 PHP scripts under bin/ are not declared entry points: bin/cron, bin/worker', $result->summary);
+        self::assertSame(
+            "\n"
+            . "PHP scripts under bin/ not declared as dead-code entry points:\n"
+            . "  bin/cron\n"
+            . "  bin/worker\n"
+            . "\n"
+            . "The detector reads a script under bin/ only when it is declared: one left off the\n"
+            . "list is analysed by nothing, and every member only it reaches is reported dead.\n"
+            . "List each with withDeadCodeEntryPoints() in qaConfig/qa.php.\n"
+            . "\n"
+            . self::IDENTIFIER_LINE,
+            $printed,
+        );
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    /** Saying the project has no entry points is contradicted by a PHP script under bin/. */
+    #[Test]
+    public function declaringNoEntryPointsFailsWhenBinHoldsAPhpScript(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result = $this->tool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('1 PHP script under bin/ is not a declared entry point: bin/console', $result->summary);
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function everyPhpScriptUnderBinDeclaredRunsTheDetector(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->factory->project->write('bin/deploy', "#!/usr/bin/env bash\necho deploying\n");
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withDeadCodeEntryPoints(self::CONSOLE)->build();
 
         self::assertSame(ToolOutcomeEnum::Passed, $this->tool()->run($this->factory->context($config))->outcome);
     }

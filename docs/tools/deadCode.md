@@ -63,6 +63,32 @@ points or said it has none with `withoutDeadCodeEntryPoints()`. A PHP script und
 `.php` suffix, so a directory scan never sees it, and every function it calls would be reported
 dead; a forgotten list is indistinguishable from an empty one, so the choice has to be explicit.
 
+## Every PHP script under bin/ is declared
+
+A list that was right when written drifts as scripts are added. A script left off it is analysed
+by nothing, so its own defects are never reported and every member only it reaches is reported
+dead. Before anything runs, the lane therefore reads the files directly under the project's `bin/`
+and fails, naming each one, when a PHP script there is not among the entry points:
+
+```text
+PHP scripts under bin/ not declared as dead-code entry points:
+  bin/worker
+```
+
+A file is PHP by its content, never its name: a `#!` line whose interpreter is `php` (`php8.5` and
+the like, directly or through `env`), or a `<?php` open tag at its start. These are not required,
+because none of them holds the project's own code:
+
+- a script in another language, such as a Bash wrapper, which PHPStan does not read;
+- a Composer binary proxy (Composer writes one into `bin/` for each package binary when its
+  `bin-dir` is `bin`), which only includes the package's script;
+- a symlink, whose code lives at its target;
+- anything in a subdirectory of `bin/`, which is a tool's own tree rather than an executable.
+
+`withoutDeadCodeEntryPoints()` with a PHP script under `bin/` fails the same way. The fix is to
+list the script with `withDeadCodeEntryPoints()`. Declaring it brings it into the analysis, so
+expect the run that follows to report what the script had been hiding.
+
 ## How to fix a failure
 
 Each report names a member and why it is dead. The fix is to delete it, or to wire in the caller
