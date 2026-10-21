@@ -110,6 +110,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'ap'                         => 'analysedPaths',
         'analysedPaths'              => 'analysedPaths',
         'changelog'                  => 'changelog',
+        'df'                         => 'dependencyFreshness',
+        'dependencyFreshness'        => 'dependencyFreshness',
     ];
 
     /**
@@ -198,6 +200,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'arch'                       => false,
         'arkitect'                   => false,
         'phparkitect'                => false,
+        'dependencyFreshness'        => false,
+        'df'                         => false,
         'allLintingTools'            => false,
         'allLints'                   => false,
         'allStaticAnalysisTools'     => false,
