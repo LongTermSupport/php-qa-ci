@@ -156,6 +156,36 @@ a second). A text-mode `-p` run reuses the last answer while nothing it rests on
 php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar diagnose
 ```
 
+### Defence Before Fix record: what an install left, judged without its stamp
+
+Recorded here because the class has no rule, so no rule page, and the work had no plan folder
+([#279](https://github.com/LongTermSupport/php-qa-ci/issues/279)).
+
+- **Class**: a report about files on disk that ignores the record vouching for them. Before
+  #279, the line saying what a failed or killed Turbo install left warned about, and advised
+  deleting, any binary beside its core, including a pair whose `.source` stamp records it.
+- **Hazard**: the report advises destroying a verified install, and Turbo is lost for nothing.
+- **Search, technique 1 (the tokens)**: `STAMP_SUFFIX`, `.source`, `installedStamp`, `hash_file`
+  and `sha256` across `src/` and `bin/`. Only `TurboInstaller` reads a stamp. The other digests
+  key a cache (`DetectorUnpacker`, `PhpstanSetupKey`) or pin a download (`TurboManifest`), and none
+  of them reports on files a person might delete.
+- **Search, technique 2 (the consumers)**: every message that tells a person to delete or remove
+  something (`Delete it`, `Remove it`, `remove the entry`). Each was read for whether it judges
+  files that a record vouches for. Only the Turbo warning does. `DetectorUnpacker`'s "Remove it by
+  hand" names a directory it failed to remove, and the rest are configuration advice.
+- **Detector**: none, so this is a toolchain gap. Which record vouches for which files
+  (`<binary>.source` for the binary and its core) is a fact of this domain, and so is whether a
+  line is a report about those files. No AST or type carries either fact. A rule keyed on these
+  names would catch only this instance, and a rule on "a warning after `is_file()`" would report
+  code without the hazard.
+- **Next wider rule, not built**: "a message advising deletion consults a stamp". It was not built
+  for the same reason: the search found no second instance, and the rule could not tell a
+  vouching record from any other file.
+- **Pinned by**: `TurboInstallerTest`. It covers:
+  - a stamped pair, a pair from an earlier release and an unstamped pair;
+  - a pair that differs from its stamp in its binary or its core;
+  - an unreadable binary, core or stamp.
+
 ## How to fix a failure
 
 Each error names its file, line and identifier. Look the identifier up before changing anything:
