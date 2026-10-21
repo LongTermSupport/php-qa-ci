@@ -97,7 +97,7 @@ final readonly class ForbidUnautoloadableClassReferenceRule implements Rule
             if (null !== $original && !$this->vendoredCodeDetector->isVendoredCode($file)) {
                 $errors[] = $this->error(\sprintf(
                     'Class %s is also declared at %s, where the autoloader finds it: loading this file after that one '
-                    . 'fails with "Cannot declare class", and loading it first gives every other file this copy. '
+                    . 'fails with PHP\'s "Cannot redeclare" fatal error, and loading it first gives every other file this copy. '
                     . 'Delete this copy.',
                     $className,
                     $this->autoloadPathDetector->relativeToRoot($original),

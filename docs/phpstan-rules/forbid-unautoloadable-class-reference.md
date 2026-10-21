@@ -60,7 +60,7 @@ Two more defects of the same class are reported with messages of their own:
   copy, not at the references, which load the class at its path:
 
   ```text
-  Class App\Tests\Support\AlwaysRetry is also declared at tests/Support/AlwaysRetry.php, where the autoloader finds it: loading this file after that one fails with "Cannot declare class", and loading it first gives every other file this copy. Delete this copy.
+  Class App\Tests\Support\AlwaysRetry is also declared at tests/Support/AlwaysRetry.php, where the autoloader finds it: loading this file after that one fails with PHP's "Cannot redeclare" fatal error, and loading it first gives every other file this copy. Delete this copy.
   ```
 
 ## Why
@@ -129,6 +129,9 @@ Each exclusion is a narrowing: the hazard cannot arise in the excluded code.
   `class.notFound` instead.
 - **A second declaration is found only beside a copy at the claimed path.** Two declarations of
   a class neither of which is at its path are reported as misplaced at every loading reference.
+- **A stranded class named in an interface method is not followed to its implementers.** An
+  interface method that names the class, whose implementer widens the type to `object`, fails
+  in PHP when the implementer's file loads; the rule reports nothing there.
 - **A name in the wrong case is judged against the PSR-4 and PSR-0 paths.** A wrong-case name of
   a class a `classmap` loads is not reported here: PHPStan's own `class.nameCase` check, on at
   level 2 and above, reports every name written in another case.
@@ -145,7 +148,7 @@ Each exclusion is a narrowing: the hazard cannot arise in the excluded code.
 - **Hazard**: whether the reference works depends on whether some other code loaded the
   declaring file first, so a single test, a filtered or random-order run, Infection or
   production code fails with "not found", or a container or `class_exists()` misses the class,
-  from a file that is correct; a second declaration fails with "Cannot declare class" when both
+  from a file that is correct; a second declaration fails with PHP's "Cannot redeclare" fatal error when both
   files load, and otherwise hands every file whichever copy loaded first.
 
 - **Search, two techniques**, chosen before the rule ran:
