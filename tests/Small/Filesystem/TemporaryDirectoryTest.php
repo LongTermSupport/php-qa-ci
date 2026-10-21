@@ -561,6 +561,76 @@ final class TemporaryDirectoryTest extends TestCase
     }
 
     /**
+     * Defence for the class "the cleanup removes what the target resolves into": a target that is
+     * a link to a file inside an old directory named as staging beside it passed the name guard,
+     * since the name it resolves to is the file's, and the cleanup removed that directory with the
+     * file the target resolves to in it, leaving the target dangling. A directory holding what the
+     * target resolves to is in use, not a leftover: it is kept, and is no failure to warn about.
+     */
+    #[Test]
+    #[DataProvider('stagingShapes')]
+    public function aDirectoryBesideATargetKeepsALeftoverThatHoldsWhatTheTargetResolvesTo(string $suffix): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $holder   = $parent->path . '/' . self::PREFIX . $suffix;
+        $leftover = $this->stagingIn($parent->path, 15);
+        $link     = $parent->path . '/' . self::TARGET;
+        $this->plantLeftover($holder);
+        $this->plantLeftover($leftover);
+        \Safe\symlink(basename($holder) . '/nested/download.tar.gz', $link);
+
+        $directory = TemporaryDirectory::besides($link, self::PREFIX);
+
+        try {
+            self::assertFileExists($holder . '/nested/download.tar.gz', 'the directory holding what the target resolves to is kept whole');
+            self::assertFileExists($link, 'the target still resolves');
+            self::assertSame([], $directory->unremovedLeftovers, 'a directory in use is not a leftover that could not be removed');
+            self::assertDirectoryDoesNotExist($leftover, 'a leftover not holding the target is still removed');
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
+    /**
+     * Defence for the class "the target guard reads a name the target does not have", through a
+     * link: a target that is a link to the directory it is in, or to one above it, is that
+     * directory, so the cleanup ran inside the target and the staging was made inside it, as for a
+     * target spelled `lib/.`. It is refused before anything is touched.
+     */
+    #[Test]
+    #[DataProvider('linksToTheirOwnDirectoryOrAbove')]
+    public function aDirectoryBesideATargetRefusesATargetThatIsALinkToItsOwnDirectoryOrAbove(string $pointee): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $library  = $parent->path . '/library';
+        $leftover = $this->stagingIn($library, 16);
+        $link     = $library . '/turbo';
+        $this->plantLeftover($leftover);
+        \Safe\symlink($pointee, $link);
+
+        try {
+            TemporaryDirectory::besides($link, self::PREFIX);
+            self::fail('a link to the directory it is in, or one above it, was accepted as the target');
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            self::assertSame(\sprintf('A staging directory beside %s needs a target that does not resolve to the directory it is in or one above it, not %s: the staging and its leftovers would be inside the target', $link, \Safe\realpath($link)), $invalidArgumentException->getMessage());
+        } finally {
+            $left = \Safe\scandir($library);
+            $parent->remove();
+        }
+
+        self::assertSame(['.', '..', basename($leftover), 'turbo'], $left, 'nothing in the target was touched');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function linksToTheirOwnDirectoryOrAbove(): iterable
+    {
+        yield 'its own directory' => ['.'];
+        yield 'the directory above' => ['..'];
+        yield 'the root' => ['/'];
+    }
+
+    /**
      * Defence for the class "the cleanup deletes what this class did not make": an old directory
      * whose name begins with the prefix but is not the prefix and 16 lowercase hex digits, as
      * every staging directory is named, is kept.
