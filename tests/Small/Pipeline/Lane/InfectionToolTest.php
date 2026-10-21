@@ -57,6 +57,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(QaConfigBuilder::class)]
 #[UsesClass(VacuousKillDetector::class)]
 #[UsesClass(PreloadedSourceFinder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\InfectionSourceScope::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto::class)]
 #[UsesClass(ProcessResultDto::class)]

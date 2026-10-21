@@ -84,7 +84,21 @@ change that shifts line numbers can make such a pattern match a different mutant
 still left out, since its code did not change, and the shifted pattern takes effect on the
 next run that mutates the file. Pin by `Class::method` rather than by line where you can.
 
-With nothing to mutate the lane skips before any coverage run and says so.
+A diff run mutates only what Infection itself would collect from the `source` of the config it
+runs with: a `*.php` file under one of `source.directories`, not in a dot or version-control
+directory, and not matched by a `source.excludes` entry. Infection hands each exclude to Symfony
+Finder, which matches it against the path relative to the source directory: a string with
+matching delimiters (`/ComposerPlugin/`, `#^Legacy/#`) as that regex, anything else as a
+substring. Handed only files outside that source, Infection would mutate nothing and write no
+log, so the lane names each one, with why, and leaves it out:
+
+```text
+Infection: diff mode — 1 changed file(s) are outside the source infection.json gives Infection, so they are not mutated:
+           src/ComposerPlugin/Plugin.php (excluded by source.excludes "/ComposerPlugin/")
+```
+
+With nothing to mutate the lane skips before any coverage run and says so, whether the change
+has no PHP source or none of it is in Infection's source.
 
 Uncommitted work under `src/`, `tests/` or the files above, untracked files included, is
 treated differently by the two diff modes:
@@ -346,12 +360,12 @@ vendor/bin/qa
 
 ## How the lane runs
 
-The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infection`). Its pure parts are split out under `Lane/Infection/`: `InfectionDiffBaseResolver` (the auto-mode decision), `InfectionDiffFilter` and `TestSourceMirror` (the changed-file list from `git diff`), `InfectionFullRunTriggers` (the files that force a full run), `CommentOnlyChange` (the token comparison), `PreloadedSourceFinder` (which loaded files Infection mutates) and `InfectionArguments` (the argv for the full and diff lanes), all unit-tested without a real process. `AutoloadIncludedFilesProbe` runs `bin/autoload-included-files`.
+The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infection`). Its pure parts are split out under `Lane/Infection/`: `InfectionDiffBaseResolver` (the auto-mode decision), `InfectionDiffFilter` and `TestSourceMirror` (the changed-file list from `git diff`), `InfectionFullRunTriggers` (the files that force a full run), `CommentOnlyChange` (the token comparison), `InfectionSourceScope` (whether Infection collects a file from the config's `source`), `PreloadedSourceFinder` (which loaded files Infection mutates) and `InfectionArguments` (the argv for the full and diff lanes), all unit-tested without a real process. `AutoloadIncludedFilesProbe` runs `bin/autoload-included-files`.
 
 1. Without Xdebug there is no coverage, so the lane skips.
 2. The scope is decided and printed (see [What is mutated](#what-is-mutated)).
 3. A diff run checks `git status --porcelain=v1 -z --untracked-files=all` over `src`, `tests` and the full-run triggers (`InfectionFullRunTriggers`): an explicit base refuses a dirty tree; auto mode adds the uncommitted files (made project-relative with `git rev-parse --show-prefix`) to the change and names them in a warning.
-4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A trigger in it makes the run full. Each modified or renamed PHP file is compared with `git show <merge base>:<path>` and left out when only its comments or whitespace changed, unless either version has a comment carrying a tool directive. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
+4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A trigger in it makes the run full. Each modified or renamed PHP file is compared with `git show <merge base>:<path>` and left out when only its comments or whitespace changed, unless either version has a comment carrying a tool directive. A file Infection would not collect from the config's `source` (`InfectionSourceScope`) is named with why and left out. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
 5. The project's `vendor/autoload.php` is loaded as PHPUnit's runner loads it, and a file Infection would mutate that is already loaded by then crashes the lane, as does an autoloader that cannot be loaded (see [Source files loaded before Infection's bootstrap](#source-files-loaded-before-infections-bootstrap)).
 6. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
 7. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.

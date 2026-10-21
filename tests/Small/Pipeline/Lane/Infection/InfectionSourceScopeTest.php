@@ -26,9 +26,15 @@ final class InfectionSourceScopeTest extends TestCase
 {
     private const string PLUGIN_EXCLUDE = '/ComposerPlugin/';
 
+    private const string PLUGIN_EXCLUDED = 'excluded by source.excludes "/ComposerPlugin/"';
+
+    private const string NO_SOURCE_DIRECTORY = 'under no source directory';
+
     private TempDir $project;
 
     private string $src;
+
+    private string $plugin;
 
     protected function setUp(): void
     {
@@ -37,7 +43,8 @@ final class InfectionSourceScopeTest extends TestCase
             $this->project->write($file, '<?php');
         }
 
-        $this->src = $this->project->path . '/src';
+        $this->src    = $this->project->path . '/src';
+        $this->plugin = $this->src . '/ComposerPlugin/Plugin.php';
     }
 
     protected function tearDown(): void
@@ -48,57 +55,61 @@ final class InfectionSourceScopeTest extends TestCase
     #[Test]
     public function aFileInfectionCollectsHasNoReason(): void
     {
-        self::assertNull((new InfectionSourceScope())->outside([$this->src], [self::PLUGIN_EXCLUDE], $this->src . '/Domain/Kept.php'));
+        self::assertNull(new InfectionSourceScope()->outside($this->src . '/Domain/Kept.php', [$this->src], self::PLUGIN_EXCLUDE));
     }
 
     #[Test]
     public function anExcludedFileNamesTheExcludeThatCoversIt(): void
     {
-        self::assertSame(
-            'excluded by source.excludes "/ComposerPlugin/"',
-            (new InfectionSourceScope())->outside([$this->src], ['Legacy', self::PLUGIN_EXCLUDE], $this->src . '/ComposerPlugin/Plugin.php'),
-        );
+        self::assertSame(self::PLUGIN_EXCLUDED, new InfectionSourceScope()->outside($this->plugin, [$this->src], 'Legacy', self::PLUGIN_EXCLUDE));
     }
 
     #[Test]
     public function aFileUnderNoSourceDirectorySaysSo(): void
     {
-        self::assertSame('under no source directory', (new InfectionSourceScope())->outside([$this->src], [], $this->project->path . '/lib/Extra.php'));
+        self::assertSame(self::NO_SOURCE_DIRECTORY, new InfectionSourceScope()->outside($this->project->path . '/lib/Extra.php', [$this->src]));
     }
 
     #[Test]
     public function aFileUnderADirectoryFinderSkipsSaysSo(): void
     {
-        self::assertSame("in a directory Infection's Finder skips", (new InfectionSourceScope())->outside([$this->src], [], $this->src . '/.hidden/Dot.php'));
+        self::assertSame("in a directory Infection's Finder skips", new InfectionSourceScope()->outside($this->src . '/.hidden/Dot.php', [$this->src]));
     }
 
     #[Test]
     public function aFileNotNamedDotPhpSaysSo(): void
     {
-        self::assertSame('not a .php file', (new InfectionSourceScope())->outside([$this->src], [], $this->src . '/view.phtml'));
+        self::assertSame('not a .php file', new InfectionSourceScope()->outside($this->src . '/view.phtml', [$this->src]));
     }
 
     /** Finder lists a file once per source directory it is under, so one that keeps it is enough. */
     #[Test]
     public function aFileExcludedUnderOneSourceDirectoryButKeptUnderAnotherIsCollected(): void
     {
-        self::assertNull((new InfectionSourceScope())->outside([$this->src, $this->src . '/ComposerPlugin'], [self::PLUGIN_EXCLUDE], $this->src . '/ComposerPlugin/Plugin.php'));
+        self::assertNull(new InfectionSourceScope()->outside($this->plugin, [$this->src, $this->src . '/ComposerPlugin'], self::PLUGIN_EXCLUDE));
+    }
+
+    /** Left out under every source directory it is under, a file is reported by the first one's reason. */
+    #[Test]
+    public function aFileLeftOutUnderEverySourceDirectoryGivesTheFirstOnesReason(): void
+    {
+        self::assertSame(self::PLUGIN_EXCLUDED, new InfectionSourceScope()->outside($this->plugin, [$this->src, $this->src . '/ComposerPlugin'], self::PLUGIN_EXCLUDE, 'Plugin.php'));
     }
 
     /** A path that is not on disk is compared as written, against directories that are not either. */
     #[Test]
     public function aPathNotOnDiskIsComparedAsWritten(): void
     {
-        self::assertNull((new InfectionSourceScope())->outside(['/nowhere/src'], [], '/nowhere/src/Foo.php'));
-        self::assertSame('under no source directory', (new InfectionSourceScope())->outside(['/nowhere/src'], [], '/nowhere/src2/Foo.php'));
+        self::assertNull(new InfectionSourceScope()->outside('/nowhere/src/Foo.php', ['/nowhere/src']));
+        self::assertSame(self::NO_SOURCE_DIRECTORY, new InfectionSourceScope()->outside('/nowhere/src2/Foo.php', ['/nowhere/src']));
     }
 
     #[Test]
     public function anExcludeThatDoesNotCompileThrowsNamingIt(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('source.excludes entry "/(Legacy/" is not a valid regular expression');
+        $this->expectExceptionMessageIsOrContains('source.excludes entry "/(Legacy/" is not a valid regular expression');
 
-        (new InfectionSourceScope())->outside([$this->src], ['/(Legacy/'], $this->src . '/Domain/Kept.php');
+        new InfectionSourceScope()->outside($this->src . '/Domain/Kept.php', [$this->src], '/(Legacy/');
     }
 }
