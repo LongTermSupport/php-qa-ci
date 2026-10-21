@@ -30,6 +30,7 @@ use PhpParser\Node\Expr\Cast\String_ as StringCast;
 use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\ErrorSuppress;
 use PhpParser\Node\Expr\Eval_;
+use PhpParser\Node\Expr\Exit_;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Include_;
 use PhpParser\Node\Expr\List_;
@@ -45,6 +46,7 @@ use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\StaticPropertyFetch;
 use PhpParser\Node\Expr\Ternary;
+use PhpParser\Node\Expr\Throw_;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Expr\Yield_;
 use PhpParser\Node\Expr\YieldFrom;
@@ -57,22 +59,32 @@ use PhpParser\Node\Scalar\InterpolatedString;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\StaticVar;
 use PhpParser\Node\Stmt;
+use PhpParser\Node\Stmt\Block;
+use PhpParser\Node\Stmt\Break_;
+use PhpParser\Node\Stmt\Case_;
+use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\ClassConst;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Const_;
+use PhpParser\Node\Stmt\Continue_;
 use PhpParser\Node\Stmt\Declare_;
 use PhpParser\Node\Stmt\Do_;
+use PhpParser\Node\Stmt\Else_;
+use PhpParser\Node\Stmt\ElseIf_;
 use PhpParser\Node\Stmt\Expression;
 use PhpParser\Node\Stmt\For_;
 use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Global_;
 use PhpParser\Node\Stmt\GroupUse;
+use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Property;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\Stmt\Static_;
+use PhpParser\Node\Stmt\Switch_;
+use PhpParser\Node\Stmt\TryCatch;
 use PhpParser\Node\Stmt\Unset_;
 use PhpParser\Node\Stmt\Use_;
 use PhpParser\Node\Stmt\While_;
@@ -212,6 +224,14 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
     /** A use of an iterator's variable that may change how it keys, or hand it on. */
     public const string ESCAPE = 'escape';
+
+    /**
+     * A statement in a list that writes the whole of a variable on every
+     * path through it that goes on to the next statement, with in its depths
+     * where the list ends: no write before it reaches a statement after it in
+     * the list, or nested in one after it.
+     */
+    public const string KILL = 'kill';
 
     /** What a filesystem iterator keyed by path name is called in a BINDING's text. */
     public const string PATH_NAMES = 'pathNames';
@@ -408,8 +428,8 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     public function processNode(Node $node, Scope $scope): ?array
     {
         $records = match (true) {
-            $node instanceof Closure                                             => [$this->closure($node, $scope), ...$this->unreadKeys($scope, ...$node->stmts), ...$this->escapes($scope, ...$node->stmts), ...$this->parameters($node, $scope)],
-            $node instanceof ClassMethod, $node instanceof Function_             => [...$this->unreadKeys($scope, ...$node->getStmts() ?? []), ...$this->escapes($scope, ...$node->getStmts() ?? []), ...$this->parameters($node, $scope)],
+            $node instanceof Closure                                             => [$this->closure($node, $scope), ...$this->unreadKeys($scope, ...$node->stmts), ...$this->escapes($scope, ...$node->stmts), ...$this->parameters($node, $scope), ...$this->kills($scope, ...$node->stmts)],
+            $node instanceof ClassMethod, $node instanceof Function_             => [...$this->unreadKeys($scope, ...$node->getStmts() ?? []), ...$this->escapes($scope, ...$node->getStmts() ?? []), ...$this->parameters($node, $scope), ...$this->kills($scope, ...$node->getStmts() ?? [])],
             $node instanceof ArrowFunction                                       => $this->parameters($node, $scope),
             $node instanceof Assign                                              => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope), ...$this->bindings($node, $scope)],
             $node instanceof AssignRef                                           => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope, true)],
@@ -1778,6 +1798,102 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         }
 
         return $records;
+    }
+
+    /**
+     * Each statement, in each statement list of a body outside its closures,
+     * that writes the whole of a variable on every path on to the next.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function kills(Scope $scope, Stmt ...$statements): array
+    {
+        $last    = array_last($statements);
+        $records = [];
+        foreach ($statements as $statement) {
+            foreach ($this->killed($statement) ?? [] as $name) {
+                $records[] = $this->record(self::KILL, $scope, $statement, $name, [$last?->getEndFilePos() ?? -1]);
+            }
+
+            foreach ($this->innerLists($statement) as $list) {
+                $records = [...$records, ...$this->kills($scope, ...$list)];
+            }
+        }
+
+        return $records;
+    }
+
+    /**
+     * The statement lists a statement holds.
+     *
+     * @return list<list<Stmt>>
+     */
+    private function innerLists(Stmt $statement): array
+    {
+        $lists = match (true) {
+            $statement instanceof If_      => [$statement->stmts, ...array_map(static fn (ElseIf_ $elseIf): array => $elseIf->stmts, $statement->elseifs), $statement->else->stmts ?? []],
+            $statement instanceof For_, $statement instanceof Foreach_, $statement instanceof While_, $statement instanceof Do_,
+            $statement instanceof Block    => [$statement->stmts],
+            $statement instanceof Switch_  => array_map(static fn (Case_ $case): array => $case->stmts, $statement->cases),
+            $statement instanceof TryCatch => [$statement->stmts, ...array_map(static fn (Catch_ $catch): array => $catch->stmts, $statement->catches), $statement->finally->stmts ?? []],
+            default                        => [],
+        };
+
+        return array_values(array_map(array_values(...), $lists));
+    }
+
+    /**
+     * The variables a statement writes whole on every path on to the next
+     * statement: an assignment to one, or an if with an else whose every
+     * branch writes it or never goes on; null where no path goes on.
+     *
+     * @return list<string>|null
+     */
+    private function killed(Stmt $statement): ?array
+    {
+        if ($statement instanceof Return_ || $statement instanceof Continue_ || $statement instanceof Break_
+                                          || ($statement instanceof Expression && ($statement->expr instanceof Throw_ || $statement->expr instanceof Exit_))) {
+            return null;
+        }
+
+        if ($statement instanceof Expression && $statement->expr instanceof Assign && $statement->expr->var instanceof Variable && \is_string($statement->expr->var->name)) {
+            return [$statement->expr->var->name];
+        }
+
+        if (!$statement instanceof If_ || !$statement->else instanceof Else_) {
+            return [];
+        }
+
+        $branches = [$statement->stmts, ...array_map(static fn (ElseIf_ $elseIf): array => $elseIf->stmts, $statement->elseifs), $statement->else->stmts];
+        $common   = null;
+        foreach ($branches as $branch) {
+            $names = $this->listKilled(...$branch);
+            if (null !== $names) {
+                $common = null === $common ? $names : array_values(array_intersect($common, $names));
+            }
+        }
+
+        return $common;
+    }
+
+    /**
+     * The variables a statement list writes whole on every path through it, null where none goes on past it.
+     *
+     * @return list<string>|null
+     */
+    private function listKilled(Stmt ...$statements): ?array
+    {
+        $names = [];
+        foreach ($statements as $statement) {
+            $killed = $this->killed($statement);
+            if (null === $killed) {
+                return null;
+            }
+
+            $names = [...$names, ...$killed];
+        }
+
+        return $names;
     }
 
     private function isIteratorToArray(FuncCall $call): bool

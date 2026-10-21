@@ -61,7 +61,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  *     writes: array<array-key, list<FiledRecord>>,
  *     bindings: array<array-key, list<FiledRecord>>,
  *     loops: array<array-key, list<FiledRecord>>,
- *     escapes: array<array-key, list<int>>
+ *     escapes: array<array-key, list<int>>,
+ *     kills: array<array-key, list<FiledRecord>>
  * }
  *
  * @implements Rule<CollectedDataNode>
@@ -149,7 +150,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
      */
     private function index(array ...$records): array
     {
-        $index = ['closures' => [], 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => []];
+        $index = ['closures' => [], 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => [], 'kills' => []];
         foreach ($records as $record) {
             match ($record['kind']) {
                 NumericStringArrayKeyCollector::CLOSURE     => $index['closures'][$record['file']][]                                                        = $record,
@@ -157,6 +158,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
                 NumericStringArrayKeyCollector::UNREAD      => $index['unread'][$this->span($record)]                                                       = true,
                 NumericStringArrayKeyCollector::WRITES      => $index['writes'][$record['file']][]                                                          = $record,
                 NumericStringArrayKeyCollector::LOOP        => $index['loops'][$record['file']][]                                                           = $record,
+                NumericStringArrayKeyCollector::KILL        => $index['kills'][$record['file']][]                                                           = $record,
                 NumericStringArrayKeyCollector::BINDING     => $index['bindings'][$this->writeAt($record['file'], $record['variable'], $record['start'])][] = $record,
                 NumericStringArrayKeyCollector::ESCAPE      => $index['escapes'][$record['file'] . '|' . $record['variable']][]                             = $record['start'],
                 default                                     => null,
@@ -369,9 +371,50 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     }
 
     /**
+     * The positions of the writes of a variable that may reach a record:
+     * those before it, and those later in a loop around it, but none before
+     * the last statement of a list enclosing it that writes the variable
+     * whole on every path, other than that statement's own; null where a
+     * write of it cannot be followed.
+     *
+     * @param FiledRecord $point
+     * @param JoinIndex   $index
+     *
+     * @return list<int>|null
+     */
+    private function reachingWrites(array $point, string $variable, array $index): ?array
+    {
+        $writes    = $this->enclosingWrites($point, $index);
+        $positions = null === $writes ? null : $this->writePositions($writes, $variable);
+        if (null === $writes || null === $positions) {
+            return null;
+        }
+
+        $killer = null;
+        foreach ($index['kills'][$point['file']] ?? [] as $kill) {
+            if ($variable                                                                                                                               === $kill['variable'] && $kill['end'] < $point['start'] && $point['start'] <= ($kill['depths'][0] ?? -1)
+                                                                                                                                                                              && $writes['start'] === ($this->enclosingWrites($kill, $index)['start'] ?? null) &&(null === $killer || $kill['start'] > $killer['start'])) {
+                $killer = $kill;
+            }
+        }
+
+        $from  = null === $killer ? -1 : $killer['end'];
+        $loops = array_filter(
+            $index['loops'][$point['file']] ?? [],
+            static fn (array $loop): bool => $loop['start'] > $from && $loop['start'] < $point['start'] && $point['start'] <= $loop['end'],
+        );
+
+        return array_values(array_filter(
+            $positions,
+            static fn (int $position): bool => (null !== $killer && $killer['start'] <= $position && $position <= $killer['end'])
+                || ($position > $from && ($position < $point['start'] || array_any($loops, static fn (array $loop): bool => $loop['start'] <= $position && $position <= $loop['end']))),
+        ));
+    }
+
+    /**
      * Whether the keys a record judges are those iterator_to_array() takes
-     * from a variable that every write makes a filesystem iterator keyed by
-     * path name, and that nothing else in the body touches.
+     * from a variable that every write reaching it makes a filesystem
+     * iterator keyed by path name, and that nothing else in the body touches.
      *
      * @param FiledRecord $record
      * @param JoinIndex   $index
@@ -379,13 +422,9 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     private function isQuietIterator(array $record, array $index): bool
     {
         $variable = $record['unless'];
-        if ('' === $variable) {
-            return false;
-        }
-
-        $writes    = $this->enclosingWrites($record, $index);
-        $positions = null === $writes ? null : $this->writePositions($writes, $variable);
-        if (null === $writes || null === $positions || [] === $positions) {
+        $writes   = $this->enclosingWrites($record, $index);
+        $reaching = '' === $variable ? null : $this->reachingWrites($record, $variable, $index);
+        if (null === $writes || null === $reaching || [] === $reaching) {
             return false;
         }
 
@@ -395,7 +434,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
         }
 
         return array_all(
-            $positions,
+            $reaching,
             fn (int $position): bool => array_any(
                 $index['bindings'][$this->writeAt($record['file'], $variable, $position)] ?? [],
                 static fn (array $binding): bool => NumericStringArrayKeyCollector::PATH_NAMES === $binding['text'],
@@ -406,32 +445,17 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     /**
      * Whether an inline `@var` on a variable the statement does not bind only
      * restates what PHPStan knew: every write of the variable that may reach
-     * the statement, before it or later in a loop around it, was typed
-     * string-keyed at the asserted depth.
+     * the statement was typed string-keyed at the asserted depth.
      *
      * @param FiledRecord $held
      * @param JoinIndex   $index
      */
     private function isRestated(array $held, array $index): bool
     {
-        $writes    = $this->enclosingWrites($held, $index);
-        $positions = null === $writes ? null : $this->writePositions($writes, $held['key']);
-        if (null === $positions) {
-            return false;
-        }
+        $reaching = $this->reachingWrites($held, $held['key'], $index);
+        $depth    = $held['depths'][0] ?? 0;
 
-        $loops    = $index['loops'][$held['file']] ?? [];
-        $reaching = array_filter(
-            $positions,
-            static fn (int $position): bool => $position < $held['start'] || array_any(
-                $loops,
-                static fn (array $loop): bool => $loop['start'] < $held['start'] && $held['start'] <= $loop['end'] && $loop['start'] <= $position && $position <= $loop['end'],
-            ),
-        );
-
-        $depth = $held['depths'][0] ?? 0;
-
-        return [] !== $reaching && array_all(
+        return null !== $reaching && [] !== $reaching && array_all(
             $reaching,
             fn (int $position): bool => array_any(
                 $index['bindings'][$this->writeAt($held['file'], $held['key'], $position)] ?? [],

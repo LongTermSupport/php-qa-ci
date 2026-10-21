@@ -349,6 +349,54 @@ final class Shapes
         return [$encoded => \count($chunks)] + (\is_array($decoded) ? $decoded : []);
     }
 
+    /**
+     * A variable overwritten in each kind of statement list, before an
+     * inline @var on it.
+     */
+    public function overwritten(string $json, int $c): int
+    {
+        $map = json_decode($json, true);
+        if (0 === $c) {
+            $map = ['a' => 1];
+        } elseif (1 === $c) {
+            return 0;
+        } else {
+            $map = ['b' => 2];
+        }
+
+        switch ($c) {
+            case 2:
+                $map = ['c' => 3];
+
+                break;
+
+            default:
+                $map = ['d' => 4];
+        }
+
+        try {
+            $map = ['e' => 5];
+        } catch (\RuntimeException $exception) {
+            $map = [$exception->getMessage() => 6];
+        } finally {
+            $c = 7;
+        }
+
+        while ($c < 9) {
+            {
+                $map = ['f' => $c];
+            }
+            ++$c;
+        }
+
+        do {
+            $map = ['g' => $c];
+        } while ($c-- > 9);
+
+        /** @var array<string, int> $map */
+        return \count($map);
+    }
+
     public function opaque(string $name): int
     {
         $map = [];
