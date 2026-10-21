@@ -263,6 +263,43 @@ final class Shapes
         return $assert->assertSame('token', $plain) && empty($value) ? 'empty' : ($value ?? '');
     }
 
+    /**
+     * Keys made without an element write, in the argument shapes a key rule
+     * tends to miss: named and spread arguments, first-class callables,
+     * dynamic and anonymous iterators, unnamed and misplaced inline @var
+     * tags, yield from and a callback that asks for its arguments.
+     *
+     * @param list<string> $names
+     *
+     * @return \Generator<array-key, mixed>
+     */
+    public function arrayKeys(array $names, string $class, mixed $decoded): \Generator
+    {
+        $merged   = array_merge(...[[$class => 1], ['x' => 2]]);
+        $replaced = array_replace(array: [$class => 1], replacements: ['y' => 2]);
+        $flip     = array_flip(...);
+        $mapped   = array_map(array: [$class => 1], callback: strval(...));
+        $reversed = array_reverse(preserve_keys: true, array: $merged);
+        $sliced   = array_slice($replaced, 0, null, ...[true]);
+        $made     = iterator_to_array(new $class());
+        $anon     = iterator_to_array(new class([]) extends \ArrayIterator {});
+        $files    = iterator_to_array(new \FilesystemIterator($class, ...[\FilesystemIterator::KEY_AS_FILENAME]));
+        array_walk($merged, static function (int ...$all): void {});
+        array_any($names, static fn (): bool => [] !== \func_get_args());
+        /** @var array<string, int> */
+        $asserted = $decoded;
+        /** @var array<string, int> $decoded */
+        if (\is_array($decoded)) {
+            yield from $decoded;
+        }
+
+        foreach ($names as [$name => $value]) {
+            $counted = \count(array_keys(...[$merged])) . "{$name}" . $value . compact('name');
+        }
+
+        yield from [$flip, $mapped, $reversed, $sliced, $made, $anon, $files, $asserted, $counted ?? ''];
+    }
+
     private function nullable(): ?Target
     {
         return 0 === random_int(0, 1) ? new Target() : null;
