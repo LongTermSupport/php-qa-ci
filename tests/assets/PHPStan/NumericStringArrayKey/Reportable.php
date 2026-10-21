@@ -152,6 +152,37 @@ final class Reportable
         return $result;
     }
 
+    /** @return array<string, string> */
+    public function literalReturned(string $path): array
+    {
+        return [$path => 'x'];
+    }
+
+    /** @param array<string, string> $map */
+    public function literalSpreadAndPassed(array $map, string $path): void
+    {
+        $this->accept([...$map, $path => 'x']);
+    }
+
+    /** @return array<string, string> */
+    public function literalAssignedThenReturned(string $path): array
+    {
+        $map = ['fixed' => 'y', $path => 'x'];
+
+        return $map;
+    }
+
+    public function literalAssignedToProperty(string $path): void
+    {
+        $this->reasons = [$path => 'x'];
+    }
+
+    /** @return array<string, array<string, int>> */
+    public function nestedLiteral(string $rule): array
+    {
+        return ['file' => [$rule => 1]];
+    }
+
     /** @param array<string, string> $map */
     private function accept(array $map): void
     {

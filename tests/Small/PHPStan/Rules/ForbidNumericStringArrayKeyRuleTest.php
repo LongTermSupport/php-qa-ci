@@ -40,6 +40,8 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     private const string BY_YEAR_PASSED = 'line 104 passes it to accept() as array<string, string>';
 
+    private const string LITERAL = 'The array literal';
+
     /** The fixture is loaded first so its classes are known to the reflection provider, as autoloaded classes are. */
     #[Test]
     public function aStringKeyThatMayBeAllDigitsIsReportedWhereItsArrayIsTakenAsStringKeyed(): void
@@ -69,6 +71,11 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message('$trimmed', 'line 127 returns it as array<string, int>'), 124],
                 [$this->message('$copied', 'line 142 returns it as array<string, int>'), 139],
                 [$this->message('$built', 'line 152 returns it as array<string, string>'), 149],
+                [$this->message(self::LITERAL, 'line 158 returns it as array<string, string>'), 158],
+                [$this->message(self::LITERAL, 'line 164 passes it to accept() as array<string, string>'), 164],
+                [$this->message('$map', 'line 172 returns it as array<string, string>'), 170],
+                [$this->message(self::LITERAL, 'line 177 assigns it to $this->reasons, declared array<string, string>'), 177],
+                [$this->message(self::LITERAL . '[…]', 'line 183 returns it as array<string, array<string, int>>'), 183],
             ],
         );
     }

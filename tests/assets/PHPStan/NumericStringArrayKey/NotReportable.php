@@ -133,6 +133,40 @@ final class NotReportable
         return $copied;
     }
 
+    /** @return array<string, string> */
+    public function literalWithKeysThatCannotBeAllDigits(string $name): array
+    {
+        return ['fixed' => 'x', $name . '.php' => 'y', self::class => 'z'];
+    }
+
+    public function literalHonestAboutItsKeys(string $path): void
+    {
+        $this->acceptAnyKey([$path => 'x']);
+    }
+
+    /** @return list<string> */
+    public function literalAsAList(string $path): array
+    {
+        return [$path];
+    }
+
+    /**
+     * @param array<array-key, int> $decoded
+     *
+     * @return array<string, int>
+     */
+    public function literalKeyedByAKeyPhpMade(array $decoded): array
+    {
+        $out = [];
+        foreach ($decoded as $key => $value) {
+            if (\is_string($key)) {
+                $out = [...$out, ...[$key => $value]];
+            }
+        }
+
+        return $out;
+    }
+
     /** @param array<array-key, string> $map */
     private function acceptAnyKey(array $map): void
     {
