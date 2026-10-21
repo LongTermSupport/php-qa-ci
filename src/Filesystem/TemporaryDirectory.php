@@ -63,10 +63,12 @@ final readonly class TemporaryDirectory
      * the start of a file name: empty, `.` or `..`, or with a slash, it is refused, as is one the
      * target's own name, or the name it resolves to through a link, begins with, which could make
      * the target a leftover. A target path must end in the target's own name: one ending in `/`,
-     * `.` or `..`, or empty, is refused, since the directory it is in is not the one it names.
+     * `.` or `..`, or empty, is refused, since the directory it is in is not the one it names, and
+     * so is a target that resolves through a link to the directory it is in or one above it.
      *
-     * Removing a leftover is best effort: one another run removed first is passed over, and one
-     * that cannot be removed is kept and listed in unremovedLeftovers for the caller to warn about.
+     * Removing a leftover is best effort: one another run removed first is passed over, one holding
+     * what the target resolves to is in use and kept without a word, and one that cannot be removed
+     * is kept and listed in unremovedLeftovers for the caller to warn about.
      * Only the new staging directory must be made.
      */
     public static function besides(string $target, string $prefix): self
@@ -83,10 +85,15 @@ final readonly class TemporaryDirectory
             throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a prefix its name does not begin with, not "%s": the target would be one of its leftovers', $target, $prefix));
         }
 
+        $resolved = null;
         if (file_exists($target)) {
             $resolved = \Safe\realpath($target);
             if (str_starts_with(basename($resolved), $prefix)) {
                 throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a prefix the name it resolves to, %s, does not begin with, not "%s": the target would be one of its leftovers', $target, $resolved, $prefix));
+            }
+
+            if (self::contains($resolved, \Safe\realpath(\dirname($target)))) {
+                throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a target that does not resolve to the directory it is in or one above it, not %s: the staging and its leftovers would be inside the target', $target, $resolved));
             }
         }
 
@@ -95,7 +102,7 @@ final readonly class TemporaryDirectory
             self::makeDirectory($parent, 0o755, true, $parent);
         }
 
-        $unremoved = self::removeLeftovers($parent, $prefix);
+        $unremoved = self::removeLeftovers($parent, $prefix, $resolved);
 
         return new self(self::in($parent, $prefix), $unremoved);
     }
@@ -108,15 +115,16 @@ final readonly class TemporaryDirectory
 
     /**
      * Removes each directory (not a link) in $parent that is named as a staging directory with
-     * $prefix and is older than STALE_AFTER. The target is never one: besides() refuses a prefix
-     * its name, or the name it resolves to, begins with. Each is first renamed to a fresh name
+     * $prefix and is older than STALE_AFTER and does not hold $resolvedTarget, what an existing
+     * target resolves to. The target is never one: besides() refuses a prefix its name, or the
+     * name it resolves to, begins with. Each is first renamed to a fresh name
      * with the prefix, which only one of the runs that reach it can do, so that run alone removes
      * it, and a leftover gone by then was claimed by another. For the length of the cleanup a
      * warning becomes the exception, so a failure is reported once, by what is returned.
      *
      * @return array<string, string> each leftover kept => why it could not be removed
      */
-    private static function removeLeftovers(string $parent, string $prefix): array
+    private static function removeLeftovers(string $parent, string $prefix, ?string $resolvedTarget): array
     {
         $candidates = [];
         foreach (new FilesystemIterator($parent, FilesystemIterator::SKIP_DOTS | FilesystemIterator::CURRENT_AS_PATHNAME) as $path) {
@@ -131,7 +139,7 @@ final readonly class TemporaryDirectory
         });
         try {
             foreach ($candidates as $path) {
-                $unremoved += self::removeLeftover($path, $parent . '/' . self::stagingName($prefix));
+                $unremoved += self::removeLeftover($path, $parent . '/' . self::stagingName($prefix), $resolvedTarget);
             }
         } finally {
             restore_error_handler();
@@ -141,14 +149,19 @@ final readonly class TemporaryDirectory
     }
 
     /**
-     * Claims $path by renaming it to $claimed when it is a leftover, then removes it.
+     * Claims $path by renaming it to $claimed when it is a leftover, then removes it. One holding
+     * what the target resolves to is in use, so is not a leftover.
      *
      * @return array<string, string> the leftover kept => why, or nothing when it is gone or is not one
      */
-    private static function removeLeftover(string $path, string $claimed): array
+    private static function removeLeftover(string $path, string $claimed, ?string $resolvedTarget): array
     {
         try {
             if (!is_dir($path) || is_link($path) || \Safe\filemtime($path) >= time() - self::STALE_AFTER) {
+                return [];
+            }
+
+            if (null !== $resolvedTarget && self::contains(\Safe\realpath($path), $resolvedTarget)) {
                 return [];
             }
 
@@ -164,6 +177,12 @@ final readonly class TemporaryDirectory
         }
 
         return [];
+    }
+
+    /** Whether $path, a resolved path, is the directory $directory, also resolved, or is under it. */
+    private static function contains(string $directory, string $path): bool
+    {
+        return str_starts_with(rtrim($path, '/') . '/', rtrim($directory, '/') . '/');
     }
 
     /** A fresh name for a staging directory: the prefix, then 16 random lowercase hex digits. */

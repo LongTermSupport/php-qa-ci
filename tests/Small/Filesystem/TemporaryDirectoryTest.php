@@ -54,6 +54,12 @@ final class TemporaryDirectoryTest extends TestCase
     /** What a refusal leaves beside the target: everything as it was. */
     private const string NOTHING_BESIDE_TOUCHED = 'nothing beside the target was touched';
 
+    /** A directory, below the one a test makes, that holds the target. */
+    private const string LIBRARY = '/library';
+
+    /** The file a planted leftover holds, below the leftover. */
+    private const string DOWNLOAD = '/nested/download.tar.gz';
+
     #[Test]
     public function aNewDirectoryIsEmptyAndUnderTheSystemTempDirectory(): void
     {
@@ -355,7 +361,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetRefusesAPrefixThatIsNotPartOfAFileName(string $prefix): void
     {
         $grandparent = TemporaryDirectory::create(self::PARENT);
-        $parent      = $grandparent->path . '/library';
+        $parent      = $grandparent->path . self::LIBRARY;
         \Safe\mkdir($parent);
         \Safe\file_put_contents($parent . '/' . self::TARGET, self::KEPT);
         \Safe\touch($parent, time() - 2 * 3600);
@@ -432,7 +438,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetRefusesATargetNotEndingInItsOwnName(string $suffix): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
-        $library  = $parent->path . '/library';
+        $library  = $parent->path . self::LIBRARY;
         $leftover = $this->stagingIn($library, 12);
         \Safe\mkdir($library . '/sub', 0o700, true);
         $this->plantLeftover($leftover);
@@ -507,7 +513,7 @@ final class TemporaryDirectoryTest extends TestCase
             self::assertSame(\sprintf('A staging directory beside %s needs a prefix the name it resolves to, %s, does not begin with, not "%s": the target would be one of its leftovers', $link, \Safe\realpath($pointee), self::PREFIX), $invalidArgumentException->getMessage());
         } finally {
             $left = \Safe\scandir($parent->path);
-            $kept = file_exists($pointee . '/nested/download.tar.gz');
+            $kept = file_exists($pointee . self::DOWNLOAD);
             $parent->remove();
         }
 
@@ -577,12 +583,12 @@ final class TemporaryDirectoryTest extends TestCase
         $link     = $parent->path . '/' . self::TARGET;
         $this->plantLeftover($holder);
         $this->plantLeftover($leftover);
-        \Safe\symlink(basename($holder) . '/nested/download.tar.gz', $link);
+        \Safe\symlink(basename($holder) . self::DOWNLOAD, $link);
 
         $directory = TemporaryDirectory::besides($link, self::PREFIX);
 
         try {
-            self::assertFileExists($holder . '/nested/download.tar.gz', 'the directory holding what the target resolves to is kept whole');
+            self::assertFileExists($holder . self::DOWNLOAD, 'the directory holding what the target resolves to is kept whole');
             self::assertFileExists($link, 'the target still resolves');
             self::assertSame([], $directory->unremovedLeftovers, 'a directory in use is not a leftover that could not be removed');
             self::assertDirectoryDoesNotExist($leftover, 'a leftover not holding the target is still removed');
@@ -603,7 +609,7 @@ final class TemporaryDirectoryTest extends TestCase
     public function aDirectoryBesideATargetRefusesATargetThatIsALinkToItsOwnDirectoryOrAbove(string $pointee): void
     {
         $parent   = TemporaryDirectory::create(self::PARENT);
-        $library  = $parent->path . '/library';
+        $library  = $parent->path . self::LIBRARY;
         $leftover = $this->stagingIn($library, 16);
         $link     = $library . '/turbo';
         $this->plantLeftover($leftover);
@@ -903,7 +909,7 @@ final class TemporaryDirectoryTest extends TestCase
     private function plantLeftover(string $leftover): void
     {
         \Safe\mkdir($leftover . '/nested', 0o700, true);
-        \Safe\file_put_contents($leftover . '/nested/download.tar.gz', 'x');
+        \Safe\file_put_contents($leftover . self::DOWNLOAD, 'x');
         \Safe\touch($leftover, time() - 2 * 3600);
     }
 
