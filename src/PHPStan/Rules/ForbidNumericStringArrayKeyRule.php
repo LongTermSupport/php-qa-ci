@@ -392,8 +392,10 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
 
         $killer = null;
         foreach ($index['kills'][$point['file']] ?? [] as $kill) {
-            if ($variable                                                                                                                               === $kill['variable'] && $kill['end'] < $point['start'] && $point['start'] <= ($kill['depths'][0] ?? -1)
-                                                                                                                                                                              && $writes['start'] === ($this->enclosingWrites($kill, $index)['start'] ?? null) &&(null === $killer || $kill['start'] > $killer['start'])) {
+            $encloses = $kill['end'] < $point['start'] && $point['start'] <= ($kill['depths'][0] ?? -1);
+            $sameBody = $writes['start'] === ($this->enclosingWrites($kill, $index)['start'] ?? null);
+            $later    = null             === $killer || $kill['start'] > $killer['start'];
+            if ($variable === $kill['variable'] && $encloses && $sameBody && $later) {
                 $killer = $kill;
             }
         }
