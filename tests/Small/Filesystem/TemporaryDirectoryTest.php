@@ -202,6 +202,30 @@ final class TemporaryDirectoryTest extends TestCase
     }
 
     /**
+     * Defence for the class "leftovers already on disk are never removed" (issue #251): every
+     * earlier version named its staging directory with tempnam(), the prefix then 6 letters and
+     * digits, so a killed run of one of them left that shape beside the target. It is a leftover
+     * as well, and is removed.
+     */
+    #[Test]
+    public function aDirectoryBesideATargetRemovesTheStagingAnEarlierVersionLeftThere(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $leftover = $parent->path . '/' . self::PREFIX . 'Ab12Cd';
+        $this->plantLeftover($leftover);
+
+        $directory = TemporaryDirectory::besides($parent->path . '/' . self::TARGET, self::PREFIX);
+
+        try {
+            self::assertDirectoryDoesNotExist($leftover, "a staging directory named by an earlier version's tempnam() is removed");
+            self::assertSame([], $directory->unremovedLeftovers);
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
+    /**
      * A directory that is not staging is not a leftover, however old: only a name beginning with
      * the prefix can be.
      */
@@ -391,6 +415,7 @@ final class TemporaryDirectoryTest extends TestCase
         yield 'its whole name' => [self::TARGET_DIRECTORY, self::TARGET_DIRECTORY];
         yield "a real caller's prefix" => ['.phpqa-shellcheck-x', '.phpqa-shellcheck'];
         yield 'a name shaped as staging' => ['.unpack0123456789abcdef', '.unpack'];
+        yield "a name shaped as an earlier version's staging" => ['.unpackAb12Cd', '.unpack'];
     }
 
     /**
@@ -429,6 +454,12 @@ final class TemporaryDirectoryTest extends TestCase
         yield 'the prefix and a digit that is not hex' => [self::PREFIX . '0123456789abcdeg'];
         yield 'the prefix and a separator first' => [self::PREFIX . '-0123456789abcde'];
         yield 'another prefix as long, and 16 digits' => [substr(self::PREFIX, 0, -1) . 'X0123456789abcdef'];
+        yield 'the prefix and 5 letters and digits' => [self::PREFIX . 'Ab12C'];
+        yield 'the prefix and 7 letters and digits' => [self::PREFIX . 'Ab12CdE'];
+        yield 'the prefix and 6 characters with a dash' => [self::PREFIX . 'Ab-2Cd'];
+        yield 'the prefix and 6 characters with an underscore' => [self::PREFIX . 'Ab12C_'];
+        yield 'the prefix and 6 characters with a dot first' => [self::PREFIX . '.b12Cd'];
+        yield 'another prefix as long, and 6 letters and digits' => [substr(self::PREFIX, 0, -1) . 'XAb12Cd'];
     }
 
     /**
