@@ -209,6 +209,22 @@ final class ReportableAssertions
         $this->takesMap($map);
     }
 
+    public function onAHeldVariableASwitchDefaultKeeps(string $json, int $c): void
+    {
+        $map = json_decode($json, true);
+        switch ($c) {
+            case 0:
+                $map = $this->byName;
+                break;
+
+            default:
+                echo 'kept';
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     private function takes(string $name): void
     {
     }

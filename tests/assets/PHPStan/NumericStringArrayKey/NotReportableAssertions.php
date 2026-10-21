@@ -202,6 +202,25 @@ final class NotReportableAssertions
 
             default:
                 $map = ['fixed' => 1];
+                break;
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterABranchLeavingThroughATryAndOneOverwriting(string $json, bool $c): void
+    {
+        $map = json_decode($json, true);
+        echo \is_array($map) ? \count($map) : 0;
+        if ($c) {
+            try {
+                return;
+            } finally {
+                echo 'left';
+            }
+        } else {
+            $map = $this->byName;
         }
 
         /** @var array<string, int> $map */
