@@ -36,8 +36,8 @@ final readonly class TemporaryDirectory
     private const string TEMPNAM_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
     /**
-     * @param string                $path               the directory
-     * @param array<string, string> $unremovedLeftovers each leftover besides() found and could not remove => why
+     * @param string                   $path               the directory
+     * @param array<array-key, string> $unremovedLeftovers each leftover besides() found and could not remove => why
      */
     private function __construct(
         public string $path,
@@ -122,7 +122,7 @@ final readonly class TemporaryDirectory
      * it, and a leftover gone by then was claimed by another. For the length of the cleanup a
      * warning becomes the exception, so a failure is reported once, by what is returned.
      *
-     * @return array<string, string> each leftover kept => why it could not be removed
+     * @return array<array-key, string> each leftover kept => why it could not be removed
      */
     private static function removeLeftovers(string $parent, string $prefix, ?string $resolvedTarget): array
     {
@@ -152,7 +152,7 @@ final readonly class TemporaryDirectory
      * Claims $path by renaming it to $claimed when it is a leftover, then removes it. One holding
      * what the target resolves to is in use, so is not a leftover.
      *
-     * @return array<string, string> the leftover kept => why, or nothing when it is gone or is not one
+     * @return array<array-key, string> the leftover kept => why, or nothing when it is gone or is not one
      */
     private static function removeLeftover(string $path, string $claimed, ?string $resolvedTarget): array
     {

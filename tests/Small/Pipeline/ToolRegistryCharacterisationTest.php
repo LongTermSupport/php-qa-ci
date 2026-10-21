@@ -110,6 +110,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'ap'                         => 'analysedPaths',
         'analysedPaths'              => 'analysedPaths',
         'changelog'                  => 'changelog',
+        'df'                         => 'dependencyFreshness',
+        'dependencyFreshness'        => 'dependencyFreshness',
     ];
 
     /**
@@ -198,6 +200,8 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'arch'                       => false,
         'arkitect'                   => false,
         'phparkitect'                => false,
+        'dependencyFreshness'        => false,
+        'df'                         => false,
         'allLintingTools'            => false,
         'allLints'                   => false,
         'allStaticAnalysisTools'     => false,
@@ -309,7 +313,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
         return $cases;
     }
 
-    /** @return array<string, string> */
+    /** @return array<array-key, string> */
     private function extractAliasMap(): array
     {
         $map = [];
@@ -322,7 +326,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
         return $map;
     }
 
-    /** @return array<string, bool> */
+    /** @return array<array-key, bool> */
     private function extractPathClassification(): array
     {
         $classification = [];
@@ -335,7 +339,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
         return $classification;
     }
 
-    /** @return array<string, list<string>> */
+    /** @return array<array-key, list<string>> */
     private function extractPhaseOrder(): array
     {
         $registry = PipelineBuilder::defaults()->build()->registry;

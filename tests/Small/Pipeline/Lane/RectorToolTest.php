@@ -25,6 +25,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(RectorTool::class)]
 #[UsesClass(ReadOnlyGuidance::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Rector\StaleConfigDiagnosis::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -47,6 +48,10 @@ final class RectorToolTest extends TestCase
 {
     private const string ADVISORY = 'Rector ran in WRITABLE mode and may have rewritten files. DO NOT FIGHT IT.';
 
+    private const string REMOVE_CACHE_CLASS_FIX = 'Remove the cacheClass(...) call';
+
+    private const string PENDING_CHANGES_LINE = 'pending changes in a READ-ONLY run';
+
     private const string SAFE_CONFIG = 'rector-safe.php';
 
     private const string PHPUNIT_CONFIG = 'rector-phpunit.php';
@@ -56,6 +61,12 @@ final class RectorToolTest extends TestCase
     private const string PHPUNIT_PASS_LINE = 'Running PHPUnit Rector on ';
 
     private const string RECTOR_TMP = '/rector';
+
+    private const string QA_CONFIG_RECTOR = 'qaConfig/rector.php';
+
+    private const string MEMORY_CACHE_REJECTED = "\n [ERROR] Expected an instance of this class or to this class among its parents  \n"
+        . "         \"Rector\\Caching\\Contract\\ValueObject\\Storage\\CacheStorageInterface\".   \n"
+        . "         Got: \"Rector\\Caching\\ValueObject\\Storage\\MemoryCacheStorage\"           \n\n";
 
     private const string EMPTY_CONFIG = "<?php\n";
 
@@ -217,9 +228,83 @@ final class RectorToolTest extends TestCase
 
         foreach ($this->rectorSpecs() as $spec) {
             self::assertSame($config->paths->projectRoot, $spec->cwd);
-            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated", 'TMPDIR' => $config->paths->cacheDir . self::RECTOR_TMP, 'XDEBUG_MODE' => 'off'], $spec->env);
+            self::assertSame(
+                [
+                    'rectorIgnorePaths' => "legacy\ngenerated",
+                    'rectorCacheDir'    => $config->paths->cacheDir . self::RECTOR_TMP,
+                    'TMPDIR'            => $config->paths->cacheDir . self::RECTOR_TMP . '/tmp',
+                    'XDEBUG_MODE'       => 'off',
+                ],
+                $spec->env,
+            );
             self::assertContains($config->paths->pharDir . '/rector.phar', $spec->command);
         }
+    }
+
+    #[Test]
+    public function aProjectConfigCallingCacheClassWithARemovedStorageStopsTheLaneNamingTheLineAndTheFix(): void
+    {
+        $this->factory->project->write(self::QA_CONFIG_RECTOR, $this->memoryCacheConfig());
+        $this->factory->processes->willSucceed()->willSucceed()->willFail(1, self::MEMORY_CACHE_REJECTED);
+        $context = $this->context(readOnly: false);
+
+        $result  = new RectorTool()->run($context);
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'a retry cannot help, so the lane crashes even in a writable run');
+        self::assertCount(3, $this->rectorSpecs());
+        self::assertStringContainsString('qaConfig/rector.php:9', $printed);
+        self::assertStringContainsString('$rectorConfig->cacheClass(MemoryCacheStorage::class);', $printed);
+        self::assertStringContainsString(self::REMOVE_CACHE_CLASS_FIX, $printed);
+        self::assertStringContainsString('var/qa/cache/rector', $printed);
+        self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function aRejectedCacheClassIsRecognisedWhateverWidthRectorWrappedItsMessageTo(): void
+    {
+        $this->factory->project->write(self::QA_CONFIG_RECTOR, $this->memoryCacheConfig());
+        $this->factory->processes->willSucceed()->willSucceed()->willFail(1, str_replace(' among its', "\n         among its", self::MEMORY_CACHE_REJECTED));
+
+        $result = new RectorTool()->run($this->context(readOnly: true));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('qaConfig/rector.php:9', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function anOrdinaryRectorErrorIsStillAGenuineError(): void
+    {
+        $this->factory->project->write(self::QA_CONFIG_RECTOR, $this->memoryCacheConfig());
+        $this->factory->processes->willSucceed()->willSucceed()->willFail(1, " [ERROR] Something else is wrong with the config\n");
+
+        $result  = new RectorTool()->run($this->context(readOnly: true));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('(a genuine error, not a pending-change diff)', $printed);
+        self::assertStringNotContainsString(self::REMOVE_CACHE_CLASS_FIX, $printed);
+    }
+
+    #[Test]
+    public function aPendingChangeDiffThatQuotesRectorsMessageIsStillPendingChangesNotAStaleConfig(): void
+    {
+        $this->factory->project->write(self::QA_CONFIG_RECTOR, $this->memoryCacheConfig());
+        $diff = "\n1) src/Probe.php:7\n\n    ---------- begin diff ----------\n"
+            . "@@ @@\n"
+            . "     // Rector says: Expected an existing class name. Got: \"Foo\"\n"
+            . "-    if (0 === strpos(\$a, 'x')) {\n"
+            . "+    if (str_starts_with(\$a, 'x')) {\n"
+            . "    ----------- end diff -----------\n\n";
+        $this->factory->processes->willFail(2, $diff);
+
+        $result  = new RectorTool()->run($this->context(readOnly: true));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString(self::PENDING_CHANGES_LINE, $printed);
+        self::assertStringNotContainsString('cannot load', $printed);
+        self::assertStringNotContainsString(self::REMOVE_CACHE_CLASS_FIX, $printed);
     }
 
     #[Test]
@@ -227,13 +312,14 @@ final class RectorToolTest extends TestCase
     {
         $this->queuePasses(0, 0, 0);
         $config = $this->factory->builder(readOnly: true)->build();
-        $tmpDir = $config->paths->cacheDir . self::RECTOR_TMP;
+        $tmpDir = $config->paths->cacheDir . self::RECTOR_TMP . '/tmp';
         self::assertDirectoryDoesNotExist($tmpDir);
 
         new RectorTool()->run($this->factory->context($config));
 
         self::assertDirectoryExists($tmpDir);
         self::assertSame($tmpDir, array_last($this->rectorSpecs())?->env['TMPDIR'] ?? null);
+        self::assertSame($config->paths->cacheDir . self::RECTOR_TMP, array_last($this->rectorSpecs())?->env['rectorCacheDir'] ?? null, 'Rector --clear-cache deletes its cache directory, so TMPDIR must not be that directory itself');
     }
 
     #[Test]
@@ -251,7 +337,7 @@ final class RectorToolTest extends TestCase
     {
         $this->queuePasses(0, 0, 0, 0);
         $rootConfig     = $this->factory->project->write('rector.php', self::EMPTY_CONFIG);
-        $qaConfigConfig = $this->factory->project->write('qaConfig/rector.php', self::EMPTY_CONFIG);
+        $qaConfigConfig = $this->factory->project->write(self::QA_CONFIG_RECTOR, self::EMPTY_CONFIG);
         $context        = $this->context(readOnly: true);
 
         $result = new RectorTool()->run($context);
@@ -296,7 +382,7 @@ final class RectorToolTest extends TestCase
         self::assertCount(1, $this->rectorSpecs());
         self::assertStringContainsString("Rector ('Safe') failed with exit code 1 (a genuine error, not a pending-change diff)", $printed);
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
-        self::assertStringNotContainsString('pending changes in a READ-ONLY run', $printed);
+        self::assertStringNotContainsString(self::PENDING_CHANGES_LINE, $printed);
     }
 
     #[Test]
@@ -310,7 +396,7 @@ final class RectorToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString("Rector ('PHP 8.5') failed (exit 2)", $result->summary);
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
-        self::assertStringNotContainsString('pending changes in a READ-ONLY run', $printed);
+        self::assertStringNotContainsString(self::PENDING_CHANGES_LINE, $printed);
         self::assertStringNotContainsString(self::ADVISORY, $printed, 'the advisory is only printed after every pass succeeded');
     }
 
@@ -367,7 +453,7 @@ final class RectorToolTest extends TestCase
     public function aQaConfigRectorWithNoRootRectorStillReplacesThePhp85Pass(): void
     {
         $this->queuePasses(0, 0, 0);
-        $qaConfigConfig = $this->factory->project->write('qaConfig/rector.php', self::EMPTY_CONFIG);
+        $qaConfigConfig = $this->factory->project->write(self::QA_CONFIG_RECTOR, self::EMPTY_CONFIG);
         $context        = $this->context(readOnly: true);
 
         $result = new RectorTool()->run($context);
@@ -426,6 +512,24 @@ final class RectorToolTest extends TestCase
 
         self::assertSame('rector', $tool->name());
         self::assertSame('phpqaci.rector', $tool->identifier());
+    }
+
+    /** A project rector.php of the kind copied from the older shipped rector-safe.php; the call is on line 9. */
+    private function memoryCacheConfig(): string
+    {
+        return implode("\n", [
+            '<?php',
+            '',
+            'declare(strict_types=1);',
+            '',
+            'use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;',
+            'use Rector\Config\RectorConfig;',
+            '',
+            'return static function (RectorConfig $rectorConfig): void {',
+            '    $rectorConfig->cacheClass(MemoryCacheStorage::class);',
+            '};',
+            '',
+        ]);
     }
 
     /** Queue one Rector pass per exit code. */

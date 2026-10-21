@@ -171,6 +171,25 @@
 #                                          a file that includes it, classmap and files
 #                                          entries, and classes no prefix claims. See
 #                                          docs/phpstan-rules/forbid-unautoloadable-class-reference.md
+# AN ARRAY KEY THAT MAY BE ALL DIGITS:
+#   ForbidNumericStringArrayKeyRule      — PHP stores an array key that is an all-digit
+#                                          string ('2024') as an int, but PHPStan types
+#                                          $map[$string] = … as string-keyed. A write under
+#                                          a key that may be all digits is reported when its
+#                                          array is a property declared string-keyed, or a
+#                                          local the same function returns, passes or
+#                                          assigns as string-keyed, or whose keys it reads
+#                                          (foreach, json_encode(), array_merge() and the
+#                                          like), followed through copies, elements,
+#                                          operators, branches, references, static, global
+#                                          and generators. Keys made by a literal,
+#                                          array_flip() and the like, or asserted by an
+#                                          inline @var over data whose keys PHPStan does
+#                                          not know, are judged the same way.
+#                                          Declare such keys array-key and cast a key to
+#                                          string where one is read. Its two collectors are
+#                                          registered under services: below. See
+#                                          docs/phpstan-rules/forbid-numeric-string-array-key.md
 #
 # A CHILD KILLED BY A SIGNAL, NAMED:
 #   ForbidUnhandledProcessSignalRule     — Process::run(), mustRun() and wait() outside
@@ -214,6 +233,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnhandledProcessSignalRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule
 
 parameters:
     phpqaciFactorySealed:
@@ -268,5 +288,14 @@ services:
     # The collector ForbidUnhandledProcessSignalRule (under rules: above) matches.
     -
         class: LTS\PHPQA\PHPStan\Rules\ProcessSignalHandlingCollector
+        tags:
+            - phpstan.collector
+    # The collectors ForbidNumericStringArrayKeyRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector
         tags:
             - phpstan.collector

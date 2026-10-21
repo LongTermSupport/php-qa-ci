@@ -98,6 +98,10 @@ final class PipelineTest extends TestCase
 
     private const string HALTED = 'HALTED';
 
+    private const string DEPENDENCY_FRESHNESS = 'dependencyFreshness';
+
+    private const string RECTOR_RAN = '[rector ran]';
+
     private const string SEGFAULT_LINE = 'A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.';
 
     private ContextFactory $factory;
@@ -128,7 +132,7 @@ final class PipelineTest extends TestCase
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
-        $expectedOrder = ['rector', 'phpCsFixer', 'twigCsFixer', 'markdownFormat', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'documentedQaCommands', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
+        $expectedOrder = [self::DEPENDENCY_FRESHNESS, 'rector', 'phpCsFixer', 'twigCsFixer', 'markdownFormat', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'documentedQaCommands', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertNull($this->lockRecord(), 'the lock is released');
@@ -240,6 +244,66 @@ final class PipelineTest extends TestCase
         self::assertSame(1, $this->pipeline()->run($context));
     }
 
+    /** There is no point checking code with a stale toolchain: a stale lock ends the run before any other tool. */
+    #[Test]
+    public function staleDependenciesEndAFailFastRunBeforeAnyOtherTool(): void
+    {
+        $this->tools->register(new StubTool(self::DEPENDENCY_FRESHNESS, ToolResultDto::failed('1 locked package is behind')));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('[dependencyFreshness ran]', $printed);
+        self::assertStringNotContainsString(self::RECTOR_RAN, $printed);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+    }
+
+    /** Aggregate mode collects tool failures; it does not run tools against a stale toolchain. */
+    #[Test]
+    public function staleDependenciesEndAnAggregateRunTooAndAreReported(): void
+    {
+        $this->tools->register(new StubTool(self::DEPENDENCY_FRESHNESS, ToolResultDto::failed('1 locked package is behind')));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+        $printed = $this->factory->output->fetch();
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+        self::assertStringContainsString('Aggregate (read-only) run: 1 tool(s) FAILED', $printed);
+        self::assertStringContainsString('          - dependencyFreshness', $printed);
+    }
+
+    #[Test]
+    public function aSkippedFreshnessCheckLetsTheRunContinue(): void
+    {
+        $this->tools->register(new StubTool(self::DEPENDENCY_FRESHNESS, ToolResultDto::skipped('offline')));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertStringContainsString(self::RECTOR_RAN, $this->factory->output->fetch());
+    }
+
+    /** A narrowed run (one tool, one phase) is the inner loop of editing; the full run is the gate. */
+    #[Test]
+    #[TestWith([self::PHPSTAN])]
+    #[TestWith(['allCodingStandardsTools'])]
+    public function aSingleToolOrPhaseRunDoesNotCheckFreshness(string $tool): void
+    {
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: $tool)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertStringNotContainsString('[dependencyFreshness ran]', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function theFreshnessCheckRunsAloneWhenSelected(): void
+    {
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::DEPENDENCY_FRESHNESS)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertSame(1, $this->tools->stub(self::DEPENDENCY_FRESHNESS)->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+    }
+
     #[Test]
     public function aPhaseRunnerRunsItsLeafToolsWithGatesAndAggregates(): void
     {
@@ -262,7 +326,7 @@ final class PipelineTest extends TestCase
 
         self::assertSame(Pipeline::EXIT_LOCK_CONTENDED, $this->pipeline()->run($context));
         self::assertStringContainsString('Another QA run holds the lock', $this->factory->output->fetch());
-        self::assertSame(0, $this->tools->stub('rector')->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
     }
 
     #[Test]
