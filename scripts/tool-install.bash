@@ -275,14 +275,15 @@ php "$PROJECT_ROOT/bin/phpstan-replace-sync" "$shellcheck_mode"
 #
 # An installer killed by a signal (bash reports 128 + its number) never says
 # what it left on disk, so its read-only state check says it instead, as the
-# Composer plugin does for a consumer; the script still exits with the
-# installer's status.
+# Composer plugin does for a consumer. The script still exits with the
+# installer's status, even when the state check fails too.
 # ============================================================================
 
 turbo_status=0
 php "$PROJECT_ROOT/bin/turbo-install" "$shellcheck_mode" || turbo_status=$?
 if (( turbo_status > 128 )); then
     echo -e "${RED}bin/turbo-install failed with $(php -d display_errors=stderr "$PROJECT_ROOT/bin/describe-exit" --php-qa-ci-helper "$turbo_status"); what it left on disk:${NC}" >&2
-    php -d display_errors=stderr "$PROJECT_ROOT/bin/turbo-install" state >&2
+    php -d display_errors=stderr "$PROJECT_ROOT/bin/turbo-install" state >&2 \
+        || echo -e "${RED}The state check failed too, so what the install left is unknown; run php bin/turbo-install state to see it.${NC}" >&2
 fi
 exit "$turbo_status"

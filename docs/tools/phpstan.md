@@ -125,8 +125,9 @@ expects; `php vendor-phar/phpstan.phar diagnose` reports one that is not as `ina
   install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
   Composer plugin, and `scripts/tool-install.bash` in php-qa-ci itself, then run
   `bin/turbo-install state`, a read-only check of the same thing. The plugin relays its answer,
-  with PHP's own warnings sent to stderr so they are not taken for it; if the check fails too, it
-  says what the install left is unknown and gives the command to run.
+  with PHP's own warnings sent to stderr so they are not taken for it. If the check fails too,
+  both say what the install left is unknown and give the command to run, and the script still
+  exits with the installer's status.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
   (see [PHAR verification](../pipeline.md#2-preparation)).
