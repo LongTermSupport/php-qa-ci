@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\PHPStan\Rules;
 
+use ArrayIterator;
+use ArrayObject;
 use FilesystemIterator;
+use Generator;
+use PhpParser\Comment\Doc;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
@@ -14,15 +18,22 @@ use PhpParser\Node\Expr\ArrayDimFetch;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\AssignOp;
+use PhpParser\Node\Expr\AssignOp\Coalesce as CoalesceAssign;
+use PhpParser\Node\Expr\AssignOp\Plus as PlusAssign;
 use PhpParser\Node\Expr\AssignRef;
+use PhpParser\Node\Expr\BinaryOp\Coalesce;
 use PhpParser\Node\Expr\BinaryOp\Concat;
+use PhpParser\Node\Expr\BinaryOp\Plus;
 use PhpParser\Node\Expr\CallLike;
+use PhpParser\Node\Expr\Cast\Array_ as ArrayCast;
 use PhpParser\Node\Expr\Cast\String_ as StringCast;
 use PhpParser\Node\Expr\Closure;
+use PhpParser\Node\Expr\ErrorSuppress;
 use PhpParser\Node\Expr\Eval_;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Include_;
 use PhpParser\Node\Expr\List_;
+use PhpParser\Node\Expr\Match_;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\NullsafeMethodCall;
@@ -33,45 +44,74 @@ use PhpParser\Node\Expr\PreInc;
 use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\StaticPropertyFetch;
+use PhpParser\Node\Expr\Ternary;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Expr\Yield_;
 use PhpParser\Node\Expr\YieldFrom;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\InterpolatedStringPart;
+use PhpParser\Node\MatchArm;
 use PhpParser\Node\Name;
 use PhpParser\Node\Param;
 use PhpParser\Node\Scalar\InterpolatedString;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\StaticVar;
 use PhpParser\Node\Stmt;
+use PhpParser\Node\Stmt\ClassConst;
+use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Const_;
+use PhpParser\Node\Stmt\Declare_;
+use PhpParser\Node\Stmt\Do_;
 use PhpParser\Node\Stmt\Expression;
+use PhpParser\Node\Stmt\For_;
 use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Global_;
-use PhpParser\Node\Stmt\If_;
+use PhpParser\Node\Stmt\GroupUse;
+use PhpParser\Node\Stmt\Namespace_;
+use PhpParser\Node\Stmt\Property;
 use PhpParser\Node\Stmt\Return_;
+use PhpParser\Node\Stmt\Static_;
 use PhpParser\Node\Stmt\Unset_;
+use PhpParser\Node\Stmt\Use_;
+use PhpParser\Node\Stmt\While_;
 use PhpParser\Node\VarLikeIdentifier;
 use PhpParser\NodeFinder;
 use PHPStan\Analyser\Scope;
 use PHPStan\Collectors\Collector;
+use PHPStan\Node\InArrowFunctionNode;
+use PHPStan\Node\InClassMethodNode;
+use PHPStan\Node\InClosureNode;
+use PHPStan\Node\InFunctionNode;
+use PHPStan\Node\VariableWritesNode;
 use PHPStan\Reflection\ExtendedMethodReflection;
+use PHPStan\Reflection\ExtendedParameterReflection;
 use PHPStan\Reflection\FunctionReflection;
 use PHPStan\Reflection\ParameterReflection;
+use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\ParametersAcceptorSelector;
 use PHPStan\Reflection\ReflectionProvider;
+use PHPStan\Type\Constant\ConstantIntegerType;
 use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\FileTypeMapper;
+use PHPStan\Type\Generic\TemplateType;
+use PHPStan\Type\IterableType;
+use PHPStan\Type\MixedType;
+use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
+use PHPStan\Type\TypeTraverser;
 use PHPStan\Type\VerbosityLevel;
 
 /**
  * Collects what ForbidNumericStringArrayKeyRule joins: each write of an array
  * element under a key that may be an all-digit string, each place an array is
- * taken as string-keyed, each closure's span, each foreach over an array whose
- * key variable its body leaves alone, and each place that reads keys no code
- * then uses where an int could misbehave.
+ * taken as string-keyed, how arrays are handed from one variable to another,
+ * each closure's span, each foreach over an array whose key variable its body
+ * leaves alone, each place that reads keys no code then uses where an int
+ * could misbehave, and what PHPStan knew of each variable where it was written.
  *
  * PHP stores a key that is a decimal integer string ('2024', '-1', not '01')
  * as an int, but PHPStan gives `$map[$string] = …` the key type string. A key
@@ -83,24 +123,28 @@ use PHPStan\Type\VerbosityLevel;
  * A write into a property is judged here, against the property's declared
  * type at the depth of the key. A write into a local variable is recorded with
  * the variable's name, the key's depth and, when the key is a variable, its
- * name; the variable is taken as string-keyed where it is returned, passed as
- * an argument or assigned to a property whose declared type has string keys at
- * that depth, and where foreach, a function that reads or renumbers keys, or
- * spreading reads its keys while PHPStan types them string. A function that
- * keeps its argument's keys (array_filter(), array_map() over one array, …)
- * hands the argument on.
+ * name; the variable is taken as string-keyed where it is returned, yielded,
+ * passed as an argument, handed back through a by-reference parameter or
+ * assigned to a property whose declared type has string keys at that depth,
+ * and where foreach, a function that reads or renumbers keys, or spreading
+ * reads its keys while PHPStan types them string. A variable is followed into
+ * another assigned it, an element of it, its foreach value or a reference to
+ * it, at the depth it lands; through an operator or a branch (`+`, `??`, `?:`,
+ * a match arm); and through a function or class that keeps its argument's
+ * keys (array_filter(), ArrayIterator, a template that hands the keys back).
  *
  * Keys made without an element write are judged the same way: an array
  * literal's, and those of the functions that build keys from values
  * (array_flip(), array_combine(), iterator_to_array(), …), as writes into the
- * local variable they are assigned to, or as they stand where they are
- * returned, passed, assigned to a property or have their keys read. An inline
- * `@var` asserting string keys over a value whose keys PHPStan does not know
- * is judged as it stands.
+ * variable they are assigned to, or as they stand where they are returned,
+ * passed, assigned to a property or have their keys read. An inline `@var`
+ * asserting string keys over a value whose keys PHPStan does not know is
+ * judged against what the statement binds, or else against every write of the
+ * variable that may reach it.
  *
  * @internal
  *
- * @phpstan-type NumericStringArrayKeyRecord array{kind: string, functionKey: string, variable: string, key: string, depths: list<int>, line: int, start: int, end: int, text: string, uses: list<string>}
+ * @phpstan-type NumericStringArrayKeyRecord array{kind: string, functionKey: string, variable: string, key: string, depths: list<int>, line: int, start: int, end: int, text: string, uses: list<string>, unless: string}
  *
  * @implements Collector<Node, list<NumericStringArrayKeyRecord>>
  */
@@ -125,7 +169,11 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      */
     public const string KEY_BINDING = 'keyBinding';
 
-    /** `$copy = $array`: whatever takes the copy as string-keyed takes the array so. The copy's name is the record's key. */
+    /**
+     * One variable holding another's keys at an offset of depth: the record's
+     * variable is the source, its key the copy, and its depth the offset, so
+     * that the copy's depth d is the source's depth d plus the offset.
+     */
     public const string COPY = 'copy';
 
     /**
@@ -133,6 +181,47 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      * no code where an int could misbehave: the use or report with its span is void.
      */
     public const string UNREAD = 'unread';
+
+    /**
+     * A write of a local variable, at the position PHPStan records it, with
+     * the depths whose keys PHPStan typed string there; its text says when it
+     * holds a filesystem iterator keyed by path name.
+     */
+    public const string BINDING = 'binding';
+
+    /**
+     * A function-like body: in its uses, each write of a local variable as
+     * name@position, and name@-1 for a variable written where PHPStan cannot
+     * follow it; its key is '*' where any variable may be written unseen.
+     */
+    public const string WRITES = 'writes';
+
+    /**
+     * An inline `@var` asserting string keys on a variable the statement does
+     * not bind: reported unless every write that may reach it was typed so.
+     */
+    public const string HELD = 'held';
+
+    /** A loop: a write later in it may reach a statement earlier in it. */
+    public const string LOOP = 'loop';
+
+    /** A variable named `global`, which every function that so names it shares. */
+    public const string GLOBAL = 'global';
+
+    /** A use of an iterator's variable that may change how it keys, or hand it on. */
+    public const string ESCAPE = 'escape';
+
+    /** What a filesystem iterator keyed by path name is called in a BINDING's text. */
+    public const string PATH_NAMES = 'pathNames';
+
+    /** How a write PHPStan cannot follow is positioned in a WRITES record. */
+    public const int UNTRACKED = -1;
+
+    /** The key of a WRITES record whose body may write any variable unseen. */
+    public const string ANY = '*';
+
+    /** The prefix of a variable reached through $GLOBALS rather than its name. */
+    public const string GLOBALS = 'GLOBALS:';
 
     /** How deep a declared type is searched for string keys. */
     private const int MAX_DEPTH = 8;
@@ -143,39 +232,61 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /** Names whatever class the call is made on, which a subclass may be. */
     private const string LATE_STATIC = 'static';
 
+    /** The variable that is the object, never an array. */
+    private const string THIS = 'this';
+
+    /** The namespace whose functions behave as PHP's own of the same name, throwing where PHP returns false. */
+    private const string SAFE = 'safe\\';
+
     /**
      * Functions that hand an array's keys to code, or renumber its int keys,
      * => the positions of the arguments whose keys they read; null for every
      * argument.
      */
     private const array KEY_READING_FUNCTIONS = [
-        'array_keys'            => [0],
-        'array_key_first'       => [0],
-        'array_key_last'        => [0],
-        'key'                   => [0],
-        'array_flip'            => [0],
-        'array_search'          => [1],
-        'array_find_key'        => [0],
-        'array_find'            => [0],
-        'array_any'             => [0],
-        'array_all'             => [0],
-        'array_walk'            => [0],
-        'array_walk_recursive'  => [0],
-        'uksort'                => [0],
-        'array_merge'           => null,
-        'array_merge_recursive' => null,
-        'array_reverse'         => [0],
-        'array_slice'           => [0],
-        'array_splice'          => [0],
-        'array_shift'           => [0],
-        'array_unshift'         => [0],
+        'array_keys'             => [0],
+        'array_key_first'        => [0],
+        'array_key_last'         => [0],
+        'key'                    => [0],
+        'array_flip'             => [0],
+        'array_search'           => [1],
+        'array_find_key'         => [0],
+        'array_find'             => [0],
+        'array_any'              => [0],
+        'array_all'              => [0],
+        'array_walk'             => [0],
+        'array_walk_recursive'   => [0],
+        'uksort'                 => [0],
+        'array_rand'             => [0],
+        'array_is_list'          => [0],
+        'json_encode'            => [0],
+        'http_build_query'       => [0],
+        'array_diff_ukey'        => null,
+        'array_diff_uassoc'      => null,
+        'array_udiff_uassoc'     => null,
+        'array_intersect_ukey'   => null,
+        'array_intersect_uassoc' => null,
+        'array_uintersect_uassoc' => null,
+        'array_merge'            => null,
+        'array_merge_recursive'  => null,
+        'array_multisort'        => null,
+        'array_pad'              => [0],
+        'array_reverse'          => [0],
+        'array_slice'            => [0],
+        'array_splice'           => [0],
+        'array_shift'            => [0],
+        'array_unshift'          => [0],
     ];
 
     /**
      * Functions that renumber int keys unless told to keep them => the position
-     * of that argument, named preserve_keys. Told to keep them, they keep keys.
+     * of that argument, named preserve_keys. Told to keep them, they keep keys:
+     * array_chunk() one level down.
      */
-    private const array RENUMBERING_UNLESS_PRESERVED = ['array_reverse' => 1, 'array_slice' => 3];
+    private const array RENUMBERING_UNLESS_PRESERVED = ['array_reverse' => 1, 'array_slice' => 3, 'array_chunk' => 2];
+
+    /** The function that keeps keys one level down, in each chunk. */
+    private const string ARRAY_CHUNK = 'array_chunk';
 
     /** The name PHP gives the argument RENUMBERING_UNLESS_PRESERVED names. */
     private const string PRESERVE_KEYS = 'preserve_keys';
@@ -189,6 +300,12 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /** The parameter of the callback that receives the key. */
     private const int KEY_PARAMETERS = 2;
 
+    /** json_encode() writes every array as an object when its flags hold this. */
+    private const string JSON_ENCODE = 'json_encode';
+
+    /** http_build_query() writes an int key differently only with a numeric prefix, its second argument. */
+    private const string HTTP_BUILD_QUERY = 'http_build_query';
+
     /**
      * Functions whose result keeps the keys of some of its arguments => their
      * positions; null for every argument.
@@ -200,9 +317,19 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         'array_diff'              => [0],
         'array_diff_key'          => [0],
         'array_diff_assoc'        => [0],
+        'array_diff_ukey'         => [0],
+        'array_diff_uassoc'       => [0],
+        'array_udiff'             => [0],
+        'array_udiff_assoc'       => [0],
+        'array_udiff_uassoc'      => [0],
         'array_intersect'         => [0],
         'array_intersect_key'     => [0],
         'array_intersect_assoc'   => [0],
+        'array_intersect_ukey'    => [0],
+        'array_intersect_uassoc'  => [0],
+        'array_uintersect'        => [0],
+        'array_uintersect_assoc'  => [0],
+        'array_uintersect_uassoc' => [0],
         'array_unique'            => [0],
         'array_change_key_case'   => [0],
     ];
@@ -224,6 +351,12 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      * and keys by path name, which holds a `/`, unless the flags say KEY_AS_FILENAME.
      */
     private const array FILESYSTEM_ITERATORS = ['filesystemiterator', 'recursivedirectoryiterator', 'globiterator'];
+
+    /** Classes that hold the array they are made from, keys and all, and hand it back from getArrayCopy(). */
+    private const array KEY_KEEPING_CLASSES = [ArrayObject::class, ArrayIterator::class];
+
+    /** The method of KEY_KEEPING_CLASSES that hands the array back. */
+    private const string GET_ARRAY_COPY = 'getarraycopy';
 
     /** Functions that read a local variable by its name, or that run code which may. */
     private const array READ_BY_NAME = ['compact', 'get_defined_vars', 'extract', 'func_get_args', 'func_get_arg'];
@@ -255,6 +388,9 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /** How an array literal judged where it is handed over is named. */
     private const string LITERAL = 'The array literal';
 
+    /** How a declared type is introduced in a reason. */
+    private const string DECLARED_AS = ', declared';
+
     public function __construct(private ReflectionProvider $reflectionProvider, private FileTypeMapper $fileTypeMapper)
     {
     }
@@ -270,18 +406,25 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     public function processNode(Node $node, Scope $scope): ?array
     {
         $records = match (true) {
-            $node instanceof Closure                                     => [$this->closure($node, $scope), ...$this->unreadKeys($scope, ...$node->stmts)],
-            $node instanceof ClassMethod, $node instanceof Function_     => $this->unreadKeys($scope, ...$node->getStmts() ?? []),
-            $node instanceof Expression, $node instanceof If_            => $this->asserted($node, $scope),
-            $node instanceof Assign                                      => [...$this->writes($node, $node->var, $scope), ...$this->madeWrites($node, $scope), ...$this->propertyAssignment($node, $scope), ...$this->copy($node, $scope)],
-            $node instanceof AssignOp, $node instanceof AssignRef,
-            $node instanceof PreInc, $node instanceof PreDec,
-            $node instanceof PostInc, $node instanceof PostDec           => $this->writes($node, $node->var, $scope),
+            $node instanceof Closure                                     => [$this->closure($node, $scope), ...$this->unreadKeys($scope, ...$node->stmts), ...$this->escapes($scope, ...$node->stmts)],
+            $node instanceof ClassMethod, $node instanceof Function_     => [...$this->unreadKeys($scope, ...$node->getStmts() ?? []), ...$this->escapes($scope, ...$node->getStmts() ?? [])],
+            $node instanceof VariableWritesNode                          => [$this->functionWrites($node, $scope)],
+            $node instanceof InClassMethodNode, $node instanceof InFunctionNode,
+            $node instanceof InClosureNode, $node instanceof InArrowFunctionNode => $this->parameters($node, $scope),
+            $node instanceof Assign                                      => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope), ...$this->bindings($node, $scope)],
+            $node instanceof AssignRef                                   => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope, true)],
+            $node instanceof CoalesceAssign, $node instanceof PlusAssign => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope), ...$this->bindings($node, $scope)],
+            $node instanceof AssignOp, $node instanceof PreInc, $node instanceof PreDec,
+            $node instanceof PostInc, $node instanceof PostDec           => [...$this->writes($node, $node->var, $scope), ...$this->bindings($node, $scope)],
             $node instanceof Return_                                     => [...$this->returned($node, $scope), ...$this->asserted($node, $scope)],
-            $node instanceof Foreach_                                    => [...$this->iterated($node, $scope), ...$this->asserted($node, $scope)],
+            $node instanceof Foreach_                                    => [...$this->iterated($node, $scope), ...$this->asserted($node, $scope), $this->record(self::LOOP, $scope, $node)],
+            $node instanceof For_, $node instanceof While_, $node instanceof Do_ => [...$this->asserted($node, $scope), $this->record(self::LOOP, $scope, $node)],
+            $node instanceof Global_                                     => [...$this->globals($node, $scope), ...$this->asserted($node, $scope)],
+            $node instanceof Yield_                                      => $this->yielded($node, $scope),
             $node instanceof YieldFrom                                   => $this->keysRead($node, $node->expr, 'yields its keys with yield from', $scope),
             $node instanceof ArrayItem && $node->unpack                  => $this->keysRead($node, $node->value, self::SPREADS, $scope, false),
             $node instanceof CallLike  && !$node->isFirstClassCallable() => $this->passed($node, $scope),
+            $node instanceof Stmt                                        => $this->isStatementInCode($node) ? $this->asserted($node, $scope) : [],
             default                                                      => [],
         };
 
@@ -294,7 +437,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      *
      * @return NumericStringArrayKeyRecord
      */
-    private function record(string $kind, Scope $scope, Node $node, string $variable = '', array $depths = [], string $text = '', array $uses = [], string $key = ''): array
+    private function record(string $kind, Scope $scope, Node $node, string $variable = '', array $depths = [], string $text = '', array $uses = [], string $key = '', string $unless = ''): array
     {
         return [
             'kind'        => $kind,
@@ -307,7 +450,15 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             'end'         => $node->getEndFilePos(),
             'text'        => $text,
             'uses'        => $uses,
+            'unless'      => $unless,
         ];
+    }
+
+    /** Whether PHPStan applies an inline `@var` on the statement, as it does on any in code. */
+    private function isStatementInCode(Stmt $statement): bool
+    {
+        return !$statement instanceof ClassLike && !$statement instanceof Property && !$statement instanceof ClassConst && !$statement instanceof Const_
+            && !$statement instanceof Namespace_ && !$statement instanceof Use_ && !$statement instanceof GroupUse && !$statement instanceof Declare_;
     }
 
     /**
@@ -326,6 +477,35 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     }
 
     /**
+     * The local variable an expression is, or an element of: its name, the
+     * keys from it outward, and how it is written. `$GLOBALS['name']` is the
+     * global variable of that name.
+     *
+     * @return array{string, list<Expr|null>, string}|null
+     */
+    private function target(Expr $expr): ?array
+    {
+        $keys = [];
+        while ($expr instanceof ArrayDimFetch) {
+            array_unshift($keys, $expr->dim);
+            $expr = $expr->var;
+        }
+
+        if (!$expr instanceof Variable || !\is_string($expr->name) || self::THIS === $expr->name) {
+            return null;
+        }
+
+        $global = $keys[0] ?? null;
+        if ('GLOBALS' === $expr->name && $global instanceof String_) {
+            array_shift($keys);
+
+            return [self::GLOBALS . $global->value, $keys, \sprintf("\$GLOBALS['%s']", $global->value)];
+        }
+
+        return [$expr->name, $keys, '$' . $expr->name];
+    }
+
+    /**
      * Each key of the written element that may be all digits: recorded against
      * a local variable, or against a property declared string-keyed at its depth.
      *
@@ -333,22 +513,23 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      */
     private function writes(Expr $write, Expr $target, Scope $scope): array
     {
-        $keys = [];
-        $root = $target;
+        $local = $this->target($target);
+        $keys  = [];
+        $root  = $target;
         while ($root instanceof ArrayDimFetch) {
             array_unshift($keys, $root->dim);
             $root = $root->var;
         }
 
         $records = [];
-        foreach ($keys as $depth => $key) {
+        foreach (null === $local ? $keys : $local[1] as $depth => $key) {
             if (!$key instanceof Expr || !$this->mayBeAllDigits($key, $scope)) {
                 continue;
             }
 
             $keyName = $this->keyName($key);
-            if ($root instanceof Variable && \is_string($root->name)) {
-                $records[] = $this->record(self::WRITE, $scope, $write, $root->name, [$depth], '$' . $root->name . str_repeat(self::NESTED, $depth), key: $keyName);
+            if (null !== $local) {
+                $records[] = $this->record(self::WRITE, $scope, $write, $local[0], [$depth], $local[2] . str_repeat(self::NESTED, $depth), key: $keyName);
 
                 continue;
             }
@@ -371,71 +552,263 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     }
 
     /**
-     * Each key that may be all digits made by the value assigned to a local
-     * variable, recorded as a write into the variable at the key's depth.
+     * A value assigned (or added with `+=`, `??=`, or made a reference with
+     * `=&`) to a variable, an element of one or a property: the keys it makes
+     * are writes into the variable at their depth, the variables it holds are
+     * handed on at theirs, and a property, or an element of one, takes it as
+     * its declared type.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
-    private function madeWrites(Assign $assign, Scope $scope): array
+    private function assigned(Expr $node, Expr $target, Expr $value, Scope $scope, bool $byReference = false): array
     {
-        if (!$assign->var instanceof Variable || !\is_string($assign->var->name)) {
-            return [];
+        $records = [];
+        $local   = $this->target($target);
+        if (null !== $local) {
+            [$variable, $keys, $text] = $local;
+            $levels                   = \count($keys);
+            foreach ($this->madeKeys($value, $levels, $scope) as [$depth, $key, , $unless]) {
+                $records[] = $this->record(self::WRITE, $scope, $node, $variable, [$depth], $text . str_repeat(self::NESTED, $depth), key: $key, unless: $unless);
+            }
+
+            foreach ($this->localArrays($value, $scope) as [$source, $depth]) {
+                $offset = $depth - $levels;
+                if ($source !== $variable || 0 !== $offset) {
+                    $records[] = $this->record(self::COPY, $scope, $node, $source, [$offset], key: $variable);
+                    if ($byReference) {
+                        $records[] = $this->record(self::COPY, $scope, $node, $variable, [-$offset], key: $source);
+                    }
+                }
+            }
+
+            $referenced = $byReference ? $this->declaredTargetType($value, $scope) : null;
+            $depths     = null === $referenced ? [] : $this->stringKeyedDepths($referenced[0]);
+            if (null !== $referenced && [] !== $depths) {
+                $records[] = $this->record(
+                    self::USE,
+                    $scope,
+                    $node,
+                    $variable,
+                    array_map(static fn (int $depth): int => $depth + $levels, $depths),
+                    'makes it a reference to ' . $referenced[1] . self::DECLARED_AS . ' ' . $referenced[0]->describe(VerbosityLevel::typeOnly()),
+                );
+            }
+        } elseif ($target instanceof List_ || $target instanceof Array_) {
+            foreach ($this->destructured($target, new MixedType(), $scope) as [$element, $below]) {
+                foreach ($this->localArrays($value, $scope) as [$source, $depth]) {
+                    $records[] = $this->record(self::COPY, $scope, $node, $source, [$depth + $below], key: (string) $element->name);
+                }
+            }
         }
 
-        $variable = $assign->var->name;
-        $records  = [];
-        foreach ($this->madeKeys($assign->expr, 0, $scope) as [$depth, $key]) {
-            $records[] = $this->record(self::WRITE, $scope, $assign, $variable, [$depth], '$' . $variable . str_repeat(self::NESTED, $depth), key: $key);
+        $declared = $this->declaredTargetType($target, $scope);
+        if (null !== $declared) {
+            $records = [...$records, ...$this->declaredUse($node, $value, $declared[0], 'assigns it to ' . $declared[1] . self::DECLARED_AS, $scope)];
         }
 
         return $records;
     }
 
     /**
-     * The keys that may be all digits an expression makes without an element
-     * write, each as [its depth, the key's variable name or '', what makes it]:
-     * an array literal's, at every depth of nesting and spreading; those of a
-     * function that keys its result by values; and those a function that keeps
-     * its arguments' keys is given.
+     * What PHPStan knew of each local variable an assignment writes, at the
+     * position it records the write: the depths whose keys it typed string.
      *
-     * @return list<array{int, string, string}>
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function bindings(Expr $node, Scope $scope): array
+    {
+        if (!$node instanceof Assign && !$node instanceof AssignOp && !$node instanceof PreInc && !$node instanceof PreDec && !$node instanceof PostInc && !$node instanceof PostDec) {
+            return [];
+        }
+
+        $target = $node->var;
+        if ($target instanceof List_ || $target instanceof Array_) {
+            return $node instanceof Assign ? $this->destructuredBindings($target, $scope->getType($node->expr), $scope) : [];
+        }
+
+        if ($target instanceof Variable && \is_string($target->name)) {
+            $type = $node instanceof Assign ? $scope->getType($node->expr) : $scope->getType($node);
+            $text = $node instanceof Assign && $node->expr instanceof New_ && $this->keysByPathName($node->expr, $scope) ? self::PATH_NAMES : '';
+
+            return [$this->record(self::BINDING, $scope, $target, $target->name, $this->knownDepths($type), $text)];
+        }
+
+        $local = $this->target($target);
+        if (null === $local || str_starts_with($local[0], self::GLOBALS)) {
+            return [];
+        }
+
+        $levels = \count($local[1]);
+        $value  = $node instanceof Assign ? $this->knownDepths($scope->getType($node->expr)) : [];
+        $known  = [];
+        foreach ($local[1] as $depth => $key) {
+            if ($key instanceof Expr && $scope->getType($key)->isString()->yes()) {
+                $known[] = $depth;
+            }
+        }
+
+        foreach ($value as $depth) {
+            $known[] = $depth + $levels;
+        }
+
+        return [$this->record(self::BINDING, $scope, $target, $local[0], $known)];
+    }
+
+    /**
+     * The variables a destructuring writes, each with what PHPStan knew of the
+     * element it takes.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function destructuredBindings(List_|Array_ $list, Type $type, Scope $scope): array
+    {
+        $records = [];
+        foreach ($this->destructured($list, $type, $scope) as [$variable, , $element]) {
+            $records[] = $this->record(self::BINDING, $scope, $variable, (string) $variable->name, $this->knownDepths($element));
+        }
+
+        return $records;
+    }
+
+    /**
+     * The variables a destructuring writes, each with how many levels below
+     * the destructured value it lies and the type of the element it takes.
+     *
+     * @return list<array{Variable, int, Type}>
+     */
+    private function destructured(List_|Array_ $list, Type $type, Scope $scope, int $depth = 1): array
+    {
+        $found = [];
+        $index = 0;
+        foreach ($list->items as $item) {
+            if (!$item instanceof ArrayItem) {
+                ++$index;
+
+                continue;
+            }
+
+            $offset  = $item->key instanceof Expr ? $scope->getType($item->key) : new ConstantIntegerType($index++);
+            $element = $type->getOffsetValueType($offset);
+            if ($item->value instanceof Variable && \is_string($item->value->name)) {
+                $found[] = [$item->value, $depth, $element];
+            } elseif (($item->value instanceof List_ || $item->value instanceof Array_) && $depth < self::MAX_DEPTH) {
+                $found = [...$found, ...$this->destructured($item->value, $element, $scope, $depth + 1)];
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * The depths at which PHPStan knows a value's keys to be strings: those of
+     * an array part that holds none are known too.
+     *
+     * @return list<int>
+     */
+    private function knownDepths(Type $type): array
+    {
+        $known = [];
+        $empty = false;
+        for ($depth = 0; $depth < self::MAX_DEPTH; ++$depth) {
+            $type = TypeCombinator::intersect($type, new IterableType(new MixedType(), new MixedType()));
+            if ($empty || $type->isIterableAtLeastOnce()->no()) {
+                $empty   = true;
+                $known[] = $depth;
+
+                continue;
+            }
+
+            if (!$type->isIterable()->yes()) {
+                break;
+            }
+
+            if ($type->getIterableKeyType()->isString()->yes()) {
+                $known[] = $depth;
+            }
+
+            $type = $type->getIterableValueType();
+        }
+
+        return $known;
+    }
+
+    /**
+     * The keys that may be all digits an expression makes without an element
+     * write, each as [its depth, the key's variable name or '', what makes it,
+     * the variable holding an iterator whose keys they are or '']: an array
+     * literal's, at every depth of nesting and spreading; those of a function
+     * that keys its result by values; and those a function or class that keeps
+     * its arguments' keys is given, through any operator or branch.
+     *
+     * @return list<array{int, string, string, string}>
      */
     private function madeKeys(Expr $expr, int $depth, Scope $scope): array
     {
+        $branches = $this->branches($expr);
+        if (null !== $branches) {
+            $keys = [];
+            foreach ($branches as $branch) {
+                $keys = [...$keys, ...$this->madeKeys($branch, $depth, $scope)];
+            }
+
+            return $keys;
+        }
+
         if ($expr instanceof Array_) {
             return $this->literalKeys($expr, $depth, $scope);
         }
 
-        if (!$expr instanceof FuncCall || !$expr->name instanceof Name || $expr->isFirstClassCallable()) {
+        if (!$expr instanceof CallLike || $expr->isFirstClassCallable()) {
             return [];
         }
 
-        $function = $expr->name->toString();
-        $lower    = strtolower(ltrim($function, '\\'));
-        if (\in_array($lower, self::KEY_MAKING_FUNCTIONS, true)) {
-            return $this->madeByValues($expr, $lower, $scope) ? [[$depth, '', 'The result of ' . $function . '()']] : [];
+        $function = $this->functionName($expr);
+        if (null !== $function && \in_array($function, self::KEY_MAKING_FUNCTIONS, true) && $expr instanceof FuncCall && $expr->name instanceof Name) {
+            $unless = $this->madeByValues($expr, $function, $scope);
+
+            return null === $unless ? [] : [[$depth, '', 'The result of ' . $expr->name->toString() . '()', $unless]];
         }
 
         $keys = [];
-        foreach ($this->keptArguments($expr, $lower, $scope) as $kept) {
-            $keys = [...$keys, ...$this->madeKeys($kept, $depth, $scope)];
+        foreach ($this->keptArguments($expr, $scope) as [$kept, $shift]) {
+            $keys = [...$keys, ...$this->madeKeys($kept, $depth + $shift, $scope)];
         }
 
         return $keys;
     }
 
     /**
+     * The expressions whose value an expression may be: both branches of a
+     * ternary, each arm of a match, both sides of `??` and of `+`, the value
+     * assigned, or what is cast or silenced; null for any other expression.
+     *
+     * @return list<Expr>|null
+     */
+    private function branches(Expr $expr): ?array
+    {
+        return match (true) {
+            $expr instanceof Ternary                                         => [$expr->if ?? $expr->cond, $expr->else],
+            $expr instanceof Match_                                          => array_map(static fn (MatchArm $arm): Expr => $arm->body, $expr->arms),
+            $expr instanceof Coalesce, $expr instanceof Plus                 => [$expr->left, $expr->right],
+            $expr instanceof CoalesceAssign, $expr instanceof PlusAssign     => [$expr->var, $expr->expr],
+            $expr instanceof Assign, $expr instanceof AssignRef,
+            $expr instanceof ArrayCast, $expr instanceof ErrorSuppress       => [$expr->expr],
+            default                                                          => null,
+        };
+    }
+
+    /**
      * The keys of an array literal, of the literals spread into it and of the
      * values nested in it, that may be all digits, as madeKeys() gives them.
      *
-     * @return list<array{int, string, string}>
+     * @return list<array{int, string, string, string}>
      */
     private function literalKeys(Array_ $array, int $depth, Scope $scope): array
     {
         $keys = [];
         foreach ($array->items as $item) {
             if ($item->key instanceof Expr && $this->mayBeAllDigits($item->key, $scope)) {
-                $keys[] = [$depth, $this->keyName($item->key), self::LITERAL];
+                $keys[] = [$depth, $this->keyName($item->key), self::LITERAL, ''];
             }
 
             if ($depth < self::MAX_DEPTH) {
@@ -448,69 +821,311 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
     /**
      * Whether a function keying its result by values gives keys that may be
-     * all digits. iterator_to_array() over a FilesystemIterator, a
-     * RecursiveDirectoryIterator or a GlobIterator made here takes path names,
-     * which hold a `/`, unless its flags may say KEY_AS_FILENAME.
+     * all digits: null where it does not, '' where it may, and the name of
+     * the variable holding the iterator where iterator_to_array() is given a
+     * variable, whose keys are path names when every write of it is a
+     * filesystem iterator keyed so. iterator_to_array() over a
+     * FilesystemIterator, a RecursiveDirectoryIterator or a GlobIterator made
+     * here takes path names, which hold a `/`, unless its flags may say
+     * KEY_AS_FILENAME.
      */
-    private function madeByValues(FuncCall $call, string $function, Scope $scope): bool
+    private function madeByValues(FuncCall $call, string $function, Scope $scope): ?string
     {
         if (!$this->typeMayBeAllDigits($scope->getType($call)->getIterableKeyType())) {
-            return false;
-        }
-
-        if (self::ITERATOR_TO_ARRAY !== $function) {
-            return true;
+            return null;
         }
 
         $iterator = $call->getArgs()[0] ?? null;
-        if (!$iterator instanceof Arg || !$iterator->value instanceof New_ || !$iterator->value->class instanceof Name
-                                      || !\in_array(strtolower($scope->resolveName($iterator->value->class)), self::FILESYSTEM_ITERATORS, true)) {
-            return true;
+        if (self::ITERATOR_TO_ARRAY !== $function || !$iterator instanceof Arg || $iterator->unpack) {
+            return '';
         }
 
-        $flags = $iterator->value->getArgs()[1] ?? null;
-        if (!$flags instanceof Arg) {
+        if ($iterator->value instanceof Variable && \is_string($iterator->value->name)) {
+            return $iterator->value->name;
+        }
+
+        return $iterator->value instanceof New_ && $this->keysByPathName($iterator->value, $scope) ? null : '';
+    }
+
+    /** Whether a filesystem iterator made here keys by path name: its flags cannot say KEY_AS_FILENAME. */
+    private function keysByPathName(New_ $iterator, Scope $scope): bool
+    {
+        if (!$iterator->class instanceof Name || !\in_array(strtolower($scope->resolveName($iterator->class)), self::FILESYSTEM_ITERATORS, true)) {
             return false;
+        }
+
+        $flags = $iterator->getArgs()[1] ?? null;
+        if (!$flags instanceof Arg) {
+            return true;
         }
 
         $values = $scope->getType($flags->value)->getConstantScalarValues();
 
-        return [] === $values || array_any($values, static fn (mixed $value): bool => !\is_int($value) || 0 !== ($value & FilesystemIterator::KEY_AS_FILENAME));
+        return [] !== $values && !array_any($values, static fn (mixed $value): bool => !\is_int($value) || 0 !== ($value & FilesystemIterator::KEY_AS_FILENAME));
     }
 
     /**
-     * The arguments whose keys a call's result keeps: those of a function in
-     * KEY_PRESERVING_FUNCTIONS, the one array array_map() is given, and the
-     * array of a function told to preserve keys; with each array of a
-     * literal spread into an argument list that takes every argument.
-     *
-     * @return list<Expr>
+     * The function a call names, lower-cased, without a leading backslash or
+     * the Safe\ namespace, whose functions are PHP's that throw; null for any
+     * other call.
      */
-    private function keptArguments(FuncCall $call, string $function, Scope $scope): array
+    private function functionName(CallLike $call): ?string
     {
-        $args = $call->getArgs();
-        if (\array_key_exists($function, self::KEY_PRESERVING_FUNCTIONS)) {
-            $positions = self::KEY_PRESERVING_FUNCTIONS[$function];
-        } elseif (self::ARRAY_MAP === $function && self::ARRAY_MAP_WITH_ONE_ARRAY === \count($args)) {
-            $positions = [1];
-        } elseif ($this->preservesKeys($function, $scope, ...$args)) {
-            $positions = [0];
-        } else {
+        if (!$call instanceof FuncCall || !$call->name instanceof Name || $call->isFirstClassCallable()) {
+            return null;
+        }
+
+        $name = strtolower(ltrim($call->name->toString(), '\\'));
+
+        return str_starts_with($name, self::SAFE) ? substr($name, \strlen(self::SAFE)) : $name;
+    }
+
+    /**
+     * The arguments whose keys a call's result keeps, each with the depth in
+     * the result its own keys land at: those of a function in
+     * KEY_PRESERVING_FUNCTIONS, the one array array_map() is given, the array
+     * of a function told to preserve keys, the array an ArrayObject or
+     * ArrayIterator is made from or hands back, and an argument whose keys
+     * are a template of the callee that its return type has as keys; with
+     * each array of a literal spread into an argument list that takes every
+     * argument.
+     *
+     * @return list<array{Expr, int}>
+     */
+    private function keptArguments(CallLike $call, Scope $scope): array
+    {
+        if ($call->isFirstClassCallable()) {
             return [];
         }
 
-        $kept = [];
+        $args     = $call->getArgs();
+        $function = $this->functionName($call);
+        if ($call instanceof New_) {
+            return $this->isKeyKeeping($call, $scope) && isset($args[0]) && !$args[0]->unpack ? [[$args[0]->value, 0]] : [];
+        }
+
+        if (($call instanceof MethodCall || $call instanceof NullsafeMethodCall) && $call->name instanceof Identifier && self::GET_ARRAY_COPY === $call->name->toLowerString()
+                                                                               && $this->holdsKeyKeeping($scope->getType($call->var))) {
+            return [[$call->var, 0]];
+        }
+
+        if (null !== $function && \array_key_exists($function, self::KEY_PRESERVING_FUNCTIONS)) {
+            return array_map(static fn (Expr $kept): array => [$kept, 0], $this->argumentsAt(self::KEY_PRESERVING_FUNCTIONS[$function], ...$args));
+        }
+
+        if (self::ARRAY_MAP === $function) {
+            return self::ARRAY_MAP_WITH_ONE_ARRAY === \count($args) && !$args[1]->unpack ? [[$args[1]->value, 0]] : [];
+        }
+
+        if (null !== $function && $this->preservesKeys($function, $scope, ...$args)) {
+            $shift = self::ARRAY_CHUNK === $function ? 1 : 0;
+
+            return array_map(static fn (Expr $kept): array => [$kept, $shift], $this->argumentsAt([0], ...$args));
+        }
+
+        return null === $function || !$this->isListed($function) ? $this->genericFlows($call, $scope)[0] : [];
+    }
+
+    /** Whether a function is one this collector knows by name, so that its signature is not read for what it does with keys. */
+    private function isListed(string $function): bool
+    {
+        return \array_key_exists($function, self::KEY_READING_FUNCTIONS) || \array_key_exists($function, self::KEY_PRESERVING_FUNCTIONS) || \array_key_exists($function, self::RENUMBERING_UNLESS_PRESERVED)
+            || \in_array($function, [...self::KEY_MAKING_FUNCTIONS, ...self::COUNTING, self::ARRAY_MAP, self::ARRAY_FILTER], true);
+    }
+
+    /** Whether `new` makes an ArrayObject or an ArrayIterator, or a subclass, which holds the array it is given. */
+    private function isKeyKeeping(New_ $new, Scope $scope): bool
+    {
+        if (!$new->class instanceof Name) {
+            return false;
+        }
+
+        $class = $scope->resolveName($new->class);
+
+        return $this->reflectionProvider->hasClass($class)
+            && array_any(self::KEY_KEEPING_CLASSES, fn (string $keeping): bool => $this->reflectionProvider->getClass($class)->is($keeping));
+    }
+
+    private function holdsKeyKeeping(Type $type): bool
+    {
+        return array_any(self::KEY_KEEPING_CLASSES, static fn (string $keeping): bool => new ObjectType($keeping)->isSuperTypeOf($type)->yes());
+    }
+
+    /**
+     * The arguments at positions, or named as the array PHP's functions read;
+     * every argument, and each item of a literal spread into them, for null.
+     *
+     * @param list<int>|null $positions
+     *
+     * @return list<Expr>
+     */
+    private function argumentsAt(?array $positions, Arg ...$args): array
+    {
+        $found = [];
         foreach ($args as $index => $arg) {
-            if (!$arg->unpack && (null === $positions || \in_array($index, $positions, true))) {
-                $kept[] = $arg->value;
+            $named = $arg->name instanceof Identifier && \in_array($arg->name->toString(), self::KEY_READING_PARAMETERS, true);
+            if (!$arg->unpack && (null === $positions || $named || (!$arg->name instanceof Identifier && \in_array($index, $positions, true)))) {
+                $found[] = $arg->value;
             } elseif ($arg->unpack && null === $positions && $arg->value instanceof Array_) {
                 foreach ($arg->value->items as $item) {
-                    $kept[] = $item->value;
+                    $found[] = $item->value;
                 }
             }
         }
 
-        return $kept;
+        return $found;
+    }
+
+    /**
+     * What a call to a function or method generic in its arguments' keys does
+     * with them, read from its signature, as [the arguments its result keeps,
+     * each with the depth in the result their own keys land at; the arguments
+     * whose keys it hands elsewhere, each with the depth of those keys; for
+     * each argument position, the depths whose keys its parameter takes as a
+     * template of the callee, which the parameter's type declares nothing about].
+     *
+     * @return array{list<array{Expr, int}>, list<array{Expr, int}>, array<int, list<int>>}
+     */
+    private function genericFlows(CallLike $call, Scope $scope): array
+    {
+        $callee = $this->callee($call, $scope);
+        if (null === $callee || $call->isFirstClassCallable()) {
+            return [[], [], []];
+        }
+
+        $kept     = [];
+        $read     = [];
+        $excluded = [];
+        $args     = $call->getArgs();
+        $resolved = ParametersAcceptorSelector::selectFromArgs($scope, $args, $callee->getVariants())->getParameters();
+        foreach ($args as $index => $arg) {
+            $parameter = $arg->unpack ? null : $this->parameterFor($arg, $index, ...$resolved);
+            $declared  = $parameter instanceof ParameterReflection ? $this->unresolved($parameter->getName(), ...$callee->getVariants()) : null;
+            if (null === $declared) {
+                continue;
+            }
+
+            [$variant, $type] = $declared;
+            foreach ($this->keyTemplates($type, $variant) as [$depth, $template]) {
+                $excluded[$index][] = $depth;
+                $returned           = $this->templateKeyDepths($variant->getReturnType(), $template);
+                foreach ($returned as $landing) {
+                    $kept[] = [$arg->value, $landing - $depth];
+                }
+
+                if ([] === $returned && $this->templateElsewhere($template, $variant, $parameter->getName())) {
+                    $read[] = [$arg->value, $depth];
+                }
+            }
+        }
+
+        return [$kept, $read, $excluded];
+    }
+
+    /**
+     * A parameter as the callee declares it, before its templates are
+     * resolved, with the variant declaring it.
+     *
+     * @return array{ParametersAcceptor, Type}|null
+     */
+    private function unresolved(string $name, ParametersAcceptor ...$variants): ?array
+    {
+        foreach ($variants as $variant) {
+            foreach ($variant->getParameters() as $parameter) {
+                if ($parameter->getName() === $name) {
+                    return [$variant, $parameter->getType()];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The depths whose key type is a template of the variant itself, each with its name.
+     *
+     * @return list<array{int, string}>
+     */
+    private function keyTemplates(Type $type, ParametersAcceptor $variant): array
+    {
+        $found = [];
+        for ($depth = 0; $depth < self::MAX_DEPTH; ++$depth) {
+            $type = TypeCombinator::removeNull($type);
+            if (!$type->isIterable()->yes()) {
+                break;
+            }
+
+            $name = $this->templateName($type->getIterableKeyType());
+            if (null !== $name && $variant->getTemplateTypeMap()->hasType($name)) {
+                $found[] = [$depth, $name];
+            }
+
+            $type = $type->getIterableValueType();
+        }
+
+        return $found;
+    }
+
+    /** @return list<int> */
+    private function templateKeyDepths(Type $type, string $template): array
+    {
+        $found = [];
+        for ($depth = 0; $depth < self::MAX_DEPTH; ++$depth) {
+            $type = TypeCombinator::removeNull($type);
+            if (!$type->isIterable()->yes()) {
+                break;
+            }
+
+            if ($template === $this->templateName($type->getIterableKeyType())) {
+                $found[] = $depth;
+            }
+
+            $type = $type->getIterableValueType();
+        }
+
+        return $found;
+    }
+
+    private function templateName(Type $type): ?string
+    {
+        $name = null;
+        TypeTraverser::map($type, static function (Type $inner) use (&$name): Type {
+            if ($inner instanceof TemplateType) {
+                $name = $inner->getName();
+            }
+
+            return $inner;
+        });
+
+        return $name;
+    }
+
+    /** Whether a template appears in the variant's return type, or in a parameter's type or out type other than the one named. */
+    private function templateElsewhere(string $template, ParametersAcceptor $variant, string $parameterName): bool
+    {
+        $types = [$variant->getReturnType()];
+        foreach ($variant->getParameters() as $parameter) {
+            if ($parameter->getName() !== $parameterName) {
+                $types[] = $parameter->getType();
+            }
+
+            if ($parameter instanceof ExtendedParameterReflection && null !== $parameter->getOutType()) {
+                $types[] = $parameter->getOutType();
+            }
+        }
+
+        $found = false;
+        foreach ($types as $type) {
+            TypeTraverser::map($type, static function (Type $inner, callable $traverse) use (&$found, $template): Type {
+                if ($inner instanceof TemplateType && $template === $inner->getName()) {
+                    $found = true;
+                }
+
+                return $traverse($inner);
+            });
+        }
+
+        return $found;
     }
 
     /** Whether a function that renumbers int keys unless told to keep them is told to. */
@@ -583,6 +1198,28 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         return null;
     }
 
+    /**
+     * The declared type of a property, or of an element of one at its depth, with how it is written.
+     *
+     * @return array{Type, string}|null
+     */
+    private function declaredTargetType(Expr $target, Scope $scope): ?array
+    {
+        $levels = 0;
+        while ($target instanceof ArrayDimFetch) {
+            $target = $target->var;
+            ++$levels;
+        }
+
+        $type = $this->declaredPropertyType($target, $scope);
+        for ($level = 0; $type instanceof Type && $level < $levels; ++$level) {
+            $type = TypeCombinator::removeNull($type);
+            $type = $type->isIterable()->yes() ? $type->getIterableValueType() : null;
+        }
+
+        return $type instanceof Type ? [$type, $this->propertyName($target) . str_repeat(self::NESTED, $levels)] : null;
+    }
+
     private function propertyName(Expr $property): string
     {
         if ($property instanceof PropertyFetch && $property->name instanceof Identifier) {
@@ -641,17 +1278,30 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /**
      * The local variables whose keys an expression has, each as [its name,
      * the depth of the element]: a local variable or an element of one, or
-     * any of them handed through a function that keeps their keys or held in
-     * a literal, where the depth goes below 0 by the levels it is nested.
+     * any of them through an operator or a branch, handed through a function
+     * or class that keeps their keys, or held in a literal, where the depth
+     * goes below 0 by the levels it is nested.
      *
      * @return list<array{string, int}>
      */
     private function localArrays(Expr $expr, Scope $scope): array
     {
-        if ($expr instanceof FuncCall && $expr->name instanceof Name && !$expr->isFirstClassCallable()) {
+        $branches = $this->branches($expr);
+        if (null !== $branches) {
             $locals = [];
-            foreach ($this->keptArguments($expr, strtolower(ltrim($expr->name->toString(), '\\')), $scope) as $kept) {
-                $locals = [...$locals, ...$this->localArrays($kept, $scope)];
+            foreach ($branches as $branch) {
+                $locals = [...$locals, ...$this->localArrays($branch, $scope)];
+            }
+
+            return $locals;
+        }
+
+        if ($expr instanceof CallLike) {
+            $locals = [];
+            foreach ($this->keptArguments($expr, $scope) as [$kept, $shift]) {
+                foreach ($this->localArrays($kept, $scope) as [$variable, $depth]) {
+                    $locals[] = [$variable, $depth - $shift];
+                }
             }
 
             return $locals;
@@ -668,25 +1318,26 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             return $locals;
         }
 
-        $depth = 0;
-        while ($expr instanceof ArrayDimFetch && $expr->dim instanceof Expr) {
-            $expr = $expr->var;
-            ++$depth;
+        $local = $this->target($expr);
+        if (null === $local || array_any($local[1], static fn (?Expr $key): bool => null === $key)) {
+            return [];
         }
 
-        return $expr instanceof Variable && \is_string($expr->name) ? [[$expr->name, $depth]] : [];
+        return [[$local[0], \count($local[1])]];
     }
 
     /**
-     * A local array handed to a place whose declared type has string keys; the
-     * keys an expression makes without an element write are judged there as
-     * they stand.
+     * A local array handed to a place whose declared type has string keys,
+     * at the depths the place declares; the keys an expression makes without
+     * an element write are judged there as they stand.
+     *
+     * @param list<int> $excluded depths whose keys the place takes as a template, declaring nothing
      *
      * @return list<NumericStringArrayKeyRecord>
      */
-    private function declaredUse(Node $node, Expr $value, Type $declared, string $text, Scope $scope): array
+    private function declaredUse(Node $node, Expr $value, Type $declared, string $text, Scope $scope, array $excluded = []): array
     {
-        $depths = $this->stringKeyedDepths($declared);
+        $depths = array_values(array_diff($this->stringKeyedDepths($declared), $excluded));
         if ([] === $depths) {
             return [];
         }
@@ -710,9 +1361,9 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     private function madeUse(Node $node, Expr $value, string $reason, Scope $scope, int ...$depths): array
     {
         $records = [];
-        foreach ($this->madeKeys($value, 0, $scope) as [$depth, $key, $target]) {
+        foreach ($this->madeKeys($value, 0, $scope) as [$depth, $key, $target, $unless]) {
             if (\in_array($depth, $depths, true)) {
-                $records[] = $this->record(self::DECLARED, $scope, $node, $target . str_repeat(self::NESTED, $depth), [$depth], $reason, key: $key);
+                $records[] = $this->record(self::DECLARED, $scope, $node, $target . str_repeat(self::NESTED, $depth), [$depth], $reason, key: $key, unless: $unless);
             }
         }
 
@@ -720,55 +1371,40 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     }
 
     /**
-     * An array whose keys code reads while PHPStan types them string: a local
-     * one, or, unless it is spread into a literal judged where it goes, one
-     * made where it stands.
+     * An array whose keys code reads while PHPStan types them string, at a
+     * depth: a local one, or, unless it is spread into a literal judged where
+     * it goes, one made where it stands.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
-    private function keysRead(Node $node, Expr $value, string $text, Scope $scope, bool $judgeMade = true): array
+    private function keysRead(Node $node, Expr $value, string $text, Scope $scope, bool $judgeMade = true, int $at = 0): array
     {
-        if (!\in_array(0, $this->stringKeyedDepths($scope->getType($value)), true)) {
+        if (!\in_array($at, $this->stringKeyedDepths($scope->getType($value)), true)) {
             return [];
         }
 
         $records = [];
         foreach ($this->localArrays($value, $scope) as [$variable, $depth]) {
-            if ($depth >= 0) {
-                $records[] = $this->record(self::USE, $scope, $node, $variable, [$depth], $text);
+            if ($depth + $at >= 0) {
+                $records[] = $this->record(self::USE, $scope, $node, $variable, [$depth + $at], $text);
             }
         }
 
-        return $judgeMade ? [...$records, ...$this->madeUse($node, $value, \sprintf('line %d %s', $node->getStartLine(), $text), $scope, 0)] : $records;
+        return $judgeMade ? [...$records, ...$this->madeUse($node, $value, \sprintf('line %d %s', $node->getStartLine(), $text), $scope, $at)] : $records;
     }
 
     /**
-     * @return list<NumericStringArrayKeyRecord>
-     */
-    private function propertyAssignment(Assign $assign, Scope $scope): array
-    {
-        $declared = $this->declaredPropertyType($assign->var, $scope);
-
-        return $declared instanceof Type
-            ? $this->declaredUse($assign, $assign->expr, $declared, 'assigns it to ' . $this->propertyName($assign->var) . ', declared', $scope)
-            : [];
-    }
-
-    /**
-     * `$copy = $array`, or `$copy` assigned what a function keeping the keys of `$array` returns.
+     * Each variable `global` names, whose writes and uses every function that
+     * so names it shares.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
-    private function copy(Assign $assign, Scope $scope): array
+    private function globals(Global_ $global, Scope $scope): array
     {
-        if (!$assign->var instanceof Variable || !\is_string($assign->var->name) || !$assign->expr instanceof Variable && !$assign->expr instanceof FuncCall) {
-            return [];
-        }
-
         $records = [];
-        foreach ($this->localArrays($assign->expr, $scope) as [$variable, $depth]) {
-            if (0 === $depth && $variable !== $assign->var->name) {
-                $records[] = $this->record(self::COPY, $scope, $assign, $variable, key: $assign->var->name);
+        foreach ($global->vars as $variable) {
+            if ($variable instanceof Variable && \is_string($variable->name)) {
+                $records[] = $this->record(self::GLOBAL, $scope, $global, $variable->name);
             }
         }
 
@@ -778,26 +1414,24 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /**
      * Each inline `@var` on a statement asserting string keys that may be all
      * digits over a value whose keys at that depth PHPStan does not know to be
-     * strings: the value assigned to the variable the tag names, or names by
-     * default, or else the variable as it is held. PHPStan has applied the tag
-     * to the scope a statement is collected in, so a variable already held is
-     * judged by its native type, which never knows its keys.
+     * strings. A variable the statement binds (assigned, destructured, a
+     * foreach value or key, a static) is judged against the value it binds; a
+     * variable it does not is recorded HELD, for the rule to judge against
+     * every write of it that may reach the statement.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
     private function asserted(Stmt $statement, Scope $scope): array
     {
         $doc = $statement->getDocComment();
-        if (!$doc instanceof \PhpParser\Comment\Doc) {
+        if (!$doc instanceof Doc) {
             return [];
         }
 
-        $value    = null;
-        $assigned = null;
-        if ($statement instanceof Expression && $statement->expr instanceof Assign && $statement->expr->var instanceof Variable && \is_string($statement->expr->var->name)) {
-            $value    = $statement->expr->expr;
-            $assigned = $statement->expr->var->name;
-        }
+        $bound    = $this->boundBy($statement, $scope);
+        $assigned = $statement instanceof Expression && $statement->expr instanceof Assign && $statement->expr->var instanceof Variable && \is_string($statement->expr->var->name)
+            ? $statement->expr->var->name
+            : null;
 
         $tags = $this->fileTypeMapper->getResolvedPhpDoc(
             $scope->getFile(),
@@ -810,43 +1444,79 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         $records = [];
         foreach ($tags as $name => $tag) {
             $variable = \is_string($name) ? $name : $assigned;
-            if (null === $variable) {
+            if (null === $variable || self::THIS === $variable) {
                 continue;
             }
 
-            if ($value instanceof Expr && $variable === $assigned) {
-                $actual = $scope->getType($value);
-            } elseif ($scope->hasVariableType($variable)->yes()) {
-                $actual = $scope->getNativeType(new Variable($variable));
-            } else {
-                continue;
-            }
-
-            $records = [...$records, ...$this->assertedKeys($statement, $variable, $tag->getType(), $actual, $scope)];
+            $records = [...$records, ...$this->assertedKeys($statement, $variable, $tag->getType(), $bound[$variable] ?? null, $scope)];
         }
 
         return $records;
     }
 
     /**
+     * The variables a statement binds, each with the type of what it binds it to.
+     *
+     * @return array<string, Type>
+     */
+    private function boundBy(Stmt $statement, Scope $scope): array
+    {
+        $bound = [];
+        if ($statement instanceof Expression && ($statement->expr instanceof Assign || $statement->expr instanceof AssignRef)) {
+            $target = $statement->expr->var;
+            $value  = $scope->getType($statement->expr->expr);
+            if ($target instanceof Variable && \is_string($target->name)) {
+                $bound[$target->name] = $value;
+            } elseif ($target instanceof List_ || $target instanceof Array_) {
+                foreach ($this->destructured($target, $value, $scope) as [$variable, , $element]) {
+                    $bound[(string) $variable->name] = $element;
+                }
+            }
+        } elseif ($statement instanceof Foreach_) {
+            $iterated = $scope->getType($statement->expr);
+            if ($statement->keyVar instanceof Variable && \is_string($statement->keyVar->name)) {
+                $bound[$statement->keyVar->name] = $iterated->getIterableKeyType();
+            }
+
+            if ($statement->valueVar instanceof Variable && \is_string($statement->valueVar->name)) {
+                $bound[$statement->valueVar->name] = $iterated->getIterableValueType();
+            } elseif ($statement->valueVar instanceof List_ || $statement->valueVar instanceof Array_) {
+                foreach ($this->destructured($statement->valueVar, $iterated->getIterableValueType(), $scope) as [$variable, , $element]) {
+                    $bound[(string) $variable->name] = $element;
+                }
+            }
+        } elseif ($statement instanceof Static_) {
+            foreach ($statement->vars as $static) {
+                if (\is_string($static->var->name) && $static->default instanceof Expr) {
+                    $bound[$static->var->name] = $scope->getType($static->default);
+                }
+            }
+        }
+
+        return $bound;
+    }
+
+    /**
      * @return list<NumericStringArrayKeyRecord>
      */
-    private function assertedKeys(Stmt $statement, string $variable, Type $declared, Type $actual, Scope $scope): array
+    private function assertedKeys(Stmt $statement, string $variable, Type $declared, ?Type $actual, Scope $scope): array
     {
         $records = [];
+        $known   = $actual instanceof Type ? $this->knownDepths($actual) : [];
         foreach ($this->stringKeyedDepths($declared) as $depth) {
             $declaredKey = $this->keyTypeAt($declared, $depth);
-            if (!$declaredKey instanceof Type || !$this->typeMayBeAllDigits($declaredKey) || true === $this->keyTypeAt($actual, $depth)?->isString()->yes()) {
+            if (!$declaredKey instanceof Type || !$this->typeMayBeAllDigits($declaredKey) || \in_array($depth, $known, true)) {
                 continue;
             }
 
             $records[] = $this->record(
-                self::DECLARED,
+                $actual instanceof Type ? self::DECLARED : self::HELD,
                 $scope,
                 $statement,
                 '$' . $variable . str_repeat(self::NESTED, $depth),
                 [$depth],
                 \sprintf('line %d asserts it %s in an inline @var over keys PHPStan does not know', $statement->getStartLine(), $declared->describe(VerbosityLevel::typeOnly())),
+                key: $variable,
             );
         }
 
@@ -866,31 +1536,214 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             $declared = $scope->getAnonymousFunctionReturnType();
         } else {
             $function = $scope->getFunction();
-            $declared = false === $function?->isGenerator() ? $function->getReturnType() : null;
+            $declared = $function?->getReturnType();
+            if (true === $function?->isGenerator()) {
+                $declared = $declared?->getTemplateType(Generator::class, 'TReturn');
+            }
         }
 
         return $declared instanceof Type ? $this->declaredUse($return, $return->expr, $declared, 'returns it as', $scope) : [];
     }
 
     /**
+     * A value a generator yields, taken as the value type its return type declares.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function yielded(Yield_ $yield, Scope $scope): array
+    {
+        if (!$yield->value instanceof Expr) {
+            return [];
+        }
+
+        $declared = $scope->isInAnonymousFunction() ? $scope->getAnonymousFunctionReturnType() : $scope->getFunction()?->getReturnType();
+        if (!$declared instanceof Type || !$declared->isIterable()->yes()) {
+            return [];
+        }
+
+        return $this->declaredUse($yield, $yield->value, $declared->getIterableValueType(), 'yields it as', $scope);
+    }
+
+    /**
      * A foreach reads the keys of what it iterates; over an array, its key
-     * variable holds a key PHP made, for as long as the loop body leaves it alone.
+     * variable holds a key PHP made, for as long as the loop body leaves it
+     * alone; its value variable holds the elements of what it iterates, by
+     * reference their very elements; and PHPStan knew the value's keys at the
+     * depths it typed them.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
     private function iterated(Foreach_ $foreach, Scope $scope): array
     {
+        $records = [...$this->elementCopies($foreach, $scope), ...$this->foreachBindings($foreach, $scope)];
         if (!$foreach->keyVar instanceof Expr) {
-            return [];
+            return $records;
         }
 
-        $records = $this->keysRead($foreach, $foreach->expr, 'reads its keys with foreach', $scope);
+        $records = [...$records, ...$this->keysRead($foreach, $foreach->expr, 'reads its keys with foreach', $scope)];
         if ($foreach->keyVar instanceof Variable && \is_string($foreach->keyVar->name) && $scope->getType($foreach->expr)->isArray()->yes()
                                                  && !$this->mayRebind($foreach->keyVar->name, $scope, ...$foreach->stmts)) {
             $records[] = $this->record(self::KEY_BINDING, $scope, $foreach, $foreach->keyVar->name);
         }
 
         return $records;
+    }
+
+    /**
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function elementCopies(Foreach_ $foreach, Scope $scope): array
+    {
+        $targets = [];
+        if ($foreach->valueVar instanceof Variable && \is_string($foreach->valueVar->name)) {
+            $targets[] = [$foreach->valueVar->name, 1];
+        } elseif ($foreach->valueVar instanceof List_ || $foreach->valueVar instanceof Array_) {
+            foreach ($this->destructured($foreach->valueVar, new MixedType(), $scope, 2) as [$variable, $depth]) {
+                $targets[] = [(string) $variable->name, $depth];
+            }
+        }
+
+        $records = [];
+        foreach ($this->localArrays($foreach->expr, $scope) as [$source, $depth]) {
+            foreach ($targets as [$target, $below]) {
+                $records[] = $this->record(self::COPY, $scope, $foreach, $source, [$depth + $below], key: $target);
+                if ($foreach->byRef) {
+                    $records[] = $this->record(self::COPY, $scope, $foreach, $target, [-$depth - $below], key: $source);
+                }
+            }
+        }
+
+        return $records;
+    }
+
+    /**
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function foreachBindings(Foreach_ $foreach, Scope $scope): array
+    {
+        $iterated = $scope->getType($foreach->expr);
+        $records  = [];
+        if ($foreach->keyVar instanceof Variable && \is_string($foreach->keyVar->name)) {
+            $records[] = $this->record(self::BINDING, $scope, $foreach->keyVar, $foreach->keyVar->name, $this->knownDepths($iterated->getIterableKeyType()));
+        }
+
+        if ($foreach->byRef) {
+            return $records;
+        }
+
+        if ($foreach->valueVar instanceof Variable && \is_string($foreach->valueVar->name)) {
+            $records[] = $this->record(self::BINDING, $scope, $foreach->valueVar, $foreach->valueVar->name, $this->knownDepths($iterated->getIterableValueType()));
+        } elseif ($foreach->valueVar instanceof List_ || $foreach->valueVar instanceof Array_) {
+            $records = [...$records, ...$this->destructuredBindings($foreach->valueVar, $iterated->getIterableValueType(), $scope)];
+        }
+
+        return $records;
+    }
+
+    /**
+     * What PHPStan knew of each parameter and imported variable where the
+     * function-like starts, and each by-reference parameter, which hands the
+     * array back to the caller as its declared type.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function parameters(InClassMethodNode|InFunctionNode|InClosureNode|InArrowFunctionNode $node, Scope $scope): array
+    {
+        $function = $node->getOriginalNode();
+        $records  = [];
+        $declared = match (true) {
+            $node instanceof InClassMethodNode => $node->getMethodReflection()->getVariants()[0]->getParameters(),
+            $node instanceof InFunctionNode    => $node->getFunctionReflection()->getVariants()[0]->getParameters(),
+            default                            => $node->getClosureType()->getParameters(),
+        };
+
+        foreach ($function->getParams() as $index => $param) {
+            if (!$param->var instanceof Variable || !\is_string($param->var->name)) {
+                continue;
+            }
+
+            $records[]  = $this->record(self::BINDING, $scope, $param->var, $param->var->name, $this->knownDepths($scope->getType($param->var)));
+            $reflection = $declared[$index] ?? null;
+            if ($param->byRef && $reflection instanceof ParameterReflection) {
+                $out       = $reflection instanceof ExtendedParameterReflection ? $reflection->getOutType() ?? $reflection->getType() : $reflection->getType();
+                $records   = [...$records, ...$this->declaredUse($param, $param->var, $out, 'hands it back by reference as', $scope)];
+            }
+        }
+
+        if ($function instanceof Closure) {
+            foreach ($function->uses as $use) {
+                if (\is_string($use->var->name) && !$use->byRef) {
+                    $records[] = $this->record(self::BINDING, $scope, $use->var, $use->var->name, $this->knownDepths($scope->getType($use->var)));
+                }
+            }
+        }
+
+        return $records;
+    }
+
+    /**
+     * Each write of a local variable in a function-like body, where PHPStan
+     * records it.
+     *
+     * @return NumericStringArrayKeyRecord
+     */
+    private function functionWrites(VariableWritesNode $node, Scope $scope): array
+    {
+        $function = $node->getFunctionLike();
+        $writes   = [];
+        foreach ($node->getWrites() as $write) {
+            if (null === $write->getParentId()) {
+                $name     = $write->getVariableName();
+                $writes[] = $name . '@' . ($node->isUntracked($name) ? self::UNTRACKED : $write->getNode()->getStartFilePos());
+            }
+        }
+
+        $opaque = $node->isOpaque() || $node->areAllVariableNamesReferenced()
+            || new NodeFinder()->findFirst($function->getStmts() ?? [], static fn (Node $inner): bool => $inner instanceof Variable && !\is_string($inner->name)) instanceof Node;
+
+        return $this->record(self::WRITES, $scope, $function, uses: $writes, key: $opaque ? self::ANY : '');
+    }
+
+    /**
+     * Each use of a variable handed to iterator_to_array() other than that, a
+     * foreach over it, or an assignment to it: a call that may change its
+     * flags or hand it on.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function escapes(Scope $scope, Node ...$statements): array
+    {
+        $finder  = new NodeFinder();
+        $allowed = [];
+        $names   = [];
+        foreach ($finder->find($statements, static fn (Node $node): bool => $node instanceof FuncCall || $node instanceof Foreach_ || $node instanceof Assign) as $node) {
+            $variable = match (true) {
+                $node instanceof FuncCall => $this->isIteratorToArray($node) ? $node->getArgs()[0]->value ?? null : null,
+                $node instanceof Foreach_ => $node->expr,
+                $node instanceof Assign   => $node->var,
+                default                   => null,
+            };
+            if ($variable instanceof Variable && \is_string($variable->name)) {
+                $allowed[spl_object_id($variable)] = true;
+                if ($node instanceof FuncCall) {
+                    $names[$variable->name] = true;
+                }
+            }
+        }
+
+        $records = [];
+        foreach ($finder->find($statements, static fn (Node $node): bool => $node instanceof Variable && \is_string($node->name) && isset($names[$node->name]) && !isset($allowed[spl_object_id($node)])) as $use) {
+            if ($use instanceof Variable && \is_string($use->name)) {
+                $records[] = $this->record(self::ESCAPE, $scope, $use, $use->name);
+            }
+        }
+
+        return $records;
+    }
+
+    private function isIteratorToArray(FuncCall $call): bool
+    {
+        return self::ITERATOR_TO_ARRAY === $this->functionName($call) && isset($call->getArgs()[0]) && !$call->getArgs()[0]->unpack;
     }
 
     /**
@@ -1025,8 +1878,9 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             }
         }
 
-        if ($call instanceof FuncCall && $call->name instanceof Name) {
-            $records = [...$records, ...$this->keysReadBy($call->name->toString(), $scope, $call, ...$args), ...$this->keysNeverRead($call, $scope)];
+        $function = $this->functionName($call);
+        if (null !== $function && $call instanceof FuncCall) {
+            $records = [...$records, ...$this->keysReadBy($function, $scope, $call, ...$args), ...$this->keysNeverRead($call, $scope)];
         }
 
         $callee = $this->callee($call, $scope);
@@ -1034,11 +1888,18 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             return $records;
         }
 
+        [, $read, $excluded] = $this->genericFlows($call, $scope);
+        if (null === $function || !$this->isListed($function)) {
+            foreach ($read as [$value, $depth]) {
+                $records = [...$records, ...$this->keysRead($call, $value, 'reads its keys with ' . $this->calleeName($call), $scope, true, $depth)];
+            }
+        }
+
         $parameters = ParametersAcceptorSelector::selectFromArgs($scope, $args, $callee->getVariants())->getParameters();
         foreach ($args as $index => $arg) {
             $parameter = $arg->unpack ? null : $this->parameterFor($arg, $index, ...$parameters);
             if ($parameter instanceof ParameterReflection) {
-                $records = [...$records, ...$this->declaredUse($call, $arg->value, $parameter->getType(), 'passes it to ' . $this->calleeName($call) . ' as', $scope)];
+                $records = [...$records, ...$this->declaredUse($call, $arg->value, $parameter->getType(), 'passes it to ' . $this->calleeName($call) . ' as', $scope, $excluded[$index] ?? [])];
             }
         }
 
@@ -1053,19 +1914,15 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      */
     private function keysNeverRead(FuncCall $call, Scope $scope): array
     {
-        if (!$call->name instanceof Name) {
-            return [];
-        }
-
-        $args  = $call->getArgs();
-        $inner = match (true) {
-            \in_array($call->name->toLowerString(), self::COUNTING, true)                                                                     => $args[0] ?? null,
-            self::ARRAY_MAP === $call->name->toLowerString() && self::ARRAY_MAP_WITH_ONE_ARRAY === \count($args) && $this->isStrval($args[0]) => $args[1],
-            default                                                                                                                           => null,
+        $function = $this->functionName($call);
+        $args     = $call->getArgs();
+        $inner    = match (true) {
+            \in_array($function, self::COUNTING, true)                                                                      => $args[0] ?? null,
+            self::ARRAY_MAP === $function && self::ARRAY_MAP_WITH_ONE_ARRAY === \count($args) && $this->isStrval($args[0]) => $args[1],
+            default                                                                                                         => null,
         };
 
-        return $inner instanceof Arg && !$inner->unpack && $inner->value instanceof FuncCall && $inner->value->name instanceof Name
-                                     && self::ARRAY_KEYS === $inner->value->name->toLowerString()
+        return $inner instanceof Arg && !$inner->unpack && $inner->value instanceof FuncCall && self::ARRAY_KEYS === $this->functionName($inner->value)
             ? [$this->record(self::UNREAD, $scope, $inner->value)]
             : [];
     }
@@ -1086,33 +1943,48 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      */
     private function keysReadBy(string $function, Scope $scope, FuncCall $call, Arg ...$args): array
     {
-        $lower = strtolower(ltrim($function, '\\'));
-        if ($this->preservesKeys($lower, $scope, ...$args) || $this->callbackTakesNoKey($lower, ...$args)) {
+        if ($this->preservesKeys($function, $scope, ...$args) || $this->callbackTakesNoKey($function, ...$args) || $this->writesNoKey($function, $scope, ...$args)) {
             return [];
         }
 
-        if (\array_key_exists($lower, self::KEY_READING_FUNCTIONS)) {
-            $positions = self::KEY_READING_FUNCTIONS[$lower];
-        } elseif (self::ARRAY_FILTER === $lower && \count($args) >= self::ARRAY_FILTER_WITH_MODE) {
+        if (\array_key_exists($function, self::KEY_READING_FUNCTIONS)) {
+            $positions = self::KEY_READING_FUNCTIONS[$function];
+        } elseif (self::ARRAY_FILTER === $function && \count($args) >= self::ARRAY_FILTER_WITH_MODE) {
             $positions = [0];
         } else {
             return [];
         }
 
-        $text    = 'reads its keys with ' . $function . '()';
+        $text    = 'reads its keys with ' . $this->calleeName($call);
         $records = [];
-        foreach ($args as $index => $arg) {
-            $named = $arg->name instanceof Identifier && \in_array($arg->name->toString(), self::KEY_READING_PARAMETERS, true);
-            if (!$arg->unpack && (null === $positions || $named || (!$arg->name instanceof Identifier && \in_array($index, $positions, true)))) {
-                $records = [...$records, ...$this->keysRead($call, $arg->value, $text, $scope)];
-            } elseif ($arg->unpack && null === $positions && $arg->value instanceof Array_) {
-                foreach ($arg->value->items as $item) {
-                    $records = [...$records, ...$this->keysRead($call, $item->value, $text, $scope)];
-                }
-            }
+        foreach ($this->argumentsAt($positions, ...$args) as $value) {
+            $records = [...$records, ...$this->keysRead($call, $value, $text, $scope)];
         }
 
         return $records;
+    }
+
+    /**
+     * Whether json_encode() is told to write every array as an object, or
+     * http_build_query() is given no numeric prefix: an int key is then
+     * written as its string would be.
+     */
+    private function writesNoKey(string $function, Scope $scope, Arg ...$args): bool
+    {
+        $option = $args[1] ?? null;
+        if (self::JSON_ENCODE === $function) {
+            $flags = $option instanceof Arg && !$option->unpack ? $scope->getType($option->value)->getConstantScalarValues() : [];
+
+            return [] !== $flags && array_all($flags, static fn (mixed $value): bool => \is_int($value) && 0 !== ($value & \JSON_FORCE_OBJECT));
+        }
+
+        if (self::HTTP_BUILD_QUERY === $function) {
+            $prefixes = $option instanceof Arg && !$option->unpack ? $scope->getType($option->value)->getConstantScalarValues() : [null];
+
+            return [] !== $prefixes && array_all($prefixes, static fn (mixed $value): bool => null === $value || '' === $value);
+        }
+
+        return false;
     }
 
     /**
