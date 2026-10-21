@@ -155,6 +155,16 @@
 #                                          decide what the test sees. See
 #                                          docs/phpstan-rules/forbid-unisolated-git-process.md
 #
+# PHP WARNINGS KEPT OUT OF CAPTURED OUTPUT:
+#   ForbidPhpWarningsInCapturedOutputRule — PHP run with its output captured (a Symfony
+#                                          Process, a ProcessSpecDto, or Composer's
+#                                          ProcessExecutor::execute() given $output) passes
+#                                          -d display_errors=stderr: the PHP CLI displays
+#                                          errors on stdout, so a warning or deprecation
+#                                          otherwise becomes part of the captured value. Its
+#                                          collector is registered under services: below. See
+#                                          docs/phpstan-rules/forbid-php-warnings-in-captured-output.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -187,6 +197,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidPhpWarningsInCapturedOutputRule
 
 parameters:
     phpqaciFactorySealed:
@@ -224,5 +235,10 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector
+        tags:
+            - phpstan.collector
+    # The collector ForbidPhpWarningsInCapturedOutputRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\CapturedPhpOutputCollector
         tags:
             - phpstan.collector

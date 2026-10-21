@@ -32,12 +32,14 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\ShellFileFinder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\CapturedPhpOutputScanner::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
+#[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class ShellCheckToolTest extends TestCase
@@ -109,6 +111,50 @@ final class ShellCheckToolTest extends TestCase
         self::assertStringContainsString('scripts/build.bash line 3', $printed);
         self::assertStringContainsString('SC2034', $printed);
         self::assertStringContainsString(ShellCheckTool::IDENTIFIER, $printed);
+    }
+
+    /** ShellCheck passes the script, and the lane still finds PHP whose warnings land in a captured value. */
+    #[Test]
+    public function aCommandSubstitutionCapturingPhpWithItsWarningsOnStdoutFailsTheLaneOnItsLine(): void
+    {
+        $this->factory->project->write(self::BUILD, "#!/usr/bin/env bash\nversion=\"\$(php vendor-phar/tool.phar --version)\"\n");
+        $this->queue()->willSucceed('');
+
+        $result  = new ShellCheckTool()->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString("scripts/build.bash:2: PHP's output is captured with its warnings on stdout", $printed);
+        self::assertStringContainsString('-d display_errors=stderr', $printed);
+        self::assertSame(1, substr_count($printed, self::IDENTIFIER_FOOTER));
+    }
+
+    /** A workflow's run script is not handed to ShellCheck, but its substitutions are read. */
+    #[Test]
+    public function aWorkflowRunScriptCapturingPhpFailsTheLane(): void
+    {
+        $this->factory->project->write('.github/workflows/update.yml', "jobs:\n  a:\n    steps:\n      - run: v=\$(php x.phar --version)\n");
+        $this->factory->processes->willSucceed(self::TRACKED . ".github/workflows/update.yml\n")->willSucceed(self::BANNER)->willSucceed('');
+
+        $result = new ShellCheckTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame($this->expectedCommand(self::CI_BASH, self::BUILD), $this->factory->processes->lastSpec()->command);
+        self::assertStringContainsString('.github/workflows/update.yml:4:', $this->factory->output->fetch());
+    }
+
+    /** A project script with a PHP shebang is PHP wherever a shell line runs it from. */
+    #[Test]
+    public function aProjectPhpScriptRunByItsPathIsPhp(): void
+    {
+        $this->factory->project->write('bin/describe', "#!/usr/bin/env php\n<?php\n");
+        $this->factory->project->write(self::BUILD, "#!/usr/bin/env bash\necho \"\$(\"\$binDir/describe\" 1)\"\n");
+        $this->factory->processes->willSucceed(self::TRACKED . "bin/describe\n")->willSucceed(self::BANNER)->willSucceed('');
+
+        $result = new ShellCheckTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString('scripts/build.bash:2:', $this->factory->output->fetch());
     }
 
     /**

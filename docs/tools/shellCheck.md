@@ -60,6 +60,37 @@ still subtracts from whichever set was produced.
 A glob list that matches nothing **fails the lane**. Silence from a hand-written list is a broken
 configuration, not a clean result.
 
+## PHP output captured by a command substitution
+
+ShellCheck has no rule for this, so the lane reads the same scripts itself, and the run scripts of
+the tracked workflows directly under `.github/workflows/` (`*.yml`, `*.yaml`), which ShellCheck is
+not handed. It fails on a command substitution, `$(...)` or backticks, that runs PHP without
+`-d display_errors=stderr` (or `display_errors` set to `0`, `off`, `no` or `false`):
+
+```text
+scripts/build-phar.bash:169: PHP's output is captured with its warnings on stdout
+```
+
+The PHP CLI displays errors on stdout unless an ini says otherwise, so a warning or deprecation
+becomes part of the captured value: a version, a message, JSON. This is the shell form of
+[`phpqaci.phpWarningsInCapturedOutput`](../phpstan-rules/forbid-php-warnings-in-captured-output.md),
+whose page carries why and what is not reported.
+
+The program is the first word of the substitution that is not a `NAME=value` assignment. It runs
+PHP when its file name is `php` with an optional version, or is a git-tracked script of the
+project whose shebang runs PHP (`"$binDir/qa"` in a project that tracks `bin/qa`), or is a variable
+named for the PHP binary (`$PHP`, `${PHP_BINARY:-php}`), or a variable whose last assignment in the
+same file names one of these. A quoted here-document is literal and not read; `$((...))` is
+arithmetic. Composer is not PHP here: it keeps its own warnings off stdout.
+
+```bash
+# WRONG — a deprecation in the phar becomes the version
+version="$(php "$phar" --version | awk 'NR==1')"
+
+# RIGHT
+version="$(php -d display_errors=stderr "$phar" --version | awk 'NR==1')"
+```
+
 ## How it runs
 
 - In the full pipeline, last of the shipped lanes in the linting phase (a Symfony project's
@@ -87,4 +118,5 @@ looks unused to ShellCheck; exporting it states the contract instead of hiding t
 
 - Lane: [`ShellCheckTool`](../../src/Pipeline/Lane/ShellCheckTool.php).
 - Discovery: [`ShellFileFinder`](../../src/Pipeline/Lane/ShellCheck/ShellFileFinder.php).
+- Captured PHP output: [`CapturedPhpOutputScanner`](../../src/Pipeline/Lane/ShellCheck/CapturedPhpOutputScanner.php).
 - The pin, the path and the fetch command: [`ShellCheckBinary`](../../src/Pipeline/Config/ShellCheckBinary.php).
