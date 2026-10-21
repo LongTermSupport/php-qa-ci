@@ -33,6 +33,7 @@ use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\StaticPropertyFetch;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Expr\YieldFrom;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\InterpolatedStringPart;
 use PhpParser\Node\Name;
@@ -268,6 +269,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             $node instanceof PostInc, $node instanceof PostDec           => $this->writes($node, $node->var, $scope),
             $node instanceof Return_                                     => $this->returned($node, $scope),
             $node instanceof Foreach_                                    => $this->iterated($node, $scope),
+            $node instanceof YieldFrom                                   => $this->keysRead($node, $node->expr, 'yields its keys with yield from', $scope),
             $node instanceof ArrayItem && $node->unpack                  => $this->keysRead($node, $node->value, self::SPREADS, $scope, false),
             $node instanceof CallLike  && !$node->isFirstClassCallable() => $this->passed($node, $scope),
             default                                                      => [],
@@ -629,7 +631,8 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /**
      * The local variables whose keys an expression has, each as [its name,
      * the depth of the element]: a local variable or an element of one, or
-     * any of them handed through a function that keeps their keys.
+     * any of them handed through a function that keeps their keys or held in
+     * a literal, where the depth goes below 0 by the levels it is nested.
      *
      * @return list<array{string, int}>
      */
@@ -639,6 +642,17 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             $locals = [];
             foreach ($this->keptArguments($expr, strtolower(ltrim($expr->name->toString(), '\\')), $scope) as $kept) {
                 $locals = [...$locals, ...$this->localArrays($kept, $scope)];
+            }
+
+            return $locals;
+        }
+
+        if ($expr instanceof Array_) {
+            $locals = [];
+            foreach ($expr->items as $item) {
+                foreach ($this->localArrays($item->value, $scope) as [$variable, $depth]) {
+                    $locals[] = [$variable, $item->unpack ? $depth : $depth - 1];
+                }
             }
 
             return $locals;
@@ -669,14 +683,10 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
         $records = $this->madeUse($node, $value, \sprintf('line %d %s %s', $node->getStartLine(), $text, $declared->describe(VerbosityLevel::typeOnly())), $scope, ...$depths);
         foreach ($this->localArrays($value, $scope) as [$variable, $depth]) {
-            $records[] = $this->record(
-                self::USE,
-                $scope,
-                $node,
-                $variable,
-                array_map(static fn (int $stringKeyed): int => $stringKeyed + $depth, $depths),
-                $text . ' ' . $declared->describe(VerbosityLevel::typeOnly()),
-            );
+            $atDepth = array_values(array_filter(array_map(static fn (int $stringKeyed): int => $stringKeyed + $depth, $depths), static fn (int $local): bool => $local >= 0));
+            if ([] !== $atDepth) {
+                $records[] = $this->record(self::USE, $scope, $node, $variable, $atDepth, $text . ' ' . $declared->describe(VerbosityLevel::typeOnly()));
+            }
         }
 
         return $records;
@@ -714,7 +724,9 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
         $records = [];
         foreach ($this->localArrays($value, $scope) as [$variable, $depth]) {
-            $records[] = $this->record(self::USE, $scope, $node, $variable, [$depth], $text);
+            if ($depth >= 0) {
+                $records[] = $this->record(self::USE, $scope, $node, $variable, [$depth], $text);
+            }
         }
 
         return $judgeMade ? [...$records, ...$this->madeUse($node, $value, \sprintf('line %d %s', $node->getStartLine(), $text), $scope, 0)] : $records;
