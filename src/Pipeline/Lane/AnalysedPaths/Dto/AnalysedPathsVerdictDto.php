@@ -12,17 +12,18 @@ namespace LTS\PHPQA\Pipeline\Lane\AnalysedPaths\Dto;
  * declare the whole project. `$declaredInUse` counts the PHP each declaration
  * accounts for; `$stale` lists declarations that account for none, and
  * `$contradicted` maps a declaration lying inside an analysed path to that
- * path.
+ * path. PHP makes a key that is a path written in digits, such as `2024`, an
+ * int, so a key is cast to string where it is read.
  *
  * @internal
  */
 final readonly class AnalysedPathsVerdictDto
 {
     /**
-     * @param array<string, int>    $unclassified  unit => PHP files, in path order
-     * @param array<string, int>    $declaredInUse declared path => PHP files it accounts for
-     * @param list<string>          $stale         declared paths with no PHP file beneath them
-     * @param array<string, string> $contradicted  declared path => the analysed path containing it
+     * @param array<array-key, int>    $unclassified  unit => PHP files, in path order
+     * @param array<array-key, int>    $declaredInUse declared path => PHP files it accounts for
+     * @param list<string>             $stale         declared paths with no PHP file beneath them
+     * @param array<array-key, string> $contradicted  declared path => the analysed path containing it
      */
     public function __construct(
         public int $phpFiles,

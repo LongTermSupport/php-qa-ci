@@ -26,7 +26,7 @@ use ReflectionMethod;
 final class DeprecatedPhpunitMethodDetector
 {
     /**
-     * @var array<string, true>|null
+     * @var array<array-key, true>|null
      */
     private ?array $cache = null;
 
@@ -46,7 +46,7 @@ final class DeprecatedPhpunitMethodDetector
     }
 
     /**
-     * @return array<string, true> a set of deprecated method names (name => true)
+     * @return array<array-key, true> a set of deprecated method names (name => true)
      */
     public function deprecatedMethods(): array
     {

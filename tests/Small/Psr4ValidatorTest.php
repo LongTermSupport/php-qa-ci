@@ -211,6 +211,21 @@ which doesn\'t exist
     }
 
     /**
+     * A composer.json key PHP decodes to an int, a namespace root written in digits, is
+     * reported as the missing path it maps to, not a TypeError (#256).
+     */
+    public function testANamespaceRootWrittenInDigitsIsReportedNotFatal(): void
+    {
+        $composerJson = \Safe\json_decode('{"autoload": {"psr-4": {"2024": "2024"}}}', true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($composerJson);
+
+        self::assertSame(
+            ['Missing Paths:' => ['2024' => "Namespace root '2024'\ncontains a path '2024'\nwhich doesn't exist\n"]],
+            new Psr4Validator([], '/nonexistent-project-root', $composerJson)->main(),
+        );
+    }
+
+    /**
      * An ignore pattern that does not compile is named when the validator is made, not reported
      * by PCRE as an anonymous warning and PREG_INTERNAL_ERROR at the first file it is tried on.
      */

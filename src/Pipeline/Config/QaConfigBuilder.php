@@ -43,16 +43,16 @@ final readonly class QaConfigBuilder
     private const array DEFAULT_MARKDOWN_FORMAT_PATHS = ['README.md', 'CLAUDE.md', 'CHANGELOG.md', 'docs', 'CLAUDE'];
 
     /**
-     * @param list<string>          $pathsToCheck
-     * @param list<string>          $pathsToIgnore
-     * @param list<string>          $arkitectExcludePaths
-     * @param list<string>          $twigDirectories
-     * @param list<string>          $yamlDirectories
-     * @param list<string>          $shellCheckGlobs
-     * @param list<string>|null     $deadCodeEntryPoints   null until a project has listed them or opted out
-     * @param list<string>          $changelogWatchedPaths
-     * @param array<string, string> $unanalysedPaths       project-relative path => reason
-     * @param list<string>          $markdownFormatPaths
+     * @param list<string>             $pathsToCheck
+     * @param list<string>             $pathsToIgnore
+     * @param list<string>             $arkitectExcludePaths
+     * @param list<string>             $twigDirectories
+     * @param list<string>             $yamlDirectories
+     * @param list<string>             $shellCheckGlobs
+     * @param list<string>|null        $deadCodeEntryPoints   null until a project has listed them or opted out
+     * @param list<string>             $changelogWatchedPaths
+     * @param array<array-key, string> $unanalysedPaths       project-relative path => reason; an int for a path in digits
+     * @param list<string>             $markdownFormatPaths
      */
     public function __construct(
         private ProjectPathsDto $paths,
@@ -497,16 +497,16 @@ final readonly class QaConfigBuilder
     }
 
     /**
-     * @param list<string>|null          $pathsToCheck
-     * @param list<string>|null          $pathsToIgnore
-     * @param list<string>|null          $arkitectExcludePaths
-     * @param list<string>|null          $twigDirectories
-     * @param list<string>|null          $yamlDirectories
-     * @param list<string>|null          $shellCheckGlobs
-     * @param list<string>|null          $deadCodeEntryPoints
-     * @param list<string>|null          $changelogWatchedPaths
-     * @param array<string, string>|null $unanalysedPaths
-     * @param list<string>|null          $markdownFormatPaths
+     * @param list<string>|null             $pathsToCheck
+     * @param list<string>|null             $pathsToIgnore
+     * @param list<string>|null             $arkitectExcludePaths
+     * @param list<string>|null             $twigDirectories
+     * @param list<string>|null             $yamlDirectories
+     * @param list<string>|null             $shellCheckGlobs
+     * @param list<string>|null             $deadCodeEntryPoints
+     * @param list<string>|null             $changelogWatchedPaths
+     * @param array<array-key, string>|null $unanalysedPaths
+     * @param list<string>|null             $markdownFormatPaths
      */
     private function with(
         ?array $pathsToCheck = null,
