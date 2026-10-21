@@ -61,7 +61,8 @@ final class GitPhpstanDocsFetcherTest extends TestCase
             new GitPhpstanDocsFetcher($missing)->fetch($this->work->path . '/out');
             self::fail('an unreachable repository must fail');
         } catch (RuntimeException $runtimeException) {
-            self::assertStringContainsString($missing, $runtimeException->getMessage());
+            self::assertStringStartsWith('could not fetch the PHPStan identifier pages from ' . $missing . ': ', $runtimeException->getMessage());
+            self::assertSame(0, $runtimeException->getCode());
         }
     }
 
@@ -81,6 +82,7 @@ final class GitPhpstanDocsFetcherTest extends TestCase
         } catch (RuntimeException $runtimeException) {
             self::assertStringStartsWith('could not fetch the PHPStan identifier pages from file:///nowhere: `', $runtimeException->getMessage());
             self::assertStringEndsWith('` ended with exit code 143, killed by signal 15 (SIGTERM)', $runtimeException->getMessage());
+            self::assertSame(0, $runtimeException->getCode());
         } finally {
             \Safe\putenv('PATH=' . $path);
         }

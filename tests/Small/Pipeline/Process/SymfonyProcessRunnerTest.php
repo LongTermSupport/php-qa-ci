@@ -196,6 +196,7 @@ final class SymfonyProcessRunnerTest extends TestCase
             self::fail('a signalled child must not pass for a result nobody judges');
         } catch (RuntimeException $runtimeException) {
             self::assertSame($this->killedLine($spec), $runtimeException->getMessage());
+            self::assertSame(0, $runtimeException->getCode());
             self::assertInstanceOf(ProcessSignaledException::class, $runtimeException->getPrevious());
         }
     }

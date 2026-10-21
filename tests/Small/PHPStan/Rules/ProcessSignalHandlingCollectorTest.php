@@ -30,7 +30,7 @@ final class ProcessSignalHandlingCollectorTest extends RuleTestCase
 {
     private const string FIXTURE = __DIR__ . '/../../../assets/PHPStan/UnhandledProcessSignal/Calls.php';
 
-    private const string NO_EXCLUSIONS = 'guard, 0 excluded';
+    private const string GUARD_OF_ONE = 'guard of 1 call(s)';
 
     private const string CALL_RUN = 'call run';
 
@@ -50,17 +50,20 @@ final class ProcessSignalHandlingCollectorTest extends RuleTestCase
             // The nullsafe call, and PHPStan's walk of it as a plain method call.
             [self::CALL_RUN, 21],
             [self::CALL_RUN, 21],
-            [self::NO_EXCLUSIONS, 26],
+            ['guard of 2 call(s)', 26],
             [self::CALL_RUN, 27],
             [self::CALL_MUST_RUN, 28],
-            [self::NO_EXCLUSIONS, 33],
+            [self::GUARD_OF_ONE, 33],
             [self::CALL_WAIT, 34],
-            [self::NO_EXCLUSIONS, 42],
+            // start() in the try block; the calls in its catch and finally are not guarded.
+            [self::GUARD_OF_ONE, 42],
             [self::CALL_RUN, 45],
             [self::CALL_WAIT, 47],
-            ['guard, 1 excluded', 53],
-            [self::CALL_RUN, 54],
-            [self::CALL_RUN, 63],
+            // wait() in the try block; run() in the closure declared there is not guarded.
+            [self::GUARD_OF_ONE, 53],
+            [self::CALL_WAIT, 54],
+            [self::CALL_RUN, 56],
+            [self::CALL_RUN, 65],
         ]);
     }
 
@@ -71,10 +74,10 @@ final class ProcessSignalHandlingCollectorTest extends RuleTestCase
         $this->root = \dirname(__DIR__, 4);
 
         $this->analyse([self::FIXTURE], [
-            [self::NO_EXCLUSIONS, 26],
-            [self::NO_EXCLUSIONS, 33],
-            [self::NO_EXCLUSIONS, 42],
-            ['guard, 1 excluded', 53],
+            ['guard of 2 call(s)', 26],
+            [self::GUARD_OF_ONE, 33],
+            [self::GUARD_OF_ONE, 42],
+            [self::GUARD_OF_ONE, 53],
         ]);
     }
 

@@ -59,17 +59,22 @@ final readonly class ForbidUnhandledProcessSignalRule implements Rule
     {
         $errors = [];
         foreach ($node->get(ProcessSignalHandlingCollector::class) as $file => $entries) {
-            $guards = array_filter($entries, static fn (array $entry): bool => ProcessSignalHandlingCollector::GUARD === $entry[0]);
+            // Offset => true for every call a try that catches the signal guards.
+            $guarded = [];
             // Keyed by offset: PHPStan also walks a nullsafe call as a plain method call there.
             $calls = [];
-            foreach ($entries as $entry) {
-                if (ProcessSignalHandlingCollector::CALL === $entry[0]) {
-                    $calls[$entry[3]] = $entry;
+            foreach ($entries as [$kind, $method, $line, $offsets]) {
+                if (ProcessSignalHandlingCollector::GUARD === $kind) {
+                    $guarded += array_fill_keys($offsets, true);
+
+                    continue;
                 }
+
+                $calls[$offsets[0]] = [$method, $line];
             }
 
-            foreach ($calls as [, $method, $line, $position]) {
-                if ($this->isGuarded($position, ...$guards)) {
+            foreach ($calls as $offset => [$method, $line]) {
+                if (\array_key_exists($offset, $guarded)) {
                     continue;
                 }
 
@@ -83,19 +88,5 @@ final readonly class ForbidUnhandledProcessSignalRule implements Rule
         }
 
         return $errors;
-    }
-
-    /**
-     * @param array{string, string, int, int, int, list<array{int, int}>} ...$guards
-     */
-    private function isGuarded(int $position, array ...$guards): bool
-    {
-        foreach ($guards as [, , , $start, $end, $excluded]) {
-            if ($position >= $start && $position < $end && !array_any($excluded, static fn (array $span): bool => $position >= $span[0] && $position <= $span[1])) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

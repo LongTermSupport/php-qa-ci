@@ -31,19 +31,17 @@ use Symfony\Component\Process\Process;
  * walked as a plain method call at the same offset, so the rule keys calls by
  * offset.
  *
- * A try's guarded range runs from the `try` keyword to its first `catch`, so it
- * is the try block alone: a call in a catch or finally block is not guarded by
- * a catch of the same statement. A function, closure or class declared inside
- * the range runs when it is called, which may be after the try has ended, so
- * its span is recorded as excluded.
+ * A try guards the method calls in its try block alone: a call in a catch or
+ * finally block is not guarded by a catch of the same statement. A call in a
+ * function, closure or class declared in the try block runs when it is called,
+ * which may be after the try has ended, so it is not guarded either.
  *
  * Each value is [CALL or GUARD, the method as Process declares it (empty for a
- * guard), line, start offset, end offset (exclusive, for a guard), excluded
- * spans as [start, end] inclusive].
+ * guard), line, start offsets: the call's own, or every call the try guards].
  *
  * @internal
  *
- * @implements Collector<Node, array{string, string, int, int, int, list<array{int, int}>}>
+ * @implements Collector<Node, array{string, string, int, list<int>}>
  */
 final readonly class ProcessSignalHandlingCollector implements Collector
 {
@@ -70,7 +68,7 @@ final readonly class ProcessSignalHandlingCollector implements Collector
     }
 
     /**
-     * @return array{string, string, int, int, int, list<array{int, int}>}|null
+     * @return array{string, string, int, list<int>}|null
      */
     public function processNode(Node $node, Scope $scope): ?array
     {
@@ -91,11 +89,11 @@ final readonly class ProcessSignalHandlingCollector implements Collector
             return null;
         }
 
-        return [self::CALL, $method, $node->getStartLine(), $node->getStartFilePos(), $node->getStartFilePos(), []];
+        return [self::CALL, $method, $node->getStartLine(), [$node->getStartFilePos()]];
     }
 
     /**
-     * @return array{string, string, int, int, int, list<array{int, int}>}|null
+     * @return array{string, string, int, list<int>}|null
      */
     private function guard(TryCatch $try): ?array
     {
@@ -103,12 +101,24 @@ final readonly class ProcessSignalHandlingCollector implements Collector
             return null;
         }
 
-        $excluded = [];
-        foreach (new NodeFinder()->find($try->stmts, static fn (Node $found): bool => $found instanceof FunctionLike || $found instanceof ClassLike) as $declaration) {
-            $excluded[] = [$declaration->getStartFilePos(), $declaration->getEndFilePos()];
+        $finder = new NodeFinder();
+        $isCall = static fn (Node $found): bool => $found instanceof MethodCall || $found instanceof NullsafeMethodCall;
+
+        $deferred = [];
+        foreach ($finder->find($try->stmts, static fn (Node $found): bool => $found instanceof FunctionLike || $found instanceof ClassLike) as $declaration) {
+            foreach ($finder->find([$declaration], $isCall) as $call) {
+                $deferred[$call->getStartFilePos()] = true;
+            }
         }
 
-        return [self::GUARD, '', $try->getStartLine(), $try->getStartFilePos(), $try->catches[0]->getStartFilePos(), $excluded];
+        $guarded = [];
+        foreach ($finder->find($try->stmts, $isCall) as $call) {
+            if (!\array_key_exists($call->getStartFilePos(), $deferred)) {
+                $guarded[] = $call->getStartFilePos();
+            }
+        }
+
+        return [self::GUARD, '', $try->getStartLine(), $guarded];
     }
 
     private function catchesTheSignal(Catch_ $catch): bool

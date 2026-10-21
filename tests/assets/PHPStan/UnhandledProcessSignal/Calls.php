@@ -51,6 +51,8 @@ final class Calls
     public function inAClosureDeclaredInAGuardingTry(Process $process): callable
     {
         try {
+            $process->wait();
+
             return static fn (): int => $process->run();
         } catch (ProcessSignaledException $signaled) {
             throw new RuntimeException('signal ' . $signaled->getSignal(), 0, $signaled);
@@ -66,8 +68,9 @@ final class Calls
         }
     }
 
-    public function notAWaitOrNotAProcess(Process $process, Runner $runner): callable
+    public function notAWaitOrNotAProcess(Process $process, Runner $runner, string $method): callable
     {
+        $process->{$method}();
         $process->start();
         $process->waitUntil(static fn (): bool => true);
         $runner->run();

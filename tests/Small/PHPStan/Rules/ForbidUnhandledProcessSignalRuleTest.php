@@ -47,8 +47,8 @@ final class ForbidUnhandledProcessSignalRuleTest extends RuleTestCase
             [$this->message(self::RUN), 21],
             [$this->message(self::RUN), 45],
             [$this->message(self::WAIT), 47],
-            [$this->message(self::RUN), 54],
-            [$this->message(self::RUN), 63],
+            [$this->message(self::RUN), 56],
+            [$this->message(self::RUN), 65],
         ]);
     }
 

@@ -15,7 +15,7 @@ use PHPStan\Rules\RuleErrorBuilder;
 /**
  * Reports each entry ProcessSignalHandlingCollector recorded, at the line it
  * was recorded for, so a test can pin what the collector saw: "call <method>"
- * for a wait, "guard, <n> excluded" for a try that catches the signal.
+ * for a wait, "guard of <n> call(s)" for a try that catches the signal.
  *
  * @implements Rule<CollectedDataNode>
  */
@@ -35,8 +35,8 @@ final readonly class CollectedProcessSignalEntriesRule implements Rule
     {
         $errors = [];
         foreach ($node->get(ProcessSignalHandlingCollector::class) as $file => $entries) {
-            foreach ($entries as [$kind, $method, $line, , , $excluded]) {
-                $message  = ProcessSignalHandlingCollector::CALL === $kind ? 'call ' . $method : \sprintf('guard, %d excluded', \count($excluded));
+            foreach ($entries as [$kind, $method, $line, $offsets]) {
+                $message  = ProcessSignalHandlingCollector::CALL === $kind ? 'call ' . $method : \sprintf('guard of %d call(s)', \count($offsets));
                 $errors[] = RuleErrorBuilder::message($message)->file($file)->line($line)->identifier(self::IDENTIFIER)->build();
             }
         }
