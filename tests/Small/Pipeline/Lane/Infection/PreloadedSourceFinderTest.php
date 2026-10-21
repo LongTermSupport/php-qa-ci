@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Infection;
 
 use InvalidArgumentException;
+use LTS\PHPQA\Pipeline\Lane\Infection\InfectionSourceScope;
 use LTS\PHPQA\Pipeline\Lane\Infection\PreloadedSourceFinder;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -17,10 +18,12 @@ use PHPUnit\Framework\TestCase;
  * Which of the files already loaded when PHPUnit's bootstrap starts are files
  * Infection would mutate: under a source directory, named `*.php`, not
  * excluded the way Infection's Finder excludes, and in a diff run's scope.
+ * How Finder reads each exclude is pinned here, through the scope it asks.
  *
  * @internal
  */
 #[CoversClass(PreloadedSourceFinder::class)]
+#[CoversClass(InfectionSourceScope::class)]
 #[Small]
 final class PreloadedSourceFinderTest extends TestCase
 {
