@@ -29,6 +29,12 @@ final readonly class TemporaryDirectory
     /** The random bytes in a staging directory's name, after its prefix, as twice as many hex digits. */
     private const int RANDOM_BYTES = 8;
 
+    /** The characters tempnam() put after the prefix in an earlier version's staging directory name. */
+    private const int TEMPNAM_CHARACTERS = 6;
+
+    /** What each of those characters is drawn from. */
+    private const string TEMPNAM_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
     /**
      * @param string                $path               the directory
      * @param array<string, string> $unremovedLeftovers each leftover besides() found and could not remove => why
@@ -52,7 +58,8 @@ final readonly class TemporaryDirectory
      *
      * A staging directory with the same prefix that has not changed for STALE_AFTER seconds is one
      * a killed run left there, and is removed first. Only a directory named exactly as this class
-     * names one, the prefix and then 16 lowercase hex digits, is a staging directory. The prefix is
+     * names one, the prefix and then 16 lowercase hex digits, or as an earlier version's tempnam()
+     * named one, the prefix and then 6 letters and digits, is a staging directory. The prefix is
      * the start of a file name: empty, `.` or `..`, or with a slash, it is refused, as is one the
      * target's own name begins with, which could make the target a leftover.
      *
@@ -152,14 +159,23 @@ final readonly class TemporaryDirectory
         return $prefix . bin2hex(random_bytes(self::RANDOM_BYTES));
     }
 
-    /** Whether $name is one stagingName() makes with $prefix: the prefix, then exactly 16 lowercase hex digits. */
+    /**
+     * Whether $name is one stagingName() makes with $prefix, the prefix then exactly 16 lowercase
+     * hex digits, or one an earlier version's tempnam() made, the prefix then exactly 6 letters
+     * and digits.
+     */
     private static function isStagingName(string $name, string $prefix): bool
     {
         $length = \strlen($prefix);
+        if (!str_starts_with($name, $prefix)) {
+            return false;
+        }
 
-        return \strlen($name) === $length + 2 * self::RANDOM_BYTES
-            && str_starts_with($name, $prefix)
-            && 2 * self::RANDOM_BYTES === strspn($name, '0123456789abcdef', $length);
+        return match (\strlen($name) - $length) {
+            2 * self::RANDOM_BYTES => 2 * self::RANDOM_BYTES === strspn($name, '0123456789abcdef', $length),
+            self::TEMPNAM_CHARACTERS => self::TEMPNAM_CHARACTERS === strspn($name, self::TEMPNAM_ALPHABET, $length),
+            default => false,
+        };
     }
 
     /**
