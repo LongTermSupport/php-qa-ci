@@ -192,4 +192,29 @@ final class Reportable
             \PHP_ZTS <=> 2,
         ];
     }
+
+    /**
+     * A value passed on unchanged by ??, a ternary or a match is judged where it ends up.
+     *
+     * @return list<mixed>
+     */
+    public function passedOnToAComparison(bool|int|null $zts, bool $flag, int $choice): array
+    {
+        return [
+            1 === ($zts ?? \PHP_ZTS),
+            'zts-' . ($flag ? \PHP_DEBUG : 0),
+            match ($choice) {
+                1       => \PHP_ZTS,
+                default => false,
+            },
+            match (\PHP_DEBUG ?? 0) {
+                1       => 'debug',
+                default => '',
+            },
+            match (true) {
+                $flag ?: \PHP_ZTS => 'zts',
+                default           => '',
+            },
+        ];
+    }
 }

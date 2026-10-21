@@ -73,6 +73,11 @@ final class ForbidBuildConstantStrictComparisonRuleTest extends RuleTestCase
                 [$zts, 190],
                 [$zts, 191],
                 [$zts, 192],
+                [$zts, 204],
+                [$debug, 205],
+                [$zts, 207],
+                [$debug, 210],
+                [$zts, 215],
             ],
         );
     }

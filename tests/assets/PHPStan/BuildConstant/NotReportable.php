@@ -177,6 +177,25 @@ final class NotReportable
         ];
     }
 
+    /**
+     * A value passed on unchanged by ??, a ternary or a match is judged where it ends up.
+     *
+     * @return list<bool>
+     */
+    public function passedOnToACast(bool|int|null $zts, bool $flag, int $choice): array
+    {
+        return [
+            (bool)($zts ?? \PHP_ZTS),
+            (bool)($flag ? \PHP_DEBUG : 0),
+            !(\PHP_ZTS ?: $flag),
+            (bool)match ($choice) {
+                1       => \PHP_ZTS,
+                default => false,
+            },
+            ($zts ?? \PHP_DEBUG) ? true : false,
+        ];
+    }
+
     public function discarded(): void
     {
         \PHP_ZTS;
