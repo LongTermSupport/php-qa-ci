@@ -41,6 +41,7 @@
     "PHPStan\\Rules\\Rule",
     "PHPStan\\Type\\Constant\\ConstantIntegerType",
     "PHPStan\\Type\\Constant\\ConstantStringType",
+    "PHPStan\\Type\\FileTypeMapper",
     "PHPStan\\Type\\MixedType",
     "PHPStan\\Type\\ObjectType",
     "PHPStan\\Type\\Type",
