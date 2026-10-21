@@ -213,6 +213,33 @@ final class StaleConfigDiagnosisTest extends TestCase
     }
 
     #[Test]
+    public function aDiffLineQuotingTheWholeErrorMessageBesideAnUnrelatedErrorIsNotDiagnosed(): void
+    {
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
+        $output = "\n1) src/A.php:7\n\n    ---------- begin diff ----------\n"
+            . "@@ @@\n"
+            . "     // [ERROR] Expected an existing class name. Got: \"Foo\"\n"
+            . "-    if (0 === strpos(\$a, 'x')) {\n"
+            . "+    if (str_starts_with(\$a, 'x')) {\n"
+            . "    ----------- end diff -----------\n\n"
+            . " [ERROR] Could not process \"src/B.php\" file, due to:\n"
+            . "         \"Syntax error, unexpected T_STRING\".\n\n";
+
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, $output, $config, self::EXIT_ERROR));
+    }
+
+    #[Test]
+    public function aMessageWrappedAcrossLinesIsOnlyJoinedWithinRectorsOwnErrorBlock(): void
+    {
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
+        $output = " [ERROR] Could not process \"src/B.php\" file, due to:\n\n"
+            . "     // Expected an existing class name.\n"
+            . "     // Got: \"Foo\"\n\n";
+
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, $output, $config, self::EXIT_ERROR));
+    }
+
+    #[Test]
     public function aGenuineErrorAfterADiffIsStillDiagnosed(): void
     {
         $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
