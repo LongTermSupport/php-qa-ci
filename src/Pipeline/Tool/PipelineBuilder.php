@@ -29,7 +29,7 @@ use LTS\PHPQA\Pipeline\Tool\Exception\UnknownPhaseException;
 final readonly class PipelineBuilder
 {
     /**
-     * @param list<PhaseDto>                   $phases      in execution order
+     * @param list<PhaseDto>                      $phases      in execution order
      * @param array<array-key, ToolDefinitionDto> $definitions keyed by canonical name, in registry order, phase runners excluded
      * @param array<array-key, ToolInterface>     $tools       keyed by canonical name
      */

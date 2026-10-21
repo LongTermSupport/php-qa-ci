@@ -559,7 +559,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
         return new NodeFinder()->findFirst($statements, fn (Node $node): bool => match (true) {
             $node instanceof Variable                                                      => !\is_string($node->name),
-            $node instanceof Assign, $node instanceof AssignRef, $node instanceof AssignOp => $isNamed($node->var) || $node->var instanceof List_ || $node->var instanceof Expr\Array_,
+            $node instanceof Assign, $node instanceof AssignRef, $node instanceof AssignOp => $isNamed($node->var) || $node->var instanceof List_ || $node->var instanceof Array_,
             $node instanceof ArrayItem                                                     => $node->byRef,
             $node instanceof CallLike                                                      => $this->mayWriteArgument($node, $name, $scope),
             $node instanceof Foreach_                                                      => $isNamed($node->keyVar) || $isNamed($node->valueVar) || !$node->valueVar instanceof Variable,

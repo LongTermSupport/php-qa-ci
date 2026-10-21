@@ -43,7 +43,7 @@ final readonly class DumpParser
             }
         }
 
-        return array_map(static fn (int|string $file): string => (string) $file, array_keys($files));
+        return array_map(static fn (int|string $file): string => (string)$file, array_keys($files));
     }
 
     /** @return list<ConstComparisonDto> in dump order */

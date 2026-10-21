@@ -113,7 +113,7 @@ final readonly class RuleDocResolver
     /** @return list<string> */
     public function identifiers(): array
     {
-        return array_map(static fn (int|string $identifier): string => (string) $identifier, array_keys($this->entries()));
+        return array_map(static fn (int|string $identifier): string => (string)$identifier, array_keys($this->entries()));
     }
 
     /**

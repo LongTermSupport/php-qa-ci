@@ -175,16 +175,6 @@ final readonly class InfectionDiffFilter
         );
     }
 
-    /**
-     * The paths a map was keyed by, as strings: PHP keys a path such as '2024' by an int.
-     *
-     * @return list<string>
-     */
-    private function paths(int|string ...$keys): array
-    {
-        return array_map(static fn (int|string $key): string => (string) $key, array_values($keys));
-    }
-
     /** `git status --porcelain=v1 -z` output with every path made relative to `$prefix` */
     public function withoutPrefix(string $gitStatusOutput, string $prefix): string
     {
@@ -201,6 +191,16 @@ final readonly class InfectionDiffFilter
         }
 
         return implode("\0", $tokens);
+    }
+
+    /**
+     * The paths a map was keyed by, as strings: PHP keys a path such as '2024' by an int.
+     *
+     * @return list<string>
+     */
+    private function paths(int|string ...$keys): array
+    {
+        return array_map(static fn (int|string $key): string => (string)$key, array_values($keys));
     }
 
     /**

@@ -186,7 +186,7 @@ final readonly class TurboInstaller
         /** @var array<array-key, string> $downloads */
         $downloads = [];
         foreach ($files as $key => $digest) {
-            $path = (string)$key;
+            $path  = (string)$key;
             $bytes = $this->source->file($version, $path);
             if (null === $bytes) {
                 // Not fatal: PHPStan runs without Turbo, and the next install tries again.
