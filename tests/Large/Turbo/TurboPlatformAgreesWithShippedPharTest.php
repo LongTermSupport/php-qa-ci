@@ -65,7 +65,7 @@ final class TurboPlatformAgreesWithShippedPharTest extends TestCase
         // in, and php-qa-ci names none; neither finds a binary.
         $cases[] = ['Darwin', 'arm64', null, false, false];
 
-        $process = new Process([\PHP_BINARY, '-r', self::ASK_THE_PHAR, self::SELECTOR, \Safe\json_encode($cases)]);
+        $process = new Process([\PHP_BINARY, '-d', 'display_errors=stderr', '-r', self::ASK_THE_PHAR, self::SELECTOR, \Safe\json_encode($cases)]);
         $process->mustRun();
 
         $pharCores = \Safe\json_decode($process->getOutput(), true);
