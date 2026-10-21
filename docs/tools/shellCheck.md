@@ -83,6 +83,13 @@ named for the PHP binary (`$PHP`, `${PHP_BINARY:-php}`), or a variable whose las
 same file names one of these. A quoted here-document is literal and not read; `$((...))` is
 arithmetic. Composer is not PHP here: it keeps its own warnings off stdout.
 
+The scan reads one line at a time and only a substitution, so it does not report PHP whose output
+is captured another way: a bare `php x | jq`, a redirect to a file, a process substitution
+(`< <(php x)`), a substitution that begins with `cd d &&`, one that pipes into PHP, one that runs
+PHP behind `timeout` or `sudo`, a `$(` that spans lines, or a variable assigned from a substitution.
+A `display_errors=0` written anywhere in the body counts as the setting, and a substitution in a
+trailing comment (`echo ok # $(php x.php)`) is reported.
+
 ```bash
 # WRONG — a deprecation in the phar becomes the version
 version="$(php "$phar" --version | awk 'NR==1')"

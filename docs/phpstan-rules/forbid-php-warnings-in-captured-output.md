@@ -43,9 +43,6 @@ install, and with `display_errors` on a warning would have appeared inside
 
 - **Output that is not captured**: `ProcessExecutor::execute()` without `$output` streams to the
   terminal, where a warning on stdout is only seen.
-- **A command whose stderr is captured with its stdout** (`2>&1`, or a helper that joins the two):
-  the warning is in the value whatever `display_errors` says, so the setting changes nothing. Such
-  a value is a log, not a value to parse.
 - **A command PHPStan cannot read**: a parameter, a property other than `phpBinPath`, or a
   `list<string>` of unknown content. The rule reports what it can show runs PHP; it does not guess.
 - **PHP started by another spawner**: `exec()`, `shell_exec()`, `system()`, `passthru()`,
@@ -58,6 +55,22 @@ install, and with `display_errors` on a warning would have appeared inside
   write by line, so a write in an `if` above an unconditional one is not considered.
 - **A program that keeps its own warnings off stdout**: Composer installs an error handler that
   throws on a warning and writes a deprecation to stderr, so `composer` is not treated as PHP.
+
+## What it cannot tell apart
+
+The rule reads a command, not what the code does with the process, so it also reports:
+
+- a Symfony `Process` whose output is not read as a value: one with `setTty(true)` or `setPty(true)`,
+  `disableOutput()`, a callback that only echoes, or only `getErrorOutput()` read. The setting is
+  harmless there, and adding it is the fix.
+- `Process::fromShellCommandline('php x 2>&1')`: the warning is in the value whatever `display_errors`
+  says, but the rule reports it too, because the setting is still what keeps warnings off a stdout
+  that is parsed on its own.
+
+It does not report these, which still run PHP with its output captured: a program written as
+`['php', $script, '-d', 'display_errors=stderr']` (the setting after the script is not PHP's option),
+an uppercase `PHP`, a variable that copies another holding `PHP_BINARY`, and a `-r` code string that
+only mentions `display_errors=0`.
 
 ## How to fix it
 
@@ -91,7 +104,7 @@ value the code relays, parses or publishes.
 `phpBinPath`, `'php'` and `$(php` / `$("$PHP...` across `src/`, `tests/`, `bin/`, `scripts/`,
 `git-hooks/` and the workflow and template YAML. Found, in PHP: `PhpInvoker` (three commands, one of
 them its `-r` probe read from the joined output), `PhpstanSetupKey`'s runtime probe,
-`PhpStanGuardPlugin`'s `phpstan.phar --version`, and 36 places in the test suite; in shell:
+`PhpStanGuardPlugin`'s `phpstan.phar --version`, and 37 places in the test suite; in shell:
 `scripts/tool-install.bash:285`, `scripts/build-phar.bash:169` and `:171`,
 `scripts/lib/deploy-claude-block.inc.bash:40` and `:47`, `scripts/lib/deploy-daemon-config.inc.bash:155`,
 `bin/phpstan-rule:42`, and `.github/workflows/update-deps.yml:174` and `:187`.
