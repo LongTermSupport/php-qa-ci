@@ -249,7 +249,7 @@ final class SymfonyProcessRunnerTest extends TestCase
         $signalled = new SignalledChildren();
 
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses(), $signalled)
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', 'exit(143);'], \Safe\getcwd(), streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'exit(143);'], \Safe\getcwd(), streamOutput: false))
         ;
 
         self::assertSame(143, $result->exitCode);
