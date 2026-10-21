@@ -53,6 +53,18 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     private const string RETURNS = 'returns it as array<string, int>';
 
+    private const string YIELDS = 'yields it as array<string, int>';
+
+    private const string STRING_INT = 'array<string, int>';
+
+    private const string MAP = '$map';
+
+    private const string MAP_LOCAL = self::MAP;
+
+    private const string ITERATED = 'The result of iterator_to_array()';
+
+    private const string REGISTRY_READ = 'line 106 reads its keys with foreach';
+
     /** The fixture is loaded first so its classes are known to the reflection provider, as autoloaded classes are. */
     #[Test]
     public function aStringKeyThatMayBeAllDigitsIsReportedWhereItsArrayIsTakenAsStringKeyed(): void
@@ -168,6 +180,80 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
         );
     }
 
+    /** An inline @var on a variable the statement binds or one already held, and an iterator held in a variable. */
+    #[Test]
+    public function anInlineVarOverKeysPhpstanDoesNotKnowIsReportedWhereverTheVariableComesFrom(): void
+    {
+        require_once self::FIXTURES . '/ReportableAssertions.php';
+
+        $this->analyse(
+            [self::FIXTURES . '/ReportableAssertions.php'],
+            [
+                [$this->message('$package', $this->asserted(26, 'array<string, mixed>')), 26],
+                [$this->message('$counts', $this->asserted(37, self::STRING_INT)), 37],
+                [$this->message(self::MAP, $this->asserted(46, self::STRING_INT)), 46],
+                [$this->message(self::MAP, $this->asserted(54, self::STRING_INT)), 54],
+                [$this->message(self::MAP, $this->asserted(61, self::STRING_INT)), 61],
+                [$this->message(self::MAP, $this->asserted(69, self::STRING_INT)), 69],
+                [$this->message(self::MAP, $this->asserted(77, self::STRING_INT)), 77],
+                [$this->message(self::MAP, $this->asserted(87, self::STRING_INT)), 87],
+                [$this->message(self::MAP, $this->asserted(96, self::STRING_INT)), 96],
+                [$this->message('$registry', $this->asserted(102, self::STRING_INT)), 102],
+                [$this->message(self::ITERATED, 'line 109 reads its keys with foreach'), 109],
+                [$this->message(self::ITERATED, 'line 118 reads its keys with foreach'), 118],
+                [$this->message(self::ITERATED, 'line 129 reads its keys with foreach'), 129],
+            ],
+        );
+    }
+
+    /** An inline @var restating keys PHPStan knew, and an iterator held in a variable that keys by path name. */
+    #[Test]
+    public function anInlineVarRestatingKnownKeysOrAnIteratorKeyedByPathNameIsNotReported(): void
+    {
+        require_once self::FIXTURES . '/NotReportableAssertions.php';
+
+        $this->analyse([self::FIXTURES . '/NotReportableAssertions.php'], []);
+    }
+
+    /** By reference, static, global, $GLOBALS, yield, an element of another array, ArrayIterator and ArrayObject. */
+    #[Test]
+    public function anArrayHandedOnBeforeItIsTakenAsStringKeyedIsReported(): void
+    {
+        require_once self::FIXTURES . '/ReportableHandedOn.php';
+
+        $this->analyse(
+            [self::FIXTURES . '/ReportableHandedOn.php'],
+            [
+                [$this->message('$alias', $this->at(27, self::RETURNS)), 25],
+                [$this->message(self::MAP, $this->at(37, self::RETURNS)), 34],
+                [$this->message('$alias', 'line 42 makes it a reference to $this->byName, declared array<string, int>'), 43],
+                [$this->message('$group', 'line 59 returns it as array<string, array<string, int>>'), 54],
+                [$this->message('$groups[…]', 'line 71 reads its keys with foreach'), 67],
+                [$this->message('$out', 'line 78 hands it back by reference as array<string, int>'), 80],
+                [$this->message('$cache', $this->at(89, self::RETURNS)), 87],
+                [$this->message('$registry', self::REGISTRY_READ), 95],
+                [$this->message("\$GLOBALS['registry']", self::REGISTRY_READ), 100],
+                [$this->message(self::MAP, $this->at(117, self::YIELDS)), 115],
+                [$this->message(self::LITERAL, $this->at(118, self::YIELDS)), 118],
+                [$this->message(self::MAP, $this->at(129, self::RETURNS)), 125],
+                [$this->message('$map[…]', 'line 138 returns it as array<string, array<string, int>>'), 136],
+                [$this->message(self::LITERAL, 'line 143 assigns it to $this->nested[…], declared array<string, int>'), 143],
+                [$this->message('$inner', 'line 154 returns it as array<string, array<string, int>>'), 150],
+                [$this->message('$map[…]', $this->at(164, self::RETURNS)), 161],
+                [$this->message(self::MAP, 'line 173 returns it as Iterator<string, int>'), 171],
+                [$this->message(self::LITERAL, 'line 178 passes it to takesObject() as ArrayObject<string, int>'), 178],
+            ],
+        );
+    }
+
+    #[Test]
+    public function anArrayHandedOnWhereNothingTakesItAsStringKeyedIsNotReported(): void
+    {
+        require_once self::FIXTURES . '/NotReportableHandedOn.php';
+
+        $this->analyse([self::FIXTURES . '/NotReportableHandedOn.php'], []);
+    }
+
     #[Test]
     public function keysThroughAnOperatorOrABranchThatCannotBeAllDigitsOrAreReadAsStringsAreNotReported(): void
     {
@@ -200,6 +286,11 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
     protected function getCollectors(): array
     {
         return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class))];
+    }
+
+    private function asserted(int $line, string $type): string
+    {
+        return 'line ' . $line . ' asserts it ' . $type . ' in an inline @var over keys PHPStan does not know';
     }
 
     private function at(int $line, string $text): string
