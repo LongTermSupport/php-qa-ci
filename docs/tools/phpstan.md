@@ -296,11 +296,11 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 23 additional opt-in rules split across two files:
+PHP-QA-CI ships 22 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 19 generic rules suitable for any PHP project (17 in its `rules:` block
+- **`rules-optional.neon`** — 18 generic rules suitable for any PHP project (16 in its `rules:` block
   plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (23 total)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (22 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
