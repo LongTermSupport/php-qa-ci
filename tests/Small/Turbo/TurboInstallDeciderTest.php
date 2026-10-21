@@ -94,8 +94,8 @@ final class TurboInstallDeciderTest extends TestCase
     }
 
     /**
-     * A binary from another release does not load, and PHPStan then runs without Turbo saying
-     * nothing, so a manifest for another phar version is a broken checkout, not something to fetch.
+     * A manifest for another phar version pins that release's files, not the ones built for the
+     * shipped phar, so it is a broken checkout, not something to fetch.
      */
     #[Test]
     public function aManifestForAnotherPharVersionIsBroken(): void

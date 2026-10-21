@@ -22,8 +22,9 @@ use Composer\Util\ProcessExecutor;
  * bootstrap, which a plugin running inside Composer cannot rely on mid-install. Install mode
  * only fetches what vendor-phar/turbo-ext.json pins; it never rewrites the manifest.
  *
- * A failure is reported, never thrown: PHPStan runs without Turbo, so a failed fetch must not
- * fail the project's install.
+ * A failure is reported, never thrown: Turbo only speeds PHPStan up, so a failed install must not
+ * fail the project's install. Some failures leave a binary phpstan.phar still loads, so the
+ * report claims only the failure; the installer's own output says what it left in place.
  *
  * @api Composer is the caller: it constructs the plugin and invokes the
  *      PluginInterface methods and the subscribed event handlers.
@@ -80,7 +81,7 @@ final readonly class TurboInstallPlugin implements PluginInterface, EventSubscri
 
         $command = escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($installer) . ' install';
         if (0 !== new ProcessExecutor($io)->execute($command)) {
-            $io->writeError('<comment>php-qa-ci: the PHPStan Turbo install failed (see above); PHPStan runs without Turbo</comment>');
+            $io->writeError("<comment>php-qa-ci: the PHPStan Turbo install failed; the installer's output above says what happened</comment>");
         }
     }
 }

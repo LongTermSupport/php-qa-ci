@@ -16,10 +16,11 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Defence for the class "PHPStan runs without Turbo because the manifest and the phar disagree".
+ * Defence for the class "the Turbo manifest and the phar disagree".
  *
- * The Turbo binaries are fetched against vendor-phar/turbo-ext.json, and a binary built for
- * another PHPStan release does not load: the phar then runs without Turbo and says nothing. So a
+ * The Turbo binaries are fetched against vendor-phar/turbo-ext.json, whose digests pin the files
+ * of the release it names. phpstan.phar loads a binary from another release that is beside its
+ * core, but activates it only when its extension version is the one the phar expects. So a
  * run refuses to start when the committed manifest is missing or names another version than the
  * phar phive.xml installed, the same way it refuses a missing PHAR.
  *
@@ -75,7 +76,10 @@ final class PharToolsVerifierTest extends TestCase
         $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
 
         $this->expectException(MissingPharException::class);
-        $this->expectExceptionMessageMatches('/2\.2\.16.*2\.3\.0|2\.3\.0.*2\.2\.16/');
+        $this->expectExceptionMessageIsOrContains(\sprintf(
+            "%s is for PHPStan 2.2.16 but the shipped phpstan.phar is 2.3.0, so it does not pin the Turbo files of this phar's release. Reinstall php-qa-ci; a maintainer runs scripts/tool-install.bash update.",
+            $this->library->path . '/' . TurboManifest::PATH,
+        ));
 
         new PharToolsVerifier()->verify($this->library->path);
     }

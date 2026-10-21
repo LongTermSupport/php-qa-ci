@@ -67,6 +67,41 @@ final readonly class TurboInstaller
 
     public function run(string $libraryRoot, string $mode): int
     {
+        try {
+            $exitCode = $this->install($libraryRoot, $mode);
+        } catch (Throwable $throwable) {
+            // A step no catch covers (a stamp or phive.xml that cannot be read, a manifest that
+            // cannot be written) is a failed install like any other, not a fatal error.
+            $this->error('the Turbo install stopped: ' . $throwable->getMessage());
+            $exitCode = 1;
+        }
+
+        if (0 !== $exitCode) {
+            $this->reportWhatPhpstanLoads($libraryRoot);
+        }
+
+        return $exitCode;
+    }
+
+    /**
+     * A failure can leave a binary beside its core, either an earlier one it never reached or the
+     * pair it placed before the stamp; phpstan.phar loads such a binary, stamped or not. What is
+     * on disk decides what is said, since a failure can come at any step.
+     */
+    private function reportWhatPhpstanLoads(string $libraryRoot): void
+    {
+        $binary = self::TURBO_DIR . '/' . $this->platform->binaryPath();
+        if (!is_file($libraryRoot . '/' . $binary) || !is_file($libraryRoot . '/' . self::TURBO_DIR . '/' . $this->platform->corePath())) {
+            $this->errors->writeln('No Turbo binary is in place beside its core, so PHPStan runs without Turbo until an install succeeds.');
+
+            return;
+        }
+
+        $this->errors->writeln(\sprintf('WARNING: phpstan.phar may still load %s, which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.', $binary));
+    }
+
+    private function install(string $libraryRoot, string $mode): int
+    {
         $pharVersion  = new PhpstanDocsCatalogue($libraryRoot)->installedPhpstanVersion();
         $manifestPath = $libraryRoot . '/' . TurboManifest::PATH;
 
