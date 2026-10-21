@@ -374,6 +374,35 @@ final class TempLeakDirectoryTest extends TestCase
     }
 
     /**
+     * A directory moved from deeper in the tree is the one the warning names, not one of the
+     * directories the walk climbs back out of on its way up after it stopped.
+     */
+    #[Test]
+    public function theWarningNamesTheDirectoryThatWasMovedNotAnAncestor(): void
+    {
+        $parent    = TempDir::create(self::PARENT);
+        $abandoned = $parent->path . '/' . self::MARKER . $this->deadPid() . self::RANDOM;
+        try {
+            $parent->write(basename($abandoned) . '/a/b/file', '');
+            $elsewhere = $parent->mkdir('elsewhere');
+
+            $printed = $this->reapInProcess($parent->path, static function (string $step, string $name) use ($abandoned, $elsewhere): void {
+                if ('climb' === $step && 'b' === $name) {
+                    \Safe\rename($abandoned . '/a/b', $elsewhere . '/b');
+                }
+            });
+
+            self::assertDirectoryExists($elsewhere . '/b', 'nothing is removed where the walk landed');
+            self::assertDirectoryExists($abandoned . '/a', 'the removal stopped');
+            self::assertStringStartsWith(self::COULD_NOT_REMOVE . $abandoned . ',', $printed);
+            self::assertStringContainsString(' b was moved while it was being removed', $printed);
+            self::assertStringNotContainsString(' a was moved', $printed);
+        } finally {
+            $parent->remove();
+        }
+    }
+
+    /**
      * Reaps the dead processes' directories under $parent in this process, with $interleave run
      * at each step of the walk where another process could change the tree, and returns what
      * the reaper printed.

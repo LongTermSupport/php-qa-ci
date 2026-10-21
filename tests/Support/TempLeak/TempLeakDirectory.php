@@ -193,19 +193,20 @@ final class TempLeakDirectory
         self::unlessGone($directory, \Safe\rmdir(...));
     }
 
-    /** Removes everything in the working directory, by names relative to it. */
+    /**
+     * Removes everything in the working directory, by names relative to it. A failure climbs
+     * no further: the walk may be lost, so a climb there would only check a place the walk was
+     * never meant to be and name the wrong directory, and removeTree() returns by absolute path.
+     */
     private static function emptyCurrentDirectory(): void
     {
         foreach (self::namesIn('.') ?? [] as $name) {
             if (is_dir($name) && !is_link($name)) {
                 $here = \Safe\lstat('.');
                 if (self::enter($name)) {
-                    try {
-                        self::emptyCurrentDirectory();
-                        self::interleave('climb', $name);
-                    } finally {
-                        self::climbBackTo($here, $name);
-                    }
+                    self::emptyCurrentDirectory();
+                    self::interleave('climb', $name);
+                    self::climbBackTo($here, $name);
                 }
 
                 self::unlessGone($name, \Safe\rmdir(...));
