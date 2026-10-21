@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Process;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
+use RuntimeException;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -15,7 +19,10 @@ use Symfony\Component\Process\Process;
  * `cmd 2>&1 | tee`), with stdout also captured on its own so structured
  * output (PHPStan --json) is never polluted by stderr. The command line is
  * echoed first so a log shows exactly what ran. The child is registered in
- * $running while it runs, so an interrupted run can stop it.
+ * $running while it runs, so an interrupted run can stop it. A child a signal
+ * killed is recorded in $signalled and comes back as exit 128 + the signal
+ * (see signalled()); so is one that exits 139 itself, reporting a segfault
+ * below it (see recordRelayedSegfault()).
  *
  * @internal
  */
@@ -24,6 +31,7 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
     public function __construct(
         private OutputInterface $output,
         private RunningProcesses $running = new RunningProcesses(),
+        private ?SignalledChildren $signalled = null,
     ) {
     }
 
@@ -56,6 +64,7 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
 
         $captured = '';
         $stdout   = '';
+        $signaled = null;
         $this->running->add($process);
 
         try {
@@ -69,12 +78,57 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
                     $this->output->write($buffer, false, OutputInterface::OUTPUT_RAW);
                 }
             });
+        } catch (ProcessSignaledException $processSignaledException) {
+            $signaled = $processSignaledException;
         } finally {
             $this->running->remove($process);
             // A no-op once the child has exited; a run ended by a throw would otherwise leave it running, unregistered.
             $process->stop(0);
         }
 
-        return new ProcessResultDto($process->getExitCode() ?? 1, $captured, $stdout);
+        if ($signaled instanceof ProcessSignaledException) {
+            return $this->signalled($spec, $signaled, $captured, $stdout);
+        }
+
+        $exitCode = $process->getExitCode() ?? 1;
+        if ($this->signalled instanceof SignalledChildren && ChildExit::isSegmentationFault($exitCode)) {
+            $this->recordRelayedSegfault($this->signalled, $spec);
+        }
+
+        return new ProcessResultDto($exitCode, $captured, $stdout);
+    }
+
+    /**
+     * A child that exits 139 itself reports a segmentation fault below it: a
+     * shell whose command crashed, or a tool that re-ran itself and relays its
+     * copy's crash. It is recorded and named as a segfault, so the lane that
+     * ran it halts the run whatever it made of the code; the result keeps the
+     * exit code and carries no signal, since none killed this child.
+     */
+    private function recordRelayedSegfault(SignalledChildren $signalled, ProcessSpecDto $spec): void
+    {
+        $child = new SignalledChildDto($spec->commandLine(), \SIGSEGV);
+        $signalled->record($child);
+        $this->output->writeln('!! ' . $child->describe());
+    }
+
+    /**
+     * A child killed by a signal the run did not send: a crash its output says
+     * nothing about. It is named on the console, and recorded so the lane that
+     * ran it is reported as crashed; with no record to put it in, it is thrown,
+     * named, rather than handed back as an exit code a caller may take for an
+     * answer.
+     */
+    private function signalled(ProcessSpecDto $spec, ProcessSignaledException $signaled, string $captured, string $stdout): ProcessResultDto
+    {
+        $child = new SignalledChildDto($spec->commandLine(), $signaled->getSignal());
+        if (!$this->signalled instanceof SignalledChildren) {
+            throw new RuntimeException($child->describe(), 0, $signaled);
+        }
+
+        $this->signalled->record($child);
+        $this->output->writeln('!! ' . $child->describe());
+
+        return new ProcessResultDto($child->exitCode(), $captured, $stdout, $child->signal);
     }
 }
