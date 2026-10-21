@@ -42,9 +42,9 @@ final class UpdateDepsRunsDailyAndReportsFailureTest extends TestCase
     /** The guard proven to fire on a weekly job with no failure report. */
     public function testTheGuardReportsAWeeklyJobThatFailsSilently(): void
     {
-        $weekly  = "on:\n  schedule:\n    - cron: '0 3 * * 0'\npermissions:\n  contents: write\n";
-        $daily   = "on:\n  schedule:\n    - cron: '17 4 * * *'\npermissions:\n  contents: write\n  issues: write\n";
-        $reports = "      - name: Report the failure\n        if: failure()\n        uses: actions/github-script@v9\n";
+        $weekly  = "on:\n  schedule:\n    - cron: '0 3 * * 0'\npermissions:\n  contents: read\n";
+        $daily   = "on:\n  schedule:\n    - cron: '17 4 * * *'\njobs:\n  report:\n    permissions:\n      issues: write\n";
+        $reports = "    if: \${{ always() && contains(needs.*.result, 'failure') }}\n    steps:\n      - uses: actions/github-script@v9\n";
 
         self::assertSame([self::NOT_DAILY, self::NO_ISSUES_PERMISSION, self::NO_FAILURE_REPORT], $this->problems($weekly));
         self::assertSame([self::NO_FAILURE_REPORT], $this->problems($daily));
@@ -59,11 +59,11 @@ final class UpdateDepsRunsDailyAndReportsFailureTest extends TestCase
             $problems[] = self::NOT_DAILY;
         }
 
-        if (1 !== \Safe\preg_match('/^  issues: write$/m', $workflow)) {
+        if (1 !== \Safe\preg_match('/^\s+issues: write$/m', $workflow)) {
             $problems[] = self::NO_ISSUES_PERMISSION;
         }
 
-        if (1 !== \Safe\preg_match('/if: failure\(\)\n\s+uses: actions\/github-script@/', $workflow)) {
+        if (1 !== \Safe\preg_match("/contains\\(needs\\.\\*\\.result, 'failure'\\)[\\s\\S]*uses: actions\\/github-script@/", $workflow)) {
             $problems[] = self::NO_FAILURE_REPORT;
         }
 

@@ -31,8 +31,6 @@ final class GitHubActionsTemplatesTest extends TestCase
 {
     private const string TEMPLATES = __DIR__ . '/../../templates/github-actions';
 
-    private const string PIPELINE_TEMPLATE = self::TEMPLATES . '/php-qa-ci.yml';
-
     private const string RELEASE_TEMPLATE = self::TEMPLATES . '/release.yml';
 
     private const string APPROVE_TEMPLATE = self::TEMPLATES . '/approve-held-ci/action.yml';

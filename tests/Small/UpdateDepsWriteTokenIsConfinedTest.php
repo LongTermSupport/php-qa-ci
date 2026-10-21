@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\WorkflowNode;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Defence for the class "a job that runs third-party code holding a token that can write".
@@ -27,53 +27,44 @@ final class UpdateDepsWriteTokenIsConfinedTest extends TestCase
 {
     private const string WORKFLOW = __DIR__ . '/../../.github/workflows/update-deps.yml';
 
-    private const string JOBS = 'jobs';
+    private const string WRITE = 'write';
 
     private const string PERMISSIONS = 'permissions';
 
     private const string STEPS = 'steps';
 
-    private const string WRITE = 'write';
-
-    /** Steps that execute code the repository or its dependencies provide. */
+    // Steps that execute code the repository or its dependencies provide.
     private const string RUNS_PROJECT_CODE = '/\b(?:composer (?:update|install)|ci\.bash|bin\/|php |bash scripts\/|vendor\/)/';
 
     #[Test]
     public function theWorkflowGrantsNothingButReadAccess(): void
     {
-        self::assertSame(['contents' => 'read'], $this->workflow()[self::PERMISSIONS] ?? null);
+        self::assertSame(['contents' => 'read'], $this->workflow()->child(self::PERMISSIONS)->stringMap());
     }
 
     #[Test]
     public function noJobThatRunsProjectCodeCanWrite(): void
     {
-        $writers = [];
-        foreach ($this->jobs() as $id => $job) {
-            if ($this->runsProjectCode($job) && \in_array(self::WRITE, (array)($job[self::PERMISSIONS] ?? []), true)) {
-                $writers[] = $id;
-            }
-        }
+        $runners = array_filter($this->jobs(), $this->runsProjectCode(...));
+        self::assertNotSame([], $runners, 'The update job must be found.');
+
+        $writers = array_keys(array_filter(
+            $runners,
+            static fn (WorkflowNode $job): bool => \in_array(self::WRITE, $job->child(self::PERMISSIONS)->stringMap(), true),
+        ));
 
         self::assertSame([], $writers);
-        self::assertNotSame([], array_filter($this->jobs(), $this->runsProjectCode(...)), 'The update job must be found.');
     }
 
     #[Test]
     public function theJobThatOpensThePullRequestIsTheOnlyOneWithWriteAccessToIt(): void
     {
-        $opening = [];
-        foreach ($this->jobs() as $id => $job) {
-            foreach ($this->stepsOf($job) as $step) {
-                if (str_starts_with((string)($step['uses'] ?? ''), 'peter-evans/create-pull-request@')) {
-                    $opening[] = $id;
-                }
-            }
-        }
+        $opening = $this->jobsWithAStepUsing('peter-evans/create-pull-request@');
 
         self::assertCount(1, $opening);
-        $job = $this->jobs()[$opening[0]];
-        self::assertFalse($this->runsProjectCode($job), 'The job that holds the write token must not run the repository\'s code.');
-        self::assertSame(['contents' => self::WRITE, 'pull-requests' => self::WRITE], $job[self::PERMISSIONS] ?? null);
+        $job = array_first($opening);
+        self::assertFalse($this->runsProjectCode($job), "The job that holds the write token must not run the repository's code.");
+        self::assertSame(['contents' => self::WRITE, 'pull-requests' => self::WRITE], $job->child(self::PERMISSIONS)->stringMap());
     }
 
     /**
@@ -84,74 +75,61 @@ final class UpdateDepsWriteTokenIsConfinedTest extends TestCase
     #[Test]
     public function theApprovalOfTheHeldRunIsAJobThatAppliesNothing(): void
     {
-        $approving = array_filter($this->jobs(), fn (array $job): bool => array_filter(
-            $this->stepsOf($job),
-            static fn (array $step): bool => str_ends_with((string)($step['uses'] ?? ''), '/approve-held-ci'),
-        ) !== []);
+        $approving = $this->jobsWithAStepUsing('./.github/actions/approve-held-ci');
 
         self::assertCount(1, $approving);
-        $job = array_values($approving)[0];
-        self::assertSame(['actions' => self::WRITE, 'contents' => 'read'], $job[self::PERMISSIONS] ?? null);
-        self::assertSame([], array_filter(
-            $this->stepsOf($job),
-            static fn (array $step): bool => str_contains((string)($step['uses'] ?? ''), 'download-artifact') || str_contains((string)($step['run'] ?? ''), 'git apply'),
-        ), 'A job holding actions: write must not apply the update.');
+        $job = array_first($approving);
+        self::assertSame(['actions' => self::WRITE, 'contents' => 'read'], $job->child(self::PERMISSIONS)->stringMap());
+        self::assertSame([], $this->jobsApplyingTheUpdate($job), 'A job holding actions: write must not apply the update.');
     }
 
     #[Test]
     public function aFailedRunReachesTheTrackingIssueFromAJobThatWritesNothingElse(): void
     {
-        $reporting = array_filter($this->jobs(), fn (array $job): bool => array_filter(
-            $this->stepsOf($job),
-            static fn (array $step): bool => str_contains((string)($step['with']['script'] ?? ''), 'update-deps-failure'),
-        ) !== []);
+        $reporting = array_filter($this->jobs(), static fn (WorkflowNode $job): bool => [] !== array_filter(
+            $job->child(self::STEPS)->items(),
+            static fn (WorkflowNode $step): bool => str_contains($step->child('with', 'script')->text(), 'update-deps-failure'),
+        ));
 
         self::assertCount(1, $reporting);
-        $job = array_values($reporting)[0];
-        self::assertSame(['contents' => 'read', 'issues' => self::WRITE], $job[self::PERMISSIONS] ?? null);
+        $job = array_first($reporting);
+        self::assertSame(['issues' => self::WRITE], $job->child(self::PERMISSIONS)->stringMap());
         self::assertFalse($this->runsProjectCode($job));
     }
 
-    /** @return array<string, mixed> */
-    private function workflow(): array
+    private function workflow(): WorkflowNode
     {
-        $workflow = Yaml::parse(\Safe\file_get_contents(self::WORKFLOW));
-        self::assertIsArray($workflow);
-
-        return $workflow;
+        return WorkflowNode::ofFile(self::WORKFLOW);
     }
 
-    /** @return array<string, array<string, mixed>> */
+    /** @return array<array-key, WorkflowNode> */
     private function jobs(): array
     {
-        $jobs = $this->workflow()[self::JOBS] ?? null;
-        self::assertIsArray($jobs);
+        return $this->workflow()->child('jobs')->entries();
+    }
 
-        return $jobs;
+    /** @return array<array-key, WorkflowNode> the jobs with a step that uses an action beginning with this reference */
+    private function jobsWithAStepUsing(string $reference): array
+    {
+        return array_filter($this->jobs(), static fn (WorkflowNode $job): bool => [] !== array_filter(
+            $job->child(self::STEPS)->items(),
+            static fn (WorkflowNode $step): bool => str_starts_with($step->child('uses')->text(), $reference),
+        ));
     }
 
     /**
-     * @param array<string, mixed> $job
-     *
-     * @return list<array<string, mixed>>
+     * @return list<WorkflowNode> those that download an artifact or apply a patch
      */
-    private function stepsOf(array $job): array
+    private function jobsApplyingTheUpdate(WorkflowNode ...$jobs): array
     {
-        $steps = $job[self::STEPS] ?? [];
-        self::assertIsArray($steps);
-
-        return array_values($steps);
+        return array_values(array_filter($jobs, static fn (WorkflowNode $job): bool => [] !== array_filter(
+            $job->child(self::STEPS)->items(),
+            static fn (WorkflowNode $step): bool => str_contains($step->child('uses')->text(), 'download-artifact') || str_contains($step->child('run')->text(), 'git apply'),
+        )));
     }
 
-    /** @param array<string, mixed> $job */
-    private function runsProjectCode(array $job): bool
+    private function runsProjectCode(WorkflowNode $job): bool
     {
-        foreach ($this->stepsOf($job) as $step) {
-            if (1 === \Safe\preg_match(self::RUNS_PROJECT_CODE, (string)($step['run'] ?? ''))) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($job->child(self::STEPS)->items(), static fn (WorkflowNode $step): bool => 1 === \Safe\preg_match(self::RUNS_PROJECT_CODE, $step->child('run')->text()));
     }
 }

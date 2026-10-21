@@ -13,8 +13,10 @@ set -euo pipefail
 #   ./setup-branch-protection.bash --harden           # Maximum protection
 #   ./setup-branch-protection.bash --branch php8.4    # Protect a named branch instead
 #
-# The required status checks are the job names of .github/workflows/ci.yml
-# (GitHub keys Actions contexts by JOB name, not workflow name).
+# The required status check is the name of the QA job of the pipeline workflow:
+# "QA Pipeline", in templates/github-actions/php-qa-ci.yml (installed as
+# .github/workflows/qa.yml). GitHub keys Actions contexts by JOB name, not
+# workflow name.
 #
 # ============================================================================
 
@@ -163,9 +165,11 @@ def enabled_of(node):
     return bool(node)
 
 
-# Job names from .github/workflows/ci.yml — the contexts GitHub reports for
-# Actions jobs. A stale context here would block every merge forever;
-# RequiredStatusChecksAreProducedTest fails on one no workflow job produces.
+# Job names from the pipeline template (templates/github-actions/php-qa-ci.yml,
+# the file php-qa-ci runs as .github/workflows/qa.yml) — the contexts GitHub
+# reports for Actions jobs. A stale context here would block every merge forever;
+# RequiredStatusChecksAreProducedTest fails on one that neither this repository's
+# workflows nor the template produce.
 OUR_CONTEXTS = ["QA Pipeline"]
 
 # required_status_checks: preserve every existing context (both the legacy

@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\WorkflowNode;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Defence for the class "a second workflow that runs the pipeline on the same push, or a
- * consumer of the pipeline run that names a workflow that no longer runs".
+ * consumer of the pipeline run that names a workflow that does not run".
  *
  * This repository runs the pipeline template it ships (`.github/workflows/qa.yml`) and nothing
- * else: a second pipeline workflow doubled every pull request push, and the release workflow, the
- * dependency update and branch protection each located "the CI run" by a name or a file that
- * would silently stop matching if that run moved. Each must find the one workflow that exists.
+ * else: a second pipeline workflow doubles every pull request push, and the release workflow, the
+ * dependency update and branch protection each locate "the CI run" by a name or a file that
+ * silently stops matching if that run moves. Each must find the one workflow that exists.
  *
  * @internal
  */
@@ -31,22 +31,16 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
 
     private const string RELEASE = self::WORKFLOWS . '/release.yml';
 
-    private const string ON = 'on';
-
-    private const string JOBS = 'jobs';
+    private const string PULL_REQUEST = 'pull_request';
 
     #[Test]
-    public function noSecondWorkflowRunsThePipelineOnAPush(): void
+    public function noSecondWorkflowRunsThePipelineOnAPullRequest(): void
     {
         $runners = [];
         foreach ($this->workflowFiles() as $file) {
-            $workflow = $this->parse($file);
-            $triggers = $workflow[self::ON] ?? [];
-            if (!\is_array($triggers) || !\array_key_exists('pull_request', $triggers)) {
-                continue;
+            if (WorkflowNode::ofFile($file)->child('on')->has(self::PULL_REQUEST)) {
+                $runners[] = basename($file);
             }
-
-            $runners[] = basename($file);
         }
 
         self::assertSame(['qa.yml'], $runners, 'Exactly one workflow starts on a pull request; a second one runs the pipeline twice.');
@@ -58,7 +52,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     {
         $named = [];
         foreach ($this->workflowFiles() as $file) {
-            foreach ($this->approvedWorkflows($file) as $workflow) {
+            foreach ($this->approvedWorkflows(WorkflowNode::ofFile($file)) as $workflow) {
                 $named[basename($file)][] = $workflow;
             }
         }
@@ -68,9 +62,10 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
         foreach ($named as $caller => $workflows) {
             foreach ($workflows as $workflow) {
                 self::assertFileExists(self::WORKFLOWS . '/' . $workflow, $caller . ' approves a workflow file that does not exist.');
-                $triggers = $this->parse(self::WORKFLOWS . '/' . $workflow)[self::ON] ?? [];
-                self::assertIsArray($triggers);
-                self::assertArrayHasKey('pull_request', $triggers, $caller . ' approves the held pull_request run of ' . $workflow . ', which has none.');
+                self::assertTrue(
+                    WorkflowNode::ofFile(self::WORKFLOWS . '/' . $workflow)->child('on')->has(self::PULL_REQUEST),
+                    $caller . ' approves the held pull_request run of ' . $workflow . ', which has none.',
+                );
             }
         }
     }
@@ -83,15 +78,13 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     #[Test]
     public function theReleaseWorkflowIsStartedAndGatedByThePipelineWorkflow(): void
     {
-        $pipelineName = $this->parse(self::PIPELINE)['name'] ?? null;
-        self::assertIsString($pipelineName);
+        $pipelineName = WorkflowNode::ofFile(self::PIPELINE)->child('name')->string();
+        self::assertNotNull($pipelineName);
 
-        $release = $this->parse(self::RELEASE);
-        $started = $release[self::ON]['workflow_run']['workflows'] ?? null;
-        self::assertIsArray($started);
-        self::assertContains($pipelineName, $started);
+        $release = WorkflowNode::ofFile(self::RELEASE);
+        self::assertContains($pipelineName, $release->child('on', 'workflow_run', 'workflows')->strings());
 
-        $gating = \Safe\json_decode((string)($release[self::JOBS]['release']['env']['GATING_WORKFLOWS'] ?? ''), true);
+        $gating = \Safe\json_decode($release->child('jobs', 'release', 'env', 'GATING_WORKFLOWS')->text(), true);
         self::assertIsArray($gating);
         self::assertContains($pipelineName, $gating);
     }
@@ -106,44 +99,26 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
         return $files;
     }
 
-    /** @return array<string, mixed> */
-    private function parse(string $file): array
-    {
-        $workflow = Yaml::parse(\Safe\file_get_contents($file));
-        self::assertIsArray($workflow);
-
-        return $workflow;
-    }
-
     /**
      * The file names a `uses: ./.github/actions/approve-held-ci` step passes as its literal
      * `workflow:` input; one given as an expression follows the event and is not a name here.
      *
      * @return list<string>
      */
-    private function approvedWorkflows(string $file): array
+    private function approvedWorkflows(WorkflowNode $node): array
     {
-        $parsed = $this->parse($file);
-        $found  = [];
-        $this->collectApprovals($parsed, $found);
-
-        return $found;
-    }
-
-    /**
-     * @param array<array-key, mixed> $node
-     * @param list<string>            $found
-     */
-    private function collectApprovals(array $node, array &$found): void
-    {
-        if (str_ends_with((string)($node['uses'] ?? ''), '/approve-held-ci') && \is_string($node['with']['workflow'] ?? null) && !str_contains($node['with']['workflow'], '${{')) {
-            $found[] = $node['with']['workflow'];
-        }
-
-        foreach ($node as $child) {
-            if (\is_array($child)) {
-                $this->collectApprovals($child, $found);
+        $found = [];
+        if (str_ends_with($node->child('uses')->text(), '/approve-held-ci')) {
+            $workflow = $node->child('with', 'workflow')->text();
+            if ('' !== $workflow && !str_contains($workflow, '${{')) {
+                $found[] = $workflow;
             }
         }
+
+        foreach ($node->entries() as $child) {
+            $found = [...$found, ...$this->approvedWorkflows($child)];
+        }
+
+        return $found;
     }
 }

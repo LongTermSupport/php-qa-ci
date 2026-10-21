@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small;
 
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\BranchNamePolicyDecision;
+use LTS\PHPQA\Tests\Support\WorkflowNode;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Defence for the class "a pull request push that starts the pipeline more than once, or starts it
@@ -35,16 +35,7 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
 
     private const string REPOSITORY = __DIR__ . '/../..';
 
-    /** The job consumers require; branch protection keys a check by this name. */
     private const string QA_JOB_NAME = 'QA Pipeline';
-
-    private const string ON = 'on';
-
-    private const string JOBS = 'jobs';
-
-    private const string STEPS = 'steps';
-
-    private const string PERMISSIONS = 'permissions';
 
     private const string QA_JOB = 'qa';
 
@@ -52,61 +43,56 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
 
     private const string WRITE = 'write';
 
+    private const string JOBS = 'jobs';
+
+    private const string STEPS = 'steps';
+
+    private const string PUSH = 'push';
+
+    private const string PULL_REQUEST = 'pull_request';
+
     #[Test]
     public function thePipelineTemplateRunsForEveryPullRequestAndForAPushToTheDefaultBranchOnly(): void
     {
-        $triggers = $this->workflow(self::TEMPLATE)[self::ON] ?? null;
-        self::assertIsArray($triggers);
+        $triggers = $this->template()->child('on');
 
-        self::assertSame(['push', 'pull_request', 'workflow_dispatch'], array_keys($triggers));
+        self::assertSame([self::PUSH, self::PULL_REQUEST, 'workflow_dispatch'], $triggers->keys());
+        self::assertSame(['types'], $triggers->child(self::PULL_REQUEST)->keys(), 'A pull_request branch filter would leave a pull request to another base without a run.');
 
-        $pull = $triggers['pull_request'];
-        self::assertTrue(null === $pull || [] === array_diff(array_keys((array)$pull), ['types']), 'A pull_request branch filter would leave a pull request to another base without a run.');
-
-        $push = $triggers['push'];
-        self::assertIsArray($push);
-        $branches = $push['branches'] ?? null;
-        self::assertIsArray($branches, 'push must name the branches it runs for; a bare push runs for every branch a pull request is raised from.');
-        self::assertNotSame([], $branches);
-        self::assertSame([], $this->branchesFromWorkPrefixes($branches), 'A push to a work branch runs the pipeline a second time beside its pull request.');
-        self::assertArrayNotHasKey('tags', $push);
+        $branches = $triggers->child(self::PUSH, 'branches')->strings();
+        self::assertNotSame([], $branches, 'push must name the branches it runs for; a bare push runs for every branch a pull request is raised from.');
+        self::assertSame([], $this->workBranchPatterns(...$branches), 'A push to a work branch runs the pipeline a second time beside its pull request.');
+        self::assertFalse($triggers->child(self::PUSH)->has('tags'));
     }
 
     /** The default branch is where a push gates a release, so this repository's own line is listed. */
     #[Test]
     public function thePushTriggerListsThisRepositorysDefaultBranch(): void
     {
-        $push = ($this->workflow(self::TEMPLATE)[self::ON] ?? [])['push'] ?? null;
-        self::assertIsArray($push);
-
-        self::assertContains($this->defaultBranchOfThisRepository(), $push['branches'] ?? []);
+        self::assertContains($this->defaultBranchOfThisRepository(), $this->template()->child('on', self::PUSH, 'branches')->strings());
     }
 
     #[Test]
     public function aSupersededPullRequestRunIsCancelledButADefaultBranchRunNever(): void
     {
-        $concurrency = $this->workflow(self::TEMPLATE)['concurrency'] ?? null;
-        self::assertIsArray($concurrency, 'The workflow needs a concurrency group.');
+        $concurrency = $this->template()->child('concurrency');
+        $group       = $concurrency->child('group')->string();
 
-        $group = $concurrency['group'] ?? null;
-        self::assertIsString($group);
+        self::assertNotNull($group, 'The workflow needs a concurrency group.');
         self::assertStringContainsString('github.workflow', $group, 'A group is shared by every workflow of the repository unless it names its own.');
         self::assertStringContainsString('github.event.pull_request.number', $group, 'Pushes to one pull request must share a group, or none is superseded.');
         self::assertStringContainsString('github.run_id', $group, 'Any other run needs a group of its own, or a newer push cancels a default-branch run that gates a release.');
-
-        self::assertSame("\${{ github.event_name == 'pull_request' }}", $concurrency['cancel-in-progress'] ?? null);
+        self::assertSame("\${{ github.event_name == 'pull_request' }}", $concurrency->child('cancel-in-progress')->string());
     }
 
     #[Test]
     public function theTokenReadsTheRepositoryAndOnlyTheOptInCommentJobWritesAnything(): void
     {
-        $workflow = $this->workflow(self::TEMPLATE);
-        self::assertSame(['contents' => 'read'], $workflow[self::PERMISSIONS] ?? null);
+        self::assertSame(['contents' => 'read'], $this->template()->child('permissions')->stringMap());
 
         $writers = [];
-        foreach ($this->jobs($workflow) as $id => $job) {
-            $granted = $job[self::PERMISSIONS] ?? [];
-            self::assertIsArray($granted);
+        foreach ($this->template()->child(self::JOBS)->entries() as $id => $job) {
+            $granted = $job->child('permissions')->stringMap();
             if (\in_array(self::WRITE, $granted, true)) {
                 $writers[$id] = $granted;
             }
@@ -118,21 +104,22 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     #[Test]
     public function theQaJobIsNamedByAConstantAndDetectsThePhpVersionInAStep(): void
     {
-        $workflow = $this->workflow(self::TEMPLATE);
-        $jobs     = $this->jobs($workflow);
+        $jobs = $this->template()->child(self::JOBS);
+        $qa   = $jobs->child(self::QA_JOB);
 
-        self::assertSame(self::QA_JOB_NAME, $jobs[self::QA_JOB]['name'] ?? null);
-        self::assertArrayNotHasKey('needs', $jobs[self::QA_JOB], 'The QA job runs first: a job of its own for the PHP version costs a runner and a check name.');
-        self::assertArrayNotHasKey('outputs', $jobs[self::QA_JOB]);
-        self::assertSame([self::QA_JOB, self::COVERAGE_JOB], array_keys($jobs));
+        self::assertSame([self::QA_JOB, self::COVERAGE_JOB], $jobs->keys(), 'The QA job runs first: a job of its own for the PHP version costs a runner and a check name.');
+        self::assertSame(self::QA_JOB_NAME, $qa->child('name')->string());
+        self::assertFalse($qa->has('needs'));
+        self::assertFalse($qa->has('outputs'));
 
-        $setupPhp = $this->stepUsing($jobs[self::QA_JOB], 'shivammathur/setup-php');
-        self::assertMatchesRegularExpression('/^\$\{\{ steps\.[a-z-]+\.outputs\.version \}\}$/', (string)($setupPhp['with']['php-version'] ?? ''), 'The PHP version comes from an earlier step of the same job.');
-
-        $detecting = array_values(array_filter(
-            $this->steps($jobs[self::QA_JOB]),
-            static fn (array $step): bool => str_contains((string)($step['run'] ?? ''), 'composer.json'),
+        $setupPhp = array_values(array_filter(
+            $qa->child(self::STEPS)->items(),
+            static fn (WorkflowNode $step): bool => str_starts_with($step->child('uses')->text(), 'shivammathur/setup-php@'),
         ));
+        self::assertCount(1, $setupPhp);
+        self::assertMatchesRegularExpression('/^\$\{\{ steps\.[a-z-]+\.outputs\.version \}\}$/', $setupPhp[0]->child('with', 'php-version')->text(), 'The PHP version comes from an earlier step of the same job.');
+
+        $detecting = array_filter($qa->child(self::STEPS)->items(), static fn (WorkflowNode $step): bool => str_contains($step->child('run')->text(), 'composer.json'));
         self::assertNotSame([], $detecting, 'A step must read composer.json for the PHP version.');
     }
 
@@ -140,50 +127,52 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     #[Test]
     public function theQaJobIsBoundedInTime(): void
     {
-        $timeout = $this->jobs($this->workflow(self::TEMPLATE))[self::QA_JOB]['timeout-minutes'] ?? null;
+        $timeout = $this->template()->child(self::JOBS, self::QA_JOB, 'timeout-minutes')->integer();
 
-        self::assertIsInt($timeout);
+        self::assertNotNull($timeout);
         self::assertLessThanOrEqual(60, $timeout);
     }
 
     #[Test]
     public function theCoverageReportIsOptInAndNothingWaitsForIt(): void
     {
-        $jobs = $this->jobs($this->workflow(self::TEMPLATE));
-        $job  = $jobs[self::COVERAGE_JOB] ?? null;
-        self::assertIsArray($job);
+        $job       = $this->template()->child(self::JOBS, self::COVERAGE_JOB);
+        $condition = $job->child('if')->text();
 
-        $condition = (string)($job['if'] ?? '');
         self::assertStringContainsString('vars.', $condition, 'The report runs only when the project switches it on with a repository variable.');
-        self::assertStringContainsString('pull_request', $condition);
+        self::assertStringContainsString(self::PULL_REQUEST, $condition);
         self::assertStringContainsString('github.repository', $condition, 'A pull request from a fork never has a token that can comment.');
-        self::assertTrue($job['continue-on-error'] ?? false, 'A comment that cannot be posted must not fail the pull request.');
-        self::assertSame(self::QA_JOB, $job['needs'] ?? null);
+        self::assertTrue($job->child('continue-on-error')->boolean(), 'A comment that cannot be posted must not fail the pull request.');
+        self::assertSame(self::QA_JOB, $job->child('needs')->string());
     }
 
     #[Test]
     public function theDispatchedToolIsAnOptionOfTheChoiceNotAnEmptyOne(): void
     {
-        $dispatch = ($this->workflow(self::TEMPLATE)[self::ON] ?? [])['workflow_dispatch'] ?? null;
-        self::assertIsArray($dispatch);
+        $inputs = $this->template()->child('on', 'workflow_dispatch', 'inputs')->entries();
+        self::assertNotSame([], $inputs);
 
-        foreach ($dispatch['inputs'] ?? [] as $name => $input) {
-            if ('choice' !== ($input['type'] ?? null)) {
+        foreach ($inputs as $name => $input) {
+            if ('choice' !== $input->child('type')->string()) {
                 continue;
             }
 
-            self::assertContainsOnlyString($input['options']);
-            self::assertNotContains('', $input['options'], $name . ' offers an empty option, which GitHub rejects.');
-            self::assertContains($input['default'] ?? null, $input['options'], $name . ' must default to one of its options.');
+            $options = $input->child('options')->strings();
+            self::assertNotSame([], $options);
+            self::assertNotContains('', $options, $name . ' offers an empty option, which GitHub rejects.');
+            self::assertContains($input->child('default')->string(), $options, $name . ' must default to one of its options.');
         }
     }
 
     #[Test]
     public function theQaStepIsReadOnlyAndTheTemplateCommitsNothing(): void
     {
-        $qa = $this->stepNamed($this->jobs($this->workflow(self::TEMPLATE))[self::QA_JOB], 'Run QA Pipeline');
-
-        self::assertSame('1', (string)($qa['env']['QA_READONLY'] ?? null), 'A read-only token cannot push, and a pushed fix would carry no check of its own.');
+        $steps = array_values(array_filter(
+            $this->template()->child(self::JOBS, self::QA_JOB, self::STEPS)->items(),
+            static fn (WorkflowNode $step): bool => 'Run QA Pipeline' === $step->child('name')->string(),
+        ));
+        self::assertCount(1, $steps);
+        self::assertSame('1', $steps[0]->child('env', 'QA_READONLY')->string(), 'A read-only token cannot push, and a pushed fix would carry no check of its own.');
 
         $template = \Safe\file_get_contents(self::TEMPLATE);
         self::assertStringNotContainsString('AUTO_COMMIT_FIXES', $template);
@@ -200,112 +189,54 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     {
         $found = [];
         foreach ($this->workflowFiles() as $file) {
-            $parsed = $this->workflow($file);
-            array_walk_recursive($parsed, static function (mixed $value, int|string $key) use (&$found, $file): void {
-                if ('run' !== $key || !\is_string($value)) {
-                    return;
-                }
-
-                \Safe\preg_match_all('/\$\{\{.*?\}\}/s', $value, $expressions);
-                foreach ($expressions[0] as $expression) {
+            foreach (WorkflowNode::ofFile($file)->stringsUnderKey('run') as $script) {
+                foreach ($this->expressionsIn($script) as $expression) {
                     $found[] = basename($file) . ': ' . $expression;
                 }
-            });
+            }
         }
 
         self::assertSame([], $found, 'Pass the value to the script through env: and read it as a shell variable.');
     }
 
     /**
-     * @param list<mixed> $branches
-     *
      * @return list<string> the branch patterns that name a work-branch prefix the branch policy allows
      */
-    private function branchesFromWorkPrefixes(array $branches): array
+    private function workBranchPatterns(string ...$branches): array
     {
         $prefixes = array_map(static fn (string $prefix): string => rtrim($prefix, '/'), BranchNamePolicyDecision::DEFAULT_PREFIXES);
 
         return array_values(array_filter(
-            array_map(strval(...), $branches),
+            $branches,
             static fn (string $branch): bool => '**' === $branch || \in_array(rtrim($branch, '/*'), $prefixes, true),
         ));
     }
 
+    /** @return list<string> */
+    private function expressionsIn(string $script): array
+    {
+        $matches = [];
+        \Safe\preg_match_all('/\$\{\{.*?\}\}/s', $script, $matches);
+
+        $captures = $matches[0] ?? [];
+
+        return \is_array($captures) ? array_values(array_filter($captures, is_string(...))) : [];
+    }
+
     private function defaultBranchOfThisRepository(): string
     {
-        $composer = \Safe\json_decode(\Safe\file_get_contents(self::REPOSITORY . '/composer.json'), true);
-        self::assertIsArray($composer);
-        self::assertSame(1, \Safe\preg_match('/(\d+\.\d+)/', (string)($composer['require']['php'] ?? ''), $version));
+        $composer = WorkflowNode::ofJson(\Safe\file_get_contents(self::REPOSITORY . '/composer.json'));
+        $version  = [];
+        self::assertSame(1, \Safe\preg_match('/(\d+\.\d+)/', $composer->child('require', 'php')->text(), $version), 'composer.json states no PHP version.');
+        $majorMinor = $version[1] ?? null;
+        self::assertNotNull($majorMinor);
 
-        return 'php' . $version[1];
+        return 'php' . $majorMinor;
     }
 
-    /** @return array<string, mixed> */
-    private function workflow(string $file): array
+    private function template(): WorkflowNode
     {
-        $workflow = Yaml::parse(\Safe\file_get_contents($file));
-        self::assertIsArray($workflow);
-
-        return $workflow;
-    }
-
-    /**
-     * @param array<string, mixed> $workflow
-     *
-     * @return array<string, array<string, mixed>>
-     */
-    private function jobs(array $workflow): array
-    {
-        $jobs = $workflow[self::JOBS] ?? null;
-        self::assertIsArray($jobs);
-
-        return $jobs;
-    }
-
-    /**
-     * @param array<string, mixed> $job
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function steps(array $job): array
-    {
-        $steps = $job[self::STEPS] ?? null;
-        self::assertIsArray($steps);
-        self::assertTrue(array_is_list($steps));
-
-        return $steps;
-    }
-
-    /**
-     * @param array<string, mixed> $job
-     *
-     * @return array<string, mixed>
-     */
-    private function stepUsing(array $job, string $action): array
-    {
-        foreach ($this->steps($job) as $step) {
-            if (str_starts_with((string)($step['uses'] ?? ''), $action . '@')) {
-                return $step;
-            }
-        }
-
-        self::fail('No step uses ' . $action);
-    }
-
-    /**
-     * @param array<string, mixed> $job
-     *
-     * @return array<string, mixed>
-     */
-    private function stepNamed(array $job, string $name): array
-    {
-        foreach ($this->steps($job) as $step) {
-            if (($step['name'] ?? null) === $name) {
-                return $step;
-            }
-        }
-
-        self::fail('No step is named ' . $name);
+        return WorkflowNode::ofFile(self::TEMPLATE);
     }
 
     /** @return list<string> */
