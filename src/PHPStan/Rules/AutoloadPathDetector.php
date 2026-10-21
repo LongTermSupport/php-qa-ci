@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PHPStan\Rules;
 
 use LTS\PHPQA\Helper;
+use PhpToken;
 
 /**
  * Pure decision: can the analysed project's Composer autoloader load a class from the
@@ -71,6 +72,24 @@ final readonly class AutoloadPathDetector
     }
 
     /**
+     * The first path a prefix claiming the class gives, other than the excluded file, at
+     * which a file declares the class: where the autoloader finds the class when the
+     * excluded file is a second declaration of it. Null when there is none.
+     */
+    public function claimedPathDeclaring(string $className, string $excludedFile): ?string
+    {
+        $excluded = $this->resolve($excludedFile);
+        foreach ($this->claimedPaths($className) as $candidate) {
+            $path = $this->resolve($candidate);
+            if ($path !== $excluded && is_file($path) && $this->declares($path, $className)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * The path relative to the project root, for a message; a path outside the root as given.
      */
     public function relativeToRoot(string $path): string
@@ -115,6 +134,38 @@ final readonly class AutoloadPathDetector
         krsort($byPrefixLength);
 
         return array_merge(...array_values($byPrefixLength));
+    }
+
+    /**
+     * Whether the file declares the class-like, read from its tokens. A name is compared
+     * as PHP compares it, without regard to case; `X::class` and `new class` declare nothing.
+     */
+    private function declares(string $path, string $className): bool
+    {
+        $wanted    = strtolower(ltrim($className, self::NAMESPACE_SEPARATOR));
+        $namespace = '';
+        $previous  = null;
+        $tokens    = array_values(array_filter(
+            PhpToken::tokenize(\Safe\file_get_contents($path)),
+            static fn (PhpToken $token): bool => !$token->isIgnorable(),
+        ));
+        foreach ($tokens as $index => $token) {
+            if ($token->is(\T_NAMESPACE)) {
+                $next      = $tokens[$index + 1] ?? null;
+                $namespace = null !== $next && $next->is([\T_STRING, \T_NAME_QUALIFIED]) ? $next->text . self::NAMESPACE_SEPARATOR : '';
+            }
+
+            $isDeclaration = $token->is([\T_CLASS, \T_INTERFACE, \T_TRAIT, \T_ENUM])
+                && (null === $previous || !$previous->is([\T_DOUBLE_COLON, \T_NEW]));
+            $next = $tokens[$index + 1] ?? null;
+            if ($isDeclaration && null !== $next && $next->is(\T_STRING) && strtolower($namespace . $next->text) === $wanted) {
+                return true;
+            }
+
+            $previous = $token;
+        }
+
+        return false;
     }
 
     /**

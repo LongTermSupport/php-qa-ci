@@ -33,7 +33,9 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
 
     private const string HOST = self::FIXTURE_DIRECTORY . 'HostTest.php';
 
-    private const string LOADING = 'this reference fails with a "not found" error unless that file was loaded first.';
+    private const string STRANDED_HELPER = 'StrandedHelper';
+
+    private const string LOADING ='this reference fails with a "not found" error unless that file was loaded first.';
 
     private const string CLASS_NAME = 'whatever loads the class by this name (a mock, a container, class_exists()) '
         . 'fails, or answers false, unless that file was loaded first.';
@@ -41,10 +43,6 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
     private const string ATTRIBUTE = 'reading this attribute with newInstance() fails with "Attribute class not found" '
         . 'unless that file was loaded first.';
 
-    /**
-     * Loaded before each test, declaring files first. Drifted/Copies.php is analysed but
-     * never loaded, because it declares a class Duplicated.php declares too.
-     */
     private const array LOADED_FIXTURES = [
         'HostTest.php',
         'AtItsPath.php',
@@ -60,7 +58,9 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
 
     /**
      * The fixtures are loaded first so the reflection provider knows their classes, as a
-     * full analysis knows every class in its analysed paths.
+     * full analysis knows every class in its analysed paths: declaring files first.
+     * Drifted/Copies.php is analysed but never loaded, because it declares a class
+     * Duplicated.php declares too.
      */
     protected function setUp(): void
     {
@@ -84,21 +84,21 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
     #[Test]
     public function everyReferenceThatMakesPhpLoadAStrandedClassIsReportedWithWhatFailsThere(): void
     {
-        $stranded  = $this->misplaced('StrandedHelper', self::HOST, 'StrandedHelper.php', self::LOADING);
+        $stranded  = $this->atTheFootOfHost(self::STRANDED_HELPER, self::LOADING);
         $misplaced = $this->misplaced('Elsewhere\Misplaced', self::FIXTURE_DIRECTORY . 'Drifted/Misplaced.php', 'Elsewhere/Misplaced.php', self::LOADING);
 
         $this->analyse($this->allFixtures(), [
-            [$this->misplaced('StrandedAttribute', self::HOST, 'StrandedAttribute.php', self::ATTRIBUTE), 10],
-            [$this->misplaced('StrandedBase', self::HOST, 'StrandedBase.php', self::LOADING), 11],
-            [$this->misplaced('StrandedContract', self::HOST, 'StrandedContract.php', self::LOADING), 11],
-            [$this->misplaced('StrandedTrait', self::HOST, 'StrandedTrait.php', self::LOADING), 13],
+            [$this->atTheFootOfHost('StrandedAttribute', self::ATTRIBUTE), 10],
+            [$this->atTheFootOfHost('StrandedBase', self::LOADING), 11],
+            [$this->atTheFootOfHost('StrandedContract', self::LOADING), 11],
+            [$this->atTheFootOfHost('StrandedTrait', self::LOADING), 13],
             [$stranded, 19],
             [$stranded, 24],
             [$stranded, 26],
-            [$this->misplaced('StrandedHelper', self::HOST, 'StrandedHelper.php', self::CLASS_NAME), 40],
-            [$this->misplaced('StrandedHelper', self::HOST, 'StrandedHelper.php', $this->signature('contracted')), 43],
+            [$this->atTheFootOfHost(self::STRANDED_HELPER, self::CLASS_NAME), 40],
+            [$this->atTheFootOfHost(self::STRANDED_HELPER, $this->signature('contracted')), 43],
             [$stranded, 45],
-            [$this->misplaced('StrandedMarker', self::HOST, 'StrandedMarker.php', $this->signature('accept')), 48],
+            [$this->atTheFootOfHost('StrandedMarker', $this->signature('accept')), 48],
             [$stranded, 58],
             [$this->miscased(), 72],
             [$misplaced, 77],
@@ -168,6 +168,11 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
             self::FIXTURE_DIRECTORY . $expected,
             $consequence,
         );
+    }
+
+    private function atTheFootOfHost(string $class, string $consequence): string
+    {
+        return $this->misplaced($class, self::HOST, $class . '.php', $consequence);
     }
 
     private function signature(string $method): string

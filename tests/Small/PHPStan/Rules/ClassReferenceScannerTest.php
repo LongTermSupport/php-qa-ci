@@ -25,6 +25,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ClassReferenceScannerTest extends TestCase
 {
+    private const string PARAM = 'App\Tests\Param';
+
+    private const string OTHER = 'App\Tests\Other';
+
     /**
      * Each class name is reported with the position it stands in, which decides whether
      * PHP asks the autoloader for it there.
@@ -78,8 +82,9 @@ final class ClassReferenceScannerTest extends TestCase
             'ancestors' => ['App\Tests\Base', 'App\Tests\Contract', 'App\Tests\Behaviour'],
             'method'    => 'run',
             'parameter' => $parameter,
-            'typeNames' => $typeNames,
+            'typeNames' => array_values($typeNames),
         ];
+        $parameterSignature = $hostSignature(0, self::PARAM, self::OTHER);
 
         self::assertEquals(
             [
@@ -88,8 +93,8 @@ final class ClassReferenceScannerTest extends TestCase
                 $this->reference('App\Tests\Contract', 9, ClassReferencePosition::Loading),
                 $this->reference('App\Tests\Behaviour', 11, ClassReferencePosition::Loading),
                 $this->reference('App\Tests\Typed', 13, ClassReferencePosition::Inert),
-                $this->reference('App\Tests\Param', 15, ClassReferencePosition::MethodSignature, $hostSignature(0, 'App\Tests\Param', 'App\Tests\Other')),
-                $this->reference('App\Tests\Other', 15, ClassReferencePosition::MethodSignature, $hostSignature(0, 'App\Tests\Param', 'App\Tests\Other')),
+                $this->reference(self::PARAM, 15, ClassReferencePosition::MethodSignature, $parameterSignature),
+                $this->reference(self::OTHER, 15, ClassReferencePosition::MethodSignature, $parameterSignature),
                 $this->reference('App\Tests\Returned', 15, ClassReferencePosition::MethodSignature, $hostSignature(null, 'App\Tests\Returned')),
                 $this->reference('App\Support\Imported', 17, ClassReferencePosition::Loading),
                 $this->reference('App\Tests\Factory', 18, ClassReferencePosition::Loading),

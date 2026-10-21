@@ -160,11 +160,14 @@
 #                                          the project's PSR-4/PSR-0 mapping claims but
 #                                          that is not declared at the path the mapping
 #                                          gives (a helper at the foot of a test file, a
-#                                          namespace drifted from its directory). It
-#                                          resolves only when something else has loaded
-#                                          the declaring file first, so a single test, a
-#                                          filtered run or Infection fails with "class not
-#                                          found". Quiet on the declaring file's own uses,
+#                                          namespace drifted from its directory), where
+#                                          PHP asks the autoloader for it. It works only
+#                                          when something else has loaded the declaring
+#                                          file first, so a single test, a filtered run
+#                                          or Infection fails with "not found". Also a
+#                                          name in the wrong case, and a second copy of a
+#                                          class at its path. Quiet on instanceof, catch
+#                                          and plain types, the declaring file's own uses,
 #                                          a file that includes it, classmap and files
 #                                          entries, and classes no prefix claims. See
 #                                          docs/phpstan-rules/forbid-unautoloadable-class-reference.md

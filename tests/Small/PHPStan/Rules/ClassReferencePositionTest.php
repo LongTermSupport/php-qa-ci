@@ -9,6 +9,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionEnum;
+use ReflectionEnumUnitCase;
 
 /**
  * Pins the positions {@see ClassReferencePosition} distinguishes: the rule gives each a
@@ -23,9 +25,11 @@ final class ClassReferencePositionTest extends TestCase
     #[Test]
     public function thePositionsAreTheFourThatCanLoadAClassAndTheOneThatCannot(): void
     {
+        $cases = new ReflectionEnum(ClassReferencePosition::class)->getCases();
+
         self::assertSame(
             ['Loading', 'ClassName', 'Attribute', 'MethodSignature', 'Inert'],
-            array_map(static fn (ClassReferencePosition $position): string => $position->name, ClassReferencePosition::cases()),
+            array_map(static fn (ReflectionEnumUnitCase $case): string => $case->getName(), $cases),
         );
     }
 }

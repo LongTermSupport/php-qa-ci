@@ -256,14 +256,14 @@ final class AutoloadPathDetectorTest extends TestCase
     private function fixtureDetector(): AutoloadPathDetector
     {
         return new AutoloadPathDetector(
-            \Safe\realpath(__DIR__ . '/../../../..'),
+            \dirname(__DIR__, 4),
             ['autoload-dev' => ['psr-4' => [self::FIXTURE_NAMESPACE => self::FIXTURE_DIRECTORY]]],
         );
     }
 
     private function fixturePath(string $relative): string
     {
-        return \Safe\realpath(__DIR__ . '/../../../../' . self::FIXTURE_DIRECTORY . $relative);
+        return \dirname(__DIR__, 4) . '/' . self::FIXTURE_DIRECTORY . $relative;
     }
 
     /**
