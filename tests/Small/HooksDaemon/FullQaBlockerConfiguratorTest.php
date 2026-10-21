@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\HooksDaemon;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\HooksDaemon\ConfigureOutcomeEnum;
 use LTS\PHPQA\HooksDaemon\Dto\YamlEditResultDto;
 use LTS\PHPQA\HooksDaemon\FullQaBlockerBlockRenderer;
@@ -39,6 +40,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(YamlEditResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(ProcessResultDto::class)]
+#[UsesClass(ChildExit::class)]
 #[Small]
 final class FullQaBlockerConfiguratorTest extends TestCase
 {
@@ -112,6 +114,29 @@ final class FullQaBlockerConfiguratorTest extends TestCase
         $printed = $this->output->fetch();
         self::assertStringContainsString('exit 1', $printed);
         self::assertStringContainsString('    unknown key: full_qa_patterns', $printed);
+    }
+
+    /**
+     * bin/hooks-daemon is a wrapper, so a crash below it comes back as its own exit 139: that is no
+     * verdict on the change, and is named as the crash it relays, never as a rejection.
+     */
+    #[Test]
+    public function aValidatorThatRelaysACrashIsNotCalledARejection(): void
+    {
+        $outcome = $this->configurator($this->validatorSeeing(139, "Segmentation fault (core dumped)\n"))
+            ->configure($this->project->path, $this->configPath())
+        ;
+
+        self::assertSame(ConfigureOutcomeEnum::CannotValidate, $outcome);
+        self::assertSame(self::ORIGINAL, $this->project->read(self::CONFIG));
+        self::assertSame(['hooks-daemon.yaml'], $this->project->files('.claude'));
+        $printed = $this->output->fetch();
+        self::assertStringContainsString(
+            \sprintf('⚠️  config-validate did not finish (exit 139%s), so %s is left untouched:', ChildExit::exitedItself(139), $this->configPath()),
+            $printed,
+        );
+        self::assertStringNotContainsString('rejected', $printed);
+        self::assertStringContainsString('    Segmentation fault (core dumped)', $printed);
     }
 
     #[Test]
