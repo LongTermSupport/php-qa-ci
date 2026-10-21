@@ -123,7 +123,13 @@ final readonly class TurboInstaller
 
         try {
             if ($this->matchesItsStamp($turboDir, $binaryPath, $corePath)) {
-                $to->writeln(\sprintf('phpstan.phar loads %s beside its core: both match the SHA-256 digests in %s, which an install writes only once it has verified and placed them.', $binary, $binary . self::STAMP_SUFFIX));
+                // The stamp records paths and digests, not a release: a pair an earlier release installed
+                // matches its stamp too, and the phar activates it only on an extension version match.
+                $to->writeln(\sprintf(
+                    '%s and its core match the SHA-256 digests in %s, which an install writes only once it has verified and placed them; phpstan.phar loads the binary, and activates it when its extension version is the one the phar expects.',
+                    $binary,
+                    $binary . self::STAMP_SUFFIX,
+                ));
 
                 return;
             }

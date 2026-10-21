@@ -116,9 +116,12 @@ expects; `php vendor-phar/phpstan.phar diagnose` reports one that is not as `ina
   non-zero, and its `ERROR:` line is followed by what it left, judged against the `.source` stamp
   an install writes beside the binary once it has verified and placed both files. It says one of
   three things. With no binary beside its core, PHPStan runs without Turbo. A binary and core that
-  match the digests in their stamp are a pair an install verified, and `phpstan.phar` loads
-  them. Any other pair gets a `WARNING:` that `phpstan.phar` may still load the binary named
-  there, which the install could not vouch for; delete that binary to run without Turbo. An
+  match the digests in their stamp are a pair an install verified: `phpstan.phar` loads the
+  binary, and activates it when its extension version is the one the phar expects, since a stamp
+  records files and digests rather than a release. Any other pair gets a `WARNING:` that
+  `phpstan.phar` may still load the binary named there, which the install could not vouch for;
+  delete that binary to run without Turbo. When the binary, its core or the stamp cannot be read,
+  the warning ends with the reason. An
   install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
   Composer plugin, and `scripts/tool-install.bash` in php-qa-ci itself, then run
   `bin/turbo-install state`, a read-only check of the same thing. The plugin relays its answer,
