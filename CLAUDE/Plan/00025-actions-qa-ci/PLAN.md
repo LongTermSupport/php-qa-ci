@@ -70,6 +70,21 @@ This plan does three things:
   toolchain against that constraint.
 - [x] ✅ **Task 1.3**: Create the public repository now (Owner decision):
   `LongTermSupport/actions-qa-ci`, MIT like php-qa-ci.
+- [ ] ⬜ **Task 1.4**: Conformance reading ([design.md § 3](design.md#3-conformance-framing-toolchain-41)):
+  actions-qa-ci is the Detector, and zizmor and actionlint are bundled rule backends.
+- [ ] ⬜ **Task 1.5**: zizmor provenance in v1 ([design.md § 5.2](design.md#52-zizmor-provenance)): the
+  sha256-pinned PyPI musl wheel, or a self-built and attested binary.
+- [ ] ⬜ **Task 1.6**: Default strictness: zizmor `regular` persona and shellcheck `warning`, which is
+  narrower than upstream's full catalogue.
+- [ ] ⬜ **Task 1.7**: Whether the standing authorisation to merge green tool-update PRs after a
+  fresh sub-agent's verification extends to the new repository.
+- Defaults taken without an Owner decision, since each follows the Owner's direction or an existing
+  convention (design.md § 14 items 3, 6, 7 and 8):
+  - Linux amd64 and arm64 only;
+  - default branch `main` with one release line;
+  - no exec-rule kind;
+  - tool updates adopted the same day, matching php-qa-ci's tool-currency process.
+  - Item 9, the `dangerous-triggers` exception, is decided in Task 2.2.
 
 ### Phase 2: Defects found by the audit (DBF, issue loop)
 
@@ -101,7 +116,8 @@ This plan does three things:
 
 ### Phase 4: actions-qa-ci (after Tasks 1.2 and 1.3)
 
-- [ ] ⬜ **Task 4.1**: Design document:
+- [x] ✅ **Task 4.1**: Design document, [design.md](design.md). Its open points are Tasks 1.4 to 1.7. It
+  covers:
   - identifier scheme (`actionsqaci.<tool>.<upstream-id>`) and one owner per hazard class;
   - pinned-tool manifest;
   - justification lane;
