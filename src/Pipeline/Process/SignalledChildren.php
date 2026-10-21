@@ -7,8 +7,9 @@ namespace LTS\PHPQA\Pipeline\Process;
 use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
 
 /**
- * The children a signal killed since they were last taken. SymfonyProcessRunner
- * records each one; the executor takes them after every lane, so the lane that
+ * The children a signal killed since they were last taken, and those that
+ * exited 139 to report a segfault below them. SymfonyProcessRunner records
+ * each one; the executor takes them after every lane, so the lane that
  * ran one is reported as crashed whatever it made of the exit code, and the
  * pipeline takes them around the lanes, so a start-up probe or a hook that ran
  * one stops the run rather than going unnoticed.

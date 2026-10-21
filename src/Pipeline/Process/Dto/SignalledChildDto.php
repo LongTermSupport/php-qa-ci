@@ -8,7 +8,8 @@ use LTS\PHPQA\ComposerPlugin\ChildExit;
 
 /**
  * A child process that a signal killed, which the child itself could say
- * nothing about: the command as it was echoed, and the signal.
+ * nothing about, or one that exited 139 to report a segfault below it: the
+ * command as it was echoed, and the signal.
  *
  * @internal
  */

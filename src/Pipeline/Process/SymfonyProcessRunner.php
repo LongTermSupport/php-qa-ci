@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Process;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
@@ -20,7 +21,8 @@ use Symfony\Component\Process\Process;
  * echoed first so a log shows exactly what ran. The child is registered in
  * $running while it runs, so an interrupted run can stop it. A child a signal
  * killed is recorded in $signalled and comes back as exit 128 + the signal
- * (see signalled()).
+ * (see signalled()); so is one that exits 139 itself, reporting a segfault
+ * below it (see recordRelayedSegfault()).
  *
  * @internal
  */
@@ -88,7 +90,26 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
             return $this->signalled($spec, $signaled, $captured, $stdout);
         }
 
-        return new ProcessResultDto($process->getExitCode() ?? 1, $captured, $stdout);
+        $exitCode = $process->getExitCode() ?? 1;
+        if ($this->signalled instanceof SignalledChildren && ChildExit::isSegmentationFault($exitCode)) {
+            $this->recordRelayedSegfault($this->signalled, $spec);
+        }
+
+        return new ProcessResultDto($exitCode, $captured, $stdout);
+    }
+
+    /**
+     * A child that exits 139 itself reports a segmentation fault below it: a
+     * shell whose command crashed, or a tool that re-ran itself and relays its
+     * copy's crash. It is recorded and named as a segfault, so the lane that
+     * ran it halts the run whatever it made of the code; the result keeps the
+     * exit code and carries no signal, since none killed this child.
+     */
+    private function recordRelayedSegfault(SignalledChildren $signalled, ProcessSpecDto $spec): void
+    {
+        $child = new SignalledChildDto($spec->commandLine(), \SIGSEGV);
+        $signalled->record($child);
+        $this->output->writeln('!! ' . $child->describe());
     }
 
     /**
