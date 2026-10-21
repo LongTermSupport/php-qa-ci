@@ -407,6 +407,51 @@ final class DeadCodeToolTest extends TestCase
         self::assertSame([], $this->factory->processes->specs);
     }
 
+    /** The lane's run already reads src/: a link to a `.php` file there hides nothing. */
+    #[Test]
+    public function aLinkToAFileUnderTheSourceDirectoryRunsTheDetector(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write('src/app.php', self::PHP_SCRIPT);
+        $this->factory->project->mkdir('bin');
+        \Safe\symlink('../src/app.php', $this->factory->project->path . '/bin/app');
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $this->tool()->run($this->factory->context($config))->outcome);
+    }
+
+    /** A first-party script in a subdirectory of bin/ is analysed by nothing until declared. */
+    #[Test]
+    public function anUndeclaredScriptInASubdirectoryOfBinFailsTheLane(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write('bin/cron/job', self::PHP_SCRIPT);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result = $this->tool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('1 PHP script under bin/ is not a declared entry point: bin/cron/job', $result->summary);
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    /** A tree the project ignores is one it has said is not analysed. */
+    #[Test]
+    public function aScriptUnderAnIgnoredPathRunsTheDetector(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write('bin/.phpunit/phpunit', self::PHP_SCRIPT);
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->withIgnoredPaths('bin/.phpunit')->build();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $this->tool()->run($this->factory->context($config))->outcome);
+    }
+
     #[Test]
     public function everyPhpScriptUnderBinDeclaredRunsTheDetector(): void
     {

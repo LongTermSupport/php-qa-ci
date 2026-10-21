@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\DeadCode;
 
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\DeadCode\BinEntryPointScripts;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,6 +22,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(BinEntryPointScripts::class)]
+#[UsesClass(IgnoredPaths::class)]
 #[Small]
 final class BinEntryPointScriptsTest extends TestCase
 {
@@ -36,6 +39,9 @@ final class BinEntryPointScriptsTest extends TestCase
     private const string WORKER_RELATIVE = '../scripts/worker';
 
     private TempDir $project;
+
+    /** @var list<string> withIgnoredPaths() entries, project-relative */
+    private array $ignoredPaths = [];
 
     protected function setUp(): void
     {
@@ -225,7 +231,7 @@ final class BinEntryPointScriptsTest extends TestCase
     }
 
     #[Test]
-    public function aSymlinkToADirectoryIsNotRequired(): void
+    public function aSymlinkToAnEmptyDirectoryHoldsNothingToDeclare(): void
     {
         $this->project->mkdir('scripts/tools');
         $this->link('../scripts/tools', 'bin/tools');
@@ -233,13 +239,133 @@ final class BinEntryPointScriptsTest extends TestCase
         self::assertSame([], $this->undeclared());
     }
 
-    /** Executables are the files directly under bin/; a subdirectory there is a tool's own tree. */
+    /** A linked directory is read like a real one: each script in it is judged by its path through bin/. */
     #[Test]
-    public function aSubdirectoryOfBinIsNotScanned(): void
+    public function aScriptInALinkedDirectoryIsRequired(): void
+    {
+        $this->project->write('scripts/tools/sync', self::PHP_SCRIPT);
+        $this->link('../scripts/tools', 'bin/tools');
+
+        self::assertSame(['bin/tools/sync'], $this->undeclared());
+    }
+
+    /** A link back up the tree is read once, not followed for ever. */
+    #[Test]
+    public function aLinkLoopIsReadOnce(): void
+    {
+        $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->link('.', 'bin/again');
+
+        self::assertSame([self::CONSOLE], $this->undeclared());
+    }
+
+    /** A first-party script in a subdirectory is analysed by nothing exactly as one directly under bin/ is. */
+    #[Test]
+    #[DataProvider('scriptsInSubdirectories')]
+    public function aScriptInASubdirectoryOfBinIsRequired(string $script): void
+    {
+        $this->project->write($script, self::PHP_SCRIPT);
+
+        self::assertSame([$script], $this->undeclared());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function scriptsInSubdirectories(): iterable
+    {
+        yield 'one level' => ['bin/cron/job'];
+        yield 'two levels' => ['bin/cron/nightly/report'];
+        yield 'a dot directory' => ['bin/.phpunit/phpunit-9.6/phpunit'];
+    }
+
+    #[Test]
+    public function aScriptInASubdirectoryIsDeclaredByItsPath(): void
+    {
+        $this->project->write('bin/cron/job', self::PHP_SCRIPT);
+
+        self::assertSame([], $this->undeclared($this->project->path . '/bin/cron/job'));
+    }
+
+    /** withIgnoredPaths() is the project's own statement that a tree is not analysed. */
+    #[Test]
+    public function aScriptUnderAnIgnoredPathIsNotRequired(): void
     {
         $this->project->write('bin/.phpunit/phpunit-9.6/phpunit', self::PHP_SCRIPT);
+        $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->ignoredPaths = ['bin/.phpunit'];
+
+        self::assertSame([self::CONSOLE], $this->undeclared());
+    }
+
+    /** The ignored path may name the link's target rather than its bin/ path. */
+    #[Test]
+    public function aLinkToAnIgnoredPathIsNotRequired(): void
+    {
+        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
+        $this->link(self::WORKER_RELATIVE, self::WORKER);
+        $this->ignoredPaths = ['scripts'];
 
         self::assertSame([], $this->undeclared());
+    }
+
+    /** A vendor dir configured inside bin/ holds other packages' code, as it does anywhere else. */
+    #[Test]
+    public function aVendorDirInsideBinIsNotRequired(): void
+    {
+        $this->project->write('composer.json', '{"config": {"vendor-dir": "bin/vendor"}}');
+        $this->project->write('bin/vendor/acme/tool/bin/tool', self::PHP_SCRIPT);
+
+        self::assertSame([], $this->undeclared());
+    }
+
+    /**
+     * A `.php` file under src/ or tests/ is already analysed by the lane's own run, so a link to
+     * it hides nothing.
+     */
+    #[Test]
+    #[DataProvider('analysedTargets')]
+    public function aSymlinkToAFileTheLaneAlreadyAnalysesIsNotRequired(string $target): void
+    {
+        $this->project->write($target, self::PHP_SCRIPT);
+        $this->link('../' . $target, 'bin/app');
+
+        self::assertSame([], $this->undeclared());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function analysedTargets(): iterable
+    {
+        yield 'under src/' => ['src/app.php'];
+        yield 'under tests/' => ['tests/Support/fixture.php'];
+    }
+
+    /** PHPStan reads only `.php` files from a directory it scans, so an extensionless target there is unanalysed. */
+    #[Test]
+    #[DataProvider('unanalysedTargets')]
+    public function aSymlinkToAFileTheLaneDoesNotAnalyseIsRequired(string $target): void
+    {
+        $this->project->write($target, self::PHP_SCRIPT);
+        $this->link('../' . $target, 'bin/app');
+
+        self::assertSame(['bin/app'], $this->undeclared());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unanalysedTargets(): iterable
+    {
+        yield 'extensionless under src/' => ['src/app'];
+        yield 'extensionless under tests/' => ['tests/app'];
+        yield '.php outside src/ and tests/' => ['scripts/app.php'];
+        yield 'a directory merely named like src/' => ['srcExtra/app.php'];
+    }
+
+    /** A declared directory is scanned the same way: its `.php` files are analysed, nothing else in it is. */
+    #[Test]
+    public function aDeclaredDirectoryCoversItsPhpFilesOnly(): void
+    {
+        $this->project->write('bin/tool.php', self::PHP_SCRIPT);
+        $this->project->write(self::TOOL, self::PHP_SCRIPT);
+
+        self::assertSame([self::TOOL], $this->undeclared($this->project->path . '/bin'));
     }
 
     #[Test]
@@ -273,9 +399,17 @@ final class BinEntryPointScriptsTest extends TestCase
         \Safe\symlink($target, $this->project->path . '/' . $link);
     }
 
-    /** @return list<string> */
+    /**
+     * The lane's own analysed directories are src/ and tests/, as DeadCodeTool passes them.
+     *
+     * @return list<string>
+     */
     private function undeclared(string ...$declared): array
     {
-        return new BinEntryPointScripts()->undeclared($this->project->path, ...$declared);
+        $root = $this->project->path;
+
+        return new BinEntryPointScripts(new IgnoredPaths($root, ...$this->ignoredPaths), $root . '/src', $root . '/tests')
+            ->undeclared($root, ...$declared)
+        ;
     }
 }
