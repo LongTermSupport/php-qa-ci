@@ -31,6 +31,8 @@ final class LogArchiverTest extends TestCase
 
     private const int MAX_FILE_NAME_BYTES = 255;
 
+    private const string REGEX_SYNTAX_LOG = 'ph.pun.l+g';
+
     private TempDir $logDir;
 
     private BufferedOutput $output;
@@ -91,6 +93,7 @@ final class LogArchiverTest extends TestCase
 
         $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('a'), self::TIMESTAMP);
         $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('b'), self::TIMESTAMP);
+
         $afterTwoSets = $this->logDir->files();
         self::assertCount(3, $afterTwoSets, 'the live log and one archive per distinct path set');
 
@@ -184,6 +187,99 @@ final class LogArchiverTest extends TestCase
 
         self::assertContains('other.000.log', $this->logDir->files(), 'another tool owns these; pruning them is not ours to do');
         self::assertStringNotContainsString('Pruned', $this->output->fetch());
+    }
+
+    #[Test]
+    public function separatorsAtTheEdgesOfTheCoveredPathsAreNotInTheArchiveName(): void
+    {
+        $this->logDir->write(self::PHPSTAN_LOG, self::LIVE_LOG);
+
+        new LogArchiver($this->output)->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, ['/p/src/'], self::TIMESTAMP);
+
+        self::assertContains('phpstan.p_src.20260908-120000.log', $this->logDir->files());
+    }
+
+    #[Test]
+    public function aSuffixOfExactlyTheLimitIsKeptWholeAndOneByteMoreIsCutToTheLimitWithADigest(): void
+    {
+        $this->logDir->write(self::PHPSTAN_LOG, self::LIVE_LOG);
+        $archiver = new LogArchiver($this->output);
+        $atLimit  = str_repeat('a', 120);
+        $pastIt   = str_repeat('a', 121);
+
+        $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, [$atLimit], self::TIMESTAMP);
+        $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, [$pastIt], self::TIMESTAMP);
+
+        $files = $this->logDir->files();
+        self::assertContains(\sprintf('phpstan.%s.%s.log', $atLimit, self::TIMESTAMP), $files, 'a suffix that fits is not touched');
+        $cut = \sprintf('phpstan.%s_%s.%s.log', str_repeat('a', 107), substr(hash('sha256', $pastIt), 0, 12), self::TIMESTAMP);
+        self::assertContains($cut, $files, 'a suffix past the limit keeps 107 bytes, an underscore and 12 hex characters of its digest');
+    }
+
+    #[Test]
+    public function aCutThatLandsOnASeparatorDoesNotLeaveADoubledUnderscoreBeforeTheDigest(): void
+    {
+        $this->logDir->write(self::PHPSTAN_LOG, self::LIVE_LOG);
+        $suffix = str_repeat('a', 106) . '_' . str_repeat('b', 30);
+
+        new LogArchiver($this->output)->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, [str_repeat('a', 106) . '/' . str_repeat('b', 30)], self::TIMESTAMP);
+
+        $expected = \sprintf('phpstan.%s_%s.%s.log', str_repeat('a', 106), substr(hash('sha256', $suffix), 0, 12), self::TIMESTAMP);
+        self::assertContains($expected, $this->logDir->files());
+    }
+
+    #[Test]
+    public function exactlyTenArchivesOfAPatternAreKeptWithoutAnyCleanUp(): void
+    {
+        $this->logDir->write(self::PHPSTAN_LOG, self::LIVE_LOG);
+        for ($i = 1; $i <= 9; ++$i) {
+            $this->logDir->write(\sprintf('phpstan.2026010%d-000000.log', $i), (string)$i);
+        }
+
+        new LogArchiver($this->output)->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, false, [], self::TIMESTAMP);
+
+        self::assertCount(11, $this->logDir->files(), 'ten archives and the live log');
+        self::assertStringNotContainsString('Cleaned up', $this->output->fetch());
+    }
+
+    #[Test]
+    public function aFullSuiteCleanUpNeverTouchesFilesWhoseNamesOnlyMatchTheLogNameAsARegularExpression(): void
+    {
+        $this->logDir->write(self::REGEX_SYNTAX_LOG, self::LIVE_LOG);
+        $lookalikes = array_merge($this->lookalikes('phXpun.%s.l+g'), $this->lookalikes('ph.pun.%s.llg'));
+
+        new LogArchiver($this->output)->archive(self::PHPSTAN, $this->logDir->path, self::REGEX_SYNTAX_LOG, false, [], self::TIMESTAMP);
+
+        self::assertSame([], array_values(array_diff($lookalikes, $this->logDir->files())), 'a file that merely looks like an archive is not ours to prune');
+    }
+
+    #[Test]
+    public function aPathSpecificCleanUpNeverTouchesFilesWhoseNamesOnlyMatchTheLogNameAsARegularExpression(): void
+    {
+        $this->logDir->write(self::REGEX_SYNTAX_LOG, self::LIVE_LOG);
+        $lookalikes = array_merge($this->lookalikes('phXpun.src.%s.l+g'), $this->lookalikes('ph.pun.src.%s.llg'));
+
+        new LogArchiver($this->output)->archive(self::PHPSTAN, $this->logDir->path, self::REGEX_SYNTAX_LOG, true, ['src'], self::TIMESTAMP);
+
+        self::assertSame([], array_values(array_diff($lookalikes, $this->logDir->files())), 'a file that merely looks like an archive is not ours to prune');
+    }
+
+    /**
+     * Eleven files named like archives of another log, were the dots or the plus of the real log's name
+     * read as regular expression syntax. Each call varies one of the two, since each is quoted separately.
+     *
+     * @return list<string>
+     */
+    private function lookalikes(string $nameFormat): array
+    {
+        $names = [];
+        for ($i = 1; $i <= 11; ++$i) {
+            $name = \sprintf($nameFormat, \sprintf('202601%02d-000000', $i));
+            $this->logDir->write($name, 'x');
+            $names[] = $name;
+        }
+
+        return $names;
     }
 
     /**
