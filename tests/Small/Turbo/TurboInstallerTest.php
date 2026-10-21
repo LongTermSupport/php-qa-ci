@@ -402,6 +402,35 @@ final class TurboInstallerTest extends TestCase
         self::assertStringEndsWith(".\n" . self::MAY_STILL_LOAD, $this->errors->fetch());
     }
 
+    /** A pair that cannot be read cannot be matched to its stamp, so it is warned about, saying why. */
+    #[Test]
+    public function theStateCheckWarnsAboutAPairItCannotReadAndSaysWhy(): void
+    {
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::STAMP, $this->stamp());
+        // Linux reports /proc/self/mem as a regular file, and reading it from offset 0 fails.
+        \Safe\symlink('/proc/self/mem', $this->library->path . '/' . self::CORE);
+
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $exitCode = $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame(0, $exitCode);
+        $output = $this->output->fetch();
+        self::assertStringStartsWith(rtrim(self::MAY_STILL_LOAD, "\n") . ' The pair could not be checked against its stamp: ', $output);
+        self::assertStringEndsWith(".\n", $output);
+        self::assertStringContainsString('Input/output error', implode("\n", $warnings), 'the failed read');
+    }
+
     /** A failure after both files are placed leaves a pair phpstan.phar loads, with no stamp to vouch for it. */
     #[Test]
     public function aStampThatCannotBeWrittenFailsTheInstallSayingPhpstanMayStillLoadTheBinary(): void

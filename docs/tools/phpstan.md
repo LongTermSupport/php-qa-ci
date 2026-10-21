@@ -113,13 +113,17 @@ expects; `php vendor-phar/phpstan.phar diagnose` reports one that is not as `ina
   [phpstan/phpstan](https://github.com/phpstan/phpstan) tag matching the shipped phar. A download
   whose digest differs is refused and nothing is installed. A failed download is only a warning:
   PHPStan still runs, without Turbo, and the next install tries again. Any other failure exits
-  non-zero, and its `ERROR:` line is followed by what it left: either no binary beside its core,
-  so PHPStan runs without Turbo, or a `WARNING:` that `phpstan.phar` may still load the binary
-  named there, which the install could not vouch for. Delete that binary to run without Turbo.
-  An install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
-  Composer plugin then runs `bin/turbo-install state`, a read-only check of the same thing, and
-  relays its answer; if the check fails too, it says what the install left is unknown and gives
-  the command to run.
+  non-zero, and its `ERROR:` line is followed by what it left, judged against the `.source` stamp
+  an install writes beside the binary once it has verified and placed both files. It says one of
+  three things. With no binary beside its core, PHPStan runs without Turbo. A binary and core that
+  match the digests in their stamp are a pair an install verified, and `phpstan.phar` loads
+  them. Any other pair gets a `WARNING:` that `phpstan.phar` may still load the binary named
+  there, which the install could not vouch for; delete that binary to run without Turbo. An
+  install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
+  Composer plugin, and `scripts/tool-install.bash` in php-qa-ci itself, then run
+  `bin/turbo-install state`, a read-only check of the same thing. The plugin relays its answer,
+  with PHP's own warnings sent to stderr so they are not taken for it; if the check fails too, it
+  says what the install left is unknown and gives the command to run.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
   (see [PHAR verification](../pipeline.md#2-preparation)).

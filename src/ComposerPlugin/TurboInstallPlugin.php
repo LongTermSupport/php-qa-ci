@@ -82,8 +82,7 @@ final readonly class TurboInstallPlugin implements PluginInterface, EventSubscri
         }
 
         $executor = new ProcessExecutor($io);
-        $command  = escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($installer);
-        $exitCode = $executor->execute($command . ' install');
+        $exitCode = $executor->execute(escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($installer) . ' install');
         if (0 === $exitCode) {
             return;
         }
@@ -96,9 +95,13 @@ final readonly class TurboInstallPlugin implements PluginInterface, EventSubscri
         }
 
         // A killed installer printed nothing, not even what it left on disk, which can be a binary
-        // beside its core that nothing vouches for; the installer's read-only state check says.
+        // beside its core whose stamp may or may not vouch for it; the installer's read-only state
+        // check says which.
         $io->writeError($failed . '</comment>');
-        $io->writeError('<comment>php-qa-ci: ' . $this->whatTheInstallLeft($executor, $command . ' state') . '</comment>');
+        // Only stdout is captured, and PHP CLI with display_errors on writes warnings there too;
+        // sent to stderr, they cannot pass for what the check says is on disk.
+        $stateCheck = escapeshellarg(\PHP_BINARY) . ' -d display_errors=stderr ' . escapeshellarg($installer) . ' state';
+        $io->writeError('<comment>php-qa-ci: ' . $this->whatTheInstallLeft($executor, $stateCheck) . '</comment>');
     }
 
     private function whatTheInstallLeft(ProcessExecutor $executor, string $stateCheck): string

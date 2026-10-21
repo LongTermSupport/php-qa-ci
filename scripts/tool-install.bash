@@ -272,6 +272,17 @@ php "$PROJECT_ROOT/bin/phpstan-replace-sync" "$shellcheck_mode"
 # and PHP version, so the binary is not committed: each host fetches its own,
 # verified against the SHA-256 vendor-phar/turbo-ext.json pins. An update that
 # moved the phar regenerates that manifest first (bin/turbo-install).
+#
+# An installer killed by a signal (bash reports 128 + its number) never says
+# what it left on disk, so its read-only state check says it instead, as the
+# Composer plugin does for a consumer; the script still exits with the
+# installer's status.
 # ============================================================================
 
-php "$PROJECT_ROOT/bin/turbo-install" "$shellcheck_mode"
+turbo_status=0
+php "$PROJECT_ROOT/bin/turbo-install" "$shellcheck_mode" || turbo_status=$?
+if (( turbo_status > 128 )); then
+    echo -e "${RED}bin/turbo-install failed with $(php "$PROJECT_ROOT/bin/describe-exit" --php-qa-ci-helper "$turbo_status"); what it left on disk:${NC}" >&2
+    php -d display_errors=stderr "$PROJECT_ROOT/bin/turbo-install" state >&2
+fi
+exit "$turbo_status"
