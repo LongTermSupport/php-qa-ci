@@ -51,6 +51,10 @@ final class BinEntryPointScriptsTest extends TestCase
 
     private const string WORKER_RELATIVE = '../scripts/worker';
 
+    private const string DOT_PHPUNIT = 'bin/.phpunit';
+
+    private const string TOOLS = 'bin/tools';
+
     private const string SIMPLE_PHPUNIT = 'bin/.phpunit/phpunit-9.6/phpunit';
 
     private TempDir $project;
@@ -104,6 +108,65 @@ final class BinEntryPointScriptsTest extends TestCase
         self::assertSame([self::CONSOLE], $scan->undeclared);
         self::assertCount(1, $scan->unreadable);
         self::assertStringStartsWith('bin/deep/' . str_repeat('d', 200) . '/', $scan->unreadable[0]);
+    }
+
+    /**
+     * A directory that is not the project's, or that the project ignores either way, is not
+     * entered at all, so nothing in it, even a tree that cannot be read, is reached.
+     */
+    #[Test]
+    #[DataProvider('treesNotEntered')]
+    public function aTreeThatIsNotTheProjectsIsNotEntered(string $tree, ?string $linkedFrom, ?string $ignored, ?string $gitIgnored): void
+    {
+        $elsewhere = TempDir::create('phpqa-bin-entry-points-elsewhere');
+        $planted   = str_starts_with($tree, '/') ? $elsewhere->path . $tree : $this->project->path . '/' . $tree;
+
+        try {
+            UnremovableTree::plant($planted . '/deep');
+            \Safe\file_put_contents($planted . '/tool', self::PHP_SCRIPT);
+            if (null !== $linkedFrom) {
+                $this->link($planted, $linkedFrom);
+            }
+
+            $this->ignoredPaths = null === $ignored ? [] : [$ignored];
+            $this->gitIgnored   = null === $gitIgnored ? GitIgnoredFiles::none() : GitIgnoredFiles::fromListing($gitIgnored . "/\0");
+
+            self::assertEquals(new BinScanDto([], []), $this->scan());
+        } finally {
+            UnremovableTree::remove($planted . '/deep');
+            $elsewhere->remove();
+        }
+    }
+
+    /** @return iterable<string, array{string, ?string, ?string, ?string}> */
+    public static function treesNotEntered(): iterable
+    {
+        yield 'a linked directory out of the project' => ['/tree', 'bin/linked', null, null];
+        yield 'a linked directory in the vendor dir' => ['vendor/acme/tree', 'bin/linked', null, null];
+        yield 'an ignored directory under bin/' => [self::DOT_PHPUNIT, null, self::DOT_PHPUNIT, null];
+        yield 'a git-ignored directory under bin/' => [self::DOT_PHPUNIT, null, null, self::DOT_PHPUNIT];
+        yield 'a linked directory whose target git ignores' => ['build/tools', self::TOOLS, null, 'build'];
+    }
+
+    /** A link git ignores by its own bin/ path is not required, whatever it reaches. */
+    #[Test]
+    public function aLinkGitIgnoresByItsBinPathIsNotRequired(): void
+    {
+        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
+        $this->link(self::WORKER_RELATIVE, self::WORKER);
+        $this->gitIgnored = GitIgnoredFiles::fromListing(self::WORKER . "\0");
+
+        self::assertSame([], $this->undeclared());
+    }
+
+    /** Reported paths sort as strings, across directories: `bin/a.php` before `bin/a/job`. */
+    #[Test]
+    public function undeclaredScriptsSortAcrossDirectories(): void
+    {
+        $this->project->write('bin/a/job', self::PHP_SCRIPT);
+        $this->project->write('bin/a.php', self::PHP_SCRIPT);
+
+        self::assertSame(['bin/a.php', 'bin/a/job'], $this->undeclared());
     }
 
     /** A link to the project root is walked once; the vendor dir inside it is still not entered. */
@@ -376,14 +439,25 @@ final class BinEntryPointScriptsTest extends TestCase
     {
         $this->link('../scripts/gone', self::WORKER);
 
-        self::assertSame([], $this->undeclared());
+        self::assertEquals(new BinScanDto([], []), $this->scan(), 'a dangling link is not an unreadable path either');
+    }
+
+    /** The vendor dir is matched as a directory, not as a prefix of a sibling's name. */
+    #[Test]
+    public function aDirectoryBesideTheVendorDirIsTheProjects(): void
+    {
+        $this->project->mkdir('vendor');
+        $this->project->write('vendorExtra/worker', self::PHP_SCRIPT);
+        $this->link('../vendorExtra/worker', self::WORKER);
+
+        self::assertSame([self::WORKER], $this->undeclared());
     }
 
     #[Test]
     public function aSymlinkToAnEmptyDirectoryHoldsNothingToDeclare(): void
     {
         $this->project->mkdir('scripts/tools');
-        $this->link('../scripts/tools', 'bin/tools');
+        $this->link('../scripts/tools', self::TOOLS);
 
         self::assertSame([], $this->undeclared());
     }
@@ -393,7 +467,7 @@ final class BinEntryPointScriptsTest extends TestCase
     public function aScriptInALinkedDirectoryIsRequired(): void
     {
         $this->project->write('scripts/tools/sync', self::PHP_SCRIPT);
-        $this->link('../scripts/tools', 'bin/tools');
+        $this->link('../scripts/tools', self::TOOLS);
 
         self::assertSame(['bin/tools/sync'], $this->undeclared());
     }
@@ -441,7 +515,7 @@ final class BinEntryPointScriptsTest extends TestCase
         $this->project->write(self::SIMPLE_PHPUNIT, self::PHP_SCRIPT);
         $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
 
-        $this->ignoredPaths = ['bin/.phpunit'];
+        $this->ignoredPaths = [self::DOT_PHPUNIT];
 
         self::assertSame([self::CONSOLE], $this->undeclared());
     }
@@ -521,7 +595,7 @@ final class BinEntryPointScriptsTest extends TestCase
     #[Test]
     public function aProjectWithNoBinDirectoryHasNothingToDeclare(): void
     {
-        self::assertSame([], $this->undeclared());
+        self::assertEquals(new BinScanDto([], []), $this->scan());
     }
 
     /** A declaration names the same file through any spelling of its path. */

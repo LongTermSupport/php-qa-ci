@@ -73,6 +73,7 @@ final class AnalysedFilesTest extends TestCase
         yield 'an extensionless file' => ['src/app', [self::PHP], false];
         yield 'a suffix the project adds' => ['src/app.inc', [self::PHP, 'inc'], true];
         yield 'a suffix not listed' => ['src/app.inc', [self::PHP], false];
+        yield 'a name ending in the suffix with no dot' => ['src/appphp', [self::PHP], false];
         yield 'a suffix in another case' => ['src/app.PHP', [self::PHP], false];
         yield 'a dot file' => ['src/.app.php', [self::PHP], false];
         yield 'a file in a dot directory' => ['src/.hidden/app.php', [self::PHP], false];
