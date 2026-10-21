@@ -57,6 +57,11 @@ final class RectorToolTest extends TestCase
 
     private const string RECTOR_TMP = '/rector';
 
+    /** What the bundled Rector 2.7 prints for cacheClass(MemoryCacheStorage::class), as the terminal wraps it. */
+    private const string MEMORY_CACHE_REJECTED = "\n [ERROR] Expected an instance of this class or to this class among its parents  \n"
+        . "         \"Rector\\Caching\\Contract\\ValueObject\\Storage\\CacheStorageInterface\".   \n"
+        . "         Got: \"Rector\\Caching\\ValueObject\\Storage\\MemoryCacheStorage\"           \n\n";
+
     private const string EMPTY_CONFIG = "<?php\n";
 
     private const string IDENTIFIER_FOOTER ="\n🪪  phpqaci.rector  (vendor/bin/rule-doc phpqaci.rector)\n";
@@ -217,9 +222,62 @@ final class RectorToolTest extends TestCase
 
         foreach ($this->rectorSpecs() as $spec) {
             self::assertSame($config->paths->projectRoot, $spec->cwd);
-            self::assertSame(['rectorIgnorePaths' => "legacy\ngenerated", 'TMPDIR' => $config->paths->cacheDir . self::RECTOR_TMP, 'XDEBUG_MODE' => 'off'], $spec->env);
+            self::assertSame(
+                [
+                    'rectorIgnorePaths' => "legacy\ngenerated",
+                    'rectorCacheDir'    => $config->paths->cacheDir . self::RECTOR_TMP,
+                    'TMPDIR'            => $config->paths->cacheDir . self::RECTOR_TMP,
+                    'XDEBUG_MODE'       => 'off',
+                ],
+                $spec->env,
+            );
             self::assertContains($config->paths->pharDir . '/rector.phar', $spec->command);
         }
+    }
+
+    #[Test]
+    public function aProjectConfigCallingCacheClassWithARemovedStorageStopsTheLaneNamingTheLineAndTheFix(): void
+    {
+        $this->factory->project->write('qaConfig/rector.php', $this->memoryCacheConfig());
+        $this->factory->processes->willSucceed()->willSucceed()->willFail(1, self::MEMORY_CACHE_REJECTED);
+        $context = $this->context(readOnly: false);
+
+        $result = new RectorTool()->run($context);
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, 'a retry cannot help, so the lane crashes even in a writable run');
+        self::assertCount(3, $this->rectorSpecs());
+        self::assertStringContainsString('qaConfig/rector.php:9', $printed);
+        self::assertStringContainsString('$rectorConfig->cacheClass(MemoryCacheStorage::class);', $printed);
+        self::assertStringContainsString('Remove the cacheClass(...) call', $printed);
+        self::assertStringContainsString('var/qa/cache/rector', $printed);
+        self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
+    }
+
+    #[Test]
+    public function aRejectedCacheClassIsRecognisedWhateverWidthRectorWrappedItsMessageTo(): void
+    {
+        $this->factory->project->write('qaConfig/rector.php', $this->memoryCacheConfig());
+        $this->factory->processes->willSucceed()->willSucceed()->willFail(1, str_replace(' among its', "\n         among its", self::MEMORY_CACHE_REJECTED));
+
+        $result = new RectorTool()->run($this->context(readOnly: true));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('qaConfig/rector.php:9', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function anOrdinaryRectorErrorIsStillAGenuineError(): void
+    {
+        $this->factory->project->write('qaConfig/rector.php', $this->memoryCacheConfig());
+        $this->factory->processes->willSucceed()->willSucceed()->willFail(1, " [ERROR] Undefined constant Rector\\Set\\ValueObject\\SetList::GONE\n");
+
+        $result  = new RectorTool()->run($this->context(readOnly: true));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString('(a genuine error, not a pending-change diff)', $printed);
+        self::assertStringNotContainsString('Remove the cacheClass(...) call', $printed);
     }
 
     #[Test]
@@ -426,6 +484,24 @@ final class RectorToolTest extends TestCase
 
         self::assertSame('rector', $tool->name());
         self::assertSame('phpqaci.rector', $tool->identifier());
+    }
+
+    /** A project rector.php of the kind copied from the older shipped rector-safe.php; the call is on line 9. */
+    private function memoryCacheConfig(): string
+    {
+        return implode("\n", [
+            '<?php',
+            '',
+            'declare(strict_types=1);',
+            '',
+            'use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;',
+            'use Rector\Config\RectorConfig;',
+            '',
+            'return static function (RectorConfig $rectorConfig): void {',
+            '    $rectorConfig->cacheClass(MemoryCacheStorage::class);',
+            '};',
+            '',
+        ]);
     }
 
     /** Queue one Rector pass per exit code. */
