@@ -202,7 +202,23 @@ final class ReportableSources
         yield from $counts;
     }
 
+    public function assertedOverAVariableAlreadyHeld(string $json): void
+    {
+        $decoded = json_decode($json, true);
+        if (!\is_array($decoded)) {
+            return;
+        }
+
+        /** @var array<string, mixed> $decoded */
+        $this->takesMap($decoded);
+    }
+
     private function takes(string $name): void
+    {
+    }
+
+    /** @param array<string, mixed> $map */
+    private function takesMap(array $map): void
     {
     }
 

@@ -154,6 +154,28 @@ final class NotReportableSources
         yield from array_values($counts);
     }
 
+    /**
+     * @param list<string> $names
+     *
+     * @return list<string>
+     */
+    public function keysOnlyConvertedToStrings(array $names): array
+    {
+        $set = [];
+        foreach ($names as $name) {
+            $set[$name] = true;
+        }
+
+        return array_map(strval(...), array_keys($set));
+    }
+
+    public function assertedOverAVariableWhoseKeysAreKnown(): void
+    {
+        $named = $this->named;
+        /** @var array<string, int> $named */
+        $this->honest = [...$this->honest, ...array_values($named)];
+    }
+
     private function takes(string $name): void
     {
     }
