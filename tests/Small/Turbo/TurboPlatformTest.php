@@ -168,7 +168,7 @@ final class TurboPlatformTest extends TestCase
     }
 
     #[Test]
-    public function maps_that_pass_the_access_check_but_cannot_be_opened_are_treated_as_unreadable(): void
+    public function mapsThatPassTheAccessCheckButCannotBeOpenedAreTreatedAsUnreadable(): void
     {
         $tmp = TempDir::create('turbo-platform');
         UnopenableStreamWrapper::register();
@@ -176,7 +176,7 @@ final class TurboPlatformTest extends TestCase
         try {
             $alpine = $tmp->write('alpine-release', "3.22.0\n");
             $maps   = UnopenableStreamWrapper::SCHEME . '://maps';
-            self::assertTrue(is_readable($maps), 'the fixture must pass the access check');
+            self::assertIsReadable($maps, 'the fixture must pass the access check');
 
             self::assertSame(
                 TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), null, true)->describe(),

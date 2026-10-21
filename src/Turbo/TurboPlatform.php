@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Turbo;
 
+use Safe\Exceptions\FilesystemException;
+
 /**
  * The axes that pick PHPStan's Turbo binary for a host: operating system, CPU, C library, PHP
  * minor version and thread safety. It names the paths under `turbo-ext/` where phpstan.phar looks
@@ -65,8 +67,14 @@ final readonly class TurboPlatform
     public static function fromRuntime(string $selfMaps = self::SELF_MAPS, string $alpineRelease = self::ALPINE_RELEASE): self
     {
         // phpstan.phar treats a maps file it cannot read as absent, whatever the access check said.
-        $read = is_readable($selfMaps) ? @file_get_contents($selfMaps) : false;
-        $maps = false === $read ? null : $read;
+        $maps = null;
+        if (is_readable($selfMaps)) {
+            try {
+                $maps = @\Safe\file_get_contents($selfMaps);
+            } catch (FilesystemException $unopenable) {
+                unset($unopenable);
+            }
+        }
 
         return self::fromProcess(\PHP_OS_FAMILY, php_uname('m'), $maps, is_file($alpineRelease));
     }

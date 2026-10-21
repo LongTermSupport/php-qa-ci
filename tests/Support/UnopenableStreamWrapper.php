@@ -8,32 +8,33 @@ namespace LTS\PHPQA\Tests\Support;
  * A stream wrapper whose paths report as readable but cannot be opened, the way a file does when
  * the access check passes and the open then fails (a restricted procfs mount).
  *
+ * PHP sets the wrapper's `context` property on every instance it creates, so the class allows
+ * dynamic properties rather than declare one nothing reads.
+ *
  * @internal
  */
+#[\AllowDynamicProperties]
 final class UnopenableStreamWrapper
 {
     public const string SCHEME = 'phpqa-unopenable';
 
-    /** @var resource|null set by PHP for the stream context; the wrapper does not use it */
-    public $context;
-
     public static function register(): void
     {
-        stream_wrapper_register(self::SCHEME, self::class);
+        \Safe\stream_wrapper_register(self::SCHEME, self::class);
     }
 
     public static function unregister(): void
     {
-        stream_wrapper_unregister(self::SCHEME);
+        \Safe\stream_wrapper_unregister(self::SCHEME);
     }
 
     /** @return array<string, int> */
-    public function url_stat(string $path, int $flags): array
+    public function url_stat(): array
     {
         return ['mode' => 0o100444, 'uid' => \Safe\getmyuid(), 'gid' => \Safe\getmygid(), 'size' => 0];
     }
 
-    public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool
+    public function stream_open(): bool
     {
         return false;
     }
