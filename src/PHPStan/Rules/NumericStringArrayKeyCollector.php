@@ -8,6 +8,7 @@ use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayDimFetch;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\AssignOp;
@@ -72,6 +73,10 @@ use PHPStan\Type\VerbosityLevel;
  * an argument or assigned to a property whose declared type has string keys at
  * that depth, and where foreach, a function that reads keys, array_merge() or
  * spreading reads its keys while PHPStan types them string.
+ *
+ * An array literal's keys are judged as writes: into the local variable it is
+ * assigned to, or as they stand where it is returned, passed or assigned to a
+ * property.
  *
  * @internal
  *
@@ -150,6 +155,9 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /** How a spread array's keys are read. */
     private const string SPREADS = 'spreads it';
 
+    /** How an array literal judged where it is handed over is named. */
+    private const string LITERAL = 'The array literal';
+
     public function __construct(private ReflectionProvider $reflectionProvider)
     {
     }
@@ -166,7 +174,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     {
         $records = match (true) {
             $node instanceof Closure                                     => [$this->closure($node, $scope)],
-            $node instanceof Assign                                      => [...$this->writes($node, $node->var, $scope), ...$this->propertyAssignment($node, $scope), ...$this->copy($node, $scope)],
+            $node instanceof Assign                                      => [...$this->writes($node, $node->var, $scope), ...$this->literalWrites($node, $scope), ...$this->propertyAssignment($node, $scope), ...$this->copy($node, $scope)],
             $node instanceof AssignOp, $node instanceof AssignRef,
             $node instanceof PreInc, $node instanceof PreDec,
             $node instanceof PostInc, $node instanceof PostDec           => $this->writes($node, $node->var, $scope),
@@ -238,7 +246,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
                 continue;
             }
 
-            $keyName = $key instanceof Variable && \is_string($key->name) ? $key->name : '';
+            $keyName = $this->keyName($key);
             if ($root instanceof Variable && \is_string($root->name)) {
                 $records[] = $this->record(self::WRITE, $scope, $write, $root->name, [$depth], '$' . $root->name . str_repeat(self::NESTED, $depth), key: $keyName);
 
@@ -260,6 +268,54 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         }
 
         return $records;
+    }
+
+    /**
+     * Each key of an array literal assigned to a local variable that may be
+     * all digits, recorded as a write into the variable at the key's depth.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function literalWrites(Assign $assign, Scope $scope): array
+    {
+        if (!$assign->var instanceof Variable || !\is_string($assign->var->name) || !$assign->expr instanceof Array_) {
+            return [];
+        }
+
+        $variable = $assign->var->name;
+        $records  = [];
+        foreach ($this->literalKeys($assign->expr, 0, $scope) as [$depth, $key]) {
+            $records[] = $this->record(self::WRITE, $scope, $assign, $variable, [$depth], '$' . $variable . str_repeat(self::NESTED, $depth), key: $this->keyName($key));
+        }
+
+        return $records;
+    }
+
+    /**
+     * The keys of an array literal, of the literals spread into it and of the
+     * literals nested in its values, that may be all digits, each with its depth.
+     *
+     * @return list<array{int, Expr}>
+     */
+    private function literalKeys(Array_ $array, int $depth, Scope $scope): array
+    {
+        $keys = [];
+        foreach ($array->items as $item) {
+            if ($item->key instanceof Expr && $this->mayBeAllDigits($item->key, $scope)) {
+                $keys[] = [$depth, $item->key];
+            }
+
+            if ($item->value instanceof Array_ && $depth < self::MAX_DEPTH) {
+                $keys = [...$keys, ...$this->literalKeys($item->value, $item->unpack ? $depth : $depth + 1, $scope)];
+            }
+        }
+
+        return $keys;
+    }
+
+    private function keyName(Expr $key): string
+    {
+        return $key instanceof Variable && \is_string($key->name) ? $key->name : '';
     }
 
     /** Whether PHP may store the key as an int where PHPStan types it string. */
@@ -367,14 +423,19 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     }
 
     /**
-     * A local array handed to a place whose declared type has string keys.
+     * A local array handed to a place whose declared type has string keys; an
+     * array literal handed there is judged as it stands.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
     private function declaredUse(Node $node, Expr $value, Type $declared, string $text, Scope $scope): array
     {
-        $local  = $this->localArray($value);
         $depths = $this->stringKeyedDepths($declared);
+        if ($value instanceof Array_) {
+            return $this->literalUse($node, $value, \sprintf('line %d %s %s', $node->getStartLine(), $text, $declared->describe(VerbosityLevel::typeOnly())), $scope, ...$depths);
+        }
+
+        $local = $this->localArray($value);
         if (null === $local || [] === $depths) {
             return [];
         }
@@ -387,6 +448,23 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             array_map(static fn (int $depth): int => $depth + $local[1], $depths),
             $text . ' ' . $declared->describe(VerbosityLevel::typeOnly()),
         )];
+    }
+
+    /**
+     * Each key of the literal that may be all digits at a depth the declared type keys by string.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function literalUse(Node $node, Array_ $literal, string $reason, Scope $scope, int ...$depths): array
+    {
+        $records = [];
+        foreach ($this->literalKeys($literal, 0, $scope) as [$depth, $key]) {
+            if (\in_array($depth, $depths, true)) {
+                $records[] = $this->record(self::DECLARED, $scope, $node, self::LITERAL . str_repeat(self::NESTED, $depth), [$depth], $reason, key: $this->keyName($key));
+            }
+        }
+
+        return $records;
     }
 
     /**

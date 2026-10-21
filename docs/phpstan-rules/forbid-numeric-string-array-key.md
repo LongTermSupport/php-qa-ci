@@ -21,6 +21,14 @@ digits, when the array is taken as string-keyed:
     `array_walk()`, `array_walk_recursive()`, `uksort()`, `array_filter()` given a mode,
     `array_merge()`, `array_merge_recursive()`, or spreading it (`[...$array]`, `f(...$array)`).
 
+An array literal keys its items the same way, so a literal key that may be all digits fires too,
+at any depth of nesting and in a literal spread into another (`[...$map, $name => $tool]`):
+
+- when the literal is returned, passed or assigned to a property as above, where the declared
+  type has `string` keys at the key's depth; the message names it "The array literal"; or
+- when the literal is assigned to a local variable (`$map = [$path => …]`), as a write into that
+  variable, judged by the uses above.
+
 The message names the array and the first place it is taken as string-keyed.
 
 A key may be all digits when PHPStan types it a `string` that is not a `class-string`, PHPStan has
@@ -41,7 +49,10 @@ written in digits, and nothing in the analysis says so:
 
 php-qa-ci's `analysedPaths` lane crashed this way: `withUnanalysedPath('2024', '…')` stored the
 path as a key, and the lane passed it to a `string` parameter whenever the directory held PHP
-([#256](https://github.com/LongTermSupport/php-qa-ci/issues/256)).
+([#256](https://github.com/LongTermSupport/php-qa-ci/issues/256)). So did the `psr4` lane on a
+`composer.json` PSR-4 root written `"2024"`; `PipelineBuilder::withTool()` lost a tool named
+`'2024'` to the renumbering of a spread; and `phpqaci.repeatedStringLiteral` named the literal
+`'2024'` as the int `2024`.
 
 ## The correct construction
 
@@ -123,7 +134,21 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
   there, so this rule, which reports the write, cannot see it; the defence there is the one the
   JSON readers already use, an `is_string()` check on each key read. Also not followed: an array
   handed on inside another structure (`return [$map]`, `yield $map`), by reference, or through
-  `static` or `global`.
+  `static` or `global`; and a literal written into an element (`$map[$a] = [$b => …]`), whose own
+  keys are not judged.
+- **Literal keys, added after the sweep**: the first version judged element writes only. Reading
+  the sites found `PipelineBuilder::withTool()` building its maps as `[...$this->tools, $name => $tool]`, which lost a tool named `'2024'`, so the rule now judges array-literal keys as well. Run
+  over the tree once the fixes below were in, it found no further site.
+- **Fix**: all 53 sites (38 in `src/`, 15 in `tests/`) were fixed, and the rule now reports none in
+  `src/`, `tests/` or `bin/`. Most were declared `array<array-key, …>` with a cast where a key is
+  read as a string; `ShippedTools::all()`, an `@api` map of fixed names, writes its keys out so
+  PHPStan sees they are strings. Three were real defects, each pinned by a test before its fix: the
+  `analysedPaths` lane's `TypeError`, the `psr4` lane's `TypeError` on a namespace root written
+  `"2024"`, and `phpqaci.repeatedStringLiteral` printing `'2024'` as `2024`. A fourth,
+  `PipelineBuilder::withTool()` losing a tool named `'2024'`, was found reading the sites the rule
+  reported and is what the literal-key extension covers. The others hold names no project can write
+  in digits (method, class and variable names, PHPStan identifiers, paths carrying a `/` or `.php`),
+  which PHPStan cannot see.
 - **Runner check**: `AnalysedPathsToolTest::aDirectoryNamedInDigitsDeclaredUnanalysedPassesAndTheRunPrintsTheReason`
   pins the reported behaviour, the lane run over a project declaring `withUnanalysedPath('2024', …)`.
 
@@ -131,8 +156,9 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
 
 The rule cannot tell a key that is all digits in practice from one that only could be: it reports
 a map keyed by tool names or by absolute paths, which no type bounds, as it reports one keyed by
-directory names. Over php-qa-ci's own source that is 38 sites, most of them maps whose keys are
-never digits in fact, so as a default it would fail most projects on code that works. It is
+directory names. Over php-qa-ci's own source that was 38 sites before they were fixed, most of
+them maps whose keys are never digits in fact, so as a default it would fail most projects on code
+that works. It is
 offered for the projects that key arrays by names from outside, and php-qa-ci runs it on itself.
 
 ## Implementation
