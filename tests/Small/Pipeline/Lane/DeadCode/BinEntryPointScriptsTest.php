@@ -173,14 +173,44 @@ final class BinEntryPointScriptsTest extends TestCase
         self::assertSame([], $this->undeclared());
     }
 
-    /** A proxy is what Composer writes for a package binary: one that includes the project's own script is not one. */
+    /**
+     * A path-repository package is installed as a link in the vendor dir, so its proxy includes
+     * the package's script through that link. The proxy is still Composer's, with no code of its
+     * own, and declaring it would analyse nothing but its include.
+     */
     #[Test]
-    public function aProxyShapedFileIncludingAFirstPartyScriptIsRequired(): void
+    public function aComposerBinaryProxyForAPathRepositoryPackageIsNotRequired(): void
     {
-        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
-        $this->project->write(self::TOOL, self::composerProxy(self::WORKER_RELATIVE));
+        $this->project->write('packages/tool/bin/tool', self::PHP_SCRIPT);
+        $this->project->mkdir('vendor/acme');
+        \Safe\symlink('../../packages/tool', $this->project->path . '/vendor/acme/tool');
+        $this->project->write(self::TOOL, self::composerProxy(self::VENDOR_TOOL_RELATIVE));
 
-        self::assertSame([self::TOOL], $this->undeclared());
+        self::assertSame([], $this->undeclared());
+    }
+
+    /**
+     * A file in Composer's proxy template, start and end, is one Composer wrote: it holds no code
+     * of its own whatever it includes, and Composer rewrites it on every install.
+     */
+    #[Test]
+    #[DataProvider('proxyTargets')]
+    public function aComposerBinaryProxyIsNotRequiredWhateverItIncludes(string $included, ?string $writtenAt): void
+    {
+        if (null !== $writtenAt) {
+            $this->project->write($writtenAt, self::PHP_SCRIPT);
+        }
+
+        $this->project->write(self::TOOL, self::composerProxy($included));
+
+        self::assertSame([], $this->undeclared());
+    }
+
+    /** @return iterable<string, array{string, ?string}> */
+    public static function proxyTargets(): iterable
+    {
+        yield 'a script outside the vendor dir' => [self::WORKER_RELATIVE, self::WORKER_TARGET];
+        yield 'a package not installed yet' => [self::VENDOR_TOOL_RELATIVE, null];
     }
 
     /** Composer's proxy header quoted by the project's own script does not make it a proxy. */
