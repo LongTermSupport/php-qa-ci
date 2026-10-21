@@ -7,23 +7,30 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Process;
 use Closure;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
+use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 
 /**
  * @internal
  */
 #[CoversClass(SymfonyProcessRunner::class)]
+#[UsesClass(SignalledChildren::class)]
+#[UsesClass(SignalledChildDto::class)]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(RunningProcesses::class)]
@@ -48,6 +55,14 @@ final class SymfonyProcessRunnerTest extends TestCase
     private const string WAIT_THEN_FINISH = 'echo str_repeat("r", 3), "\n"; fflush(STDOUT); sleep(5); echo "done";';
 
     private const string IGNORE_SIGTERM_THEN_WAIT = 'pcntl_signal(SIGTERM, SIG_IGN); echo str_repeat("r", 3), "\n"; fflush(STDOUT); sleep(5);';
+
+    /** A child that kills itself with SIGTERM: the shell is the child, and `$$` is its own pid. */
+    private const array KILL_SELF = ['/bin/sh', '-c', 'kill -TERM $$'];
+
+    private static function killedLine(ProcessSpecDto $spec): string
+    {
+        return \sprintf('`%s` ended with exit code 143, killed by signal 15 (SIGTERM)', $spec->commandLine());
+    }
 
     #[Test]
     public function aChildThatNamesNoXdebugModeGetsOffWhateverTheParentHas(): void
@@ -152,6 +167,59 @@ final class SymfonyProcessRunnerTest extends TestCase
         }
     }
 
+    /**
+     * A child a signal killed is a result, not Symfony's ProcessSignaledException: exit 128 + the
+     * signal, the signal on the result and in the record a lane is judged by, and a line naming the
+     * command and the signal. The stand-in kills itself with SIGTERM, never SIGSEGV, which would
+     * leave a core dump; `nice` execs its command, so the low-priority child is killed the same way.
+     */
+    #[Test]
+    #[TestWith([false], 'ordinary')]
+    #[TestWith([true], 'low priority')]
+    public function aChildASignalKillsIsAResultAndIsRecorded(bool $lowPriority): void
+    {
+        $output    = new BufferedOutput();
+        $signalled = new SignalledChildren();
+        $spec      = new ProcessSpecDto(self::KILL_SELF, \Safe\getcwd(), streamOutput: false, lowPriority: $lowPriority);
+
+        $result = new SymfonyProcessRunner($output, new RunningProcesses(), $signalled)->run($spec);
+
+        self::assertSame(143, $result->exitCode);
+        self::assertSame(\SIGTERM, $result->signal);
+        self::assertEquals([new SignalledChildDto($spec->commandLine(), \SIGTERM)], $signalled->take());
+        self::assertSame(\sprintf("++ %s\n!! %s\n", $spec->commandLine(), self::killedLine($spec)), $output->fetch());
+    }
+
+    /** With no record to put it in, the runner refuses to pass the child off as a result, and names it. */
+    #[Test]
+    public function withoutARecordAChildASignalKillsThrowsNamingTheCommandAndTheSignal(): void
+    {
+        $spec = new ProcessSpecDto(self::KILL_SELF, \Safe\getcwd(), streamOutput: false);
+
+        try {
+            new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())->run($spec);
+            self::fail('a signalled child must not pass for a result nobody judges');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame(self::killedLine($spec), $runtimeException->getMessage());
+            self::assertInstanceOf(ProcessSignaledException::class, $runtimeException->getPrevious());
+        }
+    }
+
+    /** A child that exits, however it exits, is no signal kill. */
+    #[Test]
+    public function aChildThatExitsIsNotRecorded(): void
+    {
+        $signalled = new SignalledChildren();
+
+        $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses(), $signalled)
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', 'exit(143);'], \Safe\getcwd(), streamOutput: false))
+        ;
+
+        self::assertSame(143, $result->exitCode);
+        self::assertNull($result->signal);
+        self::assertSame([], $signalled->take());
+    }
+
     /** While it runs, the child is registered, so an interrupt arriving mid-run can stop it. */
     #[Test]
     public function aRunningChildIsRegisteredSoAnInterruptCanStopIt(): void
@@ -175,12 +243,14 @@ final class SymfonyProcessRunnerTest extends TestCase
             }
         };
 
-        $result = new SymfonyProcessRunner($output, $running)
+        $signalled = new SignalledChildren();
+        $result    = new SymfonyProcessRunner($output, $running, $signalled)
             ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
         ;
 
         self::assertSame(1, $stopped, 'the child was registered while it ran');
         self::assertStringNotContainsString('done', $result->output, 'stopping it ended the child before it finished');
+        self::assertSame([], $signalled->take(), 'a child the run stopped itself is no crash');
     }
 
     /** A run that ends by throwing still deregisters its child, and stops it: nothing outlives the run. */

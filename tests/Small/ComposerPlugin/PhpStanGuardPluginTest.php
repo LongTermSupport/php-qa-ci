@@ -78,7 +78,7 @@ final class PhpStanGuardPluginTest extends TestCase
     public function aPharThatFailsItsVersionCheckIsReportedByItsExit(): void
     {
         self::assertSame(
-            ['<warning>Could not determine PHPStan phar version: phpstan.phar --version failed with exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past</warning>'],
+            ['<warning>Could not determine PHPStan phar version: phpstan.phar --version failed with exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, which is never retried past: halt, debug and report it, as https://github.com/LongTermSupport/php-qa-ci/blob/php8.5/CLAUDE/segfault-policy.md describes</warning>'],
             $this->validatePharExitingWith(139, ''),
         );
     }

@@ -125,6 +125,17 @@ final class PhpstanCrashTest extends TestCase
         self::assertSame('PHPStan crashed (exit 255)', PhpstanCrash::reason(new ProcessResultDto(255, 'Fatal', '')));
     }
 
+    /** The reason bin/phpstan-rule relays names the signal, and a segfault as one. */
+    #[Test]
+    public function anExitASignalCausedNamesTheSignal(): void
+    {
+        self::assertSame('PHPStan crashed (exit 143, killed by signal 15 (SIGTERM))', PhpstanCrash::reason(new ProcessResultDto(143, '', '')));
+        self::assertSame(
+            'PHPStan crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::SEGFAULT_ADVICE . ')',
+            PhpstanCrash::jsonReason(new ProcessResultDto(139, '', '')),
+        );
+    }
+
     #[Test]
     public function anAbandonedAnalysisIsACrashThoughItExitsOne(): void
     {

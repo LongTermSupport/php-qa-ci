@@ -194,6 +194,18 @@ final class OpcacheToolTest extends TestCase
         self::assertSame('optimizer dump crashed (exit 255)', $result->summary);
     }
 
+    /** A dump a shell reports as killed by a signal says which, and a segfault says what to do. */
+    #[Test]
+    public function aDumpKilledByASignalIsACrashNamingTheSignal(): void
+    {
+        $this->factory->processes->willSucceed(self::AFFECTED)->willFail(139, '');
+
+        $result = new OpcacheTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('optimizer dump crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::SEGFAULT_ADVICE . ')', $result->summary);
+    }
+
     #[Test]
     public function ignoredPathsAreLeftOutAndNoFilesMeansAPass(): void
     {

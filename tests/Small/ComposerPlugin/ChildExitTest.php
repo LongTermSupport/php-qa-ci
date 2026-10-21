@@ -45,7 +45,7 @@ final class ChildExitTest extends TestCase
         yield 'signal 7, numbered differently per platform' => [135, 'exit code 135, killed by signal 7'];
         yield 'SIGFPE' => [136, 'exit code 136, killed by signal 8 (SIGFPE)'];
         yield 'SIGKILL, an out-of-memory kill' => [137, 'exit code 137, killed by signal 9 (SIGKILL, which is what the out-of-memory killer sends)'];
-        yield 'SIGSEGV, a crash' => [139, 'exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past'];
+        yield 'SIGSEGV, a crash' => [139, 'exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, which is never retried past: halt, debug and report it, as https://github.com/LongTermSupport/php-qa-ci/blob/php8.5/CLAUDE/segfault-policy.md describes'];
         yield 'SIGPIPE' => [141, 'exit code 141, killed by signal 13 (SIGPIPE)'];
         yield 'SIGALRM' => [142, 'exit code 142, killed by signal 14 (SIGALRM)'];
         yield 'SIGTERM' => [143, 'exit code 143, killed by signal 15 (SIGTERM)'];
@@ -57,6 +57,30 @@ final class ChildExitTest extends TestCase
     public function onlyACodeAbove128ForARealSignalIsASignalKill(int $exitCode, bool $killed): void
     {
         self::assertSame($killed, ChildExit::killedBySignal($exitCode));
+    }
+
+    /** A runner that caught the signal itself reports the exit code a shell would have. */
+    #[Test]
+    public function aSignalKillIsReportedAs128PlusTheSignal(): void
+    {
+        self::assertSame(143, ChildExit::exitCodeOfSignal(15));
+        self::assertSame(139, ChildExit::exitCodeOfSignal(11));
+    }
+
+    #[Test]
+    #[DataProvider('segmentationFaults')]
+    public function onlyExit139IsASegmentationFault(int $exitCode, bool $segfault): void
+    {
+        self::assertSame($segfault, ChildExit::isSegmentationFault($exitCode));
+    }
+
+    /** @return iterable<string, array{int, bool}> */
+    public static function segmentationFaults(): iterable
+    {
+        yield 'SIGSEGV' => [139, true];
+        yield 'SIGBUS, one below' => [138, false];
+        yield 'SIGUSR2, one above' => [140, false];
+        yield 'a plain 11' => [11, false];
     }
 
     /** @return iterable<string, array{int, bool}> */

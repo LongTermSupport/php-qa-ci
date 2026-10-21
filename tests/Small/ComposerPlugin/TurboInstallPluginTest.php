@@ -77,7 +77,7 @@ final class TurboInstallPluginTest extends TestCase
     public function anInstallerKilledByASignalIsReportedByItsSignal(): void
     {
         self::assertSame(
-            ['<comment>php-qa-ci: the PHPStan Turbo install failed with exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past</comment>'],
+            ['<comment>php-qa-ci: the PHPStan Turbo install failed with exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, which is never retried past: halt, debug and report it, as https://github.com/LongTermSupport/php-qa-ci/blob/php8.5/CLAUDE/segfault-policy.md describes</comment>'],
             $this->installExitingWith(139),
         );
     }

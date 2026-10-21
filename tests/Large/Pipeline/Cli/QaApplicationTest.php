@@ -169,6 +169,9 @@ final class QaApplicationTest extends TestCase
                             implode(' ', array_slice($context->php->specWithoutXdebug('x.php', [], '.')->command, 0, 3)),
                             get_debug_type(pcntl_signal_get_handler(SIGTERM)),
                         ));
+                        if (is_file($c->paths->projectRoot . '/probe.signal')) {
+                            $context->processes->run(new \LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto(['/bin/sh', '-c', 'kill -TERM $$'], $c->paths->projectRoot));
+                        }
 
                         return is_file($c->paths->projectRoot . '/probe.fail') ? ToolResultDto::failed('told to fail') : ToolResultDto::passed();
                     }
@@ -276,6 +279,27 @@ final class QaApplicationTest extends TestCase
         self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
         self::assertStringNotContainsString(self::COMPLETED, $this->stdout);
         self::assertStringNotContainsString('would you like to try again', $this->stdout);
+    }
+
+    /**
+     * A lane whose child a signal kills, through the real runner: the lane is named as crashed with
+     * the signal, rather than Symfony's ProcessSignaledException ending the run unnamed. The child
+     * kills itself with SIGTERM; a real SIGSEGV would leave a core dump.
+     */
+    #[Test]
+    #[TestWith(['1'], 'read-only, aggregate')]
+    #[TestWith(['0'], 'writable, fail-fast')]
+    public function aLaneWhoseChildASignalKillsIsNamedAsCrashed(string $readOnly): void
+    {
+        $this->consumer->write('probe.signal', '');
+
+        self::assertSame(1, $this->qa([self::QA_READONLY => $readOnly], self::DASH_T, self::PROBE));
+
+        $killed = '`/bin/sh -c \'kill -TERM $$\'` ended with exit code 143, killed by signal 15 (SIGTERM)';
+        self::assertStringContainsString("\n!! " . $killed . "\n", $this->stdout);
+        self::assertStringContainsString("\n        probe crashed: " . $killed . "\n", $this->stdout);
+        self::assertStringNotContainsString('has been signaled', $this->stdout);
+        self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
     }
 
     #[Test]
