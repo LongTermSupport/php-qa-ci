@@ -36,6 +36,8 @@ final class RequiredStatusChecksAreProducedTest extends TestCase
 
     private const string WORKFLOWS = self::REPOSITORY . '/.github/workflows';
 
+    private const string PIPELINE_TEMPLATE = self::REPOSITORY . '/templates/github-actions/php-qa-ci.yml';
+
     // The one assignment in the script's embedded Python that lists the required contexts.
     private const string CONTEXTS_ASSIGNMENT = '/^OUR_CONTEXTS = (\[.*\])$/m';
 
@@ -86,6 +88,28 @@ final class RequiredStatusChecksAreProducedTest extends TestCase
                 "scripts/setup-branch-protection.bash requires status-check contexts no workflow job produces, so every merge to the protected branch would be blocked.\nJob names the workflows produce: %s\nJob names resolved only at run time, not matched: %s\nRequire only a job name from the first list, or remove the context.",
                 implode(', ', $static),
                 [] === $dynamic ? '(none)' : implode('; ', $dynamic),
+            ),
+        );
+    }
+
+    /**
+     * The script is shipped to consumers and their branch protection requires the same contexts,
+     * so the pipeline template they install must produce them: a name that follows the PHP
+     * version, or a job of its own that is not the QA job, leaves every merge waiting for a check
+     * that never reports.
+     */
+    #[Test]
+    public function everyContextTheProtectionScriptRequiresIsAJobNameTheShippedPipelineTemplateProduces(): void
+    {
+        $produced = $this->producedContexts(\Safe\file_get_contents(self::PIPELINE_TEMPLATE), basename(self::PIPELINE_TEMPLATE));
+
+        self::assertSame(
+            [],
+            array_values(array_diff($this->requiredContexts(), $produced['static'])),
+            \sprintf(
+                "templates/github-actions/php-qa-ci.yml does not produce every status-check context scripts/setup-branch-protection.bash requires.\nJob names it produces: %s\nJob names resolved only at run time, not matched: %s",
+                implode(', ', $produced['static']),
+                [] === $produced['dynamic'] ? '(none)' : implode('; ', $produced['dynamic']),
             ),
         );
     }

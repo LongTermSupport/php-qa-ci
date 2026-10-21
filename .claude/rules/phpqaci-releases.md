@@ -1,7 +1,6 @@
 ---
 paths:
   - "CHANGELOG.md"
-  - ".github/workflows/ci.yml"
   - ".github/workflows/qa.yml"
   - ".github/workflows/release.yml"
 description: Releases come from the changelog; versions and tags are never chosen by hand
