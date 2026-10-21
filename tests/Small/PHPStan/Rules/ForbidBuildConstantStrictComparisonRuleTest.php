@@ -5,108 +5,83 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantStrictComparisonRule;
-use PhpParser\Node\Arg;
-use PhpParser\Node\Expr;
-use PhpParser\Node\Expr\BinaryOp\Equal;
-use PhpParser\Node\Expr\BinaryOp\Identical;
-use PhpParser\Node\Expr\BinaryOp\NotIdentical;
-use PhpParser\Node\Expr\Cast\Bool_;
-use PhpParser\Node\Expr\ConstFetch;
-use PhpParser\Node\Expr\FuncCall;
-use PhpParser\Node\Expr\Match_;
-use PhpParser\Node\Expr\Variable;
-use PhpParser\Node\MatchArm;
-use PhpParser\Node\Name;
-use PhpParser\Node\Name\FullyQualified;
-use PhpParser\Node\Scalar\Int_;
-use PhpParser\Node\Scalar\String_;
-use PHPStan\Analyser\CollectedDataEmitter;
-use PHPStan\Analyser\DependencyTracker;
-use PHPStan\Analyser\NodeCallbackInvoker;
-use PHPStan\Analyser\Scope;
+use PHPStan\Rules\Rule;
+use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
+ *
+ * @extends RuleTestCase<ForbidBuildConstantStrictComparisonRule>
  */
 #[CoversClass(ForbidBuildConstantStrictComparisonRule::class)]
-#[Small]
-final class ForbidBuildConstantStrictComparisonRuleTest extends TestCase
+#[Medium]
+final class ForbidBuildConstantStrictComparisonRuleTest extends RuleTestCase
 {
-    use ScopeStubTrait;
+    private const string FIXTURES = __DIR__ . '/../../../assets/PHPStan/BuildConstant';
 
     private const string ZTS = 'PHP_ZTS';
 
     private const string DEBUG = 'PHP_DEBUG';
 
-    private ForbidBuildConstantStrictComparisonRule $rule;
-
-    protected function setUp(): void
-    {
-        $this->rule = new ForbidBuildConstantStrictComparisonRule();
-    }
-
     #[Test]
-    public function itVisitsEveryExpression(): void
+    public function everyUseWhoseResultDependsOnTheConstantsTypeIsReported(): void
     {
-        self::assertSame(Expr::class, $this->rule->getNodeType());
-    }
+        $zts   = self::message(self::ZTS);
+        $debug = self::message(self::DEBUG);
 
-    #[Test]
-    #[DataProvider('strictComparisons')]
-    public function aStrictComparisonOfABuildConstantIsReported(Expr $node, string $constant): void
-    {
-        $errors = $this->rule->processNode($node, $this->scope());
-
-        self::assertCount(1, $errors);
-        self::assertSame(ForbidBuildConstantStrictComparisonRule::IDENTIFIER, $errors[0]->getIdentifier());
-        self::assertSame(
-            $constant . ' is compared strictly, but it is a bool since PHP 8.4 and an int before, so the comparison is always false on one of them. Write (bool) \\' . $constant . '.',
-            $errors[0]->getMessage(),
+        $this->analyse(
+            [self::FIXTURES . '/Reportable.php'],
+            [
+                [$zts, 13],
+                [$zts, 19],
+                [$zts, 20],
+                [$debug, 21],
+                [$zts, 22],
+                [$debug, 28],
+                [$zts, 37],
+                [$zts, 44],
+                [$zts, 51],
+                [$zts, 56],
+                [$debug, 61],
+                [$zts, 66],
+                [$debug, 71],
+                [$zts, 78],
+                [$debug, 83],
+                [$zts, 88],
+                [$zts, 94],
+                [$zts, 99],
+                [$debug, 104],
+                [$zts, 109],
+                [$debug, 114],
+                [$zts, 119],
+                [$zts, 124],
+                [$zts, 129],
+                [$zts, 134],
+                [$zts, 139],
+                [$debug, 151],
+                [$zts, 159],
+                [$debug, 166],
+            ],
         );
     }
 
-    /** @return iterable<string, array{Expr, string}> */
-    public static function strictComparisons(): iterable
-    {
-        yield '1 === \PHP_ZTS' => [new Identical(new Int_(1), self::constant(self::ZTS)), self::ZTS];
-        yield '\PHP_ZTS === 1' => [new Identical(self::constant(self::ZTS), new Int_(1)), self::ZTS];
-        yield '0 !== \PHP_DEBUG' => [new NotIdentical(new Int_(0), self::constant(self::DEBUG)), self::DEBUG];
-        yield 'true === PHP_ZTS, unqualified' => [new Identical(new ConstFetch(new Name('true')), new ConstFetch(new Name(self::ZTS))), self::ZTS];
-        yield 'match (\PHP_DEBUG)' => [new Match_(self::constant(self::DEBUG), [new MatchArm([new Int_(1)], new String_('debug'))]), self::DEBUG];
-    }
-
     #[Test]
-    #[DataProvider('portableUses')]
-    public function aPortableUseIsNotReported(Expr $node): void
+    public function aUseThatReadsOnlyTheConstantsTruthOrNumberIsNotReported(): void
     {
-        self::assertSame([], $this->rule->processNode($node, $this->scope()));
+        $this->analyse([self::FIXTURES . '/NotReportable.php'], []);
     }
 
-    /** @return iterable<string, array{Expr}> */
-    public static function portableUses(): iterable
+    protected function getRule(): Rule
     {
-        yield 'the cast itself' => [new Bool_(self::constant(self::ZTS))];
-        yield 'a cast compared' => [new Identical(new ConstFetch(new Name('true')), new Bool_(self::constant(self::ZTS)))];
-        yield 'another constant compared' => [new Identical(new Int_(8), self::constant('PHP_MAJOR_VERSION'))];
-        yield 'a loose comparison, which another rule reports' => [new Equal(new Int_(1), self::constant(self::ZTS))];
-        yield 'a strict comparison of variables' => [new Identical(new Variable('a'), new Variable('b'))];
-        yield 'a match on another value' => [new Match_(new Variable('a'), [new MatchArm([self::constant(self::ZTS)], new String_('zts'))])];
-        yield 'a function call' => [new FuncCall(new Name('phpversion'), [new Arg(new String_('x'))])];
-        yield 'a namespaced constant of the same short name' => [new Identical(new Int_(1), new ConstFetch(new FullyQualified('Vendor\PHP_ZTS')))];
+        return new ForbidBuildConstantStrictComparisonRule();
     }
 
-    private static function constant(string $name): ConstFetch
+    private static function message(string $constant): string
     {
-        return new ConstFetch(new FullyQualified($name));
-    }
-
-    private function scope(): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
-    {
-        return self::scopeStub();
+        return $constant . ' is read as it is, but it is a bool since PHP 8.4 and an int before (PHPStan types it 0|1 on every version), '
+            . 'so this use behaves differently by version. Write (bool) \\' . $constant . '.';
     }
 }
