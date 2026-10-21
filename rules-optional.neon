@@ -164,6 +164,17 @@
 #                                          under services: below. See
 #                                          docs/phpstan-rules/forbid-unhandled-process-signal.md
 #
+# AN EXIT CODE SAID AS THE CHILD ENDED:
+#   ForbidHandFormattedExitCodeRule      — a ProcessResultDto's exitCode, or a local copied
+#                                          from it, put into text by sprintf(), `.`,
+#                                          interpolation and the like, or described by
+#                                          ChildExit or ToolResultDto::fromExitCode(): a code
+#                                          from 129 to 192 then calls a child that relayed a
+#                                          crash killed, or says nothing of a crash. Use
+#                                          describeExit(). Its collector is registered under
+#                                          services: below. See
+#                                          docs/phpstan-rules/forbid-hand-formatted-exit-code.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -197,6 +208,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnhandledProcessSignalRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidHandFormattedExitCodeRule
 
 parameters:
     phpqaciFactorySealed:
@@ -239,5 +251,10 @@ services:
     # The collector ForbidUnhandledProcessSignalRule (under rules: above) matches.
     -
         class: LTS\PHPQA\PHPStan\Rules\ProcessSignalHandlingCollector
+        tags:
+            - phpstan.collector
+    # The collector ForbidHandFormattedExitCodeRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ExitCodeTextCollector
         tags:
             - phpstan.collector
