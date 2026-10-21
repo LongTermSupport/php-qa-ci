@@ -74,7 +74,8 @@ final class TurboInstallerTest extends TestCase
 
     private const string MAY_STILL_LOAD = 'WARNING: phpstan.phar may still load ' . self::BINARY . ", which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.\n";
 
-    private const string STAMPED_PAIR_LOADS = 'phpstan.phar loads ' . self::BINARY . ' beside its core: both match the SHA-256 digests in ' . self::STAMP . ", which an install writes only once it has verified and placed them.\n";
+    private const string STAMPED_PAIR_LOADS = self::BINARY . ' and its core match the SHA-256 digests in ' . self::STAMP . ', which an install writes only once it has verified and placed them; '
+        . "phpstan.phar loads the binary, and activates it when its extension version is the one the phar expects.\n";
 
     private TempDir $library;
 
