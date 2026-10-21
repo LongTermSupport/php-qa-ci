@@ -173,6 +173,10 @@ final class QaApplicationTest extends TestCase
                             $context->processes->run(new \LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto(['/bin/sh', '-c', 'kill -TERM $$'], $c->paths->projectRoot));
                         }
 
+                        if (is_file($c->paths->projectRoot . '/probe.exit139')) {
+                            $context->processes->run(new \LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto(['/bin/sh', '-c', 'exit 139'], $c->paths->projectRoot));
+                        }
+
                         return is_file($c->paths->projectRoot . '/probe.fail') ? ToolResultDto::failed('told to fail') : ToolResultDto::passed();
                     }
                 },
@@ -299,6 +303,27 @@ final class QaApplicationTest extends TestCase
         self::assertStringContainsString("\n!! " . $killed . "\n", $this->stdout);
         self::assertStringContainsString("\n        probe crashed: " . $killed . "\n", $this->stdout);
         self::assertStringNotContainsString('has been signaled', $this->stdout);
+        self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
+    }
+
+    /**
+     * A lane whose child exits 139 itself, as a shell does for a command that crashed with SIGSEGV,
+     * halts the run as a segfault, aggregate or not, even though the lane passed: a segfault is
+     * never accepted in a passing run, however it is reported.
+     */
+    #[Test]
+    #[TestWith(['1'], 'read-only, aggregate')]
+    #[TestWith(['0'], 'writable, fail-fast')]
+    public function aLaneWhoseChildExitsWithASegfaultsCodeHaltsTheRun(string $readOnly): void
+    {
+        $this->consumer->write('probe.exit139', '');
+
+        self::assertSame(1, $this->qa([self::QA_READONLY => $readOnly], self::DASH_T, self::PROBE));
+
+        $crashed = '`/bin/sh -c \'exit 139\'` ended with exit code 139, killed by signal 11 (SIGSEGV): ';
+        self::assertStringContainsString("\n!! " . $crashed, $this->stdout);
+        self::assertStringContainsString("\n        probe crashed: " . $crashed, $this->stdout);
+        self::assertStringContainsString("\nHALTED: probe crashed with a segmentation fault, so no further tool runs.\n", $this->stdout);
         self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
     }
 

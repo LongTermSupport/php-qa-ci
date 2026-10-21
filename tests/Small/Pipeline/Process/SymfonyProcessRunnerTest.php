@@ -59,6 +59,9 @@ final class SymfonyProcessRunnerTest extends TestCase
     // A child that kills itself with SIGTERM: the shell is the child, and `$$` is its own pid.
     private const array KILL_SELF = ['/bin/sh', '-c', 'kill -TERM $$'];
 
+    // A child that exits 139 itself, as a shell does when the command it ran crashed with SIGSEGV.
+    private const array RELAY_SEGFAULT = ['/bin/sh', '-c', 'exit 139'];
+
     #[Test]
     public function aChildThatNamesNoXdebugModeGetsOffWhateverTheParentHas(): void
     {
@@ -201,7 +204,43 @@ final class SymfonyProcessRunnerTest extends TestCase
         }
     }
 
-    /** A child that exits, however it exits, is no signal kill. */
+    /**
+     * A child that exits 139 itself reports a segmentation fault below it: a shell whose command
+     * crashed, or a tool that re-ran itself and relays its copy's crash. It is recorded as one, so
+     * the lane that ran it halts the run as for a child the signal killed, but its result carries
+     * no signal, since none killed it.
+     */
+    #[Test]
+    public function aChildThatExitsWithASegfaultsCodeIsRecordedAsOne(): void
+    {
+        $output    = new BufferedOutput();
+        $signalled = new SignalledChildren();
+        $spec      = new ProcessSpecDto(self::RELAY_SEGFAULT, \Safe\getcwd(), streamOutput: false);
+
+        $result = new SymfonyProcessRunner($output, new RunningProcesses(), $signalled)->run($spec);
+
+        self::assertSame(139, $result->exitCode);
+        self::assertNull($result->signal);
+        self::assertEquals([new SignalledChildDto($spec->commandLine(), \SIGSEGV)], $signalled->take());
+        self::assertSame(
+            \sprintf("++ %s\n!! `%s` ended with exit code 139, killed by signal 11 (SIGSEGV): %s\n", $spec->commandLine(), $spec->commandLine(), \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice()),
+            $output->fetch(),
+        );
+    }
+
+    /** With no record, an exit code is the caller's to read, 139 included: only a signal kill throws. */
+    #[Test]
+    public function withoutARecordASegfaultsExitCodeIsAResult(): void
+    {
+        $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
+            ->run(new ProcessSpecDto(self::RELAY_SEGFAULT, \Safe\getcwd(), streamOutput: false))
+        ;
+
+        self::assertSame(139, $result->exitCode);
+        self::assertNull($result->signal);
+    }
+
+    /** A child that exits with any other code, one above 128 included, is no crash. */
     #[Test]
     public function aChildThatExitsIsNotRecorded(): void
     {
