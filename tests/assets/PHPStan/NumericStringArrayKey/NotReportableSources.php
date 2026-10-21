@@ -136,6 +136,24 @@ final class NotReportableSources
         $this->honest = array_reverse($set, true);
     }
 
+    /** @return list<array<array-key, int>> */
+    public function handedOnInsideALiteralHonestAboutItsKeys(string $name): array
+    {
+        $counts        = [];
+        $counts[$name] = 1;
+
+        return [$counts];
+    }
+
+    /** @return \Generator<int, int> */
+    public function valuesYielded(string $name): \Generator
+    {
+        $counts        = [];
+        $counts[$name] = 1;
+
+        yield from array_values($counts);
+    }
+
     private function takes(string $name): void
     {
     }

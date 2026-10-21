@@ -184,6 +184,24 @@ final class ReportableSources
         $this->takes($key ?? $last);
     }
 
+    /** @return list<array<string, int>> */
+    public function handedOnInsideALiteral(string $name): array
+    {
+        $counts        = [];
+        $counts[$name] = 1;
+
+        return [$counts];
+    }
+
+    /** @return \Generator<string, int> */
+    public function keysYielded(string $name): \Generator
+    {
+        $counts        = [];
+        $counts[$name] = 1;
+
+        yield from $counts;
+    }
+
     private function takes(string $name): void
     {
     }

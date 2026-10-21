@@ -112,6 +112,8 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message('$psr4', 'line 154 asserts it array<string, string> in an inline @var over keys PHPStan does not know'), 154],
                 [$this->message('$count', 'line 168 reads its keys with array_any()'), 165],
                 [$this->message(self::SET, 'line 180 reads its keys with foreach'), 176],
+                [$this->message(self::COUNTS_LOCAL, 'line 193 returns it as list<array<string, int>>'), 191],
+                [$this->message(self::COUNTS_LOCAL, 'line 202 yields its keys with yield from'), 200],
             ],
         );
     }
