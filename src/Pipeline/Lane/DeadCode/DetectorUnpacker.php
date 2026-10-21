@@ -94,7 +94,8 @@ final readonly class DetectorUnpacker
     /**
      * Housekeeping that never decides the lane's verdict: an entry that cannot be removed (one
      * a root container run left in a user's cache) is named in a warning and skipped, where a
-     * throw would fail every run until someone removed it by hand.
+     * throw would fail every run until someone removed it by hand. The warning does not say the
+     * lane goes on: the prune runs before $target is unpacked, which can still fail the run.
      */
     private function prune(string $target): void
     {
@@ -104,13 +105,13 @@ final readonly class DetectorUnpacker
                 continue;
             }
 
-            $this->removeOrWarn($directory . '/' . $entry, 'left in the dead-code detector cache by an earlier run', $target);
+            $this->removeOrWarn($directory . '/' . $entry, 'left in the dead-code detector cache by an earlier run', null);
         }
     }
 
     /**
      * Removes $path, or names it in a warning saying how it came to be there ($origin) and goes
-     * on; the warning says the lane goes on with $target only when there is one to go on with.
+     * on; the warning says the lane goes on with $target only when $target is already in place.
      */
     private function removeOrWarn(string $path, string $origin, ?string $target): void
     {
