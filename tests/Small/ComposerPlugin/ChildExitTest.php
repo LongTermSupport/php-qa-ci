@@ -45,11 +45,38 @@ final class ChildExitTest extends TestCase
         yield 'signal 7, numbered differently per platform' => [135, 'exit code 135, killed by signal 7'];
         yield 'SIGFPE' => [136, 'exit code 136, killed by signal 8 (SIGFPE)'];
         yield 'SIGKILL, an out-of-memory kill' => [137, 'exit code 137, killed by signal 9 (SIGKILL, which is what the out-of-memory killer sends)'];
-        yield 'SIGSEGV, a crash' => [139, 'exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past'];
+        yield 'SIGSEGV, a crash in a program that is not php-qa-ci\'s' => [139, 'exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to debug and report where the crashing code lives, never to retry past (see ' . self::segfaultGuide() . ')'];
         yield 'SIGPIPE' => [141, 'exit code 141, killed by signal 13 (SIGPIPE)'];
         yield 'SIGALRM' => [142, 'exit code 142, killed by signal 14 (SIGALRM)'];
         yield 'SIGTERM' => [143, 'exit code 143, killed by signal 15 (SIGTERM)'];
         yield 'the highest signal' => [192, 'exit code 192, killed by signal 64'];
+    }
+
+    /**
+     * A segfault is reported where the crashing code lives: php-qa-ci's tracker is the place only
+     * when the program that crashed is one of php-qa-ci's own helpers.
+     */
+    #[Test]
+    #[DataProvider('helperExits')]
+    public function aPhpQaCiHelperSegfaultNamesPhpQaCisTracker(int $exitCode, string $description): void
+    {
+        self::assertSame($description, ChildExit::describePhpQaCiHelper($exitCode));
+    }
+
+    /** @return iterable<string, array{int, string}> */
+    public static function helperExits(): iterable
+    {
+        yield 'an ordinary failure' => [1, 'exit code 1'];
+        yield 'SIGTERM' => [143, 'exit code 143, killed by signal 15 (SIGTERM)'];
+        yield 'SIGSEGV, a crash in php-qa-ci\'s own helper' => [139, 'exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past'];
+    }
+
+    /** The guide a segfault in any other program points at is a page that ships. */
+    #[Test]
+    public function theSegfaultGuideIsAShippedPage(): void
+    {
+        self::assertFileExists(self::segfaultGuide());
+        self::assertStringContainsString(self::segfaultGuide(), ChildExit::describe(139));
     }
 
     #[Test]
@@ -67,5 +94,11 @@ final class ChildExitTest extends TestCase
         yield '192' => [192, true];
         yield '193' => [193, false];
         yield '255' => [255, false];
+    }
+
+    /** The consumer-facing segfault page, in the installed package, wherever that is. */
+    private static function segfaultGuide(): string
+    {
+        return \dirname(__DIR__, 3) . '/docs/segfaults.md';
     }
 }

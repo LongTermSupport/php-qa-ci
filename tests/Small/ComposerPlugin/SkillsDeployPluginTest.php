@@ -64,6 +64,13 @@ final class SkillsDeployPluginTest extends TestCase
         self::assertContains('<error>✗ Skills/Agents/Hooks deployment failed with exit code 143, killed by signal 15 (SIGTERM)</error>', $this->deployExitingWith(143));
     }
 
+    /** The deploy script is php-qa-ci's own, so its crash is a defect for php-qa-ci's tracker. */
+    #[Test]
+    public function aSegfaultingDeployNamesPhpQaCisTracker(): void
+    {
+        self::assertContains('<error>✗ Skills/Agents/Hooks deployment failed with exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past</error>', $this->deployExitingWith(139));
+    }
+
     #[Test]
     public function aSuccessfulDeployReportsNoFailure(): void
     {
