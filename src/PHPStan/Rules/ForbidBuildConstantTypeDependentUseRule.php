@@ -51,14 +51,14 @@ use PHPStan\Rules\RuleErrorBuilder;
  * 0/1 and false/true (a condition, `!`, `&&`, `(bool)`, `(int)`, arithmetic, an array key, a
  * comparison whose result the evaluation below shows to be the same on both types).
  *
- * See: docs/phpstan-rules/forbid-build-constant-strict-comparison.md
+ * See: docs/phpstan-rules/forbid-build-constant-type-dependent-use.md
  *
  * @implements Rule<FileNode>
  */
-final readonly class ForbidBuildConstantStrictComparisonRule implements Rule
+final readonly class ForbidBuildConstantTypeDependentUseRule implements Rule
 {
     /** The identifier every finding carries. */
-    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.buildConstantStrictComparison';
+    public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.buildConstantTypeDependentUse';
 
     /** The constants whose type changed from int to bool in PHP 8.4. */
     private const array CONSTANTS = ['PHP_ZTS', 'PHP_DEBUG'];

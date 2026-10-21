@@ -156,12 +156,12 @@
 #                                          docs/phpstan-rules/forbid-unisolated-git-process.md
 #
 # BUILD CONSTANTS READ AS THEY ARE:
-#   ForbidBuildConstantStrictComparisonRule — PHP_ZTS or PHP_DEBUG compared strictly, made a
+#   ForbidBuildConstantTypeDependentUseRule — PHP_ZTS or PHP_DEBUG compared strictly, made a
 #                                          string, stored or passed on: a bool since PHP 8.4,
 #                                          an int before, and typed 0|1 by PHPStan, so the
 #                                          result differs by version. Write
 #                                          (bool) \PHP_ZTS. See
-#                                          docs/phpstan-rules/forbid-build-constant-strict-comparison.md
+#                                          docs/phpstan-rules/forbid-build-constant-type-dependent-use.md
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
@@ -195,7 +195,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
-    - LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantStrictComparisonRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantTypeDependentUseRule
 
 parameters:
     phpqaciFactorySealed:

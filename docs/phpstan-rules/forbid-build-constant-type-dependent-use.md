@@ -1,6 +1,6 @@
-# `phpqaci.buildConstantStrictComparison` — read `PHP_ZTS` and `PHP_DEBUG` through `(bool)`
+# `phpqaci.buildConstantTypeDependentUse` — read `PHP_ZTS` and `PHP_DEBUG` through `(bool)`
 
-**Rule**: `ForbidBuildConstantStrictComparisonRule`
+**Rule**: `ForbidBuildConstantTypeDependentUseRule`
 **Bundle**: [`rules-optional.neon`](../../rules-optional.neon) (opt in)
 
 ## What fires

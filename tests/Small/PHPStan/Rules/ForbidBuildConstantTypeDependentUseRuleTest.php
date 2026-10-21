@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
-use LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantStrictComparisonRule;
+use LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantTypeDependentUseRule;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -14,11 +14,11 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * @internal
  *
- * @extends RuleTestCase<ForbidBuildConstantStrictComparisonRule>
+ * @extends RuleTestCase<ForbidBuildConstantTypeDependentUseRule>
  */
-#[CoversClass(ForbidBuildConstantStrictComparisonRule::class)]
+#[CoversClass(ForbidBuildConstantTypeDependentUseRule::class)]
 #[Medium]
-final class ForbidBuildConstantStrictComparisonRuleTest extends RuleTestCase
+final class ForbidBuildConstantTypeDependentUseRuleTest extends RuleTestCase
 {
     private const string FIXTURES = __DIR__ . '/../../../assets/PHPStan/BuildConstant';
 
@@ -90,7 +90,7 @@ final class ForbidBuildConstantStrictComparisonRuleTest extends RuleTestCase
 
     protected function getRule(): Rule
     {
-        return new ForbidBuildConstantStrictComparisonRule();
+        return new ForbidBuildConstantTypeDependentUseRule();
     }
 
     private function message(string $constant): string
