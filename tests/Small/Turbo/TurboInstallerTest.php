@@ -431,6 +431,22 @@ final class TurboInstallerTest extends TestCase
         self::assertStringContainsString('Input/output error', implode("\n", $warnings), 'the failed read');
     }
 
+    /** A stamp that cannot be read vouches for nothing, and the warning says why rather than reading as an unstamped pair. */
+    #[Test]
+    public function theStateCheckWarnsAboutAPairWhoseStampItCannotReadAndSaysWhy(): void
+    {
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        // Opening /proc/self/mem succeeds and reading it from offset 0 fails, so nothing is read.
+        \Safe\symlink('/proc/self/mem', $this->library->path . '/' . self::STAMP);
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        $output = $this->output->fetch();
+        self::assertStringStartsWith(rtrim(self::MAY_STILL_LOAD, "\n") . ' The pair could not be checked against its stamp: ', $output);
+        self::assertStringContainsString('Input/output error', $output, 'the reason the stamp could not be read');
+    }
+
     /** A failure after both files are placed leaves a pair phpstan.phar loads, with no stamp to vouch for it. */
     #[Test]
     public function aStampThatCannotBeWrittenFailsTheInstallSayingPhpstanMayStillLoadTheBinary(): void
