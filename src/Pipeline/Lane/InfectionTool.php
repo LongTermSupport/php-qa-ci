@@ -504,13 +504,15 @@ final readonly class InfectionTool implements ToolInterface
     {
         $directories = $this->strings($source['directories'] ?? null);
         $excludes    = $this->strings($source['excludes'] ?? null);
-        $kept        = [];
+        $paths       = [];
+        $relatives   = [];
         $outside     = [];
         try {
             foreach (array_combine($filter->relativePaths, $filter->positionalPaths) as $relative => $absolute) {
                 $reason = $this->sourceScope->outside($absolute, $directories, ...$excludes);
                 if (null === $reason) {
-                    $kept[$relative] = $absolute;
+                    $paths[]     = $absolute;
+                    $relatives[] = $relative;
                 } else {
                     $outside[] = \sprintf('%s%s (%s)', self::INDENT, $relative, $reason);
                 }
@@ -524,13 +526,13 @@ final readonly class InfectionTool implements ToolInterface
             $context->writeln(implode("\n", $outside));
         }
 
-        if ([] === $kept) {
+        if ([] === $paths) {
             $context->writeln("Infection: diff mode — nothing the change touches is in Infection's source scope; there are no new mutants to check. SKIPPING.");
 
             return ToolResultDto::skipped("no changed file is in Infection's source scope");
         }
 
-        return new InfectionDiffFilterDto(array_values($kept), array_map(strval(...), array_keys($kept)), array_intersect_key($filter->mirrored, $kept));
+        return new InfectionDiffFilterDto($paths, $relatives, array_intersect_key($filter->mirrored, array_flip($relatives)));
     }
 
     /**

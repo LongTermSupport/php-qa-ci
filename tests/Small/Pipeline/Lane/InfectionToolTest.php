@@ -96,6 +96,10 @@ final class InfectionToolTest extends TestCase
 
     private const string PLUGIN_SRC = 'src/ComposerPlugin/Plugin.php';
 
+    private const string PLUGIN_EXCLUDED_LINE = '           ' . self::PLUGIN_SRC . ' (excluded by source.excludes "/ComposerPlugin/")' . "\n";
+
+    private const string PHP_OPEN = '<?php';
+
     // A full run unless a test says otherwise: auto mode's git probes are tested on their own below.
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4', 'infectionDiffBase' => 'full'];
 
@@ -1108,7 +1112,7 @@ final class InfectionToolTest extends TestCase
     #[Test]
     public function aChangedTestBringsTheSourceItIsNamedAfterIntoScope(): void
     {
-        $this->factory->project->write('src/Lane/Tool.php', '<?php');
+        $this->factory->project->write('src/Lane/Tool.php', self::PHP_OPEN);
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'tests/Small/Lane/ToolTest.php']))->willRun($this->infection());
 
@@ -1271,13 +1275,37 @@ final class InfectionToolTest extends TestCase
         self::assertCount(2, $this->factory->processes->specs, 'git status and git diff only: no coverage run and no phar');
         self::assertStringContainsString(
             "Infection: diff mode — 2 changed file(s) are outside the source infection.json gives Infection, so they are not mutated:\n"
-            . '           ' . self::PLUGIN_SRC . ' (excluded by source.excludes "/ComposerPlugin/")' . "\n"
+            . self::PLUGIN_EXCLUDED_LINE
             . '           src/ComposerPlugin/Other.php (excluded by source.excludes "/ComposerPlugin/")' . "\n"
             . "Infection: diff mode — nothing the change touches is in Infection's source scope; there are no new mutants to check. SKIPPING.\n",
             $printed,
         );
         self::assertStringNotContainsString('mutating', $printed);
         self::assertStringNotContainsString(InfectionTool::IDENTIFIER, $printed, 'a skip is no failure, so no identifier');
+    }
+
+    /** A source a changed test brings in is left out like any other when the config excludes it, and not said to be in scope. */
+    #[Test]
+    public function aSourceAChangedTestNamesIsLeftOutWhenTheConfigExcludesIt(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::PLUGIN_EXCLUDED_CONFIG);
+        $this->factory->project->write(self::PLUGIN_SRC, self::PHP_OPEN);
+        $this->factory->project->write('src/Lane/Tool.php', self::PHP_OPEN);
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['A', 'tests/Small/ComposerPlugin/PluginTest.php'], ['A', 'tests/Small/Lane/ToolTest.php']))
+            ->willRun($this->infection())
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::PLUGIN_EXCLUDED_LINE, $printed);
+        self::assertStringContainsString('Infection: diff mode — src/Lane/Tool.php is in scope because its test tests/Small/Lane/ToolTest.php changed.', $printed);
+        self::assertStringNotContainsString(self::PLUGIN_SRC . ' is in scope', $printed);
+        self::assertSame([$this->root . '/src/Lane/Tool.php'], \array_slice($this->factory->processes->lastSpec()->command, -1));
     }
 
     /** A changed file under no source directory is as far outside Infection's scope as an excluded one. */
@@ -1329,7 +1357,7 @@ final class InfectionToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString(
             "Infection: diff mode — 1 changed file(s) are outside the source infection.json gives Infection, so they are not mutated:\n"
-            . '           ' . self::PLUGIN_SRC . ' (excluded by source.excludes "/ComposerPlugin/")' . "\n"
+            . self::PLUGIN_EXCLUDED_LINE
             . 'Infection: diff mode — mutating 1 file(s): ' . self::COMMITTED_SRC . "\n",
             $printed,
         );
