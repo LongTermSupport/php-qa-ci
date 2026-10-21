@@ -29,7 +29,6 @@ final class LogArchiverTest extends TestCase
 
     private const string ARCHIVE_AT_TIMESTAMP = 'phpstan.20260908-120000.log';
 
-    /** The longest file name common filesystems accept. */
     private const int MAX_FILE_NAME_BYTES = 255;
 
     private TempDir $logDir;
@@ -92,10 +91,11 @@ final class LogArchiverTest extends TestCase
 
         $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('a'), self::TIMESTAMP);
         $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('b'), self::TIMESTAMP);
-        self::assertCount(3, $this->logDir->files(), 'the live log and one archive per distinct path set');
+        $afterTwoSets = $this->logDir->files();
+        self::assertCount(3, $afterTwoSets, 'the live log and one archive per distinct path set');
 
         $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('a'), self::TIMESTAMP);
-        self::assertCount(3, $this->logDir->files(), 'the same set at the same timestamp is the same archive');
+        self::assertEqualsCanonicalizing($afterTwoSets, $this->logDir->files(), 'the same set at the same timestamp is the same archive');
     }
 
     #[Test]

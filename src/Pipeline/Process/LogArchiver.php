@@ -59,8 +59,8 @@ final readonly class LogArchiver
         $extension = pathinfo($logFileName, \PATHINFO_EXTENSION);
 
         if ($pathSpecific) {
-            $suffix   = $this->suffixFor($pathsChecked);
-            $archive  =\sprintf('%s/%s.%s.%s.%s', $logDir, $base, $suffix, $timestamp, $extension);
+            $suffix   = $this->suffixFor(...$pathsChecked);
+            $archive  = \sprintf('%s/%s.%s.%s.%s', $logDir, $base, $suffix, $timestamp, $extension);
             $pattern  = \sprintf('/^%s\.%s\.\d{8}-\d{6}\.%s$/', preg_quote($base, '/'), preg_quote($suffix, '/'), preg_quote($extension, '/'));
             $runType  = 'Path-specific run: ' . implode(' ', $pathsChecked);
         } else {
@@ -92,10 +92,8 @@ final readonly class LogArchiver
      * name may be, and the copy then fails with "File name too long". Past {@see MAX_SUFFIX_BYTES} the suffix
      * is cut and ends in a digest of the whole sanitised list, so it stays short, stays the same for the
      * same paths (retention still groups the runs) and differs for paths that merely share a long prefix.
-     *
-     * @param list<string> $pathsChecked
      */
-    private function suffixFor(array $pathsChecked): string
+    private function suffixFor(string ...$pathsChecked): string
     {
         $replaced = \Safe\preg_replace('/[^[:alnum:]]+/', '_', implode(' ', $pathsChecked));
         $suffix   = trim(\is_string($replaced) ? $replaced : implode('_', $replaced), '_');
