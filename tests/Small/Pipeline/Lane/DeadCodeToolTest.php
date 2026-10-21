@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use LTS\PHPQA\Pipeline\Lane\DeadCode\DetectorUnpacker;
+use LTS\PHPQA\Pipeline\Lane\DeadCode\GitIgnoredFiles;
 use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -56,6 +57,10 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(DetectorUnpacker::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCode\BinEntryPointScripts::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCode\AnalysedFiles::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCode\Dto\BinScanDto::class)]
+#[UsesClass(GitIgnoredFiles::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\Dto\PhpstanParametersDto::class)]
 #[UsesClass(\LTS\PHPQA\Filesystem\TemporaryDirectory::class)]
 #[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
@@ -83,6 +88,14 @@ final class DeadCodeToolTest extends TestCase
     private const string CONSOLE = 'bin/console';
 
     private const string PHP_SCRIPT = "#!/usr/bin/env php\n<?php\n\necho 'hi';\n";
+
+    private const string BIN_APP = 'bin/app';
+
+    private const string LEGACY_APP = 'src/legacy/app.php';
+
+    private const string ANALYSE = 'analyse';
+
+    private const string ANALYSE_AND_SCAN = 'analyseAndScan';
 
     private ContextFactory $factory;
 
@@ -352,6 +365,7 @@ final class DeadCodeToolTest extends TestCase
         $this->factory->project->write('bin/worker', self::PHP_SCRIPT);
         $this->factory->project->write('bin/cron', self::PHP_SCRIPT);
         $this->factory->project->write('bin/deploy', "#!/usr/bin/env bash\necho deploying\n");
+        $this->factory->processes->willSucceed();
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withDeadCodeEntryPoints(self::CONSOLE)->build();
 
@@ -368,12 +382,48 @@ final class DeadCodeToolTest extends TestCase
             . "\n"
             . "The detector reads a script under bin/ only when it is declared: one left off the\n"
             . "list is analysed by nothing, and every member only it reaches is reported dead.\n"
-            . "List each with withDeadCodeEntryPoints() in qaConfig/qa.php.\n"
+            . "List each with withDeadCodeEntryPoints() in qaConfig/qa.php. A declared script\n"
+            . "the project's phpstan.neon excludePaths removes is not read either.\n"
             . "\n"
             . self::IDENTIFIER_LINE,
             $printed,
         );
-        self::assertSame([], $this->factory->processes->specs);
+        $this->assertOnlyGitRan();
+    }
+
+    /** Both findings are reported together, each with its own guidance. */
+    #[Test]
+    public function anUndeclaredScriptAndAnUnreadablePathAreBothReported(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->factory->project->write('bin/worker', self::PHP_SCRIPT);
+
+        $this->unremovable = $this->factory->project->path . '/bin/deep';
+        UnremovableTree::plant($this->unremovable);
+        UnremovableTree::plant($this->factory->project->path . '/bin/deeper');
+        $this->factory->processes->willSucceed();
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        try {
+            $result  = $this->tool()->run($this->factory->context($config));
+            $printed = $this->factory->output->fetch();
+        } finally {
+            UnremovableTree::remove($this->factory->project->path . '/bin/deeper');
+        }
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertMatchesRegularExpression(
+            '~\A2 PHP scripts under bin/ are not declared entry points: bin/console, bin/worker; 2 paths under bin/ could not be read, so whether they hold an undeclared PHP script is unknown: bin/deep/d+/.+, bin/deeper/d+/.+\z~',
+            $result->summary,
+        );
+        self::assertStringContainsString(
+            "\nA path the lane cannot read may hold a PHP script analysed by nothing. Make it\nreadable, or remove it if it is not the project's.\n\n" . self::IDENTIFIER_LINE,
+            $printed,
+        );
+        self::assertStringContainsString("\nPaths under bin/ the lane could not read:\n  bin/deep/", $printed);
+        $this->assertOnlyGitRan();
     }
 
     /** Saying the project has no entry points is contradicted by a PHP script under bin/. */
@@ -382,6 +432,7 @@ final class DeadCodeToolTest extends TestCase
     {
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->factory->processes->willSucceed();
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
@@ -389,7 +440,7 @@ final class DeadCodeToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 PHP script under bin/ is not a declared entry point: bin/console', $result->summary);
-        self::assertSame([], $this->factory->processes->specs);
+        $this->assertOnlyGitRan();
     }
 
     /** A link in bin/ to the project's own script hides that script exactly as a regular file would. */
@@ -398,8 +449,8 @@ final class DeadCodeToolTest extends TestCase
     {
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('scripts/worker', self::PHP_SCRIPT);
-        $this->factory->project->mkdir('bin');
-        \Safe\symlink('../scripts/worker', $this->factory->project->path . '/bin/worker');
+        $this->linkInBin('../scripts/worker', 'worker');
+        $this->factory->processes->willSucceed();
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
@@ -407,18 +458,18 @@ final class DeadCodeToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 PHP script under bin/ is not a declared entry point: bin/worker', $result->summary);
-        self::assertSame([], $this->factory->processes->specs);
+        $this->assertOnlyGitRan();
     }
 
     /** The lane's run already reads src/: a link to a `.php` file there hides nothing. */
     #[Test]
     public function aLinkToAFileUnderTheSourceDirectoryRunsTheDetector(): void
     {
+        $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('src/app.php', self::PHP_SCRIPT);
-        $this->factory->project->mkdir('bin');
-        \Safe\symlink('../src/app.php', $this->factory->project->path . '/bin/app');
+        $this->linkInBin('../src/app.php');
 
         $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
 
@@ -429,7 +480,7 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function anUndeclaredScriptInASubdirectoryOfBinFailsTheLane(): void
     {
-        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $this->factory->processes->willSucceed();
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('bin/cron/job', self::PHP_SCRIPT);
 
@@ -439,13 +490,14 @@ final class DeadCodeToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 PHP script under bin/ is not a declared entry point: bin/cron/job', $result->summary);
-        self::assertSame([], $this->factory->processes->specs);
+        $this->assertOnlyGitRan();
     }
 
     /** A tree the project ignores is one it has said is not analysed. */
     #[Test]
     public function aScriptUnderAnIgnoredPathRunsTheDetector(): void
     {
+        $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('bin/.phpunit/phpunit', self::PHP_SCRIPT);
@@ -458,6 +510,7 @@ final class DeadCodeToolTest extends TestCase
     #[Test]
     public function everyPhpScriptUnderBinDeclaredRunsTheDetector(): void
     {
+        $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
@@ -584,7 +637,7 @@ final class DeadCodeToolTest extends TestCase
         $root = $this->factory->project->path;
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
-        $this->factory->processes->willSucceed(self::dump(paths: [$root . '/' . self::CONSOLE]));
+        $this->factory->processes->willSucceed($this->dump(paths: [$root . '/' . self::CONSOLE]));
         $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
@@ -599,9 +652,8 @@ final class DeadCodeToolTest extends TestCase
     {
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('src/app.inc', self::PHP_SCRIPT);
-        $this->factory->project->mkdir('bin');
-        \Safe\symlink('../src/app.inc', $this->factory->project->path . '/bin/app');
-        $this->factory->processes->willSucceed(self::dump(extensions: ['php', 'inc']));
+        $this->linkInBin('../src/app.inc');
+        $this->factory->processes->willSucceed($this->dump(extensions: ['php', 'inc']));
         $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
@@ -624,12 +676,11 @@ final class DeadCodeToolTest extends TestCase
         $root = $this->factory->project->path;
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write($target, self::PHP_SCRIPT);
-        if ('bin/app' !== $target) {
-            $this->factory->project->mkdir('bin');
-            \Safe\symlink('../' . $target, $root . '/bin/app');
+        if (self::BIN_APP !== $target) {
+            $this->linkInBin('../' . $target);
         }
 
-        $this->factory->processes->willSucceed(self::dump(excluded: [$analysedKey => array_map(static fn (string $path): string => $root . '/' . $path, $excluded)]));
+        $this->factory->processes->willSucceed($this->dump(excluded: [$analysedKey => array_map(static fn (string $path): string => $root . '/' . $path, $excluded)]));
         $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
@@ -644,10 +695,10 @@ final class DeadCodeToolTest extends TestCase
     /** @return iterable<string, array{string, list<string>, list<string>, string}> */
     public static function excludedScripts(): iterable
     {
-        yield 'a .php file in an excluded directory under src/' => ['src/legacy/app.php', [], ['src/legacy'], 'analyseAndScan'];
-        yield 'a .php file excluded by a pattern' => ['src/legacy/app.php', [], ['src/*/app.php'], 'analyse'];
-        yield 'a .php file excluded by name' => ['src/legacy/app.php', [], ['src/legacy/app.php'], 'analyse'];
-        yield 'a declared script the project excludes by a pattern' => ['bin/app', ['bin/app'], ['bin/*'], 'analyseAndScan'];
+        yield 'a .php file in an excluded directory under src/' => [self::LEGACY_APP, [], ['src/legacy'], self::ANALYSE_AND_SCAN];
+        yield 'a .php file excluded by a pattern' => [self::LEGACY_APP, [], ['src/*/app.php'], self::ANALYSE];
+        yield 'a .php file excluded by name' => [self::LEGACY_APP, [], [self::LEGACY_APP], self::ANALYSE];
+        yield 'a declared script the project excludes by a pattern' => [self::BIN_APP, [self::BIN_APP], ['bin/*'], self::ANALYSE_AND_SCAN];
     }
 
     /** PHPStan's directory walk leaves out dot files and dot directories, so it never reads a script there. */
@@ -656,9 +707,8 @@ final class DeadCodeToolTest extends TestCase
     {
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('src/.hidden/app.php', self::PHP_SCRIPT);
-        $this->factory->project->mkdir('bin');
-        \Safe\symlink('../src/.hidden/app.php', $this->factory->project->path . '/bin/app');
-        $this->factory->processes->willSucceed(self::dump());
+        $this->linkInBin('../src/.hidden/app.php');
+        $this->factory->processes->willSucceed($this->dump());
         $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
@@ -677,7 +727,7 @@ final class DeadCodeToolTest extends TestCase
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    tmpDir: /ci-cache/phpstan\n");
         $this->factory->project->write(self::CONSOLE, self::PHP_SCRIPT);
-        $this->factory->processes->willSucceed(self::dump(paths: [$this->factory->project->path . '/' . self::CONSOLE]));
+        $this->factory->processes->willSucceed($this->dump(paths: [$this->factory->project->path . '/' . self::CONSOLE]));
         $this->factory->processes->willSucceed();
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
@@ -718,8 +768,7 @@ final class DeadCodeToolTest extends TestCase
     {
         $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
         $this->factory->project->write('build/tool', self::PHP_SCRIPT);
-        $this->factory->project->mkdir('bin');
-        \Safe\symlink('../build/tool', $this->factory->project->path . '/bin/tool');
+        $this->linkInBin('../build/tool', 'tool');
         $this->factory->processes->willSucceed("build/\0");
         $this->factory->processes->willSucceed(self::NO_ERRORS);
 
@@ -782,8 +831,7 @@ final class DeadCodeToolTest extends TestCase
 
         try {
             UnremovableTree::plant($target . '/deep');
-            $this->factory->project->mkdir('bin');
-            \Safe\symlink($target, $this->factory->project->path . '/bin/linked');
+            $this->linkInBin($target, 'linked');
             $this->factory->processes->willSucceed();
             $this->factory->processes->willSucceed(self::NO_ERRORS);
 
@@ -817,6 +865,19 @@ final class DeadCodeToolTest extends TestCase
         return new DeadCodeTool($this->tmpDirProbe);
     }
 
+    /** Creates bin/<name> as a link to $target, which may be relative to bin/. */
+    private function linkInBin(string $target, string $name = 'app'): void
+    {
+        $this->factory->project->mkdir('bin');
+        \Safe\symlink($target, $this->factory->project->path . '/bin/' . $name);
+    }
+
+    /** The bin/ check asked git what it ignores, and nothing was analysed. */
+    private function assertOnlyGitRan(): void
+    {
+        self::assertSame([GitIgnoredFiles::COMMAND], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->factory->processes->specs));
+    }
+
     /**
      * What `phpstan.phar dump-parameters --json` prints, with PHPStan's default tmpDir.
      *
@@ -824,13 +885,13 @@ final class DeadCodeToolTest extends TestCase
      * @param array<string, list<string>> $excluded   `analyse` and `analyseAndScan`, absolute
      * @param list<string>                $extensions
      */
-    private static function dump(array $paths = [], array $excluded = [], array $extensions = ['php']): string
+    private function dump(array $paths = [], array $excluded = [], array $extensions = ['php']): string
     {
         return \Safe\json_encode([
             'tmpDir'         => '/t/phpstan',
             'sysGetTempDir'  => '/t',
             'paths'          => $paths,
-            'excludePaths'   => [...['analyseAndScan' => [], 'analyse' => []], ...$excluded],
+            'excludePaths'   => [...[self::ANALYSE_AND_SCAN => [], self::ANALYSE => []], ...$excluded],
             'fileExtensions' => $extensions,
         ]);
     }

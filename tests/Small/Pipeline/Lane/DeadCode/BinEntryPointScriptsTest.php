@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\DeadCode;
 
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
+use LTS\PHPQA\Pipeline\Lane\DeadCode\AnalysedFiles;
 use LTS\PHPQA\Pipeline\Lane\DeadCode\BinEntryPointScripts;
+use LTS\PHPQA\Pipeline\Lane\DeadCode\Dto\BinScanDto;
+use LTS\PHPQA\Pipeline\Lane\DeadCode\GitIgnoredFiles;
 use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\UnremovableTree;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
@@ -23,6 +27,9 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(BinEntryPointScripts::class)]
 #[UsesClass(IgnoredPaths::class)]
+#[UsesClass(AnalysedFiles::class)]
+#[UsesClass(BinScanDto::class)]
+#[UsesClass(GitIgnoredFiles::class)]
 #[Small]
 final class BinEntryPointScriptsTest extends TestCase
 {
@@ -44,19 +51,70 @@ final class BinEntryPointScriptsTest extends TestCase
 
     private const string WORKER_RELATIVE = '../scripts/worker';
 
+    private const string SIMPLE_PHPUNIT = 'bin/.phpunit/phpunit-9.6/phpunit';
+
     private TempDir $project;
 
     /** @var list<string> withIgnoredPaths() entries, project-relative */
     private array $ignoredPaths = [];
 
+    private GitIgnoredFiles $gitIgnored;
+
+    private ?string $unremovable = null;
+
     protected function setUp(): void
     {
-        $this->project = TempDir::create('phpqa-bin-entry-points-test');
+        $this->project    = TempDir::create('phpqa-bin-entry-points-test');
+        $this->gitIgnored = GitIgnoredFiles::none();
     }
 
     protected function tearDown(): void
     {
+        if (null !== $this->unremovable) {
+            UnremovableTree::remove($this->unremovable);
+        }
+
         $this->project->remove();
+    }
+
+    /** A file git ignores is never committed, so CI never has it: by its bin/ path or its target's. */
+    #[Test]
+    public function aFileGitIgnoresIsNotRequired(): void
+    {
+        $this->project->write(self::SIMPLE_PHPUNIT, self::PHP_SCRIPT);
+        $this->project->write('bin/local.php', self::PHP_SCRIPT);
+        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
+        $this->link(self::WORKER_RELATIVE, self::WORKER);
+        $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->gitIgnored = GitIgnoredFiles::fromListing("bin/.phpunit/\0bin/local.php\0scripts/\0");
+
+        self::assertSame([self::CONSOLE], $this->undeclared());
+    }
+
+    /** A file listed but not resolvable is reported as unreadable, never passed unseen. */
+    #[Test]
+    public function aPathThatCannotBeReadIsReported(): void
+    {
+        $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
+        $this->unremovable = $this->project->path . '/bin/deep';
+        UnremovableTree::plant($this->unremovable);
+
+        $scan = $this->scan();
+
+        self::assertSame([self::CONSOLE], $scan->undeclared);
+        self::assertCount(1, $scan->unreadable);
+        self::assertStringStartsWith('bin/deep/' . str_repeat('d', 200) . '/', $scan->unreadable[0]);
+    }
+
+    /** A link to the project root is walked once; the vendor dir inside it is still not entered. */
+    #[Test]
+    public function aLinkToTheProjectRootIsWalkedWithoutTheVendorDir(): void
+    {
+        $this->project->write(self::VENDOR_TOOL, self::PHP_SCRIPT);
+        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
+        $this->link('..', 'bin/root');
+
+        self::assertSame(['bin/root/' . self::WORKER_TARGET], $this->undeclared());
     }
 
     #[Test]
@@ -365,7 +423,7 @@ final class BinEntryPointScriptsTest extends TestCase
     {
         yield 'one level' => ['bin/cron/job'];
         yield 'two levels' => ['bin/cron/nightly/report'];
-        yield 'a dot directory' => ['bin/.phpunit/phpunit-9.6/phpunit'];
+        yield 'a dot directory' => [self::SIMPLE_PHPUNIT];
     }
 
     #[Test]
@@ -380,7 +438,7 @@ final class BinEntryPointScriptsTest extends TestCase
     #[Test]
     public function aScriptUnderAnIgnoredPathIsNotRequired(): void
     {
-        $this->project->write('bin/.phpunit/phpunit-9.6/phpunit', self::PHP_SCRIPT);
+        $this->project->write(self::SIMPLE_PHPUNIT, self::PHP_SCRIPT);
         $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
 
         $this->ignoredPaths = ['bin/.phpunit'];
@@ -505,16 +563,24 @@ final class BinEntryPointScriptsTest extends TestCase
     }
 
     /**
-     * The lane's own analysed directories are src/ and tests/, as DeadCodeTool passes them.
+     * The lane's own analysed paths are src/, tests/ and the declared entry points, as
+     * DeadCodeTool passes them with PHPStan's default parameters.
      *
      * @return list<string>
      */
     private function undeclared(string ...$declared): array
     {
+        return $this->scan(...$declared)->undeclared;
+    }
+
+    private function scan(string ...$declared): BinScanDto
+    {
         $root = $this->project->path;
 
-        return new BinEntryPointScripts(new IgnoredPaths($root, ...$this->ignoredPaths), $root . '/src', $root . '/tests')
-            ->undeclared($root, ...$declared)
-        ;
+        return new BinEntryPointScripts(
+            new IgnoredPaths($root, ...$this->ignoredPaths),
+            new AnalysedFiles([$root . '/src', $root . '/tests', ...array_values($declared)], [], ['php']),
+            $this->gitIgnored,
+        )->scan($root);
     }
 }

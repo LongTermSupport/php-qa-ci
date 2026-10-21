@@ -62,6 +62,7 @@ use Symfony\Component\Process\Process;
 #[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DiagnoseTurboProbe::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\Dto\PhpstanParametersDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupCache::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupKey::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
