@@ -305,6 +305,38 @@ final class TurboInstallerTest extends TestCase
         self::assertStringEndsWith(".\n" . self::NOTHING_LOADS, $this->errors->fetch());
     }
 
+    /**
+     * An install killed by a signal never reaches the line saying what it left, so the Composer
+     * plugin asks the state check: read-only, it fetches and changes nothing, and answers on
+     * stdout, which the plugin captures.
+     */
+    #[Test]
+    public function theStateCheckSaysPhpstanMayStillLoadABinaryBesideItsCoreAndChangesNothing(): void
+    {
+        $source = $this->source();
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+
+        self::assertSame(0, $this->installer($source)->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::MAY_STILL_LOAD, $this->output->fetch());
+        self::assertSame('', $this->errors->fetch());
+        self::assertSame(0, $source->downloads);
+        self::assertSame(self::EARLIER_BINARY, $this->library->read(self::BINARY));
+        self::assertSame(self::EARLIER_CORE, $this->library->read(self::CORE));
+    }
+
+    #[Test]
+    public function theStateCheckSaysNothingLoadsWhenNoBinaryIsBesideItsCore(): void
+    {
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::NOTHING_LOADS, $this->output->fetch());
+        self::assertSame('', $this->errors->fetch());
+    }
+
     /** A failure after both files are placed leaves a pair phpstan.phar loads, with no stamp to vouch for it. */
     #[Test]
     public function aStampThatCannotBeWrittenFailsTheInstallSayingPhpstanMayStillLoadTheBinary(): void
