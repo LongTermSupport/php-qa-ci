@@ -100,6 +100,7 @@ dir) prints its page offline.
 - `phpqaci.processStream` — No `STDIN`/`STDOUT`/`STDERR` inside a class or function; take the stream as a parameter (`docs/phpstan-rules/forbid-process-stream.md`)
 - `phpqaci.unvalidatedRegexPattern` — A regex pattern the code does not own is compiled where a bad one is reported by name (`docs/phpstan-rules/forbid-unvalidated-regex-pattern.md`)
 - `phpqaci.unisolatedGitProcess` — git in a test runs isolated from the host's git configuration (`docs/phpstan-rules/forbid-unisolated-git-process.md`)
+- `phpqaci.buildConstantStrictComparison` — `PHP_ZTS` and `PHP_DEBUG` are read through `(bool)`, never compared strictly (`docs/phpstan-rules/forbid-build-constant-strict-comparison.md`)
 - `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
 - `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
 - `typeCoverage.paramTypeCoverage` — a rule from `tomasvotruba/type-coverage`
