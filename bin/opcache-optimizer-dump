@@ -5,12 +5,18 @@
  * Compiles each file argument through OPcache's optimizer without executing
  * it, so the dump requested with opcache.opt_debug_level lands on stderr for
  * the optimizerConstComparison lane to read. Exit 2 when OPcache is not
- * loaded; a file that fails to compile is named on stderr and exit is 1.
+ * loaded, and 3 without $argv, which only the php CLI always defines; a file
+ * that fails to compile is named on stderr and exit is 1.
  */
 
 if (!\function_exists('opcache_compile_file')) {
     fwrite(STDERR, "OPcache is not loaded\n");
     exit(2);
+}
+
+if (!isset($argv)) {
+    fwrite(STDERR, "No \$argv to read the files from: run this with the php CLI\n");
+    exit(3);
 }
 
 $exit = 0;
