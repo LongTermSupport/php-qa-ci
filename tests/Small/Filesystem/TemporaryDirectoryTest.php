@@ -419,6 +419,145 @@ final class TemporaryDirectoryTest extends TestCase
     }
 
     /**
+     * Defence for the class "the target guard reads a name the target does not have": a target
+     * spelled `lib/.` or `lib/sub/..` is `lib` itself, so the cleanup ran inside the target and
+     * removed what was named as staging there, and staged inside it; one ending in a slash has no
+     * name of its own to check. Each is refused before anything is touched.
+     */
+    #[Test]
+    #[DataProvider('targetsNotEndingInTheirOwnName')]
+    public function aDirectoryBesideATargetRefusesATargetNotEndingInItsOwnName(string $suffix): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $library  = $parent->path . '/library';
+        $leftover = $this->stagingIn($library, 12);
+        \Safe\mkdir($library . '/sub', 0o700, true);
+        $this->plantLeftover($leftover);
+        $target   = $library . $suffix;
+
+        try {
+            TemporaryDirectory::besides($target, self::PREFIX);
+            self::fail('a target not ending in its own name was accepted');
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            self::assertSame(\sprintf('A staging directory beside %s needs a target path that ends in its own name, not in "/", "." or "..": its leftovers would be looked for in the wrong directory', $target), $invalidArgumentException->getMessage());
+        } finally {
+            $left   = \Safe\scandir($library);
+            $around = \Safe\scandir($parent->path);
+            $parent->remove();
+        }
+
+        self::assertSame(['.', '..', basename($leftover), 'sub'], $left, 'nothing in the target was touched');
+        self::assertSame(['.', '..', 'library'], $around, 'nothing beside the target was touched');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function targetsNotEndingInTheirOwnName(): iterable
+    {
+        yield 'the directory itself' => ['/.'];
+        yield 'a parent' => ['/sub/..'];
+        yield 'a trailing slash' => ['/'];
+        yield 'a trailing slash after a dot' => ['/./'];
+    }
+
+    /** An empty target names no file at all; it is refused rather than staged in the working directory. */
+    #[Test]
+    public function aDirectoryBesideATargetRefusesAnEmptyTarget(): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $previous = \Safe\getcwd();
+        \Safe\chdir($parent->path);
+
+        try {
+            TemporaryDirectory::besides('', self::PREFIX);
+            self::fail('an empty target was accepted');
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            self::assertSame('A staging directory beside  needs a target path that ends in its own name, not in "/", "." or "..": its leftovers would be looked for in the wrong directory', $invalidArgumentException->getMessage());
+        } finally {
+            \Safe\chdir($previous);
+            $left = \Safe\scandir($parent->path);
+            $parent->remove();
+        }
+
+        self::assertSame(['.', '..'], $left, 'nothing was staged in the working directory');
+    }
+
+    /**
+     * Defence for the class "the target guard reads the link, not what it points at": a target that
+     * is a link to an old directory named as staging beside it made that directory a leftover, and
+     * it was removed with everything in it. The guard reads the name the target resolves to, so it
+     * is refused before anything is touched.
+     */
+    #[Test]
+    #[DataProvider('stagingShapes')]
+    public function aDirectoryBesideATargetRefusesATargetThatIsALinkToAStagingNamedDirectory(string $suffix): void
+    {
+        $parent   = TemporaryDirectory::create(self::PARENT);
+        $pointee  = $parent->path . '/' . self::PREFIX . $suffix;
+        $link     = $parent->path . '/current';
+        $this->plantLeftover($pointee);
+        \Safe\symlink(basename($pointee), $link);
+
+        try {
+            TemporaryDirectory::besides($link, self::PREFIX);
+            self::fail('a link to a directory named as staging was accepted as the target');
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            self::assertSame(\sprintf('A staging directory beside %s needs a prefix the name it resolves to, %s, does not begin with, not "%s": the target would be one of its leftovers', $link, \Safe\realpath($pointee), self::PREFIX), $invalidArgumentException->getMessage());
+        } finally {
+            $left = \Safe\scandir($parent->path);
+            $kept = file_exists($pointee . '/nested/download.tar.gz');
+            $parent->remove();
+        }
+
+        self::assertTrue($kept, 'the directory the target points at is kept whole');
+        self::assertSame(['.', '..', 'current', basename($pointee)], $left, 'nothing beside the target was touched');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function stagingShapes(): iterable
+    {
+        yield 'as this version names one' => ['0123456789abcdef'];
+        yield "as an earlier version's tempnam() named one" => ['Ab12Cd'];
+    }
+
+    /**
+     * A target that is a link to something not named as staging, or to nothing, is staged beside
+     * as any other: an installed binary may be a link.
+     */
+    #[Test]
+    #[DataProvider('linkTargetsThatAreAccepted')]
+    public function aDirectoryBesideATargetAcceptsALinkTargetThatResolvesToAnotherName(bool $dangling): void
+    {
+        $parent  = TemporaryDirectory::create(self::PARENT);
+        $pointee = $parent->path . '/' . self::TARGET;
+        $link    = $parent->path . '/current';
+        if (!$dangling) {
+            \Safe\file_put_contents($pointee, self::KEPT);
+        }
+
+        \Safe\symlink(basename($pointee), $link);
+        $leftover = $this->stagingIn($parent->path, 14);
+        $this->plantLeftover($leftover);
+
+        $directory = TemporaryDirectory::besides($link, self::PREFIX);
+
+        try {
+            self::assertSame($parent->path, \dirname($directory->path));
+            self::assertDirectoryDoesNotExist($leftover, 'a leftover beside a link target is removed');
+            self::assertTrue(is_link($link), 'the target is kept');
+        } finally {
+            $directory->remove();
+            $parent->remove();
+        }
+    }
+
+    /** @return iterable<string, array{bool}> */
+    public static function linkTargetsThatAreAccepted(): iterable
+    {
+        yield 'a link to a file' => [false];
+        yield 'a dangling link' => [true];
+    }
+
+    /**
      * Defence for the class "the cleanup deletes what this class did not make": an old directory
      * whose name begins with the prefix but is not the prefix and 16 lowercase hex digits, as
      * every staging directory is named, is kept.
