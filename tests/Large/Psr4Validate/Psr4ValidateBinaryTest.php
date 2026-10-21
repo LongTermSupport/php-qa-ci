@@ -56,7 +56,7 @@ final class Psr4ValidateBinaryTest extends TestCase
     private function binary(string ...$arguments): Process
     {
         $process = new Process(
-            [\PHP_BINARY, \Safe\realpath(self::BINARY), ...$arguments],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', \Safe\realpath(self::BINARY), ...$arguments],
             $this->directory->path,
         );
         $process->run();

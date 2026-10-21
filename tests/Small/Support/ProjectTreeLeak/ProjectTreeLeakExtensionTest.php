@@ -100,6 +100,8 @@ final class ProjectTreeLeakExtensionTest extends TestCase
         $process = new Process(
             [
                 \PHP_BINARY,
+                '-d',
+                'display_errors=stderr',
                 $this->root . '/bin/phpunit',
                 '--configuration=' . $this->root . '/qaConfig/phpunit.xml',
                 '--no-coverage',

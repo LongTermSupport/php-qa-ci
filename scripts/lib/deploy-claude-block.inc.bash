@@ -37,14 +37,14 @@ if [[ -f "$PHPQACI_BLOCK_TEMPLATE" && -f "$PHPQACI_BLOCK_WRITER" ]]; then
     RULES_RC=0
     php "$QACI_PATH/bin/rules" "$PROJECT_ROOT" --write-agent-summary="$PHPQACI_BLOCK_FILTERED" || RULES_RC=$?
     if [[ $RULES_RC -ne 0 ]]; then
-        echo "  ⚠️  Could not list the active defences: bin/rules failed with $(php "$QACI_PATH/bin/describe-exit" --php-qa-ci-helper "$RULES_RC") — the block points to vendor/bin/rules instead" >&2
+        echo "  ⚠️  Could not list the active defences: bin/rules failed with $(php -d display_errors=stderr "$QACI_PATH/bin/describe-exit" --php-qa-ci-helper "$RULES_RC") — the block points to vendor/bin/rules instead" >&2
     fi
 
     if bash "$PHPQACI_BLOCK_WRITER" "$PHPQACI_BLOCK_TEMPLATE" "$PHPQACI_BLOCK_TARGET"; then
         echo "  ✓ <phpqaci> block in CLAUDE.md is current"
     else
         BLOCK_RC=$?
-        echo "  ⚠️  write-claude-block.bash failed with $(php "$QACI_PATH/bin/describe-exit" --php-qa-ci-helper "$BLOCK_RC")" >&2
+        echo "  ⚠️  write-claude-block.bash failed with $(php -d display_errors=stderr "$QACI_PATH/bin/describe-exit" --php-qa-ci-helper "$BLOCK_RC")" >&2
         # Non-fatal: composer install/update should not break on this.
     fi
     rm -f "$PHPQACI_BLOCK_FILTERED"

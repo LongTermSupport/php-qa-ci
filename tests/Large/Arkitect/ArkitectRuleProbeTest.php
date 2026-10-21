@@ -211,7 +211,7 @@ final class ArkitectRuleProbeTest extends TestCase
     private function runCommand(string ...$args): array
     {
         $result = new SymfonyProcessRunner(new NullOutput())->run(new ProcessSpecDto(
-            command: [\PHP_BINARY, self::ROOT . '/bin/arkitect-rule', ...array_values($args)],
+            command: [\PHP_BINARY, '-d', 'display_errors=stderr', self::ROOT . '/bin/arkitect-rule', ...array_values($args)],
             cwd: \Safe\realpath(self::ROOT),
             streamOutput: false,
         ));

@@ -77,7 +77,7 @@ final class TwigLintToolTest extends TestCase
         self::assertCount(1, $this->factory->processes->specs, 'only the command listing ran');
         self::assertFalse($this->factory->processes->lastSpec()->streamOutput, 'the listing is captured, not streamed');
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', 'bin/console', '--'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', 'bin/console', '--'],
             $this->factory->processes->lastSpec()->command,
         );
     }
@@ -105,7 +105,7 @@ final class TwigLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', 'bin/console', '--', 'lint:twig', $root . '/templates'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', 'bin/console', '--', 'lint:twig', $root . '/templates'],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -125,7 +125,7 @@ final class TwigLintToolTest extends TestCase
 
         self::assertSame(
             ['--', 'lint:twig', $root . '/templates', $root . '/src/Resources/views'],
-            \array_slice($this->factory->processes->lastSpec()->command, 5),
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
 

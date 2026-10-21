@@ -188,7 +188,8 @@ final readonly class PhpstanSetupKey
     {
         $config = $context->config;
         $result = $context->processes->run(new ProcessSpecDto(
-            [$config->phpBinPath, '-r', self::RUNTIME_PROBE],
+            // A warning displayed on stdout would make the answer unreadable JSON, and the run uncacheable.
+            [$config->phpBinPath, '-d', 'display_errors=stderr', '-r', self::RUNTIME_PROBE],
             $config->paths->projectRoot,
             ['XDEBUG_MODE' => 'off'],
             self::RUNTIME_TIMEOUT,

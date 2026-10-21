@@ -127,7 +127,7 @@ final class WritableCodingStandardsRunIsAFixedPointTest extends TestCase
     private function tool(string $phar, string ...$arguments): Process
     {
         $process = new Process(
-            [\PHP_BINARY, \Safe\realpath(self::REPO_ROOT . '/vendor-phar/' . $phar), ...$arguments],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', \Safe\realpath(self::REPO_ROOT . '/vendor-phar/' . $phar), ...$arguments],
             $this->project->path,
             ['TMPDIR' => $this->project->path],
             null,

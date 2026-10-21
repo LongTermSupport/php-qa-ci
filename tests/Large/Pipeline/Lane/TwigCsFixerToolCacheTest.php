@@ -224,7 +224,7 @@ final class TwigCsFixerToolCacheTest extends TestCase
     private function process(string ...$arguments): Process
     {
         $process = new Process(
-            [\PHP_BINARY, $this->library . '/vendor-phar/twig-cs-fixer.phar', ...$arguments],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', $this->library . '/vendor-phar/twig-cs-fixer.phar', ...$arguments],
             $this->project->path,
             ['TMPDIR' => $this->project->path],
             null,

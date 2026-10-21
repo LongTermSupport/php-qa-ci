@@ -282,7 +282,7 @@ php "$PROJECT_ROOT/bin/phpstan-replace-sync" "$shellcheck_mode"
 turbo_status=0
 php "$PROJECT_ROOT/bin/turbo-install" "$shellcheck_mode" || turbo_status=$?
 if (( turbo_status > 128 )); then
-    echo -e "${RED}bin/turbo-install failed with $(php "$PROJECT_ROOT/bin/describe-exit" --php-qa-ci-helper "$turbo_status"); what it left on disk:${NC}" >&2
+    echo -e "${RED}bin/turbo-install failed with $(php -d display_errors=stderr "$PROJECT_ROOT/bin/describe-exit" --php-qa-ci-helper "$turbo_status"); what it left on disk:${NC}" >&2
     php -d display_errors=stderr "$PROJECT_ROOT/bin/turbo-install" state >&2
 fi
 exit "$turbo_status"

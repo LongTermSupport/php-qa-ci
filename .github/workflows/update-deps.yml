@@ -171,7 +171,7 @@ jobs:
             for phar in vendor-phar/*.phar; do
               name=$(basename "$phar" .phar)
               # Only the first line of --version output is the version banner.
-              version=$(php "$phar" --version 2>/dev/null | awk 'NR==1' || true)
+              version=$(php -d display_errors=stderr "$phar" --version 2>/dev/null | awk 'NR==1' || true)
               echo "- **$name**: ${version:-version unknown}" >> "$GITHUB_OUTPUT"
             done
             echo "" >> "$GITHUB_OUTPUT"
@@ -184,7 +184,7 @@ jobs:
             echo "" >> "$GITHUB_OUTPUT"
             for manifest in build/*/composer.json; do
               name=$(basename "$(dirname "$manifest")")
-              version=$(php "vendor-phar/$name.phar" --version 2>/dev/null | awk 'NR==1' || true)
+              version=$(php -d display_errors=stderr "vendor-phar/$name.phar" --version 2>/dev/null | awk 'NR==1' || true)
               echo "- **$name**: ${version:-version unknown}" >> "$GITHUB_OUTPUT"
             done
             echo "" >> "$GITHUB_OUTPUT"

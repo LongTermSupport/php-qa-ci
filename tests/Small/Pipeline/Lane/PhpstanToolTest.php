@@ -1007,6 +1007,8 @@ final class PhpstanToolTest extends TestCase
         $process = new Process([
             \PHP_BINARY,
             '-d',
+            'display_errors=stderr',
+            '-d',
             'phar.readonly=0',
             '-r',
             '(new Phar($argv[1]))->addFromString("vendor/composer/autoload_psr4.php", "<?php return " . var_export(json_decode($argv[2], true), true) . ";");',

@@ -145,6 +145,8 @@ final class IgnoredPathsSourceCollectionTest extends TestCase
     {
         $process = new Process([
             \PHP_BINARY,
+            '-d',
+            'display_errors=stderr',
             __DIR__ . '/../../assets/infection/collect-sources.php',
             \Safe\realpath(self::PHAR),
             $configPath,

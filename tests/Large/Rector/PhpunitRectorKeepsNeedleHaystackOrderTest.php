@@ -62,6 +62,8 @@ final class PhpunitRectorKeepsNeedleHaystackOrderTest extends TestCase
 
         $process = new Process([
             \PHP_BINARY,
+            '-d',
+            'display_errors=stderr',
             self::REPO_ROOT . '/vendor-phar/rector.phar',
             'process',
             '--autoload-file',

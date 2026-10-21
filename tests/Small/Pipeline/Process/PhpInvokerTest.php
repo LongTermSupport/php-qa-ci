@@ -64,7 +64,7 @@ final class PhpInvokerTest extends TestCase
         self::assertTrue($result->succeeded());
         $spec = $runner->lastSpec();
         self::assertSame(
-            ['/usr/bin/php8.5', '-d', 'memory_limit=4G', '-f', self::BIN_TOOL, '--', '--flag', 'value'],
+            ['/usr/bin/php8.5', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', self::BIN_TOOL, '--', '--flag', 'value'],
             $spec->command,
         );
         self::assertSame(self::PROJECT, $spec->cwd);
@@ -95,7 +95,7 @@ final class PhpInvokerTest extends TestCase
 
         self::assertSame(2, $result->exitCode);
         self::assertFalse($result->succeeded());
-        self::assertSame([self::PHP_BINARY, '-d', 'memory_limit=2G', '-f', '/lib/bin/phpunit', '--', '-c', 'x.xml'], $runner->lastSpec()->command);
+        self::assertSame([self::PHP_BINARY, '-d', 'memory_limit=2G', '-d', 'display_errors=stderr', '-f', '/lib/bin/phpunit', '--', '-c', 'x.xml'], $runner->lastSpec()->command);
         self::assertSame(self::XDEBUG_COVERAGE, $runner->lastSpec()->env);
         self::assertFalse($runner->lastSpec()->streamOutput);
     }
@@ -108,7 +108,7 @@ final class PhpInvokerTest extends TestCase
 
         self::assertSame(self::PHP_VERSION, $invoker->version());
         self::assertTrue($invoker->hasXdebug());
-        self::assertSame([self::PHP_AT_OPT, '-r', 'echo PHP_VERSION;'], $runner->specs[0]->command);
+        self::assertSame([self::PHP_AT_OPT, '-d', 'display_errors=stderr', '-r', 'echo PHP_VERSION;'], $runner->specs[0]->command);
         self::assertFalse($runner->specs[0]->streamOutput);
         // A host Xdebug in debug mode prints "Could not connect to debugging client" on every
         // CLI call; both probes switch it off so the captured output is the answer alone.
@@ -163,7 +163,7 @@ final class PhpInvokerTest extends TestCase
         $spec = $invoker->specWithoutXdebug('/x', ['a'], '/p', ini: ['opcache.enable_cli' => '1', 'opcache.opt_debug_level' => '0x20000']);
 
         self::assertSame(
-            [self::PHP_BINARY, '-d', 'memory_limit=4G', '-d', 'opcache.enable_cli=1', '-d', 'opcache.opt_debug_level=0x20000', '-f', '/x', '--', 'a'],
+            [self::PHP_BINARY, '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-d', 'opcache.enable_cli=1', '-d', 'opcache.opt_debug_level=0x20000', '-f', '/x', '--', 'a'],
             $spec->command,
         );
     }
@@ -182,8 +182,8 @@ final class PhpInvokerTest extends TestCase
     #[Test]
     public function theCommandLineQuotesOnlyWhatNeedsQuoting(): void
     {
-        $spec = new ProcessSpecDto([self::PHP_BINARY, '-r', 'echo 1;', 'plain-arg', '/a/b.c'], '/p');
+        $spec = new ProcessSpecDto([self::PHP_BINARY, '-d', 'display_errors=stderr', '-r', 'echo 1;', 'plain-arg', '/a/b.c'], '/p');
 
-        self::assertSame("php -r 'echo 1;' plain-arg /a/b.c", $spec->commandLine());
+        self::assertSame("php -d display_errors=stderr -r 'echo 1;' plain-arg /a/b.c", $spec->commandLine());
     }
 }
