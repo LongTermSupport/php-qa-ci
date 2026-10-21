@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(PhpstanCrash::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class PhpstanCrashTest extends TestCase
 {
     /** The line the shipped phar writes to stderr when it abandons an analysis. */

@@ -66,6 +66,7 @@ use Symfony\Component\Process\Process;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupKey::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class PhpstanToolTest extends TestCase
 {
     private const string NO_PROGRESS = '--no-progress';

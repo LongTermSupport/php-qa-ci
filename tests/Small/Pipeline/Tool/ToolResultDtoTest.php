@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ToolResultDto::class)]
 #[CoversClass(ToolOutcomeEnum::class)]
 #[Small]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ToolResultDtoTest extends TestCase
 {
     private const string PHPSTAN = 'PHPStan';
