@@ -34,6 +34,8 @@
 !/bin/version-pins-check
 # PHPStan Turbo binaries: one per host, fetched by bin/turbo-install against vendor-phar/turbo-ext.json
 /vendor-phar/turbo-ext/
+# ShellCheck update staging (TemporaryDirectory::besides); a killed update's is removed by the next
+/vendor-bin/.phpqa-shellcheck*/
 /cache/
 /.phive-home/
 /build/*/vendor/

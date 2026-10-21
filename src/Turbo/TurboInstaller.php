@@ -204,9 +204,14 @@ final readonly class TurboInstaller
 
         // Staged beside the binary: a running PHPStan has the old files mapped, and only a
         // same-filesystem rename replaces one without rewriting the pages under that process.
-        $staging = TemporaryDirectory::besides($turboDir . $binary, '.phpqa-turbo');
+        $staging = null;
 
         try {
+            $staging = TemporaryDirectory::besides($turboDir . $binary, '.phpqa-turbo');
+            foreach ($staging->unremovedLeftovers as $leftover => $why) {
+                $this->errors->writeln(\sprintf('WARNING: could not remove %s, a staging directory a killed install left: %s', $leftover, $why));
+            }
+
             foreach ($downloads as $path => $bytes) {
                 $staged = $staging->path . '/' . basename($path);
                 \Safe\file_put_contents($staged, $bytes);
@@ -217,7 +222,7 @@ final readonly class TurboInstaller
 
             \Safe\file_put_contents($turboDir . $binary . self::STAMP_SUFFIX, TurboInstallDecider::stamp($files) . "\n");
         } catch (Throwable $throwable) {
-            $staging->remove();
+            $staging?->remove();
             $this->error(\sprintf('could not install the Turbo files: %s', $throwable->getMessage()));
 
             return 1;
