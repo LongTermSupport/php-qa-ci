@@ -76,13 +76,18 @@ PHP scripts under bin/ not declared as dead-code entry points:
 ```
 
 A file is PHP by its content, never its name: a `#!` line whose interpreter is `php` (`php8.5` and
-the like, directly or through `env`), or a `<?php` open tag at its start. These are not required,
-because none of them holds the project's own code:
+the like, directly or through `env`), or a `<?php` open tag at its start. A symlink is judged by
+its target's content, and is required when that target is inside the project and outside
+Composer's vendor dir (`config.vendor-dir`, default `vendor`): `bin/worker` linking to
+`../scripts/worker` hides that script exactly as a regular file would. Declaring the link by its
+`bin/` path or by its target's path both count. These are not required:
 
 - a script in another language, such as a Bash wrapper, which PHPStan does not read;
 - a Composer binary proxy (Composer writes one into `bin/` for each package binary when its
   `bin-dir` is `bin`), which only includes the package's script;
-- a symlink, whose code lives at its target;
+- a symlink into the vendor dir or out of the project: the project cannot change code it does
+  not own, so a finding there could not be fixed;
+- a dangling symlink, or one to a directory, which holds no script to analyse;
 - anything in a subdirectory of `bin/`, which is a tool's own tree rather than an executable.
 
 `withoutDeadCodeEntryPoints()` with a PHP script under `bin/` fails the same way. The fix is to

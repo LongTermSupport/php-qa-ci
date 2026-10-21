@@ -29,6 +29,8 @@ final class BinEntryPointScriptsTest extends TestCase
 
     private const string WORKER = 'bin/worker';
 
+    private const string TOOL = 'bin/tool';
+
     private const string WORKER_TARGET = 'scripts/worker';
 
     private const string WORKER_RELATIVE = '../scripts/worker';
@@ -93,7 +95,7 @@ final class BinEntryPointScriptsTest extends TestCase
     #[DataProvider('otherScripts')]
     public function aScriptInAnotherLanguageIsNotRequired(string $contents): void
     {
-        $this->project->write('bin/tool', $contents);
+        $this->project->write(self::TOOL, $contents);
 
         self::assertSame([], $this->undeclared());
     }
@@ -180,7 +182,7 @@ final class BinEntryPointScriptsTest extends TestCase
     public function aSymlinkIntoTheVendorDirIsNotRequired(): void
     {
         $target = $this->project->write('vendor/acme/tool/bin/tool', self::PHP_SCRIPT);
-        $this->link($target, 'bin/tool');
+        $this->link($target, self::TOOL);
 
         self::assertSame([], $this->undeclared());
     }
@@ -192,7 +194,7 @@ final class BinEntryPointScriptsTest extends TestCase
         $this->project->write('composer.json', '{"config": {"vendor-dir": "lib/deps"}}');
         $this->project->write('lib/deps/acme/tool/bin/tool', self::PHP_SCRIPT);
         $this->project->write('vendor/own/worker', self::PHP_SCRIPT);
-        $this->link('../lib/deps/acme/tool/bin/tool', 'bin/tool');
+        $this->link('../lib/deps/acme/tool/bin/tool', self::TOOL);
         $this->link('../vendor/own/worker', self::WORKER);
 
         self::assertSame([self::WORKER], $this->undeclared());
@@ -205,7 +207,7 @@ final class BinEntryPointScriptsTest extends TestCase
         $elsewhere = TempDir::create('phpqa-bin-entry-points-elsewhere');
 
         try {
-            $this->link($elsewhere->write('tool', self::PHP_SCRIPT), 'bin/tool');
+            $this->link($elsewhere->write('tool', self::PHP_SCRIPT), self::TOOL);
 
             self::assertSame([], $this->undeclared());
         } finally {
