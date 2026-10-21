@@ -142,6 +142,73 @@ final class ReportableAssertions
         $this->takesMap($map);
     }
 
+    public function onAHeldVariableOverwrittenInATryButNotItsCatch(string $json): void
+    {
+        $map = json_decode($json, true);
+        try {
+            $map = $this->byName;
+        } catch (\RuntimeException) {
+            echo 'kept';
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function onAHeldVariableOverwrittenInASwitchWithoutADefault(string $json, int $c): void
+    {
+        $map = json_decode($json, true);
+        switch ($c) {
+            case 0:
+                $map = $this->byName;
+                break;
+
+            case 1:
+                $map = ['fixed' => 1];
+                break;
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function onAHeldVariableACaseBreaksBeforeOverwriting(string $json, int $c, bool $d): void
+    {
+        $map = json_decode($json, true);
+        switch ($c) {
+            case 0:
+                if ($d) {
+                    break;
+                }
+
+                $map = $this->byName;
+                break;
+
+            default:
+                $map = ['fixed' => 1];
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function onAHeldVariableACaseLeavesFromAnInnerLoop(string $json, int $c): void
+    {
+        $map = json_decode($json, true);
+        switch ($c) {
+            case 0:
+                while (true) {
+                    break 2;
+                }
+
+            default:
+                $map = $this->byName;
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     private function takes(string $name): void
     {
     }

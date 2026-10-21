@@ -154,6 +154,60 @@ final class NotReportableAssertions
         }
     }
 
+    public function restatingAfterATryAndEveryCatchOverwrite(string $json): void
+    {
+        $map = json_decode($json, true);
+        echo \is_array($map) ? \count($map) : 0;
+        try {
+            $map = $this->byName;
+        } catch (\RuntimeException) {
+            $map = ['fixed' => 1];
+        } catch (\LogicException $e) {
+            throw $e;
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterAFinallyOverwrites(string $json): void
+    {
+        $map = json_decode($json, true);
+        try {
+            echo \is_array($map) ? \count($map) : 0;
+        } finally {
+            $map = $this->byName;
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterEveryCaseOfASwitchOverwrites(string $json, int $c): void
+    {
+        $map = json_decode($json, true);
+        echo \is_array($map) ? \count($map) : 0;
+        switch ($c) {
+            case 0:
+            case 1:
+                foreach ($this->byName as $_) {
+                    break;
+                }
+
+                $map = $this->byName;
+                break;
+
+            case 2:
+                throw new \RuntimeException('none');
+
+            default:
+                $map = ['fixed' => 1];
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     /** @return array<string, int>|false */
     private function mapOrFalse(): array|false
     {
