@@ -51,6 +51,9 @@ final class TemporaryDirectoryTest extends TestCase
     /** A directory inside a leftover, which a test makes the cleanup fail on. */
     private const string HELD = 'held';
 
+    /** What a refusal leaves beside the target: everything as it was. */
+    private const string NOTHING_BESIDE_TOUCHED = 'nothing beside the target was touched';
+
     #[Test]
     public function aNewDirectoryIsEmptyAndUnderTheSystemTempDirectory(): void
     {
@@ -368,7 +371,7 @@ final class TemporaryDirectoryTest extends TestCase
             $grandparent->remove();
         }
 
-        self::assertSame(['.', '..', self::TARGET], $left, 'nothing beside the target was touched');
+        self::assertSame(['.', '..', self::TARGET], $left, self::NOTHING_BESIDE_TOUCHED);
     }
 
     /** @return iterable<string, array{string}> */
@@ -401,7 +404,7 @@ final class TemporaryDirectoryTest extends TestCase
             self::fail("a prefix the target's own name begins with was accepted");
         } catch (InvalidArgumentException $invalidArgumentException) {
             self::assertSame(\sprintf('A staging directory beside %s needs a prefix its name does not begin with, not "%s": the target would be one of its leftovers', $target, $prefix), $invalidArgumentException->getMessage());
-            self::assertSame(['.', '..', $name], \Safe\scandir($parent->path), 'nothing beside the target was touched');
+            self::assertSame(['.', '..', $name], \Safe\scandir($parent->path), self::NOTHING_BESIDE_TOUCHED);
             self::assertSame(self::KEPT, \Safe\file_get_contents($target . '/' . self::TARGET), 'the target is kept whole');
         } finally {
             $parent->remove();
@@ -447,7 +450,7 @@ final class TemporaryDirectoryTest extends TestCase
         }
 
         self::assertSame(['.', '..', basename($leftover), 'sub'], $left, 'nothing in the target was touched');
-        self::assertSame(['.', '..', 'library'], $around, 'nothing beside the target was touched');
+        self::assertSame(['.', '..', 'library'], $around, self::NOTHING_BESIDE_TOUCHED);
     }
 
     /** @return iterable<string, array{string}> */
@@ -509,7 +512,7 @@ final class TemporaryDirectoryTest extends TestCase
         }
 
         self::assertTrue($kept, 'the directory the target points at is kept whole');
-        self::assertSame(['.', '..', 'current', basename($pointee)], $left, 'nothing beside the target was touched');
+        self::assertSame(['.', '..', 'current', basename($pointee)], $left, self::NOTHING_BESIDE_TOUCHED);
     }
 
     /** @return iterable<string, array{string}> */

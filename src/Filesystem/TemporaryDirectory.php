@@ -61,7 +61,9 @@ final readonly class TemporaryDirectory
      * names one, the prefix and then 16 lowercase hex digits, or as an earlier version's tempnam()
      * named one, the prefix and then 6 letters and digits, is a staging directory. The prefix is
      * the start of a file name: empty, `.` or `..`, or with a slash, it is refused, as is one the
-     * target's own name begins with, which could make the target a leftover.
+     * target's own name, or the name it resolves to through a link, begins with, which could make
+     * the target a leftover. A target path must end in the target's own name: one ending in `/`,
+     * `.` or `..`, or empty, is refused, since the directory it is in is not the one it names.
      *
      * Removing a leftover is best effort: one another run removed first is passed over, and one
      * that cannot be removed is kept and listed in unremovedLeftovers for the caller to warn about.
@@ -73,8 +75,19 @@ final readonly class TemporaryDirectory
             throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a prefix that is the start of a file name, not "%s": its leftovers are found by it', $target, $prefix));
         }
 
+        if (\in_array(basename($target), ['', '.', '..'], true) || str_ends_with($target, '/')) {
+            throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a target path that ends in its own name, not in "/", "." or "..": its leftovers would be looked for in the wrong directory', $target));
+        }
+
         if (str_starts_with(basename($target), $prefix)) {
             throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a prefix its name does not begin with, not "%s": the target would be one of its leftovers', $target, $prefix));
+        }
+
+        if (file_exists($target)) {
+            $resolved = \Safe\realpath($target);
+            if (str_starts_with(basename($resolved), $prefix)) {
+                throw new InvalidArgumentException(\sprintf('A staging directory beside %s needs a prefix the name it resolves to, %s, does not begin with, not "%s": the target would be one of its leftovers', $target, $resolved, $prefix));
+            }
         }
 
         $parent = \dirname($target);
@@ -96,10 +109,10 @@ final readonly class TemporaryDirectory
     /**
      * Removes each directory (not a link) in $parent that is named as a staging directory with
      * $prefix and is older than STALE_AFTER. The target is never one: besides() refuses a prefix
-     * its name begins with. Each is first renamed to a fresh name with the prefix,
-     * which only one of the runs that reach it can do, so that run alone removes it, and a
-     * leftover gone by then was claimed by another. For the length of the cleanup a warning
-     * becomes the exception, so a failure is reported once, by what is returned.
+     * its name, or the name it resolves to, begins with. Each is first renamed to a fresh name
+     * with the prefix, which only one of the runs that reach it can do, so that run alone removes
+     * it, and a leftover gone by then was claimed by another. For the length of the cleanup a
+     * warning becomes the exception, so a failure is reported once, by what is returned.
      *
      * @return array<string, string> each leftover kept => why it could not be removed
      */
@@ -172,9 +185,9 @@ final readonly class TemporaryDirectory
         }
 
         return match (\strlen($name) - $length) {
-            2 * self::RANDOM_BYTES => 2 * self::RANDOM_BYTES === strspn($name, '0123456789abcdef', $length),
+            2 * self::RANDOM_BYTES   => 2 * self::RANDOM_BYTES   === strspn($name, '0123456789abcdef', $length),
             self::TEMPNAM_CHARACTERS => self::TEMPNAM_CHARACTERS === strspn($name, self::TEMPNAM_ALPHABET, $length),
-            default => false,
+            default                  => false,
         };
     }
 
