@@ -102,6 +102,7 @@ dir) prints its page offline.
 - `phpqaci.unisolatedGitProcess` — git in a test runs isolated from the host's git configuration (`docs/phpstan-rules/forbid-unisolated-git-process.md`)
 - `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
 - `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
+- `phpqaci.unautoloadableClassReference` — A class another file uses is declared where its autoloader looks for it (`docs/phpstan-rules/forbid-unautoloadable-class-reference.md`)
 - `typeCoverage.paramTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `typeCoverage.returnTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `typeCoverage.propertyTypeCoverage` — a rule from `tomasvotruba/type-coverage`
