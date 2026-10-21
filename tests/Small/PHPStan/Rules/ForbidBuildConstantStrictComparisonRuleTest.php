@@ -65,7 +65,7 @@ final class ForbidBuildConstantStrictComparisonRuleTest extends TestCase
         self::assertCount(1, $errors);
         self::assertSame(ForbidBuildConstantStrictComparisonRule::IDENTIFIER, $errors[0]->getIdentifier());
         self::assertSame(
-            $constant . ' is compared strictly, but it is a bool on PHP 8.5 and an int on older PHP, so the comparison is always false on one of them. Write (bool) \\' . $constant . '.',
+            $constant . ' is compared strictly, but it is a bool since PHP 8.4 and an int before, so the comparison is always false on one of them. Write (bool) \\' . $constant . '.',
             $errors[0]->getMessage(),
         );
     }
