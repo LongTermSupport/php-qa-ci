@@ -15,8 +15,12 @@
 - converted to a string: `(string)`, `.`, `.=`, `echo`, `print`;
 - stored or handed on: assigned to a variable or property, returned, yielded, a parameter default,
   a constant's value, an array value, an argument to any function but `boolval()`, `intval()` and
-  `floatval()`, `??`, `?:`, a ternary branch, `(array)`, `(object)`;
+  `floatval()`, `(array)`, `(object)`;
 - `~`, which throws a `TypeError` on a `bool`.
+
+`??`, `?:`, a ternary branch and a `match` arm's result hand the value on unchanged, so a use
+through them is judged where the value ends up: `(bool) ($zts ?? \PHP_ZTS)` is not reported,
+`1 === ($zts ?? \PHP_ZTS)` is.
 
 ```php
 $threadSafe = 1 === \PHP_ZTS;

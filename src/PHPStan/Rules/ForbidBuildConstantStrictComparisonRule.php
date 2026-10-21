@@ -16,9 +16,11 @@ use PhpParser\Node\Expr\Cast;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\Empty_;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\Match_;
 use PhpParser\Node\Expr\Ternary;
 use PhpParser\Node\Expr\UnaryMinus;
 use PhpParser\Node\Expr\UnaryPlus;
+use PhpParser\Node\MatchArm;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\Float_;
 use PhpParser\Node\Scalar\Int_;
@@ -123,7 +125,7 @@ final readonly class ForbidBuildConstantStrictComparisonRule implements Rule
     public function processNode(Node $node, Scope $scope): array
     {
         $visitor = new class(self::CONSTANTS) extends NodeVisitorAbstract {
-            /** @var list<array{ConstFetch, Node, Node|null}> each use, with its parent and grandparent */
+            /** @var list<array{ConstFetch, list<Node>}> each use, with its ancestors, outermost first */
             public array $uses = [];
 
             /** @var list<Node> the nodes entered and not yet left, innermost last */
@@ -136,9 +138,8 @@ final readonly class ForbidBuildConstantStrictComparisonRule implements Rule
 
             public function enterNode(Node $node): null
             {
-                $depth = \count($this->path);
                 if ($node instanceof ConstFetch && \in_array($node->name->toString(), $this->constants, true)) {
-                    $this->uses[] = [$node, $this->path[$depth - 1], $this->path[$depth - 2] ?? null];
+                    $this->uses[] = [$node, $this->path];
                 }
 
                 $this->path[] = $node;
@@ -156,8 +157,8 @@ final readonly class ForbidBuildConstantStrictComparisonRule implements Rule
         new NodeTraverser($visitor)->traverse($node->getNodes());
 
         $errors = [];
-        foreach ($visitor->uses as [$constant, $parent, $grandparent]) {
-            if ($this->readsOnlyTruthOrNumber($constant, $parent, $grandparent)) {
+        foreach ($visitor->uses as [$constant, $ancestors]) {
+            if ($this->endsReadOnlyForTruthOrNumber($constant, ...$ancestors)) {
                 continue;
             }
 
@@ -172,7 +173,35 @@ final readonly class ForbidBuildConstantStrictComparisonRule implements Rule
         return $errors;
     }
 
-    private function readsOnlyTruthOrNumber(ConstFetch $constant, Node $parent, ?Node $grandparent): bool
+    /**
+     * Follows the constant's value up through the nodes that hand it on unchanged, then asks
+     * whether the node it ends in reads only its truth or number. $ancestors run outermost first.
+     */
+    private function endsReadOnlyForTruthOrNumber(ConstFetch $constant, Node ...$ancestors): bool
+    {
+        $value = $constant;
+        $index = \count($ancestors) - 1;
+        while ($this->handsOn($ancestors[$index], $value)) {
+            $value = $ancestors[$index];
+            --$index;
+        }
+
+        return $this->readsOnlyTruthOrNumber($value, $ancestors[$index], $ancestors[$index - 1] ?? null);
+    }
+
+    /** Whether $parent's own value is $value unchanged, when $value is what it yields. */
+    private function handsOn(Node $parent, Node $value): bool
+    {
+        return match (true) {
+            $parent instanceof BinaryOp\Coalesce => true,
+            $parent instanceof Ternary           => $value !== $parent->cond || !$parent->if instanceof Expr,
+            $parent instanceof MatchArm          => $value === $parent->body,
+            $parent instanceof Match_            => $value !== $parent->cond,
+            default                              => false,
+        };
+    }
+
+    private function readsOnlyTruthOrNumber(Node $value, Node $parent, ?Node $grandparent): bool
     {
         if (\in_array($parent::class, self::TYPE_BLIND_PARENTS, true)) {
             return true;
@@ -181,18 +210,19 @@ final readonly class ForbidBuildConstantStrictComparisonRule implements Rule
         if ($parent instanceof BinaryOp && isset(self::COMPARISONS[$parent::class])) {
             [$onLeft, $onRight] = self::COMPARISONS[$parent::class];
 
-            return $constant === $parent->left
+            return $value === $parent->left
                 ? $this->comparesAlike($onLeft, $parent->right)
                 : $this->comparesAlike($onRight, $parent->left);
         }
 
+        // A ternary that did not hand the value on has it as the condition of a full ternary.
         return match (true) {
-            $parent instanceof Ternary                                => $constant === $parent->cond && $parent->if instanceof Expr,
+            $parent instanceof Ternary                                => true,
             $parent instanceof If_, $parent instanceof ElseIf_,
-            $parent instanceof While_, $parent instanceof Do_         => $constant === $parent->cond,
-            $parent instanceof For_                                   => \in_array($constant, $parent->cond, true),
-            $parent instanceof ArrayItem                              => $constant === $parent->key,
-            $parent instanceof ArrayDimFetch                          => $constant === $parent->dim,
+            $parent instanceof While_, $parent instanceof Do_         => $value === $parent->cond,
+            $parent instanceof For_                                   => \in_array($value, $parent->cond, true),
+            $parent instanceof ArrayItem                              => $value === $parent->key,
+            $parent instanceof ArrayDimFetch                          => $value === $parent->dim,
             $parent instanceof Switch_                                => $this->casesCompareAlike($parent),
             $parent instanceof Case_                                  => $this->subjectComparesAlike($grandparent),
             $parent instanceof Arg                                    => $this->isTypeBlindCall($grandparent),
