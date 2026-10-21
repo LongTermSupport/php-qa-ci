@@ -55,6 +55,7 @@ use PhpParser\Node\InterpolatedStringPart;
 use PhpParser\Node\MatchArm;
 use PhpParser\Node\Name;
 use PhpParser\Node\Param;
+use PhpParser\Node\Scalar\Int_;
 use PhpParser\Node\Scalar\InterpolatedString;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\StaticVar;
@@ -73,6 +74,7 @@ use PhpParser\Node\Stmt\Do_;
 use PhpParser\Node\Stmt\Else_;
 use PhpParser\Node\Stmt\ElseIf_;
 use PhpParser\Node\Stmt\Expression;
+use PhpParser\Node\Stmt\Finally_;
 use PhpParser\Node\Stmt\For_;
 use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\Function_;
@@ -1860,20 +1862,122 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             return [$statement->expr->var->name];
         }
 
+        if ($statement instanceof TryCatch) {
+            return $this->tryKilled($statement);
+        }
+
+        if ($statement instanceof Switch_) {
+            return $this->switchKilled($statement);
+        }
+
         if (!$statement instanceof If_ || !$statement->else instanceof Else_) {
             return [];
         }
 
-        $branches = [$statement->stmts, ...array_map(static fn (ElseIf_ $elseIf): array => $elseIf->stmts, $statement->elseifs), $statement->else->stmts];
-        $common   = null;
+        return $this->commonKilled(...[$statement->stmts, ...array_map(static fn (ElseIf_ $elseIf): array => $elseIf->stmts, $statement->elseifs), $statement->else->stmts]);
+    }
+
+    /**
+     * The variables each of several alternative statement lists that goes
+     * on past its end writes whole; null where none goes on.
+     *
+     * @param array<array-key, Stmt> ...$branches
+     *
+     * @return list<string>|null
+     */
+    private function commonKilled(array ...$branches): ?array
+    {
+        $common = null;
         foreach ($branches as $branch) {
-            $names = $this->listKilled(...$branch);
+            $names = $this->listKilled(...array_values($branch));
             if (null !== $names) {
                 $common = null === $common ? $names : array_values(array_intersect($common, $names));
             }
         }
 
         return $common;
+    }
+
+    /**
+     * What a try writes whole on every path on: what the try and each catch
+     * that goes on all write, and what the finally writes.
+     *
+     * @return list<string>|null
+     */
+    private function tryKilled(TryCatch $try): ?array
+    {
+        $finally = $try->finally instanceof Finally_ ? $this->listKilled(...array_values($try->finally->stmts)) : [];
+        $common  = $this->commonKilled($try->stmts, ...array_map(static fn (Catch_ $catch): array => $catch->stmts, $try->catches));
+
+        return null === $finally || null === $common ? null : array_values(array_unique([...$common, ...$finally]));
+    }
+
+    /**
+     * What a switch with a default writes whole on every path out of it:
+     * entered at any case, it reaches a write of the variable, or a
+     * statement that never goes on, before any break and before it falls
+     * out of the last case.
+     *
+     * @return list<string>
+     */
+    private function switchKilled(Switch_ $switch): array
+    {
+        if (!array_any($switch->cases, static fn (Case_ $case): bool => !$case->cond instanceof Expr)) {
+            return [];
+        }
+
+        $statements = [];
+        $entries    = [];
+        foreach ($switch->cases as $case) {
+            $entries[]  = \count($statements);
+            $statements = [...$statements, ...array_values($case->stmts)];
+        }
+
+        $names = [];
+        foreach ($statements as $statement) {
+            $names = [...$names, ...$this->killed($statement) ?? []];
+        }
+
+        return array_values(array_filter(
+            array_unique($names),
+            fn (string $name): bool => array_all($entries, fn (int $entry): bool => $this->killedBeforeLeaving($name, ...\array_slice($statements, $entry))),
+        ));
+    }
+
+    /** Whether a run of a switch's statements writes the variable whole, or never goes on, before a break leaves it. */
+    private function killedBeforeLeaving(string $name, Stmt ...$statements): bool
+    {
+        foreach ($statements as $statement) {
+            if ($this->breaksOut($statement)) {
+                return false;
+            }
+
+            $killed = $this->killed($statement);
+            if (null === $killed || \in_array($name, $killed, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Whether a statement may break, or continue, out of the switch it is in. */
+    private function breaksOut(Stmt $statement): bool
+    {
+        $finder  = new NodeFinder();
+        $isBreak = static fn (Node $node): bool => $node instanceof Break_ || $node instanceof Continue_;
+        $inner   = [];
+        foreach ($finder->find([$statement], static fn (Node $node): bool => $node instanceof For_ || $node instanceof Foreach_ || $node instanceof While_ || $node instanceof Do_ || $node instanceof Switch_) as $loop) {
+            foreach ($finder->find([$loop], $isBreak) as $break) {
+                $inner[spl_object_id($break)] = true;
+            }
+        }
+
+        return array_any(
+            $finder->find([$statement], $isBreak),
+            static fn (Node $break): bool => !isset($inner[spl_object_id($break)])
+                || (($break instanceof Break_ || $break instanceof Continue_) && $break->num instanceof Expr && (!$break->num instanceof Int_ || $break->num->value > 1)),
+        );
     }
 
     /**
