@@ -37,6 +37,9 @@ final class DetectorUnpackerTest extends TestCase
     /** A file planted in an unpacked copy, to tell a reused copy from a fresh one. */
     private const string MARKER = '/marker';
 
+    /** Where a test plants an UnremovableTree inside an incomplete copy. */
+    private const string STUCK = '/stuck';
+
     private TempDir $cache;
 
     private ?string $unremovable = null;
@@ -205,6 +208,37 @@ final class DetectorUnpackerTest extends TestCase
         self::assertSame(2, substr_count($printed, 'WARNING: could not remove ' . $stuck . ','), 'named once per run: ' . $printed);
     }
 
+    /**
+     * An incomplete copy is moved aside before the fresh one is renamed into place. Removing the
+     * moved copy is housekeeping too: one holding something the run cannot remove is named in a
+     * warning, and the run goes on with the fresh copy that is already in place.
+     */
+    #[Test]
+    public function anIncompleteCopyThatCannotBeRemovedIsNamedAndTheRunGoesOn(): void
+    {
+        $target = $this->expectedTarget();
+        UnremovableTree::plant($target . self::STUCK);
+        $output   = new BufferedOutput();
+        $unpacker = new DetectorUnpacker($output);
+
+        try {
+            $first  = $unpacker->unpack(self::PHAR, $this->cache->path);
+            $second = $unpacker->unpack(self::PHAR, $this->cache->path);
+        } finally {
+            $this->trackMovedUnremovable($target);
+        }
+
+        self::assertSame($target, $first);
+        self::assertSame($first, $second, 'every run goes on, not only the first');
+        self::assertFileExists($first . '/' . DetectorUnpacker::AUTOLOAD);
+        self::assertDirectoryDoesNotExist($first . self::STUCK, 'the incomplete copy is replaced, not merged into');
+        self::assertIsString($this->unremovable);
+        self::assertStringContainsString('/.discard', $this->unremovable, 'the incomplete copy was moved aside');
+        $discard = \dirname($this->unremovable, 2);
+        $printed = $output->fetch();
+        self::assertSame(2, substr_count($printed, 'WARNING: could not remove ' . $discard), 'named once per run: ' . $printed);
+    }
+
     private function unpacker(): DetectorUnpacker
     {
         return new DetectorUnpacker(new NullOutput());
@@ -216,6 +250,17 @@ final class DetectorUnpackerTest extends TestCase
         $this->unremovable = $path;
 
         return $path;
+    }
+
+    /** Finds where the tree planted under $target was moved to, wherever the run left it, so tearDown() can take it down. */
+    private function trackMovedUnremovable(string $target): void
+    {
+        $this->unremovable = $target . self::STUCK;
+        foreach (\Safe\glob(\dirname($target) . '/.discard*/incomplete' . self::STUCK) as $moved) {
+            if (\is_string($moved)) {
+                $this->unremovable = $moved;
+            }
+        }
     }
 
     private function expectedTarget(): string

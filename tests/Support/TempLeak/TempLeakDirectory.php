@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support\TempLeak;
 
+use Closure;
 use FilesystemIterator;
 use RuntimeException;
 use Safe\Exceptions\DirException;
@@ -34,9 +35,14 @@ final class TempLeakDirectory
     /** A directory claim() creates: the owner's pid, then four random bytes in hex. */
     private const string PATTERN = '/^php-qa-ci-tests-(\d+)-[0-9a-f]{8}$/';
 
+    /** The directory claim() made this process's temp directory; null until the first claim. */
     private static ?string $claimed = null;
 
+    /** Whether TempLeakExtension took the directory over, so the shutdown function leaves it. */
     private static bool $adopted = false;
+
+    /** What reapInterleaved() runs at each step of the walk; null everywhere else. */
+    private static ?Closure $interleave = null;
 
     /** This process's temp directory, created and made TMPDIR on the first call. */
     public static function claim(): string
@@ -68,6 +74,25 @@ final class TempLeakDirectory
         self::$adopted = true;
 
         return self::claim();
+    }
+
+    /**
+     * What a claim does to the directories of dead test processes under $shared, with
+     * $interleave run at each step of the walk where another process could change the tree
+     * under it, given the step ('enter' or 'climb') and the name it is about to act on. For
+     * TempLeakDirectoryTest, which makes that change at a known moment.
+     *
+     * @param Closure(string, string): void $interleave
+     */
+    public static function reapInterleaved(string $shared, int $uid, Closure $interleave): void
+    {
+        self::$interleave = $interleave;
+
+        try {
+            self::removeAbandoned($shared, $uid);
+        } finally {
+            self::$interleave = null;
+        }
     }
 
     /**
@@ -173,11 +198,13 @@ final class TempLeakDirectory
     {
         foreach (self::namesIn('.') ?? [] as $name) {
             if (is_dir($name) && !is_link($name)) {
+                $here = \Safe\lstat('.');
                 if (self::enter($name)) {
                     try {
                         self::emptyCurrentDirectory();
+                        self::interleave('climb', $name);
                     } finally {
-                        \Safe\chdir('..');
+                        self::climbBackTo($here, $name);
                     }
                 }
 
@@ -201,7 +228,12 @@ final class TempLeakDirectory
         $listed = [];
         if (!self::unlessGone($directory, static function (string $path) use (&$listed): void {
             $listed = \Safe\lstat($path);
-        }) || !self::unlessGone($directory, \Safe\chdir(...))) {
+        })) {
+            return false;
+        }
+
+        self::interleave('enter', $directory);
+        if (!self::unlessGone($directory, \Safe\chdir(...))) {
             return false;
         }
 
@@ -211,6 +243,29 @@ final class TempLeakDirectory
         }
 
         return true;
+    }
+
+    /**
+     * Returns from $name by '..', which leads to wherever $name is now: a directory moved while
+     * the walk was inside it would leave the walk removing names in the directory it was moved
+     * to. So landing anywhere but in $here, the directory $name was listed in, stops the walk.
+     *
+     * @param array<array-key, mixed> $here lstat() of the directory the walk climbs back to
+     */
+    private static function climbBackTo(array $here, string $name): void
+    {
+        \Safe\chdir('..');
+        $landed = \Safe\lstat('.');
+        if ($landed['dev'] !== $here['dev'] || $landed['ino'] !== $here['ino']) {
+            throw new FilesystemException($name . ' was moved while it was being removed');
+        }
+    }
+
+    private static function interleave(string $step, string $name): void
+    {
+        if (self::$interleave instanceof Closure) {
+            (self::$interleave)($step, $name);
+        }
     }
 
     /**
