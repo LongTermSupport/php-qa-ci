@@ -122,6 +122,52 @@ final class ChildExitTest extends TestCase
         yield '255' => [255, false];
     }
 
+    /**
+     * A lane's child runs a third-party tool or the project's own code, so the suffix a crash
+     * summary carries is describe()'s: the guide, never php-qa-ci's tracker.
+     */
+    #[Test]
+    #[DataProvider('exits')]
+    public function theSignalSuffixIsWhatDescribeAddsToTheExitCode(int $exitCode, string $description): void
+    {
+        self::assertSame($description, 'exit code ' . $exitCode . ChildExit::killedBy($exitCode));
+    }
+
+    /** The advice a pipeline crash line carries names the guide that ships, not a tracker. */
+    #[Test]
+    public function theSegfaultAdvicePointsAtTheShippedGuide(): void
+    {
+        self::assertSame(self::segfaultGuide(), ChildExit::segfaultGuide());
+        self::assertSame(
+            'it crashed with a segmentation fault, a defect to debug and report where the crashing code lives, never to retry past (see ' . self::segfaultGuide() . ')',
+            ChildExit::segfaultAdvice(),
+        );
+    }
+
+    /** A runner that caught the signal itself reports the exit code a shell would have. */
+    #[Test]
+    public function aSignalKillIsReportedAs128PlusTheSignal(): void
+    {
+        self::assertSame(143, ChildExit::exitCodeOfSignal(15));
+        self::assertSame(139, ChildExit::exitCodeOfSignal(11));
+    }
+
+    #[Test]
+    #[DataProvider('segmentationFaults')]
+    public function onlyExit139IsASegmentationFault(int $exitCode, bool $segfault): void
+    {
+        self::assertSame($segfault, ChildExit::isSegmentationFault($exitCode));
+    }
+
+    /** @return iterable<string, array{int, bool}> */
+    public static function segmentationFaults(): iterable
+    {
+        yield 'SIGSEGV' => [139, true];
+        yield 'SIGBUS, one below' => [138, false];
+        yield 'SIGUSR2, one above' => [140, false];
+        yield 'a plain 11' => [11, false];
+    }
+
     /** The consumer-facing segfault page, in the installed package, wherever that is. */
     private static function segfaultGuide(): string
     {

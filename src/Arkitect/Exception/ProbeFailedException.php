@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Arkitect\Exception;
 
 use RuntimeException;
+use Throwable;
 
 /**
  * The probe produced no verdict: the path or the clause was unusable, or the
@@ -14,8 +15,8 @@ use RuntimeException;
  */
 final class ProbeFailedException extends RuntimeException
 {
-    public static function because(string $reason): self
+    public static function because(string $reason, ?Throwable $previous = null): self
     {
-        return new self($reason);
+        return new self($reason, 0, $previous);
     }
 }
