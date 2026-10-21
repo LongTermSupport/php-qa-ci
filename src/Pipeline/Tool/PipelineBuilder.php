@@ -29,9 +29,9 @@ use LTS\PHPQA\Pipeline\Tool\Exception\UnknownPhaseException;
 final readonly class PipelineBuilder
 {
     /**
-     * @param list<PhaseDto>                   $phases      in execution order
-     * @param array<string, ToolDefinitionDto> $definitions keyed by canonical name, in registry order, phase runners excluded
-     * @param array<string, ToolInterface>     $tools       keyed by canonical name
+     * @param list<PhaseDto>                      $phases      in execution order
+     * @param array<array-key, ToolDefinitionDto> $definitions keyed by canonical name, in registry order, phase runners excluded
+     * @param array<array-key, ToolInterface>     $tools       keyed by canonical name
      */
     private function __construct(
         private array $phases,
@@ -108,11 +108,13 @@ final readonly class PipelineBuilder
             $this->requirePhaseIndex($definition->phase);
         }
 
-        return new self(
-            $this->phases,
-            [...$this->definitions, $definition->name => $definition],
-            [...$this->tools, $tool->name() => $tool],
-        );
+        // Assigned, not spread: spreading renumbers the int key PHP makes of a name such as '2024'.
+        $definitions                    = $this->definitions;
+        $definitions[$definition->name] = $definition;
+        $tools                          = $this->tools;
+        $tools[$tool->name()]           = $tool;
+
+        return new self($this->phases, $definitions, $tools);
     }
 
     /** A RegistryAwareToolInterface tool is handed the registry built here. */

@@ -191,6 +191,29 @@ final class AnalysedPathsToolTest extends TestCase
         );
     }
 
+    /**
+     * PHP stores an array key that is an all-digit string as an int, so a
+     * declaration of a directory named `2024` must still reach the lane, and
+     * its report, as the path the project wrote.
+     */
+    #[Test]
+    public function aDirectoryNamedInDigitsDeclaredUnanalysedPassesAndTheRunPrintsTheReason(): void
+    {
+        $this->tracked(self::SRC_FILE, '2024/Report.php');
+        $this->factory->project->write('2024/Report.php', self::PHP);
+        $config = $this->factory->builder()->withUnanalysedPath('2024', self::REASON)->build();
+
+        $result = new AnalysedPathsTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            "2 PHP file(s), every one under an analysed path (tests/, src/) or declared unanalysed\n"
+            . "Declared unanalysed in qaConfig/qa.php:\n"
+            . '  2024/ (1 PHP file(s)): ' . self::REASON . "\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
     #[Test]
     public function aDirectoryTheProjectAddsToTheCheckedPathsPasses(): void
     {

@@ -295,7 +295,7 @@ final readonly class ActiveRulesLister
     /**
      * @param list<string>                $ruleClasses        accumulator, by reference
      * @param list<ProjectRecordEntryDto> $ignoreErrorEntries accumulator, by reference
-     * @param array<string, true>         $seen               files already read, by reference, so a file
+     * @param array<array-key, true>      $seen               files already read, by reference, so a file
      *                                                        reached twice contributes once
      */
     private function collectFromNeonTree(string $neonPath, string $projectRoot, array &$ruleClasses, array &$ignoreErrorEntries, array &$seen): void

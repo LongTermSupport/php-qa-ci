@@ -45,49 +45,48 @@ use LTS\PHPQA\Pipeline\Lane\YamlLintTool;
  */
 final readonly class ShippedTools
 {
-    /** @return array<string, ToolInterface> */
+    /**
+     * Each key is written out, not read from name(), so the map is visibly
+     * string-keyed: no shipped name is all digits. EveryLaneNamesItselfTest
+     * holds each key to its lane's name().
+     *
+     * @return array<string, ToolInterface> keyed by canonical name
+     */
     public static function all(): array
     {
-        $tools = [
-            new Psr4ValidateTool(),
-            new PackageTypeTool(),
-            new ConfigTemplateIgnoreListTool(),
-            new InfectionConfigSourceDirsTool(),
-            new AnalysedPathsTool(),
-            new VersionPinsTool(),
-            new ChangelogTool(),
-            new PhpstanIgnoreJustificationTool(),
-            new SensitiveParameterUsageTool(),
-            new MarkdownLinksTool(),
-            new DocsProseTool(),
-            new DocumentedQaCommandsTool(ToolRegistry::shipped()),
-            new PhpStrictTypesTool(),
-            new BranchNamePolicyTool(),
-            new PhpLintTool(),
-            new OpcacheTool(),
-            new ComposerChecksTool(),
-            new ComposerRequireCheckerTool(),
-            new ComposerDependencyAnalyserTool(),
-            new PhpcpdTool(),
-            new TwigCsFixerTool(),
-            new MarkdownFormatTool(),
-            new TwigLintTool(),
-            new YamlLintTool(),
-            new ShellCheckTool(),
-            new PhpstanTool(),
-            new DeadCodeTool(),
-            new PhpArkitectTool(),
-            new RectorTool(),
-            new PhpCsFixerTool(),
-            new PhpunitTool(),
-            new InfectionTool(),
+        return [
+            'psr4Validate'               => new Psr4ValidateTool(),
+            'packageType'                => new PackageTypeTool(),
+            'configTemplateIgnoreList'   => new ConfigTemplateIgnoreListTool(),
+            'infectionConfigSourceDirs'  => new InfectionConfigSourceDirsTool(),
+            'analysedPaths'              => new AnalysedPathsTool(),
+            'versionPins'                => new VersionPinsTool(),
+            'changelog'                  => new ChangelogTool(),
+            'phpstanIgnoreJustification' => new PhpstanIgnoreJustificationTool(),
+            'sensitiveParameterUsage'    => new SensitiveParameterUsageTool(),
+            'markdownLinks'              => new MarkdownLinksTool(),
+            'docsProse'                  => new DocsProseTool(),
+            'documentedQaCommands'       => new DocumentedQaCommandsTool(ToolRegistry::shipped()),
+            'phpStrictTypes'             => new PhpStrictTypesTool(),
+            'branchNamePolicy'           => new BranchNamePolicyTool(),
+            'phpLint'                    => new PhpLintTool(),
+            'opcache'                    => new OpcacheTool(),
+            'composerChecks'             => new ComposerChecksTool(),
+            'composerRequireChecker'     => new ComposerRequireCheckerTool(),
+            'composerDependencyAnalyser' => new ComposerDependencyAnalyserTool(),
+            'phpcpd'                     => new PhpcpdTool(),
+            'twigCsFixer'                => new TwigCsFixerTool(),
+            'markdownFormat'             => new MarkdownFormatTool(),
+            'twigLint'                   => new TwigLintTool(),
+            'yamlLint'                   => new YamlLintTool(),
+            'shellCheck'                 => new ShellCheckTool(),
+            'phpstan'                    => new PhpstanTool(),
+            'deadCode'                   => new DeadCodeTool(),
+            'phpArkitect'                => new PhpArkitectTool(),
+            'rector'                     => new RectorTool(),
+            'phpCsFixer'                 => new PhpCsFixerTool(),
+            'phpunit'                    => new PhpunitTool(),
+            'infection'                  => new InfectionTool(),
         ];
-
-        $byName = [];
-        foreach ($tools as $tool) {
-            $byName[$tool->name()] = $tool;
-        }
-
-        return $byName;
     }
 }

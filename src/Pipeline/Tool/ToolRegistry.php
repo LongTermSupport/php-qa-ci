@@ -35,13 +35,13 @@ final readonly class ToolRegistry
 
     private const string INFECTION = 'infection';
 
-    /** @var array<string, PhaseDto> keyed by name, in execution order */
+    /** @var array<array-key, PhaseDto> keyed by name, in execution order */
     private array $phases;
 
-    /** @var array<string, ToolDefinitionDto> keyed by canonical name: the phase runners first, then the tools in the given order */
+    /** @var array<array-key, ToolDefinitionDto> keyed by canonical name: the phase runners first, then the tools in the given order */
     private array $definitions;
 
-    /** @var array<string, string> token => canonical name */
+    /** @var array<array-key, string> token => canonical name */
     private array $byToken;
 
     /**
@@ -61,7 +61,7 @@ final readonly class ToolRegistry
 
         foreach ($tools as $tool) {
             if (null !== $tool->phase && !isset($byPhase[$tool->phase])) {
-                throw UnknownPhaseException::forName($tool->phase, ...array_keys($byPhase));
+                throw UnknownPhaseException::forName($tool->phase, ...array_map(static fn (PhaseDto $phase): string => $phase->name, array_values($byPhase)));
             }
 
             $byName[$tool->name] = $tool;
