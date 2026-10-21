@@ -16,7 +16,7 @@ use PHPStan\Rules\RuleErrorBuilder;
 
 /**
  * Reports `PHP_ZTS` or `PHP_DEBUG` compared with `===` / `!==`, or as the subject of a `match`.
- * Their type depends on the PHP version (a bool on PHP 8.5, an int on older PHP, and PHPStan
+ * Their type depends on the PHP version (a bool since PHP 8.4, an int before, and PHPStan
  * types them 0|1 everywhere), so a strict comparison is always false on one of them and PHPStan
  * cannot say so. `(bool) \PHP_ZTS` is right on every version.
  *
@@ -55,7 +55,7 @@ final readonly class ForbidBuildConstantStrictComparisonRule implements Rule
             if (\in_array($constant, self::CONSTANTS, true)) {
                 return [
                     RuleErrorBuilder::message(\sprintf(
-                        '%s is compared strictly, but it is a bool on PHP 8.5 and an int on older PHP, so the comparison is always false on one of them. Write (bool) \%s.',
+                        '%s is compared strictly, but it is a bool since PHP 8.4 and an int before, so the comparison is always false on one of them. Write (bool) \%s.',
                         $constant,
                         $constant,
                     ))->identifier(self::IDENTIFIER)->build(),

@@ -17,8 +17,9 @@ $suffix     = match (\PHP_ZTS) { 1 => '-zts', 0 => '' };
 ## Why this is a hazard
 
 The two constants say how the running PHP was built, and their type depends on the PHP version:
-PHP 8.5 defines them as `bool`, older PHP as an `int` (0 or 1). A strict comparison against
-either type is therefore always false on the other. `1 === \PHP_ZTS` is `false` on every PHP 8.5,
+PHP 8.4 and later define them as `bool`, PHP 8.3 and earlier as an `int` (0 or 1). A strict
+comparison against either type is therefore always false on the other. `1 === \PHP_ZTS` is
+`false` on every PHP from 8.4 on,
 thread-safe or not, so code that picks a thread-safe binary, extension or path quietly picks the
 non-thread-safe one on a ZTS build.
 

@@ -157,8 +157,8 @@
 #
 # BUILD CONSTANTS COMPARED STRICTLY:
 #   ForbidBuildConstantStrictComparisonRule — PHP_ZTS or PHP_DEBUG under === / !== or as a
-#                                          match subject: a bool on PHP 8.5, an int on older
-#                                          PHP, and typed 0|1 by PHPStan, so the comparison
+#                                          match subject: a bool since PHP 8.4, an int
+#                                          before, and typed 0|1 by PHPStan, so the comparison
 #                                          is always false on one of them. Write
 #                                          (bool) \PHP_ZTS. See
 #                                          docs/phpstan-rules/forbid-build-constant-strict-comparison.md
