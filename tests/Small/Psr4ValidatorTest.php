@@ -156,6 +156,35 @@ which doesn\'t exist
     }
 
     /**
+     * A file under a PSR-4 root can be autoloaded only as the one class-like its path names. A
+     * class-like with any other name, the file's only one or one beside it, can never be found by
+     * the autoloader, whether it is a class, an enum, an interface or a trait (#281). Anonymous
+     * classes and a file of functions declare nothing to load by name, so they are not reported.
+     */
+    public function testEveryClassLikeAFileDeclaresMustBeTheOneItsPathNames(): void
+    {
+        $projectRoot = \Safe\realpath(__DIR__ . '/../assets/psr4/projectClassNames/');
+        $validator   = new Psr4Validator([], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
+
+        $rename  = 'rename the class-like or the file so that the two agree';
+        $ownFile = 'move it to a file of its own, named for it';
+        self::assertSame(
+            [
+                'Class-Like Errors:' => [
+                    'Named\Classes\\' => [
+                        $this->classLikeError($projectRoot . '/src/Renamed.php', 'class', 'NotRenamed', 'Renamed', $rename),
+                        $this->classLikeError($projectRoot . '/src/WithClass.php', 'class', 'WithClassHelper', 'WithClass', $ownFile),
+                        $this->classLikeError($projectRoot . '/src/WithEnum.php', 'enum', 'Colour', 'WithEnum', $ownFile),
+                        $this->classLikeError($projectRoot . '/src/WithInterface.php', 'interface', 'Shape', 'WithInterface', $ownFile),
+                        $this->classLikeError($projectRoot . '/src/WithTrait.php', 'trait', 'Greets', 'WithTrait', $ownFile),
+                    ],
+                ],
+            ],
+            $validator->main(),
+        );
+    }
+
+    /**
      * Whether a project is a Magento project is decided from its composer.json, never from where
      * it is checked out: a word in the path says nothing about the project (#231).
      *
@@ -270,6 +299,24 @@ which doesn\'t exist
         }
 
         return $patterns;
+    }
+
+    /**
+     * One class-like finding of the projectClassNames fixture, whose namespace root is Named\Classes\.
+     *
+     * @return array{fileInfo: string, expectedClassLike: string, declaredClassLike: string, problem: string}
+     */
+    private function classLikeError(string $file, string $kind, string $declared, string $expected, string $remedy): array
+    {
+        $declaredFqcn = 'Named\Classes\\' . $declared;
+        $expectedFqcn = 'Named\Classes\\' . $expected;
+
+        return [
+            'fileInfo'          => $file,
+            'expectedClassLike' => $expectedFqcn,
+            'declaredClassLike' => $declaredFqcn,
+            'problem'           => "{$kind} {$declaredFqcn} is declared in a file whose path autoloads only {$expectedFqcn}, so no autoloader can load it: {$remedy}",
+        ];
     }
 
     /** A valid project whose PSR-4 root holds a symlink to a file that does not exist (#241). */

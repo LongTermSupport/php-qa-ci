@@ -73,6 +73,20 @@ final class Psr4ValidateToolTest extends TestCase
         self::assertStringContainsString('No errors found', $this->factory->output->fetch());
     }
 
+    /** The namespace is right and the class name is not: no autoloader can load Fixture\Baz (#281). */
+    #[Test]
+    public function aClassWhoseNameIsNotItsFileNameFailsTheLaneNamingIt(): void
+    {
+        $this->factory->project->write('src/Bar.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Fixture;\n\nfinal class Baz\n{\n}\n");
+
+        $result = new Psr4ValidateTool()->run($this->factory->context());
+        $output = $this->factory->output->fetch();
+
+        self::assertFalse($result->isSuccess());
+        self::assertStringContainsString('class Fixture\Baz is declared in a file whose path autoloads only Fixture\Bar', $output);
+        self::assertStringContainsString(Psr4ValidateTool::IDENTIFIER, $output);
+    }
+
     #[Test]
     public function anIgnoreListEntryThatDoesNotCompileFailsTheLaneNamingTheFileAndTheEntry(): void
     {
