@@ -111,11 +111,27 @@ final class DependencyFreshnessToolComposerTest extends TestCase
         self::assertStringContainsString('composer.lock was NOT verified for: lts/php-qa-ci.', $printed);
     }
 
+    /**
+     * `php -f` on a shell script prints the script and exits 0: a `composer`
+     * that is a shim never answered, so the lock was not verified.
+     */
+    #[Test]
+    public function aComposerThatIsAShellShimIsSkippedByNameNotPassed(): void
+    {
+        $this->sandbox->root->write('shim/composer', "#!/bin/sh\nexec " . $this->composerBinary() . " \"\$@\"\n");
+
+        [$result, $printed] = $this->check($this->sandbox->root->path . '/shim/composer');
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result, $printed);
+        self::assertStringContainsString('composer gave no recognisable answer', $printed);
+        self::assertStringContainsString('composer.lock was NOT verified for: lts/php-qa-ci.', $printed);
+    }
+
     /** @return array{ToolOutcomeEnum, string} */
-    private function check(): array
+    private function check(?string $composer = null): array
     {
         $output = new BufferedOutput();
-        $result = new DependencyFreshnessTool($this->composerBinary())->run($this->context($output));
+        $result = new DependencyFreshnessTool($composer ?? $this->composerBinary())->run($this->context($output));
 
         return [$result->outcome, $output->fetch()];
     }

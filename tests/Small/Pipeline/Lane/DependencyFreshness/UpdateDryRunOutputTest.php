@@ -90,6 +90,71 @@ final class UpdateDryRunOutputTest extends TestCase
         self::assertNull(new UpdateDryRunOutput("Loading composer repositories with package information\nUpdating dependencies\nNothing to modify in lock file\n")->unreachableSource());
     }
 
+    /** The lines are the ones Composer 2.10 printed for a real project's dry run, plain and coloured. */
+    #[Test]
+    #[DataProvider('provideAnAnswer')]
+    public function composerAnsweredWhenItPrintedOneOfItsOwnResolverLines(string $printed): void
+    {
+        self::assertTrue(new UpdateDryRunOutput($printed)->composerAnswered());
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function provideAnAnswer(): Iterator
+    {
+        yield 'up to date' => ["Loading composer repositories with package information\nUpdating dependencies\nNothing to modify in lock file\nInstalling dependencies from lock file (including require-dev)\nNothing to install, update or remove\n"];
+        yield 'stale' => ["Updating dependencies\nLock file operations: 0 installs, 1 update, 0 removals\n" . self::SELF_UPGRADE];
+        yield 'up to date with a vendor directory to install' => ["Updating dependencies\nNothing to modify in lock file\nPackage operations: 1 install, 0 updates, 0 removals\n  - Installing lts/php-qa-ci (dev-php8.5 45463f4)\n"];
+        yield 'only the resolver heading' => ["Updating dependencies\n"];
+        yield 'coloured, with the progress overwrite Composer prints' => ["\e[32mLoading composer repositories with package information\e[39m\n\x08\x08\x08   \x08\x08\x08\e[32mUpdating dependencies\e[39m\nNothing to modify in lock file\n"];
+        yield 'indented' => ["   Updating dependencies   \n"];
+    }
+
+    #[Test]
+    #[DataProvider('provideNotAnAnswer')]
+    public function composerDidNotAnswerWhenNoneOfItsResolverLinesWerePrinted(string $printed): void
+    {
+        self::assertFalse(new UpdateDryRunOutput($printed)->composerAnswered());
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function provideNotAnAnswer(): Iterator
+    {
+        yield 'a shell shim shown as text' => ["#!/bin/sh\nexec /usr/bin/composer \"\$@\"\n"];
+        yield 'nothing' => [''];
+        yield 'blank lines' => ["\n  \n"];
+        yield 'only the loading line' => ["Loading composer repositories with package information\n"];
+        yield 'the marker inside other text' => ["echo 'Nothing to modify in lock file'\n"];
+        yield 'an exception block' => ["\nIn VcsRepository.php line 193:\n\n  No driver found\n"];
+    }
+
+    #[Test]
+    public function aColouredUpgradeIsStaleLikeAPlainOne(): void
+    {
+        $output = new UpdateDryRunOutput("  - Upgrading \e[32mlts/php-qa-ci\e[39m (\e[33mdev-php8.5 93f1ae4\e[39m => \e[33mdev-php8.5 606a9f6\e[39m)\n");
+
+        self::assertEquals([new StaleDependencyDto(self::SELF, 'dev-php8.5 93f1ae4', 'dev-php8.5 606a9f6')], $output->staleAmong(self::SELF));
+    }
+
+    #[Test]
+    public function whatWasPrintedIsItsFirstLine(): void
+    {
+        self::assertSame('exec /usr/bin/composer "$@"', new UpdateDryRunOutput("\n  exec /usr/bin/composer \"\$@\"  \nmore\n")->printedSummary());
+    }
+
+    #[Test]
+    public function whatWasPrintedIsNothingWhenNothingWas(): void
+    {
+        self::assertSame('nothing', new UpdateDryRunOutput("\n \n")->printedSummary());
+    }
+
+    #[Test]
+    public function aLongFirstLineIsCutShort(): void
+    {
+        $summary = new UpdateDryRunOutput(str_repeat('x', 500))->printedSummary();
+
+        self::assertSame(str_repeat('x', 100) . '...', $summary);
+    }
+
     #[Test]
     public function aFailureIsTheMessageOfTheExceptionComposerPrinted(): void
     {

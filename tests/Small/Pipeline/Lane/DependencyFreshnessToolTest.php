@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use Iterator;
 use LTS\PHPQA\Pipeline\Config\DependencyFreshnessPatterns;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\ComposerLock;
@@ -15,6 +16,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -232,6 +234,85 @@ final class DependencyFreshnessToolTest extends TestCase
         self::assertStringContainsString(self::SKIP_LINE, $printed);
         self::assertStringContainsString('https://repo.packagist.org could not be fully loaded', $printed);
         self::assertStringContainsString(self::NOT_VERIFIED, $printed);
+    }
+
+    /**
+     * A pass rests on a positive sign that Composer answered. A `composer`
+     * on the PATH that is a shell shim makes `php -f` print the script text
+     * and exit 0: nothing asked Composer, so nothing was verified.
+     */
+    #[Test]
+    #[DataProvider('provideOutputThatIsNoAnswerFromComposer')]
+    public function aRunThatExitedZeroWithoutAnAnswerFromComposerIsSkippedByName(string $printed, string $quoted): void
+    {
+        $this->lock(self::SELF);
+        $this->factory->processes->willSucceed($printed);
+
+        $result  = $this->tool()->run($this->factory->context());
+        $output  = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertStringContainsString(self::SKIP_LINE, $output);
+        self::assertStringContainsString('composer gave no recognisable answer', $output);
+        self::assertStringContainsString($quoted, $output);
+        self::assertStringContainsString(self::NOT_VERIFIED, $output);
+        self::assertStringNotContainsString('phpqaci.dependencyFreshness  (vendor/bin/rule-doc', $output, 'a skip is not a failure');
+    }
+
+    /** @return Iterator<string, array{string, string}> */
+    public static function provideOutputThatIsNoAnswerFromComposer(): Iterator
+    {
+        yield 'a shell shim printed as inline HTML' => ["exec /usr/bin/composer \"\$@\"\n", 'exec /usr/bin/composer "$@"'];
+        yield 'a shim with its shebang line' => ["#!/bin/sh\nexec /usr/bin/composer \"\$@\"\n", '#!/bin/sh'];
+        yield 'nothing at all' => ['', 'nothing'];
+        yield 'only blank lines' => ["\n \n", 'nothing'];
+        yield 'unrelated text' => ["<html><body>502 Bad Gateway</body></html>\n", '502 Bad Gateway'];
+        yield 'only the loading line, no answer after it' => ["Loading composer repositories with package information\n", 'Loading composer repositories'];
+    }
+
+    /**
+     * Each of these is Composer's own answer (see the samples in the reader
+     * test) and none of them upgrades a matching package.
+     */
+    #[Test]
+    #[DataProvider('provideComposerAnswersWithNothingStale')]
+    public function anAnswerFromComposerWithNoMatchingUpgradePassesInSilence(string $printed): void
+    {
+        $this->lock(self::SELF, self::PSR_LOG);
+        $this->factory->processes->willSucceed($printed);
+
+        $result = $this->tool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame('', $this->factory->output->fetch());
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function provideComposerAnswersWithNothingStale(): Iterator
+    {
+        yield 'nothing to modify in the lock file' => ["Loading composer repositories with package information\nUpdating dependencies\nNothing to modify in lock file\n"];
+        yield 'nothing to modify, without the loading line' => ["Nothing to modify in lock file\n"];
+        yield 'lock file operations that upgrade only a package no pattern matches' => ["Updating dependencies\nLock file operations: 0 installs, 1 update, 0 removals\n  - Upgrading psr/log (3.0.0 => 3.0.2)\n"];
+        yield 'lock file operations that only downgrade' => ["Lock file operations: 0 installs, 1 update, 0 removals\n  - Downgrading lts/php-qa-ci (dev-php8.5 93f1ae4 => 1.2.0)\n"];
+        yield 'updating dependencies and nothing after it' => ["Loading composer repositories with package information\nUpdating dependencies\n"];
+        yield 'the answer with colour codes' => ["\e[32mLoading composer repositories with package information\e[39m\n\e[32mUpdating dependencies\e[39m\nNothing to modify in lock file\n"];
+    }
+
+    /** `--no-ansi` is always passed, but a stale lock must not pass on a coloured answer. */
+    #[Test]
+    public function aColouredAnswerIsReadLikeAPlainOne(): void
+    {
+        $this->lock(self::SELF);
+        $this->factory->processes->willSucceed(
+            "\e[32mUpdating dependencies\e[39m\n"
+            . "\e[32mLock file operations: 0 installs, 1 update, 0 removals\e[39m\n"
+            . "  - Upgrading \e[32mlts/php-qa-ci\e[39m (\e[33mdev-php8.5 93f1ae4\e[39m => \e[33mdev-php8.5 606a9f6\e[39m)\n",
+        );
+
+        $result = $this->tool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString('  - lts/php-qa-ci (locked dev-php8.5 93f1ae4, available dev-php8.5 606a9f6)', $this->factory->output->fetch());
     }
 
     #[Test]
