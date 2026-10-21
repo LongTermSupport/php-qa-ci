@@ -23,10 +23,6 @@ use InvalidArgumentException;
  */
 final readonly class PreloadedSourceFinder
 {
-    public function __construct(private InfectionSourceScope $sourceScope = new InfectionSourceScope())
-    {
-    }
-
     /**
      * @param list<string> $sourceDirectories absolute, as the lane's derived infection.json states them
      * @param list<string> $excludes          infection.json's `source.excludes`
@@ -40,9 +36,10 @@ final readonly class PreloadedSourceFinder
     public function find(array $sourceDirectories, array $excludes, array $loaded, string ...$scope): array
     {
         $inScope = array_map(static fn (string $path): string => file_exists($path) ? \Safe\realpath($path) : $path, $scope);
+        $source  = new InfectionSourceScope();
         $found   = [];
         foreach (array_unique($loaded) as $file) {
-            if (([] === $inScope || \in_array($file, $inScope, true)) && null === $this->sourceScope->outside($file, $sourceDirectories, ...$excludes)) {
+            if (([] === $inScope || \in_array($file, $inScope, true)) && null === $source->outside($file, $sourceDirectories, ...$excludes)) {
                 $found[] = $file;
             }
         }
