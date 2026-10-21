@@ -24,7 +24,8 @@ use Composer\Util\ProcessExecutor;
  *
  * A failure is reported, never thrown: Turbo only speeds PHPStan up, so a failed install must not
  * fail the project's install. Some failures leave a binary phpstan.phar still loads, so the
- * report claims only the failure; the installer's own output says what it left in place.
+ * report claims only the failure and how the installer ended; the installer's own output says
+ * what it left in place.
  *
  * @api Composer is the caller: it constructs the plugin and invokes the
  *      PluginInterface methods and the subscribed event handlers.
@@ -79,9 +80,14 @@ final readonly class TurboInstallPlugin implements PluginInterface, EventSubscri
             return;
         }
 
-        $command = escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($installer) . ' install';
-        if (0 !== new ProcessExecutor($io)->execute($command)) {
-            $io->writeError("<comment>php-qa-ci: the PHPStan Turbo install failed; the installer's output above says what happened</comment>");
+        $command  = escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($installer) . ' install';
+        $exitCode = new ProcessExecutor($io)->execute($command);
+        if (0 === $exitCode) {
+            return;
         }
+
+        // A killed installer printed nothing about its death, so there is no output to point at.
+        $pointer = ChildExit::killedBySignal($exitCode) ? '' : "; the installer's output above says what happened";
+        $io->writeError('<comment>php-qa-ci: the PHPStan Turbo install failed with ' . ChildExit::describe($exitCode) . $pointer . '</comment>');
     }
 }

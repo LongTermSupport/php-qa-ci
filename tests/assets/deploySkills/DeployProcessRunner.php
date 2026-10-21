@@ -23,9 +23,11 @@ use RuntimeException;
 final class DeployProcessRunner
 {
     /**
+     * @param array<string, string> $env variables set for the child on top of this process's own
+     *
      * @return array{exit: int, output: string}
      */
-    public static function run(string $scriptPath, string $qaciPath, string $consumerRoot): array
+    public static function run(string $scriptPath, string $qaciPath, string $consumerRoot, array $env = []): array
     {
         $command = ['bash', $scriptPath, $qaciPath, $consumerRoot];
 
@@ -36,7 +38,7 @@ final class DeployProcessRunner
         ];
 
         $pipes   = [];
-        $process = \proc_open($command, $descriptors, $pipes, $consumerRoot);
+        $process = \proc_open($command, $descriptors, $pipes, $consumerRoot, [] === $env ? null : [...\getenv(), ...$env]);
         if (!\is_resource($process)) {
             throw new RuntimeException('Failed to launch ' . $scriptPath);
         }
