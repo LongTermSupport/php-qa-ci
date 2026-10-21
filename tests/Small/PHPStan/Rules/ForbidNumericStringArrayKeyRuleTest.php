@@ -42,6 +42,10 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     private const string LITERAL = 'The array literal';
 
+    private const string SET = '$set';
+
+    private const string COUNTS_LOCAL = '$counts';
+
     /** The fixture is loaded first so its classes are known to the reflection provider, as autoloaded classes are. */
     #[Test]
     public function aStringKeyThatMayBeAllDigitsIsReportedWhereItsArrayIsTakenAsStringKeyed(): void
@@ -78,6 +82,45 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::LITERAL . '[…]', 'line 183 returns it as array<string, array<string, int>>'), 183],
             ],
         );
+    }
+
+    /** Keys made by array_merge(), array_replace(), the functions that build keys from values, renumbering, and an unchecked inline @var. */
+    #[Test]
+    public function keysMadeWhereNoElementIsWrittenAreReportedWhereTakenAsStringKeyed(): void
+    {
+        require_once self::FIXTURES . '/ReportableSources.php';
+
+        $this->analyse(
+            [self::FIXTURES . '/ReportableSources.php'],
+            [
+                [$this->message(self::LITERAL, 'line 23 reads its keys with array_merge()'), 23],
+                [$this->message(self::LITERAL, 'line 33 reads its keys with array_merge()'), 33],
+                [$this->message(self::LITERAL, 'line 45 reads its keys with array_merge()'), 45],
+                [$this->message(self::LITERAL, 'line 50 assigns it to $this->tools, declared array<string, object>'), 50],
+                [$this->message('$next', 'line 58 returns it as array<string, int>'), 56],
+                [$this->message('The result of iterator_to_array()', 'line 63 reads its keys with foreach'), 63],
+                [$this->message(self::SET, 'line 72 reads its keys with foreach'), 71],
+                [$this->message('The result of array_flip()', 'line 80 assigns it to $this->byName, declared array<string, int>'), 80],
+                [$this->message(self::SET, 'line 87 reads its keys with array_keys()'), 86],
+                [$this->message('The result of array_combine()', 'line 100 returns it as array<string, int>'), 100],
+                [$this->message('The result of array_count_values()', 'line 110 returns it as array<string, int>'), 110],
+                [$this->message('The result of array_column()', 'line 120 returns it as array<string, int>'), 120],
+                [$this->message(self::SET, 'line 131 reads its keys with array_reverse()'), 128],
+                [$this->message(self::COUNTS_LOCAL, 'line 138 assigns it to $this->byName, declared array<string, int>'), 137],
+                [$this->message(self::COUNTS_LOCAL, 'line 148 returns it as array<string, int>'), 145],
+                [$this->message('$psr4', 'line 154 asserts it array<string, string> in an inline @var over mixed'), 154],
+                [$this->message('$count', 'line 168 reads its keys with array_any()'), 165],
+                [$this->message(self::SET, 'line 180 reads its keys with foreach'), 176],
+            ],
+        );
+    }
+
+    #[Test]
+    public function keysMadeWhereNoElementIsWrittenThatCannotBeAllDigitsOrAreNeverReadAreNotReported(): void
+    {
+        require_once self::FIXTURES . '/NotReportableSources.php';
+
+        $this->analyse([self::FIXTURES . '/NotReportableSources.php'], []);
     }
 
     #[Test]
