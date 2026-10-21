@@ -48,15 +48,15 @@ final readonly class AnalysedPathsAudit
     private array $declaredPaths;
 
     /**
-     * @param list<string>          $analysedPaths project-relative; '' is the whole project
-     * @param list<string>          $ignoredPaths  project-relative
-     * @param array<string, string> $declared      project-relative path => the reason it is not analysed
+     * @param list<string>             $analysedPaths project-relative; '' is the whole project
+     * @param list<string>             $ignoredPaths  project-relative
+     * @param array<array-key, string> $declared      project-relative path => the reason it is not analysed
      */
     public function __construct(array $analysedPaths, array $ignoredPaths, array $declared)
     {
         $this->analysedPaths = array_map($this->normalise(...), $analysedPaths);
         $this->ignoredPaths  = array_map($this->normalise(...), $ignoredPaths);
-        $this->declaredPaths = array_map($this->normalise(...), array_keys($declared));
+        $this->declaredPaths = array_map(fn (int|string $path): string => $this->normalise((string)$path), array_keys($declared));
     }
 
     /** @param string ...$phpFiles project-relative */
@@ -112,7 +112,7 @@ final readonly class AnalysedPathsAudit
      * Declarations inside an analysed path: the PHP there is analysed, so the
      * declaration states something false.
      *
-     * @return array<string, string> declared path => the analysed path containing it
+     * @return array<array-key, string> declared path => the analysed path containing it
      */
     private function contradicted(): array
     {

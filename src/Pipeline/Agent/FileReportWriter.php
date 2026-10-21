@@ -33,7 +33,7 @@ final class FileReportWriter
 
     private const int JSON_FLAGS = \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE;
 
-    /** @var array<string, array{path: string, error_count: int, report: string}> keyed by project-relative source path, in write order */
+    /** @var array<array-key, array{path: string, error_count: int, report: string}> keyed by project-relative source path, in write order */
     private array $written = [];
 
     public function __construct(private readonly string $reportDir, private readonly string $projectRoot)

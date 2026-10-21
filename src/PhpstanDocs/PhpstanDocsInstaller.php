@@ -136,7 +136,7 @@ final readonly class PhpstanDocsInstaller
      * The fetched pages by identifier. Only a file named as an identifier is a
      * page: the upstream directory also holds the notes its generator reads.
      *
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function pages(string $directory): array
     {
@@ -171,7 +171,7 @@ final readonly class PhpstanDocsInstaller
     /**
      * Whether the committed catalogue already holds exactly these pages.
      *
-     * @param array<string, string> $pages
+     * @param array<array-key, string> $pages
      */
     private function carries(string $libraryRoot, array $pages): bool
     {
@@ -182,11 +182,11 @@ final readonly class PhpstanDocsInstaller
 
         return array_all(
             $pages,
-            static fn (string $page, string $identifier): bool => \Safe\file_get_contents($page) === \Safe\file_get_contents($target . '/' . $identifier . self::PAGE_SUFFIX),
+            static fn (string $page, int|string $identifier): bool => \Safe\file_get_contents($page) === \Safe\file_get_contents($target . '/' . $identifier . self::PAGE_SUFFIX),
         );
     }
 
-    /** @param array<string, string> $pages */
+    /** @param array<array-key, string> $pages */
     private function replace(string $libraryRoot, array $pages, string $license, string $version, string $source): void
     {
         $target = $libraryRoot . '/' . PhpstanDocsCatalogue::PAGES;

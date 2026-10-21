@@ -18,7 +18,7 @@ use RuntimeException;
  */
 final readonly class ShippedToolLocator implements ToolLocatorInterface
 {
-    /** @param array<string, ToolInterface> $shipped */
+    /** @param array<array-key, ToolInterface> $shipped */
     public function __construct(
         private array $shipped,
         private string $projectConfigDir,
