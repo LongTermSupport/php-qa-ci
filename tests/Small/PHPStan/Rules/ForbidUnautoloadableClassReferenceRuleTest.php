@@ -201,7 +201,7 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
     {
         return \sprintf(
             'Class %s is also declared at %s, where the autoloader finds it: loading this file after that one fails '
-            . 'with "Cannot declare class", and loading it first gives every other file this copy. Delete this copy.',
+            . 'with PHP\'s "Cannot redeclare" fatal error, and loading it first gives every other file this copy. Delete this copy.',
             self::FIXTURE_NAMESPACE . 'Duplicated',
             self::FIXTURE_DIRECTORY . 'Duplicated.php',
         );
