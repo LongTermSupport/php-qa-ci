@@ -56,6 +56,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\Filesystem\TemporaryDirectory::class)]
 #[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class DeadCodeToolTest extends TestCase
 {
     private const string WRAPPER = 'var/qa/' . DeadCodeTool::LOG_DIR . '/' . DeadCodeTool::WRAPPER_NEON;

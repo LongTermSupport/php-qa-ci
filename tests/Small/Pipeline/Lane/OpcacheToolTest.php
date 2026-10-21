@@ -40,6 +40,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class OpcacheToolTest extends TestCase
 {
     private const string AFFECTED = "8.5.10\n";
@@ -192,6 +193,18 @@ final class OpcacheToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('optimizer dump crashed (exit 255)', $result->summary);
+    }
+
+    /** A dump a shell reports as killed by a signal says which, and a segfault says what to do. */
+    #[Test]
+    public function aDumpKilledByASignalIsACrashNamingTheSignal(): void
+    {
+        $this->factory->processes->willSucceed(self::AFFECTED)->willFail(139, '');
+
+        $result = new OpcacheTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('optimizer dump crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice() . ')', $result->summary);
     }
 
     #[Test]

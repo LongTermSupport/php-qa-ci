@@ -165,6 +165,15 @@
 #                                          collector is registered under services: below. See
 #                                          docs/phpstan-rules/forbid-php-warnings-in-captured-output.md
 #
+# A CHILD KILLED BY A SIGNAL, NAMED:
+#   ForbidUnhandledProcessSignalRule     — Process::run(), mustRun() and wait() outside
+#                                          test code sit in a try block whose catch names
+#                                          ProcessSignaledException: uncaught, a segfault
+#                                          reads as "signaled with signal 11" with no command
+#                                          and aborts the caller. Its collector is registered
+#                                          under services: below. See
+#                                          docs/phpstan-rules/forbid-unhandled-process-signal.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -197,6 +206,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnhandledProcessSignalRule
     - LTS\PHPQA\PHPStan\Rules\ForbidPhpWarningsInCapturedOutputRule
 
 parameters:
@@ -235,6 +245,11 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector
+        tags:
+            - phpstan.collector
+    # The collector ForbidUnhandledProcessSignalRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ProcessSignalHandlingCollector
         tags:
             - phpstan.collector
     # The collector ForbidPhpWarningsInCapturedOutputRule (under rules: above) matches.

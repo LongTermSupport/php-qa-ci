@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ToolResultDto::class)]
 #[CoversClass(ToolOutcomeEnum::class)]
 #[Small]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ToolResultDtoTest extends TestCase
 {
     private const string PHPSTAN = 'PHPStan';
@@ -52,5 +53,6 @@ final class ToolResultDtoTest extends TestCase
         $crash = ToolResultDto::fromExitCode(255, self::PHPSTAN, 1);
         self::assertSame(ToolOutcomeEnum::Crashed, $crash->outcome);
         self::assertSame('PHPStan crashed (exit 255)', $crash->summary);
+        self::assertSame('PHPStan crashed (exit 143, killed by signal 15 (SIGTERM))', ToolResultDto::fromExitCode(143, self::PHPSTAN, 1)->summary);
     }
 }

@@ -101,6 +101,7 @@ dir) prints its page offline.
 - `phpqaci.unvalidatedRegexPattern` — A regex pattern the code does not own is compiled where a bad one is reported by name (`docs/phpstan-rules/forbid-unvalidated-regex-pattern.md`)
 - `phpqaci.unisolatedGitProcess` — git in a test runs isolated from the host's git configuration (`docs/phpstan-rules/forbid-unisolated-git-process.md`)
 - `phpqaci.phpWarningsInCapturedOutput` — PHP run with its output captured sends its warnings to stderr (`docs/phpstan-rules/forbid-php-warnings-in-captured-output.md`)
+- `phpqaci.unhandledProcessSignal` — A Process whose child a signal kills is reported by name (`docs/phpstan-rules/forbid-unhandled-process-signal.md`)
 - `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
 - `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
 - `typeCoverage.paramTypeCoverage` — a rule from `tomasvotruba/type-coverage`
