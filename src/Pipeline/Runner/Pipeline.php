@@ -19,8 +19,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * The run: preflight, lock, then either one tool or the registry's phases in
- * order, with the retry, aggregate and gate policies applied; hooks around
+ * The run: preflight, lock, then either one tool, or the dependency freshness
+ * check followed by the registry's phases in order, with the retry, aggregate and gate policies applied; hooks around
  * it; the lock released with the exit code.
  *
  * Fail-fast (writable) runs stop at the first failing tool. Aggregate
@@ -39,6 +39,9 @@ final readonly class Pipeline
      * EX_TEMPFAIL: nothing is wrong, try again.
      */
     public const int EXIT_LOCK_CONTENDED = 75;
+
+    /** The lane a full run starts with, before any phase. */
+    private const string DEPENDENCY_FRESHNESS = 'dependencyFreshness';
 
     public function __construct(
         private ToolRegistry $registry,
@@ -110,6 +113,10 @@ final readonly class Pipeline
             return $this->finish($ok, $retried, $config->aggregate, ...$failed);
         }
 
+        if (!$this->dependenciesAreFresh($context, $failed, $retried)) {
+            return $this->finish(false, $retried, $config->aggregate, ...$failed);
+        }
+
         foreach ($this->registry->phases() as $phase) {
             $this->banner($phase->banner, '=');
             if (!$this->runPhase($context, $phase, $failed, $retried)) {
@@ -136,6 +143,34 @@ final readonly class Pipeline
         $this->retryWarning($retried);
 
         return 0;
+    }
+
+    /**
+     * The full run's first step: there is no point checking code with a stale
+     * toolchain, so a failure ends the run before any phase, in aggregate mode
+     * too. A skipped check (freshness could not be determined) lets it carry
+     * on; the lane has said so by name.
+     *
+     * @param list<string> $failed
+     */
+    private function dependenciesAreFresh(ToolContext $context, array &$failed, bool &$retried): bool
+    {
+        if (!$this->registry->accepts(self::DEPENDENCY_FRESHNESS)) {
+            return true;
+        }
+
+        $execution = $this->executor->execute(self::DEPENDENCY_FRESHNESS, $context);
+        $retried   = $retried || $execution->retried;
+        if ($execution->result->isSuccess()) {
+            return true;
+        }
+
+        $failed[] = self::DEPENDENCY_FRESHNESS;
+        if ($execution->segmentationFault) {
+            $this->segmentationFaultHalt(self::DEPENDENCY_FRESHNESS);
+        }
+
+        return false;
     }
 
     /**

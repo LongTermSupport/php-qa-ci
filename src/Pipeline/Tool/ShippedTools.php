@@ -12,6 +12,7 @@ use LTS\PHPQA\Pipeline\Lane\ComposerDependencyAnalyserTool;
 use LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool;
 use LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool;
 use LTS\PHPQA\Pipeline\Lane\DeadCodeTool;
+use LTS\PHPQA\Pipeline\Lane\DependencyFreshnessTool;
 use LTS\PHPQA\Pipeline\Lane\DocsProseTool;
 use LTS\PHPQA\Pipeline\Lane\DocumentedQaCommandsTool;
 use LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool;
@@ -55,6 +56,7 @@ final readonly class ShippedTools
     public static function all(): array
     {
         return [
+            'dependencyFreshness'        => new DependencyFreshnessTool(),
             'psr4Validate'               => new Psr4ValidateTool(),
             'packageType'                => new PackageTypeTool(),
             'configTemplateIgnoreList'   => new ConfigTemplateIgnoreListTool(),
