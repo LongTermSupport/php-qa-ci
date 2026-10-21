@@ -112,7 +112,7 @@ final readonly class BinEntryPointScripts
         $unreadable = [];
         $undeclared = [];
         foreach ($this->filesUnder($binDir, self::BIN, $root, $projectRoot, $vendorDir, $visited, $unreadable) as $key => $path) {
-            $relative = (string) $key;
+            $relative = (string)$key;
             $real     = $this->realpath($path, $relative, $unreadable);
             if (null === $real) {
                 continue;
