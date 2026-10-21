@@ -8,6 +8,7 @@ use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\Tests\Support\FakeTurboReleaseSource;
 use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\UnremovableTree;
 use LTS\PHPQA\Turbo\Dto\TurboDecisionDto;
 use LTS\PHPQA\Turbo\TurboInstallDecider;
 use LTS\PHPQA\Turbo\TurboInstaller;
@@ -313,6 +314,44 @@ final class TurboInstallerTest extends TestCase
         self::assertStringStartsWith('ERROR: could not install the Turbo files: ', $this->errors->fetch());
         // The core goes first, so what is left is a core with no binary to load it.
         self::assertSame(['phpstan_turbo-8.5.so', 'phpstan_turbo_core.so'], $this->platformDirectory());
+    }
+
+    /** A staging directory that cannot be made beside the binary fails the install as any other step does. */
+    #[Test]
+    public function aStagingDirectoryThatCannotBeMadeFailsTheInstallSayingWhy(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(\dirname(self::BINARY), 'a file where the platform directory belongs');
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame(
+            \sprintf("ERROR: could not install the Turbo files: Cannot create a staging directory in %s: mkdir(): File exists\n", \dirname($this->library->path . '/' . self::BINARY)),
+            $this->errors->fetch(),
+        );
+    }
+
+    /** A staging leftover the install cannot remove is named in a warning; the install goes on. */
+    #[Test]
+    public function aStagingLeftoverThatCannotBeRemovedIsNamedAndTheInstallSucceeds(): void
+    {
+        $this->writeManifest($this->digests());
+        $leftover = \dirname($this->library->path . '/' . self::BINARY) . '/.phpqa-turbo0123456789abcdef';
+        UnremovableTree::plant($leftover);
+        \Safe\touch($leftover, time() - 2 * 3600);
+
+        try {
+            self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+            $kept = array_values(array_filter(\Safe\glob(\dirname($leftover) . '/.phpqa-turbo*'), \is_string(...)));
+        } finally {
+            foreach (array_filter(\Safe\glob(\dirname($leftover) . '/.phpqa-turbo*'), \is_string(...)) as $stuck) {
+                UnremovableTree::remove($stuck);
+            }
+        }
+
+        self::assertSame(self::BINARY_BYTES, $this->library->read(self::BINARY));
+        self::assertCount(1, $kept);
+        self::assertStringStartsWith(\sprintf('WARNING: could not remove %s, a staging directory a killed install left: ', $kept[0]), $this->errors->fetch());
     }
 
     /** A maintainer offline still gets an install: the committed manifest stands. */
