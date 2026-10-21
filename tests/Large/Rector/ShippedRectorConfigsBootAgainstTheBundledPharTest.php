@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Rector;
 
+use DirectoryIterator;
+use FilesystemIterator;
 use LTS\PHPQA\Pipeline\Lane\RectorTool;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\RealLaneContext;
@@ -13,6 +15,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process;
 
@@ -40,6 +45,8 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
 {
     private const string LIBRARY = __DIR__ . '/../../..';
 
+    private const string SYSTEM_TEMP = 'systemTemp';
+
     private TempDir $project;
 
     protected function setUp(): void
@@ -50,22 +57,12 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
         $this->project->write('tests/ProbeTest.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class ProbeTest\n{\n}\n");
         $this->project->write('vendor/autoload.php', "<?php\n");
         $this->project->write('vendor/composer/installed.json', '{"packages": [], "dev": true}');
-        $this->project->mkdir('systemTemp');
+        $this->project->mkdir(self::SYSTEM_TEMP);
     }
 
     protected function tearDown(): void
     {
         $this->project->remove();
-    }
-
-    /** @return iterable<string, array{string}> */
-    public static function shippedConfigs(): iterable
-    {
-        $configs = \Safe\glob(self::LIBRARY . '/configDefaults/generic/rector-*.php');
-        self::assertNotSame([], $configs, 'no shipped Rector config found');
-        foreach ($configs as $config) {
-            yield basename($config) => [basename($config)];
-        }
     }
 
     #[Test]
@@ -77,7 +74,22 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
         self::assertContains($process->getExitCode(), [0, 2], 'the bundled Rector could not boot ' . $config . ":\n" . $process->getOutput() . $process->getErrorOutput());
         self::assertStringNotContainsString('[ERROR]', $process->getOutput() . $process->getErrorOutput());
         self::assertNotSame([], $this->filesUnder('var/qa/cache/rector'), $config . ' did not put Rector cache files under the project cache directory');
-        self::assertSame([], $this->filesUnder('systemTemp'), $config . ' put Rector cache files in the system temp directory');
+        self::assertSame([], $this->filesUnder(self::SYSTEM_TEMP), $config . ' put Rector cache files in the system temp directory');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function shippedConfigs(): iterable
+    {
+        $found = [];
+        foreach (new DirectoryIterator(self::LIBRARY . '/configDefaults/generic') as $entry) {
+            $file = $entry->getFilename();
+            if (str_starts_with($file, 'rector-') && str_ends_with($file, '.php')) {
+                $found[] = $file;
+                yield $file => [$file];
+            }
+        }
+
+        self::assertNotSame([], $found, 'no shipped Rector config found');
     }
 
     /**
@@ -93,7 +105,7 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
         $result = new RectorTool()->run(RealLaneContext::over($this->project->path, true, $output));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, $output->fetch());
-        self::assertSame([], $this->filesUnder('systemTemp'), 'the lane put Rector cache files in the system temp directory');
+        self::assertSame([], $this->filesUnder(self::SYSTEM_TEMP), 'the lane put Rector cache files in the system temp directory');
     }
 
     #[Test]
@@ -113,8 +125,8 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
             '',
         ]));
 
-        $output = new BufferedOutput();
-        $result = new RectorTool()->run(RealLaneContext::over($this->project->path, true, $output));
+        $output  = new BufferedOutput();
+        $result  = new RectorTool()->run(RealLaneContext::over($this->project->path, true, $output));
         $printed = $output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, $printed);
@@ -124,15 +136,41 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
     }
 
+    #[Test]
+    public function aProjectConfigNamingAClassTheBundledRectorLacksStopsTheLaneWithTheLine(): void
+    {
+        $this->project->write('rector.php', implode("\n", [
+            '<?php',
+            '',
+            'declare(strict_types=1);',
+            '',
+            'use Rector\Config\RectorConfig;',
+            '',
+            'return static function (RectorConfig $rectorConfig): void {',
+            '    $rectorConfig->rule(Rector\Removed\RemovedInRector27Rector::class);',
+            '};',
+            '',
+        ]));
+
+        $output  = new BufferedOutput();
+        $result  = new RectorTool()->run(RealLaneContext::over($this->project->path, true, $output));
+        $printed = $output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome, $printed);
+        self::assertStringContainsString('rector.php:8: $rectorConfig->rule(Rector\Removed\RemovedInRector27Rector::class);', $printed);
+        self::assertStringContainsString('which does not exist', $printed);
+        self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
+    }
+
     private function rector(string $config): Process
     {
         $process = new Process(
             [\PHP_BINARY, \Safe\realpath(self::LIBRARY . '/vendor-phar/rector.phar'), 'process', '--config', \Safe\realpath($config), '--dry-run', '--clear-cache', '--no-progress-bar', 'src'],
             $this->project->path,
             [
-                'rectorCacheDir' => $this->project->path . '/var/qa/cache/rector',
+                'rectorCacheDir'    => $this->project->path . '/var/qa/cache/rector',
                 'rectorIgnorePaths' => '',
-                'TMPDIR' => $this->project->path . '/systemTemp',
+                'TMPDIR'            => $this->project->path . '/' . self::SYSTEM_TEMP,
             ],
             null,
             600,
@@ -151,9 +189,9 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
         }
 
         $files    = [];
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
-            if ($file instanceof \SplFileInfo && $file->isFile()) {
+            if ($file instanceof SplFileInfo && $file->isFile()) {
                 $files[] = substr($file->getPathname(), \strlen($root) + 1);
             }
         }
