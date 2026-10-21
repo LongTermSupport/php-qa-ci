@@ -111,6 +111,7 @@ dir) prints its page offline.
 - `phpstan/phpstan-phpunit` — 15 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `phpstan/phpstan-strict-rules` — 45 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `tomasvotruba/type-coverage` — 7 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `phpqaci.dependencyFreshness` — locked packages (lts/php-qa-ci, plus withDependencyFreshnessPatterns()) are what composer update would install; first in a full run (`docs/tools/dependencyFreshness.md`)
 - `phpqaci.rector` — Rector (`docs/tools/rector.md`)
 - `phpqaci.phpCsFixer` — PHP-CS-Fixer (`docs/tools/phpCsFixer.md`)
 - `phpqaci.twigCsFixer` — Twig coding standards (when twig/twig is installed) (`docs/tools/twigCsFixer.md`)
