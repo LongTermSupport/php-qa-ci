@@ -64,7 +64,9 @@ final readonly class TurboPlatform
      */
     public static function fromRuntime(string $selfMaps = self::SELF_MAPS, string $alpineRelease = self::ALPINE_RELEASE): self
     {
-        $maps = is_readable($selfMaps) ? \Safe\file_get_contents($selfMaps) : null;
+        // phpstan.phar treats a maps file it cannot read as absent, whatever the access check said.
+        $read = is_readable($selfMaps) ? @file_get_contents($selfMaps) : false;
+        $maps = false === $read ? null : $read;
 
         return self::fromProcess(\PHP_OS_FAMILY, php_uname('m'), $maps, is_file($alpineRelease));
     }

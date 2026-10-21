@@ -97,5 +97,9 @@ path and this identifier.
   store, not followed; following it needs data flow the rule does not have. The upstream fix,
   PHPStan typing both constants as `bool` from `phpVersion` 8.4, would let PHPStan's own type
   checks report every sink.
+- **Not seen**: a constant read by name, `constant('PHP_ZTS')`, which is a string until it runs;
+  and the `intval()`, `boolval()` or `floatval()` call's other arguments, since the whole call is
+  allowed, so `intval('12', \PHP_ZTS)` passes the constant as the base, an `int` parameter that
+  throws a `TypeError` for a `bool` under `strict_types`.
 - **Runner check**: `TurboPlatformTest` pins that a thread-safe PHP is given the `-zts` binary
   whether the constant is `1` or `true`.

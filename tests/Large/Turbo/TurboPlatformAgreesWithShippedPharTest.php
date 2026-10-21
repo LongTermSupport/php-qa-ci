@@ -40,7 +40,9 @@ final class TurboPlatformAgreesWithShippedPharTest extends TestCase
     /**
      * Asks the phar's selector for the core path of each case: [os, machine, maps or null, has
      * /etc/alpine-release, thread-safe]. The binary's own name the phar builds inline from this
-     * PHP's constants, so the core, whose name it does expose, is as far as a case can reach.
+     * PHP's constants, so the core, whose name it does expose, is as far as a case can reach. The
+     * core's name does not depend on thread safety, so no case varies it; TurboPlatformTest pins
+     * which binary a thread-safe PHP gets.
      */
     private const string ASK_THE_PHAR = 'namespace PHPStan\Turbo; require $argv[1];'
         . 'echo json_encode(array_map(static function (array $c): ?string {'
@@ -54,9 +56,7 @@ final class TurboPlatformAgreesWithShippedPharTest extends TestCase
         foreach (['x86_64', 'aarch64'] as $machine) {
             foreach ([self::GLIBC_MAPS, self::MUSL_MAPS, null] as $maps) {
                 foreach ([false, true] as $alpine) {
-                    foreach ([false, true] as $zts) {
-                        $cases[] = [self::LINUX, $machine, $maps, $alpine, $zts];
-                    }
+                    $cases[] = [self::LINUX, $machine, $maps, $alpine, false];
                 }
             }
         }

@@ -30,7 +30,7 @@ final class UnopenableStreamWrapper
     /** @return array<string, int> */
     public function url_stat(string $path, int $flags): array
     {
-        return ['mode' => 0o100444, 'uid' => getmyuid(), 'gid' => getmygid(), 'size' => 0];
+        return ['mode' => 0o100444, 'uid' => \Safe\getmyuid(), 'gid' => \Safe\getmygid(), 'size' => 0];
     }
 
     public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool
