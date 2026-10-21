@@ -25,18 +25,22 @@ use Symfony\Component\Process\Process;
 #[Large]
 final class TurboPlatformAgreesWithShippedPharTest extends TestCase
 {
+    /** The shipped phar's selector source, which declares the class and needs nothing else. */
     private const string SELECTOR = 'phar://' . __DIR__ . '/../../../vendor-phar/phpstan.phar/src/Turbo/TurboExtensionSelector.php';
 
+    /** PHP_OS_FAMILY on Linux. */
     private const string LINUX = 'Linux';
 
+    /** A glibc PHP's maps: glibc's loader, no musl one. */
     private const string GLIBC_MAPS = "7f2a1c000000-7f2a1c028000 r--p 00000000 08:01 2 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n";
 
+    /** A musl PHP's maps, as Alpine's loader appears in them. */
     private const string MUSL_MAPS = "7f2a1c000000-7f2a1c014000 r--p 00000000 08:01 2 /lib/ld-musl-x86_64.so.1\n";
 
     /** Asks the phar's selector for the directory of each case: [os, machine, maps or null, has /etc/alpine-release]. */
-    private const string ASK_THE_PHAR = 'require $argv[1];'
-        . 'echo json_encode(array_map(static fn (array $c): ?string => \PHPStan\Turbo\TurboExtensionSelector::resolvePlatformDirectory('
-        . '$c[0], $c[1], \PHPStan\Turbo\TurboExtensionSelector::resolveIsMusl($c[2] ?? false, $c[3])), json_decode($argv[2], true)));';
+    private const string ASK_THE_PHAR = 'namespace PHPStan\Turbo; require $argv[1];'
+        . 'echo json_encode(array_map(static fn (array $c): ?string => TurboExtensionSelector::resolvePlatformDirectory('
+        . '$c[0], $c[1], TurboExtensionSelector::resolveIsMusl($c[2] ?? false, $c[3])), json_decode($argv[2], true)));';
 
     #[Test]
     public function everyHostProcessIsGivenTheDirectoryThePharLoadsFrom(): void
@@ -54,6 +58,7 @@ final class TurboPlatformAgreesWithShippedPharTest extends TestCase
 
         $process = new Process([\PHP_BINARY, '-r', self::ASK_THE_PHAR, self::SELECTOR, \Safe\json_encode($cases)]);
         $process->mustRun();
+
         $pharDirectories = \Safe\json_decode($process->getOutput(), true);
         self::assertIsArray($pharDirectories);
 

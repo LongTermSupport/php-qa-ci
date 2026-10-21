@@ -37,13 +37,17 @@ final class TurboPlatformTest extends TestCase
 
     private const string GNU = 'gnu';
 
+    private const string MUSL = 'musl';
+
+    private const string ARM64 = 'arm64';
+
+    private const string LINUX_MUSL_X86_64 = 'linux-musl-x86_64';
+
     private const string SELF_MAPS = '/proc/self/maps';
 
-    /** A glibc PHP's maps: the loader it runs under, and no musl one. */
     private const string GLIBC_MAPS = "5581d1a00000-5581d1c00000 r--p 00000000 08:01 1 /usr/bin/php8.5\n"
         . "7f2a1c000000-7f2a1c028000 r--p 00000000 08:01 2 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n";
 
-    /** A musl PHP's maps, as Alpine's loader appears in them. */
     private const string MUSL_MAPS = "5581d1a00000-5581d1c00000 r--p 00000000 08:01 1 /usr/bin/php85\n"
         . "7f2a1c000000-7f2a1c014000 r--p 00000000 08:01 2 /lib/ld-musl-x86_64.so.1\n";
 
@@ -69,8 +73,8 @@ final class TurboPlatformTest extends TestCase
             self::BINARY_85,
         ];
         yield 'linux musl x86_64' => [
-            new TurboPlatform(self::LINUX, self::X86_64, 'musl', self::PHP_MINOR, false),
-            'linux-musl-x86_64',
+            new TurboPlatform(self::LINUX, self::X86_64, self::MUSL, self::PHP_MINOR, false),
+            self::LINUX_MUSL_X86_64,
             self::BINARY_85,
         ];
         yield 'linux zts' => [
@@ -84,7 +88,7 @@ final class TurboPlatformTest extends TestCase
             self::BINARY_85,
         ];
         yield 'macos arm64' => [
-            new TurboPlatform(self::DARWIN, 'arm64', '', self::PHP_MINOR, false),
+            new TurboPlatform(self::DARWIN, self::ARM64, '', self::PHP_MINOR, false),
             'macos-arm64',
             self::BINARY_85,
         ];
@@ -105,7 +109,7 @@ final class TurboPlatformTest extends TestCase
         yield 'intel mac' => [new TurboPlatform(self::DARWIN, self::X86_64, '', self::PHP_MINOR, false)];
         yield 'linux on an unknown cpu' => [new TurboPlatform(self::LINUX, 'riscv64', self::GNU, self::PHP_MINOR, false)];
         yield 'linux with an unknown libc' => [new TurboPlatform(self::LINUX, self::X86_64, '', self::PHP_MINOR, false)];
-        yield 'zts mac' => [new TurboPlatform(self::DARWIN, 'arm64', '', self::PHP_MINOR, true)];
+        yield 'zts mac' => [new TurboPlatform(self::DARWIN, self::ARM64, '', self::PHP_MINOR, true)];
     }
 
     #[Test]
@@ -150,16 +154,16 @@ final class TurboPlatformTest extends TestCase
     public static function linuxProcesses(): iterable
     {
         yield 'glibc process on a host that also has musl-tools' => [self::GLIBC_MAPS, false, self::LINUX_GNU_X86_64, self::GNU];
-        yield 'musl process' => [self::MUSL_MAPS, false, 'linux-musl-x86_64', 'musl'];
+        yield 'musl process' => [self::MUSL_MAPS, false, self::LINUX_MUSL_X86_64, self::MUSL];
         yield 'the maps outrank /etc/alpine-release' => [self::GLIBC_MAPS, true, self::LINUX_GNU_X86_64, self::GNU];
-        yield 'no readable maps on Alpine' => [null, true, 'linux-musl-x86_64', 'musl'];
+        yield 'no readable maps on Alpine' => [null, true, self::LINUX_MUSL_X86_64, self::MUSL];
         yield 'no readable maps elsewhere' => [null, false, self::LINUX_GNU_X86_64, self::GNU];
     }
 
     #[Test]
     public function aProcessOutsideLinuxHasNoLibcWhateverItsMapsSay(): void
     {
-        $platform = TurboPlatform::fromProcess(self::DARWIN, 'arm64', self::MUSL_MAPS, true);
+        $platform = TurboPlatform::fromProcess(self::DARWIN, self::ARM64, self::MUSL_MAPS, true);
 
         self::assertSame('macos-arm64/' . self::CORE, $platform->corePath());
         self::assertStringNotContainsString('libc', $platform->describe());

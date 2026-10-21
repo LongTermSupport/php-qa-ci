@@ -35,8 +35,14 @@ final readonly class TurboPlatform
     /** The core every binary of a platform loads, in the binary's own directory. */
     private const string CORE_FILE = 'phpstan_turbo_core.so';
 
-    /** Where a musl host keeps its dynamic loader; a glibc host has none of these. */
-    private const string MUSL_LOADER_GLOB = '/lib/ld-musl-*.so.1';
+    /** The libraries mapped into this process, its loader among them. */
+    private const string SELF_MAPS = '/proc/self/maps';
+
+    /** How musl's loader appears in the maps; glibc's is ld-linux. */
+    private const string MUSL_LOADER = '/ld-musl-';
+
+    /** Present on Alpine, whose PHP packages are built against musl. */
+    private const string ALPINE_RELEASE = '/etc/alpine-release';
 
     /**
      * @param string $os       PHP_OS_FAMILY
@@ -55,12 +61,30 @@ final readonly class TurboPlatform
 
     public static function fromRuntime(): self
     {
+        $maps = is_readable(self::SELF_MAPS) ? \Safe\file_get_contents(self::SELF_MAPS) : null;
+
+        return self::fromProcess(\PHP_OS_FAMILY, php_uname('m'), $maps, is_file(self::ALPINE_RELEASE));
+    }
+
+    /**
+     * The running PHP's platform, its libc decided as phpstan.phar's TurboExtensionSelector
+     * decides it: musl when musl's loader is mapped into the process, not when one merely exists
+     * on disk (a glibc host with musl-tools has one). Where the maps cannot be read, Alpine is musl.
+     *
+     * @param string      $os               PHP_OS_FAMILY
+     * @param string      $machine          php_uname('m')
+     * @param string|null $selfMaps         /proc/self/maps, or null when it cannot be read
+     * @param bool        $hasAlpineRelease whether /etc/alpine-release exists
+     */
+    public static function fromProcess(string $os, string $machine, ?string $selfMaps, bool $hasAlpineRelease): self
+    {
         $libc = '';
-        if (self::LINUX === \PHP_OS_FAMILY) {
-            $libc = [] === \Safe\glob(self::MUSL_LOADER_GLOB) ? 'gnu' : 'musl';
+        if (self::LINUX === $os) {
+            $musl = null === $selfMaps ? $hasAlpineRelease : str_contains($selfMaps, self::MUSL_LOADER);
+            $libc = $musl ? 'musl' : 'gnu';
         }
 
-        return new self(\PHP_OS_FAMILY, php_uname('m'), $libc, \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, 1 === \PHP_ZTS);
+        return new self($os, $machine, $libc, \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, 1 === \PHP_ZTS);
     }
 
     /** Where phpstan.phar looks for the platform's shared core, relative to `turbo-ext/`; it loads no binary without it. */
