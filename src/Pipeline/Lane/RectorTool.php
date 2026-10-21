@@ -187,7 +187,7 @@ final readonly class RectorTool implements ToolInterface
             return ToolResultDto::passed();
         }
 
-        $stale = new StaleConfigDiagnosis($projectRoot, $cacheDir)->lines($label, $result->output, $configFile);
+        $stale = new StaleConfigDiagnosis($projectRoot, $cacheDir)->lines($label, $result->output, $configFile, $result->exitCode);
         if ([] !== $stale) {
             foreach ($stale as $line) {
                 $context->writeln($line);

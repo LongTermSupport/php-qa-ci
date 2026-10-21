@@ -25,10 +25,13 @@ namespace LTS\PHPQA\Pipeline\Lane\Rector;
 final readonly class StaleConfigDiagnosis
 {
     /** `cacheClass()` was given a class that is not a CacheStorageInterface (it may not exist at all). */
-    private const string CACHE_CLASS_REJECTED = '/Expectedaninstanceofthisclassortothisclassamongitsparents"[^"]*CacheStorageInterface"\.Got:"([^"]+)"/';
+    private const string CACHE_CLASS_REJECTED = '/\[ERROR\]Expectedaninstanceofthisclassortothisclassamongitsparents"[^"]*CacheStorageInterface"\.Got:"([^"]+)"/';
 
     /** A class name in the config, or a config it loads, does not exist. */
-    private const string CLASS_MISSING = '/Expectedanexistingclassname\.Got:"([^"]+)"/';
+    private const string CLASS_MISSING = '/\[ERROR\]Expectedanexistingclassname\.Got:"([^"]+)"/';
+
+    /** Rector's exit code for an error; a dry run with changes to make exits 2 and prints a diff, which is no error. */
+    private const int EXIT_ERROR = 1;
 
     /** A call to `cacheClass(` on a line of code. */
     private const string CACHE_CLASS_CALL = '/\bcacheClass\s*\(/';
@@ -46,13 +49,19 @@ final readonly class StaleConfigDiagnosis
     }
 
     /**
-     * The lines to print for a failed pass, or an empty list when its output is not of this kind.
+     * The lines to print for a failed pass, or an empty list when it did not fail this way. Only a
+     * pass that exited with an error is looked at, and only Rector's `[ERROR]` message counts: the
+     * diff of a pass with pending changes shows source lines, and one may quote that message.
      *
      * @return list<string>
      */
-    public function lines(string $label, string $rectorOutput, string $configFile): array
+    public function lines(string $label, string $rectorOutput, string $configFile, int $exitCode): array
     {
-        $flat  = str_replace([' ', "\t", "\r", "\n"], '', $rectorOutput);
+        if (self::EXIT_ERROR !== $exitCode) {
+            return [];
+        }
+
+        $flat  =str_replace([' ', "\t", "\r", "\n"], '', $rectorOutput);
         $class = $this->rejectedCacheClass($flat);
         if (null !== $class) {
             return $this->cacheClassLines($label, $configFile, $class);
