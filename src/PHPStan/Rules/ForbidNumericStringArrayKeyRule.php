@@ -62,10 +62,13 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
             $records  = array_merge(...$collected);
             $closures = $this->ofKind(NumericStringArrayKeyCollector::CLOSURE, ...$records);
             $bindings = $this->ofKind(NumericStringArrayKeyCollector::KEY_BINDING, ...$records);
+            $unread   = array_map($this->span(...), $this->ofKind(NumericStringArrayKeyCollector::UNREAD, ...$records));
 
             $uses = [];
             foreach ($this->ofKind(NumericStringArrayKeyCollector::USE, ...$records) as $use) {
-                $uses[$this->body($use['variable'], $use, ...$closures)][] = $use;
+                if (!\in_array($this->span($use), $unread, true)) {
+                    $uses[$this->body($use['variable'], $use, ...$closures)][] = $use;
+                }
             }
 
             $copies = [];
@@ -74,7 +77,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
             }
 
             foreach ($records as $record) {
-                if ($this->isBoundKey($record, $closures, ...$bindings)) {
+                if ($this->isBoundKey($record, $closures, ...$bindings) || \in_array($this->span($record), $unread, true)) {
                     continue;
                 }
 
@@ -108,6 +111,16 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     private function ofKind(string $kind, array ...$records): array
     {
         return array_values(array_filter($records, static fn (array $record): bool => $kind === $record['kind']));
+    }
+
+    /**
+     * Where in the file a record's node is.
+     *
+     * @param NumericStringArrayKeyRecord $record
+     */
+    private function span(array $record): string
+    {
+        return $record['start'] . ':' . $record['end'];
     }
 
     /**

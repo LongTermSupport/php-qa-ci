@@ -8,6 +8,7 @@ use LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule;
 use LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
+use PHPStan\Type\FileTypeMapper;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
@@ -108,7 +109,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::SET, 'line 131 reads its keys with array_reverse()'), 128],
                 [$this->message(self::COUNTS_LOCAL, 'line 138 assigns it to $this->byName, declared array<string, int>'), 137],
                 [$this->message(self::COUNTS_LOCAL, 'line 148 returns it as array<string, int>'), 145],
-                [$this->message('$psr4', 'line 154 asserts it array<string, string> in an inline @var over mixed'), 154],
+                [$this->message('$psr4', 'line 154 asserts it array<string, string> in an inline @var over keys PHPStan does not know'), 154],
                 [$this->message('$count', 'line 168 reads its keys with array_any()'), 165],
                 [$this->message(self::SET, 'line 180 reads its keys with foreach'), 176],
             ],
@@ -138,7 +139,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     protected function getCollectors(): array
     {
-        return [new NumericStringArrayKeyCollector(self::createReflectionProvider())];
+        return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class))];
     }
 
     private function message(string $target, string $reason): string

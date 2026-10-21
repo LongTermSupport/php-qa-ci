@@ -21,6 +21,7 @@ use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
 use PHPStan\Testing\PHPStanTestCase;
 use PHPStan\Type\Constant\ConstantStringType;
+use PHPStan\Type\FileTypeMapper;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
@@ -88,7 +89,7 @@ final class NumericStringArrayKeyCollectorTest extends PHPStanTestCase
 
     private function collector(): NumericStringArrayKeyCollector
     {
-        return new NumericStringArrayKeyCollector(self::createReflectionProvider());
+        return new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class));
     }
 
     private function scopeTyping(Type $type): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
