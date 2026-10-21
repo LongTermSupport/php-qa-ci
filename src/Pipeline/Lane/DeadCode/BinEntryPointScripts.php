@@ -4,27 +4,31 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane\DeadCode;
 
-use FilesystemIterator;
-use SplFileInfo;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 
 /**
- * The PHP scripts directly under a project's bin/ that are not declared as dead-code entry
- * points.
+ * The PHP scripts under a project's bin/ that nothing the lane's run analyses.
  *
- * A bin/ script has no `.php` suffix, so the detector reads it only when it is listed with
- * withDeadCodeEntryPoints(). One left off the list is analysed by nothing, and every member
- * only it reaches is reported dead. A file is PHP by its content: a `#!` line naming a php
- * interpreter, or a `<?php` open tag at its start. A symlink is judged by its target's content
- * and is required when that target is inside the project and outside Composer's vendor dir;
- * declaring it by its bin/ path or by its target's path both count. Not required, each with the
- * reason:
+ * The lane's PHPStan run reads its analysed directories (src/ and tests/), whose `.php` files
+ * it finds by scanning, and the declared entry points. A bin/ script with no `.php` suffix is
+ * read only when it is declared with withDeadCodeEntryPoints(); one left off the list is
+ * analysed by nothing, and every member only it reaches is reported dead. Every file under
+ * bin/ is read, at any depth and through links, and judged by the file it resolves to.
+ *
+ * A file is PHP by its content: a `#!` line naming a php interpreter, or a `<?php` open tag at
+ * its start. A PHP file is required unless the run already reads it: its real path is a
+ * declared file, or it is a `.php` file inside an analysed directory or a declared one.
+ * Declaring a link by its bin/ path or by its target's path both count. Not required, each
+ * with the reason:
  *
  * - a script in another language, which PHPStan does not read;
  * - a Composer binary proxy, which only includes a package's script;
- * - a symlink into Composer's vendor dir or out of the project: the project cannot change code
- *   it does not own, so a finding in it could not be fixed;
- * - a dangling symlink, or one to a directory, which holds no script to analyse;
- * - anything in a subdirectory of bin/, which is a tool's own tree, not an executable.
+ * - a file that resolves into Composer's vendor dir (wherever it is, bin/ included) or out of
+ *   the project: the project cannot change code it does not own, so a finding in it could not
+ *   be fixed;
+ * - a file under a withIgnoredPaths() entry, by its bin/ path or its target's: the project has
+ *   recorded that the tree is not analysed, and every lane honours that;
+ * - a dangling link, which holds no script to analyse.
  *
  * @internal
  */
@@ -51,11 +55,22 @@ final readonly class BinEntryPointScripts
     /** Composer's vendor dir when composer.json does not configure one. */
     private const string DEFAULT_VENDOR_DIR = 'vendor';
 
+    /** The only files PHPStan reads from a directory it scans (its default `fileExtensions`). */
+    private const string PHP_SUFFIX = '.php';
+
+    /** @var list<string> absolute: the directories the lane's run scans, src/ and tests/ */
+    private array $analysedDirectories;
+
+    public function __construct(private IgnoredPaths $ignored, string ...$analysedDirectories)
+    {
+        $this->analysedDirectories = array_values($analysedDirectories);
+    }
+
     /**
      * @param string $projectRoot absolute
-     * @param string ...$declared absolute paths of the declared entry points
+     * @param string ...$declared absolute paths of the declared entry points, files or directories
      *
-     * @return list<string> project-relative paths (`bin/<name>`), sorted
+     * @return list<string> project-relative paths (`bin/<path>`), sorted
      */
     public function undeclared(string $projectRoot, string ...$declared): array
     {
@@ -64,29 +79,35 @@ final readonly class BinEntryPointScripts
             return [];
         }
 
+        $root          = \Safe\realpath($projectRoot);
         $declaredFiles = [];
+        $scannedDirs   = [];
         foreach ($declared as $path) {
             if (is_file($path)) {
                 $declaredFiles[\Safe\realpath($path)] = true;
             }
         }
 
-        $root       = \Safe\realpath($projectRoot);
+        foreach ([...$this->analysedDirectories, ...$declared] as $path) {
+            if (is_dir($path)) {
+                $scannedDirs[\Safe\realpath($path)] = true;
+            }
+        }
+
         $vendorDir  = $this->vendorDir($root);
+        $visited    = [];
         $undeclared = [];
-        foreach (new FilesystemIterator($binDir, FilesystemIterator::SKIP_DOTS) as $file) {
-            if (!$file instanceof SplFileInfo) {
+        foreach ($this->filesUnder($binDir, self::BIN, $root, $projectRoot, $vendorDir, $visited) as $relative => $path) {
+            $real = \Safe\realpath($path);
+            if (!$this->isOwned($real, $root, $vendorDir)
+                || $this->ignored->contains($this->asConfigured($real, $root, $projectRoot))
+                || isset($declaredFiles[$real])
+                || $this->isScanned($real, $scannedDirs)) {
                 continue;
             }
 
-            // is_file() follows a link, so a dangling one, or one to a directory, is skipped here.
-            $path = $file->getPathname();
-            if (!is_file($path) || ($file->isLink() && !$this->linksToOwnCode($path, $root, $vendorDir))) {
-                continue;
-            }
-
-            if (!isset($declaredFiles[\Safe\realpath($path)]) && $this->isFirstPartyPhp($path)) {
-                $undeclared[] = self::BIN . '/' . $file->getFilename();
+            if ($this->isFirstPartyPhp($path)) {
+                $undeclared[] = $relative;
             }
         }
 
@@ -95,22 +116,73 @@ final readonly class BinEntryPointScripts
         return $undeclared;
     }
 
-    /** A link whose target is inside the project and outside Composer's vendor dir. */
-    private function linksToOwnCode(string $link, string $root, ?string $vendorDir): bool
+    /**
+     * Every file under $directory, through links, each directory read once by its real path.
+     * Composer's vendor dir and ignored trees are not entered; a dangling link is no file.
+     *
+     * @param array<string, true> $visited real paths of the directories already read
+     *
+     * @return array<string, string> project-relative path => absolute path
+     */
+    private function filesUnder(string $directory, string $relative, string $root, string $projectRoot, ?string $vendorDir, array &$visited): array
     {
-        $target = \Safe\realpath($link);
+        $real = \Safe\realpath($directory);
+        if (isset($visited[$real]) || $real === $vendorDir
+                                   || $this->ignored->contains($directory) || $this->ignored->contains($this->asConfigured($real, $root, $projectRoot))) {
+            return [];
+        }
 
-        return $this->isInside($target, $root) && (null === $vendorDir || !$this->isInside($target, $vendorDir));
+        $visited[$real] = true;
+        $files          = [];
+        foreach (\Safe\scandir($directory) as $entry) {
+            if (!\is_string($entry) || '.' === $entry || '..' === $entry) {
+                continue;
+            }
+
+            $path = $directory . '/' . $entry;
+            if (is_dir($path)) {
+                $files += $this->filesUnder($path, $relative . '/' . $entry, $root, $projectRoot, $vendorDir, $visited);
+            } elseif (is_file($path) && !$this->ignored->contains($path)) {
+                $files[$relative . '/' . $entry] = $path;
+            }
+        }
+
+        return $files;
+    }
+
+    /** Inside the project and outside Composer's vendor dir. */
+    private function isOwned(string $real, string $root, ?string $vendorDir): bool
+    {
+        return $this->isInside($real, $root) && (null === $vendorDir || !$this->isInside($real, $vendorDir));
+    }
+
+    /**
+     * A `.php` file inside a directory the run scans.
+     *
+     * @param array<string, true> $scannedDirs real paths
+     */
+    private function isScanned(string $real, array $scannedDirs): bool
+    {
+        if (!str_ends_with($real, self::PHP_SUFFIX)) {
+            return false;
+        }
+        return array_any(array_keys($scannedDirs), fn(string $directory): bool => $this->isInside($real, $directory));
+    }
+
+    /** A real path inside the project, spelled from the project root as configured, which is how IgnoredPaths holds it. */
+    private function asConfigured(string $real, string $root, string $projectRoot): string
+    {
+        return $this->isInside($real, $root) ? rtrim($projectRoot, '/') . substr($real, \strlen($root)) : $real;
     }
 
     private function isInside(string $path, string $directory): bool
     {
-        return str_starts_with($path, $directory . '/');
+        return str_starts_with($path, rtrim($directory, '/') . '/');
     }
 
     /**
      * Composer's `config.vendor-dir` (default `vendor`), resolved; null when it does not exist,
-     * since no link target can then be inside it.
+     * since no file can then be inside it.
      */
     private function vendorDir(string $root): ?string
     {

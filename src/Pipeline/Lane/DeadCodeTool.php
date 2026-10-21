@@ -29,8 +29,8 @@ use SplFileInfo;
  * never as a second PHAR its forked workers would share. Opt-in per project; the tests excluder is always on
  * (a member reached only from tests is dead in production) and the project's
  * PHP entry-point scripts are analysed alongside src/ and tests/. Every PHP
- * script directly under bin/ must be one of them (BinEntryPointScripts), or the
- * lane fails before running anything.
+ * script under bin/ that this run would not otherwise read must be one of them
+ * (BinEntryPointScripts), or the lane fails before running anything.
  *
  * A library's public surface is its `@api` classes, which the detector treats
  * as entry points. A library with none would have every public member
@@ -84,7 +84,9 @@ final readonly class DeadCodeTool implements ToolInterface
             return ToolResultDto::failed('no @api tag in src/; a library needs its public surface declared before dead-code detection means anything');
         }
 
-        $undeclared = new BinEntryPointScripts()->undeclared($config->paths->projectRoot, ...$config->deadCode->entryPoints);
+        $undeclared = new BinEntryPointScripts(IgnoredPaths::of($config), $config->paths->srcDir, $config->paths->testsDir)
+            ->undeclared($config->paths->projectRoot, ...$config->deadCode->entryPoints)
+        ;
         if ([] !== $undeclared) {
             $this->undeclaredGuidance($context, ...$undeclared);
             $context->writeIdentifier(self::IDENTIFIER);

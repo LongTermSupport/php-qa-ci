@@ -67,28 +67,40 @@ dead; a forgotten list is indistinguishable from an empty one, so the choice has
 
 A list that was right when written drifts as scripts are added. A script left off it is analysed
 by nothing, so its own defects are never reported and every member only it reaches is reported
-dead. Before anything runs, the lane therefore reads the files directly under the project's `bin/`
-and fails, naming each one, when a PHP script there is not among the entry points:
+dead. Before anything runs, the lane therefore reads every file under the project's `bin/`, at any
+depth and through symlinks, and fails, naming each one, when a PHP script there is one its run
+would not read:
 
 ```text
 PHP scripts under bin/ not declared as dead-code entry points:
+  bin/cron/job
   bin/worker
 ```
 
 A file is PHP by its content, never its name: a `#!` line whose interpreter is `php` (`php8.5` and
-the like, directly or through `env`), or a `<?php` open tag at its start. A symlink is judged by
-its target's content, and is required when that target is inside the project and outside
-Composer's vendor dir (`config.vendor-dir`, default `vendor`): `bin/worker` linking to
-`../scripts/worker` hides that script exactly as a regular file would. Declaring the link by its
-`bin/` path or by its target's path both count. These are not required:
+the like, directly or through `env`), or a `<?php` open tag at its start. Each file is judged by
+the file it resolves to, so `bin/worker` linking to `../scripts/worker` hides that script exactly
+as a regular file would. The run already reads a PHP file, and it is not required, when its real
+path is a declared entry point, or when it is a `.php` file inside `src/`, `tests/` or a declared
+directory: PHPStan reads only `.php` files from a directory it scans, so `bin/app` linking to
+`../src/app.php` is analysed and `bin/app` linking to `../src/app` is not. Declaring a link by its
+`bin/` path or by its target's path both count. These are not required either:
 
 - a script in another language, such as a Bash wrapper, which PHPStan does not read;
 - a Composer binary proxy (Composer writes one into `bin/` for each package binary when its
   `bin-dir` is `bin`), which only includes the package's script;
-- a symlink into the vendor dir or out of the project: the project cannot change code it does
-  not own, so a finding there could not be fixed;
-- a dangling symlink, or one to a directory, which holds no script to analyse;
-- anything in a subdirectory of `bin/`, which is a tool's own tree rather than an executable.
+- a file that resolves into Composer's vendor dir (`config.vendor-dir`, default `vendor`, wherever
+  it is, `bin/` included) or out of the project: the project cannot change code it does not own,
+  so a finding there could not be fixed;
+- a file under a `withIgnoredPaths()` entry, by its `bin/` path or its target's: the project has
+  recorded that the tree is not analysed, and every lane honours that. A tool that installs its
+  own copy under `bin/`, such as Symfony's `simple-phpunit` in `bin/.phpunit/`, is ignored this
+  way;
+- a dangling symlink, which holds no script to analyse.
+
+Every other subdirectory of `bin/` is read: a first-party `bin/cron/job` is as unanalysed as
+`bin/worker`. A symlinked directory is read once, by its real path, so a link back up the tree
+ends.
 
 `withoutDeadCodeEntryPoints()` with a PHP script under `bin/` fails the same way. The fix is to
 list the script with `withDeadCodeEntryPoints()`. Declaring it brings it into the analysis, so

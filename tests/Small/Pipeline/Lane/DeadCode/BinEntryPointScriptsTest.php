@@ -34,6 +34,8 @@ final class BinEntryPointScriptsTest extends TestCase
 
     private const string TOOL = 'bin/tool';
 
+    private const string APP = 'bin/app';
+
     private const string WORKER_TARGET = 'scripts/worker';
 
     private const string WORKER_RELATIVE = '../scripts/worker';
@@ -291,6 +293,7 @@ final class BinEntryPointScriptsTest extends TestCase
     {
         $this->project->write('bin/.phpunit/phpunit-9.6/phpunit', self::PHP_SCRIPT);
         $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
+
         $this->ignoredPaths = ['bin/.phpunit'];
 
         self::assertSame([self::CONSOLE], $this->undeclared());
@@ -326,7 +329,7 @@ final class BinEntryPointScriptsTest extends TestCase
     public function aSymlinkToAFileTheLaneAlreadyAnalysesIsNotRequired(string $target): void
     {
         $this->project->write($target, self::PHP_SCRIPT);
-        $this->link('../' . $target, 'bin/app');
+        $this->link('../' . $target, self::APP);
 
         self::assertSame([], $this->undeclared());
     }
@@ -344,9 +347,9 @@ final class BinEntryPointScriptsTest extends TestCase
     public function aSymlinkToAFileTheLaneDoesNotAnalyseIsRequired(string $target): void
     {
         $this->project->write($target, self::PHP_SCRIPT);
-        $this->link('../' . $target, 'bin/app');
+        $this->link('../' . $target, self::APP);
 
-        self::assertSame(['bin/app'], $this->undeclared());
+        self::assertSame([self::APP], $this->undeclared());
     }
 
     /** @return iterable<string, array{string}> */
