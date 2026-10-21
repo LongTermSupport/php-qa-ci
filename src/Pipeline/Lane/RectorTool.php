@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Lane\Rector\StaleConfigDiagnosis;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -164,15 +165,18 @@ final readonly class RectorTool implements ToolInterface
             $args[] = '--dry-run';
         }
 
-        // Rector caches under sys_get_temp_dir(), which two projects on one host
-        // share; with --clear-cache, concurrent runs delete each other's files.
-        // TMPDIR moves it under this project's own cache directory.
-        $tmpDir = $context->config->paths->cacheDir . '/rector';
+        // Rector's own default caches under sys_get_temp_dir(), which two projects on one host
+        // share; with --clear-cache, concurrent runs delete each other's files. The shipped
+        // configs set Rector's file cache under this directory, read from rectorCacheDir (as
+        // they read rectorIgnorePaths); TMPDIR moves anything else Rector or PHP puts in the
+        // temp directory to a sibling, because --clear-cache deletes the cache directory itself.
+        $cacheDir = $context->config->paths->cacheDir . '/rector';
+        $tmpDir   = $cacheDir . '/tmp';
         if (!is_dir($tmpDir)) {
             \Safe\mkdir($tmpDir, 0o777, true);
         }
 
-        $env = ['rectorIgnorePaths' => implode("\n", $context->config->pathsToIgnore), 'TMPDIR' => $tmpDir];
+        $env = ['rectorIgnorePaths' => implode("\n", $context->config->pathsToIgnore), 'rectorCacheDir' => $cacheDir, 'TMPDIR' => $tmpDir];
 
         $context->writeln($readOnly
             ? \sprintf("Running Rector ('%s') in read-only check mode", $label)
@@ -181,6 +185,17 @@ final readonly class RectorTool implements ToolInterface
         $result = $context->php->withoutXdebug($phar, [...$args, ...array_values($paths)], $projectRoot, $env);
         if ($result->succeeded()) {
             return ToolResultDto::passed();
+        }
+
+        $stale = new StaleConfigDiagnosis($projectRoot, $cacheDir)->lines($label, $result->output, $configFile, $result->exitCode);
+        if ([] !== $stale) {
+            foreach ($stale as $line) {
+                $context->writeln($line);
+            }
+
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::crashed(\sprintf("Rector ('%s') cannot load %s", $label, $configFile));
         }
 
         $toolName = \sprintf("Rector ('%s')", $label);

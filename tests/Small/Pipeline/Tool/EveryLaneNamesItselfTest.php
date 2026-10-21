@@ -47,6 +47,19 @@ final class EveryLaneNamesItselfTest extends TestCase
     }
 
     #[Test]
+    public function everyShippedLaneIsKeyedByItsOwnName(): void
+    {
+        $misKeyed = [];
+        foreach (ShippedTools::all() as $key => $tool) {
+            if ($key !== $tool->name()) {
+                $misKeyed[] = $key . ' => ' . $tool->name();
+            }
+        }
+
+        self::assertSame([], $misKeyed);
+    }
+
+    #[Test]
     public function aLaneWithNoImplementationOrAForeignIdentifierIsReported(): void
     {
         $shipped = [

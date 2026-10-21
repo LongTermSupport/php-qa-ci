@@ -100,7 +100,7 @@ final class PhpcpdToolTest extends TestCase
         $command = $this->factory->processes->lastSpec()->command;
         self::assertSame(
             [self::EXCLUDE, $root . '/tests/assets/', self::EXCLUDE, $root . '/src/Legacy.php', $root . '/tests', $root . '/src'],
-            \array_slice($command, 7),
+            \array_slice($command, 9),
         );
     }
 

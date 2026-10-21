@@ -161,7 +161,7 @@ final class RunningProcessesTest extends TestCase
     {
         $running = new RunningProcesses();
         $child   = new Process(
-            [\PHP_BINARY, '-r', 'pcntl_signal(SIGTERM, SIG_IGN); echo "ready\n"; fflush(STDOUT); sleep(60);'],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', '-r', 'pcntl_signal(SIGTERM, SIG_IGN); echo "ready\n"; fflush(STDOUT); sleep(60);'],
             null,
             ['XDEBUG_MODE' => 'off'],
         );
@@ -223,7 +223,7 @@ final class RunningProcessesTest extends TestCase
         $proc      = \Safe\tempnam(sys_get_temp_dir(), 'fake-proc-');
         $child     = $this->sleeper();
         $bystander = new Process(
-            [\PHP_BINARY, '-r', 'pcntl_signal(SIGTERM, SIG_IGN); echo "ready\n"; fflush(STDOUT); sleep(60);'],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', '-r', 'pcntl_signal(SIGTERM, SIG_IGN); echo "ready\n"; fflush(STDOUT); sleep(60);'],
             null,
             ['XDEBUG_MODE' => 'off'],
         );

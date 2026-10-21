@@ -139,9 +139,10 @@ final readonly class PhpStanGuardPlugin implements PluginInterface, EventSubscri
         }
 
         // Composer's own process runner: a plugin cannot rely on any dependency's
-        // functions being loaded (see ForbidNamespacedFunctionInComposerPluginRule).
+        // functions being loaded (see ForbidNamespacedFunctionInComposerPluginRule). Only stdout
+        // is captured, so a warning the phar raises goes to stderr rather than before the version.
         $output   = null;
-        $exitCode = new ProcessExecutor($io)->execute('php ' . escapeshellarg($pharPath) . ' --version', $output);
+        $exitCode = new ProcessExecutor($io)->execute('php -d display_errors=stderr ' . escapeshellarg($pharPath) . ' --version', $output);
         if (0 !== $exitCode) {
             $io->writeError('<warning>Could not determine PHPStan phar version: phpstan.phar --version failed with ' . ChildExit::describe($exitCode) . '</warning>');
 

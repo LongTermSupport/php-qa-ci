@@ -8,6 +8,7 @@ use LTS\PHPQA\ManagedSource\ManagedSourceGenerator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * Verifies the php-qa-ci managed-source generator: namespace/src resolution from
@@ -58,6 +59,17 @@ final class ManagedSourceGeneratorTest extends TestCase
 
         self::assertSame('Acme\Lib', $target['rootNamespace']);
         self::assertSame('lib', $target['srcDir'], 'first path of an array value');
+    }
+
+    /** PHP makes the key "2024" the int 2024, which is no namespace, and the mapping is not empty. */
+    public function testResolveTargetNamesAPsr4PrefixWrittenInDigits(): void
+    {
+        $composer = \Safe\json_decode('{"autoload": {"psr-4": {"2024": "src/"}}}', true);
+        self::assertIsArray($composer);
+
+        $this->expectExceptionObject(new RuntimeException('composer.json autoload.psr-4 prefix "2024" is not a namespace'));
+
+        ManagedSourceGenerator::resolveTarget($composer);
     }
 
     public function testManagedFilesRendersFactorySealedByInThePhpQaCiSubNamespace(): void

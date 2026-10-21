@@ -71,7 +71,7 @@ final class AutoloadIncludedFilesProbeTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->libraryRoot . '/bin/autoload-included-files', '--', self::AUTOLOAD],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', $paths->libraryRoot . '/bin/autoload-included-files', '--', self::AUTOLOAD],
             $spec->command,
         );
         self::assertFileExists($paths->libraryRoot . AutoloadIncludedFilesProbe::SCRIPT);

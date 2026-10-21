@@ -184,13 +184,14 @@ checks, the Twig and YAML lanes, the Markdown lanes, PHPUnit) do not read the se
 
 The settings most projects change:
 
-| To                                     | Call                                                                                                              |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Skip mutation testing                  | `withInfection(false)`                                                                                            |
-| Check another directory as well        | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the set for one run) |
-| Exclude paths from every scanning lane | `withIgnoredPaths('tests/assets')`                                                                                |
-| Raise the memory limit                 | `withMemoryLimit('8G')`                                                                                           |
-| Turn off PHPArkitect                   | `withArkitect(false)`                                                                                             |
+| To                                     | Call                                                                                                                              |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Skip mutation testing                  | `withInfection(false)`                                                                                                            |
+| Check another directory as well        | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the set for one run)                 |
+| Exclude paths from every scanning lane | `withIgnoredPaths('tests/assets')`                                                                                                |
+| Raise the memory limit                 | `withMemoryLimit('8G')`                                                                                                           |
+| Turn off PHPArkitect                   | `withArkitect(false)`                                                                                                             |
+| Keep your own packages current         | `withDependencyFreshnessPatterns('acme/*')` (adds to `lts/php-qa-ci`; see [dependencyFreshness.md](tools/dependencyFreshness.md)) |
 
 The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at

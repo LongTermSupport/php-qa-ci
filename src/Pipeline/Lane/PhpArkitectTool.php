@@ -223,7 +223,8 @@ final readonly class PhpArkitectTool implements ToolInterface
         }
 
         $locator = new ClassFileLocator($paths->srcDir);
-        $byFile  = [];
+        /** @var array<array-key, list<FileErrorDto>> $byFile */
+        $byFile = [];
         foreach ($parsed->classes as $fqcn => $violations) {
             $target = $locator->locate($fqcn) ?? $this->fallbackPath($violations[0]->message);
             foreach ($violations as $violation) {
@@ -232,7 +233,7 @@ final readonly class PhpArkitectTool implements ToolInterface
         }
 
         foreach ($byFile as $target => $violations) {
-            $writer->write(FileReportDto::forErrors($this->name(), $target, $runAt, $logPath, ...$violations));
+            $writer->write(FileReportDto::forErrors($this->name(), (string)$target, $runAt, $logPath, ...$violations));
         }
 
         $status = AgentStatusEnum::forErrorCount($parsed->violationCount());

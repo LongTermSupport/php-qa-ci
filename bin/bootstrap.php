@@ -27,6 +27,11 @@ declare(strict_types=1);
  * this file; it is used verbatim instead of the default guidance.
  */
 
+// Every entry point prints its answer on stdout, where callers capture it (a version, JSON,
+// release notes); the CLI displays errors there too unless an ini says otherwise, so they go to
+// stderr instead (phpqaci.phpWarningsInCapturedOutput).
+ini_set('display_errors', 'stderr');
+
 $phpQaCiBootstrapConsumerAutoload = __DIR__.'/../../../autoload.php';
 $phpQaCiBootstrapOwnAutoload      = __DIR__.'/../vendor/autoload.php';
 $phpQaCiBootstrapCwd              = getcwd();

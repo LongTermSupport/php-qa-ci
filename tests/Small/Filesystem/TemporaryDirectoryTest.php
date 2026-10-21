@@ -767,7 +767,8 @@ final class TemporaryDirectoryTest extends TestCase
             $directory->remove();
 
             self::assertCount(2, $directory->unremovedLeftovers);
-            foreach ($directory->unremovedLeftovers as $kept => $reason) {
+            foreach ($directory->unremovedLeftovers as $key => $reason) {
+                $kept = (string)$key;
                 self::assertSame($this->overTheWrapper($parent->path), \dirname($kept));
                 self::assertMatchesRegularExpression($this->stagingName(), basename($kept), 'moved to a fresh staging name');
                 self::assertDirectoryExists($kept . '/' . self::HELD, 'what could not be removed is still there');

@@ -187,7 +187,7 @@ final class InfectionToolTest extends TestCase
 
         $phar = $this->factory->processes->lastSpec();
         self::assertSame([
-            '/usr/bin/php', '-d', 'memory_limit=4G',
+            '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr',
             '-f', \dirname(__DIR__, 4) . '/vendor-phar/infection.phar', '--',
             '--coverage=' . $this->root . self::PHPUNIT_LOGS,
             '--skip-initial-tests',
@@ -600,7 +600,7 @@ final class InfectionToolTest extends TestCase
 
         $coverage = $this->factory->processes->specs[0];
         self::assertSame([
-            '/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->root . '/vendor/bin/phpunit', '--',
+            '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', $this->root . '/vendor/bin/phpunit', '--',
             '-c', \dirname(__DIR__, 4) . '/configDefaults/generic/phpunit.xml',
             '--coverage-xml', $this->root . '/var/qa/phpunit_logs/coverage-xml',
             '--log-junit', $this->root . '/var/qa/phpunit_logs/phpunit.junit.xml',
@@ -797,7 +797,7 @@ final class InfectionToolTest extends TestCase
             '--ignore-msi-with-no-mutations',
             self::LOG_ALL,
             $this->root . '/' . self::COMMITTED_SRC,
-        ], \array_slice($phar->command, 6), 'a diff run mutates uncovered code too and holds the MSI to the diff floor');
+        ], \array_slice($phar->command, 8), 'a diff run mutates uncovered code too and holds the MSI to the diff floor');
         self::assertTrue($phar->lowPriority);
     }
 

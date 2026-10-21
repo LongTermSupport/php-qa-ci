@@ -51,6 +51,7 @@ final class OpcacheDefectRangeTest extends TestCase
         // The same ini the opcache lane compiles with, so this measures what the lane sees.
         $process = new Process([
             \PHP_BINARY,
+            '-d', 'display_errors=stderr',
             '-d', 'opcache.enable_cli=1',
             '-d', \sprintf('opcache.optimization_level=0x%X', OpcacheDefects::DEFAULT_LEVEL),
             '-d', 'opcache.opt_debug_level=0x20000',

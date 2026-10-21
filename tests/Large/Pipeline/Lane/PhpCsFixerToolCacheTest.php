@@ -204,6 +204,8 @@ final class PhpCsFixerToolCacheTest extends TestCase
         $process = new Process(
             [
                 \PHP_BINARY,
+                '-d',
+                'display_errors=stderr',
                 $this->library . '/vendor-phar/php-cs-fixer.phar',
                 '--config=' . $this->library . '/configDefaults/generic/php_cs.php',
                 '--allow-risky=yes',

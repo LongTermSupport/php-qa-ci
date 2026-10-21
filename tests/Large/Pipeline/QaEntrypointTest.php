@@ -231,7 +231,7 @@ final class QaEntrypointTest extends TestCase
 
     private function probe(string $probe, string $bootstrap, string $cwd): string
     {
-        $process = new Process(['php', $probe, $bootstrap], $cwd, ['XDEBUG_MODE' => 'off'], null, 60);
+        $process = new Process(['php', '-d', 'display_errors=stderr', $probe, $bootstrap], $cwd, ['XDEBUG_MODE' => 'off'], null, 60);
         $process->mustRun();
 
         return $process->getOutput();

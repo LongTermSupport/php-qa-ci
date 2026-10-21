@@ -55,7 +55,7 @@ final class DiffRunScoresUncoveredCodeTest extends TestCase
         ], \JSON_UNESCAPED_SLASHES));
 
         $coverage = new Process(
-            [\PHP_BINARY, $phpunit, '-c', 'phpunit.xml', '--coverage-xml', $this->project->path . '/logs/coverage-xml', '--log-junit', $this->project->path . '/logs/phpunit.junit.xml'],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', $phpunit, '-c', 'phpunit.xml', '--coverage-xml', $this->project->path . '/logs/coverage-xml', '--log-junit', $this->project->path . '/logs/phpunit.junit.xml'],
             $this->project->path,
             ['XDEBUG_MODE' => 'coverage'],
             null,
@@ -116,7 +116,7 @@ final class DiffRunScoresUncoveredCodeTest extends TestCase
         $argv = new InfectionArguments()->diff($options, $root . '/logs', $root . '/infection.json', $root . '/src/' . $changedFile);
 
         $process = new Process(
-            [\PHP_BINARY, \Safe\realpath(self::LIBRARY . '/vendor-phar/infection.phar'), ...$argv, '--no-progress', '--no-ansi'],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', \Safe\realpath(self::LIBRARY . '/vendor-phar/infection.phar'), ...$argv, '--no-progress', '--no-ansi'],
             $root,
             ['XDEBUG_MODE' => 'off'],
             null,

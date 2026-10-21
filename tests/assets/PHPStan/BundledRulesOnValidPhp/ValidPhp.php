@@ -263,6 +263,198 @@ final class Shapes
         return $assert->assertSame('token', $plain) && empty($value) ? 'empty' : ($value ?? '');
     }
 
+    /**
+     * Keys made without an element write, in the argument shapes a key rule
+     * tends to miss: named and spread arguments, first-class callables,
+     * dynamic and anonymous iterators, unnamed and misplaced inline @var
+     * tags, yield from and a callback that asks for its arguments.
+     *
+     * @param list<string> $names
+     *
+     * @return \Generator<array-key, mixed>
+     */
+    public function arrayKeys(array $names, string $class, mixed $decoded): \Generator
+    {
+        $merged   = array_merge(...[[$class => 1], ['x' => 2]]);
+        $replaced = array_replace(array: [$class => 1], replacements: ['y' => 2]);
+        $flip     = array_flip(...);
+        $mapped   = array_map(array: [$class => 1], callback: strval(...));
+        $reversed = array_reverse(preserve_keys: true, array: $merged);
+        $sliced   = array_slice($replaced, 0, null, ...[true]);
+        $made     = iterator_to_array(new $class());
+        $anon     = iterator_to_array(new class([]) extends \ArrayIterator {});
+        $files    = iterator_to_array(new \FilesystemIterator($class, ...[\FilesystemIterator::KEY_AS_FILENAME]));
+        array_walk($merged, static function (int ...$all): void {});
+        array_any($names, static fn (): bool => [] !== \func_get_args());
+        /** @var array<string, int> */
+        $asserted = $decoded;
+        /** @var array<string, int> $decoded */
+        if (\is_array($decoded)) {
+            yield from $decoded;
+        }
+
+        foreach ($names as [$name => $value]) {
+            $counted = \count(array_keys(...[$merged])) . "{$name}" . $value . compact('name');
+        }
+
+        yield from [$flip, $mapped, $reversed, $sliced, $made, $anon, $files, $asserted, $counted ?? ''];
+    }
+
+    /**
+     * Arrays handed on in the shapes a key rule follows: references, static,
+     * global and $GLOBALS, yield, operators and branches, destructuring under
+     * an inline @var, ArrayObject, a method generic in its keys, a
+     * by-reference parameter, a variable variable and a goto.
+     *
+     * @param list<array{string, mixed}> $rows
+     * @param array<string, int>         $out
+     *
+     * @return \Generator<int, array<array-key, int>, mixed, array<array-key, int>>
+     */
+    public function handedOn(array $rows, string $name, bool $c, array &$out): \Generator
+    {
+        static $cache = [];
+        global $registry;
+        $cache[$name]               = 1;
+        $registry[$name]            = 1;
+        $GLOBALS['registry'][$name] = 1;
+        $map                        = [];
+        $alias                      = &$map;
+        $alias[$name]               = 1;
+        $map += [$name => 2];
+        $map['x'] ??= 3;
+        $picked = match ($c) {
+            true    => $map + $cache,
+            default => $c ? [$name => 1] : (array) $out,
+        };
+        foreach ($rows as &$row) {
+            $row[0] .= $name;
+        }
+
+        unset($row);
+        /** @var array<string, int> $decoded */
+        [$first, $decoded] = $rows[0] ?? ['', []];
+        $object            = new \ArrayObject($map);
+        $kept              = $this->kept($picked);
+        $out[$name]        = \count($object->getArrayCopy()) + \count($kept);
+        $variable          = 'name';
+        $out[$$variable]   = 1;
+        $chunks            = array_chunk($map, 2, true);
+        $encoded           = json_encode($map, \JSON_FORCE_OBJECT) . http_build_query($map, 'p_') . $first;
+        array_multisort($map);
+
+        yield [$name => 1];
+        yield $map;
+
+        return [$encoded => \count($chunks)] + (\is_array($decoded) ? $decoded : []);
+    }
+
+    /**
+     * A variable overwritten in each kind of statement list, before an
+     * inline @var on it.
+     */
+    public function overwritten(string $json, int $c): int
+    {
+        $map = json_decode($json, true);
+        if (0 === $c) {
+            $map = ['a' => 1];
+        } elseif (1 === $c) {
+            return 0;
+        } else {
+            $map = ['b' => 2];
+        }
+
+        switch ($c) {
+            case 2:
+                $map = ['c' => 3];
+
+                break;
+
+            default:
+                $map = ['d' => 4];
+        }
+
+        try {
+            $map = ['e' => 5];
+        } catch (\RuntimeException $exception) {
+            $map = [$exception->getMessage() => 6];
+        } finally {
+            $c = 7;
+        }
+
+        while ($c < 9) {
+            {
+                $map = ['f' => $c];
+            }
+            ++$c;
+        }
+
+        do {
+            $map = ['g' => $c];
+        } while ($c-- > 9);
+
+        /** @var array<string, int> $map */
+        return \count($map);
+    }
+
+    public function opaque(string $name): int
+    {
+        $map = [];
+        again:
+        $map[$name] = 1;
+        if ([] === $map) {
+            goto again;
+        }
+
+        return \count($map);
+    }
+
+    /**
+     * @template K of array-key
+     *
+     * @param array<K, int> $map
+     *
+     * @return array<K, int>
+     */
+    private function kept(array $map): array
+    {
+        return $map;
+    }
+
+    /**
+     * A build constant at the top of a file's shapes and in every position whose parent the
+     * build-constant rule inspects: a dynamic call, a first-class callable, spread and named
+     * arguments, a method argument, a short ternary, a switch with a default, a for condition
+     * and a match arm.
+     */
+    public function buildConstants(callable $call, Target $target): string
+    {
+        $dynamic  = $call(\PHP_ZTS);
+        $callable = \boolval(...);
+        $spread   = \intval(...[\PHP_DEBUG]);
+        $named    = \boolval(value: \PHP_ZTS);
+        $short    = \PHP_ZTS ?: \PHP_DEBUG;
+
+        for ($index = 0; \PHP_DEBUG && $index < 1; ++$index) {
+            $target->next = null;
+        }
+
+        switch (\PHP_ZTS) {
+            case 1:
+                $label = 'zts';
+
+                break;
+
+            default:
+                $label = match (\PHP_DEBUG) {
+                    \PHP_ZTS => 'same',
+                    default  => 'other',
+                };
+        }
+
+        return $label . $target->run((string)\PHP_ZTS) . \gettype([$dynamic, $callable, $spread, $named, $short]);
+    }
+
     private function nullable(): ?Target
     {
         return 0 === random_int(0, 1) ? new Target() : null;

@@ -60,7 +60,7 @@ final readonly class FixtureConsumer
     public function qa(array $env, string ...$args): Process
     {
         return new Process(
-            ['php', $this->dir->path . '/' . self::INSTALLED_LIBRARY . '/bin/qa', ...$args],
+            ['php', '-d', 'display_errors=stderr', $this->dir->path . '/' . self::INSTALLED_LIBRARY . '/bin/qa', ...$args],
             $this->dir->path,
             ChildEnvironment::withoutXdebug(['CI' => 'true', ...$env]),
             null,

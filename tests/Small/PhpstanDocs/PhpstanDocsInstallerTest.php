@@ -185,12 +185,12 @@ final class PhpstanDocsInstallerTest extends TestCase
      * in errorsIdentifiers.json, a page for those marked true, and the agent
      * notes file the upstream directory also holds.
      *
-     * @param array<string, bool> $identifiers
+     * @param array<array-key, bool> $identifiers
      */
     private function fetcher(array $identifiers): PhpstanDocsFetcherInterface
     {
         return new readonly class($identifiers) implements PhpstanDocsFetcherInterface {
-            /** @param array<string, bool> $identifiers */
+            /** @param array<array-key, bool> $identifiers */
             public function __construct(private array $identifiers)
             {
             }

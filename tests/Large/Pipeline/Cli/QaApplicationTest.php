@@ -121,8 +121,16 @@ final class QaApplicationTest extends TestCase
         $this->fakePhp    = $this->consumer->write('fakephp/php', <<<'SH'
             #!/bin/sh
             dir=$(dirname "$0")
-            printf '%s\n' "$2" >> "$dir/calls.log"
-            case "$2" in
+            code=
+            previous=
+            for argument in "$@"; do
+              if [ "$previous" = -r ]; then
+                code=$argument
+              fi
+              previous=$argument
+            done
+            printf '%s\n' "$code" >> "$dir/calls.log"
+            case "$code" in
               *xdebug*) answer=xdebug ;;
               *PHP_VERSION*) answer=version ;;
               *opcache.jit*) answer=jit ;;
