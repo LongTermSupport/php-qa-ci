@@ -28,6 +28,22 @@ final class StaleConfigDiagnosisTest extends TestCase
 
     private const string CLASS_MISSING = "\n [ERROR] Expected an existing class name. Got: \"Rector\\Gone\\GoneRector\"         \n\n";
 
+    /** Rector's exit code for an error: a config or a class it cannot use. */
+    private const int EXIT_ERROR = 1;
+
+    /** Rector's exit code for a dry run that found changes to make. */
+    private const int EXIT_PENDING_CHANGES = 2;
+
+    /** A pending-change diff whose context lines quote Rector's own Assert messages in a source comment. */
+    private const string DIFF_QUOTING_THE_MESSAGES = "\n1) src/Probe.php:7\n\n    ---------- begin diff ----------\n"
+        . "@@ @@\n"
+        . "     // Rector says: Expected an existing class name. Got: \"Foo\"\n"
+        . "     // and: Expected an instance of this class or to this class among its parents\n"
+        . "     // \"Rector\\Caching\\Contract\\ValueObject\\Storage\\CacheStorageInterface\". Got: \"Foo\"\n"
+        . "-    if (0 === strpos(\$a, 'x')) {\n"
+        . "+    if (str_starts_with(\$a, 'x')) {\n"
+        . "    ----------- end diff -----------\n\n";
+
     private TempDir $project;
 
     protected function setUp(): void
@@ -53,7 +69,7 @@ final class StaleConfigDiagnosisTest extends TestCase
                 "Remove the cacheClass(...) call. The shipped cache setting applies: Rector's FileCacheStorage, kept under var/qa/cache/rector, exported to the config as rectorCacheDir.",
                 'Why and how: docs/tools/rector.md in php-qa-ci, "A project config that sets its own cache".',
             ],
-            $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config),
+            $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR),
         );
     }
 
@@ -63,7 +79,7 @@ final class StaleConfigDiagnosisTest extends TestCase
         $config  = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(MemoryCacheStorage::class);\n");
         $wrapped = str_replace(['Storage\Memory', 'Contract\Value'], ["Storage\\Mem\n         ory", "Contract\\\n         Value"], self::CACHE_REJECTED);
 
-        $lines = $this->diagnosis()->lines(self::LABEL, $wrapped, $config);
+        $lines = $this->diagnosis()->lines(self::LABEL, $wrapped, $config, self::EXIT_ERROR);
 
         self::assertStringContainsString('"Rector\Caching\ValueObject\Storage\MemoryCacheStorage"', $lines[2]);
     }
@@ -81,7 +97,7 @@ final class StaleConfigDiagnosisTest extends TestCase
             '',
         ]));
 
-        $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $this->project->path . '/rector.php');
+        $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $this->project->path . '/rector.php', self::EXIT_ERROR);
 
         self::assertSame('  rector.php:5: $c->cacheClass(One::class);', $lines[1]);
         self::assertSame('  rector.php:6: $c->cacheClass (Two::class);', $lines[2]);
@@ -94,7 +110,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     {
         $config = $this->project->write(self::CONFIG, "<?php\n" . str_repeat("\$c->cacheClass(X::class);\n", 8));
 
-        $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config);
+        $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR);
 
         self::assertCount(5 + 4, $lines);
     }
@@ -104,7 +120,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     {
         $config = $this->project->write('qaConfig/rector.php', "<?php\n\nrequire __DIR__ . '/shared.php';\n");
 
-        $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config);
+        $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR);
 
         self::assertSame('  No cacheClass(...) call is in qaConfig/rector.php; look in the files it includes.', $lines[1]);
         self::assertStringStartsWith('Remove the cacheClass(...) call.', $lines[3]);
@@ -117,7 +133,7 @@ final class StaleConfigDiagnosisTest extends TestCase
         $config = $other->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
 
         try {
-            $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config);
+            $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR);
         } finally {
             $other->remove();
         }
@@ -140,7 +156,7 @@ final class StaleConfigDiagnosisTest extends TestCase
                 'Remove the reference or replace it with what the bundled Rector offers instead.',
                 'Why and how: docs/tools/rector.md in php-qa-ci, "A project config that sets its own cache".',
             ],
-            $this->diagnosis()->lines(self::LABEL, self::CLASS_MISSING, $config),
+            $this->diagnosis()->lines(self::LABEL, self::CLASS_MISSING, $config, self::EXIT_ERROR),
         );
     }
 
@@ -149,7 +165,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     {
         $config = $this->project->write(self::CONFIG, "<?php\n\$c->rule(Gone::class);\n");
 
-        $lines = $this->diagnosis()->lines(self::LABEL, "[ERROR] Expected an existing class name. Got: \"Gone\"\n", $config);
+        $lines = $this->diagnosis()->lines(self::LABEL, "[ERROR] Expected an existing class name. Got: \"Gone\"\n", $config, self::EXIT_ERROR);
 
         self::assertSame('  rector.php:2: $c->rule(Gone::class);', $lines[1]);
     }
@@ -157,7 +173,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function aConfigThatIsNotThereIsDiagnosedWithoutQuotedLines(): void
     {
-        $lines = $this->diagnosis()->lines(self::LABEL, self::CLASS_MISSING, $this->project->path . '/absent.php');
+        $lines = $this->diagnosis()->lines(self::LABEL, self::CLASS_MISSING, $this->project->path . '/absent.php', self::EXIT_ERROR);
 
         self::assertCount(4, $lines);
         self::assertStringContainsString('which does not exist.', $lines[0]);
@@ -168,9 +184,43 @@ final class StaleConfigDiagnosisTest extends TestCase
     {
         $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
 
-        self::assertSame([], $this->diagnosis()->lines(self::LABEL, " [ERROR] Undefined constant GONE\n", $config));
-        self::assertSame([], $this->diagnosis()->lines(self::LABEL, '', $config));
-        self::assertSame([], $this->diagnosis()->lines(self::LABEL, ' [OK] Rector is done!', $config));
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, " [ERROR] Undefined constant GONE\n", $config, self::EXIT_ERROR));
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, '', $config, self::EXIT_ERROR));
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, ' [OK] Rector is done!', $config, self::EXIT_ERROR));
+    }
+
+    #[Test]
+    public function aPendingChangeDiffThatQuotesTheMessagesIsNotDiagnosed(): void
+    {
+        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES, $config, self::EXIT_PENDING_CHANGES));
+    }
+
+    #[Test]
+    public function anErrorExitWhoseOutputOnlyQuotesTheMessagesOutsideRectorsErrorBlockIsNotDiagnosed(): void
+    {
+        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES, $config, self::EXIT_ERROR));
+    }
+
+    #[Test]
+    public function aPendingChangeExitIsNeverDiagnosedEvenWhenTheErrorMarkerIsQuoted(): void
+    {
+        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES . self::CLASS_MISSING, $config, self::EXIT_PENDING_CHANGES));
+    }
+
+    #[Test]
+    public function aGenuineErrorAfterADiffIsStillDiagnosed(): void
+    {
+        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+
+        $lines = $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES . self::CACHE_REJECTED, $config, self::EXIT_ERROR);
+
+        self::assertStringContainsString('"Rector\Caching\ValueObject\Storage\MemoryCacheStorage"', $lines[2]);
     }
 
     private function diagnosis(): StaleConfigDiagnosis

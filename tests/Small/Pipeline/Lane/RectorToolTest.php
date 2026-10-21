@@ -283,6 +283,27 @@ final class RectorToolTest extends TestCase
     }
 
     #[Test]
+    public function aPendingChangeDiffThatQuotesRectorsMessageIsStillPendingChangesNotAStaleConfig(): void
+    {
+        $this->factory->project->write(self::QA_CONFIG_RECTOR, $this->memoryCacheConfig());
+        $diff = "\n1) src/Probe.php:7\n\n    ---------- begin diff ----------\n"
+            . "@@ @@\n"
+            . "     // Rector says: Expected an existing class name. Got: \"Foo\"\n"
+            . "-    if (0 === strpos(\$a, 'x')) {\n"
+            . "+    if (str_starts_with(\$a, 'x')) {\n"
+            . "    ----------- end diff -----------\n\n";
+        $this->factory->processes->willFail(2, $diff);
+
+        $result  = new RectorTool()->run($this->context(readOnly: true));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString('pending changes in a READ-ONLY run', $printed);
+        self::assertStringNotContainsString('cannot load', $printed);
+        self::assertStringNotContainsString('Remove the cacheClass(...) call', $printed);
+    }
+
+    #[Test]
     public function eachPassGetsAProjectOwnedTempDirectorySoConcurrentProjectsDoNotShareRectorsCache(): void
     {
         $this->queuePasses(0, 0, 0);

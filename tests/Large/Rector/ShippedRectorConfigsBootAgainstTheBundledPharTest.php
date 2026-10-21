@@ -162,6 +162,43 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
     }
 
+    /**
+     * Rector prints a pending change's diff with its context lines, so a source comment that quotes
+     * Rector's own Assert message appears in the output of a run that has nothing wrong with its config.
+     */
+    #[Test]
+    public function aPendingChangeNearACommentQuotingRectorsMessageIsReportedAsPendingChanges(): void
+    {
+        $this->project->write('qaConfig/rector.php', \Safe\file_get_contents(self::LIBRARY . '/configDefaults/generic/rector-php85.php'));
+        $this->project->write('src/Probe.php', implode("\n", [
+            '<?php',
+            '',
+            'declare(strict_types=1);',
+            '',
+            'namespace Probe;',
+            '',
+            'final class Probe',
+            '{',
+            '    public function starts(string $a): bool',
+            '    {',
+            '        // Rector says: Expected an existing class name. Got: "Foo"',
+            '        // and: Expected an instance of this class or to this class among its parents',
+            '        // "Rector\Caching\Contract\ValueObject\Storage\CacheStorageInterface". Got: "Foo"',
+            '        return 0 === strpos($a, \'x\');',
+            '    }',
+            '}',
+            '',
+        ]));
+
+        $output  = new BufferedOutput();
+        $result  = new RectorTool()->run(RealLaneContext::over($this->project->path, true, $output));
+        $printed = $output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome, $printed);
+        self::assertStringContainsString('pending changes in a READ-ONLY run', $printed);
+        self::assertStringNotContainsString('cannot load', $printed);
+    }
+
     private function rector(string $config): Process
     {
         $process = new Process(
