@@ -152,7 +152,7 @@ PYTHON_DAEMON_CONFIG
     BLOCKER_RC=0
     "${PHP_BINARY:-php}" "$QACI_PATH/bin/hooks-daemon-full-qa-blocker" "$PROJECT_ROOT" "$DAEMON_CONFIG" || BLOCKER_RC=$?
     if [[ $BLOCKER_RC -ne 0 ]]; then
-        echo "  ⚠️  subagent_full_qa_blocker step failed with $("${PHP_BINARY:-php}" "$QACI_PATH/bin/describe-exit" "$BLOCKER_RC") — continuing deployment" >&2
+        echo "  ⚠️  subagent_full_qa_blocker step failed with $("${PHP_BINARY:-php}" "$QACI_PATH/bin/describe-exit" --php-qa-ci-helper "$BLOCKER_RC") — continuing deployment" >&2
     fi
 
     # ========================================================================

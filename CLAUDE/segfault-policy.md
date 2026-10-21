@@ -10,6 +10,9 @@ This holds wherever it appears: a test run, a QA lane, an Infection mutant, a CL
 script, FPM under load, CI. It holds for exit 139 and for any `segfault at …` line in
 the kernel log, even when the surrounding command reported success.
 
+The consumer-facing version, which a segfault message points at when the program that
+crashed is not one of php-qa-ci's own helpers, is [docs/segfaults.md](../docs/segfaults.md).
+
 ## The procedure
 
 1. **HALT.** Stop the work in flight. Do not retry, do not re-run to see if it

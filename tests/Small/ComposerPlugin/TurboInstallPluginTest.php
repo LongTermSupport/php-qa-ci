@@ -116,16 +116,18 @@ final class TurboInstallPluginTest extends TestCase
             ],
             $err,
         );
-        self::assertSame($this->stateCommand(), ProcessExecutor::$commands[1] ?? null, 'the state check is the installer\'s own, in state mode');
+        self::assertSame($this->stateCommand(), ProcessExecutor::$commands[1] ?? null, "the state check is the installer's own, in state mode");
     }
 
     /** A state check that fails too leaves the state unknown, and the line says how to look. */
     #[Test]
     public function aStateCheckThatFailsSaysWhatTheInstallLeftIsUnknownAndHowToCheck(): void
     {
+        $err = $this->installExitingWith(143, [255, '']);
+
         self::assertSame(
             '<comment>php-qa-ci: what the killed install left on disk is unknown, because checking it failed with exit code 255. Run ' . $this->stateCommand() . ' to see whether phpstan.phar will load a Turbo binary that nothing vouches for</comment>',
-            $this->installExitingWith(143, [255, ''])[1] ?? null,
+            $err[1] ?? null,
         );
     }
 

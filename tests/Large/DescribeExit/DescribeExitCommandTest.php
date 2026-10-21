@@ -27,7 +27,7 @@ final class DescribeExitCommandTest extends TestCase
 
     private const string COMMAND = self::REPO_ROOT . '/bin/describe-exit';
 
-    private const string KILLED_BY_SIGSEGV = "exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to ";
+    private const string KILLED_BY_SIGSEGV = 'exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to ';
 
     #[Test]
     public function aSegfaultInAProgramOfYourOwnPointsAtTheSegfaultGuide(): void
@@ -47,14 +47,15 @@ final class DescribeExitCommandTest extends TestCase
         );
     }
 
+    /** Every refused command line is enumerated in ChildExitTest; these are two of them. */
     #[Test]
     public function anyOtherArgumentsAreAUsageError(): void
     {
-        foreach ([[], ['--php-qa-ci-helper'], ['256'], ['--other', '139'], ['139', '--php-qa-ci-helper']] as $arguments) {
+        foreach ([[], ['--other', '1']] as $arguments) {
             $process = $this->describe(...$arguments);
 
             self::assertSame(2, $process->getExitCode(), implode(' ', $arguments));
-            self::assertSame("Usage: bin/describe-exit [--php-qa-ci-helper] <exit code 0-255>\n", $process->getErrorOutput());
+            self::assertSame("Usage: bin/describe-exit [--php-qa-ci-helper] <exit code 0-255>\n", $process->getErrorOutput(), implode(' ', $arguments));
         }
     }
 
