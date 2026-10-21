@@ -248,3 +248,7 @@ services:
         class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector
         tags:
             - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector
+        tags:
+            - phpstan.collector

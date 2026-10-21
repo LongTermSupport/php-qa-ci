@@ -103,8 +103,8 @@ final class ReportableHandedOn
     public function readFromAGlobal(): void
     {
         global $registry;
-        foreach ($registry as $key => $_) {
-            $this->takes($key);
+        if (\is_array($registry)) {
+            $this->takesMap($registry);
         }
     }
 
@@ -184,6 +184,11 @@ final class ReportableHandedOn
     }
 
     private function takes(string $name): void
+    {
+    }
+
+    /** @param array<string, int> $map */
+    private function takesMap(array $map): void
     {
     }
 }

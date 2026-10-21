@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule;
 use LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector;
+use LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
 use PHPStan\Type\FileTypeMapper;
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
  */
 #[CoversClass(ForbidNumericStringArrayKeyRule::class)]
 #[CoversClass(NumericStringArrayKeyCollector::class)]
+#[CoversClass(NumericStringArrayKeyWritesCollector::class)]
 #[Medium]
 final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 {
@@ -59,11 +61,9 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     private const string MAP = '$map';
 
-    private const string MAP_LOCAL = self::MAP;
-
     private const string ITERATED = 'The result of iterator_to_array()';
 
-    private const string REGISTRY_READ = 'line 106 reads its keys with foreach';
+    private const string REGISTRY_READ = 'line 107 passes it to takesMap() as array<string, int>';
 
     /** The fixture is loaded first so its classes are known to the reflection provider, as autoloaded classes are. */
     #[Test]
@@ -133,7 +133,6 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::COUNTS_LOCAL, 'line 193 returns it as list<array<string, int>>'), 191],
                 [$this->message(self::COUNTS_LOCAL, 'line 202 yields its keys with yield from'), 200],
                 [$this->message('$decoded', 'line 213 asserts it array<string, mixed> in an inline @var over keys PHPStan does not know'), 213],
-                [$this->message('$byName', 'line 225 asserts it array<string, int> in an inline @var over keys PHPStan does not know'), 225],
             ],
         );
     }
@@ -285,7 +284,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     protected function getCollectors(): array
     {
-        return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class))];
+        return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class)), new NumericStringArrayKeyWritesCollector()];
     }
 
     private function asserted(int $line, string $type): string

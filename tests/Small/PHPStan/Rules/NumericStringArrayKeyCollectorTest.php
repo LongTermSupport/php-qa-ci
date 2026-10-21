@@ -59,9 +59,8 @@ final class NumericStringArrayKeyCollectorTest extends PHPStanTestCase
     {
         $write = new Assign(new ArrayDimFetch(new ArrayDimFetch(new Variable(self::MAP), new Variable('a')), new Variable('b')), new String_('x'));
 
-        $records = $this->collector()->processNode($write, $this->scopeTyping(new StringType()));
+        $records = $this->writes($this->collector()->processNode($write, $this->scopeTyping(new StringType())));
 
-        self::assertNotNull($records);
         self::assertSame([[0], [1]], array_column($records, 'depths'));
         self::assertSame(['$map', '$map[…]'], array_column($records, 'text'));
     }
@@ -72,10 +71,10 @@ final class NumericStringArrayKeyCollectorTest extends PHPStanTestCase
         $collector = $this->collector();
         $write     = new Assign(new ArrayDimFetch(new Variable(self::MAP), new Variable('key')), new String_('x'));
 
-        self::assertNull($collector->processNode($write, $this->scopeTyping(new IntegerType())));
-        self::assertNull($collector->processNode($write, $this->scopeTyping(new ConstantStringType('2024'))));
-        self::assertNull($collector->processNode($write, $this->scopeTyping(new ConstantStringType('src'))));
-        self::assertNull($collector->processNode(new Assign(new ArrayDimFetch(new Variable(self::MAP)), new String_('x')), $this->scopeTyping(new StringType())));
+        self::assertSame([], $this->writes($collector->processNode($write, $this->scopeTyping(new IntegerType()))));
+        self::assertSame([], $this->writes($collector->processNode($write, $this->scopeTyping(new ConstantStringType('2024')))));
+        self::assertSame([], $this->writes($collector->processNode($write, $this->scopeTyping(new ConstantStringType('src')))));
+        self::assertSame([], $this->writes($collector->processNode(new Assign(new ArrayDimFetch(new Variable(self::MAP)), new String_('x')), $this->scopeTyping(new StringType()))));
     }
 
     #[Test]
@@ -85,6 +84,18 @@ final class NumericStringArrayKeyCollectorTest extends PHPStanTestCase
 
         self::assertNull($this->collector()->processNode($callable, $this->scopeTyping(new StringType())));
         self::assertNull($this->collector()->processNode(new Arg(new Variable(self::MAP)), $this->scopeTyping(new StringType())));
+    }
+
+    /**
+     * The WRITE records among what the collector gave, leaving out what PHPStan knew of the variable written.
+     *
+     * @param list<array{kind: string, depths: list<int>, text: string}>|null $records
+     *
+     * @return list<array{kind: string, depths: list<int>, text: string}>
+     */
+    private function writes(?array $records): array
+    {
+        return array_values(array_filter($records ?? [], static fn (array $record): bool => NumericStringArrayKeyCollector::WRITE === $record['kind']));
     }
 
     private function collector(): NumericStringArrayKeyCollector
