@@ -116,6 +116,10 @@ expects; `php vendor-phar/phpstan.phar diagnose` reports one that is not as `ina
   non-zero, and its `ERROR:` line is followed by what it left: either no binary beside its core,
   so PHPStan runs without Turbo, or a `WARNING:` that `phpstan.phar` may still load the binary
   named there, which the install could not vouch for. Delete that binary to run without Turbo.
+  An install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
+  Composer plugin then runs `bin/turbo-install state`, a read-only check of the same thing, and
+  relays its answer; if the check fails too, it says what the install left is unknown and gives
+  the command to run.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
   (see [PHAR verification](../pipeline.md#2-preparation)).

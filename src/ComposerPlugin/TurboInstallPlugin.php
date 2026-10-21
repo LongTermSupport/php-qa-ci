@@ -25,7 +25,8 @@ use Composer\Util\ProcessExecutor;
  * A failure is reported, never thrown: Turbo only speeds PHPStan up, so a failed install must not
  * fail the project's install. Some failures leave a binary phpstan.phar still loads, so the
  * report claims only the failure and how the installer ended; the installer's own output says
- * what it left in place.
+ * what it left in place. An installer killed by a signal says nothing, so the plugin then runs
+ * the installer's read-only `state` check and relays what it says is on disk.
  *
  * @api Composer is the caller: it constructs the plugin and invokes the
  *      PluginInterface methods and the subscribed event handlers.
@@ -80,14 +81,37 @@ final readonly class TurboInstallPlugin implements PluginInterface, EventSubscri
             return;
         }
 
-        $command  = escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($installer) . ' install';
-        $exitCode = new ProcessExecutor($io)->execute($command);
+        $executor = new ProcessExecutor($io);
+        $command  = escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($installer);
+        $exitCode = $executor->execute($command . ' install');
         if (0 === $exitCode) {
             return;
         }
 
-        // A killed installer printed nothing about its death, so there is no output to point at.
-        $pointer = ChildExit::killedBySignal($exitCode) ? '' : "; the installer's output above says what happened";
-        $io->writeError('<comment>php-qa-ci: the PHPStan Turbo install failed with ' . ChildExit::describe($exitCode) . $pointer . '</comment>');
+        $failed = '<comment>php-qa-ci: the PHPStan Turbo install failed with ' . ChildExit::describePhpQaCiHelper($exitCode);
+        if (!ChildExit::killedBySignal($exitCode)) {
+            $io->writeError($failed . "; the installer's output above says what happened</comment>");
+
+            return;
+        }
+
+        // A killed installer printed nothing, not even what it left on disk, which can be a binary
+        // beside its core that nothing vouches for; the installer's read-only state check says.
+        $io->writeError($failed . '</comment>');
+        $io->writeError('<comment>php-qa-ci: ' . $this->whatTheInstallLeft($executor, $command . ' state') . '</comment>');
+    }
+
+    private function whatTheInstallLeft(ProcessExecutor $executor, string $stateCheck): string
+    {
+        $output   = null;
+        $exitCode = $executor->execute($stateCheck, $output);
+        $state    = trim(\is_string($output) ? $output : '');
+        if (0 === $exitCode && '' !== $state) {
+            return 'what the killed install left on disk: ' . $state;
+        }
+
+        $why = 0 === $exitCode ? 'printed nothing' : 'failed with ' . ChildExit::describePhpQaCiHelper($exitCode);
+
+        return 'what the killed install left on disk is unknown, because checking it ' . $why . '. Run ' . $stateCheck . ' to see whether phpstan.phar will load a Turbo binary that nothing vouches for';
     }
 }
