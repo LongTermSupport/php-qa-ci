@@ -162,6 +162,49 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO, $this->errors->fetch());
     }
 
+    /**
+     * phpstan.phar loads whatever binary it finds beside a core, stamped or not, so an earlier pair
+     * left in place is loaded on the next run: the warning is true only once the binary is gone.
+     */
+    #[Test]
+    public function aFailedDownloadRemovesAnEarlierBinarySoPhpstanRunsWithoutTurbo(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(self::BINARY, 'a binary an earlier release installed');
+        $this->library->write(self::CORE, 'a core an earlier release installed');
+        $this->library->write(self::STAMP, "the stamp of an earlier release\n");
+
+        self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame(self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO, $this->errors->fetch());
+        self::assertSame(['phpstan_turbo_core.so'], $this->platformDirectory(), 'the earlier binary and its stamp are still there, so PHPStan still loads it');
+    }
+
+    /** A killed install can place the pair and not the stamp; nothing then vouches for the binary. */
+    #[Test]
+    public function aFailedDownloadRemovesABinaryNoStampVouchesFor(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(self::BINARY, 'a binary a killed install placed');
+        $this->library->write(self::CORE, 'the core a killed install placed');
+
+        self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame(['phpstan_turbo_core.so'], $this->platformDirectory(), 'the unstamped binary is still there, so PHPStan still loads it');
+    }
+
+    #[Test]
+    public function aDownloadWhoseDigestDiffersRemovesAnEarlierBinary(): void
+    {
+        $this->writeManifest([...$this->digests(), self::BINARY_PATH => str_repeat('0', 64)]);
+        $this->library->write(self::BINARY, 'a binary an earlier release installed');
+        $this->library->write(self::CORE, 'a core an earlier release installed');
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame(['phpstan_turbo_core.so'], $this->platformDirectory(), 'the earlier binary is still there, so PHPStan still loads it');
+    }
+
     #[Test]
     public function aHostUpstreamBuildsNothingForSucceedsSayingSo(): void
     {
