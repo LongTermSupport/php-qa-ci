@@ -7,6 +7,8 @@ namespace LTS\PHPQA\Tests\Small\ComposerPlugin;
 use Composer\Composer;
 use Composer\Config;
 use Composer\Script\Event;
+use Composer\Util\ProcessExecutor;
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\ComposerPlugin\TurboInstallPlugin;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\CapturingIO;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\FakeRootPackage;
@@ -14,6 +16,7 @@ use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,6 +28,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(TurboInstallPlugin::class)]
+#[UsesClass(ChildExit::class)]
 #[Small]
 final class TurboInstallPluginTest extends TestCase
 {
@@ -33,6 +37,11 @@ final class TurboInstallPluginTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         require_once __DIR__ . '/../../assets/ComposerPlugin/composer-stubs.php';
+    }
+
+    protected function tearDown(): void
+    {
+        ProcessExecutor::$exitCode = 1;
     }
 
     #[Test]
@@ -50,25 +59,33 @@ final class TurboInstallPluginTest extends TestCase
     /**
      * Some failures leave a binary phpstan.phar still loads, so the plugin cannot know whether
      * PHPStan runs without Turbo; only the installer's own lines can say what it left in place.
-     * The stub ProcessExecutor reports every command as failed.
      */
     #[Test]
     public function aFailedInstallIsReportedWithoutClaimingWhatPhpstanLoads(): void
     {
-        $vendor = TempDir::create('turbo-plugin-vendor');
-
-        try {
-            $vendor->write('lts/php-qa-ci/bin/turbo-install', '<?php');
-            $io = new CapturingIO();
-            new TurboInstallPlugin()->installTurbo(new Event(new Composer(new Config(['vendor-dir' => $vendor->path]), new FakeRootPackage()), $io));
-        } finally {
-            $vendor->remove();
-        }
-
         self::assertSame(
-            ["<comment>php-qa-ci: the PHPStan Turbo install failed; the installer's output above says what happened</comment>"],
-            $io->err,
+            ["<comment>php-qa-ci: the PHPStan Turbo install failed with exit code 1; the installer's output above says what happened</comment>"],
+            $this->installExitingWith(1),
         );
+    }
+
+    /**
+     * A killed installer prints nothing about its death, so the line names the signal and points
+     * at no output; a segfault is named as one, to be reported, and the install still goes on.
+     */
+    #[Test]
+    public function anInstallerKilledByASignalIsReportedByItsSignal(): void
+    {
+        self::assertSame(
+            ['<comment>php-qa-ci: the PHPStan Turbo install failed with exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past</comment>'],
+            $this->installExitingWith(139),
+        );
+    }
+
+    #[Test]
+    public function aSuccessfulInstallReportsNothing(): void
+    {
+        self::assertSame([], $this->installExitingWith(0));
     }
 
     /** Composer loads only the plugin classes composer.json lists. */
@@ -80,5 +97,22 @@ final class TurboInstallPluginTest extends TestCase
         self::assertIsArray($composer['extra'] ?? null);
 
         self::assertContains(TurboInstallPlugin::class, $composer['extra']['class'] ?? []);
+    }
+
+    /** @return list<string> what the plugin wrote to stderr */
+    private function installExitingWith(int $exitCode): array
+    {
+        ProcessExecutor::$exitCode = $exitCode;
+        $vendor                    = TempDir::create('turbo-plugin-vendor');
+
+        try {
+            $vendor->write('lts/php-qa-ci/bin/turbo-install', '<?php');
+            $io = new CapturingIO();
+            new TurboInstallPlugin()->installTurbo(new Event(new Composer(new Config(['vendor-dir' => $vendor->path]), new FakeRootPackage()), $io));
+        } finally {
+            $vendor->remove();
+        }
+
+        return $io->err;
     }
 }

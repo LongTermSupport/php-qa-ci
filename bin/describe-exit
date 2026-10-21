@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Prints how a child process ended, from its exit code: "exit code 1", or for
+ * a signal kill "exit code 143, killed by signal 15 (SIGTERM)". The Bash
+ * scripts that relay one of php-qa-ci's helpers' failures put this in the
+ * line, because a helper killed by a signal prints nothing about it.
+ *
+ *   bin/describe-exit <exit code>
+ */
+
+require __DIR__.'/bootstrap.php';
+
+$exitCode = filter_var($argv[1] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 255]]);
+if (!is_int($exitCode)) {
+    fwrite(STDERR, "Usage: bin/describe-exit <exit code 0-255>\n");
+    exit(2);
+}
+
+echo \LTS\PHPQA\ComposerPlugin\ChildExit::describe($exitCode), "\n";

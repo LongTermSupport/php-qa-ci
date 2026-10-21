@@ -138,10 +138,19 @@ final readonly class PhpStanGuardPlugin implements PluginInterface, EventSubscri
             return;
         }
 
-        // Get phar version
-        $pharVersion = $this->getPharVersion($io, $pharPath);
+        // Composer's own process runner: a plugin cannot rely on any dependency's
+        // functions being loaded (see ForbidNamespacedFunctionInComposerPluginRule).
+        $output   = null;
+        $exitCode = new ProcessExecutor($io)->execute('php ' . escapeshellarg($pharPath) . ' --version', $output);
+        if (0 !== $exitCode) {
+            $io->writeError('<warning>Could not determine PHPStan phar version: phpstan.phar --version failed with ' . ChildExit::describe($exitCode) . '</warning>');
+
+            return;
+        }
+
+        $pharVersion = $this->versionIn(\is_string($output) ? $output : '');
         if (null === $pharVersion) {
-            $io->writeError('<warning>Could not determine PHPStan phar version</warning>');
+            $io->writeError('<warning>Could not determine PHPStan phar version: phpstan.phar --version printed no version</warning>');
 
             return;
         }
@@ -178,19 +187,10 @@ final readonly class PhpStanGuardPlugin implements PluginInterface, EventSubscri
     }
 
     /**
-     * Extracts the PHPStan phar version by running it, through Composer's own
-     * process runner: a plugin cannot rely on any dependency's functions being
-     * loaded (see ForbidNamespacedFunctionInComposerPluginRule).
+     * The version in the phar's --version output, or null when it names none.
      */
-    private function getPharVersion(IOInterface $io, string $pharPath): ?string
+    private function versionIn(string $output): ?string
     {
-        $output   = null;
-        $exitCode = new ProcessExecutor($io)->execute('php ' . escapeshellarg($pharPath) . ' --version', $output);
-
-        if (0 !== $exitCode || !\is_string($output)) {
-            return null;
-        }
-
         // Output: "PHPStan - PHP Static Analysis Tool 2.1.40"
         foreach (explode(' ', str_replace(["\r", "\n"], ' ', $output)) as $token) {
             if ($this->looksLikeAVersion($token)) {
