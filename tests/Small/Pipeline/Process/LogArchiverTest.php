@@ -29,6 +29,9 @@ final class LogArchiverTest extends TestCase
 
     private const string ARCHIVE_AT_TIMESTAMP = 'phpstan.20260908-120000.log';
 
+    /** The longest file name common filesystems accept. */
+    private const int MAX_FILE_NAME_BYTES = 255;
+
     private TempDir $logDir;
 
     private BufferedOutput $output;
@@ -65,6 +68,51 @@ final class LogArchiverTest extends TestCase
 
         self::assertContains('phpunit.junit.src_Entity_tests_Unit.20260908-120000.xml', $this->logDir->files());
         self::assertStringContainsString('Path-specific run: src/Entity tests/Unit', $this->output->fetch());
+    }
+
+    #[Test]
+    public function aPathSpecificRunOverARealisticSetOfLongPathsStillGetsAnArchiveTheFilesystemAccepts(): void
+    {
+        $this->logDir->write(self::PHPSTAN_LOG, self::LIVE_LOG);
+
+        new LogArchiver($this->output)->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('a'), self::TIMESTAMP);
+
+        $files = $this->logDir->files();
+        self::assertCount(2, $files, 'the live log and one archive');
+        foreach ($files as $file) {
+            self::assertLessThanOrEqual(self::MAX_FILE_NAME_BYTES, \strlen($file), 'a name the filesystem would refuse is a failed copy: ' . $file);
+        }
+    }
+
+    #[Test]
+    public function twoLongPathSetsThatShareALongPrefixGetDifferentArchivesAndTheSameSetGetsTheSameName(): void
+    {
+        $this->logDir->write(self::PHPSTAN_LOG, self::LIVE_LOG);
+        $archiver = new LogArchiver($this->output);
+
+        $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('a'), self::TIMESTAMP);
+        $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('b'), self::TIMESTAMP);
+        self::assertCount(3, $this->logDir->files(), 'the live log and one archive per distinct path set');
+
+        $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('a'), self::TIMESTAMP);
+        self::assertCount(3, $this->logDir->files(), 'the same set at the same timestamp is the same archive');
+    }
+
+    #[Test]
+    public function aLongPathSetKeepsTheNewestTenArchivesLikeAnyOtherPattern(): void
+    {
+        $this->logDir->write(self::PHPSTAN_LOG, self::LIVE_LOG);
+        $archiver = new LogArchiver($this->output);
+
+        for ($i = 1; $i <= 12; ++$i) {
+            $archiver->archive(self::PHPSTAN, $this->logDir->path, self::PHPSTAN_LOG, true, $this->longPaths('a'), \sprintf('202609%02d-000000', $i));
+            foreach ($this->logDir->files() as $file) {
+                \Safe\touch($this->logDir->path . '/' . $file, 1_700_000_000 + $i);
+            }
+        }
+
+        self::assertCount(11, $this->logDir->files(), 'ten archives of the one pattern and the live log');
+        self::assertStringContainsString('Cleaned up', $this->output->fetch());
     }
 
     #[Test]
@@ -136,5 +184,26 @@ final class LogArchiverTest extends TestCase
 
         self::assertContains('other.000.log', $this->logDir->files(), 'another tool owns these; pruning them is not ours to do');
         self::assertStringNotContainsString('Pruned', $this->output->fetch());
+    }
+
+    /**
+     * The paths a `-p` run of a consuming project covers: absolute, deep, and several of them, which
+     * together are far longer than a file name may be. Sets built with different tags share a long prefix.
+     *
+     * @return list<string>
+     */
+    private function longPaths(string $tag): array
+    {
+        $root = '/var/www/vhosts/example/consuming-project';
+
+        return [
+            $root . '/migrations/drafts/a_file_with_a_rather_long_descriptive_name_for_a_migration.php',
+            $root . '/migrations',
+            $root . '/qaConfig/PHPStan',
+            $root . '/qaConfig/qa.php',
+            $root . '/config',
+            $root . '/public',
+            $root . '/bin/' . $tag,
+        ];
     }
 }

@@ -31,6 +31,15 @@ final readonly class LogArchiver
     /** How much history one pattern keeps: enough to compare a few runs, not enough to hoard. */
     private const int KEEP = 10;
 
+    /**
+     * The longest path-derived suffix an archive name carries. A file name may be 255 bytes in all, and the
+     * suffix sits between the tool's log name, a timestamp and an extension, so this leaves them ample room.
+     */
+    private const int MAX_SUFFIX_BYTES = 120;
+
+    /** Hex characters of the digest that keeps a shortened suffix unique to its full path list. */
+    private const int DIGEST_HEX_LENGTH = 12;
+
     public function __construct(private OutputInterface $output)
     {
     }
@@ -50,9 +59,8 @@ final readonly class LogArchiver
         $extension = pathinfo($logFileName, \PATHINFO_EXTENSION);
 
         if ($pathSpecific) {
-            $replaced = \Safe\preg_replace('/[^[:alnum:]]+/', '_', implode(' ', $pathsChecked));
-            $suffix   = trim(\is_string($replaced) ? $replaced : implode('_', $replaced), '_');
-            $archive  = \sprintf('%s/%s.%s.%s.%s', $logDir, $base, $suffix, $timestamp, $extension);
+            $suffix   = $this->suffixFor($pathsChecked);
+            $archive  =\sprintf('%s/%s.%s.%s.%s', $logDir, $base, $suffix, $timestamp, $extension);
             $pattern  = \sprintf('/^%s\.%s\.\d{8}-\d{6}\.%s$/', preg_quote($base, '/'), preg_quote($suffix, '/'), preg_quote($extension, '/'));
             $runType  = 'Path-specific run: ' . implode(' ', $pathsChecked);
         } else {
@@ -76,6 +84,29 @@ final readonly class LogArchiver
         }
 
         $this->capDirectory($toolName, $logDir, $base, $extension);
+    }
+
+    /**
+     * The path-specific part of an archive name: the covered paths with everything but letters and digits
+     * collapsed to `_`. A run over deep absolute paths, or over several paths, makes that longer than a file
+     * name may be, and the copy then fails with "File name too long". Past {@see MAX_SUFFIX_BYTES} the suffix
+     * is cut and ends in a digest of the whole sanitised list, so it stays short, stays the same for the
+     * same paths (retention still groups the runs) and differs for paths that merely share a long prefix.
+     *
+     * @param list<string> $pathsChecked
+     */
+    private function suffixFor(array $pathsChecked): string
+    {
+        $replaced = \Safe\preg_replace('/[^[:alnum:]]+/', '_', implode(' ', $pathsChecked));
+        $suffix   = trim(\is_string($replaced) ? $replaced : implode('_', $replaced), '_');
+
+        if (\strlen($suffix) <= self::MAX_SUFFIX_BYTES) {
+            return $suffix;
+        }
+
+        $digest = substr(hash('sha256', $suffix), 0, self::DIGEST_HEX_LENGTH);
+
+        return rtrim(substr($suffix, 0, self::MAX_SUFFIX_BYTES - self::DIGEST_HEX_LENGTH - 1), '_') . '_' . $digest;
     }
 
     /**
