@@ -59,11 +59,14 @@ final readonly class TurboPlatform
     ) {
     }
 
-    public static function fromRuntime(): self
+    /**
+     * The running PHP's platform, from its own maps; the paths are a test's to replace.
+     */
+    public static function fromRuntime(string $selfMaps = self::SELF_MAPS, string $alpineRelease = self::ALPINE_RELEASE): self
     {
-        $maps = is_readable(self::SELF_MAPS) ? \Safe\file_get_contents(self::SELF_MAPS) : null;
+        $maps = is_readable($selfMaps) ? \Safe\file_get_contents($selfMaps) : null;
 
-        return self::fromProcess(\PHP_OS_FAMILY, php_uname('m'), $maps, is_file(self::ALPINE_RELEASE));
+        return self::fromProcess(\PHP_OS_FAMILY, php_uname('m'), $maps, is_file($alpineRelease));
     }
 
     /**
