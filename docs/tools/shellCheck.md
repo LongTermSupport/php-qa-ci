@@ -62,9 +62,9 @@ configuration, not a clean result.
 
 ## PHP output captured by a command substitution
 
-ShellCheck has no rule for this, so the lane reads the same scripts itself, and the run scripts of
-the tracked workflows directly under `.github/workflows/` (`*.yml`, `*.yaml`), which ShellCheck is
-not handed. It fails on a command substitution, `$(...)` or backticks, that runs PHP without
+ShellCheck has no rule for this, so the lane reads the same scripts itself, and the tracked
+workflows directly under `.github/workflows/` (`*.yml`, `*.yaml`), which ShellCheck is not handed.
+A workflow is read as a whole file, not only its `run:` scripts. It fails on a command substitution, `$(...)` or backticks, that runs PHP without
 `-d display_errors=stderr` (or `display_errors` set to `0`, `off`, `no` or `false`):
 
 ```text
@@ -86,7 +86,7 @@ arithmetic. Composer is not PHP here: it keeps its own warnings off stdout.
 The scan reads one line at a time and only a substitution, so it does not report PHP whose output
 is captured another way: a bare `php x | jq`, a redirect to a file, a process substitution
 (`< <(php x)`), a substitution that begins with `cd d &&`, one that pipes into PHP, one that runs
-PHP behind `timeout` or `sudo`, a `$(` that spans lines, or a variable assigned from a substitution.
+PHP behind `timeout` or `sudo`, a `$(` that spans lines without a backslash continuation, or a variable assigned from a substitution.
 A `display_errors=0` written anywhere in the body counts as the setting, and a substitution in a
 trailing comment (`echo ok # $(php x.php)`) is reported.
 

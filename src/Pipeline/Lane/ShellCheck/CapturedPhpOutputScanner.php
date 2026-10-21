@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane\ShellCheck;
 
 /**
- * Finds the command substitutions in a shell script, or in a workflow's run scripts, that capture
+ * Finds the command substitutions in a shell script, or in a workflow read as a whole file, that capture
  * the output of PHP while leaving its warnings on stdout: `$(php ...)` or `` `php ...` `` with no
  * `display_errors` set to `stderr`, `0`, `off`, `no` or `false`. The PHP CLI displays errors on
  * stdout unless an ini says otherwise, so a warning or deprecation becomes part of the value.

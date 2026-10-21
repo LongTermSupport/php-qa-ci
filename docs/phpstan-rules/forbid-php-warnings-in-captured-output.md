@@ -63,9 +63,9 @@ The rule reads a command, not what the code does with the process, so it also re
 - a Symfony `Process` whose output is not read as a value: one with `setTty(true)` or `setPty(true)`,
   `disableOutput()`, a callback that only echoes, or only `getErrorOutput()` read. The setting is
   harmless there, and adding it is the fix.
-- `Process::fromShellCommandline('php x 2>&1')`: the warning is in the value whatever `display_errors`
-  says, but the rule reports it too, because the setting is still what keeps warnings off a stdout
-  that is parsed on its own.
+- `Process::fromShellCommandline('php x 2>&1')`: stderr is joined to stdout, so the warning is in the
+  value whatever `display_errors` says and the setting changes nothing, yet the rule reports it,
+  because it does not read the shell redirect.
 
 It does not report these, which still run PHP with its output captured: a program written as
 `['php', $script, '-d', 'display_errors=stderr']` (the setting after the script is not PHP's option),
