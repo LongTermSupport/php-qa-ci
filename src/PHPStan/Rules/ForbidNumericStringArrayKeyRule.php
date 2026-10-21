@@ -62,7 +62,8 @@ use PHPStan\Rules\RuleErrorBuilder;
  *     bindings: array<array-key, list<FiledRecord>>,
  *     loops: array<array-key, list<FiledRecord>>,
  *     escapes: array<array-key, list<int>>,
- *     kills: array<array-key, list<FiledRecord>>
+ *     kills: array<array-key, list<FiledRecord>>,
+ *     byReference: array<array-key, list<FiledRecord>>
  * }
  *
  * @implements Rule<CollectedDataNode>
@@ -150,8 +151,13 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
      */
     private function index(array ...$records): array
     {
-        $index = ['closures' => [], 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => [], 'kills' => []];
+        $index = ['closures' => [], 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => [], 'kills' => [], 'byReference' => []];
         foreach ($records as $record) {
+            if (NumericStringArrayKeyCollector::BY_REFERENCE === $record['kind']) {
+                $index['byReference'][$record['file'] . '|' . $record['variable']][]                         = $record;
+                $index['bindings'][$this->writeAt($record['file'], $record['variable'], $record['start'])][] = $record;
+            }
+
             match ($record['kind']) {
                 NumericStringArrayKeyCollector::CLOSURE     => $index['closures'][$record['file']][]                                                        = $record,
                 NumericStringArrayKeyCollector::KEY_BINDING => $index['keyBindings'][]                                                                      = $record,
@@ -342,14 +348,16 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     }
 
     /**
-     * The positions of each write of a variable in a body; null where a write
-     * of it, or of any variable, cannot be followed.
+     * The positions of each write of a variable in a body, a call taking it
+     * by reference included; null where a write of it, or of any variable,
+     * cannot be followed.
      *
      * @param FiledRecord $writes
+     * @param JoinIndex   $index
      *
      * @return list<int>|null
      */
-    private function writePositions(array $writes, string $variable): ?array
+    private function writePositions(array $writes, string $variable, array $index): ?array
     {
         if (NumericStringArrayKeyCollector::ANY === $writes['key']) {
             return null;
@@ -361,6 +369,16 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
                 $position = (int)substr($write, \strlen($variable) + 1);
                 if (NumericStringArrayKeyCollector::UNTRACKED === $position) {
                     return null;
+                }
+
+                if (NumericStringArrayKeyCollector::PASSED_BY_REFERENCE === $position) {
+                    foreach ($index['byReference'][$writes['file'] . '|' . $variable] ?? [] as $passed) {
+                        if ($writes['start'] === ($this->enclosingWrites($passed, $index)['start'] ?? null)) {
+                            $positions[] = $passed['start'];
+                        }
+                    }
+
+                    continue;
                 }
 
                 $positions[] = $position;
@@ -385,7 +403,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     private function reachingWrites(array $point, string $variable, array $index): ?array
     {
         $writes    = $this->enclosingWrites($point, $index);
-        $positions = null === $writes ? null : $this->writePositions($writes, $variable);
+        $positions = null === $writes ? null : $this->writePositions($writes, $variable, $index);
         if (null === $writes || null === $positions) {
             return null;
         }

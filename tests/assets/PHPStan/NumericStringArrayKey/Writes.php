@@ -55,4 +55,13 @@ final class Writes
     {
         return \func_get_args();
     }
+
+    public function passedByReference(): int
+    {
+        $sorted = ['b' => 1, 'a' => 2];
+        ksort($sorted);
+        preg_match('/x/', 'x', $matches);
+
+        return \count($sorted) + \count($matches);
+    }
 }

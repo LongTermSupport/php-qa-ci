@@ -25,7 +25,7 @@ final readonly class NumericStringArrayKeyWritesDumpRule implements Rule
     /** The identifier of each finding, which only a test reads. */
     public const string IDENTIFIER = 'test.numericStringArrayKeyWrites';
 
-    /** How an untracked write is positioned, and how this rule shows its line. */
+    /** How an untracked write is positioned; it and the other negative markers are shown as they are. */
     private const string UNTRACKED = '-1';
 
     public function getNodeType(): string
@@ -58,7 +58,7 @@ final readonly class NumericStringArrayKeyWritesDumpRule implements Rule
     private function withLine(string $write, string $source): string
     {
         [$name, $position] = explode('@', $write, 2) + [1 => self::UNTRACKED];
-        if (self::UNTRACKED === $position) {
+        if ((int)$position < 0) {
             return $write;
         }
 

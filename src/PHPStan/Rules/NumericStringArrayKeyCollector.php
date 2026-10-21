@@ -50,6 +50,7 @@ use PhpParser\Node\Expr\Throw_;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Expr\Yield_;
 use PhpParser\Node\Expr\YieldFrom;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\InterpolatedStringPart;
 use PhpParser\Node\MatchArm;
@@ -101,12 +102,16 @@ use PHPStan\Reflection\ParameterReflection;
 use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\ParametersAcceptorSelector;
 use PHPStan\Reflection\ReflectionProvider;
+use PHPStan\Type\ArrayType;
+use PHPStan\Type\Constant\ConstantArrayType;
 use PHPStan\Type\Constant\ConstantIntegerType;
 use PHPStan\Type\Constant\ConstantStringType;
 use PHPStan\Type\FileTypeMapper;
 use PHPStan\Type\Generic\TemplateType;
+use PHPStan\Type\IntegerType;
 use PHPStan\Type\IterableType;
 use PHPStan\Type\MixedType;
+use PHPStan\Type\NullType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
@@ -235,11 +240,26 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      */
     public const string KILL = 'kill';
 
+    /**
+     * A local variable, or an element of one, passed to a parameter that may
+     * take it by reference: a write at the argument's position, with the
+     * depths whose keys PHPStan types string once the call returns; none
+     * where the callee or its parameter cannot be resolved.
+     */
+    public const string BY_REFERENCE = 'byReference';
+
     /** What a filesystem iterator keyed by path name is called in a BINDING's text. */
     public const string PATH_NAMES = 'pathNames';
 
     /** How a write PHPStan cannot follow is positioned in a WRITES record. */
     public const int UNTRACKED = -1;
+
+    /**
+     * How a WRITES record marks a variable PHPStan stops following only
+     * because it is passed by reference: its BY_REFERENCE records are its
+     * other writes.
+     */
+    public const int PASSED_BY_REFERENCE = -2;
 
     /** The key of a WRITES record whose body may write any variable unseen. */
     public const string ANY = '*';
@@ -308,6 +328,30 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      * array_chunk() one level down.
      */
     private const array RENUMBERING_UNLESS_PRESERVED = ['array_reverse' => 1, 'array_slice' => 3, 'array_chunk' => 2];
+
+    /** Functions that sort the array they take by reference and keep its keys. */
+    private const array KEY_KEEPING_SORTS = ['ksort', 'krsort', 'asort', 'arsort', 'uasort', 'uksort', 'natsort', 'natcasesort'];
+
+    /** Functions that reorder the array they take by reference and renumber it as a list. */
+    private const array LIST_MAKING_SORTS = ['sort', 'rsort', 'usort', 'shuffle'];
+
+    /** Functions that add the values they are given to the array they take by reference, under int keys. */
+    private const array APPENDING_FUNCTIONS = ['array_push', 'array_unshift'];
+
+    /** The number of arguments with which array_push(), array_unshift() and array_splice() change the array. */
+    private const int WITH_VALUES = 2;
+
+    /** The function that takes the last element off the array it takes by reference. */
+    private const string ARRAY_POP = 'array_pop';
+
+    /** The function that takes the first element off the array it takes by reference, renumbering int keys. */
+    private const string ARRAY_SHIFT = 'array_shift';
+
+    /** The function that replaces part of the array it takes by reference. */
+    private const string ARRAY_SPLICE = 'array_splice';
+
+    /** The name PHP gives the array its array functions change in place. */
+    private const string ARRAY_PARAMETER = 'array';
 
     /** The function that keeps keys one level down, in each chunk. */
     private const string ARRAY_CHUNK = 'array_chunk';
@@ -445,7 +489,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             $node instanceof Yield_                                              => $this->yielded($node, $scope),
             $node instanceof YieldFrom                                           => $this->keysRead($node, $node->expr, 'yields its keys with yield from', $scope),
             $node instanceof ArrayItem && $node->unpack                          => $this->keysRead($node, $node->value, self::SPREADS, $scope, false),
-            $node instanceof CallLike  && !$node->isFirstClassCallable()         => $this->passed($node, $scope),
+            $node instanceof CallLike  && !$node->isFirstClassCallable()         => [...$this->passed($node, $scope), ...$this->byReference($node, $scope)],
             $node instanceof Stmt                                                => $this->isStatementInCode($node) ? $this->asserted($node, $scope) : [],
             default                                                              => [],
         };
@@ -1961,22 +2005,32 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         return false;
     }
 
-    /** Whether a statement may break, or continue, out of the switch it is in. */
+    /**
+     * Whether a statement of a switch's case may break, or continue, to the
+     * statement after the switch: one whose level, counted out through the
+     * loops and switches around it, is the switch's. One that goes no
+     * further stays in the switch, and one that goes further leaves the loop
+     * around it too, and never reaches that statement. A break in a closure
+     * or class is its own.
+     */
     private function breaksOut(Stmt $statement): bool
     {
         $finder  = new NodeFinder();
-        $isBreak = static fn (Node $node): bool => $node instanceof Break_ || $node instanceof Continue_;
-        $inner   = [];
-        foreach ($finder->find([$statement], static fn (Node $node): bool => $node instanceof For_ || $node instanceof Foreach_ || $node instanceof While_ || $node instanceof Do_ || $node instanceof Switch_) as $loop) {
-            foreach ($finder->find([$loop], $isBreak) as $break) {
-                $inner[spl_object_id($break)] = true;
-            }
-        }
+        $within  = static fn (Node $outer, Node $inner): bool => $outer->getStartFilePos() <= $inner->getStartFilePos() && $inner->getEndFilePos() <= $outer->getEndFilePos();
+        $nested  = $finder->find([$statement], static fn (Node $node): bool => $node instanceof For_ || $node instanceof Foreach_ || $node instanceof While_ || $node instanceof Do_ || $node instanceof Switch_);
+        $foreign = $finder->find([$statement], static fn (Node $node): bool => $node instanceof FunctionLike || $node instanceof ClassLike);
 
         return array_any(
-            $finder->find([$statement], $isBreak),
-            static fn (Node $break): bool => !isset($inner[spl_object_id($break)])
-                || (($break instanceof Break_ || $break instanceof Continue_) && $break->num instanceof Expr && (!$break->num instanceof Int_ || $break->num->value > 1)),
+            $finder->find([$statement], static fn (Node $node): bool => $node instanceof Break_ || $node instanceof Continue_),
+            static function (Node $break) use ($nested, $foreign, $within): bool {
+                if ((!$break instanceof Break_ && !$break instanceof Continue_) || array_any($foreign, static fn (Node $outer): bool => $within($outer, $break))) {
+                    return false;
+                }
+
+                $levels = 1 + \count(array_filter($nested, static fn (Node $outer): bool => $within($outer, $break)));
+
+                return $break->num instanceof Expr ? !$break->num instanceof Int_ || $break->num->value === $levels : 1 === $levels;
+            },
         );
     }
 
@@ -2118,6 +2172,135 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         }
 
         return false;
+    }
+
+    /**
+     * Each local variable, or element of one, a call may take by reference,
+     * with the depths whose keys PHPStan types string once it returns. Where
+     * the callee or the parameter cannot be resolved, or the argument is
+     * spread, no depth is known.
+     *
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function byReference(CallLike $call, Scope $scope): array
+    {
+        $args       = $call->getArgs();
+        $callee     = $this->callee($call, $scope);
+        $parameters = null === $callee ? [] : ParametersAcceptorSelector::selectFromArgs($scope, $args, $callee->getVariants())->getParameters();
+        $records    = [];
+        foreach ($args as $index => $arg) {
+            $local = $this->target($arg->value);
+            if (null === $local || str_starts_with($local[0], self::GLOBALS)) {
+                continue;
+            }
+
+            $receiving = \array_slice($parameters, $index);
+            $last      = array_last($parameters);
+            if (null !== $last && $last->isVariadic()) {
+                $receiving[] = $last;
+            }
+
+            if ($arg->unpack && null !== $callee && array_all($receiving, static fn (ParameterReflection $parameter): bool => $parameter->passedByReference()->no())) {
+                continue;
+            }
+
+            $parameter = $arg->unpack ? null : $this->parameterFor($arg, $index, ...$parameters);
+            if ($parameter instanceof ParameterReflection && $parameter->passedByReference()->no()) {
+                continue;
+            }
+
+            $depths    = null !== $callee && $parameter instanceof ParameterReflection ? $this->referenceDepths($call, $callee, $parameter, $arg->value, $scope, ...$local[1]) : [];
+            $records[] = $this->record(self::BY_REFERENCE, $scope, $arg->value, $local[0], $depths);
+        }
+
+        return $records;
+    }
+
+    /**
+     * The depths whose keys PHPStan types string in a variable once an
+     * argument made of it, at the keys given, is written by reference: as
+     * PHPStan writes it back, then as one of PHP's array functions leaves it.
+     *
+     * @return list<int>
+     */
+    private function referenceDepths(CallLike $call, FunctionReflection|ExtendedMethodReflection $callee, ParameterReflection $parameter, Expr $value, Scope $scope, ?Expr ...$keys): array
+    {
+        $out = $this->writtenBack($callee, $parameter, $scope->getType($value));
+        if ($callee instanceof FunctionReflection && $call instanceof FuncCall && self::ARRAY_PARAMETER === $parameter->getName()) {
+            $out = $this->arrayFunctionEffect(strtolower($callee->getName()), $out, $scope, ...$call->getArgs()) ?? $out;
+        }
+
+        $known = [];
+        foreach (array_values($keys) as $depth => $key) {
+            if ($key instanceof Expr && $scope->getType($key)->isString()->yes()) {
+                $known[] = $depth;
+            }
+        }
+
+        foreach ($this->knownDepths($out) as $depth) {
+            $known[] = $depth + \count($keys);
+        }
+
+        return $known;
+    }
+
+    /**
+     * What PHPStan writes back into an argument taken by reference: nothing
+     * for a parameter that only reads and changes its argument, which keeps
+     * the type it had; otherwise the parameter's out type, or for a function
+     * or method of the project's own its declared type, or for one of PHP's
+     * own `mixed`.
+     */
+    private function writtenBack(FunctionReflection|ExtendedMethodReflection $callee, ParameterReflection $parameter, Type $passed): Type
+    {
+        if (!$parameter->passedByReference()->createsNewVariable()) {
+            return $passed;
+        }
+
+        if ($parameter instanceof ExtendedParameterReflection && $parameter->getOutType() instanceof Type) {
+            return $parameter->getOutType();
+        }
+
+        $builtin = $callee instanceof FunctionReflection ? $callee->isBuiltin() : $callee->getDeclaringClass()->isBuiltin();
+
+        return $builtin ? new MixedType() : $parameter->getType();
+    }
+
+    /**
+     * The type PHPStan gives the array one of PHP's array functions changes
+     * in place: a sort that renumbers makes it a list, a sort that keeps keys
+     * keeps them, a function that adds values adds int keys; null for any
+     * other function.
+     */
+    private function arrayFunctionEffect(string $function, Type $array, Scope $scope, Arg ...$args): ?Type
+    {
+        $count = \count($args);
+
+        return match (true) {
+            \in_array($function, self::LIST_MAKING_SORTS, true)                                                         => $array->shuffleArray(),
+            \in_array($function, self::KEY_KEEPING_SORTS, true)                                                         => $array->makeListMaybe(),
+            self::ARRAY_POP   === $function                                                                             => $array->popArray(),
+            self::ARRAY_SHIFT === $function                                                                             => $array->shiftArray(),
+            \in_array($function, self::APPENDING_FUNCTIONS, true) && $count >= self::WITH_VALUES                        => TypeCombinator::union($array, new ArrayType(new IntegerType(), $this->appendedValues($scope, ...\array_slice($args, 1)))),
+            self::ARRAY_SPLICE === $function                      && $count >= self::WITH_VALUES                        => $array->spliceArray(
+                $scope->getType($args[1]->value),
+                isset($args[2]) ? $scope->getType($args[2]->value) : new NullType(),
+                isset($args[3]) ? $scope->getType($args[3]->value) : new ConstantArrayType([], []),
+            ),
+            default                                                                                                     => null,
+        };
+    }
+
+    /** The values array_push() or array_unshift() adds, spread ones included. */
+    private function appendedValues(Scope $scope, Arg ...$args): Type
+    {
+        $types = [];
+        foreach ($args as $arg) {
+            $type    = $scope->getType($arg->value);
+            $types[] = $arg->unpack ? $type->getIterableValueType() : $type;
+        }
+
+        return TypeCombinator::union(...$types);
     }
 
     /**

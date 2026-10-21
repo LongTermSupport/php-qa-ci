@@ -80,8 +80,14 @@ know the keys it is put on to be strings at that depth, as for `json_decode()` d
   later statement before it overwrites the variable on every path that goes on: an assignment, an
   `if` with an `else` whose every branch writes it or leaves, a `try` whose body and every catch
   that goes on write it (or whose `finally` does), and a `switch` with a `default` whose every case,
-  entered at that case, writes it or leaves before a `break` or `continue` takes it out of the
-  `switch`. An `@var` that only restates what PHPStan already knew does not fire.
+  entered at that case, writes it or leaves before a `break` or `continue` takes it to the statement
+  after the `switch`. A `break 2` or `continue 2` (or higher) that leaves the loop around the
+  `switch` as well leaves, like a `return`. A call that takes the variable by reference writes it
+  with the type PHPStan gives what the call writes back: a sort that keeps keys (`ksort()`,
+  `asort()`, `uasort()` and the rest) keeps them, `sort()`, `rsort()`, `usort()` and `shuffle()`
+  make a list, `array_push()` and `array_unshift()` add int keys, and a parameter of a function or
+  method declared with `string` keys (or a `@param-out` saying so) writes string keys. An `@var`
+  that only restates what PHPStan already knew does not fire.
 
 The message names the array and the first place it is taken as string-keyed.
 
@@ -234,10 +240,11 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
   judged against the writes that may reach it, read from the `VariableWritesNode` PHPStan hands a
   collector for each function body, so an `@var` that only restates known keys no longer fires; an
   iterator held in a variable is judged by the flags of the writes that reach the read.
-  Run over the tree, the widening found four sites, none a live defect (each key a path holding a
+  Run over the tree, the widening found five sites, none a live defect (each key a path holding a
   `/` or a PHPStan identifier), each declared `array-key`: `TemporaryDirectory`'s leftovers and
-  the test reading them, `ActiveRulesLister`'s seen set and `PhpstanDocsInstallerTest`'s
-  identifiers. `unserialize()` is forbidden outright by `phpqaci.dangerousFunctions`.
+  the test reading them, `ActiveRulesLister`'s seen set, `PhpstanDocsInstallerTest`'s identifiers
+  and `InfectionTool::inSourceScope()`'s paths, which also cast each key back to a string.
+  `unserialize()` is forbidden outright by `phpqaci.dangerousFunctions`.
 - **Literal keys, added after the sweep**: the first version judged element writes only. Reading
   the sites found `PipelineBuilder::withTool()` building its maps as `[...$this->tools, $name => $tool]`, which lost a tool named `'2024'`, so the rule now judges array-literal keys as well. Run
   over the tree once the fixes below were in, it found no further site.
@@ -261,8 +268,20 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
   level max PHPStan itself reports a `mixed` value reaching a declared type.
 - PHPStan types a variable named by `global` as `mixed`, so a `foreach` over it reads no string
   keys; a global is taken as string-keyed only where it is handed to a declaration.
-- A variable aliased by reference (`$alias = &$map`) is written where PHPStan cannot follow it, so
-  an inline `@var` on it fires whatever was written: declare the keys `array-key` instead.
+- A variable that may be aliased is written where PHPStan cannot follow it, so an inline `@var` on
+  it fires whatever was written: declare the keys `array-key` instead. It may be aliased when it is
+  either side of `=&`, a reference in an array literal or a destructuring (or what such a literal
+  is assigned to), a `foreach` value by reference, imported into a closure by reference, a
+  parameter taken by reference or promoted, `global` or `static`, or anything at all in a function
+  that returns by reference.
+- A call that takes a variable by reference is judged by what PHPStan writes back, as above. Where
+  that is not known, the write is one of keys PHPStan does not know, and an inline `@var` on the
+  variable after it fires: a parameter typed `mixed` or not typed at all, which PHPStan writes back
+  as that type; a callee the rule cannot name (a callable held in a variable, `new $class()`); and
+  a variable spread into the call. PHPStan's own per-function writers (`preg_match()`'s matches,
+  `parse_str()`'s result) are not consulted; such a write is judged by the parameter's declared out
+  type, which for those functions holds no `string` keys either. Declare the parameter's type, or
+  its `@param-out`, with the keys it writes.
 - The overwrites that stop an earlier write reaching an inline `@var` are those listed above. An
   overwrite in any other shape (a `do … while` body, a loop that always runs) leaves the earlier
   write reaching the tag, which then fires if that write's keys were not known.

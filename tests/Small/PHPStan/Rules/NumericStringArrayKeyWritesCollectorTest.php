@@ -26,7 +26,10 @@ final class NumericStringArrayKeyWritesCollectorTest extends RuleTestCase
 {
     private const string FIXTURE = __DIR__ . '/../../../assets/PHPStan/NumericStringArrayKey/Writes.php';
 
-    /** A write of an aliased variable, like the alias's own, is one PHPStan cannot follow; a literal's items are the literal's write. */
+    /**
+     * A write of an aliased variable, like the alias's own, is one PHPStan cannot follow; a literal's items are the literal's write;
+     * a variable PHPStan stops following only because a call takes it by reference is marked so, its own writes kept.
+     */
     #[Test]
     public function eachWriteIsRecordedWhereItIsAndEachBodyThatMayWriteUnseenIsKeyedAny(): void
     {
@@ -41,6 +44,7 @@ final class NumericStringArrayKeyWritesCollectorTest extends RuleTestCase
                 ['*|count@36,count@38', 34],
                 ['*|name@46', 46],
                 ['*|', 54],
+                ['|sorted@61,sorted@-2,matches@-2', 59],
             ],
         );
     }

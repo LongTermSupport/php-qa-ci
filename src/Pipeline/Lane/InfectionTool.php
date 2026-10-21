@@ -513,7 +513,7 @@ final readonly class InfectionTool implements ToolInterface
             $byRelative = array_combine($filter->relativePaths, $filter->positionalPaths);
             foreach ($byRelative as $key => $absolute) {
                 $relative = (string)$key;
-                $reason   =$this->sourceScope->outside($absolute, $directories, ...$excludes);
+                $reason   = $this->sourceScope->outside($absolute, $directories, ...$excludes);
                 if (null === $reason) {
                     $paths[]     = $absolute;
                     $relatives[] = $relative;
