@@ -213,6 +213,18 @@ final class ReportableSources
         $this->takesMap($decoded);
     }
 
+    /**
+     * Reported though it repeats what PHPStan knew: PHPStan applies the tag
+     * before the rule sees the statement, so the rule can judge a variable
+     * already held only by its native type.
+     */
+    public function assertedAgainOverAVariableAlreadyKnown(): void
+    {
+        $byName = $this->byName;
+        /** @var array<string, int> $byName */
+        $this->takesMap($byName);
+    }
+
     private function takes(string $name): void
     {
     }

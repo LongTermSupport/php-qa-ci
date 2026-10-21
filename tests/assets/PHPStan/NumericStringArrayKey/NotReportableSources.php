@@ -169,11 +169,15 @@ final class NotReportableSources
         return array_map(strval(...), array_keys($set));
     }
 
-    public function assertedOverAVariableWhoseKeysAreKnown(): void
+    public function assertedHonestlyOverAVariableAlreadyHeld(string $json): void
     {
-        $named = $this->named;
-        /** @var array<string, int> $named */
-        $this->honest = [...$this->honest, ...array_values($named)];
+        $decoded = json_decode($json, true);
+        if (!\is_array($decoded)) {
+            return;
+        }
+
+        /** @var array<array-key, int> $decoded */
+        $this->honest = [...$this->honest, ...array_values($decoded)];
     }
 
     private function takes(string $name): void

@@ -39,12 +39,15 @@ use PhpParser\Node\InterpolatedStringPart;
 use PhpParser\Node\Name;
 use PhpParser\Node\Param;
 use PhpParser\Node\Scalar\InterpolatedString;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\StaticVar;
+use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Expression;
 use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Global_;
+use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\Stmt\Unset_;
 use PhpParser\Node\VarLikeIdentifier;
@@ -227,6 +230,12 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     /** Functions that only count what they are given. */
     private const array COUNTING = ['count', 'sizeof'];
 
+    /** The function that hands an array's keys on as a list. */
+    private const string ARRAY_KEYS = 'array_keys';
+
+    /** The function that makes an int a string. */
+    private const string STRVAL = 'strval';
+
     /** array_filter() hands the callback keys only when given a mode, its third argument. */
     private const string ARRAY_FILTER = 'array_filter';
 
@@ -262,13 +271,13 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         $records = match (true) {
             $node instanceof Closure                                     => [$this->closure($node, $scope), ...$this->unreadKeys($scope, ...$node->stmts)],
             $node instanceof ClassMethod, $node instanceof Function_     => $this->unreadKeys($scope, ...$node->getStmts() ?? []),
-            $node instanceof Expression                                  => $this->asserted($node, $scope),
+            $node instanceof Expression, $node instanceof If_            => $this->asserted($node, $scope),
             $node instanceof Assign                                      => [...$this->writes($node, $node->var, $scope), ...$this->madeWrites($node, $scope), ...$this->propertyAssignment($node, $scope), ...$this->copy($node, $scope)],
             $node instanceof AssignOp, $node instanceof AssignRef,
             $node instanceof PreInc, $node instanceof PreDec,
             $node instanceof PostInc, $node instanceof PostDec           => $this->writes($node, $node->var, $scope),
-            $node instanceof Return_                                     => $this->returned($node, $scope),
-            $node instanceof Foreach_                                    => $this->iterated($node, $scope),
+            $node instanceof Return_                                     => [...$this->returned($node, $scope), ...$this->asserted($node, $scope)],
+            $node instanceof Foreach_                                    => [...$this->iterated($node, $scope), ...$this->asserted($node, $scope)],
             $node instanceof YieldFrom                                   => $this->keysRead($node, $node->expr, 'yields its keys with yield from', $scope),
             $node instanceof ArrayItem && $node->unpack                  => $this->keysRead($node, $node->value, self::SPREADS, $scope, false),
             $node instanceof CallLike  && !$node->isFirstClassCallable() => $this->passed($node, $scope),
@@ -766,17 +775,27 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     }
 
     /**
-     * An inline `@var` asserting string keys that may be all digits over a
-     * value whose keys at that depth PHPStan does not know to be strings.
+     * Each inline `@var` on a statement asserting string keys that may be all
+     * digits over a value whose keys at that depth PHPStan does not know to be
+     * strings: the value assigned to the variable the tag names, or names by
+     * default, or else the variable as it is held. PHPStan has applied the tag
+     * to the scope a statement is collected in, so a variable already held is
+     * judged by its native type, which never knows its keys.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
-    private function asserted(Expression $statement, Scope $scope): array
+    private function asserted(Stmt $statement, Scope $scope): array
     {
-        $assign = $statement->expr;
-        $doc    = $statement->getDocComment();
-        if (!$assign instanceof Assign || !$assign->var instanceof Variable || !\is_string($assign->var->name) || null === $doc) {
+        $doc = $statement->getDocComment();
+        if (null === $doc) {
             return [];
+        }
+
+        $value    = null;
+        $assigned = null;
+        if ($statement instanceof Expression && $statement->expr instanceof Assign && $statement->expr->var instanceof Variable && \is_string($statement->expr->var->name)) {
+            $value    = $statement->expr->expr;
+            $assigned = $statement->expr->var->name;
         }
 
         $tags = $this->fileTypeMapper->getResolvedPhpDoc(
@@ -786,14 +805,34 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             $scope->getFunction()?->getName(),
             $doc->getText(),
         )->getVarTags();
-        $tag = $tags[$assign->var->name] ?? $tags[0] ?? null;
-        if (null === $tag) {
-            return [];
+
+        $records = [];
+        foreach ($tags as $name => $tag) {
+            $variable = \is_string($name) ? $name : $assigned;
+            if (null === $variable) {
+                continue;
+            }
+
+            if ($value instanceof Expr && $variable === $assigned) {
+                $actual = $scope->getType($value);
+            } elseif ($scope->hasVariableType($variable)->yes()) {
+                $actual = $scope->getNativeType(new Variable($variable));
+            } else {
+                continue;
+            }
+
+            $records = [...$records, ...$this->assertedKeys($statement, $variable, $tag->getType(), $actual, $scope)];
         }
 
-        $declared = $tag->getType();
-        $actual   = $scope->getType($assign->expr);
-        $records  = [];
+        return $records;
+    }
+
+    /**
+     * @return list<NumericStringArrayKeyRecord>
+     */
+    private function assertedKeys(Stmt $statement, string $variable, Type $declared, Type $actual, Scope $scope): array
+    {
+        $records = [];
         foreach ($this->stringKeyedDepths($declared) as $depth) {
             $declaredKey = $this->keyTypeAt($declared, $depth);
             if (null === $declaredKey || !$this->typeMayBeAllDigits($declaredKey) || true === $this->keyTypeAt($actual, $depth)?->isString()->yes()) {
@@ -803,10 +842,10 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             $records[] = $this->record(
                 self::DECLARED,
                 $scope,
-                $assign,
-                '$' . $assign->var->name . str_repeat(self::NESTED, $depth),
+                $statement,
+                '$' . $variable . str_repeat(self::NESTED, $depth),
                 [$depth],
-                \sprintf('line %d asserts it %s in an inline @var over keys PHPStan does not know', $assign->getStartLine(), $declared->describe(VerbosityLevel::typeOnly())),
+                \sprintf('line %d asserts it %s in an inline @var over keys PHPStan does not know', $statement->getStartLine(), $declared->describe(VerbosityLevel::typeOnly())),
             );
         }
 
@@ -986,7 +1025,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         }
 
         if ($call instanceof FuncCall && $call->name instanceof Name) {
-            $records = [...$records, ...$this->keysReadBy($call->name->toString(), $scope, $call, ...$args), ...$this->counted($call, $scope)];
+            $records = [...$records, ...$this->keysReadBy($call->name->toString(), $scope, $call, ...$args), ...$this->keysNeverRead($call, $scope)];
         }
 
         $callee = $this->callee($call, $scope);
@@ -1006,19 +1045,39 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     }
 
     /**
-     * `count(array_keys($array))`: the keys are counted, never read.
+     * `count(array_keys($array))` and `array_map(strval(...), array_keys($array))`:
+     * the keys are counted, or made strings, and never reach code as they are.
      *
      * @return list<NumericStringArrayKeyRecord>
      */
-    private function counted(FuncCall $call, Scope $scope): array
+    private function keysNeverRead(FuncCall $call, Scope $scope): array
     {
-        $counted = $call->getArgs()[0] ?? null;
+        if (!$call->name instanceof Name) {
+            return [];
+        }
 
-        return $call->name instanceof Name && \in_array($call->name->toLowerString(), self::COUNTING, true)
-            && $counted instanceof Arg && $counted->value instanceof FuncCall && $counted->value->name instanceof Name
-            && 'array_keys' === $counted->value->name->toLowerString()
-            ? [$this->record(self::UNREAD, $scope, $counted->value)]
+        $args  = $call->getArgs();
+        $inner = match (true) {
+            \in_array($call->name->toLowerString(), self::COUNTING, true)                                                                   => $args[0] ?? null,
+            self::ARRAY_MAP === $call->name->toLowerString() && self::ARRAY_MAP_WITH_ONE_ARRAY === \count($args) && $this->isStrval($args[0]) => $args[1],
+            default                                                                                                                         => null,
+        };
+
+        return $inner instanceof Arg && !$inner->unpack && $inner->value instanceof FuncCall && $inner->value->name instanceof Name
+            && self::ARRAY_KEYS === $inner->value->name->toLowerString()
+            ? [$this->record(self::UNREAD, $scope, $inner->value)]
             : [];
+    }
+
+    /** Whether a callback is PHP's strval(), as a first-class callable or by name. */
+    private function isStrval(Arg $callback): bool
+    {
+        $value = $callback->value;
+        if ($value instanceof FuncCall) {
+            return $value->isFirstClassCallable() && $value->name instanceof Name && self::STRVAL === $value->name->toLowerString();
+        }
+
+        return $value instanceof String_ && self::STRVAL === strtolower($value->value);
     }
 
     /**
