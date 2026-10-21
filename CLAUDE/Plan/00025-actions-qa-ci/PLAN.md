@@ -1,6 +1,6 @@
 # Plan 00025: actions-qa-ci
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-10-21
 **Owner**: dev
 **Priority**: Medium
@@ -55,18 +55,21 @@ This plan does three things:
 
 ## Tasks
 
-### Phase 1: Owner decisions (blocking)
+### Phase 1: Owner decisions
 
-- [ ] ⬜ **Task 1.1**: CI shape: Option A (recommended), B or C, from
-  [research/ci-audit.md § 1.7](research/ci-audit.md#17-options).
-  - Option A rewrites the defence test
-    `GitHubActionsTemplatesTest::thePipelineTemplateRunsOnEveryBranchPrefixThePolicyAllows`, which
-    is an Owner decision.
-- [ ] ⬜ **Task 1.2**: actions-qa-ci implementation language and distribution:
-  - a PHP PHAR with maximum reuse, which requires PHP 8.5 everywhere;
-  - Go or Python;
-  - or language-neutral DBF data with a PHAR plus a container/composite action.
-- [ ] ⬜ **Task 1.3**: Approve creating the public repository (name, organisation, licence).
+- [x] ✅ **Task 1.1**: CI shape: **Option A** (Owner decision), from
+  [research/ci-audit.md § 1.7](research/ci-audit.md#17-options). The template runs on
+  `pull_request` and on a push to the default branch, and `ci.yml` retires. The Owner's choice
+  authorises rewriting the defence test
+  `GitHubActionsTemplatesTest::thePipelineTemplateRunsOnEveryBranchPrefixThePolicyAllows` to assert
+  the new trigger set.
+- [x] ✅ **Task 1.2**: Language and distribution (Owner decision): **full polyglot**. actions-qa-ci
+  is not PHP-specific. It serves any repository or project that has Actions code. The toolchain may
+  be in any language. It is optimised to install easily in any Linux environment, so it does not
+  require PHP or any other language runtime on the host. The design document (Task 4.1) chooses the
+  toolchain against that constraint.
+- [x] ✅ **Task 1.3**: Create the public repository now (Owner decision):
+  `LongTermSupport/actions-qa-ci`, MIT like php-qa-ci.
 
 ### Phase 2: Defects found by the audit (DBF, issue loop)
 
@@ -104,7 +107,8 @@ This plan does three things:
   - justification lane;
   - entry point;
   - SARIF merge;
-  - what is reused from php-qa-ci.
+  - the toolchain, chosen for a runtime-free install on any Linux host (Task 1.2);
+  - which DBF conventions are taken from php-qa-ci as conventions, not as code.
 - [ ] ⬜ **Task 4.2**: Bootstrap the repository with pinned actionlint, zizmor and pinact, `rules`,
   `rule-doc` and the justification lane.
 - [ ] ⬜ **Task 4.3**: First-party lanes:

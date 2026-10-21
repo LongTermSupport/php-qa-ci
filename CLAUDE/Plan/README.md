@@ -10,7 +10,7 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
-- [00025: actions-qa-ci](00025-actions-qa-ci/PLAN.md) - Not Started — one QA run per PR push here and in the shipped template, the workflow defects actionlint and zizmor find closed under DBF, and a standalone DBF toolchain for GitHub Actions code with php-qa-ci as its first consumer
+- [00025: actions-qa-ci](00025-actions-qa-ci/PLAN.md) - In Progress — one QA run per PR push here and in the shipped template (Option A), the workflow defects actionlint and zizmor find closed under DBF, and a standalone polyglot DBF toolchain for GitHub Actions code in any repository, with php-qa-ci as its first consumer
 
 - [00023: release dependency currency gate](00023-release-dependency-currency-gate/PLAN.md) - Not Started — a release is fully upgraded: a gate that blocks on any direct dependency behind its latest release (majors included) unless a documented holdback covers it, and warns on stale transitive ones
 
