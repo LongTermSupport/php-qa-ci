@@ -185,6 +185,36 @@ which doesn\'t exist
     }
 
     /**
+     * The namespace is the one the file declares, read from its parse: a comment or docblock
+     * that mentions a namespace before the declaration is not one, a braced namespace block is
+     * one, and a file whose only mention of a namespace is inside a string declares none, which
+     * is a parse error. In a file of several namespace blocks the first is the file's; a
+     * class-like in a later block is reported as one its path does not name.
+     */
+    public function testTheNamespaceIsTheOneTheFileDeclaresNotTheFirstMentionOfTheWord(): void
+    {
+        $projectRoot = \Safe\realpath(__DIR__ . '/../assets/psr4/projectNamespaceReading/');
+        $validator   = new Psr4Validator([], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
+
+        self::assertSame(
+            [
+                'Class-Like Errors:' => [
+                    'Named\Reading\\' => [
+                        [
+                            'fileInfo'          => $projectRoot . '/src/Multiple.php',
+                            'expectedClassLike' => 'Named\Reading\Multiple',
+                            'declaredClassLike' => 'Elsewhere\Stray',
+                            'problem'           => 'class Elsewhere\Stray is declared in a file whose path autoloads only Named\Reading\Multiple, so no autoloader can load it: move it to a file of its own, named for it',
+                        ],
+                    ],
+                ],
+                'Parse Errors:'      => [$projectRoot . '/src/NoNamespace.php'],
+            ],
+            $validator->main(),
+        );
+    }
+
+    /**
      * A file whose namespace can be read but which does not parse declares no class-like the
      * validator can see, so it is a parse error, named with the parser's reason.
      */
