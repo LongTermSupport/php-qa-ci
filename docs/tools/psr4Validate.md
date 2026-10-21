@@ -20,12 +20,15 @@ up only when code autoloads the class and gets a fatal error. The check reads th
 
 For each PHP file under a PSR-4 root:
 
-- **The namespace.** The namespace is read as the text from the first `namespace` followed by
-  whitespace to the next `;`, and must be the one the file's directory implies under the root's
-  namespace prefix. A file with no such text is reported as a parse error.
+- **The namespace.** The file is parsed with `nikic/php-parser`, and its first namespace
+  declaration, `namespace X;` or `namespace X { ... }`, must be the one the file's directory
+  implies under the root's namespace prefix. A comment, docblock or string mentioning a
+  namespace is not a declaration. A file that declares no namespace, or only the global one
+  (`namespace { ... }`), is reported as a parse error. In a file of several namespace blocks the
+  first is the file's, and a class-like in a later block is reported by the class-like check.
 
-- **The class-likes.** The file is parsed with `nikic/php-parser`, and every named class,
-  interface, trait and enum it declares must be the one its path names: the implied namespace
+- **The class-likes.** Every named class, interface, trait and enum the file declares, in any
+  namespace block, must be the one its path names: the implied namespace
   and the file's base name, so `src/Foo/Bar.php` under `App\` may declare only `App\Foo\Bar`.
   Both shapes are reported:
 
@@ -35,9 +38,10 @@ For each PHP file under a PSR-4 root:
 
   Anonymous classes have no name to load and are not reported, nor is a file that declares no
   class-like at all, such as a file of functions. A class-like whose only fault is the
-  namespace already reported for its file is not reported a second time. A file whose
-  namespace can be read but which the parser cannot parse is a parse error, with the parser's
-  reason.
+  namespace already reported for its file is not reported a second time.
+
+A file the parser cannot parse is not checked further, and is reported as a parse error with
+the parser's reason.
 
 A class-like declared beside the one its path names is reported even when only its own file
 uses it. The lane reads one file at a time, so it cannot see whether another file names the
@@ -87,8 +91,8 @@ The output groups findings as:
   Where the file declares no class-like its path names, rename the class-like or the file so
   the two agree. Where it does, move the other class-like to a file of its own, named for it,
   and import it where it is used.
-- **Parse errors**: no namespace could be read from the file, or it does not parse; the second
-  is listed with the parser's reason.
+- **Parse errors**: the file declares no namespace, or it does not parse; the second is listed
+  with the parser's reason.
 - **Missing paths**: a mapping in `composer.json` names a directory that does not exist.
   Fix the mapping.
 

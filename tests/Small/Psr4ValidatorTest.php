@@ -134,7 +134,7 @@ final class Psr4ValidatorTest extends TestCase
                 ],
             ],
             'Parse Errors:'  => [
-                0 => $projectRoot . '/tests/ParseError.php',
+                0 => $projectRoot . '/tests/ParseError.php: Syntax error, unexpected T_STRING on line 5',
             ],
             'Missing Paths:' => [
                 'missing/path'         => 'Namespace root \'In\Valid\\\'
@@ -202,8 +202,8 @@ which doesn\'t exist
                     'Named\Reading\\' => [
                         [
                             'fileInfo'          => $projectRoot . '/src/Multiple.php',
-                            'expectedClassLike' => 'Named\Reading\Multiple',
-                            'declaredClassLike' => 'Elsewhere\Stray',
+                            'expectedClassLike' => \Named\Reading\Multiple::class,
+                            'declaredClassLike' => \Elsewhere\Stray::class,
                             'problem'           => 'class Elsewhere\Stray is declared in a file whose path autoloads only Named\Reading\Multiple, so no autoloader can load it: move it to a file of its own, named for it',
                         ],
                     ],

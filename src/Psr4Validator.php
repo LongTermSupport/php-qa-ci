@@ -10,9 +10,11 @@ use InvalidArgumentException;
 use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Regex\RegexPattern;
 use PhpParser\Error as PhpParserError;
+use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\Enum_;
 use PhpParser\Node\Stmt\Interface_;
+use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Trait_;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
@@ -264,8 +266,15 @@ final class Psr4Validator
 
     private function check(string $absPathRoot, string $namespaceRoot, SplFileInfo $fileInfo): void
     {
-        $actualNamespace = $this->getActualNamespace($fileInfo);
-        if ('' === $actualNamespace) {
+        $statements = $this->parse($fileInfo);
+        if (null === $statements) {
+            return;
+        }
+
+        $actualNamespace = $this->declaredNamespace(...$statements);
+        if (null === $actualNamespace) {
+            $this->parseErrors[] = (string)$fileInfo->getRealPath();
+
             return;
         }
 
@@ -279,7 +288,44 @@ final class Psr4Validator
                 ];
         }
 
-        $this->checkClassLikes($namespaceRoot, $fileInfo, $actualNamespace, $expectedNamespace);
+        $this->checkClassLikes($namespaceRoot, $fileInfo, $actualNamespace, $expectedNamespace, ...$statements);
+    }
+
+    /**
+     * The file's statements with names resolved, or null when the parser cannot read it, which
+     * is a parse error naming the parser's reason.
+     *
+     * @return list<Stmt>|null
+     */
+    private function parse(SplFileInfo $fileInfo): ?array
+    {
+        try {
+            $statements = $this->parser->parse(\Safe\file_get_contents($fileInfo->getPathname())) ?? [];
+        } catch (PhpParserError $phpParserError) {
+            $this->parseErrors[] = $fileInfo->getRealPath() . ': ' . $phpParserError->getMessage();
+
+            return null;
+        }
+
+        new NodeTraverser(new NameResolver())->traverse($statements);
+
+        return array_values($statements);
+    }
+
+    /**
+     * The file's namespace: the name of its first namespace declaration, braced or not. Null
+     * when it declares none, or only the global namespace. A file of several namespace blocks
+     * is judged by the first; a class-like in a later block is reported by checkClassLikes().
+     */
+    private function declaredNamespace(Stmt ...$statements): ?string
+    {
+        foreach ($statements as $statement) {
+            if ($statement instanceof Namespace_ && $statement->name instanceof \PhpParser\Node\Name) {
+                return $statement->name->toString();
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -289,9 +335,9 @@ final class Psr4Validator
      * load. A class-like whose only fault is the namespace already reported for the file is not
      * reported a second time.
      */
-    private function checkClassLikes(string $namespaceRoot, SplFileInfo $fileInfo, string $actualNamespace, string $expectedNamespace): void
+    private function checkClassLikes(string $namespaceRoot, SplFileInfo $fileInfo, string $actualNamespace, string $expectedNamespace, Stmt ...$statements): void
     {
-        $classLikes = $this->namedClassLikes($fileInfo);
+        $classLikes = $this->namedClassLikes(...$statements);
         $expected   = ltrim($expectedNamespace . '\\' . $fileInfo->getBasename('.php'), '\\');
         $declared   = array_keys($classLikes);
         if (\in_array($expected, $declared, true)) {
@@ -316,22 +362,13 @@ final class Psr4Validator
     }
 
     /**
-     * Every named class-like the file declares, by fully qualified name, in declaration order, to
-     * its kind. A file the parser cannot read is a parse error, and declares none.
+     * Every named class-like the statements declare, by fully qualified name, in declaration
+     * order, to its kind.
      *
      * @return array<string, string>
      */
-    private function namedClassLikes(SplFileInfo $fileInfo): array
+    private function namedClassLikes(Stmt ...$statements): array
     {
-        try {
-            $statements = $this->parser->parse(\Safe\file_get_contents($fileInfo->getPathname())) ?? [];
-        } catch (PhpParserError $phpParserError) {
-            $this->parseErrors[] = $fileInfo->getRealPath() . ': ' . $phpParserError->getMessage();
-
-            return [];
-        }
-
-        new NodeTraverser(new NameResolver())->traverse($statements);
         $classLikes = [];
         foreach (new NodeFinder()->findInstanceOf($statements, ClassLike::class) as $classLike) {
             if (null !== $classLike->namespacedName) {
@@ -350,20 +387,6 @@ final class Psr4Validator
             $classLike instanceof Trait_     => 'trait',
             default                          => 'class',
         };
-    }
-
-    private function getActualNamespace(SplFileInfo $fileInfo): string
-    {
-        $contents = \Safe\file_get_contents($fileInfo->getPathname());
-        $matches  = [];
-        \Safe\preg_match('%namespace\s+?([^;]+)%', $contents, $matches);
-        if (!isset($matches[1])) {
-            $this->parseErrors[] = (string)$fileInfo->getRealPath();
-
-            return '';
-        }
-
-        return $matches[1];
     }
 
     private function expectedFileNamespace(string $absPathRoot, string $namespaceRoot, SplFileInfo $fileInfo): string
