@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\PhpstanDocs;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use RuntimeException;
 use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -49,6 +51,13 @@ final readonly class GitPhpstanDocsFetcher implements PhpstanDocsFetcherInterfac
 
         try {
             $process->mustRun();
+        } catch (ProcessSignaledException $processSignaledException) {
+            throw new RuntimeException(\sprintf(
+                'could not fetch the PHPStan identifier pages from %s: `%s` ended with %s',
+                $this->repository,
+                $process->getCommandLine(),
+                ChildExit::describe(ChildExit::exitCodeOfSignal($processSignaledException->getSignal())),
+            ), 0, $processSignaledException);
         } catch (ProcessFailedException $processFailedException) {
             throw new RuntimeException(\sprintf(
                 'could not fetch the PHPStan identifier pages from %s: %s',

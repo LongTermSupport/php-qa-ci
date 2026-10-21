@@ -20,6 +20,10 @@ A writable run (the local default) is **fail-fast**: the first failing tool ends
 
 75 exists so a caller can tell contention from a verdict. A run that hits it also prints one line to stderr and checks nothing; retry it rather than reporting it as a failure.
 
+A tool whose process is killed by a signal it did not ask for has **crashed**, whatever its exit code would have meant. The run prints `!! <command> ended with exit code 143, killed by signal 15 (SIGTERM)` (128 + the signal, as a shell reports it), and the tool's failure banner says `<tool> crashed:` with the same description. A crash is never retried, and the run exits 1 as for any failed tool.
+
+A **segmentation fault** (SIGSEGV, exit 139) is never retried past and never accepted in a passing run, so it **halts the run** at once, in fail-fast and aggregate mode alike, even in the copy/paste report: `HALTED: <tool> crashed with a segmentation fault, so no further tool runs.`, followed by a line pointing at [docs/segfaults.md](segfaults.md) in the installed package, on finding what crashed and where to report it. A process that exits 139 itself halts the run the same way. A shell does this when the command it ran crashed, and so does a tool that re-runs itself and passes on its copy's crash. The process is named as above, and the tool counts as crashed even if it reported a pass. A process outside any tool, a start-up probe or a [hook](#hooks), stops the run the same way when a signal kills it or it exits 139, naming the command and the signal. The exit code is 1.
+
 In an interactive run (a TTY, `CI` unset) a failed tool prints its failure banner and asks whether to try again; you can retry indefinitely until it passes. In CI mode (`CI=true`, a Claude Code session, or no TTY) the answer is always no. A tool that **crashed** (an exit code outside its documented pass/fail set) is never offered a retry. If any tool was retried, the run ends with a warning to run the whole pipeline again.
 
 ## Hooks
