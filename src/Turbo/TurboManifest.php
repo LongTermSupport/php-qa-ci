@@ -34,7 +34,7 @@ final readonly class TurboManifest
      */
     private const string REPOSITORY_FILE_PATTERN = '#^(?!windows-)[a-z0-9_-]+/phpstan_turbo(?:-\d+\.\d+(?:-zts)?|_core)\.so$#';
 
-    /** @param array<string, string> $files path under `turbo-ext/` => lowercase hex SHA-256 */
+    /** @param array<array-key, string> $files path under `turbo-ext/` => lowercase hex SHA-256 */
     public function __construct(
         public string $phpstanVersion,
         public array $files,

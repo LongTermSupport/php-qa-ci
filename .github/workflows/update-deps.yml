@@ -7,16 +7,20 @@ on:
     - cron: '17 3 * * *'
   workflow_dispatch:
 
+# The token reads and nothing more. `composer update` runs every plugin and script
+# the new versions bring, and the QA run executes the project: neither may hold a
+# token that can push, open a pull request or change an issue. The jobs below that
+# write do no more than apply the verified result, open its pull request, approve
+# its held run and report a failure, and each is granted only that.
 permissions:
-  actions: write
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update-and-verify:
     name: Update Dependencies & Verify QA
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
 
     steps:
       # No explicit `ref:` — actions/checkout defaults to the repository's own
@@ -29,6 +33,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -127,9 +132,10 @@ jobs:
       # changelog lane measures the update from the merge base, exactly as it
       # will on the pull request; on the default branch it would measure from
       # the last release tag, where earlier Unreleased entries cover anything.
-      # The job then returns to its checkout, the base the pull request action
-      # expects, carrying the working-tree changes with it. The work branch is
-      # not chore/update-deps, which that action creates and resets itself.
+      # The job then returns to its checkout, carrying the working-tree changes
+      # with it, so the patch packaged below is the change as the pull request
+      # will have it. The work branch is not chore/update-deps, which the pull
+      # request action creates and resets itself.
       - name: Run QA Pipeline
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -142,92 +148,164 @@ jobs:
           bash ci.bash
           git switch -
 
-      # Step 7: Generate PR summary
-      - name: Generate update summary
+      # Step 7: Package the verified result for the job that opens the pull
+      # request: the working tree's change as a patch (new and binary files
+      # included), and the pull request's description. Summaries only: the PR's
+      # own diff tab carries the detail.
+      - name: Package the update and its summary
         if: steps.changes.outputs.changed == 'true'
-        id: summary
         run: |
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          # Summaries only: a full lock diff can exceed the GITHUB_OUTPUT size
-          # limit, and a truncated diff would be misleading. The PR's own diff
-          # tab carries the detail.
-          echo "## Composer Changes" >> "$GITHUB_OUTPUT"
-          echo "" >> "$GITHUB_OUTPUT"
-          echo '```' >> "$GITHUB_OUTPUT"
-          git diff --stat composer.json composer.lock >> "$GITHUB_OUTPUT"
-          echo '```' >> "$GITHUB_OUTPUT"
-          echo "" >> "$GITHUB_OUTPUT"
-          echo "Package versions after the update:" >> "$GITHUB_OUTPUT"
-          echo "" >> "$GITHUB_OUTPUT"
-          echo '```' >> "$GITHUB_OUTPUT"
-          composer show --direct --no-interaction >> "$GITHUB_OUTPUT"
-          echo '```' >> "$GITHUB_OUTPUT"
-          echo "" >> "$GITHUB_OUTPUT"
+          OUT="${RUNNER_TEMP}/update"
+          BODY="${OUT}/body.md"
+          mkdir -p "${OUT}"
+          git add --all
+          git diff --cached --binary --full-index > "${OUT}/update.patch"
+          git reset --quiet
+
+          {
+            echo "Automated daily dependency update."
+            echo ""
+            echo "## Composer Changes"
+            echo ""
+            echo '```'
+            git diff --stat composer.json composer.lock
+            echo '```'
+            echo ""
+            echo "Package versions after the update:"
+            echo ""
+            echo '```'
+            composer show --direct --no-interaction
+            echo '```'
+            echo ""
+          } > "${BODY}"
 
           # Check for PHAR changes
           if ! git diff --quiet phive.xml vendor-phar/; then
-            echo "## PHAR Changes" >> "$GITHUB_OUTPUT"
-            echo "" >> "$GITHUB_OUTPUT"
-            for phar in vendor-phar/*.phar; do
-              name=$(basename "$phar" .phar)
-              # Only the first line of --version output is the version banner.
-              version=$(php -d display_errors=stderr "$phar" --version 2>/dev/null | awk 'NR==1' || true)
-              echo "- **$name**: ${version:-version unknown}" >> "$GITHUB_OUTPUT"
-            done
-            echo "" >> "$GITHUB_OUTPUT"
+            {
+              echo "## PHAR Changes"
+              echo ""
+              for phar in vendor-phar/*.phar; do
+                name=$(basename "$phar" .phar)
+                # Only the first line of --version output is the version banner.
+                version=$(php -d display_errors=stderr "$phar" --version 2>/dev/null | awk 'NR==1' || true)
+                echo "- **$name**: ${version:-version unknown}"
+              done
+              echo ""
+            } >> "${BODY}"
           fi
 
           # Check for self-built PHAR changes (keyed off each build manifest lock —
           # under reproducible builds the phar binary follows the lock).
           if ! git diff --quiet build/*/composer.lock; then
-            echo "## Self-built PHAR Changes" >> "$GITHUB_OUTPUT"
-            echo "" >> "$GITHUB_OUTPUT"
-            for manifest in build/*/composer.json; do
-              name=$(basename "$(dirname "$manifest")")
-              version=$(php -d display_errors=stderr "vendor-phar/$name.phar" --version 2>/dev/null | awk 'NR==1' || true)
-              echo "- **$name**: ${version:-version unknown}" >> "$GITHUB_OUTPUT"
-            done
-            echo "" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Self-built PHAR Changes"
+              echo ""
+              for manifest in build/*/composer.json; do
+                name=$(basename "$(dirname "$manifest")")
+                version=$(php -d display_errors=stderr "vendor-phar/$name.phar" --version 2>/dev/null | awk 'NR==1' || true)
+                echo "- **$name**: ${version:-version unknown}"
+              done
+              echo ""
+            } >> "${BODY}"
           fi
 
-          echo "" >> "$GITHUB_OUTPUT"
-          echo "---" >> "$GITHUB_OUTPUT"
-          echo "QA pipeline passed with these changes." >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "---"
+            echo "QA pipeline passed with these changes."
+            echo ""
+            echo "This PR was created automatically by the [update-deps](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/update-deps.yml) workflow."
+          } >> "${BODY}"
 
-      # Step 8: Create PR (only if QA passed — this step is skipped if ci.bash failed)
-      - name: Create Pull Request
+      - name: Upload the update
         if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-update
+          path: ${{ runner.temp }}/update
+          if-no-files-found: error
+          retention-days: 1
+
+  # The job that holds the write grants. It runs nothing from the repository and
+  # installs nothing: it applies the patch the verified run produced to a fresh
+  # checkout and opens the pull request, so the dependencies the update just
+  # installed never execute beside a token that can push.
+  open-pull-request:
+    name: Open the dependency update pull request
+    needs: update-and-verify
+    if: needs.update-and-verify.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      operation: ${{ steps.create-pr.outputs.pull-request-operation }}
+      head-sha: ${{ steps.create-pr.outputs.pull-request-head-sha }}
+
+    steps:
+      # No explicit `ref:`, as in the job above: the repository's default branch.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download the update
+        uses: actions/download-artifact@v8
+        with:
+          name: dependency-update
+          path: ${{ runner.temp }}/update
+
+      - name: Apply the update
+        run: git apply "${RUNNER_TEMP}/update/update.patch"
+
+      # Only reached if QA passed: the job above fails first otherwise.
+      - name: Create Pull Request
         id: create-pr
         uses: peter-evans/create-pull-request@v8
         with:
           branch: chore/update-deps
           delete-branch: true
           title: 'chore(deps): update dependencies'
-          body: |
-            Automated daily dependency update.
-
-            ${{ steps.summary.outputs.body }}
-
-            This PR was created automatically by the [update-deps](${{ github.server_url }}/${{ github.repository }}/actions/workflows/update-deps.yml) workflow.
+          body-path: ${{ runner.temp }}/update/body.md
           labels: dependencies,automated
           commit-message: 'chore(deps): update all dependencies'
 
-      # The pull request's CI run is held because GITHUB_TOKEN pushed it, and
-      # php8.5 requires its "QA Pipeline" check.
+  # The pull request's CI run is held because GITHUB_TOKEN pushed it, and the
+  # default branch requires its "QA Pipeline" check. Its own job, on a checkout
+  # that never saw the update, because the action it runs is repository code
+  # and this job may approve workflow runs.
+  approve-ci:
+    name: Approve the held CI run
+    needs: open-pull-request
+    if: needs.open-pull-request.outputs.operation == 'created' || needs.open-pull-request.outputs.operation == 'updated'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Approve CI on the pull request
-        if: steps.create-pr.outputs.pull-request-operation == 'created' || steps.create-pr.outputs.pull-request-operation == 'updated'
         uses: ./.github/actions/approve-held-ci
         with:
-          head-sha: ${{ steps.create-pr.outputs.pull-request-head-sha }}
+          head-sha: ${{ needs.open-pull-request.outputs.head-sha }}
           token: ${{ github.token }}
-          workflow: ci.yml
+          workflow: qa.yml
 
-      # A failed run must reach someone: the one open issue labelled
-      # update-deps-failure gets a comment linking the run, or, when none is
-      # open, a new one is opened. CLAUDE/tool-currency.md says who acts on it.
+  # A failed run must reach someone: the one open issue labelled
+  # update-deps-failure gets a comment linking the run, or, when none is
+  # open, a new one is opened. CLAUDE/tool-currency.md says who acts on it.
+  report-failure:
+    name: Report the failure on the tracking issue
+    needs: [update-and-verify, open-pull-request, approve-ci]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
       - name: Report the failure on the tracking issue
-        if: failure()
         uses: actions/github-script@v9
         with:
           script: |

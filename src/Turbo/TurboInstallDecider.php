@@ -23,7 +23,7 @@ final readonly class TurboInstallDecider
     /**
      * What an install records beside the binary, so the next install knows which files it came from.
      *
-     * @param array<string, string> $files path under `turbo-ext/` => SHA-256
+     * @param array<array-key, string> $files path under `turbo-ext/` => SHA-256
      */
     public static function stamp(array $files): string
     {

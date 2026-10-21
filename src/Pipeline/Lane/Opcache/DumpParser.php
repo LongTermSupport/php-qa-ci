@@ -35,6 +35,7 @@ final readonly class DumpParser
      */
     public function filesDumped(string $dump): array
     {
+        /** @var array<array-key, true> $files */
         $files = [];
         foreach (explode("\n", $dump) as $line) {
             if (1 === \Safe\preg_match(self::LOCATION, $line, $location) && isset($location[1])) {
@@ -42,7 +43,7 @@ final readonly class DumpParser
             }
         }
 
-        return array_keys($files);
+        return array_map(static fn (int|string $file): string => (string)$file, array_keys($files));
     }
 
     /** @return list<ConstComparisonDto> in dump order */

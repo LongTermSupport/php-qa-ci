@@ -30,7 +30,8 @@
   "require-dev": {
     "ext-dom": "*",
     "ext-libxml": "*",
-    "roave/security-advisories": "dev-master"
+    "roave/security-advisories": "dev-master",
+    "symfony/yaml": "^8.1"
   },
   "replace": {
     "phpstan/phpstan": "2.3.1"

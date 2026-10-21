@@ -15,7 +15,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
  */
 final readonly class PipelineDefinitionDto
 {
-    /** @param array<string, ToolInterface> $tools keyed by canonical name */
+    /** @param array<array-key, ToolInterface> $tools keyed by canonical name */
     public function __construct(
         public ToolRegistry $registry,
         public array $tools,

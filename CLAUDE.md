@@ -102,8 +102,10 @@ dir) prints its page offline.
 - `phpqaci.unisolatedGitProcess` — git in a test runs isolated from the host's git configuration (`docs/phpstan-rules/forbid-unisolated-git-process.md`)
 - `phpqaci.unhandledProcessSignal` — A Process whose child a signal kills is reported by name (`docs/phpstan-rules/forbid-unhandled-process-signal.md`)
 - `phpqaci.phpWarningsInCapturedOutput` — PHP run with its output captured sends its warnings to stderr (`docs/phpstan-rules/forbid-php-warnings-in-captured-output.md`)
+- `phpqaci.numericStringArrayKey` — An array keyed by a string that may be all digits is not string-keyed (`docs/phpstan-rules/forbid-numeric-string-array-key.md`)
 - `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
 - `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
+- `phpqaci.unautoloadableClassReference` — A class another file uses is declared where its autoloader looks for it (`docs/phpstan-rules/forbid-unautoloadable-class-reference.md`)
 - `typeCoverage.paramTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `typeCoverage.returnTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `typeCoverage.propertyTypeCoverage` — a rule from `tomasvotruba/type-coverage`
@@ -112,6 +114,7 @@ dir) prints its page offline.
 - `phpstan/phpstan-phpunit` — 15 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `phpstan/phpstan-strict-rules` — 45 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `tomasvotruba/type-coverage` — 7 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `phpqaci.dependencyFreshness` — locked packages (lts/php-qa-ci, plus withDependencyFreshnessPatterns()) are what composer update would install; first in a full run (`docs/tools/dependencyFreshness.md`)
 - `phpqaci.rector` — Rector (`docs/tools/rector.md`)
 - `phpqaci.phpCsFixer` — PHP-CS-Fixer (`docs/tools/phpCsFixer.md`)
 - `phpqaci.twigCsFixer` — Twig coding standards (when twig/twig is installed) (`docs/tools/twigCsFixer.md`)

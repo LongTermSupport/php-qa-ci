@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Config\RectorConfig;
 use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
@@ -11,6 +12,21 @@ use Rector\Set\ValueObject\SetList;
  * This runs after rector-safe.php and rector-phpunit.php
  */
 return static function (RectorConfig $rectorConfig): void {
+    // Rector's cache lives in the project, never in the system temp directory, which every project
+    // and every concurrent run on the host would share. The pipeline exports the directory in
+    // rectorCacheDir (var/qa/cache/rector); standalone, the same path under the working directory.
+    // There is no cacheClass() call to copy into a project config: this is the cache setting.
+    $cacheDir = (string) ($_SERVER['rectorCacheDir'] ?? (getcwd() . '/var/qa/cache/rector'));
+    // Rector requires the container cache directory to exist; --clear-cache empties only the files directory.
+    foreach ([$cacheDir . '/files', $cacheDir . '/container'] as $directory) {
+        if (!is_dir($directory) && !mkdir($directory, 0o777, true) && !is_dir($directory)) {
+            throw new RuntimeException('Cannot create the Rector cache directory ' . $directory);
+        }
+    }
+    $rectorConfig->cacheClass(FileCacheStorage::class);
+    $rectorConfig->cacheDirectory($cacheDir . '/files');
+    $rectorConfig->containerCacheDirectory($cacheDir . '/container');
+
     // Limit parallel processing to use only half of available CPU threads
     // to avoid overwhelming the system
     $cpuThreads = (int) shell_exec('nproc') ?: 4;  // Default to 4 if nproc fails

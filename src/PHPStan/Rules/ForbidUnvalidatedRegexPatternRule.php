@@ -65,7 +65,8 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
 
         // File => function key => variable => the dependencies of each write to it, null for one not owned;
         // a write any function makes to a top-level variable counts in every file's top-level code.
-        $writes       = [];
+        $writes = [];
+        /** @var array<array-key, list<list<string>|null>> $globalWrites */
         $globalWrites = [];
         foreach ($node->get(RegexPatternVariableWriteCollector::class) as $file => $collected) {
             foreach (array_merge(...$collected) as [$functionKey, $variable, $dependencies]) {
@@ -110,7 +111,7 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
      * this one, or one it was copied from, to a call whose callee cannot be
      * resolved.
      *
-     * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
+     * @param array<array-key, list<list<string>|null>> $functionWrites variable => dependencies of each write
      */
     private function hasUnseenWrite(array $functionWrites, string ...$named): bool
     {
@@ -118,7 +119,7 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
             \array_key_exists(RegexPatternVariableWriteCollector::ANY_VARIABLE, $functionWrites)
             || array_any(
                 array_keys($this->reachable($functionWrites, RegexPatternVariableWriteCollector::COPIED_FROM, ...$named)),
-                static fn (string $variable): bool => \array_key_exists(RegexPatternVariableWriteCollector::UNSEEN_WRITE . $variable, $functionWrites),
+                static fn (int|string $variable): bool => \array_key_exists(RegexPatternVariableWriteCollector::UNSEEN_WRITE . $variable, $functionWrites),
             )
         );
     }
@@ -130,7 +131,7 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
      * $p. Every variable it depends on is struck out until none is left to
      * strike; what remains is owned.
      *
-     * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
+     * @param array<array-key, list<list<string>|null>> $functionWrites variable => dependencies of each write
      */
     private function isOwned(string $variable, array $functionWrites): bool
     {
@@ -158,9 +159,9 @@ final readonly class ForbidUnvalidatedRegexPatternRule implements Rule
      * write under the prefixed name lists, each taken once however many
      * routes lead to it.
      *
-     * @param array<string, list<list<string>|null>> $functionWrites variable => dependencies of each write
+     * @param array<array-key, list<list<string>|null>> $functionWrites variable => dependencies of each write
      *
-     * @return array<string, true>
+     * @return array<array-key, true>
      */
     private function reachable(array $functionWrites, string $prefix, string ...$from): array
     {

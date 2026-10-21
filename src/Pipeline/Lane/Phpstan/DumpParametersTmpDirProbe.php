@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane\Phpstan;
 
+use LTS\PHPQA\Pipeline\Lane\Phpstan\Dto\PhpstanParametersDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 
 /**
- * Asks PHPStan for the `tmpDir` it merges from a config, with
+ * Asks PHPStan for the parameters it merges from a config, with
  * `phpstan.phar dump-parameters --json`, so an include no NEON walk can
  * follow (a `%parameter%` path, a PHP config file) is resolved by PHPStan's
- * own loader. PHPStan's default is `%sysGetTempDir%/phpstan`; any other value
+ * own loader: the `tmpDir`, and the `paths`, `excludePaths` and
+ * `fileExtensions` the deadCode lane's bin/ check reads from the same answer
+ * (PhpstanParametersDto). PHPStan's default is `%sysGetTempDir%/phpstan`; any other value
  * is the project's. The default is read from the same dump's `sysGetTempDir`,
  * which is the child's own `sys_get_temp_dir()`, so the comparison never
  * depends on this process's environment.
@@ -32,23 +35,16 @@ final readonly class DumpParametersTmpDirProbe implements TmpDirProbeInterface
 {
     public const string TEMP_DIR = 'phpstan-dump-parameters';
 
-    private const string DEFAULT_TMP_DIR = '/phpstan';
-
     public function projectTmpDir(ToolContext $context, string $config, ?string $autoloadFile): ?string
     {
+        return $this->parameters($context, $config, $autoloadFile)?->tmpDir;
+    }
+
+    public function parameters(ToolContext $context, string $config, ?string $autoloadFile): ?PhpstanParametersDto
+    {
         $stdout = new PhpstanSetupCache()->dumpParameters($context, $config, $autoloadFile, fn (): ?string => $this->dump($context, $config, $autoloadFile));
-        if (null === $stdout) {
-            return null;
-        }
 
-        $parameters = \Safe\json_decode($stdout, true);
-        $tmpDir     = \is_array($parameters) ? ($parameters['tmpDir'] ?? null) : null;
-        $systemTemp = \is_array($parameters) ? ($parameters['sysGetTempDir'] ?? null) : null;
-        if (!\is_string($tmpDir) || !\is_string($systemTemp) || $systemTemp . self::DEFAULT_TMP_DIR === $tmpDir) {
-            return null;
-        }
-
-        return $tmpDir;
+        return null === $stdout ? null : PhpstanParametersDto::fromDump($stdout);
     }
 
     /** The dump's JSON, or null when it failed or printed none. */

@@ -100,6 +100,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         'documentedQaCommands'       => 'reads the documentation and agent markdown, never PHP',
         'branchNamePolicy'           => 'reads the git branch name',
         'composerChecks'             => 'reads composer.json and composer.lock',
+        'dependencyFreshness'        => 'reads composer.lock and asks Composer, never PHP',
         'composerRequireChecker'     => 'a dependency is real wherever the autoloader ships the code that uses it, ignored or not',
         'composerDependencyAnalyser' => 'a dependency is real wherever the autoloader ships the code that uses it, ignored or not',
         'twigCsFixer'                => 'scans the Twig directories, withTwigDirectories()',

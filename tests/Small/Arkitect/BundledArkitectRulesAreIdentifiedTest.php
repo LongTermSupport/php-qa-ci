@@ -42,6 +42,7 @@ final class BundledArkitectRulesAreIdentifiedTest extends TestCase
     {
         $unidentified = [];
         foreach ($this->clausesByTier() as $tier => $clauses) {
+            $tier = (string)$tier;
             self::assertCount(substr_count(\Safe\file_get_contents($tier), 'Rule::allClasses()'), $clauses, $tier . ': a rule whose because clause this test cannot read');
             foreach ($clauses as $clause) {
                 if (1 !== \Safe\preg_match(self::IDENTIFIER, $clause)) {
@@ -102,7 +103,7 @@ final class BundledArkitectRulesAreIdentifiedTest extends TestCase
         return $identifiers;
     }
 
-    /** @return array<string, list<string>> tier file => the because clause of each rule in it */
+    /** @return array<array-key, list<string>> tier file => the because clause of each rule in it */
     private function clausesByTier(): array
     {
         $tiers = \Safe\glob(self::TIERS);

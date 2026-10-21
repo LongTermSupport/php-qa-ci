@@ -220,6 +220,7 @@ final readonly class TurboInstaller
             return false;
         }
 
+        /** @var array<array-key, string> $files */
         $files = [];
         foreach ($paths as $path) {
             $bytes = $this->source->file($pharVersion, $path);
@@ -278,9 +279,9 @@ final readonly class TurboInstaller
     }
 
     /**
-     * @param string                $turboDir slash-terminated directory phpstan.phar looks in
-     * @param string                $binary   the binary's path under it; the stamp goes beside it
-     * @param array<string, string> $files    path under it => SHA-256, in the order to place them
+     * @param string                   $turboDir slash-terminated directory phpstan.phar looks in
+     * @param string                   $binary   the binary's path under it; the stamp goes beside it
+     * @param array<array-key, string> $files    path under it => SHA-256, in the order to place them
      */
     private function fetch(string $turboDir, string $binary, string $version, array $files, string $message): int
     {
@@ -300,8 +301,10 @@ final readonly class TurboInstaller
 
             // Everything is downloaded and verified before anything is placed: a binary without its
             // core is a file PHPStan refuses to load, and one half of a pair is never left behind.
+            /** @var array<array-key, string> $downloads */
             $downloads = [];
-            foreach ($files as $path => $digest) {
+            foreach ($files as $key => $digest) {
+                $path  = (string)$key;
                 $bytes = $this->source->file($version, $path);
                 if (null === $bytes) {
                     // Not fatal: no binary is left to load, and the next install tries again.
@@ -327,7 +330,8 @@ final readonly class TurboInstaller
                 $this->errors->writeln(\sprintf('WARNING: could not remove %s, a staging directory a killed install left: %s', $leftover, $why));
             }
 
-            foreach ($downloads as $path => $bytes) {
+            foreach ($downloads as $key => $bytes) {
+                $path   = (string)$key;
                 $staged = $staging->path . '/' . basename($path);
                 \Safe\file_put_contents($staged, $bytes);
                 // A fresh file's mode follows the umask; a shared library nobody else may rewrite is 0644.

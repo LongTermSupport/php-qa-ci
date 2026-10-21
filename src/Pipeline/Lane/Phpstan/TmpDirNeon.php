@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane\Phpstan;
 
+use Closure;
 use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\Dto\PhpstanParametersDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use Nette\Neon\Neon;
 
@@ -49,27 +51,18 @@ final readonly class TmpDirNeon
      */
     public function forLane(ToolContext $context, string $label, string $cacheDir, ?string $autoloadFile = null): string
     {
-        $paths     = $context->config->paths;
-        $config    = $context->configPath('phpstan.neon');
-        $declaring = $this->declaredBy($config, $paths->projectRoot);
-        if (null !== $declaring) {
-            $context->writeln(\sprintf('%s: cache in the tmpDir %s sets', $label, $declaring));
+        $config = $context->configPath('phpstan.neon');
 
-            return '';
-        }
+        return $this->decide($context, $label, $cacheDir, fn (): ?string => $this->probe->projectTmpDir($context, $config, $autoloadFile));
+    }
 
-        $resolved = $this->probe->projectTmpDir($context, $config, $autoloadFile);
-        if (null !== $resolved) {
-            $context->writeln(\sprintf("%s: cache in the tmpDir the project's PHPStan configuration sets, %s", $label, $resolved));
-
-            return '';
-        }
-
-        $tmpDir   = $paths->cacheDir . '/' . $cacheDir;
-        $relative = str_starts_with($tmpDir, $paths->projectRoot . '/') ? substr($tmpDir, \strlen($paths->projectRoot) + 1) : $tmpDir;
-        $context->writeln(\sprintf('%s: cache in %s', $label, $relative));
-
-        return $this->parameters($tmpDir);
+    /**
+     * As forLane(), for a lane that already holds PHPStan's answer for the project's config (or
+     * null, when PHPStan gave none): PHPStan is not asked again.
+     */
+    public function forLaneFrom(ToolContext $context, string $label, string $cacheDir, ?PhpstanParametersDto $parameters): string
+    {
+        return $this->decide($context, $label, $cacheDir, static fn (): ?string => $parameters?->tmpDir);
     }
 
     /**
@@ -104,5 +97,30 @@ final readonly class TmpDirNeon
         }
 
         return \sprintf("    %s: '%s'\n", self::TMP_DIR, str_replace("'", "''", $tmpDir));
+    }
+
+    /** @param Closure(): ?string $resolve the tmpDir PHPStan resolves when it is the project's */
+    private function decide(ToolContext $context, string $label, string $cacheDir, Closure $resolve): string
+    {
+        $paths     = $context->config->paths;
+        $declaring = $this->declaredBy($context->configPath('phpstan.neon'), $paths->projectRoot);
+        if (null !== $declaring) {
+            $context->writeln(\sprintf('%s: cache in the tmpDir %s sets', $label, $declaring));
+
+            return '';
+        }
+
+        $resolved = $resolve();
+        if (null !== $resolved) {
+            $context->writeln(\sprintf("%s: cache in the tmpDir the project's PHPStan configuration sets, %s", $label, $resolved));
+
+            return '';
+        }
+
+        $tmpDir   = $paths->cacheDir . '/' . $cacheDir;
+        $relative = str_starts_with($tmpDir, $paths->projectRoot . '/') ? substr($tmpDir, \strlen($paths->projectRoot) + 1) : $tmpDir;
+        $context->writeln(\sprintf('%s: cache in %s', $label, $relative));
+
+        return $this->parameters($tmpDir);
     }
 }

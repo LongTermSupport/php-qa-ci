@@ -24,19 +24,37 @@ git commit -m "Add PHP QA pipeline"
 git push
 ```
 
-The workflow will run automatically on your next push or pull request.
+The workflow runs on every pull request push, and on a push to the branches listed under `push: branches:` in the file (`main`, `master` and `php8.5`). If your default branch is not one of them,
+add it there.
 
 ## Features
 
+### One Run per Push
+
+A push to a branch with an open pull request raises two events, `push` and `pull_request`. The
+template listens to `pull_request` for every pull request and to `push` only for the default
+branch, so each push to a pull request runs the pipeline once, and the merge runs it once more on
+the default branch, where the result gates a release. A newer push to a pull request cancels the
+run it supersedes; a run on the default branch is never cancelled. Do not list a work branch, or a
+long-lived branch with an open pull request, under `push:`: each push to it would run twice.
+
+### Read-Only Token
+
+The workflow sets `permissions: contents: read`. The pipeline runs third-party code (every Composer
+plugin and script, every test), and none of it needs to write to your repository. The one job that
+writes, the opt-in coverage comment, is granted `pull-requests: write` for itself alone.
+
 ### Dynamic PHP Version Detection
 
-The workflow automatically detects the PHP version from your `composer.json` file's `require.php` constraint. No manual configuration needed.
+A step of the `qa` job detects the PHP version from your `composer.json` file's `require.php`
+constraint. No manual configuration needed. It selects the first version in the file's list
+(`8.5 8.4 8.3 8.2 8.1 8.0`) that appears anywhere in the constraint, so a project on a newer PHP adds
+the version to the front of the list.
 
 ### Smart Git Operations
 
 - **Full history**: the `qa` job checks out with `fetch-depth: 0`, which the opt-in
-  `changelog` lane needs and auto-commit builds on
-- **Protected branch safety**: Never auto-commits to main/master or default branch
+  `changelog` lane needs
 - **Any bin-dir**: every step runs `"$(composer config bin-dir)/qa"`, so a project that sets
   `config.bin-dir` needs no edit
 
@@ -61,51 +79,45 @@ Add these to the `env:` section of your workflow:
 ```yaml
 env:
   CI: true                          # Required
-  AUTO_COMMIT_FIXES: 'false'       # Enable auto-commit of fixes
   phpUnitCoverage: 0                # Disable coverage
   phpqaQuickTests: 1                # Quick test mode
   useInfection: 0                   # Skip mutation testing
   phpqaMemoryLimit: 4G              # Memory limit for all QA tools
 ```
 
-### Auto-Commit Fixes
+### Fixes
 
-To enable automatic committing of Rector/CS Fixer changes:
+A run on GitHub Actions is read-only: Rector and PHP CS Fixer dry-run and fail on a pending
+change. The `php-qa-ci.yml` template commits nothing. To have the fixes applied and committed back
+to the pull request, install the [`qa-autofix.yml` template](#inline-barrier-autofix--read-only-gate)
+instead.
 
-```yaml
-env:
-  AUTO_COMMIT_FIXES: 'true'  # Only on feature branches
-```
+### Coverage Comment
 
-A run on GitHub Actions is read-only by default, so the fixers would only dry-run; with
-`AUTO_COMMIT_FIXES: 'true'` the template runs the QA step with `QA_READONLY=0`, so the fixes are
-written and then committed.
-
-**Safety Features:**
-
-- Never commits to main/master branches
-- Never commits to repository's default branch
-- Requires write permissions in repository settings
-- Adds `[skip ci]` to prevent infinite loops
+Set the repository variable `PHP_QA_CI_COVERAGE_REPORT` to `true` (Settings -> Secrets and
+variables -> Actions -> Variables) and a pull request from the same repository gets a coverage
+summary comment. The job is off otherwise, skipped for a fork's pull request (a fork's token cannot
+comment) and never fails the pull request.
 
 ### GitHub Repository Settings
 
 #### Required Permissions
 
-1. Go to Settings -> Actions -> General
-2. Under "Workflow permissions":
-   - Select "Read and write permissions"
-   - Check "Allow GitHub Actions to create and approve pull requests" (if using auto-commits)
+None for the `php-qa-ci.yml` template: its token only reads. The
+[release workflow](#release-automation) needs "Read and write permissions" and "Allow GitHub
+Actions to create and approve pull requests" under Settings -> Actions -> General -> "Workflow
+permissions".
 
 #### Branch Protection (Recommended)
 
 1. Go to Settings -> Branches
-2. Add rule for main/master branch
+2. Add rule for your default branch
 3. Check "Require status checks to pass before merging"
-4. Select the required **check-run** names — these are the job names, not the workflow name.
-   For the `php-qa-ci.yml` template they are "Detect PHP Version", "PHP QA (<version>)" (the version
-   is filled in dynamically, e.g. "PHP QA (8.5)"), and "Coverage Report". ("PHP QA Pipeline" is the
-   workflow name shown in the Actions tab, not a selectable status check.)
+4. Select the required **check-run** name — the job name, not the workflow name: **QA Pipeline**.
+   The `qa` job of the `php-qa-ci.yml` template has that name whatever PHP version it detects.
+   ("PHP QA Pipeline" is the workflow name shown in the Actions tab, not a selectable status
+   check.) `scripts/setup-branch-protection.bash` sets the same check. The optional "Coverage
+   Report" job is not required.
 
 ## Inline-Barrier (autofix → read-only gate)
 
@@ -134,9 +146,8 @@ The gate validates the fixed tip **in the same run**. The autofix push uses the 
 cancellation, and nothing to wait for. (A re-trigger-based design would need a PAT; this one
 does not.)
 
-> Contrast with the `php-qa-ci.yml` template's `AUTO_COMMIT_FIXES`, which commits fixes at the
-> **end** of a single run (so the validating tools ran against *unfixed* code). Here the fixers
-> run **before** the gate, and the gate re-validates the fixed tree read-only.
+> The `php-qa-ci.yml` template commits nothing and runs read-only. Here the fixers run
+> **before** the gate, and the gate re-validates the fixed tree read-only.
 
 ### Default branch is dynamic (no hardcoded name)
 
@@ -229,8 +240,8 @@ runs them.
   `qa-autofix.yml` template) completes green on such a push, and acts only once every one of them
   that ran on the commit is green, so two gating workflows cannot release on a split verdict. A QA
   workflow with another name goes in `release.yml`'s `workflows:` and in its `GATING_WORKFLOWS`,
-  which must hold the same list. The `php-qa-ci.yml` template triggers on `main`, `master` and
-  `develop`; another default branch goes on its `push` and `pull_request` lists.
+  which must hold the same list. The `php-qa-ci.yml` template runs on a push to `main`, `master`
+  and `php8.5`; another default branch goes on its `push` list.
 - **A release tag to measure from.** On the default branch the changelog lane judges everything
   since the newest release tag, and fails without one. Tag the release the project continues
   from (`git tag 1.4.2 && git push origin 1.4.2`), or, for a project never released, `0.0.0` on
@@ -298,7 +309,7 @@ The `php-qa-ci.yml` template uses two caches:
 
 - **Composer dependencies** — keyed on `${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}`
   (this key does **not** include the PHP version).
-- **QA tool cache** (`var/qa/cache`) — keyed on the OS, the detected PHP version, and
+- **QA tool cache** (`var/qa/cache`) — keyed on the OS, the PHP version detected, and
   `hashFiles('**/composer.lock')`.
 
 The QA tools' PHARs are not cached: they ship inside the package (`vendor-phar/`), so
@@ -313,7 +324,7 @@ The workflow includes:
 - **Full-history checkout**, which the opt-in `changelog` lane needs
 - **No tool installation step**: the QA PHARs ship inside the package
 - **Caching** of Composer downloads and the QA tool cache
-- **Auto-commit capability** with safety checks
+- **One run per pull request push**, a read-only token and a constant check name, `QA Pipeline`
 - **Manual tool selection** via workflow_dispatch
 - **Artifact storage** for test results and coverage
 - **Extensive inline documentation**
@@ -328,10 +339,11 @@ The workflow includes:
 composer require --dev lts/php-qa-ci:dev-php8.5@dev
 ```
 
-**Permission denied for auto-commits**
+**A required check that never reports**
 
-- Check repository Settings -> Actions -> Workflow permissions
-- Ensure "Read and write permissions" is selected
+- The check to require is `QA Pipeline`, the job name; "PHP QA Pipeline" is the workflow name
+- A pull request with merge conflicts starts no `pull_request` run: resolve them
+- A push to a default branch not listed under `push: branches:` starts no run: list it
 
 **Out of memory** (default is now 4G for all tools)
 
@@ -365,7 +377,7 @@ QA_READONLY=1 vendor/bin/qa
 1. **Use branch protection** - Require QA checks to pass
 2. **Cache aggressively** - Speeds up builds significantly
 3. **Skip infection in CI** - Run locally for faster feedback
-4. **Auto-commit carefully** - Only on feature branches, never on main
+4. **Commit fixes through the autofix template** - Its gate validates the fixed tip in the same run
 5. **Review workflow documentation** - The template has extensive inline comments
 6. **Enable update-deps.yml** - Keep dependencies current automatically
 

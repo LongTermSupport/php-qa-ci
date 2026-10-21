@@ -52,10 +52,10 @@ final readonly class NeonIncludeChain
     }
 
     /**
-     * @param list<NeonRecordFileDto> $files
-     * @param list<string>            $problems
-     * @param list<string>            $phpIncludes
-     * @param array<string, string>   $seen        every file visited, keyed by itself
+     * @param list<NeonRecordFileDto>  $files
+     * @param list<string>             $problems
+     * @param list<string>             $phpIncludes
+     * @param array<array-key, string> $seen        every file visited, keyed by itself
      */
     private function visit(string $path, string $root, array &$files, array &$problems, array &$phpIncludes, array &$seen): void
     {
