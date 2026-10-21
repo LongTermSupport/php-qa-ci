@@ -90,9 +90,9 @@ directory, and not matched by a `source.excludes` entry. Infection hands each ex
 Finder, which matches it against the path relative to the source directory: a string with
 matching delimiters (`/ComposerPlugin/`, `#^Legacy/#`) as that regex, anything else as a
 substring. Infection does not mutate a file outside that source. Handed only excluded files, it
-mutates nothing and writes no log. It reads a path under no source directory as a test path,
-hands it to PHPUnit and mutates the whole source. So the lane names each such file, with why,
-and leaves it out:
+mutates nothing and writes no log. It reads a path under no source directory as a test path
+and hands it to PHPUnit; handed only such paths, it mutates the whole source. So the lane names
+each file outside the source, with why, and leaves it out:
 
 ```text
 Infection: diff mode — 1 changed file(s) are outside the source infection.json gives Infection, so they are not mutated:

@@ -492,11 +492,12 @@ final readonly class InfectionTool implements ToolInterface
 
     /**
      * The diff's files that Infection collects from the source of the config
-     * it runs with (InfectionSourceScope). Handed only files it does not
-     * collect, Infection mutates nothing, exits 0 and writes no JSON log,
-     * which judgeKills() must take for a run it cannot verify (#270). So every
-     * other file is named with why it is outside, and with none left the lane
-     * skips before coverage is paid for.
+     * it runs with (InfectionSourceScope). Handed only excluded files,
+     * Infection mutates nothing, exits 0 and writes no JSON log, which
+     * judgeKills() must take for a run it cannot verify (#270); a path under
+     * no source directory it takes for a test path. So every other file is
+     * named with why it is outside, and with none left the lane skips before
+     * coverage is paid for.
      *
      * @param array<array-key, mixed> $source the `source` of the config Infection runs with
      */
