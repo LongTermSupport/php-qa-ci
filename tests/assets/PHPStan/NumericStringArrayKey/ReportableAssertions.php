@@ -225,6 +225,66 @@ final class ReportableAssertions
         $this->takesMap($map);
     }
 
+    public function onAHeldVariableAMixedReferenceParameterWrites(): void
+    {
+        $map = $this->byName;
+        $this->touchAnything($map);
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function onAHeldVariableAnUntypedReferenceParameterWrites(): void
+    {
+        $map = $this->byName;
+        $this->touchUntyped($map);
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function onAHeldVariableAReferenceParameterKeyedByIntWrites(): void
+    {
+        $map = $this->byName;
+        $this->renumber($map);
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function onAHeldVariableSortedIntoAList(): void
+    {
+        $map = $this->byName;
+        sort($map);
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function onAHeldVariableSortedAndAliased(): void
+    {
+        $map   = $this->byName;
+        $alias = &$map;
+        ksort($map);
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+        echo \count($alias);
+    }
+
+    public function onAHeldVariableACaseLeavesFromAnInnerSwitch(string $json, int $c): void
+    {
+        $map = json_decode($json, true);
+        switch ($c) {
+            case 0:
+                switch ($json) {
+                    default:
+                        break 2;
+                }
+
+            default:
+                $map = $this->byName;
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     private function takes(string $name): void
     {
     }
@@ -232,5 +292,21 @@ final class ReportableAssertions
     /** @param array<string, int> $map */
     private function takesMap(array $map): void
     {
+    }
+
+    private function touchAnything(mixed &$map): void
+    {
+        $map = 1;
+    }
+
+    private function touchUntyped(&$map): void
+    {
+        $map = 1;
+    }
+
+    /** @param array<int, int> $map */
+    private function renumber(array &$map): void
+    {
+        $map = [1];
     }
 }

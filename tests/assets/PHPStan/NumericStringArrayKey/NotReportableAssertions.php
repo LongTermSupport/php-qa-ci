@@ -227,6 +227,96 @@ final class NotReportableAssertions
         $this->takesMap($map);
     }
 
+    public function restatingAfterSortsThatKeepKeys(): void
+    {
+        $map = $this->byName;
+        ksort($map);
+        krsort($map);
+        asort($map);
+        arsort($map);
+        natsort($map);
+        natcasesort($map);
+        uasort($map, static fn (int $a, int $b): int => $a <=> $b);
+        uksort($map, static fn (string $a, string $b): int => strcmp($a, $b));
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterAReferenceParameterDeclaredStringKeyed(): void
+    {
+        $map = $this->byName;
+        $this->touch($map);
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAVariableOnlyAReferenceParameterWrites(): void
+    {
+        $this->fill($filled);
+        /** @var array<string, int> $filled */
+        $this->takesMap($filled);
+    }
+
+    public function restatingAfterAnUnknownReferenceWriteIsOverwritten(): void
+    {
+        $map = $this->byName;
+        $this->touchAnything($map);
+        $map = $this->byName;
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterACaseContinuesOrBreaksOutOfTheLoop(string $json, int $c): void
+    {
+        foreach ([1, 2] as $_) {
+            $map = json_decode($json, true);
+            echo \is_array($map) ? \count($map) : 0;
+            switch ($c) {
+                case 0:
+                    continue 2;
+
+                case 1:
+                    if ('' === $json) {
+                        break 2;
+                    }
+
+                    $map = ['fixed' => 1];
+                    break;
+
+                case 2:
+                    foreach ($this->byName as $_) {
+                        continue 3;
+                    }
+
+                    $map = $this->byName;
+                    break;
+
+                default:
+                    $map = $this->byName;
+            }
+
+            /** @var array<string, int> $map */
+            $this->takesMap($map);
+        }
+    }
+
+    /** @param array<string, int> $map */
+    private function touch(array &$map): void
+    {
+        $map['fixed'] = 1;
+    }
+
+    private function touchAnything(mixed &$map): void
+    {
+        $map = 1;
+    }
+
+    /** @param-out array<string, int> $map */
+    private function fill(mixed &$map): void
+    {
+        $map = $this->byName;
+    }
+
     /** @return array<string, int>|false */
     private function mapOrFalse(): array|false
     {
