@@ -5,7 +5,9 @@
  * Gives this host PHPStan's Turbo binary under vendor-phar/turbo-ext/, verified
  * against the SHA-256 vendor-phar/turbo-ext.json pins (install mode), after
  * regenerating that manifest for the shipped phpstan.phar (maintainer update
- * mode). Called by scripts/tool-install.bash on every composer install/update,
+ * mode). State mode (`turbo-install state`) changes nothing and says whether
+ * a binary is in place beside its core, for an install killed before it could
+ * say so. Called by scripts/tool-install.bash on every composer install/update,
  * and in a consuming project by the php-qa-ci Composer plugin; the logic is
  * LTS\PHPQA\Turbo\TurboInstaller, where it is unit-tested.
  */

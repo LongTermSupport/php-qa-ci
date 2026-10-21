@@ -38,6 +38,12 @@ final readonly class TurboInstaller
     /** The maintainer path: regenerate the manifest for the shipped phar, then install. */
     public const string MODE_UPDATE = 'update';
 
+    /**
+     * Read-only: say on stdout whether a binary is in place beside its core, as a failed install
+     * does. The Composer plugin asks it when an install was killed before it could say so itself.
+     */
+    public const string MODE_STATE = 'state';
+
     /** Where phpstan.phar looks for Turbo binaries, relative to the library root. */
     public const string TURBO_DIR = 'vendor-phar/turbo-ext';
 
@@ -67,6 +73,12 @@ final readonly class TurboInstaller
 
     public function run(string $libraryRoot, string $mode): int
     {
+        if (self::MODE_STATE === $mode) {
+            $this->reportWhatPhpstanLoads($libraryRoot, $this->output);
+
+            return 0;
+        }
+
         try {
             $exitCode = $this->install($libraryRoot, $mode);
         } catch (Throwable $throwable) {
@@ -77,7 +89,7 @@ final readonly class TurboInstaller
         }
 
         if (0 !== $exitCode) {
-            $this->reportWhatPhpstanLoads($libraryRoot);
+            $this->reportWhatPhpstanLoads($libraryRoot, $this->errors);
         }
 
         return $exitCode;
@@ -88,16 +100,16 @@ final readonly class TurboInstaller
      * pair it placed before the stamp; phpstan.phar loads such a binary, stamped or not. What is
      * on disk decides what is said, since a failure can come at any step.
      */
-    private function reportWhatPhpstanLoads(string $libraryRoot): void
+    private function reportWhatPhpstanLoads(string $libraryRoot, OutputInterface $to): void
     {
         $binary = self::TURBO_DIR . '/' . $this->platform->binaryPath();
         if (!is_file($libraryRoot . '/' . $binary) || !is_file($libraryRoot . '/' . self::TURBO_DIR . '/' . $this->platform->corePath())) {
-            $this->errors->writeln('No Turbo binary is in place beside its core, so PHPStan runs without Turbo until an install succeeds.');
+            $to->writeln('No Turbo binary is in place beside its core, so PHPStan runs without Turbo until an install succeeds.');
 
             return;
         }
 
-        $this->errors->writeln(\sprintf('WARNING: phpstan.phar may still load %s, which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.', $binary));
+        $to->writeln(\sprintf('WARNING: phpstan.phar may still load %s, which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.', $binary));
     }
 
     private function install(string $libraryRoot, string $mode): int

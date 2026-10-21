@@ -97,7 +97,8 @@ final class PipelineTest extends TestCase
 
     private const string HALTED = 'HALTED';
 
-    private const string SEGFAULT_LINE = 'A segmentation fault is never retried past or accepted in a passing run: halt, debug and report it, as ' . ChildExit::SEGFAULT_POLICY . ' describes.';
+    /** The HALTED line's pointer: the consumer-facing guide in the installed package, never a tracker. */
+    private const string SEGFAULT_LINE = 'A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.';
 
     private ContextFactory $factory;
 
@@ -395,7 +396,7 @@ final class PipelineTest extends TestCase
         self::assertSame(1, $this->pipeline()->run($context));
 
         $printed = $this->factory->output->fetch();
-        self::assertStringContainsString("\nHALTED: phpLint crashed with a segmentation fault, so no further tool runs.\n" . self::SEGFAULT_LINE . "\n", $printed);
+        self::assertStringContainsString("\nHALTED: phpLint crashed with a segmentation fault, so no further tool runs.\n" . \sprintf(self::SEGFAULT_LINE, \dirname(__DIR__, 4) . '/docs/segfaults.md') . "\n", $printed);
         self::assertStringNotContainsString('[composerRequireChecker ran]', $printed);
         self::assertStringNotContainsString('continuing (aggregate mode)', $printed);
         self::assertStringContainsString('          - phpLint', $printed);
@@ -440,7 +441,7 @@ final class PipelineTest extends TestCase
 
         self::assertSame(
             "\nHALTED: a process run while the run was being prepared was killed by a signal, so the run stops here:\n"
-            . '  `php -r probe` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::SEGFAULT_ADVICE . "\n",
+            . '  `php -r probe` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::segfaultAdvice() . "\n",
             $this->factory->output->fetch(),
         );
         self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);

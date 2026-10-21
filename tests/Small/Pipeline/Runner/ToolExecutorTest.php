@@ -170,7 +170,7 @@ final class ToolExecutorTest extends TestCase
 
         self::assertTrue($execution->segmentationFault);
         self::assertSame(
-            'stan crashed: `fake stan` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::SEGFAULT_ADVICE,
+            'stan crashed: `fake stan` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::segfaultAdvice(),
             $execution->result->summary,
         );
     }

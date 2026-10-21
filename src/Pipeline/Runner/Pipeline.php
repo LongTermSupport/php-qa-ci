@@ -146,7 +146,7 @@ final readonly class Pipeline
     {
         $this->output->writeln('');
         $this->output->writeln(\sprintf('HALTED: %s crashed with a segmentation fault, so no further tool runs.', $tool));
-        $this->output->writeln(\sprintf('A segmentation fault is never retried past or accepted in a passing run: halt, debug and report it, as %s describes.', ChildExit::SEGFAULT_POLICY));
+        $this->output->writeln(\sprintf('A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.', ChildExit::segfaultGuide()));
         $this->output->writeln('');
     }
 

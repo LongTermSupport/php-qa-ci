@@ -204,7 +204,7 @@ final class OpcacheToolTest extends TestCase
         $result = new OpcacheTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
-        self::assertSame('optimizer dump crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::SEGFAULT_ADVICE . ')', $result->summary);
+        self::assertSame('optimizer dump crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice() . ')', $result->summary);
     }
 
     #[Test]

@@ -37,6 +37,6 @@ final class SignalledChildDtoTest extends TestCase
 
         self::assertSame(139, $child->exitCode());
         self::assertTrue($child->isSegmentationFault());
-        self::assertSame('`phpstan` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::SEGFAULT_ADVICE, $child->describe());
+        self::assertSame('`phpstan` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::segfaultAdvice(), $child->describe());
     }
 }

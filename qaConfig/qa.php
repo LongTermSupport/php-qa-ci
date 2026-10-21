@@ -93,6 +93,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/bootstrap.php',
         'bin/changelog-release',
         'bin/config-template-ignorelist-check',
+        'bin/describe-exit',
         'bin/hooks-daemon-full-qa-blocker',
         'bin/infection-config-source-dirs-check',
         'bin/managed-source',
@@ -106,7 +107,9 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/rule-doc',
         'bin/rules',
         'bin/sensitive-parameter-usage',
+        'bin/shellcheck-install',
         'bin/single-rule-report',
+        'bin/turbo-install',
         'bin/version-pins-check',
         'scripts/issue-monitor',
     )
