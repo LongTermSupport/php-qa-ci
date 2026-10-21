@@ -177,7 +177,7 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
         self::assertSame(self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO, $this->errors->fetch());
-        self::assertSame(['phpstan_turbo_core.so'], $this->platformDirectory(), 'the earlier binary and its stamp are still there, so PHPStan still loads it');
+        self::assertSame([basename(self::CORE_PATH)], $this->platformDirectory(), 'the earlier binary and its stamp are still there, so PHPStan still loads it');
     }
 
     /** A killed install can place the pair and not the stamp; nothing then vouches for the binary. */
@@ -190,7 +190,7 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertSame(['phpstan_turbo_core.so'], $this->platformDirectory(), 'the unstamped binary is still there, so PHPStan still loads it');
+        self::assertSame([basename(self::CORE_PATH)], $this->platformDirectory(), 'the unstamped binary is still there, so PHPStan still loads it');
     }
 
     #[Test]
@@ -202,7 +202,7 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertSame(['phpstan_turbo_core.so'], $this->platformDirectory(), 'the earlier binary is still there, so PHPStan still loads it');
+        self::assertSame([basename(self::CORE_PATH)], $this->platformDirectory(), 'the earlier binary is still there, so PHPStan still loads it');
     }
 
     #[Test]
