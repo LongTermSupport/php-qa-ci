@@ -213,6 +213,33 @@ final class DetectorUnpackerTest extends TestCase
     }
 
     /**
+     * The prune runs before the fresh copy is unpacked, so when it names a stale entry it cannot
+     * remove, the copy the lane would go on with may never exist: a PHAR that cannot be read
+     * fails the run. The warning names the entry without saying the lane goes on.
+     */
+    #[Test]
+    public function aStaleEntryThatCannotBeRemovedBeforeAPharThatCannotBeReadIsNamedWithoutSayingTheLaneGoesOn(): void
+    {
+        $dir      = $this->cache->path . '/' . DetectorUnpacker::DIR;
+        $stuck    = $this->plantUnremovable($dir . '/0123456789abcdef');
+        $notAPhar = $this->cache->path . '/broken.phar';
+        \Safe\file_put_contents($notAPhar, 'not a phar');
+        $output = new BufferedOutput();
+        $thrown = null;
+
+        try {
+            new DetectorUnpacker($output)->unpack($notAPhar, $this->cache->path);
+        } catch (UnexpectedValueException $unexpectedValueException) {
+            $thrown = $unexpectedValueException;
+        }
+
+        self::assertInstanceOf(UnexpectedValueException::class, $thrown, 'a PHAR that cannot be read fails the run');
+        $printed = $output->fetch();
+        self::assertStringStartsWith(self::COULD_NOT_REMOVE . $stuck . ', ', $printed, 'the stale entry is still named');
+        self::assertStringNotContainsString('goes on', $printed);
+    }
+
+    /**
      * An incomplete copy is moved aside before the fresh one is renamed into place. Removing the
      * moved copy is housekeeping too: one holding something the run cannot remove is named in a
      * warning, and the run goes on with the fresh copy that is already in place.
