@@ -78,7 +78,7 @@ final class DependencyFreshnessPatternsTest extends TestCase
     public function aPatternThatCannotNameAPackageIsRefusedAtLoadTime(string $pattern): void
     {
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage(\sprintf("dependency freshness pattern '%s'", $pattern));
+        $this->expectExceptionMessageIsOrContains(\sprintf("dependency freshness pattern '%s'", $pattern));
 
         new DependencyFreshnessPatterns($pattern);
     }

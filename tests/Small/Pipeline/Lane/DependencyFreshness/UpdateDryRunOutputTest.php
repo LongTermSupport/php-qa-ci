@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\DependencyFreshness;
 
+use Iterator;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\Dto\StaleDependencyDto;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\UpdateDryRunOutput;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -59,15 +60,13 @@ final class UpdateDryRunOutputTest extends TestCase
         self::assertSame([], new UpdateDryRunOutput($printed)->staleAmong(self::SELF));
     }
 
-    /** @return array<string, array{string}> */
-    public static function provideNotAnUpgrade(): array
+    /** @return Iterator<string, array{string}> */
+    public static function provideNotAnUpgrade(): Iterator
     {
-        return [
-            'downgrade' => ["  - Downgrading lts/php-qa-ci (1.3.0 => 1.2.0)\n"],
-            'install'   => ["  - Installing lts/php-qa-ci (1.3.0)\n"],
-            'removal'   => ["  - Removing lts/php-qa-ci (1.3.0)\n"],
-            'nothing'   => ["Nothing to modify in lock file\n"],
-        ];
+        yield 'downgrade' => ["  - Downgrading lts/php-qa-ci (1.3.0 => 1.2.0)\n"];
+        yield 'install' => ["  - Installing lts/php-qa-ci (1.3.0)\n"];
+        yield 'removal' => ["  - Removing lts/php-qa-ci (1.3.0)\n"];
+        yield 'nothing' => ["Nothing to modify in lock file\n"];
     }
 
     #[Test]
@@ -77,14 +76,12 @@ final class UpdateDryRunOutputTest extends TestCase
         self::assertSame($line, new UpdateDryRunOutput("Loading composer repositories with package information\n  " . $line . "\nUpdating dependencies\n")->unreachableSource());
     }
 
-    /** @return array<string, array{string}> */
-    public static function provideUnreachableSource(): array
+    /** @return Iterator<string, array{string}> */
+    public static function provideUnreachableSource(): Iterator
     {
-        return [
-            'packagist from cache' => ['https://repo.packagist.org could not be fully loaded (curl error 6 while downloading https://repo.packagist.org/packages.json: Could not resolve host: repo.packagist.org), package information was loaded from the local cache and may be out of date'],
-            'vcs from cache'       => ['Failed to update https://github.com/LongTermSupport/php-qa-ci.git, package information from this repository may be outdated'],
-            'url not accessed'     => ["Warning: The 'https://example.invalid/packages.json' URL could not be accessed: curl error 6"],
-        ];
+        yield 'packagist from cache' => ['https://repo.packagist.org could not be fully loaded (curl error 6 while downloading https://repo.packagist.org/packages.json: Could not resolve host: repo.packagist.org), package information was loaded from the local cache and may be out of date'];
+        yield 'vcs from cache' => ['Failed to update https://github.com/LongTermSupport/php-qa-ci.git, package information from this repository may be outdated'];
+        yield 'url not accessed' => ["Warning: The 'https://example.invalid/packages.json' URL could not be accessed: curl error 6"];
     }
 
     #[Test]

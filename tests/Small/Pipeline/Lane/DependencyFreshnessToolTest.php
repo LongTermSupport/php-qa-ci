@@ -70,11 +70,17 @@ final class DependencyFreshnessToolTest extends TestCase
 
     private const string ACME_GLOB = 'acme/*';
 
+    private const string PSR_LOG = 'psr/log';
+
+    private const string VENDORX_WANTED = 'vendorx/wanted';
+
+    private const string LOCK_FILE = 'composer.lock';
+
     private const string SKIP_LINE = 'SKIPPED dependencyFreshness (phpqaci.dependencyFreshness): could not determine whether the locked dependencies are up to date';
 
     private const string NOT_VERIFIED = 'composer.lock was NOT verified for: lts/php-qa-ci.';
 
-    /** What `composer update lts/php-qa-ci --with-dependencies --dry-run` printed for a lock one commit behind its branch. */
+    // What `composer update lts/php-qa-ci --with-dependencies --dry-run` printed for a lock one commit behind its branch.
     private const string STALE_ANSWER = <<<'OUT'
         Loading composer repositories with package information
         Updating dependencies
@@ -86,7 +92,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         OUT;
 
-    /** What it printed once the lock held the branch head. */
+    // What it printed once the lock held the branch head.
     private const string CURRENT_ANSWER = <<<'OUT'
         Loading composer repositories with package information
         Updating dependencies
@@ -96,7 +102,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         OUT;
 
-    /** What it printed, exit 1, once the package's repository had gone. */
+    // What it printed, exit 1, once the package's repository had gone.
     private const string UNREACHABLE_ANSWER = <<<'OUT'
         Loading composer repositories with package information
 
@@ -124,7 +130,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aLockBehindItsBranchHeadFailsListingTheLockedAndAvailableVersions(): void
     {
-        $this->lock(self::SELF, 'psr/log');
+        $this->lock(self::SELF, self::PSR_LOG);
         $this->factory->processes->willSucceed(self::STALE_ANSWER);
 
         $result  = $this->tool()->run($this->factory->context());
@@ -142,7 +148,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function theCheckAsksComposerForADryRunOfTheMatchingLockedPackagesOnly(): void
     {
-        $this->lock(self::SELF, 'psr/log');
+        $this->lock(self::SELF, self::PSR_LOG);
         $this->factory->processes->willSucceed(self::CURRENT_ANSWER);
 
         $this->tool()->run($this->factory->context());
@@ -245,8 +251,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aProjectVendorGlobMatchesOnlyThatVendorsPackages(): void
     {
-        $this->lock(self::SELF, self::ACME_ONE, 'acmeco/three', 'other/acme', 'lts/other');
-        $this->lockDev(self::ACME_TWO);
+        $this->lockWithDev(self::ACME_TWO, self::SELF, self::ACME_ONE, 'acmeco/three', 'other/acme', 'lts/other');
         $this->factory->processes->willSucceed(self::CURRENT_ANSWER);
 
         $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
@@ -257,12 +262,12 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aProjectCanNameOnePackageOfAnotherVendorWithoutItsSiblings(): void
     {
-        $this->lock(self::SELF, self::ACME_ONE, 'vendorx/wanted', 'vendorx/unwanted');
+        $this->lock(self::SELF, self::ACME_ONE, self::VENDORX_WANTED, 'vendorx/unwanted');
         $this->factory->processes->willSucceed(self::CURRENT_ANSWER);
 
-        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB, 'vendorx/wanted')->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB, self::VENDORX_WANTED)->build()));
 
-        self::assertSame([self::SELF, self::ACME_ONE, 'vendorx/wanted'], $this->packagesAskedAbout());
+        self::assertSame([self::SELF, self::ACME_ONE, self::VENDORX_WANTED], $this->packagesAskedAbout());
     }
 
     #[Test]
@@ -298,7 +303,7 @@ final class DependencyFreshnessToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('2 locked packages are behind what composer update would install: acme/one, lts/php-qa-ci', $result->summary);
         self::assertStringContainsString("  - acme/one (locked 1.2.0, available 1.3.1)\n  - lts/php-qa-ci (locked " . self::LOCKED . ', available ' . self::AVAILABLE . ")\n", $printed);
-        self::assertStringNotContainsString('psr/log', $printed, 'a dependency the patterns do not match is not this check\'s business');
+        self::assertStringNotContainsString(self::PSR_LOG, $printed, "a dependency the patterns do not match is not this check's business");
     }
 
     /**
@@ -308,7 +313,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aLockWithNoMatchingPackageRunsNothingAndPassesInSilence(): void
     {
-        $this->lock('psr/log', 'symfony/process');
+        $this->lock(self::PSR_LOG, 'symfony/process');
 
         $result = $this->tool()->run($this->factory->context());
 
@@ -331,7 +336,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function anUnreadableLockFileFailsTheLane(): void
     {
-        $this->factory->project->write('composer.lock', '{not json');
+        $this->factory->project->write(self::LOCK_FILE, '{not json');
 
         $result = $this->tool()->run($this->factory->context());
 
@@ -346,27 +351,16 @@ final class DependencyFreshnessToolTest extends TestCase
 
     private function lock(string ...$packages): void
     {
-        $this->writeLock(array_values($packages), []);
+        $this->lockWithDev(null, ...$packages);
     }
 
-    private function lockDev(string ...$packages): void
-    {
-        $existing = \Safe\json_decode($this->factory->project->read('composer.lock'), true);
-        self::assertIsArray($existing);
-        $names = array_map(static fn (array $package): string => \is_string($package['name'] ?? null) ? $package['name'] : '', \is_array($existing['packages'] ?? null) ? $existing['packages'] : []);
-        $this->writeLock(array_values($names), array_values($packages));
-    }
-
-    /**
-     * @param list<string> $packages
-     * @param list<string> $devPackages
-     */
-    private function writeLock(array $packages, array $devPackages): void
+    /** A lock holding $packages under `packages` and $devPackage, when given, under `packages-dev`. */
+    private function lockWithDev(?string $devPackage, string ...$packages): void
     {
         $entry = static fn (string $name): array => ['name' => $name, 'version' => 'dev-php8.5', 'source' => ['type' => 'git', 'reference' => '93f1ae4']];
-        $this->factory->project->write('composer.lock', \Safe\json_encode([
-            'packages'     => array_map($entry, $packages),
-            'packages-dev' => array_map($entry, $devPackages),
+        $this->factory->project->write(self::LOCK_FILE, \Safe\json_encode([
+            'packages'     => array_map($entry, array_values($packages)),
+            'packages-dev' => null === $devPackage ? [] : [$entry($devPackage)],
         ], JSON_PRETTY_PRINT));
     }
 

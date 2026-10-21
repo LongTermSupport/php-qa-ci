@@ -57,7 +57,7 @@ final class ComposerLockTest extends TestCase
     public function aLockThatIsNotJsonIsRefusedNamingTheFile(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('composer.lock is not valid JSON');
+        $this->expectExceptionMessageIsOrContains('composer.lock is not valid JSON');
 
         ComposerLock::packageNames($this->dir->write(self::LOCK, '{not json'));
     }
@@ -66,7 +66,7 @@ final class ComposerLockTest extends TestCase
     public function aLockThatIsNotAnObjectIsRefused(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('composer.lock is not a JSON object');
+        $this->expectExceptionMessageIsOrContains('composer.lock is not a JSON object');
 
         ComposerLock::packageNames($this->dir->write(self::LOCK, '"text"'));
     }

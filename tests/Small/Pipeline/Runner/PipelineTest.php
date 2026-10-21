@@ -254,7 +254,7 @@ final class PipelineTest extends TestCase
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('[dependencyFreshness ran]', $printed);
         self::assertStringNotContainsString(self::RECTOR_RAN, $printed);
-        self::assertSame(0, $this->tools->stub('rector')->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
     }
 
     /** Aggregate mode collects tool failures; it does not run tools against a stale toolchain. */
@@ -266,7 +266,7 @@ final class PipelineTest extends TestCase
 
         self::assertSame(1, $this->pipeline()->run($context));
         $printed = $this->factory->output->fetch();
-        self::assertSame(0, $this->tools->stub('rector')->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
         self::assertStringContainsString('Aggregate (read-only) run: 1 tool(s) FAILED', $printed);
         self::assertStringContainsString('          - dependencyFreshness', $printed);
     }
@@ -300,7 +300,7 @@ final class PipelineTest extends TestCase
 
         self::assertSame(0, $this->pipeline()->run($context));
         self::assertSame(1, $this->tools->stub(self::DEPENDENCY_FRESHNESS)->runs);
-        self::assertSame(0, $this->tools->stub('rector')->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
     }
 
     #[Test]
@@ -325,7 +325,7 @@ final class PipelineTest extends TestCase
 
         self::assertSame(Pipeline::EXIT_LOCK_CONTENDED, $this->pipeline()->run($context));
         self::assertStringContainsString('Another QA run holds the lock', $this->factory->output->fetch());
-        self::assertSame(0, $this->tools->stub('rector')->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
     }
 
     #[Test]

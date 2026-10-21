@@ -50,6 +50,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\OpcacheTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshnessTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitectTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]

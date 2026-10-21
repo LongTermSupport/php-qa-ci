@@ -178,10 +178,10 @@ final class DependencyFreshnessToolComposerTest extends TestCase
     {
         return [
             ...GitSandbox::environment(),
-            'COMPOSER_HOME'           => $this->sandbox->root->path . '/composer-home',
-            'COMPOSER_CACHE_DIR'      => $this->sandbox->root->path . '/composer-cache',
+            'COMPOSER_HOME'            => $this->sandbox->root->path . '/composer-home',
+            'COMPOSER_CACHE_DIR'       => $this->sandbox->root->path . '/composer-cache',
             'COMPOSER_ALLOW_SUPERUSER' => '1',
-            'XDEBUG_MODE'             => 'off',
+            'XDEBUG_MODE'              => 'off',
         ];
     }
 
