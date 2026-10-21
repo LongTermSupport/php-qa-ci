@@ -182,7 +182,7 @@ final class PhpCsFixerToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
-        self::assertStringContainsString('PHP CS Fixer failed with exit code 1 (a genuine error, not a pending-fix diff)', $printed);
+        self::assertStringContainsString('PHP CS Fixer failed with exit 1 (a genuine error, not a pending-fix diff)', $printed);
         self::assertStringContainsString(PhpCsFixerTool::IDENTIFIER, $printed);
         self::assertStringNotContainsString('pending changes in a READ-ONLY run', $printed);
     }

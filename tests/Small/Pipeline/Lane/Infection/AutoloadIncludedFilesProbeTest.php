@@ -113,7 +113,7 @@ final class AutoloadIncludedFilesProbeTest extends TestCase
         $this->factory->processes->willReturn(new ProcessResultDto(255, "\nPHP Fatal error:  Failed opening required\n", $this->answer(...self::FILES)));
 
         self::assertSame(
-            "it exited 255:\nPHP Fatal error:  Failed opening required",
+            "it ended with exit 255:\nPHP Fatal error:  Failed opening required",
             new AutoloadIncludedFilesProbe()->includedFiles($this->factory->context(), self::AUTOLOAD),
         );
     }

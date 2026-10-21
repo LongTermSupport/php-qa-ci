@@ -1514,13 +1514,13 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
 
-        $result  = $this->tool("it exited 255:\nPHP Fatal error:  Failed opening required")->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $result  = $this->tool("it ended with exit 255:\nPHP Fatal error:  Failed opening required")->run($this->context($this->factory->builder(env: self::FLOORS)));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('the autoloader could not be loaded as PHPUnit loads it', $result->summary);
         self::assertSame([], $this->factory->processes->specs);
-        self::assertStringContainsString(\sprintf("Infection: loading %s/vendor/autoload.php as PHPUnit's runner loads it, to check that no file Infection mutates is loaded before Infection can swap it for a mutant, failed: it exited 255:\n           PHP Fatal error:  Failed opening required\n", $this->root), $printed);
+        self::assertStringContainsString(\sprintf("Infection: loading %s/vendor/autoload.php as PHPUnit's runner loads it, to check that no file Infection mutates is loaded before Infection can swap it for a mutant, failed: it ended with exit 255:\n           PHP Fatal error:  Failed opening required\n", $this->root), $printed);
         self::assertStringContainsString("\n           PHPUnit loads that autoloader before every test, so no mutant run can start until it loads.\n", $printed);
         self::assertStringEndsWith(InfectionTool::IDENTIFIER . ")\n", $printed);
     }

@@ -27,13 +27,13 @@ final class ExitCodeTextCollectorTest extends RuleTestCase
 {
     private const string FIXTURE = __DIR__ . '/../../../assets/PHPStan/HandFormattedExitCode/Reports.php';
 
-    private const string TEXT = 'text PhpQaCiFixture\HandFormattedExitCode\Reports::handFormatted';
+    private const string TEXT = 'text Reports::handFormatted';
 
     #[Test]
     public function itRecordsEachCopyOfTheCodeAndEachPlaceTheCodeOrAVariableBecomesText(): void
     {
         $this->analyse([self::FIXTURE], [
-            ['assigned PhpQaCiFixture\HandFormattedExitCode\Reports::handFormatted $copy', 16],
+            ['assigned Reports::handFormatted $copy', 16],
             [self::TEXT, 18],
             [self::TEXT, 21],
             [self::TEXT, 22],
@@ -44,9 +44,9 @@ final class ExitCodeTextCollectorTest extends RuleTestCase
             [self::TEXT, 27],
             [self::TEXT . ' $copy', 28],
             [self::TEXT, 29],
-            ['text PhpQaCiFixture\HandFormattedExitCode\Reports::narrowedIntoTheRange', 38],
+            ['text Reports::narrowedIntoTheRange', 38],
             // A variable of the same name, in a function that assigns it no exit code.
-            ['text PhpQaCiFixture\HandFormattedExitCode\Reports::unrelated $copy', 78],
+            ['text Reports::unrelated $copy', 78],
         ]);
     }
 

@@ -153,9 +153,9 @@ final readonly class ChangelogGit
         $result = $this->git(...$args);
         if (!$result->succeeded()) {
             throw new ChangelogHistoryException(\sprintf(
-                '`git %s` failed (exit %d): %s',
+                '`git %s` failed (%s): %s',
                 implode(' ', $args),
-                $result->exitCode,
+                $result->describeExit(),
                 trim($result->output),
             ));
         }

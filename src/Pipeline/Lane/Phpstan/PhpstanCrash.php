@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane\Phpstan;
 
-use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 
 /**
@@ -39,7 +38,7 @@ final readonly class PhpstanCrash
     public const string NO_VERDICT_PREFIX = 'PHPStan reached no verdict: ';
 
     /** The crash reason for any exit above 1. */
-    private const string EXIT_REASON = 'PHPStan crashed (exit %d%s)';
+    private const string EXIT_REASON = 'PHPStan crashed (%s)';
 
     /**
      * The line the table output ends a findings run with: past the error budget the count reads
@@ -91,7 +90,7 @@ final readonly class PhpstanCrash
     private static function exitReason(ProcessResultDto $result): ?string
     {
         if ($result->exitCode > 1) {
-            return \sprintf(self::EXIT_REASON, $result->exitCode, ChildExit::killedBy($result->exitCode));
+            return \sprintf(self::EXIT_REASON, $result->describeExit());
         }
 
         if (1 === $result->exitCode && 1 === \Safe\preg_match('/^.*' . preg_quote(self::INCOMPLETE_MARKER, '/') . '\.\s*⚠️\s*$/mu', $result->output)) {

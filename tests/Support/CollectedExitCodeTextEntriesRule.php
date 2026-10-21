@@ -14,8 +14,8 @@ use PHPStan\Rules\RuleErrorBuilder;
 
 /**
  * Reports each entry ExitCodeTextCollector recorded, at the line it was
- * recorded for, so a test can pin what the collector saw: "<kind> <function
- * key>" followed by " $<variable>" for an entry naming a variable.
+ * recorded for, so a test can pin what the collector saw: "<kind> <class
+ * short name>::<function>" followed by " $<variable>" for an entry naming a variable.
  *
  * @implements Rule<CollectedDataNode>
  */
@@ -37,12 +37,20 @@ final readonly class CollectedExitCodeTextEntriesRule implements Rule
         foreach ($node->get(ExitCodeTextCollector::class) as $file => $entries) {
             foreach ($entries as $entry) {
                 foreach ($entry as [$kind, $key, $variable, $line]) {
-                    $message  = $kind . ' ' . $key . ('' === $variable ? '' : ' $' . $variable);
+                    $message  = $kind . ' ' . $this->shortKey($key) . ('' === $variable ? '' : ' $' . $variable);
                     $errors[] = RuleErrorBuilder::message($message)->file($file)->line($line)->identifier(self::IDENTIFIER)->build();
                 }
             }
         }
 
         return $errors;
+    }
+
+    /** The function key without the class's namespace: "Reports::handFormatted". */
+    private function shortKey(string $key): string
+    {
+        $separator = strrpos($key, '\\');
+
+        return false === $separator ? $key : substr($key, $separator + 1);
     }
 }

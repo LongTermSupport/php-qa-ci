@@ -104,7 +104,7 @@ final readonly class PhpLintTool implements ToolInterface
 
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('PHP Lint failed (exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('PHP Lint failed (%s)', $result->describeExit()));
     }
 
     /**

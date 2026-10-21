@@ -96,7 +96,7 @@ final readonly class TwigCsFixerTool implements ToolInterface
         if (self::EXIT_CRASH <= $result->exitCode) {
             $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::crashed(\sprintf('twig-cs-fixer could not run (exit %d)', $result->exitCode));
+            return ToolResultDto::crashed(\sprintf('twig-cs-fixer could not run (%s)', $result->describeExit()));
         }
 
         if ($config->readOnly) {

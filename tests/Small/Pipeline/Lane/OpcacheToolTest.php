@@ -199,12 +199,24 @@ final class OpcacheToolTest extends TestCase
     #[Test]
     public function aDumpKilledByASignalIsACrashNamingTheSignal(): void
     {
-        $this->factory->processes->willSucceed(self::AFFECTED)->willFail(139, '');
+        $this->factory->processes->willSucceed(self::AFFECTED)->willReturn(new ProcessResultDto(139, '', '', \SIGSEGV));
 
         $result = new OpcacheTool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('optimizer dump crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice() . ')', $result->summary);
+    }
+
+    /** A dump that exited 139 itself relays a crash below it, and is not called killed. */
+    #[Test]
+    public function aDumpThatExited139ItselfIsACrashNotCalledAKill(): void
+    {
+        $this->factory->processes->willSucceed(self::AFFECTED)->willFail(139, '');
+
+        $result = new OpcacheTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('optimizer dump crashed (exit 139' . \LTS\PHPQA\ComposerPlugin\ChildExit::exitedItself(139) . ')', $result->summary);
     }
 
     #[Test]

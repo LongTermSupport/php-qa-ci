@@ -294,7 +294,7 @@ final class RectorToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertCount(1, $this->rectorSpecs());
-        self::assertStringContainsString("Rector ('Safe') failed with exit code 1 (a genuine error, not a pending-change diff)", $printed);
+        self::assertStringContainsString("Rector ('Safe') failed with exit 1 (a genuine error, not a pending-change diff)", $printed);
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
         self::assertStringNotContainsString('pending changes in a READ-ONLY run', $printed);
     }

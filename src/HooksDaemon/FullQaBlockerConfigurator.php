@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\HooksDaemon;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Config\ComposerBinDirReader;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\ProcessRunnerInterface;
@@ -133,12 +134,18 @@ final readonly class FullQaBlockerConfigurator
                 streamOutput: false,
             ));
             if (!$result->succeeded()) {
-                $this->report(ConfigureOutcomeEnum::Rejected, \sprintf('⚠️  config-validate rejected the change (exit %d), so %s is left untouched:', $result->exitCode, $daemonConfig));
+                // A code in the signal range is no verdict: bin/hooks-daemon is a wrapper, and relays a crash below it that way.
+                $outcome = ChildExit::killedBySignal($result->exitCode) ? ConfigureOutcomeEnum::CannotValidate : ConfigureOutcomeEnum::Rejected;
+                $this->report($outcome, \sprintf(
+                    ConfigureOutcomeEnum::Rejected === $outcome ? '⚠️  config-validate rejected the change (%s), so %s is left untouched:' : '⚠️  config-validate did not finish (%s), so %s is left untouched:',
+                    $result->describeExit(),
+                    $daemonConfig,
+                ));
                 foreach (explode("\n", rtrim($result->output)) as $line) {
                     $this->output->writeln(self::INDENT . self::INDENT . $line, OutputInterface::OUTPUT_RAW);
                 }
 
-                return ConfigureOutcomeEnum::Rejected;
+                return $outcome;
             }
 
             \Safe\chmod($candidate, \Safe\fileperms($daemonConfig) & 0o777);

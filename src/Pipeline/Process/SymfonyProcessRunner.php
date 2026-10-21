@@ -107,7 +107,7 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
      */
     private function recordRelayedSegfault(SignalledChildren $signalled, ProcessSpecDto $spec): void
     {
-        $child = new SignalledChildDto($spec->commandLine(), \SIGSEGV);
+        $child = new SignalledChildDto($spec->commandLine(), \SIGSEGV, exitedItself: true);
         $signalled->record($child);
         $this->output->writeln('!! ' . $child->describe());
     }

@@ -127,13 +127,13 @@ final readonly class ExitCodeTextCollector implements Collector
     private function textOperands(Node $node, Scope $scope): array
     {
         return match (true) {
-            $node instanceof Concat                                                                 => [$node->left, $node->right],
+            $node instanceof Concat                                                                  => [$node->left, $node->right],
             $node instanceof AssignOp\Concat, $node instanceof Print_, $node instanceof Cast\String_ => [$node->expr],
-            $node instanceof Echo_                                                                  => array_values($node->exprs),
-            $node instanceof InterpolatedString                                                     => array_values(array_filter($node->parts, static fn (Node $part): bool => $part instanceof Expr)),
-            $node instanceof FuncCall                                                               => $this->formatterOperands($node),
-            $node instanceof StaticCall                                                             => $this->describerOperands($node, $scope),
-            default                                                                                 => [],
+            $node instanceof Echo_                                                                   => array_values($node->exprs),
+            $node instanceof InterpolatedString                                                      => array_values(array_filter($node->parts, static fn (Node $part): bool => $part instanceof Expr)),
+            $node instanceof FuncCall                                                                => $this->formatterOperands($node),
+            $node instanceof StaticCall                                                              => $this->describerOperands($node, $scope),
+            default                                                                                  => [],
         };
     }
 
@@ -146,7 +146,7 @@ final readonly class ExitCodeTextCollector implements Collector
 
         $skip = self::FORMATTERS[$call->name->toLowerString()] ?? null;
 
-        return null === $skip ? [] : self::values(...\array_slice($call->getArgs(), $skip));
+        return null === $skip ? [] : $this->values(...\array_slice($call->getArgs(), $skip));
     }
 
     /** @return list<Expr> */
@@ -160,10 +160,10 @@ final readonly class ExitCodeTextCollector implements Collector
         $method = $call->name->toLowerString();
         $args   = $call->getArgs();
         if (ChildExit::class === $class && \in_array($method, self::DESCRIBERS, true)) {
-            return self::values(...$args);
+            return $this->values(...$args);
         }
 
-        return ToolResultDto::class === $class && self::FROM_EXIT_CODE === $method ? self::values(...\array_slice($args, 0, 1)) : [];
+        return ToolResultDto::class === $class && self::FROM_EXIT_CODE === $method ? $this->values(...\array_slice($args, 0, 1)) : [];
     }
 
     /** `$result->exitCode` or `$result?->exitCode` on a ProcessResultDto. */
@@ -183,8 +183,8 @@ final readonly class ExitCodeTextCollector implements Collector
     }
 
     /** @return list<Expr> */
-    private static function values(Arg ...$args): array
+    private function values(Arg ...$args): array
     {
-        return array_map(static fn (Arg $arg): Expr => $arg->value, $args);
+        return array_values(array_map(static fn (Arg $arg): Expr => $arg->value, $args));
     }
 }

@@ -478,6 +478,7 @@ final class PipelineTest extends TestCase
     {
         $this->signalled->record(new SignalledChildDto('php -r probe', \SIGTERM));
         $this->signalled->record(new SignalledChildDto('sh -c probe', \SIGSEGV, exitedItself: true));
+
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
 
         self::assertSame(1, $this->pipeline()->run($context));

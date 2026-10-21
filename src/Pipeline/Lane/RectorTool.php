@@ -187,7 +187,7 @@ final readonly class RectorTool implements ToolInterface
         if (!$readOnly) {
             $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::failed(\sprintf('%s failed (exit %d)', $toolName, $result->exitCode));
+            return ToolResultDto::failed(\sprintf('%s failed (%s)', $toolName, $result->describeExit()));
         }
 
         if (self::EXIT_PENDING_CHANGES === $result->exitCode) {
@@ -198,13 +198,13 @@ final readonly class RectorTool implements ToolInterface
         }
 
         $context->writeln(\sprintf(
-            '%s failed with exit code %d (a genuine error, not a pending-change diff) — see output above.',
+            '%s failed with %s (a genuine error, not a pending-change diff) — see output above.',
             $toolName,
-            $result->exitCode,
+            $result->describeExit(),
         ));
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::crashed(\sprintf('%s crashed (exit %d)', $toolName, $result->exitCode));
+        return ToolResultDto::crashed(\sprintf('%s crashed (%s)', $toolName, $result->describeExit()));
     }
 
     private function writableAdvisory(ToolContext $context): void

@@ -166,7 +166,7 @@ final readonly class ArkitectRuleProbe
         }
 
         if ($result->exitCode > 1) {
-            throw ProbeFailedException::because(\sprintf("PHPArkitect crashed (exit %d), so there is no verdict:\n%s", $result->exitCode, rtrim($result->output)));
+            throw ProbeFailedException::because(\sprintf("PHPArkitect crashed (%s), so there is no verdict:\n%s", $result->describeExit(), rtrim($result->output)));
         }
 
         try {

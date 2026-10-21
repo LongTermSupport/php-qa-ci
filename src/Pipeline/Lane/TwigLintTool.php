@@ -66,6 +66,6 @@ final readonly class TwigLintTool implements ToolInterface
 
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('Twig Lint failed (exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('Twig Lint failed (%s)', $result->describeExit()));
     }
 }
