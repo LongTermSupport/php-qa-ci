@@ -76,6 +76,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(RunningProcesses::class)]
 #[UsesClass(ProcessTree::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ChangelogReleaseCommandTest extends TestCase
 {
     private const string COMPOSER = '{"require": {"php": "^8.5"}}';

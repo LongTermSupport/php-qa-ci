@@ -39,6 +39,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class TwigCsFixerToolTest extends TestCase
 {
     private const string TEMPLATES = 'templates';

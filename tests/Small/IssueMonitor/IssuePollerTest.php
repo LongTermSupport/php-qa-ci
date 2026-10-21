@@ -22,6 +22,7 @@ use RuntimeException;
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class IssuePollerTest extends TestCase
 {
     private const string CLI = '/p/.claude/hooks-daemon/bin/hooks-daemon';
