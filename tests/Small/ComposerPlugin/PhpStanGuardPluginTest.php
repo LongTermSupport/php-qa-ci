@@ -8,9 +8,11 @@ use Composer\Composer;
 use Composer\Config;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
+use Composer\Util\ProcessExecutor;
 use LTS\PHPQA\ComposerPlugin\PhpStanGuardPlugin;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\CapturingIO;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\FakeRootPackage;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -66,6 +68,46 @@ final class PhpStanGuardPluginTest extends TestCase
         $io = $this->runValidate(new FakeRootPackage(self::ACME_APP));
 
         self::assertSame('', $io->allText());
+    }
+
+    /** A phar that dies on --version is a different fact from one whose version line is unreadable. */
+    #[Test]
+    public function aPharThatFailsItsVersionCheckIsReportedByItsExit(): void
+    {
+        self::assertSame(
+            ['<warning>Could not determine PHPStan phar version: phpstan.phar --version failed with exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past</warning>'],
+            $this->validatePharExitingWith(139, ''),
+        );
+    }
+
+    #[Test]
+    public function aPharWhoseVersionLineIsUnreadableIsReportedAsSuch(): void
+    {
+        self::assertSame(
+            ['<warning>Could not determine PHPStan phar version: phpstan.phar --version printed no version</warning>'],
+            $this->validatePharExitingWith(0, 'PHPStan'),
+        );
+    }
+
+    /** @return list<string> what the plugin wrote to stderr */
+    private function validatePharExitingWith(int $exitCode, string $output): array
+    {
+        ProcessExecutor::$exitCode = $exitCode;
+        ProcessExecutor::$output   = $output;
+        $vendor                    = TempDir::create('phpstan-guard-vendor');
+
+        try {
+            $vendor->write('phpstan/extension-installer/src/GeneratedConfig.php', '<?php');
+            $vendor->write('lts/php-qa-ci/vendor-phar/phpstan.phar', '');
+            $io = new CapturingIO();
+            new PhpStanGuardPlugin()->validatePhpStan(new Event(new Composer(new Config(['vendor-dir' => $vendor->path]), new FakeRootPackage(self::ACME_APP)), $io));
+        } finally {
+            $vendor->remove();
+            ProcessExecutor::$exitCode = 1;
+            ProcessExecutor::$output   = '';
+        }
+
+        return $io->err;
     }
 
     private function runValidate(FakeRootPackage $package): CapturingIO

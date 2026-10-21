@@ -143,8 +143,16 @@ namespace Composer\Script {
 
 namespace Composer\Util {
     if (!\class_exists(ProcessExecutor::class, false)) {
+        /**
+         * Runs nothing: every command "exits" with $exitCode and "prints" $output, which a test
+         * sets to stand in for the child it needs (a failure, a crash, a version line).
+         */
         final class ProcessExecutor
         {
+            public static int $exitCode = 1;
+
+            public static string $output = '';
+
             public function __construct(?\Composer\IO\IOInterface $io = null)
             {
             }
@@ -152,9 +160,9 @@ namespace Composer\Util {
             /** @param string|null $output */
             public function execute(string $command, &$output = null, ?string $cwd = null): int
             {
-                $output = '';
+                $output = self::$output;
 
-                return 1;
+                return self::$exitCode;
             }
         }
     }
