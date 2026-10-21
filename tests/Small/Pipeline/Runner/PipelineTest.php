@@ -97,7 +97,6 @@ final class PipelineTest extends TestCase
 
     private const string HALTED = 'HALTED';
 
-    /** The HALTED line's pointer: the consumer-facing guide in the installed package, never a tracker. */
     private const string SEGFAULT_LINE = 'A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.';
 
     private ContextFactory $factory;
