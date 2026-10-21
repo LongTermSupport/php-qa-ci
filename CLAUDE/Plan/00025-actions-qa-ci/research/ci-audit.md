@@ -159,6 +159,8 @@ every consumer that used the installer.
   `ci.yml:10-13` confirms. Running the script would add a required context that never reports, and
   line 167 warns that this "would block every merge forever". Under DBF this needs a detector, for
   example a test that every `OUR_CONTEXTS` entry is a job name in `ci.yml`. It was not fixed here.
+  **Since fixed** by #293 (merged as ac9cb1f3 through #295): the test
+  `RequiredStatusChecksAreProducedTest` first, then the stale context removed.
 
 ### 1.6 Other pragmatic issues
 
@@ -177,7 +179,7 @@ every consumer that used the installer.
 | k   | **Template injection, flagged by zizmor (Part 2).**<br>- `"$QA" -t ${{ github.event.inputs.qa_tools }}` (qa.yml:237-239) interpolates an input into the shell. It is a `choice` input, so the exposure is low, but it should go through `env:`.<br>- `qa-autofix.yml` runs `git push origin "HEAD:${{ github.head_ref }}"`, and `head_ref` is the PR author's branch name.                                                                                                                                                                                                                                                                              | qa.yml, qa-autofix.yml                              | security (low/medium)            |
 | l   | **The auto-commit guard `!contains(github.event.repository.default_branch, github.ref)` is inert.** It compares `php8.5` against `refs/heads/php8.5`, so it is always true. The shell check inside the step is the real guard.                                                                                                                                                                                                                                                                                                                                                                                                                          | qa.yml:277                                          | correctness, low                 |
 | m   | **`release.yml` starts on every completion of all three named workflows on every branch.** 51 of 60 runs are skipped stubs. A `branches:` filter on `workflow_run` (supported, but it filters `head_branch` with a literal) cannot name "the default branch" in a template. That cost is the price of a branch-agnostic template; it is free for a public repo.                                                                                                                                                                                                                                                                                         | release.yml                                         | noise only                       |
-| n   | **`update-deps` is often red.** 29 of 44 scheduled runs failed (`gh run list`), but the last 3 runs succeeded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | update-deps.yml                                     | tracked by `update-deps-failure` |
+| n   | **`update-deps` is often red.** 29 of 44 scheduled runs failed (`gh run list`), but the latest scheduled run succeeded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | update-deps.yml                                     | tracked by `update-deps-failure` |
 
 ### 1.7 Options
 
@@ -323,8 +325,9 @@ tools themselves were left untracked in the auditing checkout. The essentials:
 
 **Sketch of an actions-qa-ci in DBF terms.**
 
-- **Pinned toolchain.** Version-file and sha256-pinned binaries for actionlint, zizmor and poutine,
-  the way `src/ShellCheck/*` and `bin/shellcheck-install` pin `vendor-bin/shellcheck`. actionlint
+- **Pinned toolchain.** Version-file binaries for actionlint, zizmor and poutine, pinned the way
+  `src/ShellCheck/*` and `bin/shellcheck-install` pin `vendor-bin/shellcheck` (a version file and a
+  crash on mismatch), with a sha256 added, which that pattern does not have. actionlint
   reuses the pinned shellcheck via `-shellcheck`. zizmor runs `--offline` locally and online in CI.
 - **Identifiers.** `actionsqaci.<tool>.<upstream-id>`, for example
   `actionsqaci.zizmor.unpinned-uses` or `actionsqaci.actionlint.shellcheck.SC2086`. Each gets a thin
@@ -357,7 +360,9 @@ tools themselves were left untracked in the auditing checkout. The essentials:
 **PHP-specific:** the PHPStan rules, the composer plugins, rector, php-cs-fixer, phpunit,
 infection, opcache, phplint, psr4 and Arkitect.
 
-**Open question for the Owner: the language.** A PHP entry point gives maximum reuse and fits the
+**Superseded: the Owner decided the language (PLAN.md Task 1.2): full polyglot, no host runtime,
+so the PHAR below is rejected in [design.md § 2.2](../design.md#22-options-compared).** The question
+as it stood: a PHP entry point gives maximum reuse and fits the
 "PHP for logic" ruling, but every non-PHP repo then needs PHP 8.5. A Go or Python tool installs
 anywhere but re-implements the DBF machinery. A middle path:
 
@@ -368,7 +373,7 @@ anywhere but re-implements the DBF machinery. A middle path:
 Prior context: `CLAUDE/Plan/Completed/00004-qa-ecosystem-lanes/PLAN.md:35` recorded actionlint as
 an explicit non-goal ("Non-PHP toolchains").
 
-Unverified items are marked as such in `ci-audit-part2.md`:
+Unverified items are marked as such in [actions-tool-survey.md](actions-tool-survey.md):
 
 - actionlint docker/brew distribution;
 - zizmor release binaries and the action's name;

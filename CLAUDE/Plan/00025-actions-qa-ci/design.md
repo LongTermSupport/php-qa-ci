@@ -452,9 +452,11 @@ The first-party checks are:
 - **`actionsqaci.unjustifiedException`.** Every exception, unanalysed path and narrowing must have
   `hazard`, `scope` and `decision`. There is no default.
   - The `hazard` and `scope` text is rejected when it matches the **documented generic-reason
-    list**, which is ported as a *convention* from php-qa-ci's phpstanIgnoreJustification lane:
-    "needed for now", "legacy", "TODO", "temporary", "false positive" with nothing after it, "see
-    above", the identifier repeated back, and text under a minimum word count.
+    list**, which follows the *convention* of php-qa-ci's phpstanIgnoreJustification lane (a fixed
+    list of generic phrases such as "needed for now", "legacy", "TODO", "temporary" and "false
+    positive", and a minimum length of 40 characters). Rejecting "see above", the identifier
+    repeated back, and text under a minimum word count are **new rules** actions-qa-ci adds; the
+    php-qa-ci lane has none of them.
   - `decision` must be a URL or an `Owner:` reference.
   - The page states plainly that the check cannot verify truth.
 - **`actionsqaci.staleException`.** An exception that matched no finding in a full run fails, so the
@@ -556,8 +558,8 @@ The default set is `.github/workflows/*.y?ml`, `.github/actions/**/action.y?ml`,
   - php-qa-ci's own record declares `templates/github-actions/**` in `analyse.include`, the
     `templates` pairs (replacing the versionPins identity check, which then retires), and
     `requiredChecks: QA Pipeline`.
-  - `scripts/setup-branch-protection.bash` reads its contexts from that record. That closes
-    Task 2.1.
+  - `scripts/setup-branch-protection.bash` reads its contexts from that record, replacing its
+    hard-coded `OUR_CONTEXTS` (Task 2.1 fixed the stale value; this removes the hard-coding).
 - **Shipped template:** `templates/github-actions/php-qa-ci.yml` needs no extra job, because the
   lane runs inside `bin/qa`.
 - **Changelog:** adding the lane is consumer-visible, so it gets an `## Unreleased` entry.

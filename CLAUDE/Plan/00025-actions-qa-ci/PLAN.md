@@ -78,12 +78,14 @@ This plan does three things:
   narrower than upstream's full catalogue.
 - [ ] ⬜ **Task 1.7**: Whether the standing authorisation to merge green tool-update PRs after a
   fresh sub-agent's verification extends to the new repository.
-- Defaults taken without an Owner decision, since each follows the Owner's direction or an existing
-  convention (design.md § 14 items 3, 6, 7 and 8):
-  - Linux amd64 and arm64 only;
-  - default branch `main` with one release line;
-  - no exec-rule kind;
-  - tool updates adopted the same day, matching php-qa-ci's tool-currency process.
+- [ ] ⬜ **Task 1.8**: Confirm or change the defaults the design proposes
+  ([design.md § 14](design.md#14-owner-decisions-needed) items 3, 6, 7 and 8). Each is the design's
+  recommendation and is applied unless the Owner changes it:
+  - Linux amd64 and arm64 only, with no darwin or armv7 (item 6, following the Owner's "Linux");
+  - default branch `main` with one release line (item 7);
+  - no exec-rule kind (item 8);
+  - a 3-day wait before adopting a new tool release (item 3), a deliberate difference from
+    php-qa-ci's same-day tool-currency process.
   - Item 9, the `dangerous-triggers` exception, is decided in Task 2.2.
 
 ### Phase 2: Defects found by the audit (DBF, issue loop)
