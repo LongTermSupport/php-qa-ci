@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Turbo;
 
+use LTS\PHPQA\Tests\Support\TempDir;
 use LTS\PHPQA\Turbo\TurboPlatform;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -138,6 +139,40 @@ final class TurboPlatformTest extends TestCase
 
         self::assertSame($expected->describe(), TurboPlatform::fromRuntime()->describe());
         self::assertSame($expected->binaryPath(), TurboPlatform::fromRuntime()->binaryPath());
+    }
+
+    #[Test]
+    public function theRuntimeReadsTheMapsAndTheAlpineReleaseItIsPointedAt(): void
+    {
+        $tmp = TempDir::create('turbo-platform');
+
+        try {
+            $musl    = $tmp->write('maps', self::MUSL_MAPS);
+            $alpine  = $tmp->write('alpine-release', "3.22.0\n");
+            $missing = $tmp->path . '/missing';
+
+            self::assertSame(
+                TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), self::MUSL_MAPS, false)->describe(),
+                TurboPlatform::fromRuntime($musl, $missing)->describe(),
+                'readable maps decide',
+            );
+            self::assertSame(
+                TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), null, true)->describe(),
+                TurboPlatform::fromRuntime($missing, $alpine)->describe(),
+                'without maps, /etc/alpine-release decides',
+            );
+        } finally {
+            $tmp->remove();
+        }
+    }
+
+    #[Test]
+    public function theProcessIsThreadSafeExactlyWhenThisPhpIs(): void
+    {
+        $description = TurboPlatform::fromProcess(self::LINUX, self::X86_64, self::GLIBC_MAPS, false)->describe();
+
+        self::assertSame(1 === \PHP_ZTS, str_ends_with($description, ' ZTS'));
+        self::assertStringContainsString(', PHP ' . \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, $description);
     }
 
     #[Test]
