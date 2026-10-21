@@ -42,6 +42,8 @@ final class PhpunitToolTest extends TestCase
 {
     private const string TESTS_BOOTSTRAP_PHP = 'tests/bootstrap.php';
 
+    private const string DISPLAY_ERRORS = 'display_errors=stderr';
+
     private const string PHP = '<?php
 ';
 
@@ -97,12 +99,12 @@ final class PhpunitToolTest extends TestCase
         self::assertCount(2, $this->factory->processes->specs);
 
         $probe = $this->factory->processes->specs[0];
-        self::assertSame([self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', 'display_errors=stderr', '-f', $this->root . self::BIN_PHPUNIT, '--', '--version'], $probe->command);
+        self::assertSame([self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', self::DISPLAY_ERRORS, '-f', $this->root . self::BIN_PHPUNIT, '--', '--version'], $probe->command);
         self::assertFalse($probe->streamOutput);
 
         $run = $this->factory->processes->specs[1];
         self::assertSame([
-            self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', 'display_errors=stderr', '-f', $this->root . self::BIN_PHPUNIT, '--',
+            self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', self::DISPLAY_ERRORS, '-f', $this->root . self::BIN_PHPUNIT, '--',
             '-c', $this->configPath(),
             '--strict-global-state', '--fail-on-risky', '--fail-on-warning',
             '--log-junit', $this->root . '/var/qa/phpunit_logs/phpunit.junit.xml',
@@ -300,7 +302,7 @@ final class PhpunitToolTest extends TestCase
 
         $debug = $this->factory->processes->lastSpec();
         self::assertSame(
-            [self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', 'display_errors=stderr', '-f', $this->root . self::BIN_PHPUNIT, '--', $this->root . '/tests', '--debug'],
+            [self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', self::DISPLAY_ERRORS, '-f', $this->root . self::BIN_PHPUNIT, '--', $this->root . '/tests', '--debug'],
             $debug->command,
         );
         self::assertSame(['qaQuickTests' => '0', 'XDEBUG_MODE' => 'off'], $debug->env);

@@ -6,10 +6,10 @@ namespace LTS\PHPQA\Turbo;
 
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
+use RuntimeException;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
-use RuntimeException;
 use Throwable;
 use UnexpectedValueException;
 

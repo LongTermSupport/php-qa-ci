@@ -51,6 +51,9 @@ final readonly class CapturedPhpOutputScanner
     /** Opens and closes a backtick command substitution. */
     private const string BACKTICK = '`';
 
+    /** The characters that separate shell words. */
+    private const string WHITESPACE = " \t\r\n";
+
     /** Escapes the character after it. */
     private const string ESCAPE = '\\';
 
@@ -212,7 +215,7 @@ final readonly class CapturedPhpOutputScanner
         $length  = \strlen($body);
         for ($position = 0; $position < $length; ++$position) {
             $char = $body[$position];
-            if (null === $quote && 0 === $depth && ctype_space($char)) {
+            if (null === $quote && 0 === $depth && str_contains(self::WHITESPACE, $char)) {
                 if ('' !== $current) {
                     $words[] = $current;
                 }
