@@ -111,7 +111,9 @@ own message:
 
 The lane recognises that message, and Rector's "Expected an existing class name" for any other
 class the config names that does not exist, finds the line in the config that pass ran (a
-comment is skipped), and stops with:
+comment is skipped), and stops with the message below. It reads only an `[ERROR]` block that
+starts with the marker, from a pass that exited 1; a pass with pending changes (exit 2) is not
+looked at, and a source line in a diff that quotes the message opens no block.
 
 ```text
 Rector ('Project Specific') cannot load qaConfig/rector.php: it refers to a class the bundled Rector does not have.

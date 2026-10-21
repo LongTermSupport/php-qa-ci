@@ -17,18 +17,19 @@ namespace LTS\PHPQA\Pipeline\Lane\Rector;
  * in the config the pass ran, since the message alone cannot name it.
  * ShippedRectorConfigsBootAgainstTheBundledPharTest holds the first message to the shipped phar.
  *
- * Rector wraps its message at the terminal width, even inside a quoted class name, so the output is
- * matched with its whitespace removed.
+ * Rector wraps its message at the terminal width, even inside a quoted class name, so each
+ * `[ERROR]` block of the output is matched with its whitespace removed. Only a block that starts
+ * with the marker counts, never a line of a diff that quotes it.
  *
  * @internal
  */
 final readonly class StaleConfigDiagnosis
 {
     /** `cacheClass()` was given a class that is not a CacheStorageInterface (it may not exist at all). */
-    private const string CACHE_CLASS_REJECTED = '/\[ERROR\]Expectedaninstanceofthisclassortothisclassamongitsparents"[^"]*CacheStorageInterface"\.Got:"([^"]+)"/';
+    private const string CACHE_CLASS_REJECTED = '/^\[ERROR\]Expectedaninstanceofthisclassortothisclassamongitsparents"[^"]*CacheStorageInterface"\.Got:"([^"]+)"/';
 
     /** A class name in the config, or a config it loads, does not exist. */
-    private const string CLASS_MISSING = '/\[ERROR\]Expectedanexistingclassname\.Got:"([^"]+)"/';
+    private const string CLASS_MISSING = '/^\[ERROR\]Expectedanexistingclassname\.Got:"([^"]+)"/';
 
     /** Rector's exit code for an error; a dry run with changes to make exits 2 and prints a diff, which is no error. */
     private const int EXIT_ERROR = 1;
@@ -61,33 +62,74 @@ final readonly class StaleConfigDiagnosis
             return [];
         }
 
-        $flat  =str_replace([' ', "\t", "\r", "\n"], '', $rectorOutput);
-        $class = $this->rejectedCacheClass($flat);
+        $blocks = $this->errorBlocks($rectorOutput);
+        $class  = $this->rejectedCacheClass(...$blocks);
         if (null !== $class) {
             return $this->cacheClassLines($label, $configFile, $class);
         }
 
-        $class = $this->missingClass($flat);
+        $class = $this->missingClass(...$blocks);
 
         return null === $class ? [] : $this->missingClassLines($label, $configFile, $class);
     }
 
-    private function rejectedCacheClass(string $flat): ?string
+    /**
+     * Rector's `[ERROR]` blocks with their whitespace removed: a line that starts with the marker and
+     * the lines under it up to the next blank line. A source line in a diff that quotes the marker
+     * starts with something else, so it opens no block.
+     *
+     * @return list<string>
+     */
+    private function errorBlocks(string $rectorOutput): array
     {
-        if (1 !== \Safe\preg_match(self::CACHE_CLASS_REJECTED, $flat, $matches) || !isset($matches[1])) {
-            return null;
+        $blocks  = [];
+        $current = null;
+        foreach (explode("\n", $rectorOutput) as $line) {
+            $text = str_replace([' ', "\t", "\r"], '', $line);
+            if ('' === $text) {
+                if (null !== $current) {
+                    $blocks[] = $current;
+                }
+
+                $current = null;
+
+                continue;
+            }
+
+            if (null !== $current) {
+                $current .= $text;
+            } elseif (str_starts_with($text, '[ERROR]')) {
+                $current = $text;
+            }
         }
 
-        return $matches[1];
+        if (null !== $current) {
+            $blocks[] = $current;
+        }
+
+        return $blocks;
     }
 
-    private function missingClass(string $flat): ?string
+    private function rejectedCacheClass(string ...$blocks): ?string
     {
-        if (1 !== \Safe\preg_match(self::CLASS_MISSING, $flat, $matches) || !isset($matches[1])) {
-            return null;
+        foreach ($blocks as $block) {
+            if (1 === \Safe\preg_match(self::CACHE_CLASS_REJECTED, $block, $matches) && isset($matches[1])) {
+                return $matches[1];
+            }
         }
 
-        return $matches[1];
+        return null;
+    }
+
+    private function missingClass(string ...$blocks): ?string
+    {
+        foreach ($blocks as $block) {
+            if (1 === \Safe\preg_match(self::CLASS_MISSING, $block, $matches) && isset($matches[1])) {
+                return $matches[1];
+            }
+        }
+
+        return null;
     }
 
     /** @return list<string> */
