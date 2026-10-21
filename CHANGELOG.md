@@ -145,6 +145,8 @@ the release and its tag. The full rules are in
 
 - **The deployed `qa-tool-runner` skill and `php-qa-ci_qa-tool-runner` agent no longer carry their own list of tools.** Their lists had drifted from the pipeline: they named a `loc` tool that does not exist and a `-t allCs` token that `bin/qa` refuses (the token is `allCS`), called the strict-types and Composer lanes report-only although both fix files in a writable run, and left out most lanes. Both now take the tokens from `vendor/bin/qa -h` and treat the coding-standards phase as the tools that modify files. Section 5.1 of `docs/upgrading-to-8.5.md` likewise drops its table of override file names, which lacked several lanes, and points at `vendor/bin/rules .`, which lists every lane under the canonical name a `qaConfig/tools/<name>.php` override uses. ([#216](https://github.com/LongTermSupport/php-qa-ci/issues/216))
 
+- **`scripts/setup-branch-protection.bash` no longer adds a required status check that no workflow reports.** It added `ShellCheck (severity=warning)` beside `QA Pipeline` to the protected branch's required checks, but ShellCheck runs inside `bin/qa` as the `shellCheck` lane and no CI job reports that context any more, so after running the script no pull request to the branch could merge without an admin override. It now adds only `QA Pipeline`. If you ran it, remove the stale requirement from the branch protection settings (Settings, Branches) or with `gh api`. ([#293](https://github.com/LongTermSupport/php-qa-ci/issues/293))
+
 ## 85.7.0 — 2026-10-09
 
 ### Added

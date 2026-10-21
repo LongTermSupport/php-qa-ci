@@ -164,8 +164,9 @@ def enabled_of(node):
 
 
 # Job names from .github/workflows/ci.yml — the contexts GitHub reports for
-# Actions jobs. A stale context here would block every merge forever.
-OUR_CONTEXTS = ["QA Pipeline", "ShellCheck (severity=warning)"]
+# Actions jobs. A stale context here would block every merge forever;
+# RequiredStatusChecksAreProducedTest fails on one no workflow job produces.
+OUR_CONTEXTS = ["QA Pipeline"]
 
 # required_status_checks: preserve every existing context (both the legacy
 # `contexts` list and the newer `checks` objects), then add ours.
