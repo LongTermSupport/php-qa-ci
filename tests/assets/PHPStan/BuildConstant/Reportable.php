@@ -10,6 +10,9 @@ namespace LTS\PHPQA\Tests\Assets\PHPStan\BuildConstant;
  */
 final class Reportable
 {
+    /** Not reported, and first, so a use that is not reported does not end the search. */
+    public const NTS = !\PHP_ZTS;
+
     public const ZTS = \PHP_ZTS;
 
     /** @return list<bool> */
@@ -164,5 +167,29 @@ final class Reportable
     public function argument(): string
     {
         return \sprintf('%s', \PHP_DEBUG);
+    }
+
+    public function dynamicCall(callable $call): mixed
+    {
+        return $call(\PHP_ZTS);
+    }
+
+    public function constructorOfAClassNamedLikeACast(): object
+    {
+        return new \BoolVal(\PHP_DEBUG);
+    }
+
+    /** @return list<bool|int> */
+    public function comparedWithOtherValues(): array
+    {
+        return [
+            \PHP_DEBUG >= 2,
+            \PHP_ZTS <= 0.5,
+            \PHP_ZTS > 0.5,
+            2 > \PHP_DEBUG,
+            2 <= \PHP_ZTS,
+            '' == \PHP_ZTS,
+            \PHP_ZTS <=> 2,
+        ];
     }
 }

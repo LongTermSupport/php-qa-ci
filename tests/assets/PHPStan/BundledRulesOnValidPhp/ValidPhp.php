@@ -263,6 +263,40 @@ final class Shapes
         return $assert->assertSame('token', $plain) && empty($value) ? 'empty' : ($value ?? '');
     }
 
+    /**
+     * A build constant at the top of a file's shapes and in every position whose parent the
+     * build-constant rule inspects: a dynamic call, a first-class callable, spread and named
+     * arguments, a method argument, a short ternary, a switch with a default, a for condition
+     * and a match arm.
+     */
+    public function buildConstants(callable $call, Target $target): string
+    {
+        $dynamic  = $call(\PHP_ZTS);
+        $callable = \boolval(...);
+        $spread   = \intval(...[\PHP_DEBUG]);
+        $named    = \boolval(value: \PHP_ZTS);
+        $short    = \PHP_ZTS ?: \PHP_DEBUG;
+
+        for ($index = 0; \PHP_DEBUG && $index < 1; ++$index) {
+            $target->next = null;
+        }
+
+        switch (\PHP_ZTS) {
+            case 1:
+                $label = 'zts';
+
+                break;
+
+            default:
+                $label = match (\PHP_DEBUG) {
+                    \PHP_ZTS => 'same',
+                    default  => 'other',
+                };
+        }
+
+        return $label . $target->run((string)\PHP_ZTS) . \gettype([$dynamic, $callable, $spread, $named, $short]);
+    }
+
     private function nullable(): ?Target
     {
         return 0 === random_int(0, 1) ? new Target() : null;

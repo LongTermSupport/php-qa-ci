@@ -74,9 +74,52 @@ final class NotReportable
             '1' == \PHP_ZTS,
             \PHP_ZTS > 0,
             \PHP_DEBUG <= 1,
+            \PHP_ZTS < 1,
             \PHP_ZTS <=> 1,
             \PHP_ZTS === \PHP_DEBUG,
         ];
+    }
+
+    /**
+     * Comparisons PHPStan already reports as always true or always false, which are so on both
+     * types alike.
+     *
+     * @return list<bool>
+     */
+    public function comparedWithValuesItCannotHave(): array
+    {
+        return [
+            \PHP_DEBUG <= 2,
+            \PHP_ZTS > 2,
+            \PHP_ZTS < 0.5,
+            \PHP_ZTS >= 0.5,
+            2 >= \PHP_DEBUG,
+            2 < \PHP_ZTS,
+            \PHP_ZTS === 2,
+            null === \PHP_DEBUG,
+        ];
+    }
+
+    public function caseOfASwitchOnItsOwnValue(): string
+    {
+        switch (1) {
+            case \PHP_ZTS:
+                return 'zts';
+
+            default:
+                return '';
+        }
+    }
+
+    public function switchedOnTheOtherConstant(): string
+    {
+        switch (\PHP_ZTS) {
+            case \PHP_DEBUG:
+                return 'same';
+
+            default:
+                return 'other';
+        }
     }
 
     /** @return list<float|int> */

@@ -29,41 +29,50 @@ final class ForbidBuildConstantStrictComparisonRuleTest extends RuleTestCase
     #[Test]
     public function everyUseWhoseResultDependsOnTheConstantsTypeIsReported(): void
     {
-        $zts   = self::message(self::ZTS);
-        $debug = self::message(self::DEBUG);
+        $zts   = $this->message(self::ZTS);
+        $debug = $this->message(self::DEBUG);
 
         $this->analyse(
             [self::FIXTURES . '/Reportable.php'],
             [
-                [$zts, 13],
-                [$zts, 19],
-                [$zts, 20],
-                [$debug, 21],
+                [$zts, 16],
                 [$zts, 22],
-                [$debug, 28],
-                [$zts, 37],
-                [$zts, 44],
-                [$zts, 51],
-                [$zts, 56],
-                [$debug, 61],
-                [$zts, 66],
-                [$debug, 71],
-                [$zts, 78],
-                [$debug, 83],
-                [$zts, 88],
-                [$zts, 94],
-                [$zts, 99],
-                [$debug, 104],
-                [$zts, 109],
-                [$debug, 114],
-                [$zts, 119],
-                [$zts, 124],
-                [$zts, 129],
-                [$zts, 134],
-                [$zts, 139],
-                [$debug, 151],
-                [$zts, 159],
-                [$debug, 166],
+                [$zts, 23],
+                [$debug, 24],
+                [$zts, 25],
+                [$debug, 31],
+                [$zts, 40],
+                [$zts, 47],
+                [$zts, 54],
+                [$zts, 59],
+                [$debug, 64],
+                [$zts, 69],
+                [$debug, 74],
+                [$zts, 81],
+                [$debug, 86],
+                [$zts, 91],
+                [$zts, 97],
+                [$zts, 102],
+                [$debug, 107],
+                [$zts, 112],
+                [$debug, 117],
+                [$zts, 122],
+                [$zts, 127],
+                [$zts, 132],
+                [$zts, 137],
+                [$zts, 142],
+                [$debug, 154],
+                [$zts, 162],
+                [$debug, 169],
+                [$zts, 174],
+                [$debug, 179],
+                [$debug, 186],
+                [$zts, 187],
+                [$zts, 188],
+                [$debug, 189],
+                [$zts, 190],
+                [$zts, 191],
+                [$zts, 192],
             ],
         );
     }
@@ -79,7 +88,7 @@ final class ForbidBuildConstantStrictComparisonRuleTest extends RuleTestCase
         return new ForbidBuildConstantStrictComparisonRule();
     }
 
-    private static function message(string $constant): string
+    private function message(string $constant): string
     {
         return $constant . ' is read as it is, but it is a bool since PHP 8.4 and an int before (PHPStan types it 0|1 on every version), '
             . 'so this use behaves differently by version. Write (bool) \\' . $constant . '.';
