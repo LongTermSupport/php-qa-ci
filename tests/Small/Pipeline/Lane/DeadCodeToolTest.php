@@ -881,9 +881,9 @@ final class DeadCodeToolTest extends TestCase
     /**
      * What `phpstan.phar dump-parameters --json` prints, with PHPStan's default tmpDir.
      *
-     * @param list<string>                $paths      absolute
-     * @param array<string, list<string>> $excluded   `analyse` and `analyseAndScan`, absolute
-     * @param list<string>                $extensions
+     * @param list<string>                   $paths      absolute
+     * @param array<array-key, list<string>> $excluded   `analyse` and `analyseAndScan`, absolute
+     * @param list<string>                   $extensions
      */
     private function dump(array $paths = [], array $excluded = [], array $extensions = ['php']): string
     {

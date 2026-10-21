@@ -30,7 +30,7 @@ final readonly class AnalysedFiles
     /** Joins path segments. */
     private const string SEPARATOR = '/';
 
-    /** @var array<string, true> normalised paths of excluded files */
+    /** @var array<array-key, true> normalised paths of excluded files (PHP keeps an all-digit path as an int key; it is only looked up) */
     private array $excludedFiles;
 
     /** @var list<string> normalised paths of excluded directories, each ending in `/` */

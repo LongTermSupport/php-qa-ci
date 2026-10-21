@@ -111,8 +111,9 @@ final readonly class BinEntryPointScripts
         $visited    = [];
         $unreadable = [];
         $undeclared = [];
-        foreach ($this->filesUnder($binDir, self::BIN, $root, $projectRoot, $vendorDir, $visited, $unreadable) as $relative => $path) {
-            $real = $this->realpath($path, $relative, $unreadable);
+        foreach ($this->filesUnder($binDir, self::BIN, $root, $projectRoot, $vendorDir, $visited, $unreadable) as $key => $path) {
+            $relative = (string) $key;
+            $real     = $this->realpath($path, $relative, $unreadable);
             if (null === $real) {
                 continue;
             }
@@ -144,10 +145,10 @@ final readonly class BinEntryPointScripts
      * A directory out of the project, in Composer's vendor dir, ignored or git-ignored is not
      * entered; a dangling link is no file; what cannot be read goes to $unreadable.
      *
-     * @param array<string, true> $visited    real paths of the directories already read
-     * @param list<string>        $unreadable project-relative
+     * @param array<array-key, true> $visited    real paths of the directories already read
+     * @param list<string>           $unreadable project-relative
      *
-     * @return array<string, string> project-relative path => absolute path
+     * @return array<array-key, string> project-relative path => absolute path
      */
     private function filesUnder(string $directory, string $relative, string $root, string $projectRoot, ?string $vendorDir, array &$visited, array &$unreadable): array
     {
