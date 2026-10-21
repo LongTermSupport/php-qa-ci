@@ -235,7 +235,39 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertSame("ERROR: vendor-phar/turbo-ext.json is for PHPStan 2.2.16 but the shipped phpstan.phar is 2.3.1; a binary from another release does not load. Run scripts/tool-install.bash update.\n" . self::NOTHING_LOADS, $this->errors->fetch());
+        self::assertSame("ERROR: vendor-phar/turbo-ext.json is for PHPStan 2.2.16 but the shipped phpstan.phar is 2.3.1, so it does not pin the Turbo files of this phar's release. Run scripts/tool-install.bash update.\n" . self::NOTHING_LOADS, $this->errors->fetch());
+    }
+
+    /**
+     * A failure no step catches (here the regenerated manifest cannot be written) is still a failed
+     * install: an ERROR naming it, the line saying what is on disk, and exit 1 rather than a fatal error.
+     */
+    #[Test]
+    public function aFailureNoStepCatchesStillEndsWithWhatTheInstallLeft(): void
+    {
+        $this->library->mkdir(TurboManifest::PATH);
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $exitCode = $this->installer($this->source(tree: $this->treeJson(self::BINARY_PATH, self::CORE_PATH)), maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame(1, $exitCode);
+        self::assertCount(1, $warnings, 'the write onto the directory in the way');
+        $errors = $this->errors->fetch();
+        self::assertStringStartsWith('ERROR: the Turbo install stopped: ', $errors);
+        self::assertStringEndsWith(self::MAY_STILL_LOAD, $errors);
+        self::assertSame(2, substr_count($errors, "\n"), 'the ERROR line, then the line saying what is on disk');
     }
 
     /** A failure before any fetch leaves an earlier install as it was, and phpstan.phar may still load it. */
