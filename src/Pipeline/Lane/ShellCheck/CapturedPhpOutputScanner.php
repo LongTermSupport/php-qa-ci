@@ -109,7 +109,7 @@ final readonly class CapturedPhpOutputScanner
     /**
      * The last value each variable is assigned in the script, unquoted.
      *
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function assignments(string $script): array
     {
@@ -193,7 +193,7 @@ final readonly class CapturedPhpOutputScanner
         return $length;
     }
 
-    /** @param array<string, string> $assignments */
+    /** @param array<array-key, string> $assignments */
     private function leavesWarningsOnStdout(string $body, array $assignments): bool
     {
         $program = array_find($this->words($body), static fn (string $word): bool => 1 !== \Safe\preg_match(self::ASSIGNMENT, $word));
@@ -246,7 +246,7 @@ final readonly class CapturedPhpOutputScanner
         return $words;
     }
 
-    /** @param array<string, string> $assignments */
+    /** @param array<array-key, string> $assignments */
     private function isPhp(string $word, array $assignments): bool
     {
         $bare = trim($word, self::QUOTES);

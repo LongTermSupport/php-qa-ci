@@ -208,7 +208,7 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
     private function rector(string $config): Process
     {
         $process = new Process(
-            [\PHP_BINARY, \Safe\realpath(self::LIBRARY . '/vendor-phar/rector.phar'), 'process', '--config', \Safe\realpath($config), '--dry-run', '--clear-cache', '--no-progress-bar', 'src'],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', \Safe\realpath(self::LIBRARY . '/vendor-phar/rector.phar'), 'process', '--config', \Safe\realpath($config), '--dry-run', '--clear-cache', '--no-progress-bar', 'src'],
             $this->project->path,
             [
                 'rectorCacheDir'    => $this->project->path . '/var/qa/cache/rector',

@@ -157,7 +157,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', self::COMPOSER, '--', 'update', self::SELF, '--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', self::COMPOSER, '--', 'update', self::SELF, '--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'],
             $spec->command,
         );
         self::assertSame($this->factory->project->path, $spec->cwd);
