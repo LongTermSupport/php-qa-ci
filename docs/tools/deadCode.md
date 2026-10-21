@@ -77,8 +77,12 @@ PHP scripts under bin/ not declared as dead-code entry points:
   bin/worker
 ```
 
-A file is PHP by its content, never its name: a `#!` line whose interpreter is `php` (`php8.5` and
-the like, directly or through `env`), or a `<?php` open tag at its start. Each file is judged by
+A file is PHP by its content, never its name, read after an optional UTF-8 byte-order mark: a `#!`
+line whose command is a PHP binary (`php`, `php-cgi` or `phpdbg`, versioned or not, such as
+`php8.5`), directly or through `env` past its options and `NAME=value` assignments
+(`#!/usr/bin/env -S FOO=1 php -d x=y`); or, with no `#!` line, a `<?php` open tag in any case, or
+a `<?=` tag, after nothing but blank space. A `#!` line naming any other command decides the file
+is not PHP, whatever follows it. Each file is judged by
 the file it resolves to, so `bin/worker` linking to `../scripts/worker` hides that script exactly
 as a regular file would. The run already reads a PHP file, and it is not required, when its real
 path is a declared entry point, or when it is a `.php` file inside `src/`, `tests/` or a declared
@@ -88,7 +92,12 @@ directory: PHPStan reads only `.php` files from a directory it scans, so `bin/ap
 
 - a script in another language, such as a Bash wrapper, which PHPStan does not read;
 - a Composer binary proxy (Composer writes one into `bin/` for each package binary when its
-  `bin-dir` is `bin`), which only includes the package's script;
+  `bin-dir` is `bin`), which only includes the package's script. A proxy is recognised by what
+  Composer's `BinaryInstaller` writes: a `#!` line, the open tag and the header docblock naming
+  the included path, then `namespace Composer;`, with `return include` of that path as the last
+  statement; and the path must resolve to a file in the vendor dir. A script of the project's own
+  that quotes Composer's header, or a file of that shape that includes a script outside the
+  vendor dir, is required;
 - a file that resolves into Composer's vendor dir (`config.vendor-dir`, default `vendor`, wherever
   it is, `bin/` included) or out of the project: the project cannot change code it does not own,
   so a finding there could not be fixed;
@@ -118,6 +127,50 @@ the report shows is missing. Two shapes are not dead code:
   with the tests that used it, or move it into the tests tree if it is a test helper.
 
 Never suppress with an ignore comment or a baseline.
+
+## Class record
+
+The record for the check in [Every PHP script under bin/ is declared](#every-php-script-under-bin-is-declared)
+([#277](https://github.com/LongTermSupport/php-qa-ci/issues/277)).
+
+- **Class**: a PHP file reachable under `bin/` that the lane's PHPStan run reads by no path: its
+  real path is not a declared entry point, and it is not a `.php` file inside `src/`, `tests/` or
+  a declared directory.
+
+- **Hazard**: a PHP script nothing analyses, so its own defects go unreported and every member
+  only it reaches is reported dead.
+
+- **Searches**:
+
+  - A content scan of every file under this repository's `bin/` for a PHP `#!` line or open tag,
+    each checked against the `withDeadCodeEntryPoints()` list in `qaConfig/qa.php`.
+  - A cross-check of the declarations against the scripts this repository says it ships:
+    composer.json `bin` and the `bin/` allow-list in `.gitignore`.
+
+  Both found the same two undeclared scripts, `bin/autoload-included-files` and
+  `bin/opcache-optimizer-dump`, and nothing else. A third pass took each shape a `bin/` entry can
+  have and asked whether the hazard holds for it: a symlink (judged by its target), a subdirectory
+  (a first-party `bin/cron/job` is as unanalysed as `bin/worker`), a link to a `.php` file under
+  `src/` (already analysed, so not the hazard), a BOM, an open tag in another case, `env` with
+  assignments, and the `phpdbg` and `php-cgi` binaries. It also read the proxy template in
+  Composer's `BinaryInstaller` for the shape the proxy check matches. Each shape is a case in
+  `BinEntryPointScriptsTest`. The scan of `bin/` at full depth found no subdirectory and no link
+  in this repository.
+
+- **Next wider rule**: a PHP file anywhere in the project that the run reads by no path, not only
+  under `bin/`. That covers an extensionless PHP script outside `bin/`, which the `analysedPaths`
+  lane does not count because it counts `.php` files only. It also covers a `.php` file under
+  `src/` or `tests/` that the project's own `phpstan.neon` takes out of the run with
+  `excludePaths` or `fileExtensions`, which this check counts as analysed because it does not
+  resolve the project's PHPStan configuration. Not built, because the search found no instance:
+  the only extensionless PHP script outside `bin/` is `scripts/issue-monitor`, which is declared,
+  and no `bin/` entry here reaches a path that `qaConfig/phpstan.neon` excludes.
+
+- **Runner check**: `BinEntryPointScriptsTest` pins each judgement on both sides of its
+  boundary. `DeadCodeToolTest` pins that the lane fails, with the identifier and before PHPStan
+  runs, on an undeclared script, a link to one and a script in a subdirectory. It also pins that
+  the lane runs the detector when the only script is a link into `src/` or sits under an ignored
+  path.
 
 ## Implementation
 
