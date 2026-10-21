@@ -87,7 +87,7 @@ final readonly class TurboPlatform
             $libc = $musl ? 'musl' : 'gnu';
         }
 
-        return new self($os, $machine, $libc, \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, 1 === \PHP_ZTS);
+        return new self($os, $machine, $libc, \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, (bool)\PHP_ZTS);
     }
 
     /** Where phpstan.phar looks for the platform's shared core, relative to `turbo-ext/`; it loads no binary without it. */

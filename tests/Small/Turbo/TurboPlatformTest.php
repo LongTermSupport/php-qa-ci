@@ -171,7 +171,7 @@ final class TurboPlatformTest extends TestCase
     {
         $description = TurboPlatform::fromProcess(self::LINUX, self::X86_64, self::GLIBC_MAPS, false)->describe();
 
-        self::assertSame(1 === \PHP_ZTS, str_ends_with($description, ' ZTS'));
+        self::assertSame((bool)\PHP_ZTS, str_ends_with($description, ' ZTS'));
         self::assertStringContainsString(', PHP ' . \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, $description);
     }
 
