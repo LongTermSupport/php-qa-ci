@@ -47,6 +47,8 @@ final class ArkitectRuleProbeTest extends TestCase
 
     private const string INTERFACE_RULE = 'phpqaci.interfaceSuffix';
 
+    private const string VIOLATING_GATEWAY = self::VIOLATING . '/Gateway.php';
+
     private const string CONFORMING_DTO = 'Dto/AddressDto.php';
 
     private const string USAGE = 'Usage:';
@@ -131,7 +133,7 @@ final class ArkitectRuleProbeTest extends TestCase
         $this->expectException(ProbeFailedException::class);
 
         $this->probe(srcDir: $this->var->path . '/no-such-src', projectConfigDir: $this->var->path . '/no-qaConfig')
-            ->probe(self::INTERFACE_RULE, self::VIOLATING . '/Gateway.php')
+            ->probe(self::INTERFACE_RULE, self::VIOLATING_GATEWAY)
         ;
     }
 
@@ -143,7 +145,7 @@ final class ArkitectRuleProbeTest extends TestCase
     #[Test]
     public function theCommandExitsOneWhenTheRuleFires(): void
     {
-        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE, self::VIOLATING . '/Gateway.php');
+        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE, self::VIOLATING_GATEWAY);
 
         self::assertSame(1, $exitCode, $output);
         self::assertStringContainsString('FIRED (1)', $output);
@@ -190,7 +192,7 @@ final class ArkitectRuleProbeTest extends TestCase
         $php = $this->var->write('php', "#!/bin/sh\nkill -TERM \$\$\n");
         \Safe\chmod($php, 0o755);
 
-        [$exitCode, $output] = $this->runCommandWith(['PHP_QA_CI_PHP_EXECUTABLE' => $php], self::INTERFACE_RULE, self::VIOLATING . '/Gateway.php');
+        [$exitCode, $output] = $this->runCommandWith(['PHP_QA_CI_PHP_EXECUTABLE' => $php], self::INTERFACE_RULE, self::VIOLATING_GATEWAY);
 
         self::assertSame(2, $exitCode, $output);
         self::assertStringContainsString('PHPArkitect did not finish, so there is no verdict: `' . $php . ' ', $output);

@@ -75,6 +75,8 @@ final class QaApplicationTest extends TestCase
 
     private const string PROBE_FAIL = 'probe.fail';
 
+    private const string PROBE_FAILED_ENDING = "\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n";
+
     private const string PROBE_STDOUT = "[probe stdout]\n";
 
     private const string QA_READONLY = 'QA_READONLY';
@@ -280,7 +282,7 @@ final class QaApplicationTest extends TestCase
 
         self::assertSame(1, $this->qa([self::QA_READONLY => $readOnly], self::DASH_T, self::PROBE));
 
-        self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
+        self::assertStringEndsWith(\sprintf(self::PROBE_FAILED_ENDING, self::RULE, $this->hostname, self::RULE), $this->stdout);
         self::assertStringNotContainsString(self::COMPLETED, $this->stdout);
         self::assertStringNotContainsString('would you like to try again', $this->stdout);
     }
@@ -303,7 +305,7 @@ final class QaApplicationTest extends TestCase
         self::assertStringContainsString("\n!! " . $killed . "\n", $this->stdout);
         self::assertStringContainsString("\n        probe crashed: " . $killed . "\n", $this->stdout);
         self::assertStringNotContainsString('has been signaled', $this->stdout);
-        self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
+        self::assertStringEndsWith(\sprintf(self::PROBE_FAILED_ENDING, self::RULE, $this->hostname, self::RULE), $this->stdout);
     }
 
     /**
@@ -320,11 +322,11 @@ final class QaApplicationTest extends TestCase
 
         self::assertSame(1, $this->qa([self::QA_READONLY => $readOnly], self::DASH_T, self::PROBE));
 
-        $crashed = '`/bin/sh -c \'exit 139\'` ended with exit code 139, killed by signal 11 (SIGSEGV): ';
+        $crashed = "`/bin/sh -c 'exit 139'` ended with exit code 139, killed by signal 11 (SIGSEGV): ";
         self::assertStringContainsString("\n!! " . $crashed, $this->stdout);
         self::assertStringContainsString("\n        probe crashed: " . $crashed, $this->stdout);
         self::assertStringContainsString("\nHALTED: probe crashed with a segmentation fault, so no further tool runs.\n", $this->stdout);
-        self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
+        self::assertStringEndsWith(\sprintf(self::PROBE_FAILED_ENDING, self::RULE, $this->hostname, self::RULE), $this->stdout);
     }
 
     #[Test]
