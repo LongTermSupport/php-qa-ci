@@ -27,6 +27,12 @@ final class BinEntryPointScriptsTest extends TestCase
 
     private const string CONSOLE = 'bin/console';
 
+    private const string WORKER = 'bin/worker';
+
+    private const string WORKER_TARGET = 'scripts/worker';
+
+    private const string WORKER_RELATIVE = '../scripts/worker';
+
     private TempDir $project;
 
     protected function setUp(): void
@@ -127,13 +133,100 @@ final class BinEntryPointScriptsTest extends TestCase
         self::assertSame([], $this->undeclared());
     }
 
-    /** A link's code lives at its target; Composer links a package binary into bin/ this way. */
+    /**
+     * A link to the project's own script elsewhere: that script has no `.php` suffix either, so
+     * nothing analyses it unless the link is declared.
+     */
     #[Test]
-    public function aSymlinkIsNotRequired(): void
+    public function aSymlinkToAFirstPartyPhpScriptIsRequired(): void
+    {
+        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
+        $this->link(self::WORKER_RELATIVE, self::WORKER);
+
+        self::assertSame([self::WORKER], $this->undeclared());
+    }
+
+    /** The detector is given the declared path and reads the file through the link. */
+    #[Test]
+    public function aSymlinkIsDeclaredByItsBinPath(): void
+    {
+        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
+        $this->link(self::WORKER_RELATIVE, self::WORKER);
+
+        self::assertSame([], $this->undeclared($this->project->path . '/' . self::WORKER));
+    }
+
+    #[Test]
+    public function aSymlinkIsDeclaredByItsTargetPath(): void
+    {
+        $this->project->write(self::WORKER_TARGET, self::PHP_SCRIPT);
+        $this->link(self::WORKER_RELATIVE, self::WORKER);
+
+        self::assertSame([], $this->undeclared($this->project->path . '/' . self::WORKER_TARGET));
+    }
+
+    /** A link is judged by its target's content, exactly as a regular file is. */
+    #[Test]
+    public function aSymlinkToAFirstPartyBashScriptIsNotRequired(): void
+    {
+        $this->project->write(self::WORKER_TARGET, "#!/usr/bin/env bash\necho hi\n");
+        $this->link(self::WORKER_RELATIVE, self::WORKER);
+
+        self::assertSame([], $this->undeclared());
+    }
+
+    /** Composer links a package binary into bin/ this way; the consumer cannot change that code. */
+    #[Test]
+    public function aSymlinkIntoTheVendorDirIsNotRequired(): void
     {
         $target = $this->project->write('vendor/acme/tool/bin/tool', self::PHP_SCRIPT);
-        $this->project->mkdir('bin');
-        \Safe\symlink($target, $this->project->path . '/bin/tool');
+        $this->link($target, 'bin/tool');
+
+        self::assertSame([], $this->undeclared());
+    }
+
+    /** The vendor dir is the one composer.json configures, not any directory named vendor. */
+    #[Test]
+    public function aConfiguredVendorDirIsTheOneSkipped(): void
+    {
+        $this->project->write('composer.json', '{"config": {"vendor-dir": "lib/deps"}}');
+        $this->project->write('lib/deps/acme/tool/bin/tool', self::PHP_SCRIPT);
+        $this->project->write('vendor/own/worker', self::PHP_SCRIPT);
+        $this->link('../lib/deps/acme/tool/bin/tool', 'bin/tool');
+        $this->link('../vendor/own/worker', self::WORKER);
+
+        self::assertSame([self::WORKER], $this->undeclared());
+    }
+
+    /** Code outside the project is not the project's to change, nor its to analyse. */
+    #[Test]
+    public function aSymlinkOutOfTheProjectIsNotRequired(): void
+    {
+        $elsewhere = TempDir::create('phpqa-bin-entry-points-elsewhere');
+
+        try {
+            $this->link($elsewhere->write('tool', self::PHP_SCRIPT), 'bin/tool');
+
+            self::assertSame([], $this->undeclared());
+        } finally {
+            $elsewhere->remove();
+        }
+    }
+
+    /** A dangling link holds no code, so nothing goes unanalysed: there is nothing to declare. */
+    #[Test]
+    public function aDanglingSymlinkIsNotRequired(): void
+    {
+        $this->link('../scripts/gone', self::WORKER);
+
+        self::assertSame([], $this->undeclared());
+    }
+
+    #[Test]
+    public function aSymlinkToADirectoryIsNotRequired(): void
+    {
+        $this->project->mkdir('scripts/tools');
+        $this->link('../scripts/tools', 'bin/tools');
 
         self::assertSame([], $this->undeclared());
     }
@@ -169,6 +262,13 @@ final class BinEntryPointScriptsTest extends TestCase
         $this->project->write(self::CONSOLE, self::PHP_SCRIPT);
 
         self::assertSame([self::CONSOLE], $this->undeclared($this->project->path . '/bin/gone'));
+    }
+
+    /** Creates bin/<name> as a link to $target, which may be relative to bin/. */
+    private function link(string $target, string $link): void
+    {
+        $this->project->mkdir('bin');
+        \Safe\symlink($target, $this->project->path . '/' . $link);
     }
 
     /** @return list<string> */

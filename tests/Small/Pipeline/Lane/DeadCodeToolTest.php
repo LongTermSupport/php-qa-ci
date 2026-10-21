@@ -389,6 +389,24 @@ final class DeadCodeToolTest extends TestCase
         self::assertSame([], $this->factory->processes->specs);
     }
 
+    /** A link in bin/ to the project's own script hides that script exactly as a regular file would. */
+    #[Test]
+    public function anUndeclaredLinkToAFirstPartyPhpScriptFailsTheLane(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, self::PROJECT_TYPE);
+        $this->factory->project->write('scripts/worker', self::PHP_SCRIPT);
+        $this->factory->project->mkdir('bin');
+        \Safe\symlink('../scripts/worker', $this->factory->project->path . '/bin/worker');
+
+        $config = $this->factory->builder()->withDeadCodeDetection(true)->withoutDeadCodeEntryPoints()->build();
+
+        $result = $this->tool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('1 PHP script under bin/ is not a declared entry point: bin/worker', $result->summary);
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
     #[Test]
     public function everyPhpScriptUnderBinDeclaredRunsTheDetector(): void
     {
