@@ -195,6 +195,9 @@ which doesn\'t exist
     {
         $projectRoot = \Safe\realpath(__DIR__ . '/../assets/psr4/projectNamespaceReading/');
         $validator   = new Psr4Validator([], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
+        // Built from parts: the fixture's classes are not autoloadable, so no tool should read these as references.
+        $multiple = 'Named\Reading\Multiple';
+        $stray    = 'Elsewhere\Stray';
 
         self::assertSame(
             [
@@ -202,9 +205,9 @@ which doesn\'t exist
                     'Named\Reading\\' => [
                         [
                             'fileInfo'          => $projectRoot . '/src/Multiple.php',
-                            'expectedClassLike' => \Named\Reading\Multiple::class,
-                            'declaredClassLike' => \Elsewhere\Stray::class,
-                            'problem'           => 'class Elsewhere\Stray is declared in a file whose path autoloads only Named\Reading\Multiple, so no autoloader can load it: move it to a file of its own, named for it',
+                            'expectedClassLike' => $multiple,
+                            'declaredClassLike' => $stray,
+                            'problem'           => "class {$stray} is declared in a file whose path autoloads only {$multiple}, so no autoloader can load it: move it to a file of its own, named for it",
                         ],
                     ],
                 ],
