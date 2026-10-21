@@ -57,6 +57,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(QaConfigBuilder::class)]
 #[UsesClass(VacuousKillDetector::class)]
 #[UsesClass(PreloadedSourceFinder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\InfectionSourceScope::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto::class)]
 #[UsesClass(ProcessResultDto::class)]
@@ -89,6 +90,15 @@ final class InfectionToolTest extends TestCase
     private const string LEGACY_OLD = 'src/Legacy/Old.php';
 
     private const string SRC_CONFIG = '{"source": {"directories": ["../src"]}}';
+
+    // This repository's own exclude: a regex, as Finder reads a string with matching delimiters.
+    private const string PLUGIN_EXCLUDED_CONFIG = '{"source": {"directories": ["../src"], "excludes": ["/ComposerPlugin/"]}}';
+
+    private const string PLUGIN_SRC = 'src/ComposerPlugin/Plugin.php';
+
+    private const string PLUGIN_EXCLUDED_LINE = '           ' . self::PLUGIN_SRC . ' (excluded by source.excludes "/ComposerPlugin/")' . "\n";
+
+    private const string PHP_OPEN = '<?php';
 
     // A full run unless a test says otherwise: auto mode's git probes are tested on their own below.
     private const array FLOORS = ['mutationScoreIndicator' => '74', 'coveredCodeMSI' => '76', 'infectionThreads' => '4', 'infectionDiffBase' => 'full'];
@@ -140,6 +150,8 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory = ContextFactory::create();
         $this->root    = $this->factory->project->path;
+        // The shipped default names the consumer's src/ from under vendor/, which is not this fixture's.
+        $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
     }
 
     protected function tearDown(): void
@@ -212,6 +224,7 @@ final class InfectionToolTest extends TestCase
     #[Test]
     public function theConfigInfectionRunsWithAlwaysWritesTheJsonLogTheLaneReads(): void
     {
+        \Safe\unlink($this->root . '/' . self::PROJECT_CONFIG);
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes->willRun($this->infection());
 
@@ -1099,7 +1112,7 @@ final class InfectionToolTest extends TestCase
     #[Test]
     public function aChangedTestBringsTheSourceItIsNamedAfterIntoScope(): void
     {
-        $this->factory->project->write('src/Lane/Tool.php', '<?php');
+        $this->factory->project->write('src/Lane/Tool.php', self::PHP_OPEN);
         $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
         $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['M', 'tests/Small/Lane/ToolTest.php']))->willRun($this->infection());
 
@@ -1238,6 +1251,134 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertCount(2, $this->factory->processes->specs, 'git status and git diff only: no coverage run');
+    }
+
+    /**
+     * Issue #270: Infection is handed only files its config excludes, so it collects
+     * nothing, exits 0 and writes no JSON log. That is a change outside its scope, not
+     * a run that could not be verified, so the lane says so and never starts Infection.
+     */
+    #[Test]
+    public function diffModeSkipsWhenEveryChangedFileIsExcludedByTheConfigAndNamesTheExclude(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::PLUGIN_EXCLUDED_CONFIG);
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['A', self::PLUGIN_SRC], ['A', 'src/ComposerPlugin/Other.php']))
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder(singleTool: self::INFECTION)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome, 'nothing in the change is in scope, which is no failure');
+        self::assertSame("no changed file is in Infection's source scope", $result->summary);
+        self::assertCount(2, $this->factory->processes->specs, 'git status and git diff only: no coverage run and no phar');
+        self::assertStringContainsString(
+            "Infection: diff mode — 2 changed file(s) are outside the source infection.json gives Infection, so they are not mutated:\n"
+            . self::PLUGIN_EXCLUDED_LINE
+            . '           src/ComposerPlugin/Other.php (excluded by source.excludes "/ComposerPlugin/")' . "\n"
+            . "Infection: diff mode — nothing the change touches is in Infection's source scope; there are no new mutants to check. SKIPPING.\n",
+            $printed,
+        );
+        self::assertStringNotContainsString('mutating', $printed);
+        self::assertStringNotContainsString(InfectionTool::IDENTIFIER, $printed, 'a skip is no failure, so no identifier');
+    }
+
+    /** A source a changed test brings in is left out like any other when the config excludes it, and not said to be in scope. */
+    #[Test]
+    public function aSourceAChangedTestNamesIsLeftOutWhenTheConfigExcludesIt(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::PLUGIN_EXCLUDED_CONFIG);
+        $this->factory->project->write(self::PLUGIN_SRC, self::PHP_OPEN);
+        $this->factory->project->write('src/Lane/Tool.php', self::PHP_OPEN);
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['A', 'tests/Small/ComposerPlugin/PluginTest.php'], ['A', 'tests/Small/Lane/ToolTest.php']))
+            ->willRun($this->infection())
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::PLUGIN_EXCLUDED_LINE, $printed);
+        self::assertStringContainsString('Infection: diff mode — src/Lane/Tool.php is in scope because its test tests/Small/Lane/ToolTest.php changed.', $printed);
+        self::assertStringNotContainsString(self::PLUGIN_SRC . ' is in scope', $printed);
+        self::assertSame([$this->root . '/src/Lane/Tool.php'], \array_slice($this->factory->processes->lastSpec()->command, -1));
+    }
+
+    /** A changed file under no source directory is as far outside Infection's scope as an excluded one. */
+    #[Test]
+    public function diffModeNamesAChangedFileUnderNoSourceDirectory(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src/Domain"]}}');
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['A', self::COMMITTED_SRC]));
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertStringContainsString('           ' . self::COMMITTED_SRC . " (under no source directory)\n", $printed);
+    }
+
+    /** The guard against a pass nothing verified stays: in-scope files and no log is a crash, as before. */
+    #[Test]
+    public function aDiffRunOfInScopeFilesThatWritesNoJsonLogStillCrashes(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::PLUGIN_EXCLUDED_CONFIG);
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['A', self::COMMITTED_SRC]))->willSucceed();
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('Infection wrote no JSON log to verify its kills', $result->summary);
+        self::assertStringContainsString('wrote no JSON log at ' . $this->root . '/' . self::JSON_LOG, $printed);
+        self::assertStringNotContainsString('outside the source', $printed);
+    }
+
+    /** A change with files on both sides mutates the in-scope ones and names the rest. */
+    #[Test]
+    public function aMixedDiffMutatesOnlyItsInScopeFilesAndNamesTheExcludedOnes(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, self::PLUGIN_EXCLUDED_CONFIG);
+        $this->factory->project->write(self::COVERAGE_XML_INDEX_XML, self::MINIMAL_XML);
+        $this->factory->processes
+            ->willSucceed(self::GIT_STATUS_CLEAN)
+            ->willSucceed($this->nameStatus(['A', self::PLUGIN_SRC], ['A', self::COMMITTED_SRC]))
+            ->willRun($this->infection())
+        ;
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(
+            "Infection: diff mode — 1 changed file(s) are outside the source infection.json gives Infection, so they are not mutated:\n"
+            . self::PLUGIN_EXCLUDED_LINE
+            . 'Infection: diff mode — mutating 1 file(s): ' . self::COMMITTED_SRC . "\n",
+            $printed,
+        );
+        self::assertSame([$this->root . '/' . self::COMMITTED_SRC], \array_slice($this->factory->processes->lastSpec()->command, -1));
+    }
+
+    /** An exclude that does not compile leaves the diff's scope unknowable, so the lane crashes naming it. */
+    #[Test]
+    public function aDiffRunWithAnExcludeThatIsNotAValidRegexCrashesNamingIt(): void
+    {
+        $this->factory->project->write(self::PROJECT_CONFIG, '{"source": {"directories": ["../src"], "excludes": ["/(Legacy/"]}}');
+        $this->factory->processes->willSucceed(self::GIT_STATUS_CLEAN)->willSucceed($this->nameStatus(['A', self::COMMITTED_SRC]));
+
+        $result  = $this->tool()->run($this->context($this->diffBuilder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('an infection.json source exclude is not a valid regular expression', $result->summary);
+        self::assertCount(2, $this->factory->processes->specs);
+        self::assertStringContainsString('Infection: source.excludes entry "/(Legacy/" is not a valid regular expression (', $printed);
+        self::assertStringEndsWith(InfectionTool::IDENTIFIER . ")\n", $printed);
     }
 
     #[Test]

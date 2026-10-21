@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\ComposerPlugin;
 
+use Composer\Composer;
+use Composer\Config;
+use Composer\Script\Event;
 use LTS\PHPQA\ComposerPlugin\TurboInstallPlugin;
+use LTS\PHPQA\Tests\Assets\ComposerPlugin\CapturingIO;
+use LTS\PHPQA\Tests\Assets\ComposerPlugin\FakeRootPackage;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -38,6 +44,30 @@ final class TurboInstallPluginTest extends TestCase
                 'post-update-cmd'  => 'installTurbo',
             ],
             TurboInstallPlugin::getSubscribedEvents(),
+        );
+    }
+
+    /**
+     * Some failures leave a binary phpstan.phar still loads, so the plugin cannot know whether
+     * PHPStan runs without Turbo; only the installer's own lines can say what it left in place.
+     * The stub ProcessExecutor reports every command as failed.
+     */
+    #[Test]
+    public function aFailedInstallIsReportedWithoutClaimingWhatPhpstanLoads(): void
+    {
+        $vendor = TempDir::create('turbo-plugin-vendor');
+
+        try {
+            $vendor->write('lts/php-qa-ci/bin/turbo-install', '<?php');
+            $io = new CapturingIO();
+            new TurboInstallPlugin()->installTurbo(new Event(new Composer(new Config(['vendor-dir' => $vendor->path]), new FakeRootPackage()), $io));
+        } finally {
+            $vendor->remove();
+        }
+
+        self::assertSame(
+            ["<comment>php-qa-ci: the PHPStan Turbo install failed; the installer's output above says what happened</comment>"],
+            $io->err,
         );
     }
 

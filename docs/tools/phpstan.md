@@ -99,8 +99,10 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
 Turbo is PHPStan's native extension. With it loaded, PHPStan runs some of its analysis in compiled
 code. `phpstan.phar` loads it from `vendor-phar/turbo-ext/<platform>/` beside itself, where it
 needs two files: the binary for the PHP version and the platform's shared core
-(`phpstan_turbo_core.so`). It accepts only files built from the same PHPStan release; any other
-files, or none, or a binary without its core, and the phar runs without Turbo, silently.
+(`phpstan_turbo_core.so`). With no binary, or a binary without its core, the phar runs without
+Turbo, silently. It loads any binary it finds beside its core, including one built for another
+PHPStan release, but activates it only when the binary's extension version is the one the phar
+expects; `php vendor-phar/phpstan.phar diagnose` reports one that is not as `inactive`.
 
 - **Installed on every `composer install` and `composer update`.** `bin/turbo-install` downloads
   the binary and core built for the host: its OS, CPU, C library, PHP minor version and thread
@@ -110,7 +112,10 @@ files, or none, or a binary without its core, and the phar runs without Turbo, s
   file in the `turbo-ext/` directory of the
   [phpstan/phpstan](https://github.com/phpstan/phpstan) tag matching the shipped phar. A download
   whose digest differs is refused and nothing is installed. A failed download is only a warning:
-  PHPStan still runs, without Turbo, and the next install tries again.
+  PHPStan still runs, without Turbo, and the next install tries again. Any other failure exits
+  non-zero, and its `ERROR:` line is followed by what it left: either no binary beside its core,
+  so PHPStan runs without Turbo, or a `WARNING:` that `phpstan.phar` may still load the binary
+  named there, which the install could not vouch for. Delete that binary to run without Turbo.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
   (see [PHAR verification](../pipeline.md#2-preparation)).
