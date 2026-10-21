@@ -88,9 +88,10 @@ This plan does three things:
 
 ### Phase 2: Defects found by the audit (DBF, issue loop)
 
-- [ ] ⬜ **Task 2.1**: `scripts/setup-branch-protection.bash` requires a `ShellCheck (severity=warning)`
-  context that no workflow produces, which would block every merge. The fix needs a detector first,
-  e.g. a test that every required context is a job name a workflow produces.
+- [x] ✅ **Task 2.1**: `scripts/setup-branch-protection.bash` required a `ShellCheck (severity=warning)`
+  context that no workflow produces, which would block every merge. Delivered by #293 (merged as
+  ac9cb1f3 through #295): `RequiredStatusChecksAreProducedTest` first, red, then the fix. The
+  consumer-template side, where no job is named `QA Pipeline`, is Task 3.1 (#294).
 - [ ] ⬜ **Task 2.2**: The template defects actionlint and zizmor report, fixed once the lane from
   Phase 4 is red on them:
   - the empty `choice` option;
@@ -101,7 +102,7 @@ This plan does three things:
 
 ### Phase 3: CI made pragmatic (after Task 1.1)
 
-- [ ] ⬜ **Task 3.1**: The template runs once per PR push and on a push to the default branch, with:
+- [ ] ⬜ **Task 3.1** (#294, covering Tasks 3.1 to 3.4): The template runs once per PR push and on a push to the default branch, with:
   - `concurrency` with cancel-in-progress;
   - least-privilege `permissions:`;
   - the PHP version as a step;
