@@ -175,6 +175,30 @@ final class TurboPlatformTest extends TestCase
         self::assertStringContainsString(', PHP ' . \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, $description);
     }
 
+    /**
+     * PHP_ZTS is 0 or 1 up to PHP 8.3 and false or true from PHP 8.4; a thread-safe PHP of either
+     * family gets the -zts binary, which is the only one phpstan.phar looks for there (#268).
+     */
+    #[Test]
+    #[DataProvider('threadSafety')]
+    public function aThreadSafeProcessGetsTheZtsBinaryWhicheverTypeItsPhpGivesPhpZts(bool|int $zts, string $suffix): void
+    {
+        $platform = TurboPlatform::fromProcess(self::LINUX, self::X86_64, self::GLIBC_MAPS, false, $zts);
+        $minor    = \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION;
+
+        self::assertSame(self::LINUX_GNU_X86_64 . '/phpstan_turbo-' . $minor . $suffix . '.so', $platform->binaryPath());
+        self::assertSame('Linux x86_64, libc gnu, PHP ' . $minor . ('' === $suffix ? '' : ' ZTS'), $platform->describe());
+    }
+
+    /** @return iterable<string, array{bool|int, string}> */
+    public static function threadSafety(): iterable
+    {
+        yield 'thread-safe, PHP 8.4 on' => [true, '-zts'];
+        yield 'thread-safe, PHP 8.3 and earlier' => [1, '-zts'];
+        yield 'not thread-safe, PHP 8.4 on' => [false, ''];
+        yield 'not thread-safe, PHP 8.3 and earlier' => [0, ''];
+    }
+
     #[Test]
     #[DataProvider('linuxProcesses')]
     public function aLinuxProcessIsMuslOnlyWhenTheMuslLoaderIsMappedIntoIt(?string $selfMaps, bool $hasAlpineRelease, string $directory, string $libc): void
