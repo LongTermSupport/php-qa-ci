@@ -104,18 +104,24 @@ This plan does three things:
 
 ### Phase 3: CI made pragmatic (after Task 1.1)
 
-- [ ] ⬜ **Task 3.1** (#294, covering Tasks 3.1 to 3.4): The template runs once per PR push and on a push to the default branch, with:
-  - `concurrency` with cancel-in-progress;
-  - least-privilege `permissions:`;
+- [x] ✅ **Task 3.1**: Delivered by #294 (#299, merged as 1b563aa3). The template runs once per PR
+  push and on a push to `main`, `master` and `php8.5`, with:
+  - `concurrency` with cancel-in-progress for pull requests only;
+  - `contents: read` permissions;
   - the PHP version as a step;
-  - a static job name;
+  - a static job name, `QA Pipeline`;
   - Coverage Report opt-in.
-- [ ] ⬜ **Task 3.2**: Retire `ci.yml`. Point `update-deps.yml` at `qa.yml`. Move `ci.bash`'s settings into
-  `qaConfig/qa.php` or the workflow `env:`. Add caching.
-- [ ] ⬜ **Task 3.3**: Split `update-deps.yml` into a read-only build and QA job and a write job that only
-  opens the PR.
-- [ ] ⬜ **Task 3.4**: Docs, branch-protection script, `.claude/rules` path list, and a CHANGELOG entry
-  (a consumer-visible check-name change).
+- [x] ✅ **Task 3.2**: `ci.yml` retired and `update-deps.yml` pointed at `qa.yml` (#299). Not done: moving
+  `ci.bash`'s settings into `qaConfig/qa.php` or the workflow `env:` (`update-deps.yml` still uses
+  `ci.bash`), and caching.
+- [x] ✅ **Task 3.3**: `update-deps.yml` split into a read-only build and QA job and write jobs that run no
+  project code (#299).
+- [x] ✅ **Task 3.4**: Docs, branch-protection script comments, the `.claude/rules` path list and the
+  CHANGELOG entry (#299).
+- [ ] ⬜ **Task 3.5**: Owner decisions left by #299, as options on the pull request: the push trigger list,
+  removing `AUTO_COMMIT_FIXES`, Infection in the required run (it hung twice in the duplicate run
+  on #260), and the `qa-autofix.yml` gate name `QA gate (read-only qa)`. The first `php8.5` push
+  run through to `Release`, and a real `update-deps` run, still need watching.
 
 ### Phase 4: actions-qa-ci (after Tasks 1.2 and 1.3)
 
