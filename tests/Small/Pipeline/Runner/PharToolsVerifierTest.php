@@ -76,7 +76,7 @@ final class PharToolsVerifierTest extends TestCase
         $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
 
         $this->expectException(MissingPharException::class);
-        $this->expectExceptionMessage(\sprintf(
+        $this->expectExceptionMessageIsOrContains(\sprintf(
             "%s is for PHPStan 2.2.16 but the shipped phpstan.phar is 2.3.0, so it does not pin the Turbo files of this phar's release. Reinstall php-qa-ci; a maintainer runs scripts/tool-install.bash update.",
             $this->library->path . '/' . TurboManifest::PATH,
         ));

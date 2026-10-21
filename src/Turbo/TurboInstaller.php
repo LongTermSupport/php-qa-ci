@@ -67,7 +67,15 @@ final readonly class TurboInstaller
 
     public function run(string $libraryRoot, string $mode): int
     {
-        $exitCode = $this->install($libraryRoot, $mode);
+        try {
+            $exitCode = $this->install($libraryRoot, $mode);
+        } catch (Throwable $throwable) {
+            // A step no catch covers (a stamp or phive.xml that cannot be read, a manifest that
+            // cannot be written) is a failed install like any other, not a fatal error.
+            $this->error('the Turbo install stopped: ' . $throwable->getMessage());
+            $exitCode = 1;
+        }
+
         if (0 !== $exitCode) {
             $this->reportWhatPhpstanLoads($libraryRoot);
         }
