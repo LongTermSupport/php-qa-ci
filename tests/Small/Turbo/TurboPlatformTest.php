@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Turbo;
 
 use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\UnopenableStreamWrapper;
 use LTS\PHPQA\Turbo\TurboPlatform;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -162,6 +163,28 @@ final class TurboPlatformTest extends TestCase
                 'without maps, /etc/alpine-release decides',
             );
         } finally {
+            $tmp->remove();
+        }
+    }
+
+    #[Test]
+    public function maps_that_pass_the_access_check_but_cannot_be_opened_are_treated_as_unreadable(): void
+    {
+        $tmp = TempDir::create('turbo-platform');
+        UnopenableStreamWrapper::register();
+
+        try {
+            $alpine = $tmp->write('alpine-release', "3.22.0\n");
+            $maps   = UnopenableStreamWrapper::SCHEME . '://maps';
+            self::assertTrue(is_readable($maps), 'the fixture must pass the access check');
+
+            self::assertSame(
+                TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), null, true)->describe(),
+                TurboPlatform::fromRuntime($maps, $alpine)->describe(),
+                'as phpstan.phar does, a maps file that cannot be opened falls back to /etc/alpine-release',
+            );
+        } finally {
+            UnopenableStreamWrapper::unregister();
             $tmp->remove();
         }
     }
