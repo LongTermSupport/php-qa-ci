@@ -148,6 +148,7 @@ final class ForeignIdentifierCatalogueTest extends TestCase
     /** @return list<string> every literal identifier in the PHP files under $directory */
     private function identifiersIn(string $directory): array
     {
+        /** @var array<array-key, true> $identifiers */
         $identifiers = [];
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
             if (!$file instanceof SplFileInfo || 'php' !== $file->getExtension()) {
@@ -167,6 +168,6 @@ final class ForeignIdentifierCatalogueTest extends TestCase
             }
         }
 
-        return array_keys($identifiers);
+        return array_map(strval(...), array_keys($identifiers));
     }
 }

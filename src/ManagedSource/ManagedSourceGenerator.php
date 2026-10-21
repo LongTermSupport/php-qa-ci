@@ -35,7 +35,7 @@ final readonly class ManagedSourceGenerator
      * decoded composer.json. Uses `autoload` (NEVER `autoload-dev`) and takes the
      * first psr-4 prefix — the package's primary runtime namespace.
      *
-     * @param array<string, mixed> $composerData decoded composer.json
+     * @param array<array-key, mixed> $composerData decoded composer.json, whose keys PHP may have made ints
      *
      * @return array{rootNamespace: string, srcDir: string}
      */
@@ -48,7 +48,11 @@ final readonly class ManagedSourceGenerator
 
         $psr4      = $autoload['psr-4'];
         $namespace = array_key_first($psr4);
-        if (!\is_string($namespace) || '' === $namespace) {
+        if (\is_int($namespace)) {
+            throw new RuntimeException(\sprintf('composer.json autoload.psr-4 prefix "%d" is not a namespace', $namespace));
+        }
+
+        if (null === $namespace || '' === $namespace) {
             throw new RuntimeException('composer.json autoload.psr-4 is empty');
         }
 
@@ -137,7 +141,6 @@ final readonly class ManagedSourceGenerator
             throw new RuntimeException(\sprintf('composer.json at %s did not decode to an object', $projectRoot));
         }
 
-        /** @var array<string, mixed> $decoded */
         $target = self::resolveTarget($decoded);
 
         return [$target['rootNamespace'], $projectRoot . '/' . $target['srcDir']];

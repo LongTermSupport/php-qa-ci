@@ -597,7 +597,7 @@ final class DeploySkillsCharacterisationTest extends TestCase
      * Content hash + executable bit of every regular file under $dir, keyed by
      * relative path.
      *
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function hashTree(string $dir): array
     {

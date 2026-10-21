@@ -148,7 +148,7 @@ final class SystemTempStagingCallersTest extends TestCase
     #[Test]
     public function theGuardSearchesSrcAndThePhpEntryPointsInBin(): void
     {
-        $searched = array_keys(iterator_to_array($this->sourceFiles()));
+        $searched = array_map(strval(...), array_keys(iterator_to_array($this->sourceFiles())));
 
         self::assertContains('src/Filesystem/TemporaryDirectory.php', $searched);
         self::assertContains('bin/qa', $searched, 'a PHP entry point in bin/');
