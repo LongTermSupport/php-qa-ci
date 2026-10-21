@@ -22,6 +22,13 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ChildExitTest extends TestCase
 {
+    #[Test]
+    #[DataProvider('exits')]
+    public function anExitIsDescribedByItsCodeAndAnySignal(int $exitCode, string $description): void
+    {
+        self::assertSame($description, ChildExit::describe($exitCode));
+    }
+
     /** @return iterable<string, array{int, string}> */
     public static function exits(): iterable
     {
@@ -46,10 +53,10 @@ final class ChildExitTest extends TestCase
     }
 
     #[Test]
-    #[DataProvider('exits')]
-    public function anExitIsDescribedByItsCodeAndAnySignal(int $exitCode, string $description): void
+    #[DataProvider('signals')]
+    public function onlyACodeAbove128ForARealSignalIsASignalKill(int $exitCode, bool $killed): void
     {
-        self::assertSame($description, ChildExit::describe($exitCode));
+        self::assertSame($killed, ChildExit::killedBySignal($exitCode));
     }
 
     /** @return iterable<string, array{int, bool}> */
@@ -60,12 +67,5 @@ final class ChildExitTest extends TestCase
         yield '192' => [192, true];
         yield '193' => [193, false];
         yield '255' => [255, false];
-    }
-
-    #[Test]
-    #[DataProvider('signals')]
-    public function onlyACodeAbove128ForARealSignalIsASignalKill(int $exitCode, bool $killed): void
-    {
-        self::assertSame($killed, ChildExit::killedBySignal($exitCode));
     }
 }

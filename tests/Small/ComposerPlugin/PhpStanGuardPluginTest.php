@@ -9,6 +9,7 @@ use Composer\Config;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
 use Composer\Util\ProcessExecutor;
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\ComposerPlugin\PhpStanGuardPlugin;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\CapturingIO;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\FakeRootPackage;
@@ -16,12 +17,14 @@ use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
 #[CoversClass(PhpStanGuardPlugin::class)]
+#[UsesClass(ChildExit::class)]
 #[Small]
 final class PhpStanGuardPluginTest extends TestCase
 {

@@ -35,7 +35,7 @@ final class BuildPharRelaysVersionProbeExitTest extends TestCase
         try {
             $repo = \Safe\realpath(self::REPO_ROOT);
             foreach (\Safe\scandir($repo . '/bin') as $entry) {
-                if (is_file($repo . '/bin/' . $entry)) {
+                if (\is_string($entry) && is_file($repo . '/bin/' . $entry)) {
                     $temp->write('bin/' . $entry, \Safe\file_get_contents($repo . '/bin/' . $entry));
                 }
             }

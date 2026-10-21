@@ -8,6 +8,7 @@ use Composer\Composer;
 use Composer\Config;
 use Composer\Script\Event;
 use Composer\Util\ProcessExecutor;
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\ComposerPlugin\SkillsDeployPlugin;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\CapturingIO;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\FakeRootPackage;
@@ -15,6 +16,7 @@ use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -26,6 +28,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(SkillsDeployPlugin::class)]
+#[UsesClass(ChildExit::class)]
 #[Small]
 final class SkillsDeployPluginTest extends TestCase
 {
@@ -71,7 +74,7 @@ final class SkillsDeployPluginTest extends TestCase
     private function deployExitingWith(int $exitCode): array
     {
         $disabled = getenv(self::DISABLE);
-        putenv(self::DISABLE);
+        \Safe\putenv(self::DISABLE);
         ProcessExecutor::$exitCode = $exitCode;
         $vendor                    = TempDir::create('skills-plugin-vendor');
 
@@ -84,7 +87,7 @@ final class SkillsDeployPluginTest extends TestCase
             $vendor->remove();
             ProcessExecutor::$exitCode = 1;
             if (\is_string($disabled)) {
-                putenv(self::DISABLE . '=' . $disabled);
+                \Safe\putenv(self::DISABLE . '=' . $disabled);
             }
         }
 

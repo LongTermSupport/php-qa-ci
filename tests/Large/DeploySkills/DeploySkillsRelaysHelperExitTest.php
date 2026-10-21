@@ -31,6 +31,8 @@ final class DeploySkillsRelaysHelperExitTest extends TestCase
 
     private const string KILLED = 'exit code 143, killed by signal 15 (SIGTERM)';
 
+    private const string BASH = 'bash';
+
     private TempDir $temp;
 
     protected function setUp(): void
@@ -54,7 +56,7 @@ final class DeploySkillsRelaysHelperExitTest extends TestCase
 
         $shims = $this->temp->mkdir('shims');
         $this->shim('php', \PHP_BINARY, '*/bin/rules|*/bin/hooks-daemon-full-qa-blocker');
-        $this->shim('bash', $this->find('bash'), '*/write-claude-block.bash');
+        $this->shim(self::BASH, $this->find(self::BASH), '*/write-claude-block.bash');
 
         $path = getenv('PATH');
         self::assertIsString($path);
@@ -75,7 +77,7 @@ final class DeploySkillsRelaysHelperExitTest extends TestCase
     {
         $path = $this->temp->write('shims/' . $name, \sprintf(
             "#!%s\ncase \"\${1:-}\" in\n    %s) kill -TERM \$\$ ;;\nesac\nexec %s \"\$@\"\n",
-            $this->find('bash'),
+            $this->find(self::BASH),
             $kill,
             escapeshellarg($real),
         ));

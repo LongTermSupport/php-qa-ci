@@ -8,6 +8,7 @@ use Composer\Composer;
 use Composer\Config;
 use Composer\Script\Event;
 use Composer\Util\ProcessExecutor;
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\ComposerPlugin\TurboInstallPlugin;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\CapturingIO;
 use LTS\PHPQA\Tests\Assets\ComposerPlugin\FakeRootPackage;
@@ -15,6 +16,7 @@ use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -26,6 +28,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(TurboInstallPlugin::class)]
+#[UsesClass(ChildExit::class)]
 #[Small]
 final class TurboInstallPluginTest extends TestCase
 {
@@ -34,6 +37,11 @@ final class TurboInstallPluginTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         require_once __DIR__ . '/../../assets/ComposerPlugin/composer-stubs.php';
+    }
+
+    protected function tearDown(): void
+    {
+        ProcessExecutor::$exitCode = 1;
     }
 
     #[Test]
@@ -46,11 +54,6 @@ final class TurboInstallPluginTest extends TestCase
             ],
             TurboInstallPlugin::getSubscribedEvents(),
         );
-    }
-
-    protected function tearDown(): void
-    {
-        ProcessExecutor::$exitCode = 1;
     }
 
     /**
@@ -85,6 +88,17 @@ final class TurboInstallPluginTest extends TestCase
         self::assertSame([], $this->installExitingWith(0));
     }
 
+    /** Composer loads only the plugin classes composer.json lists. */
+    #[Test]
+    public function composerJsonRegistersThePlugin(): void
+    {
+        $composer = \Safe\json_decode(\Safe\file_get_contents(self::COMPOSER_JSON), true);
+        self::assertIsArray($composer);
+        self::assertIsArray($composer['extra'] ?? null);
+
+        self::assertContains(TurboInstallPlugin::class, $composer['extra']['class'] ?? []);
+    }
+
     /** @return list<string> what the plugin wrote to stderr */
     private function installExitingWith(int $exitCode): array
     {
@@ -100,16 +114,5 @@ final class TurboInstallPluginTest extends TestCase
         }
 
         return $io->err;
-    }
-
-    /** Composer loads only the plugin classes composer.json lists. */
-    #[Test]
-    public function composerJsonRegistersThePlugin(): void
-    {
-        $composer = \Safe\json_decode(\Safe\file_get_contents(self::COMPOSER_JSON), true);
-        self::assertIsArray($composer);
-        self::assertIsArray($composer['extra'] ?? null);
-
-        self::assertContains(TurboInstallPlugin::class, $composer['extra']['class'] ?? []);
     }
 }

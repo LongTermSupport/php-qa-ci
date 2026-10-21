@@ -8,6 +8,7 @@
 !/bin/bootstrap.php
 !/bin/changelog-release
 !/bin/composer-require-checker
+!/bin/describe-exit
 !/bin/hooks-daemon-full-qa-blocker
 !/bin/infection
 !/bin/infection-config-source-dirs-check
