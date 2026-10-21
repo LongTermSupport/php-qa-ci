@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
+use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
+use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Runner\Dto\ExecutionDto;
 use LTS\PHPQA\Pipeline\Runner\NonInteractiveRetryPrompt;
-use LTS\PHPQA\Pipeline\Runner\RetryPromptInterface;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
+use LTS\PHPQA\Tests\Support\AlwaysRetry;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FakeToolLocator;
+use LTS\PHPQA\Tests\Support\SignalledChildTool;
 use LTS\PHPQA\Tests\Support\StubTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -40,6 +44,9 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(SignalledChildren::class)]
+#[UsesClass(SignalledChildDto::class)]
+#[UsesClass(ChildExit::class)]
 #[Small]
 final class ToolExecutorTest extends TestCase
 {
@@ -128,22 +135,61 @@ final class ToolExecutorTest extends TestCase
         self::assertSame(1, $locator->stub(self::STAN)->runs);
     }
 
+    /**
+     * A lane whose child a signal killed crashed, whatever the lane made of the child's exit code:
+     * the crash names the lane, the command and the signal, and is never retried.
+     */
+    #[Test]
+    public function aLaneWhoseChildASignalKilledCrashedAndSaysWhy(): void
+    {
+        $signalled = new SignalledChildren();
+        $lane      = new SignalledChildTool(self::TOOL_LINT, $signalled, \SIGTERM);
+        $executor  = new ToolExecutor(new FakeToolLocator()->register($lane), new AlwaysRetry(), $this->factory->output, $signalled);
+
+        $execution = $executor->execute(self::TOOL_LINT, $this->factory->context());
+
+        $summary = 'lint crashed: `fake lint` ended with exit code 143, killed by signal 15 (SIGTERM)';
+        self::assertSame(ToolOutcomeEnum::Crashed, $execution->result->outcome);
+        self::assertSame($summary, $execution->result->summary);
+        self::assertFalse($execution->segmentationFault);
+        self::assertFalse($execution->retried);
+        self::assertSame(1, $lane->runs);
+        self::assertSame(self::LINT_RAN . $this->banner("        lint Failed...\n        " . $summary . "\n"), $this->factory->output->fetch());
+        self::assertSame([], $signalled->take(), 'the crash is taken, so the next lane does not inherit it');
+    }
+
+    /** A segmentation fault is marked, so the pipeline can halt on it. */
+    #[Test]
+    public function aLaneWhoseChildSegfaultedIsMarked(): void
+    {
+        $signalled = new SignalledChildren();
+        $locator   = new FakeToolLocator()->register(new SignalledChildTool(self::STAN, $signalled, \SIGSEGV));
+        $executor  = new ToolExecutor($locator, new NonInteractiveRetryPrompt(), $this->factory->output, $signalled);
+
+        $execution = $executor->execute(self::STAN, $this->factory->context());
+
+        self::assertTrue($execution->segmentationFault);
+        self::assertSame(
+            'stan crashed: `fake stan` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::segfaultAdvice(),
+            $execution->result->summary,
+        );
+    }
+
+    /** A passing lane that ran no signalled child is not marked. */
+    #[Test]
+    public function aPassingLaneIsNotMarked(): void
+    {
+        $locator  = new FakeToolLocator()->register(new StubTool(self::TOOL_LINT, ToolResultDto::passed()));
+        $executor = new ToolExecutor($locator, new NonInteractiveRetryPrompt(), $this->factory->output, new SignalledChildren());
+
+        self::assertFalse($executor->execute(self::TOOL_LINT, $this->factory->context())->segmentationFault);
+    }
+
     /** The whole failure banner around the given heading lines, as the executor prints it. */
     private function banner(string $heading): string
     {
         $rule = "    ==================================================\n";
 
         return "\n" . $rule . "\n" . $heading . "\n        " . self::DEFENCE_BEFORE_FIX_LINE . "\n\n" . $rule . "\n";
-    }
-}
-
-/**
- * @internal
- */
-final readonly class AlwaysRetry implements RetryPromptInterface
-{
-    public function shouldRetry(string $label): bool
-    {
-        return true;
     }
 }

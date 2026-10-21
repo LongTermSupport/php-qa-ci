@@ -54,7 +54,6 @@ final readonly class InfectionConfigSourceDirectoriesCheck
             return 1;
         }
 
-        /** @var array<string, mixed> $decoded */
         $problems = $this->detector->check($decoded, \dirname($configPath));
 
         if ([] === $problems) {

@@ -36,10 +36,10 @@ fi
 qaLog="$(mktemp)"
 trap 'rm -f "$qaLog"' EXIT
 qaRc=0
-json="$("$binDir/qa" -t phpstan -p "$path" --json 2>"$qaLog")" || qaRc=$?
+json="$(php -d display_errors=stderr "$binDir/qa" -t phpstan -p "$path" --json 2>"$qaLog")" || qaRc=$?
 if [[ -z "$json" ]]; then
   # A qa killed by a signal printed nothing, so how it ended is named too.
-  printf 'PHPStan produced no JSON run for %s: qa ended with %s. The qa output was:\n' "$path" "$(php "$binDir/describe-exit" "$qaRc")" >&2
+  printf 'PHPStan produced no JSON run for %s: qa ended with %s. The qa output was:\n' "$path" "$(php -d display_errors=stderr "$binDir/describe-exit" --php-qa-ci-helper "$qaRc")" >&2
   cat "$qaLog" >&2
   exit 2
 fi

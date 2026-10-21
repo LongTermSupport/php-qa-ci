@@ -75,6 +75,8 @@ final class QaApplicationTest extends TestCase
 
     private const string PROBE_FAIL = 'probe.fail';
 
+    private const string PROBE_FAILED_ENDING = "\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n";
+
     private const string PROBE_STDOUT = "[probe stdout]\n";
 
     private const string QA_READONLY = 'QA_READONLY';
@@ -118,8 +120,16 @@ final class QaApplicationTest extends TestCase
         $this->fakePhp    = $this->consumer->write('fakephp/php', <<<'SH'
             #!/bin/sh
             dir=$(dirname "$0")
-            printf '%s\n' "$2" >> "$dir/calls.log"
-            case "$2" in
+            code=
+            previous=
+            for argument in "$@"; do
+              if [ "$previous" = -r ]; then
+                code=$argument
+              fi
+              previous=$argument
+            done
+            printf '%s\n' "$code" >> "$dir/calls.log"
+            case "$code" in
               *xdebug*) answer=xdebug ;;
               *PHP_VERSION*) answer=version ;;
               *opcache.jit*) answer=jit ;;
@@ -169,6 +179,13 @@ final class QaApplicationTest extends TestCase
                             implode(' ', array_slice($context->php->specWithoutXdebug('x.php', [], '.')->command, 0, 3)),
                             get_debug_type(pcntl_signal_get_handler(SIGTERM)),
                         ));
+                        if (is_file($c->paths->projectRoot . '/probe.signal')) {
+                            $context->processes->run(new \LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto(['/bin/sh', '-c', 'kill -TERM $$'], $c->paths->projectRoot));
+                        }
+
+                        if (is_file($c->paths->projectRoot . '/probe.exit139')) {
+                            $context->processes->run(new \LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto(['/bin/sh', '-c', 'exit 139'], $c->paths->projectRoot));
+                        }
 
                         return is_file($c->paths->projectRoot . '/probe.fail') ? ToolResultDto::failed('told to fail') : ToolResultDto::passed();
                     }
@@ -273,9 +290,51 @@ final class QaApplicationTest extends TestCase
 
         self::assertSame(1, $this->qa([self::QA_READONLY => $readOnly], self::DASH_T, self::PROBE));
 
-        self::assertStringEndsWith(\sprintf("\n%s\n%s qa -t probe FAILED (exit 1)\n%s\n", self::RULE, $this->hostname, self::RULE), $this->stdout);
+        self::assertStringEndsWith(\sprintf(self::PROBE_FAILED_ENDING, self::RULE, $this->hostname, self::RULE), $this->stdout);
         self::assertStringNotContainsString(self::COMPLETED, $this->stdout);
         self::assertStringNotContainsString('would you like to try again', $this->stdout);
+    }
+
+    /**
+     * A lane whose child a signal kills, through the real runner: the lane is named as crashed with
+     * the signal, rather than Symfony's ProcessSignaledException ending the run unnamed. The child
+     * kills itself with SIGTERM; a real SIGSEGV would leave a core dump.
+     */
+    #[Test]
+    #[TestWith(['1'], 'read-only, aggregate')]
+    #[TestWith(['0'], 'writable, fail-fast')]
+    public function aLaneWhoseChildASignalKillsIsNamedAsCrashed(string $readOnly): void
+    {
+        $this->consumer->write('probe.signal', '');
+
+        self::assertSame(1, $this->qa([self::QA_READONLY => $readOnly], self::DASH_T, self::PROBE));
+
+        $killed = '`/bin/sh -c \'kill -TERM $$\'` ended with exit code 143, killed by signal 15 (SIGTERM)';
+        self::assertStringContainsString("\n!! " . $killed . "\n", $this->stdout);
+        self::assertStringContainsString("\n        probe crashed: " . $killed . "\n", $this->stdout);
+        self::assertStringNotContainsString('has been signaled', $this->stdout);
+        self::assertStringEndsWith(\sprintf(self::PROBE_FAILED_ENDING, self::RULE, $this->hostname, self::RULE), $this->stdout);
+    }
+
+    /**
+     * A lane whose child exits 139 itself, as a shell does for a command that crashed with SIGSEGV,
+     * halts the run as a segfault, aggregate or not, even though the lane passed: a segfault is
+     * never accepted in a passing run, however it is reported.
+     */
+    #[Test]
+    #[TestWith(['1'], 'read-only, aggregate')]
+    #[TestWith(['0'], 'writable, fail-fast')]
+    public function aLaneWhoseChildExitsWithASegfaultsCodeHaltsTheRun(string $readOnly): void
+    {
+        $this->consumer->write('probe.exit139', '');
+
+        self::assertSame(1, $this->qa([self::QA_READONLY => $readOnly], self::DASH_T, self::PROBE));
+
+        $crashed = "`/bin/sh -c 'exit 139'` ended with exit code 139, killed by signal 11 (SIGSEGV): ";
+        self::assertStringContainsString("\n!! " . $crashed, $this->stdout);
+        self::assertStringContainsString("\n        probe crashed: " . $crashed, $this->stdout);
+        self::assertStringContainsString("\nHALTED: probe crashed with a segmentation fault, so no further tool runs.\n", $this->stdout);
+        self::assertStringEndsWith(\sprintf(self::PROBE_FAILED_ENDING, self::RULE, $this->hostname, self::RULE), $this->stdout);
     }
 
     #[Test]

@@ -155,6 +155,60 @@
 #                                          decide what the test sees. See
 #                                          docs/phpstan-rules/forbid-unisolated-git-process.md
 #
+# PHP WARNINGS KEPT OUT OF CAPTURED OUTPUT:
+#   ForbidPhpWarningsInCapturedOutputRule — PHP run with its output captured (a Symfony
+#                                          Process, a ProcessSpecDto, or Composer's
+#                                          ProcessExecutor::execute() given $output) passes
+#                                          -d display_errors=stderr: the PHP CLI displays
+#                                          errors on stdout, so a warning or deprecation
+#                                          otherwise becomes part of the captured value. Its
+#                                          collector is registered under services: below. See
+#                                          docs/phpstan-rules/forbid-php-warnings-in-captured-output.md
+# A CLASS ANOTHER FILE CANNOT AUTOLOAD:
+#   ForbidUnautoloadableClassReferenceRule — a reference from another file to a class
+#                                          the project's PSR-4/PSR-0 mapping claims but
+#                                          that is not declared at the path the mapping
+#                                          gives (a helper at the foot of a test file, a
+#                                          namespace drifted from its directory), where
+#                                          PHP asks the autoloader for it. It works only
+#                                          when something else has loaded the declaring
+#                                          file first, so a single test, a filtered run
+#                                          or Infection fails with "not found". Also a
+#                                          name in the wrong case, and a second copy of a
+#                                          class at its path. Quiet on instanceof, catch
+#                                          and plain types, the declaring file's own uses,
+#                                          a file that includes it, classmap and files
+#                                          entries, and classes no prefix claims. See
+#                                          docs/phpstan-rules/forbid-unautoloadable-class-reference.md
+# AN ARRAY KEY THAT MAY BE ALL DIGITS:
+#   ForbidNumericStringArrayKeyRule      — PHP stores an array key that is an all-digit
+#                                          string ('2024') as an int, but PHPStan types
+#                                          $map[$string] = … as string-keyed. A write under
+#                                          a key that may be all digits is reported when its
+#                                          array is a property declared string-keyed, or a
+#                                          local the same function returns, passes or
+#                                          assigns as string-keyed, or whose keys it reads
+#                                          (foreach, json_encode(), array_merge() and the
+#                                          like), followed through copies, elements,
+#                                          operators, branches, references, static, global
+#                                          and generators. Keys made by a literal,
+#                                          array_flip() and the like, or asserted by an
+#                                          inline @var over data whose keys PHPStan does
+#                                          not know, are judged the same way.
+#                                          Declare such keys array-key and cast a key to
+#                                          string where one is read. Its two collectors are
+#                                          registered under services: below. See
+#                                          docs/phpstan-rules/forbid-numeric-string-array-key.md
+#
+# A CHILD KILLED BY A SIGNAL, NAMED:
+#   ForbidUnhandledProcessSignalRule     — Process::run(), mustRun() and wait() outside
+#                                          test code sit in a try block whose catch names
+#                                          ProcessSignaledException: uncaught, a segfault
+#                                          reads as "signaled with signal 11" with no command
+#                                          and aborts the caller. Its collector is registered
+#                                          under services: below. See
+#                                          docs/phpstan-rules/forbid-unhandled-process-signal.md
+#
 # BUILD CONSTANTS READ AS THEY ARE:
 #   ForbidBuildConstantTypeDependentUseRule — PHP_ZTS or PHP_DEBUG compared strictly, made a
 #                                          string, stored or passed on: a bool since PHP 8.4,
@@ -195,6 +249,9 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidProcessStreamRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnvalidatedRegexPatternRule
     - LTS\PHPQA\PHPStan\Rules\ForbidUnisolatedGitProcessRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnhandledProcessSignalRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidPhpWarningsInCapturedOutputRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule
     - LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantTypeDependentUseRule
 
 parameters:
@@ -233,5 +290,36 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector
+        tags:
+            - phpstan.collector
+    # ForbidUnautoloadableClassReferenceRule reads the analysed project's own
+    # composer.json autoload mapping. The VendoredCodeDetector it takes is
+    # registered in rules-default.neon.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\AutoloadPathDetector
+        arguments:
+            projectRoot: %currentWorkingDirectory%
+    - LTS\PHPQA\PHPStan\Rules\ClassReferenceScanner
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidUnautoloadableClassReferenceRule
+        tags:
+            - phpstan.rules.rule
+    # The collector ForbidUnhandledProcessSignalRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ProcessSignalHandlingCollector
+        tags:
+            - phpstan.collector
+    # The collector ForbidPhpWarningsInCapturedOutputRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\CapturedPhpOutputCollector
+        tags:
+            - phpstan.collector
+    # The collectors ForbidNumericStringArrayKeyRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector
         tags:
             - phpstan.collector

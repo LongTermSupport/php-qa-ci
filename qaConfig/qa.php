@@ -85,18 +85,22 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
     ->withReleaseVersionPolicy(ReleaseVersionPolicy::lockedMajorFromPhpRequirement())
     // Dead-code detection, dogfooded here first. Every PHP script under bin/,
     // and scripts/issue-monitor, is an entry point the detector would otherwise
-    // never see; bin/phpunit, bin/neon-lint and bin/php-parse are Composer
-    // proxies for packages and are not ours to analyse.
+    // never see, and the lane fails on one missing from bin/; bin/phpunit,
+    // bin/neon-lint and bin/php-parse are Composer proxies for packages and
+    // are not ours to analyse.
     ->withDeadCodeDetection(true)
     ->withDeadCodeEntryPoints(
         'bin/arkitect-rule',
+        'bin/autoload-included-files',
         'bin/bootstrap.php',
         'bin/changelog-release',
         'bin/config-template-ignorelist-check',
+        'bin/describe-exit',
         'bin/hooks-daemon-full-qa-blocker',
         'bin/infection-config-source-dirs-check',
         'bin/managed-source',
         'bin/mdlinks',
+        'bin/opcache-optimizer-dump',
         'bin/package-type-check',
         'bin/phpstan-docs-install',
         'bin/phpstan-ignore-justification',
@@ -106,7 +110,9 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/rule-doc',
         'bin/rules',
         'bin/sensitive-parameter-usage',
+        'bin/shellcheck-install',
         'bin/single-rule-report',
+        'bin/turbo-install',
         'bin/version-pins-check',
         'scripts/issue-monitor',
     )

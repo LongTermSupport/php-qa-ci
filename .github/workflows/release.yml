@@ -154,7 +154,7 @@ jobs:
       - name: Work out the next release
         id: next
         if: steps.head.outputs.current == 'true'
-        run: echo "version=$("$(composer config bin-dir)/changelog-release" next-version)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(php -d display_errors=stderr "$(composer config bin-dir)/changelog-release" next-version)" >> "$GITHUB_OUTPUT"
 
       - name: Write the release into the changelog
         if: steps.next.outputs.version != ''

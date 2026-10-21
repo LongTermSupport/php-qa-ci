@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Turbo;
 
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
+use RuntimeException;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
@@ -38,11 +39,21 @@ final readonly class TurboInstaller
     /** The maintainer path: regenerate the manifest for the shipped phar, then install. */
     public const string MODE_UPDATE = 'update';
 
+    /**
+     * Read-only: say on stdout whether a binary is in place beside its core, and whether its stamp
+     * vouches for it, as a failed install does. The Composer plugin and scripts/tool-install.bash
+     * ask it when an install was killed before it could say so itself.
+     */
+    public const string MODE_STATE = 'state';
+
     /** Where phpstan.phar looks for Turbo binaries, relative to the library root. */
     public const string TURBO_DIR = 'vendor-phar/turbo-ext';
 
     /** Beside the binary: the stamp of the files and digests it was installed from. */
     private const string STAMP_SUFFIX = '.source';
+
+    /** The digest vendor-phar/turbo-ext.json pins and the stamp records, as hex. */
+    private const string DIGEST_ALGORITHM = 'sha256';
 
     public function __construct(
         private TurboReleaseSourceInterface $source,
@@ -67,6 +78,12 @@ final readonly class TurboInstaller
 
     public function run(string $libraryRoot, string $mode): int
     {
+        if (self::MODE_STATE === $mode) {
+            $this->reportWhatPhpstanLoads($libraryRoot, $this->output);
+
+            return 0;
+        }
+
         try {
             $exitCode = $this->install($libraryRoot, $mode);
         } catch (Throwable $throwable) {
@@ -77,27 +94,81 @@ final readonly class TurboInstaller
         }
 
         if (0 !== $exitCode) {
-            $this->reportWhatPhpstanLoads($libraryRoot);
+            $this->reportWhatPhpstanLoads($libraryRoot, $this->errors);
         }
 
         return $exitCode;
     }
 
     /**
-     * A failure can leave a binary beside its core, either an earlier one it never reached or the
-     * pair it placed before the stamp; phpstan.phar loads such a binary, stamped or not. What is
-     * on disk decides what is said, since a failure can come at any step.
+     * A failure can leave a binary beside its core: an earlier pair it never reached, the pair it
+     * placed before the stamp, or the stamped pair it was cleaning up after. phpstan.phar loads
+     * such a binary, stamped or not. What is on disk decides what is said, since a failure can
+     * come at any step: a pair whose files match the stamp beside them is one an install verified,
+     * and any other pair is one nothing vouches for.
      */
-    private function reportWhatPhpstanLoads(string $libraryRoot): void
+    private function reportWhatPhpstanLoads(string $libraryRoot, OutputInterface $to): void
     {
-        $binary = self::TURBO_DIR . '/' . $this->platform->binaryPath();
-        if (!is_file($libraryRoot . '/' . $binary) || !is_file($libraryRoot . '/' . self::TURBO_DIR . '/' . $this->platform->corePath())) {
-            $this->errors->writeln('No Turbo binary is in place beside its core, so PHPStan runs without Turbo until an install succeeds.');
+        $binaryPath = $this->platform->binaryPath();
+        $corePath   = $this->platform->corePath();
+        $turboDir   = $libraryRoot . '/' . self::TURBO_DIR . '/';
+        if (null === $binaryPath || null === $corePath || !is_file($turboDir . $binaryPath) || !is_file($turboDir . $corePath)) {
+            $to->writeln('No Turbo binary is in place beside its core, so PHPStan runs without Turbo until an install succeeds.');
 
             return;
         }
 
-        $this->errors->writeln(\sprintf('WARNING: phpstan.phar may still load %s, which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.', $binary));
+        $binary     = self::TURBO_DIR . '/' . $binaryPath;
+        $unreadable = '';
+
+        try {
+            if ($this->matchesItsStamp($turboDir, $binaryPath, $corePath)) {
+                // The stamp records paths and digests, not a release: a pair an earlier release installed
+                // matches its stamp too, and the phar activates it only on an extension version match.
+                $to->writeln(\sprintf(
+                    '%s and its core match the SHA-256 digests in %s, which an install writes only once it has verified and placed them; phpstan.phar loads the binary, and activates it when its extension version is the one the phar expects.',
+                    $binary,
+                    $binary . self::STAMP_SUFFIX,
+                ));
+
+                return;
+            }
+        } catch (Throwable $throwable) {
+            $unreadable = ' The pair could not be checked against its stamp: ' . $throwable->getMessage() . '.';
+        }
+
+        $to->writeln(\sprintf('WARNING: phpstan.phar may still load %s, which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.', $binary) . $unreadable);
+    }
+
+    /** Whether the binary and core are the files the stamp beside the binary records, digest for digest. */
+    private function matchesItsStamp(string $turboDir, string $binaryPath, string $corePath): bool
+    {
+        // In the order an install stamps them: the core first.
+        $onDisk = TurboInstallDecider::stamp([
+            $corePath   => \Safe\hash_file(self::DIGEST_ALGORITHM, $turboDir . $corePath),
+            $binaryPath => \Safe\hash_file(self::DIGEST_ALGORITHM, $turboDir . $binaryPath),
+        ]);
+
+        $stamp = $turboDir . $binaryPath . self::STAMP_SUFFIX;
+
+        return is_file($stamp) && $onDisk === trim($this->readStamp($stamp));
+    }
+
+    /**
+     * The stamp's contents. A read that fails once the file is open makes file_get_contents()
+     * return what it read, nothing, with only a notice; here it throws, naming the stamp and why.
+     */
+    private function readStamp(string $path): string
+    {
+        set_error_handler(static function (int $level, string $message) use ($path): never {
+            throw new RuntimeException(\sprintf('%s: %s', $path, $message), $level);
+        });
+
+        try {
+            return \Safe\file_get_contents($path);
+        } finally {
+            restore_error_handler();
+        }
     }
 
     private function install(string $libraryRoot, string $mode): int
@@ -149,6 +220,7 @@ final readonly class TurboInstaller
             return false;
         }
 
+        /** @var array<array-key, string> $files */
         $files = [];
         foreach ($paths as $path) {
             $bytes = $this->source->file($pharVersion, $path);
@@ -158,7 +230,7 @@ final readonly class TurboInstaller
                 return true;
             }
 
-            $files[$path] = hash('sha256', $bytes);
+            $files[$path] = hash(self::DIGEST_ALGORITHM, $bytes);
         }
 
         $json = new TurboManifest($pharVersion, $files)->toJson();
@@ -207,9 +279,9 @@ final readonly class TurboInstaller
     }
 
     /**
-     * @param string                $turboDir slash-terminated directory phpstan.phar looks in
-     * @param string                $binary   the binary's path under it; the stamp goes beside it
-     * @param array<string, string> $files    path under it => SHA-256, in the order to place them
+     * @param string                   $turboDir slash-terminated directory phpstan.phar looks in
+     * @param string                   $binary   the binary's path under it; the stamp goes beside it
+     * @param array<array-key, string> $files    path under it => SHA-256, in the order to place them
      */
     private function fetch(string $turboDir, string $binary, string $version, array $files, string $message): int
     {
@@ -229,8 +301,10 @@ final readonly class TurboInstaller
 
             // Everything is downloaded and verified before anything is placed: a binary without its
             // core is a file PHPStan refuses to load, and one half of a pair is never left behind.
+            /** @var array<array-key, string> $downloads */
             $downloads = [];
-            foreach ($files as $path => $digest) {
+            foreach ($files as $key => $digest) {
+                $path  = (string)$key;
                 $bytes = $this->source->file($version, $path);
                 if (null === $bytes) {
                     // Not fatal: no binary is left to load, and the next install tries again.
@@ -239,7 +313,7 @@ final readonly class TurboInstaller
                     return 0;
                 }
 
-                $actual = hash('sha256', $bytes);
+                $actual = hash(self::DIGEST_ALGORITHM, $bytes);
                 if (!hash_equals($digest, $actual)) {
                     $this->error(\sprintf('turbo-ext/%s has SHA-256 %s, but %s pins %s. Nothing was installed.', $path, $actual, TurboManifest::PATH, $digest));
 
@@ -256,7 +330,8 @@ final readonly class TurboInstaller
                 $this->errors->writeln(\sprintf('WARNING: could not remove %s, a staging directory a killed install left: %s', $leftover, $why));
             }
 
-            foreach ($downloads as $path => $bytes) {
+            foreach ($downloads as $key => $bytes) {
+                $path   = (string)$key;
                 $staged = $staging->path . '/' . basename($path);
                 \Safe\file_put_contents($staged, $bytes);
                 // A fresh file's mode follows the umask; a shared library nobody else may rewrite is 0644.

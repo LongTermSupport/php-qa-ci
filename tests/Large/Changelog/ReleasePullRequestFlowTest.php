@@ -153,7 +153,7 @@ return static fn (\LTS\PHPQA\Pipeline\Config\QaConfigBuilder $qa) => $qa->withRe
 
     private function cli(string ...$arguments): Process
     {
-        $process = new Process(['php', \Safe\realpath(self::BIN), ...array_values($arguments)], $this->sandbox->work, ChildEnvironment::withoutXdebug(GitSandbox::environment()));
+        $process = new Process(['php', '-d', 'display_errors=stderr', \Safe\realpath(self::BIN), ...array_values($arguments)], $this->sandbox->work, ChildEnvironment::withoutXdebug(GitSandbox::environment()));
         $process->run();
 
         return $process;

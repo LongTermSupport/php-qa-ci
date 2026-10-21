@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Runner;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
 use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
+use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
@@ -17,12 +19,14 @@ use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * The run: preflight, lock, then either one tool or the registry's phases in
- * order, with the retry, aggregate and gate policies applied; hooks around
+ * The run: preflight, lock, then either one tool, or the dependency freshness
+ * check followed by the registry's phases in order, with the retry, aggregate and gate policies applied; hooks around
  * it; the lock released with the exit code.
  *
  * Fail-fast (writable) runs stop at the first failing tool. Aggregate
- * (read-only) runs let every tool run and report the failures together.
+ * (read-only) runs let every tool run and report the failures together. A
+ * segmentation fault in any lane halts either kind, and a child a signal
+ * killed outside a lane (a start-up probe, a hook) stops the run.
  *
  * @internal
  */
@@ -36,6 +40,9 @@ final readonly class Pipeline
      */
     public const int EXIT_LOCK_CONTENDED = 75;
 
+    /** The lane a full run starts with, before any phase. */
+    private const string DEPENDENCY_FRESHNESS = 'dependencyFreshness';
+
     public function __construct(
         private ToolRegistry $registry,
         private ToolExecutor $executor,
@@ -47,15 +54,23 @@ final readonly class Pipeline
         private OutputInterface $output,
         private string $hostname,
         private int $pid,
+        private SignalledChildren $signalled = new SignalledChildren(),
     ) {
     }
 
     public function run(ToolContext $context): int
     {
+        if ($this->haltsOnSignalledChild('while the run was being prepared')) {
+            return 1;
+        }
+
         $config = $context->config;
         $this->directories->prepare($config->paths);
         $this->phars->verify($config->paths->libraryRoot);
         $this->hooks->runPre($context);
+        if ($this->haltsOnSignalledChild('by the pre hook')) {
+            return 1;
+        }
 
         $lockTool = null === $config->singleTool ? 'full pipeline' : $config->singleTool;
         $lockPath = null === $config->specifiedPath ? 'whole project' : $config->specifiedPath;
@@ -98,6 +113,10 @@ final readonly class Pipeline
             return $this->finish($ok, $retried, $config->aggregate, ...$failed);
         }
 
+        if (!$this->dependenciesAreFresh($context, $failed, $retried)) {
+            return $this->finish(false, $retried, $config->aggregate, ...$failed);
+        }
+
         foreach ($this->registry->phases() as $phase) {
             $this->banner($phase->banner, '=');
             if (!$this->runPhase($context, $phase, $failed, $retried)) {
@@ -110,11 +129,81 @@ final readonly class Pipeline
         }
 
         $this->successBanner();
-        $this->executor->execute('phpcpd', $context);
+        if ($this->executor->execute('phpcpd', $context)->segmentationFault) {
+            $this->segmentationFaultHalt('phpcpd');
+
+            return 1;
+        }
+
         $this->hooks->runPost($context);
+        if ($this->haltsOnSignalledChild('by the post hook')) {
+            return 1;
+        }
+
         $this->retryWarning($retried);
 
         return 0;
+    }
+
+    /**
+     * The full run's first step: there is no point checking code with a stale
+     * toolchain, so a failure ends the run before any phase, in aggregate mode
+     * too. A skipped check (freshness could not be determined) lets it carry
+     * on; the lane has said so by name.
+     *
+     * @param list<string> $failed
+     */
+    private function dependenciesAreFresh(ToolContext $context, array &$failed, bool &$retried): bool
+    {
+        if (!$this->registry->accepts(self::DEPENDENCY_FRESHNESS)) {
+            return true;
+        }
+
+        $execution = $this->executor->execute(self::DEPENDENCY_FRESHNESS, $context);
+        $retried   = $retried || $execution->retried;
+        if ($execution->result->isSuccess()) {
+            return true;
+        }
+
+        $failed[] = self::DEPENDENCY_FRESHNESS;
+        if ($execution->segmentationFault) {
+            $this->segmentationFaultHalt(self::DEPENDENCY_FRESHNESS);
+        }
+
+        return false;
+    }
+
+    /**
+     * A segmentation fault is never retried past, and nothing that runs after
+     * one is trusted, so the run stops at once, aggregate or not.
+     */
+    private function segmentationFaultHalt(string $tool): void
+    {
+        $this->output->writeln('');
+        $this->output->writeln(\sprintf('HALTED: %s crashed with a segmentation fault, so no further tool runs.', $tool));
+        $this->output->writeln(\sprintf('A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.', ChildExit::segfaultGuide()));
+        $this->output->writeln('');
+    }
+
+    /**
+     * A child outside any lane (a start-up probe, a hook) that a signal killed
+     * was handed back as an exit code its caller may have taken for an answer,
+     * so the run stops, naming it.
+     */
+    private function haltsOnSignalledChild(string $where): bool
+    {
+        $children = $this->signalled->take();
+        if ([] === $children) {
+            return false;
+        }
+
+        $this->output->writeln('');
+        $this->output->writeln(\sprintf('HALTED: a process run %s was killed by a signal, so the run stops here:', $where));
+        foreach ($children as $child) {
+            $this->output->writeln('  ' . $child->describe());
+        }
+
+        return true;
     }
 
     /**
@@ -210,6 +299,13 @@ final readonly class Pipeline
             $retried   = $retried || $execution->retried;
             if ($execution->result->isSuccess()) {
                 continue;
+            }
+
+            if ($execution->segmentationFault) {
+                $failed[] = $tool->name;
+                $this->segmentationFaultHalt($tool->name);
+
+                return false;
             }
 
             if (!$config->aggregate) {

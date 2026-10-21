@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
+use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Runner\AggregateReport;
 use LTS\PHPQA\Pipeline\Runner\DirectoryPreparer;
 use LTS\PHPQA\Pipeline\Runner\HookRunner;
@@ -18,13 +23,16 @@ use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
+use LTS\PHPQA\Tests\Support\AlwaysRetry;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FakeToolLocator;
 use LTS\PHPQA\Tests\Support\RewritingTool;
+use LTS\PHPQA\Tests\Support\SignalledChildTool;
 use LTS\PHPQA\Tests\Support\StubTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -66,6 +74,11 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue::class)]
 #[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Runner\RepeatUntilSettled::class)]
+#[UsesClass(SignalledChildren::class)]
+#[UsesClass(SignalledChildDto::class)]
+#[UsesClass(ChildExit::class)]
+#[UsesClass(ProcessResultDto::class)]
+#[UsesClass(ProcessSpecDto::class)]
 #[Small]
 final class PipelineTest extends TestCase
 {
@@ -83,14 +96,25 @@ final class PipelineTest extends TestCase
 
     private const string PARAM_TYPES = 'types';
 
+    private const string HALTED = 'HALTED';
+
+    private const string DEPENDENCY_FRESHNESS = 'dependencyFreshness';
+
+    private const string RECTOR_RAN = '[rector ran]';
+
+    private const string SEGFAULT_LINE = 'A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.';
+
     private ContextFactory $factory;
 
     private FakeToolLocator $tools;
 
+    private SignalledChildren $signalled;
+
     protected function setUp(): void
     {
-        $this->factory = ContextFactory::create();
-        $this->tools   = new FakeToolLocator();
+        $this->factory   = ContextFactory::create();
+        $this->tools     = new FakeToolLocator();
+        $this->signalled = new SignalledChildren();
     }
 
     protected function tearDown(): void
@@ -108,7 +132,7 @@ final class PipelineTest extends TestCase
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
-        $expectedOrder = ['rector', 'phpCsFixer', 'twigCsFixer', 'markdownFormat', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'documentedQaCommands', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
+        $expectedOrder = [self::DEPENDENCY_FRESHNESS, 'rector', 'phpCsFixer', 'twigCsFixer', 'markdownFormat', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'documentedQaCommands', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertNull($this->lockRecord(), 'the lock is released');
@@ -220,6 +244,66 @@ final class PipelineTest extends TestCase
         self::assertSame(1, $this->pipeline()->run($context));
     }
 
+    /** There is no point checking code with a stale toolchain: a stale lock ends the run before any other tool. */
+    #[Test]
+    public function staleDependenciesEndAFailFastRunBeforeAnyOtherTool(): void
+    {
+        $this->tools->register(new StubTool(self::DEPENDENCY_FRESHNESS, ToolResultDto::failed('1 locked package is behind')));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('[dependencyFreshness ran]', $printed);
+        self::assertStringNotContainsString(self::RECTOR_RAN, $printed);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+    }
+
+    /** Aggregate mode collects tool failures; it does not run tools against a stale toolchain. */
+    #[Test]
+    public function staleDependenciesEndAnAggregateRunTooAndAreReported(): void
+    {
+        $this->tools->register(new StubTool(self::DEPENDENCY_FRESHNESS, ToolResultDto::failed('1 locked package is behind')));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+        $printed = $this->factory->output->fetch();
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+        self::assertStringContainsString('Aggregate (read-only) run: 1 tool(s) FAILED', $printed);
+        self::assertStringContainsString('          - dependencyFreshness', $printed);
+    }
+
+    #[Test]
+    public function aSkippedFreshnessCheckLetsTheRunContinue(): void
+    {
+        $this->tools->register(new StubTool(self::DEPENDENCY_FRESHNESS, ToolResultDto::skipped('offline')));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertStringContainsString(self::RECTOR_RAN, $this->factory->output->fetch());
+    }
+
+    /** A narrowed run (one tool, one phase) is the inner loop of editing; the full run is the gate. */
+    #[Test]
+    #[TestWith([self::PHPSTAN])]
+    #[TestWith(['allCodingStandardsTools'])]
+    public function aSingleToolOrPhaseRunDoesNotCheckFreshness(string $tool): void
+    {
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: $tool)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertStringNotContainsString('[dependencyFreshness ran]', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function theFreshnessCheckRunsAloneWhenSelected(): void
+    {
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, singleTool: self::DEPENDENCY_FRESHNESS)->build());
+
+        self::assertSame(0, $this->pipeline()->run($context));
+        self::assertSame(1, $this->tools->stub(self::DEPENDENCY_FRESHNESS)->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+    }
+
     #[Test]
     public function aPhaseRunnerRunsItsLeafToolsWithGatesAndAggregates(): void
     {
@@ -242,7 +326,7 @@ final class PipelineTest extends TestCase
 
         self::assertSame(Pipeline::EXIT_LOCK_CONTENDED, $this->pipeline()->run($context));
         self::assertStringContainsString('Another QA run holds the lock', $this->factory->output->fetch());
-        self::assertSame(0, $this->tools->stub('rector')->runs);
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
     }
 
     #[Test]
@@ -366,6 +450,103 @@ final class PipelineTest extends TestCase
         self::assertNull($this->lockRecord(), 'a crash inside the locked section must not leave the lock behind');
     }
 
+    /** A segmentation fault halts the run, even one that would carry on past a failure, and names the lane. */
+    #[Test]
+    public function aSegfaultInALaneHaltsEvenAnAggregateRun(): void
+    {
+        $this->tools->register(new SignalledChildTool(self::PHP_LINT, $this->signalled, \SIGSEGV));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString("\nHALTED: phpLint crashed with a segmentation fault, so no further tool runs.\n" . \sprintf(self::SEGFAULT_LINE, \dirname(__DIR__, 4) . '/docs/segfaults.md') . "\n", $printed);
+        self::assertStringNotContainsString('[composerRequireChecker ran]', $printed);
+        self::assertStringNotContainsString('continuing (aggregate mode)', $printed);
+        self::assertStringContainsString('          - phpLint', $printed);
+        self::assertNull($this->lockRecord());
+    }
+
+    /** Another signal crashes the lane, and an aggregate run carries on as after any crash. */
+    #[Test]
+    public function aLaneKilledByAnotherSignalCrashesWithoutHaltingAnAggregateRun(): void
+    {
+        $this->tools->register(new SignalledChildTool(self::PHP_LINT, $this->signalled, \SIGKILL));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('phpLint crashed: `fake phpLint` ended with exit code 137, killed by signal 9', $printed);
+        self::assertStringContainsString('>>> phpLint FAILED — continuing (aggregate mode)', $printed);
+        self::assertStringContainsString('[infection ran]', $printed);
+        self::assertStringNotContainsString(self::HALTED, $printed);
+    }
+
+    /** phpcpd cannot fail a run, but a segfault in it is never accepted in a passing one. */
+    #[Test]
+    public function aSegfaultInTheCopyPasteReportFailsTheRun(): void
+    {
+        $this->tools->register(new SignalledChildTool('phpcpd', $this->signalled, \SIGSEGV));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+        self::assertStringContainsString("\nHALTED: phpcpd crashed with a segmentation fault, so no further tool runs.\n", $this->factory->output->fetch());
+    }
+
+    /** A start-up probe killed by a signal before the pipeline began stops it before any tool or lock. */
+    #[Test]
+    public function aChildSignalledWhileTheRunWasPreparedHaltsItBeforeAnyTool(): void
+    {
+        $this->signalled->record(new SignalledChildDto('php -r probe', \SIGSEGV));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+
+        self::assertSame(
+            "\nHALTED: a process run while the run was being prepared was killed by a signal, so the run stops here:\n"
+            . '  `php -r probe` ended with exit code 139, killed by signal 11 (SIGSEGV): ' . ChildExit::segfaultAdvice() . "\n",
+            $this->factory->output->fetch(),
+        );
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+        self::assertNull($this->lockRecord());
+    }
+
+    /** A hook's child killed by a signal stops the run there; a hook fails a run by throwing, and this one could not. */
+    #[Test]
+    #[TestWith(['hookPre', 'by the pre hook', 0])]
+    #[TestWith(['hookPost', 'by the post hook', 1])]
+    public function aChildOfAHookASignalKilledHaltsTheRun(string $hook, string $where, int $rectorRuns): void
+    {
+        $this->factory->project->write('qaConfig/' . $hook . '.php', <<<'PHP_WRAP'
+            <?php
+
+            declare(strict_types=1);
+
+            use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+            use LTS\PHPQA\Pipeline\Tool\ToolContext;
+
+            return static function (ToolContext $context): void {
+                $context->processes->run(new ProcessSpecDto(['hook-child'], '/'));
+            };
+            PHP_WRAP);
+        $this->factory->processes->willRun(function (ProcessSpecDto $spec): ProcessResultDto {
+            $this->signalled->record(new SignalledChildDto($spec->commandLine(), \SIGTERM));
+
+            return new ProcessResultDto(143, '', '', \SIGTERM);
+        });
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+
+        self::assertStringContainsString(
+            \sprintf("\nHALTED: a process run %s was killed by a signal, so the run stops here:\n  `hook-child` ended with exit code 143, killed by signal 15 (SIGTERM)\n", $where),
+            $this->factory->output->fetch(),
+        );
+        self::assertSame($rectorRuns, $this->tools->stub(self::RECTOR)->runs);
+        self::assertNull($this->lockRecord());
+    }
+
     /**
      * The holder record, which only release() clears. Whether the flock is
      * free proves nothing here: the pipeline's RunLock is garbage once run()
@@ -382,7 +563,7 @@ final class PipelineTest extends TestCase
 
         return new Pipeline(
             registry: ToolRegistry::shipped(),
-            executor: new ToolExecutor($this->tools, $prompt, $this->factory->output),
+            executor: new ToolExecutor($this->tools, $prompt, $this->factory->output, $this->signalled),
             lock: RunLock::forProject($this->factory->project->path, $this->factory->output),
             hooks: new HookRunner(),
             directories: new DirectoryPreparer(),
@@ -391,6 +572,7 @@ final class PipelineTest extends TestCase
             output: $this->factory->output,
             hostname: 'test-host',
             pid: 4242,
+            signalled: $this->signalled,
         );
     }
 }

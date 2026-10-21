@@ -50,6 +50,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\OpcacheTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshnessTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitectTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]
@@ -90,6 +91,8 @@ final class PipelineBuilderTest extends TestCase
 
     private const string TESTING = 'testing';
 
+    private const string DIGITS = '2024';
+
     #[Test]
     public function defaultsBuildTheShippedRegistryAndTheShippedTools(): void
     {
@@ -124,6 +127,21 @@ final class PipelineBuilderTest extends TestCase
         self::assertSame(self::SECURITY_AUDIT, end($linting));
         self::assertSame(self::SECURITY_AUDIT, $built->registry->resolve('sa')->name);
         self::assertSame(self::SECURITY_AUDIT, $built->tools[self::SECURITY_AUDIT]->name());
+    }
+
+    /** PHP makes the name '2024' an int key, and spreading an array renumbers its int keys (#256). */
+    #[Test]
+    public function aToolNamedInDigitsKeepsItsNameWhenAnotherToolIsAdded(): void
+    {
+        $built = PipelineBuilder::defaults()
+            ->withTool(new ToolDefinitionDto(self::DIGITS, ['y2024'], 'a tool named in digits', self::LINTING, false), $this->tool(self::DIGITS))
+            ->withTool($this->definition(self::SECURITY_AUDIT, self::LINTING), $this->tool(self::SECURITY_AUDIT))
+            ->build()
+        ;
+
+        self::assertSame(self::DIGITS, $built->registry->resolve('y2024')->name);
+        self::assertArrayHasKey(self::DIGITS, $built->tools);
+        self::assertSame(self::DIGITS, $built->tools[self::DIGITS]->name());
     }
 
     #[Test]

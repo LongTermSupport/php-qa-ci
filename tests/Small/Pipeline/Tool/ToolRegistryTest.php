@@ -238,6 +238,7 @@ final class ToolRegistryTest extends TestCase
                 'allLintingTools'            => 'allLints linting - None runner - - -',
                 'allStaticAnalysisTools'     => 'allStatic staticAnalysis - None runner - - -',
                 'allTestingTools'            => 'allTests testing - None runner - - -',
+                'dependencyFreshness'        => 'df|dependencyFreshness - - None - - - -',
                 'rector'                     => 'r|rector codingStandards paths None - - - -',
                 'phpCsFixer'                 => 'f|fixer|csfixer codingStandards paths None - - - -',
                 'twigCsFixer'                => 'twigcs codingStandards - None - - - -',
@@ -347,6 +348,6 @@ final class ToolRegistryTest extends TestCase
         $registry = ToolRegistry::shipped();
 
         self::assertCount(\count($registry->all()), $registry->usageLines());
-        self::assertSame(\sprintf('%-26s %s', 'uniterate', 'phpunit iterative mode - prioritise broken tests and fail on error'), $registry->usageLines()[35]);
+        self::assertSame(\sprintf('%-26s %s', 'uniterate', 'phpunit iterative mode - prioritise broken tests and fail on error'), $registry->usageLines()[36]);
     }
 }

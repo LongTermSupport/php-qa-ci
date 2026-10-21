@@ -47,6 +47,8 @@ final class ArkitectRuleProbeTest extends TestCase
 
     private const string INTERFACE_RULE = 'phpqaci.interfaceSuffix';
 
+    private const string VIOLATING_GATEWAY = self::VIOLATING . '/Gateway.php';
+
     private const string CONFORMING_DTO = 'Dto/AddressDto.php';
 
     private const string USAGE = 'Usage:';
@@ -131,7 +133,7 @@ final class ArkitectRuleProbeTest extends TestCase
         $this->expectException(ProbeFailedException::class);
 
         $this->probe(srcDir: $this->var->path . '/no-such-src', projectConfigDir: $this->var->path . '/no-qaConfig')
-            ->probe(self::INTERFACE_RULE, self::VIOLATING . '/Gateway.php')
+            ->probe(self::INTERFACE_RULE, self::VIOLATING_GATEWAY)
         ;
     }
 
@@ -143,7 +145,7 @@ final class ArkitectRuleProbeTest extends TestCase
     #[Test]
     public function theCommandExitsOneWhenTheRuleFires(): void
     {
-        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE, self::VIOLATING . '/Gateway.php');
+        [$exitCode, $output] = $this->runCommand(self::INTERFACE_RULE, self::VIOLATING_GATEWAY);
 
         self::assertSame(1, $exitCode, $output);
         self::assertStringContainsString('FIRED (1)', $output);
@@ -179,6 +181,26 @@ final class ArkitectRuleProbeTest extends TestCase
         self::assertStringContainsString('Nowhere.php', $output);
     }
 
+    /**
+     * A PHP binary a signal kills while it runs the phar leaves no verdict, so the command exits 2
+     * naming the command and the signal, as for any other run with no verdict, rather than dying
+     * on an uncaught exception. The stand-in kills itself with SIGTERM; SIGSEGV would leave a core.
+     */
+    #[Test]
+    public function theCommandExitsTwoNamingTheSignalWhenOneKillsThePhar(): void
+    {
+        $php = $this->var->write('php', "#!/bin/sh\nkill -TERM \$\$\n");
+        \Safe\chmod($php, 0o755);
+
+        [$exitCode, $output] = $this->runCommandWith(['PHP_QA_CI_PHP_EXECUTABLE' => $php], self::INTERFACE_RULE, self::VIOLATING_GATEWAY);
+
+        self::assertSame(2, $exitCode, $output);
+        self::assertStringContainsString('PHPArkitect did not finish, so there is no verdict: `' . $php . ' ', $output);
+        self::assertStringContainsString('phparkitect.phar', $output);
+        self::assertStringContainsString('` ended with exit code 143, killed by signal 15 (SIGTERM)', $output);
+        self::assertStringNotContainsString('Uncaught', $output);
+    }
+
     private function probe(?string $srcDir = null, ?string $projectConfigDir = null): ArkitectRuleProbe
     {
         $paths = new ProjectPathsDto(
@@ -210,9 +232,20 @@ final class ArkitectRuleProbeTest extends TestCase
     /** @return array{int, string} */
     private function runCommand(string ...$args): array
     {
+        return $this->runCommandWith([], ...$args);
+    }
+
+    /**
+     * @param array<string, string> $env
+     *
+     * @return array{int, string}
+     */
+    private function runCommandWith(array $env, string ...$args): array
+    {
         $result = new SymfonyProcessRunner(new NullOutput())->run(new ProcessSpecDto(
-            command: [\PHP_BINARY, self::ROOT . '/bin/arkitect-rule', ...array_values($args)],
+            command: [\PHP_BINARY, '-d', 'display_errors=stderr', self::ROOT . '/bin/arkitect-rule', ...array_values($args)],
             cwd: \Safe\realpath(self::ROOT),
+            env: $env,
             streamOutput: false,
         ));
 

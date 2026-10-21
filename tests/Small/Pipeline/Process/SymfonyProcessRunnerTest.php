@@ -7,23 +7,30 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Process;
 use Closure;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
+use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 
 /**
  * @internal
  */
 #[CoversClass(SymfonyProcessRunner::class)]
+#[UsesClass(SignalledChildren::class)]
+#[UsesClass(SignalledChildDto::class)]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(RunningProcesses::class)]
@@ -39,6 +46,8 @@ final class SymfonyProcessRunnerTest extends TestCase
 
     private const string COVERAGE = 'coverage';
 
+    private const string DISPLAY_ERRORS = 'display_errors=stderr';
+
     // Built by the child, so the echoed command line does not contain it.
     private const string READY = 'rrr';
 
@@ -48,6 +57,12 @@ final class SymfonyProcessRunnerTest extends TestCase
     private const string WAIT_THEN_FINISH = 'echo str_repeat("r", 3), "\n"; fflush(STDOUT); sleep(5); echo "done";';
 
     private const string IGNORE_SIGTERM_THEN_WAIT = 'pcntl_signal(SIGTERM, SIG_IGN); echo str_repeat("r", 3), "\n"; fflush(STDOUT); sleep(5);';
+
+    // A child that kills itself with SIGTERM: the shell is the child, and `$$` is its own pid.
+    private const array KILL_SELF = ['/bin/sh', '-c', 'kill -TERM $$'];
+
+    // A child that exits 139 itself, as a shell does when the command it ran crashed with SIGSEGV.
+    private const array RELAY_SEGFAULT = ['/bin/sh', '-c', 'exit 139'];
 
     #[Test]
     public function aChildThatNamesNoXdebugModeGetsOffWhateverTheParentHas(): void
@@ -70,7 +85,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function aRealChildWithNoEnvironmentOfItsOwnSeesXdebugOff(): void
     {
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::PRINT_MODE], \Safe\getcwd(), streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::PRINT_MODE], \Safe\getcwd(), streamOutput: false))
         ;
 
         self::assertSame(self::OFF, trim($result->output));
@@ -80,7 +95,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function aRealChildAskingForCoverageSeesCoverage(): void
     {
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::PRINT_MODE], \Safe\getcwd(), [self::XDEBUG_MODE => self::COVERAGE], streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::PRINT_MODE], \Safe\getcwd(), [self::XDEBUG_MODE => self::COVERAGE], streamOutput: false))
         ;
 
         // A live Xdebug may print the JIT warning ahead of the answer; the answer is the last word.
@@ -92,7 +107,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function itEchoesTheCommandThenStreamsTheChildsOutputRaw(): void
     {
         $output = new BufferedOutput();
-        $spec   = new ProcessSpecDto([\PHP_BINARY, '-r', 'echo "a"; fflush(STDOUT); usleep(100000); fwrite(STDERR, "b");'], \Safe\getcwd());
+        $spec   = new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'echo "a"; fflush(STDOUT); usleep(100000); fwrite(STDERR, "b");'], \Safe\getcwd());
 
         new SymfonyProcessRunner($output, new RunningProcesses())->run($spec);
 
@@ -104,7 +119,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function itCapturesEveryChunkOfBothStreamsAndStdoutAlone(): void
     {
         $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::INTERLEAVE], \Safe\getcwd(), streamOutput: false))
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::INTERLEAVE], \Safe\getcwd(), streamOutput: false))
         ;
 
         // Across the two pipes the order depends on scheduling, so the combined capture is compared as a set of lines.
@@ -120,7 +135,7 @@ final class SymfonyProcessRunnerTest extends TestCase
     public function aLowPriorityChildRunsNicedAndAnOrdinaryOneDoesNot(): void
     {
         $runner = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses());
-        $print  = [\PHP_BINARY, '-r', 'echo pcntl_getpriority();'];
+        $print  = [\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'echo pcntl_getpriority();'];
 
         self::assertSame('19', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
         self::assertSame((string)\Safe\pcntl_getpriority(), $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false))->stdout);
@@ -142,14 +157,104 @@ final class SymfonyProcessRunnerTest extends TestCase
             // The executable is looked up on this process's PATH, not on the child's environment.
             \Safe\putenv('PATH=' . $bin->path . ':' . $path);
             $runner = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses());
-            $print  = [\PHP_BINARY, '-r', 'echo "plain";'];
+            $print  = [\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'echo "plain";'];
 
-            self::assertSame('-n|19|' . \PHP_BINARY . '|-r|echo "plain";|', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
+            self::assertSame('-n|19|' . \PHP_BINARY . '|-d|' . self::DISPLAY_ERRORS . '|-r|echo "plain";|', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false, lowPriority: true))->stdout);
             self::assertSame('plain', $runner->run(new ProcessSpecDto($print, \Safe\getcwd(), streamOutput: false))->stdout);
         } finally {
             \Safe\putenv('PATH=' . $path);
             $bin->remove();
         }
+    }
+
+    /**
+     * A child a signal killed is a result, not Symfony's ProcessSignaledException: exit 128 + the
+     * signal, the signal on the result and in the record a lane is judged by, and a line naming the
+     * command and the signal. The stand-in kills itself with SIGTERM, never SIGSEGV, which would
+     * leave a core dump; `nice` execs its command, so the low-priority child is killed the same way.
+     */
+    #[Test]
+    #[TestWith([false], 'ordinary')]
+    #[TestWith([true], 'low priority')]
+    public function aChildASignalKillsIsAResultAndIsRecorded(bool $lowPriority): void
+    {
+        $output    = new BufferedOutput();
+        $signalled = new SignalledChildren();
+        $spec      = new ProcessSpecDto(self::KILL_SELF, \Safe\getcwd(), streamOutput: false, lowPriority: $lowPriority);
+
+        $result = new SymfonyProcessRunner($output, new RunningProcesses(), $signalled)->run($spec);
+
+        self::assertSame(143, $result->exitCode);
+        self::assertSame(\SIGTERM, $result->signal);
+        self::assertEquals([new SignalledChildDto($spec->commandLine(), \SIGTERM)], $signalled->take());
+        self::assertSame(\sprintf("++ %s\n!! %s\n", $spec->commandLine(), $this->killedLine($spec)), $output->fetch());
+    }
+
+    /** With no record to put it in, the runner refuses to pass the child off as a result, and names it. */
+    #[Test]
+    public function withoutARecordAChildASignalKillsThrowsNamingTheCommandAndTheSignal(): void
+    {
+        $spec = new ProcessSpecDto(self::KILL_SELF, \Safe\getcwd(), streamOutput: false);
+
+        try {
+            new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())->run($spec);
+            self::fail('a signalled child must not pass for a result nobody judges');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame($this->killedLine($spec), $runtimeException->getMessage());
+            self::assertSame(0, $runtimeException->getCode());
+            self::assertInstanceOf(ProcessSignaledException::class, $runtimeException->getPrevious());
+        }
+    }
+
+    /**
+     * A child that exits 139 itself reports a segmentation fault below it: a shell whose command
+     * crashed, or a tool that re-ran itself and relays its copy's crash. It is recorded as one, so
+     * the lane that ran it halts the run as for a child the signal killed, but its result carries
+     * no signal, since none killed it.
+     */
+    #[Test]
+    public function aChildThatExitsWithASegfaultsCodeIsRecordedAsOne(): void
+    {
+        $output    = new BufferedOutput();
+        $signalled = new SignalledChildren();
+        $spec      = new ProcessSpecDto(self::RELAY_SEGFAULT, \Safe\getcwd(), streamOutput: false);
+
+        $result = new SymfonyProcessRunner($output, new RunningProcesses(), $signalled)->run($spec);
+
+        self::assertSame(139, $result->exitCode);
+        self::assertNull($result->signal);
+        self::assertEquals([new SignalledChildDto($spec->commandLine(), \SIGSEGV)], $signalled->take());
+        self::assertSame(
+            \sprintf("++ %s\n!! `%s` ended with exit code 139, killed by signal 11 (SIGSEGV): %s\n", $spec->commandLine(), $spec->commandLine(), \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice()),
+            $output->fetch(),
+        );
+    }
+
+    /** With no record, an exit code is the caller's to read, 139 included: only a signal kill throws. */
+    #[Test]
+    public function withoutARecordASegfaultsExitCodeIsAResult(): void
+    {
+        $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())
+            ->run(new ProcessSpecDto(self::RELAY_SEGFAULT, \Safe\getcwd(), streamOutput: false))
+        ;
+
+        self::assertSame(139, $result->exitCode);
+        self::assertNull($result->signal);
+    }
+
+    /** A child that exits with any other code, one above 128 included, is no crash. */
+    #[Test]
+    public function aChildThatExitsIsNotRecorded(): void
+    {
+        $signalled = new SignalledChildren();
+
+        $result = new SymfonyProcessRunner(new NullOutput(), new RunningProcesses(), $signalled)
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', 'exit(143);'], \Safe\getcwd(), streamOutput: false))
+        ;
+
+        self::assertSame(143, $result->exitCode);
+        self::assertNull($result->signal);
+        self::assertSame([], $signalled->take());
     }
 
     /** While it runs, the child is registered, so an interrupt arriving mid-run can stop it. */
@@ -175,12 +280,14 @@ final class SymfonyProcessRunnerTest extends TestCase
             }
         };
 
-        $result = new SymfonyProcessRunner($output, $running)
-            ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
+        $signalled = new SignalledChildren();
+        $result    = new SymfonyProcessRunner($output, $running, $signalled)
+            ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
         ;
 
         self::assertSame(1, $stopped, 'the child was registered while it ran');
         self::assertStringNotContainsString('done', $result->output, 'stopping it ended the child before it finished');
+        self::assertSame([], $signalled->take(), 'a child the run stopped itself is no crash');
     }
 
     /** A run that ends by throwing still deregisters its child, and stops it: nothing outlives the run. */
@@ -206,7 +313,7 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         try {
             new SymfonyProcessRunner($output, $running)
-                ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
+                ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::WAIT_THEN_FINISH], \Safe\getcwd(), timeout: 30.0))
             ;
             self::fail('the failed write must propagate');
         } catch (RuntimeException $runtimeException) {
@@ -248,7 +355,7 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         try {
             new SymfonyProcessRunner($output, new RunningProcesses())
-                ->run(new ProcessSpecDto([\PHP_BINARY, '-r', self::IGNORE_SIGTERM_THEN_WAIT], \Safe\getcwd(), timeout: 30.0))
+                ->run(new ProcessSpecDto([\PHP_BINARY, '-d', self::DISPLAY_ERRORS, '-r', self::IGNORE_SIGTERM_THEN_WAIT], \Safe\getcwd(), timeout: 30.0))
             ;
             self::fail('the failed write must propagate');
         } catch (RuntimeException $runtimeException) {
@@ -259,5 +366,10 @@ final class SymfonyProcessRunnerTest extends TestCase
         self::assertLessThan(0.5, microtime(true) - $output->thrownAt, 'the child was killed, not given a grace period');
         $tree = new ProcessTree();
         self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'and it is gone');
+    }
+
+    private function killedLine(ProcessSpecDto $spec): string
+    {
+        return \sprintf('`%s` ended with exit code 143, killed by signal 15 (SIGTERM)', $spec->commandLine());
     }
 }

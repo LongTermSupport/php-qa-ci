@@ -145,7 +145,7 @@ final readonly class PhpstanSetupKey
      * Every NEON file PHPStan merges, path to content hash; null when one of them reads the
      * environment, or the chain reaches something the walk cannot read.
      *
-     * @return array<string, string>|null
+     * @return array<array-key, string>|null
      */
     private function configs(string $entryConfig, string $projectRoot): ?array
     {
@@ -188,7 +188,8 @@ final readonly class PhpstanSetupKey
     {
         $config = $context->config;
         $result = $context->processes->run(new ProcessSpecDto(
-            [$config->phpBinPath, '-r', self::RUNTIME_PROBE],
+            // A warning displayed on stdout would make the answer unreadable JSON, and the run uncacheable.
+            [$config->phpBinPath, '-d', 'display_errors=stderr', '-r', self::RUNTIME_PROBE],
             $config->paths->projectRoot,
             ['XDEBUG_MODE' => 'off'],
             self::RUNTIME_TIMEOUT,
@@ -234,7 +235,7 @@ final readonly class PhpstanSetupKey
      * Every file under the phar's `turbo-ext/`, path to content hash. Only the host's own
      * binaries are installed there, a few MB.
      *
-     * @return array<string, string|null>
+     * @return array<array-key, string|null>
      */
     private function turboFiles(string $directory): array
     {

@@ -65,7 +65,7 @@ final class ShippedRectorKeepsConstantTypesTest extends TestCase
     {
         foreach (self::RECTOR_CONFIGS as $config) {
             $process = new Process(
-                [\PHP_BINARY, \Safe\realpath(self::REPO_ROOT . '/vendor-phar/rector.phar'), 'process', '--config', \Safe\realpath(self::REPO_ROOT . '/configDefaults/generic/' . $config), '--clear-cache', '--no-progress-bar', 'src'],
+                [\PHP_BINARY, '-d', 'display_errors=stderr', \Safe\realpath(self::REPO_ROOT . '/vendor-phar/rector.phar'), 'process', '--config', \Safe\realpath(self::REPO_ROOT . '/configDefaults/generic/' . $config), '--clear-cache', '--no-progress-bar', 'src'],
                 $this->project->path,
                 ['TMPDIR' => $this->project->path],
                 null,

@@ -77,7 +77,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->factory->context()->config->paths->pharDir . '/parallel-lint.phar', '--', $root . self::TESTS, $root . self::SRC],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', $this->factory->context()->config->paths->pharDir . '/parallel-lint.phar', '--', $root . self::TESTS, $root . self::SRC],
             $this->factory->processes->lastSpec()->command,
         );
         self::assertSame($root, $this->factory->processes->lastSpec()->cwd);
@@ -95,7 +95,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(
             ['--', self::EXCLUDE, $root . '/tests/Asset', self::EXCLUDE, $root . '/src/Generated', $root . self::TESTS, $root . self::SRC],
-            \array_slice($this->factory->processes->lastSpec()->command, 5),
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
 
@@ -117,7 +117,7 @@ final class PhpLintToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
             ['--', self::EXCLUDE, $root . '/tests/Asset', self::EXCLUDE, $root . '/src/Gone.PHP', $root . self::TESTS, $root . self::SRC],
-            \array_slice($this->factory->processes->lastSpec()->command, 5),
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
         self::assertSame(
             "PHP Lint skipped src/Gone.PHP: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n",
@@ -144,7 +144,7 @@ final class PhpLintToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
             ['--', self::EXCLUDE, $root . '/tests/Asset/', $root . self::TESTS, $root . self::SRC],
-            \array_slice($this->factory->processes->lastSpec()->command, 5),
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
         self::assertSame('', $this->factory->output->fetch());
     }
@@ -167,7 +167,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(
             ['--', self::EXCLUDE, $root . '/tests//Asset', self::EXCLUDE, $root . self::ASSET_DANGLING, $root . self::TESTS, $root . self::SRC],
-            \array_slice($this->factory->processes->lastSpec()->command, 5),
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
 
@@ -208,7 +208,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('PHP Lint failed (exit 254)', $result->summary);
-        self::assertSame(['--', $root . '/src/a'], \array_slice($this->factory->processes->lastSpec()->command, 5));
+        self::assertSame(['--', $root . '/src/a'], \array_slice($this->factory->processes->lastSpec()->command, 7));
     }
 
     #[Test]
@@ -225,7 +225,7 @@ final class PhpLintToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
             ['--', self::EXCLUDE, $root . '/src/a/Gone.php', $root . '/src/a'],
-            \array_slice($this->factory->processes->lastSpec()->command, 5),
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
 

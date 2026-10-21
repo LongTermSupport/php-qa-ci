@@ -20,6 +20,7 @@ use Symfony\Component\Process\Process;
  * @internal
  */
 #[CoversClass(GitPhpstanDocsFetcher::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 #[Medium]
 final class GitPhpstanDocsFetcherTest extends TestCase
 {
@@ -60,7 +61,30 @@ final class GitPhpstanDocsFetcherTest extends TestCase
             new GitPhpstanDocsFetcher($missing)->fetch($this->work->path . '/out');
             self::fail('an unreachable repository must fail');
         } catch (RuntimeException $runtimeException) {
-            self::assertStringContainsString($missing, $runtimeException->getMessage());
+            self::assertStringStartsWith('could not fetch the PHPStan identifier pages from ' . $missing . ': ', $runtimeException->getMessage());
+            self::assertSame(0, $runtimeException->getCode());
+        }
+    }
+
+    /** A git a signal kills is named, with the signal, rather than as Symfony's bare "signaled". */
+    #[Test]
+    public function aGitKilledByASignalFailsNamingTheCommandAndTheSignal(): void
+    {
+        $path = getenv('PATH');
+        self::assertIsString($path);
+        // A stand-in git that kills itself with SIGTERM; the executable is looked up on this process's PATH.
+        \Safe\chmod($this->work->write('bin/git', "#!/bin/sh\nkill -TERM \$\$\n"), 0o755);
+        \Safe\putenv('PATH=' . $this->work->path . '/bin:' . $path);
+
+        try {
+            new GitPhpstanDocsFetcher('file:///nowhere')->fetch($this->work->path . '/fetched');
+            self::fail('a signalled git must fail');
+        } catch (RuntimeException $runtimeException) {
+            self::assertStringStartsWith('could not fetch the PHPStan identifier pages from file:///nowhere: `', $runtimeException->getMessage());
+            self::assertStringEndsWith('` ended with exit code 143, killed by signal 15 (SIGTERM)', $runtimeException->getMessage());
+            self::assertSame(0, $runtimeException->getCode());
+        } finally {
+            \Safe\putenv('PATH=' . $path);
         }
     }
 

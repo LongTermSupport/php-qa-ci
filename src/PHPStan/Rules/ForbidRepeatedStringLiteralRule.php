@@ -59,7 +59,7 @@ final readonly class ForbidRepeatedStringLiteralRule implements Rule
 
             $errors[] = RuleErrorBuilder::message(\sprintf(
                 'String literal %s appears %d times in this class (lines %s); declare it once as a class constant.',
-                var_export($value, true),
+                var_export((string)$value, true),
                 \count($lines),
                 implode(', ', $lines),
             ))->line($lines[0])->identifier(self::IDENTIFIER)->build();

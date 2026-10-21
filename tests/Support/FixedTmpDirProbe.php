@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support;
 
+use LTS\PHPQA\Pipeline\Lane\Phpstan\Dto\PhpstanParametersDto;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirProbeInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 
 /**
- * Answers the tmpDir question with a fixed value and records what it was asked, so a lane's tests
- * keep their process queue to the analysis itself.
+ * Answers the tmpDir question with a fixed value, and the parameters question with that tmpDir and
+ * PHPStan's defaults, and records what it was asked, so a lane's tests keep their process queue to
+ * the analysis itself.
  */
 final class FixedTmpDirProbe implements TmpDirProbeInterface
 {
@@ -25,5 +27,13 @@ final class FixedTmpDirProbe implements TmpDirProbeInterface
         $this->askedAbout[] = [$config, $autoloadFile];
 
         return $this->tmpDir;
+    }
+
+    public function parameters(ToolContext $context, string $config, ?string $autoloadFile): PhpstanParametersDto
+    {
+        $this->askedAbout[] = [$config, $autoloadFile];
+        $defaults           = PhpstanParametersDto::defaults();
+
+        return new PhpstanParametersDto($this->tmpDir, $defaults->paths, $defaults->excludePaths, $defaults->fileExtensions);
     }
 }
