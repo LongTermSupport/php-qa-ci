@@ -8,6 +8,7 @@ use LTS\PHPQA\ManagedSource\ManagedSourceGenerator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * Verifies the php-qa-ci managed-source generator: namespace/src resolution from
@@ -66,7 +67,7 @@ final class ManagedSourceGeneratorTest extends TestCase
         $composer = \Safe\json_decode('{"autoload": {"psr-4": {"2024": "src/"}}}', true);
         self::assertIsArray($composer);
 
-        $this->expectExceptionMessage('composer.json autoload.psr-4 prefix "2024" is not a namespace');
+        $this->expectExceptionObject(new RuntimeException('composer.json autoload.psr-4 prefix "2024" is not a namespace'));
 
         ManagedSourceGenerator::resolveTarget($composer);
     }
