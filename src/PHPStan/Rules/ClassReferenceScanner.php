@@ -52,7 +52,7 @@ use PhpParser\Node\UnionType;
  * Docblocks are not read: a type there loads nothing at run time.
  *
  * The position says whether PHP asks the autoloader for the class there (see
- * {@see ClassReferencePosition}). A type in a method's signature carries what the rule
+ * {@see ClassReferencePositionEnum}). A type in a method's signature carries what the rule
  * needs to decide whether PHP checks it against an inherited method's: the class's
  * declared ancestors, the method, the parameter (null for the return type) and every
  * class the type names.
@@ -72,7 +72,7 @@ final readonly class ClassReferenceScanner
     private const string TYPE = 'type';
 
     /**
-     * @return list<array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}>
+     * @return list<array{name: string, line: int, position: ClassReferencePositionEnum, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}>
      */
     public function classReferences(Node ...$nodes): array
     {
@@ -142,9 +142,9 @@ final readonly class ClassReferenceScanner
      * @param array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null $signature
      * @param string                                                                                            ...$ancestors the declared ancestors of the innermost class-like
      *
-     * @return Generator<int, array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}>
+     * @return Generator<int, array{name: string, line: int, position: ClassReferencePositionEnum, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}>
      */
-    private function references(Node $node, ?ClassReferencePosition $position, ?array $signature, string ...$ancestors): Generator
+    private function references(Node $node, ?ClassReferencePositionEnum $position, ?array $signature, string ...$ancestors): Generator
     {
         if ($node instanceof Use_ || $node instanceof GroupUse) {
             return;
@@ -156,7 +156,7 @@ final readonly class ClassReferenceScanner
                 yield [
                     self::NAME      => $className,
                     self::LINE      => $node->getStartLine(),
-                    self::POSITION  => $position ?? ClassReferencePosition::Loading,
+                    self::POSITION  => $position ?? ClassReferencePositionEnum::Loading,
                     self::SIGNATURE => $signature,
                 ];
             }
@@ -203,7 +203,7 @@ final readonly class ClassReferenceScanner
      * A parameter of a method, or its return type: the type is a signature PHP may check
      * against an inherited method's; the rest of a parameter is read as any other code.
      *
-     * @return Generator<int, array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}>
+     * @return Generator<int, array{name: string, line: int, position: ClassReferencePositionEnum, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}>
      */
     private function signatureReferences(ClassMethod $method, Node $child, ?int $parameter, string ...$ancestors): Generator
     {
@@ -232,7 +232,7 @@ final readonly class ClassReferenceScanner
             }
         }
 
-        yield from $this->references($type, ClassReferencePosition::MethodSignature, [
+        yield from $this->references($type, ClassReferencePositionEnum::MethodSignature, [
             'ancestors' => array_values($ancestors),
             'method'    => $method->name->toString(),
             'parameter' => $parameter,
@@ -245,15 +245,15 @@ final readonly class ClassReferenceScanner
      * name is one PHP loads, the default. `$incoming` is the position the node itself was
      * given, which marks a `::class` compared with `===` or `!==`.
      */
-    private function positionOf(Node $node, string $subNodeName, ?ClassReferencePosition $incoming): ?ClassReferencePosition
+    private function positionOf(Node $node, string $subNodeName, ?ClassReferencePositionEnum $incoming): ?ClassReferencePositionEnum
     {
         return match (true) {
-            $node instanceof Attribute                                                        => ClassReferencePosition::Attribute,
+            $node instanceof Attribute                                                        => ClassReferencePositionEnum::Attribute,
             $node instanceof ClassConstFetch                                                  => $this->classConstantPosition($node, $incoming),
-            $node instanceof Identical || $node instanceof NotIdentical                       => ClassReferencePosition::Inert,
-            $node instanceof Instanceof_ && 'class'      === $subNodeName                     => ClassReferencePosition::Inert,
-            $node instanceof Catch_      && 'types'      === $subNodeName                     => ClassReferencePosition::Inert,
-            $this->isTypeOutsideASignature($node, $subNodeName)                               => ClassReferencePosition::Inert,
+            $node instanceof Identical || $node instanceof NotIdentical                       => ClassReferencePositionEnum::Inert,
+            $node instanceof Instanceof_ && 'class'      === $subNodeName                     => ClassReferencePositionEnum::Inert,
+            $node instanceof Catch_      && 'types'      === $subNodeName                     => ClassReferencePositionEnum::Inert,
+            $this->isTypeOutsideASignature($node, $subNodeName)                               => ClassReferencePositionEnum::Inert,
             default                                                                           => null,
         };
     }
@@ -261,13 +261,13 @@ final readonly class ClassReferenceScanner
     /**
      * `X::class` is a class name, unless it is an operand of `===` or `!==`; `X::NAME` loads X.
      */
-    private function classConstantPosition(ClassConstFetch $fetch, ?ClassReferencePosition $incoming): ?ClassReferencePosition
+    private function classConstantPosition(ClassConstFetch $fetch, ?ClassReferencePositionEnum $incoming): ?ClassReferencePositionEnum
     {
         if (!$fetch->name instanceof Identifier || 'class' !== $fetch->name->toLowerString()) {
             return null;
         }
 
-        return ClassReferencePosition::Inert === $incoming ? ClassReferencePosition::Inert : ClassReferencePosition::ClassName;
+        return ClassReferencePositionEnum::Inert === $incoming ? ClassReferencePositionEnum::Inert : ClassReferencePositionEnum::ClassName;
     }
 
     /**

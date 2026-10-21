@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
-use LTS\PHPQA\PHPStan\Rules\ClassReferencePosition;
+use LTS\PHPQA\PHPStan\Rules\ClassReferencePositionEnum;
 use LTS\PHPQA\PHPStan\Rules\ClassReferenceScanner;
 use PhpParser\Node;
 use PhpParser\NodeTraverser;
@@ -88,33 +88,33 @@ final class ClassReferenceScannerTest extends TestCase
 
         self::assertEquals(
             [
-                $this->reference('App\Tests\Marker', 8, ClassReferencePosition::Attribute),
-                $this->reference('App\Tests\Base', 9, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Contract', 9, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Behaviour', 11, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Typed', 13, ClassReferencePosition::Inert),
-                $this->reference(self::PARAM, 15, ClassReferencePosition::MethodSignature, $parameterSignature),
-                $this->reference(self::OTHER, 15, ClassReferencePosition::MethodSignature, $parameterSignature),
-                $this->reference('App\Tests\Returned', 15, ClassReferencePosition::MethodSignature, $hostSignature(null, 'App\Tests\Returned')),
-                $this->reference('App\Support\Imported', 17, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Factory', 18, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Holder', 19, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Constants', 20, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Checked', 21, ClassReferencePosition::Inert),
-                $this->reference('App\Tests\Anonymous', 29, ClassReferencePosition::Loading),
-                $this->reference('App\Tests\Made', 29, ClassReferencePosition::MethodSignature, [
+                $this->reference('App\Tests\Marker', 8, ClassReferencePositionEnum::Attribute),
+                $this->reference('App\Tests\Base', 9, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Contract', 9, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Behaviour', 11, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Typed', 13, ClassReferencePositionEnum::Inert),
+                $this->reference(self::PARAM, 15, ClassReferencePositionEnum::MethodSignature, $parameterSignature),
+                $this->reference(self::OTHER, 15, ClassReferencePositionEnum::MethodSignature, $parameterSignature),
+                $this->reference('App\Tests\Returned', 15, ClassReferencePositionEnum::MethodSignature, $hostSignature(null, 'App\Tests\Returned')),
+                $this->reference('App\Support\Imported', 17, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Factory', 18, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Holder', 19, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Constants', 20, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Checked', 21, ClassReferencePositionEnum::Inert),
+                $this->reference('App\Tests\Anonymous', 29, ClassReferencePositionEnum::Loading),
+                $this->reference('App\Tests\Made', 29, ClassReferencePositionEnum::MethodSignature, [
                     'ancestors' => ['App\Tests\Anonymous'],
                     'method'    => 'made',
                     'parameter' => null,
                     'typeNames' => ['App\Tests\Made'],
                 ]),
-                $this->reference('App\Tests\Failure', 31, ClassReferencePosition::Inert),
-                $this->reference('RuntimeException', 31, ClassReferencePosition::Inert),
-                $this->reference('App\Tests\Named', 33, ClassReferencePosition::ClassName),
-                $this->reference('App\Tests\Compared', 34, ClassReferencePosition::Inert),
-                $this->reference('App\Tests\Closured', 35, ClassReferencePosition::Inert),
-                $this->reference('App\Tests\Arrowed', 35, ClassReferencePosition::Inert),
-                $this->reference('App\Tests\Freed', 39, ClassReferencePosition::Inert),
+                $this->reference('App\Tests\Failure', 31, ClassReferencePositionEnum::Inert),
+                $this->reference('RuntimeException', 31, ClassReferencePositionEnum::Inert),
+                $this->reference('App\Tests\Named', 33, ClassReferencePositionEnum::ClassName),
+                $this->reference('App\Tests\Compared', 34, ClassReferencePositionEnum::Inert),
+                $this->reference('App\Tests\Closured', 35, ClassReferencePositionEnum::Inert),
+                $this->reference('App\Tests\Arrowed', 35, ClassReferencePositionEnum::Inert),
+                $this->reference('App\Tests\Freed', 39, ClassReferencePositionEnum::Inert),
             ],
             new ClassReferenceScanner()->classReferences(...$this->parse($code)),
         );
@@ -127,7 +127,7 @@ final class ClassReferenceScannerTest extends TestCase
         $nodes = new ParserFactory()->createForHostVersion()->parse('<?php new Foo(); new \Bar();') ?? [];
 
         self::assertEquals(
-            [$this->reference('Bar', 1, ClassReferencePosition::Loading)],
+            [$this->reference('Bar', 1, ClassReferencePositionEnum::Loading)],
             new ClassReferenceScanner()->classReferences(...$nodes),
         );
     }
@@ -183,9 +183,9 @@ final class ClassReferenceScannerTest extends TestCase
     /**
      * @param array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null $signature
      *
-     * @return array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}
+     * @return array{name: string, line: int, position: ClassReferencePositionEnum, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}
      */
-    private function reference(string $name, int $line, ClassReferencePosition $position, ?array $signature = null): array
+    private function reference(string $name, int $line, ClassReferencePositionEnum $position, ?array $signature = null): array
     {
         return ['name' => $name, 'line' => $line, 'position' => $position, 'signature' => $signature];
     }

@@ -189,4 +189,4 @@ Each exclusion is a narrowing: the hazard cannot arise in the excluded code.
 - Rule: [`ForbidUnautoloadableClassReferenceRule`](../../src/PHPStan/Rules/ForbidUnautoloadableClassReferenceRule.php).
 - Decision against the mapping: [`AutoloadPathDetector`](../../src/PHPStan/Rules/AutoloadPathDetector.php).
 - What counts as a reference, and where: [`ClassReferenceScanner`](../../src/PHPStan/Rules/ClassReferenceScanner.php)
-  and [`ClassReferencePosition`](../../src/PHPStan/Rules/ClassReferencePosition.php).
+  and [`ClassReferencePositionEnum`](../../src/PHPStan/Rules/ClassReferencePositionEnum.php).

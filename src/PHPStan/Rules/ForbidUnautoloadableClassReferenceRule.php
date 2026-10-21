@@ -34,7 +34,7 @@ use PHPStan\Type\MixedType;
  * RIGHT: AlwaysRetry in its own file, at the path its namespace gives.
  *
  * Reported only where PHP asks the autoloader for the class: see
- * {@see ClassReferencePosition}. A name written in a case other than the declared one
+ * {@see ClassReferencePositionEnum}. A name written in a case other than the declared one
  * is reported as such, and so is a second declaration of a class the autoloader finds
  * at its path, at the copy.
  *
@@ -109,12 +109,12 @@ final readonly class ForbidUnautoloadableClassReferenceRule implements Rule
     }
 
     /**
-     * @param array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null} $reference
+     * @param array{name: string, line: int, position: ClassReferencePositionEnum, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null} $reference
      */
     private function referenceMessage(array $reference, string $file, string ...$included): ?string
     {
         $written = $reference['name'];
-        if (ClassReferencePosition::Inert === $reference['position'] || !$this->reflectionProvider->hasClass($written)) {
+        if (ClassReferencePositionEnum::Inert === $reference['position'] || !$this->reflectionProvider->hasClass($written)) {
             return null;
         }
 
@@ -149,7 +149,7 @@ final readonly class ForbidUnautoloadableClassReferenceRule implements Rule
     /**
      * The autoloader is asked for the name as written, and maps it to a path letter for letter.
      *
-     * @param array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null} $reference
+     * @param array{name: string, line: int, position: ClassReferencePositionEnum, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null} $reference
      */
     private function miscasedMessage(array $reference, string $declared, string $declaringFile): ?string
     {
@@ -178,18 +178,18 @@ final readonly class ForbidUnautoloadableClassReferenceRule implements Rule
      * What fails at the reference's position when the class's file was not loaded first;
      * null for a signature PHP need not load the class to check.
      *
-     * @param array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null} $reference
+     * @param array{name: string, line: int, position: ClassReferencePositionEnum, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null} $reference
      */
     private function consequence(array $reference): ?string
     {
         return match ($reference['position']) {
-            ClassReferencePosition::Loading         => 'this reference fails with a "not found" error ' . self::UNLESS_LOADED,
-            ClassReferencePosition::ClassName       => 'whatever loads the class by this name (a mock, a container, class_exists()) '
+            ClassReferencePositionEnum::Loading         => 'this reference fails with a "not found" error ' . self::UNLESS_LOADED,
+            ClassReferencePositionEnum::ClassName       => 'whatever loads the class by this name (a mock, a container, class_exists()) '
                 . 'fails, or answers false, ' . self::UNLESS_LOADED,
-            ClassReferencePosition::Attribute       => 'reading this attribute with newInstance() fails with "Attribute class not found" '
+            ClassReferencePositionEnum::Attribute       => 'reading this attribute with newInstance() fails with "Attribute class not found" '
                 . self::UNLESS_LOADED,
-            ClassReferencePosition::MethodSignature => $this->signatureConsequence($reference['name'], $reference['signature']),
-            ClassReferencePosition::Inert           => null,
+            ClassReferencePositionEnum::MethodSignature => $this->signatureConsequence($reference['name'], $reference['signature']),
+            ClassReferencePositionEnum::Inert           => null,
         };
     }
 

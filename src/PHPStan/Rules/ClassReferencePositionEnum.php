@@ -9,7 +9,7 @@ namespace LTS\PHPQA\PHPStan\Rules;
  * for the class there. {@see ClassReferenceScanner} assigns it, and
  * {@see ForbidUnautoloadableClassReferenceRule} words its message by it.
  */
-enum ClassReferencePosition
+enum ClassReferencePositionEnum
 {
     /** `new`, a static call or fetch, a class constant, `extends`, `implements` or a trait. */
     case Loading;
