@@ -104,10 +104,11 @@ final readonly class ProcessSignalHandlingCollector implements Collector
         $finder = new NodeFinder();
         $isCall = static fn (Node $found): bool => $found instanceof MethodCall || $found instanceof NullsafeMethodCall;
 
+        // Offset => offset of each call that runs whenever its declaration is called, not in the try.
         $deferred = [];
         foreach ($finder->find($try->stmts, static fn (Node $found): bool => $found instanceof FunctionLike || $found instanceof ClassLike) as $declaration) {
             foreach ($finder->find([$declaration], $isCall) as $call) {
-                $deferred[$call->getStartFilePos()] = true;
+                $deferred[$call->getStartFilePos()] = $call->getStartFilePos();
             }
         }
 
