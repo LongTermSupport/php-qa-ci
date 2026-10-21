@@ -34,10 +34,20 @@ one does, or a split grouped constant loses its declared type
 ([rectorphp/rector#9928](https://github.com/rectorphp/rector/issues/9928)).
 
 Each process runs from the project root with `--autoload-file vendor/autoload.php`,
-`--clear-cache`, and the ignored paths exported newline-joined in the `rectorIgnorePaths`
-environment variable, which the shipped configs read into `skip()`. `TMPDIR` is set to
-`var/qa/cache/rector` so Rector's cache is the project's own: two projects running QA at the same
-time on one host would otherwise clear each other's `/tmp/rector_cached_files`.
+`--clear-cache`, and two values exported in the environment, which the shipped configs read
+the way they read any setting: the ignored paths newline-joined in `rectorIgnorePaths`, which
+go into `skip()`, and the project's Rector cache directory, `var/qa/cache/rector`, in
+`rectorCacheDir`. Each shipped config sets Rector's `FileCacheStorage` with its
+`cacheDirectory` at `<rectorCacheDir>/files` and its `containerCacheDirectory` at
+`<rectorCacheDir>/container` (creating both, because Rector needs the container directory to
+exist). Rector's own default is the system temp directory, which every project and every
+concurrent run on a host shares: two projects running QA at the same time would clear each
+other's `/tmp/rector_cached_files`. Run standalone, with no `rectorCacheDir`, a shipped config
+uses `var/qa/cache/rector` under the working directory. `TMPDIR` is set to
+`var/qa/cache/rector/tmp`, a sibling of the cache directories because `--clear-cache`
+deletes the one it clears, so nothing else Rector or PHP writes to the temp directory is shared
+either. `ShippedRectorConfigsBootAgainstTheBundledPharTest` runs every shipped config against
+`vendor-phar/rector.phar` and fails if one cannot boot or writes to the system temp directory.
 
 - In the full pipeline, first in the coding-standards phase.
 - Standalone: `vendor/bin/qa -t rector` (alias `-t r`); supports `-p <path>`.
@@ -78,12 +88,54 @@ repeated. A read-only run, and a single tool such as `-t rector`, run once.
   ```
 - **A genuine Rector error**: the output above the identifier names the cause (an invalid config,
   a parse failure, a missing autoload file). Fix that; retrying cannot help.
+- **`cannot load <config>: it refers to a class the bundled Rector does not have`**: a project
+  Rector config uses a class this Rector release lacks. The lane names the file and line and
+  crashes, in a writable run too, because a retry cannot help. The commonest cause is
+  `cacheClass(MemoryCacheStorage::class)`, below.
 - **A downstream error after a writable run**: keep the Rector edit and fix the cause it surfaced
   (narrow a type, add a missing test). Never revert Rector output to make another gate pass.
+
+## A project config that sets its own cache
+
+Rector 2.7 removed `Rector\Caching\ValueObject\Storage\MemoryCacheStorage`. A project
+`rector.php` or `qaConfig/rector.php`, or a `qaConfig/rector-safe.php`, `rector-phpunit.php`
+or `rector-php85.php` override, copied from an older shipped config that called
+`cacheClass(MemoryCacheStorage::class)` now fails before Rector processes a file, with Rector's
+own message:
+
+```text
+[ERROR] Expected an instance of this class or to this class among its parents
+        "Rector\Caching\Contract\ValueObject\Storage\CacheStorageInterface".
+        Got: "Rector\Caching\ValueObject\Storage\MemoryCacheStorage"
+```
+
+The lane recognises that message, and Rector's "Expected an existing class name" for any other
+class the config names that does not exist, finds the line in the config that pass ran (a
+comment is skipped), and stops with:
+
+```text
+Rector ('Project Specific') cannot load qaConfig/rector.php: it refers to a class the bundled Rector does not have.
+  qaConfig/rector.php:9: $rectorConfig->cacheClass(MemoryCacheStorage::class);
+Rector does not accept "Rector\Caching\ValueObject\Storage\MemoryCacheStorage" as a cache storage.
+Remove the cacheClass(...) call. The shipped cache setting applies: ...
+```
+
+To migrate, delete the `cacheClass(...)` call, and its `use` line if nothing else needs it. Do
+not replace it with another storage: php-qa-ci runs Rector with a file cache under
+`var/qa/cache/rector`, per project, and that is the setting a project config inherits when it
+says nothing about caching. A copy of the current shipped config carries that setting, so a
+project override copied before this release can also be recopied from
+`vendor/lts/php-qa-ci/configDefaults/generic/` instead of edited.
+
+A project config that keeps a `cacheDirectory(...)` or `containerCacheDirectory(...)` call of its
+own is not stopped, but its cache is then outside `var/qa/cache/rector`, shared with whatever
+else uses that path. The directory given to `containerCacheDirectory()` has to exist before
+Rector reads the config.
 
 ## Implementation
 
 - Lane: [`RectorTool`](../../src/Pipeline/Lane/RectorTool.php).
+- Stale project config detection: [`StaleConfigDiagnosis`](../../src/Pipeline/Lane/Rector/StaleConfigDiagnosis.php).
 - Read-only remediation text: [`ReadOnlyGuidance`](../../src/Pipeline/Lane/ReadOnlyGuidance.php),
   shared with [PHP CS Fixer](phpCsFixer.md).
 - Shipped configs: [`rector-safe.php`](../../configDefaults/generic/rector-safe.php),
