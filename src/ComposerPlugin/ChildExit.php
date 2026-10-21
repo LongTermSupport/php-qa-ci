@@ -16,8 +16,10 @@ namespace LTS\PHPQA\ComposerPlugin;
  * and macOS are named; any other is given by number.
  *
  * It lives beside the Composer plugins, which call it mid-install, so it calls only global
- * functions (see ForbidNamespacedFunctionInComposerPluginRule). bin/describe-exit gives the
- * same description to a script, php-qa-ci's own Bash scripts included.
+ * functions (see ForbidNamespacedFunctionInComposerPluginRule); that rule knows it as plugin code
+ * by its namespace, which is why it stays here. bin/describe-exit gives the same description to
+ * a script, php-qa-ci's own Bash scripts included, and the pipeline uses it for a lane's child
+ * that a signal killed (SymfonyProcessRunner) and for a tool's crash summary.
  *
  * @internal
  */
@@ -52,10 +54,10 @@ final readonly class ChildExit
     ];
 
     /** A crash of a program that is not php-qa-ci's: %s is the shipped segfault guide. */
-    private const string SEGFAULT = ': it crashed with a segmentation fault, a defect to debug and report where the crashing code lives, never to retry past (see %s)';
+    private const string SEGFAULT = 'it crashed with a segmentation fault, a defect to debug and report where the crashing code lives, never to retry past (see %s)';
 
     /** A crash of one of php-qa-ci's own helpers, so php-qa-ci's tracker is the place to report it. */
-    private const string HELPER_SEGFAULT = ': it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past';
+    private const string HELPER_SEGFAULT = 'it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past';
 
     /** bin/describe-exit's option saying the child is one of php-qa-ci's own helpers. */
     private const string OWN_HELPER_OPTION = '--php-qa-ci-helper';
@@ -69,13 +71,13 @@ final readonly class ChildExit
      */
     public static function describe(int $exitCode): string
     {
-        return self::describeSignal($exitCode, \sprintf(self::SEGFAULT, \dirname(__DIR__, 2) . self::SEGFAULT_GUIDE));
+        return 'exit code ' . $exitCode . self::killedBy($exitCode);
     }
 
     /** As describe(), for one of php-qa-ci's own helpers: a segfault is php-qa-ci's to fix. */
     public static function describePhpQaCiHelper(int $exitCode): string
     {
-        return self::describeSignal($exitCode, self::HELPER_SEGFAULT);
+        return 'exit code ' . $exitCode . self::signalSuffix($exitCode, self::HELPER_SEGFAULT);
     }
 
     /**
@@ -101,25 +103,58 @@ final readonly class ChildExit
         return $ownHelper ? self::describePhpQaCiHelper($exitCode) : self::describe($exitCode);
     }
 
+    /**
+     * How a signal ended a program that is not php-qa-ci's, to follow its exit code: "" when no
+     * signal did, else ", killed by signal 15 (SIGTERM)", and for a segmentation fault what to do
+     * about it.
+     */
+    public static function killedBy(int $exitCode): string
+    {
+        return self::signalSuffix($exitCode, self::segfaultAdvice());
+    }
+
+    /** What a segmentation fault of a program that is not php-qa-ci's calls for, and where the guide is. */
+    public static function segfaultAdvice(): string
+    {
+        return \sprintf(self::SEGFAULT, self::segfaultGuide());
+    }
+
+    /** The segfault guide in the installed package: finding what crashed and where to report it. */
+    public static function segfaultGuide(): string
+    {
+        return \dirname(__DIR__, 2) . self::SEGFAULT_GUIDE;
+    }
+
+    /** The exit code a shell reports for a child killed by this signal. */
+    public static function exitCodeOfSignal(int $signal): int
+    {
+        return self::SIGNAL_BASE + $signal;
+    }
+
+    /** True when the code is a shell's report of a segmentation fault. */
+    public static function isSegmentationFault(int $exitCode): bool
+    {
+        return self::exitCodeOfSignal(self::SIGSEGV) === $exitCode;
+    }
+
     /** True when the code is a shell's report of a signal kill, so the child said nothing of it. */
     public static function killedBySignal(int $exitCode): bool
     {
         return $exitCode > self::SIGNAL_BASE && $exitCode <= self::SIGNAL_BASE + self::HIGHEST_SIGNAL;
     }
 
-    private static function describeSignal(int $exitCode, string $segfault): string
+    private static function signalSuffix(int $exitCode, string $segfault): string
     {
-        $description = 'exit code ' . $exitCode;
         if (!self::killedBySignal($exitCode)) {
-            return $description;
+            return '';
         }
 
         $signal      = $exitCode - self::SIGNAL_BASE;
-        $description .= ', killed by signal ' . $signal;
+        $description = ', killed by signal ' . $signal;
         if (\array_key_exists($signal, self::SIGNAL_NAMES)) {
             $description .= ' (' . self::SIGNAL_NAMES[$signal] . ')';
         }
 
-        return self::SIGSEGV === $signal ? $description . $segfault : $description;
+        return self::SIGSEGV === $signal ? $description . ': ' . $segfault : $description;
     }
 }
