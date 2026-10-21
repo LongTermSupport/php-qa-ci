@@ -60,6 +60,17 @@ final class ManagedSourceGeneratorTest extends TestCase
         self::assertSame('lib', $target['srcDir'], 'first path of an array value');
     }
 
+    /** PHP makes the key "2024" the int 2024, which is no namespace, and the mapping is not empty. */
+    public function testResolveTargetNamesAPsr4PrefixWrittenInDigits(): void
+    {
+        $composer = \Safe\json_decode('{"autoload": {"psr-4": {"2024": "src/"}}}', true);
+        self::assertIsArray($composer);
+
+        $this->expectExceptionMessage('composer.json autoload.psr-4 prefix "2024" is not a namespace');
+
+        ManagedSourceGenerator::resolveTarget($composer);
+    }
+
     public function testManagedFilesRendersFactorySealedByInThePhpQaCiSubNamespace(): void
     {
         $files = new ManagedSourceGenerator()->managedFiles('Ballicom\AccountsIq');
