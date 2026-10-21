@@ -209,6 +209,14 @@
 #                                          under services: below. See
 #                                          docs/phpstan-rules/forbid-unhandled-process-signal.md
 #
+# BUILD CONSTANTS READ AS THEY ARE:
+#   ForbidBuildConstantTypeDependentUseRule — PHP_ZTS or PHP_DEBUG compared strictly, made a
+#                                          string, stored or passed on: a bool since PHP 8.4,
+#                                          an int before, and typed 0|1 by PHPStan, so the
+#                                          result differs by version. Write
+#                                          (bool) \PHP_ZTS. See
+#                                          docs/phpstan-rules/forbid-build-constant-type-dependent-use.md
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # EXPERIMENTAL — NOT auto-loaded (high false-positive rate; opt-in only):
 #   ForbidMagicStringAssertionRule       — flags test assertions that pin an
@@ -244,6 +252,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidUnhandledProcessSignalRule
     - LTS\PHPQA\PHPStan\Rules\ForbidPhpWarningsInCapturedOutputRule
     - LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantTypeDependentUseRule
 
 parameters:
     phpqaciFactorySealed:

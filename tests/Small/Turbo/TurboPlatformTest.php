@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Turbo;
 
+use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\UnopenableStreamWrapper;
 use LTS\PHPQA\Turbo\TurboPlatform;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -37,6 +39,20 @@ final class TurboPlatformTest extends TestCase
 
     private const string GNU = 'gnu';
 
+    private const string MUSL = 'musl';
+
+    private const string ARM64 = 'arm64';
+
+    private const string LINUX_MUSL_X86_64 = 'linux-musl-x86_64';
+
+    private const string SELF_MAPS = '/proc/self/maps';
+
+    private const string GLIBC_MAPS = "5581d1a00000-5581d1c00000 r--p 00000000 08:01 1 /usr/bin/php8.5\n"
+        . "7f2a1c000000-7f2a1c028000 r--p 00000000 08:01 2 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n";
+
+    private const string MUSL_MAPS = "5581d1a00000-5581d1c00000 r--p 00000000 08:01 1 /usr/bin/php85\n"
+        . "7f2a1c000000-7f2a1c014000 r--p 00000000 08:01 2 /lib/ld-musl-x86_64.so.1\n";
+
     #[Test]
     #[DataProvider('supportedHosts')]
     public function aSupportedHostNamesTheBinaryAndTheCoreWherePhpstanLooks(TurboPlatform $platform, string $directory, string $binary): void
@@ -59,8 +75,8 @@ final class TurboPlatformTest extends TestCase
             self::BINARY_85,
         ];
         yield 'linux musl x86_64' => [
-            new TurboPlatform(self::LINUX, self::X86_64, 'musl', self::PHP_MINOR, false),
-            'linux-musl-x86_64',
+            new TurboPlatform(self::LINUX, self::X86_64, self::MUSL, self::PHP_MINOR, false),
+            self::LINUX_MUSL_X86_64,
             self::BINARY_85,
         ];
         yield 'linux zts' => [
@@ -74,7 +90,7 @@ final class TurboPlatformTest extends TestCase
             self::BINARY_85,
         ];
         yield 'macos arm64' => [
-            new TurboPlatform(self::DARWIN, 'arm64', '', self::PHP_MINOR, false),
+            new TurboPlatform(self::DARWIN, self::ARM64, '', self::PHP_MINOR, false),
             'macos-arm64',
             self::BINARY_85,
         ];
@@ -95,7 +111,7 @@ final class TurboPlatformTest extends TestCase
         yield 'intel mac' => [new TurboPlatform(self::DARWIN, self::X86_64, '', self::PHP_MINOR, false)];
         yield 'linux on an unknown cpu' => [new TurboPlatform(self::LINUX, 'riscv64', self::GNU, self::PHP_MINOR, false)];
         yield 'linux with an unknown libc' => [new TurboPlatform(self::LINUX, self::X86_64, '', self::PHP_MINOR, false)];
-        yield 'zts mac' => [new TurboPlatform(self::DARWIN, 'arm64', '', self::PHP_MINOR, true)];
+        yield 'zts mac' => [new TurboPlatform(self::DARWIN, self::ARM64, '', self::PHP_MINOR, true)];
     }
 
     #[Test]
@@ -113,5 +129,131 @@ final class TurboPlatformTest extends TestCase
 
         self::assertStringContainsString('PHP ' . \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, $platform->describe());
         self::assertStringContainsString(\PHP_OS_FAMILY, $platform->describe());
+    }
+
+    #[Test]
+    public function theRuntimeIsJudgedByTheLibrariesThisProcessHasLoaded(): void
+    {
+        $maps = is_readable(self::SELF_MAPS) ? \Safe\file_get_contents(self::SELF_MAPS) : null;
+
+        $expected = TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), $maps, is_file('/etc/alpine-release'));
+
+        self::assertSame($expected->describe(), TurboPlatform::fromRuntime()->describe());
+        self::assertSame($expected->binaryPath(), TurboPlatform::fromRuntime()->binaryPath());
+    }
+
+    #[Test]
+    public function theRuntimeReadsTheMapsAndTheAlpineReleaseItIsPointedAt(): void
+    {
+        $tmp = TempDir::create('turbo-platform');
+
+        try {
+            $musl    = $tmp->write('maps', self::MUSL_MAPS);
+            $alpine  = $tmp->write('alpine-release', "3.22.0\n");
+            $missing = $tmp->path . '/missing';
+
+            self::assertSame(
+                TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), self::MUSL_MAPS, false)->describe(),
+                TurboPlatform::fromRuntime($musl, $missing)->describe(),
+                'readable maps decide',
+            );
+            self::assertSame(
+                TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), null, true)->describe(),
+                TurboPlatform::fromRuntime($missing, $alpine)->describe(),
+                'without maps, /etc/alpine-release decides',
+            );
+        } finally {
+            $tmp->remove();
+        }
+    }
+
+    #[Test]
+    public function mapsThatPassTheAccessCheckButCannotBeOpenedAreTreatedAsUnreadable(): void
+    {
+        $tmp = TempDir::create('turbo-platform');
+        UnopenableStreamWrapper::register();
+
+        try {
+            $alpine = $tmp->write('alpine-release', "3.22.0\n");
+            $maps   = UnopenableStreamWrapper::SCHEME . '://maps';
+            self::assertIsReadable($maps, 'the fixture must pass the access check');
+
+            self::assertSame(
+                TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), null, true)->describe(),
+                TurboPlatform::fromRuntime($maps, $alpine)->describe(),
+                'as phpstan.phar does, a maps file that cannot be opened falls back to /etc/alpine-release',
+            );
+        } finally {
+            UnopenableStreamWrapper::unregister();
+            $tmp->remove();
+        }
+    }
+
+    #[Test]
+    public function theProcessIsThreadSafeExactlyWhenThisPhpIs(): void
+    {
+        $description = TurboPlatform::fromProcess(self::LINUX, self::X86_64, self::GLIBC_MAPS, false)->describe();
+
+        self::assertSame((bool)\PHP_ZTS, str_ends_with($description, ' ZTS'));
+        self::assertStringContainsString(', PHP ' . \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, $description);
+    }
+
+    /**
+     * PHP_ZTS is 0 or 1 up to PHP 8.3 and false or true from PHP 8.4; a thread-safe PHP of either
+     * family gets the -zts binary, which is the only one phpstan.phar looks for there (#268).
+     */
+    #[Test]
+    #[DataProvider('threadSafety')]
+    public function aThreadSafeProcessGetsTheZtsBinaryWhicheverTypeItsPhpGivesPhpZts(bool|int $zts, string $suffix): void
+    {
+        $platform = TurboPlatform::fromProcess(self::LINUX, self::X86_64, self::GLIBC_MAPS, false, $zts);
+        $minor    = \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION;
+
+        self::assertSame(self::LINUX_GNU_X86_64 . '/phpstan_turbo-' . $minor . $suffix . '.so', $platform->binaryPath());
+        self::assertSame('Linux x86_64, libc gnu, PHP ' . $minor . ('' === $suffix ? '' : ' ZTS'), $platform->describe());
+    }
+
+    /** @return iterable<string, array{bool|int, string}> */
+    public static function threadSafety(): iterable
+    {
+        yield 'thread-safe, PHP 8.4 on' => [true, '-zts'];
+        yield 'thread-safe, PHP 8.3 and earlier' => [1, '-zts'];
+        yield 'not thread-safe, PHP 8.4 on' => [false, ''];
+        yield 'not thread-safe, PHP 8.3 and earlier' => [0, ''];
+    }
+
+    #[Test]
+    #[DataProvider('linuxProcesses')]
+    public function aLinuxProcessIsMuslOnlyWhenTheMuslLoaderIsMappedIntoIt(?string $selfMaps, bool $hasAlpineRelease, string $directory, string $libc): void
+    {
+        $platform = TurboPlatform::fromProcess(self::LINUX, self::X86_64, $selfMaps, $hasAlpineRelease);
+
+        self::assertSame($directory . '/' . self::CORE, $platform->corePath());
+        self::assertStringContainsString(', libc ' . $libc . ',', $platform->describe());
+    }
+
+    /** @return iterable<string, array{?string, bool, string, string}> */
+    public static function linuxProcesses(): iterable
+    {
+        yield 'glibc process on a host that also has musl-tools' => [self::GLIBC_MAPS, false, self::LINUX_GNU_X86_64, self::GNU];
+        yield 'musl process' => [self::MUSL_MAPS, false, self::LINUX_MUSL_X86_64, self::MUSL];
+        yield 'the maps outrank /etc/alpine-release' => [self::GLIBC_MAPS, true, self::LINUX_GNU_X86_64, self::GNU];
+        yield 'no readable maps on Alpine' => [null, true, self::LINUX_MUSL_X86_64, self::MUSL];
+        yield 'no readable maps elsewhere' => [null, false, self::LINUX_GNU_X86_64, self::GNU];
+    }
+
+    #[Test]
+    public function aProcessOutsideLinuxHasNoLibcWhateverItsMapsSay(): void
+    {
+        $platform = TurboPlatform::fromProcess(self::DARWIN, self::ARM64, self::MUSL_MAPS, true);
+
+        self::assertSame('macos-arm64/' . self::CORE, $platform->corePath());
+        self::assertStringNotContainsString('libc', $platform->describe());
+    }
+
+    #[Test]
+    public function theProcessKeepsTheMachineItWasGiven(): void
+    {
+        self::assertSame('linux-gnu-arm64/' . self::CORE, TurboPlatform::fromProcess(self::LINUX, 'aarch64', self::GLIBC_MAPS, false)->corePath());
     }
 }

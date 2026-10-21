@@ -103,6 +103,7 @@ dir) prints its page offline.
 - `phpqaci.unhandledProcessSignal` — A Process whose child a signal kills is reported by name (`docs/phpstan-rules/forbid-unhandled-process-signal.md`)
 - `phpqaci.phpWarningsInCapturedOutput` — PHP run with its output captured sends its warnings to stderr (`docs/phpstan-rules/forbid-php-warnings-in-captured-output.md`)
 - `phpqaci.numericStringArrayKey` — An array keyed by a string that may be all digits is not string-keyed (`docs/phpstan-rules/forbid-numeric-string-array-key.md`)
+- `phpqaci.buildConstantTypeDependentUse` — `PHP_ZTS` and `PHP_DEBUG` are read through `(bool)`, never as they are (`docs/phpstan-rules/forbid-build-constant-type-dependent-use.md`)
 - `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
 - `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
 - `phpqaci.unautoloadableClassReference` — A class another file uses is declared where its autoloader looks for it (`docs/phpstan-rules/forbid-unautoloadable-class-reference.md`)
