@@ -249,21 +249,29 @@ final class DetectorUnpackerTest extends TestCase
      * warning does not say the lane goes on, as it does not.
      *
      * The cache's detector directory is reached through a link into the incomplete copy and
-     * back out ('<copy>/..'), so moving the copy aside breaks the path the fresh copy is
-     * renamed to.
+     * back out ('<copy>/..'), so moving the copy aside breaks every path in that directory, and
+     * the rename of the fresh copy into place fails. The warning that rename raises is the
+     * moment it has failed: the link is then pointed straight at the real directory, so what
+     * the run does after the failure (removing its staging and the moved-aside copy) reaches
+     * the paths it names, as it would in a cache whose rename failed for any other reason.
      */
     #[Test]
     public function whenTheFreshCopyCannotBeRenamedIntoPlaceTheWarningDoesNotSayTheLaneGoesOn(): void
     {
         $real = $this->cache->path . '/real';
+        $link = $this->cache->path . '/' . DetectorUnpacker::DIR;
         $hash = basename($this->expectedTarget());
         UnremovableTree::plant($real . '/' . $hash . self::STUCK);
-        \Safe\symlink($real . '/' . $hash . '/..', $this->cache->path . '/' . DetectorUnpacker::DIR);
+        \Safe\symlink($real . '/' . $hash . '/..', $link);
         $output   = new BufferedOutput();
         $thrown   = null;
         $warnings = [];
-        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+        set_error_handler(static function (int $level, string $message) use (&$warnings, $link, $real): bool {
             $warnings[] = $message;
+            if (1 === \count($warnings)) {
+                \Safe\unlink($link);
+                \Safe\symlink($real, $link);
+            }
 
             return true;
         });
@@ -278,12 +286,15 @@ final class DetectorUnpackerTest extends TestCase
         }
 
         self::assertInstanceOf(FilesystemException::class, $thrown, 'the failed rename fails the run');
-        self::assertCount(1, $warnings, 'the rename of the fresh copy into place');
-        self::assertStringStartsWith('rename(' . $real . '/.unpack', $warnings[0]);
+        self::assertCount(1, $warnings, 'only the rename of the fresh copy into place fails: ' . implode("\n", $warnings));
+        self::assertStringStartsWith('rename(' . $link . '/.unpack', $warnings[0]);
         self::assertIsString($this->unremovable);
         self::assertStringContainsString('/.discard', $this->unremovable, 'the incomplete copy was moved aside');
         $printed = $output->fetch();
-        self::assertStringContainsString(self::COULD_NOT_REMOVE . \dirname($this->unremovable, 2) . ',', $printed);
+        self::assertStringStartsWith(self::COULD_NOT_REMOVE, $printed);
+        $named = strstr(substr($printed, \strlen(self::COULD_NOT_REMOVE)), ', ', true);
+        self::assertIsString($named, 'the moved-aside copy is named: ' . $printed);
+        self::assertSame(\Safe\realpath(\dirname($this->unremovable, 2)), \Safe\realpath($named), 'the path named is the moved-aside copy left behind');
         self::assertStringNotContainsString('goes on', $printed);
     }
 
