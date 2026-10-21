@@ -520,7 +520,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
             $declared = $scope->getAnonymousFunctionReturnType();
         } else {
             $function = $scope->getFunction();
-            $declared = null === $function || $function->isGenerator() ? null : $function->getReturnType();
+            $declared = false === $function?->isGenerator() ? $function->getReturnType() : null;
         }
 
         return $declared instanceof Type ? $this->declaredUse($return, $return->expr, $declared, 'returns it as', $scope) : [];

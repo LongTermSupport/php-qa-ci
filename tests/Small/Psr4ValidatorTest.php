@@ -217,6 +217,7 @@ which doesn\'t exist
     public function testANamespaceRootWrittenInDigitsIsReportedNotFatal(): void
     {
         $composerJson = \Safe\json_decode('{"autoload": {"psr-4": {"2024": "2024"}}}', true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($composerJson);
 
         self::assertSame(
             ['Missing Paths:' => ['2024' => "Namespace root '2024'\ncontains a path '2024'\nwhich doesn't exist\n"]],
