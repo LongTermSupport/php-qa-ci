@@ -70,6 +70,58 @@ In php-qa-ci, `SymfonyProcessRunner` turns such a child into a result with exit 
 signal and records it, and the pipeline reports the lane that ran it as crashed; see
 [the pipeline's exit codes](../pipeline.md#exit-codes).
 
+## Defence Before Fix record
+
+- **Class**: a wait for a Symfony `Process` child, `run()`, `mustRun()` or `wait()`, with no catch
+  naming the `ProcessSignaledException` it throws when a signal the `Process` did not send kills
+  the child.
+- **Hazard**: a child killed by a signal, a segmentation fault among them, surfaces as
+  `The process has been signaled with signal "11".`, naming neither the command nor the signal,
+  and abandons whatever waited for it: in `bin/qa`, every remaining lane.
+- **Search, two techniques**: a structural text search, and a reading of the call paths.
+  - **Text search.** Over `src/`, `bin/`, `scripts/`, `templates/`, `configDefaults/` and
+    `qaConfig/`, the search looked for `new Process(`, `fromShellCommandline`, imports of
+    `Symfony\Component\Process\Process`, `proc_open`, `passthru` and `exec`, and for every
+    `->run(`, `->mustRun(`, `->wait(` and `->start(` call. Each call was then kept only if its
+    receiver is a `Process`. Two such waits were found: `$process->run()` in
+    `SymfonyProcessRunner` and `$process->mustRun()` in `GitPhpstanDocsFetcher`. The search
+    found no `->wait(` call at all. `RunningProcesses` holds `Process` objects, but it only
+    signals and stops them, which throws nothing. Every other `->run(` call was on a
+    `ProcessRunnerInterface`, a tool or a command.
+  - **Reading the call paths.** `Process::wait()` is the only method that throws the exception,
+    and `run()` and `mustRun()` reach it through `wait()`. `waitUntil()`, `start()` and
+    `getIterator()` do not reach it, so the method set is complete. Every other child process in
+    `src/` goes through `ProcessRunnerInterface` to `SymfonyProcessRunner`, so the reading found
+    no wait beyond the two. It also found the runner's callers that read an exit code as an
+    answer, such as `ChangelogGit`. Those callers are why a runner with no record throws, naming
+    the child, rather than passing a crash back as an exit code.
+  - **The rule's sweep** found the same two, at `SymfonyProcessRunner.php:62` and
+    `GitPhpstanDocsFetcher.php:51`, and nothing the two techniques had missed.
+- **Instances at the sweep**: two, both in `src/`; test code is not swept.
+- **Narrowing**: test code is excluded, because there the exception fails the one test that ran
+  the child, and PHPUnit names that test. `start()`, `waitUntil()` and a first-class callable
+  wait for nothing, so they are excluded too.
+- **Next wider rule, not built**: any Symfony `Process` exception left uncaught at a wait,
+  `ProcessFailedException` from `mustRun()` and `ProcessTimedOutException` as well. It was not
+  built because those exceptions lack the hazard. Their messages name the command
+  (`The command "…" failed.`, `The process "…" exceeded the timeout of … seconds.`), so neither
+  surfaces unnamed. A program that relays a crash as an ordinary exit code 139, such as a shell or
+  a tool that re-runs itself, is a plain integer that no static rule can tell apart. The runner
+  handles that case at run time.
+- **Runner check**: these tests pin the reported behaviour:
+  - `SymfonyProcessRunnerTest`: a child that a signal kills is a result, and it is recorded and
+    named. Without a record, the runner throws, naming the command and the signal.
+  - `ToolExecutorTest`: the lane is reported as crashed, with the description.
+  - `PipelineTest`: a segfault halts an aggregate run and the copy/paste report. Any other signal
+    crashes the lane and the run carries on. A start-up probe or a hook whose child was killed
+    halts the run.
+  - `QaApplicationTest::aLaneWhoseChildASignalKillsIsNamedAsCrashed`: the same, end to end,
+    through the real runner and a child that kills itself.
+  - `GitPhpstanDocsFetcherTest::aGitKilledByASignalFailsNamingTheCommandAndTheSignal`.
+- **Fix**: `SymfonyProcessRunner` catches the exception and records the child, and the pipeline
+  reports the lane as crashed. `GitPhpstanDocsFetcher` throws, naming the command and the signal.
+  The sweep now finds none.
+
 ## Why it is opt-in
 
 A project whose code never waits for a child process has nothing to fix, and the right response to
