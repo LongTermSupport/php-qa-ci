@@ -16,7 +16,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  */
 final class FakeToolLocator implements ToolLocatorInterface
 {
-    /** @var array<string, ToolInterface> */
+    /** @var array<array-key, ToolInterface> */
     private array $tools = [];
 
     public function register(ToolInterface $tool): self

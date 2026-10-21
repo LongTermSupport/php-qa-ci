@@ -45,6 +45,7 @@ final class TypeCoverageFloorsAreHonouredTest extends TestCase
     #[Test]
     public function everyFloorTheBuilderCanSetIsHonouredByTheInstalledExtension(): void
     {
+        /** @var array<array-key, int> $floors */
         $floors = [];
         foreach (new ReflectionMethod(QaConfigBuilder::class, 'withTypeCoverageFloors')->getParameters() as $parameter) {
             $floors[$parameter->getName()] = 50;

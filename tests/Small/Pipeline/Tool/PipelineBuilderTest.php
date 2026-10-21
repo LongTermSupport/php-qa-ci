@@ -90,6 +90,8 @@ final class PipelineBuilderTest extends TestCase
 
     private const string TESTING = 'testing';
 
+    private const string DIGITS = '2024';
+
     #[Test]
     public function defaultsBuildTheShippedRegistryAndTheShippedTools(): void
     {
@@ -131,14 +133,14 @@ final class PipelineBuilderTest extends TestCase
     public function aToolNamedInDigitsKeepsItsNameWhenAnotherToolIsAdded(): void
     {
         $built = PipelineBuilder::defaults()
-            ->withTool(new ToolDefinitionDto('2024', ['y2024'], 'a tool named in digits', self::LINTING, false), $this->tool('2024'))
+            ->withTool(new ToolDefinitionDto(self::DIGITS, ['y2024'], 'a tool named in digits', self::LINTING, false), $this->tool(self::DIGITS))
             ->withTool($this->definition(self::SECURITY_AUDIT, self::LINTING), $this->tool(self::SECURITY_AUDIT))
             ->build()
         ;
 
-        self::assertSame('2024', $built->registry->resolve('y2024')->name);
-        self::assertArrayHasKey('2024', $built->tools);
-        self::assertSame('2024', $built->tools['2024']->name());
+        self::assertSame(self::DIGITS, $built->registry->resolve('y2024')->name);
+        self::assertArrayHasKey(self::DIGITS, $built->tools);
+        self::assertSame(self::DIGITS, $built->tools[self::DIGITS]->name());
     }
 
     #[Test]
