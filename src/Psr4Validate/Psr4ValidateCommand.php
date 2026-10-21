@@ -31,8 +31,9 @@ final readonly class Psr4ValidateCommand
     private const string USAGE = <<<'USAGE'
         Usage: psr4-validate [<ignore-pattern> ...]
 
-        Checks that every PHP file under composer.json's autoload psr-4 and psr-0 roots
-        declares the namespace and class its path implies. Run it from the project root.
+        Checks that every PHP file under composer.json's autoload and autoload-dev psr-4
+        roots declares the namespace its path implies, and no class, interface, trait or
+        enum but the one its path names. Run it from the project root.
 
         Each <ignore-pattern> is a PCRE pattern with its delimiters, for example
         '#/src/Legacy/#', matched against a file's real path; a file it matches is not

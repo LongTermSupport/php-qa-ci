@@ -185,6 +185,28 @@ which doesn\'t exist
     }
 
     /**
+     * A file whose namespace can be read but which does not parse declares no class-like the
+     * validator can see, so it is a parse error, named with the parser's reason.
+     */
+    public function testAFileThatDoesNotParseIsAParseErrorNamingTheReason(): void
+    {
+        $project = TempDir::create('phpqa-psr4-unparseable');
+
+        try {
+            $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+            $project->write('src/Broken.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class Broken\n{\n");
+            $validator = new Psr4Validator([], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
+
+            self::assertSame(
+                ['Parse Errors:' => [\Safe\realpath($project->path) . '/src/Broken.php: Syntax error, unexpected EOF on line 9']],
+                $validator->main(),
+            );
+        } finally {
+            $project->remove();
+        }
+    }
+
+    /**
      * Whether a project is a Magento project is decided from its composer.json, never from where
      * it is checked out: a word in the path says nothing about the project (#231).
      *

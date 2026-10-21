@@ -8,6 +8,7 @@ use LTS\PHPQA\Pipeline\Lock\ClockInterface;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Lock\SystemClock;
+use LTS\PHPQA\Tests\Support\MutableClock;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -243,20 +244,5 @@ final class RunLockTest extends TestCase
         \Safe\flock($handle, \LOCK_EX | \LOCK_NB);
 
         return $handle;
-    }
-}
-
-/**
- * @internal
- */
-final class MutableClock implements ClockInterface
-{
-    public function __construct(public int $now)
-    {
-    }
-
-    public function now(): int
-    {
-        return $this->now;
     }
 }

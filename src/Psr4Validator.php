@@ -9,6 +9,16 @@ use Generator;
 use InvalidArgumentException;
 use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Regex\RegexPattern;
+use PhpParser\Error as PhpParserError;
+use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\Node\Stmt\Enum_;
+use PhpParser\Node\Stmt\Interface_;
+use PhpParser\Node\Stmt\Trait_;
+use PhpParser\NodeFinder;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor\NameResolver;
+use PhpParser\Parser;
+use PhpParser\ParserFactory;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
@@ -25,6 +35,9 @@ final class Psr4Validator
     /** @var array<string,array<int, array<string,string>>> */
     private array $psr4Errors = [];
 
+    /** @var array<string, list<array{fileInfo: string, expectedClassLike: string, declaredClassLike: string, problem: string}>> */
+    private array $classLikeErrors = [];
+
     /** @var list<string> */
     private array $ignoredFiles = [];
 
@@ -36,6 +49,8 @@ final class Psr4Validator
 
     /** @var list<RegexPattern> */
     private readonly array $ignorePatterns;
+
+    private readonly Parser $parser;
 
     /**
      * Psr4Validator constructor.
@@ -52,6 +67,7 @@ final class Psr4Validator
             static fn (string $pattern): RegexPattern => RegexPattern::compile($pattern, 'ignore pattern'),
             array_values($ignoreRegexPatterns),
         );
+        $this->parser = new ParserFactory()->createForHostVersion();
     }
 
     /**
@@ -66,6 +82,10 @@ final class Psr4Validator
         // Actual Errors
         if ([] !== $this->psr4Errors) {
             $errors['PSR-4 Errors:'] = $this->psr4Errors;
+        }
+
+        if ([] !== $this->classLikeErrors) {
+            $errors['Class-Like Errors:'] = $this->classLikeErrors;
         }
 
         if ([] !== $this->parseErrors) {
@@ -258,6 +278,78 @@ final class Psr4Validator
                     'actualNamespace'   => $actualNamespace,
                 ];
         }
+
+        $this->checkClassLikes($namespaceRoot, $fileInfo, $actualNamespace, $expectedNamespace);
+    }
+
+    /**
+     * The autoloader looks for a class-like in the one file its name maps to, so a file under a
+     * PSR-4 root can be loaded only as the class-like its path names. Every other named class-like
+     * it declares, its only one or one beside it, is reported; anonymous classes have no name to
+     * load. A class-like whose only fault is the namespace already reported for the file is not
+     * reported a second time.
+     */
+    private function checkClassLikes(string $namespaceRoot, SplFileInfo $fileInfo, string $actualNamespace, string $expectedNamespace): void
+    {
+        $classLikes = $this->namedClassLikes($fileInfo);
+        $expected   = ltrim($expectedNamespace . '\\' . $fileInfo->getBasename('.php'), '\\');
+        $declared   = array_keys($classLikes);
+        if (\in_array($expected, $declared, true)) {
+            $remedy = 'move it to a file of its own, named for it';
+        } else {
+            $remedy = 'rename the class-like or the file so that the two agree';
+        }
+
+        $namespaceOnly = ltrim($actualNamespace . '\\' . $fileInfo->getBasename('.php'), '\\');
+        foreach ($classLikes as $fqcn => $kind) {
+            if ($fqcn === $expected || ($fqcn === $namespaceOnly && $actualNamespace !== $expectedNamespace)) {
+                continue;
+            }
+
+            $this->classLikeErrors[$namespaceRoot][] = [
+                'fileInfo'          => (string)$fileInfo->getRealPath(),
+                'expectedClassLike' => $expected,
+                'declaredClassLike' => $fqcn,
+                'problem'           => "{$kind} {$fqcn} is declared in a file whose path autoloads only {$expected}, so no autoloader can load it: {$remedy}",
+            ];
+        }
+    }
+
+    /**
+     * Every named class-like the file declares, by fully qualified name, in declaration order, to
+     * its kind. A file the parser cannot read is a parse error, and declares none.
+     *
+     * @return array<string, string>
+     */
+    private function namedClassLikes(SplFileInfo $fileInfo): array
+    {
+        try {
+            $statements = $this->parser->parse(\Safe\file_get_contents($fileInfo->getPathname())) ?? [];
+        } catch (PhpParserError $phpParserError) {
+            $this->parseErrors[] = $fileInfo->getRealPath() . ': ' . $phpParserError->getMessage();
+
+            return [];
+        }
+
+        new NodeTraverser(new NameResolver())->traverse($statements);
+        $classLikes = [];
+        foreach (new NodeFinder()->findInstanceOf($statements, ClassLike::class) as $classLike) {
+            if (null !== $classLike->namespacedName) {
+                $classLikes[$classLike->namespacedName->toString()] = $this->kind($classLike);
+            }
+        }
+
+        return $classLikes;
+    }
+
+    private function kind(ClassLike $classLike): string
+    {
+        return match (true) {
+            $classLike instanceof Enum_      => 'enum',
+            $classLike instanceof Interface_ => 'interface',
+            $classLike instanceof Trait_     => 'trait',
+            default                          => 'class',
+        };
     }
 
     private function getActualNamespace(SplFileInfo $fileInfo): string

@@ -83,7 +83,8 @@ final class Psr4ValidateToolTest extends TestCase
         $output = $this->factory->output->fetch();
 
         self::assertFalse($result->isSuccess());
-        self::assertStringContainsString('class Fixture\Baz is declared in a file whose path autoloads only Fixture\Bar', $output);
+        // The lane prints the findings with var_export(), which doubles each backslash.
+        self::assertStringContainsString('class Fixture\\\Baz is declared in a file whose path autoloads only Fixture\\\Bar', $output);
         self::assertStringContainsString(Psr4ValidateTool::IDENTIFIER, $output);
     }
 

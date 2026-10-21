@@ -9,6 +9,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
+use LTS\PHPQA\Tests\Support\StopOnFirstWriteOutput;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
@@ -412,29 +413,5 @@ final class RunningProcessesTest extends TestCase
         }
 
         return $total;
-    }
-}
-
-/**
- * Stands in for the interrupt handler: the first time the child writes, stop
- * everything that is running.
- *
- * @internal
- */
-final class StopOnFirstWriteOutput extends BufferedOutput
-{
-    public int $stopped = 0;
-
-    public function __construct(private readonly RunningProcesses $running)
-    {
-        parent::__construct();
-    }
-
-    protected function doWrite(string $message, bool $newline): void
-    {
-        parent::doWrite($message, $newline);
-        if (0 === $this->stopped && str_contains($message, 'started')) {
-            $this->stopped = $this->running->stopAll(5.0);
-        }
     }
 }
