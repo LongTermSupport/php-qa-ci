@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace LTS\PHPQA\Tests\Large\Turbo;
+
+use LTS\PHPQA\Turbo\TurboPlatform;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Large;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
+
+/**
+ * Pins the class "php-qa-ci decides the Turbo platform differently from the phpstan.phar that
+ * loads the binary" (#268). The installer and the lane name a `turbo-ext/<platform>/` directory;
+ * the shipped phar's own TurboExtensionSelector names the one it loads from. For every process a
+ * real host can present, the two must name the same directory, or Turbo is installed where the
+ * phar never looks. The phar's selector is asked in a separate PHP, so its class never meets the
+ * PHPStan that the test suite's own dependencies load.
+ *
+ * @internal
+ */
+#[CoversClass(TurboPlatform::class)]
+#[Large]
+final class TurboPlatformAgreesWithShippedPharTest extends TestCase
+{
+    private const string SELECTOR = 'phar://' . __DIR__ . '/../../../vendor-phar/phpstan.phar/src/Turbo/TurboExtensionSelector.php';
+
+    private const string LINUX = 'Linux';
+
+    private const string GLIBC_MAPS = "7f2a1c000000-7f2a1c028000 r--p 00000000 08:01 2 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n";
+
+    private const string MUSL_MAPS = "7f2a1c000000-7f2a1c014000 r--p 00000000 08:01 2 /lib/ld-musl-x86_64.so.1\n";
+
+    /** Asks the phar's selector for the directory of each case: [os, machine, maps or null, has /etc/alpine-release]. */
+    private const string ASK_THE_PHAR = 'require $argv[1];'
+        . 'echo json_encode(array_map(static fn (array $c): ?string => \PHPStan\Turbo\TurboExtensionSelector::resolvePlatformDirectory('
+        . '$c[0], $c[1], \PHPStan\Turbo\TurboExtensionSelector::resolveIsMusl($c[2] ?? false, $c[3])), json_decode($argv[2], true)));';
+
+    #[Test]
+    public function everyHostProcessIsGivenTheDirectoryThePharLoadsFrom(): void
+    {
+        $cases = [];
+        foreach (['x86_64', 'aarch64'] as $machine) {
+            foreach ([self::GLIBC_MAPS, self::MUSL_MAPS, null] as $maps) {
+                foreach ([false, true] as $alpine) {
+                    $cases[] = [self::LINUX, $machine, $maps, $alpine];
+                }
+            }
+        }
+
+        $cases[] = ['Darwin', 'arm64', null, false];
+
+        $process = new Process([\PHP_BINARY, '-r', self::ASK_THE_PHAR, self::SELECTOR, \Safe\json_encode($cases)]);
+        $process->mustRun();
+        $pharDirectories = \Safe\json_decode($process->getOutput(), true);
+        self::assertIsArray($pharDirectories);
+
+        foreach ($cases as $index => [$os, $machine, $maps, $alpine]) {
+            $core = TurboPlatform::fromProcess($os, $machine, $maps, $alpine)->corePath();
+            self::assertSame(
+                $pharDirectories[$index],
+                null === $core ? null : \dirname($core),
+                'the phar and php-qa-ci disagree for ' . \Safe\json_encode($cases[$index]),
+            );
+        }
+    }
+}

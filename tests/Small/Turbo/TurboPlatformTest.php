@@ -37,6 +37,16 @@ final class TurboPlatformTest extends TestCase
 
     private const string GNU = 'gnu';
 
+    private const string SELF_MAPS = '/proc/self/maps';
+
+    /** A glibc PHP's maps: the loader it runs under, and no musl one. */
+    private const string GLIBC_MAPS = "5581d1a00000-5581d1c00000 r--p 00000000 08:01 1 /usr/bin/php8.5\n"
+        . "7f2a1c000000-7f2a1c028000 r--p 00000000 08:01 2 /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n";
+
+    /** A musl PHP's maps, as Alpine's loader appears in them. */
+    private const string MUSL_MAPS = "5581d1a00000-5581d1c00000 r--p 00000000 08:01 1 /usr/bin/php85\n"
+        . "7f2a1c000000-7f2a1c014000 r--p 00000000 08:01 2 /lib/ld-musl-x86_64.so.1\n";
+
     #[Test]
     #[DataProvider('supportedHosts')]
     public function aSupportedHostNamesTheBinaryAndTheCoreWherePhpstanLooks(TurboPlatform $platform, string $directory, string $binary): void
@@ -113,5 +123,51 @@ final class TurboPlatformTest extends TestCase
 
         self::assertStringContainsString('PHP ' . \PHP_MAJOR_VERSION . '.' . \PHP_MINOR_VERSION, $platform->describe());
         self::assertStringContainsString(\PHP_OS_FAMILY, $platform->describe());
+    }
+
+    #[Test]
+    public function theRuntimeIsJudgedByTheLibrariesThisProcessHasLoaded(): void
+    {
+        $maps = is_readable(self::SELF_MAPS) ? \Safe\file_get_contents(self::SELF_MAPS) : null;
+
+        $expected = TurboPlatform::fromProcess(\PHP_OS_FAMILY, php_uname('m'), $maps, is_file('/etc/alpine-release'));
+
+        self::assertSame($expected->describe(), TurboPlatform::fromRuntime()->describe());
+        self::assertSame($expected->binaryPath(), TurboPlatform::fromRuntime()->binaryPath());
+    }
+
+    #[Test]
+    #[DataProvider('linuxProcesses')]
+    public function aLinuxProcessIsMuslOnlyWhenTheMuslLoaderIsMappedIntoIt(?string $selfMaps, bool $hasAlpineRelease, string $directory, string $libc): void
+    {
+        $platform = TurboPlatform::fromProcess(self::LINUX, self::X86_64, $selfMaps, $hasAlpineRelease);
+
+        self::assertSame($directory . '/' . self::CORE, $platform->corePath());
+        self::assertStringContainsString(', libc ' . $libc . ',', $platform->describe());
+    }
+
+    /** @return iterable<string, array{?string, bool, string, string}> */
+    public static function linuxProcesses(): iterable
+    {
+        yield 'glibc process on a host that also has musl-tools' => [self::GLIBC_MAPS, false, self::LINUX_GNU_X86_64, self::GNU];
+        yield 'musl process' => [self::MUSL_MAPS, false, 'linux-musl-x86_64', 'musl'];
+        yield 'the maps outrank /etc/alpine-release' => [self::GLIBC_MAPS, true, self::LINUX_GNU_X86_64, self::GNU];
+        yield 'no readable maps on Alpine' => [null, true, 'linux-musl-x86_64', 'musl'];
+        yield 'no readable maps elsewhere' => [null, false, self::LINUX_GNU_X86_64, self::GNU];
+    }
+
+    #[Test]
+    public function aProcessOutsideLinuxHasNoLibcWhateverItsMapsSay(): void
+    {
+        $platform = TurboPlatform::fromProcess(self::DARWIN, 'arm64', self::MUSL_MAPS, true);
+
+        self::assertSame('macos-arm64/' . self::CORE, $platform->corePath());
+        self::assertStringNotContainsString('libc', $platform->describe());
+    }
+
+    #[Test]
+    public function theProcessKeepsTheMachineItWasGiven(): void
+    {
+        self::assertSame('linux-gnu-arm64/' . self::CORE, TurboPlatform::fromProcess(self::LINUX, 'aarch64', self::GLIBC_MAPS, false)->corePath());
     }
 }
