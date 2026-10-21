@@ -9,10 +9,10 @@ use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
 use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Runner\Dto\ExecutionDto;
 use LTS\PHPQA\Pipeline\Runner\NonInteractiveRetryPrompt;
-use LTS\PHPQA\Pipeline\Runner\RetryPromptInterface;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
+use LTS\PHPQA\Tests\Support\AlwaysRetry;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FakeToolLocator;
 use LTS\PHPQA\Tests\Support\SignalledChildTool;
@@ -191,16 +191,5 @@ final class ToolExecutorTest extends TestCase
         $rule = "    ==================================================\n";
 
         return "\n" . $rule . "\n" . $heading . "\n        " . self::DEFENCE_BEFORE_FIX_LINE . "\n\n" . $rule . "\n";
-    }
-}
-
-/**
- * @internal
- */
-final readonly class AlwaysRetry implements RetryPromptInterface
-{
-    public function shouldRetry(string $label): bool
-    {
-        return true;
     }
 }

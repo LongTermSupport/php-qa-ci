@@ -155,6 +155,22 @@
 #                                          decide what the test sees. See
 #                                          docs/phpstan-rules/forbid-unisolated-git-process.md
 #
+# A CLASS ANOTHER FILE CANNOT AUTOLOAD:
+#   ForbidUnautoloadableClassReferenceRule — a reference from another file to a class
+#                                          the project's PSR-4/PSR-0 mapping claims but
+#                                          that is not declared at the path the mapping
+#                                          gives (a helper at the foot of a test file, a
+#                                          namespace drifted from its directory), where
+#                                          PHP asks the autoloader for it. It works only
+#                                          when something else has loaded the declaring
+#                                          file first, so a single test, a filtered run
+#                                          or Infection fails with "not found". Also a
+#                                          name in the wrong case, and a second copy of a
+#                                          class at its path. Quiet on instanceof, catch
+#                                          and plain types, the declaring file's own uses,
+#                                          a file that includes it, classmap and files
+#                                          entries, and classes no prefix claims. See
+#                                          docs/phpstan-rules/forbid-unautoloadable-class-reference.md
 # AN ARRAY KEY THAT MAY BE ALL DIGITS:
 #   ForbidNumericStringArrayKeyRule      — PHP stores an array key that is an all-digit
 #                                          string ('2024') as an int, but PHPStan types
@@ -257,6 +273,18 @@ services:
         class: LTS\PHPQA\PHPStan\Rules\ErrorHandlerInstallCollector
         tags:
             - phpstan.collector
+    # ForbidUnautoloadableClassReferenceRule reads the analysed project's own
+    # composer.json autoload mapping. The VendoredCodeDetector it takes is
+    # registered in rules-default.neon.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\AutoloadPathDetector
+        arguments:
+            projectRoot: %currentWorkingDirectory%
+    - LTS\PHPQA\PHPStan\Rules\ClassReferenceScanner
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ForbidUnautoloadableClassReferenceRule
+        tags:
+            - phpstan.rules.rule
     # The collector ForbidUnhandledProcessSignalRule (under rules: above) matches.
     -
         class: LTS\PHPQA\PHPStan\Rules\ProcessSignalHandlingCollector
