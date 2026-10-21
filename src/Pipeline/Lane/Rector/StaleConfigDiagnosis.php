@@ -19,12 +19,19 @@ namespace LTS\PHPQA\Pipeline\Lane\Rector;
  *
  * Rector wraps its message at the terminal width, even inside a quoted class name, so each
  * `[ERROR]` block of the output is matched with its whitespace removed. Only a block that starts
- * with the marker counts, never a line of a diff that quotes it.
+ * with the marker counts, and never a line between the begin and end lines of a diff, which is
+ * source code that may quote it.
  *
  * @internal
  */
 final readonly class StaleConfigDiagnosis
 {
+    /** The line (whitespace removed) that opens a diff in Rector's output; what follows it is source code. */
+    private const string DIFF_BEGIN = '----------begindiff----------';
+
+    /** The line (whitespace removed) that closes that diff. */
+    private const string DIFF_END = '-----------enddiff-----------';
+
     /** `cacheClass()` was given a class that is not a CacheStorageInterface (it may not exist at all). */
     private const string CACHE_CLASS_REJECTED = '/^\[ERROR\]Expectedaninstanceofthisclassortothisclassamongitsparents"[^"]*CacheStorageInterface"\.Got:"([^"]+)"/';
 
@@ -84,8 +91,19 @@ final readonly class StaleConfigDiagnosis
     {
         $blocks  = [];
         $current = null;
+        $inDiff  = false;
         foreach (explode("\n", $rectorOutput) as $line) {
             $text = str_replace([' ', "\t", "\r"], '', $line);
+            if (str_contains($text, self::DIFF_BEGIN)) {
+                $inDiff = true;
+            }
+
+            if ($inDiff) {
+                $inDiff = !str_contains($text, self::DIFF_END);
+
+                continue;
+            }
+
             if ('' === $text) {
                 if (null !== $current) {
                     $blocks[] = $current;
