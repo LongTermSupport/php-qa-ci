@@ -201,6 +201,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::ITERATED, 'line 109 reads its keys with foreach'), 109],
                 [$this->message(self::ITERATED, 'line 118 reads its keys with foreach'), 118],
                 [$this->message(self::ITERATED, 'line 129 reads its keys with foreach'), 129],
+                [$this->message(self::MAP, $this->asserted(142, self::STRING_INT)), 142],
             ],
         );
     }

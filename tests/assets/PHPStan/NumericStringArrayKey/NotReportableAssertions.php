@@ -109,6 +109,51 @@ final class NotReportableAssertions
         }
     }
 
+    public function restatingAfterAnUntypedWriteIsOverwritten(string $json): void
+    {
+        $map = json_decode($json, true);
+        echo \is_array($map) ? \count($map) : 0;
+        $map = $this->byName;
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterAnUntypedWriteIsOverwrittenInEveryBranch(string $json, int $c): void
+    {
+        $map = json_decode($json, true);
+        echo \is_array($map) ? \count($map) : 0;
+        if (0 === $c) {
+            $map = $this->byName;
+        } elseif (1 === $c) {
+            throw new \RuntimeException('none');
+        } else {
+            $map = ['fixed' => 1];
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingInALoopAfterItsOwnOverwrite(string $json): void
+    {
+        for ($i = 0; $i < 2; ++$i) {
+            $map = $this->byName;
+            /** @var array<string, int> $map */
+            $this->takesMap($map);
+            $map = json_decode($json, true);
+            echo \is_array($map) ? \count($map) : 0;
+        }
+    }
+
+    public function pathNamesFromAnIteratorReassigned(string $dir): void
+    {
+        $iterator = new \FilesystemIterator($dir, \FilesystemIterator::KEY_AS_FILENAME);
+        $iterator = new \FilesystemIterator($dir);
+        foreach (iterator_to_array($iterator) as $path => $file) {
+            $this->takes($path);
+        }
+    }
+
     /** @return array<string, int>|false */
     private function mapOrFalse(): array|false
     {

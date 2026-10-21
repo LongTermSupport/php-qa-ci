@@ -131,6 +131,17 @@ final class ReportableAssertions
         }
     }
 
+    public function onAHeldVariableOverwrittenInOneBranchOnly(string $json, bool $c): void
+    {
+        $map = json_decode($json, true);
+        if ($c) {
+            $map = $this->byName;
+        }
+
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     private function takes(string $name): void
     {
     }
