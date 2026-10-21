@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\PHPStan\Rules;
 
+use FilesystemIterator;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
@@ -463,7 +464,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
         $iterator = $call->getArgs()[0] ?? null;
         if (!$iterator instanceof Arg || !$iterator->value instanceof New_ || !$iterator->value->class instanceof Name
-            || !\in_array(strtolower($scope->resolveName($iterator->value->class)), self::FILESYSTEM_ITERATORS, true)) {
+                                      || !\in_array(strtolower($scope->resolveName($iterator->value->class)), self::FILESYSTEM_ITERATORS, true)) {
             return true;
         }
 
@@ -474,7 +475,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
         $values = $scope->getType($flags->value)->getConstantScalarValues();
 
-        return [] === $values || array_any($values, static fn (mixed $value): bool => !\is_int($value) || 0 !== ($value & \FilesystemIterator::KEY_AS_FILENAME));
+        return [] === $values || array_any($values, static fn (mixed $value): bool => !\is_int($value) || 0 !== ($value & FilesystemIterator::KEY_AS_FILENAME));
     }
 
     /**
@@ -760,7 +761,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
      */
     private function copy(Assign $assign, Scope $scope): array
     {
-        if (!$assign->var instanceof Variable || !\is_string($assign->var->name) || !($assign->expr instanceof Variable || $assign->expr instanceof FuncCall)) {
+        if (!$assign->var instanceof Variable || !\is_string($assign->var->name) || !$assign->expr instanceof Variable && !$assign->expr instanceof FuncCall) {
             return [];
         }
 
@@ -787,7 +788,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     private function asserted(Stmt $statement, Scope $scope): array
     {
         $doc = $statement->getDocComment();
-        if (null === $doc) {
+        if (!$doc instanceof \PhpParser\Comment\Doc) {
             return [];
         }
 
@@ -835,7 +836,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         $records = [];
         foreach ($this->stringKeyedDepths($declared) as $depth) {
             $declaredKey = $this->keyTypeAt($declared, $depth);
-            if (null === $declaredKey || !$this->typeMayBeAllDigits($declaredKey) || true === $this->keyTypeAt($actual, $depth)?->isString()->yes()) {
+            if (!$declaredKey instanceof Type || !$this->typeMayBeAllDigits($declaredKey) || true === $this->keyTypeAt($actual, $depth)?->isString()->yes()) {
                 continue;
             }
 
@@ -943,7 +944,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     {
         return match (true) {
             $node instanceof Variable                          => !\is_string($node->name),
-            $node instanceof Include_, $node instanceof Eval_ => true,
+            $node instanceof Include_, $node instanceof Eval_  => true,
             $node instanceof FuncCall                          => !$node->name instanceof Name || \in_array($node->name->toLowerString(), self::READ_BY_NAME, true),
             default                                            => false,
         };
@@ -1058,13 +1059,13 @@ final readonly class NumericStringArrayKeyCollector implements Collector
 
         $args  = $call->getArgs();
         $inner = match (true) {
-            \in_array($call->name->toLowerString(), self::COUNTING, true)                                                                   => $args[0] ?? null,
+            \in_array($call->name->toLowerString(), self::COUNTING, true)                                                                     => $args[0] ?? null,
             self::ARRAY_MAP === $call->name->toLowerString() && self::ARRAY_MAP_WITH_ONE_ARRAY === \count($args) && $this->isStrval($args[0]) => $args[1],
-            default                                                                                                                         => null,
+            default                                                                                                                           => null,
         };
 
         return $inner instanceof Arg && !$inner->unpack && $inner->value instanceof FuncCall && $inner->value->name instanceof Name
-            && self::ARRAY_KEYS === $inner->value->name->toLowerString()
+                                     && self::ARRAY_KEYS === $inner->value->name->toLowerString()
             ? [$this->record(self::UNREAD, $scope, $inner->value)]
             : [];
     }
@@ -1126,7 +1127,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         }
 
         $callback = array_find($args, static fn (Arg $arg): bool => $arg->name instanceof Identifier && self::CALLBACK === $arg->name->toString()) ?? $args[1] ?? null;
-        if (!$callback instanceof Arg || !($callback->value instanceof Closure || $callback->value instanceof ArrowFunction)) {
+        if (!$callback instanceof Arg || !$callback->value instanceof Closure && !$callback->value instanceof ArrowFunction) {
             return false;
         }
 

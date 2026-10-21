@@ -163,6 +163,9 @@
 #                                          array is a property declared string-keyed, or a
 #                                          local the same function returns, passes or
 #                                          assigns as string-keyed, or whose keys it reads.
+#                                          Keys made by a literal, array_flip() and the
+#                                          like, or asserted by an inline @var over decoded
+#                                          data, are judged the same way.
 #                                          Declare such keys array-key and cast a key to
 #                                          string where one is read. Its collector is
 #                                          registered under services: below. See

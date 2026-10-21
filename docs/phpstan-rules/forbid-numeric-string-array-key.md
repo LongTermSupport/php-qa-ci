@@ -10,24 +10,53 @@ digits, when the array is taken as string-keyed:
 
 - the array is a property whose declared type has `string` keys at the key's depth; or
 - the array is a local variable, and the same function, directly or through a copy of it
-  (`$copy = $array`):
+  (`$copy = $array`, or `$copy = array_filter($array)` and the other functions that keep keys,
+  below):
   - returns it from a function whose declared return type has `string` keys at that depth;
   - passes it to a parameter whose declared type has `string` keys at that depth (a function, a
     method, a static method or a constructor, by position or by name);
-  - assigns it to a property whose declared type has `string` keys at that depth; or
+  - assigns it to a property whose declared type has `string` keys at that depth;
+  - does any of these with a literal holding it (`return [$array]` as
+    `list<array<string, int>>`), at the depth the literal nests it; or
   - reads its keys while PHPStan types them `string`: `foreach ($array as $key => …)`,
-    `array_keys()`, `array_key_first()`, `array_key_last()`, `key()`, `array_flip()`,
-    `array_search()`, `array_find_key()`, `array_find()`, `array_any()`, `array_all()`,
-    `array_walk()`, `array_walk_recursive()`, `uksort()`, `array_filter()` given a mode,
-    `array_merge()`, `array_merge_recursive()`, or spreading it (`[...$array]`, `f(...$array)`).
+    `yield from $array`, `array_keys()`, `array_key_first()`, `array_key_last()`, `key()`,
+    `array_flip()`, `array_search()`, `array_find_key()`, `array_find()`, `array_any()`,
+    `array_all()`, `array_walk()`, `array_walk_recursive()`, `uksort()`, `array_filter()` given a
+    mode, or spreading it (`[...$array]`, `f(...$array)`); or renumbers its int keys:
+    `array_merge()`, `array_merge_recursive()`, `array_splice()`, `array_shift()`,
+    `array_unshift()`, and `array_reverse()` and `array_slice()` unless given `preserve_keys: true`.
 
-An array literal keys its items the same way, so a literal key that may be all digits fires too,
-at any depth of nesting and in a literal spread into another (`[...$map, $name => $tool]`):
+A function that keeps the keys of an array it is given hands the array on: what takes its result
+as string-keyed takes the array so. These are `array_filter()`, `array_replace()`,
+`array_replace_recursive()`, `array_diff()`, `array_diff_key()`, `array_diff_assoc()`,
+`array_intersect()`, `array_intersect_key()`, `array_intersect_assoc()`, `array_unique()`,
+`array_change_key_case()`, `array_map()` given one array, and `array_reverse()` and
+`array_slice()` given `preserve_keys: true`.
 
-- when the literal is returned, passed or assigned to a property as above, where the declared
-  type has `string` keys at the key's depth; the message names it "The array literal"; or
-- when the literal is assigned to a local variable (`$map = [$path => …]`), as a write into that
-  variable, judged by the uses above.
+Keys made without an element write fire the same way, at any depth of nesting:
+
+- an array literal's keys, including a literal spread into another (`[...$map, $name => $tool]`)
+  or handed to one of the functions above (`array_merge($map, [$name => $tool])`,
+  `array_replace($map, [$name => $tool])`); the message names it "The array literal";
+- the keys a function makes from values, where PHPStan types them a `string` that may be all
+  digits: `array_flip()`, `array_fill_keys()`, `array_combine()`, `array_count_values()`,
+  `array_column()` with an index, and `iterator_to_array()`; the message names it "The result of
+  array_flip()". `iterator_to_array()` over a `new FilesystemIterator`, `RecursiveDirectoryIterator`
+  or `GlobIterator` keys by path name, which holds a `/`, and fires only when its flags may
+  include `KEY_AS_FILENAME`; over an iterator held in a variable, whose flags cannot be seen, it
+  fires.
+
+Such keys are judged as a write into the local variable they are assigned to (`$set = array_flip($names)`), and otherwise as they stand: where they are returned, passed or assigned to
+a property declared with `string` keys at their depth, or where their keys are read as above
+(`foreach (array_flip($names) as $name => …)`).
+
+An inline `@var` that asserts `string` keys that may be all digits fires as it stands when
+PHPStan does not know the keys of the value it is put on to be strings at that depth, as for
+`json_decode()` data or anything `mixed`: on an assignment, the value assigned; on any other
+statement (an expression, `return`, `foreach` or `if`), the variable it names. PHPStan applies the
+tag to the scope before the rule sees the statement, so a variable already held is judged by its
+native type, which never knows its keys: an `@var` that only repeats what a docblock already told
+PHPStan fires as well, and the fix is to delete it.
 
 The message names the array and the first place it is taken as string-keyed.
 
@@ -101,6 +130,21 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
   string-keyed, such as a set checked only with `isset()`.
 - A closure's own local array: a variable in a closure is not the enclosing function's, unless the
   closure imports it with `use`.
+- Keys read where no int can misbehave:
+  - `array_walk()`, `array_walk_recursive()`, `array_any()`, `array_all()` or `array_find()` given a
+    closure or arrow function that takes fewer than two parameters, none of them variadic, and does
+    not call `func_get_args()`, `func_get_arg()`, `compact()`, `get_defined_vars()` or `extract()`:
+    the key is the second argument, and nothing takes it. A callback given any other way still fires.
+  - `count(array_keys($array))`, `sizeof(array_keys($array))` and
+    `array_map(strval(...), array_keys($array))` (or `'strval'` by name): the keys are counted, or
+    made strings.
+  - A `foreach` in a function, method or closure whose key variable the function reads only
+    interpolated (`"{$key}"`), concatenated (`$key . '/'`) or cast to string (`(string) $key`),
+    anywhere in its body, before, in or after the loop, where nothing in the body reads a variable
+    without naming it (`compact()`, `get_defined_vars()`, `extract()`, `func_get_args()`, a function
+    named at runtime, `include`, `eval`, a variable variable). An int is as good as a string in each
+    of those. Any other read of the variable, `echo $key` included, still fires, as does a `foreach`
+    in code outside any function.
 
 ## Defence Before Fix record
 
@@ -109,7 +153,9 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
 - **Hazard**: an int comes back where every type in the code, and PHPStan, says a string is, so a
   name written in digits crashes a `string` parameter under `strict_types`, is renumbered by
   `array_merge()`, or fails a `string` comparison.
-- **Search, two techniques**: a text search of `src/`, `bin/` and `tests/` for every keyed array
+- **Search, two techniques** (each extension below was corroborated the same way, the text search
+  extended to the key-making functions and to inline `@var` tags with `string` keys): a text
+  search of `src/`, `bin/` and `tests/` for every keyed array
   write `$x[$y] = …` (and `??=`, `+=`, `++`) whose key is a variable, and for the functions that
   build keyed arrays from names (`array_flip`, `array_fill_keys`, `array_combine`,
   `iterator_to_array`, `array_count_values`, `scandir`, `glob`, `json_decode`); and a reading of
@@ -128,14 +174,34 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
   `foreach` key variable over an array, unwritten in the loop, holds a key PHP made, and PHP makes
   no all-digit string key. A local array whose keys are never read and that is never handed on as
   string-keyed returns no int anywhere it is believed a string. A closure's own variable is another
-  variable.
-- **Next wider rule, not built**: an array whose keys come from outside the code, `json_decode()`,
-  `unserialize()` or a `Traversable`, declared string-keyed. No write in the code makes the int
-  there, so this rule, which reports the write, cannot see it; the defence there is the one the
-  JSON readers already use, an `is_string()` check on each key read. Also not followed: an array
-  handed on inside another structure (`return [$map]`, `yield $map`), by reference, or through
-  `static` or `global`; and a literal written into an element (`$map[$a] = [$b => …]`), whose own
-  keys are not judged.
+  variable. `iterator_to_array()` over a filesystem iterator made in place without
+  `KEY_AS_FILENAME` keys by path name, and a path name holds a `/`. A key only counted, made a
+  string, interpolated, concatenated or cast, or handed to a callback that takes no key, reaches no
+  code where an int behaves otherwise than its string.
+- **Keys made without an element write, added after the PR #260 verification**: the verifier
+  showed the rule silent on `array_merge($this->tools, [$name => $tool])`, the `withTool()` defect
+  written another way, and on keys made by `iterator_to_array()`, `array_flip()`,
+  `array_fill_keys()`, `array_combine()`, `array_count_values()` and `array_column()`, and on the
+  `psr4` crash shape, an `@var array<string, …>` over `json_decode()` data. Each now fires (red
+  fixtures first), as do the renumbering functions besides `array_merge()`, the key-keeping
+  functions, a local held in a literal, `yield from` and an inline `@var` on any statement. Run
+  over the tree, the extension found three sites, all fixed: two inline `@var` tags over decoded
+  JSON (`InfectionConfigSourceDirectoriesCheck`, `ManagedSourceGenerator`, the second of which
+  named a `psr-4` prefix `"2024"` as an empty mapping), and one false report
+  (`array_map(strval(...), array_keys(…))` in `tests/Support/`), which became a narrowing.
+- **Not followed, a mechanism limit rather than an absent hazard, awaiting the Owner**: an array
+  handed on by reference (`$alias = &$map`), through `static` or `global`, or as a value yielded by
+  `yield $map`; a literal written into an element (`$map[$a] = [$b => …]`), whose own keys are not
+  judged; keys PHPStan types `mixed` (`iterator_to_array()` over a `RecursiveIteratorIterator`,
+  `(array)` of an object decoded from JSON), which no declaration asserts are strings; and a
+  `Traversable` declared with `string` keys, whose keys come from code the rule does not see.
+  `unserialize()` is forbidden outright by `phpqaci.dangerousFunctions`.
+- **Imprecisions, awaiting the Owner**: an inline `@var` on a variable already held is judged by
+  the variable's native type, because PHPStan applies the tag before the rule sees the statement
+  and the node that carries the replaced type, `VarTagChangedExpressionTypeNode`, is outside
+  PHPStan's backward-compatibility promise; an `@var` that only repeats a docblock's type therefore
+  fires. `iterator_to_array()` over a filesystem iterator held in a variable fires, since its flags
+  cannot be seen, though it keys by path name unless told otherwise.
 - **Literal keys, added after the sweep**: the first version judged element writes only. Reading
   the sites found `PipelineBuilder::withTool()` building its maps as `[...$this->tools, $name => $tool]`, which lost a tool named `'2024'`, so the rule now judges array-literal keys as well. Run
   over the tree once the fixes below were in, it found no further site.

@@ -31,7 +31,11 @@ use PHPStan\Rules\RuleErrorBuilder;
  * copied from it (`$copy = $array`); the first such place is named.
  * Neither is reported when the key is the key variable of a foreach over an
  * array around the write that nothing in the loop writes: that variable holds
- * a key PHP made, and PHP leaves no all-digit string as a key.
+ * a key PHP made, and PHP leaves no all-digit string as a key. Keys made
+ * without an element write (a literal, array_flip(), an inline @var over data
+ * PHPStan cannot see into) arrive as writes or as reports that stand. A use or
+ * report whose span the collector marked unread (a foreach or array_keys()
+ * whose keys reach no code where an int could misbehave) is dropped.
  *
  * See: docs/phpstan-rules/forbid-numeric-string-array-key.md.
  *
