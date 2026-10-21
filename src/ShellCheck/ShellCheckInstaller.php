@@ -131,9 +131,14 @@ final readonly class ShellCheckInstaller
         // Staged beside the binary, so the rename swaps the inode: a ShellCheck running the old
         // binary keeps it, and an interrupted update never leaves a partial one in its place.
         $binary  = ShellCheckBinary::path($libraryRoot);
-        $staging = TemporaryDirectory::besides($binary, '.phpqa-shellcheck');
+        $staging = null;
 
         try {
+            $staging = TemporaryDirectory::besides($binary, '.phpqa-shellcheck');
+            foreach ($staging->unremovedLeftovers as $leftover => $why) {
+                $this->error(\sprintf('WARNING: could not remove %s, a staging directory a killed update left: %s', $leftover, $why));
+            }
+
             $archive = $staging->path . '/shellcheck.tar.gz';
             $this->download(\sprintf(self::DOWNLOAD_URL, $version, ShellCheckBinary::ARCHITECTURE), $archive);
 
@@ -144,7 +149,7 @@ final readonly class ShellCheckInstaller
             \Safe\rename($staging->path . '/' . $entry, $binary);
             \Safe\file_put_contents($libraryRoot . '/' . ShellCheckBinary::VERSION_FILE, $version . "\n");
         } catch (Throwable $throwable) {
-            $staging->remove();
+            $staging?->remove();
             $this->error('ERROR: could not install ShellCheck ' . $version . ': ' . $throwable->getMessage());
 
             return 1;

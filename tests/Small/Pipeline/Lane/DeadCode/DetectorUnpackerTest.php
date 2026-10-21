@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Safe\Exceptions\FilesystemException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\NullOutput;
 use UnexpectedValueException;
@@ -39,6 +40,9 @@ final class DetectorUnpackerTest extends TestCase
 
     /** Where a test plants an UnremovableTree inside an incomplete copy. */
     private const string STUCK = '/stuck';
+
+    /** How a warning naming an entry the unpacker cannot remove starts. */
+    private const string COULD_NOT_REMOVE = 'WARNING: could not remove ';
 
     private TempDir $cache;
 
@@ -205,7 +209,7 @@ final class DetectorUnpackerTest extends TestCase
         self::assertFileExists($first . '/' . DetectorUnpacker::AUTOLOAD);
         self::assertEqualsCanonicalizing(['.', '..', basename($stuck), basename($first)], \Safe\scandir($dir), 'the entries after the stuck one are still pruned');
         $printed = $output->fetch();
-        self::assertSame(2, substr_count($printed, 'WARNING: could not remove ' . $stuck . ','), 'named once per run: ' . $printed);
+        self::assertSame(2, substr_count($printed, self::COULD_NOT_REMOVE . $stuck . ','), 'named once per run: ' . $printed);
     }
 
     /**
@@ -236,7 +240,62 @@ final class DetectorUnpackerTest extends TestCase
         self::assertStringContainsString('/.discard', $this->unremovable, 'the incomplete copy was moved aside');
         $discard = \dirname($this->unremovable, 2);
         $printed = $output->fetch();
-        self::assertSame(2, substr_count($printed, 'WARNING: could not remove ' . $discard), 'named once per run: ' . $printed);
+        self::assertSame(2, substr_count($printed, self::COULD_NOT_REMOVE . $discard), 'named once per run: ' . $printed);
+    }
+
+    /**
+     * When the fresh copy cannot be renamed into place, that failure is what the run reports.
+     * An incomplete copy already moved aside that cannot be removed is still named, but the
+     * warning does not say the lane goes on, as it does not.
+     *
+     * The cache's detector directory is reached through a link into the incomplete copy and
+     * back out ('<copy>/..'), so moving the copy aside breaks every path in that directory, and
+     * the rename of the fresh copy into place fails. The warning that rename raises is the
+     * moment it has failed: the link is then pointed straight at the real directory, so what
+     * the run does after the failure (removing its staging and the moved-aside copy) reaches
+     * the paths it names, as it would in a cache whose rename failed for any other reason.
+     */
+    #[Test]
+    public function whenTheFreshCopyCannotBeRenamedIntoPlaceTheWarningDoesNotSayTheLaneGoesOn(): void
+    {
+        $real = $this->cache->path . '/real';
+        $link = $this->cache->path . '/' . DetectorUnpacker::DIR;
+        $hash = basename($this->expectedTarget());
+        UnremovableTree::plant($real . '/' . $hash . self::STUCK);
+        \Safe\symlink($real . '/' . $hash . '/..', $link);
+        $output   = new BufferedOutput();
+        $thrown   = null;
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings, $link, $real): bool {
+            $warnings[] = $message;
+            if (1 === \count($warnings)) {
+                \Safe\unlink($link);
+                \Safe\symlink($real, $link);
+            }
+
+            return true;
+        });
+
+        try {
+            new DetectorUnpacker($output)->unpack(self::PHAR, $this->cache->path);
+        } catch (FilesystemException $filesystemException) {
+            $thrown = $filesystemException;
+        } finally {
+            restore_error_handler();
+            $this->trackMovedUnremovable($real . '/' . $hash);
+        }
+
+        self::assertInstanceOf(FilesystemException::class, $thrown, 'the failed rename fails the run');
+        self::assertCount(1, $warnings, 'only the rename of the fresh copy into place fails: ' . implode("\n", $warnings));
+        self::assertStringStartsWith('rename(' . $link . '/.unpack', $warnings[0]);
+        self::assertIsString($this->unremovable);
+        self::assertStringContainsString('/.discard', $this->unremovable, 'the incomplete copy was moved aside');
+        $printed = $output->fetch();
+        self::assertStringStartsWith(self::COULD_NOT_REMOVE, $printed);
+        $named = strstr(substr($printed, \strlen(self::COULD_NOT_REMOVE)), ', ', true);
+        self::assertIsString($named, 'the moved-aside copy is named: ' . $printed);
+        self::assertSame(\Safe\realpath(\dirname($this->unremovable, 2)), \Safe\realpath($named), 'the path named is the moved-aside copy left behind');
+        self::assertStringNotContainsString('goes on', $printed);
     }
 
     private function unpacker(): DetectorUnpacker

@@ -64,12 +64,15 @@ final readonly class DetectorUnpacker
     /**
      * Unpacked beside the target and renamed into place, so a copy that exists is complete. An
      * incomplete one (a partial rm, a hand edit) is first renamed out of the way, never emptied
-     * in place, so the target path is only ever absent or whole.
+     * in place, so the target path is only ever absent or whole. When the fresh copy cannot be
+     * renamed into place, that failure fails the run, and a moved-aside copy that cannot be
+     * removed is named without saying the lane goes on.
      */
     private function extract(string $phar, string $target): void
     {
         $staging = TemporaryDirectory::besides($target, '.unpack');
         $discard = null;
+        $inPlace = null;
 
         try {
             new Phar($phar)->extractTo($staging->path);
@@ -79,10 +82,11 @@ final readonly class DetectorUnpacker
             }
 
             \Safe\rename($staging->path, $target);
+            $inPlace = $target;
         } finally {
             $staging->remove();
             if ($discard instanceof TemporaryDirectory) {
-                $this->removeOrWarn($discard->path, 'moved aside as an incomplete copy', $target);
+                $this->removeOrWarn($discard->path, 'moved aside as an incomplete copy', $inPlace);
             }
         }
     }
@@ -104,17 +108,20 @@ final readonly class DetectorUnpacker
         }
     }
 
-    /** Removes $path, or names it in a warning saying how it came to be there ($origin) and goes on. */
-    private function removeOrWarn(string $path, string $origin, string $target): void
+    /**
+     * Removes $path, or names it in a warning saying how it came to be there ($origin) and goes
+     * on; the warning says the lane goes on with $target only when there is one to go on with.
+     */
+    private function removeOrWarn(string $path, string $origin, ?string $target): void
     {
         try {
             $this->remove($path);
         } catch (FilesystemException|UnexpectedValueException $exception) {
             $this->output->writeln(\sprintf(
-                'WARNING: could not remove %s, %s; the lane goes on with %s. Remove it by hand (another user may own it): %s',
+                'WARNING: could not remove %s, %s%s. Remove it by hand (another user may own it): %s',
                 $path,
                 $origin,
-                $target,
+                null === $target ? '' : '; the lane goes on with ' . $target,
                 $exception->getMessage(),
             ));
         }
