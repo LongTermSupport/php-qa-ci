@@ -85,6 +85,12 @@ The pre hook runs after configuration and PHAR verification, before the run lock
 - runs your project's `hookPre.php` if present;
 - acquires the run lock ([RunLock](../src/Pipeline/Lock/RunLock.php)). One run per project: an exclusive `flock` on `qaConfig/.qa-lock/qa-running.lock`, with the holder's host, pid, tool, path and start time recorded in the file. A holder aborts the run before any tool executes, with exit code 75. The kernel frees the lock the moment its holder dies, however it dies, so there is no stale window; a record left by a killed run is taken over with a note. The lock is released with the exit code and elapsed time at the end. An interrupted run (Ctrl-C, `kill`, a closed terminal: SIGINT, SIGTERM, SIGHUP or SIGQUIT) stops its running tool and that tool's own descendants, read from `/proc` by [ProcessTree](../src/Pipeline/Process/ProcessTree.php) so PHPStan's workers go too, releases the lock and exits 128 + the signal number ([RunInterruptHandler](../src/Pipeline/Runner/RunInterruptHandler.php)). This is why `ext-pcntl` and `ext-posix` are required.
 
+A full run (no `-t`) then checks that the locked packages you keep current, `lts/php-qa-ci` by
+default, are what `composer update` would install: [Dependency Freshness](./tools/dependencyFreshness.md).
+Stale dependencies end the run before any phase, in aggregate mode too. When Composer cannot say
+(offline, a source unreachable), the check prints a named `SKIPPED dependencyFreshness` line and
+the run carries on.
+
 ### 3. QA Tools (Four Phases)
 
 The phases, the tools in each, their order and the `-t` aliases are owned by [ToolRegistry](../src/Pipeline/Tool/ToolRegistry.php) and frozen by a characterisation test. The run reads them through [PipelineBuilder](../src/Pipeline/Tool/PipelineBuilder.php), whose `defaults()` is exactly this shipped set. They are not listed by hand here, because a hand-kept list drifts from the registry:

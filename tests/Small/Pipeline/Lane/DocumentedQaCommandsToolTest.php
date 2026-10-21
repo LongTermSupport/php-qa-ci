@@ -60,6 +60,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerRequireCheckerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ConfigTemplateIgnoreListTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshnessTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DocsProseTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionConfigSourceDirsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]

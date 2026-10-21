@@ -88,6 +88,7 @@ final readonly class ToolRegistry
         return new self(
             array_map(static fn (PhaseEnum $phase): PhaseDto => $phase->phase(), PhaseEnum::cases()),
             [
+                new ToolDefinitionDto('dependencyFreshness', ['df', 'dependencyFreshness'], 'locked packages (lts/php-qa-ci, plus withDependencyFreshnessPatterns()) are what composer update would install; first in a full run', null, false),
                 new ToolDefinitionDto('rector', ['r', 'rector'], 'Rector', $codingStandards, true, banner: 'Running Rector'),
                 new ToolDefinitionDto('phpCsFixer', ['f', 'fixer', 'csfixer'], 'PHP-CS-Fixer', $codingStandards, true, banner: 'Running PHP-CS-Fixer'),
                 new ToolDefinitionDto('twigCsFixer', ['twigcs'], 'Twig coding standards (when twig/twig is installed)', $codingStandards, false, banner: 'Running Twig CS Fixer'),
