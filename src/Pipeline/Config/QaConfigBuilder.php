@@ -43,16 +43,17 @@ final readonly class QaConfigBuilder
     private const array DEFAULT_MARKDOWN_FORMAT_PATHS = ['README.md', 'CLAUDE.md', 'CHANGELOG.md', 'docs', 'CLAUDE'];
 
     /**
-     * @param list<string>          $pathsToCheck
-     * @param list<string>          $pathsToIgnore
-     * @param list<string>          $arkitectExcludePaths
-     * @param list<string>          $twigDirectories
-     * @param list<string>          $yamlDirectories
-     * @param list<string>          $shellCheckGlobs
-     * @param list<string>|null     $deadCodeEntryPoints   null until a project has listed them or opted out
-     * @param list<string>          $changelogWatchedPaths
-     * @param array<string, string> $unanalysedPaths       project-relative path => reason
-     * @param list<string>          $markdownFormatPaths
+     * @param list<string>             $pathsToCheck
+     * @param list<string>             $pathsToIgnore
+     * @param list<string>             $arkitectExcludePaths
+     * @param list<string>             $twigDirectories
+     * @param list<string>             $yamlDirectories
+     * @param list<string>             $shellCheckGlobs
+     * @param list<string>|null        $deadCodeEntryPoints         null until a project has listed them or opted out
+     * @param list<string>             $changelogWatchedPaths
+     * @param array<array-key, string> $unanalysedPaths             project-relative path => reason; an int for a path in digits
+     * @param list<string>             $markdownFormatPaths
+     * @param list<string>             $dependencyFreshnessPatterns
      */
     public function __construct(
         private ProjectPathsDto $paths,
@@ -97,6 +98,7 @@ final readonly class QaConfigBuilder
         private ReleaseVersionPolicy $releaseVersionPolicy,
         private array $unanalysedPaths = [],
         private array $markdownFormatPaths = self::DEFAULT_MARKDOWN_FORMAT_PATHS,
+        private array $dependencyFreshnessPatterns = [DependencyFreshnessPatterns::SELF_PACKAGE],
     ) {
     }
 
@@ -316,6 +318,27 @@ final readonly class QaConfigBuilder
     }
 
     /**
+     * More locked packages for the dependencyFreshness lane to hold to what
+     * `composer update` would install: exact `vendor/package` names, or globs
+     * such as `acme/*`, added to lts/php-qa-ci. A pattern that cannot name a
+     * package is refused here, at load time.
+     */
+    public function withDependencyFreshnessPatterns(string ...$patterns): self
+    {
+        return $this->with(dependencyFreshnessPatterns: new DependencyFreshnessPatterns(...$this->dependencyFreshnessPatterns, ...array_values($patterns))->patterns);
+    }
+
+    /**
+     * Replace the dependencyFreshness patterns, the earlier additions with
+     * them. lts/php-qa-ci stays checked whatever the list says: the only way
+     * past that check is a pin in composer.json.
+     */
+    public function withOnlyDependencyFreshnessPatterns(string ...$patterns): self
+    {
+        return $this->with(dependencyFreshnessPatterns: new DependencyFreshnessPatterns(...array_values($patterns))->patterns);
+    }
+
+    /**
      * Dead-code detection (shipmonk/dead-code-detector through phpstan.phar).
      * Off by default. Enabling it also requires withDeadCodeEntryPoints() or
      * withoutDeadCodeEntryPoints(), because a script the detector never sees
@@ -463,6 +486,7 @@ final readonly class QaConfigBuilder
             unanalysedPaths: $this->unanalysedPaths,
             releaseVersionPolicy: $this->releaseVersionPolicy,
             markdownFormatPaths: $this->markdownFormatPaths,
+            dependencyFreshnessPatterns: $this->dependencyFreshnessPatterns,
         );
     }
 
@@ -497,16 +521,17 @@ final readonly class QaConfigBuilder
     }
 
     /**
-     * @param list<string>|null          $pathsToCheck
-     * @param list<string>|null          $pathsToIgnore
-     * @param list<string>|null          $arkitectExcludePaths
-     * @param list<string>|null          $twigDirectories
-     * @param list<string>|null          $yamlDirectories
-     * @param list<string>|null          $shellCheckGlobs
-     * @param list<string>|null          $deadCodeEntryPoints
-     * @param list<string>|null          $changelogWatchedPaths
-     * @param array<string, string>|null $unanalysedPaths
-     * @param list<string>|null          $markdownFormatPaths
+     * @param list<string>|null             $pathsToCheck
+     * @param list<string>|null             $pathsToIgnore
+     * @param list<string>|null             $arkitectExcludePaths
+     * @param list<string>|null             $twigDirectories
+     * @param list<string>|null             $yamlDirectories
+     * @param list<string>|null             $shellCheckGlobs
+     * @param list<string>|null             $deadCodeEntryPoints
+     * @param list<string>|null             $changelogWatchedPaths
+     * @param array<array-key, string>|null $unanalysedPaths
+     * @param list<string>|null             $markdownFormatPaths
+     * @param list<string>|null             $dependencyFreshnessPatterns
      */
     private function with(
         ?array $pathsToCheck = null,
@@ -536,6 +561,7 @@ final readonly class QaConfigBuilder
         ?array $unanalysedPaths = null,
         ?ReleaseVersionPolicy $releaseVersionPolicy = null,
         ?array $markdownFormatPaths = null,
+        ?array $dependencyFreshnessPatterns = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -565,22 +591,23 @@ final readonly class QaConfigBuilder
             infectionDiffMode: $infectionDiffMode                   ?? $this->infectionDiffMode,
             // A new mode brings its own base: null for Auto and Full, the ref for Ref.
             infectionDiffBase: $infectionDiffMode instanceof InfectionDiffModeEnum ? $infectionDiffBase : $this->infectionDiffBase,
-            infectionDiffCoveredMsi: $infectionDiffCoveredMsi       ?? $this->infectionDiffCoveredMsi,
-            useComposerAudit: $useComposerAudit                     ?? $this->useComposerAudit,
-            typeCoverage: $typeCoverage                             ?? $this->typeCoverage,
-            useArkitect: $useArkitect                               ?? $this->useArkitect,
-            arkitectExcludePaths: $arkitectExcludePaths             ?? $this->arkitectExcludePaths,
-            useSensitiveParameterCheck: $useSensitiveParameterCheck ?? $this->useSensitiveParameterCheck,
-            twigDirectories: $twigDirectories                       ?? $this->twigDirectories,
-            yamlDirectories: $yamlDirectories                       ?? $this->yamlDirectories,
-            shellCheckGlobs: $shellCheckGlobs                       ?? $this->shellCheckGlobs,
-            useDeadCode: $useDeadCode                               ?? $this->useDeadCode,
-            deadCodeEntryPoints: $deadCodeEntryPoints               ?? $this->deadCodeEntryPoints,
-            useChangelogCheck: $useChangelogCheck                   ?? $this->useChangelogCheck,
-            changelogWatchedPaths: $changelogWatchedPaths           ?? $this->changelogWatchedPaths,
-            releaseVersionPolicy: $releaseVersionPolicy             ?? $this->releaseVersionPolicy,
-            unanalysedPaths: $unanalysedPaths                       ?? $this->unanalysedPaths,
-            markdownFormatPaths: $markdownFormatPaths               ?? $this->markdownFormatPaths,
+            infectionDiffCoveredMsi: $infectionDiffCoveredMsi         ?? $this->infectionDiffCoveredMsi,
+            useComposerAudit: $useComposerAudit                       ?? $this->useComposerAudit,
+            typeCoverage: $typeCoverage                               ?? $this->typeCoverage,
+            useArkitect: $useArkitect                                 ?? $this->useArkitect,
+            arkitectExcludePaths: $arkitectExcludePaths               ?? $this->arkitectExcludePaths,
+            useSensitiveParameterCheck: $useSensitiveParameterCheck   ?? $this->useSensitiveParameterCheck,
+            twigDirectories: $twigDirectories                         ?? $this->twigDirectories,
+            yamlDirectories: $yamlDirectories                         ?? $this->yamlDirectories,
+            shellCheckGlobs: $shellCheckGlobs                         ?? $this->shellCheckGlobs,
+            useDeadCode: $useDeadCode                                 ?? $this->useDeadCode,
+            deadCodeEntryPoints: $deadCodeEntryPoints                 ?? $this->deadCodeEntryPoints,
+            useChangelogCheck: $useChangelogCheck                     ?? $this->useChangelogCheck,
+            changelogWatchedPaths: $changelogWatchedPaths             ?? $this->changelogWatchedPaths,
+            releaseVersionPolicy: $releaseVersionPolicy               ?? $this->releaseVersionPolicy,
+            unanalysedPaths: $unanalysedPaths                         ?? $this->unanalysedPaths,
+            markdownFormatPaths: $markdownFormatPaths                 ?? $this->markdownFormatPaths,
+            dependencyFreshnessPatterns: $dependencyFreshnessPatterns ?? $this->dependencyFreshnessPatterns,
         );
     }
 }

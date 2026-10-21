@@ -113,7 +113,7 @@ final readonly class RuleDocResolver
     /** @return list<string> */
     public function identifiers(): array
     {
-        return array_keys($this->entries());
+        return array_map(static fn (int|string $identifier): string => (string)$identifier, array_keys($this->entries()));
     }
 
     /**
@@ -222,7 +222,7 @@ final readonly class RuleDocResolver
         );
     }
 
-    /** @return array<string, RuleDocEntryDto> */
+    /** @return array<array-key, RuleDocEntryDto> */
     private function entries(): array
     {
         $entries = $this->entriesFrom(
@@ -298,7 +298,7 @@ final readonly class RuleDocResolver
         return $catalogues;
     }
 
-    /** @return array<string, RuleDocEntryDto> */
+    /** @return array<array-key, RuleDocEntryDto> */
     private function entriesFrom(string $index, string $docsDir, string $rulesDir, string $srcDir): array
     {
         $entries = [];

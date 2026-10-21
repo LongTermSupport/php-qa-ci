@@ -145,7 +145,7 @@ final readonly class PhpstanSetupKey
      * Every NEON file PHPStan merges, path to content hash; null when one of them reads the
      * environment, or the chain reaches something the walk cannot read.
      *
-     * @return array<string, string>|null
+     * @return array<array-key, string>|null
      */
     private function configs(string $entryConfig, string $projectRoot): ?array
     {
@@ -234,7 +234,7 @@ final readonly class PhpstanSetupKey
      * Every file under the phar's `turbo-ext/`, path to content hash. Only the host's own
      * binaries are installed there, a few MB.
      *
-     * @return array<string, string|null>
+     * @return array<array-key, string|null>
      */
     private function turboFiles(string $directory): array
     {

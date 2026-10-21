@@ -15,9 +15,9 @@ namespace LTS\PHPQA\InfectionConfig;
 final readonly class InfectionConfigSourceDirectoriesDetector
 {
     /**
-     * @param array<string, mixed> $infectionJson decoded infection.json
-     * @param string               $configFileDir the directory containing that
-     *                                            infection.json file
+     * @param array<array-key, mixed> $infectionJson decoded infection.json, whose keys PHP may have made ints
+     * @param string                  $configFileDir the directory containing that
+     *                                               infection.json file
      *
      * @return list<string> one message per declared directory that does not
      *                      resolve to an existing directory; empty when every

@@ -169,7 +169,7 @@ final readonly class AnalysedPathsTool implements ToolInterface
         foreach ($context->config->unanalysedPaths as $path => $reason) {
             $count = $verdict->declaredInUse[$path] ?? null;
             if (null !== $count) {
-                $context->writeln(\sprintf('  %s (%d PHP file(s)): %s', $this->display($context, $path), $count, $reason));
+                $context->writeln(\sprintf('  %s (%d PHP file(s)): %s', $this->display($context, (string)$path), $count, $reason));
             }
         }
     }
@@ -182,7 +182,7 @@ final readonly class AnalysedPathsTool implements ToolInterface
 
         $context->writeln('PHP that no analysed path reaches and no declaration accounts for:');
         foreach ($verdict->unclassified as $unit => $count) {
-            $path = rtrim($unit, self::SEPARATOR);
+            $path = rtrim((string)$unit, self::SEPARATOR);
             $context->writeln(\sprintf('  %s (%d PHP file(s))', $unit, $count));
             $context->writeln(\sprintf("      analyse it:   ->withCheckedPaths('%s')", $path));
             $context->writeln(\sprintf("      or declare:   ->withUnanalysedPath('%s', '<why this PHP is not analysed>')", $path));

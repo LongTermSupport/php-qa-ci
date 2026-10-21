@@ -28,7 +28,7 @@ use SplFileInfo;
  */
 final class ClassFileLocator
 {
-    /** @var array<string, list<string>>|null short name => candidate paths; null until the first lookup */
+    /** @var array<array-key, list<string>>|null short name => candidate paths; null until the first lookup */
     private ?array $index = null;
 
     /** @var list<string> */
@@ -57,7 +57,7 @@ final class ClassFileLocator
         return null;
     }
 
-    /** @return array<string, list<string>> */
+    /** @return array<array-key, list<string>> */
     private function index(): array
     {
         if (null !== $this->index) {
