@@ -28,13 +28,12 @@ final class StaleConfigDiagnosisTest extends TestCase
 
     private const string CLASS_MISSING = "\n [ERROR] Expected an existing class name. Got: \"Rector\\Gone\\GoneRector\"         \n\n";
 
-    /** Rector's exit code for an error: a config or a class it cannot use. */
+    private const string PHP_WITH_CACHE_CLASS_CALL = "<?php\n\$c->cacheClass(M::class);\n";
+
     private const int EXIT_ERROR = 1;
 
-    /** Rector's exit code for a dry run that found changes to make. */
     private const int EXIT_PENDING_CHANGES = 2;
 
-    /** A pending-change diff whose context lines quote Rector's own Assert messages in a source comment. */
     private const string DIFF_QUOTING_THE_MESSAGES = "\n1) src/Probe.php:7\n\n    ---------- begin diff ----------\n"
         . "@@ @@\n"
         . "     // Rector says: Expected an existing class name. Got: \"Foo\"\n"
@@ -66,7 +65,7 @@ final class StaleConfigDiagnosisTest extends TestCase
                 "Rector ('Project Specific') cannot load qaConfig/rector.php: it refers to a class the bundled Rector does not have.",
                 '  qaConfig/rector.php:4: $c->cacheClass(MemoryCacheStorage::class);',
                 'Rector does not accept "Rector\Caching\ValueObject\Storage\MemoryCacheStorage" as a cache storage.',
-                "Remove the cacheClass(...) call. The shipped cache setting applies: Rector's FileCacheStorage, kept under var/qa/cache/rector, exported to the config as rectorCacheDir.",
+                'Remove the cacheClass(...) call. Rector then uses its own file cache, which php-qa-ci keeps under var/qa/cache/rector.',
                 'Why and how: docs/tools/rector.md in php-qa-ci, "A project config that sets its own cache".',
             ],
             $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR),
@@ -130,7 +129,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     public function aConfigOutsideTheProjectIsNamedByItsFullPath(): void
     {
         $other  = TempDir::create('phpqa-stale-config-other');
-        $config = $other->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+        $config = $other->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
 
         try {
             $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR);
@@ -182,7 +181,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function anyOtherRectorOutputIsNotDiagnosed(): void
     {
-        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
 
         self::assertSame([], $this->diagnosis()->lines(self::LABEL, " [ERROR] Undefined constant GONE\n", $config, self::EXIT_ERROR));
         self::assertSame([], $this->diagnosis()->lines(self::LABEL, '', $config, self::EXIT_ERROR));
@@ -192,7 +191,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function aPendingChangeDiffThatQuotesTheMessagesIsNotDiagnosed(): void
     {
-        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
 
         self::assertSame([], $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES, $config, self::EXIT_PENDING_CHANGES));
     }
@@ -200,7 +199,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function anErrorExitWhoseOutputOnlyQuotesTheMessagesOutsideRectorsErrorBlockIsNotDiagnosed(): void
     {
-        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
 
         self::assertSame([], $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES, $config, self::EXIT_ERROR));
     }
@@ -208,7 +207,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function aPendingChangeExitIsNeverDiagnosedEvenWhenTheErrorMarkerIsQuoted(): void
     {
-        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
 
         self::assertSame([], $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES . self::CLASS_MISSING, $config, self::EXIT_PENDING_CHANGES));
     }
@@ -216,7 +215,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function aGenuineErrorAfterADiffIsStillDiagnosed(): void
     {
-        $config = $this->project->write(self::CONFIG, "<?php\n\$c->cacheClass(M::class);\n");
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
 
         $lines = $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES . self::CACHE_REJECTED, $config, self::EXIT_ERROR);
 

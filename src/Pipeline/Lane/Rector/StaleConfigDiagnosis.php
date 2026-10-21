@@ -100,8 +100,8 @@ final readonly class StaleConfigDiagnosis
             \sprintf("Rector ('%s') cannot load %s: it refers to a class the bundled Rector does not have.", $label, $config),
             ...([] === $calls ? ['  No cacheClass(...) call is in ' . $config . '; look in the files it includes.'] : $calls),
             \sprintf('Rector does not accept "%s" as a cache storage.', $class),
-            "Remove the cacheClass(...) call. The shipped cache setting applies: Rector's FileCacheStorage, kept under "
-            . $this->shown($this->cacheDir) . ', exported to the config as rectorCacheDir.',
+            'Remove the cacheClass(...) call. Rector then uses its own file cache, which php-qa-ci keeps under '
+            . $this->shown($this->cacheDir) . '.',
             self::DOCS_LINE,
         ];
     }

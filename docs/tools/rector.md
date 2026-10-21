@@ -117,15 +117,18 @@ comment is skipped), and stops with:
 Rector ('Project Specific') cannot load qaConfig/rector.php: it refers to a class the bundled Rector does not have.
   qaConfig/rector.php:9: $rectorConfig->cacheClass(MemoryCacheStorage::class);
 Rector does not accept "Rector\Caching\ValueObject\Storage\MemoryCacheStorage" as a cache storage.
-Remove the cacheClass(...) call. The shipped cache setting applies: ...
+Remove the cacheClass(...) call. Rector then uses its own file cache, which php-qa-ci keeps under var/qa/cache/rector.
 ```
 
 To migrate, delete the `cacheClass(...)` call, and its `use` line if nothing else needs it. Do
-not replace it with another storage: php-qa-ci runs Rector with a file cache under
-`var/qa/cache/rector`, per project, and that is the setting a project config inherits when it
-says nothing about caching. A copy of the current shipped config carries that setting, so a
-project override copied before this release can also be recopied from
-`vendor/lts/php-qa-ci/configDefaults/generic/` instead of edited.
+not replace it with another storage. A pass runs with only the config it is given, so the
+shipped cache setting is not inherited: a project config that says nothing about caching gets
+Rector's default `FileCacheStorage`, which the lane keeps in the project too, because it points
+`TMPDIR` at `var/qa/cache/rector/tmp`. The shipped configs name the cache themselves, with `files`
+and `container` directories under `var/qa/cache/rector` (the `rectorCacheDir` the lane
+exports), so a copy of a current shipped config carries that setting. A project override copied
+before this release can be recopied from `vendor/lts/php-qa-ci/configDefaults/generic/`
+instead of edited.
 
 A project config that keeps a `cacheDirectory(...)` or `containerCacheDirectory(...)` call of its
 own is not stopped, but its cache is then outside `var/qa/cache/rector`, shared with whatever

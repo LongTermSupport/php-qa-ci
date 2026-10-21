@@ -48,6 +48,10 @@ final class RectorToolTest extends TestCase
 {
     private const string ADVISORY = 'Rector ran in WRITABLE mode and may have rewritten files. DO NOT FIGHT IT.';
 
+    private const string REMOVE_CACHE_CLASS_FIX = 'Remove the cacheClass(...) call';
+
+    private const string PENDING_CHANGES_LINE = 'pending changes in a READ-ONLY run';
+
     private const string SAFE_CONFIG = 'rector-safe.php';
 
     private const string PHPUNIT_CONFIG = 'rector-phpunit.php';
@@ -251,7 +255,7 @@ final class RectorToolTest extends TestCase
         self::assertCount(3, $this->rectorSpecs());
         self::assertStringContainsString('qaConfig/rector.php:9', $printed);
         self::assertStringContainsString('$rectorConfig->cacheClass(MemoryCacheStorage::class);', $printed);
-        self::assertStringContainsString('Remove the cacheClass(...) call', $printed);
+        self::assertStringContainsString(self::REMOVE_CACHE_CLASS_FIX, $printed);
         self::assertStringContainsString('var/qa/cache/rector', $printed);
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
     }
@@ -279,7 +283,7 @@ final class RectorToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertStringContainsString('(a genuine error, not a pending-change diff)', $printed);
-        self::assertStringNotContainsString('Remove the cacheClass(...) call', $printed);
+        self::assertStringNotContainsString(self::REMOVE_CACHE_CLASS_FIX, $printed);
     }
 
     #[Test]
@@ -298,9 +302,9 @@ final class RectorToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('pending changes in a READ-ONLY run', $printed);
+        self::assertStringContainsString(self::PENDING_CHANGES_LINE, $printed);
         self::assertStringNotContainsString('cannot load', $printed);
-        self::assertStringNotContainsString('Remove the cacheClass(...) call', $printed);
+        self::assertStringNotContainsString(self::REMOVE_CACHE_CLASS_FIX, $printed);
     }
 
     #[Test]
@@ -378,7 +382,7 @@ final class RectorToolTest extends TestCase
         self::assertCount(1, $this->rectorSpecs());
         self::assertStringContainsString("Rector ('Safe') failed with exit code 1 (a genuine error, not a pending-change diff)", $printed);
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
-        self::assertStringNotContainsString('pending changes in a READ-ONLY run', $printed);
+        self::assertStringNotContainsString(self::PENDING_CHANGES_LINE, $printed);
     }
 
     #[Test]
@@ -392,7 +396,7 @@ final class RectorToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString("Rector ('PHP 8.5') failed (exit 2)", $result->summary);
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
-        self::assertStringNotContainsString('pending changes in a READ-ONLY run', $printed);
+        self::assertStringNotContainsString(self::PENDING_CHANGES_LINE, $printed);
         self::assertStringNotContainsString(self::ADVISORY, $printed, 'the advisory is only printed after every pass succeeded');
     }
 

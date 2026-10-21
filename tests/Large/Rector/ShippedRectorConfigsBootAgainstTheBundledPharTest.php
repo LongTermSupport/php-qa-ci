@@ -47,6 +47,12 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
 
     private const string SYSTEM_TEMP = 'systemTemp';
 
+    private const string QA_CONFIG_RECTOR = 'qaConfig/rector.php';
+
+    private const string PHP_OPEN_TAG = '<?php';
+
+    private const string DECLARE_STRICT_TYPES = 'declare(strict_types=1);';
+
     private TempDir $project;
 
     protected function setUp(): void
@@ -99,7 +105,7 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
     #[Test]
     public function aProjectOverrideCopiedFromAShippedConfigPassesTheLane(): void
     {
-        $this->project->write('qaConfig/rector.php', \Safe\file_get_contents(self::LIBRARY . '/configDefaults/generic/rector-php85.php'));
+        $this->project->write(self::QA_CONFIG_RECTOR, \Safe\file_get_contents(self::LIBRARY . '/configDefaults/generic/rector-php85.php'));
 
         $output = new BufferedOutput();
         $result = new RectorTool()->run(RealLaneContext::over($this->project->path, true, $output));
@@ -111,10 +117,10 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
     #[Test]
     public function aProjectConfigStillCallingCacheClassWithMemoryCacheStorageStopsTheLaneWithTheLineAndTheFix(): void
     {
-        $this->project->write('qaConfig/rector.php', implode("\n", [
-            '<?php',
+        $this->project->write(self::QA_CONFIG_RECTOR, implode("\n", [
+            self::PHP_OPEN_TAG,
             '',
-            'declare(strict_types=1);',
+            self::DECLARE_STRICT_TYPES,
             '',
             'use Rector\Caching\ValueObject\Storage\MemoryCacheStorage;',
             'use Rector\Config\RectorConfig;',
@@ -140,9 +146,9 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
     public function aProjectConfigNamingAClassTheBundledRectorLacksStopsTheLaneWithTheLine(): void
     {
         $this->project->write('rector.php', implode("\n", [
-            '<?php',
+            self::PHP_OPEN_TAG,
             '',
-            'declare(strict_types=1);',
+            self::DECLARE_STRICT_TYPES,
             '',
             'use Rector\Config\RectorConfig;',
             '',
@@ -169,11 +175,11 @@ final class ShippedRectorConfigsBootAgainstTheBundledPharTest extends TestCase
     #[Test]
     public function aPendingChangeNearACommentQuotingRectorsMessageIsReportedAsPendingChanges(): void
     {
-        $this->project->write('qaConfig/rector.php', \Safe\file_get_contents(self::LIBRARY . '/configDefaults/generic/rector-php85.php'));
+        $this->project->write(self::QA_CONFIG_RECTOR, \Safe\file_get_contents(self::LIBRARY . '/configDefaults/generic/rector-php85.php'));
         $this->project->write('src/Probe.php', implode("\n", [
-            '<?php',
+            self::PHP_OPEN_TAG,
             '',
-            'declare(strict_types=1);',
+            self::DECLARE_STRICT_TYPES,
             '',
             'namespace Probe;',
             '',
