@@ -62,10 +62,16 @@ final class TurboInstallerTest extends TestCase
 
     private const string WITHOUT_TURBO = "; PHPStan runs without Turbo until the next composer install.\n";
 
-    /** What a failed install says after its ERROR line when it leaves no binary phpstan.phar could load. */
     private const string NOTHING_LOADS = "No Turbo binary is in place beside its core, so PHPStan runs without Turbo until an install succeeds.\n";
 
-    /** What a failed install says after its ERROR line when it leaves a binary beside its core. */
+    private const string EARLIER_BINARY = 'a binary an earlier release installed';
+
+    private const string EARLIER_CORE = 'a core an earlier release installed';
+
+    private const string PHP_MINOR = '8.5';
+
+    private const string OTHER_RELEASE = '2.2.16';
+
     private const string MAY_STILL_LOAD = 'WARNING: phpstan.phar may still load ' . self::BINARY . ", which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.\n";
 
     private TempDir $library;
@@ -176,8 +182,8 @@ final class TurboInstallerTest extends TestCase
     public function aFailedDownloadRemovesAnEarlierBinarySoPhpstanRunsWithoutTurbo(): void
     {
         $this->writeManifest($this->digests());
-        $this->library->write(self::BINARY, 'a binary an earlier release installed');
-        $this->library->write(self::CORE, 'a core an earlier release installed');
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
         $this->library->write(self::STAMP, "the stamp of an earlier release\n");
 
         self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
@@ -203,8 +209,8 @@ final class TurboInstallerTest extends TestCase
     public function aDownloadWhoseDigestDiffersRemovesAnEarlierBinary(): void
     {
         $this->writeManifest([...$this->digests(), self::BINARY_PATH => str_repeat('0', 64)]);
-        $this->library->write(self::BINARY, 'a binary an earlier release installed');
-        $this->library->write(self::CORE, 'a core an earlier release installed');
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -215,7 +221,7 @@ final class TurboInstallerTest extends TestCase
     public function aHostUpstreamBuildsNothingForSucceedsSayingSo(): void
     {
         $this->writeManifest($this->digests());
-        $windows = new TurboPlatform('Windows', 'AMD64', '', '8.5', false);
+        $windows = new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false);
 
         self::assertSame(0, $this->installer($this->source(), $windows)->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -225,7 +231,7 @@ final class TurboInstallerTest extends TestCase
     #[Test]
     public function aManifestForAnotherPharVersionFailsTheInstall(): void
     {
-        $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -236,9 +242,9 @@ final class TurboInstallerTest extends TestCase
     #[Test]
     public function aFailedInstallThatLeavesABinaryBesideItsCoreSaysPhpstanMayStillLoadIt(): void
     {
-        $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
-        $this->library->write(self::BINARY, 'a binary an earlier release installed');
-        $this->library->write(self::CORE, 'a core an earlier release installed');
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -249,8 +255,8 @@ final class TurboInstallerTest extends TestCase
     #[Test]
     public function aFailedInstallThatLeavesABinaryWithoutItsCoreSaysNothingLoads(): void
     {
-        $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
-        $this->library->write(self::BINARY, 'a binary an earlier release installed');
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -260,9 +266,9 @@ final class TurboInstallerTest extends TestCase
     #[Test]
     public function aFailedInstallOnAHostWithNoBuildSaysNothingLoads(): void
     {
-        $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
 
-        self::assertSame(1, $this->installer($this->source(), new TurboPlatform('Windows', 'AMD64', '', '8.5', false))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+        self::assertSame(1, $this->installer($this->source(), new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false))->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
         self::assertStringEndsWith(".\n" . self::NOTHING_LOADS, $this->errors->fetch());
     }
@@ -514,7 +520,7 @@ final class TurboInstallerTest extends TestCase
     {
         return new TurboInstaller(
             $source,
-            $platform ?? new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false),
+            $platform ?? new TurboPlatform('Linux', 'x86_64', 'gnu', self::PHP_MINOR, false),
             $maintainer,
             $this->output,
             $this->errors,

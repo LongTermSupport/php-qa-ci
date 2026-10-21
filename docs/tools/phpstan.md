@@ -110,7 +110,10 @@ files, or none, or a binary without its core, and the phar runs without Turbo, s
   file in the `turbo-ext/` directory of the
   [phpstan/phpstan](https://github.com/phpstan/phpstan) tag matching the shipped phar. A download
   whose digest differs is refused and nothing is installed. A failed download is only a warning:
-  PHPStan still runs, without Turbo, and the next install tries again.
+  PHPStan still runs, without Turbo, and the next install tries again. Any other failure exits
+  non-zero, and its `ERROR:` line is followed by what it left: either no binary beside its core,
+  so PHPStan runs without Turbo, or a `WARNING:` that `phpstan.phar` may still load the binary
+  named there, which the install could not vouch for. Delete that binary to run without Turbo.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
   (see [PHAR verification](../pipeline.md#2-preparation)).
