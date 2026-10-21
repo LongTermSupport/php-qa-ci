@@ -66,7 +66,7 @@ final class UpdateDryRunOutputTest extends TestCase
         yield 'downgrade' => ["  - Downgrading lts/php-qa-ci (1.3.0 => 1.2.0)\n"];
         yield 'install' => ["  - Installing lts/php-qa-ci (1.3.0)\n"];
         yield 'removal' => ["  - Removing lts/php-qa-ci (1.3.0)\n"];
-        yield 'nothing' => ["Nothing to modify in lock file\n"];
+        yield 'nothing to modify' => ["Nothing to modify in lock file\n"];
     }
 
     #[Test]
@@ -120,7 +120,7 @@ final class UpdateDryRunOutputTest extends TestCase
     public static function provideNotAnAnswer(): Iterator
     {
         yield 'a shell shim shown as text' => ["#!/bin/sh\nexec /usr/bin/composer \"\$@\"\n"];
-        yield 'nothing' => [''];
+        yield 'no output at all' => [''];
         yield 'blank lines' => ["\n  \n"];
         yield 'only the loading line' => ["Loading composer repositories with package information\n"];
         yield 'the marker inside other text' => ["echo 'Nothing to modify in lock file'\n"];

@@ -24,11 +24,14 @@ use Symfony\Component\Process\ExecutableFinder;
  * under the project's own constraints, so a branch constraint counts a newer
  * commit and a pin leaves nothing newer to install.
  *
- * Stale fails with every package listed. Up to date passes in silence. When
+ * Stale fails with every package listed. Up to date passes in silence, but
+ * only on Composer's own word for it: exit 0 alone is no answer, as a
+ * `composer` that is a shell script exits 0 having printed its source. When
  * Composer cannot say (no network, a source gone, an answer from its cache,
- * no answer in time), the lane is skipped with a named line saying the lock
- * was not verified: never failed, never passed in silence (Owner decision on
- * issue #292). The pipeline runs it first in a full run.
+ * no answer in time, no recognisable answer), the lane is skipped with a
+ * named line saying the lock was not verified: never failed, never passed in
+ * silence (Owner decision on issue #292). The pipeline runs it first in a
+ * full run.
  *
  * @internal
  */
@@ -111,6 +114,10 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         $unreachable = $answer->unreachableSource();
         if (null !== $unreachable) {
             return $this->skipped($context, $unreachable, ...$checked);
+        }
+
+        if (!$answer->composerAnswered()) {
+            return $this->skipped($context, \sprintf('composer gave no recognisable answer (it printed: %s)', $answer->printedSummary()), ...$checked);
         }
 
         return ToolResultDto::passed();

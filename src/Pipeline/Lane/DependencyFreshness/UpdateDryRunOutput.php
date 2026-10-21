@@ -7,15 +7,36 @@ namespace LTS\PHPQA\Pipeline\Lane\DependencyFreshness;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\Dto\StaleDependencyDto;
 
 /**
- * What `composer update <packages> --dry-run` printed, read three ways: the
- * named packages it would upgrade, a package source it could not reach (it
- * then answers from its cache and still exits 0), and, for a run that
- * failed, the one line that says why.
+ * What `composer update <packages> --dry-run` printed, read four ways: whether
+ * Composer answered at all, the named packages it would upgrade, a package
+ * source it could not reach (it then answers from its cache and still exits
+ * 0), and, for a run that failed, the one line that says why.
+ *
+ * Colour codes and the backspaces of Composer's progress line are dropped
+ * before any line is read.
  *
  * @internal
  */
 final readonly class UpdateDryRunOutput
 {
+    /** A colour or cursor sequence (`ESC [ 32 m`), or a backspace Composer's progress line overwrites with. */
+    private const string TERMINAL_CONTROL = '/\x1B\[[0-9;?]*[ -\/]*[@-~]|\x08/';
+
+    /**
+     * The lines Composer 2 prints when its resolver has run, each a whole
+     * line: `Updating dependencies` heads every answer, and `Nothing to modify
+     * in lock file` states one. A run that exits 0 and printed none of them
+     * (a `composer` that is a shell script, which `php -f` prints as text)
+     * did not ask Composer anything.
+     */
+    private const array ANSWER_LINES = ['Updating dependencies', 'Nothing to modify in lock file'];
+
+    /** The start of the other statement of an answer, `Lock file operations: 0 installs, 1 update, 0 removals`. */
+    private const string ANSWER_LINE_PREFIX = 'Lock file operations:';
+
+    /** The longest stretch of the first printed line the skip message quotes. */
+    private const int SUMMARY_LENGTH = 100;
+
     /** `  - Upgrading lts/php-qa-ci (dev-php8.5 93f1ae4 => dev-php8.5 606a9f6)`, as Composer 2 prints an update operation. */
     private const string UPGRADE = '/^-\s+Upgrading\s+(\S+)\s+\((.+?)\s+=>\s+(.+?)\)$/';
 
@@ -30,6 +51,23 @@ final readonly class UpdateDryRunOutput
 
     public function __construct(private string $output)
     {
+    }
+
+    /** Whether the output carries a line only Composer's resolver prints: the positive sign a pass rests on. */
+    public function composerAnswered(): bool
+    {
+        return array_any($this->lines(), static fn (string $line): bool => \in_array($line, self::ANSWER_LINES, true) || str_starts_with($line, self::ANSWER_LINE_PREFIX));
+    }
+
+    /** The first line printed, cut short, or `nothing`: what a skip says it got instead of an answer. */
+    public function printedSummary(): string
+    {
+        $first = $this->lines()[0] ?? null;
+        if (null === $first) {
+            return 'nothing';
+        }
+
+        return \strlen($first) > self::SUMMARY_LENGTH ? substr($first, 0, self::SUMMARY_LENGTH) . '...' : $first;
     }
 
     /**
@@ -76,7 +114,7 @@ final readonly class UpdateDryRunOutput
      */
     public function failureReason(): string
     {
-        $lines   = explode("\n", $this->output);
+        $lines   = explode("\n", $this->plain());
         $message = [];
         $inBlock = false;
         foreach ($lines as $line) {
@@ -108,6 +146,13 @@ final readonly class UpdateDryRunOutput
     /** @return list<string> the non-blank lines, trimmed */
     private function lines(): array
     {
-        return array_values(array_filter(array_map(trim(...), explode("\n", $this->output)), static fn (string $line): bool => '' !== $line));
+        return array_values(array_filter(array_map(trim(...), explode("\n", $this->plain())), static fn (string $line): bool => '' !== $line));
+    }
+
+    private function plain(): string
+    {
+        $plain = \Safe\preg_replace(self::TERMINAL_CONTROL, '', $this->output);
+
+        return \is_string($plain) ? $plain : $this->output;
     }
 }

@@ -20,13 +20,21 @@ The answer is given under your own `composer.json` constraints. For a branch con
 `dev-php8.5`, a newer commit on the branch counts as a newer version. For a tag range such as
 `^8.5`, a newer tag in the range counts.
 
-| Composer's answer                                             | Result                                                                                                   |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| it would upgrade a matching package                           | **fails**, listing every such package with its locked and available version and commit                   |
-| nothing to upgrade                                            | **passes**, with no output                                                                               |
-| it could not run, could not reach a source, or did not answer | **skipped**, with a `SKIPPED dependencyFreshness` line saying why and that the lock was **not verified** |
-| no `composer.lock`                                            | **skipped**, with the same named line                                                                    |
-| no locked package matches                                     | **passes** without asking Composer anything                                                              |
+| Composer's answer                                                                          | Result                                                                                                   |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| it would upgrade a matching package                                                        | **fails**, listing every such package with its locked and available version and commit                   |
+| it answered and nothing matching is to be upgraded                                         | **passes**, with no message from the check                                                               |
+| it could not run, could not reach a source, did not answer, or gave no recognisable answer | **skipped**, with a `SKIPPED dependencyFreshness` line saying why and that the lock was **not verified** |
+| no `composer.lock`                                                                         | **skipped**, with the same named line                                                                    |
+| no locked package matches                                                                  | **passes** without asking Composer anything                                                              |
+
+A pass rests on a positive sign that Composer answered, never on an exit code alone. Composer's
+resolver prints `Updating dependencies` and then either `Nothing to modify in lock file` or
+`Lock file operations: ...`; a run that exits 0 having printed none of those lines is not an answer.
+The usual cause is a `composer` on the `PATH` that is a shell script (a version-manager shim or a
+wrapper): the check runs Composer through `php -f`, which prints a shell script's text and exits 0
+without Composer having run. The skip line quotes the first line that was printed, so the shim is
+easy to recognise. Point `PATH` at the real `composer` (a PHAR or a PHP script), then run QA again.
 
 A failure looks like this:
 
@@ -35,15 +43,30 @@ Dependencies are out of date. `composer update` would install newer versions of:
 
   - lts/php-qa-ci (locked dev-php8.5 93f1ae4, available dev-php8.5 606a9f6)
 
-Run `composer update`, then run QA again.
+Run `composer update`, then run QA again. There is no point checking code with
+an out-of-date toolchain, or against out-of-date copies of your own packages.
+
+Do NOT pin a package in composer.json to make this check pass. A pin to a tag or
+a commit leaves `composer update` nothing newer to install, so it is the only way
+past this check, and it is for a compelling reason only, such as a known
+regression in the newest version. Record that reason and its issue link with the
+pin, and remove the pin as soon as the reason is gone.
+🪪  phpqaci.dependencyFreshness  (vendor/bin/rule-doc phpqaci.dependencyFreshness)
 ```
 
 A skip never passes in silence and never fails the run. A skip happens offline, when a package
 source has gone, when Composer answered from its cache because a repository could not be loaded,
-or when Composer gave no answer within 180 seconds. A skip looks like this:
+when Composer gave no answer within 180 seconds, or when Composer's output holds no resolver line
+at all. A skip looks like this:
 
 ```text
 SKIPPED dependencyFreshness (phpqaci.dependencyFreshness): could not determine whether the locked dependencies are up to date: composer exited 1: Failed to clone https://github.com/LongTermSupport/php-qa-ci.git. composer.lock was NOT verified for: lts/php-qa-ci.
+```
+
+A `composer` that is a shell script looks like this:
+
+```text
+SKIPPED dependencyFreshness (phpqaci.dependencyFreshness): could not determine whether the locked dependencies are up to date: composer gave no recognisable answer (it printed: exec /usr/bin/composer "$@"). composer.lock was NOT verified for: lts/php-qa-ci.
 ```
 
 ## When it runs
