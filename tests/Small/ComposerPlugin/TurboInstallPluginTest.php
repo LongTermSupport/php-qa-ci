@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 
 /**
  * Pins the plugin's Composer event-subscription wiring. Composer never runs a dependency's own
@@ -43,6 +44,8 @@ final class TurboInstallPluginTest extends TestCase
     /** The vendor directory of the install under test. */
     private string $vendor = '';
 
+    private ?TempDir $vendorDir = null;
+
     public static function setUpBeforeClass(): void
     {
         require_once __DIR__ . '/../../assets/ComposerPlugin/composer-stubs.php';
@@ -58,6 +61,7 @@ final class TurboInstallPluginTest extends TestCase
         ProcessExecutor::$exitCode = 1;
         ProcessExecutor::$queue    = [];
         ProcessExecutor::$commands = [];
+        $this->vendorDir?->remove();
     }
 
     #[Test]
@@ -119,6 +123,32 @@ final class TurboInstallPluginTest extends TestCase
         self::assertSame($this->stateCommand(), ProcessExecutor::$commands[1] ?? null, "the state check is the installer's own, in state mode");
     }
 
+    /**
+     * Composer captures only the check's stdout, and PHP CLI with display_errors on writes a warning
+     * there too; the check runs with its errors sent to stderr, so the relayed line is only what
+     * the check printed. The check really runs here, under an ini that would put the warning on
+     * stdout.
+     */
+    #[Test]
+    public function theStateCheckRunsWithItsErrorsKeptOutOfTheLineThePluginRelays(): void
+    {
+        $this->installExitingWith(137, [0, self::NOTHING_LOADS . "\n"], "<?php\ntrigger_error('a warning the check did not mean to print', E_USER_WARNING);\necho 'the line the check prints', \"\\n\";\n");
+
+        // A host whose PHP CLI shows errors on stdout and logs none, as php.ini-development does.
+        $ini = TempDir::create('turbo-plugin-ini');
+
+        try {
+            $ini->write('zz-display-errors-on-stdout.ini', "display_errors=1\nlog_errors=0\nerror_reporting=-1\n");
+            $check = Process::fromShellCommandline(ProcessExecutor::$commands[1] ?? 'false', null, ['PHP_INI_SCAN_DIR' => \PATH_SEPARATOR . $ini->path]);
+            $check->run();
+        } finally {
+            $ini->remove();
+        }
+
+        self::assertSame("the line the check prints\n", $check->getOutput());
+        self::assertStringContainsString('a warning the check did not mean to print', $check->getErrorOutput());
+    }
+
     /** A state check that fails too leaves the state unknown, and the line says how to look. */
     #[Test]
     public function aStateCheckThatFailsSaysWhatTheInstallLeftIsUnknownAndHowToCheck(): void
@@ -171,28 +201,26 @@ final class TurboInstallPluginTest extends TestCase
     /** The command the plugin runs to ask what is on disk. */
     private function stateCommand(): string
     {
-        return escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($this->vendor . '/lts/php-qa-ci/bin/turbo-install') . ' state';
+        return escapeshellarg(\PHP_BINARY) . ' -d display_errors=stderr ' . escapeshellarg($this->vendor . '/lts/php-qa-ci/bin/turbo-install') . ' state';
     }
 
     /**
      * @param array{int, string}|null $stateCheck how the state check ends, when the plugin runs one
+     * @param string                  $installer  the installer the vendor directory holds, which the
+     *                                            stubbed executor never runs
      *
      * @return list<string> what the plugin wrote to stderr
      */
-    private function installExitingWith(int $exitCode, ?array $stateCheck = null): array
+    private function installExitingWith(int $exitCode, ?array $stateCheck = null, string $installer = '<?php'): array
     {
         ProcessExecutor::$queue    = null === $stateCheck ? [[$exitCode, '']] : [[$exitCode, ''], $stateCheck];
         ProcessExecutor::$exitCode = 1;
-        $vendor                    = TempDir::create('turbo-plugin-vendor');
-        $this->vendor              = $vendor->path;
+        $this->vendorDir           = TempDir::create('turbo-plugin-vendor');
+        $this->vendor              = $this->vendorDir->path;
 
-        try {
-            $vendor->write('lts/php-qa-ci/bin/turbo-install', '<?php');
-            $io = new CapturingIO();
-            new TurboInstallPlugin()->installTurbo(new Event(new Composer(new Config(['vendor-dir' => $vendor->path]), new FakeRootPackage()), $io));
-        } finally {
-            $vendor->remove();
-        }
+        $this->vendorDir->write('lts/php-qa-ci/bin/turbo-install', $installer);
+        $io = new CapturingIO();
+        new TurboInstallPlugin()->installTurbo(new Event(new Composer(new Config(['vendor-dir' => $this->vendor]), new FakeRootPackage()), $io));
 
         return $io->err;
     }

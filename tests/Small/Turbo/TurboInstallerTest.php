@@ -74,6 +74,8 @@ final class TurboInstallerTest extends TestCase
 
     private const string MAY_STILL_LOAD = 'WARNING: phpstan.phar may still load ' . self::BINARY . ", which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.\n";
 
+    private const string STAMPED_PAIR_LOADS = 'phpstan.phar loads ' . self::BINARY . ' beside its core: both match the SHA-256 digests in ' . self::STAMP . ", which an install writes only once it has verified and placed them.\n";
+
     private TempDir $library;
 
     private BufferedOutput $output;
@@ -335,6 +337,69 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(self::NOTHING_LOADS, $this->output->fetch());
         self::assertSame('', $this->errors->fetch());
+    }
+
+    /**
+     * An install killed after it wrote the stamp, while it removed its staging directory, left the
+     * complete pair it verified: the stamp vouches for it, so nothing advises deleting it.
+     */
+    #[Test]
+    public function theStateCheckSaysPhpstanLoadsAPairItsStampVouchesFor(): void
+    {
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        $this->library->write(self::STAMP, $this->stamp());
+        $this->library->mkdir(\dirname(self::BINARY) . '/.phpqa-turbo-killed-mid-removal');
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::STAMPED_PAIR_LOADS, $this->output->fetch());
+        self::assertSame('', $this->errors->fetch());
+    }
+
+    /**
+     * A failure before any fetch leaves an earlier install as it was; when its stamp still matches
+     * the pair, that install vouched for it, and the consumer is not told to delete it.
+     */
+    #[Test]
+    public function aFailedInstallThatLeavesAnEarlierStampedPairSaysPhpstanLoadsItWithoutAdvisingDeletion(): void
+    {
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+        $this->library->write(self::STAMP, TurboInstallDecider::stamp([self::CORE_PATH => hash(self::DIGEST, self::EARLIER_CORE), self::BINARY_PATH => hash(self::DIGEST, self::EARLIER_BINARY)]) . "\n");
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertStringEndsWith(".\n" . self::STAMPED_PAIR_LOADS, $this->errors->fetch());
+        self::assertSame(self::EARLIER_BINARY, $this->library->read(self::BINARY));
+    }
+
+    /** A stamp is only as good as its match: a pair that differs from it is still not vouched for. */
+    #[Test]
+    public function theStateCheckStillWarnsAboutAPairThatDiffersFromItsStamp(): void
+    {
+        $this->library->write(self::BINARY, 'a binary that is not the one the stamp records');
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        $this->library->write(self::STAMP, $this->stamp());
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::MAY_STILL_LOAD, $this->output->fetch());
+    }
+
+    /** A core that differs from the stamp unvouches the pair as much as a binary that does. */
+    #[Test]
+    public function aFailedInstallStillWarnsAboutAPairWhoseCoreDiffersFromItsStamp(): void
+    {
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::CORE, 'a core that is not the one the stamp records');
+        $this->library->write(self::STAMP, $this->stamp());
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertStringEndsWith(".\n" . self::MAY_STILL_LOAD, $this->errors->fetch());
     }
 
     /** A failure after both files are placed leaves a pair phpstan.phar loads, with no stamp to vouch for it. */
