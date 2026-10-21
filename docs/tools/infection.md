@@ -89,8 +89,10 @@ runs with: a `*.php` file under one of `source.directories`, not in a dot or ver
 directory, and not matched by a `source.excludes` entry. Infection hands each exclude to Symfony
 Finder, which matches it against the path relative to the source directory: a string with
 matching delimiters (`/ComposerPlugin/`, `#^Legacy/#`) as that regex, anything else as a
-substring. Handed only files outside that source, Infection would mutate nothing and write no
-log, so the lane names each one, with why, and leaves it out:
+substring. Infection does not mutate a file outside that source. Handed only excluded files, it
+mutates nothing and writes no log. It reads a path under no source directory as a test path,
+hands it to PHPUnit and mutates the whole source. So the lane names each such file, with why,
+and leaves it out:
 
 ```text
 Infection: diff mode — 1 changed file(s) are outside the source infection.json gives Infection, so they are not mutated:
