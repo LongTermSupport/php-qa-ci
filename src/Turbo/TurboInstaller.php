@@ -181,35 +181,44 @@ final readonly class TurboInstaller
     {
         $this->output->writeln($message);
 
-        // Everything is downloaded and verified before anything is placed: a binary without its
-        // core is a file PHPStan refuses to load, and one half of a pair is never left behind.
-        /** @var array<array-key, string> $downloads */
-        $downloads = [];
-        foreach ($files as $key => $digest) {
-            $path  = (string)$key;
-            $bytes = $this->source->file($version, $path);
-            if (null === $bytes) {
-                // Not fatal: PHPStan runs without Turbo, and the next install tries again.
-                $this->errors->writeln(\sprintf('WARNING: could not download turbo-ext/%s; PHPStan runs without Turbo until the next composer install.', $path));
-
-                return 0;
-            }
-
-            $actual = hash('sha256', $bytes);
-            if (!hash_equals($digest, $actual)) {
-                $this->error(\sprintf('turbo-ext/%s has SHA-256 %s, but %s pins %s. Nothing was installed.', $path, $actual, TurboManifest::PATH, $digest));
-
-                return 1;
-            }
-
-            $downloads[$path] = $bytes;
-        }
-
-        // Staged beside the binary: a running PHPStan has the old files mapped, and only a
-        // same-filesystem rename replaces one without rewriting the pages under that process.
         $staging = null;
 
         try {
+            // phpstan.phar loads any binary it finds beside a core, stamped or not, and the stamp
+            // does not vouch for this one; it goes first, so a fetch that stops leaves none to load.
+            // A running PHPStan keeps the unlinked file mapped.
+            foreach ([$turboDir . $binary, $turboDir . $binary . self::STAMP_SUFFIX] as $unvouched) {
+                if (is_file($unvouched)) {
+                    \Safe\unlink($unvouched);
+                }
+            }
+
+            // Everything is downloaded and verified before anything is placed: a binary without its
+            // core is a file PHPStan refuses to load, and one half of a pair is never left behind.
+            /** @var array<array-key, string> $downloads */
+            $downloads = [];
+            foreach ($files as $key => $digest) {
+                $path  = (string)$key;
+                $bytes = $this->source->file($version, $path);
+                if (null === $bytes) {
+                    // Not fatal: no binary is left to load, and the next install tries again.
+                    $this->errors->writeln(\sprintf('WARNING: could not download turbo-ext/%s; PHPStan runs without Turbo until the next composer install.', $path));
+
+                    return 0;
+                }
+
+                $actual = hash('sha256', $bytes);
+                if (!hash_equals($digest, $actual)) {
+                    $this->error(\sprintf('turbo-ext/%s has SHA-256 %s, but %s pins %s. Nothing was installed.', $path, $actual, TurboManifest::PATH, $digest));
+
+                    return 1;
+                }
+
+                $downloads[$path] = $bytes;
+            }
+
+            // Staged beside the binary: a running PHPStan has the old files mapped, and only a
+            // same-filesystem rename replaces one without rewriting the pages under that process.
             $staging = TemporaryDirectory::besides($turboDir . $binary, '.phpqa-turbo');
             foreach ($staging->unremovedLeftovers as $leftover => $why) {
                 $this->errors->writeln(\sprintf('WARNING: could not remove %s, a staging directory a killed install left: %s', $leftover, $why));
