@@ -9,6 +9,7 @@ use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
+use RuntimeException;
 use Throwable;
 use UnexpectedValueException;
 
@@ -142,7 +143,26 @@ final readonly class TurboInstaller
             $binaryPath => \Safe\hash_file(self::DIGEST_ALGORITHM, $turboDir . $binaryPath),
         ]);
 
-        return $onDisk === $this->installedStamp($turboDir . $binaryPath, $turboDir . $corePath);
+        $stamp = $turboDir . $binaryPath . self::STAMP_SUFFIX;
+
+        return is_file($stamp) && $onDisk === trim($this->readStamp($stamp));
+    }
+
+    /**
+     * The stamp's contents. A read that fails once the file is open makes file_get_contents()
+     * return what it read, nothing, with only a notice; here it throws, naming the stamp and why.
+     */
+    private function readStamp(string $path): string
+    {
+        set_error_handler(static function (int $level, string $message) use ($path): never {
+            throw new RuntimeException(\sprintf('%s: %s', $path, $message), $level);
+        });
+
+        try {
+            return \Safe\file_get_contents($path);
+        } finally {
+            restore_error_handler();
+        }
     }
 
     private function install(string $libraryRoot, string $mode): int
