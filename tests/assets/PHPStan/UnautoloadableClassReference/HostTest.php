@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Assets\PHPStan\UnautoloadableClassReference;
 
+use Attribute;
 use RuntimeException;
 
 /**
- * A class at its PSR-4 path, with three more declared at its foot. Its own uses of
- * them are never reported: whatever loads this file loads them with it.
+ * A class at its PSR-4 path, with more declared at its foot. Its own uses of them are
+ * never reported: whatever loads this file loads them with it.
  */
 final class HostTest
 {
@@ -34,6 +35,42 @@ final class StrandedHelper
 }
 
 final class StrandedException extends RuntimeException
+{
+}
+
+abstract class StrandedBase
+{
+}
+
+interface StrandedMarker
+{
+}
+
+final class StrandedMarked implements StrandedMarker
+{
+}
+
+/**
+ * Each method's signature decides whether an implementing class makes PHP load a
+ * class to check it.
+ */
+interface StrandedContract
+{
+    public function contracted(): object;
+
+    public function accept(StrandedMarked $marked): void;
+
+    public function widened(AtItsPath $value): void;
+
+    public function same(): StrandedHelper;
+}
+
+trait StrandedTrait
+{
+}
+
+#[Attribute]
+final class StrandedAttribute
 {
 }
 

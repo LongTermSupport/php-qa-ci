@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
+use LTS\PHPQA\PHPStan\Rules\ClassReferencePosition;
 use LTS\PHPQA\PHPStan\Rules\ClassReferenceScanner;
 use PhpParser\Node;
 use PhpParser\NodeTraverser;
@@ -24,8 +25,12 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ClassReferenceScannerTest extends TestCase
 {
+    /**
+     * Each class name is reported with the position it stands in, which decides whether
+     * PHP asks the autoloader for it there.
+     */
     #[Test]
-    public function everyClassNameInCodeIsAReferenceAndNothingElseIs(): void
+    public function everyClassNameInCodeIsAReferenceAtItsPositionAndNothingElseIs(): void
     {
         $code = <<<'PHP_WRAP'
             <?php
@@ -56,32 +61,55 @@ final class ClassReferenceScannerTest extends TestCase
                     new self();
                     static::class;
                     parent::run();
-                    new class extends Anonymous {};
+                    new class extends Anonymous { public function made(): Made {} };
                     try {
                     } catch (Failure|\RuntimeException $e) {
                     }
+                    Named::class;
+                    $value === Compared::class;
+                    static fn (Closured $c): Arrowed => $c;
                 }
             }
+
+            function free(Freed $f): void {}
             PHP_WRAP;
 
-        self::assertSame(
+        $hostSignature = static fn (?int $parameter, string ...$typeNames): array => [
+            'ancestors' => ['App\Tests\Base', 'App\Tests\Contract', 'App\Tests\Behaviour'],
+            'method'    => 'run',
+            'parameter' => $parameter,
+            'typeNames' => $typeNames,
+        ];
+
+        self::assertEquals(
             [
-                ['name' => 'App\Tests\Marker', 'line' => 8],
-                ['name' => 'App\Tests\Base', 'line' => 9],
-                ['name' => 'App\Tests\Contract', 'line' => 9],
-                ['name' => 'App\Tests\Behaviour', 'line' => 11],
-                ['name' => 'App\Tests\Typed', 'line' => 13],
-                ['name' => 'App\Tests\Param', 'line' => 15],
-                ['name' => 'App\Tests\Other', 'line' => 15],
-                ['name' => 'App\Tests\Returned', 'line' => 15],
-                ['name' => 'App\Support\Imported', 'line' => 17],
-                ['name' => 'App\Tests\Factory', 'line' => 18],
-                ['name' => 'App\Tests\Holder', 'line' => 19],
-                ['name' => 'App\Tests\Constants', 'line' => 20],
-                ['name' => 'App\Tests\Checked', 'line' => 21],
-                ['name' => 'App\Tests\Anonymous', 'line' => 29],
-                ['name' => 'App\Tests\Failure', 'line' => 31],
-                ['name' => 'RuntimeException', 'line' => 31],
+                $this->reference('App\Tests\Marker', 8, ClassReferencePosition::Attribute),
+                $this->reference('App\Tests\Base', 9, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Contract', 9, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Behaviour', 11, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Typed', 13, ClassReferencePosition::Inert),
+                $this->reference('App\Tests\Param', 15, ClassReferencePosition::MethodSignature, $hostSignature(0, 'App\Tests\Param', 'App\Tests\Other')),
+                $this->reference('App\Tests\Other', 15, ClassReferencePosition::MethodSignature, $hostSignature(0, 'App\Tests\Param', 'App\Tests\Other')),
+                $this->reference('App\Tests\Returned', 15, ClassReferencePosition::MethodSignature, $hostSignature(null, 'App\Tests\Returned')),
+                $this->reference('App\Support\Imported', 17, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Factory', 18, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Holder', 19, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Constants', 20, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Checked', 21, ClassReferencePosition::Inert),
+                $this->reference('App\Tests\Anonymous', 29, ClassReferencePosition::Loading),
+                $this->reference('App\Tests\Made', 29, ClassReferencePosition::MethodSignature, [
+                    'ancestors' => ['App\Tests\Anonymous'],
+                    'method'    => 'made',
+                    'parameter' => null,
+                    'typeNames' => ['App\Tests\Made'],
+                ]),
+                $this->reference('App\Tests\Failure', 31, ClassReferencePosition::Inert),
+                $this->reference('RuntimeException', 31, ClassReferencePosition::Inert),
+                $this->reference('App\Tests\Named', 33, ClassReferencePosition::ClassName),
+                $this->reference('App\Tests\Compared', 34, ClassReferencePosition::Inert),
+                $this->reference('App\Tests\Closured', 35, ClassReferencePosition::Inert),
+                $this->reference('App\Tests\Arrowed', 35, ClassReferencePosition::Inert),
+                $this->reference('App\Tests\Freed', 39, ClassReferencePosition::Inert),
             ],
             new ClassReferenceScanner()->classReferences(...$this->parse($code)),
         );
@@ -93,7 +121,35 @@ final class ClassReferenceScannerTest extends TestCase
         // Without a name resolver a plain Name carries no resolved form to report.
         $nodes = new ParserFactory()->createForHostVersion()->parse('<?php new Foo(); new \Bar();') ?? [];
 
-        self::assertSame([['name' => 'Bar', 'line' => 1]], new ClassReferenceScanner()->classReferences(...$nodes));
+        self::assertEquals(
+            [$this->reference('Bar', 1, ClassReferencePosition::Loading)],
+            new ClassReferenceScanner()->classReferences(...$nodes),
+        );
+    }
+
+    #[Test]
+    public function everyNamedClassLikeTheCodeDeclaresIsListedAtItsLine(): void
+    {
+        $code = <<<'PHP_WRAP'
+            <?php
+            namespace App\Tests;
+
+            final class Declared {}
+            interface Contracted {}
+            trait Shared {}
+            enum Listed {}
+            new class {};
+            PHP_WRAP;
+
+        self::assertSame(
+            [
+                ['name' => 'App\Tests\Declared', 'line' => 4],
+                ['name' => 'App\Tests\Contracted', 'line' => 5],
+                ['name' => 'App\Tests\Shared', 'line' => 6],
+                ['name' => 'App\Tests\Listed', 'line' => 7],
+            ],
+            new ClassReferenceScanner()->declaredClasses(...$this->parse($code)),
+        );
     }
 
     #[Test]
@@ -117,6 +173,16 @@ final class ClassReferenceScannerTest extends TestCase
             [$dir . '/AutoloadPathDetectorTest.php', $dir . '/ScopeStubTrait.php', $dir . '/ScopeStubTraitTest.php'],
             new ClassReferenceScanner()->includedFiles($file, ...$this->parse($code)),
         );
+    }
+
+    /**
+     * @param array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null $signature
+     *
+     * @return array{name: string, line: int, position: ClassReferencePosition, signature: array{ancestors: list<string>, method: string, parameter: int|null, typeNames: list<string>}|null}
+     */
+    private function reference(string $name, int $line, ClassReferencePosition $position, ?array $signature = null): array
+    {
+        return ['name' => $name, 'line' => $line, 'position' => $position, 'signature' => $signature];
     }
 
     /**

@@ -38,6 +38,10 @@ final class AutoloadPathDetectorTest extends TestCase
 
     private const string HOST_FILE = self::ROOT . '/tests/Runner/ToolExecutorTest.php';
 
+    private const string FIXTURE_NAMESPACE = 'LTS\PHPQA\Tests\Assets\PHPStan\UnautoloadableClassReference\\';
+
+    private const string FIXTURE_DIRECTORY = 'tests/assets/PHPStan/UnautoloadableClassReference/';
+
     /** @var array<int|string, mixed> */
     private const array TESTS_LAYOUT = [
         'autoload'     => ['psr-4' => ['Acme\Widget\\' => 'src/']],
@@ -221,6 +225,45 @@ final class AutoloadPathDetectorTest extends TestCase
 
         self::assertSame('tests/Runner/AlwaysRetry.php', $detector->relativeToRoot(self::HELPER_PATH));
         self::assertSame('/projectile/Foo.php', $detector->relativeToRoot('/projectile/./Foo.php'));
+    }
+
+    #[Test]
+    public function aSecondDeclarationIsGivenTheClaimedPathThatAlsoDeclaresTheClass(): void
+    {
+        $fixtures = $this->fixtureDetector();
+
+        self::assertSame(
+            $this->fixturePath('Duplicated.php'),
+            $fixtures->claimedPathDeclaring(self::FIXTURE_NAMESPACE . 'Duplicated', $this->fixturePath('Drifted/Copies.php')),
+        );
+    }
+
+    #[Test]
+    public function noClaimedPathDeclaresAClassThatHasOnlyOneDeclaration(): void
+    {
+        $fixtures = $this->fixtureDetector();
+
+        // The claimed path is the declaring file itself.
+        self::assertNull($fixtures->claimedPathDeclaring(self::FIXTURE_NAMESPACE . 'Duplicated', $this->fixturePath('Duplicated.php')));
+        // No file exists at the claimed path.
+        self::assertNull($fixtures->claimedPathDeclaring(self::FIXTURE_NAMESPACE . 'StrandedHelper', $this->fixturePath('HostTest.php')));
+        // A file exists at the claimed path, and declares another class.
+        self::assertNull($fixtures->claimedPathDeclaring(self::FIXTURE_NAMESPACE . 'Drifted\Misplaced', $this->fixturePath('HostTest.php')));
+        // Nothing claims the class.
+        self::assertNull($this->detector(self::TESTS_LAYOUT)->claimedPathDeclaring(self::HELPER, self::HOST_FILE));
+    }
+
+    private function fixtureDetector(): AutoloadPathDetector
+    {
+        return new AutoloadPathDetector(
+            \Safe\realpath(__DIR__ . '/../../../..'),
+            ['autoload-dev' => ['psr-4' => [self::FIXTURE_NAMESPACE => self::FIXTURE_DIRECTORY]]],
+        );
+    }
+
+    private function fixturePath(string $relative): string
+    {
+        return \Safe\realpath(__DIR__ . '/../../../../' . self::FIXTURE_DIRECTORY . $relative);
     }
 
     /**

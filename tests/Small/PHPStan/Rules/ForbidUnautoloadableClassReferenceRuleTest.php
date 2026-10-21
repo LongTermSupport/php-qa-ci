@@ -33,6 +33,28 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
 
     private const string HOST = self::FIXTURE_DIRECTORY . 'HostTest.php';
 
+    private const string LOADING = 'this reference fails with a "not found" error unless that file was loaded first.';
+
+    private const string CLASS_NAME = 'whatever loads the class by this name (a mock, a container, class_exists()) '
+        . 'fails, or answers false, unless that file was loaded first.';
+
+    private const string ATTRIBUTE = 'reading this attribute with newInstance() fails with "Attribute class not found" '
+        . 'unless that file was loaded first.';
+
+    /**
+     * Loaded before each test, declaring files first. Drifted/Copies.php is analysed but
+     * never loaded, because it declares a class Duplicated.php declares too.
+     */
+    private const array LOADED_FIXTURES = [
+        'HostTest.php',
+        'AtItsPath.php',
+        'Duplicated.php',
+        'Drifted/Misplaced.php',
+        'unclaimed-stubs.php',
+        'Consumer.php',
+        'Includer.php',
+    ];
+
     /** @var array<int|string, mixed> */
     private array $composerJson = [];
 
@@ -44,8 +66,8 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
     {
         parent::setUp();
 
-        foreach ($this->allFixtures() as $fixture) {
-            require_once $fixture;
+        foreach (self::LOADED_FIXTURES as $fixture) {
+            require_once $this->fixture($fixture);
         }
 
         $this->composerJson = [
@@ -53,28 +75,41 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
         ];
     }
 
+    /**
+     * Only a position at which PHP asks the autoloader for the class is reported, each
+     * with what fails there: `instanceof`, `catch`, a type outside an inherited signature
+     * and a `::class` compared as text are quiet, because no value of an unloaded class
+     * can exist for them to judge wrongly.
+     */
     #[Test]
-    public function everyReferenceFromAnotherFileToAClassAtTheFootOfAFileIsReported(): void
+    public function everyReferenceThatMakesPhpLoadAStrandedClassIsReportedWithWhatFailsThere(): void
     {
-        $stranded  = $this->message('StrandedHelper', self::HOST, 'StrandedHelper.php');
-        $exception = $this->message('StrandedException', self::HOST, 'StrandedException.php');
-        $misplaced = $this->message('Elsewhere\Misplaced', self::FIXTURE_DIRECTORY . 'Drifted/Misplaced.php', 'Elsewhere/Misplaced.php');
+        $stranded  = $this->misplaced('StrandedHelper', self::HOST, 'StrandedHelper.php', self::LOADING);
+        $misplaced = $this->misplaced('Elsewhere\Misplaced', self::FIXTURE_DIRECTORY . 'Drifted/Misplaced.php', 'Elsewhere/Misplaced.php', self::LOADING);
 
         $this->analyse($this->allFixtures(), [
-            [$stranded, 12],
-            [$stranded, 14],
-            [$stranded, 16],
+            [$this->misplaced('StrandedAttribute', self::HOST, 'StrandedAttribute.php', self::ATTRIBUTE), 10],
+            [$this->misplaced('StrandedBase', self::HOST, 'StrandedBase.php', self::LOADING), 11],
+            [$this->misplaced('StrandedContract', self::HOST, 'StrandedContract.php', self::LOADING), 11],
+            [$this->misplaced('StrandedTrait', self::HOST, 'StrandedTrait.php', self::LOADING), 13],
             [$stranded, 19],
-            [$stranded, 21],
-            [$stranded, 22],
-            [$stranded, 23],
-            [$exception, 28],
-            [$stranded, 34],
-            [$misplaced, 45],
-            [$misplaced, 47],
+            [$stranded, 24],
+            [$stranded, 26],
+            [$this->misplaced('StrandedHelper', self::HOST, 'StrandedHelper.php', self::CLASS_NAME), 40],
+            [$this->misplaced('StrandedHelper', self::HOST, 'StrandedHelper.php', $this->signature('contracted')), 43],
+            [$stranded, 45],
+            [$this->misplaced('StrandedMarker', self::HOST, 'StrandedMarker.php', $this->signature('accept')), 48],
+            [$stranded, 58],
+            [$this->miscased(), 72],
+            [$misplaced, 77],
+            [$this->duplicated(), 11],
         ]);
     }
 
+    /**
+     * A classmap loads a misplaced class wherever it is, but not a name written in the
+     * wrong case, and a second declaration is still a second declaration.
+     */
     #[Test]
     public function aClassmapEntryCoveringTheDeclaringFileLoadsIt(): void
     {
@@ -85,7 +120,10 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
             ],
         ];
 
-        $this->analyse($this->allFixtures(), []);
+        $this->analyse($this->allFixtures(), [
+            [$this->miscased(), 72],
+            [$this->duplicated(), 11],
+        ]);
     }
 
     #[Test]
@@ -113,20 +151,54 @@ final class ForbidUnautoloadableClassReferenceRuleTest extends RuleTestCase
      */
     private function allFixtures(): array
     {
-        return array_map(
-            fn (string $relative): string => $this->repositoryRoot() . '/' . self::FIXTURE_DIRECTORY . $relative,
-            ['AtItsPath.php', 'Consumer.php', 'Drifted/Misplaced.php', 'HostTest.php', 'Includer.php', 'unclaimed-stubs.php'],
-        );
+        return array_map($this->fixture(...), [...self::LOADED_FIXTURES, 'Drifted/Copies.php']);
     }
 
-    private function message(string $class, string $declaredIn, string $expected): string
+    private function fixture(string $relative): string
+    {
+        return $this->repositoryRoot() . '/' . self::FIXTURE_DIRECTORY . $relative;
+    }
+
+    private function misplaced(string $class, string $declaredIn, string $expected, string $consequence): string
     {
         return \sprintf(
-            'Class %s cannot be autoloaded: it is declared in %s, not at %s, so this reference finds it only if that '
-            . 'file was loaded first. Move the class to its own file at that path.',
+            'Class %s cannot be autoloaded: it is declared in %s, not at %s, so %s Move the class to its own file at that path.',
             self::FIXTURE_NAMESPACE . $class,
             $declaredIn,
             self::FIXTURE_DIRECTORY . $expected,
+            $consequence,
+        );
+    }
+
+    private function signature(string $method): string
+    {
+        return \sprintf(
+            'declaring this class makes PHP load it to check this signature against %s::%s(), which fails with '
+            . '"Could not check compatibility" unless that file was loaded first.',
+            self::FIXTURE_NAMESPACE . 'StrandedContract',
+            $method,
+        );
+    }
+
+    private function miscased(): string
+    {
+        return \sprintf(
+            'Class %s is written here as %s: the autoloader looks for the name as written, at %s, where a '
+            . 'case-sensitive filesystem has no file, so %s Write the name as it is declared.',
+            self::FIXTURE_NAMESPACE . 'AtItsPath',
+            self::FIXTURE_NAMESPACE . 'atitspath',
+            self::FIXTURE_DIRECTORY . 'atitspath.php',
+            self::LOADING,
+        );
+    }
+
+    private function duplicated(): string
+    {
+        return \sprintf(
+            'Class %s is also declared at %s, where the autoloader finds it: loading this file after that one fails '
+            . 'with "Cannot declare class", and loading it first gives every other file this copy. Delete this copy.',
+            self::FIXTURE_NAMESPACE . 'Duplicated',
+            self::FIXTURE_DIRECTORY . 'Duplicated.php',
         );
     }
 
