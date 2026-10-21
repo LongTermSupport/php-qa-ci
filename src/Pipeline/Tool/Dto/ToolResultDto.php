@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Tool\Dto;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 
 /**
@@ -52,7 +53,7 @@ final readonly class ToolResultDto
             return self::failed(\sprintf('%s failed (exit %d)', $label, $exitCode));
         }
 
-        return self::crashed(\sprintf('%s crashed (exit %d)', $label, $exitCode));
+        return self::crashed(\sprintf('%s crashed (exit %d%s)', $label, $exitCode, ChildExit::killedBy($exitCode)));
     }
 
     public function isSuccess(): bool

@@ -15,13 +15,21 @@ namespace LTS\PHPQA\ComposerPlugin;
  * number.
  *
  * It lives beside the Composer plugins, which call it mid-install, so it calls only global
- * functions (see ForbidNamespacedFunctionInComposerPluginRule). bin/describe-exit gives the
- * same description to the Bash scripts that relay a helper's exit.
+ * functions (see ForbidNamespacedFunctionInComposerPluginRule); that rule knows it as plugin code
+ * by its namespace, which is why it stays here. bin/describe-exit gives the same description to
+ * the Bash scripts that relay a helper's exit, and the pipeline uses it for a lane's child that a
+ * signal killed (SymfonyProcessRunner) and for a tool's crash summary.
  *
  * @internal
  */
 final readonly class ChildExit
 {
+    /** What a segmentation fault calls for: halt, debug, file and defend, never a retry. */
+    public const string SEGFAULT_POLICY = 'https://github.com/LongTermSupport/php-qa-ci/blob/php8.5/CLAUDE/segfault-policy.md';
+
+    /** Said of a segmentation fault, so it is debugged and reported rather than retried past. */
+    public const string SEGFAULT_ADVICE = 'it crashed with a segmentation fault, which is never retried past: halt, debug and report it, as ' . self::SEGFAULT_POLICY . ' describes';
+
     /** A shell reports a child killed by signal n as this + n. */
     private const int SIGNAL_BASE = 128;
 
@@ -50,26 +58,43 @@ final readonly class ChildExit
         15            => 'SIGTERM',
     ];
 
-    /** Where a crash is reported, so it is debugged and filed rather than retried past. */
-    private const string SEGFAULT = ': it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past';
-
     /**
      * "exit code 1", or for a signal kill "exit code 143, killed by signal 15 (SIGTERM)".
      */
     public static function describe(int $exitCode): string
     {
-        $description = 'exit code ' . $exitCode;
+        return 'exit code ' . $exitCode . self::killedBy($exitCode);
+    }
+
+    /**
+     * How a signal ended the child, to follow its exit code: "" when no signal did, else
+     * ", killed by signal 15 (SIGTERM)", and for a segmentation fault what to do about it.
+     */
+    public static function killedBy(int $exitCode): string
+    {
         if (!self::killedBySignal($exitCode)) {
-            return $description;
+            return '';
         }
 
         $signal      = $exitCode - self::SIGNAL_BASE;
-        $description .= ', killed by signal ' . $signal;
+        $description = ', killed by signal ' . $signal;
         if (\array_key_exists($signal, self::SIGNAL_NAMES)) {
             $description .= ' (' . self::SIGNAL_NAMES[$signal] . ')';
         }
 
-        return self::SIGSEGV === $signal ? $description . self::SEGFAULT : $description;
+        return self::SIGSEGV === $signal ? $description . ': ' . self::SEGFAULT_ADVICE : $description;
+    }
+
+    /** The exit code a shell reports for a child killed by this signal. */
+    public static function exitCodeOfSignal(int $signal): int
+    {
+        return self::SIGNAL_BASE + $signal;
+    }
+
+    /** True when the code is a shell's report of a segmentation fault. */
+    public static function isSegmentationFault(int $exitCode): bool
+    {
+        return self::exitCodeOfSignal(self::SIGSEGV) === $exitCode;
     }
 
     /** True when the code is a shell's report of a signal kill, so the child said nothing of it. */

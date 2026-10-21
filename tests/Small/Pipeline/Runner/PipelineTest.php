@@ -7,11 +7,11 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
+use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
 use LTS\PHPQA\Pipeline\Process\SignalledChildren;
-use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Runner\AggregateReport;
 use LTS\PHPQA\Pipeline\Runner\DirectoryPreparer;
 use LTS\PHPQA\Pipeline\Runner\HookRunner;
@@ -453,7 +453,7 @@ final class PipelineTest extends TestCase
     #[TestWith(['hookPost', 'by the post hook', 1])]
     public function aChildOfAHookASignalKilledHaltsTheRun(string $hook, string $where, int $rectorRuns): void
     {
-        $this->factory->project->write('qaConfig/' . $hook . '.php', <<<'PHP'
+        $this->factory->project->write('qaConfig/' . $hook . '.php', <<<'PHP_WRAP'
             <?php
 
             declare(strict_types=1);
@@ -464,7 +464,7 @@ final class PipelineTest extends TestCase
             return static function (ToolContext $context): void {
                 $context->processes->run(new ProcessSpecDto(['hook-child'], '/'));
             };
-            PHP);
+            PHP_WRAP);
         $this->factory->processes->willRun(function (ProcessSpecDto $spec): ProcessResultDto {
             $this->signalled->record(new SignalledChildDto($spec->commandLine(), \SIGTERM));
 

@@ -59,6 +59,16 @@ final class ChildExitTest extends TestCase
         self::assertSame($killed, ChildExit::killedBySignal($exitCode));
     }
 
+    /** @return iterable<string, array{int, bool}> */
+    public static function signals(): iterable
+    {
+        yield '128' => [128, false];
+        yield '129' => [129, true];
+        yield '192' => [192, true];
+        yield '193' => [193, false];
+        yield '255' => [255, false];
+    }
+
     /** A runner that caught the signal itself reports the exit code a shell would have. */
     #[Test]
     public function aSignalKillIsReportedAs128PlusTheSignal(): void
@@ -81,15 +91,5 @@ final class ChildExitTest extends TestCase
         yield 'SIGBUS, one below' => [138, false];
         yield 'SIGUSR2, one above' => [140, false];
         yield 'a plain 11' => [11, false];
-    }
-
-    /** @return iterable<string, array{int, bool}> */
-    public static function signals(): iterable
-    {
-        yield '128' => [128, false];
-        yield '129' => [129, true];
-        yield '192' => [192, true];
-        yield '193' => [193, false];
-        yield '255' => [255, false];
     }
 }

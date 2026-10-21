@@ -56,13 +56,8 @@ final class SymfonyProcessRunnerTest extends TestCase
 
     private const string IGNORE_SIGTERM_THEN_WAIT = 'pcntl_signal(SIGTERM, SIG_IGN); echo str_repeat("r", 3), "\n"; fflush(STDOUT); sleep(5);';
 
-    /** A child that kills itself with SIGTERM: the shell is the child, and `$$` is its own pid. */
+    // A child that kills itself with SIGTERM: the shell is the child, and `$$` is its own pid.
     private const array KILL_SELF = ['/bin/sh', '-c', 'kill -TERM $$'];
-
-    private static function killedLine(ProcessSpecDto $spec): string
-    {
-        return \sprintf('`%s` ended with exit code 143, killed by signal 15 (SIGTERM)', $spec->commandLine());
-    }
 
     #[Test]
     public function aChildThatNamesNoXdebugModeGetsOffWhateverTheParentHas(): void
@@ -187,7 +182,7 @@ final class SymfonyProcessRunnerTest extends TestCase
         self::assertSame(143, $result->exitCode);
         self::assertSame(\SIGTERM, $result->signal);
         self::assertEquals([new SignalledChildDto($spec->commandLine(), \SIGTERM)], $signalled->take());
-        self::assertSame(\sprintf("++ %s\n!! %s\n", $spec->commandLine(), self::killedLine($spec)), $output->fetch());
+        self::assertSame(\sprintf("++ %s\n!! %s\n", $spec->commandLine(), $this->killedLine($spec)), $output->fetch());
     }
 
     /** With no record to put it in, the runner refuses to pass the child off as a result, and names it. */
@@ -200,7 +195,7 @@ final class SymfonyProcessRunnerTest extends TestCase
             new SymfonyProcessRunner(new NullOutput(), new RunningProcesses())->run($spec);
             self::fail('a signalled child must not pass for a result nobody judges');
         } catch (RuntimeException $runtimeException) {
-            self::assertSame(self::killedLine($spec), $runtimeException->getMessage());
+            self::assertSame($this->killedLine($spec), $runtimeException->getMessage());
             self::assertInstanceOf(ProcessSignaledException::class, $runtimeException->getPrevious());
         }
     }
@@ -329,5 +324,10 @@ final class SymfonyProcessRunnerTest extends TestCase
         self::assertLessThan(0.5, microtime(true) - $output->thrownAt, 'the child was killed, not given a grace period');
         $tree = new ProcessTree();
         self::assertSame([], array_values(array_filter($tree->descendantsOf(\Safe\getmypid()), $tree->isAlive(...))), 'and it is gone');
+    }
+
+    private function killedLine(ProcessSpecDto $spec): string
+    {
+        return \sprintf('`%s` ended with exit code 143, killed by signal 15 (SIGTERM)', $spec->commandLine());
     }
 }
