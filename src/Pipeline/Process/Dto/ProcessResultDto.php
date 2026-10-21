@@ -13,6 +13,9 @@ namespace LTS\PHPQA\Pipeline\Process\Dto;
  * (PHPStan's `--json`) must use, since a PHP warning on stderr would otherwise
  * corrupt it.
  *
+ * `$signal` is the signal that killed the child, when one did; `$exitCode` is
+ * then 128 + the signal, as a shell reports it.
+ *
  * @api
  */
 final readonly class ProcessResultDto
@@ -21,6 +24,7 @@ final readonly class ProcessResultDto
         public int $exitCode,
         public string $output,
         public string $stdout,
+        public ?int $signal = null,
     ) {
     }
 
