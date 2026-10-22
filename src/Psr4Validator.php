@@ -302,13 +302,13 @@ final class Psr4Validator
     {
         try {
             $statements = $this->parser->parse(\Safe\file_get_contents($fileInfo->getPathname())) ?? [];
+            // The resolver throws on a name it cannot resolve, such as a second `use` of one short name.
+            new NodeTraverser(new NameResolver())->traverse($statements);
         } catch (PhpParserError $phpParserError) {
             $this->parseErrors[] = $fileInfo->getRealPath() . ': ' . $phpParserError->getMessage();
 
             return null;
         }
-
-        new NodeTraverser(new NameResolver())->traverse($statements);
 
         return array_values($statements);
     }

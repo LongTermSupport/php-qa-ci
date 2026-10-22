@@ -180,8 +180,9 @@ Each exclusion is a narrowing: the hazard cannot arise in the excluded code.
   unclaimed class is never asked of the project's autoloader, so where it is declared decides
   nothing. It would report the `Composer\*` stubs in `tests/assets/ComposerPlugin/composer-stubs.php`,
   which `src/ComposerPlugin/` names and Composer supplies at run time. "One class-like per file"
-  is a convention, not this hazard: a helper used only in its own file is loaded whenever its
-  file is.
+  is not this hazard: a helper used only in its own file is loaded whenever its file is. The
+  [`psr4` lane](../tools/psr4Validate.md) reports a second class-like in a file under a PSR-4
+  root on its own account, as a class no autoloader can load.
 
 - **Runner check**: `PipelineTest.php`, run alone with `bin/qa -t unit -p`, pins the reported
   behaviour: it failed with `Class "…\AlwaysRetry" not found` before the fix and passes after it.

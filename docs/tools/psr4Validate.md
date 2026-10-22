@@ -20,8 +20,8 @@ up only when code autoloads the class and gets a fatal error. The check reads th
 
 For each PHP file under a PSR-4 root:
 
-- **The namespace.** The file is parsed with `nikic/php-parser`, and its first namespace
-  declaration, `namespace X;` or `namespace X { ... }`, must be the one the file's directory
+- **The namespace.** The file is parsed with `nikic/php-parser`, and its first named
+  namespace declaration, `namespace X;` or `namespace X { ... }`, must be the one the file's directory
   implies under the root's namespace prefix. A comment, docblock or string mentioning a
   namespace is not a declaration. A file that declares no namespace, or only the global one
   (`namespace { ... }`), is reported as a parse error. In a file of several namespace blocks the
@@ -40,8 +40,8 @@ For each PHP file under a PSR-4 root:
   class-like at all, such as a file of functions. A class-like whose only fault is the
   namespace already reported for its file is not reported a second time.
 
-A file the parser cannot parse is not checked further, and is reported as a parse error with
-the parser's reason.
+A file the parser cannot parse, or whose names it cannot resolve (a second `use` of one short
+name), is not checked further, and is reported as a parse error with the parser's reason.
 
 A class-like declared beside the one its path names is reported even when only its own file
 uses it. The lane reads one file at a time, so it cannot see whether another file names the
