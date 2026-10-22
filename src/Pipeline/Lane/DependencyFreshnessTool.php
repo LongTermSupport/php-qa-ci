@@ -103,7 +103,7 @@ final readonly class DependencyFreshnessTool implements ToolInterface
 
         $answer = new UpdateDryRunOutput($result->output);
         if (!$result->succeeded()) {
-            return $this->skipped($context, \sprintf('composer exited %d: %s', $result->exitCode, $answer->failureReason()), ...$checked);
+            return $this->skipped($context, \sprintf('composer failed (%s): %s', $result->describeExit(), $answer->failureReason()), ...$checked);
         }
 
         $stale = $answer->staleAmong(...$checked);

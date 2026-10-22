@@ -39,6 +39,7 @@ use Symfony\Component\Process\Process;
 #[CoversClass(UpdateDryRunOutput::class)]
 #[CoversClass(StaleDependencyDto::class)]
 #[CoversClass(DependencyFreshnessPatterns::class)]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
