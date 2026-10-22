@@ -157,9 +157,13 @@ This plan does three things:
     `actionsqaci.unjustifiedException` (pull request 10); the `check` command with file
     discovery, the lanes, `-t`, the output formats and its refusals (pull request 11); exceptions
     applied to findings by identifier, path, job and step, `actionsqaci.staleException`, and the
-    narrowing shown by `rules` (pull request 12). Open: `disabledDefence` as a finding of its own,
-    `inlineSuppression`, `nativeSuppressionConfig`, `versionPin`, and the record sections that come
-    with their consumers (`analyse`, `calibrations`, `templates`, `requiredChecks`).
+    narrowing shown by `rules` (pull request 12); `actionsqaci.inlineSuppression` and
+    `actionsqaci.nativeSuppressionConfig` as guards that refuse a suppression made anywhere but in the record (pull request 14);
+    `actionsqaci.templateDrift` with the record's `templates` section (pull request 15);
+    `actionsqaci.requiredChecks` with the record's `requiredChecks` section, compared offline with
+    the workflows (pull request 16). Open: `disabledDefence` as a finding of its own,
+    `versionPin`, the comparison of `requiredChecks` with real branch protection, and the record
+    sections that come with their consumers (`lintCoverage`, `analyse`, `calibrations`).
   - [x] Isolated lanes (pull request 13): the actionlint lane runs in a child process with a time
     limit and an output cap, so a crash or a hang is exit 4; the declared gap
     `actionlint-runs-in-process` now covers only the `rule` harness.
@@ -168,9 +172,10 @@ This plan does three things:
     ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). The next slices that need
     no decision are the open items of phase 5.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
-  - template drift (generalising the versionPins identity check);
-  - workflow coverage outside `.github/`;
-  - required checks matching produced job names (from Task 2.1).
+  - [x] template drift (generalising the versionPins identity check): merged, pull request 15;
+  - [ ] workflow coverage outside `.github/`;
+  - [x] required checks matching produced job names (from Task 2.1): merged, pull request 16; the
+    comparison with real branch protection is a declared gap.
 - [ ] ⬜ **Task 4.4**: php-qa-ci consumes actions-qa-ci as a lane; every finding is fixed or justified.
 
 ## Success Criteria
