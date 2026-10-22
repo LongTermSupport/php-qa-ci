@@ -218,6 +218,28 @@ which doesn\'t exist
     }
 
     /**
+     * A name that cannot be resolved (a second `use` of the same short name) is a parse error
+     * naming the file, not an exception that ends the lane without saying which file.
+     */
+    public function testAFileWhoseNamesCannotBeResolvedIsAParseErrorNamingTheFile(): void
+    {
+        $project = TempDir::create('phpqa-psr4-unresolvable');
+
+        try {
+            $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+            $project->write('src/Dup.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nuse Foo\\Bar;\nuse Baz\\Bar;\n\nfinal class Dup\n{\n}\n");
+            $validator = new Psr4Validator([], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
+
+            self::assertSame(
+                ['Parse Errors:' => [\Safe\realpath($project->path) . '/src/Dup.php: Cannot use Baz\Bar as Bar because the name is already in use on line 8']],
+                $validator->main(),
+            );
+        } finally {
+            $project->remove();
+        }
+    }
+
+    /**
      * A file whose namespace can be read but which does not parse declares no class-like the
      * validator can see, so it is a parse error, named with the parser's reason.
      */
