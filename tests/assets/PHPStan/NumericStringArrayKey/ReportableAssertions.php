@@ -285,6 +285,17 @@ final class ReportableAssertions
         $this->takesMap($map);
     }
 
+    public function onAHeldVariableSortedByAClosureHoldingItByReference(): void
+    {
+        $map  = $this->byName;
+        $sort = function () use (&$map): void {
+            sort($map);
+        };
+        $sort();
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     private function takes(string $name): void
     {
     }

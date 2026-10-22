@@ -196,7 +196,7 @@
 #                                          inline @var over data whose keys PHPStan does
 #                                          not know, are judged the same way.
 #                                          Declare such keys array-key and cast a key to
-#                                          string where one is read. Its two collectors are
+#                                          string where one is read. Its three collectors are
 #                                          registered under services: below. See
 #                                          docs/phpstan-rules/forbid-numeric-string-array-key.md
 #
@@ -216,6 +216,14 @@
 #                                          result differs by version. Write
 #                                          (bool) \PHP_ZTS. See
 #                                          docs/phpstan-rules/forbid-build-constant-type-dependent-use.md
+#
+# A NAMESPACE READ BY THE PARSER:
+#   ForbidRegexReadingNamespaceRule      — a preg_* call whose constant pattern has the word
+#                                          namespace followed by whitespace reads a namespace
+#                                          declaration out of text, where a comment, a string
+#                                          or a braced block of the same shape is read as one.
+#                                          Read it with nikic/php-parser or PhpToken. See
+#                                          docs/phpstan-rules/forbid-regex-reading-namespace.md
 #
 # AN EXIT CODE SAID AS THE CHILD ENDED:
 #   ForbidHandFormattedExitCodeRule      — a ProcessResultDto's exitCode, or a local copied
@@ -265,6 +273,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule
     - LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantTypeDependentUseRule
     - LTS\PHPQA\PHPStan\Rules\ForbidHandFormattedExitCodeRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidRegexReadingNamespaceRule
 
 parameters:
     phpqaciFactorySealed:
@@ -333,6 +342,10 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ArrowFunctionSpanCollector
         tags:
             - phpstan.collector
     # The collector ForbidHandFormattedExitCodeRule (under rules: above) matches.

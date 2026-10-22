@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
+use LTS\PHPQA\PHPStan\Rules\ArrowFunctionSpanCollector;
 use LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule;
 use LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector;
 use LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector;
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(ForbidNumericStringArrayKeyRule::class)]
 #[CoversClass(NumericStringArrayKeyCollector::class)]
 #[CoversClass(NumericStringArrayKeyWritesCollector::class)]
+#[CoversClass(ArrowFunctionSpanCollector::class)]
 #[Medium]
 final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 {
@@ -61,6 +63,10 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     private const string MAP = '$map';
 
+    private const string COPY = '$copy';
+
+    private const string REGISTRY = '$registry';
+
     private const string ITERATED = 'The result of iterator_to_array()';
 
     private const string REGISTRY_READ = 'line 107 passes it to takesMap() as array<string, int>';
@@ -81,7 +87,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::REASONS, self::DECLARED_REASONS), 40],
                 [$this->message(self::REASONS, self::DECLARED_REASONS), 41],
                 [$this->message(self::COUNTS, self::DECLARED_COUNTS), 42],
-                [$this->message('$copy', 'line 50 passes it to accept() as array<string, string>'), 49],
+                [$this->message(self::COPY, 'line 50 passes it to accept() as array<string, string>'), 49],
                 [$this->message('$map', 'line 52 passes it to accept() as array<string, string>'), 51],
                 [$this->message('$counts', 'line 63 returns it as array<string, int>'), 60],
                 [$this->message('$byPath', 'line 71 passes it to new Holder() as array<string, int>'), 69],
@@ -197,7 +203,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::MAP, $this->asserted(77, self::STRING_INT)), 77],
                 [$this->message(self::MAP, $this->asserted(87, self::STRING_INT)), 87],
                 [$this->message(self::MAP, $this->asserted(96, self::STRING_INT)), 96],
-                [$this->message('$registry', $this->asserted(102, self::STRING_INT)), 102],
+                [$this->message(self::REGISTRY, $this->asserted(102, self::STRING_INT)), 102],
                 [$this->message(self::ITERATED, 'line 109 reads its keys with foreach'), 109],
                 [$this->message(self::ITERATED, 'line 118 reads its keys with foreach'), 118],
                 [$this->message(self::ITERATED, 'line 129 reads its keys with foreach'), 129],
@@ -213,6 +219,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::MAP, $this->asserted(257, self::STRING_INT)), 257],
                 [$this->message(self::MAP, $this->asserted(266, self::STRING_INT)), 266],
                 [$this->message(self::MAP, $this->asserted(285, self::STRING_INT)), 285],
+                [$this->message(self::MAP, $this->asserted(296, self::STRING_INT)), 296],
             ],
         );
     }
@@ -224,6 +231,35 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
         require_once self::FIXTURES . '/NotReportableAssertions.php';
 
         $this->analyse([self::FIXTURES . '/NotReportableAssertions.php'], []);
+    }
+
+    /** A variable written at the top level of a script is a global to a function that imports it. */
+    #[Test]
+    public function aScriptLevelVariableIsAGlobalToAFunctionThatImportsIt(): void
+    {
+        require_once self::FIXTURES . '/ReportableScriptLevel.php';
+
+        $this->analyse(
+            [self::FIXTURES . '/ReportableScriptLevel.php'],
+            [[$this->message(self::REGISTRY, 'line 21 returns it as array<string, int>'), 14]],
+        );
+    }
+
+    /** A key PHP made, which is left alone, ahead of an inline @var in a body that may write any variable unseen. */
+    #[Test]
+    public function aFindingAfterAQuietRecordInTheSameFileIsStillReported(): void
+    {
+        require_once self::FIXTURES . '/ReportableAfterQuiet.php';
+
+        $this->analyse(
+            [self::FIXTURES . '/ReportableAfterQuiet.php'],
+            [
+                [$this->message(self::MAP, $this->asserted(38, self::STRING_INT)), 38],
+                [$this->message(self::MAP, $this->asserted(47, self::STRING_INT)), 47],
+                [$this->message(self::COPY, $this->at(64, self::RETURNS)), 59],
+                [$this->message(self::COPY, $this->at(64, self::RETURNS)), 62],
+            ],
+        );
     }
 
     /** By reference, static, global, $GLOBALS, yield, an element of another array, ArrayIterator and ArrayObject. */
@@ -242,7 +278,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message('$groups[…]', 'line 71 reads its keys with foreach'), 67],
                 [$this->message('$out', 'line 78 hands it back by reference as array<string, int>'), 80],
                 [$this->message('$cache', $this->at(89, self::RETURNS)), 87],
-                [$this->message('$registry', self::REGISTRY_READ), 95],
+                [$this->message(self::REGISTRY, self::REGISTRY_READ), 95],
                 [$this->message("\$GLOBALS['registry']", self::REGISTRY_READ), 100],
                 [$this->message(self::MAP, $this->at(117, self::YIELDS)), 115],
                 [$this->message(self::LITERAL, $this->at(118, self::YIELDS)), 118],
@@ -296,7 +332,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     protected function getCollectors(): array
     {
-        return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class)), new NumericStringArrayKeyWritesCollector()];
+        return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class)), new NumericStringArrayKeyWritesCollector(), new ArrowFunctionSpanCollector()];
     }
 
     private function asserted(int $line, string $type): string

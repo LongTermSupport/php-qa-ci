@@ -27,6 +27,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\ArkitectJsonParser::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\ClassFileLocator::class)]
+#[UsesClass(\LTS\PHPQA\PhpFile\DeclaredNamespaceReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileReportDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\ParsedArchReportDto::class)]

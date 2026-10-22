@@ -105,6 +105,7 @@ dir) prints its page offline.
 - `phpqaci.numericStringArrayKey` — An array keyed by a string that may be all digits is not string-keyed (`docs/phpstan-rules/forbid-numeric-string-array-key.md`)
 - `phpqaci.buildConstantTypeDependentUse` — `PHP_ZTS` and `PHP_DEBUG` are read through `(bool)`, never as they are (`docs/phpstan-rules/forbid-build-constant-type-dependent-use.md`)
 - `phpqaci.handFormattedExitCode` — An exit code is said the way the child ended (`docs/phpstan-rules/forbid-hand-formatted-exit-code.md`)
+- `phpqaci.regexReadsNamespace` — A file's namespace is read by the parser, not by a regular expression (`docs/phpstan-rules/forbid-regex-reading-namespace.md`)
 - `phpqaci.factorySealed` — A factory-sealed class is constructed only by its factory (`docs/phpstan-rules/factory-sealed.md`)
 - `phpqaci.deprecatedPhpunitMethod` — No PHPUnit method deprecated by the installed version (`docs/phpstan-rules/forbid-deprecated-phpunit-method.md`)
 - `phpqaci.unautoloadableClassReference` — A class another file uses is declared where its autoloader looks for it (`docs/phpstan-rules/forbid-unautoloadable-class-reference.md`)

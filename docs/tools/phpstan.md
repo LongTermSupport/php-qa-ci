@@ -421,6 +421,7 @@ rules:
 | `ForbidUnhandledProcessSignalRule`        | `rules-optional.neon`           | `Process::run()`, `mustRun()` or `wait()` with no catch of `ProcessSignaledException`                |
 | `ForbidBuildConstantTypeDependentUseRule` | `rules-optional.neon`           | `PHP_ZTS` or `PHP_DEBUG` compared strictly or made a string — a bool or an int by PHP version        |
 | `ForbidHandFormattedExitCodeRule`         | `rules-optional.neon`           | A child's exit code put into text by hand — use `describeExit()`                                     |
+| `ForbidRegexReadingNamespaceRule`         | `rules-optional.neon`           | A `preg_*` pattern that reads a namespace declaration — read it with the parser                      |
 | `FactorySealedRule`                       | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
 | `ForbidDeprecatedPhpunitMethodRule`       | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |
 | `ForbidUnautoloadableClassReferenceRule`  | `rules-optional.neon` (service) | A reference from another file to a class not declared where its autoloader looks for it              |

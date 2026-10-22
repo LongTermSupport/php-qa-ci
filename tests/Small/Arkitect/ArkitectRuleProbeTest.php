@@ -51,6 +51,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(ArkitectEnvironment::class)]
 #[UsesClass(ArkitectJsonParser::class)]
 #[UsesClass(ClassFileLocator::class)]
+#[UsesClass(\LTS\PHPQA\PhpFile\DeclaredNamespaceReader::class)]
 #[UsesClass(FileErrorDto::class)]
 #[UsesClass(ParsedArchReportDto::class)]
 #[UsesClass(UnreadableReportException::class)]

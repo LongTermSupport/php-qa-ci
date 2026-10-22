@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Agent;
 
 use FilesystemIterator;
+use LTS\PHPQA\PhpFile\DeclaredNamespaceReader;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
@@ -34,9 +35,12 @@ final class ClassFileLocator
     /** @var list<string> */
     private readonly array $roots;
 
+    private readonly DeclaredNamespaceReader $namespaces;
+
     public function __construct(string ...$roots)
     {
-        $this->roots = array_values($roots);
+        $this->roots      = array_values($roots);
+        $this->namespaces = new DeclaredNamespaceReader();
     }
 
     /** The absolute path declaring $fqcn, or null when the class set does not contain it. */
@@ -84,17 +88,9 @@ final class ClassFileLocator
         return $index;
     }
 
-    /** The namespace a file declares, '' for the global namespace. */
-    private function namespaceOf(string $path): string
+    /** The namespace a file declares, '' for the global namespace, null when it does not parse. */
+    private function namespaceOf(string $path): ?string
     {
-        // The capture is read through isset rather than trusted from the
-        // match: the engine's out-parameter is typed nullable, and a file with
-        // no namespace is the ordinary case here, not an exceptional one.
-        $matches = [];
-        if (1 !== \Safe\preg_match('/^\s*namespace\s+([^\s;{]+)\s*[;{]/m', \Safe\file_get_contents($path), $matches) || !isset($matches[1])) {
-            return '';
-        }
-
-        return trim($matches[1], '\\');
+        return $this->namespaces->fromFile($path);
     }
 }
