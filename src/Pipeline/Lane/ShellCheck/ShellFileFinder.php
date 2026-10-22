@@ -30,6 +30,10 @@ final readonly class ShellFileFinder
 
     private const int SHEBANG_READ_BYTES = 512;
 
+    private const string WORKFLOW = '#^\.github/workflows/[^/]+\.ya?ml$#';
+
+    private const string PHP_INTERPRETER = '/^php(\d+(\.\d+)*)?$/';
+
     public function __construct(private string $projectRoot)
     {
     }
@@ -65,6 +69,49 @@ final readonly class ShellFileFinder
         sort($found);
 
         return $found;
+    }
+
+    /**
+     * The tracked GitHub Actions workflows directly under `.github/workflows/`, whose run scripts
+     * are shell embedded in YAML.
+     *
+     * @param list<string> $trackedFiles    project-relative, as `git ls-files` prints them
+     * @param string       ...$ignoredPaths project-relative directories or files to subtract
+     *
+     * @return list<string> project-relative, sorted
+     */
+    public function workflows(array $trackedFiles, string ...$ignoredPaths): array
+    {
+        $found = array_values(array_filter(
+            $trackedFiles,
+            fn (string $relative): bool => 1 === \Safe\preg_match(self::WORKFLOW, $relative)
+                && is_file($this->projectRoot . '/' . $relative)
+                && !$this->under($relative, ...$ignoredPaths),
+        ));
+        sort($found);
+
+        return $found;
+    }
+
+    /**
+     * The file names of the tracked scripts whose shebang runs PHP, so a shell line that runs one
+     * by its path is known to run PHP.
+     *
+     * @param string ...$trackedFiles project-relative, as `git ls-files` prints them
+     *
+     * @return list<string>
+     */
+    public function phpScripts(string ...$trackedFiles): array
+    {
+        $names = [];
+        foreach ($trackedFiles as $relative) {
+            $interpreter = is_file($this->projectRoot . '/' . $relative) ? $this->interpreter($relative) : null;
+            if (null !== $interpreter && 1 === \Safe\preg_match(self::PHP_INTERPRETER, $interpreter)) {
+                $names[] = basename($relative);
+            }
+        }
+
+        return $names;
     }
 
     private function matchesAny(string $relative, string ...$globs): bool

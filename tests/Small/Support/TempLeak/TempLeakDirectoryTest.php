@@ -509,7 +509,7 @@ final class TempLeakDirectoryTest extends TestCase
 
     private function child(string $code): string
     {
-        $process = new Process([\PHP_BINARY, '-r', $code, \dirname(__DIR__, 4)]);
+        $process = new Process([\PHP_BINARY, '-d', 'display_errors=stderr', '-r', $code, \dirname(__DIR__, 4)]);
         $process->mustRun();
 
         return $process->getOutput();

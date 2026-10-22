@@ -64,7 +64,7 @@ final class IssueFormsTest extends TestCase
         $problems = [];
         foreach ($forms as $path => $form) {
             foreach ($this->releaseLineProblems($form) as $problem) {
-                $problems[] = basename($path) . ': ' . $problem;
+                $problems[] = basename((string)$path) . ': ' . $problem;
             }
         }
 
@@ -158,7 +158,7 @@ final class IssueFormsTest extends TestCase
         return ['php' . $version[1] . '.' . $version[2], ...self::MAINTAINED_OLDER_LINES];
     }
 
-    /** @return array<string, array<array-key, mixed>> path => decoded form */
+    /** @return array<array-key, array<array-key, mixed>> path => decoded form */
     private function forms(): array
     {
         $forms = [];

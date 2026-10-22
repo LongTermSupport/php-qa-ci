@@ -38,6 +38,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(ProcessTree::class)]
 #[UsesClass(SymfonyProcessRunner::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class IssueMonitorTest extends TestCase
 {
     private const string BACKLOG_FILE = 'backlog.json';

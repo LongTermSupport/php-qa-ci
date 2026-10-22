@@ -10,17 +10,19 @@ use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
+use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
 use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * The run: preflight, lock, then either one tool or the registry's phases in
- * order, with the retry, aggregate and gate policies applied; hooks around
+ * The run: preflight, lock, then either one tool, or the dependency freshness
+ * check followed by the registry's phases in order, with the retry, aggregate and gate policies applied; hooks around
  * it; the lock released with the exit code.
  *
  * Fail-fast (writable) runs stop at the first failing tool. Aggregate
@@ -39,6 +41,9 @@ final readonly class Pipeline
      * EX_TEMPFAIL: nothing is wrong, try again.
      */
     public const int EXIT_LOCK_CONTENDED = 75;
+
+    /** The lane a full run starts with, before any phase. */
+    private const string DEPENDENCY_FRESHNESS = 'dependencyFreshness';
 
     public function __construct(
         private ToolRegistry $registry,
@@ -110,6 +115,10 @@ final readonly class Pipeline
             return $this->finish($ok, $retried, $config->aggregate, ...$failed);
         }
 
+        if (!$this->dependenciesAreFresh($context, $failed, $retried)) {
+            return $this->finish(false, $retried, $config->aggregate, ...$failed);
+        }
+
         foreach ($this->registry->phases() as $phase) {
             $this->banner($phase->banner, '=');
             if (!$this->runPhase($context, $phase, $failed, $retried)) {
@@ -139,6 +148,34 @@ final readonly class Pipeline
     }
 
     /**
+     * The full run's first step: there is no point checking code with a stale
+     * toolchain, so a failure ends the run before any phase, in aggregate mode
+     * too. A skipped check (freshness could not be determined) lets it carry
+     * on; the lane has said so by name.
+     *
+     * @param list<string> $failed
+     */
+    private function dependenciesAreFresh(ToolContext $context, array &$failed, bool &$retried): bool
+    {
+        if (!$this->registry->accepts(self::DEPENDENCY_FRESHNESS)) {
+            return true;
+        }
+
+        $execution = $this->executor->execute(self::DEPENDENCY_FRESHNESS, $context);
+        $retried   = $retried || $execution->retried;
+        if ($execution->result->isSuccess()) {
+            return true;
+        }
+
+        $failed[] = self::DEPENDENCY_FRESHNESS;
+        if ($execution->segmentationFault) {
+            $this->segmentationFaultHalt(self::DEPENDENCY_FRESHNESS);
+        }
+
+        return false;
+    }
+
+    /**
      * A segmentation fault is never retried past, and nothing that runs after
      * one is trusted, so the run stops at once, aggregate or not.
      */
@@ -151,9 +188,10 @@ final readonly class Pipeline
     }
 
     /**
-     * A child outside any lane (a start-up probe, a hook) that a signal killed
-     * was handed back as an exit code its caller may have taken for an answer,
-     * so the run stops, naming it.
+     * A child outside any lane (a start-up probe, a hook) that a signal killed,
+     * or that exited 139 itself to relay a crash below it, was handed back as
+     * an exit code its caller may have taken for an answer, so the run stops,
+     * naming it as what it was.
      */
     private function haltsOnSignalledChild(string $where): bool
     {
@@ -162,8 +200,16 @@ final readonly class Pipeline
             return false;
         }
 
+        $relayed = array_any($children, static fn (SignalledChildDto $child): bool => $child->exitedItself);
+        $killed  = array_any($children, static fn (SignalledChildDto $child): bool => !$child->exitedItself);
+        $how     = match (true) {
+            $killed && $relayed => 'was killed by a signal or reported a crash below it',
+            $relayed            => 'reported a crash below it',
+            default             => 'was killed by a signal',
+        };
+
         $this->output->writeln('');
-        $this->output->writeln(\sprintf('HALTED: a process run %s was killed by a signal, so the run stops here:', $where));
+        $this->output->writeln(\sprintf('HALTED: a process run %s %s, so the run stops here:', $where, $how));
         foreach ($children as $child) {
             $this->output->writeln('  ' . $child->describe());
         }
@@ -173,15 +219,34 @@ final readonly class Pipeline
 
     /**
      * One lane, no banner, no retry, and the agent-mode exit code rather than
-     * the pipeline's pass/fail pair. The lane has already written its report
-     * and its terse stdout; all that is left is to say which of the four
-     * outcomes it was in a way a calling hook can branch on.
+     * the pipeline's pass/fail pair. The lane writes its report and its terse
+     * stdout; all that is left is to say which of the four outcomes it was in
+     * a way a calling hook can branch on.
+     *
+     * The terse stdout is held until the lane returns. When a process the lane
+     * ran crashed, the lane's own verdict rests on a tool that never finished,
+     * so its lines are replaced by the crash: stdout never says clean beside
+     * exit 3.
      */
     private function runAgentTool(ToolContext $context, string $tool): int
     {
-        $outcome = $this->executor->execute($tool, $context)->result->outcome;
+        $terse     = new BufferedOutput();
+        $execution = $this->executor->execute($tool, new ToolContext(
+            config: $context->config,
+            configPaths: $context->configPaths,
+            processes: $context->processes,
+            php: $context->php,
+            logs: $context->logs,
+            output: $context->output,
+            stdout: $terse,
+        ));
+        if ($execution->childCrashed) {
+            new TerseReporter($context->stdout)->childCrashed($tool, $execution->result->summary);
+        } else {
+            $context->stdout->write($terse->fetch(), false, OutputInterface::OUTPUT_RAW);
+        }
 
-        return match ($outcome) {
+        return match ($execution->result->outcome) {
             ToolOutcomeEnum::Crashed => AgentStatusEnum::Crashed->exitCode(),
             ToolOutcomeEnum::Failed  => AgentStatusEnum::Errors->exitCode(),
             default                  => AgentStatusEnum::Clean->exitCode(),

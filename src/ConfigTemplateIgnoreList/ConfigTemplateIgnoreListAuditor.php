@@ -40,10 +40,10 @@ final readonly class ConfigTemplateIgnoreListAuditor
     }
 
     /**
-     * @return array<string, string> template path relative to the defaults
-     *                               directory, mapped to the override path it
-     *                               would occupy once copied, for every
-     *                               namespace-less template the list misses
+     * @return array<array-key, string> template path relative to the defaults
+     *                                  directory, mapped to the override path it
+     *                                  would occupy once copied, for every
+     *                                  namespace-less template the list misses
      */
     public function main(): array
     {
@@ -61,7 +61,7 @@ final readonly class ConfigTemplateIgnoreListAuditor
         return $violations;
     }
 
-    /** @return array<string, string> relative path => override-relative copy destination */
+    /** @return array<array-key, string> relative path => override-relative copy destination */
     private function namespaceLessTemplates(): array
     {
         $templates = [];

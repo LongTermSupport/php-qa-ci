@@ -15,8 +15,8 @@ use Symfony\Component\Process\Process;
  * bin/phpstan-rule refuses an answer when the qa run left no JSON. A qa killed by a signal leaves
  * no output either, so the refusal names how qa ended rather than only quoting what it printed.
  *
- * The harness runs from a copy of bin/ whose qa kills itself with SIGTERM, standing for every
- * signal (a real SIGSEGV would leave a core dump on the host); vendor/ is this repository's.
+ * The harness runs from a copy of bin/ whose qa, a PHP script as the real one is, kills itself with
+ * SIGTERM, standing for every signal (a real SIGSEGV would leave a core dump on the host); vendor/ is this repository's.
  *
  * @internal
  */
@@ -39,7 +39,7 @@ final class PhpstanRuleHarnessRelaysQaExitTest extends TestCase
                 }
             }
 
-            \Safe\chmod($temp->write('bin/qa', "#!/usr/bin/env bash\nkill -TERM \$\$\n"), 0o755);
+            \Safe\chmod($temp->write('bin/qa', "<?php\n\nposix_kill(posix_getpid(), SIGTERM);\n"), 0o755);
             \Safe\symlink($repo . '/vendor', $temp->path . '/vendor');
             $target = $temp->write('src/Example.php', "<?php\n");
 

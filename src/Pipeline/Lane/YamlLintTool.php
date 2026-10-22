@@ -81,6 +81,6 @@ final readonly class YamlLintTool implements ToolInterface
 
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('Yaml Lint failed (exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('Yaml Lint failed (%s)', $result->describeExit()));
     }
 }

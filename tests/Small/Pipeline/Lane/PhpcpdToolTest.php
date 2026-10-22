@@ -35,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class PhpcpdToolTest extends TestCase
 {
     private const string EXCLUDE = '--exclude';
@@ -99,7 +100,7 @@ final class PhpcpdToolTest extends TestCase
         $command = $this->factory->processes->lastSpec()->command;
         self::assertSame(
             [self::EXCLUDE, $root . '/tests/assets/', self::EXCLUDE, $root . '/src/Legacy.php', $root . '/tests', $root . '/src'],
-            \array_slice($command, 7),
+            \array_slice($command, 9),
         );
     }
 

@@ -100,7 +100,7 @@ final readonly class PhpCsFixerTool implements ToolInterface
         if (!$readOnly) {
             $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::failed(\sprintf('PHP CS Fixer failed (exit %d)', $result->exitCode));
+            return ToolResultDto::failed(\sprintf('PHP CS Fixer failed (%s)', $result->describeExit()));
         }
 
         if (self::EXIT_PENDING_FIXES === $result->exitCode) {
@@ -113,12 +113,12 @@ final readonly class PhpCsFixerTool implements ToolInterface
         }
 
         $context->writeln(\sprintf(
-            'PHP CS Fixer failed with exit code %d (a genuine error, not a pending-fix diff) — see output above.',
-            $result->exitCode,
+            'PHP CS Fixer failed with %s (a genuine error, not a pending-fix diff) — see output above.',
+            $result->describeExit(),
         ));
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::crashed(\sprintf('PHP CS Fixer crashed (exit %d)', $result->exitCode));
+        return ToolResultDto::crashed(\sprintf('PHP CS Fixer crashed (%s)', $result->describeExit()));
     }
 
     private function cache(ToolContext $context): FormatterCache

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use FilesystemIterator;
-use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\Pipeline\Config\OpcacheDefects;
 use LTS\PHPQA\Pipeline\Lane\Opcache\Dto\ConstComparisonDto;
 use LTS\PHPQA\Pipeline\Lane\Opcache\DumpParser;
@@ -96,7 +95,7 @@ final readonly class OpcacheTool implements ToolInterface
             if (!$result->succeeded()) {
                 $context->writeln($result->output);
 
-                return ToolResultDto::crashed(\sprintf('optimizer dump crashed (exit %d%s)', $result->exitCode, ChildExit::killedBy($result->exitCode)));
+                return ToolResultDto::crashed(\sprintf('optimizer dump crashed (%s)', $result->describeExit()));
             }
 
             $findings = [...$findings, ...$parser->parse($result->output)];

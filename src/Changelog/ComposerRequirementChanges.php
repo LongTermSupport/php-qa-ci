@@ -45,7 +45,7 @@ final readonly class ComposerRequirementChanges
         return $changes;
     }
 
-    /** @return array<string, string> package => constraint */
+    /** @return array<array-key, string> package => constraint */
     private function requirements(string $composerJson): array
     {
         $composer = \Safe\json_decode($composerJson, true);
@@ -57,7 +57,7 @@ final readonly class ComposerRequirementChanges
         $requirements = [];
         foreach ($require as $package => $constraint) {
             if (\is_string($constraint)) {
-                $requirements[(string)$package] = $constraint;
+                $requirements[$package] = $constraint;
             }
         }
 

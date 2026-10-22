@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Tool;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -17,7 +19,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ToolResultDto::class)]
 #[CoversClass(ToolOutcomeEnum::class)]
 #[Small]
-#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(ChildExit::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(ProcessResultDto::class)]
 final class ToolResultDtoTest extends TestCase
 {
     private const string PHPSTAN = 'PHPStan';
@@ -54,5 +57,24 @@ final class ToolResultDtoTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Crashed, $crash->outcome);
         self::assertSame('PHPStan crashed (exit 255)', $crash->summary);
         self::assertSame('PHPStan crashed (exit 143, killed by signal 15 (SIGTERM))', ToolResultDto::fromExitCode(143, self::PHPSTAN, 1)->summary);
+    }
+
+    /** A process result says how the child ended: a code it exited with itself is not called a kill. */
+    #[Test]
+    public function processResultsMapToOutcomesDescribedAsTheyEnded(): void
+    {
+        self::assertSame(ToolOutcomeEnum::Passed, ToolResultDto::fromProcessResult(new ProcessResultDto(0, '', ''), self::PHPSTAN)->outcome);
+
+        $failed = ToolResultDto::fromProcessResult(new ProcessResultDto(3, '', ''), 'PHP Lint');
+        self::assertSame(ToolOutcomeEnum::Failed, $failed->outcome);
+        self::assertSame('PHP Lint failed (exit 3)', $failed->summary);
+
+        $killed = ToolResultDto::fromProcessResult(new ProcessResultDto(143, '', '', \SIGTERM), self::PHPSTAN, 1);
+        self::assertSame(ToolOutcomeEnum::Crashed, $killed->outcome);
+        self::assertSame('PHPStan crashed (exit 143, killed by signal 15 (SIGTERM))', $killed->summary);
+
+        $relayed = ToolResultDto::fromProcessResult(new ProcessResultDto(139, '', ''), self::PHPSTAN, 1);
+        self::assertSame(ToolOutcomeEnum::Crashed, $relayed->outcome);
+        self::assertSame('PHPStan crashed (exit 139' . ChildExit::exitedItself(139) . ')', $relayed->summary);
     }
 }

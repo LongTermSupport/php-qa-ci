@@ -155,7 +155,7 @@ final readonly class PhpArkitectTool implements ToolInterface
 
         if ($result->exitCode > 1) {
             $context->writeln('');
-            $context->writeln(\sprintf('PHPArkitect crashed (exit %d) — this is an ERROR, not a rule violation.', $result->exitCode));
+            $context->writeln(\sprintf('PHPArkitect crashed (%s) — this is an ERROR, not a rule violation.', $result->describeExit()));
             $context->writeln('Likely causes: an invalid phparkitect config, an unparseable source file, or a bad');
             $context->writeln('ClassSet path. Inspect the output above; retrying will not help.');
             $context->writeln("NOTE: an INCOMPLETE autoloader does NOT crash — instead the optional/symfony tiers'");
@@ -163,7 +163,7 @@ final readonly class PhpArkitectTool implements ToolInterface
             $context->writeln("find no violations, make your classes autoloadable: run 'composer dump-autoload'.");
             $context->writeln('');
 
-            return ToolResultDto::crashed(\sprintf('PHPArkitect crashed (exit %d)', $result->exitCode));
+            return ToolResultDto::crashed(\sprintf('PHPArkitect crashed (%s)', $result->describeExit()));
         }
 
         $context->writeIdentifier(self::IDENTIFIER);
@@ -213,7 +213,7 @@ final readonly class PhpArkitectTool implements ToolInterface
         $writer->clearScope(null);
 
         if ($result->exitCode > 1) {
-            return $this->agentCrash($writer, $terse, \sprintf('PHPArkitect crashed (exit %d)', $result->exitCode), $runAt, $logPath);
+            return $this->agentCrash($writer, $terse, \sprintf('PHPArkitect crashed (%s)', $result->describeExit()), $runAt, $logPath);
         }
 
         try {
@@ -223,7 +223,8 @@ final readonly class PhpArkitectTool implements ToolInterface
         }
 
         $locator = new ClassFileLocator($paths->srcDir);
-        $byFile  = [];
+        /** @var array<array-key, list<FileErrorDto>> $byFile */
+        $byFile = [];
         foreach ($parsed->classes as $fqcn => $violations) {
             $target = $locator->locate($fqcn) ?? $this->fallbackPath($violations[0]->message);
             foreach ($violations as $violation) {
@@ -232,7 +233,7 @@ final readonly class PhpArkitectTool implements ToolInterface
         }
 
         foreach ($byFile as $target => $violations) {
-            $writer->write(FileReportDto::forErrors($this->name(), $target, $runAt, $logPath, ...$violations));
+            $writer->write(FileReportDto::forErrors($this->name(), (string)$target, $runAt, $logPath, ...$violations));
         }
 
         $status = AgentStatusEnum::forErrorCount($parsed->violationCount());

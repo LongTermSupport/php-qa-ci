@@ -63,6 +63,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectPathsResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Exception\ProjectLayoutException::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ArkitectRuleProbeTest extends TestCase
 {
     private const string INTERFACE_BECAUSE = 'an Interface suffix makes the symbol kind obvious at every use site';

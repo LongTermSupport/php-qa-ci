@@ -71,6 +71,29 @@ final class ChildExitTest extends TestCase
         yield "SIGSEGV, a crash in php-qa-ci's own helper" => [139, 'exit code 139, killed by signal 11 (SIGSEGV): it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past'];
     }
 
+    /**
+     * A process that exited with a signal's code itself was not killed: a wrapper relays a crash
+     * below it that way, as a shell does. Its description says so, and never "killed by".
+     */
+    #[Test]
+    #[DataProvider('exitsOfTheProcessItself')]
+    public function aCodeTheProcessExitedWithItselfIsNotCalledAKill(int $exitCode, string $description): void
+    {
+        self::assertSame($description, ChildExit::describeExitedItself($exitCode));
+        self::assertSame($description, 'exit code ' . $exitCode . ChildExit::exitedItself($exitCode));
+        self::assertStringNotContainsString('killed by', $description);
+    }
+
+    /** @return iterable<string, array{int, string}> */
+    public static function exitsOfTheProcessItself(): iterable
+    {
+        yield 'an ordinary failure' => [1, 'exit code 1'];
+        yield 'a PHP fatal error, 255, which is no signal' => [255, 'exit code 255'];
+        yield "SIGTERM's code" => [143, 'exit code 143, which it exited with itself: the code a shell gives for signal 15 (SIGTERM)'];
+        yield "signal 7's code, numbered differently per platform" => [135, 'exit code 135, which it exited with itself: the code a shell gives for signal 7'];
+        yield "SIGSEGV's code, a crash below it" => [139, 'exit code 139, which it exited with itself: the code a shell gives for signal 11 (SIGSEGV), so a process below it crashed with a segmentation fault, a defect to debug and report where the crashing code lives, never to retry past (see ' . self::segfaultGuide() . ')'];
+    }
+
     /** bin/describe-exit's command line: an exit code, after the option naming a php-qa-ci helper. */
     #[Test]
     #[DataProvider('commandLines')]

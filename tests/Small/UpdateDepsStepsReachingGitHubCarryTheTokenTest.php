@@ -76,13 +76,13 @@ final class UpdateDepsStepsReachingGitHubCarryTheTokenTest extends TestCase
     /** @return list<string> the names of the steps that reach GitHub without the token */
     private function stepsWithoutToken(string $workflow): array
     {
-        return array_keys(array_filter(
+        return array_map(strval(...), array_keys(array_filter(
             $this->stepsReachingGitHub($workflow),
             static fn (string $step): bool => !str_contains($step, self::TOKEN),
-        ));
+        )));
     }
 
-    /** @return array<string, string> step name => step text, for every step that reaches GitHub */
+    /** @return array<array-key, string> step name => step text, for every step that reaches GitHub */
     private function stepsReachingGitHub(string $workflow): array
     {
         $reaching = [];

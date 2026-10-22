@@ -47,7 +47,7 @@ final readonly class ComposerRequireCheckerTool implements ToolInterface
         $this->guidance($context);
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('Composer Require Checker failed (exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('Composer Require Checker failed (%s)', $result->describeExit()));
     }
 
     private function guidance(ToolContext $context): void

@@ -28,9 +28,10 @@ final readonly class ActiveDefencesSummary
 
     public function render(ActiveDefencesListingDto $listing, string $projectRoot): string
     {
-        $lines      = [];
-        $unnamed    = [];
-        $byPackage  = [];
+        $lines   = [];
+        $unnamed = [];
+        /** @var array<array-key, int> $byPackage */
+        $byPackage = [];
         foreach ($listing->rules as $rule) {
             if (null !== $rule->identifier) {
                 $summary = $rule->summary ?? (null === $rule->package ? 'no summary declared' : \sprintf('a rule from `%s`', $rule->package));

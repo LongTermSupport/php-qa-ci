@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ChangelogGitTest extends TestCase
 {
     private const string ROOT = '/project';

@@ -34,6 +34,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ComposerDependencyAnalyserToolTest extends TestCase
 {
     private ContextFactory $factory;
@@ -61,7 +62,7 @@ final class ComposerDependencyAnalyserToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
             [
-                '/usr/bin/php', '-d', 'memory_limit=4G',
+                '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr',
                 '-f', $phar, '--',
                 '--config=' . $library . '/configDefaults/generic/composer-dependency-analyser.php',
                 '--composer-json=' . $root . '/composer.json',

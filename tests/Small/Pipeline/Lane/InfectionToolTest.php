@@ -69,6 +69,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class InfectionToolTest extends TestCase
 {
     private const string COVERAGE_XML_INDEX_XML = 'var/qa/phpunit_logs/coverage-xml/index.xml';
@@ -186,7 +187,7 @@ final class InfectionToolTest extends TestCase
 
         $phar = $this->factory->processes->lastSpec();
         self::assertSame([
-            '/usr/bin/php', '-d', 'memory_limit=4G',
+            '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr',
             '-f', \dirname(__DIR__, 4) . '/vendor-phar/infection.phar', '--',
             '--coverage=' . $this->root . self::PHPUNIT_LOGS,
             '--skip-initial-tests',
@@ -599,7 +600,7 @@ final class InfectionToolTest extends TestCase
 
         $coverage = $this->factory->processes->specs[0];
         self::assertSame([
-            '/usr/bin/php', '-d', 'memory_limit=4G', '-f', $this->root . '/vendor/bin/phpunit', '--',
+            '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', $this->root . '/vendor/bin/phpunit', '--',
             '-c', \dirname(__DIR__, 4) . '/configDefaults/generic/phpunit.xml',
             '--coverage-xml', $this->root . '/var/qa/phpunit_logs/coverage-xml',
             '--log-junit', $this->root . '/var/qa/phpunit_logs/phpunit.junit.xml',
@@ -796,7 +797,7 @@ final class InfectionToolTest extends TestCase
             '--ignore-msi-with-no-mutations',
             self::LOG_ALL,
             $this->root . '/' . self::COMMITTED_SRC,
-        ], \array_slice($phar->command, 6), 'a diff run mutates uncovered code too and holds the MSI to the diff floor');
+        ], \array_slice($phar->command, 8), 'a diff run mutates uncovered code too and holds the MSI to the diff floor');
         self::assertTrue($phar->lowPriority);
     }
 
@@ -1514,13 +1515,13 @@ final class InfectionToolTest extends TestCase
     {
         $this->factory->project->write(self::PROJECT_CONFIG, self::SRC_CONFIG);
 
-        $result  = $this->tool("it exited 255:\nPHP Fatal error:  Failed opening required")->run($this->context($this->factory->builder(env: self::FLOORS)));
+        $result  = $this->tool("it ended with exit 255:\nPHP Fatal error:  Failed opening required")->run($this->context($this->factory->builder(env: self::FLOORS)));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('the autoloader could not be loaded as PHPUnit loads it', $result->summary);
         self::assertSame([], $this->factory->processes->specs);
-        self::assertStringContainsString(\sprintf("Infection: loading %s/vendor/autoload.php as PHPUnit's runner loads it, to check that no file Infection mutates is loaded before Infection can swap it for a mutant, failed: it exited 255:\n           PHP Fatal error:  Failed opening required\n", $this->root), $printed);
+        self::assertStringContainsString(\sprintf("Infection: loading %s/vendor/autoload.php as PHPUnit's runner loads it, to check that no file Infection mutates is loaded before Infection can swap it for a mutant, failed: it ended with exit 255:\n           PHP Fatal error:  Failed opening required\n", $this->root), $printed);
         self::assertStringContainsString("\n           PHPUnit loads that autoloader before every test, so no mutant run can start until it loads.\n", $printed);
         self::assertStringEndsWith(InfectionTool::IDENTIFIER . ")\n", $printed);
     }

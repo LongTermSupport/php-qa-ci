@@ -94,7 +94,7 @@ final class InfectionArgumentsAreAcceptedByTheShippedPharTest extends TestCase
     private function accepted(): array
     {
         if (null === self::$accepted) {
-            $process = new Process([\PHP_BINARY, self::PHAR, 'run', '--help', '--no-ansi']);
+            $process = new Process([\PHP_BINARY, '-d', 'display_errors=stderr', self::PHAR, 'run', '--help', '--no-ansi']);
             $process->mustRun();
             self::$accepted = $this->optionsListedIn($process->getOutput());
         }

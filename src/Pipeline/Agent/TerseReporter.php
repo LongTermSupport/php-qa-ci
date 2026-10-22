@@ -27,6 +27,8 @@ final readonly class TerseReporter
 
     private const string ACTION = 'ACTION REQUIRED: read that JSON report NOW and fix every error it lists, then re-run. Do not guess from this summary — it contains no findings, only counts.';
 
+    private const string NO_VERDICT = 'NO VERDICT: a process the tool ran crashed, so no report this run wrote is a result. Find out why from the line above before re-running; a segmentation fault is never retried past.';
+
     public function __construct(private OutputInterface $stdout)
     {
     }
@@ -68,6 +70,17 @@ final readonly class TerseReporter
         $this->stdout->writeln(\sprintf('%s: %s — %s', $this->heading($tool), AgentStatusEnum::Crashed->value, $reason));
         $this->stdout->writeln(self::REPORT_PREFIX . $reportPath);
         $this->stdout->writeln(self::ACTION);
+    }
+
+    /**
+     * A process the tool ran crashed, so whatever the lane concluded rests on
+     * a tool that never finished. No report of this run is a result, so none is
+     * named; `$reason` says which process ended and how.
+     */
+    public function childCrashed(string $tool, string $reason): void
+    {
+        $this->stdout->writeln(\sprintf('%s: %s — %s', $this->heading($tool), AgentStatusEnum::Crashed->value, $reason));
+        $this->stdout->writeln(self::NO_VERDICT);
     }
 
     private function heading(string $tool): string

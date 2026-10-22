@@ -103,6 +103,17 @@ Exit 2 writes no report. Overwriting a file's last real result with a lock-held 
 would destroy the finding the caller was about to act on, so the previous report stands and
 stdout says the analysis did not happen.
 
+Exit 3 always says `crashed` on stdout, never `clean`. When the tool itself crashed, stdout
+names the reason and the report that records it. When a process the tool ran crashed,
+whatever the tool concluded rests on a run that never finished. A wrapper relaying a
+segmentation fault below it is one such run. The tool's own lines are then replaced by the
+crash, saying which process ended and how, with no report named:
+
+```text
+PHPSTAN AGENT MODE: crashed — phpstan crashed: `<command>` ended with exit code 139, which it exited with itself: the code a shell gives for signal 11 (SIGSEGV), so a process below it crashed ...
+NO VERDICT: a process the tool ran crashed, so no report this run wrote is a result. Find out why from the line above before re-running; a segmentation fault is never retried past.
+```
+
 ## The report
 
 One file per analysed source file, at the source file's own project-relative path with

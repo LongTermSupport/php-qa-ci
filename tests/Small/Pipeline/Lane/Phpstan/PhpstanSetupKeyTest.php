@@ -117,7 +117,7 @@ final class PhpstanSetupKeyTest extends TestCase
         $this->diagnoseKey();
 
         $spec = $this->factory->processes->lastSpec();
-        self::assertSame(['/usr/bin/php', '-r', PhpstanSetupKey::RUNTIME_PROBE], $spec->command);
+        self::assertSame(['/usr/bin/php', '-d', 'display_errors=stderr', '-r', PhpstanSetupKey::RUNTIME_PROBE], $spec->command);
         self::assertSame(['XDEBUG_MODE' => 'off'], $spec->env);
         self::assertSame($this->factory->project->path, $spec->cwd);
         self::assertFalse($spec->streamOutput);

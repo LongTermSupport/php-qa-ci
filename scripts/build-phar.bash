@@ -166,9 +166,9 @@ build_tool() {
 
     # A phar killed by a signal prints nothing, so how it ended is named.
     local BUILT_VERSION BUILT_SIZE VERSION_RC=0
-    BUILT_VERSION="$(php "$OUTPUT_PHAR" --version | awk 'NR==1')" || VERSION_RC=$?
+    BUILT_VERSION="$(php -d display_errors=stderr "$OUTPUT_PHAR" --version | awk 'NR==1')" || VERSION_RC=$?
     if (( VERSION_RC != 0 )); then
-        BUILT_VERSION="unknown: php $tool.phar --version failed with $(php "$PROJECT_ROOT/bin/describe-exit" "$VERSION_RC")"
+        BUILT_VERSION="unknown: php $tool.phar --version failed with $(php -d display_errors=stderr "$PROJECT_ROOT/bin/describe-exit" "$VERSION_RC")"
     fi
     BUILT_SIZE="$(du -h "$OUTPUT_PHAR" | cut -f1)"
     echo -e "${GREEN}Built $OUTPUT_PHAR ($BUILT_SIZE) — $BUILT_VERSION${NC}"

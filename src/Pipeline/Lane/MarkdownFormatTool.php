@@ -95,7 +95,7 @@ final readonly class MarkdownFormatTool implements ToolInterface
                 $context->writeln(rtrim($probe->output));
                 $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::crashed(\sprintf('git check-ignore could not run (exit %d)', $probe->exitCode));
+                return ToolResultDto::crashed(\sprintf('git check-ignore could not run (%s)', $probe->describeExit()));
             }
 
             $ignored = $outsideGit ? [] : array_map(trim(...), explode("\n", $probe->stdout));
@@ -126,7 +126,7 @@ final readonly class MarkdownFormatTool implements ToolInterface
             if (!$readOnly || !str_contains($result->output, self::PENDING_MARKER)) {
                 $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::crashed(\sprintf('the hooks daemon formatter could not run (exit %d)', $result->exitCode));
+                return ToolResultDto::crashed(\sprintf('the hooks daemon formatter could not run (%s)', $result->describeExit()));
             }
 
             $pending = true;

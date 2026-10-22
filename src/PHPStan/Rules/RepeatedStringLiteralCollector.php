@@ -23,7 +23,7 @@ use SplObjectStorage;
  */
 final class RepeatedStringLiteralCollector extends NodeVisitorAbstract
 {
-    /** @var array<string, list<int>> */
+    /** @var array<array-key, list<int>> an all-digit literal is stored under an int key */
     private array $occurrences = [];
 
     /** @var SplObjectStorage<String_, null> */
@@ -63,7 +63,7 @@ final class RepeatedStringLiteralCollector extends NodeVisitorAbstract
         return null;
     }
 
-    /** @return array<string, list<int>> value => lines, in first-seen order */
+    /** @return array<array-key, list<int>> value => lines, in first-seen order; cast a key to string to read the literal */
     public function occurrences(): array
     {
         return $this->occurrences;

@@ -34,7 +34,7 @@ final class Psr4Validator
     /** @var list<string> */
     private array $parseErrors = [];
 
-    /** @var array<string,array<int, array<string,string>>> */
+    /** @var array<array-key,array<int, array<string,string>>> */
     private array $psr4Errors = [];
 
     /** @var array<string, list<array{fileInfo: string, expectedClassLike: string, declaredClassLike: string, problem: string}>> */
@@ -43,7 +43,7 @@ final class Psr4Validator
     /** @var list<string> */
     private array $ignoredFiles = [];
 
-    /** @var array<string, string> keyed by the missing path */
+    /** @var array<array-key, string> keyed by the missing path */
     private array $missingPaths = [];
 
     /** @var list<string> */
@@ -154,9 +154,10 @@ final class Psr4Validator
                 continue;
             }
 
-            /** @var array<string, string|list<string>> $psr4 */
+            /** @var array<array-key, string|list<string>> $psr4 */
             $psr4 = $autoloadSection['psr-4'];
             foreach ($psr4 as $namespaceRoot => $paths) {
+                $namespaceRoot = (string)$namespaceRoot;
                 if (!\is_array($paths)) {
                     $paths = [$paths];
                 }

@@ -53,7 +53,7 @@ final readonly class PhpcpdTool implements ToolInterface
         );
 
         if ($result->exitCode > self::EXIT_CLONES_OR_ERROR) {
-            $context->writeln(\sprintf('phpcpd could not run (exit %d) — informational lane, not failing the run.', $result->exitCode));
+            $context->writeln(\sprintf('phpcpd could not run (%s) — informational lane, not failing the run.', $result->describeExit()));
         }
 
         return ToolResultDto::passed();

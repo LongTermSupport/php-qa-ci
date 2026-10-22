@@ -190,7 +190,7 @@ final readonly class InfectionTool implements ToolInterface
 
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('Infection failed (exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('Infection failed (%s)', $result->describeExit()));
     }
 
     /**
@@ -439,7 +439,7 @@ final readonly class InfectionTool implements ToolInterface
 
         $diff = $this->git($context, ...$this->diffFilter->gitDiffArguments($diffBase, $paths->srcDir, $paths->testsDir, ...$triggers));
         if (!$diff->succeeded()) {
-            $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (exit %d) — cannot determine the changed files for diff mode.", $diffBase, $diff->exitCode));
+            $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (%s) — cannot determine the changed files for diff mode.", $diffBase, $diff->describeExit()));
             $context->writeln("           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first).");
             $context->writeIdentifier(self::IDENTIFIER);
 
@@ -509,8 +509,11 @@ final readonly class InfectionTool implements ToolInterface
         $relatives   = [];
         $outside     = [];
         try {
-            foreach (array_combine($filter->relativePaths, $filter->positionalPaths) as $relative => $absolute) {
-                $reason = $this->sourceScope->outside($absolute, $directories, ...$excludes);
+            /** @var array<array-key, string> $byRelative */
+            $byRelative = array_combine($filter->relativePaths, $filter->positionalPaths);
+            foreach ($byRelative as $key => $absolute) {
+                $relative = (string)$key;
+                $reason   = $this->sourceScope->outside($absolute, $directories, ...$excludes);
                 if (null === $reason) {
                     $paths[]     = $absolute;
                     $relatives[] = $relative;
@@ -664,10 +667,10 @@ final readonly class InfectionTool implements ToolInterface
             return null;
         }
 
-        $context->writeln(\sprintf('Infection: coverage generation FAILED (phpunit exit %d) — the test suite is not green, so mutation testing cannot proceed.', $result->exitCode));
+        $context->writeln(\sprintf('Infection: coverage generation FAILED (phpunit %s) — the test suite is not green, so mutation testing cannot proceed.', $result->describeExit()));
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('Infection (coverage generation) failed (phpunit exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('Infection (coverage generation) failed (phpunit %s)', $result->describeExit()));
     }
 
     /**

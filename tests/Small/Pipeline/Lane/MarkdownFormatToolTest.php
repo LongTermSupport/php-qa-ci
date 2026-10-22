@@ -42,6 +42,7 @@ use Safe\Exceptions\FilesystemException;
 #[UsesClass(ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class MarkdownFormatToolTest extends TestCase
 {
     private const string README = 'README.md';

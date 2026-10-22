@@ -18,6 +18,10 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
  * nothing, the host's ini layout is untouched, and a tool that spawns its own
  * PHP workers (PHPStan, paratest) hands the setting down with the environment.
  *
+ * Every invocation sends PHP's displayed errors to stderr: the CLI displays
+ * them on stdout unless an ini says otherwise, where a warning or deprecation
+ * would become part of what a caller parses, a JSON report or a probe's answer.
+ *
  * @api
  */
 final readonly class PhpInvoker
@@ -27,6 +31,8 @@ final readonly class PhpInvoker
     private const array XDEBUG_OFF = [self::XDEBUG_MODE => 'off'];
 
     private const string PROBE_DELIMITER = '|';
+
+    private const string DISPLAY_ERRORS_ON_STDERR = 'display_errors=stderr';
 
     public function __construct(
         private ProcessRunnerInterface $runner,
@@ -58,7 +64,7 @@ final readonly class PhpInvoker
     public function withXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true): ProcessResultDto
     {
         return $this->runner->run(new ProcessSpecDto(
-            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-f', $script, '--', ...$args],
+            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-d', self::DISPLAY_ERRORS_ON_STDERR, '-f', $script, '--', ...$args],
             cwd: $cwd,
             env: $env,
             streamOutput: $streamOutput,
@@ -82,7 +88,7 @@ final readonly class PhpInvoker
         }
 
         return new ProcessSpecDto(
-            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, ...$overrides, '-f', $script, '--', ...$args],
+            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-d', self::DISPLAY_ERRORS_ON_STDERR, ...$overrides, '-f', $script, '--', ...$args],
             cwd: $cwd,
             env: [...$env, ...self::XDEBUG_OFF],
             streamOutput: $streamOutput,
@@ -139,12 +145,13 @@ final readonly class PhpInvoker
      * Run a one-line probe and return what it printed. Xdebug is switched off
      * for the probe so a host Xdebug configured to connect to a debugging
      * client on every request cannot add its "Could not connect" line to the
-     * captured answer.
+     * captured answer, and only stdout is read, with displayed errors sent to
+     * stderr, so a warning cannot either.
      */
     private function probe(string $code): string
     {
-        $result = $this->runner->run(new ProcessSpecDto([$this->phpBinPath, '-r', $code], $this->varDir, self::XDEBUG_OFF, streamOutput: false));
+        $result = $this->runner->run(new ProcessSpecDto([$this->phpBinPath, '-d', self::DISPLAY_ERRORS_ON_STDERR, '-r', $code], $this->varDir, self::XDEBUG_OFF, streamOutput: false));
 
-        return $result->output;
+        return $result->stdout;
     }
 }

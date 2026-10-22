@@ -59,6 +59,15 @@ final readonly class ChildExit
     /** A crash of one of php-qa-ci's own helpers, so php-qa-ci's tracker is the place to report it. */
     private const string HELPER_SEGFAULT = 'it crashed with a segmentation fault, a defect to report at https://github.com/LongTermSupport/php-qa-ci/issues and never to retry past';
 
+    /** A code a process exited with itself, in the signal range: %s is the signal, numbered and named. */
+    private const string EXITED_ITSELF = ', which it exited with itself: the code a shell gives for signal %s';
+
+    /** A process that exited 139 itself relays a crash below it: %s is the shipped segfault guide. */
+    private const string RELAYED_SEGFAULT = ', so a process below it crashed with a segmentation fault, a defect to debug and report where the crashing code lives, never to retry past (see %s)';
+
+    /** What every description begins with, before the code. */
+    private const string EXIT_CODE = 'exit code ';
+
     /** bin/describe-exit's option saying the child is one of php-qa-ci's own helpers. */
     private const string OWN_HELPER_OPTION = '--php-qa-ci-helper';
 
@@ -71,13 +80,40 @@ final readonly class ChildExit
      */
     public static function describe(int $exitCode): string
     {
-        return 'exit code ' . $exitCode . self::killedBy($exitCode);
+        return self::EXIT_CODE . $exitCode . self::killedBy($exitCode);
+    }
+
+    /**
+     * "exit code 1", or for a code a process exited with itself, which no signal killed, "exit code
+     * 143, which it exited with itself: the code a shell gives for signal 15
+     * (SIGTERM)". Only a caller that knows no signal killed the process can say so: a wrapper
+     * relaying the crash of a process below it, as a shell does.
+     */
+    public static function describeExitedItself(int $exitCode): string
+    {
+        return self::EXIT_CODE . $exitCode . self::exitedItself($exitCode);
+    }
+
+    /**
+     * What follows the exit code of a process no signal killed: "" outside the signal range, else
+     * the signal a shell would mean by it, and for a segmentation fault that a process below it
+     * crashed and what to do about it.
+     */
+    public static function exitedItself(int $exitCode): string
+    {
+        if (!self::killedBySignal($exitCode)) {
+            return '';
+        }
+
+        $description = \sprintf(self::EXITED_ITSELF, self::signalName($exitCode - self::SIGNAL_BASE));
+
+        return self::isSegmentationFault($exitCode) ? $description . \sprintf(self::RELAYED_SEGFAULT, self::segfaultGuide()) : $description;
     }
 
     /** As describe(), for one of php-qa-ci's own helpers: a segfault is php-qa-ci's to fix. */
     public static function describePhpQaCiHelper(int $exitCode): string
     {
-        return 'exit code ' . $exitCode . self::signalSuffix($exitCode, self::HELPER_SEGFAULT);
+        return self::EXIT_CODE . $exitCode . self::signalSuffix($exitCode, self::HELPER_SEGFAULT);
     }
 
     /**
@@ -150,11 +186,14 @@ final readonly class ChildExit
         }
 
         $signal      = $exitCode - self::SIGNAL_BASE;
-        $description = ', killed by signal ' . $signal;
-        if (\array_key_exists($signal, self::SIGNAL_NAMES)) {
-            $description .= ' (' . self::SIGNAL_NAMES[$signal] . ')';
-        }
+        $description = ', killed by signal ' . self::signalName($signal);
 
         return self::SIGSEGV === $signal ? $description . ': ' . $segfault : $description;
+    }
+
+    /** "15 (SIGTERM)", or the bare number for a signal numbered differently per platform. */
+    private static function signalName(int $signal): string
+    {
+        return \array_key_exists($signal, self::SIGNAL_NAMES) ? $signal . ' (' . self::SIGNAL_NAMES[$signal] . ')' : (string)$signal;
     }
 }
