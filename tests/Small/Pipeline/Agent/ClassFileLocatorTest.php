@@ -89,6 +89,44 @@ final class ClassFileLocatorTest extends TestCase
     }
 
     #[Test]
+    public function aCommentThatStartsALineWithADeclarationDoesNotChangeTheNamespace(): void
+    {
+        $file = $this->project->write(self::SRC_THING, self::OPEN . "/*\nnamespace Other;\n*/\n" . self::THING_BODY);
+
+        $locator = $this->locator();
+
+        self::assertSame($file, $locator->locate(self::APP_THING));
+        self::assertNull($locator->locate('Other\Thing'));
+    }
+
+    #[Test]
+    public function aHeredocLineThatLooksLikeADeclarationDoesNotGiveAGlobalClassANamespace(): void
+    {
+        $file = $this->project->write('src/Bare.php', self::OPEN . "final class Bare\n{\n    public const TEXT = <<<'PHP'\nnamespace Other;\nPHP;\n}\n");
+
+        $locator = $this->locator();
+
+        self::assertSame($file, $locator->locate('Bare'));
+        self::assertNull($locator->locate('Other\Bare'));
+    }
+
+    #[Test]
+    public function aBracedNamespaceIsTheNamespaceOfItsClass(): void
+    {
+        $file = $this->project->write(self::SRC_THING, self::OPEN . "namespace App {\n    final class Thing\n    {\n    }\n}\n");
+
+        self::assertSame($file, $this->locator()->locate(self::APP_THING));
+    }
+
+    #[Test]
+    public function aFileThatCannotBeParsedIsNeverAttributedToANamespace(): void
+    {
+        $this->project->write(self::SRC_THING, self::OPEN . "namespace App;\n\nfinal class Thing {\n");
+
+        self::assertNull($this->locator()->locate(self::APP_THING));
+    }
+
+    #[Test]
     public function aClassThatIsNotInTheSetResolvesToNullRatherThanToAGuess(): void
     {
         $this->project->write(self::SRC_THING, self::OPEN . self::THING_BODY);
