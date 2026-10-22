@@ -7,7 +7,6 @@ namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 use LTS\PHPQA\PHPStan\Rules\ArrowFunctionSpanCollector;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Variable;
-use PHPStan\Analyser\Scope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,10 +22,12 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class ArrowFunctionSpanCollectorTest extends TestCase
 {
+    use ScopeStubTrait;
+
     #[Test]
     public function itCollectsArrowFunctions(): void
     {
-        self::assertSame(ArrowFunction::class, (new ArrowFunctionSpanCollector())->getNodeType());
+        self::assertSame(ArrowFunction::class, new ArrowFunctionSpanCollector()->getNodeType());
     }
 
     #[Test]
@@ -36,7 +37,7 @@ final class ArrowFunctionSpanCollectorTest extends TestCase
 
         self::assertSame(
             ['start' => 120, 'end' => 164],
-            (new ArrowFunctionSpanCollector())->processNode($arrow, $this->createStub(Scope::class)),
+            new ArrowFunctionSpanCollector()->processNode($arrow, self::scopeStub()),
         );
     }
 }

@@ -229,6 +229,18 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
         $this->analyse([self::FIXTURES . '/NotReportableAssertions.php'], []);
     }
 
+    /** A key PHP made, which is left alone, ahead of an inline @var in a body that may write any variable unseen. */
+    #[Test]
+    public function aFindingAfterAQuietRecordInTheSameFileIsStillReported(): void
+    {
+        require_once self::FIXTURES . '/ReportableAfterQuiet.php';
+
+        $this->analyse(
+            [self::FIXTURES . '/ReportableAfterQuiet.php'],
+            [[$this->message(self::MAP, $this->asserted(38, self::STRING_INT)), 38]],
+        );
+    }
+
     /** By reference, static, global, $GLOBALS, yield, an element of another array, ArrayIterator and ArrayObject. */
     #[Test]
     public function anArrayHandedOnBeforeItIsTakenAsStringKeyedIsReported(): void
