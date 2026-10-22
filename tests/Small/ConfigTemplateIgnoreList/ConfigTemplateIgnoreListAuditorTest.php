@@ -20,12 +20,15 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ConfigTemplateIgnoreListAuditor::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PhpFile\DeclaredNamespaceReader::class)]
 #[Small]
 final class ConfigTemplateIgnoreListAuditorTest extends TestCase
 {
     private const string VIOLATING_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/violating';
 
     private const string CLEAN_ASSETS      = __DIR__ . '/../../assets/configTemplateIgnoreList/clean';
+
+    private const string LOOKALIKE_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/declarationLookalikes';
 
     private const string INVALID_PATTERN_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/invalidPattern';
 
@@ -71,6 +74,24 @@ final class ConfigTemplateIgnoreListAuditorTest extends TestCase
         );
 
         self::assertSame([], $auditor->main());
+    }
+
+    /**
+     * A template's namespace is what its declaration says, not what text of the same shape says: a
+     * comment line or a heredoc line that starts with the declaration does not give a script one, and
+     * a braced declaration does.
+     */
+    public function testACommentOrAHeredocThatLooksLikeADeclarationIsNotANamespace(): void
+    {
+        $auditor = new ConfigTemplateIgnoreListAuditor(
+            self::LOOKALIKE_ASSETS . self::GENERIC_DIR,
+            self::LOOKALIKE_ASSETS . self::IGNORE_LIST,
+        );
+
+        self::assertSame(
+            ['commented.php' => 'qaConfig/commented.php', 'heredoc.php' => 'qaConfig/heredoc.php'],
+            $auditor->main(),
+        );
     }
 
     public function testItDoesNotFlagACoveredTemplateAlongsideAnUncoveredOne(): void

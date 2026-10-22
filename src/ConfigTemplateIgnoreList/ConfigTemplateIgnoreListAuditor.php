@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\ConfigTemplateIgnoreList;
 
 use InvalidArgumentException;
+use LTS\PHPQA\PhpFile\DeclaredNamespaceReader;
 use LTS\PHPQA\Regex\RegexPattern;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -16,8 +17,9 @@ use SplFileInfo;
  * consumer to copy it into the override directory, which php-qa-ci maps as a
  * PSR-4 root. Unless the copy destination is matched by a pattern in
  * psr4-validate-ignore-list.txt, the documented override fails psr4Validate
- * with a "Parse Errors" report. This reads both files as text and names every
- * namespace-less template the list does not cover. It audits the toolchain's
+ * with a "Parse Errors" report. This reads the ignore list as text, parses each
+ * template for its namespace, and names every namespace-less template the list
+ * does not cover. It audits the toolchain's
  * own shipped files, not a consuming project's tree, which is why it is
  * separate from {@see \LTS\PHPQA\Psr4Validator}.
  *
@@ -36,6 +38,7 @@ final readonly class ConfigTemplateIgnoreListAuditor
         private string $configDefaultsGenericDir,
         private string $ignoreListPath,
         private string $overrideDir = self::OVERRIDE_DIR,
+        private DeclaredNamespaceReader $namespaces = new DeclaredNamespaceReader(),
     ) {
     }
 
@@ -76,7 +79,7 @@ final readonly class ConfigTemplateIgnoreListAuditor
                 continue;
             }
 
-            if ($this->hasNamespace(\Safe\file_get_contents($fileInfo->getPathname()))) {
+            if (!$this->isNamespaceLess(\Safe\file_get_contents($fileInfo->getPathname()))) {
                 continue;
             }
 
@@ -88,13 +91,14 @@ final readonly class ConfigTemplateIgnoreListAuditor
     }
 
     /**
-     * A real namespace declaration is a statement at the start of a line with
-     * an identifier and a semicolon, so a docblock that mentions the word
-     * "namespace" in prose, as one shipped template does, is not one.
+     * A namespace is what the file's parse declares, so a comment or a string that mentions the
+     * word, as one shipped template does, gives a script none. A template that does not parse is
+     * not named: the copy fails psr4Validate on its own parse error, not for want of an ignore
+     * entry.
      */
-    private function hasNamespace(string $contents): bool
+    private function isNamespaceLess(string $contents): bool
     {
-        return 1 === \Safe\preg_match('%^\s*namespace\s+[A-Za-z_\\\][A-Za-z0-9_\\\]*\s*;%m', $contents);
+        return '' === $this->namespaces->fromSource($contents);
     }
 
     private function isCovered(string $copyDestination, RegexPattern ...$ignorePatterns): bool

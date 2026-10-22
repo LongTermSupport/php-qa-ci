@@ -217,6 +217,14 @@
 #                                          (bool) \PHP_ZTS. See
 #                                          docs/phpstan-rules/forbid-build-constant-type-dependent-use.md
 #
+# A NAMESPACE READ BY THE PARSER:
+#   ForbidRegexReadingNamespaceRule      — a preg_* call whose constant pattern has the word
+#                                          namespace followed by whitespace reads a namespace
+#                                          declaration out of text, where a comment, a string
+#                                          or a braced block of the same shape is read as one.
+#                                          Read it with nikic/php-parser or PhpToken. See
+#                                          docs/phpstan-rules/forbid-regex-reading-namespace.md
+#
 # AN EXIT CODE SAID AS THE CHILD ENDED:
 #   ForbidHandFormattedExitCodeRule      — a ProcessResultDto's exitCode, or a local copied
 #                                          from it, put into text by sprintf(), `.`,
@@ -265,6 +273,7 @@ rules:
     - LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule
     - LTS\PHPQA\PHPStan\Rules\ForbidBuildConstantTypeDependentUseRule
     - LTS\PHPQA\PHPStan\Rules\ForbidHandFormattedExitCodeRule
+    - LTS\PHPQA\PHPStan\Rules\ForbidRegexReadingNamespaceRule
 
 parameters:
     phpqaciFactorySealed:
