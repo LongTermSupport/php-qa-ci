@@ -303,7 +303,7 @@ return new class implements ToolInterface {
         $context->writeIdentifier(self::IDENTIFIER);
 
         // PHPStan: 1 = findings, anything else = crash (never retried).
-        return ToolResultDto::fromExitCode($result->exitCode, 'PHPStan', 1);
+        return ToolResultDto::fromProcessResult($result, 'PHPStan', 1);
     }
 };
 ```
@@ -321,8 +321,9 @@ Rules the runner enforces or relies on:
 - Return `ToolResultDto::failed()` for findings (retryable interactively),
   `ToolResultDto::crashed()` for a broken tool (never retried), `ToolResultDto::skipped()` when
   the tool decides not to run (counts as passed), `ToolResultDto::passed()` otherwise.
-  `ToolResultDto::fromExitCode($code, $label, ...$failureCodes)` maps 0 to passed, the listed
-  codes to failed, anything else to crashed.
+  `ToolResultDto::fromProcessResult($result, $label, ...$failureCodes)` maps exit 0 to passed, the
+  listed codes to failed, anything else to crashed, each described as the process ended
+  (`fromExitCode($code, $label, ...$failureCodes)` does the same for a bare code).
 - Honour `$context->config->readOnly`: a mutating tool must dry-run and return failed when it
   would have changed a file. `LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::wouldModify($context, 'Name', 'alias')`
   prints the standard remediation block.

@@ -43,6 +43,9 @@ Text built from the bare code gets this wrong in one of two ways
 - **A comparison, or a test of the code:** `ChildExit::killedBySignal($result->exitCode)`,
   `$result->exitCode > 1`, `in_array($result->exitCode, ...)`. Nothing is said, so nothing is
   misstated.
+- **A shape the rule does not read**: the code given to `vsprintf()` or `json_encode()`, spread
+  into a call, or copied through a second local (`$a = $result->exitCode; $b = $a;`). Only the
+  functions and operators listed above, and one level of local copy, are followed.
 - **An `exitCode` that is not a `ProcessResultDto`'s**, and a bare `int` exit code of unknown
   origin, such as one from `$?` or Composer's `ProcessExecutor`. See the record below.
 
