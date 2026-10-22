@@ -113,19 +113,24 @@ This plan does three things:
   - Coverage Report opt-in.
 - [x] ✅ **Task 3.2**: `ci.yml` retired and `update-deps.yml` pointed at `qa.yml` (#299). Not done: moving
   `ci.bash`'s settings into `qaConfig/qa.php` or the workflow `env:` (`update-deps.yml` still uses
-  `ci.bash`), and caching.
+  `ci.bash`). Caching is done: `qa.yml` caches Composer's files and `var/qa/cache`.
 - [x] ✅ **Task 3.3**: `update-deps.yml` split into a read-only build and QA job and write jobs that run no
   project code (#299).
 - [x] ✅ **Task 3.4**: Docs, branch-protection script comments, the `.claude/rules` path list and the
   CHANGELOG entry (#299).
 - [ ] ⬜ **Task 3.5**: Owner decisions left by #299, as options on the pull request: the push trigger list,
   removing `AUTO_COMMIT_FIXES`, Infection in the required run (it hung twice in the duplicate run
-  on #260), and the `qa-autofix.yml` gate name `QA gate (read-only qa)`. The first `php8.5` push
-  run through to `Release`, and a real `update-deps` run, still need watching.
+  on #260), and the `qa-autofix.yml` gate name `QA gate (read-only qa)`. The first real
+  `update-deps` run after #299 worked (four jobs; its pull request merged as 4366279a). The first
+  `php8.5` push runs did not reach `Release`: each is cancelled at the 45-minute job timeout in a
+  full Infection run, so `release.yml` is skipped and no release pull request is refreshed. That
+  makes "Infection in the required run" a release-path decision, posted with options as
+  [#303](https://github.com/LongTermSupport/php-qa-ci/issues/303); it stays open until the Owner
+  chooses.
 
 ### Phase 4: actions-qa-ci (after Tasks 1.2 and 1.3)
 
-- [x] ✅ **Task 4.1**: Design document, [design.md](design.md). Its open points are Tasks 1.4 to 1.7. It
+- [x] ✅ **Task 4.1**: Design document, [design.md](design.md). Its open points are Tasks 1.4 to 1.8. It
   covers:
   - identifier scheme (`actionsqaci.<tool>.<upstream-id>`) and one owner per hazard class;
   - pinned-tool manifest;
