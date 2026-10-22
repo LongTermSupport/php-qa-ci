@@ -148,8 +148,8 @@ This plan does three things:
     CLAUDE.md, CHANGELOG, `ci.yml` (job `CI`) (pull request 1).
   - [x] Phase 2, core: the finding model and identifier scheme, the registry with the
     literal-identifier ban, the `text`/`agent`/`json` output formats, `rules`, `rule-doc`, `rule`,
-    the generated identifier index and the page self-audit (pull requests 2 to 6). The `github`
-    and SARIF formats remain, with the code that needs them.
+    the generated identifier index and the page self-audit (pull requests 2 to 6); the `github`
+    output format (pull request 17) and `check --sarif` (pull request 18).
   - [x] Phase 3, actionlint and ShellCheck: actionlint compiled in as sixteen rules, the pinned and
     verified ShellCheck fetcher, ShellCheck on the shell in `run:` steps through actionlint, and
     registry families for the ShellCheck codes (pull requests 7 to 9).
@@ -161,9 +161,11 @@ This plan does three things:
     `actionsqaci.nativeSuppressionConfig` as guards that refuse a suppression made anywhere but in the record (pull request 14);
     `actionsqaci.templateDrift` with the record's `templates` section (pull request 15);
     `actionsqaci.requiredChecks` with the record's `requiredChecks` section, compared offline with
-    the workflows (pull request 16). Open: `disabledDefence` as a finding of its own,
-    `versionPin`, the comparison of `requiredChecks` with real branch protection, and the record
-    sections that come with their consumers (`lintCoverage`, `analyse`, `calibrations`).
+    the workflows (pull request 16); `actionsqaci.lintCoverage` with the record's
+    `analyse.unanalysed` section, reading the repository's own index (pull request 19); and
+    `analyse.include`, which has the lanes analyse tracked files outside the default set (pull
+    request 20). Open: `disabledDefence` as a finding of its own, `versionPin`, the comparison of
+    `requiredChecks` with real branch protection, and the record's `calibrations` section.
   - [x] Isolated lanes (pull request 13): the actionlint lane runs in a child process with a time
     limit and an output cap, so a crash or a hang is exit 4; the declared gap
     `actionlint-runs-in-process` now covers only the `rule` harness.
@@ -173,7 +175,7 @@ This plan does three things:
     no decision are the open items of phase 5.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - [x] template drift (generalising the versionPins identity check): merged, pull request 15;
-  - [ ] workflow coverage outside `.github/`;
+  - [x] workflow coverage outside `.github/`: merged, pull requests 19 and 20;
   - [x] required checks matching produced job names (from Task 2.1): merged, pull request 16; the
     comparison with real branch protection is a declared gap.
 - [ ] ⬜ **Task 4.4**: php-qa-ci consumes actions-qa-ci as a lane; every finding is fixed or justified.
