@@ -10,11 +10,17 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00025: actions-qa-ci](00025-actions-qa-ci/PLAN.md) - In Progress — one QA run per PR push here and in the shipped template (Option A), the workflow defects actionlint and zizmor find closed under DBF, and a standalone polyglot DBF toolchain for GitHub Actions code in any repository, with php-qa-ci as its first consumer
+
+- [00023: release dependency currency gate](00023-release-dependency-currency-gate/PLAN.md) - Not Started — a release is fully upgraded: a gate that blocks on any direct dependency behind its latest release (majors included) unless a documented holdback covers it, and warns on stale transitive ones
+
 - [00020: tool currency and phpstan turbo](00020-tool-currency-and-phpstan-turbo/PLAN.md) - In Progress — the Owner's ruling that tracking the latest tools that pass QA is a standing process: the dependency update that judges itself as its pull request will and lands when green, PHPStan 2.3.0, and PHPStan Turbo shipped beside the phar for every consumer
 
 - [00013: qa pipeline defect sweep](00013-qa-pipeline-defect-sweep/PLAN.md) - In Progress — a verified catalogue of the defects a day of heavy consumer use surfaced, then a fix per confirmed defect (lock contention, log retention, a reflowed managed block, `bash bin/qa`, per-file PHPStan on phar-tool configs, `bin/rule-doc` blind to project identifiers, Infection against our own advisory)
 
 ## Completed Plans
+
+- [00022: CLAUDE.md progressive disclosure](Completed/00022-claude-md-progressive-disclosure/PLAN.md) - Complete — the root `CLAUDE.md` cut to the binding floor, the generated defences and a navigation map, with the depth in canonical `CLAUDE/` and `docs/` pages reached through nested routing files and path rules (merged #215 as e501b8d3; follow-ups #216, #217)
 
 - [00021: process stream in class](Completed/00021-process-stream-in-class/PLAN.md) - Complete — a class writing to the process's own `STDERR` stopped Infection's initial test run and left its output unasserted: the optional rule `phpqaci.processStream` and all 21 instances handed their stream or output by the entry script, with the ShellCheck and Turbo downloads made testable offline (merged #161 as 392f067; follow-up #162)
 
@@ -56,7 +62,9 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Cancelled Plans
 
-_None yet — abandoned plans move to [Cancelled/](Cancelled/) with a matching row here._
+Abandoned or shelved plans move to [Cancelled/](Cancelled/) with a matching row here.
+
+- [00024: Mago alongside PHPStan](Cancelled/00024-mago-alongside-phpstan/PLAN.md) - Cancelled — shelved until Mago 2.0 (D13): Phase 0 facts kept (default-off config impossible, silent exit-0 path cases, a debugged segfault, the 211 analyser disagreements classified, edit-time PHPStan cost #219); Mago cannot carry DBF defences on its 1.x extension API; revisit tracked by #208, blocked on [carthage-software/mago#1931](https://github.com/carthage-software/mago/issues/1931)
 
 ## Legacy loose docs
 

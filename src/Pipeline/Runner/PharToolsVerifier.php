@@ -44,8 +44,10 @@ final readonly class PharToolsVerifier
     }
 
     /**
-     * The Turbo binaries are fetched against vendor-phar/turbo-ext.json, and one built for another
-     * PHPStan release does not load, so the manifest must name the phar's own version.
+     * The Turbo binaries are fetched against vendor-phar/turbo-ext.json, whose digests pin the files
+     * of the release it names, so the manifest must name the phar's own version. phpstan.phar loads
+     * a binary from another release beside its core, but activates it only when its extension
+     * version is the one the phar expects.
      */
     private function verifyTurboManifest(string $libraryRoot): void
     {

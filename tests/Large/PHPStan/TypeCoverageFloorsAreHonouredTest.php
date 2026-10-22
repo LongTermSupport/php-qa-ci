@@ -45,6 +45,7 @@ final class TypeCoverageFloorsAreHonouredTest extends TestCase
     #[Test]
     public function everyFloorTheBuilderCanSetIsHonouredByTheInstalledExtension(): void
     {
+        /** @var array<array-key, int> $floors */
         $floors = [];
         foreach (new ReflectionMethod(QaConfigBuilder::class, 'withTypeCoverageFloors')->getParameters() as $parameter) {
             $floors[$parameter->getName()] = 50;
@@ -61,6 +62,8 @@ final class TypeCoverageFloorsAreHonouredTest extends TestCase
 
         $process = new Process([
             \PHP_BINARY,
+            '-d',
+            'display_errors=stderr',
             \Safe\realpath(self::REPO_ROOT . '/vendor-phar/phpstan.phar'),
             'analyse',
             '--configuration=phpstan.neon',

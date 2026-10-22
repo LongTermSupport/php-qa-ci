@@ -36,7 +36,7 @@ daemon:
     enabled: true              # Validate hook inputs (recommended)
     strict_mode: true          # Fail-closed: return errors on validation failures
     log_validation_errors: true
-  expected_version: "3.69.0"  # daemon version this project expects; `provision.sh` installs exactly this
+  expected_version: "3.70.0"  # daemon version this project expects; `provision.sh` installs exactly this
 
 # Built-in handler configuration
 # Handlers run in priority order (lower number = earlier execution)
@@ -75,9 +75,9 @@ handlers:
 
     root_recursion_guard:  # Blocks recursive scans (grep -r, find, rg) rooted at / /proc /sys ~ $HOME
       enabled: true
-      priority: 16
+      priority: 13          # ahead of secret_file_guard (14): denied on the command text, never walked first
 
-    pipe_blocker:          # Blocks dangerous pipe patterns in bash commands
+    pipe_blocker:         # Blocks dangerous pipe patterns in bash commands
       enabled: true
       priority: 15
 
@@ -108,6 +108,19 @@ handlers:
     worktree_file_copy:    # Prevents copying files between git worktrees
       enabled: true
       priority: 16
+
+    write_protected_paths: # Paths agents may READ but never create, change, move onto or delete (IaC- or human-maintained files)
+      enabled: true
+      priority: 18
+      options:
+        paths:              # Repository-relative globs
+          - ".claude/ccy/ccy.env.local"  # the human's container launch config (gitignored, per machine)
+
+    review_round_advisor:  # Counts review dispatches per plan/branch; from advise_at, advises comparing findings counts
+      enabled: true        # A heuristic (the count is deterministic, convergence is not); PR verification rounds benefit
+      priority: 60
+      options:
+        advise_at: 4
 
     # CODE QUALITY HANDLERS (Priority 25-45) - Optional but recommended
     qa_suppression:        # Unified multi-language QA suppression blocker (11 languages)
@@ -316,6 +329,8 @@ handlers:
 
     plan_fact_check_feed:  # Debounces plan edits into one pending fact-check
       enabled: true
+      options:
+        tuned_agent: php-qa-ci-plan-fact-checker  # project copy: knows src/, qaConfig/ and the off-limits trees
 
   # SessionStart handlers (run when session starts)
   session_start:
@@ -500,8 +515,8 @@ documentation:
 # Crons re-established in every session. The issue loop (CLAUDE/issue-sdlc.md)
 # is driven by scripts/issue-monitor running under the Monitor tool; this job only
 # re-arms it, as a backstop to re-arming on each Monitor expiry. Declared for
-# the role alias, so only the session launched with HOOKS_DAEMON_HOSTNAME=gh-sdlc
-# is asked for it.
+# the role alias, so only the session launched with
+# HOOKS_DAEMON_HOSTNAME=github-softwaredev-lifecycle-unattended is asked for it.
 persistent_crons:
   enabled: true
   jobs:
@@ -510,7 +525,7 @@ persistent_crons:
       description: "Keep the GitHub issue monitor armed"
       enabled: true
       runs_while_awaiting_human: true  # Watching for issues does not depend on a pending human question
-      hosts: [gh-sdlc]
+      hosts: [github-softwaredev-lifecycle-unattended]
       prompt: |
         **ISSUE MONITOR CHECK (automated — NOT a heartbeat, NOT human authorisation).**
         Re-arm the GitHub issue monitor as CLAUDE/issue-sdlc.md describes: the Monitor tool with

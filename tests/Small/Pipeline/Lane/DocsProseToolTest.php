@@ -21,6 +21,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(DocsProseTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\OutputCapture::class)]
 #[UsesClass(DocumentSelfReferenceScanner::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[UsesClass(DocumentSelfReferenceFinding::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]

@@ -12,14 +12,15 @@ use LTS\PHPQA\Pipeline\Lock\SystemClock;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
 use LTS\PHPQA\Pipeline\Runner\RunInterruptHandler;
+use LTS\PHPQA\Tests\Support\BrokenOutput;
 use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\TerminatedException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -181,29 +182,5 @@ final class RunInterruptHandlerTest extends TestCase
         }
 
         self::fail('the handler must always terminate the run');
-    }
-}
-
-/**
- * @internal
- */
-final class TerminatedException extends RuntimeException
-{
-    public function __construct(public readonly int $exitCode)
-    {
-        parent::__construct('terminated with ' . $exitCode);
-    }
-}
-
-/**
- * A console whose terminal has gone, as after SIGHUP: every write fails.
- *
- * @internal
- */
-final class BrokenOutput extends BufferedOutput
-{
-    protected function doWrite(string $message, bool $newline): void
-    {
-        throw new RuntimeException('Unable to write output.');
     }
 }

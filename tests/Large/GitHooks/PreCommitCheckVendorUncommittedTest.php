@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\GitHooks;
 
+use LTS\PHPQA\Tests\Support\GitSandbox;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Large;
@@ -32,8 +33,6 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
     private const string INIT = 'init';
 
     private const string SEEN_LOG = 'php-seen.log';
-
-    private const string GIT_IDENTITY = 'user.name=t';
 
     private TempDir $project;
 
@@ -100,7 +99,7 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
         $this->git($clone, self::INIT, '-q');
         $this->project->write(self::CLONE_DIR . '/a.txt', "a\n");
         $this->git($clone, 'add', '.');
-        $this->git($clone, '-c', self::GIT_IDENTITY, '-c', 'user.email=t@example.com', 'commit', '-q', '-m', self::INIT);
+        $this->git($clone, 'commit', '-q', '-m', self::INIT);
 
         return trim($this->git($clone, 'rev-parse', 'HEAD'));
     }
@@ -141,7 +140,7 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
         $process = new Process(
             ['bash', self::HOOK],
             $this->project->path,
-            ['PATH' => $this->project->path . '/shim-bin:' . getenv('PATH')],
+            [...GitSandbox::environment(), 'PATH' => $this->project->path . '/shim-bin:' . getenv('PATH')],
         );
         $process->run();
 
@@ -150,7 +149,7 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
 
     private function git(string $cwd, string ...$args): string
     {
-        $process = new Process(['git', ...array_values($args)], $cwd);
+        $process = new Process(['git', ...array_values($args)], $cwd, GitSandbox::environment());
         $process->mustRun();
 
         return $process->getOutput();

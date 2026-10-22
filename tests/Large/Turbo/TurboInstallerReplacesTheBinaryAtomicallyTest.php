@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Large\Turbo;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\Tests\Support\FakeTurboReleaseSource;
+use LTS\PHPQA\Tests\Support\SecondFilesystem;
 use LTS\PHPQA\Tests\Support\TempDir;
 use LTS\PHPQA\Turbo\Dto\TurboDecisionDto;
 use LTS\PHPQA\Turbo\TurboInstallDecider;
@@ -32,7 +33,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
  *
  * The library is put on /dev/shm, a different filesystem from the system temp directory on Linux,
  * because the defect only shows across filesystems, as in a Docker container with the project
- * bind-mounted.
+ * bind-mounted. Where there is no such second filesystem, SecondFilesystem skips the test, saying
+ * why.
  *
  * @internal
  */
@@ -56,30 +58,25 @@ final class TurboInstallerReplacesTheBinaryAtomicallyTest extends TestCase
 
     private const string CORE = 'vendor-phar/turbo-ext/' . self::CORE_PATH;
 
-    private const string SECOND_FILESYSTEM = '/dev/shm';
-
     private TempDir $library;
 
     protected function setUp(): void
     {
-        $this->library = TempDir::createUnder(self::SECOND_FILESYSTEM, 'turbo-atomic');
+        $this->library = SecondFilesystem::directory('turbo-atomic');
         $this->library->write('phive.xml', \sprintf('<phive><phar name="phpstan" version="^2" installed="%s"/></phive>', self::VERSION));
     }
 
     protected function tearDown(): void
     {
-        $this->library->remove();
+        // Unset when setUp skipped the test for want of a second filesystem.
+        if (isset($this->library)) {
+            $this->library->remove();
+        }
     }
 
     #[Test]
     public function aReinstallReplacesTheBinaryAndCoreWithoutRewritingTheOnesInUse(): void
     {
-        self::assertNotSame(
-            $this->device(self::SECOND_FILESYSTEM),
-            $this->device(sys_get_temp_dir()),
-            'this test needs /dev/shm and the system temp directory on different filesystems',
-        );
-
         $old = [self::BINARY_PATH => "\x7fELF the binary a running PHPStan has mapped", self::CORE_PATH => "\x7fELF the core a running PHPStan has mapped"];
         $this->writeManifest($old);
         self::assertSame(0, $this->install($old));
@@ -105,14 +102,6 @@ final class TurboInstallerReplacesTheBinaryAtomicallyTest extends TestCase
             \Safe\file_get_contents($coreInUse),
             'the old core was rewritten in place, so a PHPStan that has it mapped would crash',
         );
-    }
-
-    private function device(string $path): int
-    {
-        $stat = stat($path);
-        self::assertIsArray($stat, 'cannot stat ' . $path);
-
-        return $stat['dev'];
     }
 
     /** @param array<string, string> $files path under turbo-ext/ => bytes */

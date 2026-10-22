@@ -90,6 +90,6 @@ final readonly class ChangelogRangeResolver
             $line->tagOf($line->firstVersion()),
         ));
 
-        return new ChangelogRangeDto($tag, 'since the last release tag ' . $tag);
+        return new ChangelogRangeDto($tag, 'since the last release tag ' . $tag, sinceRelease: true);
     }
 }

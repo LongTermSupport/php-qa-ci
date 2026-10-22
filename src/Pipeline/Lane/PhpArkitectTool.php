@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane;
 
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
 use LTS\PHPQA\Pipeline\Agent\ArkitectJsonParser;
@@ -59,6 +60,15 @@ final readonly class PhpArkitectTool implements ToolInterface
      * violation, which is a suppression outside the project record.
      */
     public const string BASELINE_FILE = 'phparkitect-baseline.json';
+
+    /**
+     * The list under {@see self::LOG_DIR} the shipped class set appends each file to whose
+     * real path cannot be resolved, which the lane reports as skipped.
+     */
+    public const string UNRESOLVED_LIST = 'unresolved-paths.txt';
+
+    /** The variable naming {@see self::UNRESOLVED_LIST} to the class set. */
+    public const string UNRESOLVED_LIST_VARIABLE = 'PHPQACI_ARKITECT_UNRESOLVED_LIST';
 
     /** The phparkitect flag that stops it reading {@see self::BASELINE_FILE}. */
     private const string SKIP_BASELINE = '--skip-baseline';
@@ -117,6 +127,7 @@ final readonly class PhpArkitectTool implements ToolInterface
             $context->writeln('             (withArkitectExcludedPaths) or a project rule tier under qaConfig/. See docs/tools/phpArkitect.md.');
         }
 
+        UnresolvablePath::forget($this->unresolvedList($context));
         if ($config->agentMode) {
             return $this->runAgent($context, $entryConfig);
         }
@@ -136,6 +147,7 @@ final readonly class PhpArkitectTool implements ToolInterface
 
         \Safe\file_put_contents($logDir . '/' . self::LOG_FILE, $result->output);
         $context->logs->archive('PHPArkitect', $logDir, self::LOG_FILE, null !== $config->specifiedPath, $config->pathsToCheck);
+        $this->reportUnresolved($context);
 
         if ($result->succeeded()) {
             return ToolResultDto::passed();
@@ -143,7 +155,7 @@ final readonly class PhpArkitectTool implements ToolInterface
 
         if ($result->exitCode > 1) {
             $context->writeln('');
-            $context->writeln(\sprintf('PHPArkitect crashed (exit %d) — this is an ERROR, not a rule violation.', $result->exitCode));
+            $context->writeln(\sprintf('PHPArkitect crashed (%s) — this is an ERROR, not a rule violation.', $result->describeExit()));
             $context->writeln('Likely causes: an invalid phparkitect config, an unparseable source file, or a bad');
             $context->writeln('ClassSet path. Inspect the output above; retrying will not help.');
             $context->writeln("NOTE: an INCOMPLETE autoloader does NOT crash — instead the optional/symfony tiers'");
@@ -151,7 +163,7 @@ final readonly class PhpArkitectTool implements ToolInterface
             $context->writeln("find no violations, make your classes autoloadable: run 'composer dump-autoload'.");
             $context->writeln('');
 
-            return ToolResultDto::crashed(\sprintf('PHPArkitect crashed (exit %d)', $result->exitCode));
+            return ToolResultDto::crashed(\sprintf('PHPArkitect crashed (%s)', $result->describeExit()));
         }
 
         $context->writeIdentifier(self::IDENTIFIER);
@@ -196,11 +208,12 @@ final readonly class PhpArkitectTool implements ToolInterface
             streamOutput: false,
         );
         \Safe\file_put_contents($logPath, $result->stdout);
+        $this->reportUnresolved($context);
 
         $writer->clearScope(null);
 
         if ($result->exitCode > 1) {
-            return $this->agentCrash($writer, $terse, \sprintf('PHPArkitect crashed (exit %d)', $result->exitCode), $runAt, $logPath);
+            return $this->agentCrash($writer, $terse, \sprintf('PHPArkitect crashed (%s)', $result->describeExit()), $runAt, $logPath);
         }
 
         try {
@@ -210,7 +223,8 @@ final readonly class PhpArkitectTool implements ToolInterface
         }
 
         $locator = new ClassFileLocator($paths->srcDir);
-        $byFile  = [];
+        /** @var array<array-key, list<FileErrorDto>> $byFile */
+        $byFile = [];
         foreach ($parsed->classes as $fqcn => $violations) {
             $target = $locator->locate($fqcn) ?? $this->fallbackPath($violations[0]->message);
             foreach ($violations as $violation) {
@@ -219,7 +233,7 @@ final readonly class PhpArkitectTool implements ToolInterface
         }
 
         foreach ($byFile as $target => $violations) {
-            $writer->write(FileReportDto::forErrors($this->name(), $target, $runAt, $logPath, ...$violations));
+            $writer->write(FileReportDto::forErrors($this->name(), (string)$target, $runAt, $logPath, ...$violations));
         }
 
         $status = AgentStatusEnum::forErrorCount($parsed->violationCount());
@@ -274,12 +288,32 @@ final readonly class PhpArkitectTool implements ToolInterface
      */
     private function environment(ToolContext $context): array
     {
-        return new ArkitectEnvironment()->variables(
-            $context->configPaths,
-            $context->config->paths->srcDir,
-            IgnoredPaths::of($context->config),
-            ...$context->config->arkitectExcludePaths,
-        );
+        return [
+            ...new ArkitectEnvironment()->variables(
+                $context->configPaths,
+                $context->config->paths->srcDir,
+                IgnoredPaths::of($context->config),
+                ...$context->config->arkitectExcludePaths,
+            ),
+            self::UNRESOLVED_LIST_VARIABLE => $this->unresolvedList($context),
+        ];
+    }
+
+    private function unresolvedList(ToolContext $context): string
+    {
+        return $context->logDir(self::LOG_DIR) . '/' . self::UNRESOLVED_LIST;
+    }
+
+    /**
+     * One line per file the class set dropped because its real path cannot be resolved,
+     * so a skipped file is never silently unchecked. A project entry config that builds its
+     * own class set drops nothing, and lists nothing.
+     */
+    private function reportUnresolved(ToolContext $context): void
+    {
+        foreach (UnresolvablePath::listedIn($this->unresolvedList($context)) as $file) {
+            $context->writeln(UnresolvablePath::skipped('PHPArkitect', $file, $context->config->paths->projectRoot));
+        }
     }
 
     /**

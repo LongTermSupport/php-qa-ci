@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Lane\TwigCsFixer\CacheFileConfig;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -14,6 +15,11 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  * the shipped twig-cs-fixer PHAR over the configured twig directories —
  * check-only in a read-only run, where a pending fix fails the gate, and
  * `--fix` in a writable one.
+ *
+ * A read-only run passes `--no-cache`, so the gate judges every template as CI does (#237),
+ * and a writable run keeps its cache under var/qa/cache, not in the project root where
+ * twig-cs-fixer would put it. One writable pass is enough: the fixer repeats its rules until
+ * a pass changes nothing, and caches a file only when a lint of what it left is clean.
  *
  * Gated on Twig, not on Symfony. The PHAR is standalone and needs no framework,
  * so the lane belongs to any project that has `twig/twig` in its vendor tree —
@@ -33,6 +39,12 @@ final readonly class TwigCsFixerTool implements ToolInterface
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.twigCsFixer';
 
     public const string CONFIG = '.twig-cs-fixer.php';
+
+    public const string CACHED_CONFIG = 'twigCsFixer/' . self::CONFIG;
+
+    private const string CACHE = 'twig-cs-fixer.cache';
+
+    private const string NO_CACHE = '--no-cache';
 
     private const string PHAR = 'twig-cs-fixer.phar';
 
@@ -66,10 +78,10 @@ final readonly class TwigCsFixerTool implements ToolInterface
             return ToolResultDto::skipped('no twig directories');
         }
 
-        $args = ['lint', '--config=' . $context->configPath(self::CONFIG), ...$directories];
-        if (!$config->readOnly) {
-            $args[] = '--fix';
-        }
+        $cache = FormatterCache::in($context, self::CACHE);
+        $args  = $config->readOnly
+            ? ['lint', '--config=' . $context->configPath(self::CONFIG), self::NO_CACHE, ...$directories]
+            : ['lint', '--config=' . $this->cachedConfig($context, $cache), ...$directories, '--fix'];
 
         $result = $context->php->withoutXdebug(
             $config->paths->pharDir . '/' . self::PHAR,
@@ -84,10 +96,11 @@ final readonly class TwigCsFixerTool implements ToolInterface
         if (self::EXIT_CRASH <= $result->exitCode) {
             $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::crashed(\sprintf('twig-cs-fixer could not run (exit %d)', $result->exitCode));
+            return ToolResultDto::crashed(\sprintf('twig-cs-fixer could not run (%s)', $result->describeExit()));
         }
 
         if ($config->readOnly) {
+            $cache->forget();
             ReadOnlyGuidance::wouldModify($context, 'Twig CS Fixer', 'twigcs');
         } else {
             $this->unfixableGuidance($context);
@@ -109,6 +122,20 @@ final readonly class TwigCsFixerTool implements ToolInterface
     private function existingDirectories(ToolContext $context): array
     {
         return array_values(array_filter($context->config->twigDirectories, is_dir(...)));
+    }
+
+    /**
+     * The config a writable run uses: the resolved .twig-cs-fixer.php, wrapped by a config
+     * generated at CACHED_CONFIG under var/qa/ that keeps its cache there too
+     * (CacheFileConfig says why it has to be the config).
+     */
+    private function cachedConfig(ToolContext $context, FormatterCache $cache): string
+    {
+        $context->logDir(\dirname(self::CACHED_CONFIG));
+        $wrapper = $context->config->paths->varDir . '/' . self::CACHED_CONFIG;
+        \Safe\file_put_contents($wrapper, new CacheFileConfig()->source($context->configPath(self::CONFIG), $cache->prepared()));
+
+        return $wrapper;
     }
 
     private function unfixableGuidance(ToolContext $context): void

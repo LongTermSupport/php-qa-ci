@@ -384,16 +384,17 @@ vendor/lts/php-qa-ci/scripts/setup-branch-protection.bash --harden
 
 ## CI/CD Workflows
 
-PHP-QA-CI includes three GitHub Actions workflows in `.github/workflows/`:
+PHP-QA-CI runs these GitHub Actions workflows from `.github/workflows/`:
 
-- **`ci.yml`** -- Runs on push/PR to `php8.5`, executes `bash ci.bash`
-- **`qa.yml`** -- Template workflow for consuming projects (copy to your project)
+- **`qa.yml`** -- Runs the pipeline once per pull request push and once per push to `php8.5`; its
+  job is the required check `QA Pipeline`. An identical copy of the `php-qa-ci.yml` template below
+- **`release.yml`** -- Releases from `CHANGELOG.md` after a green push to `php8.5`
 - **`update-deps.yml`** -- Daily scheduled workflow that updates all dependencies (Composer, PHARs via PHIVE, the Rector PHAR), runs the full QA pipeline with the fixers applying any new rules, and opens a PR if green; that PR is merged after an independent review, never automatically (see [CLAUDE/tool-currency.md](CLAUDE/tool-currency.md))
 
 Two consuming-project templates live in `templates/github-actions/`:
 
-- **`php-qa-ci.yml`** -- single-job pipeline; optional `AUTO_COMMIT_FIXES` commits fixes at the
-  end (so the checks ran against unfixed code)
+- **`php-qa-ci.yml`** -- single-job pipeline named `QA Pipeline`: one run per pull request push, a
+  read-only token, an opt-in coverage comment
 - **`qa-autofix.yml`** -- inline-barrier: a PR-only `autofix` job applies Rector + PHP CS Fixer
   in write mode and commits the fixes back, then a `gate` job (`needs: autofix`) re-validates
   the fixed tip read-only in the same run (no PAT, no re-trigger needed)
@@ -466,7 +467,7 @@ PHP-QA-CI registers three Composer plugins (`composer.json` `extra.class`):
 Comprehensive documentation is available in the [./docs](./docs) folder:
 
 - **[Pipeline Architecture](./docs/pipeline.md)** -- Tool execution order and phases
-- **[Tools Overview](./docs/phpqa-tools.md)** -- All tools with configuration details
+- **[The tools](./docs/pipeline.md#3-qa-tools-four-phases)** -- What each phase is for; `vendor/bin/qa -h` lists every tool in pipeline order, and the [identifier index](./docs/phpstan-rules/README.md#pipeline-lanes) links each lane's page under [docs/tools/](./docs/tools/)
 - **[Configuration](./docs/configuration.md)** -- Customizing tool settings and overrides
 - **[Extending the Pipeline](./docs/extending-the-pipeline.md)** -- Adding your own tools and phases from `qaConfig/pipeline.php`
 - **[Agent Mode](./docs/agent-mode.md)** -- `--agent-mode` / `PHPQACI_AGENT_MODE`: terse stdout plus a per-file JSON report, for a linting hook that feeds an agent

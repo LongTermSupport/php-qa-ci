@@ -34,7 +34,7 @@ final readonly class BundledToolVersions
     /**
      * @param Closure(string): ?string $file a project-relative file's contents, or null when absent
      *
-     * @return array<string, string> tool => version
+     * @return array<array-key, string> tool => version
      */
     public function read(Closure $file, string ...$buildDirectories): array
     {
@@ -56,8 +56,8 @@ final readonly class BundledToolVersions
     }
 
     /**
-     * @param array<string, string> $before
-     * @param array<string, string> $after
+     * @param array<array-key, string> $before
+     * @param array<array-key, string> $after
      */
     public function entry(array $before, array $after): ?string
     {
@@ -81,7 +81,7 @@ final readonly class BundledToolVersions
         return '**Bundled tool versions updated** by the dependency update: ' . implode('; ', $changes) . '.';
     }
 
-    /** @return array<string, string> */
+    /** @return array<array-key, string> */
     private function phive(string $xml): array
     {
         $versions = [];
@@ -103,7 +103,7 @@ final readonly class BundledToolVersions
 
     private function attribute(string $tag, string $attribute): ?string
     {
-        if (1 !== \Safe\preg_match('/\s' . $attribute . '="([^"]+)"/', $tag, $matches) || !isset($matches[1])) {
+        if (1 !== \Safe\preg_match('/\s' . preg_quote($attribute, '/') . '="([^"]+)"/', $tag, $matches) || !isset($matches[1])) {
             return null;
         }
 
@@ -114,7 +114,7 @@ final readonly class BundledToolVersions
      * @param array<array-key, mixed> $manifest
      * @param array<array-key, mixed> $lock
      *
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function build(string $directory, array $manifest, array $lock): array
     {

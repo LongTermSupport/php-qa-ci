@@ -96,22 +96,17 @@ Max 5 iterations. If still modifying files after 5 runs, escalate.
 
 ### Tool Classification
 
-| Tool            | Type        | Auto-Cycle?                  |
-| --------------- | ----------- | ---------------------------- |
-| rector          | Self-fixing | Yes - re-run until stable    |
-| fixer           | Self-fixing | Yes - re-run until stable    |
-| phplint         | Report-only | No - report and stop         |
-| infection       | Report-only | No - report and stop         |
-| stricttypes     | Report-only | No - report and stop         |
-| psr4            | Report-only | No - report and stop         |
-| composer        | Report-only | No - report and stop         |
-| markdown        | Report-only | No - report and stop         |
-| loc             | Report-only | No - report and stop         |
-| allStatic       | Mixed       | No - report per-tool results |
-| allCs           | Self-fixing | Yes - re-run until stable    |
-| allTests        | Mixed       | No - report results          |
-| allLints        | Report-only | No - report and stop         |
-| (full pipeline) | Mixed       | No - report per-tool results |
+`{bin}/qa -h` lists every tool and its `-t` tokens; the tools are not listed here, because a
+hand-kept list drifts from that one.
+
+- **Self-fixing**: every tool in the coding-standards phase (the tools `-t allCS` runs, which
+  `-h` lists first), and `-t allCS` itself. In a writable run, the default even with
+  `CI=true`, they change files: re-run until stable. The linting phase's two exceptions,
+  which also fix in a writable run, are named under "Phase 2" in
+  `vendor/lts/php-qa-ci/docs/pipeline.md`; treat them the same way.
+- **Report-only**: every other tool. Run once and report.
+- **Phase runners** (`allLints`, `allStatic`, `allTests`) and the full pipeline: run once and
+  report per-tool results.
 
 ## Escalation Triggers
 

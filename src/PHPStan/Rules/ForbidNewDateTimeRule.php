@@ -25,13 +25,18 @@ use PHPStan\Rules\RuleErrorBuilder;
  * RIGHT:
  *   $now = new DateTimeImmutable();
  *
- * Skips test files since tests may legitimately create DateTime objects.
+ * Skips test code (TestCodeDetector) since tests may legitimately create DateTime objects.
  *
  * @implements Rule<New_>
  */
 final readonly class ForbidNewDateTimeRule implements Rule
 {
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.newDateTime';
+
+    public function __construct(
+        private TestCodeDetector $testCodeDetector,
+    ) {
+    }
 
     public function getNodeType(): string
     {
@@ -47,7 +52,7 @@ final readonly class ForbidNewDateTimeRule implements Rule
             return [];
         }
 
-        if ($this->isTestContext($scope)) {
+        if ($this->testCodeDetector->isTestCode($scope->getFile(), $scope->getNamespace())) {
             return [];
         }
 
@@ -63,15 +68,5 @@ final readonly class ForbidNewDateTimeRule implements Rule
                 . 'when shared between services. Replace "new DateTime()" with "new DateTimeImmutable()".',
             )->identifier(self::IDENTIFIER)->build(),
         ];
-    }
-
-    private function isTestContext(Scope $scope): bool
-    {
-        $namespace = $scope->getNamespace();
-        if (null !== $namespace && str_contains($namespace, 'Tests')) {
-            return true;
-        }
-
-        return str_contains($scope->getFile(), '/tests/');
     }
 }

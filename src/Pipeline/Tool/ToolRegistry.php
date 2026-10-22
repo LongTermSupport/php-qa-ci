@@ -35,13 +35,13 @@ final readonly class ToolRegistry
 
     private const string INFECTION = 'infection';
 
-    /** @var array<string, PhaseDto> keyed by name, in execution order */
+    /** @var array<array-key, PhaseDto> keyed by name, in execution order */
     private array $phases;
 
-    /** @var array<string, ToolDefinitionDto> keyed by canonical name: the phase runners first, then the tools in the given order */
+    /** @var array<array-key, ToolDefinitionDto> keyed by canonical name: the phase runners first, then the tools in the given order */
     private array $definitions;
 
-    /** @var array<string, string> token => canonical name */
+    /** @var array<array-key, string> token => canonical name */
     private array $byToken;
 
     /**
@@ -61,7 +61,7 @@ final readonly class ToolRegistry
 
         foreach ($tools as $tool) {
             if (null !== $tool->phase && !isset($byPhase[$tool->phase])) {
-                throw UnknownPhaseException::forName($tool->phase, ...array_keys($byPhase));
+                throw UnknownPhaseException::forName($tool->phase, ...array_map(static fn (PhaseDto $phase): string => $phase->name, array_values($byPhase)));
             }
 
             $byName[$tool->name] = $tool;
@@ -88,6 +88,7 @@ final readonly class ToolRegistry
         return new self(
             array_map(static fn (PhaseEnum $phase): PhaseDto => $phase->phase(), PhaseEnum::cases()),
             [
+                new ToolDefinitionDto('dependencyFreshness', ['df', 'dependencyFreshness'], 'locked packages (lts/php-qa-ci, plus withDependencyFreshnessPatterns()) are what composer update would install; first in a full run', null, false),
                 new ToolDefinitionDto('rector', ['r', 'rector'], 'Rector', $codingStandards, true, banner: 'Running Rector'),
                 new ToolDefinitionDto('phpCsFixer', ['f', 'fixer', 'csfixer'], 'PHP-CS-Fixer', $codingStandards, true, banner: 'Running PHP-CS-Fixer'),
                 new ToolDefinitionDto('twigCsFixer', ['twigcs'], 'Twig coding standards (when twig/twig is installed)', $codingStandards, false, banner: 'Running Twig CS Fixer'),
@@ -107,6 +108,7 @@ final readonly class ToolRegistry
                 new ToolDefinitionDto('composerDependencyAnalyser', ['cda'], 'unused, shadow and misplaced dependencies', $linting, false, banner: 'Running Composer Dependency Analyser'),
                 new ToolDefinitionDto('markdownLinks', ['ml', 'markdown'], 'markdown validation', $linting, false, banner: 'Running Markdown Links Checker'),
                 new ToolDefinitionDto('docsProse', ['dp', 'prose', 'docsProse'], 'documentation prose describes its subject, not itself', $linting, false, banner: 'Checking Documentation Prose'),
+                new ToolDefinitionDto('documentedQaCommands', ['dqc', 'documentedQaCommands'], 'documented qa commands name tools qa accepts', $linting, false, banner: 'Checking Documented qa Commands'),
                 new ToolDefinitionDto('yamlLint', ['yaml'], 'YAML syntax (when symfony/yaml is installed)', $linting, false, banner: 'Running Yaml Linter'),
                 new ToolDefinitionDto('shellCheck', ['sc', 'shellcheck', 'shellCheck'], 'ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships', $linting, true, banner: 'Running ShellCheck'),
                 new ToolDefinitionDto('branchNamePolicy', ['bnp', 'branchNamePolicy'], 'Branch naming policy (PR convention)', $staticAnalysis, false, banner: 'Checking Branch Name Policy'),
@@ -162,6 +164,12 @@ final readonly class ToolRegistry
         }
 
         return $this->definitions[$name];
+    }
+
+    /** Whether `-t <token>` names a tool: the question resolve() answers, without the exception. */
+    public function accepts(string $token): bool
+    {
+        return isset($this->byToken[$token]);
     }
 
     /** Look up by canonical name. */

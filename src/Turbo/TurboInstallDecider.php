@@ -11,8 +11,10 @@ use LTS\PHPQA\Turbo\Dto\TurboDecisionDto;
  * that it cannot. Pure: it is handed the manifest, the phar's version, the host and the stamp of what is
  * installed, and decides nothing else.
  *
- * A manifest written for another phar version is broken rather than fetched from: a binary from
- * another release does not load, and PHPStan then runs without Turbo without saying so.
+ * A manifest written for another phar version is broken rather than fetched from: its digests pin
+ * that release's files, not the ones built for the shipped phar. phpstan.phar loads a binary from
+ * another release beside its core, but activates it only when its extension version is the one
+ * the phar expects.
  *
  * @internal
  */
@@ -21,7 +23,7 @@ final readonly class TurboInstallDecider
     /**
      * What an install records beside the binary, so the next install knows which files it came from.
      *
-     * @param array<string, string> $files path under `turbo-ext/` => SHA-256
+     * @param array<array-key, string> $files path under `turbo-ext/` => SHA-256
      */
     public static function stamp(array $files): string
     {
@@ -45,7 +47,7 @@ final readonly class TurboInstallDecider
 
         if ($manifest->phpstanVersion !== $pharVersion) {
             return TurboDecisionDto::broken(\sprintf(
-                '%s is for PHPStan %s but the shipped phpstan.phar is %s; a binary from another release does not load. Run scripts/tool-install.bash update',
+                "%s is for PHPStan %s but the shipped phpstan.phar is %s, so it does not pin the Turbo files of this phar's release. Run scripts/tool-install.bash update",
                 TurboManifest::PATH,
                 $manifest->phpstanVersion,
                 $pharVersion,

@@ -89,7 +89,7 @@ final readonly class RequireEnumOverLiteralUnionRule implements Rule
                 continue;
             }
 
-            $union = $this->literalUnionFor($docText, '@param', '\$' . preg_quote($param->var->name, '/'));
+            $union = $this->literalUnionFor($docText, '@param', $param->var->name);
 
             if (null === $union) {
                 continue;
@@ -101,7 +101,7 @@ final readonly class RequireEnumOverLiteralUnionRule implements Rule
         }
 
         if ($this->isScalarNativeType($node->getReturnType())) {
-            $union = $this->literalUnionFor($docText, '@return', '');
+            $union = $this->literalUnionFor($docText, '@return', null);
 
             if (null !== $union) {
                 $errors[] = $this->error(\sprintf('@return %s on %s', $union, $this->describe($node)));
@@ -113,12 +113,12 @@ final readonly class RequireEnumOverLiteralUnionRule implements Rule
 
     /**
      * The literal union written for the tag, or null when the tag is absent or its type
-     * is not a closed literal set. `$suffix` is the escaped `$name` for @param and empty
+     * is not a closed literal set. `$parameter` names the @param's variable and is null
      * for @return; the type is the whitespace-free token that follows the tag.
      */
-    private function literalUnionFor(string $docText, string $tag, string $suffix): ?string
+    private function literalUnionFor(string $docText, string $tag, ?string $parameter): ?string
     {
-        $pattern = '/' . preg_quote($tag, '/') . '\s+(' . self::LITERAL_UNION . ')(?=\s' . ('' === $suffix ? '' : '+' . $suffix . '\b') . ')/';
+        $pattern = '/' . preg_quote($tag, '/') . '\s+(' . self::LITERAL_UNION . ')(?=\s' . (null === $parameter ? '' : '+\$' . preg_quote($parameter, '/') . '\b') . ')/';
 
         if (1 !== \Safe\preg_match($pattern, $docText, $matches)) {
             return null;

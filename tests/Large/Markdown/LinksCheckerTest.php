@@ -17,12 +17,15 @@ use Throwable;
  * @internal
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(LinksChecker::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[\PHPUnit\Framework\Attributes\Large]
 final class LinksCheckerTest extends TestCase
 {
     private const string GH_TOKEN_VAR = 'GH_TOKEN';
 
     private const string GITHUB_TOKEN_VAR = 'GITHUB_TOKEN';
+
+    private const string README = '/README.md';
 
     /** @var list<TempDir> */
     private array $tempDirs = [];
@@ -61,7 +64,29 @@ Bad link for "incorrect link" to "./foo.md"
     public function testMainNoReadmeFile(): void
     {
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIsOrContains('You have no README.md file in your project');
         LinksChecker::main(__DIR__ . '/../../assets/linksChecker/projectNoReadme');
+    }
+
+    /**
+     * A root README.md that is a dangling symlink still fails the check, naming the dangling
+     * symlink as the cause rather than claiming there is no README.md (#241).
+     *
+     * @throws Exception
+     */
+    public function testADanglingRootReadmeFailsNamingTheSymlink(): void
+    {
+        $dir              = TempDir::create('linksCheckerDanglingReadme');
+        $this->tempDirs[] = $dir;
+        \Safe\symlink('missing-target.md', $dir->path . self::README);
+
+        try {
+            LinksChecker::main($dir->path);
+            self::fail('A dangling root README.md did not fail the check');
+        } catch (RuntimeException $runtimeException) {
+            self::assertStringContainsString('README.md is a symlink whose target does not exist', $runtimeException->getMessage());
+            self::assertStringNotContainsString('You have no README.md', $runtimeException->getMessage());
+        }
     }
 
     /**
@@ -137,6 +162,49 @@ reason: GitHub URLs cannot be verified anonymously'
             $this->restoreEnv(self::GH_TOKEN_VAR, $originalGhToken);
             $this->restoreEnv(self::GITHUB_TOKEN_VAR, $originalGithubToken);
         }
+    }
+
+    /**
+     * The project root is stripped from a docs file's directory to resolve a relative link, and a
+     * root holding a regex metacharacter must be matched literally: `a+b` as a pattern does not
+     * match the path `a+b`, so every relative link under docs/ was reported as broken.
+     *
+     * @throws Exception
+     */
+    public function testARelativeLinkResolvesUnderAProjectRootHoldingARegexMetacharacter(): void
+    {
+        $dir              = TempDir::create('linksCheckerMetacharacter');
+        $this->tempDirs[] = $dir;
+        $projectDir       = $dir->path . '/project+one (copy)';
+        \Safe\mkdir($projectDir . '/docs', 0o755, true);
+        \Safe\file_put_contents($projectDir . self::README, "[guide](docs/guide.md)\n");
+        \Safe\file_put_contents($projectDir . '/docs/guide.md', "[other page](other.md)\n");
+        \Safe\file_put_contents($projectDir . '/docs/other.md', "nothing to link\n");
+
+        $this->assertResult($projectDir, 0, '');
+    }
+
+    /**
+     * A docs file whose real path cannot be resolved is named as skipped, and the rest is
+     * still checked (#241).
+     *
+     * @throws Exception
+     */
+    public function testADanglingSymlinkIsNamedAsSkippedAndTheRestStillChecked(): void
+    {
+        $dir              = TempDir::create('linksCheckerDangling');
+        $this->tempDirs[] = $dir;
+        $dir->write('README.md', "[guide](docs/guide.md)\n");
+        $dir->write('docs/guide.md', "[gone](nothere.md)\n");
+        \Safe\symlink('missing-target.md', $dir->path . '/docs/Gone.md');
+
+        $this->assertResult($dir->path, 1, 'Markdown links skipped docs/Gone.md: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked
+
+/docs/guide.md
+--------------
+
+Bad link for "gone" to "nothere.md"
+');
     }
 
     /**
@@ -217,7 +285,7 @@ reason: GitHub URLs cannot be verified anonymously'
         $projectDir       = $dir->path;
 
         \Safe\file_put_contents(
-            $projectDir . '/README.md',
+            $projectDir . self::README,
             "contains links to external resource and in page links\n\n"
             . '[valid link](' . $baseUrl . "/200)\n\n"
             . '[invalid link](' . $baseUrl . "/404);\n\n"

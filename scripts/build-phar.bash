@@ -154,17 +154,21 @@ build_tool() {
         source "$BUILD_DIR/prepare.bash"
     fi
 
+    # Box adds the compiled files in the order its temporary directory lists
+    # them, which is the build host filesystem's order (hash order on ext4).
+    # --sort-compiled-files adds them in byte order, so another host's build of
+    # the same inputs is byte for byte the same.
     echo -e "${GREEN}Compiling $tool.phar via Box...${NC}"
-    run_box "$BOX_BIN" compile --config="$BOX_CONFIG" --working-dir="$BUILD_DIR" --no-parallel
+    run_box "$BOX_BIN" compile --config="$BOX_CONFIG" --working-dir="$BUILD_DIR" --no-parallel --sort-compiled-files
     mkdir -p "$PHAR_DIR"
     mv "$BUILD_DIR/$tool.phar" "$OUTPUT_PHAR"
     chmod 0755 "$OUTPUT_PHAR"
 
-    local BUILT_VERSION BUILT_SIZE
-    if BUILT_VERSION="$(php "$OUTPUT_PHAR" --version 2>/dev/null | awk 'NR==1')"; then
-        :
-    else
-        BUILT_VERSION="unknown (phar --version returned non-zero)"
+    # A phar killed by a signal prints nothing, so how it ended is named.
+    local BUILT_VERSION BUILT_SIZE VERSION_RC=0
+    BUILT_VERSION="$(php -d display_errors=stderr "$OUTPUT_PHAR" --version | awk 'NR==1')" || VERSION_RC=$?
+    if (( VERSION_RC != 0 )); then
+        BUILT_VERSION="unknown: php $tool.phar --version failed with $(php -d display_errors=stderr "$PROJECT_ROOT/bin/describe-exit" "$VERSION_RC")"
     fi
     BUILT_SIZE="$(du -h "$OUTPUT_PHAR" | cut -f1)"
     echo -e "${GREEN}Built $OUTPUT_PHAR ($BUILT_SIZE) — $BUILT_VERSION${NC}"

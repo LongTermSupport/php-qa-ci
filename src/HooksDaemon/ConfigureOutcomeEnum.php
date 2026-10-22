@@ -33,7 +33,7 @@ enum ConfigureOutcomeEnum
     /** The config's layout cannot be edited safely as text. */
     case Unsupported;
 
-    /** The daemon CLI that would validate the change is missing, so nothing is written. */
+    /** The daemon CLI that would validate the change is missing, or did not finish, so nothing is written. */
     case CannotValidate;
 
     /** The daemon's config-validate refused the candidate, so nothing is written. */

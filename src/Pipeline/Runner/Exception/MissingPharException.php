@@ -36,7 +36,7 @@ final class MissingPharException extends RuntimeException
     public static function turboManifestMismatch(string $path, string $manifestVersion, string $pharVersion): self
     {
         return new self(\sprintf(
-            '%s is for PHPStan %s but the shipped phpstan.phar is %s, so PHPStan would run without Turbo. Reinstall php-qa-ci; a maintainer runs scripts/tool-install.bash update.',
+            "%s is for PHPStan %s but the shipped phpstan.phar is %s, so it does not pin the Turbo files of this phar's release. Reinstall php-qa-ci; a maintainer runs scripts/tool-install.bash update.",
             $path,
             $manifestVersion,
             $pharVersion,

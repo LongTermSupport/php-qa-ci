@@ -40,6 +40,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class OpcacheToolTest extends TestCase
 {
     private const string AFFECTED = "8.5.10\n";
@@ -114,7 +115,7 @@ final class OpcacheToolTest extends TestCase
         $paths = $this->factory->context()->config->paths;
         self::assertSame(
             [
-                '/usr/bin/php', '-d', 'memory_limit=4G',
+                '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr',
                 '-d', 'opcache.enable_cli=1',
                 '-d', 'opcache.optimization_level=0x7FFEBFFF',
                 '-d', 'opcache.opt_debug_level=0x20000',
@@ -192,6 +193,30 @@ final class OpcacheToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('optimizer dump crashed (exit 255)', $result->summary);
+    }
+
+    /** A dump a shell reports as killed by a signal says which, and a segfault says what to do. */
+    #[Test]
+    public function aDumpKilledByASignalIsACrashNamingTheSignal(): void
+    {
+        $this->factory->processes->willSucceed(self::AFFECTED)->willReturn(new ProcessResultDto(139, '', '', \SIGSEGV));
+
+        $result = new OpcacheTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('optimizer dump crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice() . ')', $result->summary);
+    }
+
+    /** A dump that exited 139 itself relays a crash below it, and is not called killed. */
+    #[Test]
+    public function aDumpThatExited139ItselfIsACrashNotCalledAKill(): void
+    {
+        $this->factory->processes->willSucceed(self::AFFECTED)->willFail(139, '');
+
+        $result = new OpcacheTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('optimizer dump crashed (exit 139' . \LTS\PHPQA\ComposerPlugin\ChildExit::exitedItself(139) . ')', $result->summary);
     }
 
     #[Test]

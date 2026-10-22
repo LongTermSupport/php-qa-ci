@@ -5,7 +5,7 @@ PHP-QA-CI uses two tools for coding standards enforcement, both running in Phase
 1. **Rector** -- Automated refactoring and PHP version migration
 2. **PHP CS Fixer** -- Code style fixing
 
-Both tools run before any linting or analysis, so that later phases validate the final state of the code.
+Both tools run before any linting or analysis, so that later phases validate the final state of the code. Code style is PHP CS Fixer only: there is no PHP_CodeSniffer in the pipeline.
 
 ## PHP CS Fixer
 
@@ -70,7 +70,7 @@ The pipeline runs three Rector configurations in order:
 
 1. **rector-safe.php** -- Converts standard PHP functions to `thecodingmachine/safe` equivalents
 2. **rector-phpunit.php** -- Applies PHPUnit modernisation rules to the test directory
-3. **rector-php85.php** -- Applies PHP 8.5 migration rules (skipped if a project-specific `rector.php` exists)
+3. **rector-php85.php** -- Applies PHP 8.5 migration rules, `LevelSetList::UP_TO_PHP_85` (skipped if a project-specific `rector.php` exists)
 
 ### Project-Specific Rector Configuration
 
@@ -83,6 +83,11 @@ If you have a `rector.php` in your project root or `qaConfig/rector.php`, the pi
 cp vendor/lts/php-qa-ci/configDefaults/generic/rector-php85.php qaConfig/rector.php
 # Edit qaConfig/rector.php to your needs
 ```
+
+The copy carries the shipped cache setting (a `FileCacheStorage` under `var/qa/cache/rector`). Leave
+it as it is: a `cacheClass(MemoryCacheStorage::class)` line, from a config copied before Rector 2.7,
+stops the lane naming that line; delete it. See
+[A project config that sets its own cache](tools/rector.md#a-project-config-that-sets-its-own-cache).
 
 ### Running Rector Manually
 

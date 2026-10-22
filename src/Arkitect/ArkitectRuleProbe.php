@@ -20,6 +20,7 @@ use LTS\PHPQA\Pipeline\Config\ProjectPathsResolver;
 use LTS\PHPQA\Pipeline\Lane\PhpArkitect\ArkitectEnvironment;
 use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
+use RuntimeException;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -148,23 +149,24 @@ final readonly class ArkitectRuleProbe
             throw ProbeFailedException::because(\sprintf('No PHPArkitect entry config resolved at %s.', $entryConfig));
         }
 
-        $result = $this->php->withoutXdebug(
-            $this->paths->pharDir . '/' . self::PHAR,
-            [
-                'check',
-                '--config=' . $this->writeConfig($entryConfig, $dir),
-                '--autoload=' . $this->autoloadPath,
-                '--no-interaction',
-                '--skip-baseline',
-                '--format=json',
-            ],
-            $this->paths->projectRoot,
-            $this->environment->variables($this->configPaths, $this->paths->srcDir, new IgnoredPaths($this->paths->projectRoot)),
-            streamOutput: false,
-        );
+        $config = $this->writeConfig($entryConfig, $dir);
+        $env    = $this->environment->variables($this->configPaths, $this->paths->srcDir, new IgnoredPaths($this->paths->projectRoot));
+
+        try {
+            $result = $this->php->withoutXdebug(
+                $this->paths->pharDir . '/' . self::PHAR,
+                ['check', '--config=' . $config, '--autoload=' . $this->autoloadPath, '--no-interaction', '--skip-baseline', '--format=json'],
+                $this->paths->projectRoot,
+                $env,
+                streamOutput: false,
+            );
+        } catch (RuntimeException $runtimeException) {
+            // The runner has no record of signalled children, so a child a signal killed is thrown, named.
+            throw ProbeFailedException::because(\sprintf('PHPArkitect did not finish, so there is no verdict: %s', $runtimeException->getMessage()), $runtimeException);
+        }
 
         if ($result->exitCode > 1) {
-            throw ProbeFailedException::because(\sprintf("PHPArkitect crashed (exit %d), so there is no verdict:\n%s", $result->exitCode, rtrim($result->output)));
+            throw ProbeFailedException::because(\sprintf("PHPArkitect crashed (%s), so there is no verdict:\n%s", $result->describeExit(), rtrim($result->output)));
         }
 
         try {

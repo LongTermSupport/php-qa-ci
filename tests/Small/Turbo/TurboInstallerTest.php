@@ -8,6 +8,7 @@ use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use LTS\PHPQA\Tests\Support\FakeTurboReleaseSource;
 use LTS\PHPQA\Tests\Support\TempDir;
+use LTS\PHPQA\Tests\Support\UnremovableTree;
 use LTS\PHPQA\Turbo\Dto\TurboDecisionDto;
 use LTS\PHPQA\Turbo\TurboInstallDecider;
 use LTS\PHPQA\Turbo\TurboInstaller;
@@ -30,6 +31,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 #[CoversClass(TurboInstaller::class)]
 #[UsesClass(TemporaryDirectory::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[UsesClass(PhpstanDocsCatalogue::class)]
 #[UsesClass(TurboDecisionDto::class)]
 #[UsesClass(TurboInstallDecider::class)]
@@ -59,6 +61,21 @@ final class TurboInstallerTest extends TestCase
     private const string DOWNLOAD_WARNING = 'WARNING: could not download turbo-ext/';
 
     private const string WITHOUT_TURBO = "; PHPStan runs without Turbo until the next composer install.\n";
+
+    private const string NOTHING_LOADS = "No Turbo binary is in place beside its core, so PHPStan runs without Turbo until an install succeeds.\n";
+
+    private const string EARLIER_BINARY = 'a binary an earlier release installed';
+
+    private const string EARLIER_CORE = 'a core an earlier release installed';
+
+    private const string PHP_MINOR = '8.5';
+
+    private const string OTHER_RELEASE = '2.2.16';
+
+    private const string MAY_STILL_LOAD = 'WARNING: phpstan.phar may still load ' . self::BINARY . ", which is still beside its core, though this install could not vouch for it. Delete it to run PHPStan without Turbo.\n";
+
+    private const string STAMPED_PAIR_LOADS = self::BINARY . ' and its core match the SHA-256 digests in ' . self::STAMP . ', which an install writes only once it has verified and placed them; '
+        . "phpstan.phar loads the binary, and activates it when its extension version is the one the phar expects.\n";
 
     private TempDir $library;
 
@@ -145,7 +162,7 @@ final class TurboInstallerTest extends TestCase
 
         self::assertFileDoesNotExist($this->library->path . '/' . self::BINARY);
         self::assertFileDoesNotExist($this->library->path . '/' . self::CORE, 'a verified core must not be placed beside a binary that failed');
-        self::assertSame(\sprintf("ERROR: turbo-ext/%s has SHA-256 %s, but %s pins %s. Nothing was installed.\n", self::BINARY_PATH, hash(self::DIGEST, self::BINARY_BYTES), TurboManifest::PATH, str_repeat('0', 64)), $this->errors->fetch());
+        self::assertSame(\sprintf("ERROR: turbo-ext/%s has SHA-256 %s, but %s pins %s. Nothing was installed.\n", self::BINARY_PATH, hash(self::DIGEST, self::BINARY_BYTES), TurboManifest::PATH, str_repeat('0', 64)) . self::NOTHING_LOADS, $this->errors->fetch());
     }
 
     /** Offline, an install still succeeds: PHPStan runs without Turbo, and says why on the next install. */
@@ -160,11 +177,54 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO, $this->errors->fetch());
     }
 
+    /**
+     * phpstan.phar loads whatever binary it finds beside a core, stamped or not, so an earlier pair
+     * left in place is loaded on the next run: the warning is true only once the binary is gone.
+     */
+    #[Test]
+    public function aFailedDownloadRemovesAnEarlierBinarySoPhpstanRunsWithoutTurbo(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+        $this->library->write(self::STAMP, "the stamp of an earlier release\n");
+
+        self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame(self::DOWNLOAD_WARNING . self::CORE_PATH . self::WITHOUT_TURBO, $this->errors->fetch());
+        self::assertSame([basename(self::CORE_PATH)], $this->platformDirectory(), 'the earlier binary and its stamp are still there, so PHPStan still loads it');
+    }
+
+    /** A killed install can place the pair and not the stamp; nothing then vouches for the binary. */
+    #[Test]
+    public function aFailedDownloadRemovesABinaryNoStampVouchesFor(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(self::BINARY, 'a binary a killed install placed');
+        $this->library->write(self::CORE, 'the core a killed install placed');
+
+        self::assertSame(0, $this->installer(new FakeTurboReleaseSource(null, []))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame([basename(self::CORE_PATH)], $this->platformDirectory(), 'the unstamped binary is still there, so PHPStan still loads it');
+    }
+
+    #[Test]
+    public function aDownloadWhoseDigestDiffersRemovesAnEarlierBinary(): void
+    {
+        $this->writeManifest([...$this->digests(), self::BINARY_PATH => str_repeat('0', 64)]);
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame([basename(self::CORE_PATH)], $this->platformDirectory(), 'the earlier binary is still there, so PHPStan still loads it');
+    }
+
     #[Test]
     public function aHostUpstreamBuildsNothingForSucceedsSayingSo(): void
     {
         $this->writeManifest($this->digests());
-        $windows = new TurboPlatform('Windows', 'AMD64', '', '8.5', false);
+        $windows = new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false);
 
         self::assertSame(0, $this->installer($this->source(), $windows)->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -174,11 +234,246 @@ final class TurboInstallerTest extends TestCase
     #[Test]
     public function aManifestForAnotherPharVersionFailsTheInstall(): void
     {
-        $this->library->write(TurboManifest::PATH, new TurboManifest('2.2.16', [])->toJson());
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertSame("ERROR: vendor-phar/turbo-ext.json is for PHPStan 2.2.16 but the shipped phpstan.phar is 2.3.1; a binary from another release does not load. Run scripts/tool-install.bash update.\n", $this->errors->fetch());
+        self::assertSame("ERROR: vendor-phar/turbo-ext.json is for PHPStan 2.2.16 but the shipped phpstan.phar is 2.3.1, so it does not pin the Turbo files of this phar's release. Run scripts/tool-install.bash update.\n" . self::NOTHING_LOADS, $this->errors->fetch());
+    }
+
+    /**
+     * A failure no step catches (here the regenerated manifest cannot be written) is still a failed
+     * install: an ERROR naming it, the line saying what is on disk, and exit 1 rather than a fatal error.
+     */
+    #[Test]
+    public function aFailureNoStepCatchesStillEndsWithWhatTheInstallLeft(): void
+    {
+        $this->library->mkdir(TurboManifest::PATH);
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $exitCode = $this->installer($this->source(tree: $this->treeJson(self::BINARY_PATH, self::CORE_PATH)), maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame(1, $exitCode);
+        self::assertCount(1, $warnings, 'the write onto the directory in the way');
+        $errors = $this->errors->fetch();
+        self::assertStringStartsWith('ERROR: the Turbo install stopped: ', $errors);
+        self::assertStringEndsWith(self::MAY_STILL_LOAD, $errors);
+        self::assertSame(2, substr_count($errors, "\n"), 'the ERROR line, then the line saying what is on disk');
+    }
+
+    /** A failure before any fetch leaves an earlier install as it was, and phpstan.phar may still load it. */
+    #[Test]
+    public function aFailedInstallThatLeavesABinaryBesideItsCoreSaysPhpstanMayStillLoadIt(): void
+    {
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertStringEndsWith(".\n" . self::MAY_STILL_LOAD, $this->errors->fetch());
+    }
+
+    /** phpstan.phar loads no binary without its core, so a lone binary is not reported as loadable. */
+    #[Test]
+    public function aFailedInstallThatLeavesABinaryWithoutItsCoreSaysNothingLoads(): void
+    {
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertStringEndsWith(".\n" . self::NOTHING_LOADS, $this->errors->fetch());
+    }
+
+    #[Test]
+    public function aFailedInstallOnAHostWithNoBuildSaysNothingLoads(): void
+    {
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+
+        self::assertSame(1, $this->installer($this->source(), new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertStringEndsWith(".\n" . self::NOTHING_LOADS, $this->errors->fetch());
+    }
+
+    /**
+     * An install killed by a signal never reaches the line saying what it left, so the Composer
+     * plugin asks the state check: read-only, it fetches and changes nothing, and answers on
+     * stdout, which the plugin captures.
+     */
+    #[Test]
+    public function theStateCheckSaysPhpstanMayStillLoadABinaryBesideItsCoreAndChangesNothing(): void
+    {
+        $source = $this->source();
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+
+        self::assertSame(0, $this->installer($source)->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::MAY_STILL_LOAD, $this->output->fetch());
+        self::assertSame('', $this->errors->fetch());
+        self::assertSame(0, $source->downloads);
+        self::assertSame(self::EARLIER_BINARY, $this->library->read(self::BINARY));
+        self::assertSame(self::EARLIER_CORE, $this->library->read(self::CORE));
+    }
+
+    #[Test]
+    public function theStateCheckSaysNothingLoadsWhenNoBinaryIsBesideItsCore(): void
+    {
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::NOTHING_LOADS, $this->output->fetch());
+        self::assertSame('', $this->errors->fetch());
+    }
+
+    /**
+     * An install killed after it wrote the stamp, while it removed its staging directory, left the
+     * complete pair it verified: the stamp vouches for it, so nothing advises deleting it.
+     */
+    #[Test]
+    public function theStateCheckSaysPhpstanLoadsAPairItsStampVouchesFor(): void
+    {
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        $this->library->write(self::STAMP, $this->stamp());
+        $this->library->mkdir(\dirname(self::BINARY) . '/.phpqa-turbo-killed-mid-removal');
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::STAMPED_PAIR_LOADS, $this->output->fetch());
+        self::assertSame('', $this->errors->fetch());
+    }
+
+    /**
+     * A failure before any fetch leaves an earlier install as it was; when its stamp still matches
+     * the pair, that install vouched for it, and the consumer is not told to delete it.
+     */
+    #[Test]
+    public function aFailedInstallThatLeavesAnEarlierStampedPairSaysPhpstanLoadsItWithoutAdvisingDeletion(): void
+    {
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::EARLIER_CORE);
+        $this->library->write(self::STAMP, TurboInstallDecider::stamp([self::CORE_PATH => hash(self::DIGEST, self::EARLIER_CORE), self::BINARY_PATH => hash(self::DIGEST, self::EARLIER_BINARY)]) . "\n");
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertStringEndsWith(".\n" . self::STAMPED_PAIR_LOADS, $this->errors->fetch());
+        self::assertSame(self::EARLIER_BINARY, $this->library->read(self::BINARY));
+    }
+
+    /** A stamp is only as good as its match: a pair that differs from it is still not vouched for. */
+    #[Test]
+    public function theStateCheckStillWarnsAboutAPairThatDiffersFromItsStamp(): void
+    {
+        $this->library->write(self::BINARY, 'a binary that is not the one the stamp records');
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        $this->library->write(self::STAMP, $this->stamp());
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::MAY_STILL_LOAD, $this->output->fetch());
+    }
+
+    /** A core that differs from the stamp unvouches the pair as much as a binary that does. */
+    #[Test]
+    public function aFailedInstallStillWarnsAboutAPairWhoseCoreDiffersFromItsStamp(): void
+    {
+        $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::CORE, 'a core that is not the one the stamp records');
+        $this->library->write(self::STAMP, $this->stamp());
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertStringEndsWith(".\n" . self::MAY_STILL_LOAD, $this->errors->fetch());
+    }
+
+    /** A pair that cannot be read cannot be matched to its stamp, so it is warned about, saying why. */
+    #[Test]
+    public function theStateCheckWarnsAboutAPairItCannotReadAndSaysWhy(): void
+    {
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::STAMP, $this->stamp());
+        // Linux reports /proc/self/mem as a regular file, and reading it from offset 0 fails.
+        \Safe\symlink('/proc/self/mem', $this->library->path . '/' . self::CORE);
+
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $exitCode = $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame(0, $exitCode);
+        $output = $this->output->fetch();
+        self::assertStringStartsWith(rtrim(self::MAY_STILL_LOAD, "\n") . ' The pair could not be checked against its stamp: ', $output);
+        self::assertStringEndsWith(".\n", $output);
+        self::assertStringContainsString('Input/output error', implode("\n", $warnings), 'the failed read');
+    }
+
+    /** A stamp that cannot be read vouches for nothing, and the warning says why rather than reading as an unstamped pair. */
+    #[Test]
+    public function theStateCheckWarnsAboutAPairWhoseStampItCannotReadAndSaysWhy(): void
+    {
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        // Opening /proc/self/mem succeeds and reading it from offset 0 fails, so nothing is read.
+        \Safe\symlink('/proc/self/mem', $this->library->path . '/' . self::STAMP);
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        $output = $this->output->fetch();
+        self::assertStringStartsWith(rtrim(self::MAY_STILL_LOAD, "\n") . ' The pair could not be checked against its stamp: ', $output);
+        self::assertStringContainsString('Input/output error', $output, 'the reason the stamp could not be read');
+    }
+
+    /** A failure after both files are placed leaves a pair phpstan.phar loads, with no stamp to vouch for it. */
+    #[Test]
+    public function aStampThatCannotBeWrittenFailsTheInstallSayingPhpstanMayStillLoadTheBinary(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->mkdir(self::STAMP . '/in-the-way');
+
+        $warnings = [];
+        set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $exitCode = $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame(1, $exitCode);
+        self::assertCount(1, $warnings, 'the write onto the directory in the way');
+        $errors = $this->errors->fetch();
+        self::assertStringStartsWith('ERROR: could not install the Turbo files: ', $errors);
+        self::assertStringEndsWith(self::MAY_STILL_LOAD, $errors);
+        self::assertSame(self::BINARY_BYTES, $this->library->read(self::BINARY));
     }
 
     #[Test]
@@ -188,7 +483,7 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
-        self::assertSame("ERROR: vendor-phar/turbo-ext.json has no \"phpstan\" version. Restore it from git, or run scripts/tool-install.bash update.\n", $this->errors->fetch());
+        self::assertSame("ERROR: vendor-phar/turbo-ext.json has no \"phpstan\" version. Restore it from git, or run scripts/tool-install.bash update.\n" . self::NOTHING_LOADS, $this->errors->fetch());
     }
 
     #[Test]
@@ -242,7 +537,7 @@ final class TurboInstallerTest extends TestCase
         self::assertSame(1, $this->installer($source, maintainer: true)->run($this->library->path, TurboInstaller::MODE_UPDATE));
 
         self::assertSame($before, $this->library->read(TurboManifest::PATH));
-        self::assertSame("ERROR: the phpstan/phpstan tree response is truncated, so a manifest from it would pin only some of the Turbo files.\n", $this->errors->fetch());
+        self::assertSame("ERROR: the phpstan/phpstan tree response is truncated, so a manifest from it would pin only some of the Turbo files.\n" . self::NOTHING_LOADS, $this->errors->fetch());
     }
 
     #[Test]
@@ -309,9 +604,49 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(1, $exitCode);
         self::assertCount(1, $warnings, 'the rename onto the directory in the way');
-        self::assertStringStartsWith('ERROR: could not install the Turbo files: ', $this->errors->fetch());
+        $errors = $this->errors->fetch();
+        self::assertStringStartsWith('ERROR: could not install the Turbo files: ', $errors);
+        self::assertStringEndsWith(self::NOTHING_LOADS, $errors);
         // The core goes first, so what is left is a core with no binary to load it.
         self::assertSame(['phpstan_turbo-8.5.so', 'phpstan_turbo_core.so'], $this->platformDirectory());
+    }
+
+    /** A staging directory that cannot be made beside the binary fails the install as any other step does. */
+    #[Test]
+    public function aStagingDirectoryThatCannotBeMadeFailsTheInstallSayingWhy(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(\dirname(self::BINARY), 'a file where the platform directory belongs');
+
+        self::assertSame(1, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+
+        self::assertSame(
+            \sprintf("ERROR: could not install the Turbo files: Cannot create a staging directory in %s: mkdir(): File exists\n", \dirname($this->library->path . '/' . self::BINARY)) . self::NOTHING_LOADS,
+            $this->errors->fetch(),
+        );
+    }
+
+    /** A staging leftover the install cannot remove is named in a warning; the install goes on. */
+    #[Test]
+    public function aStagingLeftoverThatCannotBeRemovedIsNamedAndTheInstallSucceeds(): void
+    {
+        $this->writeManifest($this->digests());
+        $leftover = \dirname($this->library->path . '/' . self::BINARY) . '/.phpqa-turbo0123456789abcdef';
+        UnremovableTree::plant($leftover);
+        \Safe\touch($leftover, time() - 2 * 3600);
+
+        try {
+            self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_INSTALL));
+            $kept = array_values(array_filter(\Safe\glob(\dirname($leftover) . '/.phpqa-turbo*'), \is_string(...)));
+        } finally {
+            foreach (array_filter(\Safe\glob(\dirname($leftover) . '/.phpqa-turbo*'), \is_string(...)) as $stuck) {
+                UnremovableTree::remove($stuck);
+            }
+        }
+
+        self::assertSame(self::BINARY_BYTES, $this->library->read(self::BINARY));
+        self::assertCount(1, $kept);
+        self::assertStringStartsWith(\sprintf('WARNING: could not remove %s, a staging directory a killed install left: ', $kept[0]), $this->errors->fetch());
     }
 
     /** A maintainer offline still gets an install: the committed manifest stands. */
@@ -360,7 +695,7 @@ final class TurboInstallerTest extends TestCase
     {
         return new TurboInstaller(
             $source,
-            $platform ?? new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false),
+            $platform ?? new TurboPlatform('Linux', 'x86_64', 'gnu', self::PHP_MINOR, false),
             $maintainer,
             $this->output,
             $this->errors,

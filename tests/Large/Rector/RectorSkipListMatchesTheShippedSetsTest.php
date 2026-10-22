@@ -94,14 +94,20 @@ final class RectorSkipListMatchesTheShippedSetsTest extends TestCase
         return $names;
     }
 
-    /** @return list<string> the source of every set config inside the shipped rector.phar */
+    /**
+     * The source of every set config inside the shipped rector.phar, and of every Level class:
+     * a set such as CODING_STYLE registers its rules from CodingStyleLevel::RULES, not by name
+     * in its config file.
+     *
+     * @return list<string>
+     */
     private function setSources(): array
     {
         $sources = [];
         /** @var SplFileInfo $file */
         foreach (new RecursiveIteratorIterator(new Phar(self::PHAR)) as $file) {
             $path = $file->getPathname();
-            if (str_contains($path, '/config/set/') && str_ends_with($path, '.php')) {
+            if ((str_contains($path, '/config/set/') || str_contains($path, '/src/Config/Level/')) && str_ends_with($path, '.php')) {
                 $sources[] = \Safe\file_get_contents($path);
             }
         }

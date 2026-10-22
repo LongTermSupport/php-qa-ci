@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use Closure;
-use FilesystemIterator;
 use InvalidArgumentException;
 use JsonException;
+use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Lane\Infection\AutoloadIncludedFilesProbe;
+use LTS\PHPQA\Pipeline\Lane\Infection\Dto\InfectionDiffFilterDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\KillJudgementDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\Dto\VacuousKillDto;
 use LTS\PHPQA\Pipeline\Lane\Infection\IgnoredPathsInfectionConfig;
@@ -20,6 +21,7 @@ use LTS\PHPQA\Pipeline\Lane\Infection\InfectionArguments;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffBaseResolver;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionDiffFilter;
 use LTS\PHPQA\Pipeline\Lane\Infection\InfectionFullRunTriggers;
+use LTS\PHPQA\Pipeline\Lane\Infection\InfectionSourceScope;
 use LTS\PHPQA\Pipeline\Lane\Infection\PreloadedSourceFinder;
 use LTS\PHPQA\Pipeline\Lane\Infection\VacuousKillDetector;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
@@ -27,9 +29,6 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
 
 /**
  * Mutation testing: does the test suite kill injected faults? Self-contained
@@ -52,6 +51,7 @@ use SplFileInfo;
  * with the default branch, and the default branch, or a clone with no merge
  * base, runs in full. In diff mode the lane scopes mutation to the PHP files
  * changed since the base plus the sources the changed tests are named after,
+ * less any infection.json's `source` leaves out (named, with why),
  * uncovered code included, and holds both MSI figures to the diff floor; an
  * empty diff skips before any coverage is generated. A change to a file
  * Infection or PHPUnit reads to decide what is mutated and whether a mutant
@@ -96,6 +96,7 @@ final readonly class InfectionTool implements ToolInterface
         private VacuousKillDetector $vacuousKills = new VacuousKillDetector(),
         private IncludedFilesProbeInterface $includedFiles = new AutoloadIncludedFilesProbe(),
         private PreloadedSourceFinder $preloadedSource = new PreloadedSourceFinder(),
+        private InfectionSourceScope $sourceScope = new InfectionSourceScope(),
     ) {
     }
 
@@ -138,7 +139,7 @@ final readonly class InfectionTool implements ToolInterface
 
         $positionalPaths = [];
         if (null !== $base->ref) {
-            $scope = $this->resolveDiffScope($context, $base->ref, $base->strict);
+            $scope = $this->resolveDiffScope($context, $base->ref, $base->strict, $source);
             if ($scope instanceof ToolResultDto) {
                 return $scope;
             }
@@ -162,7 +163,7 @@ final readonly class InfectionTool implements ToolInterface
             ? $this->arguments->full($options, $logsDir, $configPath)
             : $this->arguments->diff($options, $logsDir, $configPath, ...$positionalPaths);
 
-        $this->clearDirectory($paths->varDir . '/infection');
+        DirectoryTree::empty($paths->varDir . '/infection');
         if (is_file($jsonLog)) {
             \Safe\unlink($jsonLog);
         }
@@ -189,7 +190,7 @@ final readonly class InfectionTool implements ToolInterface
 
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('Infection failed (exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('Infection failed (%s)', $result->describeExit()));
     }
 
     /**
@@ -277,10 +278,7 @@ final readonly class InfectionTool implements ToolInterface
         try {
             $found = $this->preloadedSource->find($this->strings($source['directories'] ?? null), $this->strings($source['excludes'] ?? null), $loaded, ...$scope);
         } catch (InvalidArgumentException $invalidArgumentException) {
-            $context->writeln('Infection: ' . $invalidArgumentException->getMessage() . '.');
-            $context->writeIdentifier(self::IDENTIFIER);
-
-            return ToolResultDto::crashed('an infection.json source exclude is not a valid regular expression');
+            return $this->invalidExclude($context, $invalidArgumentException);
         }
 
         if ([] === $found) {
@@ -304,6 +302,15 @@ final readonly class InfectionTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::crashed(\sprintf('%d file(s) Infection mutates are loaded before it can swap them for mutants', \count($found)));
+    }
+
+    /** What Infection mutates cannot be worked out while an exclude does not compile, so no score could be trusted. */
+    private function invalidExclude(ToolContext $context, InvalidArgumentException $invalidExclude): ToolResultDto
+    {
+        $context->writeln('Infection: ' . $invalidExclude->getMessage() . '.');
+        $context->writeIdentifier(self::IDENTIFIER);
+
+        return ToolResultDto::crashed('an infection.json source exclude is not a valid regular expression');
     }
 
     /** @return list<string> */
@@ -412,9 +419,11 @@ final readonly class InfectionTool implements ToolInterface
      * (refused, git failed, nothing to mutate), an empty list for the full
      * run, otherwise the positional paths Infection mutates.
      *
+     * @param array<array-key, mixed> $source the `source` of the config Infection runs with
+     *
      * @return list<string>|ToolResultDto
      */
-    private function resolveDiffScope(ToolContext $context, string $diffBase, bool $strict): array|ToolResultDto
+    private function resolveDiffScope(ToolContext $context, string $diffBase, bool $strict, array $source): array|ToolResultDto
     {
         $paths    = $context->config->paths;
         $triggers = $this->fullRunTriggers->paths(
@@ -430,7 +439,7 @@ final readonly class InfectionTool implements ToolInterface
 
         $diff = $this->git($context, ...$this->diffFilter->gitDiffArguments($diffBase, $paths->srcDir, $paths->testsDir, ...$triggers));
         if (!$diff->succeeded()) {
-            $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (exit %d) — cannot determine the changed files for diff mode.", $diffBase, $diff->exitCode));
+            $context->writeln(\sprintf("Infection: 'git diff' against base '%s' failed (%s) — cannot determine the changed files for diff mode.", $diffBase, $diff->describeExit()));
             $context->writeln("           Check that the base ref exists and shares history with HEAD (e.g. 'git fetch origin' first).");
             $context->writeIdentifier(self::IDENTIFIER);
 
@@ -467,13 +476,67 @@ final readonly class InfectionTool implements ToolInterface
             return ToolResultDto::skipped('no PHP source changes to mutate');
         }
 
-        foreach ($filter->mirrored as $source => $test) {
-            $context->writeln(\sprintf('Infection: diff mode — %s is in scope because its test %s changed.', $source, $test));
+        $filter = $this->inSourceScope($context, $source, $filter);
+        if ($filter instanceof ToolResultDto) {
+            return $filter;
+        }
+
+        foreach ($filter->mirrored as $mirrored => $test) {
+            $context->writeln(\sprintf('Infection: diff mode — %s is in scope because its test %s changed.', $mirrored, $test));
         }
 
         $context->writeln(\sprintf('Infection: diff mode — mutating %d file(s): %s', \count($filter->positionalPaths), $filter->display()));
 
         return $filter->positionalPaths;
+    }
+
+    /**
+     * The diff's files that Infection collects from the source of the config
+     * it runs with (InfectionSourceScope). Handed only excluded files,
+     * Infection mutates nothing, exits 0 and writes no JSON log, which
+     * judgeKills() must take for a run it cannot verify (#270); a path under
+     * no source directory it takes for a test path. So every other file is
+     * named with why it is outside, and with none left the lane skips before
+     * coverage is paid for.
+     *
+     * @param array<array-key, mixed> $source the `source` of the config Infection runs with
+     */
+    private function inSourceScope(ToolContext $context, array $source, InfectionDiffFilterDto $filter): InfectionDiffFilterDto|ToolResultDto
+    {
+        $directories = $this->strings($source['directories'] ?? null);
+        $excludes    = $this->strings($source['excludes'] ?? null);
+        $paths       = [];
+        $relatives   = [];
+        $outside     = [];
+        try {
+            /** @var array<array-key, string> $byRelative */
+            $byRelative = array_combine($filter->relativePaths, $filter->positionalPaths);
+            foreach ($byRelative as $key => $absolute) {
+                $relative = (string)$key;
+                $reason   = $this->sourceScope->outside($absolute, $directories, ...$excludes);
+                if (null === $reason) {
+                    $paths[]     = $absolute;
+                    $relatives[] = $relative;
+                } else {
+                    $outside[] = \sprintf('%s%s (%s)', self::INDENT, $relative, $reason);
+                }
+            }
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            return $this->invalidExclude($context, $invalidArgumentException);
+        }
+
+        if ([] !== $outside) {
+            $context->writeln(\sprintf('Infection: diff mode — %d changed file(s) are outside the source infection.json gives Infection, so they are not mutated:', \count($outside)));
+            $context->writeln(implode("\n", $outside));
+        }
+
+        if ([] === $paths) {
+            $context->writeln("Infection: diff mode — nothing the change touches is in Infection's source scope; there are no new mutants to check. SKIPPING.");
+
+            return ToolResultDto::skipped("no changed file is in Infection's source scope");
+        }
+
+        return new InfectionDiffFilterDto($paths, $relatives, array_intersect_key($filter->mirrored, array_flip($relatives)));
     }
 
     /**
@@ -587,10 +650,7 @@ final readonly class InfectionTool implements ToolInterface
 
         $context->writeln('Infection: generating fresh coverage (xdebug) before mutation testing.');
         $context->writeln('           (this also proves the suite is green, which lets Infection skip its initial run)');
-        if (is_dir($coverageXmlDir)) {
-            $this->clearDirectory($coverageXmlDir);
-            \Safe\rmdir($coverageXmlDir);
-        }
+        DirectoryTree::remove($coverageXmlDir);
 
         if (!is_dir($logsDir)) {
             \Safe\mkdir($logsDir, 0o777, true);
@@ -607,10 +667,10 @@ final readonly class InfectionTool implements ToolInterface
             return null;
         }
 
-        $context->writeln(\sprintf('Infection: coverage generation FAILED (phpunit exit %d) — the test suite is not green, so mutation testing cannot proceed.', $result->exitCode));
+        $context->writeln(\sprintf('Infection: coverage generation FAILED (phpunit %s) — the test suite is not green, so mutation testing cannot proceed.', $result->describeExit()));
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('Infection (coverage generation) failed (phpunit exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('Infection (coverage generation) failed (phpunit %s)', $result->describeExit()));
     }
 
     /**
@@ -646,26 +706,5 @@ final readonly class InfectionTool implements ToolInterface
     private function isEmptyDirectory(string $dir): bool
     {
         return array_all(\Safe\scandir($dir), static fn ($entry): bool => !(\is_string($entry) && '.' !== $entry && '..' !== $entry));
-    }
-
-    /** Remove everything under $dir, keeping $dir itself (the `rm -rf dir/*` of the Bash fragment). */
-    private function clearDirectory(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        /** @var SplFileInfo $item */
-        foreach ($iterator as $item) {
-            if ($item->isDir()) {
-                \Safe\rmdir($item->getPathname());
-            } else {
-                \Safe\unlink($item->getPathname());
-            }
-        }
     }
 }

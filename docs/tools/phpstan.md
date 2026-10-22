@@ -34,6 +34,23 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
   `bootstrapFiles` run once for it as well, before the analysis. If the dump fails, the lane uses
   its own `tmpDir` and the analysis reports the broken configuration.
 
+- **A `-p` run starts one PHPStan process when nothing has changed: the analysis.** The answers of
+  `dump-parameters` and of `diagnose` (below) depend on the configuration, the phar and the PHP
+  that runs it, not on the analysed path, and each costs a PHPStan start of one to two seconds.
+  Every run that asks writes the answer to `var/qa/cache/phpstan-setup/`, keyed by a hash of
+  everything the answer rests on, and a `-p` run whose key matches reuses it
+  ([#219](https://github.com/LongTermSupport/php-qa-ci/issues/219)). The key covers the bytes of
+  `phpstan.phar`; every NEON file in the `includes:` chain and in the configs
+  `phpstan/extension-installer` adds; the `--autoload-file` the dump is given; the lane's wrapper;
+  every file under `vendor-phar/turbo-ext/` and its manifest; and the PHP that runs PHPStan, asked
+  about itself in one short `php -r` (its binary and every ini file it loads, by content, its
+  version, thread safety and platform, whether Turbo is already loaded, and `PHPRC`,
+  `PHP_INI_SCAN_DIR` and `BLACKFIRE_AGENT_SOCKET`). A change to any of them is a miss, and
+  PHPStan is asked again. A config that reads the environment (`%env.NAME%`), includes a PHP
+  config file, or has an include the lane cannot follow is never cached. A run without `-p`
+  always asks and rewrites the cache, so the cost stays out of the edit-time lint while a full run
+  still gets fresh answers. Deleting `var/qa/` resets it.
+
 - Each path given to `withIgnoredPaths()` in `qaConfig/qa.php` is written into the wrapper as an
   `excludePaths.analyse` entry, absolute and optional (`(?)`), so a fixture's deliberate
   violations are never reported and the project does not repeat the path in its own
@@ -82,8 +99,10 @@ PHPStan runs as a **PHAR** from `vendor-phar/phpstan.phar`. The `phpstan/phpstan
 Turbo is PHPStan's native extension. With it loaded, PHPStan runs some of its analysis in compiled
 code. `phpstan.phar` loads it from `vendor-phar/turbo-ext/<platform>/` beside itself, where it
 needs two files: the binary for the PHP version and the platform's shared core
-(`phpstan_turbo_core.so`). It accepts only files built from the same PHPStan release; any other
-files, or none, or a binary without its core, and the phar runs without Turbo, silently.
+(`phpstan_turbo_core.so`). With no binary, or a binary without its core, the phar runs without
+Turbo, silently. It loads any binary it finds beside its core, including one built for another
+PHPStan release, but activates it only when the binary's extension version is the one the phar
+expects; `php vendor-phar/phpstan.phar diagnose` reports one that is not as `inactive`.
 
 - **Installed on every `composer install` and `composer update`.** `bin/turbo-install` downloads
   the binary and core built for the host: its OS, CPU, C library, PHP minor version and thread
@@ -93,10 +112,25 @@ files, or none, or a binary without its core, and the phar runs without Turbo, s
   file in the `turbo-ext/` directory of the
   [phpstan/phpstan](https://github.com/phpstan/phpstan) tag matching the shipped phar. A download
   whose digest differs is refused and nothing is installed. A failed download is only a warning:
-  PHPStan still runs, without Turbo, and the next install tries again.
+  PHPStan still runs, without Turbo, and the next install tries again. Any other failure exits
+  non-zero, and its `ERROR:` line is followed by what it left, judged against the `.source` stamp
+  an install writes beside the binary once it has verified and placed both files. It says one of
+  three things. With no binary beside its core, PHPStan runs without Turbo. A binary and core that
+  match the digests in their stamp are a pair an install verified: `phpstan.phar` loads the
+  binary, and activates it when its extension version is the one the phar expects, since a stamp
+  records files and digests rather than a release. Any other pair gets a `WARNING:` that
+  `phpstan.phar` may still load the binary named there, which the install could not vouch for;
+  delete that binary to run without Turbo. When the binary, its core or the stamp cannot be read,
+  the warning ends with the reason. An
+  install killed by a signal (an out-of-memory kill, say) never reaches that line, so the
+  Composer plugin, and `scripts/tool-install.bash` in php-qa-ci itself, then run
+  `bin/turbo-install state`, a read-only check of the same thing. The plugin relays its answer,
+  with PHP's own warnings sent to stderr so they are not taken for it. If the check fails too,
+  both say what the install left is unknown and give the command to run, and the script still
+  exits with the installer's status.
 - **Kept in step with the phar.** The maintainer update that moves `phpstan.phar` regenerates the
   manifest. A run refuses to start when the manifest is missing or names another PHPStan version
-  (see [PHAR verification](../../CLAUDE.md#preflight-phase-configuration--setup)).
+  (see [PHAR verification](../pipeline.md#2-preparation)).
 - **Hosts without a build** (Windows, an Intel Mac, a ZTS PHP on macOS) run PHPStan without
   Turbo, as before. The install says so.
 
@@ -115,11 +149,42 @@ analyses:
 - `PHPStan Turbo: not running; upstream publishes no build for this host`: the expected fallback.
 
 `--json` and agent mode do not ask, so their single-path runs pay no extra PHPStan start (about
-a second). To ask by hand:
+a second). A text-mode `-p` run reuses the last answer while nothing it rests on has changed (see
+[How the lane runs](#how-the-lane-runs)). To ask by hand:
 
 ```bash
 php vendor/lts/php-qa-ci/vendor-phar/phpstan.phar diagnose
 ```
+
+### Defence Before Fix record: what an install left, judged without its stamp
+
+Recorded here because the class has no rule, so no rule page, and the work had no plan folder
+([#279](https://github.com/LongTermSupport/php-qa-ci/issues/279)).
+
+- **Class**: a report about files on disk that ignores the record vouching for them. Before
+  #279, the line saying what a failed or killed Turbo install left warned about, and advised
+  deleting, any binary beside its core, including a pair whose `.source` stamp records it.
+- **Hazard**: the report advises destroying a verified install, and Turbo is lost for nothing.
+- **Search, technique 1 (the tokens)**: `STAMP_SUFFIX`, `.source`, `installedStamp`, `hash_file`
+  and `sha256` across `src/` and `bin/`. Only `TurboInstaller` reads a stamp. The other digests
+  key a cache (`DetectorUnpacker`, `PhpstanSetupKey`) or pin a download (`TurboManifest`), and none
+  of them reports on files a person might delete.
+- **Search, technique 2 (the consumers)**: every message that tells a person to delete or remove
+  something (`Delete it`, `Remove it`, `remove the entry`). Each was read for whether it judges
+  files that a record vouches for. Only the Turbo warning does. `DetectorUnpacker`'s "Remove it by
+  hand" names a directory it failed to remove, and the rest are configuration advice.
+- **Detector**: none, so this is a toolchain gap. Which record vouches for which files
+  (`<binary>.source` for the binary and its core) is a fact of this domain, and so is whether a
+  line is a report about those files. No AST or type carries either fact. A rule keyed on these
+  names would catch only this instance, and a rule on "a warning after `is_file()`" would report
+  code without the hazard.
+- **Next wider rule, not built**: "a message advising deletion consults a stamp". It was not built
+  for the same reason: the search found no second instance, and the rule could not tell a
+  vouching record from any other file.
+- **Pinned by**: `TurboInstallerTest`. It covers:
+  - a stamped pair, a pair from an earlier release and an unstamped pair;
+  - a pair that differs from its stamp in its binary or its core;
+  - an unreadable binary, core or stamp.
 
 ## How to fix a failure
 
@@ -228,8 +293,12 @@ PHP-QA-CI ships custom PHPStan rules that are auto-loaded via the extension inst
 - **RequireRuleIdentifierConstantRule** -- PHPStan rule classes must expose an identifier constant
 - **ForbidHttpPrefixedEnvVarsRule** -- Bans a Symfony-consumed env var named `HTTP_*`, which Symfony refuses to read from `$_SERVER` so it resolves EMPTY in any CLI process. Reaches `config/` YAML and `.env` files itself; auto-skips on non-Symfony projects. Full guidance: [phpstan-rules/forbid-http-prefixed-env-vars.md](../phpstan-rules/forbid-http-prefixed-env-vars.md)
 - **ForbidUnanchoredVendorSubstringCheckRule** -- Bans deciding project-versus-dependency with a bare `vendor/` substring check, which goes silent when the project itself sits under a `vendor/` path. Use `VendoredCodeDetector`. Full guidance: [phpstan-rules/forbid-unanchored-vendor-substring-check.md](../phpstan-rules/forbid-unanchored-vendor-substring-check.md)
+- **ForbidUnanchoredTestsSubstringCheckRule** -- Bans deciding whether a file is test code with a bare `tests/` substring check, which makes every file test code when the project itself sits under a `tests/` path. Use `TestCodeDetector`. Full guidance: [phpstan-rules/forbid-unanchored-tests-substring-check.md](../phpstan-rules/forbid-unanchored-tests-substring-check.md)
+- **ForbidPathWordSubstringCheckRule** -- Bans searching an absolute path for a bare word, such as `stripos($absPathRoot, 'Magento')`, which holds for any checkout under a directory carrying the word. Decide from what the project is. Full guidance: [phpstan-rules/forbid-path-word-substring-check.md](../phpstan-rules/forbid-path-word-substring-check.md)
+- **ForbidUnanchoredNamespaceSubstringCheckRule** -- Bans deciding whether a class is in a namespace by finding a bare word such as `Generated` anywhere in its name, which also matches `App\GeneratedReports`. Compare whole namespace segments. Full guidance: [phpstan-rules/forbid-unanchored-namespace-substring-check.md](../phpstan-rules/forbid-unanchored-namespace-substring-check.md)
 - **ForbidInlinePhpstanIgnoreRule** -- Bans inline `@phpstan-ignore` annotations. A suppression that is genuinely irreducible goes in `phpstan.neon` `ignoreErrors`, where it is visible in review; inline, it silences the finding at the one place nobody looks.
 - **RequireProcessStopOnThrowRule** -- A Symfony `Process` started with `start()`, or run with a callback, sits in a `try` whose `finally` stops it, or a throw leaves the child running. Full guidance: [phpstan-rules/require-process-stop-on-throw.md](../phpstan-rules/require-process-stop-on-throw.md)
+- **ForbidSafeCallComparedToFalseRule** -- Bans comparing a `Safe\` function's result with `false` when its declared return type cannot be `false`, or testing it as a condition only its failure could make false. The `Safe\` form throws where the native one returned `false`, so the check is dead and the code throws on the case it was written for; Rector's Safe set makes the rewrite silently. Full guidance: [phpstan-rules/forbid-safe-call-compared-to-false.md](../phpstan-rules/forbid-safe-call-compared-to-false.md)
 
 `rules-default.neon` is the single source of truth for the always-on set. Read the whole file
 rather than just its `rules:` block: `ForbidMockingFinalClassRule`,
@@ -265,11 +334,12 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 15 additional opt-in rules split across two files:
+PHP-QA-CI ships 26 additional opt-in rules split across two files:
 
-- **`rules-optional.neon`** — 11 generic rules suitable for any PHP project (9 in its `rules:` block
-  plus 2 service-registered: `FactorySealedRule` and `ForbidDeprecatedPhpunitMethodRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (15 total)
+- **`rules-optional.neon`** — 22 generic rules suitable for any PHP project (19 in its `rules:` block
+  plus 3 service-registered: `FactorySealedRule`, `ForbidDeprecatedPhpunitMethodRule` and
+  `ForbidUnautoloadableClassReferenceRule`)
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (26 total)
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -329,20 +399,24 @@ rules:
 
 ### Available optional rules
 
-| Rule                                    | File                            | What it catches                                                                                      |
-| --------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `ForbidNullCoalescingEmptyStringRule`   | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                                               |
-| `ForbidNullCoalescingFalseRule`         | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                                             |
-| `ForbidSilentCatchRule`                 | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                                      |
-| `RequireReadonlyServiceRule`            | `rules-optional.neon`           | Service classes not declared `final readonly`                                                        |
-| `RequireVariadicOverArrayParameterRule` | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
-| `RequireEnumOverLiteralUnionRule`       | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum                       |
-| `FactorySealedRule`                     | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
-| `ForbidDeprecatedPhpunitMethodRule`     | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |
-| `ForbidHeaderInjectionRule`             | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                                           |
-| `ForbidRawSqlRule`                      | `rules-optional-symfony.neon`   | Raw SQL strings instead of Doctrine DQL/ORM                                                          |
-| `RequireCronIntervalInDescriptionRule`  | `rules-optional-symfony.neon`   | Symfony cron commands missing interval in description                                                |
-| `RequireExplicitDIAttributeRule`        | `rules-optional-symfony.neon`   | Symfony services without explicit DI attributes                                                      |
+| Rule                                     | File                            | What it catches                                                                                      |
+| ---------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ForbidNullCoalescingEmptyStringRule`    | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                                               |
+| `ForbidNullCoalescingFalseRule`          | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                                             |
+| `ForbidSilentCatchRule`                  | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                                      |
+| `RequireReadonlyServiceRule`             | `rules-optional.neon`           | Service classes not declared `final readonly`                                                        |
+| `RequireVariadicOverArrayParameterRule`  | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
+| `RequireEnumOverLiteralUnionRule`        | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum                       |
+| `ForbidUnvalidatedRegexPatternRule`      | `rules-optional.neon`           | A `preg_*` pattern the code does not own, compiled where a bad one is not reported by name           |
+| `ForbidPhpWarningsInCapturedOutputRule`  | `rules-optional.neon`           | PHP run with its output captured without `-d display_errors=stderr`, so a warning lands in the value |
+| `ForbidNumericStringArrayKeyRule`        | `rules-optional.neon`           | An array keyed by a string that may be all digits, which PHP makes an int, taken as string-keyed     |
+| `FactorySealedRule`                      | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
+| `ForbidDeprecatedPhpunitMethodRule`      | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |
+| `ForbidUnautoloadableClassReferenceRule` | `rules-optional.neon` (service) | A reference from another file to a class not declared where its autoloader looks for it              |
+| `ForbidHeaderInjectionRule`              | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                                           |
+| `ForbidRawSqlRule`                       | `rules-optional-symfony.neon`   | Raw SQL strings instead of Doctrine DQL/ORM                                                          |
+| `RequireCronIntervalInDescriptionRule`   | `rules-optional-symfony.neon`   | Symfony cron commands missing interval in description                                                |
+| `RequireExplicitDIAttributeRule`         | `rules-optional-symfony.neon`   | Symfony services without explicit DI attributes                                                      |
 
 ### Experimental rules (not in any bundle)
 

@@ -20,6 +20,7 @@ use LTS\PHPQA\Pipeline\Process\LogArchiver;
 use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Pipeline\Process\ProcessRunnerInterface;
 use LTS\PHPQA\Pipeline\Process\RunningProcesses;
+use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Pipeline\Runner\AggregateReport;
 use LTS\PHPQA\Pipeline\Runner\ConsoleRetryPrompt;
@@ -158,7 +159,9 @@ final readonly class QaApplication
         $aggregate = $env->isAggregate($readOnly);
         $this->announceModes($decoration, $env, $ci, $readOnly, $aggregate);
 
-        $processes = new SymfonyProcessRunner($decoration, $children);
+        // Every child a signal kills is recorded here, so the lane, probe or hook that ran it is named.
+        $signalled = new SignalledChildren();
+        $processes = new SymfonyProcessRunner($decoration, $children, $signalled);
         $phpBin    = $env->string('PHP_QA_CI_PHP_EXECUTABLE') ?? 'php';
         $memory    = $env->string('phpqaMemoryLimit')         ?? '4G';
         $php       = new PhpInvoker($processes, $phpBin, $memory, $paths->varDir);
@@ -235,6 +238,7 @@ final readonly class QaApplication
                     new ShippedToolLocator($tools->tools, $paths->projectConfigDir),
                     $ci ? new NonInteractiveRetryPrompt() : new ConsoleRetryPrompt($decoration, $this->stdinStream),
                     $decoration,
+                    $signalled,
                 ),
                 lock: $lock,
                 hooks: new HookRunner(),
@@ -244,6 +248,7 @@ final readonly class QaApplication
                 output: $decoration,
                 hostname: \Safe\gethostname(),
                 pid: $this->pid(),
+                signalled: $signalled,
             );
 
             $exit = $pipeline->run($context);

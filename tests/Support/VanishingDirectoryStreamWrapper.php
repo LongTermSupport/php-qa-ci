@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support;
 
+use LTS\PHPQA\Filesystem\DirectoryTree;
+use Throwable;
+
 /**
  * The real filesystem, under SCHEME://<absolute path>, except for one
  * directory named by vanishOnOpen(): it is a directory to is_dir(), and is
@@ -14,7 +17,23 @@ namespace LTS\PHPQA\Tests\Support;
  * A directory named by refuseOpen() instead fails to open and stays where it
  * is: the read fails for a reason other than the directory having gone.
  *
- * Each is spent by the first open it fails. The method names are PHP's stream
+ * A directory named by vanishOnChange() opens and reads as usual, and is
+ * removed, with everything in it, at the moment anything in it, or it, is
+ * renamed, unlinked or removed, so that change fails as the real call does when
+ * another process got there first.
+ *
+ * A directory named by vanishOnChangeOnceRenamed() is renamed as usual, and
+ * the directory it becomes then vanishes on change as above: another process
+ * that claims and removes it under its new name.
+ *
+ * Each of those is spent by the first call it fails.
+ *
+ * Every directory with the name given to refuseOpenNamed() cannot be opened,
+ * and every one with the name given to refuseRemovalNamed() cannot be removed
+ * or moved, as one another user owns in a sticky directory, wherever it is,
+ * until reset(). The next rename after throwOnRename() throws what it is given.
+ *
+ * The method names are PHP's stream
  * wrapper protocol. PHP's stream layer is what calls them, so the class is
  * tagged as API: an entry point to the dead-code detector, as a Composer
  * plugin is.
@@ -32,6 +51,18 @@ final class VanishingDirectoryStreamWrapper
 
     private static ?string $refused = null;
 
+    private static ?string $vanishesOnChange = null;
+
+    private static bool $vanishedOnChange = false;
+
+    private static ?string $vanishesOnceRenamed = null;
+
+    private static ?string $refusedName = null;
+
+    private static ?string $unremovableName = null;
+
+    private static ?Throwable $renameThrows = null;
+
     /** @var resource|null */
     private $handle;
 
@@ -45,10 +76,49 @@ final class VanishingDirectoryStreamWrapper
         self::$refused = $directory;
     }
 
+    public static function vanishOnChange(string $directory): void
+    {
+        self::$vanishesOnChange = $directory;
+        self::$vanishedOnChange = false;
+    }
+
+    public static function vanishOnChangeOnceRenamed(string $directory): void
+    {
+        self::$vanishesOnceRenamed = $directory;
+        self::$vanishedOnChange    = false;
+    }
+
+    /** Whether the directory named by vanishOnChange() has been removed under a change. */
+    public static function hasVanishedOnChange(): bool
+    {
+        return self::$vanishedOnChange;
+    }
+
+    public static function refuseOpenNamed(string $name): void
+    {
+        self::$refusedName = $name;
+    }
+
+    public static function refuseRemovalNamed(string $name): void
+    {
+        self::$unremovableName = $name;
+    }
+
+    public static function throwOnRename(Throwable $throwable): void
+    {
+        self::$renameThrows = $throwable;
+    }
+
     public static function reset(): void
     {
-        self::$vanishes = null;
-        self::$refused  = null;
+        self::$vanishes            = null;
+        self::$refused             = null;
+        self::$vanishesOnChange    = null;
+        self::$vanishedOnChange    = false;
+        self::$vanishesOnceRenamed = null;
+        self::$refusedName         = null;
+        self::$unremovableName     = null;
+        self::$renameThrows        = null;
     }
 
     /** @return array<int|string, mixed>|false */
@@ -68,6 +138,10 @@ final class VanishingDirectoryStreamWrapper
         if ($real === self::$refused) {
             self::$refused = null;
 
+            return false;
+        }
+
+        if (basename($real) === self::$refusedName) {
             return false;
         }
 
@@ -111,6 +185,76 @@ final class VanishingDirectoryStreamWrapper
         }
 
         return true;
+    }
+
+    public function mkdir(string $path, int $mode, int $options): bool
+    {
+        \Safe\mkdir($this->real($path), $mode, 0 !== ($options & \STREAM_MKDIR_RECURSIVE));
+
+        return true;
+    }
+
+    public function rename(string $from, string $to): bool
+    {
+        $throwable = self::$renameThrows;
+        if ($throwable instanceof Throwable) {
+            self::$renameThrows = null;
+
+            throw $throwable;
+        }
+
+        $real = $this->real($from);
+        if (basename($real) === self::$unremovableName) {
+            trigger_error(\sprintf('rename(%s,%s): Operation not permitted', $from, $to), \E_USER_WARNING);
+
+            return false;
+        }
+
+        $this->vanishOnChangeTo($real);
+        \Safe\rename($real, $this->real($to));
+        if ($real === self::$vanishesOnceRenamed) {
+            self::$vanishesOnceRenamed = null;
+            self::$vanishesOnChange    = $this->real($to);
+        }
+
+        return true;
+    }
+
+    public function rmdir(string $path): bool
+    {
+        $real = $this->real($path);
+        if (basename($real) === self::$unremovableName) {
+            trigger_error(\sprintf('rmdir(%s): Operation not permitted', $path), \E_USER_WARNING);
+
+            return false;
+        }
+
+        $this->vanishOnChangeTo($real);
+        \Safe\rmdir($real);
+
+        return true;
+    }
+
+    public function unlink(string $path): bool
+    {
+        $real = $this->real($path);
+        $this->vanishOnChangeTo($real);
+        \Safe\unlink($real);
+
+        return true;
+    }
+
+    /** Removes the directory named by vanishOnChange() when $real is it or is in it. */
+    private function vanishOnChangeTo(string $real): void
+    {
+        $directory = self::$vanishesOnChange;
+        if (null === $directory || ($real !== $directory && !str_starts_with($real, $directory . '/'))) {
+            return;
+        }
+
+        self::$vanishesOnChange = null;
+        self::$vanishedOnChange = true;
+        DirectoryTree::remove($directory);
     }
 
     private function real(string $path): string

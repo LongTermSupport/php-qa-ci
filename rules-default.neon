@@ -32,6 +32,21 @@ rules:
     # guards against (ForbidMockingFinalClassRule going dark when php-qa-ci is
     # itself analysed from inside a consumer's vendor/lts/php-qa-ci/ checkout).
     - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredVendorSubstringCheckRule
+    # Its sibling over test attribution: "is this file test code" decided with a
+    # bare 'tests/' substring of the absolute path makes every file of a checkout
+    # under a tests/ directory test code, so a rule that skips tests goes dark.
+    # docs/phpstan-rules/forbid-unanchored-tests-substring-check.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredTestsSubstringCheckRule
+    # The same class for any word: deciding what a project is from a word found
+    # anywhere in its absolute path holds for any checkout under a directory
+    # carrying the word. Its collector is registered below.
+    # docs/phpstan-rules/forbid-path-word-substring-check.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidPathWordSubstringCheckRule
+    # And over namespace attribution: "is this class in a Generated namespace" decided
+    # with str_contains($className, 'Generated') also holds for App\GeneratedReports.
+    # Its two collectors are registered below as phpstan.collector services.
+    # docs/phpstan-rules/forbid-unanchored-namespace-substring-check.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredNamespaceSubstringCheckRule
     # An inline @phpstan-ignore silences a finding at the point of the finding,
     # where nobody reviewing the config will see it. A suppression that is
     # genuinely irreducible goes in phpstan.neon ignoreErrors, in the open.
@@ -44,6 +59,12 @@ rules:
     # three collectors are registered below as phpstan.collector services.
     # docs/phpstan-rules/require-process-stop-on-throw.md
     - LTS\PHPQA\PHPStan\Rules\RequireProcessStopOnThrowRule
+    # ForbidSafeCallComparedToFalseRule — a Safe\ function throws where its
+    # native form returns false, so comparing its result with false, or testing
+    # it as a condition that only a failure could make false, is dead code that
+    # throws on the case it was written for. Rector's Safe set makes the rewrite.
+    # docs/phpstan-rules/forbid-safe-call-compared-to-false.md
+    - LTS\PHPQA\PHPStan\Rules\ForbidSafeCallComparedToFalseRule
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RequireSensitiveParameterAttributeRule — keep passwords/secrets out of traces.
@@ -132,8 +153,28 @@ services:
         class: LTS\PHPQA\PHPStan\Rules\ProcessStoppingTearDownCollector
         tags:
             - phpstan.collector
+    # The collector ForbidPathWordSubstringCheckRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\PathWordSubstringCheckCollector
+        tags:
+            - phpstan.collector
+    # The collectors ForbidUnanchoredNamespaceSubstringCheckRule (under rules: above) matches.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\NamespaceWordSubstringCallCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ClassNameVariableWriteCollector
+        tags:
+            - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\VendoredCodeDetector
+        arguments:
+            currentWorkingDirectory: %currentWorkingDirectory%
+    # Decides test code against the project root for every rule that exempts it
+    # (here and in rules-optional.neon). See ForbidUnanchoredTestsSubstringCheckRule.
+    -
+        class: LTS\PHPQA\PHPStan\Rules\TestCodeDetector
         arguments:
             currentWorkingDirectory: %currentWorkingDirectory%
     -

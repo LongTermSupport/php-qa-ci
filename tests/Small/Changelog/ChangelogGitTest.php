@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ChangelogGitTest extends TestCase
 {
     private const string ROOT = '/project';
@@ -182,5 +183,48 @@ final class ChangelogGitTest extends TestCase
 
         self::assertSame(['none — tests only', 'none'], $this->git->trailers(self::BASE));
         self::assertSame(["git log '--format=%(trailers:key=Changelog,valueonly)' abc123..HEAD"], $this->processes->commandLines());
+    }
+
+    #[Test]
+    public function messagesAreEachCommitsShaBodyAndChangelogTrailersInTheRange(): void
+    {
+        $this->processes->willSucceed("sha1\0Subject one\n\nBody one\n\0Changelog: none — x y\n\0sha2\0Subject only\n\0\0sha3\0\0\0");
+
+        self::assertSame(
+            [
+                ['commit' => 'sha1', 'body' => "\nBody one\n", 'trailers' => "Changelog: none — x y\n"],
+                ['commit' => 'sha2', 'body' => '', 'trailers' => ''],
+                ['commit' => 'sha3', 'body' => '', 'trailers' => ''],
+            ],
+            $this->git->messages(self::BASE),
+        );
+        self::assertSame(["git log -z '--format=%H%x00%B%x00%(trailers:key=Changelog,unfold)' abc123..HEAD"], $this->processes->commandLines());
+    }
+
+    #[Test]
+    public function theBodyKeepsTheRestOfTheSubjectParagraphAndDropsOnlyTheSubjectLine(): void
+    {
+        $this->processes->willSucceed("sha1\0Changelog: tidy the entry\nChangelog: none — x y\n\0\0");
+
+        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
+    public function anEmptyRangeHasNoMessages(): void
+    {
+        $this->processes->willSucceed();
+
+        self::assertSame([], $this->git->messages(self::BASE));
+    }
+
+    #[Test]
+    public function outputThatDoesNotSplitIntoWholeCommitsIsAHistoryProblem(): void
+    {
+        $this->processes->willSucceed("sha1\0Body\0");
+
+        $this->expectException(ChangelogHistoryException::class);
+        $this->expectExceptionMessageIs('the commit messages of abc123..HEAD could not be split into commits; git printed 2 NUL-separated fields');
+
+        $this->git->messages(self::BASE);
     }
 }

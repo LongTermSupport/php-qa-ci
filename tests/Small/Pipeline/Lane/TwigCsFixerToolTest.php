@@ -28,7 +28,9 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\FormatterCache::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigCsFixer\CacheFileConfig::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
@@ -37,6 +39,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class TwigCsFixerToolTest extends TestCase
 {
     private const string TEMPLATES = 'templates';
@@ -45,7 +48,11 @@ final class TwigCsFixerToolTest extends TestCase
 
     private const string CLEAN_TEMPLATE = '{{ x }}';
 
+    private const string PENDING_TEMPLATE = '{{x}}';
+
     private const string TWIG_PACKAGE_FILE = 'vendor/twig/twig/composer.json';
+
+    private const string CACHE = 'twig-cs-fixer.cache';
 
     private ContextFactory $factory;
 
@@ -113,6 +120,7 @@ final class TwigCsFixerToolTest extends TestCase
         self::assertContains('--config=' . $library . '/configDefaults/generic/.twig-cs-fixer.php', $command);
         self::assertContains($this->factory->project->path . '/' . self::TEMPLATES, $command);
         self::assertNotContains('--fix', $command, 'a read-only run must never fix');
+        self::assertContains('--no-cache', $command, 'a read-only run must judge every template, as CI does, whatever a cache records');
     }
 
     #[Test]
@@ -124,6 +132,54 @@ final class TwigCsFixerToolTest extends TestCase
         new TwigCsFixerTool()->run($this->twigContext(readOnly: false));
 
         self::assertContains('--fix', $this->factory->processes->lastSpec()->command);
+    }
+
+    /** twig-cs-fixer takes its cache file from the config, so a writable run uses a generated one that keeps it under var/qa/cache. */
+    #[Test]
+    public function aWritableRunKeepsItsCacheUnderVarQaThroughAGeneratedConfig(): void
+    {
+        $this->factory->processes->willSucceed();
+        $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
+
+        $context = $this->twigContext(readOnly: false);
+
+        new TwigCsFixerTool()->run($context);
+
+        $wrapper = $context->config->paths->varDir . '/' . TwigCsFixerTool::CACHED_CONFIG;
+        $command = $this->factory->processes->lastSpec()->command;
+        self::assertContains('--config=' . $wrapper, $command);
+        self::assertNotContains('--no-cache', $command);
+        $source = $this->factory->project->read('var/qa/' . TwigCsFixerTool::CACHED_CONFIG);
+        self::assertStringContainsString(var_export($context->config->paths->cacheDir . '/' . self::CACHE, true), $source);
+        self::assertStringContainsString(var_export(\dirname(__DIR__, 4) . '/configDefaults/generic/.twig-cs-fixer.php', true), $source);
+        self::assertDirectoryExists($context->config->paths->cacheDir);
+    }
+
+    /** The writable run the failure asks for would otherwise trust a cache that records the pending template as clean. */
+    #[Test]
+    public function aPendingFixInAReadOnlyRunForgetsTheWritableCache(): void
+    {
+        $this->factory->processes->willFail(1, 'violation found');
+        $this->factory->project->write(self::TEMPLATE_FILE, self::PENDING_TEMPLATE);
+
+        $cache = $this->factory->project->write('var/qa/cache/' . self::CACHE, '{}');
+
+        new TwigCsFixerTool()->run($this->twigContext());
+
+        self::assertFileDoesNotExist($cache);
+    }
+
+    #[Test]
+    public function aCleanReadOnlyRunKeepsTheWritableCache(): void
+    {
+        $this->factory->processes->willSucceed();
+        $this->factory->project->write(self::TEMPLATE_FILE, self::CLEAN_TEMPLATE);
+
+        $cache = $this->factory->project->write('var/qa/cache/' . self::CACHE, '{}');
+
+        new TwigCsFixerTool()->run($this->twigContext());
+
+        self::assertFileExists($cache);
     }
 
     #[Test]
@@ -150,7 +206,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function aPendingFixInAReadOnlyRunFailsWithTheWouldModifyGuidance(): void
     {
         $this->factory->processes->willFail(1, 'violation found');
-        $this->factory->project->write(self::TEMPLATE_FILE, '{{x}}');
+        $this->factory->project->write(self::TEMPLATE_FILE, self::PENDING_TEMPLATE);
 
         $result  = new TwigCsFixerTool()->run($this->twigContext());
         $printed = $this->factory->output->fetch();
@@ -164,7 +220,7 @@ final class TwigCsFixerToolTest extends TestCase
     public function aWritableRunThatCannotFixEverythingFailsAndSaysSo(): void
     {
         $this->factory->processes->willFail(1, 'unfixable violation');
-        $this->factory->project->write(self::TEMPLATE_FILE, '{{x}}');
+        $this->factory->project->write(self::TEMPLATE_FILE, self::PENDING_TEMPLATE);
 
         $result  = new TwigCsFixerTool()->run($this->twigContext(readOnly: false));
         $printed = $this->factory->output->fetch();

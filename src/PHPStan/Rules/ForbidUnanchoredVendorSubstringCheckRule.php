@@ -6,45 +6,36 @@ namespace LTS\PHPQA\PHPStan\Rules;
 
 use PhpParser\Node;
 use PhpParser\Node\Arg;
+use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PHPStan\Analyser\Scope;
+use PHPStan\Rules\IdentifierRuleError;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
+use PHPStan\Type\Constant\ConstantStringType;
 
 /**
  * Forbids deciding "is this file mine, or a dependency's" with a bare, unanchored
  * 'vendor/' substring check.
  *
- * THE DEFECT THIS GUARDS AGAINST:
- * ================================
- * ForbidMockingFinalClassRule used to skip any class whose file
- * `str_contains($fileName, '/vendor/')`, intending to skip only genuinely
- * third-party classes it could not add an interface to. That reasoning holds
- * only when the ANALYSED PROJECT's own source can never itself sit under a
- * path containing the substring 'vendor/'. php-qa-ci is routinely developed
- * in place inside a consuming project's `vendor/lts/php-qa-ci/` checkout (see
- * this project's own CLAUDE.md, "dogfooding" section) — so php-qa-ci's own
- * final classes ALSO matched the substring, and the rule went silently dark
- * for the one project it is most often edited inside.
+ * ForbidMockingFinalClassRule once skipped any class whose file
+ * `str_contains($fileName, '/vendor/')`, meaning to skip only third-party classes. That holds
+ * only when the analysed project's own source never sits under a path containing 'vendor/', and
+ * php-qa-ci is routinely developed in place inside a consumer's `vendor/lts/php-qa-ci/` checkout
+ * (CLAUDE/dogfooding.md): every one of its own classes matched, and the rule went dark there.
  *
- * THE FIX:
- * ========
- * Decide ownership against the analysed project's own root, never against the
- * bare substring. VendoredCodeDetector (this directory) is the shared, tested
- * implementation and is wired from PHPStan's %currentWorkingDirectory%; inject
- * it rather than re-deriving the check. Full guidance, with the correct
- * construction, is in docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md.
+ * Decide ownership against the analysed project's own root: VendoredCodeDetector (this
+ * directory) is wired from PHPStan's %currentWorkingDirectory%; inject it.
  *
- * WHAT THIS RULE FLAGS:
- * ======================
- * A call to str_contains(), strpos(), stripos(), str_starts_with() or
- * str_ends_with() where one argument is a bare string literal containing the
- * substring 'vendor/'. A literal concatenated with a variable (e.g.
- * `$this->projectRoot . '/vendor/...'`) is NOT flagged — concatenation with a
- * root variable is exactly the anchored form this rule steers authors
- * towards, and is how ForbidHttpPrefixedEnvVarsRule already does it safely.
+ * Flags a call to str_contains(), strpos(), stripos(), str_starts_with() or str_ends_with() where
+ * one argument is a string literal, or a class constant whose value is a constant string,
+ * containing 'vendor/'. A fragment concatenated onto a variable (`$this->projectRoot . '/vendor/'`)
+ * is the anchored form and is not flagged. The rule's own match is a regular expression, so it
+ * is not itself a target call.
+ *
+ * See docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md.
  *
  * @implements Rule<FuncCall>
  */
@@ -55,6 +46,9 @@ final readonly class ForbidUnanchoredVendorSubstringCheckRule implements Rule
     /** @var list<string> */
     private const array TARGET_FUNCTIONS = ['str_contains', 'strpos', 'stripos', 'str_starts_with', 'str_ends_with'];
 
+    /** @var string the fragment the rule looks for, as a pattern */
+    private const string VENDOR_FRAGMENT_PATTERN = '~vendor/~';
+
     public function getNodeType(): string
     {
         return FuncCall::class;
@@ -63,7 +57,7 @@ final readonly class ForbidUnanchoredVendorSubstringCheckRule implements Rule
     /**
      * @param FuncCall $node
      *
-     * @return list<\PHPStan\Rules\IdentifierRuleError>
+     * @return list<IdentifierRuleError>
      */
     public function processNode(Node $node, Scope $scope): array
     {
@@ -76,49 +70,49 @@ final readonly class ForbidUnanchoredVendorSubstringCheckRule implements Rule
             return [];
         }
 
-        // NARROWING (not a suppression): this rule's OWN detection call, immediately
-        // below, is itself a str_contains(..., 'vendor/') call and would otherwise
-        // match its own pattern. It does not carry the Hazard this rule defends
-        // against: its subject is $arg->value->value, the literal TEXT of a String
-        // AST node found in code under analysis, never a filesystem path variable
-        // (e.g. ClassReflection::getFileName()) used to decide project-vs-vendor
-        // ownership. Excluding this rule's own class by name is therefore precision,
-        // not suppression — no other legitimate vendor/-classification code should
-        // ever share this rule's exact self-referential shape.
-        $classReflection = $scope->getClassReflection();
-        if ($classReflection instanceof \PHPStan\Reflection\ClassReflection
-            && self::class === $classReflection->getName()) {
-            return [];
-        }
-
         foreach ($node->args as $arg) {
             if (!$arg instanceof Arg) {
                 continue;
             }
 
-            if (!$arg->value instanceof String_) {
-                continue;
-            }
+            foreach ($this->constantValues($arg, $scope) as $value) {
+                if (1 !== \Safe\preg_match(self::VENDOR_FRAGMENT_PATTERN, $value)) {
+                    continue;
+                }
 
-            if (!str_contains($arg->value->value, 'vendor/')) {
-                continue;
+                return [
+                    RuleErrorBuilder::message(
+                        \sprintf(
+                            "Unanchored 'vendor/' substring check: %s(..., '%s'). It misclassifies this project's own "
+                            . 'source whenever the project sits under a vendor/ path. Use VendoredCodeDetector, or anchor '
+                            . 'on the project root. See docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md',
+                            $functionName,
+                            $value,
+                        ),
+                    )
+                        ->identifier(self::IDENTIFIER)
+                        ->build(),
+                ];
             }
-
-            return [
-                RuleErrorBuilder::message(
-                    \sprintf(
-                        "Unanchored 'vendor/' substring check: %s(..., '%s'). It misclassifies this project's own "
-                        . 'source whenever the project sits under a vendor/ path. Use VendoredCodeDetector, or anchor '
-                        . 'on the project root. See docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md',
-                        $functionName,
-                        $arg->value->value,
-                    ),
-                )
-                    ->identifier(self::IDENTIFIER)
-                    ->build(),
-            ];
         }
 
         return [];
+    }
+
+    /** @return list<string> the argument's value when it is a literal, or a class constant PHPStan knows the value of */
+    private function constantValues(Arg $arg, Scope $scope): array
+    {
+        if ($arg->value instanceof String_) {
+            return [$arg->value->value];
+        }
+
+        if (!$arg->value instanceof ClassConstFetch) {
+            return [];
+        }
+
+        return array_map(
+            static fn (ConstantStringType $string): string => $string->getValue(),
+            $scope->getType($arg->value)->getConstantStrings(),
+        );
     }
 }

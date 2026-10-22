@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Tool\Dto;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 
 /**
@@ -41,7 +43,28 @@ final readonly class ToolResultDto
         return new self(ToolOutcomeEnum::Skipped, $summary);
     }
 
-    /** Map a process exit code: 0 passed, $failureCodes failed, anything else crashed. */
+    /**
+     * Map a process result: 0 passed, $failureCodes failed, anything else crashed, each described
+     * as the result ended, so a child that exited with a signal's code itself is not called killed.
+     */
+    public static function fromProcessResult(ProcessResultDto $result, string $label, int ...$failureCodes): self
+    {
+        if ($result->succeeded()) {
+            return self::passed();
+        }
+
+        if ([] === $failureCodes || \in_array($result->exitCode, $failureCodes, true)) {
+            return self::failed(\sprintf('%s failed (%s)', $label, $result->describeExit()));
+        }
+
+        return self::crashed(\sprintf('%s crashed (%s)', $label, $result->describeExit()));
+    }
+
+    /**
+     * Map a bare exit code: 0 passed, $failureCodes failed, anything else crashed. A code in the
+     * signal range is described as a signal kill, so a caller holding a ProcessResultDto, which
+     * knows whether one was, uses fromProcessResult().
+     */
     public static function fromExitCode(int $exitCode, string $label, int ...$failureCodes): self
     {
         if (0 === $exitCode) {
@@ -52,7 +75,7 @@ final readonly class ToolResultDto
             return self::failed(\sprintf('%s failed (exit %d)', $label, $exitCode));
         }
 
-        return self::crashed(\sprintf('%s crashed (exit %d)', $label, $exitCode));
+        return self::crashed(\sprintf('%s crashed (exit %d%s)', $label, $exitCode, ChildExit::killedBy($exitCode)));
     }
 
     public function isSuccess(): bool

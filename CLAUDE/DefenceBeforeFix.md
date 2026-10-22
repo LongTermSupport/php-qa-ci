@@ -295,6 +295,16 @@ unanchored `vendor/` check lived in a rule file undetected. `qaConfig/phpstan.ne
 includes every bundled rule set by hand, and `tests/Small/SelfCheckRunsBundledRulesTest.php`
 fails the build if one is dropped.
 
+A rule that throws is worse than any finding: PHPStan abandons the file as an internal error,
+every other rule's result for it is lost, and a consumer's whole `phpstan` lane fails on correct
+code. `tests/Large/PHPStan/BundledRulesDoNotCrashOnValidPhpTest.php` runs every bundled rule and
+collector, the opt-in experimental ones no rule set loads included, through the shipped phar over
+`tests/assets/PHPStan/BundledRulesOnValidPhp/`, valid PHP in the shapes a rule's own test tends to
+miss (first-class callables, whose `getArgs()` is no argument list, pipes into them, named and spread
+arguments, dynamic names, anonymous classes, enums), as both production and test code. It fails
+on any internal error, and on any other entry in the JSON report's `errors` list. A shape that
+crashed a rule is added there as well as to the rule's own fixture.
+
 A new rule is not finished when it passes its own test. It is finished when somebody who has only
 its identifier can find out what to do.
 
@@ -306,6 +316,10 @@ method specification and of its toolchain specification this package implements,
 report, is recorded there against the clause it fails, and the package does not claim conformance
 whilst that list is non-empty. The key is machine-readable so a consumer checks the claim against
 the installed artefact rather than against a sentence in a README.
+
+A gap found is closed, not accepted: recording it is the first step, not the outcome. Upstream
+grades this package clause by clause in its
+[tools register](../remote-docs/defence-before-fix.github.io/tools/php-qa-ci.md).
 
 The declaration carries two levels, graded separately, because they have different readers:
 

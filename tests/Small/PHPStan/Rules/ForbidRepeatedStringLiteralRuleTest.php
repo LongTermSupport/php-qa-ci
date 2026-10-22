@@ -37,6 +37,17 @@ final class ForbidRepeatedStringLiteralRuleTest extends RuleTestCase
     }
 
     #[Test]
+    public function anAllDigitLiteralIsNamedAsTheStringItIs(): void
+    {
+        $this->analyse(
+            [self::FIXTURES . '/DigitLiteral.php'],
+            [
+                ["String literal '2024' appears 3 times in this class (lines 12, 12, 12); declare it once as a class constant.", 12],
+            ],
+        );
+    }
+
+    #[Test]
     public function aClassUsingAConstantIsClean(): void
     {
         $this->analyse([self::FIXTURES . '/Clean.php'], []);

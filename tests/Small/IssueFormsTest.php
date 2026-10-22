@@ -13,8 +13,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Defence for the class "an issue that does not say which release line it was found on".
  *
- * A bug is fixed on `php8.4` only when a project running `php8.4` reports it (CLAUDE.md,
- * "Work happens on `php8.5`"), so the line is what decides whether a report triggers a
+ * A bug is fixed on `php8.4` only when a project running `php8.4` reports it
+ * (CLAUDE/release-lines.md), so the line is what decides whether a report triggers a
  * backport. Every issue form therefore asks for it as a required choice, blank issues are
  * off so no issue bypasses the forms, and the choices are exactly the live lines: the one
  * this branch's composer.json requires, then the older lines still taking fixes.
@@ -39,7 +39,8 @@ final class IssueFormsTest extends TestCase
 
     /**
      * The older lines still taking fixes, newest first. `php8.3` is dead and is not one of
-     * them. Changing this list is changing the support ruling in CLAUDE.md, never only here.
+     * them. Changing this list is changing the support ruling in CLAUDE/release-lines.md,
+     * never only here.
      *
      * @var list<string>
      */
@@ -63,7 +64,7 @@ final class IssueFormsTest extends TestCase
         $problems = [];
         foreach ($forms as $path => $form) {
             foreach ($this->releaseLineProblems($form) as $problem) {
-                $problems[] = basename($path) . ': ' . $problem;
+                $problems[] = basename((string)$path) . ': ' . $problem;
             }
         }
 
@@ -157,7 +158,7 @@ final class IssueFormsTest extends TestCase
         return ['php' . $version[1] . '.' . $version[2], ...self::MAINTAINED_OLDER_LINES];
     }
 
-    /** @return array<string, array<array-key, mixed>> path => decoded form */
+    /** @return array<array-key, array<array-key, mixed>> path => decoded form */
     private function forms(): array
     {
         $forms = [];

@@ -15,7 +15,8 @@ analysis; this lane catches it earlier, in the linting phase, and in a writable 
 
 ## How it runs
 
-- In the full pipeline, in the linting phase after the Version Pins check.
+- In the full pipeline, in the linting phase after the Changelog check (after Version Pins when
+  the opt-in Changelog lane is off).
 - Standalone: `vendor/bin/qa -t st` (alias `-t stricttypes`); supports `-p <path>`.
 - **Read-only run** (`QA_READONLY=1`, GitHub Actions): every offending file is listed and the
   lane fails.

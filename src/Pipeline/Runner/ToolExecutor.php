@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Runner;
 
+use LTS\PHPQA\Pipeline\Process\Dto\SignalledChildDto;
+use LTS\PHPQA\Pipeline\Process\SignalledChildren;
 use LTS\PHPQA\Pipeline\Runner\Dto\ExecutionDto;
+use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Runs one tool with the retry policy: a failure prints the standard banner
- * and, interactively, offers a retry; a crash is never retried.
+ * and, interactively, offers a retry; a crash is never retried. A lane that ran
+ * a child a signal killed crashed, named with the signal (SignalledChildren).
  *
  * @internal
  */
@@ -24,6 +28,7 @@ final readonly class ToolExecutor
         private ToolLocatorInterface $tools,
         private RetryPromptInterface $prompt,
         private OutputInterface $output,
+        private SignalledChildren $signalled = new SignalledChildren(),
     ) {
     }
 
@@ -32,7 +37,12 @@ final readonly class ToolExecutor
         $tool    = $this->tools->locate($name);
         $retried = false;
         while (true) {
-            $result = $tool->run($context);
+            $result  = $tool->run($context);
+            $crashes = $this->signalled->take();
+            if ([] !== $crashes) {
+                return $this->crashed($name, $retried, ...$crashes);
+            }
+
             if ($result->isSuccess()) {
                 return new ExecutionDto($result, $retried);
             }
@@ -44,6 +54,28 @@ final readonly class ToolExecutor
 
             $retried = true;
         }
+    }
+
+    /**
+     * A child of the lane was killed by a signal, or exited 139 to relay a
+     * crash below it, so the lane crashed whatever it made of the exit code:
+     * its verdict rests on a tool that never finished.
+     */
+    private function crashed(string $name, bool $retried, SignalledChildDto ...$crashes): ExecutionDto
+    {
+        $result = ToolResultDto::crashed(\sprintf(
+            '%s crashed: %s',
+            $name,
+            implode('; ', array_map(static fn (SignalledChildDto $crash): string => $crash->describe(), $crashes)),
+        ));
+        $this->failureBanner($name, $result->summary);
+
+        return new ExecutionDto(
+            $result,
+            $retried,
+            array_any($crashes, static fn (SignalledChildDto $crash): bool => $crash->isSegmentationFault()),
+            childCrashed: true,
+        );
     }
 
     private function failureBanner(string $name, string $summary): void

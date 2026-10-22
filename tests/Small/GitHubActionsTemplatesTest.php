@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
-use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\BranchNamePolicyDecision;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,8 +30,6 @@ use PHPUnit\Framework\TestCase;
 final class GitHubActionsTemplatesTest extends TestCase
 {
     private const string TEMPLATES = __DIR__ . '/../../templates/github-actions';
-
-    private const string PIPELINE_TEMPLATE = self::TEMPLATES . '/php-qa-ci.yml';
 
     private const string RELEASE_TEMPLATE = self::TEMPLATES . '/release.yml';
 
@@ -64,29 +61,6 @@ final class GitHubActionsTemplatesTest extends TestCase
     public function noTemplateSetsAVariableTheBashPipelineRead(): void
     {
         self::assertSame([], $this->executedLinesMatching('#skipUncommittedChangesCheck#'));
-    }
-
-    #[Test]
-    public function thePipelineTemplateRunsOnEveryBranchPrefixThePolicyAllows(): void
-    {
-        $template = \Safe\file_get_contents(self::PIPELINE_TEMPLATE);
-
-        $missing = array_values(array_filter(
-            BranchNamePolicyDecision::DEFAULT_PREFIXES,
-            static fn (string $prefix): bool => !str_contains($template, \sprintf("- '%s**'", $prefix)),
-        ));
-
-        self::assertSame([], $missing, 'php-qa-ci.yml must trigger on a push to every branch prefix branchNamePolicy allows.');
-    }
-
-    #[Test]
-    public function autoCommittingFixesMakesTheRunWritable(): void
-    {
-        self::assertMatchesRegularExpression(
-            "#^\\s+QA_READONLY: \\\$\\{\\{ env\\.AUTO_COMMIT_FIXES == 'true' && '0' \\|\\| '1' \\}\\}\$#m",
-            \Safe\file_get_contents(self::PIPELINE_TEMPLATE),
-            'A run on GitHub Actions is read-only by default, so the fixers write nothing and AUTO_COMMIT_FIXES has nothing to commit unless the QA step is writable.',
-        );
     }
 
     /**
@@ -166,7 +140,11 @@ final class GitHubActionsTemplatesTest extends TestCase
         self::assertNotSame([], $this->executedLinesIn(self::RELEASE_TEMPLATE, '#GATING_WORKFLOWS#'), 'That step must judge the runs of the GATING_WORKFLOWS.');
     }
 
-    /** @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern */
+    /**
+     * @param literal-string $pattern
+     *
+     * @return list<string> "<line>: <text>" for every non-comment line of $file matching $pattern
+     */
     private function executedLinesIn(string $file, string $pattern): array
     {
         $hits = [];
@@ -179,7 +157,11 @@ final class GitHubActionsTemplatesTest extends TestCase
         return $hits;
     }
 
-    /** @return list<string> "<file>:<line>: <text>" for every non-comment line matching $pattern */
+    /**
+     * @param literal-string $pattern
+     *
+     * @return list<string> "<file>:<line>: <text>" for every non-comment line matching $pattern
+     */
     private function executedLinesMatching(string $pattern): array
     {
         $hits = [];

@@ -49,7 +49,9 @@ git commit --trailer 'Changelog: none — internal refactor, no behaviour change
 ```
 
 The reason is mandatory and must say why in at least two words: a bare `Changelog: none`, or
-`none — wip`, is refused. Do not use the trailer to skip an entry that is merely tedious: if a
+`none — wip`, is refused. The line must be in the message's final paragraph, beside
+`Co-Authored-By:`: git reads no trailer from a paragraph above it, and the lane fails a branch
+with such a line ([docs/tools/changelog.md](../docs/tools/changelog.md#what-it-checks)). Do not use the trailer to skip an entry that is merely tedious: if a
 consumer's build, output or install can differ, it needs an entry.
 
 ## How a release happens
@@ -70,7 +72,7 @@ adopts the same workflow is in
 
 1. A branch lands on `php8.5` (in this estate: merged locally by the lead, pushed by the owner,
    per the consuming project's `lts/*` workflow).
-2. CI (`.github/workflows/ci.yml`) runs the full pipeline. On `php8.5` the changelog lane judges
+2. CI (`.github/workflows/qa.yml`, the `PHP QA Pipeline` workflow) runs the full pipeline. On `php8.5` the changelog lane judges
    everything since the latest `85.N.N` tag, so a merge that slipped through without an entry
    fails here.
 3. When CI is green, `release.yml` runs (`workflow_run`). `next-version` gives the version
@@ -137,11 +139,12 @@ on these settings:
   run of the same commit from another event does not. `release.yml` and `update-deps.yml`
   therefore call [.github/actions/approve-held-ci](../.github/actions/approve-held-ci/action.yml)
   after opening or updating their pull request, naming the workflow whose run to approve
-  (`release.yml` passes the workflow that started it, `ci.yml` here; `update-deps.yml` passes
-  `ci.yml`); it waits for the run and approves it
+  (`release.yml` passes the workflow that started it, `qa.yml` here; `update-deps.yml` passes
+  `qa.yml`); it waits for the run and approves it
   (`POST /repos/{owner}/{repo}/actions/runs/{id}/approve`, which `actions: write` allows). If
   that step fails, approve the run from the pull request's Checks tab.
 - `release.yml` starts on the completion of a workflow named `CI`, `PHP QA Pipeline` or `QA` and
-  acts only on a green push to the default branch. Here only `CI` (`ci.yml`) runs on a push to
-  `php8.5`; `PHP QA Pipeline` (`qa.yml`) runs on other branches, so its completions start a
-  release run whose job is skipped.
+  acts only on a green push to the default branch. Here only `PHP QA Pipeline` (`qa.yml`) exists:
+  it runs on every pull request push and on a push to `php8.5`, and nothing else runs the pipeline.
+  The completion of its pull request runs starts a release run whose job is skipped; the one for
+  a push to `php8.5` is the gate.

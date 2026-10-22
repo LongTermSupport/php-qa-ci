@@ -12,6 +12,7 @@ use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\Exception\UnknownPhaseException;
 use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use LTS\PHPQA\Pipeline\Tool\PipelineBuilder;
+use LTS\PHPQA\Pipeline\Tool\RegistryAwareToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use LTS\PHPQA\Pipeline\Tool\ToolRegistry;
@@ -45,9 +46,11 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\InfectionTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\MarkdownLinksTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DocsProseTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DocumentedQaCommandsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\OpcacheTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PackageTypeTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCodeTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshnessTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpArkitectTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpCsFixerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\PhpLintTool::class)]
@@ -88,6 +91,8 @@ final class PipelineBuilderTest extends TestCase
 
     private const string TESTING = 'testing';
 
+    private const string DIGITS = '2024';
+
     #[Test]
     public function defaultsBuildTheShippedRegistryAndTheShippedTools(): void
     {
@@ -122,6 +127,21 @@ final class PipelineBuilderTest extends TestCase
         self::assertSame(self::SECURITY_AUDIT, end($linting));
         self::assertSame(self::SECURITY_AUDIT, $built->registry->resolve('sa')->name);
         self::assertSame(self::SECURITY_AUDIT, $built->tools[self::SECURITY_AUDIT]->name());
+    }
+
+    /** PHP makes the name '2024' an int key, and spreading an array renumbers its int keys (#256). */
+    #[Test]
+    public function aToolNamedInDigitsKeepsItsNameWhenAnotherToolIsAdded(): void
+    {
+        $built = PipelineBuilder::defaults()
+            ->withTool(new ToolDefinitionDto(self::DIGITS, ['y2024'], 'a tool named in digits', self::LINTING, false), $this->tool(self::DIGITS))
+            ->withTool($this->definition(self::SECURITY_AUDIT, self::LINTING), $this->tool(self::SECURITY_AUDIT))
+            ->build()
+        ;
+
+        self::assertSame(self::DIGITS, $built->registry->resolve('y2024')->name);
+        self::assertArrayHasKey(self::DIGITS, $built->tools);
+        self::assertSame(self::DIGITS, $built->tools[self::DIGITS]->name());
     }
 
     #[Test]
@@ -239,6 +259,48 @@ final class PipelineBuilderTest extends TestCase
         $built = $defaults->build();
         self::assertSame($this->phaseNames(ToolRegistry::shipped()), $this->phaseNames($built->registry));
         self::assertArrayNotHasKey(self::SECURITY_AUDIT, $built->tools);
+    }
+
+    /** The tool reads the registry the run built, so the project's file is never applied a second time. */
+    #[Test]
+    public function aRegistryAwareToolIsHandedTheRegistryTheBuildMakes(): void
+    {
+        $aware = new readonly class(null) implements RegistryAwareToolInterface {
+            public function __construct(public ?ToolRegistry $registry)
+            {
+            }
+
+            public function name(): string
+            {
+                return 'aware';
+            }
+
+            public function identifier(): string
+            {
+                return 'phpqaci.fake';
+            }
+
+            public function run(ToolContext $context): ToolResultDto
+            {
+                return ToolResultDto::passed();
+            }
+
+            public function withRegistry(ToolRegistry $registry): self
+            {
+                return new self($registry);
+            }
+        };
+
+        $built = PipelineBuilder::defaults()
+            ->withPhase($this->phase())
+            ->withTool(new ToolDefinitionDto($aware->name(), [$aware->name()], 'registry aware', self::SECURITY, false), $aware)
+            ->build()
+        ;
+
+        $tool = $built->tools[$aware->name()];
+        self::assertInstanceOf($aware::class, $tool);
+        self::assertSame($built->registry, $tool->registry);
+        self::assertNull($aware->registry, 'the tool given to the builder is left as it was');
     }
 
     private function phase(): PhaseDto

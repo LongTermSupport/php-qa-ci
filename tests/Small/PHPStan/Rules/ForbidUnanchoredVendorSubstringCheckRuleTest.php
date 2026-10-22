@@ -6,7 +6,9 @@ namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidUnanchoredVendorSubstringCheckRule;
 use PhpParser\Node\Arg;
+use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\BinaryOp\Concat;
+use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
@@ -15,23 +17,22 @@ use PHPStan\Analyser\CollectedDataEmitter;
 use PHPStan\Analyser\DependencyTracker;
 use PHPStan\Analyser\NodeCallbackInvoker;
 use PHPStan\Analyser\Scope;
-use PHPStan\Rules\Rule;
-use PHPStan\Testing\RuleTestCase;
+use PHPStan\Type\Constant\ConstantStringType;
+use PHPStan\Type\IntegerType;
+use PHPStan\Type\Type;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Medium;
+use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
 /**
- * Drives the rule directly against synthetic FuncCall nodes, mirroring
- * RequireRuleIdentifierConstantRuleTest's style.
+ * Drives the rule directly against synthetic FuncCall nodes.
  *
  * @internal
- *
- * @extends RuleTestCase<ForbidUnanchoredVendorSubstringCheckRule>
  */
 #[CoversClass(ForbidUnanchoredVendorSubstringCheckRule::class)]
-#[Medium]
-final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
+#[Small]
+final class ForbidUnanchoredVendorSubstringCheckRuleTest extends TestCase
 {
     use ScopeStubTrait;
 
@@ -41,39 +42,75 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
 
     private const string VENDOR_PREFIX = 'vendor/';
 
+    private const string VENDOR_DIR = '/vendor/';
+
+    private const string SELF = 'self';
+
+    private ForbidUnanchoredVendorSubstringCheckRule $rule;
+
+    protected function setUp(): void
+    {
+        $this->rule = new ForbidUnanchoredVendorSubstringCheckRule();
+    }
+
     #[Test]
     public function getNodeTypeIsFuncCall(): void
     {
-        self::assertSame(FuncCall::class, $this->getRule()->getNodeType());
+        self::assertSame(FuncCall::class, $this->rule->getNodeType());
     }
 
     #[Test]
     public function strContainsWithBareVendorLiteralIsFlagged(): void
     {
-        $call   = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new String_('/vendor/'));
-        $errors = $this->getRule()->processNode($call, $this->scope());
+        $call   = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new String_(self::VENDOR_DIR));
+        $errors = $this->rule->processNode($call, self::scopeStub());
 
         self::assertCount(1, $errors);
-        self::assertStringContainsString('unanchored', $errors[0]->getMessage());
+        self::assertSame(
+            "Unanchored 'vendor/' substring check: str_contains(..., '/vendor/'). It misclassifies this project's own "
+            . 'source whenever the project sits under a vendor/ path. Use VendoredCodeDetector, or anchor on the project '
+            . 'root. See docs/phpstan-rules/forbid-unanchored-vendor-substring-check.md',
+            $errors[0]->getMessage(),
+        );
         self::assertSame(ForbidUnanchoredVendorSubstringCheckRule::IDENTIFIER, $errors[0]->getIdentifier());
     }
 
     #[Test]
-    public function strposWithBareVendorLiteralIsFlagged(): void
+    public function everyTargetFunctionIsRead(): void
     {
-        $call   = $this->funcCall('strpos', new Variable(self::FILE_NAME), new String_(self::VENDOR_PREFIX));
-        $errors = $this->getRule()->processNode($call, $this->scope());
+        foreach (['strpos', 'stripos', 'str_starts_with', 'str_ends_with', '\STR_CONTAINS'] as $function) {
+            $call = $this->funcCall($function, new Variable(self::FILE_NAME), new String_(self::VENDOR_PREFIX));
+
+            self::assertCount(1, $this->rule->processNode($call, self::scopeStub()), $function);
+        }
+    }
+
+    /** A fragment held in a class constant is the same check: the constant's value is read. */
+    #[Test]
+    public function classConstantHoldingAVendorFragmentIsFlagged(): void
+    {
+        $call = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new ClassConstFetch(new Name(self::SELF), 'VENDOR'));
+
+        $errors = $this->rule->processNode($call, $this->scopeTyping(new ConstantStringType(self::VENDOR_DIR)));
 
         self::assertCount(1, $errors);
+        self::assertStringContainsString("str_contains(..., '/vendor/')", $errors[0]->getMessage());
     }
 
     #[Test]
-    public function strStartsWithBareVendorLiteralIsFlagged(): void
+    public function classConstantWithoutTheFragmentIsAllowed(): void
     {
-        $call   = $this->funcCall('str_starts_with', new Variable(self::FILE_NAME), new String_(self::VENDOR_PREFIX));
-        $errors = $this->getRule()->processNode($call, $this->scope());
+        $call = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new ClassConstFetch(new Name(self::SELF), 'SRC'));
 
-        self::assertCount(1, $errors);
+        self::assertSame([], $this->rule->processNode($call, $this->scopeTyping(new ConstantStringType('/src/'))));
+    }
+
+    #[Test]
+    public function classConstantThatIsNotAStringIsAllowed(): void
+    {
+        $call = $this->funcCall('strpos', new Variable(self::FILE_NAME), new ClassConstFetch(new Name(self::SELF), 'OFFSET'));
+
+        self::assertSame([], $this->rule->processNode($call, $this->scopeTyping(new IntegerType())));
     }
 
     #[Test]
@@ -83,7 +120,15 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
         $concat = new Concat(new Variable('projectRoot'), new String_('/vendor/symfony/dotenv'));
         $call   = $this->funcCall('str_starts_with', new Variable(self::FILE_NAME), $concat);
 
-        self::assertSame([], $this->getRule()->processNode($call, $this->scope()));
+        self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
+    }
+
+    #[Test]
+    public function aVariableArgumentIsNotRead(): void
+    {
+        $call = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new Variable('fragment'));
+
+        self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
     }
 
     #[Test]
@@ -91,7 +136,7 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     {
         $call = $this->funcCall(self::STR_CONTAINS, new Variable(self::FILE_NAME), new String_('/src/'));
 
-        self::assertSame([], $this->getRule()->processNode($call, $this->scope()));
+        self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
     }
 
     #[Test]
@@ -99,40 +144,19 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
     {
         $call = $this->funcCall('is_dir', new String_('/some/vendor/path'));
 
-        self::assertSame([], $this->getRule()->processNode($call, $this->scope()));
+        self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
     }
 
     #[Test]
     public function dynamicFunctionNameIsIgnored(): void
     {
         // $fn($fileName, '/vendor/') — the callee is not a literal Name.
-        $call = new FuncCall(new Variable('fn'), [new Arg(new Variable(self::FILE_NAME)), new Arg(new String_('/vendor/'))]);
+        $call = new FuncCall(new Variable('fn'), [new Arg(new Variable(self::FILE_NAME)), new Arg(new String_(self::VENDOR_DIR))]);
 
-        self::assertSame([], $this->getRule()->processNode($call, $this->scope()));
+        self::assertSame([], $this->rule->processNode($call, self::scopeStub()));
     }
 
-    #[Test]
-    public function thisRulesOwnDetectionCallIsNotSelfFlagged(): void
-    {
-        // This rule's own processNode() legitimately calls
-        // str_contains($arg->value->value, 'vendor/') to implement the check
-        // itself — that inspects AST literal text, not a filesystem path, so
-        // it must not be flagged as an instance of the pattern it defends against.
-        $call  = $this->funcCall(self::STR_CONTAINS, new Variable('value'), new String_(self::VENDOR_PREFIX));
-        $scope = self::scopeStub();
-        $scope->method('getClassReflection')->willReturn(
-            $this->createReflectionProvider()->getClass(ForbidUnanchoredVendorSubstringCheckRule::class),
-        );
-
-        self::assertSame([], $this->getRule()->processNode($call, $scope));
-    }
-
-    protected function getRule(): Rule
-    {
-        return new ForbidUnanchoredVendorSubstringCheckRule();
-    }
-
-    private function funcCall(string $functionName, \PhpParser\Node\Expr ...$argValues): FuncCall
+    private function funcCall(string $functionName, Expr ...$argValues): FuncCall
     {
         $args = [];
         foreach ($argValues as $argValue) {
@@ -142,8 +166,12 @@ final class ForbidUnanchoredVendorSubstringCheckRuleTest extends RuleTestCase
         return new FuncCall(new Name($functionName), $args);
     }
 
-    private function scope(): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
+    /** A scope that gives every expression the one type. */
+    private function scopeTyping(Type $type): CollectedDataEmitter&DependencyTracker&NodeCallbackInvoker&Scope
     {
-        return self::scopeStub();
+        $scope = self::scopeStub();
+        $scope->method('getType')->willReturn($type);
+
+        return $scope;
     }
 }

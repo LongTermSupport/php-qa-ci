@@ -76,7 +76,7 @@ final readonly class ComposerChecksTool implements ToolInterface
                 $this->auditFailedGuidance($context);
                 $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::failed(\sprintf('composer audit found advisories or could not run (exit %d)', $audit->exitCode));
+                return ToolResultDto::failed(\sprintf('composer audit found advisories or could not run (%s)', $audit->describeExit()));
             }
         } else {
             $context->writeln('composer audit disabled for this project (withComposerAudit(false) / useComposerAudit=0) — skipping.');
@@ -115,7 +115,7 @@ final readonly class ComposerChecksTool implements ToolInterface
             if (!$normalize->succeeded()) {
                 $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::failed(\sprintf('composer-normalize failed (exit %d)', $normalize->exitCode));
+                return ToolResultDto::failed(\sprintf('composer-normalize failed (%s)', $normalize->describeExit()));
             }
         }
 
@@ -129,7 +129,7 @@ final readonly class ComposerChecksTool implements ToolInterface
         if (!$dump->succeeded()) {
             $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::failed(\sprintf('composer dump-autoload failed (exit %d)', $dump->exitCode));
+            return ToolResultDto::failed(\sprintf('composer dump-autoload failed (%s)', $dump->describeExit()));
         }
 
         return ToolResultDto::passed();

@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PhpArkitectTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\AgentStatusEnum::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\UnresolvablePath::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\ArkitectJsonParser::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\ClassFileLocator::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Agent\Dto\FileErrorDto::class)]
@@ -52,6 +53,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class PhpArkitectToolTest extends TestCase
 {
     private const string CLASS_NAMESPACE = 'App';
@@ -136,6 +138,7 @@ final class PhpArkitectToolTest extends TestCase
                 'PHPQACI_ARKITECT_CLASS_SET'               => $defaults . '/phparkitect-class-set.php',
                 'PHPQACI_ARKITECT_IGNORED_PATHS'           => '',
                 'PHPQACI_ARKITECT_EXCLUDE_PATHS'           => "Quote/API\nGenerated/Client",
+                'PHPQACI_ARKITECT_UNRESOLVED_LIST'         => $this->factory->context()->config->paths->varDir . '/' . PhpArkitectTool::LOG_DIR . '/' . PhpArkitectTool::UNRESOLVED_LIST,
                 'XDEBUG_MODE'                              => 'off',
             ],
             $spec->env,

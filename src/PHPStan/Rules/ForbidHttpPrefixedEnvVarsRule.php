@@ -239,6 +239,8 @@ final class ForbidHttpPrefixedEnvVarsRule implements Rule
      * override) against \Safe\preg_match_all's loosely-typed $matches
      * out-param, so callers get a real list<string> without a suppression.
      *
+     * @param literal-string $pattern
+     *
      * @return list<string>
      */
     private function matchAllGroup1(string $pattern, string $subject): array

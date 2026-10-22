@@ -1,5 +1,7 @@
 # PHPQA SensitiveParameter Usage Check
 
+**Identifier**: `phpqaci.sensitiveParameterUsage`
+
 An **always-on** php-qa-ci pipeline tool that asserts the native
 [`#[\SensitiveParameter]`](https://www.php.net/manual/en/class.sensitiveparameter.php)
 attribute is used **at least once** in your project's `src/` directory.
@@ -33,6 +35,8 @@ not as a PHPStan rule. It runs as part of the always-on static-analysis phase.
   (aliases: `-t spu`, `-t sensitiveparameter`).
 - **Binary**: `bin/sensitive-parameter-usage` (delegates to
   `LTS\PHPQA\SensitiveParameter\SensitiveParameterUsageScanner::main()`).
+- **Lane**: [`SensitiveParameterUsageTool`](../../src/Pipeline/Lane/SensitiveParameterUsageTool.php),
+  which calls the same scanner in-process.
 
 The tool scans `{projectRoot}/src` and:
 

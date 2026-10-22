@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Phpstan;
 
+use LTS\PHPQA\Pipeline\Lane\Phpstan\Dto\PhpstanParametersDto;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupCache;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Tests\Support\ContextFactory;
@@ -34,6 +36,13 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
+#[UsesClass(PhpstanSetupCache::class)]
+#[UsesClass(PhpstanParametersDto::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupKey::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[Small]
 final class DumpParametersTmpDirProbeTest extends TestCase
 {
@@ -77,7 +86,7 @@ final class DumpParametersTmpDirProbeTest extends TestCase
         $spec  = $this->factory->processes->lastSpec();
         $probe = $paths->cacheDir . '/' . DumpParametersTmpDirProbe::TEMP_DIR;
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-f', $paths->pharDir . '/phpstan.phar', '--', 'dump-parameters', '-c', self::CONFIG, '--json'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', $paths->pharDir . '/phpstan.phar', '--', 'dump-parameters', '-c', self::CONFIG, '--json'],
             $spec->command,
         );
         self::assertSame($paths->projectRoot, $spec->cwd);
@@ -113,7 +122,7 @@ final class DumpParametersTmpDirProbeTest extends TestCase
 
         self::assertSame(
             ['dump-parameters', '-c', self::CONFIG, '--json', '--autoload-file', '/detector/vendor/autoload.php'],
-            \array_slice($this->factory->processes->lastSpec()->command, 6),
+            \array_slice($this->factory->processes->lastSpec()->command, 8),
         );
     }
 
@@ -196,6 +205,55 @@ final class DumpParametersTmpDirProbeTest extends TestCase
         $this->factory->processes->willReturn(new ProcessResultDto(0, "PHP Warning: something\n" . $json, $json));
 
         self::assertSame(self::PROJECT_TMP_DIR, new DumpParametersTmpDirProbe()->projectTmpDir($this->factory->context(), self::CONFIG, null));
+    }
+
+    /**
+     * A warm `-p` run reuses the last dump that answered and starts no PHPStan; a
+     * dump that failed is not kept, so the next run asks again.
+     */
+    #[Test]
+    public function aCachedProbeKeepsOnlyADumpThatAnswered(): void
+    {
+        $config  = $this->factory->project->write('qaConfig/phpstan.neon', "parameters:\n    level: 1\n");
+        $context = $this->factory->context($this->factory->builder(specifiedPath: 'src/Kernel.php')->build());
+        $probe   = new DumpParametersTmpDirProbe();
+        $this->factory->processes->willFail(1, 'Invalid configuration')->willSucceed($this->dump(self::PROJECT_TMP_DIR, self::PROBE_TEMP));
+
+        $failed   = $probe->projectTmpDir($context, $config, null);
+        $answered = $probe->projectTmpDir($context, $config, null);
+        $warm     = $probe->projectTmpDir($context, $config, null);
+
+        self::assertNull($failed);
+        self::assertSame(self::PROJECT_TMP_DIR, $answered);
+        self::assertSame(self::PROJECT_TMP_DIR, $warm);
+        self::assertCount(2, $this->factory->processes->specs, 'the warm run starts no PHPStan');
+    }
+
+    /** The same dump answers which files the run analyses, for the deadCode lane's bin/ check. */
+    #[Test]
+    public function theParametersAreReadFromTheSameDump(): void
+    {
+        $this->factory->processes->willSucceed(\Safe\json_encode([
+            'tmpDir'         => self::PROJECT_TMP_DIR,
+            'sysGetTempDir'  => self::PROBE_TEMP,
+            'paths'          => ['/project/bin/console'],
+            'excludePaths'   => ['analyseAndScan' => ['/project/src/legacy'], 'analyse' => []],
+            'fileExtensions' => ['php', 'inc'],
+        ]));
+
+        self::assertEquals(
+            new PhpstanParametersDto(self::PROJECT_TMP_DIR, ['/project/bin/console'], ['/project/src/legacy'], ['php', 'inc']),
+            new DumpParametersTmpDirProbe()->parameters($this->factory->context(), self::CONFIG, null),
+        );
+        self::assertCount(1, $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function aFailedDumpHasNoParameters(): void
+    {
+        $this->factory->processes->willFail(1, 'Invalid configuration');
+
+        self::assertNull(new DumpParametersTmpDirProbe()->parameters($this->factory->context(), self::CONFIG, null));
     }
 
     private function dump(string $tmpDir, string $sysGetTempDir): string

@@ -1,0 +1,1 @@
+{"totals":{"errors":1,"file_errors":0},"files":{},"errors":["Internal error: Call to a member function getAttribute() on null while analysing file /project/src/Shapes.php\n\nRun PHPStan with -v option and post the stack trace to:\nhttps://github.com/phpstan/phpstan/issues/new?template=Bug_report.yaml\n"]}

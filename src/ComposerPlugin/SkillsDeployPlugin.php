@@ -118,7 +118,7 @@ final readonly class SkillsDeployPlugin implements PluginInterface, EventSubscri
         if (0 === $exitCode) {
             $io->write('<info>✓ Claude Code Skills, Agents & Hooks deployed successfully</info>');
         } else {
-            $io->writeError('<error>✗ Skills/Agents/Hooks deployment failed</error>');
+            $io->writeError('<error>✗ Skills/Agents/Hooks deployment failed with ' . ChildExit::describePhpQaCiHelper($exitCode) . '</error>');
         }
     }
 }

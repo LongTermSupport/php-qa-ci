@@ -42,20 +42,22 @@ final readonly class NeonIncludeChain
 
     public function resolve(string $entryFile, string $projectRoot): NeonIncludeChainDto
     {
-        $files    = [];
-        $problems = [];
-        $seen     = [];
-        $this->visit(\Safe\realpath($entryFile), \Safe\realpath($projectRoot), $files, $problems, $seen);
+        $files       = [];
+        $problems    = [];
+        $phpIncludes = [];
+        $seen        = [];
+        $this->visit(\Safe\realpath($entryFile), \Safe\realpath($projectRoot), $files, $problems, $phpIncludes, $seen);
 
-        return new NeonIncludeChainDto($files, $problems);
+        return new NeonIncludeChainDto($files, $problems, $phpIncludes);
     }
 
     /**
-     * @param list<NeonRecordFileDto> $files
-     * @param list<string>            $problems
-     * @param array<string, string>   $seen     every file visited, keyed by itself
+     * @param list<NeonRecordFileDto>  $files
+     * @param list<string>             $problems
+     * @param list<string>             $phpIncludes
+     * @param array<array-key, string> $seen        every file visited, keyed by itself
      */
-    private function visit(string $path, string $root, array &$files, array &$problems, array &$seen): void
+    private function visit(string $path, string $root, array &$files, array &$problems, array &$phpIncludes, array &$seen): void
     {
         $seen[$path] = $path;
         $display     = $this->display($path, $root);
@@ -77,9 +79,9 @@ final readonly class NeonIncludeChain
 
         /** @var list<string> $includes */
         foreach ($includes as $include) {
-            $target = $this->target($include, \dirname($path), $root, $display, $problems);
+            $target = $this->target($include, \dirname($path), $root, $display, $problems, $phpIncludes);
             if (null !== $target && !isset($seen[$target])) {
-                $this->visit($target, $root, $files, $problems, $seen);
+                $this->visit($target, $root, $files, $problems, $phpIncludes, $seen);
             }
         }
 
@@ -91,8 +93,9 @@ final readonly class NeonIncludeChain
      * it is not followed, with a problem recorded if that leaves a gap.
      *
      * @param list<string> $problems
+     * @param list<string> $phpIncludes
      */
-    private function target(string $include, string $directory, string $root, string $display, array &$problems): ?string
+    private function target(string $include, string $directory, string $root, string $display, array &$problems, array &$phpIncludes): ?string
     {
         if (str_starts_with($include, self::PHPSTAN_ROOT) || $this->isInsidePhpstanPhar($include)) {
             return null;
@@ -116,6 +119,7 @@ final readonly class NeonIncludeChain
         }
 
         if (str_ends_with($absolute, '.php')) {
+            $phpIncludes[] = $absolute;
             if (1 === \Safe\preg_match('/ignoreErrors|includes/', \Safe\file_get_contents($absolute))) {
                 $problems[] = \sprintf('%s includes %s, a PHP configuration file that sets ignoreErrors or includes; a PHP file cannot carry the justification comment, so move them into a .neon file', $display, $include);
             }

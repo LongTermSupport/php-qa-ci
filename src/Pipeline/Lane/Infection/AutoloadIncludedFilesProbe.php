@@ -36,7 +36,7 @@ final readonly class AutoloadIncludedFilesProbe implements IncludedFilesProbeInt
         $paths  = $context->config->paths;
         $result = $context->php->withoutXdebug($paths->libraryRoot . self::SCRIPT, [$autoload], $paths->projectRoot, streamOutput: false);
         if (!$result->succeeded()) {
-            return \sprintf("it exited %d:\n%s", $result->exitCode, trim($result->output));
+            return \sprintf("it ended with %s:\n%s", $result->describeExit(), trim($result->output));
         }
 
         $marker = strrpos($result->stdout, self::MARKER);

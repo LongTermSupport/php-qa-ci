@@ -22,9 +22,16 @@ tree navigable and catches a doc that was moved without its references being upd
   on every run. Both are kept deliberately — they answer at different moments for different
   audiences — and this lane is the one that ships.
 - A project must have a `README.md` in its root; without one the lane fails, because the check
-  has nothing to stand on.
+  has nothing to stand on. A root `README.md` that is a dangling symlink also fails the lane, with
+  a message naming it as a symlink whose target does not exist; it is not skipped like a file
+  under `docs/`.
 - GitHub URLs are skipped when no `GH_TOKEN` / `GITHUB_TOKEN` is set, since a private repository
   answers 404 anonymously and cannot be told from a dead link.
+- A file under `docs/` whose real path cannot be resolved, such as a dangling symlink, is not
+  read; it used to stop the lane without naming it
+  ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)). The lane prints
+  `Markdown links skipped <path>: its real path cannot be resolved ...` for each one, and a
+  skipped file does not fail the lane.
 
 ## How to fix a failure
 

@@ -80,17 +80,27 @@ final readonly class TempDir
 
     public function remove(): void
     {
-        if (!is_dir($this->path)) {
+        self::removeTree($this->path);
+    }
+
+    /**
+     * Removes a directory and everything in it; a link is removed, never
+     * followed. The test-side twin of DirectoryTree::remove(): test support
+     * cannot call into src/, because every test would then execute production
+     * code its coverage metadata does not list.
+     */
+    public static function removeTree(string $path): void
+    {
+        if (!is_dir($path) || is_link($path)) {
             return;
         }
 
         $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->path, FilesystemIterator::SKIP_DOTS),
+            new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST,
         );
         /** @var SplFileInfo $item */
         foreach ($iterator as $item) {
-            // A symlink to a directory reports isDir() true but is removed like a file.
             if ($item->isDir() && !$item->isLink()) {
                 \Safe\rmdir($item->getPathname());
             } else {
@@ -98,6 +108,6 @@ final readonly class TempDir
             }
         }
 
-        \Safe\rmdir($this->path);
+        \Safe\rmdir($path);
     }
 }

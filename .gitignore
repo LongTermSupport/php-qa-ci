@@ -8,6 +8,7 @@
 !/bin/bootstrap.php
 !/bin/changelog-release
 !/bin/composer-require-checker
+!/bin/describe-exit
 !/bin/hooks-daemon-full-qa-blocker
 !/bin/infection
 !/bin/infection-config-source-dirs-check
@@ -34,6 +35,8 @@
 !/bin/version-pins-check
 # PHPStan Turbo binaries: one per host, fetched by bin/turbo-install against vendor-phar/turbo-ext.json
 /vendor-phar/turbo-ext/
+# ShellCheck update staging (TemporaryDirectory::besides); a killed update's is removed by the next
+/vendor-bin/.phpqa-shellcheck*/
 /cache/
 /.phive-home/
 /build/*/vendor/
@@ -68,3 +71,11 @@ untracked/*
 # Hooks daemon sensitive_content word lists (never commit)
 *.secret
 *.secrets
+
+# Hooks daemon protected paths: their contents may never be read, so never committed
+*.secret*
+.vault-pass*
+*.vault-password
+*vault_pass*
+id_rsa
+id_ed25519

@@ -11,6 +11,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
+use Safe\Exceptions\FilesystemException;
 
 /**
  * Formats the project's markdown with the hooks daemon's own formatter, so
@@ -20,7 +21,9 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  * daemon byte for byte, at whatever mdformat version its venv resolved.
  *
  * Without the daemon there is nothing to agree with, so the lane skips and
- * says so; CI has no daemon. A read-only run checks every path and fails on
+ * says so; CI has no daemon. Where the search for it could not read a
+ * worktree's pointer, its presence is unknown, and the lane crashes naming the
+ * file rather than skipping. A read-only run checks every path and fails on
  * the files the daemon would rewrite; a writable run rewrites them.
  *
  * @internal
@@ -60,7 +63,14 @@ final readonly class MarkdownFormatTool implements ToolInterface
     public function run(ToolContext $context): ToolResultDto
     {
         $root = $context->config->paths->projectRoot;
-        $cli  = $this->locator->locate($root);
+        try {
+            $cli = $this->locator->locate($root);
+        } catch (FilesystemException $filesystemException) {
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::crashed('the hooks daemon could not be looked for: ' . $filesystemException->getMessage());
+        }
+
         if (null === $cli) {
             $context->writeln(\sprintf('No hooks daemon at %s in this project or above it in its work tree, nothing to agree with', HooksDaemonCliLocator::CLI));
 
@@ -85,7 +95,7 @@ final readonly class MarkdownFormatTool implements ToolInterface
                 $context->writeln(rtrim($probe->output));
                 $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::crashed(\sprintf('git check-ignore could not run (exit %d)', $probe->exitCode));
+                return ToolResultDto::crashed(\sprintf('git check-ignore could not run (%s)', $probe->describeExit()));
             }
 
             $ignored = $outsideGit ? [] : array_map(trim(...), explode("\n", $probe->stdout));
@@ -116,7 +126,7 @@ final readonly class MarkdownFormatTool implements ToolInterface
             if (!$readOnly || !str_contains($result->output, self::PENDING_MARKER)) {
                 $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::crashed(\sprintf('the hooks daemon formatter could not run (exit %d)', $result->exitCode));
+                return ToolResultDto::crashed(\sprintf('the hooks daemon formatter could not run (%s)', $result->describeExit()));
             }
 
             $pending = true;

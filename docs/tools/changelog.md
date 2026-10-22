@@ -71,6 +71,22 @@ The section ends at the next `##` heading. Released sections below it are not ch
    release. A removed requirement and `require-dev` changes are not breaking; a `composer.json`
    absent at the base has no earlier contract to break.
 
+4. **Every `Changelog:` line is a trailer.** Git reads trailers only from the last paragraph of
+   a commit message, so a `Changelog: none — <reason>` line in a paragraph of its own above
+   `Co-Authored-By:` is not a trailer, and the coverage check above never sees it. The lane reads
+   each commit in the range and reports every line after the subject that starts with the
+   `Changelog` key at column 0 that git does not return among the commit's `Changelog` trailers,
+   by commit, whether or not the commit touches a watched path. The key is matched as git matches
+   it, in any case and with space allowed before the colon, so `changelog:` and `Changelog :`
+   count too. A line in the subject's own paragraph, under the subject with no blank line, is
+   judged, and so is a line inside a fenced code block in the body: git reads neither as a
+   trailer, so a message that quotes the trailer as an example indents it. An indented line, a
+   line with the key mid-line and the subject line itself are prose and are not judged; a subject
+   such as `Changelog: file the entry` stays prose. On a branch or in a pull
+   request build each such line fails the lane; on the default branch, measured since the last
+   release tag, they are listed in the report and do not fail it, because history already merged
+   is not rewritten.
+
 History the check cannot read fails it, with the fetch that supplies it: a shallow clone, a
 default branch the clone cannot name, a target branch or release tag it does not have, a missing
 merge base. A check that passed on no evidence would be indistinguishable from one that looked.
@@ -78,7 +94,7 @@ In GitHub Actions that means `fetch-depth: 0` on `actions/checkout`.
 
 ## Enabling it
 
-Off by default. A project switches it on in `qaConfig/qa.php` and names the paths whose changes a
+Off by default; php-qa-ci switches it on for itself. A project switches it on in `qaConfig/qa.php` and names the paths whose changes a
 consumer can notice:
 
 ```php
@@ -155,6 +171,22 @@ sets the prefix to match them.
   ```
 
   A bare `Changelog: none`, or a reason like `wip`, is refused and listed as ignored.
+
+- **A `Changelog:` line that is not a trailer** (the failure begins `N "Changelog:" lines in the range are not commit trailers`, and names each line by its commit): reword each commit named
+  (`git rebase -i --rebase-merges <base>`, `reword`; plain `git rebase -i` would flatten any merge
+  of the base into the branch) so the line is in the message's final paragraph, together
+  with `Co-Authored-By:` and any other trailer, with no blank line between them:
+
+  ```text
+  Tidy the lock handling
+
+  Why the change was made.
+
+  Changelog: none — internal refactor, no behaviour change
+  Co-Authored-By: A Person <a.person@example.com>
+  ```
+
+  `git commit --trailer` always puts the line in the right place.
 
 - **A requirement with no breaking entry**: add the entry under `### Changed — breaking`, saying
   what a consumer now needs.

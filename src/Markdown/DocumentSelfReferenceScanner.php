@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Markdown;
 
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Helper;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -61,7 +62,12 @@ final readonly class DocumentSelfReferenceScanner
     public static function main(?string $projectRoot = null): int
     {
         $projectRoot ??= Helper::getProjectRootDirectory();
-        $findings = new self()->scan($projectRoot);
+        $scanner = new self();
+        foreach ($scanner->unresolvable($projectRoot) as $file) {
+            echo UnresolvablePath::skipped('Docs prose', $file, $projectRoot) . PHP_EOL;
+        }
+
+        $findings = $scanner->scan($projectRoot);
         if ([] === $findings) {
             return 0;
         }
@@ -93,6 +99,10 @@ final readonly class DocumentSelfReferenceScanner
         $projectRoot = rtrim($projectRoot, '/');
         $findings    = [];
         foreach ($this->files($projectRoot) as $file) {
+            if (UnresolvablePath::is($file)) {
+                continue;
+            }
+
             $relative = ltrim(str_replace($projectRoot, '', $file), '/');
             foreach ($this->scanText(\Safe\file_get_contents($file), $relative) as $finding) {
                 $findings[] = $finding;
@@ -100,6 +110,17 @@ final readonly class DocumentSelfReferenceScanner
         }
 
         return $findings;
+    }
+
+    /**
+     * The documents scan() skips because their real path cannot be resolved (a dangling
+     * symlink), absolute.
+     *
+     * @return list<string>
+     */
+    public function unresolvable(string $projectRoot): array
+    {
+        return array_values(array_filter($this->files(rtrim($projectRoot, '/')), UnresolvablePath::is(...)));
     }
 
     /**

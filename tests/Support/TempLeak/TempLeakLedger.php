@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support\TempLeak;
 
-use FilesystemIterator;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
+use LTS\PHPQA\Tests\Support\TempDir;
 
 /**
  * Charges whatever is left in the run's temp directory to the test that just
@@ -83,19 +80,6 @@ final class TempLeakLedger
             return;
         }
 
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        /** @var SplFileInfo $item */
-        foreach ($iterator as $item) {
-            if ($item->isDir() && !$item->isLink()) {
-                \Safe\rmdir($item->getPathname());
-            } else {
-                \Safe\unlink($item->getPathname());
-            }
-        }
-
-        \Safe\rmdir($path);
+        TempDir::removeTree($path);
     }
 }

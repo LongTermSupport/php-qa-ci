@@ -28,9 +28,12 @@ release tag in `vendor-bin/shellcheck.version`. The lane compares the two on eve
 because it is not PHP: ShellCheck is a compiled Haskell executable.
 
 Maintainers refresh it through `bin/shellcheck-install update`, which `scripts/tool-install.bash`
-calls, and which `composer update` and the scheduled `update-deps.yml` workflow already run. That
+calls, and which `composer update` and the scheduled `update-deps.yml` workflow already run. An
+update is the maintainer path, so it does nothing unless `phive` is installed, as the PHAR
+rebuilds need Box. That
 updater is PHP rather than Bash — an HTTP release lookup and a `PharData` extract, with the
-decision table unit-tested — per the "real scripting is PHP" rule in `CLAUDE.md`.
+decision table unit-tested — per the "Bash is for invocation, PHP is for logic" rule in
+[CLAUDE/architecture.md](../../CLAUDE/architecture.md#bash-is-for-invocation-php-is-for-logic-owner-ruling-non-negotiable).
 
 ## What gets checked
 
@@ -57,9 +60,48 @@ still subtracts from whichever set was produced.
 A glob list that matches nothing **fails the lane**. Silence from a hand-written list is a broken
 configuration, not a clean result.
 
+## PHP output captured by a command substitution
+
+ShellCheck has no rule for this, so the lane reads the same scripts itself, and the tracked
+workflows directly under `.github/workflows/` (`*.yml`, `*.yaml`), which ShellCheck is not handed.
+A workflow is read as a whole file, not only its `run:` scripts. It fails on a command substitution, `$(...)` or backticks, that runs PHP without
+`-d display_errors=stderr` (or `display_errors` set to `0`, `off`, `no` or `false`):
+
+```text
+scripts/build-phar.bash:169: PHP's output is captured with its warnings on stdout
+```
+
+The PHP CLI displays errors on stdout unless an ini says otherwise, so a warning or deprecation
+becomes part of the captured value: a version, a message, JSON. This is the shell form of
+[`phpqaci.phpWarningsInCapturedOutput`](../phpstan-rules/forbid-php-warnings-in-captured-output.md),
+whose page carries why and what is not reported.
+
+The program is the first word of the substitution that is not a `NAME=value` assignment. It runs
+PHP when its file name is `php` with an optional version, or is a git-tracked script of the
+project whose shebang runs PHP (`"$binDir/qa"` in a project that tracks `bin/qa`), or is a variable
+named for the PHP binary (`$PHP`, `${PHP_BINARY:-php}`), or a variable whose last assignment in the
+same file names one of these. A quoted here-document is literal and not read; `$((...))` is
+arithmetic. Composer is not PHP here: it keeps its own warnings off stdout.
+
+The scan reads one line at a time and only a substitution, so it does not report PHP whose output
+is captured another way: a bare `php x | jq`, a redirect to a file, a process substitution
+(`< <(php x)`), a substitution that begins with `cd d &&`, one that pipes into PHP, one that runs
+PHP behind `timeout` or `sudo`, a `$(` that spans lines without a backslash continuation, or a variable assigned from a substitution.
+A `display_errors=0` written anywhere in the body counts as the setting, and a substitution in a
+trailing comment (`echo ok # $(php x.php)`) is reported.
+
+```bash
+# WRONG — a deprecation in the phar becomes the version
+version="$(php "$phar" --version | awk 'NR==1')"
+
+# RIGHT
+version="$(php -d display_errors=stderr "$phar" --version | awk 'NR==1')"
+```
+
 ## How it runs
 
-- In the full pipeline, last in the linting phase.
+- In the full pipeline, last of the shipped lanes in the linting phase (a Symfony project's
+  [Twig Lint](twigLint.md) follows it).
 - Standalone: `vendor/bin/qa -t shellCheck` (aliases `-t sc`, `-t shellcheck`).
 - `-p <path>` narrows the discovered set to files under that path.
 - One invocation: `vendor-bin/shellcheck --severity=warning -- <files...>` from the project root.
@@ -83,4 +125,5 @@ looks unused to ShellCheck; exporting it states the contract instead of hiding t
 
 - Lane: [`ShellCheckTool`](../../src/Pipeline/Lane/ShellCheckTool.php).
 - Discovery: [`ShellFileFinder`](../../src/Pipeline/Lane/ShellCheck/ShellFileFinder.php).
+- Captured PHP output: [`CapturedPhpOutputScanner`](../../src/Pipeline/Lane/ShellCheck/CapturedPhpOutputScanner.php).
 - The pin, the path and the fetch command: [`ShellCheckBinary`](../../src/Pipeline/Config/ShellCheckBinary.php).

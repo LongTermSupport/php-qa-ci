@@ -95,7 +95,7 @@ final readonly class OpcacheTool implements ToolInterface
             if (!$result->succeeded()) {
                 $context->writeln($result->output);
 
-                return ToolResultDto::crashed(\sprintf('optimizer dump crashed (exit %d)', $result->exitCode));
+                return ToolResultDto::crashed(\sprintf('optimizer dump crashed (%s)', $result->describeExit()));
             }
 
             $findings = [...$findings, ...$parser->parse($result->output)];

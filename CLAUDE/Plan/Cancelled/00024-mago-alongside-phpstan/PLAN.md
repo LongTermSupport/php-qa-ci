@@ -1,0 +1,123 @@
+# Plan 00024: mago alongside phpstan
+
+**Status**: Cancelled — shelved until Mago 2.0 (DECISIONS.md D13); revisit tracked by #208, blocked on [carthage-software/mago#1931](https://github.com/carthage-software/mago/issues/1931)
+**Created**: 2026-10-19
+**Owner**: dev
+**Priority**: Medium
+**Issue**: [#208](https://github.com/LongTermSupport/php-qa-ci/issues/208)
+
+## Overview
+
+Bring [Mago](https://github.com/carthage-software/mago) (a Rust PHP linter, analyser and
+formatter) into php-qa-ci without ever creating a state where **PHPStan says A and Mago says B**,
+which would make a green build impossible. The primary goal is Mago as a fast lint-on-edit
+check in the Edmonds Commerce hooks daemon, in agreement with PHPStan, so agents get edit-time
+feedback in milliseconds while PHPStan stays the in-depth final say. Per the D1 ruling, the first
+delivery is the linter only, both on edit and as a fast lane before PHPStan (Phase 6).
+
+The research ([subagent-reports/261019-mago-research.md](subagent-reports/261019-mago-research.md))
+measured Mago 1.57.0 against this repository. It is fast (one-file lint ~15ms) and, contrary to
+the working assumption, not less capable: on PHPStan-clean code it reports *more*. Its linter can
+be brought into agreement by config alone; its analyser cannot without curating codes; its
+formatter cannot coexist with PHP-CS-Fixer; and its inline `@mago-ignore` pragmas are an
+unguarded suppression route today.
+
+The core deliverable is therefore not "Mago runs" but **the agreement invariant and its
+detector** ([AGREEMENT.md](AGREEMENT.md)): an automated test, run on every pipeline and so in the
+daily dependency update, that fails on any Mago finding on PHPStan-clean code and on any
+construct one tool requires and the other forbids. Facts, recommendations and the open Owner
+decisions are in [DECISIONS.md](DECISIONS.md). Nothing was decided up front: every phase past
+the facts-and-defences phases is gated on a named decision, and the rulings made so far are
+recorded there.
+
+## Goals
+
+- A detector for the "PHPStan A / Mago B" class exists and is green before any Mago rule can
+  block anything (AGREEMENT.md I1–I7).
+- `@mago-ignore` / `@mago-expect` are caught by a `phpqaci.*` rule before Mago is enabled
+  anywhere.
+- Mago is delivered as a pinned, verified static binary under `vendor-bin/`, updated by the
+  daily dependency workflow, with no run-time download.
+- On edit, Mago runs only the agreed rule set, then PHPStan, inside the daemon's per-command
+  limit, with a measured latency.
+- Consumers get the agreed config through the config cascade and a command to check agreement
+  on their own code.
+
+## Non-Goals
+
+- Mago's formatter, in any form (recommended out; D7).
+- Porting `phpqaci.*` DBF rules to Mago extensions (recommended PHPStan-owned; DECISIONS.md Recommendation 2).
+- Mago `guard` as a PHPArkitect replacement.
+- Metric rules (complexity, method counts) unless D3 asks for them; that is new policy.
+- Any Mago `ignore` list or baseline (an Owner decision under DBF, D4).
+
+## Tasks
+
+### Phase 0: Facts the decisions need
+
+- [x] ✅ **Task 0.1**: Establish whether Mago can run "everything off except an allow-list" for linter rules and analyser codes, from its docs and a probe; record the answer against DECISIONS.md Recommendation 5. No default-off key exists; DECISIONS.md "Phase 0 facts" records the modified Recommendation 5.
+- [x] ✅ **Task 0.2**: Establish Mago's exit code on a crash, an unreadable file and a config error (report §2 marks it unverified); the detector and wrapper depend on it (I7). Four path cases exit 0 with nothing checked; I7 is tightened in AGREEMENT.md.
+- [x] ✅ **Task 0.3**: Measure per-file `qa -t phpstan -p {file}` after a real edit, warm and cold, and with the run lock held by a full run (exit 75), against the daemon's 15-second command limit. About 5.4 s warm, within 15 s but over the 5 s criterion; the setup cost is [#219](https://github.com/LongTermSupport/php-qa-ci/issues/219).
+- [x] ✅ **Task 0.4**: For install-time delivery (D6 ruling): establish where Mago publishes per-release sha256 digests, whether GitHub attestation can be verified without shelling out (or only by `gh attestation verify` in the workflow), and how a Composer install hook can fetch it without network access becoming a silent skip. Release API `digest`; attestation in the update workflow; Turbo's installer is the model.
+- [x] ✅ **Task 0.5**: Classify the 211 analyser disagreements by code into: both-accept code fix, Mago false positive, contradiction (C1 class); output feeds D4 and the corpus.
+- [ ] ⬜ **Task 0.6**: Present DECISIONS.md D1–D12 to the Owner and record the rulings there. D1, D6 and D13 (shelve) ruled; the rest lapsed with the plan, to be re-presented against Mago 2.0.
+- [ ] ⬜ **Task 0.7**: Segfault policy for the Mago crash found in Task 0.2 (C18): halt, debug, file, defend. Halted and debugged to a minimal reproduction (UPSTREAM-DRAFTS.md U1, present in 1.58.2). Not filed: with Mago not adopted, filing waits for the 2.0 revisit, where the probe is re-run first. No Mago pin is taken and no Mago-running phase starts until U1 is resolved.
+
+### Phase 1: Suppression defence (before Mago is enabled anywhere)
+
+- [ ] ⬜ **Task 1.1**: RED: rule test with fixtures for `@mago-ignore`, `@mago-expect` (docblock and line comments, the same skip contexts as `ForbidInlinePhpstanIgnoreRule`).
+- [ ] ⬜ **Task 1.2**: GREEN: the rule in the shape D5 chooses, with identifier constant, `docs/phpstan-rules/` page stating the correct construction, `bin/rules` entry, regenerated active-defences region.
+- [ ] ⬜ **Task 1.3**: Upstream request to the hooks daemon to add Mago pragmas to `qa_suppression/php_strategy.py`, body generated by `hooks-daemon issue-report`.
+- [ ] ⬜ **Task 1.4**: CHANGELOG entry under the heading `CLAUDE/releases.md` assigns a new rule.
+
+### Phase 2: Delivery (install-time fetch, per D6)
+
+- [ ] ⬜ **Task 2.1**: RED: unit tests per branch of a Mago install decision class modelled on `src/ShellCheck/InstallDecider.php` (pin present/absent, newer release, major bump refused pending Owner, digest mismatch refused).
+- [ ] ⬜ **Task 2.2**: GREEN: decider, installer (HTTP fetch, sha256 check against the committed digest, `PharData` extract, nothing shelled out) and a thin `bin/` entry run at `composer install`/`update`; the committed pin is `mago.version` plus its sha256, and the binary itself is gitignored, never committed.
+- [ ] ⬜ **Task 2.3**: Wire into `scripts/tool-install.bash update` and `update-deps.yml`, including attestation verification as Task 0.4 found possible, and changelog recording via `add-tool-updates`.
+- [ ] ⬜ **Task 2.4**: Decide by the second instance whether ShellCheck and Mago share a static-binary installer; record in this folder.
+
+### Phase 3: Agreement config, corpus and detector
+
+- [ ] ⬜ **Task 3.1**: Corpus: one probe per AGREEMENT.md case (C1–C15, P1–P8), each with its expected PHPStan verdict; PHPStan sources made visible to Mago for the run.
+- [ ] ⬜ **Task 3.2**: RED: Large test asserting I1–I7 over R ∪ corpus; it fails against Mago defaults.
+- [ ] ⬜ **Task 3.3**: `configDefaults/generic/mago.toml` with an explicit allow-list (seed: `cfg/mago-aligned.toml` from the research, minus every overlap rule per D9), resolved through `ConfigPathResolver` so `qaConfig/mago.toml` overrides.
+- [ ] ⬜ **Task 3.4**: Clear the remaining linter findings per D10 with code changes both tools accept; GREEN on the linter.
+- [ ] ⬜ **Task 3.5**: Deferred by the D1 ruling (linter only). When the analyser is taken up: admit codes one at a time per D4, each with a P± pair (I3); C1 codes stay out.
+- [ ] ⬜ **Task 3.6**: Consumer command (`bin/` entry, PHP under `src/`) running the same agreement check over a project's checked paths; doc page.
+- [ ] ⬜ **Task 3.7**: Prove the detector bites: a scratch run with a Mago default rule switched on fails I5; a planted Mago-only finding fails I1.
+
+### Phase 4: Lint on edit (after D2)
+
+- [ ] ⬜ **Task 4.1**: RED then GREEN: a PHP wrapper (`bin/` + `src/`) taking `{file}`: Mago lint (and admitted analyser codes) with the shipped config, fast-fail, then `qa -t phpstan -p {file}`; one exit code; output tells the agent PHPStan is the final say and where to report a disagreement (D11).
+- [ ] ⬜ **Task 4.2**: Update `scripts/lib/daemon-lint-override-check.inc.bash` advice to the wrapper as `extended`, keeping `php -l` (or Mago, which also reports parse errors) as `default`.
+- [ ] ⬜ **Task 4.3**: Upstream feature request to the hooks daemon for Mago in the PHP lint strategy (a third slot or a command chain), generated by `hooks-daemon issue-report`; the wrapper retires when it ships.
+- [ ] ⬜ **Task 4.4**: Configure this repository's own daemon (bin-dir is `bin/`, so PHPStan is not found on edit today) and measure p50/p95 edit latency over a fixed edit set.
+
+### Phase 5: Analyser on edit (deferred: the D1 ruling is linter only)
+
+- [ ] ⬜ **Task 5.1**: Extend the wrapper with the admitted analyser codes; re-measure; keep within the bound in Success Criteria.
+
+### Phase 6: Pre-PHPStan pipeline lane (in scope per the D1 ruling)
+
+- [ ] ⬜ **Task 6.1**: Record the `CLAUDE/tool-boundaries.md` three-question test under this plan's decisions.
+- [ ] ⬜ **Task 6.2**: Lane, registry entry, `phpqaci.mago` identifier, `docs/tools/` page, `bin/rules`, characterisation and order goldens, the five whole-set tests' `#[UsesClass]`, CLAUDE.md and `docs/pipeline.md` tool lists.
+
+## Success Criteria
+
+- [ ] AGREEMENT.md I1–I7 hold on R ∪ corpus with the shipped config: zero Mago-only findings on PHPStan-clean code, zero contradictions.
+- [ ] The agreement test runs in the full pipeline, and Task 3.7 shows it fails when agreement breaks.
+- [ ] The `@mago-*` suppression rule is live with identifier, page and `bin/rules` entry before any Mago rule is enabled.
+- [ ] No Mago `ignore` entry or baseline exists without a recorded Owner decision.
+- [ ] The Mago binary is pinned and digest-verified when it is fetched at install time (D6); nothing is downloaded at run time.
+- [ ] On edit, p95 of the wrapper is under 5 seconds and the Mago step under 1 second on this repository, measured by Task 4.4.
+- [ ] A consumer can run the agreement command on their own code.
+
+## Delivery & Milestones
+
+- Plan created; research report filed in `subagent-reports/`.
+- Phase 0 facts gathered (Tasks 0.1–0.5); the `subagent-reports/261019-phase0-*.md` reports are
+  the evidence. A Mago segfault was found and debugged (Task 0.7).
+- Shelved by the Owner (D13): cancelled until Mago 2.0 is released. DECISIONS.md "Shelving facts"
+  records why and "Revisit when Mago 2.0 is released" the first steps back in. Phases 1–6 were
+  never started.

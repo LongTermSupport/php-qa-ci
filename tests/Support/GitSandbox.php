@@ -43,12 +43,12 @@ final readonly class GitSandbox
         return $sandbox;
     }
 
-    /** Write a file in the work clone and commit it, with an optional extra commit-message paragraph (a trailer). */
-    public function commit(string $path, string $contents, string $message = 'Change', ?string $trailer = null): void
+    /** Write a file in the work clone and commit it; each of $paragraphs is a further commit-message paragraph (the last one is where git reads trailers). */
+    public function commit(string $path, string $contents, string $message = 'Change', string ...$paragraphs): void
     {
         $this->root->write('work/' . $path, $contents);
         $this->git('add', '-A');
-        $this->git('commit', '-m', $message, ...(null === $trailer ? [] : ['-m', $trailer]));
+        $this->git('commit', '-m', $message, ...array_merge(...array_map(static fn (string $paragraph): array => ['-m', $paragraph], array_values($paragraphs))));
     }
 
     public function git(string ...$args): string
@@ -66,7 +66,11 @@ final readonly class GitSandbox
         $this->root->remove();
     }
 
-    /** @return array<string, string> the environment that isolates git from the host's configuration */
+    /**
+     * An array shape, so PHPStan sees both isolating keys at every call (phpqaci.unisolatedGitProcess).
+     *
+     * @return array{GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'Sandbox', GIT_AUTHOR_EMAIL: 'sandbox@example.invalid', GIT_COMMITTER_NAME: 'Sandbox', GIT_COMMITTER_EMAIL: 'sandbox@example.invalid'} the environment that isolates git from the host's configuration
+     */
     public static function environment(): array
     {
         return [

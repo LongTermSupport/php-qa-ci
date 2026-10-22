@@ -30,7 +30,8 @@
   "require-dev": {
     "ext-dom": "*",
     "ext-libxml": "*",
-    "roave/security-advisories": "dev-master"
+    "roave/security-advisories": "dev-master",
+    "symfony/yaml": "^8.1"
   },
   "replace": {
     "phpstan/phpstan": "2.3.1"
@@ -93,11 +94,17 @@
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\FactorySealed\\": [
         "tests/assets/PHPStan/FactorySealed/"
       ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\PathWordSubstringCheck\\": [
+        "tests/assets/PHPStan/PathWordSubstringCheck/"
+      ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\ProcessStopOnThrow\\": [
         "tests/assets/PHPStan/ProcessStopOnThrow/"
       ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\RepeatedStringLiteral\\": [
         "tests/assets/PHPStan/RepeatedStringLiteral/"
+      ],
+      "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SafeCallComparedToFalse\\": [
+        "tests/assets/PHPStan/SafeCallComparedToFalse/"
       ],
       "LTS\\PHPQA\\Tests\\Assets\\PHPStan\\SensitiveParameter\\": [
         "tests/assets/PHPStan/SensitiveParameter/"
@@ -116,6 +123,7 @@
     "bin/changelog-release",
     "bin/composer-require-checker",
     "bin/config-template-ignorelist-check",
+    "bin/describe-exit",
     "bin/hooks-daemon-full-qa-blocker",
     "bin/infection",
     "bin/infection-config-source-dirs-check",

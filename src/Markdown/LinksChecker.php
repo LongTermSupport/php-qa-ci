@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Markdown;
 
 use Exception;
+use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\Helper;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -26,6 +27,12 @@ final readonly class LinksChecker
         $projectRootDirectory ??= Helper::getProjectRootDirectory();
         $files                = self::getFiles($projectRootDirectory);
         foreach ($files as $file) {
+            if (UnresolvablePath::is($file)) {
+                echo UnresolvablePath::skipped('Markdown links', $file, $projectRootDirectory) . PHP_EOL;
+
+                continue;
+            }
+
             $relativeFile = str_replace($projectRootDirectory, '', $file);
             $title        = PHP_EOL . $relativeFile . PHP_EOL . str_repeat('-', \strlen($relativeFile)) . "\n";
             $errors       = [];
@@ -78,12 +85,21 @@ final readonly class LinksChecker
             }
         }
 
+        sort($files);
+
         return $files;
     }
 
     private static function getMainReadme(string $projectRootDirectory): string
     {
         $path = $projectRootDirectory . '/README.md';
+        if (UnresolvablePath::is($path)) {
+            throw new RuntimeException(
+                "\n\nREADME.md is a symlink whose target does not exist, so its real path cannot be resolved"
+                . "\n\nPoint it at an existing file, or replace it with one, to pass QA"
+            );
+        }
+
         if (!is_file($path)) {
             throw new RuntimeException(
                 "\n\nYou have no README.md file in your project"
@@ -143,7 +159,7 @@ final readonly class LinksChecker
         $start = rtrim($projectRootDirectory, '/');
         if ('/' !== $path[0] || str_starts_with($path, './')) {
             $relativeSubdirs = \Safe\preg_replace(
-                '%^' . $projectRootDirectory . '%',
+                '%^' . preg_quote($projectRootDirectory, '%') . '%',
                 '',
                 \dirname($file)
             );

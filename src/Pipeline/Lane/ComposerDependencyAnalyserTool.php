@@ -56,7 +56,7 @@ final readonly class ComposerDependencyAnalyserTool implements ToolInterface
         $this->guidance($context);
         $context->writeIdentifier(self::IDENTIFIER);
 
-        return ToolResultDto::failed(\sprintf('composer-dependency-analyser reported problems (exit %d)', $result->exitCode));
+        return ToolResultDto::failed(\sprintf('composer-dependency-analyser reported problems (%s)', $result->describeExit()));
     }
 
     private function guidance(ToolContext $context): void

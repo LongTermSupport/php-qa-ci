@@ -15,7 +15,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  * Requires declare(strict_types=1) in every PHP file.
  *
  * Strict types prevent silent type coercion, catching bugs at the call site.
- * This is mandatory per CLAUDE.md convention — this rule enforces it.
+ * It is mandatory in php-qa-ci and in every project it checks — this rule enforces it.
  *
  * See: docs/phpstan-rules/require-declare-strict-types.md for fix documentation.
  *

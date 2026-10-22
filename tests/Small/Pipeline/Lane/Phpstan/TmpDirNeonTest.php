@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Lane\Phpstan;
 use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
+use LTS\PHPQA\Pipeline\Lane\Phpstan\Dto\PhpstanParametersDto;
 use LTS\PHPQA\Pipeline\Lane\Phpstan\TmpDirNeon;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Tests\Support\ContextFactory;
@@ -26,6 +27,9 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(NeonIncludeChainDto::class)]
 #[UsesClass(NeonRecordFileDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\DumpParametersTmpDirProbe::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupCache::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpstan\PhpstanSetupKey::class)]
+#[UsesClass(\LTS\PHPQA\PHPStan\InstalledPhpstanExtensions::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
@@ -40,6 +44,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(ToolContext::class)]
+#[UsesClass(PhpstanParametersDto::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class TmpDirNeonTest extends TestCase
@@ -57,6 +62,12 @@ final class TmpDirNeonTest extends TestCase
     private const string LANE_CACHE = '/var/qa/cache/lane';
 
     private const string PROBE_TEMP = '/probe';
+
+    private const string PROJECT_TMP_DIR = '/ci-cache/phpstan';
+
+    private const string PROJECT_TMP_DIR_NEON = "parameters:\n    tmpDir: " . self::PROJECT_TMP_DIR . "\n";
+
+    private const string PROJECT_TMP_DIR_LINE = "Lane: cache in the tmpDir the project's PHPStan configuration sets, " . self::PROJECT_TMP_DIR . "\n";
 
     private ContextFactory $factory;
 
@@ -142,7 +153,7 @@ final class TmpDirNeonTest extends TestCase
     #[Test]
     public function aLaneWritesNothingWhenTheProjectSetsTmpDirAndSaysWhere(): void
     {
-        $this->factory->project->write(self::PROJECT_NEON, "parameters:\n    tmpDir: /ci-cache/phpstan\n");
+        $this->factory->project->write(self::PROJECT_NEON, self::PROJECT_TMP_DIR_NEON);
 
         self::assertSame('', new TmpDirNeon()->forLane($this->factory->context(), self::LABEL, self::LANE));
         self::assertDirectoryDoesNotExist($this->factory->project->path . self::LANE_CACHE);
@@ -189,7 +200,7 @@ final class TmpDirNeonTest extends TestCase
     #[Test]
     public function theProjectConfigThatSetsTmpDirIsNamedRelativeToTheProject(): void
     {
-        $neon = $this->factory->project->write(self::PROJECT_NEON, "parameters:\n    tmpDir: /ci-cache/phpstan\n");
+        $neon = $this->factory->project->write(self::PROJECT_NEON, self::PROJECT_TMP_DIR_NEON);
 
         self::assertSame(self::PROJECT_NEON, new TmpDirNeon()->declaredBy($neon, $this->factory->project->path));
     }
@@ -222,24 +233,24 @@ final class TmpDirNeonTest extends TestCase
     public function aTmpDirBehindAParameterIncludeIsLeftToTheProject(): void
     {
         $this->factory->project->write(self::PROJECT_NEON, "includes:\n    - %env.SHARED_CONFIG%/tmpdir.neon\n");
-        $this->factory->processes->willSucceed($this->dump('/ci-cache/phpstan', self::PROBE_TEMP));
+        $this->factory->processes->willSucceed($this->dump(self::PROJECT_TMP_DIR, self::PROBE_TEMP));
 
         self::assertSame('', new TmpDirNeon()->forLane($this->factory->context(), self::LABEL, self::LANE));
         self::assertDirectoryDoesNotExist($this->factory->project->path . self::LANE_CACHE);
-        self::assertSame("Lane: cache in the tmpDir the project's PHPStan configuration sets, /ci-cache/phpstan\n", $this->factory->output->fetch());
+        self::assertSame(self::PROJECT_TMP_DIR_LINE, $this->factory->output->fetch());
     }
 
     /** A PHP configuration file is not NEON the walk can read; PHPStan's merged value still names it. */
     #[Test]
     public function aTmpDirSetInAPhpConfigIncludeIsLeftToTheProject(): void
     {
-        $this->factory->project->write('qaConfig/tmpdir.php', "<?php\n\nreturn ['parameters' => ['tmpDir' => '/ci-cache/phpstan']];\n");
+        $this->factory->project->write('qaConfig/tmpdir.php', "<?php\n\nreturn ['parameters' => ['tmpDir' => self::PROJECT_TMP_DIR]];\n");
         $this->factory->project->write(self::PROJECT_NEON, "includes:\n    - tmpdir.php\n");
-        $this->factory->processes->willSucceed($this->dump('/ci-cache/phpstan', self::PROBE_TEMP));
+        $this->factory->processes->willSucceed($this->dump(self::PROJECT_TMP_DIR, self::PROBE_TEMP));
 
         self::assertSame('', new TmpDirNeon()->forLane($this->factory->context(), self::LABEL, self::LANE));
         self::assertDirectoryDoesNotExist($this->factory->project->path . self::LANE_CACHE);
-        self::assertSame("Lane: cache in the tmpDir the project's PHPStan configuration sets, /ci-cache/phpstan\n", $this->factory->output->fetch());
+        self::assertSame(self::PROJECT_TMP_DIR_LINE, $this->factory->output->fetch());
         self::assertContains($this->factory->project->path . '/' . self::PROJECT_NEON, $this->factory->processes->lastSpec()->command, 'PHPStan is asked about the resolved config');
     }
 
@@ -271,6 +282,28 @@ final class TmpDirNeonTest extends TestCase
         new TmpDirNeon($probe)->forLane($this->factory->context(), self::LABEL, self::LANE, '/detector/autoload.php');
 
         self::assertSame([[\dirname(__DIR__, 5) . '/configDefaults/generic/phpstan.neon', '/detector/autoload.php']], $probe->askedAbout);
+    }
+
+    /**
+     * A lane that already holds PHPStan's parameters passes them in: the walk still names a file
+     * that sets tmpDir, and otherwise the answer given is used and PHPStan is not asked again.
+     */
+    #[Test]
+    public function aLaneHoldingTheParametersAsksNothing(): void
+    {
+        $probe    = new FixedTmpDirProbe('/never/asked');
+        $answered = new PhpstanParametersDto(self::PROJECT_TMP_DIR, [], [], ['php']);
+
+        self::assertSame('', new TmpDirNeon($probe)->forLaneFrom($this->factory->context(), self::LABEL, self::LANE, $answered));
+        self::assertSame(self::PROJECT_TMP_DIR_LINE, $this->factory->output->fetch());
+        self::assertSame(self::TMP_DIR_LINE . $this->factory->project->path . self::LANE_CACHE . "'\n", new TmpDirNeon($probe)->forLaneFrom($this->factory->context(), self::LABEL, self::LANE, null));
+        self::assertSame([], $probe->askedAbout);
+
+        $this->factory->project->write(self::PROJECT_NEON, self::PROJECT_TMP_DIR_NEON);
+        $this->factory->output->fetch();
+
+        self::assertSame('', new TmpDirNeon($probe)->forLaneFrom($this->factory->context(), self::LABEL, self::LANE, null));
+        self::assertSame("Lane: cache in the tmpDir qaConfig/phpstan.neon sets\n", $this->factory->output->fetch());
     }
 
     #[Test]

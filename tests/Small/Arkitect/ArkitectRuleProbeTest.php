@@ -28,6 +28,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
@@ -62,6 +63,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectPathsResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Exception\ProjectLayoutException::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ArkitectRuleProbeTest extends TestCase
 {
     private const string INTERFACE_BECAUSE = 'an Interface suffix makes the symbol kind obvious at every use site';
@@ -209,6 +211,25 @@ final class ArkitectRuleProbeTest extends TestCase
         } catch (ProbeFailedException $probeFailedException) {
             self::assertStringContainsString('exit 255', $probeFailedException->getMessage());
             self::assertStringContainsString('the entry config threw', $probeFailedException->getMessage());
+        }
+    }
+
+    /**
+     * The runner the command builds has no record of signalled children, so a phar a signal kills
+     * comes back as the runner's RuntimeException naming the command and the signal: no verdict.
+     */
+    #[Test]
+    public function aPharASignalKillsIsAFailureNotAVerdict(): void
+    {
+        $killed = '`php phparkitect.phar check` ended with exit code 143, killed by signal 15 (SIGTERM)';
+        $this->factory->processes->willRun(static fn (ProcessSpecDto $spec): ProcessResultDto => throw new RuntimeException($killed));
+
+        try {
+            $this->probe()->probe(self::INTERFACE_BECAUSE, $this->path(self::FIXTURE_DIR));
+            self::fail('A killed run must not produce a verdict');
+        } catch (ProbeFailedException $probeFailedException) {
+            self::assertSame('PHPArkitect did not finish, so there is no verdict: ' . $killed, $probeFailedException->getMessage());
+            self::assertInstanceOf(RuntimeException::class, $probeFailedException->getPrevious());
         }
     }
 

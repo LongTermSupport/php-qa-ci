@@ -91,7 +91,7 @@ final class RuleDocumentationTest extends TestCase
                     continue;
                 }
 
-                $missing[] = \sprintf('%s references %s', basename($path), $reference);
+                $missing[] = \sprintf('%s references %s', basename((string)$path), $reference);
             }
         }
 
@@ -303,6 +303,7 @@ final class RuleDocumentationTest extends TestCase
      */
     private function distinctWords(string $text): array
     {
+        /** @var array<array-key, true> $distinct */
         $distinct = [];
         foreach (\Safe\preg_split('/[^A-Za-z]+/', strtolower($text), -1, PREG_SPLIT_NO_EMPTY) as $word) {
             if (\is_string($word)) {
@@ -310,7 +311,7 @@ final class RuleDocumentationTest extends TestCase
             }
         }
 
-        return array_keys($distinct);
+        return array_map(strval(...), array_keys($distinct));
     }
 
     /**
@@ -318,6 +319,7 @@ final class RuleDocumentationTest extends TestCase
      */
     private function declaredIdentifiers(): array
     {
+        /** @var array<array-key, true> $identifiers */
         $identifiers = [];
 
         foreach ($this->ruleSourceFiles() as $contents) {
@@ -344,14 +346,14 @@ final class RuleDocumentationTest extends TestCase
             unset($identifiers[$example]);
         }
 
-        $unique = array_keys($identifiers);
+        $unique = array_map(strval(...), array_keys($identifiers));
         sort($unique);
 
         return $unique;
     }
 
     /**
-     * @return array<string, string> absolute path => file contents
+     * @return array<array-key, string> absolute path => file contents
      */
     private function ruleSourceFiles(): array
     {
@@ -380,6 +382,8 @@ final class RuleDocumentationTest extends TestCase
      * filtered to genuine strings. A runtime guard against
      * \Safe\preg_match_all's loosely-typed $matches out-param, so callers get
      * a real list<string> without a suppression.
+     *
+     * @param literal-string $pattern
      *
      * @return list<string>
      */

@@ -32,15 +32,19 @@ if [[ -f "$PHPQACI_BLOCK_TEMPLATE" && -f "$PHPQACI_BLOCK_WRITER" ]]; then
     # The active defences, one line each, generated from the project's own
     # configuration into the template's marked region (bin/rules does the work).
     # On failure the region keeps the template's pointer to vendor/bin/rules.
-    if ! php "$QACI_PATH/bin/rules" "$PROJECT_ROOT" --write-agent-summary="$PHPQACI_BLOCK_FILTERED"; then
-        echo "  ⚠️  Could not list the active defences — the block points to vendor/bin/rules instead" >&2
+    # A helper killed by a signal prints nothing, so each warning names how it
+    # ended (bin/describe-exit, told each is php-qa-ci's own helper).
+    RULES_RC=0
+    php "$QACI_PATH/bin/rules" "$PROJECT_ROOT" --write-agent-summary="$PHPQACI_BLOCK_FILTERED" || RULES_RC=$?
+    if [[ $RULES_RC -ne 0 ]]; then
+        echo "  ⚠️  Could not list the active defences: bin/rules failed with $(php -d display_errors=stderr "$QACI_PATH/bin/describe-exit" --php-qa-ci-helper "$RULES_RC") — the block points to vendor/bin/rules instead" >&2
     fi
 
     if bash "$PHPQACI_BLOCK_WRITER" "$PHPQACI_BLOCK_TEMPLATE" "$PHPQACI_BLOCK_TARGET"; then
         echo "  ✓ <phpqaci> block in CLAUDE.md is current"
     else
         BLOCK_RC=$?
-        echo "  ⚠️  write-claude-block.bash failed (exit $BLOCK_RC) — see message above" >&2
+        echo "  ⚠️  write-claude-block.bash failed with $(php -d display_errors=stderr "$QACI_PATH/bin/describe-exit" --php-qa-ci-helper "$BLOCK_RC")" >&2
         # Non-fatal: composer install/update should not break on this.
     fi
     rm -f "$PHPQACI_BLOCK_FILTERED"
