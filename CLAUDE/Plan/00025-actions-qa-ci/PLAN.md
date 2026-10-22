@@ -164,15 +164,26 @@ This plan does three things:
     the workflows (pull request 16); `actionsqaci.lintCoverage` with the record's
     `analyse.unanalysed` section, reading the repository's own index (pull request 19); and
     `analyse.include`, which has the lanes analyse tracked files outside the default set (pull
-    request 20). Open: `disabledDefence` as a finding of its own, `versionPin`, the comparison of
-    `requiredChecks` with real branch protection, and the record's `calibrations` section.
+    request 20); `rules --write-agent-summary`, which puts the active defences and the record's
+    narrowings in a generated region of `CLAUDE.md` or `AGENTS.md` (pull request 21), and
+    `actionsqaci.agentSummaryCurrent`, which fails when that region is stale (pull request 22).
+    A defence turned off everywhere is an exception with no path, justified like any other and
+    shown by `rules` as a narrowing, so `disabledDefence` needs no finding of its own. Open:
+    the comparison of `requiredChecks` with real branch protection, which needs no decision (a
+    real run needs the branch protection the Owner has not set, and offline it is skipped by
+    name); `versionPin`, whose useful form needs a release to pin to; and the record's
+    `calibrations` section, whose `shellcheckSeverity` waits on Task 1.6.
   - [x] Isolated lanes (pull request 13): the actionlint lane runs in a child process with a time
     limit and an output cap, so a crash or a hang is exit 4; the declared gap
     `actionlint-runs-in-process` now covers only the `rule` harness.
   - [ ] Phases 4, 6 to 9: zizmor, first-party checks and the CEL project rules, distribution,
     currency, dogfood. Phase 4 (zizmor) and phase 8 (currency) wait on Owner decisions 1.5 and 1.7
-    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). The next slices that need
-    no decision are the open items of phase 5.
+    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). The next slice that needs
+    no decision is the online comparison of `requiredChecks` (open item of phase 5). After it,
+    what is left waits on the Owner: the zizmor part of the bundle, `fix` and phase 4 (Task
+    1.5); the CEL engine, whose `cel-go` dependency the design chose (D7) but the Owner has not
+    confirmed, as a new dependency needs; the release workflow and the first release, which the
+    agent does not cut; and Task 4.4, which needs a release and zizmor.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - [x] template drift (generalising the versionPins identity check): merged, pull request 15;
   - [x] workflow coverage outside `.github/`: merged, pull requests 19 and 20;
