@@ -334,12 +334,13 @@ Projects can add their own custom rules in addition to these defaults.
 
 ## Optional Rules
 
-PHP-QA-CI ships 26 additional opt-in rules split across two files:
+PHP-QA-CI ships additional opt-in rules split across two files, and the *Available optional
+rules* table below lists every one of them under the file that declares it. A test holds the table
+to both files, so it is the count:
 
-- **`rules-optional.neon`** — 22 generic rules suitable for any PHP project (19 in its `rules:` block
-  plus 3 service-registered: `FactorySealedRule`, `ForbidDeprecatedPhpunitMethodRule` and
-  `ForbidUnautoloadableClassReferenceRule`)
-- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus 4 Symfony/Doctrine-specific rules (26 total)
+- **`rules-optional.neon`** — the generic rules, suitable for any PHP project. Most are in its
+  `rules:` block; the rest are registered as services (marked *(service)* in the table).
+- **`rules-optional-symfony.neon`** — includes `rules-optional.neon` plus the Symfony/Doctrine-specific rules
 
 These are **not** loaded automatically — you must enable them explicitly.
 
@@ -399,24 +400,34 @@ rules:
 
 ### Available optional rules
 
-| Rule                                     | File                            | What it catches                                                                                      |
-| ---------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `ForbidNullCoalescingEmptyStringRule`    | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                                               |
-| `ForbidNullCoalescingFalseRule`          | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                                             |
-| `ForbidSilentCatchRule`                  | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                                      |
-| `RequireReadonlyServiceRule`             | `rules-optional.neon`           | Service classes not declared `final readonly`                                                        |
-| `RequireVariadicOverArrayParameterRule`  | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
-| `RequireEnumOverLiteralUnionRule`        | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum                       |
-| `ForbidUnvalidatedRegexPatternRule`      | `rules-optional.neon`           | A `preg_*` pattern the code does not own, compiled where a bad one is not reported by name           |
-| `ForbidPhpWarningsInCapturedOutputRule`  | `rules-optional.neon`           | PHP run with its output captured without `-d display_errors=stderr`, so a warning lands in the value |
-| `ForbidNumericStringArrayKeyRule`        | `rules-optional.neon`           | An array keyed by a string that may be all digits, which PHP makes an int, taken as string-keyed     |
-| `FactorySealedRule`                      | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
-| `ForbidDeprecatedPhpunitMethodRule`      | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |
-| `ForbidUnautoloadableClassReferenceRule` | `rules-optional.neon` (service) | A reference from another file to a class not declared where its autoloader looks for it              |
-| `ForbidHeaderInjectionRule`              | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                                           |
-| `ForbidRawSqlRule`                       | `rules-optional-symfony.neon`   | Raw SQL strings instead of Doctrine DQL/ORM                                                          |
-| `RequireCronIntervalInDescriptionRule`   | `rules-optional-symfony.neon`   | Symfony cron commands missing interval in description                                                |
-| `RequireExplicitDIAttributeRule`         | `rules-optional-symfony.neon`   | Symfony services without explicit DI attributes                                                      |
+| Rule                                      | File                            | What it catches                                                                                      |
+| ----------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ForbidNullCoalescingEmptyStringRule`     | `rules-optional.neon`           | `$x ?? ''` — almost always a logic bug                                                               |
+| `ForbidNullCoalescingFalseRule`           | `rules-optional.neon`           | `$x ?? false` — use explicit null checks                                                             |
+| `ForbidSilentCatchRule`                   | `rules-optional.neon`           | `catch` blocks that ignore the caught exception                                                      |
+| `RequireReadonlyServiceRule`              | `rules-optional.neon`           | Service classes not declared `final readonly`                                                        |
+| `RequireVariadicOverArrayParameterRule`   | `rules-optional.neon`           | The LAST param, any param count, declared `array` and docblock-typed as a list — use variadic syntax |
+| `RequireEnumOverLiteralUnionRule`         | `rules-optional.neon`           | A scalar `@param`/`@return` typed `'a'\|'b'` or `0\|1` — declare a backed enum                       |
+| `ForbidUnvalidatedRegexPatternRule`       | `rules-optional.neon`           | A `preg_*` pattern the code does not own, compiled where a bad one is not reported by name           |
+| `ForbidPhpWarningsInCapturedOutputRule`   | `rules-optional.neon`           | PHP run with its output captured without `-d display_errors=stderr`, so a warning lands in the value |
+| `ForbidNumericStringArrayKeyRule`         | `rules-optional.neon`           | An array keyed by a string that may be all digits, which PHP makes an int, taken as string-keyed     |
+| `ForbidRepeatedStringLiteralRule`         | `rules-optional.neon`           | A string literal written three or more times in one class is an undeclared constant                  |
+| `RequireConsistentMemberDocsRule`         | `rules-optional.neon`           | A class documents every constant or none, and every property or none                                 |
+| `ForbidAmbiguousArrayDocRule`             | `rules-optional.neon`           | A docblock type `T[]` or `array<T>`, which states no keys — write `list<T>` or `array<K, V>`         |
+| `ForbidInsecureFunctionsRule`             | `rules-optional.neon`           | Broken hashes, predictable randomness and the unparameterised MySQL query functions                  |
+| `ForbidDebugOutputFunctionsRule`          | `rules-optional.neon`           | `var_dump`, `print_r` and `var_export` left printing; the return-string forms are allowed            |
+| `ForbidProcessStreamRule`                 | `rules-optional.neon`           | `STDIN`, `STDOUT`, `STDERR` and the like inside a class or function — take the stream as a parameter |
+| `ForbidUnisolatedGitProcessRule`          | `rules-optional.neon`           | A test that runs git without `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` set                       |
+| `ForbidUnhandledProcessSignalRule`        | `rules-optional.neon`           | `Process::run()`, `mustRun()` or `wait()` with no catch of `ProcessSignaledException`                |
+| `ForbidBuildConstantTypeDependentUseRule` | `rules-optional.neon`           | `PHP_ZTS` or `PHP_DEBUG` compared strictly or made a string — a bool or an int by PHP version        |
+| `ForbidHandFormattedExitCodeRule`         | `rules-optional.neon`           | A child's exit code put into text by hand — use `describeExit()`                                     |
+| `FactorySealedRule`                       | `rules-optional.neon` (service) | A class marked with a sealing attribute may be constructed only by its factory                       |
+| `ForbidDeprecatedPhpunitMethodRule`       | `rules-optional.neon` (service) | Calls to a method deprecated by the installed PHPUnit                                                |
+| `ForbidUnautoloadableClassReferenceRule`  | `rules-optional.neon` (service) | A reference from another file to a class not declared where its autoloader looks for it              |
+| `ForbidHeaderInjectionRule`               | `rules-optional-symfony.neon`   | User input passed directly to HTTP headers                                                           |
+| `ForbidRawSqlRule`                        | `rules-optional-symfony.neon`   | Raw SQL strings instead of Doctrine DQL/ORM                                                          |
+| `RequireCronIntervalInDescriptionRule`    | `rules-optional-symfony.neon`   | Symfony cron commands missing interval in description                                                |
+| `RequireExplicitDIAttributeRule`          | `rules-optional-symfony.neon`   | Symfony services without explicit DI attributes                                                      |
 
 ### Experimental rules (not in any bundle)
 
