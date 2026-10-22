@@ -140,7 +140,19 @@ This plan does three things:
   - the toolchain, chosen for a runtime-free install on any Linux host (Task 1.2);
   - which DBF conventions are taken from php-qa-ci as conventions, not as code.
 - [ ] ⬜ **Task 4.2**: Bootstrap the repository with pinned actionlint, zizmor and pinact, `rules`,
-  `rule-doc` and the justification lane.
+  `rule-doc` and the justification lane. The work is in
+  [LongTermSupport/actions-qa-ci](https://github.com/LongTermSupport/actions-qa-ci), one pull
+  request per slice, each passing a fresh sub-agent's verification and the required `CI` check
+  before it is merged. Design §13 phases:
+  - [x] Phase 1, repository floor: Go module, `dbf.json`, `version`, `help`, exit codes, README,
+    CLAUDE.md, CHANGELOG, `ci.yml` (job `CI`) (pull request 1).
+  - [x] Phase 2, core: the finding model and identifier scheme, the registry with the
+    literal-identifier ban, the `text`/`agent`/`json` output formats, `rules`, `rule-doc`, `rule`,
+    the generated identifier index and the page self-audit (pull requests 2 to 6). The `github`
+    and SARIF formats remain, with the code that needs them.
+  - [ ] Phases 3 to 9: actionlint and shellcheck, zizmor, the project record and justification
+    lane, first-party checks, distribution, currency, dogfood. Phase 4 (zizmor) and phase 8
+    (currency) wait on Owner decisions 1.5 and 1.7 ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)).
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - template drift (generalising the versionPins identity check);
   - workflow coverage outside `.github/`;
