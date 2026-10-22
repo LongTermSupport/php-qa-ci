@@ -24,6 +24,10 @@ final class Psr4ValidatorTest extends TestCase
 {
     private const string COMPOSER_JSON = '/composer.json';
 
+    private const string COMPOSER_FILE = 'composer.json';
+
+    private const string PROBE_PSR4 = '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}';
+
     private const string SHOP_ROOT = '/srv/shop';
 
     private const string SHOP_NAME = 'acme/shop';
@@ -226,7 +230,7 @@ which doesn\'t exist
         $project = TempDir::create('phpqa-psr4-unresolvable');
 
         try {
-            $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+            $project->write(self::COMPOSER_FILE, self::PROBE_PSR4);
             $project->write('src/Dup.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nuse Foo\\Bar;\nuse Baz\\Bar;\n\nfinal class Dup\n{\n}\n");
             $validator = new Psr4Validator([], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
 
@@ -248,7 +252,7 @@ which doesn\'t exist
         $project = TempDir::create('phpqa-psr4-unparseable');
 
         try {
-            $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+            $project->write(self::COMPOSER_FILE, self::PROBE_PSR4);
             $project->write('src/Broken.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class Broken\n{\n");
             $validator = new Psr4Validator([], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
 
@@ -415,7 +419,7 @@ which doesn\'t exist
     private function projectWithADanglingSymlink(): TempDir
     {
         $project = TempDir::create('phpqa-psr4-dangling');
-        $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+        $project->write(self::COMPOSER_FILE, self::PROBE_PSR4);
         $project->write('src/Real.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class Real\n{\n}\n");
         \Safe\symlink('missing-target.php', $project->path . '/src/Gone.php');
 
