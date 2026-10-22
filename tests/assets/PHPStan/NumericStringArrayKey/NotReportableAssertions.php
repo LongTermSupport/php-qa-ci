@@ -320,6 +320,23 @@ final class NotReportableAssertions
         $this->takesMap($map);
     }
 
+    public function restatingAfterTwoWholeWritesOnlyTheLastReaches(string $json): void
+    {
+        $map = json_decode($json, true);
+        $map = $this->byName;
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterThreeWholeWritesOnlyTheLastReaches(): void
+    {
+        $map = $this->byName;
+        $map = $this->byName;
+        $map = $this->byName;
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     /** @param array<string, int> $map */
     private function touch(array &$map): void
     {

@@ -237,7 +237,10 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
         $this->analyse(
             [self::FIXTURES . '/ReportableAfterQuiet.php'],
-            [[$this->message(self::MAP, $this->asserted(38, self::STRING_INT)), 38]],
+            [
+                [$this->message(self::MAP, $this->asserted(38, self::STRING_INT)), 38],
+                [$this->message(self::MAP, $this->asserted(47, self::STRING_INT)), 47],
+            ],
         );
     }
 

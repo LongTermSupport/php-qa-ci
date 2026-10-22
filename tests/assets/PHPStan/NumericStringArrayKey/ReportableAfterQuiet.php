@@ -38,6 +38,15 @@ final class ReportableAfterQuiet
         $this->takesMap($map);
     }
 
+    public function aHeldVariableThatIsAlsoAReference(): void
+    {
+        $map   = $this->byName;
+        $alias = &$map;
+        $alias = [];
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     /** @param array<string, int> $map */
     private function takesMap(array $map): void
     {
