@@ -24,6 +24,10 @@ final class Psr4ValidatorTest extends TestCase
 {
     private const string COMPOSER_JSON = '/composer.json';
 
+    private const string COMPOSER_FILE = 'composer.json';
+
+    private const string PROBE_PSR4 = '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}';
+
     private const string SHOP_ROOT = '/srv/shop';
 
     private const string SHOP_NAME = 'acme/shop';
@@ -134,7 +138,7 @@ final class Psr4ValidatorTest extends TestCase
                 ],
             ],
             'Parse Errors:'  => [
-                0 => $projectRoot . '/tests/ParseError.php',
+                0 => $projectRoot . '/tests/ParseError.php: Syntax error, unexpected T_STRING on line 5',
             ],
             'Missing Paths:' => [
                 'missing/path'         => 'Namespace root \'In\Valid\\\'
@@ -153,6 +157,112 @@ which doesn\'t exist
         ];
 
         self::assertSame($expected, $actual);
+    }
+
+    /**
+     * A file under a PSR-4 root can be autoloaded only as the one class-like its path names. A
+     * class-like with any other name, the file's only one or one beside it, can never be found by
+     * the autoloader, whether it is a class, an enum, an interface or a trait (#281). Anonymous
+     * classes and a file of functions declare nothing to load by name, so they are not reported.
+     */
+    public function testEveryClassLikeAFileDeclaresMustBeTheOneItsPathNames(): void
+    {
+        $projectRoot = \Safe\realpath(__DIR__ . '/../assets/psr4/projectClassNames/');
+        $validator   = new Psr4Validator([], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
+
+        $rename  = 'rename the class-like or the file so that the two agree';
+        $ownFile = 'move it to a file of its own, named for it';
+        self::assertSame(
+            [
+                'Class-Like Errors:' => [
+                    'Named\Classes\\' => [
+                        $this->classLikeError($projectRoot . '/src/Renamed.php', 'class', 'NotRenamed', 'Renamed', $rename),
+                        $this->classLikeError($projectRoot . '/src/WithClass.php', 'class', 'WithClassHelper', 'WithClass', $ownFile),
+                        $this->classLikeError($projectRoot . '/src/WithEnum.php', 'enum', 'Colour', 'WithEnum', $ownFile),
+                        $this->classLikeError($projectRoot . '/src/WithInterface.php', 'interface', 'Shape', 'WithInterface', $ownFile),
+                        $this->classLikeError($projectRoot . '/src/WithTrait.php', 'trait', 'Greets', 'WithTrait', $ownFile),
+                    ],
+                ],
+            ],
+            $validator->main(),
+        );
+    }
+
+    /**
+     * The namespace is the one the file declares, read from its parse: a comment or docblock
+     * that mentions a namespace before the declaration is not one, a braced namespace block is
+     * one, and a file whose only mention of a namespace is inside a string declares none, which
+     * is a parse error. In a file of several namespace blocks the first is the file's; a
+     * class-like in a later block is reported as one its path does not name.
+     */
+    public function testTheNamespaceIsTheOneTheFileDeclaresNotTheFirstMentionOfTheWord(): void
+    {
+        $projectRoot = \Safe\realpath(__DIR__ . '/../assets/psr4/projectNamespaceReading/');
+        $validator   = new Psr4Validator([], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
+        // Built from parts: the fixture's classes are not autoloadable, so no tool should read these as references.
+        $multiple = implode('\\', ['Named', 'Reading', 'Multiple']);
+        $stray    = implode('\\', ['Elsewhere', 'Stray']);
+
+        self::assertSame(
+            [
+                'Class-Like Errors:' => [
+                    'Named\Reading\\' => [
+                        [
+                            'fileInfo'          => $projectRoot . '/src/Multiple.php',
+                            'expectedClassLike' => $multiple,
+                            'declaredClassLike' => $stray,
+                            'problem'           => "class {$stray} is declared in a file whose path autoloads only {$multiple}, so no autoloader can load it: move it to a file of its own, named for it",
+                        ],
+                    ],
+                ],
+                'Parse Errors:'      => [$projectRoot . '/src/NoNamespace.php'],
+            ],
+            $validator->main(),
+        );
+    }
+
+    /**
+     * A name that cannot be resolved (a second `use` of the same short name) is a parse error
+     * naming the file, not an exception that ends the lane without saying which file.
+     */
+    public function testAFileWhoseNamesCannotBeResolvedIsAParseErrorNamingTheFile(): void
+    {
+        $project = TempDir::create('phpqa-psr4-unresolvable');
+
+        try {
+            $project->write(self::COMPOSER_FILE, self::PROBE_PSR4);
+            $project->write('src/Dup.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nuse Foo\\Bar;\nuse Baz\\Bar;\n\nfinal class Dup\n{\n}\n");
+            $validator = new Psr4Validator([], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
+
+            self::assertSame(
+                ['Parse Errors:' => [\Safe\realpath($project->path) . '/src/Dup.php: Cannot use Baz\Bar as Bar because the name is already in use on line 8']],
+                $validator->main(),
+            );
+        } finally {
+            $project->remove();
+        }
+    }
+
+    /**
+     * A file whose namespace can be read but which does not parse declares no class-like the
+     * validator can see, so it is a parse error, named with the parser's reason.
+     */
+    public function testAFileThatDoesNotParseIsAParseErrorNamingTheReason(): void
+    {
+        $project = TempDir::create('phpqa-psr4-unparseable');
+
+        try {
+            $project->write(self::COMPOSER_FILE, self::PROBE_PSR4);
+            $project->write('src/Broken.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class Broken\n{\n");
+            $validator = new Psr4Validator([], $project->path, Helper::getComposerJsonDecoded($project->path . self::COMPOSER_JSON));
+
+            self::assertSame(
+                ['Parse Errors:' => [\Safe\realpath($project->path) . '/src/Broken.php: Syntax error, unexpected EOF on line 9']],
+                $validator->main(),
+            );
+        } finally {
+            $project->remove();
+        }
     }
 
     /**
@@ -287,11 +397,29 @@ which doesn\'t exist
         return $patterns;
     }
 
+    /**
+     * One class-like finding of the projectClassNames fixture, whose namespace root is Named\Classes\.
+     *
+     * @return array{fileInfo: string, expectedClassLike: string, declaredClassLike: string, problem: string}
+     */
+    private function classLikeError(string $file, string $kind, string $declared, string $expected, string $remedy): array
+    {
+        $declaredFqcn = 'Named\Classes\\' . $declared;
+        $expectedFqcn = 'Named\Classes\\' . $expected;
+
+        return [
+            'fileInfo'          => $file,
+            'expectedClassLike' => $expectedFqcn,
+            'declaredClassLike' => $declaredFqcn,
+            'problem'           => "{$kind} {$declaredFqcn} is declared in a file whose path autoloads only {$expectedFqcn}, so no autoloader can load it: {$remedy}",
+        ];
+    }
+
     /** A valid project whose PSR-4 root holds a symlink to a file that does not exist (#241). */
     private function projectWithADanglingSymlink(): TempDir
     {
         $project = TempDir::create('phpqa-psr4-dangling');
-        $project->write('composer.json', '{"autoload": {"psr-4": {"Probe\\\": "src/"}}}');
+        $project->write(self::COMPOSER_FILE, self::PROBE_PSR4);
         $project->write('src/Real.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Probe;\n\nfinal class Real\n{\n}\n");
         \Safe\symlink('missing-target.php', $project->path . '/src/Gone.php');
 

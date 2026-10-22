@@ -89,9 +89,8 @@ final readonly class ConfigTemplateIgnoreListAuditor
 
     /**
      * A real namespace declaration is a statement at the start of a line with
-     * an identifier and a semicolon. Psr4Validator's looser pattern is fooled
-     * by a docblock that mentions the word "namespace" in prose, which one
-     * shipped template does.
+     * an identifier and a semicolon, so a docblock that mentions the word
+     * "namespace" in prose, as one shipped template does, is not one.
      */
     private function hasNamespace(string $contents): bool
     {
