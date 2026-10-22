@@ -83,6 +83,20 @@ final class RunInterruptHandlerTest extends TestCase
         yield 'Ctrl-\\'        => [\SIGQUIT, 'SIGQUIT', 131];
     }
 
+    /** A signal outside the four the handler installs for is named by its number, after a blank line. */
+    #[Test]
+    public function anUnlistedSignalIsNamedByItsNumber(): void
+    {
+        $this->lock->acquire('rector', '', 'h', 1);
+        $this->output->fetch();
+
+        self::assertSame(128 + \SIGUSR1, $this->terminateFor(\SIGUSR1, $this->handler($this->output)));
+        self::assertStringStartsWith(
+            "\n[QA] Interrupted by signal " . \SIGUSR1 . "; stopped 0 running tool process(es).\n",
+            $this->output->fetch(),
+        );
+    }
+
     #[Test]
     public function aSignalBeforeTheLockWasTakenStillTerminatesAndFreesNothing(): void
     {
@@ -123,6 +137,28 @@ final class RunInterruptHandlerTest extends TestCase
 
         self::assertSame($before, array_map(pcntl_signal_get_handler(...), RunInterruptHandler::SIGNALS));
         self::assertSame($async, pcntl_async_signals());
+    }
+
+    /** An ignored signal stays ignored, and async signals that were off are off again. */
+    #[Test]
+    public function uninstallRestoresAnIgnoredSignalAndAsyncSignalsThatWereOff(): void
+    {
+        $originalHandler = pcntl_signal_get_handler(\SIGHUP);
+        $originalAsync   = pcntl_async_signals();
+        \Safe\pcntl_signal(\SIGHUP, \SIG_IGN);
+        pcntl_async_signals(false);
+
+        try {
+            $handler = $this->handler($this->output);
+            $handler->install();
+            $handler->uninstall();
+
+            self::assertSame(\SIG_IGN, pcntl_signal_get_handler(\SIGHUP));
+            self::assertFalse(pcntl_async_signals());
+        } finally {
+            \Safe\pcntl_signal(\SIGHUP, $originalHandler);
+            pcntl_async_signals($originalAsync);
+        }
     }
 
     private function handler(OutputInterface $output): RunInterruptHandler
