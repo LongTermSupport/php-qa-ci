@@ -176,6 +176,13 @@ final readonly class NumericStringArrayKeyCollector implements Collector
     public const string CLOSURE = 'closure';
 
     /**
+     * An arrow function: it takes every variable of the enclosing body by
+     * value, so a call in it that takes one by reference writes the arrow
+     * function's own copy, never the enclosing body's variable.
+     */
+    public const string ARROW_FUNCTION = 'arrowFunction';
+
+    /**
      * A foreach over an array whose key variable nothing in the loop writes:
      * in the loop the variable holds a key PHP made, and a string PHP leaves
      * as a key is never all digits.
@@ -476,7 +483,7 @@ final readonly class NumericStringArrayKeyCollector implements Collector
         $records = match (true) {
             $node instanceof Closure                                             => [$this->closure($node, $scope), ...$this->unreadKeys($scope, ...$node->stmts), ...$this->escapes($scope, ...$node->stmts), ...$this->parameters($node, $scope), ...$this->kills($scope, ...$node->stmts)],
             $node instanceof ClassMethod, $node instanceof Function_             => [...$this->unreadKeys($scope, ...$node->getStmts() ?? []), ...$this->escapes($scope, ...$node->getStmts() ?? []), ...$this->parameters($node, $scope), ...$this->kills($scope, ...$node->getStmts() ?? [])],
-            $node instanceof ArrowFunction                                       => $this->parameters($node, $scope),
+            $node instanceof ArrowFunction                                       => [$this->record(self::ARROW_FUNCTION, $scope, $node), ...$this->parameters($node, $scope)],
             $node instanceof Assign                                              => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope), ...$this->bindings($node, $scope)],
             $node instanceof AssignRef                                           => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope, true)],
             $node instanceof CoalesceAssign, $node instanceof PlusAssign         => [...$this->writes($node, $node->var, $scope), ...$this->assigned($node, $node->var, $node->expr, $scope), ...$this->bindings($node, $scope)],

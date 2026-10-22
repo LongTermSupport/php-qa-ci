@@ -53,6 +53,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  * @phpstan-type FiledRecord array{kind: string, functionKey: string, variable: string, key: string, depths: list<int>, line: int, start: int, end: int, text: string, uses: list<string>, unless: string, file: string}
  * @phpstan-type JoinIndex array{
  *     closures: array<array-key, list<FiledRecord>>,
+ *     arrowFunctions: array<array-key, list<FiledRecord>>,
  *     globals: array<array-key, true>,
  *     keyBindings: list<FiledRecord>,
  *     unread: array<array-key, true>,
@@ -151,7 +152,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
      */
     private function index(array ...$records): array
     {
-        $index = ['closures' => [], 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => [], 'kills' => [], 'byReference' => []];
+        $index = ['closures' => [], 'arrowFunctions' => [], 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => [], 'kills' => [], 'byReference' => []];
         foreach ($records as $record) {
             if (NumericStringArrayKeyCollector::BY_REFERENCE === $record['kind']) {
                 $index['byReference'][$record['file'] . '|' . $record['variable']][]                         = $record;
@@ -159,15 +160,16 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
             }
 
             match ($record['kind']) {
-                NumericStringArrayKeyCollector::CLOSURE     => $index['closures'][$record['file']][]                                                        = $record,
-                NumericStringArrayKeyCollector::KEY_BINDING => $index['keyBindings'][]                                                                      = $record,
-                NumericStringArrayKeyCollector::UNREAD      => $index['unread'][$this->span($record)]                                                       = true,
-                NumericStringArrayKeyCollector::WRITES      => $index['writes'][$record['file']][]                                                          = $record,
-                NumericStringArrayKeyCollector::LOOP        => $index['loops'][$record['file']][]                                                           = $record,
-                NumericStringArrayKeyCollector::KILL        => $index['kills'][$record['file']][]                                                           = $record,
-                NumericStringArrayKeyCollector::BINDING     => $index['bindings'][$this->writeAt($record['file'], $record['variable'], $record['start'])][] = $record,
-                NumericStringArrayKeyCollector::ESCAPE      => $index['escapes'][$record['file'] . '|' . $record['variable']][]                             = $record['start'],
-                default                                     => null,
+                NumericStringArrayKeyCollector::CLOSURE        => $index['closures'][$record['file']][]                                                        = $record,
+                NumericStringArrayKeyCollector::ARROW_FUNCTION => $index['arrowFunctions'][$record['file']][]                                                  = $record,
+                NumericStringArrayKeyCollector::KEY_BINDING    => $index['keyBindings'][]                                                                      = $record,
+                NumericStringArrayKeyCollector::UNREAD         => $index['unread'][$this->span($record)]                                                       = true,
+                NumericStringArrayKeyCollector::WRITES         => $index['writes'][$record['file']][]                                                          = $record,
+                NumericStringArrayKeyCollector::LOOP           => $index['loops'][$record['file']][]                                                           = $record,
+                NumericStringArrayKeyCollector::KILL           => $index['kills'][$record['file']][]                                                           = $record,
+                NumericStringArrayKeyCollector::BINDING        => $index['bindings'][$this->writeAt($record['file'], $record['variable'], $record['start'])][] = $record,
+                NumericStringArrayKeyCollector::ESCAPE         => $index['escapes'][$record['file'] . '|' . $record['variable']][]                             = $record['start'],
+                default                                        => null,
             };
         }
 
@@ -348,6 +350,23 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     }
 
     /**
+     * Whether a record lies in an arrow function inside a body: an arrow
+     * function has no body record of its own, and takes the variables of the
+     * body by value, so what it does to one is not the body's write.
+     *
+     * @param FiledRecord $record
+     * @param FiledRecord $writes
+     * @param JoinIndex   $index
+     */
+    private function isInArrowFunction(array $record, array $writes, array $index): bool
+    {
+        return array_any(
+            $index['arrowFunctions'][$record['file']] ?? [],
+            static fn (array $arrow): bool => $arrow['start'] > $writes['start'] && $arrow['start'] <= $record['start'] && $record['start'] <= $arrow['end'],
+        );
+    }
+
+    /**
      * The positions of each write of a variable in a body, a call taking it
      * by reference included; null where a write of it, or of any variable,
      * cannot be followed.
@@ -373,7 +392,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
 
                 if (NumericStringArrayKeyCollector::PASSED_BY_REFERENCE === $position) {
                     foreach ($index['byReference'][$writes['file'] . '|' . $variable] ?? [] as $passed) {
-                        if ($writes['start'] === ($this->enclosingWrites($passed, $index)['start'] ?? null)) {
+                        if ($writes['start'] === ($this->enclosingWrites($passed, $index)['start'] ?? null) && !$this->isInArrowFunction($passed, $writes, $index)) {
                             $positions[] = $passed['start'];
                         }
                     }

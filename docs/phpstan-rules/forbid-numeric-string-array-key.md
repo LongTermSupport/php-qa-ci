@@ -86,8 +86,11 @@ know the keys it is put on to be strings at that depth, as for `json_decode()` d
   with the type PHPStan gives what the call writes back: a sort that keeps keys (`ksort()`,
   `asort()`, `uasort()` and the rest) keeps them, `sort()`, `rsort()`, `usort()` and `shuffle()`
   make a list, `array_push()` and `array_unshift()` add int keys, and a parameter of a function or
-  method declared with `string` keys (or a `@param-out` saying so) writes string keys. An `@var`
-  that only restates what PHPStan already knew does not fire.
+  method declared with `string` keys (or a `@param-out` saying so) writes string keys. A call in an
+  arrow function, or in a closure that imports the variable with `use` and no `&`, works on that
+  function's own copy, so it is not a write of the variable in the enclosing function; `use (&$map)`
+  shares the variable, and a call there is. An `@var` that only restates what PHPStan already knew
+  does not fire.
 
 The message names the array and the first place it is taken as string-keyed.
 
