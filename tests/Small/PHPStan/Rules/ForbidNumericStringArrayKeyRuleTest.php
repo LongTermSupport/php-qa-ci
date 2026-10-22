@@ -229,6 +229,18 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
         $this->analyse([self::FIXTURES . '/NotReportableAssertions.php'], []);
     }
 
+    /** A variable written at the top level of a script is a global to a function that imports it. */
+    #[Test]
+    public function aScriptLevelVariableIsAGlobalToAFunctionThatImportsIt(): void
+    {
+        require_once self::FIXTURES . '/ReportableScriptLevel.php';
+
+        $this->analyse(
+            [self::FIXTURES . '/ReportableScriptLevel.php'],
+            [[$this->message('$registry', 'line 21 returns it as array<string, int>'), 14]],
+        );
+    }
+
     /** A key PHP made, which is left alone, ahead of an inline @var in a body that may write any variable unseen. */
     #[Test]
     public function aFindingAfterAQuietRecordInTheSameFileIsStillReported(): void
@@ -240,6 +252,8 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
             [
                 [$this->message(self::MAP, $this->asserted(38, self::STRING_INT)), 38],
                 [$this->message(self::MAP, $this->asserted(47, self::STRING_INT)), 47],
+                [$this->message('$copy', $this->at(64, self::RETURNS)), 59],
+                [$this->message('$copy', $this->at(64, self::RETURNS)), 62],
             ],
         );
     }

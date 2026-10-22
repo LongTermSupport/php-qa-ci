@@ -47,6 +47,23 @@ final class ReportableAfterQuiet
         $this->takesMap($map);
     }
 
+    /**
+     * @param array<string, mixed> $source
+     *
+     * @return array<string, int>
+     */
+    public function aKeyThatIsNotTheLoopsKeyOrIsWrittenAfterTheLoop(array $source, string $other): array
+    {
+        $copy = [];
+        foreach ($source as $key => $_) {
+            $copy[$other] = 1;
+        }
+
+        $copy[$key] = 2;
+
+        return $copy;
+    }
+
     /** @param array<string, int> $map */
     private function takesMap(array $map): void
     {
