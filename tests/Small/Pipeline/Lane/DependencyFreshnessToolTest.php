@@ -208,7 +208,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString(self::SKIP_LINE, $printed);
-        self::assertStringContainsString('composer exited 1: No driver found to handle VCS repository /srv/gone/php-qa-ci', $printed);
+        self::assertStringContainsString('composer failed (exit 1): No driver found to handle VCS repository /srv/gone/php-qa-ci', $printed);
         self::assertStringContainsString(self::NOT_VERIFIED, $printed);
         self::assertStringNotContainsString('phpqaci.dependencyFreshness  (vendor/bin/rule-doc', $printed, 'a skip is not a failure');
     }
