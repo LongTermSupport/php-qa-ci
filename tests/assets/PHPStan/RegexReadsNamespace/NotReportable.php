@@ -46,11 +46,6 @@ final class NotReportable
         return str_contains($contents, 'namespace ');
     }
 
-    public function aWholeFileTemplateAnchoredAtItsStart(string $contents): int|false
-    {
-        return preg_match("~\\A#![^\n]*\n<\\?php\n\nnamespace Composer;\n~", $contents);
-    }
-
     public function aFirstClassCallable(): \Closure
     {
         return preg_match(...);

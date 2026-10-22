@@ -41,6 +41,8 @@ final class ForbidRegexReadingNamespaceRuleTest extends RuleTestCase
                 [ForbidRegexReadingNamespaceRule::MESSAGE, 41],
                 [ForbidRegexReadingNamespaceRule::MESSAGE, 46],
                 [ForbidRegexReadingNamespaceRule::MESSAGE, 51],
+                [ForbidRegexReadingNamespaceRule::MESSAGE, 56],
+                [ForbidRegexReadingNamespaceRule::MESSAGE, 61],
             ],
         );
     }

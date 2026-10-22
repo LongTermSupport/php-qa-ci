@@ -30,7 +30,7 @@ final class ConfigTemplateIgnoreListAuditorTest extends TestCase
 
     private const string LOOKALIKE_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/declarationLookalikes';
 
-    private const string INVALID_PATTERN_ASSETS =__DIR__ . '/../../assets/configTemplateIgnoreList/invalidPattern';
+    private const string INVALID_PATTERN_ASSETS = __DIR__ . '/../../assets/configTemplateIgnoreList/invalidPattern';
 
     private const string GENERIC_DIR = '/configDefaults/generic';
 

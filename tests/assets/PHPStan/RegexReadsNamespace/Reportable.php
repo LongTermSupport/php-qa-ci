@@ -50,4 +50,14 @@ final class Reportable
     {
         return preg_match('/(?:<\?php\s+)?namespace\s+(\w+)/', $contents);
     }
+
+    public function anchoredAtTheStartButSearchingPastLines(string $contents): int|false
+    {
+        return preg_match('/\A(?:.*\n)*?namespace\s+(\w+)/', $contents);
+    }
+
+    public function whenTheTemplateShapeIsSpelledOut(string $contents): int|false
+    {
+        return preg_match("~\\A<\\?php\n\nnamespace Composer;\n~", $contents);
+    }
 }

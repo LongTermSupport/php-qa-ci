@@ -31,15 +31,14 @@ cannot.
 
 - **A pattern PHPStan cannot read** (a parameter, a value built at run time): nothing is known of
   it.
-- **A pattern that begins with `\A`.** It describes the whole start of the text, so what comes
-  before the word is the pattern's own and no comment or string can stand in for it: it recognises a
-  file of a known shape, such as Composer's generated bin proxy, and does not search for a
-  declaration. This is a narrowing, and that is the sentence that justifies it.
 - **`class`, `interface`, `trait`, `enum` and `use` declarations.** The same hazard applies to a
   pattern that reads them, but each word is ordinary in the text other patterns read (an HTML
   `class="..."` attribute, `use` in prose), so no pattern shape separates a declaration read from
   an unrelated one without false reports.
 - **`namespace` without whitespace after it** (`\bnamespaces?\b`) or inside a longer word.
+- **Other spellings of the gap** after the word, such as `namespace[ \t]+` or `namespace\x20`, and
+  a list of patterns given to `preg_replace`: the rule reads the word followed by `\s`, `\h`,
+  `[[:space:]]` or a space in a single constant string.
 - **A search for the word by other means**, such as `str_contains($contents, 'namespace ')`. The
   hazard is the same; the shape is a different rule's.
 - **A function of that name in another namespace**, such as `Helper\preg_match()`.
@@ -77,7 +76,11 @@ Recorded as Defence Before Fix requires.
 - **What the rule found that the search missed**: `BinEntryPointScripts` matches Composer's bin
   proxy template with a pattern that spells out `namespace Composer;`. Both searches missed it
   because the word is in a constant, not on the line of the `preg_` call. It is not the hazard:
-  the pattern begins with `\A`, which is why the rule leaves a pattern of that shape alone.
+  the pattern was anchored at the start of the file and spelled out the whole proxy header, so it
+  was no search. The rule cannot tell that from a search that is also anchored with `\A` and skips
+  lines, so it reports both, and no narrowing could be justified in a sentence. The site changed
+  instead: its pattern now spells out the header only, and `DeclaredNamespaceReader` decides that
+  the namespace is `Composer`.
 - **Next wider rule, not built**: the same for `class`, `use`, `interface`, `trait` and `enum`
   declarations, because those words occur in the text other patterns legitimately read; and a rule
   for `str_contains()` and `strpos()` over a file's text for a declaration, which has no known

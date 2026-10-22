@@ -51,9 +51,6 @@ final readonly class ForbidRegexReadingNamespaceRule implements Rule
      */
     private const string DECLARATION_SHAPE = '/(?:(?<![A-Za-z0-9_])|(?<=\\\b))namespace(?:\\\[sh]| |\[\[:space:\]\])/i';
 
-    /** The assertion that the match starts at the first byte of the text. */
-    private const string START_ANCHOR = '\A';
-
     /** The vendor segment of the functions Safe re-exports, lower-cased. */
     private const string SAFE = 'safe';
 
@@ -79,23 +76,12 @@ final readonly class ForbidRegexReadingNamespaceRule implements Rule
         }
 
         foreach ($scope->getType($pattern)->getConstantStrings() as $constantString) {
-            $value = $constantString->getValue();
-            if (!$this->isAnchoredAtStart($value) && 1 === \Safe\preg_match(self::DECLARATION_SHAPE, $value)) {
+            if (1 === \Safe\preg_match(self::DECLARATION_SHAPE, $constantString->getValue())) {
                 return [RuleErrorBuilder::message(self::MESSAGE)->identifier(self::IDENTIFIER)->build()];
             }
         }
 
         return [];
-    }
-
-    /**
-     * A pattern that begins with `\A` describes the whole start of the text, so what comes before the
-     * word is the pattern's own and no comment or string can stand in for it: it recognises a file of
-     * a known shape, such as Composer's generated bin proxy, and does not search for a declaration.
-     */
-    private function isAnchoredAtStart(string $pattern): bool
-    {
-        return str_starts_with(substr($pattern, 1), self::START_ANCHOR);
     }
 
     /** PHP's own function, unqualified or global, or the one Safe re-exports. */

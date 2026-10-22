@@ -57,6 +57,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(DetectorUnpacker::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCode\BinEntryPointScripts::class)]
+#[UsesClass(\LTS\PHPQA\PhpFile\DeclaredNamespaceReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCode\AnalysedFiles::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\DeadCode\Dto\BinScanDto::class)]
 #[UsesClass(GitIgnoredFiles::class)]
