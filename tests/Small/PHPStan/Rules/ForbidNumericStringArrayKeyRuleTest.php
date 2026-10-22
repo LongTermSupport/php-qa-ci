@@ -213,6 +213,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message(self::MAP, $this->asserted(257, self::STRING_INT)), 257],
                 [$this->message(self::MAP, $this->asserted(266, self::STRING_INT)), 266],
                 [$this->message(self::MAP, $this->asserted(285, self::STRING_INT)), 285],
+                [$this->message(self::MAP, $this->asserted(296, self::STRING_INT)), 296],
             ],
         );
     }

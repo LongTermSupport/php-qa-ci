@@ -300,6 +300,26 @@ final class NotReportableAssertions
         }
     }
 
+    public function restatingAfterAnArrowFunctionSortsItsOwnCopy(): void
+    {
+        $map  = $this->byName;
+        $sort = fn () => sort($map);
+        $sort();
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
+    public function restatingAfterAClosureSortsItsOwnCopy(): void
+    {
+        $map  = $this->byName;
+        $sort = function () use ($map): void {
+            sort($map);
+        };
+        $sort();
+        /** @var array<string, int> $map */
+        $this->takesMap($map);
+    }
+
     /** @param array<string, int> $map */
     private function touch(array &$map): void
     {
