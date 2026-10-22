@@ -20,6 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ConfigTemplateIgnoreListAuditor::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Regex\RegexPattern::class)]
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PhpFile\DeclaredNamespaceReader::class)]
 #[Small]
 final class ConfigTemplateIgnoreListAuditorTest extends TestCase
 {

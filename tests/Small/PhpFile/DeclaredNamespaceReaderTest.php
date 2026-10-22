@@ -23,27 +23,29 @@ final class DeclaredNamespaceReaderTest extends TestCase
 
     private const string APP = 'App';
 
-    /** @return iterable<string, array{string, string}> source, then the namespace it declares */
-    public static function declaredNamespaces(): iterable
-    {
-        yield 'a plain declaration' => [self::OPEN . "namespace App\\Domain;\n\nfinal class A\n{\n}\n", 'App\Domain'];
-        yield 'a braced declaration' => [self::OPEN . "namespace App\\Domain {\n    final class A\n    {\n    }\n}\n", 'App\Domain'];
-        yield 'no declaration' => [self::OPEN . "final class A\n{\n}\n", ''];
-        yield 'a braced global namespace' => [self::OPEN . "namespace {\n    final class A\n    {\n    }\n}\n", ''];
-        yield 'a block comment line before the real one' => [self::OPEN . "/*\nnamespace Other;\n*/\nnamespace App;\n", self::APP];
-        yield 'a line comment and a docblock before the real one' => [self::OPEN . "// namespace Other;\n/**\n * namespace Another;\n */\nnamespace App;\n", self::APP];
-        yield 'a heredoc line in a file with no declaration' => [self::OPEN . "\$text = <<<'PHP'\nnamespace Other;\nPHP;\n", ''];
-        yield 'a string that holds a declaration' => [self::OPEN . "const TEXT = 'namespace Other;';\nnamespace App;\n", self::APP];
-        yield 'several declarations: the first' => [self::OPEN . "namespace One {\n}\nnamespace Two {\n}\n", 'One'];
-        yield 'a keyword written in capitals' => [self::OPEN . "NAMESPACE App;\n", self::APP];
-        yield 'a name that starts with the word' => [self::OPEN . "namespace namespaces\\Inner;\n", 'namespaces\Inner'];
-    }
+    private const string DOMAIN = 'App\Domain';
 
     #[Test]
     #[DataProvider('declaredNamespaces')]
     public function aSourceNamesTheNamespaceItDeclares(string $source, string $expected): void
     {
         self::assertSame($expected, new DeclaredNamespaceReader()->fromSource($source));
+    }
+
+    /** @return iterable<string, array{string, string}> source, then the namespace it declares */
+    public static function declaredNamespaces(): iterable
+    {
+        yield 'a plain declaration' => [self::OPEN . "namespace App\\Domain;\n\nfinal class A\n{\n}\n", self::DOMAIN];
+        yield 'a braced declaration' => [self::OPEN . "namespace App\\Domain {\n    final class A\n    {\n    }\n}\n", self::DOMAIN];
+        yield 'no declaration' => [self::OPEN . "final class A\n{\n}\n", ''];
+        yield 'a braced global namespace' => [self::OPEN . "namespace {\n    final class A\n    {\n    }\n}\n", ''];
+        yield 'a block comment line before the real one' => [self::OPEN . "/*\nnamespace Other;\n*/\nnamespace App;\n", self::APP];
+        yield 'a line comment and a docblock before the real one' => [self::OPEN . "// namespace Other;\n/**\n * namespace Another;\n */\nnamespace App;\n", self::APP];
+        yield 'a heredoc line in a file with no declaration' => [self::OPEN . "\$text = <<<'PHP'\nnamespace Other;\nPHP;\n", ''];
+        yield 'a string that holds a declaration' => [self::OPEN . "namespace App;\n\nconst TEXT = 'namespace Other;';\n", self::APP];
+        yield 'several declarations: the first' => [self::OPEN . "namespace One {\n}\nnamespace Two {\n}\n", 'One'];
+        yield 'a keyword written in capitals' => [self::OPEN . "NAMESPACE App;\n", self::APP];
+        yield 'a name that starts with the word' => [self::OPEN . "namespace namespaces\\Inner;\n", 'namespaces\Inner'];
     }
 
     #[Test]
@@ -60,7 +62,7 @@ final class DeclaredNamespaceReaderTest extends TestCase
         try {
             $path = $project->write('src/A.php', self::OPEN . "namespace App\\Domain;\n");
 
-            self::assertSame('App\Domain', new DeclaredNamespaceReader()->fromFile($path));
+            self::assertSame(self::DOMAIN, new DeclaredNamespaceReader()->fromFile($path));
         } finally {
             $project->remove();
         }

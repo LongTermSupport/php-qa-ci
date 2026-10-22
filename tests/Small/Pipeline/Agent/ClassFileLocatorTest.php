@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Agent;
 
+use LTS\PHPQA\PhpFile\DeclaredNamespaceReader;
 use LTS\PHPQA\Pipeline\Agent\ClassFileLocator;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
 #[CoversClass(ClassFileLocator::class)]
+#[UsesClass(DeclaredNamespaceReader::class)]
 #[Small]
 final class ClassFileLocatorTest extends TestCase
 {
