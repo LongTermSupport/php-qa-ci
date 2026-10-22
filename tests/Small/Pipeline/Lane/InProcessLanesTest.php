@@ -83,6 +83,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeCheck::class)]
 #[UsesClass(\LTS\PHPQA\PackageType\ExplicitPackageTypeDetector::class)]
 #[UsesClass(\LTS\PHPQA\ConfigTemplateIgnoreList\ConfigTemplateIgnoreListAuditor::class)]
+#[UsesClass(\LTS\PHPQA\PhpFile\DeclaredNamespaceReader::class)]
 #[UsesClass(\LTS\PHPQA\ConfigTemplateIgnoreList\ConfigTemplateIgnoreListCheck::class)]
 #[UsesClass(\LTS\PHPQA\Markdown\LinksChecker::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool::class)]
