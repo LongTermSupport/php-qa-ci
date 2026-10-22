@@ -196,7 +196,7 @@
 #                                          inline @var over data whose keys PHPStan does
 #                                          not know, are judged the same way.
 #                                          Declare such keys array-key and cast a key to
-#                                          string where one is read. Its two collectors are
+#                                          string where one is read. Its three collectors are
 #                                          registered under services: below. See
 #                                          docs/phpstan-rules/forbid-numeric-string-array-key.md
 #
@@ -333,6 +333,10 @@ services:
             - phpstan.collector
     -
         class: LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector
+        tags:
+            - phpstan.collector
+    -
+        class: LTS\PHPQA\PHPStan\Rules\ArrowFunctionSpanCollector
         tags:
             - phpstan.collector
     # The collector ForbidHandFormattedExitCodeRule (under rules: above) matches.
