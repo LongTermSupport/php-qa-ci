@@ -39,6 +39,7 @@ use Symfony\Component\Process\Process;
 #[CoversClass(UpdateDryRunOutput::class)]
 #[CoversClass(StaleDependencyDto::class)]
 #[CoversClass(DependencyFreshnessPatterns::class)]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -208,7 +209,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString(self::SKIP_LINE, $printed);
-        self::assertStringContainsString('composer exited 1: No driver found to handle VCS repository /srv/gone/php-qa-ci', $printed);
+        self::assertStringContainsString('composer failed (exit 1): No driver found to handle VCS repository /srv/gone/php-qa-ci', $printed);
         self::assertStringContainsString(self::NOT_VERIFIED, $printed);
         self::assertStringNotContainsString('phpqaci.dependencyFreshness  (vendor/bin/rule-doc', $printed, 'a skip is not a failure');
     }

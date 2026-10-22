@@ -226,7 +226,7 @@ final readonly class DeadCodeTool implements ToolInterface
     {
         $result = $context->processes->run(new ProcessSpecDto(GitIgnoredFiles::COMMAND, $context->config->paths->projectRoot, streamOutput: false));
         if (!$result->succeeded()) {
-            $context->writeln(\sprintf('%s: git could not list the ignored files (exit %d), so no file under bin/ is skipped as git-ignored', self::LABEL, $result->exitCode));
+            $context->writeln(\sprintf('%s: git could not list the ignored files (%s), so no file under bin/ is skipped as git-ignored', self::LABEL, $result->describeExit()));
 
             return GitIgnoredFiles::none();
         }

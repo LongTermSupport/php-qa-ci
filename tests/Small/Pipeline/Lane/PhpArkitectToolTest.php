@@ -53,6 +53,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class PhpArkitectToolTest extends TestCase
 {
     private const string CLASS_NAMESPACE = 'App';

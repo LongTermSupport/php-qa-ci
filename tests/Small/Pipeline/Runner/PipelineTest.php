@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Runner;
 
 use LTS\PHPQA\ComposerPlugin\ChildExit;
+use LTS\PHPQA\Pipeline\Agent\AgentStatusEnum;
+use LTS\PHPQA\Pipeline\Agent\TerseReporter;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
@@ -79,6 +81,8 @@ use RuntimeException;
 #[UsesClass(ChildExit::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
+#[UsesClass(AgentStatusEnum::class)]
+#[UsesClass(TerseReporter::class)]
 #[Small]
 final class PipelineTest extends TestCase
 {
@@ -510,6 +514,92 @@ final class PipelineTest extends TestCase
         );
         self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
         self::assertNull($this->lockRecord());
+    }
+
+    /**
+     * A probe that exited 139 itself relayed a crash below it, and was not killed: the halt says
+     * what happened, and stops the run exactly as a kill does.
+     */
+    #[Test]
+    public function aChildThatRelayedACrashWhileTheRunWasPreparedHaltsItAndIsNotCalledKilled(): void
+    {
+        $this->signalled->record(new SignalledChildDto('sh -c probe', \SIGSEGV, exitedItself: true));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+
+        self::assertSame(
+            "\nHALTED: a process run while the run was being prepared reported a crash below it, so the run stops here:\n"
+            . '  `sh -c probe` ended with ' . ChildExit::describeExitedItself(139) . "\n",
+            $this->factory->output->fetch(),
+        );
+        self::assertSame(0, $this->tools->stub(self::RECTOR)->runs);
+        self::assertNull($this->lockRecord());
+    }
+
+    /** Both kinds at once are both named in the halt. */
+    #[Test]
+    public function aKilledAndARelayingChildAreBothNamedInTheHalt(): void
+    {
+        $this->signalled->record(new SignalledChildDto('php -r probe', \SIGTERM));
+        $this->signalled->record(new SignalledChildDto('sh -c probe', \SIGSEGV, exitedItself: true));
+
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline()->run($context));
+
+        self::assertStringStartsWith(
+            "\nHALTED: a process run while the run was being prepared was killed by a signal or reported a crash below it, so the run stops here:\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
+    /**
+     * In agent mode a lane whose child crashed exits 3, so its stdout must not say clean: the
+     * lane's terse verdict rests on a tool that never finished, and the crash replaces it.
+     */
+    #[Test]
+    public function inAgentModeACrashedChildReplacesTheLanesTerseVerdict(): void
+    {
+        $this->tools->register(new SignalledChildTool(self::PHPSTAN, $this->signalled, \SIGSEGV, true, 'PHPSTAN AGENT MODE: 0 errors in 1 file'));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, agentMode: true, singleTool: self::PHPSTAN)->build());
+
+        self::assertSame(AgentStatusEnum::Crashed->exitCode(), $this->pipeline()->run($context));
+
+        self::assertSame(
+            'PHPSTAN AGENT MODE: crashed — phpstan crashed: `fake phpstan` ended with ' . ChildExit::describeExitedItself(139) . "\n"
+            . "NO VERDICT: a process the tool ran crashed, so no report this run wrote is a result. Find out why from the line above before re-running; a segmentation fault is never retried past.\n",
+            $this->factory->stdout->fetch(),
+        );
+    }
+
+    /** With no crash, agent mode's stdout is the lane's own terse verdict, unchanged. */
+    #[Test]
+    public function inAgentModeALaneWithNoCrashKeepsItsTerseVerdict(): void
+    {
+        $this->tools->register(new class implements ToolInterface {
+            public function name(): string
+            {
+                return 'phpstan';
+            }
+
+            public function identifier(): string
+            {
+                return 'phpqaci.phpstan';
+            }
+
+            public function run(ToolContext $context): ToolResultDto
+            {
+                $context->stdout->writeln('PHPSTAN AGENT MODE: 0 errors in 1 file');
+
+                return ToolResultDto::passed();
+            }
+        });
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false, agentMode: true, singleTool: self::PHPSTAN)->build());
+
+        self::assertSame(AgentStatusEnum::Clean->exitCode(), $this->pipeline()->run($context));
+
+        self::assertSame("PHPSTAN AGENT MODE: 0 errors in 1 file\n", $this->factory->stdout->fetch());
     }
 
     /** A hook's child killed by a signal stops the run there; a hook fails a run by throwing, and this one could not. */

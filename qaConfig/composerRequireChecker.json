@@ -48,6 +48,7 @@
     "PHPStan\\Type\\Constant\\ConstantStringType",
     "PHPStan\\Type\\FileTypeMapper",
     "PHPStan\\Type\\Generic\\TemplateType",
+    "PHPStan\\Type\\IntegerRangeType",
     "PHPStan\\Type\\IntegerType",
     "PHPStan\\Type\\IterableType",
     "PHPStan\\Type\\MixedType",

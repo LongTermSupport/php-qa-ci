@@ -44,6 +44,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class RectorToolTest extends TestCase
 {
     private const string ADVISORY = 'Rector ran in WRITABLE mode and may have rewritten files. DO NOT FIGHT IT.';
@@ -380,7 +381,7 @@ final class RectorToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertCount(1, $this->rectorSpecs());
-        self::assertStringContainsString("Rector ('Safe') failed with exit code 1 (a genuine error, not a pending-change diff)", $printed);
+        self::assertStringContainsString("Rector ('Safe') failed with exit 1 (a genuine error, not a pending-change diff)", $printed);
         self::assertStringContainsString(RectorTool::IDENTIFIER, $printed);
         self::assertStringNotContainsString(self::PENDING_CHANGES_LINE, $printed);
     }

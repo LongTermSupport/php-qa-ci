@@ -223,9 +223,9 @@ final class SymfonyProcessRunnerTest extends TestCase
 
         self::assertSame(139, $result->exitCode);
         self::assertNull($result->signal);
-        self::assertEquals([new SignalledChildDto($spec->commandLine(), \SIGSEGV)], $signalled->take());
+        self::assertEquals([new SignalledChildDto($spec->commandLine(), \SIGSEGV, exitedItself: true)], $signalled->take());
         self::assertSame(
-            \sprintf("++ %s\n!! `%s` ended with exit code 139, killed by signal 11 (SIGSEGV): %s\n", $spec->commandLine(), $spec->commandLine(), \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice()),
+            \sprintf("++ %s\n!! `%s` ended with %s\n", $spec->commandLine(), $spec->commandLine(), \LTS\PHPQA\ComposerPlugin\ChildExit::describeExitedItself(139)),
             $output->fetch(),
         );
     }

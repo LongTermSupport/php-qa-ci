@@ -57,8 +57,9 @@ final readonly class ToolExecutor
     }
 
     /**
-     * A child of the lane was killed by a signal, so the lane crashed whatever
-     * it made of the exit code: its verdict rests on a tool that never finished.
+     * A child of the lane was killed by a signal, or exited 139 to relay a
+     * crash below it, so the lane crashed whatever it made of the exit code:
+     * its verdict rests on a tool that never finished.
      */
     private function crashed(string $name, bool $retried, SignalledChildDto ...$crashes): ExecutionDto
     {
@@ -69,7 +70,12 @@ final readonly class ToolExecutor
         ));
         $this->failureBanner($name, $result->summary);
 
-        return new ExecutionDto($result, $retried, array_any($crashes, static fn (SignalledChildDto $crash): bool => $crash->isSegmentationFault()));
+        return new ExecutionDto(
+            $result,
+            $retried,
+            array_any($crashes, static fn (SignalledChildDto $crash): bool => $crash->isSegmentationFault()),
+            childCrashed: true,
+        );
     }
 
     private function failureBanner(string $name, string $summary): void

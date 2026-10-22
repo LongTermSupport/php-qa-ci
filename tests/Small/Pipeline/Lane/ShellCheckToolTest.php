@@ -42,6 +42,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class ShellCheckToolTest extends TestCase
 {
     private const string BANNER = "ShellCheck - shell script analysis tool\nversion: 0.11.0\n";

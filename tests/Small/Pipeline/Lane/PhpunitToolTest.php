@@ -38,6 +38,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class PhpunitToolTest extends TestCase
 {
     private const string TESTS_BOOTSTRAP_PHP = 'tests/bootstrap.php';

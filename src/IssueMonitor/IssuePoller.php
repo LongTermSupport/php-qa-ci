@@ -109,7 +109,7 @@ final readonly class IssuePoller
         // The daemon CLI's absolute path adds nothing a reader needs.
         $shown = $program === $this->hooksDaemonCli ? implode(' ', $arguments) : $program . ' ' . implode(' ', $arguments);
         if (!$result->succeeded()) {
-            throw new RuntimeException(\sprintf('%s failed (exit %d): %s', $shown, $result->exitCode, trim($result->output)));
+            throw new RuntimeException(\sprintf('%s failed (%s): %s', $shown, $result->describeExit(), trim($result->output)));
         }
 
         try {

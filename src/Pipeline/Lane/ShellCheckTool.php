@@ -157,7 +157,7 @@ final readonly class ShellCheckTool implements ToolInterface
         $context->writeln($result->output);
 
         if (self::EXIT_FINDINGS !== $result->exitCode) {
-            return ToolResultDto::crashed(\sprintf('ShellCheck crashed (exit %d)', $result->exitCode));
+            return ToolResultDto::crashed(\sprintf('ShellCheck crashed (%s)', $result->describeExit()));
         }
 
         return ToolResultDto::failed('ShellCheck reported findings');
@@ -197,7 +197,7 @@ final readonly class ShellCheckTool implements ToolInterface
 
         $context->writeln(\sprintf(
             'The vendored ShellCheck reports %s but this checkout pins %s.',
-            $reported ?? \sprintf('nothing readable (exit %d)', $result->exitCode),
+            $reported ?? \sprintf('nothing readable (%s)', $result->describeExit()),
             $pinned,
         ));
         $context->writeln('One pinned build has to run in every environment, or QA and CI are not the same check.');

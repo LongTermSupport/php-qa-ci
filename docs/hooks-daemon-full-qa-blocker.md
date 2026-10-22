@@ -65,7 +65,9 @@ reads the log and returns a per-lane summary; it never runs the pipeline itself.
 - **Validation.** The new text is written to a candidate file beside the config and checked
   with `.claude/hooks-daemon/bin/hooks-daemon config-validate`. Only an accepted candidate
   replaces the config, keeping its permissions; a rejection, or a daemon CLI that cannot
-  run, leaves the config as it was.
+  run, leaves the config as it was. A `config-validate` that crashes is no rejection: an
+  exit from 129 to 192 is reported as `config-validate did not finish`, with how it ended
+  (for 139, a crash below the daemon's wrapper), and the config is left as it was.
 - **Restart.** A running daemon keeps its old config until it restarts, so the step prints
   the restart command instead of running it: composer may run where that daemon is not
   reachable, and restarting it would interrupt whichever session owns it.

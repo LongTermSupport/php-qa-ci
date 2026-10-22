@@ -175,6 +175,25 @@ final class ToolExecutorTest extends TestCase
         );
     }
 
+    /**
+     * A child that exited 139 itself relays a crash below it: the lane crashed with a segfault, and
+     * the line says the child exited with the code, never that a signal killed it.
+     */
+    #[Test]
+    public function aLaneWhoseChildRelayedASegfaultIsMarkedAndNotCalledKilled(): void
+    {
+        $signalled = new SignalledChildren();
+        $locator   = new FakeToolLocator()->register(new SignalledChildTool(self::STAN, $signalled, \SIGSEGV, exitedItself: true));
+        $executor  = new ToolExecutor($locator, new NonInteractiveRetryPrompt(), $this->factory->output, $signalled);
+
+        $execution = $executor->execute(self::STAN, $this->factory->context());
+
+        self::assertTrue($execution->segmentationFault);
+        self::assertTrue($execution->childCrashed);
+        self::assertSame('stan crashed: `fake stan` ended with ' . ChildExit::describeExitedItself(139), $execution->result->summary);
+        self::assertStringNotContainsString('killed by', $this->factory->output->fetch());
+    }
+
     /** A passing lane that ran no signalled child is not marked. */
     #[Test]
     public function aPassingLaneIsNotMarked(): void
@@ -182,7 +201,10 @@ final class ToolExecutorTest extends TestCase
         $locator  = new FakeToolLocator()->register(new StubTool(self::TOOL_LINT, ToolResultDto::passed()));
         $executor = new ToolExecutor($locator, new NonInteractiveRetryPrompt(), $this->factory->output, new SignalledChildren());
 
-        self::assertFalse($executor->execute(self::TOOL_LINT, $this->factory->context())->segmentationFault);
+        $execution = $executor->execute(self::TOOL_LINT, $this->factory->context());
+
+        self::assertFalse($execution->segmentationFault);
+        self::assertFalse($execution->childCrashed);
     }
 
     /** The whole failure banner around the given heading lines, as the executor prints it. */

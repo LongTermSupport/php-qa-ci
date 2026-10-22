@@ -46,6 +46,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ToolOutcomeEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class PhpCsFixerToolTest extends TestCase
 {
     private const string LINT_ERROR_LINE = "Files that were not fixed due to errors:\n   1) src/Broken.php\n";
@@ -182,7 +183,7 @@ final class PhpCsFixerToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
-        self::assertStringContainsString('PHP CS Fixer failed with exit code 1 (a genuine error, not a pending-fix diff)', $printed);
+        self::assertStringContainsString('PHP CS Fixer failed with exit 1 (a genuine error, not a pending-fix diff)', $printed);
         self::assertStringContainsString(PhpCsFixerTool::IDENTIFIER, $printed);
         self::assertStringNotContainsString('pending changes in a READ-ONLY run', $printed);
     }

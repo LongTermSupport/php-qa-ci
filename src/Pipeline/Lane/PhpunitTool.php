@@ -187,7 +187,7 @@ final readonly class PhpunitTool implements ToolInterface
             $context->php->withoutXdebug($phpunitBinary, [$paths->testsDir, '--debug'], $paths->projectRoot, ['qaQuickTests' => $env['phpUnitQuickTests']]);
             $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::crashed(\sprintf('PHPUnit crashed (exit %d)', $exitCode));
+            return ToolResultDto::crashed(\sprintf('PHPUnit crashed (%s)', $result->describeExit()));
         }
 
         $context->writeIdentifier(self::IDENTIFIER);

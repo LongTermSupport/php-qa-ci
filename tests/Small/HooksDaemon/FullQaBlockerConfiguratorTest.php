@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\HooksDaemon;
 
+use LTS\PHPQA\ComposerPlugin\ChildExit;
 use LTS\PHPQA\HooksDaemon\ConfigureOutcomeEnum;
 use LTS\PHPQA\HooksDaemon\Dto\YamlEditResultDto;
 use LTS\PHPQA\HooksDaemon\FullQaBlockerBlockRenderer;
@@ -39,10 +40,15 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(YamlEditResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(ProcessResultDto::class)]
+#[UsesClass(ChildExit::class)]
 #[Small]
 final class FullQaBlockerConfiguratorTest extends TestCase
 {
-    private const string CONFIG = '.claude/hooks-daemon.yaml';
+    private const string CLAUDE_DIR = '.claude';
+
+    private const string CONFIG_FILE = 'hooks-daemon.yaml';
+
+    private const string CONFIG = self::CLAUDE_DIR . '/' . self::CONFIG_FILE;
 
     private const string CLI = '.claude/hooks-daemon/bin/hooks-daemon';
 
@@ -87,7 +93,7 @@ final class FullQaBlockerConfiguratorTest extends TestCase
         self::assertSame($this->project->path, $spec->cwd);
         self::assertFalse($spec->streamOutput);
         self::assertSame(0o640, \Safe\fileperms($this->configPath()) & 0o777, 'the config keeps its permissions');
-        self::assertSame(['hooks-daemon.yaml'], $this->project->files('.claude'), 'no candidate file is left behind');
+        self::assertSame([self::CONFIG_FILE], $this->project->files(self::CLAUDE_DIR), 'no candidate file is left behind');
         self::assertStringContainsString('subagent_full_qa_blocker configured', $this->output->fetch());
     }
 
@@ -108,10 +114,33 @@ final class FullQaBlockerConfiguratorTest extends TestCase
 
         self::assertSame(ConfigureOutcomeEnum::Rejected, $outcome);
         self::assertSame(self::ORIGINAL, $this->project->read(self::CONFIG));
-        self::assertSame(['hooks-daemon.yaml'], $this->project->files('.claude'));
+        self::assertSame([self::CONFIG_FILE], $this->project->files(self::CLAUDE_DIR));
         $printed = $this->output->fetch();
         self::assertStringContainsString('exit 1', $printed);
         self::assertStringContainsString('    unknown key: full_qa_patterns', $printed);
+    }
+
+    /**
+     * bin/hooks-daemon is a wrapper, so a crash below it comes back as its own exit 139: that is no
+     * verdict on the change, and is named as the crash it relays, never as a rejection.
+     */
+    #[Test]
+    public function aValidatorThatRelaysACrashIsNotCalledARejection(): void
+    {
+        $outcome = $this->configurator($this->validatorSeeing(139, "Segmentation fault (core dumped)\n"))
+            ->configure($this->project->path, $this->configPath())
+        ;
+
+        self::assertSame(ConfigureOutcomeEnum::CannotValidate, $outcome);
+        self::assertSame(self::ORIGINAL, $this->project->read(self::CONFIG));
+        self::assertSame([self::CONFIG_FILE], $this->project->files(self::CLAUDE_DIR));
+        $printed = $this->output->fetch();
+        self::assertStringContainsString(
+            \sprintf('⚠️  config-validate did not finish (exit 139%s), so %s is left untouched:', ChildExit::exitedItself(139), $this->configPath()),
+            $printed,
+        );
+        self::assertStringNotContainsString('rejected', $printed);
+        self::assertStringContainsString('    Segmentation fault (core dumped)', $printed);
     }
 
     #[Test]

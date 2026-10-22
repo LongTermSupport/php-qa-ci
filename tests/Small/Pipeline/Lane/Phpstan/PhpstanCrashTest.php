@@ -130,9 +130,19 @@ final class PhpstanCrashTest extends TestCase
     #[Test]
     public function anExitASignalCausedNamesTheSignal(): void
     {
-        self::assertSame('PHPStan crashed (exit 143, killed by signal 15 (SIGTERM))', PhpstanCrash::reason(new ProcessResultDto(143, '', '')));
+        self::assertSame('PHPStan crashed (exit 143, killed by signal 15 (SIGTERM))', PhpstanCrash::reason(new ProcessResultDto(143, '', '', \SIGTERM)));
         self::assertSame(
             'PHPStan crashed (exit 139, killed by signal 11 (SIGSEGV): ' . \LTS\PHPQA\ComposerPlugin\ChildExit::segfaultAdvice() . ')',
+            PhpstanCrash::jsonReason(new ProcessResultDto(139, '', '', \SIGSEGV)),
+        );
+    }
+
+    /** A PHPStan that exited 139 itself relays a crash below it, and is not called killed. */
+    #[Test]
+    public function anExitWithASignalsCodeItselfIsNotCalledAKill(): void
+    {
+        self::assertSame(
+            'PHPStan crashed (exit 139' . \LTS\PHPQA\ComposerPlugin\ChildExit::exitedItself(139) . ')',
             PhpstanCrash::jsonReason(new ProcessResultDto(139, '', '')),
         );
     }

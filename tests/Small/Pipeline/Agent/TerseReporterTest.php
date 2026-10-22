@@ -108,6 +108,19 @@ final class TerseReporterTest extends TestCase
         self::assertStringContainsString('ACTION REQUIRED', $lines[2]);
     }
 
+    /** A crashed child leaves no report that is a result, so none is named, and no fix is asked for. */
+    #[Test]
+    public function aCrashedChildIsNamedAndNoReportIsOffered(): void
+    {
+        $this->reporter->childCrashed(self::PHPSTAN, 'phpstan crashed: `sh` ended with exit code 139');
+        $lines = $this->lines();
+
+        self::assertCount(2, $lines);
+        self::assertSame('PHPSTAN AGENT MODE: crashed — phpstan crashed: `sh` ended with exit code 139', $lines[0]);
+        self::assertStringStartsWith('NO VERDICT: ', $lines[1]);
+        self::assertStringNotContainsString('REPORT: ', $this->stdout->fetch());
+    }
+
     /** @return list<string> the non-empty lines written to stdout */
     private function lines(): array
     {

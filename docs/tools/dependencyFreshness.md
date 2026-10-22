@@ -60,7 +60,7 @@ when Composer gave no answer within 180 seconds, or when Composer's output holds
 at all. A skip looks like this:
 
 ```text
-SKIPPED dependencyFreshness (phpqaci.dependencyFreshness): could not determine whether the locked dependencies are up to date: composer exited 1: Failed to clone https://github.com/LongTermSupport/php-qa-ci.git. composer.lock was NOT verified for: lts/php-qa-ci.
+SKIPPED dependencyFreshness (phpqaci.dependencyFreshness): could not determine whether the locked dependencies are up to date: composer failed (exit 1): Failed to clone https://github.com/LongTermSupport/php-qa-ci.git. composer.lock was NOT verified for: lts/php-qa-ci.
 ```
 
 A `composer` that is a shell script looks like this:

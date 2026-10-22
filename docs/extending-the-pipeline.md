@@ -91,7 +91,7 @@ final readonly class SecurityAuditTool implements ToolInterface
             $context->config->paths->projectRoot,
         ));
 
-        return ToolResultDto::fromExitCode($result->exitCode, 'composer audit');
+        return ToolResultDto::fromProcessResult($result, 'composer audit');
     }
 }
 ```

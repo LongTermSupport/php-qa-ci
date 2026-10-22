@@ -3,9 +3,12 @@
 A program that ends with exit code 139, `killed by signal 11 (SIGSEGV)`, crashed with a
 segmentation fault. php-qa-ci names it that way wherever it reports how a child process ended,
 and `vendor/bin/describe-exit <exit code>` gives the same description to a script of your own.
-In a `qa` run, a tool whose process crashes this way halts the run. This holds whether a signal
-killed the process or it exited 139 itself, as a shell does for a command that crashed. The run
-halts with
+A program can also exit 139 itself without being killed. A shell does this when the command it
+ran crashed, and so does a tool that re-runs itself and relays its copy's crash. Where php-qa-ci
+knows no signal killed the process, it says so: `exit code 139, which it exited with itself: the code a shell gives for signal 11 (SIGSEGV), so a process below it crashed`. The crash to find is
+then below the process named.
+
+In a `qa` run, a tool whose process crashes either way halts the run. The run halts with
 `HALTED: <tool> crashed with a segmentation fault, so no further tool runs.` and a line
 pointing at this page, as [the pipeline's exit codes](pipeline.md#exit-codes) describe.
 

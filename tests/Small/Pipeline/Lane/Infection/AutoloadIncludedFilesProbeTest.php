@@ -40,6 +40,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
+#[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 final class AutoloadIncludedFilesProbeTest extends TestCase
 {
     private const string AUTOLOAD = '/project/vendor/autoload.php';
@@ -113,7 +114,7 @@ final class AutoloadIncludedFilesProbeTest extends TestCase
         $this->factory->processes->willReturn(new ProcessResultDto(255, "\nPHP Fatal error:  Failed opening required\n", $this->answer(...self::FILES)));
 
         self::assertSame(
-            "it exited 255:\nPHP Fatal error:  Failed opening required",
+            "it ended with exit 255:\nPHP Fatal error:  Failed opening required",
             new AutoloadIncludedFilesProbe()->includedFiles($this->factory->context(), self::AUTOLOAD),
         );
     }
