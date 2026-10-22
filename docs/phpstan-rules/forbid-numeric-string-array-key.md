@@ -303,5 +303,6 @@ offered for the projects that key arrays by names from outside, and php-qa-ci ru
 ## Implementation
 
 - Rule: [`ForbidNumericStringArrayKeyRule`](../../src/PHPStan/Rules/ForbidNumericStringArrayKeyRule.php)
-- Collectors: [`NumericStringArrayKeyCollector`](../../src/PHPStan/Rules/NumericStringArrayKeyCollector.php)
-  and [`NumericStringArrayKeyWritesCollector`](../../src/PHPStan/Rules/NumericStringArrayKeyWritesCollector.php)
+- Collectors: [`NumericStringArrayKeyCollector`](../../src/PHPStan/Rules/NumericStringArrayKeyCollector.php),
+  [`NumericStringArrayKeyWritesCollector`](../../src/PHPStan/Rules/NumericStringArrayKeyWritesCollector.php)
+  and [`ArrowFunctionSpanCollector`](../../src/PHPStan/Rules/ArrowFunctionSpanCollector.php)

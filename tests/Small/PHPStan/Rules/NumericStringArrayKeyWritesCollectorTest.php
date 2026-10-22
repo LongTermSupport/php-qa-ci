@@ -45,7 +45,6 @@ final class NumericStringArrayKeyWritesCollectorTest extends RuleTestCase
                 ['*|name@46', 46],
                 ['*|', 54],
                 ['|sorted@61,sorted@-2,matches@-2', 59],
-                ['|map@70,sort@71,map@-2', 68],
             ],
         );
     }

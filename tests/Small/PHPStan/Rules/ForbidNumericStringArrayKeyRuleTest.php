@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
+use LTS\PHPQA\PHPStan\Rules\ArrowFunctionSpanCollector;
 use LTS\PHPQA\PHPStan\Rules\ForbidNumericStringArrayKeyRule;
 use LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyCollector;
 use LTS\PHPQA\PHPStan\Rules\NumericStringArrayKeyWritesCollector;
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(ForbidNumericStringArrayKeyRule::class)]
 #[CoversClass(NumericStringArrayKeyCollector::class)]
 #[CoversClass(NumericStringArrayKeyWritesCollector::class)]
+#[CoversClass(ArrowFunctionSpanCollector::class)]
 #[Medium]
 final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 {
@@ -297,7 +299,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     protected function getCollectors(): array
     {
-        return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class)), new NumericStringArrayKeyWritesCollector()];
+        return [new NumericStringArrayKeyCollector(self::createReflectionProvider(), self::getContainer()->getByType(FileTypeMapper::class)), new NumericStringArrayKeyWritesCollector(), new ArrowFunctionSpanCollector()];
     }
 
     private function asserted(int $line, string $type): string

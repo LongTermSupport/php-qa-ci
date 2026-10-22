@@ -53,7 +53,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  * @phpstan-type FiledRecord array{kind: string, functionKey: string, variable: string, key: string, depths: list<int>, line: int, start: int, end: int, text: string, uses: list<string>, unless: string, file: string}
  * @phpstan-type JoinIndex array{
  *     closures: array<array-key, list<FiledRecord>>,
- *     arrowFunctions: array<array-key, list<FiledRecord>>,
+ *     arrowFunctions: array<string, list<array{start: int, end: int}>>,
  *     globals: array<array-key, true>,
  *     keyBindings: list<FiledRecord>,
  *     unread: array<array-key, true>,
@@ -113,7 +113,7 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
             }
         }
 
-        $index  = $this->index(...$records);
+        $index  = $this->index($node->get(ArrowFunctionSpanCollector::class), ...$records);
         $errors = [];
         foreach ($records as $record) {
             $judged = NumericStringArrayKeyCollector::WRITE === $record['kind'] || NumericStringArrayKeyCollector::DECLARED === $record['kind'];
@@ -146,13 +146,14 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
     /**
      * The records the join reads, sorted by what they are looked up by.
      *
-     * @param FiledRecord ...$records
+     * @param array<string, list<array{start: int, end: int}>> $arrowFunctions where each arrow function is, by file
+     * @param FiledRecord                                      ...$records
      *
      * @return JoinIndex
      */
-    private function index(array ...$records): array
+    private function index(array $arrowFunctions, array ...$records): array
     {
-        $index = ['closures' => [], 'arrowFunctions' => [], 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => [], 'kills' => [], 'byReference' => []];
+        $index = ['closures' => [], 'arrowFunctions' => $arrowFunctions, 'globals' => [], 'keyBindings' => [], 'unread' => [], 'uses' => [], 'copies' => [], 'writes' => [], 'bindings' => [], 'loops' => [], 'escapes' => [], 'kills' => [], 'byReference' => []];
         foreach ($records as $record) {
             if (NumericStringArrayKeyCollector::BY_REFERENCE === $record['kind']) {
                 $index['byReference'][$record['file'] . '|' . $record['variable']][]                         = $record;
@@ -161,7 +162,6 @@ final readonly class ForbidNumericStringArrayKeyRule implements Rule
 
             match ($record['kind']) {
                 NumericStringArrayKeyCollector::CLOSURE        => $index['closures'][$record['file']][]                                                        = $record,
-                NumericStringArrayKeyCollector::ARROW_FUNCTION => $index['arrowFunctions'][$record['file']][]                                                  = $record,
                 NumericStringArrayKeyCollector::KEY_BINDING    => $index['keyBindings'][]                                                                      = $record,
                 NumericStringArrayKeyCollector::UNREAD         => $index['unread'][$this->span($record)]                                                       = true,
                 NumericStringArrayKeyCollector::WRITES         => $index['writes'][$record['file']][]                                                          = $record,

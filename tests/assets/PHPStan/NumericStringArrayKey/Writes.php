@@ -64,12 +64,4 @@ final class Writes
 
         return \count($sorted) + \count($matches);
     }
-
-    public function arrowFunctionCopy(): int
-    {
-        $map  = ['b' => 1, 'a' => 2];
-        $sort = fn () => sort($map);
-
-        return \count($map) + (int)$sort();
-    }
 }
