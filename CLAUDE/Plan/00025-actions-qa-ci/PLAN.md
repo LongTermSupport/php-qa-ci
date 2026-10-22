@@ -150,9 +150,23 @@ This plan does three things:
     literal-identifier ban, the `text`/`agent`/`json` output formats, `rules`, `rule-doc`, `rule`,
     the generated identifier index and the page self-audit (pull requests 2 to 6). The `github`
     and SARIF formats remain, with the code that needs them.
-  - [ ] Phases 3 to 9: actionlint and shellcheck, zizmor, the project record and justification
-    lane, first-party checks, distribution, currency, dogfood. Phase 4 (zizmor) and phase 8
-    (currency) wait on Owner decisions 1.5 and 1.7 ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)).
+  - [x] Phase 3, actionlint and ShellCheck: actionlint compiled in as sixteen rules, the pinned and
+    verified ShellCheck fetcher, ShellCheck on the shell in `run:` steps through actionlint, and
+    registry families for the ShellCheck codes (pull requests 7 to 9).
+  - [ ] Phase 5, project record and justification lane, in part: the strict record loader and
+    `actionsqaci.unjustifiedException` (pull request 10); the `check` command with file
+    discovery, the lanes, `-t`, the output formats and its refusals (pull request 11); exceptions
+    applied to findings by identifier, path, job and step, `actionsqaci.staleException`, and the
+    narrowing shown by `rules` (pull request 12). Open: `disabledDefence` as a finding of its own,
+    `inlineSuppression`, `nativeSuppressionConfig`, `versionPin`, and the record sections that come
+    with their consumers (`analyse`, `calibrations`, `templates`, `requiredChecks`).
+  - [x] Isolated lanes (pull request 13): the actionlint lane runs in a child process with a time
+    limit and an output cap, so a crash or a hang is exit 4; the declared gap
+    `actionlint-runs-in-process` now covers only the `rule` harness.
+  - [ ] Phases 4, 6 to 9: zizmor, first-party checks and the CEL project rules, distribution,
+    currency, dogfood. Phase 4 (zizmor) and phase 8 (currency) wait on Owner decisions 1.5 and 1.7
+    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). The next slices that need
+    no decision are the open items of phase 5.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - template drift (generalising the versionPins identity check);
   - workflow coverage outside `.github/`;
