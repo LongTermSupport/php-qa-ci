@@ -196,8 +196,8 @@ which doesn\'t exist
         $projectRoot = \Safe\realpath(__DIR__ . '/../assets/psr4/projectNamespaceReading/');
         $validator   = new Psr4Validator([], $projectRoot, Helper::getComposerJsonDecoded($projectRoot . self::COMPOSER_JSON));
         // Built from parts: the fixture's classes are not autoloadable, so no tool should read these as references.
-        $multiple = 'Named\Reading\Multiple';
-        $stray    = 'Elsewhere\Stray';
+        $multiple = implode('\\', ['Named', 'Reading', 'Multiple']);
+        $stray    = implode('\\', ['Elsewhere', 'Stray']);
 
         self::assertSame(
             [

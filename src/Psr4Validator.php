@@ -37,7 +37,7 @@ final class Psr4Validator
     /** @var array<array-key,array<int, array<string,string>>> */
     private array $psr4Errors = [];
 
-    /** @var array<string, list<array{fileInfo: string, expectedClassLike: string, declaredClassLike: string, problem: string}>> */
+    /** @var array<array-key, list<array{fileInfo: string, expectedClassLike: string, declaredClassLike: string, problem: string}>> */
     private array $classLikeErrors = [];
 
     /** @var list<string> */
@@ -348,7 +348,8 @@ final class Psr4Validator
         }
 
         $namespaceOnly = ltrim($actualNamespace . '\\' . $fileInfo->getBasename('.php'), '\\');
-        foreach ($classLikes as $fqcn => $kind) {
+        foreach ($classLikes as $name => $kind) {
+            $fqcn = (string)$name;
             if ($fqcn === $expected || ($fqcn === $namespaceOnly && $actualNamespace !== $expectedNamespace)) {
                 continue;
             }
@@ -366,7 +367,7 @@ final class Psr4Validator
      * Every named class-like the statements declare, by fully qualified name, in declaration
      * order, to its kind.
      *
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function namedClassLikes(Stmt ...$statements): array
     {
