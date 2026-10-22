@@ -31,13 +31,11 @@ final class OptionalRulesPageTest extends TestCase
     /** The tag PHPStan registers a service as a rule by. */
     private const string RULE_TAG = 'phpstan.rules.rule';
 
-    /**
-     * The bundles a project can include. The Symfony one includes the generic one, so each file
-     * contributes only the rules it declares itself.
-     *
-     * @var list<string>
-     */
-    private const array BUNDLES = ['rules-optional.neon', 'rules-optional-symfony.neon'];
+    /** The generic bundle, which the Symfony one includes. */
+    private const string GENERIC = 'rules-optional.neon';
+
+    /** The Symfony bundle, which contributes only the rules it declares itself. */
+    private const string SYMFONY = 'rules-optional-symfony.neon';
 
     public function testTheTableListsEveryOptionalRuleUnderItsFile(): void
     {
@@ -73,15 +71,19 @@ final class OptionalRulesPageTest extends TestCase
                 'ThirdRule: missing from the table, declared in rules-optional.neon',
             ],
             $this->drift(
-                ['FirstRule' => 'rules-optional.neon', 'SecondRule' => 'rules-optional.neon', 'ThirdRule' => 'rules-optional.neon'],
+                [
+                    ['rule' => 'FirstRule', 'file' => self::GENERIC],
+                    ['rule' => 'SecondRule', 'file' => self::GENERIC],
+                    ['rule' => 'ThirdRule', 'file' => self::GENERIC],
+                ],
                 $this->tableRows($page),
             ),
         );
     }
 
     /**
-     * @param array<string, string> $declared rule short name => bundle file
-     * @param array<string, string> $listed   rule short name => file named in the table
+     * @param array<int, array{rule: string, file: string}> $declared each rule a bundle registers, with the bundle
+     * @param array<int, array{rule: string, file: string}> $listed   each rule the table names, with the file it names
      *
      * @return list<string>
      */
@@ -89,21 +91,18 @@ final class OptionalRulesPageTest extends TestCase
     {
         $drift = [];
 
-        foreach ($listed as $rule => $file) {
-            if (!isset($declared[$rule])) {
-                $drift[] = \sprintf('%s: listed in the table, declared in no bundle', $rule);
-
-                continue;
-            }
-
-            if ($declared[$rule] !== $file) {
-                $drift[] = \sprintf('%s: listed under %s, declared in %s', $rule, $file, $declared[$rule]);
+        foreach ($listed as $row) {
+            $home = $this->fileOf($declared, $row['rule']);
+            if (null === $home) {
+                $drift[] = \sprintf('%s: listed in the table, declared in no bundle', $row['rule']);
+            } elseif ($home !== $row['file']) {
+                $drift[] = \sprintf('%s: listed under %s, declared in %s', $row['rule'], $row['file'], $home);
             }
         }
 
-        foreach ($declared as $rule => $file) {
-            if (!isset($listed[$rule])) {
-                $drift[] = \sprintf('%s: missing from the table, declared in %s', $rule, $file);
+        foreach ($declared as $row) {
+            if (null === $this->fileOf($listed, $row['rule'])) {
+                $drift[] = \sprintf('%s: missing from the table, declared in %s', $row['rule'], $row['file']);
             }
         }
 
@@ -111,33 +110,43 @@ final class OptionalRulesPageTest extends TestCase
     }
 
     /**
-     * @return array<string, string> rule short name => the file the table names
+     * @param array<int, array{rule: string, file: string}> $rows
+     */
+    private function fileOf(array $rows, string $rule): ?string
+    {
+        return array_find($rows, static fn (array $row): bool => $row['rule'] === $rule)['file'] ?? null;
+    }
+
+    /**
+     * @return list<array{rule: string, file: string}>
      */
     private function tableRows(string $page): array
     {
-        \Safe\preg_match_all('/^\| `([A-Za-z]+Rule)`\s*\| `(rules-optional[a-z-]*\.neon)`/m', $page, $matches);
+        \Safe\preg_match_all('/^\| `([A-Za-z]+Rule)`\s*\| `(rules-optional[a-z-]*\.neon)`/m', $page, $matches, PREG_SET_ORDER);
 
         $rows = [];
-        foreach ($matches[1] as $position => $rule) {
-            $rows[$rule] = $matches[2][$position];
+        foreach ($matches ?? [] as $match) {
+            if (\is_array($match) && \is_string($match[1] ?? null) && \is_string($match[2] ?? null)) {
+                $rows[] = ['rule' => $match[1], 'file' => $match[2]];
+            }
         }
 
         return $rows;
     }
 
     /**
-     * @return array<string, string> rule short name => the bundle that declares it
+     * @return list<array{rule: string, file: string}>
      */
     private function declaredRules(): array
     {
         $declared = [];
 
-        foreach (self::BUNDLES as $bundle) {
+        foreach ([self::GENERIC, self::SYMFONY] as $bundle) {
             $neon = Neon::decode(\Safe\file_get_contents(self::REPO_ROOT . '/' . $bundle));
             self::assertIsArray($neon, $bundle . ' does not decode to a map');
 
             foreach ($this->ruleClasses($neon) as $class) {
-                $declared[substr($class, (int)strrpos($class, '\\') + 1)] = $bundle;
+                $declared[] = ['rule' => substr($class, (int)strrpos($class, '\\') + 1), 'file' => $bundle];
             }
         }
 
