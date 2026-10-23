@@ -168,27 +168,43 @@ This plan does three things:
     narrowings in a generated region of `CLAUDE.md` or `AGENTS.md` (pull request 21), and
     `actionsqaci.agentSummaryCurrent`, which fails when that region is stale (pull request 22).
     A defence turned off everywhere is an exception with no path, justified like any other and
-    shown by `rules` as a narrowing, so `disabledDefence` needs no finding of its own. Open:
-    the comparison of `requiredChecks` with real branch protection, which needs no decision (a
-    real run needs the branch protection the Owner has not set, and offline it is skipped by
-    name); `versionPin`, whose useful form needs a release to pin to; and the record's
-    `calibrations` section, whose `shellcheckSeverity` waits on Task 1.6.
+    shown by `rules` as a narrowing, so `disabledDefence` needs no finding of its own.
+    `check --online` compares the record's `requiredChecks` with the branch protection and
+    rulesets the repository has (pull request 23); a run that does not go online says so. Open:
+    `versionPin`, whose useful form needs a release to pin to; and the record's `calibrations`
+    section, whose `shellcheckSeverity` waits on Task 1.6. A real online run needs the branch
+    protection the Owner has not set on actions-qa-ci.
   - [x] Isolated lanes (pull request 13): the actionlint lane runs in a child process with a time
     limit and an output cap, so a crash or a hang is exit 4; the declared gap
     `actionlint-runs-in-process` now covers only the `rule` harness.
   - [ ] Phases 4, 6 to 9: zizmor, first-party checks and the CEL project rules, distribution,
-    currency, dogfood. Phase 4 (zizmor) and phase 8 (currency) wait on Owner decisions 1.5 and 1.7
-    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). The next slice that needs
-    no decision is the online comparison of `requiredChecks` (open item of phase 5). After it,
-    what is left waits on the Owner: the zizmor part of the bundle, `fix` and phase 4 (Task
-    1.5); the CEL engine, whose `cel-go` dependency the design chose (D7) but the Owner has not
-    confirmed, as a new dependency needs; the release workflow and the first release, which the
-    agent does not cut; and Task 4.4, which needs a release and zizmor.
+    currency, dogfood. Phase 4 (zizmor) waits on Owner decision 1.5, and the merging of green
+    update pull requests in phase 8 on 1.7
+    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). Not yet built and not
+    shown to wait on a decision: the bundle build for actionlint and ShellCheck, the `install.sh`
+    template tested against a locally built bundle (design §2.3, `ACTIONS_QA_CI_BUNDLE`), the
+    pinned pinact and the pinact half of `fix` (only zizmor's provenance is an Owner decision,
+    §5.2), and the `update-tools.yml` and `dogfood.yml` workflow files (opening a pull request is
+    not merging it; `dogfood.yml` needs the built bundle, and without zizmor runs the lanes that
+    exist, which are actionlint, ShellCheck and the first-party ones). Not built because they need a release to be exercised, as
+    `versionPin` does: the `install.sh` filled in with a release's checksums and download
+    address (design D3, §3) and the composite action pinned to a release tag (§10.1). The
+    `calibrations` keys: `enable` waits on zizmor (Tasks 1.5 and 1.6); `selfHostedRunnerLabels`
+    is spelled in design §8.2, and §8.1 names actionlint's `self-hosted-runner.labels` a
+    calibration, but it would make
+    `actionsqaci.actionlint.runner-label` stop firing with no justification, which the rule's
+    page sends to an exception, so adding that second route is a narrowing for the Owner to
+    confirm. Waiting on the Owner: the zizmor part of the bundle, `fix` and phase 4 (Task 1.5);
+    `release.yml`, which carries a recorded `dangerous-triggers` exception that design §14.9
+    leaves to Task 2.2 and zizmor reports; the CEL engine, whose `cel-go` dependency the design chose
+    (D7) is a new dependency, which [issue-sdlc.md](../../issue-sdlc.md) leaves to the Owner and
+    which has not yet been put to them; the first release, which the agent does not cut; and
+    Task 4.4, which needs a release and zizmor.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - [x] template drift (generalising the versionPins identity check): merged, pull request 15;
   - [x] workflow coverage outside `.github/`: merged, pull requests 19 and 20;
   - [x] required checks matching produced job names (from Task 2.1): merged, pull request 16; the
-    comparison with real branch protection is a declared gap.
+    comparison with real branch protection under `check --online`: merged, pull request 23.
 - [ ] ⬜ **Task 4.4**: php-qa-ci consumes actions-qa-ci as a lane; every finding is fixed or justified.
 
 ## Success Criteria
