@@ -72,12 +72,16 @@ This plan does three things:
   `LongTermSupport/actions-qa-ci`, MIT like php-qa-ci.
 - [ ] ⬜ **Task 1.4**: Conformance reading ([design.md § 3](design.md#3-conformance-framing-toolchain-41)):
   actions-qa-ci is the Detector, and zizmor and actionlint are bundled rule backends.
-- [ ] ⬜ **Task 1.5**: zizmor provenance in v1 ([design.md § 5.2](design.md#52-zizmor-provenance)): the
-  sha256-pinned PyPI musl wheel, or a self-built and attested binary.
+- [x] ✅ **Task 1.5**: zizmor provenance in v1 ([design.md § 5.2](design.md#52-zizmor-provenance)): the
+  sha256-pinned PyPI musl wheel, or a self-built and attested binary. Decided by the Owner, in the
+  running session and recorded on
+  [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6376453600): the
+  sha256-pinned PyPI musl wheel.
 - [ ] ⬜ **Task 1.6**: Default strictness: zizmor `regular` persona and shellcheck `warning`, which is
   narrower than upstream's full catalogue.
-- [ ] ⬜ **Task 1.7**: Whether the standing authorisation to merge green tool-update PRs after a
-  fresh sub-agent's verification extends to the new repository.
+- [x] ✅ **Task 1.7**: Whether the standing authorisation to merge green tool-update PRs after a
+  fresh sub-agent's verification extends to the new repository. Decided by the Owner, as above:
+  it extends.
 - [ ] ⬜ **Task 1.8**: Confirm or change the defaults the design proposes
   ([design.md § 14](design.md#14-owner-decisions-needed) items 3, 6, 7 and 8). Each is the design's
   recommendation and is applied unless the Owner changes it:
@@ -178,65 +182,14 @@ This plan does three things:
     limit and an output cap, so a crash or a hang is exit 4; the declared gap
     `actionlint-runs-in-process` now covers only the `rule` harness.
   - [ ] Phases 4, 6 to 9: zizmor, first-party checks and the CEL project rules, distribution,
-    currency, dogfood. Phase 4 (zizmor) waits on Owner decision 1.5, and the merging of green
-    update pull requests in phase 8 on 1.7
-    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). Merged: the release
-    archive of a platform, built to the same bytes every time from the program, the tools the
-    manifest pins and a licence file each (`internal/bundle` and `actions-qa-dev bundle`, pull
-    request 24), and `dogfood.yml`, which runs the built program over php-qa-ci at a pinned
-    commit and fails on any exit above 1 (pull request 25). Left of `dogfood.yml` is the corpus of
-    public workflows that design §12 also names, which needs a choice of repositories and how
-    they are pinned. Also merged: the `install.sh` template, tested by running it with `sh`
-    against real bundles, and `actions-qa-dev install-script`, which fills a release's version
-    and checksums into it (pull request 26). Not built because they need a release to be
-    exercised, as `versionPin` does: the `install.sh` filled in with a release's checksums and
-    download address (design D3, §3) and the composite action pinned to a release tag (§10.1).
-    The pinned pinact and the pinact half of `fix` were found to wait on a provenance route: the
-    tarballs of pinact v5.0.0 have two GitHub attestations each, but `gh attestation verify` on
-    this host fails with `verifying with issuer "sigstore.dev"` and no reason, and neither
-    `cosign` nor `slsa-verifier` is installed, so the strongest route upstream offers could not be
-    run. Pinning by the release's `checksums.txt` alone is a weaker route than upstream offers,
-    and installing a verifier is a new tool, so which to take is the same kind of provenance
-    decision as Task 1.5 for zizmor, extended to pinact; the options are posted on
-    [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6355208852).
-    Also merged: `actions-qa-dev tools bump` (`internal/bump`, pull request 27), which moves a
-    manifest to the latest release once it is past the cooldown, for ShellCheck only, which has
-    no attestation upstream (the manifest pins it by the sha256 of the release as downloaded);
-    any other tool is refused until its provenance route is decided. Also merged: the
-    `update-tools.yml` workflow that calls it (design §5.3, pull request 28): daily and on
-    dispatch, it bumps, runs the CI gate when something moved, and opens or updates the
-    `chore/update-tools` pull request, or opens or comments on an issue labelled
-    `update-tools-failure` when it fails. One dispatched run on `main` has succeeded online
-    with nothing to move (the later steps and the pull-request job were skipped); the path that
-    moves a tool and opens the pull request has not run, as the bump reported every tool up to
-    date. The repository's Actions settings already allow workflows to open pull
-    requests, and it opens its pull request with the workflow token, which starts no CI run, so
-    the gate runs in its own job first. Not built from design §5.3: regenerating the upstream identifier sets
-    (step 2), the `go get` of actionlint, the dogfood run over a php-qa-ci checkout in step 3
-    (`dogfood.yml` runs it on pull requests, not in this workflow) and the `## Unreleased`
-    entry for a tool move (step 4). The three-day cooldown
-    it applies is the default of Task 1.8, which stands unless the Owner changes it. Only
-    whether the agent may merge its pull requests waits on the Owner (Task 1.7). Also merged:
-    pull request 29, which makes the manifest the only place a pinned tool's version is written
-    (the ShellCheck lane had its own constant, and a test and two documents spelled it; a test
-    now fails where production Go, the README, the documentation, a workflow or a shell
-    template spells a pinned version), and pull request 30, which stops `install.sh` leaking a
-    temporary directory when a signal reaches the process group between `mktemp` making it and
-    the shell naming it (the directories are now named by process id before they are made, and a
-    name already taken is refused and never removed), and a termination test that signalled
-    before `tar` had started. The `calibrations` keys: `enable` waits on zizmor
-    (Tasks 1.5 and 1.6); `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1 names
-    actionlint's `self-hosted-runner.labels` a calibration, but it would make
-    `actionsqaci.actionlint.runner-label` stop firing with no justification, which the rule's
-    page sends to an exception, so adding that second route is a narrowing for the Owner to
-    confirm. Waiting on the Owner: the zizmor part of the bundle, `fix` and phase 4 (Task 1.5);
-    the merging of green update pull requests (Task 1.7); `release.yml`, which carries a
-    recorded `dangerous-triggers` exception that design §14.9 leaves to Task 2.2 and zizmor
-    reports; the CEL engine, whose `cel-go` dependency the design chose (D7) is a new
-    dependency, which [issue-sdlc.md](../../issue-sdlc.md) leaves to the Owner and which is
-    posted on #310 for an answer; the first release, which the agent does not cut; and Task 4.4,
-    which needs a release and zizmor. `disabledDefence` is in the design and is deliberately not
-    built, as a defence turned off everywhere is an exception with no path that `rules` shows.
+    currency, dogfood. Where each slice stands, with its pull requests, is in
+    [phase-4-status.md](phase-4-status.md). In short: the release archive, `dogfood.yml`, the
+    `install.sh` template, the tool update path (`tools bump`, `update-tools.yml`, the changelog
+    entry, the actionlint library move) and zip support are merged (pull requests 24 to 34);
+    zizmor is in progress after the Owner chose the PyPI musl wheel; pinact's provenance route,
+    the `calibrations`, the `cel-go` dependency, the dogfood corpus and `release.yml`'s
+    exception wait on the Owner; `install.sh` filled in, the composite action, `versionPin` and
+    Task 4.4 need a release, which the agent does not cut.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - [x] template drift (generalising the versionPins identity check): merged, pull request 15;
   - [x] workflow coverage outside `.github/`: merged, pull requests 19 and 20;
