@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d4fbb6f766d8c0435360d0a504150290",
+    "content-hash": "537243fec303b3667b221c90585129b8",
     "packages": [
         {
             "name": "entropy/entropy",
