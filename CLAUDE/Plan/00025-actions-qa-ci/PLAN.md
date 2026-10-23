@@ -202,11 +202,19 @@ This plan does three things:
     Also merged: `actions-qa-dev tools bump` (`internal/bump`, pull request 27), which moves a
     manifest to the latest release once it is past the cooldown, for ShellCheck only, which has
     no attestation upstream (the manifest pins it by the sha256 of the release as downloaded);
-    any other tool is refused until its provenance route is decided. Not yet built and not shown
-    to wait on that decision: `update-tools.yml` that calls it (design §5.3). The workflow opens
-    a pull request when its checks are green and an issue when they are red; the three-day
-    cooldown it applies is the default of Task 1.8, which stands unless the Owner changes it.
-    Only whether the agent may merge those pull requests waits on the Owner (Task 1.7). The
+    any other tool is refused until its provenance route is decided. Also merged: the
+    `update-tools.yml` workflow that calls it (design §5.3, pull request 28): daily and on
+    dispatch, it bumps, runs the CI gate when something moved, and opens or updates the
+    `chore/update-tools` pull request, or opens or comments on an issue labelled
+    `update-tools-failure` when it fails. It has not run online, because it needs GitHub to run
+    (the repository's Actions settings already allow workflows to open pull requests), and it
+    opens its pull request with the workflow token, which starts no CI run, so the gate runs in
+    its own job first. Not built from design §5.3: regenerating the upstream identifier sets
+    (step 2), the `go get` of actionlint, the dogfood run over a php-qa-ci checkout in step 3
+    (`dogfood.yml` runs it on pull requests, not in this workflow) and the `## Unreleased`
+    entry for a tool move (step 4). The three-day cooldown
+    it applies is the default of Task 1.8, which stands unless the Owner changes it. Only
+    whether the agent may merge its pull requests waits on the Owner (Task 1.7). The
     `calibrations` keys: `enable` waits on zizmor
     (Tasks 1.5 and 1.6); `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1 names
     actionlint's `self-hosted-runner.labels` a calibration, but it would make
