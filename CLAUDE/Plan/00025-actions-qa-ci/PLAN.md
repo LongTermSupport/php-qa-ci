@@ -180,26 +180,32 @@ This plan does three things:
   - [ ] Phases 4, 6 to 9: zizmor, first-party checks and the CEL project rules, distribution,
     currency, dogfood. Phase 4 (zizmor) waits on Owner decision 1.5, and the merging of green
     update pull requests in phase 8 on 1.7
-    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). Not yet built and not
-    shown to wait on a decision: the bundle build for actionlint and ShellCheck, the `install.sh`
+    ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310)). Merged: the release
+    archive of a platform, built to the same bytes every time from the program, the tools the
+    manifest pins and a licence file each (`internal/bundle` and `actions-qa-dev bundle`, pull
+    request 24), and `dogfood.yml`, which runs the built program over php-qa-ci at a pinned
+    commit and fails on any exit above 1 (pull request 25). Left of `dogfood.yml` is the corpus of
+    public workflows that design §12 also names, which needs a choice of repositories and how
+    they are pinned. Not yet built and not shown to wait on a decision: the `install.sh`
     template tested against a locally built bundle (design §2.3, `ACTIONS_QA_CI_BUNDLE`), the
     pinned pinact and the pinact half of `fix` (only zizmor's provenance is an Owner decision,
-    §5.2), and the `update-tools.yml` and `dogfood.yml` workflow files (opening a pull request is
-    not merging it; `dogfood.yml` needs the built bundle, and without zizmor runs the lanes that
-    exist, which are actionlint, ShellCheck and the first-party ones). Not built because they need a release to be exercised, as
-    `versionPin` does: the `install.sh` filled in with a release's checksums and download
-    address (design D3, §3) and the composite action pinned to a release tag (§10.1). The
-    `calibrations` keys: `enable` waits on zizmor (Tasks 1.5 and 1.6); `selfHostedRunnerLabels`
-    is spelled in design §8.2, and §8.1 names actionlint's `self-hosted-runner.labels` a
-    calibration, but it would make
+    §5.2), and `update-tools.yml` with the `actions-qa-dev tools bump` it calls (design §5.3),
+    which verifies each tool by the strongest route upstream offers (for zizmor that waits on
+    Task 1.5; for ShellCheck and pinact it does not). Not built because they need
+    a release to be exercised, as `versionPin` does: the `install.sh` filled in with a release's
+    checksums and download address (design D3, §3) and the composite action pinned to a release
+    tag (§10.1). The `calibrations` keys: `enable` waits on zizmor (Tasks 1.5 and 1.6);
+    `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1 names actionlint's
+    `self-hosted-runner.labels` a calibration, but it would make
     `actionsqaci.actionlint.runner-label` stop firing with no justification, which the rule's
     page sends to an exception, so adding that second route is a narrowing for the Owner to
     confirm. Waiting on the Owner: the zizmor part of the bundle, `fix` and phase 4 (Task 1.5);
-    `release.yml`, which carries a recorded `dangerous-triggers` exception that design §14.9
-    leaves to Task 2.2 and zizmor reports; the CEL engine, whose `cel-go` dependency the design chose
-    (D7) is a new dependency, which [issue-sdlc.md](../../issue-sdlc.md) leaves to the Owner and
-    which has not yet been put to them; the first release, which the agent does not cut; and
-    Task 4.4, which needs a release and zizmor.
+    the merging of green update pull requests (Task 1.7); `release.yml`, which carries a
+    recorded `dangerous-triggers` exception that design §14.9 leaves to Task 2.2 and zizmor
+    reports; the CEL engine, whose `cel-go` dependency the design chose (D7) is a new
+    dependency, which [issue-sdlc.md](../../issue-sdlc.md) leaves to the Owner and which has not
+    yet been put to them; the first release, which the agent does not cut; and Task 4.4, which
+    needs a release and zizmor.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - [x] template drift (generalising the versionPins identity check): merged, pull request 15;
   - [x] workflow coverage outside `.github/`: merged, pull requests 19 and 20;
