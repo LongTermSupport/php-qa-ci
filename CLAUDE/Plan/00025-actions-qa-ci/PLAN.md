@@ -186,26 +186,40 @@ This plan does three things:
     request 24), and `dogfood.yml`, which runs the built program over php-qa-ci at a pinned
     commit and fails on any exit above 1 (pull request 25). Left of `dogfood.yml` is the corpus of
     public workflows that design §12 also names, which needs a choice of repositories and how
-    they are pinned. Not yet built and not shown to wait on a decision: the `install.sh`
-    template tested against a locally built bundle (design §2.3, `ACTIONS_QA_CI_BUNDLE`), the
-    pinned pinact and the pinact half of `fix` (only zizmor's provenance is an Owner decision,
-    §5.2), and `update-tools.yml` with the `actions-qa-dev tools bump` it calls (design §5.3),
-    which verifies each tool by the strongest route upstream offers (for zizmor that waits on
-    Task 1.5; for ShellCheck and pinact it does not). Not built because they need
-    a release to be exercised, as `versionPin` does: the `install.sh` filled in with a release's
-    checksums and download address (design D3, §3) and the composite action pinned to a release
-    tag (§10.1). The `calibrations` keys: `enable` waits on zizmor (Tasks 1.5 and 1.6);
-    `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1 names actionlint's
-    `self-hosted-runner.labels` a calibration, but it would make
+    they are pinned. Also merged: the `install.sh` template, tested by running it with `sh`
+    against real bundles, and `actions-qa-dev install-script`, which fills a release's version
+    and checksums into it (pull request 26). Not built because they need a release to be
+    exercised, as `versionPin` does: the `install.sh` filled in with a release's checksums and
+    download address (design D3, §3) and the composite action pinned to a release tag (§10.1).
+    The pinned pinact and the pinact half of `fix` were found to wait on a provenance route: the
+    tarballs of pinact v5.0.0 have two GitHub attestations each, but `gh attestation verify` on
+    this host fails with `verifying with issuer "sigstore.dev"` and no reason, and neither
+    `cosign` nor `slsa-verifier` is installed, so the strongest route upstream offers could not be
+    run. Pinning by the release's `checksums.txt` alone is a weaker route than upstream offers,
+    and installing a verifier is a new tool, so which to take is the same kind of provenance
+    decision as Task 1.5 for zizmor, extended to pinact; the options are posted on
+    [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6355208852).
+    Also merged: `actions-qa-dev tools bump` (`internal/bump`, pull request 27), which moves a
+    manifest to the latest release once it is past the cooldown, for ShellCheck only, which has
+    no attestation upstream (the manifest pins it by the sha256 of the release as downloaded);
+    any other tool is refused until its provenance route is decided. Not yet built and not shown
+    to wait on that decision: `update-tools.yml` that calls it (design §5.3). The workflow opens
+    a pull request when its checks are green and an issue when they are red; the three-day
+    cooldown it applies is the default of Task 1.8, which stands unless the Owner changes it.
+    Only whether the agent may merge those pull requests waits on the Owner (Task 1.7). The
+    `calibrations` keys: `enable` waits on zizmor
+    (Tasks 1.5 and 1.6); `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1 names
+    actionlint's `self-hosted-runner.labels` a calibration, but it would make
     `actionsqaci.actionlint.runner-label` stop firing with no justification, which the rule's
     page sends to an exception, so adding that second route is a narrowing for the Owner to
     confirm. Waiting on the Owner: the zizmor part of the bundle, `fix` and phase 4 (Task 1.5);
     the merging of green update pull requests (Task 1.7); `release.yml`, which carries a
     recorded `dangerous-triggers` exception that design §14.9 leaves to Task 2.2 and zizmor
     reports; the CEL engine, whose `cel-go` dependency the design chose (D7) is a new
-    dependency, which [issue-sdlc.md](../../issue-sdlc.md) leaves to the Owner and which has not
-    yet been put to them; the first release, which the agent does not cut; and Task 4.4, which
-    needs a release and zizmor.
+    dependency, which [issue-sdlc.md](../../issue-sdlc.md) leaves to the Owner and which is
+    posted on #310 for an answer; the first release, which the agent does not cut; and Task 4.4,
+    which needs a release and zizmor. `disabledDefence` is in the design and is deliberately not
+    built, as a defence turned off everywhere is an exception with no path that `rules` shows.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
   - [x] template drift (generalising the versionPins identity check): merged, pull request 15;
   - [x] workflow coverage outside `.github/`: merged, pull requests 19 and 20;
