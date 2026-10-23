@@ -214,8 +214,15 @@ This plan does three things:
     (`dogfood.yml` runs it on pull requests, not in this workflow) and the `## Unreleased`
     entry for a tool move (step 4). The three-day cooldown
     it applies is the default of Task 1.8, which stands unless the Owner changes it. Only
-    whether the agent may merge its pull requests waits on the Owner (Task 1.7). The
-    `calibrations` keys: `enable` waits on zizmor
+    whether the agent may merge its pull requests waits on the Owner (Task 1.7). Also merged:
+    pull request 29, which makes the manifest the only place a pinned tool's version is written
+    (the ShellCheck lane had its own constant, and a test and two documents spelled it; a test
+    now fails where production Go, the README, the documentation, a workflow or a shell
+    template spells a pinned version), and pull request 30, which stops `install.sh` leaking a
+    temporary directory when a signal reaches the process group between `mktemp` making it and
+    the shell naming it (the directories are now named by process id before they are made, and a
+    name already taken is refused and never removed), and a termination test that signalled
+    before `tar` had started. The `calibrations` keys: `enable` waits on zizmor
     (Tasks 1.5 and 1.6); `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1 names
     actionlint's `self-hosted-runner.labels` a calibration, but it would make
     `actionsqaci.actionlint.runner-label` stop firing with no justification, which the rule's
