@@ -128,8 +128,8 @@ handlers:
       priority: 30
       options:
         exclude_paths:
-          # Fixture for the PHPStan rule that bans inline ignores — must contain the literal.
-          - "tests/Small/PHPStan/Rules/ForbidInlinePhpstanIgnoreRuleTest.php"
+          - pattern: "tests/Small/PHPStan/Rules/ForbidInlinePhpstanIgnoreRuleTest.php"
+            reason: "fixture for the PHPStan rule that bans inline ignores; it must contain the literal"
       # options:
       #   languages:       # Restrict to specific languages (default: ALL)
       #     - Python
