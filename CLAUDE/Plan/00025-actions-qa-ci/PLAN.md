@@ -206,10 +206,12 @@ This plan does three things:
     `update-tools.yml` workflow that calls it (design §5.3, pull request 28): daily and on
     dispatch, it bumps, runs the CI gate when something moved, and opens or updates the
     `chore/update-tools` pull request, or opens or comments on an issue labelled
-    `update-tools-failure` when it fails. It has not run online, because it needs GitHub to run
-    (the repository's Actions settings already allow workflows to open pull requests), and it
-    opens its pull request with the workflow token, which starts no CI run, so the gate runs in
-    its own job first. Not built from design §5.3: regenerating the upstream identifier sets
+    `update-tools-failure` when it fails. One dispatched run on `main` has succeeded online
+    with nothing to move (the later steps and the pull-request job were skipped); the path that
+    moves a tool and opens the pull request has not run, as the bump reported every tool up to
+    date. The repository's Actions settings already allow workflows to open pull
+    requests, and it opens its pull request with the workflow token, which starts no CI run, so
+    the gate runs in its own job first. Not built from design §5.3: regenerating the upstream identifier sets
     (step 2), the `go get` of actionlint, the dogfood run over a php-qa-ci checkout in step 3
     (`dogfood.yml` runs it on pull requests, not in this workflow) and the `## Unreleased`
     entry for a tool move (step 4). The three-day cooldown
