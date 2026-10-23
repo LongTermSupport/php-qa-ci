@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.8.0 — 2026-10-21
+
 ### Changed — breaking
 
 - **A new always-on lane, `documentedQaCommands` (`-t dqc`, identifier `phpqaci.documentedQaCommands`), fails a build whose documentation gives a `qa -t` command that `bin/qa` refuses.** It reads every `.md` file in `README.md`, `CLAUDE.md`, `docs/`, `CLAUDE/` (not `CLAUDE/Plan/`), `.claude/agents/`, `.claude/skills/`, `qaConfig/` and `templates/`, finds each `qa` invocation with a literal `-t` token (behind `vendor/bin/`, `bin/` or `{bin}/`, inside fenced blocks too), and reports a token the project's tool registry does not accept (tokens are case-sensitive, and a lane's name is a token only when it is also an alias) or `-p` given to a tool that takes no path, such as a phase runner. A tool or phase the project adds in `qaConfig/pipeline.php` is accepted, as is one the same document registers in a `pipeline.php` example; placeholders such as `<tool>` and `{tool}` are not read. A project whose documents carry such a command now fails the linting phase until it corrects the command, as `vendor/bin/rule-doc phpqaci.documentedQaCommands` describes. That includes the agents and the `qa` skill php-qa-ci deployed before this release, which give `-t allCs` and `-t toolname`: a `composer install` or `update` replaces them with corrected copies, but a project that sets `PHP_QA_CI_DISABLE_CONFIG_PUSH=true` keeps the old `.claude/agents/php-qa-ci_*.md` and `.claude/skills/qa/SKILL.md` and fails the lane until it deploys them again (a `composer install` without that variable) or corrects those files. ([#228](https://github.com/LongTermSupport/php-qa-ci/issues/228))
