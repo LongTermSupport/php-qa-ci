@@ -98,13 +98,23 @@ This plan does three things:
   context that no workflow produces, which would block every merge. Delivered by #293 (merged as
   ac9cb1f3 through #295): `RequiredStatusChecksAreProducedTest` first, red, then the fix. The
   consumer-template side, where no job is named `QA Pipeline`, is Task 3.1 (#294).
+
 - [ ] ⬜ **Task 2.2**: The template defects actionlint and zizmor report, fixed once the lane from
   Phase 4 is red on them:
+
   - the empty `choice` option;
   - the `github.head_ref` and input template injection;
   - excessive permissions;
   - `artipacked`;
   - unpinned `uses:`.
+
+  The lane is red on this repository's workflows and templates now. Of the five defects listed,
+  only unpinned `uses:` and `artipacked` are reported; the empty `choice` option, the
+  `github.head_ref` and input template injection and excessive permissions are not. It also
+  reports two findings the list does not name, `self-repository` and the recorded
+  `dangerous-triggers` exception. The options for each are on
+  [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6380032729) and wait
+  on the Owner.
 
 ### Phase 3: CI made pragmatic (after Task 1.1)
 
@@ -154,7 +164,8 @@ This plan does three things:
     literal-identifier ban, the `text`/`agent`/`json` output formats, `rules`, `rule-doc`, `rule`,
     the generated identifier index and the page self-audit (pull requests 2 to 6); the `github`
     output format (pull request 17) and `check --sarif` (pull request 18).
-  - [x] Phase 3, actionlint and ShellCheck: actionlint compiled in as sixteen rules, the pinned and
+  - [x] Phase 3, actionlint and ShellCheck: actionlint compiled in as sixteen rules (fifteen once
+    its `credentials` kind moves to zizmor, pull request 38), the pinned and
     verified ShellCheck fetcher, ShellCheck on the shell in `run:` steps through actionlint, and
     registry families for the ShellCheck codes (pull requests 7 to 9).
   - [ ] Phase 5, project record and justification lane, in part: the strict record loader and
@@ -186,7 +197,10 @@ This plan does three things:
     [phase-4-status.md](phase-4-status.md). In short: the release archive, `dogfood.yml`, the
     `install.sh` template, the tool update path (`tools bump`, `update-tools.yml`, the changelog
     entry, the actionlint library move) and zip support are merged (pull requests 24 to 34);
-    zizmor is in progress after the Owner chose the PyPI musl wheel; pinact's provenance route,
+    zizmor is in progress after the Owner chose the PyPI musl wheel (the PyPI route and the pin
+    are merged, pull requests 35 and 36; the lane is pull request 37, verified and waiting on
+    two pages a protected-path guard stops an agent writing, with the ownership drops and the
+    list of audits not run stacked on it as 38 and 39); pinact's provenance route,
     the `calibrations`, the `cel-go` dependency, the dogfood corpus and `release.yml`'s
     exception wait on the Owner; `install.sh` filled in, the composite action, `versionPin` and
     Task 4.4 need a release, which the agent does not cut.

@@ -53,7 +53,8 @@ slices, in order, each a pull request with a fresh verifier: the PyPI route (mer
 manifest pin (merged, 36), the lane, then the record's `calibrations` and the zizmor half of
 `fix`; the release bundle's zizmor licence is a release-time step.
 
-The lane is built on branch `feature/zizmor-lane` and has no pull request yet. It runs the pinned
+The lane is [pull request 37](https://github.com/LongTermSupport/actions-qa-ci/pull/37), a draft
+that a fresh verifier failed once on five findings, closed or recorded. It runs the pinned
 zizmor offline at the regular persona with no configuration, no honoured ignore and no inherited
 environment (only `NO_COLOR=1`), and gives each audit the identifier `actionsqaci.zizmor.<audit>`, a rule, a page and
 (for those this build runs) a red and a green fixture. Seven audits are held, with the reason in
@@ -62,8 +63,19 @@ the listing: the five that need the network (`impostor-commit`, `known-vulnerabl
 `insecure-url-scheme`. Two pages,
 `secrets-inherit` and `secrets-outside-env`, wait on the Owner's narrowing of the hooks daemon's
 `*.secret*` guard, which refuses an agent the file names; the finished texts are kept in the
-session scratch directory. Still to do after the lane: the ownership drops in the actionlint
-adapter (the `credentials` and potentially-untrusted `expression` messages) and the online audits.
+session scratch directory.
+
+Two pull requests are stacked on the lane and verified, each to be retargeted to `main` as the one
+below it merges. [Pull request 38](https://github.com/LongTermSupport/actions-qa-ci/pull/38) gives a
+hazard both tools report one owner where the owner reports everything the other would: actionlint's
+`credentials` kind is dropped in favour of zizmor's `hardcoded-container-credentials`, and a rule
+states what it absorbs. Its verifier found that the other planned drop, actionlint's potentially
+untrusted `expression` messages, loses findings (zizmor's regular persona does not report a
+`fromJSON` of an untrusted input), so those stay and the overlap is declared in `dbf.json`.
+[Pull request 39](https://github.com/LongTermSupport/actions-qa-ci/pull/39) names, on stderr, each
+audit a run does not run and why, for a lane that analysed a file. Still to do after the lane: the
+online audits, whose design (§7.4) would run them when a token is set, which is a second network
+route beside `check --online`.
 
 ## Waiting on the Owner
 
@@ -80,6 +92,15 @@ adapter (the `credentials` and potentially-untrusted `expression` messages) and 
   sends to an exception, so adding that second route is a narrowing for the Owner to confirm.
 - `release.yml`, which carries a recorded `dangerous-triggers` exception that design §14.9 leaves
   to Task 2.2 and that zizmor reports.
+- Task 2.2, the findings of the lane on this repository's workflows and templates, with options on
+  [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6380032729): how SHA
+  pins are kept current (Dependabot, pinact, or a recorded exception), where
+  `persist-credentials: false` is safe (`qa-autofix.yml` pushes with the checkout's credentials),
+  and whether `uses: $/…` is supported.
+- The overlap on untrusted input and the default persona
+  ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6380209499)), which
+  is Task 1.6's question. Whether the online audits run on a token or only under `--online` is
+  [a separate question](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6380421861).
 - The CEL engine: the `cel-go` dependency the design chose (D7) is a new dependency, which
   [issue-sdlc.md](../../issue-sdlc.md) leaves to the Owner; posted on #310.
 - The corpus for `dogfood.yml`.
