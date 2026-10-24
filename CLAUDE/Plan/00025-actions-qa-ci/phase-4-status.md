@@ -40,16 +40,30 @@ is in the [JOURNAL](JOURNAL/).
   (the Owner's shape; `internal/modbump`, `actions-qa-dev modules bump`, then `go get`).
 - **33** and **34**: a pinned asset may be a zip, the form a Python wheel is distributed in
   (`internal/toolchain`), with a bound on a zip's size and entry count.
+- **35**: the PyPI route in `tools bump` (the wheel's address from PyPI's JSON, its sha256
+  cross-checked against PyPI's digest, a yanked file refused).
+- **36**: zizmor pinned in the manifest as the sha256-pinned PyPI musl wheel, for both
+  architectures.
 
 ## In progress: zizmor
 
 The Owner chose, for Task 1.5, the sha256-pinned PyPI musl wheel
 ([#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6376453600)). The
-slices, in order, each a pull request with a fresh verifier: the PyPI route in `tools bump` (the
-wheel's address from PyPI's JSON, its sha256 cross-checked against PyPI's digest, a yanked file
-refused), then zizmor pinned in the manifest and in the bundle with its licence, then the lane
-(findings renamed to `actionsqaci.zizmor.<audit>`, one owner per hazard class, a page and a red
-and a green fixture each), then the record's `calibrations` and the zizmor half of `fix`.
+slices, in order, each a pull request with a fresh verifier: the PyPI route (merged, 35), the
+manifest pin (merged, 36), the lane, then the record's `calibrations` and the zizmor half of
+`fix`; the release bundle's zizmor licence is a release-time step.
+
+The lane is built on branch `feature/zizmor-lane` and has no pull request yet. It runs the pinned
+zizmor offline at the regular persona with no configuration, no honoured ignore and no inherited
+environment (only `NO_COLOR=1`), and gives each audit the identifier `actionsqaci.zizmor.<audit>`, a rule, a page and
+(for those this build runs) a red and a green fixture. Seven audits are held, with the reason in
+the listing: the five that need the network (`impostor-commit`, `known-vulnerable-actions`,
+`ref-confusion`, `ref-version-mismatch`, `stale-action-refs`), `forbidden-uses` and
+`insecure-url-scheme`. Two pages,
+`secrets-inherit` and `secrets-outside-env`, wait on the Owner's narrowing of the hooks daemon's
+`*.secret*` guard, which refuses an agent the file names; the finished texts are kept in the
+session scratch directory. Still to do after the lane: the ownership drops in the actionlint
+adapter (the `credentials` and potentially-untrusted `expression` messages) and the online audits.
 
 ## Waiting on the Owner
 
