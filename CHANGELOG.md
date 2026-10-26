@@ -29,6 +29,10 @@ the release and its tag. The full rules are in
 
 - The optional PHPStan rule `phpqaci.unisolatedGitProcess` also requires a test's process environment to switch off background maintenance: besides `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`, set `GIT_CONFIG_COUNT` with `GIT_CONFIG_KEY_n` entries naming `maintenance.auto` and `gc.auto`. A detached maintenance process started by a commit can write into a fixture repository while the test deletes it, failing the test now and then. See `vendor/bin/rule-doc phpqaci.unisolatedGitProcess`.
 
+### Fixed
+
+- **The active-defences block in CLAUDE.md no longer loses the bundled rule lines after a fresh install.** The deploy that writes the block now runs after phpstan/extension-installer on every install and update, so a first `composer install` lists the same defences as a later `composer update`; a listing run while that installer's generated config is still empty now says so.
+
 ## 85.8.0 — 2026-10-26
 
 ### Changed — breaking

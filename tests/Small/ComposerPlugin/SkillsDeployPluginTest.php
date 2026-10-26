@@ -44,11 +44,26 @@ final class SkillsDeployPluginTest extends TestCase
     {
         self::assertSame(
             [
-                'post-install-cmd' => 'deploySkills',
-                'post-update-cmd'  => 'deploySkills',
+                'post-install-cmd' => ['deploySkills', -10],
+                'post-update-cmd'  => ['deploySkills', -10],
             ],
             SkillsDeployPlugin::getSubscribedEvents(),
         );
+    }
+
+    /**
+     * The deploy reads the rule includes phpstan/extension-installer writes in its own
+     * post-install and post-update handler at Composer's default priority 0. Composer runs a
+     * higher priority first and equal priorities in registration order, so only a priority
+     * below 0 guarantees the installer has written them.
+     */
+    #[Test]
+    public function theDeployRunsAfterTheExtensionInstallerAtPriorityZero(): void
+    {
+        foreach (SkillsDeployPlugin::getSubscribedEvents() as $listener) {
+            self::assertIsArray($listener);
+            self::assertLessThan(0, $listener[1] ?? 0);
+        }
     }
 
     #[Test]

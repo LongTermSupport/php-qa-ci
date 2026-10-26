@@ -59,6 +59,17 @@ final readonly class InstalledPhpstanExtensions
         return $includes;
     }
 
+    /**
+     * True when the installer's GeneratedConfig exists but lists no extension: the stub the package
+     * ships, which means the installer has not yet written this project's includes.
+     */
+    public function isUngenerated(string $projectRoot): bool
+    {
+        $file = $this->vendorDir($projectRoot) . self::GENERATED_CONFIG;
+
+        return is_file($file) && [] === $this->extensions($file);
+    }
+
     /** @return array<array-key, mixed> the EXTENSIONS constant's value, or nothing */
     private function extensions(string $file): array
     {
