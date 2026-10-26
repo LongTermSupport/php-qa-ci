@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.9.1 — 2026-10-26
+
 ### Fixed
 
 - The PHPStan lane no longer reports Turbo as NOT RUNNING under PHPStan 2.3.2, whose diagnose says the extension is loaded by the restart an analyse run performs; that wording with a worker binary present now counts as running
