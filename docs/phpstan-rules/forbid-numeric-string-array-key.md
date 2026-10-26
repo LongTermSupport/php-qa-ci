@@ -95,7 +95,7 @@ know the keys it is put on to be strings at that depth, as for `json_decode()` d
 The message names the array and the first place it is taken as string-keyed.
 
 A key may be all digits when PHPStan types it a `string` that is not a `class-string`, PHPStan has
-not ruled out a decimal integer, and PHPStan does not already count the int (it does for a
+not ruled out a decimal integer (`non-decimal-int-string` does), and PHPStan does not already count the int (it does for a
 `numeric-string` key, typing the array `array<int|numeric-string, …>`).
 
 ## Why this is a hazard
@@ -153,6 +153,11 @@ a list of value objects, or of `[key, value]` pairs, avoids the conversion altog
 - A key PHPStan knows: a literal, a class constant, an enum's `->value`, any union of constant
   strings. PHPStan converts those itself.
 - A `class-string`, an `int`, or a `numeric-string` key, which PHPStan types honestly.
+- A key declared `non-decimal-int-string` (`@param non-decimal-int-string $key`, or the same type
+  on a `@var`): PHPStan knows the string is never a decimal integer, so PHP never stores it as an
+  int. Use it where a name is guaranteed to carry a non-digit, such as one validated by a pattern.
+  The other string refinements (`non-empty-string`, `non-falsy-string`, `lowercase-string`,
+  `non-numeric-string`) do not rule a decimal integer out as far as PHPStan can tell, and still fire.
 - A key with a literal part holding a character other than a digit or `-`: `$dir . '/'`,
   `"{$dir}/{$name}"`, `'v' . $name`. Such a key cannot be a decimal integer string.
 - A key that is the key variable of a `foreach` over an array around the write, which nothing in

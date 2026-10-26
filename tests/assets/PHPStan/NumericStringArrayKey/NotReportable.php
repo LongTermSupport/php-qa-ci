@@ -38,6 +38,12 @@ final class NotReportable
         $this->named[$object::class] = 1;
     }
 
+    /** @param non-decimal-int-string $key */
+    public function nonDecimalIntegerStringKey(string $key): void
+    {
+        $this->named[$key] = 1;
+    }
+
     /** @param numeric-string $number */
     public function numericStringKeyIsAlreadyTypedIntOrString(string $number): void
     {
