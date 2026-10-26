@@ -39,6 +39,8 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
 
     private const string QA_JOB = 'qa';
 
+    private const string NAME = 'name';
+
     private const string COVERAGE_JOB = 'coverage-report';
 
     private const string WRITE = 'write';
@@ -108,7 +110,7 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
         $qa   = $jobs->child(self::QA_JOB);
 
         self::assertSame([self::QA_JOB, self::COVERAGE_JOB], $jobs->keys(), 'The QA job runs first: a job of its own for the PHP version costs a runner and a check name.');
-        self::assertSame(self::QA_JOB_NAME, $qa->child('name')->string());
+        self::assertSame(self::QA_JOB_NAME, $qa->child(self::NAME)->string());
         self::assertFalse($qa->has('needs'));
         self::assertFalse($qa->has('outputs'));
 
@@ -169,7 +171,7 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     {
         $steps = array_values(array_filter(
             $this->template()->child(self::JOBS, self::QA_JOB, self::STEPS)->items(),
-            static fn (WorkflowNode $step): bool => 'Run QA Pipeline' === $step->child('name')->string(),
+            static fn (WorkflowNode $step): bool => 'Run QA Pipeline' === $step->child(self::NAME)->string(),
         ));
         self::assertCount(1, $steps);
         self::assertSame('1', $steps[0]->child('env', 'QA_READONLY')->string(), 'A read-only token cannot push, and a pushed fix would carry no check of its own.');
@@ -177,6 +179,28 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
         $template = \Safe\file_get_contents(self::TEMPLATE);
         self::assertStringNotContainsString('AUTO_COMMIT_FIXES', $template);
         self::assertSame(0, \Safe\preg_match('/^\s*(?:git push|git commit)\b/m', $template), 'Fixes are committed by the qa-autofix template, whose same-run gate validates them.');
+    }
+
+    /**
+     * A push run on the default branch has no pull request to mutation-test, and a full Infection run
+     * outlasts the job's time limit there, so no release is ever prepared. Infection stays on for every
+     * pull request run, where it covers the diff.
+     */
+    #[Test]
+    public function infectionIsSkippedOnPushAndRunsOnEveryOtherEvent(): void
+    {
+        foreach ([self::TEMPLATE, self::REPOSITORY . '/.github/workflows/qa.yml'] as $file) {
+            $steps = array_values(array_filter(
+                WorkflowNode::ofFile($file)->child(self::JOBS, self::QA_JOB, self::STEPS)->items(),
+                static fn (WorkflowNode $step): bool => 'Run QA Pipeline' === $step->child(self::NAME)->string(),
+            ));
+            self::assertCount(1, $steps, $file);
+            self::assertSame(
+                "\${{ github.event_name == 'push' && '0' || '1' }}",
+                $steps[0]->child('env', 'useInfection')->string(),
+                basename($file) . ' must skip Infection on push and keep it for pull requests.',
+            );
+        }
     }
 
     /**

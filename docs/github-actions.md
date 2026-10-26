@@ -359,6 +359,10 @@ env:
   useInfection: 0  # Disable mutation testing in CI
 ```
 
+The shipped template already sets `useInfection` to `0` on a `push` run and `1` on every other
+event, so a pull request is mutation-tested and a push to the default branch is not: a full
+Infection run there can outlast the job's time limit.
+
 ### Debugging Failed Builds
 
 1. Download artifacts from failed run

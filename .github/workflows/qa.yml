@@ -210,6 +210,7 @@ jobs:
           QA: ${{ steps.locate.outputs.qa }}
           QA_READONLY: '1'
           QA_TOOL: ${{ inputs.qa_tools || 'all' }}
+          useInfection: ${{ github.event_name == 'push' && '0' || '1' }}
         run: |
           if [ "$QA_TOOL" = "all" ]; then
             echo "Running full QA pipeline"
