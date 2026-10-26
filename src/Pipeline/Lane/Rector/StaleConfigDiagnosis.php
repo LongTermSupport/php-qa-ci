@@ -13,7 +13,9 @@ namespace LTS\PHPQA\Pipeline\Lane\Rector;
  * `MemoryCacheStorage`, so every project config copied from an older shipped `rector-safe.php`
  * (which called `cacheClass(MemoryCacheStorage::class)`) fails that way. Two of Rector's own
  * messages are recognised, because they are what it prints for exactly this: `cacheClass()` given
- * a class that is not a cache storage, and a class name that does not exist. The line is then found
+ * a class that is not a cache storage, and a class name that does not exist. Rector 2.8 removed
+ * `RectorConfig::cacheClass()` itself, so a config that still calls it fails with "Call to undefined
+ * method", which is recognised for that one method only. The line is then found
  * in the config the pass ran, since the message alone cannot name it.
  * ShippedRectorConfigsBootAgainstTheBundledPharTest holds the first message to the shipped phar.
  *
@@ -34,6 +36,9 @@ final readonly class StaleConfigDiagnosis
 
     /** `cacheClass()` was given a class that is not a CacheStorageInterface (it may not exist at all). */
     private const string CACHE_CLASS_REJECTED = '/^\[ERROR\]Expectedaninstanceofthisclassortothisclassamongitsparents"[^"]*CacheStorageInterface"\.Got:"([^"]+)"/';
+
+    /** The config calls `RectorConfig::cacheClass()`, which Rector 2.8 removed. */
+    private const string CACHE_CLASS_METHOD_REMOVED = '/^\[ERROR\]Calltoundefinedmethod"?Rector\\\Config\\\RectorConfig::cacheClass\(\)/';
 
     /** A class name in the config, or a config it loads, does not exist. */
     private const string CLASS_MISSING = '/^\[ERROR\]Expectedanexistingclassname\.Got:"([^"]+)"/';
@@ -72,7 +77,11 @@ final readonly class StaleConfigDiagnosis
         $blocks = $this->errorBlocks($rectorOutput);
         $class  = $this->rejectedCacheClass(...$blocks);
         if (null !== $class) {
-            return $this->cacheClassLines($label, $configFile, $class);
+            return $this->cacheClassLines($label, $configFile, 'it refers to a class the bundled Rector does not have.', \sprintf('Rector does not accept "%s" as a cache storage.', $class));
+        }
+
+        if ($this->cacheClassMethodRemoved(...$blocks)) {
+            return $this->cacheClassLines($label, $configFile, 'it calls a method the bundled Rector does not have.', 'The bundled Rector has no RectorConfig::cacheClass().');
         }
 
         $class = $this->missingClass(...$blocks);
@@ -139,6 +148,11 @@ final readonly class StaleConfigDiagnosis
         return null;
     }
 
+    private function cacheClassMethodRemoved(string ...$blocks): bool
+    {
+        return array_any($blocks, static fn (string $block): bool => 1 === \Safe\preg_match(self::CACHE_CLASS_METHOD_REMOVED, $block));
+    }
+
     private function missingClass(string ...$blocks): ?string
     {
         foreach ($blocks as $block) {
@@ -151,15 +165,15 @@ final readonly class StaleConfigDiagnosis
     }
 
     /** @return list<string> */
-    private function cacheClassLines(string $label, string $configFile, string $class): array
+    private function cacheClassLines(string $label, string $configFile, string $cause, string $rejection): array
     {
         $config = $this->shown($configFile);
         $calls  = $this->quotedLines($configFile, static fn (string $line): bool => 1 === \Safe\preg_match(self::CACHE_CLASS_CALL, $line));
 
         return [
-            \sprintf("Rector ('%s') cannot load %s: it refers to a class the bundled Rector does not have.", $label, $config),
+            \sprintf("Rector ('%s') cannot load %s: %s", $label, $config, $cause),
             ...([] === $calls ? ['  No cacheClass(...) call is in ' . $config . '; look in the files it includes.'] : $calls),
-            \sprintf('Rector does not accept "%s" as a cache storage.', $class),
+            $rejection,
             'Remove the cacheClass(...) call. Rector then uses its own file cache, which php-qa-ci keeps under '
             . $this->shown($this->cacheDir) . '.',
             self::DOCS_LINE,

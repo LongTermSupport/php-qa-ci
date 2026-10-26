@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Config\RectorConfig;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 
@@ -19,7 +18,7 @@ return static function (RectorConfig $rectorConfig): void {
     // Rector's cache lives in the project, never in the system temp directory, which every project
     // and every concurrent run on the host would share. The pipeline exports the directory in
     // rectorCacheDir (var/qa/cache/rector); standalone, the same path under the working directory.
-    // There is no cacheClass() call to copy into a project config: this is the cache setting.
+    // Rector chooses the cache storage itself (RectorConfig has no cacheClass()): this is the cache setting.
     $cacheDir = (string) ($_SERVER['rectorCacheDir'] ?? (getcwd() . '/var/qa/cache/rector'));
     // Rector requires the container cache directory to exist; --clear-cache empties only the files directory.
     foreach ([$cacheDir . '/files', $cacheDir . '/container'] as $directory) {
@@ -27,7 +26,6 @@ return static function (RectorConfig $rectorConfig): void {
             throw new RuntimeException('Cannot create the Rector cache directory ' . $directory);
         }
     }
-    $rectorConfig->cacheClass(FileCacheStorage::class);
     $rectorConfig->cacheDirectory($cacheDir . '/files');
     $rectorConfig->containerCacheDirectory($cacheDir . '/container');
 
