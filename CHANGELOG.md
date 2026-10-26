@@ -29,6 +29,8 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the dependency update: phpstan 2.3.1 → 2.3.2; phpstan/phpstan (in rector.phar) 2.3.1 → 2.3.2; rector/rector 2.7.0 → 2.8.1.
 
+## 85.9.2 — 2026-10-26
+
 ### Fixed
 
 - The shipped Rector configs no longer call RectorConfig::cacheClass(), which Rector 2.8 removed; a project config that still calls it now stops the Rector lane naming the file and line, with the fix

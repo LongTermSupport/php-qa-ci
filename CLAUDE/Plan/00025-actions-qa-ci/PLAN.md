@@ -136,11 +136,13 @@ This plan does three things:
   removing `AUTO_COMMIT_FIXES`, Infection in the required run (it hung twice in the duplicate run
   on #260), and the `qa-autofix.yml` gate name `QA gate (read-only qa)`. The first real
   `update-deps` run after #299 worked (four jobs; its pull request merged as 4366279a). The first
-  `php8.5` push runs did not reach `Release`: each is cancelled at the 45-minute job timeout in a
-  full Infection run, so `release.yml` is skipped and no release pull request is refreshed. That
-  makes "Infection in the required run" a release-path decision, posted with options as
-  [#303](https://github.com/LongTermSupport/php-qa-ci/issues/303); it stays open until the Owner
-  chooses.
+  `php8.5` push runs did not reach `Release`: each was cancelled at the 45-minute job timeout in a
+  full Infection run. That is settled: push runs now skip Infection and pull request runs keep it
+  ([#334](https://github.com/LongTermSupport/php-qa-ci/pull/334), issue
+  [#303](https://github.com/LongTermSupport/php-qa-ci/issues/303) closed), and a change to the
+  Infection or PHPUnit configuration that cannot finish its pull request check is tracked in
+  [#344](https://github.com/LongTermSupport/php-qa-ci/issues/344). Still the Owner's: the push
+  trigger list, removing `AUTO_COMMIT_FIXES` and the `qa-autofix.yml` gate name.
 
 ### Phase 4: actions-qa-ci (after Tasks 1.2 and 1.3)
 
