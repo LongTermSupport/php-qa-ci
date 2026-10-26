@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- The shipped Rector configs no longer call RectorConfig::cacheClass(), which Rector 2.8 removed; a project config that still calls it now stops the Rector lane naming the file and line, with the fix
+
 ## 85.9.1 — 2026-10-26
 
 ### Fixed

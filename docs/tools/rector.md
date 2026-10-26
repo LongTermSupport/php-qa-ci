@@ -37,7 +37,7 @@ Each process runs from the project root with `--autoload-file vendor/autoload.ph
 `--clear-cache`, and two values exported in the environment, which the shipped configs read
 the way they read any setting: the ignored paths newline-joined in `rectorIgnorePaths`, which
 go into `skip()`, and the project's Rector cache directory, `var/qa/cache/rector`, in
-`rectorCacheDir`. Each shipped config sets Rector's `FileCacheStorage` with its
+`rectorCacheDir`. Each shipped config leaves the cache storage to Rector (its file cache) and sets its
 `cacheDirectory` at `<rectorCacheDir>/files` and its `containerCacheDirectory` at
 `<rectorCacheDir>/container` (creating both, because Rector needs the container directory to
 exist). Rector's own default is the system temp directory, which every project and every
@@ -109,7 +109,14 @@ own message:
         Got: "Rector\Caching\ValueObject\Storage\MemoryCacheStorage"
 ```
 
-The lane recognises that message, and Rector's "Expected an existing class name" for any other
+Rector 2.8 removed `RectorConfig::cacheClass()` altogether, so a config that still calls it,
+with any class, fails with:
+
+```text
+[ERROR] Call to undefined method Rector\Config\RectorConfig::cacheClass()
+```
+
+The lane recognises that message for that one method, the message above, and Rector's "Expected an existing class name" for any other
 class the config names that does not exist, finds the line in the config that pass ran (a
 comment is skipped), and stops with the message below. It reads only an `[ERROR]` block that
 starts with the marker, from a pass that exited 1; a pass with pending changes (exit 2) is not
@@ -124,10 +131,10 @@ Remove the cacheClass(...) call. Rector then uses its own file cache, which php-
 ```
 
 To migrate, delete the `cacheClass(...)` call, and its `use` line if nothing else needs it. Do
-not replace it with another storage. A pass runs with only the config it is given, so the
+not replace it with another storage: there is no replacement call. A pass runs with only the config it is given, so the
 shipped cache setting is not inherited: a project config that says nothing about caching gets
 Rector's default `FileCacheStorage`, which the lane keeps in the project too, because it points
-`TMPDIR` at `var/qa/cache/rector/tmp`. The shipped configs name the cache themselves, with `files`
+`TMPDIR` at `var/qa/cache/rector/tmp`. The shipped configs set the cache directories themselves, with `files`
 and `container` directories under `var/qa/cache/rector` (the `rectorCacheDir` the lane
 exports), so a copy of a current shipped config carries that setting. A project override copied
 before this release can be recopied from `vendor/lts/php-qa-ci/configDefaults/generic/`

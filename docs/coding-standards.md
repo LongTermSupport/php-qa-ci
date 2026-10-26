@@ -84,9 +84,9 @@ cp vendor/lts/php-qa-ci/configDefaults/generic/rector-php85.php qaConfig/rector.
 # Edit qaConfig/rector.php to your needs
 ```
 
-The copy carries the shipped cache setting (a `FileCacheStorage` under `var/qa/cache/rector`). Leave
-it as it is: a `cacheClass(MemoryCacheStorage::class)` line, from a config copied before Rector 2.7,
-stops the lane naming that line; delete it. See
+The copy carries the shipped cache setting (the cache directories under `var/qa/cache/rector`). Leave
+it as it is: a `cacheClass(...)` line, from a config copied before Rector 2.8, stops the lane naming
+that line; delete it. See
 [A project config that sets its own cache](tools/rector.md#a-project-config-that-sets-its-own-cache).
 
 ### Running Rector Manually

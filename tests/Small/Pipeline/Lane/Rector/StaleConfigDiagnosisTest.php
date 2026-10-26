@@ -28,6 +28,16 @@ final class StaleConfigDiagnosisTest extends TestCase
 
     private const string CLASS_MISSING = "\n [ERROR] Expected an existing class name. Got: \"Rector\\Gone\\GoneRector\"         \n\n";
 
+    private const string PROJECT_CONFIG = 'qaConfig/rector.php';
+
+    private const string DOCS_LINE = 'Why and how: docs/tools/rector.md in php-qa-ci, "A project config that sets its own cache".';
+
+    private const string END_OF_DIFF = "    ----------- end diff -----------\n\n";
+
+    private const string REMOVED_METHOD = 'cacheClass';
+
+    private const string RECTOR_CONFIG_PATH = 'Rector/Config/RectorConfig';
+
     private const string PHP_WITH_CACHE_CLASS_CALL = "<?php\n\$c->cacheClass(M::class);\n";
 
     private const int EXIT_ERROR = 1;
@@ -41,7 +51,7 @@ final class StaleConfigDiagnosisTest extends TestCase
         . "     // \"Rector\\Caching\\Contract\\ValueObject\\Storage\\CacheStorageInterface\". Got: \"Foo\"\n"
         . "-    if (0 === strpos(\$a, 'x')) {\n"
         . "+    if (str_starts_with(\$a, 'x')) {\n"
-        . "    ----------- end diff -----------\n\n";
+        . self::END_OF_DIFF;
 
     private TempDir $project;
 
@@ -58,7 +68,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function aRejectedCacheClassNamesTheConfigTheLineAndTheFix(): void
     {
-        $config = $this->project->write('qaConfig/rector.php', "<?php\n\nreturn static function (\$c): void {\n    \$c->cacheClass(MemoryCacheStorage::class);\n};\n");
+        $config = $this->project->write(self::PROJECT_CONFIG, "<?php\n\nreturn static function (\$c): void {\n    \$c->cacheClass(MemoryCacheStorage::class);\n};\n");
 
         self::assertSame(
             [
@@ -66,10 +76,66 @@ final class StaleConfigDiagnosisTest extends TestCase
                 '  qaConfig/rector.php:4: $c->cacheClass(MemoryCacheStorage::class);',
                 'Rector does not accept "Rector\Caching\ValueObject\Storage\MemoryCacheStorage" as a cache storage.',
                 'Remove the cacheClass(...) call. Rector then uses its own file cache, which php-qa-ci keeps under var/qa/cache/rector.',
-                'Why and how: docs/tools/rector.md in php-qa-ci, "A project config that sets its own cache".',
+                self::DOCS_LINE,
             ],
             $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR),
         );
+    }
+
+    #[Test]
+    public function aRemovedCacheClassMethodNamesTheConfigTheLineAndTheFix(): void
+    {
+        $config = $this->project->write(self::PROJECT_CONFIG, "<?php\n\nreturn static function (\$c): void {\n    \$c->cacheClass(FileCacheStorage::class);\n};\n");
+
+        self::assertSame(
+            [
+                "Rector ('Project Specific') cannot load qaConfig/rector.php: it calls a method the bundled Rector does not have.",
+                '  qaConfig/rector.php:4: $c->cacheClass(FileCacheStorage::class);',
+                'The bundled Rector has no RectorConfig::cacheClass().',
+                'Remove the cacheClass(...) call. Rector then uses its own file cache, which php-qa-ci keeps under var/qa/cache/rector.',
+                self::DOCS_LINE,
+            ],
+            $this->diagnosis()->lines(self::LABEL, $this->undefinedMethod(self::REMOVED_METHOD, '      '), $config, self::EXIT_ERROR),
+        );
+    }
+
+    #[Test]
+    public function aRemovedCacheClassMethodInAConfigWithNoSuchCallSaysSo(): void
+    {
+        $config = $this->project->write(self::PROJECT_CONFIG, "<?php\n\nrequire __DIR__ . '/shared.php';\n");
+
+        $lines = $this->diagnosis()->lines(self::LABEL, $this->undefinedMethod(self::REMOVED_METHOD, '      '), $config, self::EXIT_ERROR);
+
+        self::assertSame('  No cacheClass(...) call is in qaConfig/rector.php; look in the files it includes.', $lines[1]);
+    }
+
+    #[Test]
+    public function anotherUndefinedRectorConfigMethodIsNotDiagnosed(): void
+    {
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
+
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, $this->undefinedMethod('gone'), $config, self::EXIT_ERROR));
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, "\n [ERROR] Call to undefined method Other\\Thing::cacheClass()\n\n", $config, self::EXIT_ERROR));
+    }
+
+    #[Test]
+    public function aRemovedCacheClassMethodWrappedAcrossLinesIsStillRecognised(): void
+    {
+        $config  = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
+        $wrapped = "\n [ERROR] Call to undefined method Rector\\Config\\Rec\n         torConfig::cacheClass()   \n\n";
+
+        self::assertNotSame([], $this->diagnosis()->lines(self::LABEL, $wrapped, $config, self::EXIT_ERROR));
+    }
+
+    #[Test]
+    public function aRemovedCacheClassMessageQuotedInADiffIsNotDiagnosed(): void
+    {
+        $config = $this->project->write(self::CONFIG, self::PHP_WITH_CACHE_CLASS_CALL);
+        $diff   = "\n1) src/Probe.php:7\n\n    ---------- begin diff ----------\n"
+            . '+    // ' . trim($this->undefinedMethod(self::REMOVED_METHOD)) . "\n"
+            . self::END_OF_DIFF;
+
+        self::assertSame([], $this->diagnosis()->lines(self::LABEL, $diff, $config, self::EXIT_PENDING_CHANGES));
     }
 
     #[Test]
@@ -117,7 +183,7 @@ final class StaleConfigDiagnosisTest extends TestCase
     #[Test]
     public function aConfigWithNoCacheClassCallSaysSoAndStillGivesTheFix(): void
     {
-        $config = $this->project->write('qaConfig/rector.php', "<?php\n\nrequire __DIR__ . '/shared.php';\n");
+        $config = $this->project->write(self::PROJECT_CONFIG, "<?php\n\nrequire __DIR__ . '/shared.php';\n");
 
         $lines = $this->diagnosis()->lines(self::LABEL, self::CACHE_REJECTED, $config, self::EXIT_ERROR);
 
@@ -153,7 +219,7 @@ final class StaleConfigDiagnosisTest extends TestCase
                 '  rector.php:3: $c->rule(GoneRector::class);',
                 "The bundled Rector no longer has this class, or the project's autoloader does not provide it.",
                 'Remove the reference or replace it with what the bundled Rector offers instead.',
-                'Why and how: docs/tools/rector.md in php-qa-ci, "A project config that sets its own cache".',
+                self::DOCS_LINE,
             ],
             $this->diagnosis()->lines(self::LABEL, self::CLASS_MISSING, $config, self::EXIT_ERROR),
         );
@@ -221,7 +287,7 @@ final class StaleConfigDiagnosisTest extends TestCase
             . "     // [ERROR] Expected an existing class name. Got: \"Foo\"\n"
             . "-    if (0 === strpos(\$a, 'x')) {\n"
             . "+    if (str_starts_with(\$a, 'x')) {\n"
-            . "    ----------- end diff -----------\n\n"
+            . self::END_OF_DIFF
             . " [ERROR] Could not process \"src/B.php\" file, due to:\n"
             . "         \"Syntax error, unexpected T_STRING\".\n\n";
 
@@ -239,7 +305,7 @@ final class StaleConfigDiagnosisTest extends TestCase
             . " \n"
             . "-    if (0 === strpos(\$a, 'x')) {\n"
             . "+    if (str_starts_with(\$a, 'x')) {\n"
-            . "    ----------- end diff -----------\n\n"
+            . self::END_OF_DIFF
             . " [ERROR] Could not process \"src/B.php\" file, due to:\n"
             . "         \"Syntax error, unexpected T_STRING\".\n\n";
 
@@ -265,6 +331,11 @@ final class StaleConfigDiagnosisTest extends TestCase
         $lines = $this->diagnosis()->lines(self::LABEL, self::DIFF_QUOTING_THE_MESSAGES . self::CACHE_REJECTED, $config, self::EXIT_ERROR);
 
         self::assertStringContainsString('"Rector\Caching\ValueObject\Storage\MemoryCacheStorage"', $lines[2]);
+    }
+
+    private function undefinedMethod(string $method, string $trailing = ''): string
+    {
+        return "\n [ERROR] Call to undefined method " . str_replace('/', '\\', self::RECTOR_CONFIG_PATH) . '::' . $method . '()' . $trailing . "\n\n";
     }
 
     private function diagnosis(): StaleConfigDiagnosis
