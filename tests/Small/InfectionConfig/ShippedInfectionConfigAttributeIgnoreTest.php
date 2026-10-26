@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\InfectionConfig;
 
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
@@ -79,6 +80,13 @@ final class ShippedInfectionConfigAttributeIgnoreTest extends TestCase
                  );
         DIFF;
 
+    #[Test]
+    #[DataProvider('attributeDiffs')]
+    public function theShippedConfigIgnoresAMutantInsideAnAttributeAndNothingElse(string $config, string $diff, bool $ignored): void
+    {
+        self::assertSame($ignored, $this->ignoredByAnyEntry($config, $diff));
+    }
+
     /**
      * @return iterable<string, array{string, string, bool}>
      */
@@ -97,13 +105,6 @@ final class ShippedInfectionConfigAttributeIgnoreTest extends TestCase
         }
     }
 
-    #[Test]
-    #[DataProvider('attributeDiffs')]
-    public function theShippedConfigIgnoresAMutantInsideAnAttributeAndNothingElse(string $config, string $diff, bool $ignored): void
-    {
-        self::assertSame($ignored, $this->ignoredByAnyEntry($config, $diff));
-    }
-
     private function ignoredByAnyEntry(string $config, string $diff): bool
     {
         $decoded = json_decode(file_get_contents(\dirname(__DIR__, 3) . '/' . $config), true);
@@ -114,7 +115,7 @@ final class ShippedInfectionConfigAttributeIgnoreTest extends TestCase
 
         foreach ($entries as $entry) {
             self::assertIsString($entry);
-            if (preg_match(self::infectionPattern($entry), $diff) === 1) {
+            if ($this->patternMatches($this->infectionPattern($entry), $diff)) {
                 return true;
             }
         }
@@ -122,7 +123,20 @@ final class ShippedInfectionConfigAttributeIgnoreTest extends TestCase
         return false;
     }
 
-    private static function infectionPattern(string $entry): string
+    private function patternMatches(string $pattern, string $diff): bool
+    {
+        set_error_handler(static function (int $level, string $message) use ($pattern): never {
+            throw new InvalidArgumentException(\sprintf('ignore pattern "%s" is not a valid regular expression (%s)', $pattern, $message), $level);
+        });
+
+        try {
+            return 1 === preg_match($pattern, $diff);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    private function infectionPattern(string $entry): string
     {
         $delimiter = '/';
         foreach (['#', '%', ':', ';', '=', '?', '@', '^', '~'] as $candidate) {

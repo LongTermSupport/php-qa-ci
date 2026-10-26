@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- **Infection ignores mutants in the continuation lines of a multi-line attribute.** The shipped `global-ignoreSourceCodeByRegex` matched only a line that opens an attribute, so an argument on a later line (a parameter attribute written over several lines) was still mutated and counted against the mutation score. A second entry now ignores a line that is followed within the diff by the attribute's closing `)]`. A project with its own `infection.json` should copy the entry; see [Attributes](docs/tools/infection.md#attributes).
+
 ## 85.8.0 — 2026-10-26
 
 ### Changed — breaking
