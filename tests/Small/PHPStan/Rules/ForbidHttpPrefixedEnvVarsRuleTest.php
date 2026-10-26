@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PHPStan\Rules;
 
 use LTS\PHPQA\PHPStan\Rules\ForbidHttpPrefixedEnvVarsRule;
+use LTS\PHPQA\Tests\Support\RecordingFileNodeRule;
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPStan\Node\FileNode;
 use PHPStan\Rules\Rule;
 use PHPStan\Testing\RuleTestCase;
@@ -26,7 +28,7 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @internal
  *
- * @extends RuleTestCase<ForbidHttpPrefixedEnvVarsRule>
+ * @extends RuleTestCase<ForbidHttpPrefixedEnvVarsRule|RecordingFileNodeRule>
  */
 #[CoversClass(ForbidHttpPrefixedEnvVarsRule::class)]
 #[Medium]
@@ -41,6 +43,8 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
     private const string ASSETS = __DIR__ . '/../../../assets/httpPrefixedEnvVars';
 
     private string $projectRootForTest = self::ASSETS . '/clean';
+
+    private ?RecordingFileNodeRule $spy = null;
 
     #[Test]
     public function getNodeTypeIsFileNode(): void
@@ -86,15 +90,60 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
         $this->analyse([self::ASSETS . self::DUMMY_PHP], []);
     }
 
+    /**
+     * PHPStan itself orders the errors an analyse() returns, so the rule's own
+     * sort is observable only on what the rule itself returns, which a recording
+     * wrapper around it keeps. The tree has two .env.* files and no plain .env,
+     * a directory and a dangling link that a .env.* glob also matches, a config
+     * file with two names on one line, and a Symfony marker of the dotenv kind alone.
+     */
+    #[Test]
+    public function everyOffenderIsReportedOnceAndSortedByFileLineAndName(): void
+    {
+        $root = TempDir::create('phpqaci-http-env');
+
+        try {
+            $root->write('vendor/symfony/dotenv/.keep', '');
+            $root->write('config/a.yaml', "x: '%env(HTTP_ONE)%-%env(int:HTTP_TWO)%'\n");
+            $root->write('outside/b.yaml', "x: '%env(HTTP_OUTSIDE_CONFIG)%'\n");
+            $root->write('.env.b', "APP_X=1\nHTTP_BETA=1\n");
+            $root->write('.env.a', "HTTP_ALPHA=1\n");
+            $root->mkdir('.env.dir');
+            // A dangling link matches the glob but is no file, and reading it would throw.
+            \Safe\symlink($root->path . '/missing-target', $root->path . '/.env.dangling');
+
+            $spy       = new RecordingFileNodeRule(new ForbidHttpPrefixedEnvVarsRule($root->path));
+            $this->spy = $spy;
+
+            $this->analyse([self::ASSETS . self::DUMMY_PHP, self::ASSETS . '/dummy2.php'], []);
+
+            self::assertSame(
+                [
+                    [
+                        $this->expectedMessage($root->path . '/.env.a', 1, 'HTTP_ALPHA'),
+                        $this->expectedMessage($root->path . '/.env.b', 2, 'HTTP_BETA'),
+                        $this->expectedMessage($root->path . '/config/a.yaml', 1, 'HTTP_ONE'),
+                        $this->expectedMessage($root->path . '/config/a.yaml', 1, 'HTTP_TWO'),
+                    ],
+                    [],
+                ],
+                $spy->calls,
+                'the first analysed file gets the sorted report, the second none: a rule instance scans once',
+            );
+        } finally {
+            $root->remove();
+        }
+    }
+
     protected function getRule(): Rule
     {
-        return new ForbidHttpPrefixedEnvVarsRule($this->projectRootForTest);
+        return $this->spy ?? new ForbidHttpPrefixedEnvVarsRule($this->projectRootForTest);
     }
 
     private function expectedMessage(string $file, int $line, string $name): string
     {
         return \sprintf(
-            '%s:%d: env var \'%s\' is consumed by Symfony but named with an HTTP_ prefix — '
+            "%s:%d: env var '%s' is consumed by Symfony but named with an HTTP_ prefix — "
             . 'Symfony treats HTTP_* as an HTTP request header and will NOT read it from '
             . '$_SERVER, so a CLI process (worker/console/cron) resolves it EMPTY. Rename it '
             . 'off the HTTP_ prefix (e.g. HTTP_API_KEY -> APP_API_KEY).',
