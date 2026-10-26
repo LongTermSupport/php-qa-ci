@@ -1,10 +1,10 @@
 # Hooks Daemon - Active Configuration
 
-> Generated on 2026-10-19 (v3.70.0) by `generate-docs`. Regenerate: `.claude/hooks-daemon/bin/hooks-daemon generate-docs`
+> Generated on 2026-10-26 (v3.71.0) by `generate-docs`. Regenerate: `.claude/hooks-daemon/bin/hooks-daemon generate-docs`
 
 ## Active Handlers
 
-### PreToolUse (76 handlers)
+### PreToolUse (78 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
@@ -15,6 +15,7 @@
 | 11 | sed_blocker | BLOCKING | Block sed used for file modification - Claude gets sed wrong and causes file destruction |
 | 12 | absolute_path | BLOCKING | Require absolute paths for Read/Write/Edit tool file_path parameters |
 | 13 | error_hiding_blocker | BLOCKING | Block error-hiding patterns in code written via Write or Edit tools |
+| 13 | root_recursion_guard | BLOCKING | Block recursive scanners (grep -r, find, fd, rg, ...) rooted at ``/``/home/etc |
 | 14 | artifact_publish_blocker | BLOCKING | Deny artefact publishing; allow read-only enumeration |
 | 14 | curl_pipe_shell | BLOCKING | Block curl/wget piped to shell commands |
 | 14 | issue_filing_gate | BLOCKING | Deny an upstream issue whose body nothing checked |
@@ -25,13 +26,13 @@
 | 14 | subagent_worktree_write_guard | BLOCKING | Deny a subagent's write into a checkout other than the one it works in |
 | 15 | pipe_blocker | BLOCKING | Block expensive commands piped to tail/head to prevent information loss |
 | 15 | security_antipattern | BLOCKING | Block Write/Edit of files containing security antipatterns |
-| 16 | root_recursion_guard | BLOCKING | Block recursive scanners (grep -r, find, fd, rg, ...) rooted at ``/``/home/etc |
 | 16 | worktree_file_copy | BLOCKING | Prevent copying files between worktrees and main repo |
 | 16 | write_clobber_guard | BLOCKING | Deny ``Write`` to an existing file that was not read this session |
 | 17 | git_stash | BLOCKING | Block or warn about git stash based on mode configuration |
 | 17 | self_matching_process_probe | BLOCKING | Block a liveness probe whose pattern matches the shell running it |
 | 18 | dangerous_permissions | BLOCKING | Block chmod 777 and dangerous permission commands |
 | 18 | github_auto_close_keywords | BLOCKING | Deny git messages carrying GitHub auto-closing keyword references |
+| 18 | write_protected_paths | BLOCKING | Deny any agent write to a configured path; reading is never denied |
 | 19 | ancestry_preserving_merge | BLOCKING | Block (or, in warn mode, advise against) ancestry-severing merges |
 | 19 | lock_file_edit_blocker | BLOCKING | Block direct editing of package manager lock files |
 | 20 | git_message_backtick | BLOCKING | Block a double-quoted git message whose backticks would be executed |
@@ -81,6 +82,7 @@
 | 57 | daemon_docs_guard | ADVISORY | Warn when reading from the hooks-daemon internal CLAUDE/ docs directory |
 | 59 | merge_qa_advisor | ADVISORY | Advise the static checks to run before merging a work branch with no recorded green run |
 | 60 | british_english | ADVISORY | Warn about American English spellings in content files (non-blocking) |
+| 60 | review_round_advisor | ADVISORY | Advise from the ``advise_at``-th review dispatch on one plan or branch |
 | 60 | spawn_rate_advisor | ADVISORY | Advise at the live-agent cap and near the five-hour limit; never deny |
 | 60 | subagent_tier_advisor | ADVISORY | Advise a cheaper tier on an unchosen or up-overridden dispatch, and a floor below it |
 | 60 | workflow_fanout_advisor | ADVISORY | Advise on a Workflow script's agent count, inherited sites and per-family ceiling |
@@ -105,7 +107,7 @@
 | 37 | plan_fact_check_feed | ADVISORY | Feed plan edits to the debouncer so a burst yields one pending fact-check |
 | 38 | operator_signal_notice | ADVISORY | Surface a pending operator signal as hook context, once per signal per agent thread |
 
-### SessionStart (34 handlers)
+### SessionStart (35 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
@@ -140,6 +142,7 @@
 | 70 | failsafe_cron_session_advisor | ADVISORY | Advise establishing the failsafe recovery cron at session start |
 | 70 | persistent_cron_assertor | ADVISORY | State the project's declared crons and instruct a CronList reconcile |
 | 71 | reference_repo_sweep | ADVISORY | Fetch, safely fast-forward and record every governed reference repo |
+| 72 | relay_binary_checker | ADVISORY | Warn when the relay is enabled but its binary is missing or cannot run |
 | 72 | routine_qa_sweep | ADVISORY | Advisory SessionStart sweep over the Routine tree (silent when clean) |
 | 72 | unproven_venv_advisor | ADVISORY | Name a running venv built for another lock, and list venvs not proven stale |
 | 73 | session_actions_directive | ADVISORY | Signal the ccy supervisor when a session starts with must-do items |
@@ -151,7 +154,7 @@
 | 15 | disclosure_reset_pre_compact | NON-TERMINAL | Reset DisclosureTracker state for the firing agent on PreCompact |
 | 20 | compaction_signal | NON-TERMINAL | Write a ``<session>.compacting`` signal on PreCompact for the supervisor |
 
-### UserPromptSubmit (9 handlers)
+### UserPromptSubmit (10 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
@@ -160,6 +163,7 @@
 | 37 | failsafe_cron_blockage_suppressor | BLOCKING | Suppress a delivered failsafe-cron tick while the session is stably |
 | 38 | stop_failure_resolver | ADVISORY | Resolve this session's recorded StopFailure when it submits a prompt |
 | 39 | limit_rebrief | ADVISORY | Re-brief after a usage-limit resume; name a background or teammate agent a limit killed |
+| 41 | focus_mode_trigger | ADVISORY | Turn the session's focus mode on or off from the prompt; renew it on every human prompt |
 | 55 | critical_thinking_advisory | ADVISORY | Periodically inject advisory context encouraging critical evaluation |
 | 56 | idle_housekeeping_advisory | ADVISORY | After N consecutive no-op recovery ticks, advise a report-first |
 | 57 | standing_authorisations | ADVISORY | Inject the authorisations a project has recorded in its config |
@@ -177,11 +181,12 @@
 |----------|---------|----------|-------------|
 | 50 | quota_resume_recorder | ADVISORY | Record each ``quota_auto_resume_*`` notification, silently |
 
-### Stop (6 handlers)
+### Stop (7 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
 | 4 | idle_workable_issue_stop_gate | BLOCKING | Refuse a main-thread idle stop while a workable issue is cached and nothing runs |
+| 5 | goal_loop_detector | NON-TERMINAL | Log a session's goal-loop cycles to the transition log; always allow |
 | 6 | usage_pause_stop_gate | BLOCKING | Allow a paused session's stop only when its crons are exactly the resume cron |
 | 7 | cron_stop_enforcer | BLOCKING | Block a Stop while a declared persistent cron was never created |
 | 9 | background_task_recorder | NON-TERMINAL | Record a Stop's finished agent tasks for the live count; always allow |
@@ -199,7 +204,7 @@
 | 11 | subagent_handoff_gate | BLOCKING | Block an over-hard-budget subagent's stop until its handoff file exists |
 | 15 | subagent_report_size_blocker | TERMINAL | Block a SubagentStop whose ``last_assistant_message`` is oversized |
 
-### Status (18 handlers)
+### Status (19 handlers)
 
 | Priority | Handler | Behaviour | Description |
 |----------|---------|----------|-------------|
@@ -213,7 +218,8 @@
 | 14 | current_time | NON-TERMINAL | Display current local time in status line (24-hour format, no seconds) |
 | 15 | prompt_cache_indicator | NON-TERMINAL | Render prompt-cache health as `main`, `⑂` and `Σ` background-coloured chips |
 | 16 | usage_indicator | NON-TERMINAL | Show 5-hour and weekly subscription usage, colour-coded, with reset countdown |
-| 17 | spend_meter | NON-TERMINAL | Render the session's subagent spend, live agents and unmeasured count |
+| 17 | spend_meter | NON-TERMINAL | Render the running sub-agents, and any measurement failures in red |
+| 18 | session_mode_indicator | NON-TERMINAL | Render this session's top session mode and how many more are active |
 | 20 | git_branch | NON-TERMINAL | Show current git branch with magicmonty-style status icons if in a git repo |
 | 25 | git_repo_name | NON-TERMINAL | Show git repository name at start of status line |
 | 25 | working_directory | NON-TERMINAL | Display working directory when it differs from project root |
