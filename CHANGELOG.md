@@ -103,6 +103,8 @@ the release and its tag. The full rules are in
 
 - The shipped pipeline workflow template now skips Infection on a push run and keeps it on every pull request run, so a push to the default branch finishes inside the job's time limit.
 
+- The optional PHPStan rule `phpqaci.unisolatedGitProcess` also requires a test's process environment to switch off background maintenance: besides `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`, set `GIT_CONFIG_COUNT` with `GIT_CONFIG_KEY_n` entries naming `maintenance.auto` and `gc.auto`. A detached maintenance process started by a commit can write into a fixture repository while the test deletes it, failing the test now and then. See `vendor/bin/rule-doc phpqaci.unisolatedGitProcess`.
+
 ### Fixed
 
 - **The class locator that attributes an architecture finding to a file, and the audit of the shipped config templates against the PSR-4 ignore list, now read a file's namespace from its parse, not from a regular expression over its text.** A comment or heredoc line that started with `namespace Other;` was read as the file's namespace: the locator then found no file for a class declared in it, and the audit did not name a template that has no namespace. The audit's pattern also needed a semicolon, so a template written with a braced `namespace X { }` was named as namespace-less. A file that does not parse is no longer attributed to a namespace by the locator, and a template that does not parse is not named by the audit (the copy fails psr4Validate on its parse error, not for want of an ignore entry). The `deadCode` lane's recognition of Composer's generated bin proxy now takes the proxy's `namespace Composer;` from the parse too. ([#283](https://github.com/LongTermSupport/php-qa-ci/issues/283))
