@@ -46,9 +46,12 @@ final readonly class SkillsDeployPlugin implements PluginInterface, EventSubscri
      */
     public static function getSubscribedEvents(): array
     {
+        // Below phpstan/extension-installer's priority 0: the active-defences block lists the
+        // rule includes that installer writes in its own handler, and Composer runs equal
+        // priorities in registration order, so only a lower priority guarantees they exist.
         return [
-            ScriptEvents::POST_INSTALL_CMD => 'deploySkills',
-            ScriptEvents::POST_UPDATE_CMD  => 'deploySkills',
+            ScriptEvents::POST_INSTALL_CMD => ['deploySkills', -10],
+            ScriptEvents::POST_UPDATE_CMD  => ['deploySkills', -10],
         ];
     }
 

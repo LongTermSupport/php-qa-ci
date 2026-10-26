@@ -388,6 +388,26 @@ final class ActiveRulesListerTest extends TestCase
         );
     }
 
+    public function testAnInstallerConfigWithNoExtensionsIsNotedLoudly(): void
+    {
+        $project  = \LTS\PHPQA\Tests\Support\TempDir::create('phpqa-lister-ungenerated');
+        $warnings = new BufferedOutput();
+
+        try {
+            $project->write(self::PROJECT_NEON, "rules: []\n");
+            $project->write('vendor/phpstan/extension-installer/src/GeneratedConfig.php', "<?php\nnamespace PHPStan\\ExtensionInstaller;\nfinal class GeneratedConfig\n{\n    public const EXTENSIONS = array ();\n}\n");
+            new ActiveRulesLister(self::QA_CI_ROOT, $warnings)->list($project->path);
+        } finally {
+            $project->remove();
+        }
+
+        self::assertSame(
+            "ActiveRulesLister: phpstan/extension-installer's GeneratedConfig.php lists no extensions, so the bundled rule tiers "
+            . 'are missing from this listing; run it again after phpstan/extension-installer has run (composer install or update).' . "\n",
+            $warnings->fetch(),
+        );
+    }
+
     public function testARuleFileThatDoesNotParseIsListedWithoutAnIdentifierAndNoted(): void
     {
         $warnings             = new BufferedOutput();
