@@ -5,7 +5,9 @@
 ## What it requires
 
 Test code that runs git gives the process an environment that sets `GIT_CONFIG_GLOBAL` and
-`GIT_CONFIG_NOSYSTEM`, and PHPStan must be able to see both keys in it. Reported, in a namespace
+`GIT_CONFIG_NOSYSTEM`, and that switches off git's background maintenance (`GIT_CONFIG_COUNT` with
+`GIT_CONFIG_KEY_n` entries naming `maintenance.auto` and `gc.auto`). PHPStan must be able to see
+all of it in the environment. Reported, in a namespace
 with a segment ending in `Tests` (`App\Tests\Git`, `App\FunctionalTests`; not `App\TestsHelper`
 or `App\Contests`) or a file under the project's own
 `tests/` directory (a directory named `tests` above the project root does not count):
@@ -36,6 +38,11 @@ changes what the test observes:
 CI usually has none of this, so such a test passes there and fails, or passes for the wrong
 reason, on a developer's machine.
 
+Separately, `git commit` can start a detached auto-maintenance process (`maintenance run --auto --detach`, `gc --auto`) that outlives the call and writes temporary files under `.git/objects`.
+A test that deletes its fixture repository then races that process: the cleanup lists a file the
+process removes before the cleanup unlinks it, and the test fails now and then. Switching
+`maintenance.auto` and `gc.auto` off removes the process.
+
 ## What is not reported
 
 - **Code outside a test.** Production code runs git on the user's own repository, where the
@@ -65,12 +72,17 @@ $process = new Process(['git', 'commit', '-m', 'fixture'], $cwd);
 // RIGHT — an environment PHPStan can see sets both variables
 final readonly class GitSandbox
 {
-    /** @return array{GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: string, GIT_AUTHOR_EMAIL: string, GIT_COMMITTER_NAME: string, GIT_COMMITTER_EMAIL: string} */
+    /** @return array{GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'maintenance.auto', GIT_CONFIG_VALUE_0: 'false', GIT_CONFIG_KEY_1: 'gc.auto', GIT_CONFIG_VALUE_1: '0', GIT_AUTHOR_NAME: string, GIT_AUTHOR_EMAIL: string, GIT_COMMITTER_NAME: string, GIT_COMMITTER_EMAIL: string} */
     public static function environment(): array
     {
         return [
             'GIT_CONFIG_GLOBAL'   => '/dev/null',
             'GIT_CONFIG_NOSYSTEM' => '1',
+            'GIT_CONFIG_COUNT'    => '2',
+            'GIT_CONFIG_KEY_0'    => 'maintenance.auto',
+            'GIT_CONFIG_VALUE_0'  => 'false',
+            'GIT_CONFIG_KEY_1'    => 'gc.auto',
+            'GIT_CONFIG_VALUE_1'  => '0',
             'GIT_AUTHOR_NAME'     => 'Sandbox',
             'GIT_AUTHOR_EMAIL'    => 'sandbox@example.invalid',
             'GIT_COMMITTER_NAME'  => 'Sandbox',
@@ -88,12 +100,17 @@ there is no `user.name` either, which is why the author and committer are set to
 
 A script the test runs, which runs git itself, takes the same environment
 (`[...GitSandbox::environment(), 'PATH' => $path]`). To cover git started by code the test calls,
-set both variables for the whole test run in `phpunit.xml`:
+set the variables for the whole test run in `phpunit.xml`:
 
 ```xml
 <php>
   <env name="GIT_CONFIG_GLOBAL" value="/dev/null" force="true"/>
   <env name="GIT_CONFIG_NOSYSTEM" value="1" force="true"/>
+  <env name="GIT_CONFIG_COUNT" value="2" force="true"/>
+  <env name="GIT_CONFIG_KEY_0" value="maintenance.auto" force="true"/>
+  <env name="GIT_CONFIG_VALUE_0" value="false" force="true"/>
+  <env name="GIT_CONFIG_KEY_1" value="gc.auto" force="true"/>
+  <env name="GIT_CONFIG_VALUE_1" value="0" force="true"/>
 </php>
 ```
 

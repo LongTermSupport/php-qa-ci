@@ -81,16 +81,18 @@ final class ForbidUnisolatedGitProcessRuleTest extends RuleTestCase
         $this->analyse(
             [self::FIXTURE],
             [
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 18],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 19],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 20],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 21],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 23],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 24],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 25],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 26],
-                [ForbidUnisolatedGitProcessRule::MESSAGE, 27],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 30],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 31],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 32],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 33],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 35],
                 [ForbidUnisolatedGitProcessRule::MESSAGE, 36],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 37],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 38],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 39],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 48],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 67],
+                [ForbidUnisolatedGitProcessRule::MESSAGE, 68],
             ],
         );
     }
