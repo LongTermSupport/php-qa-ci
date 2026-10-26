@@ -35,6 +35,8 @@ the release and its tag. The full rules are in
 
 - The Twig CS Fixer and Twig Lint lanes skip loudly, with the reason, when the project has no template directory of its own (none exists, or every one is under vendor/), and never lint a path under vendor/.
 
+- **Infection ignores mutants in the continuation lines of a multi-line attribute.** The default `infection.json` matched only a line that opens an attribute, so an argument on a later line (a parameter attribute written over several lines) was still mutated and counted against the mutation score. A second `global-ignoreSourceCodeByRegex` entry now ignores a line that is followed within the diff by the closing `)]` of the attribute. A project with its own `infection.json` should copy the entry; see [Attributes](docs/tools/infection.md#attributes).
+
 ## 85.8.0 — 2026-10-26
 
 ### Changed — breaking

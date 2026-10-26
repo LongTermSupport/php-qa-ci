@@ -8,7 +8,8 @@
   "mutators": {
     "@default": true,
     "global-ignoreSourceCodeByRegex": [
-      "#\\[\\s*[A-Za-z].*"
+      "#\\[\\s*[A-Za-z].*",
+      ".*(?=(?:\\n[ +][^\\n;{}]*){0,3}?\\n[ +]\\s*\\)\\])"
     ]
   },
   "logs": {
