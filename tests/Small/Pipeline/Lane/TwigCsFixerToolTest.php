@@ -29,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\FormatterCache::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\OwnTwigDirectories::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigCsFixer\CacheFileConfig::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
