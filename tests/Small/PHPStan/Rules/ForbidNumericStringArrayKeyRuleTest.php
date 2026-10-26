@@ -33,6 +33,8 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
 
     private const string COUNTS = 'self::$counts';
 
+    private const string INSTANCE_COUNTS = '$this->counts';
+
     private const string DECLARED_REASONS = 'it is declared array<string, string>';
 
     private const string DECLARED_COUNTS = 'it is declared array<string, int>';
@@ -105,6 +107,7 @@ final class ForbidNumericStringArrayKeyRuleTest extends RuleTestCase
                 [$this->message('$map', 'line 172 returns it as array<string, string>'), 170],
                 [$this->message(self::LITERAL, 'line 177 assigns it to $this->reasons, declared array<string, string>'), 177],
                 [$this->message(self::LITERAL . '[…]', 'line 183 returns it as array<string, array<string, int>>'), 183],
+                [$this->message(self::INSTANCE_COUNTS, self::DECLARED_COUNTS), 217],
             ],
         );
     }

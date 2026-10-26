@@ -205,3 +205,15 @@ final readonly class Holder
     {
     }
 }
+
+final class RefinedKey
+{
+    /** @var array<string, int> */
+    private array $counts = [];
+
+    /** @param non-empty-string $key */
+    public function nonEmptyStringKey(string $key): void
+    {
+        $this->counts[$key] = 1;
+    }
+}
