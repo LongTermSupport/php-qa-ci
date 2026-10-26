@@ -44,6 +44,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[Small]
 final class FullQaBlockerConfiguratorTest extends TestCase
 {
+    private const string BIN_DIR = 'bin';
+
     private const string CLAUDE_DIR = '.claude';
 
     private const string CONFIG_FILE = 'hooks-daemon.yaml';
@@ -76,8 +78,8 @@ final class FullQaBlockerConfiguratorTest extends TestCase
     #[Test]
     public function theBlockIsWrittenOnlyAfterTheDaemonValidatedIt(): void
     {
-        \Safe\chmod($this->configPath(), 0o640);
-        $expected  = new FullQaBlockerYamlEditor()->apply(self::ORIGINAL, 'bin')->yaml;
+        \Safe\chmod($this->configPath(), 0o755);
+        $expected  = new FullQaBlockerYamlEditor()->apply(self::ORIGINAL, self::BIN_DIR)->yaml;
         $validator = $this->validatorSeeing(0);
 
         $outcome = $this->configurator($validator)->configure($this->project->path, $this->configPath());
@@ -92,7 +94,7 @@ final class FullQaBlockerConfiguratorTest extends TestCase
         );
         self::assertSame($this->project->path, $spec->cwd);
         self::assertFalse($spec->streamOutput);
-        self::assertSame(0o640, \Safe\fileperms($this->configPath()) & 0o777, 'the config keeps its permissions');
+        self::assertSame(0o755, \Safe\fileperms($this->configPath()) & 0o777, 'the config keeps its permissions');
         self::assertSame([self::CONFIG_FILE], $this->project->files(self::CLAUDE_DIR), 'no candidate file is left behind');
         self::assertStringContainsString('subagent_full_qa_blocker configured', $this->output->fetch());
     }
@@ -102,7 +104,47 @@ final class FullQaBlockerConfiguratorTest extends TestCase
     {
         $this->configurator($this->validatorSeeing(0))->configure($this->project->path, $this->configPath());
 
-        self::assertStringContainsString(self::CLI . ' restart', $this->output->fetch());
+        self::assertStringContainsString(
+            \sprintf("\n  ↻ restart the hooks daemon to load it: %s restart (a running daemon keeps its old config until then)\n", self::CLI),
+            $this->output->fetch(),
+        );
+    }
+
+    /** A daemon install outside the project, even one whose path merely begins with the project's, is named in full. */
+    #[Test]
+    public function aDaemonOutsideTheProjectRootIsNamedByItsFullPath(): void
+    {
+        $this->project->write('app/composer.json', '{"config": {"bin-dir": "bin"}}');
+        $this->project->write('app-other/' . self::CONFIG, self::ORIGINAL);
+        $this->project->write('app-other/' . self::CLI, "#!/bin/bash\n");
+        $this->project->write('app-other/.claude/hooks-daemon/' . HooksDaemonVersionReader::VERSION_FILE, "__version__ = \"3.67.0\"\n");
+
+        $outcome = $this->configurator($this->validatorSeeing(0))->configure(
+            $this->project->path . '/app',
+            $this->project->path . '/app-other/' . self::CONFIG,
+        );
+
+        self::assertSame(ConfigureOutcomeEnum::Written, $outcome);
+        self::assertStringContainsString(
+            \sprintf(': %s/app-other/%s restart (', $this->project->path, self::CLI),
+            $this->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function aStaleManagedBlockIsRewrittenAfterValidation(): void
+    {
+        $stale = new FullQaBlockerYamlEditor()->apply(self::ORIGINAL, 'oldbin')->yaml;
+        $this->project->write(self::CONFIG, $stale);
+        $expected  = new FullQaBlockerYamlEditor()->apply($stale, self::BIN_DIR)->yaml;
+        $validator = $this->validatorSeeing(0);
+
+        $outcome = $this->configurator($validator)->configure($this->project->path, $this->configPath());
+
+        self::assertNotSame($stale, $expected);
+        self::assertSame(ConfigureOutcomeEnum::Written, $outcome);
+        self::assertSame($expected, $this->project->read(self::CONFIG));
+        self::assertSame($expected, $validator->captured);
     }
 
     #[Test]
@@ -117,7 +159,7 @@ final class FullQaBlockerConfiguratorTest extends TestCase
         self::assertSame([self::CONFIG_FILE], $this->project->files(self::CLAUDE_DIR));
         $printed = $this->output->fetch();
         self::assertStringContainsString('exit 1', $printed);
-        self::assertStringContainsString('    unknown key: full_qa_patterns', $printed);
+        self::assertStringEndsWith(":\n    unknown key: full_qa_patterns\n", $printed, 'the validator output is indented twice, with no blank line after it');
     }
 
     /**
@@ -175,13 +217,16 @@ final class FullQaBlockerConfiguratorTest extends TestCase
         $outcome = $this->configurator(new FakeProcessRunner())->configure($this->project->path, $this->project->path . '/nowhere.yaml');
 
         self::assertSame(ConfigureOutcomeEnum::NoDaemonConfig, $outcome);
-        self::assertStringContainsString('nowhere.yaml', $this->output->fetch());
+        self::assertSame(
+            \sprintf("  ℹ️  no hooks-daemon config at %s/nowhere.yaml — subagent_full_qa_blocker not configured\n", $this->project->path),
+            $this->output->fetch(),
+        );
     }
 
     #[Test]
     public function aConfiguredProjectRunsNothing(): void
     {
-        $this->project->write(self::CONFIG, new FullQaBlockerYamlEditor()->apply(self::ORIGINAL, 'bin')->yaml);
+        $this->project->write(self::CONFIG, new FullQaBlockerYamlEditor()->apply(self::ORIGINAL, self::BIN_DIR)->yaml);
 
         $outcome = $this->configurator(new FakeProcessRunner())->configure($this->project->path, $this->configPath());
 
@@ -255,7 +300,7 @@ final class FullQaBlockerConfiguratorTest extends TestCase
         \Safe\unlink($this->project->path . '/composer.json');
 
         self::assertSame(1, $this->configurator(new FakeProcessRunner())->run($this->project->path, $this->configPath()));
-        self::assertStringContainsString('subagent_full_qa_blocker not configured: No readable composer.json', $this->output->fetch());
+        self::assertStringStartsWith('  ⚠️  subagent_full_qa_blocker not configured: No readable composer.json', $this->output->fetch());
         self::assertSame(self::ORIGINAL, $this->project->read(self::CONFIG));
     }
 
