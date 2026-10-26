@@ -95,6 +95,17 @@ final class DependencyFreshnessToolTest extends TestCase
 
         OUT;
 
+    // The same, for a lock one release tag behind.
+    private const string STALE_TAG_ANSWER = <<<'OUT'
+        Loading composer repositories with package information
+        Updating dependencies
+        Lock file operations: 0 installs, 1 update, 0 removals
+          - Upgrading lts/php-qa-ci (85.8.0 => 85.9.0)
+        Package operations: 0 installs, 1 update, 0 removals
+          - Upgrading lts/php-qa-ci (85.8.0 => 85.9.0)
+
+        OUT;
+
     // What it printed once the lock held the branch head.
     private const string CURRENT_ANSWER = <<<'OUT'
         Loading composer repositories with package information
@@ -131,7 +142,7 @@ final class DependencyFreshnessToolTest extends TestCase
     }
 
     #[Test]
-    public function aLockBehindItsBranchHeadFailsListingTheLockedAndAvailableVersions(): void
+    public function aLockBehindItsBranchHeadWarnsAndPasses(): void
     {
         $this->lock(self::SELF, self::PSR_LOG);
         $this->factory->processes->willSucceed(self::STALE_ANSWER);
@@ -139,9 +150,26 @@ final class DependencyFreshnessToolTest extends TestCase
         $result  = $this->tool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('WARNING dependencyFreshness (phpqaci.dependencyFreshness): locked on a branch that has moved on; `composer update` would install newer commits of:', $printed);
+        self::assertStringContainsString("\n  - lts/php-qa-ci (locked dev-php8.5 93f1ae4, available dev-php8.5 606a9f6)\n", $printed);
+        self::assertSame(1, substr_count($printed, '  - lts/php-qa-ci (locked'), 'the lock and package operations name it once');
+        self::assertStringNotContainsString('Dependencies are out of date', $printed);
+    }
+
+    #[Test]
+    public function aLockBehindANewerReleaseTagFailsListingTheLockedAndAvailableVersions(): void
+    {
+        $this->lock(self::SELF, self::PSR_LOG);
+        $this->factory->processes->willSucceed(self::STALE_TAG_ANSWER);
+
+        $result  = $this->tool()->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 locked package is behind what composer update would install: lts/php-qa-ci', $result->summary);
-        self::assertStringContainsString("Dependencies are out of date. `composer update` would install newer versions of:\n\n  - lts/php-qa-ci (locked dev-php8.5 93f1ae4, available dev-php8.5 606a9f6)\n", $printed);
+        self::assertStringContainsString("Dependencies are out of date. `composer update` would install newer versions of:\n\n  - lts/php-qa-ci (locked 85.8.0, available 85.9.0)\n", $printed);
+        self::assertStringNotContainsString('WARNING', $printed);
         self::assertSame(1, substr_count($printed, '  - lts/php-qa-ci (locked'), 'the lock and package operations name it once');
         self::assertStringContainsString('Run `composer update`, then run QA again.', $printed);
         self::assertStringContainsString('Do NOT pin', $printed);
@@ -158,7 +186,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', self::COMPOSER, '--', 'update', self::SELF, '--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', self::COMPOSER, '--', 'update', self::SELF, '--with-dependencies', '--prefer-stable', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'],
             $spec->command,
         );
         self::assertSame($this->factory->project->path, $spec->cwd);
@@ -307,13 +335,13 @@ final class DependencyFreshnessToolTest extends TestCase
         $this->factory->processes->willSucceed(
             "\e[32mUpdating dependencies\e[39m\n"
             . "\e[32mLock file operations: 0 installs, 1 update, 0 removals\e[39m\n"
-            . "  - Upgrading \e[32mlts/php-qa-ci\e[39m (\e[33mdev-php8.5 93f1ae4\e[39m => \e[33mdev-php8.5 606a9f6\e[39m)\n",
+            . "  - Upgrading \e[32mlts/php-qa-ci\e[39m (\e[33m85.8.0\e[39m => \e[33m85.9.0\e[39m)\n",
         );
 
         $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString('  - lts/php-qa-ci (locked dev-php8.5 93f1ae4, available dev-php8.5 606a9f6)', $this->factory->output->fetch());
+        self::assertStringContainsString('  - lts/php-qa-ci (locked 85.8.0, available 85.9.0)', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -383,8 +411,9 @@ final class DependencyFreshnessToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertSame('2 locked packages are behind what composer update would install: acme/one, lts/php-qa-ci', $result->summary);
-        self::assertStringContainsString("  - acme/one (locked 1.2.0, available 1.3.1)\n  - lts/php-qa-ci (locked " . self::LOCKED . ', available ' . self::AVAILABLE . ")\n", $printed);
+        self::assertSame('1 locked package is behind what composer update would install: acme/one', $result->summary);
+        self::assertStringContainsString("  - acme/one (locked 1.2.0, available 1.3.1)\n", $printed);
+        self::assertStringContainsString("WARNING dependencyFreshness (phpqaci.dependencyFreshness): locked on a branch that has moved on; `composer update` would install newer commits of:\n\n  - lts/php-qa-ci (locked " . self::LOCKED . ', available ' . self::AVAILABLE . ")\n", $printed);
         self::assertStringNotContainsString(self::PSR_LOG, $printed, "a dependency the patterns do not match is not this check's business");
     }
 

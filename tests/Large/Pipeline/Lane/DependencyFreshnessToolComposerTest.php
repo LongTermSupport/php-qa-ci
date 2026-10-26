@@ -44,6 +44,8 @@ final class DependencyFreshnessToolComposerTest extends TestCase
 {
     private const string PACKAGE_JSON = "{\"name\": \"lts/php-qa-ci\", \"type\": \"library\"}\n";
 
+    private const string FIRST_TAG = '1.0.0';
+
     private GitSandbox $sandbox;
 
     private string $app;
@@ -53,7 +55,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
         $this->sandbox = GitSandbox::create(['composer.json' => self::PACKAGE_JSON]);
         $this->app     = $this->sandbox->root->mkdir('app');
         $this->writeAppComposerJson('dev-php8.5');
-        $this->composer('update', '--no-interaction', '--no-progress', '--no-scripts');
+        $this->updateTheLock();
     }
 
     protected function tearDown(): void
@@ -72,18 +74,55 @@ final class DependencyFreshnessToolComposerTest extends TestCase
     }
 
     #[Test]
-    public function aLockBehindTheBranchHeadFailsNamingBothCommits(): void
+    public function aLockBehindTheBranchHeadWarnsNamingBothCommitsAndPasses(): void
     {
         $locked = $this->lockedReference();
         $head   = $this->advanceTheBranch();
 
         [$result, $printed] = $this->check();
 
-        self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
+        self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
         self::assertStringContainsString(
             \sprintf('  - lts/php-qa-ci (locked dev-php8.5 %s, available dev-php8.5 %s)', substr($locked, 0, 7), substr($head, 0, 7)),
             $printed,
         );
+        self::assertStringContainsString('WARNING dependencyFreshness', $printed);
+    }
+
+    /**
+     * A constraint that allows both a release tag and the branch (`*` under
+     * dev stability) makes Composer's plain update pick the branch head, which
+     * outranks every tag; the lane judges against the newest release tag.
+     */
+    #[Test]
+    public function aLockOnTheNewestTagIsFreshWhileTheBranchHeadIsAhead(): void
+    {
+        $this->release(self::FIRST_TAG);
+        $this->advanceTheBranch();
+        $this->writeAppComposerJson('^1.0');
+        $this->updateTheLock();
+        $this->writeAppComposerJson('*');
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
+        self::assertStringNotContainsString('WARNING', $printed);
+        self::assertStringNotContainsString('Dependencies are out of date', $printed);
+    }
+
+    #[Test]
+    public function aLockBehindANewerReleaseTagFailsNamingBothTags(): void
+    {
+        $this->release(self::FIRST_TAG);
+        $this->writeAppComposerJson('^1.0');
+        $this->updateTheLock();
+        $this->advanceTheBranch();
+        $this->release('1.1.0');
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
+        self::assertStringContainsString('  - lts/php-qa-ci (locked ' . self::FIRST_TAG . ', available 1.1.0)', $printed);
     }
 
     #[Test]
@@ -143,6 +182,18 @@ final class DependencyFreshnessToolComposerTest extends TestCase
         $this->sandbox->git('push', 'origin', GitSandbox::DEFAULT_BRANCH);
 
         return trim($this->sandbox->git('rev-parse', 'HEAD'));
+    }
+
+    /** Tag the current commit and publish the tag. */
+    private function release(string $tag): void
+    {
+        $this->sandbox->git('tag', $tag);
+        $this->sandbox->git('push', 'origin', $tag);
+    }
+
+    private function updateTheLock(): void
+    {
+        $this->composer('update', '--no-interaction', '--no-progress', '--no-scripts');
     }
 
     private function lockedReference(): string

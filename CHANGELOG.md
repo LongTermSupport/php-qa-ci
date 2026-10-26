@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed
+
+- **dependencyFreshness judges against the newest release tag, not the branch head.** Where a constraint allows both a release tag and a branch, the lane now asks Composer to prefer the stable release, so a lock on the newest allowed tag is fresh while the branch is ahead of it. A lock on a branch behind its head now prints a `WARNING` naming both commits and passes instead of failing; a lock behind a newer release tag still fails.
+
 ## 85.9.0 — 2026-10-26
 
 ### Changed

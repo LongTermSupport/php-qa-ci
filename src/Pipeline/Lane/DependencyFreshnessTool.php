@@ -20,11 +20,14 @@ use Symfony\Component\Process\ExecutableFinder;
 /**
  * Whether the locked packages matching the freshness patterns (lts/php-qa-ci
  * always, plus the project's own) are what `composer update` would install.
- * One `composer update <packages> --with-dependencies --dry-run` answers it
- * under the project's own constraints, so a branch constraint counts a newer
- * commit and a pin leaves nothing newer to install.
+ * One `composer update <packages> --with-dependencies --prefer-stable --dry-run`
+ * answers it under the project's own constraints, so a pin leaves nothing newer
+ * to install and, where a constraint allows a release tag and the branch, the
+ * newest tag is the judge, not the branch head.
  *
- * Stale fails with every package listed. Up to date passes in silence, but
+ * A lock behind a newer release tag fails with every such package listed. A
+ * lock behind the head of a branch it tracks only warns: the head moves with
+ * every merge, so a failure would turn every consumer red for each one. Up to date passes in silence, but
  * only on Composer's own word for it: exit 0 alone is no answer, as a
  * `composer` that is a shell script exits 0 having printed its source. When
  * Composer cannot say (no network, a source gone, an answer from its cache,
@@ -52,8 +55,12 @@ final readonly class DependencyFreshnessTool implements ToolInterface
     /** No prompt from Composer or from the git it runs: a credential prompt nobody sees would hang the run. */
     private const array ENVIRONMENT = ['COMPOSER_NO_INTERACTION' => '1', 'GIT_TERMINAL_PROMPT' => '0'];
 
-    /** A dry run changes nothing; no scripts, no audit and no progress, so the only output is the answer. */
-    private const array DRY_RUN_OPTIONS = ['--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'];
+    /**
+     * A dry run changes nothing; no scripts, no audit and no progress, so the only output is the answer.
+     * `--prefer-stable` makes a release tag outrank a branch head where the constraint allows both,
+     * as a branch head otherwise outranks every tag.
+     */
+    private const array DRY_RUN_OPTIONS = ['--with-dependencies', '--prefer-stable', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'];
 
     public function __construct(
         private ?string $composerPath = null,
@@ -106,9 +113,15 @@ final readonly class DependencyFreshnessTool implements ToolInterface
             return $this->skipped($context, \sprintf('composer failed (%s): %s', $result->describeExit(), $answer->failureReason()), ...$checked);
         }
 
-        $stale = $answer->staleAmong(...$checked);
-        if ([] !== $stale) {
-            return $this->stale($context, ...$stale);
+        $stale    = $answer->staleAmong(...$checked);
+        $onBranch = array_values(array_filter($stale, static fn (StaleDependencyDto $package): bool => $package->availableIsBranchHead()));
+        $behind   = array_values(array_filter($stale, static fn (StaleDependencyDto $package): bool => !$package->availableIsBranchHead()));
+        if ([] !== $onBranch) {
+            $this->warnBranchMoved($context, ...$onBranch);
+        }
+
+        if ([] !== $behind) {
+            return $this->stale($context, ...$behind);
         }
 
         $unreachable = $answer->unreachableSource();
@@ -121,6 +134,20 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         }
 
         return ToolResultDto::passed();
+    }
+
+    /** A lock on a branch is behind its head: said loudly, never a failure, as the head moves with every merge. */
+    private function warnBranchMoved(ToolContext $context, StaleDependencyDto ...$onBranch): void
+    {
+        $context->writeln('');
+        $context->writeln(\sprintf('WARNING %s (%s): locked on a branch that has moved on; `composer update` would install newer commits of:', self::NAME, self::IDENTIFIER));
+        $context->writeln('');
+        foreach ($onBranch as $package) {
+            $context->writeln('  - ' . $package->describe());
+        }
+
+        $context->writeln('');
+        $context->writeln('Require a release tag range in composer.json to be judged against the newest release instead of the branch head.');
     }
 
     private function stale(ToolContext $context, StaleDependencyDto ...$stale): ToolResultDto

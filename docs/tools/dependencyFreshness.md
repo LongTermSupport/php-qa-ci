@@ -13,16 +13,21 @@ It reads `composer.lock` and picks every locked package, production or dev, whos
 one of the freshness patterns. It then asks Composer, without changing anything:
 
 ```bash
-composer update <matching packages> --with-dependencies --dry-run --no-interaction --no-ansi --no-scripts --no-progress --no-audit
+composer update <matching packages> --with-dependencies --prefer-stable --dry-run --no-interaction --no-ansi --no-scripts --no-progress --no-audit
 ```
 
-The answer is given under your own `composer.json` constraints. For a branch constraint such as
-`dev-php8.5`, a newer commit on the branch counts as a newer version. For a tag range such as
-`^8.5`, a newer tag in the range counts.
+The answer is given under your own `composer.json` constraints, judged against the newest release
+tag they allow, not the branch head. A tag range such as `^8.5` counts a newer tag in the range.
+`--prefer-stable` makes a release tag outrank a branch head where a constraint allows both (`*`
+under `minimum-stability: dev`, or `dev-php8.5 || ^8.5`): without it Composer ranks a branch head
+above every tag, and a lock on the newest tag would be reported behind a head that moves with every
+merge. A constraint that allows nothing but the branch (`dev-php8.5`) is judged against the head,
+and that only warns.
 
 | Composer's answer                                                                          | Result                                                                                                   |
 | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| it would upgrade a matching package                                                        | **fails**, listing every such package with its locked and available version and commit                   |
+| it would upgrade a matching package to a newer release tag                                 | **fails**, listing every such package with its locked and available version                              |
+| it would upgrade a matching package to a newer commit of the branch it tracks              | **passes with a `WARNING`**, listing every such package with its locked and available commit             |
 | it answered and nothing matching is to be upgraded                                         | **passes**, with no message from the check                                                               |
 | it could not run, could not reach a source, did not answer, or gave no recognisable answer | **skipped**, with a `SKIPPED dependencyFreshness` line saying why and that the lock was **not verified** |
 | no `composer.lock`                                                                         | **skipped**, with the same named line                                                                    |
@@ -41,7 +46,7 @@ A failure looks like this:
 ```text
 Dependencies are out of date. `composer update` would install newer versions of:
 
-  - lts/php-qa-ci (locked dev-php8.5 93f1ae4, available dev-php8.5 606a9f6)
+  - lts/php-qa-ci (locked 85.8.0, available 85.9.0)
 
 Run `composer update`, then run QA again. There is no point checking code with
 an out-of-date toolchain, or against out-of-date copies of your own packages.
@@ -52,6 +57,17 @@ past this check, and it is for a compelling reason only, such as a known
 regression in the newest version. Record that reason and its issue link with the
 pin, and remove the pin as soon as the reason is gone.
 🪪  phpqaci.dependencyFreshness  (vendor/bin/rule-doc phpqaci.dependencyFreshness)
+```
+
+A lock on a branch behind its head warns, because the head moves with every merge and a failure
+would turn every consumer red for each one:
+
+```text
+WARNING dependencyFreshness (phpqaci.dependencyFreshness): locked on a branch that has moved on; `composer update` would install newer commits of:
+
+  - lts/php-qa-ci (locked dev-php8.5 93f1ae4, available dev-php8.5 606a9f6)
+
+Require a release tag range in composer.json to be judged against the newest release instead of the branch head.
 ```
 
 A skip never passes in silence and never fails the run. A skip happens offline, when a package
@@ -81,7 +97,7 @@ SKIPPED dependencyFreshness (phpqaci.dependencyFreshness): could not determine w
 
 It runs the same way in CI. A CI run that cannot reach the package source is skipped by name
 rather than failed, so a network outage does not turn a build red. A build that goes red because
-a new commit has landed on the branch you track is the check working: update the lock.
+a newer release tag has landed in your constraint's range is the check working: update the lock.
 
 ## Configuration
 
