@@ -129,6 +129,21 @@ contains `"phpUnit": {"configDir": "./"}`; to point it elsewhere, override that 
 }
 ```
 
+### Attributes
+
+Mutants in PHP attribute arguments (`#[Route(...)]`, a parameter's `#[Assert\Length(max: 10)]`)
+test routing and validation metadata, not behaviour, so the shipped default config ignores them with
+two `global-ignoreSourceCodeByRegex` entries. Infection matches an entry as `^-\s*<entry>$`
+against the mutant's diff, so it sees one removed line and the few lines after it:
+
+- `#\[\s*[A-Za-z].*` ignores a mutated line that opens an attribute;
+- `.*(?=(?:\n[ +][^\n;{}]*){0,3}?\n[ +]\s*\)\])` ignores a mutated continuation line of a
+  multi-line attribute: a line followed, within the diff's three lines of context and with no
+  `;`, `{` or `}` between, by a line that closes the attribute (`)]`). An attribute whose
+  mutated argument sits more than three lines above its closing `)]` is not ignored.
+
+A project that overrides `infection.json` copies both entries to keep this.
+
 ### Ignored paths
 
 Infection always runs from a copy of the resolved config the lane writes to
