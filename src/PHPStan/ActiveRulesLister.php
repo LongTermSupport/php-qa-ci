@@ -72,6 +72,13 @@ final readonly class ActiveRulesLister
         $this->collectFromNeonTree($configPath, $projectRoot, $ruleClasses, $ignoreErrorEntries, $seen);
         $rules = array_map($this->resolveRuleEntry(...), $ruleClasses);
 
+        if ($this->installedExtensions->isUngenerated($projectRoot)) {
+            $this->warnings->writeln(
+                'ActiveRulesLister: phpstan/extension-installer\'s GeneratedConfig.php lists no extensions, so the bundled rule tiers '
+                . 'are missing from this listing; run it again after phpstan/extension-installer has run (composer install or update).',
+            );
+        }
+
         foreach ($this->installedExtensions->includes($projectRoot) as $package => $includes) {
             foreach ($includes as $include) {
                 $extensionRules = [];

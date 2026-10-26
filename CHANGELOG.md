@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- **The active-defences block in CLAUDE.md no longer loses the bundled rule lines after a fresh install.** The deploy that writes the block now runs after phpstan/extension-installer on every install and update, so a first `composer install` lists the same defences as a later `composer update`; a listing run while that installer's generated config is still empty now says so.
+
 ## 85.8.0 — 2026-10-26
 
 ### Changed — breaking

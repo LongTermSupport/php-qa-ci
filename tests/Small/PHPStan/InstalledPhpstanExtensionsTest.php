@@ -80,6 +80,29 @@ final class InstalledPhpstanExtensionsTest extends TestCase
     }
 
     #[Test]
+    public function aGeneratedConfigWithNoExtensionsIsNotYetGenerated(): void
+    {
+        $this->generatedConfig([]);
+
+        self::assertTrue(new InstalledPhpstanExtensions()->isUngenerated($this->project->path));
+    }
+
+    #[Test]
+    public function aGeneratedConfigWithExtensionsIsGenerated(): void
+    {
+        $this->project->write(self::ACME_RULES_FILE, self::EMPTY_RULES);
+        $this->generatedConfig([self::ACME => [self::ACME_INSTALL_PATH, [self::RULES_NEON]]]);
+
+        self::assertFalse(new InstalledPhpstanExtensions()->isUngenerated($this->project->path));
+    }
+
+    #[Test]
+    public function aProjectWithoutTheInstallerIsNotReportedUngenerated(): void
+    {
+        self::assertFalse(new InstalledPhpstanExtensions()->isUngenerated($this->project->path));
+    }
+
+    #[Test]
     public function aCustomVendorDirIsHonoured(): void
     {
         $this->project->write('composer.json', '{"config": {"vendor-dir": "lib"}}');
