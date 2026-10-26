@@ -215,11 +215,11 @@ final readonly class ForbidUnisolatedGitProcessRule implements Rule
 
         return array_all(self::ISOLATING_VARIABLES, static fn (string $variable): bool => self::hasKey($type, $variable))
             && self::hasKey($type, self::CONFIG_COUNT)
-            && self::disablesMaintenance($type);
+            && $this->disablesMaintenance($type);
     }
 
     /** True when the environment's GIT_CONFIG_KEY_n entries name every maintenance key. */
-    private static function disablesMaintenance(Type $environment): bool
+    private function disablesMaintenance(Type $environment): bool
     {
         $named = [];
         foreach ($environment->getConstantArrays() as $array) {

@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed
+
+- The optional PHPStan rule `phpqaci.unisolatedGitProcess` also requires a test's process environment to switch off background maintenance: besides `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`, set `GIT_CONFIG_COUNT` with `GIT_CONFIG_KEY_n` entries naming `maintenance.auto` and `gc.auto`. A detached maintenance process started by a commit can write into a fixture repository while the test deletes it, failing the test now and then. See `vendor/bin/rule-doc phpqaci.unisolatedGitProcess`.
+
 ## 85.8.0 — 2026-10-26
 
 ### Changed — breaking
@@ -104,8 +108,6 @@ the release and its tag. The full rules are in
 - **The `symfony/console` and `symfony/process` requirements now accept Symfony 7.4 LTS as well as 8.1.** `symfony/console` is `^7.4 || ^8.1` and `symfony/process` is `^7.4.5 || ^8.1` (both were `^8.1`), so a project that stays on Symfony 7.4 LTS can install php-qa-ci. The `symfony/process` floor excludes 7.4.0 to 7.4.4, which carry a published security advisory fixed in 7.4.5. A project already on Symfony 8.1 changes nothing.
 
 - The shipped pipeline workflow template now skips Infection on a push run and keeps it on every pull request run, so a push to the default branch finishes inside the job's time limit.
-
-- The optional PHPStan rule `phpqaci.unisolatedGitProcess` also requires a test's process environment to switch off background maintenance: besides `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`, set `GIT_CONFIG_COUNT` with `GIT_CONFIG_KEY_n` entries naming `maintenance.auto` and `gc.auto`. A detached maintenance process started by a commit can write into a fixture repository while the test deletes it, failing the test now and then. See `vendor/bin/rule-doc phpqaci.unisolatedGitProcess`.
 
 ### Fixed
 
