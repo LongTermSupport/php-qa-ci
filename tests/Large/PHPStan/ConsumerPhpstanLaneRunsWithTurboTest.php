@@ -55,6 +55,7 @@ final class ConsumerPhpstanLaneRunsWithTurboTest extends TestCase
 
         $output = $process->getOutput() . $process->getErrorOutput();
 
-        self::assertStringContainsString('PHPStan Turbo: enabled', $output, $output);
+        self::assertStringNotContainsString('PHPStan Turbo: NOT RUNNING', $output, $output);
+        self::assertMatchesRegularExpression('/^PHPStan Turbo: (enabled|not loaded here, loaded by the restart)/m', $output, $output);
     }
 }

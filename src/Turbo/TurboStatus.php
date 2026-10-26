@@ -23,6 +23,18 @@ final readonly class TurboStatus
     /** How that line's value begins when Turbo runs, in the main process or in the workers. */
     private const string ENABLED = 'enabled';
 
+    /**
+     * How that line's value begins when `diagnose` itself runs without the extension but the restart
+     * an `analyse` run performs loads it: diagnose never restarts, so it cannot say "enabled".
+     */
+    private const string LOADS_ON_RESTART = 'not loaded here, loaded by the restart';
+
+    /** The diagnose line that names the binary the restart loads. */
+    private const string WORKER_LINE = 'Turbo worker binary: ';
+
+    /** What that line's value is when no binary was found. */
+    private const string NO_WORKER = 'none found';
+
     /** How every report line begins. */
     private const string REPORT = 'PHPStan Turbo: ';
 
@@ -52,7 +64,7 @@ final readonly class TurboStatus
             if (str_starts_with($line, self::EXTENSION_LINE)) {
                 $extension = substr($line, \strlen(self::EXTENSION_LINE));
 
-                return new self(self::stateOf($extension, $shippedForHost), $extension, $lines);
+                return new self(self::stateOf($extension, self::hasWorkerBinary(...$lines), $shippedForHost), $extension, $lines);
             }
         }
 
@@ -72,12 +84,28 @@ final readonly class TurboStatus
         };
     }
 
-    private static function stateOf(string $extension, bool $shippedForHost): TurboStateEnum
+    private static function stateOf(string $extension, bool $workerBinaryFound, bool $shippedForHost): TurboStateEnum
     {
         if (str_starts_with($extension, self::ENABLED)) {
             return TurboStateEnum::Enabled;
         }
 
+        if (str_starts_with($extension, self::LOADS_ON_RESTART) && $workerBinaryFound) {
+            return TurboStateEnum::Enabled;
+        }
+
         return $shippedForHost ? TurboStateEnum::Missing : TurboStateEnum::NotBuiltForHost;
+    }
+
+    /** Whether diagnose names a worker binary among the Turbo lines it printed. */
+    private static function hasWorkerBinary(string ...$lines): bool
+    {
+        foreach ($lines as $line) {
+            if (str_starts_with($line, self::WORKER_LINE)) {
+                return self::NO_WORKER !== substr($line, \strlen(self::WORKER_LINE));
+            }
+        }
+
+        return false;
     }
 }
