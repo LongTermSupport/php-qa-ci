@@ -71,11 +71,11 @@ final readonly class TwigCsFixerTool implements ToolInterface
             return ToolResultDto::skipped('twig/twig not installed');
         }
 
-        $directories = $this->existingDirectories($context);
+        $directories = array_values(array_filter(OwnTwigDirectories::declared($context), is_dir(...)));
         if ([] === $directories) {
-            $context->writeln('No twig directories present, nothing to do');
+            OwnTwigDirectories::announceSkip($context);
 
-            return ToolResultDto::skipped('no twig directories');
+            return ToolResultDto::skipped(OwnTwigDirectories::SKIP_REASON);
         }
 
         $cache = FormatterCache::in($context, self::CACHE);
@@ -109,19 +109,6 @@ final readonly class TwigCsFixerTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed('Twig CS Fixer reported violations');
-    }
-
-    /**
-     * The configured directories are absolute. A directory that does not exist
-     * is dropped rather than passed through, because twig-cs-fixer treats an
-     * unreadable path as a fatal error and Symfony's own defaults name paths a
-     * given project may simply not have.
-     *
-     * @return list<string>
-     */
-    private function existingDirectories(ToolContext $context): array
-    {
-        return array_values(array_filter($context->config->twigDirectories, is_dir(...)));
     }
 
     /**

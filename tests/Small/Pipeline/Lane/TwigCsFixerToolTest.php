@@ -44,6 +44,8 @@ final class TwigCsFixerToolTest extends TestCase
 {
     private const string TEMPLATES = 'templates';
 
+    private const string NO_OWN_DIRECTORY = 'no template directory of its own';
+
     private const string TEMPLATE_FILE = 'templates/page.html.twig';
 
     private const string CLEAN_TEMPLATE = '{{ x }}';
@@ -100,7 +102,43 @@ final class TwigCsFixerToolTest extends TestCase
         $result = new TwigCsFixerTool()->run($this->twigContext());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertSame('no twig directories', $result->summary);
+        self::assertSame(self::NO_OWN_DIRECTORY, $result->summary);
+    }
+
+    #[Test]
+    public function aProjectWhoseOnlyTemplatesAreUnderVendorIsSkippedLoudlyAndNeverLintsVendor(): void
+    {
+        $this->factory->processes->willSucceed();
+        $this->factory->project->write('vendor/acme/pkg/templates/page.html.twig', self::PENDING_TEMPLATE);
+        $this->factory->project->write(self::TWIG_PACKAGE_FILE, '{}');
+
+        $config = $this->factory->builder()
+            ->withTwigDirectories('vendor/acme/pkg/templates')
+            ->build()
+        ;
+
+        $result = new TwigCsFixerTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame(self::NO_OWN_DIRECTORY, $result->summary);
+        self::assertStringContainsString(self::NO_OWN_DIRECTORY, $this->factory->output->fetch());
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function aTemplatesDirectoryThatResolvesUnderVendorIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $this->factory->project->write('vendor/acme/pkg/templates/page.html.twig', self::PENDING_TEMPLATE);
+        \Safe\symlink(
+            $this->factory->project->path . '/vendor/acme/pkg/templates',
+            $this->factory->project->path . '/' . self::TEMPLATES,
+        );
+
+        $result = new TwigCsFixerTool()->run($this->twigContext());
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame([], $this->factory->processes->specs);
     }
 
     #[Test]

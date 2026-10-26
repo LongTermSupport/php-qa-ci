@@ -131,6 +131,22 @@ final class TwigLintToolTest extends TestCase
     }
 
     #[Test]
+    public function aProjectWhoseOnlyTwigDirectoryIsUnderVendorIsSkippedLoudly(): void
+    {
+        $this->factory->processes->willSucceed(self::CONSOLE_LISTING);
+        $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
+
+        $config = $this->factory->builder(platform: PlatformEnum::Symfony)->withTwigDirectories('vendor/acme/pkg/templates')->build();
+
+        $result = new TwigLintTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame('no template directory of its own', $result->summary);
+        self::assertStringContainsString('no template directory of its own', $this->factory->output->fetch());
+        self::assertCount(1, $this->factory->processes->specs, 'lint:twig itself never ran');
+    }
+
+    #[Test]
     public function aNonZeroExitFailsWithTheIdentifierTrailer(): void
     {
         $this->factory->processes->willSucceed(self::CONSOLE_LISTING)->willFail(1, 'Unexpected token in templates/base.html.twig');
