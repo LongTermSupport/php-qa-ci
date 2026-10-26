@@ -23,6 +23,10 @@ turns that runtime error into a build failure.
   "Twig Lint not found in bin/console, skipping" when no `lint:twig` command is registered.
 - It also skips with "Twig Not Installed, nothing to do" when `vendor/symfony/twig-bundle` is
   not a directory.
+- It skips loudly, with the reason "no template directory of its own", when no configured
+  directory exists or every one resolves under the project's `vendor/`; a path under `vendor/`
+  is never linted and `lint:twig` never runs on a missing path (see
+  [twigCsFixer.md](twigCsFixer.md), which applies the same rule).
 - Otherwise it runs `bin/console lint:twig <twigDirectories...>` from the project root, without
   Xdebug. The directories default to `<projectRoot>/templates` and can be changed with
   `withTwigDirectories()` in the project's `qaConfig/qa.php`.

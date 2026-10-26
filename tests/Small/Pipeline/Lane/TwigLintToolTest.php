@@ -41,6 +41,12 @@ final class TwigLintToolTest extends TestCase
 {
     private const string SYMFONY_TWIG_BUNDLE = 'vendor/symfony/twig-bundle';
 
+    private const string TEMPLATES = 'templates';
+
+    private const string NEVER_RAN = 'lint:twig itself never ran';
+
+    private const string NO_OWN_DIRECTORY = 'no template directory of its own';
+
     private const string CONSOLE_LISTING = "Available commands:\n  lint:twig  Lint a Twig template\n";
 
     private ContextFactory $factory;
@@ -92,7 +98,7 @@ final class TwigLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString('Twig Not Installed, nothing to do', $this->factory->output->fetch());
-        self::assertCount(1, $this->factory->processes->specs, 'lint:twig itself never ran');
+        self::assertCount(1, $this->factory->processes->specs, self::NEVER_RAN);
     }
 
     #[Test]
@@ -100,6 +106,8 @@ final class TwigLintToolTest extends TestCase
     {
         $this->factory->processes->willSucceed(self::CONSOLE_LISTING)->willSucceed('All 3 Twig files contain valid syntax.');
         $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
+        $this->factory->project->mkdir(self::TEMPLATES);
+
         $root = $this->factory->project->path;
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
@@ -119,6 +127,9 @@ final class TwigLintToolTest extends TestCase
     {
         $this->factory->processes->willSucceed(self::CONSOLE_LISTING)->willSucceed();
         $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
+        $this->factory->project->mkdir(self::TEMPLATES);
+        $this->factory->project->mkdir('src/Resources/views');
+
         $root   = $this->factory->project->path;
         $config = $this->factory->builder(platform: PlatformEnum::Symfony)->withTwigDirectories('templates', 'src/Resources/views')->build();
 
@@ -141,9 +152,23 @@ final class TwigLintToolTest extends TestCase
         $result = new TwigLintTool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertSame('no template directory of its own', $result->summary);
-        self::assertStringContainsString('no template directory of its own', $this->factory->output->fetch());
-        self::assertCount(1, $this->factory->processes->specs, 'lint:twig itself never ran');
+        self::assertSame(self::NO_OWN_DIRECTORY, $result->summary);
+        self::assertStringContainsString(self::NO_OWN_DIRECTORY, $this->factory->output->fetch());
+        self::assertCount(1, $this->factory->processes->specs, self::NEVER_RAN);
+    }
+
+    #[Test]
+    public function aProjectWhoseTemplatesDirectoryDoesNotExistIsSkippedLoudly(): void
+    {
+        $this->factory->processes->willSucceed(self::CONSOLE_LISTING);
+        $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
+
+        $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame(self::NO_OWN_DIRECTORY, $result->summary);
+        self::assertStringContainsString(self::NO_OWN_DIRECTORY, $this->factory->output->fetch());
+        self::assertCount(1, $this->factory->processes->specs, self::NEVER_RAN);
     }
 
     #[Test]
@@ -151,6 +176,7 @@ final class TwigLintToolTest extends TestCase
     {
         $this->factory->processes->willSucceed(self::CONSOLE_LISTING)->willFail(1, 'Unexpected token in templates/base.html.twig');
         $this->factory->project->mkdir(self::SYMFONY_TWIG_BUNDLE);
+        $this->factory->project->mkdir(self::TEMPLATES);
 
         $result = new TwigLintTool()->run($this->factory->context($this->symfonyConfig()));
 

@@ -54,7 +54,7 @@ final readonly class TwigLintTool implements ToolInterface
             return ToolResultDto::skipped('symfony/twig-bundle not installed');
         }
 
-        $directories = OwnTwigDirectories::declared($context);
+        $directories = array_values(array_filter(OwnTwigDirectories::declared($context), is_dir(...)));
         if ([] === $directories) {
             OwnTwigDirectories::announceSkip($context);
 
