@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\PhpstanDocs;
 
 use LTS\PHPQA\PhpstanDocs\GitPhpstanDocsFetcher;
+use LTS\PHPQA\Tests\Support\GitSandbox;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Medium;
@@ -97,7 +98,7 @@ final class GitPhpstanDocsFetcherTest extends TestCase
 
         // The host's own git config (signing, hooks, default branch) stays out of the fixture.
         $upstream    = $this->work->path . '/upstream';
-        $environment = ['GIT_CONFIG_GLOBAL' => '/dev/null', 'GIT_CONFIG_NOSYSTEM' => '1'];
+        $environment = GitSandbox::environment();
         foreach ([
             ['init', '--quiet', '--initial-branch', self::BRANCH],
             ['add', '.'],

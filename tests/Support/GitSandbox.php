@@ -69,13 +69,18 @@ final readonly class GitSandbox
     /**
      * An array shape, so PHPStan sees both isolating keys at every call (phpqaci.unisolatedGitProcess).
      *
-     * @return array{GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'Sandbox', GIT_AUTHOR_EMAIL: 'sandbox@example.invalid', GIT_COMMITTER_NAME: 'Sandbox', GIT_COMMITTER_EMAIL: 'sandbox@example.invalid'} the environment that isolates git from the host's configuration
+     * @return array{GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'maintenance.auto', GIT_CONFIG_VALUE_0: 'false', GIT_CONFIG_KEY_1: 'gc.auto', GIT_CONFIG_VALUE_1: '0', GIT_AUTHOR_NAME: 'Sandbox', GIT_AUTHOR_EMAIL: 'sandbox@example.invalid', GIT_COMMITTER_NAME: 'Sandbox', GIT_COMMITTER_EMAIL: 'sandbox@example.invalid'} the environment that isolates git from the host's configuration
      */
     public static function environment(): array
     {
         return [
             'GIT_CONFIG_GLOBAL'   => '/dev/null',
             'GIT_CONFIG_NOSYSTEM' => '1',
+            'GIT_CONFIG_COUNT'    => '2',
+            'GIT_CONFIG_KEY_0'    => 'maintenance.auto',
+            'GIT_CONFIG_VALUE_0'  => 'false',
+            'GIT_CONFIG_KEY_1'    => 'gc.auto',
+            'GIT_CONFIG_VALUE_1'  => '0',
             'GIT_AUTHOR_NAME'     => 'Sandbox',
             'GIT_AUTHOR_EMAIL'    => 'sandbox@example.invalid',
             'GIT_COMMITTER_NAME'  => 'Sandbox',
