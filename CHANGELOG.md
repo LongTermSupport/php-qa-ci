@@ -29,6 +29,10 @@ the release and its tag. The full rules are in
 
 - **dependencyFreshness judges against the newest release tag, not the branch head.** Where a constraint allows both a release tag and a branch, the lane now asks Composer to prefer the stable release, so a lock on the newest allowed tag is fresh while the branch is ahead of it. A lock on a branch behind its head now prints a `WARNING` naming both commits and passes instead of failing; a lock behind a newer release tag still fails.
 
+### Fixed
+
+- The PHPStan lane no longer reports Turbo as NOT RUNNING under PHPStan 2.3.2, whose diagnose says the extension is loaded by the restart an analyse run performs; that wording with a worker binary present now counts as running
+
 ## 85.9.0 — 2026-10-26
 
 ### Changed

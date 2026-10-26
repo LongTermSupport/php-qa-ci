@@ -31,6 +31,10 @@ final class TurboStatusTest extends TestCase
 
     private const string STALE = "Turbo extension: inactive (extension version abc1234, expected 6351afb)\nTurbo platform: linux-gnu-x86_64 (os: Linux, machine: x86_64, libc: gnu, php: 8.5, zts: no, debug: no)\nTurbo worker binary: none found\nTurbo trusted types: off (extension inactive)\n";
 
+    private const string RESTART = "Turbo extension: not loaded here, loaded by the restart an analyse run performs\nTurbo platform: linux-gnu-x86_64 (os: Linux, machine: x86_64, libc: gnu, php: 8.5, zts: no, debug: no)\nTurbo worker binary: /p/vendor-phar/turbo-ext/linux-gnu-x86_64/phpstan_turbo-8.5.so\nTurbo trusted types: off (extension inactive)\n";
+
+    private const string RESTART_NO_BINARY = "Turbo extension: not loaded here, loaded by the restart an analyse run performs\nTurbo platform: linux-gnu-x86_64 (os: Linux, machine: x86_64, libc: gnu, php: 8.5, zts: no, debug: no)\nTurbo worker binary: none found\nTurbo trusted types: off (extension inactive)\n";
+
     private const string PHPSTAN_HEADER = "PHP runtime version: 8.5.11\nPHPStan version: 2.3.0\n\n";
 
     #[Test]
@@ -45,6 +49,12 @@ final class TurboStatusTest extends TestCase
     {
         yield 'enabled' => [self::ENABLED, true, TurboStateEnum::Enabled];
         yield 'enabled in the workers only' => ["Turbo extension: enabled in worker processes (the main process runs without it)\n", true, TurboStateEnum::Enabled];
+        yield 'loaded by the restart an analyse run performs, with a worker binary' => [self::RESTART, true, TurboStateEnum::Enabled];
+        yield 'the same wording on a host upstream builds nothing for' => [self::RESTART, false, TurboStateEnum::Enabled];
+        yield 'the restart wording with no worker binary found' => [self::RESTART_NO_BINARY, true, TurboStateEnum::Missing];
+        yield 'the restart wording with no worker binary, on a host upstream builds nothing for' => [self::RESTART_NO_BINARY, false, TurboStateEnum::NotBuiltForHost];
+        yield 'the restart wording with no worker binary line at all' => ["Turbo extension: not loaded here, loaded by the restart an analyse run performs\n", true, TurboStateEnum::Missing];
+        yield 'wording no release has printed' => ["Turbo extension: sleeping\nTurbo worker binary: /p/x.so\n", true, TurboStateEnum::Missing];
         yield 'not loaded on a host php-qa-ci ships a build for' => [self::NOT_LOADED, true, TurboStateEnum::Missing];
         yield 'a stale binary on a host php-qa-ci ships a build for' => [self::STALE, true, TurboStateEnum::Missing];
         yield 'not loaded on a host upstream builds nothing for' => [self::NOT_LOADED, false, TurboStateEnum::NotBuiltForHost];
@@ -55,6 +65,15 @@ final class TurboStatusTest extends TestCase
     public function anEnabledRunSaysSoWithTheVersion(): void
     {
         self::assertSame('PHPStan Turbo: enabled (version 6351afb)', TurboStatus::fromDiagnose(self::ENABLED, true)->line());
+    }
+
+    #[Test]
+    public function aRunThatLoadsOnRestartSaysSoAndDoesNotClaimTurboIsMissing(): void
+    {
+        $line = TurboStatus::fromDiagnose(self::RESTART, true)->line();
+
+        self::assertSame('PHPStan Turbo: not loaded here, loaded by the restart an analyse run performs', $line);
+        self::assertStringNotContainsString('NOT RUNNING', $line);
     }
 
     /** The case php-qa-ci could have prevented: the report names the fix and keeps PHPStan's own reasons. */

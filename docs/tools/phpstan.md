@@ -143,6 +143,10 @@ limit (4G by default, see `withMemoryLimit()`) may need a little more.
 analyses:
 
 - `PHPStan Turbo: enabled (version …)`.
+- `PHPStan Turbo: not loaded here, loaded by the restart an analyse run performs`: PHPStan 2.3.2
+  and later, whose `diagnose` never restarts and so cannot say "enabled". It counts as running when
+  `diagnose` names a worker binary; that the restart then loads it is PHPStan's behaviour, which
+  `diagnose` does not prove.
 - `PHPStan Turbo: NOT RUNNING, though php-qa-ci ships a build for this host`, with PHPStan's
   reasons and the fix (run `turbo-install`). This is a missing, stale or unloadable binary on a
   host the manifest pins a build for. The run's outcome is still the analysis's own.

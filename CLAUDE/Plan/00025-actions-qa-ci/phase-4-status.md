@@ -65,17 +65,23 @@ the listing: the five that need the network (`impostor-commit`, `known-vulnerabl
 `*.secret*` guard, which refuses an agent the file names; the finished texts are kept in the
 session scratch directory.
 
-Two pull requests are stacked on the lane and verified, each to be retargeted to `main` as the one
-below it merges. [Pull request 38](https://github.com/LongTermSupport/actions-qa-ci/pull/38) gives a
+Three pull requests are stacked on the lane, each to be retargeted to `main` as the one below it
+merges; the first two are verified. [Pull request 38](https://github.com/LongTermSupport/actions-qa-ci/pull/38) gives a
 hazard both tools report one owner where the owner reports everything the other would: actionlint's
 `credentials` kind is dropped in favour of zizmor's `hardcoded-container-credentials`, and a rule
 states what it absorbs. Its verifier found that the other planned drop, actionlint's potentially
 untrusted `expression` messages, loses findings (zizmor's regular persona does not report a
 `fromJSON` of an untrusted input), so those stay and the overlap is declared in `dbf.json`.
 [Pull request 39](https://github.com/LongTermSupport/actions-qa-ci/pull/39) names, on stderr, each
-audit a run does not run and why, for a lane that analysed a file. Still to do after the lane: the
-online audits, whose design (§7.4) would run them when a token is set, which is a second network
-route beside `check --online`.
+audit a run does not run and why, for a lane that analysed a file.
+[Pull request 40](https://github.com/LongTermSupport/actions-qa-ci/pull/40) builds the record's
+`calibrations.enable`: a project names a zizmor audit the regular persona leaves out (six of
+them) and `check` reports it, the lane running the auditor persona as well and keeping only the
+findings of the audits named. An entry nothing can enable is refused with its line, and `rules`
+and the agent summary show an enabled audit. Asking for a defence makes the standard stricter, so
+the agent took it not to be a narrowing, which the Owner can overrule; `shellcheckSeverity` and `selfHostedRunnerLabels` stay refused, as
+they would narrow what is reported. Still to do after the lane: the online audits, whose design
+(§7.4) would run them when a token is set, which is a second network route beside `check --online`.
 
 ## Waiting on the Owner
 
@@ -85,8 +91,8 @@ route beside `check --online`.
   verifier is a new tool, so which to take is the same kind of provenance decision as Task 1.5,
   extended to pinact; the options are on
   [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6355208852).
-- The record's `calibrations`: `enable` waits on the zizmor lane and on Task 1.6, and
-  `shellcheckSeverity` on Task 1.6. `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1
+- The record's other `calibrations`: `shellcheckSeverity` waits on Task 1.6, which asks whether a
+  project may move what is reported. `selfHostedRunnerLabels` is spelled in design §8.2, and §8.1
   names actionlint's `self-hosted-runner.labels` a calibration, but it would make
   `actionsqaci.actionlint.runner-label` stop firing with no justification, which the rule's page
   sends to an exception, so adding that second route is a narrowing for the Owner to confirm.
