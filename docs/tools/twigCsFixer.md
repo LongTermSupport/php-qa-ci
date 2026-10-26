@@ -22,6 +22,11 @@ treatment PHP already gets.
 - Standalone: `vendor/bin/qa -t twigcs`.
 - Skipped cleanly when `vendor/twig/twig` is absent, and when none of the configured twig
   directories exist.
+- Skipped loudly, with the reason "no template directory of its own", when every configured
+  directory resolves under the project's `vendor/` (a project whose templates come from a
+  dependency). A path under `vendor/` is never linted, so such a project declares its own
+  directory with `withTwigDirectories()` or has the lane skip. The Symfony
+  [twigLint.md](twigLint.md) lane applies the same rule.
 - The tool is the shipped `vendor-phar/twig-cs-fixer.phar`, verified by PHIVE against the
   maintainer's signing key. Nothing is fetched at run time.
 - Directories come from `withTwigDirectories()` in `qaConfig/qa.php`, defaulting to
