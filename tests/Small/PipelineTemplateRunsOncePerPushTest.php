@@ -180,6 +180,28 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     }
 
     /**
+     * A push run on the default branch has no pull request to mutation-test, and a full Infection run
+     * outlasts the job's time limit there, so no release is ever prepared. Infection stays on for every
+     * pull request run, where it covers the diff.
+     */
+    #[Test]
+    public function infectionIsSkippedOnPushAndRunsOnEveryOtherEvent(): void
+    {
+        foreach ([self::TEMPLATE, self::REPOSITORY . '/.github/workflows/qa.yml'] as $file) {
+            $steps = array_values(array_filter(
+                WorkflowNode::ofFile($file)->child(self::JOBS, self::QA_JOB, self::STEPS)->items(),
+                static fn (WorkflowNode $step): bool => 'Run QA Pipeline' === $step->child('name')->string(),
+            ));
+            self::assertCount(1, $steps, $file);
+            self::assertSame(
+                "\${{ github.event_name == 'push' && '0' || '1' }}",
+                $steps[0]->child('env', 'useInfection')->string(),
+                basename($file) . ' must skip Infection on push and keep it for pull requests.',
+            );
+        }
+    }
+
+    /**
      * An expression in a shell script is substituted before the shell parses it, so a branch
      * name, an input or a title written by someone else becomes shell syntax. A value reaches a
      * script through `env:` and is read as a variable.
