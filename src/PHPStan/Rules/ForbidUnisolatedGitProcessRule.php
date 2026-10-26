@@ -29,6 +29,9 @@ use PHPStan\Type\Type;
  * an excludes file. The test then observes the machine, not the code, and a signing config also
  * leaves key files in the temp directory. The environment given to the process must set
  * `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`, provably: PHPStan must know both keys are there.
+ * It must also switch off `maintenance.auto` and `gc.auto` through `GIT_CONFIG_COUNT` and
+ * `GIT_CONFIG_KEY_n`, since `git commit` can start a detached maintenance process that writes into
+ * `.git` after the call returned and races the test's cleanup.
  *
  * Recognised: a Symfony Process constructed with, or built by fromShellCommandline from, a git
  * command, and PHP's or Safe's proc_open given one. Only test code is checked (TestCodeDetector:
@@ -45,10 +48,19 @@ final readonly class ForbidUnisolatedGitProcessRule implements Rule
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.unisolatedGitProcess';
 
     /** The message every finding carries. */
-    public const string MESSAGE = "git is run with the host's git configuration: give the process an environment that sets GIT_CONFIG_GLOBAL and GIT_CONFIG_NOSYSTEM, so signing, hooks or a default branch on the machine running the tests cannot change what the test sees.";
+    public const string MESSAGE = "git is run with the host's git configuration: give the process an environment that sets GIT_CONFIG_GLOBAL and GIT_CONFIG_NOSYSTEM and, through GIT_CONFIG_COUNT with GIT_CONFIG_KEY_n and GIT_CONFIG_VALUE_n, switches off maintenance.auto and gc.auto, so neither signing, hooks or a default branch on the machine running the tests nor a detached auto-maintenance process can change what the test sees.";
 
     /** The variables that switch off the global and the system git configuration. */
     private const array ISOLATING_VARIABLES = ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM'];
+
+    /** The variable that announces how many GIT_CONFIG_KEY_n / GIT_CONFIG_VALUE_n pairs follow. */
+    private const string CONFIG_COUNT = 'GIT_CONFIG_COUNT';
+
+    /** The prefix of the variables that name a configuration key. */
+    private const string CONFIG_KEY_PREFIX = 'GIT_CONFIG_KEY_';
+
+    /** The configuration keys the environment must set, so no auto-maintenance outlives a git call. */
+    private const array MAINTENANCE_KEYS = ['maintenance.auto', 'gc.auto'];
 
     /** Symfony's Process, lower-cased. */
     private const string PROCESS = 'symfony\component\process\process';
@@ -201,7 +213,30 @@ final readonly class ForbidUnisolatedGitProcessRule implements Rule
 
         $type = $scope->getType($environment);
 
-        return array_all(self::ISOLATING_VARIABLES, static fn (string $variable): bool => self::hasKey($type, $variable));
+        return array_all(self::ISOLATING_VARIABLES, static fn (string $variable): bool => self::hasKey($type, $variable))
+            && self::hasKey($type, self::CONFIG_COUNT)
+            && $this->disablesMaintenance($type);
+    }
+
+    /** True when the environment's GIT_CONFIG_KEY_n entries name every maintenance key. */
+    private function disablesMaintenance(Type $environment): bool
+    {
+        $named = [];
+        foreach ($environment->getConstantArrays() as $array) {
+            foreach ($array->getKeyTypes() as $index => $key) {
+                foreach ($key->getConstantStrings() as $name) {
+                    if (!str_starts_with($name->getValue(), self::CONFIG_KEY_PREFIX)) {
+                        continue;
+                    }
+
+                    foreach ($array->getValueTypes()[$index]->getConstantStrings() as $setting) {
+                        $named[$setting->getValue()] = true;
+                    }
+                }
+            }
+        }
+
+        return array_all(self::MAINTENANCE_KEYS, static fn (string $key): bool => isset($named[$key]));
     }
 
     private static function hasKey(Type $environment, string $variable): bool

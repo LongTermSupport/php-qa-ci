@@ -8,7 +8,19 @@ use Symfony\Component\Process\Process;
 
 final class GitCallsTest
 {
-    private const array ISOLATED = ['GIT_CONFIG_GLOBAL' => '/dev/null', 'GIT_CONFIG_NOSYSTEM' => '1'];
+    private const array ISOLATED = [
+        'GIT_CONFIG_GLOBAL'  => '/dev/null', 'GIT_CONFIG_NOSYSTEM' => '1',
+        'GIT_CONFIG_COUNT'   => '2',
+        'GIT_CONFIG_KEY_0'   => 'maintenance.auto', 'GIT_CONFIG_VALUE_0' => 'false',
+        'GIT_CONFIG_KEY_1'   => 'gc.auto', 'GIT_CONFIG_VALUE_1' => '0',
+    ];
+
+    private const array WITHOUT_MAINTENANCE = ['GIT_CONFIG_GLOBAL' => '/dev/null', 'GIT_CONFIG_NOSYSTEM' => '1'];
+
+    private const array ONE_KEY_ONLY = [
+        'GIT_CONFIG_GLOBAL'  => '/dev/null', 'GIT_CONFIG_NOSYSTEM' => '1',
+        'GIT_CONFIG_COUNT'   => '1', 'GIT_CONFIG_KEY_0' => 'gc.auto', 'GIT_CONFIG_VALUE_0' => '0',
+    ];
 
     private const string GIT = 'git';
 
@@ -48,5 +60,11 @@ final class GitCallsTest
         new Process(['gitk'], $cwd);
         new Process($args, $cwd);
         Process::fromShellCommandline('echo git', $cwd);
+    }
+
+    public function reportedWhenAutoMaintenanceIsNotSwitchedOff(string $cwd): void
+    {
+        new Process(['git', 'commit', '-m', 'x'], $cwd, self::WITHOUT_MAINTENANCE);
+        new Process(['git', 'commit', '-m', 'x'], $cwd, self::ONE_KEY_ONLY);
     }
 }
