@@ -401,7 +401,11 @@ final class ActiveRulesListerTest extends TestCase
             $project->remove();
         }
 
-        self::assertStringContainsString('GeneratedConfig.php lists no extensions', $warnings->fetch());
+        self::assertSame(
+            "ActiveRulesLister: phpstan/extension-installer's GeneratedConfig.php lists no extensions, so the bundled rule tiers "
+            . 'are missing from this listing; run it again after phpstan/extension-installer has run (composer install or update).' . "\n",
+            $warnings->fetch(),
+        );
     }
 
     public function testARuleFileThatDoesNotParseIsListedWithoutAnIdentifierAndNoted(): void

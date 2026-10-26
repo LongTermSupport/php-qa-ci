@@ -74,7 +74,7 @@ final readonly class ActiveRulesLister
 
         if ($this->installedExtensions->isUngenerated($projectRoot)) {
             $this->warnings->writeln(
-                'ActiveRulesLister: phpstan/extension-installer\'s GeneratedConfig.php lists no extensions, so the bundled rule tiers '
+                "ActiveRulesLister: phpstan/extension-installer's GeneratedConfig.php lists no extensions, so the bundled rule tiers "
                 . 'are missing from this listing; run it again after phpstan/extension-installer has run (composer install or update).',
             );
         }
