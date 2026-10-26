@@ -317,5 +317,6 @@
       }
     ]
   },
-  "enableArtifact": false
+  "enableArtifact": false,
+  "autoCompactWindow": 480000
 }
