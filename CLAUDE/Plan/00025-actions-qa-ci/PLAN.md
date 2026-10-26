@@ -186,8 +186,9 @@ This plan does three things:
     shown by `rules` as a narrowing, so `disabledDefence` needs no finding of its own.
     `check --online` compares the record's `requiredChecks` with the branch protection and
     rulesets the repository has (pull request 23); a run that does not go online says so. Open:
-    `versionPin`, whose useful form needs a release to pin to; and the record's `calibrations`
-    section, whose `shellcheckSeverity` waits on Task 1.6. A real online run needs the branch
+    `versionPin`, whose useful form needs a release to pin to; and the rest of the record's
+    `calibrations` section (`enable` is pull request 40, stacked on the lane), whose
+    `shellcheckSeverity` waits on Task 1.6. A real online run needs the branch
     protection the Owner has not set on actions-qa-ci.
   - [x] Isolated lanes (pull request 13): the actionlint lane runs in a child process with a time
     limit and an output cap, so a crash or a hang is exit 4; the declared gap
@@ -200,8 +201,8 @@ This plan does three things:
     zizmor is in progress after the Owner chose the PyPI musl wheel (the PyPI route and the pin
     are merged, pull requests 35 and 36; the lane is pull request 37, verified and waiting on
     two pages a protected-path guard stops an agent writing, with the ownership drops and the
-    list of audits not run stacked on it as 38 and 39); pinact's provenance route,
-    the `calibrations`, the `cel-go` dependency, the dogfood corpus and `release.yml`'s
+    list of audits not run and the record's `calibrations.enable` stacked on it as 38, 39 and
+    40); pinact's provenance route, the other `calibrations`, the `cel-go` dependency, the dogfood corpus and `release.yml`'s
     exception wait on the Owner; `install.sh` filled in, the composite action, `versionPin` and
     Task 4.4 need a release, which the agent does not cut.
 - [ ] ⬜ **Task 4.3**: First-party lanes:
