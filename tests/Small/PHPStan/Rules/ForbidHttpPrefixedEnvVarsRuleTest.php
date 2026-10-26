@@ -94,7 +94,7 @@ final class ForbidHttpPrefixedEnvVarsRuleTest extends RuleTestCase
     private function expectedMessage(string $file, int $line, string $name): string
     {
         return \sprintf(
-            '%s:%d: env var \'%s\' is consumed by Symfony but named with an HTTP_ prefix — '
+            "%s:%d: env var '%s' is consumed by Symfony but named with an HTTP_ prefix — "
             . 'Symfony treats HTTP_* as an HTTP request header and will NOT read it from '
             . '$_SERVER, so a CLI process (worker/console/cron) resolves it EMPTY. Rename it '
             . 'off the HTTP_ prefix (e.g. HTTP_API_KEY -> APP_API_KEY).',

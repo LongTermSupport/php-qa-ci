@@ -100,10 +100,10 @@ final readonly class FullQaBlockerConfigurator
         $edit = $this->editor->apply(\Safe\file_get_contents($daemonConfig), $this->binDirs->read($projectRoot));
 
         return match ($edit->outcome) {
-            YamlEditOutcomeEnum::Unchanged                              => $this->report(ConfigureOutcomeEnum::Unchanged, '✓ subagent_full_qa_blocker already configured (the full pipeline is the coordinating session\'s)'),
+            YamlEditOutcomeEnum::Unchanged                              => $this->report(ConfigureOutcomeEnum::Unchanged, "✓ subagent_full_qa_blocker already configured (the full pipeline is the coordinating session's)"),
             YamlEditOutcomeEnum::DisabledByProject                      => $this->report(ConfigureOutcomeEnum::DisabledByProject, \sprintf('ℹ️  subagent_full_qa_blocker is disabled in %s — left as the project set it', $daemonConfig)),
             YamlEditOutcomeEnum::ProjectOwned                           => $this->report(ConfigureOutcomeEnum::ProjectOwned, \sprintf(
-                'ℹ️  subagent_full_qa_blocker in %s has no php-qa-ci marker, so it is the project\'s own — left untouched (the recommended block is in %s)',
+                "ℹ️  subagent_full_qa_blocker in %s has no php-qa-ci marker, so it is the project's own — left untouched (the recommended block is in %s)",
                 $daemonConfig,
                 self::DOCS,
             )),
