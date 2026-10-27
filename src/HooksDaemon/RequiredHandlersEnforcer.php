@@ -17,7 +17,9 @@ use Throwable;
  * when a setting actually differs, so a project whose config is right sees no
  * change at all, and one whose config differs sees only the differing lines
  * move. A layout the editor cannot edit in place is refused: the file is left
- * as it was and the message names what to set by hand.
+ * as it was and the message names what to set by hand. So is an edit that
+ * fails RequiredHandlersEditInvariant, the read-back that every required
+ * setting is right and only the enforced keys' lines moved.
  *
  * @api bin/hooks-daemon-required-handlers is the caller
  */
@@ -28,7 +30,8 @@ final readonly class RequiredHandlersEnforcer
 
     public function __construct(
         private OutputInterface $output,
-        private RequiredHandlersYamlEditor $editor = new RequiredHandlersYamlEditor(),
+        private RequiredHandlersEditorInterface $editor = new RequiredHandlersYamlEditor(),
+        private RequiredHandlersEditInvariant $invariant = new RequiredHandlersEditInvariant(),
     ) {
     }
 
@@ -47,9 +50,15 @@ final readonly class RequiredHandlersEnforcer
         }
 
         try {
-            $edit = $this->editor->apply(\Safe\file_get_contents($daemonConfig));
+            $original = \Safe\file_get_contents($daemonConfig);
+            $edit     = $this->editor->apply($original);
             if (null !== $edit->unsupported) {
-                return $this->refuse($daemonConfig, $edit->unsupported);
+                return $this->refuse($daemonConfig, $edit->unsupported . " cannot be edited in place, and a rewrite would drop the file's comments.");
+            }
+
+            $violation = $this->invariant->violation($original, $edit);
+            if (null !== $violation) {
+                return $this->refuse($daemonConfig, \sprintf('the edit failed its safety check (%s) and was not written.', $violation));
             }
 
             if ([] === $edit->changes) {
@@ -73,9 +82,9 @@ final readonly class RequiredHandlersEnforcer
         return 0;
     }
 
-    private function refuse(string $daemonConfig, string $where): int
+    private function refuse(string $daemonConfig, string $reason): int
     {
-        $this->say(\sprintf("⚠️  %s left untouched: %s cannot be edited in place, and a rewrite would drop the file's comments.", $daemonConfig, $where));
+        $this->say(\sprintf('⚠️  %s left untouched: %s', $daemonConfig, $reason));
         $this->say('Set these by hand, then re-run composer install:');
         foreach (RequiredHandlersYamlEditor::REQUIRED as $required) {
             $this->say(self::INDENT . \sprintf(

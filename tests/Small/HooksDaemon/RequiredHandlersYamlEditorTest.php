@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\HooksDaemon;
 
 use LTS\PHPQA\HooksDaemon\Dto\RequiredHandlersEditDto;
+use LTS\PHPQA\HooksDaemon\RequiredHandlersShape;
 use LTS\PHPQA\HooksDaemon\RequiredHandlersYamlEditor;
 use LTS\PHPQA\HooksDaemon\YamlLines;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -22,6 +23,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(RequiredHandlersYamlEditor::class)]
 #[UsesClass(RequiredHandlersEditDto::class)]
+#[UsesClass(RequiredHandlersShape::class)]
 #[UsesClass(YamlLines::class)]
 #[Small]
 final class RequiredHandlersYamlEditorTest extends TestCase

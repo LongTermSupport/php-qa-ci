@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\HooksDaemon;
 
 use LTS\PHPQA\HooksDaemon\Dto\RequiredHandlersEditDto;
+use LTS\PHPQA\HooksDaemon\RequiredHandlersEditInvariant;
+use LTS\PHPQA\HooksDaemon\RequiredHandlersEditorInterface;
 use LTS\PHPQA\HooksDaemon\RequiredHandlersEnforcer;
+use LTS\PHPQA\HooksDaemon\RequiredHandlersShape;
 use LTS\PHPQA\HooksDaemon\RequiredHandlersYamlEditor;
 use LTS\PHPQA\HooksDaemon\YamlLines;
 use LTS\PHPQA\Tests\Support\TempDir;
@@ -14,6 +17,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
@@ -23,6 +27,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 #[CoversClass(RequiredHandlersEnforcer::class)]
 #[UsesClass(RequiredHandlersYamlEditor::class)]
+#[UsesClass(RequiredHandlersEditInvariant::class)]
+#[UsesClass(RequiredHandlersShape::class)]
 #[UsesClass(RequiredHandlersEditDto::class)]
 #[UsesClass(YamlLines::class)]
 #[Small]
@@ -121,6 +127,59 @@ final class RequiredHandlersEnforcerTest extends TestCase
             . "    handlers.pre_tool_use.validate_instruction_content.enabled: true\n"
             . "    handlers.pre_tool_use.markdown_organization.enabled: true\n";
         self::assertSame($expected, $this->output->fetch());
+    }
+
+    #[Test]
+    public function aQuotedKeyFileIsRefusedUntouchedNamingTheKey(): void
+    {
+        $original = "\"handlers\":\n  \"pre_tool_use\":\n    \"git_stash\":\n      \"enabled\": true\n";
+        $path     = $this->project->write(self::CONFIG, $original);
+
+        self::assertSame(1, $this->enforce($path));
+
+        self::assertSame($original, $this->project->read(self::CONFIG));
+        $shown = $this->output->fetch();
+        self::assertStringContainsString('left untouched: "handlers" (not a plain key) cannot be edited in place', $shown);
+        self::assertStringContainsString("    handlers.pre_tool_use.git_stash.options.mode: deny\n", $shown);
+    }
+
+    #[Test]
+    public function anEditThatFailsTheSafetyCheckIsNotWrittenAndIsReportedWithWhatToChangeByHand(): void
+    {
+        $original = "# keep me\nhandlers:\n  pre_tool_use: {}\n";
+        $path     = $this->project->write(self::CONFIG, $original);
+        $editor   = new class implements RequiredHandlersEditorInterface {
+            public function apply(string $yaml): RequiredHandlersEditDto
+            {
+                return new RequiredHandlersEditDto($yaml . "handlers:\n  pre_tool_use: {}\n", ['Added git_stash.enabled: true'], null);
+            }
+        };
+
+        self::assertSame(1, new RequiredHandlersEnforcer($this->output, $editor)->run($path));
+
+        self::assertSame($original, $this->project->read(self::CONFIG));
+        $shown = $this->output->fetch();
+        self::assertStringContainsString("{$path} left untouched: the edit failed its safety check (the edited file is not a layout the editor reads: handlers (duplicate key)) and was not written.", $shown);
+        self::assertStringContainsString("Set these by hand, then re-run composer install:\n", $shown);
+        self::assertStringContainsString("    handlers.pre_tool_use.markdown_organization.enabled: true\n", $shown);
+    }
+
+    #[Test]
+    public function anEditorThatThrowsLeavesTheFileAndReportsIt(): void
+    {
+        $original = "handlers:\n  pre_tool_use: {}\n";
+        $path     = $this->project->write(self::CONFIG, $original);
+        $editor   = new class implements RequiredHandlersEditorInterface {
+            public function apply(string $yaml): RequiredHandlersEditDto
+            {
+                throw new RuntimeException('boom');
+            }
+        };
+
+        self::assertSame(1, new RequiredHandlersEnforcer($this->output, $editor)->run($path));
+
+        self::assertSame($original, $this->project->read(self::CONFIG));
+        self::assertSame("  ⚠️  Could not enforce the required handlers in {$path}: boom\n", $this->output->fetch());
     }
 
     #[Test]

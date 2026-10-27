@@ -21,7 +21,7 @@ use LTS\PHPQA\HooksDaemon\Dto\RequiredHandlersEditDto;
  *
  * @internal
  */
-final readonly class RequiredHandlersYamlEditor
+final readonly class RequiredHandlersYamlEditor implements RequiredHandlersEditorInterface
 {
     /** Every setting is enforced under `handlers.pre_tool_use`. */
     public const string HANDLERS_KEY = 'handlers';
@@ -55,8 +55,10 @@ final readonly class RequiredHandlersYamlEditor
     /** The canonical spelling of a boolean true. */
     private const string TRUE = 'true';
 
-    /** The spellings YAML 1.1 reads as true, which PyYAML and the daemon accept. */
-    private const array TRUE_SPELLINGS = ['true', 'yes', 'on'];
+    public function __construct(
+        private RequiredHandlersShape $shape = new RequiredHandlersShape(),
+    ) {
+    }
 
     public function apply(string $yaml): RequiredHandlersEditDto
     {
@@ -64,19 +66,19 @@ final readonly class RequiredHandlersYamlEditor
             return $this->refused($yaml, 'the file (CRLF line endings)');
         }
 
-        $lines    = YamlLines::fromText($yaml);
+        $lines   = YamlLines::fromText($yaml);
+        $blocker = $this->shape->blocker($lines);
+        if (null !== $blocker) {
+            return $this->refused($yaml, $blocker);
+        }
+
         $unit     = $lines->unit(self::DEFAULT_UNIT);
         $handlers = $lines->find(self::HANDLERS_KEY, 0, 0, $lines->count());
         if (null === $handlers) {
             [$lines, $handlers] = $this->withHandlersKey($lines);
         }
 
-        $opened = $this->opened($lines, $handlers, self::HANDLERS_KEY);
-        if (!$opened instanceof YamlLines) {
-            return $this->refused($yaml, self::HANDLERS_KEY);
-        }
-
-        $lines   = $opened;
+        $lines   = $this->opened($lines, $handlers, self::HANDLERS_KEY);
         $changes = [];
         foreach (self::REQUIRED as $required) {
             $edited = $this->ensure(
@@ -151,12 +153,7 @@ final readonly class RequiredHandlersYamlEditor
             return $this->setLeaf($lines, $index, $key, $value, $label, $setting, $changes);
         }
 
-        $opened = $this->opened($lines, $index, $key);
-        if (!$opened instanceof YamlLines) {
-            return $label;
-        }
-
-        return $this->ensure($opened, $index, $value, $unit, $label, $setting, $changes, ...$rest);
+        return $this->ensure($this->opened($lines, $index, $key), $index, $value, $unit, $label, $setting, $changes, ...$rest);
     }
 
     /**
@@ -169,7 +166,7 @@ final readonly class RequiredHandlersYamlEditor
             return $label;
         }
 
-        if ($this->matches($parsed['value'], $value)) {
+        if ($this->shape->holds($parsed['value'], $value)) {
             return $lines;
         }
 
@@ -213,33 +210,20 @@ final readonly class RequiredHandlersYamlEditor
     }
 
     /**
-     * The lines with the key's value on its own line, ready to take children,
-     * or null when its inline value cannot be opened up without changing what
-     * it means. Only an empty flow mapping can; a trailing comment is kept.
+     * The lines with the key's value on its own line, ready to take children.
+     * RequiredHandlersShape has already refused every inline value but an
+     * empty flow mapping, which opens up without changing its meaning; its
+     * trailing comment is kept.
      */
-    private function opened(YamlLines $lines, int $index, string $key): ?YamlLines
+    private function opened(YamlLines $lines, int $index, string $key): YamlLines
     {
-        $parsed = $lines->keyed($index, $key);
-        if (null === $parsed || '' === $parsed['value']) {
-            return $lines;
-        }
-
+        $parsed = $lines->parts($index, $key);
         if (self::EMPTY_FLOW_MAPPING !== $parsed['value']) {
-            return null;
+            return $lines;
         }
 
         $comment = '' === $parsed['comment'] ? '' : ' ' . $parsed['comment'];
 
         return $lines->withReplaced($index, 1, str_repeat(' ', $lines->indent($index)) . $key . ':' . $comment);
-    }
-
-    /** Whether a scalar as written already means `$wanted`, quotes and YAML 1.1 booleans allowed. */
-    private function matches(string $written, string $wanted): bool
-    {
-        if (self::TRUE === $wanted) {
-            return \in_array(strtolower($written), self::TRUE_SPELLINGS, true);
-        }
-
-        return \in_array($written, [$wanted, '"' . $wanted . '"', "'" . $wanted . "'"], true);
     }
 }
