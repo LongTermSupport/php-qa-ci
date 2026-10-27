@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.10.2 — 2026-10-27
+
 ### Fixed
 
 - **`analysedPaths` no longer fails a gitignored `withIgnoredPaths()` path that is absent.** A path git ignores, such as a framework's generated config file that a fresh checkout lacks until a run writes it, failed with "names a path where nothing exists" and then passed once the file existed. It is now allowed to be missing, so the verdict is the same before and after generation; git decides what is ignored (`git check-ignore`). A missing path git does not ignore still fails as stale.
