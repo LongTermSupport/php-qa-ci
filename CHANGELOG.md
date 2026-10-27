@@ -25,6 +25,19 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- `dependencyFreshness` judges a package by what the project's composer configuration makes it
+  follow (issue #345). A package that follows a branch (`dev-php8.5`, `dev-php8.5@dev`, an `as`
+  alias, `1.x-dev`) is judged against that branch's head, as before. A package that follows
+  release tags (`^85.N`, `~85.N.0`) is judged against the newest tag within its constraint and
+  never against a branch head, so a lock on the newest allowed tag no longer fails because the
+  branch is ahead of it. Under a constraint that admits both (`*`, `dev-php8.5 || ^85.N`), or for a
+  package the project does not require directly, the locked version decides, so a lock on a branch
+  head still passes. Tag-following packages are asked with `--prefer-stable`, and the failure names
+  the working remedy, `composer update <package> --with-dependencies --prefer-stable`. A consumer
+  that wants a stable lock requires a tag range instead of the branch.
+
 ## 85.10.2 — 2026-10-27
 
 ### Fixed

@@ -54,12 +54,29 @@ final class ComposerLockTest extends TestCase
     }
 
     #[Test]
+    public function itReadsTheLockedVersionOfEveryPackageThatRecordsOne(): void
+    {
+        $path = $this->dir->write(self::LOCK, '{"packages": [{"name": "lts/php-qa-ci", "version": "dev-php8.5"}, {"name": "psr/log"}, {"name": "acme/x", "version": 3}], "packages-dev": [{"name": "acme/tool", "version": "1.2.0"}]}');
+
+        self::assertSame(['lts/php-qa-ci' => 'dev-php8.5', 'acme/tool' => '1.2.0'], ComposerLock::versions($path));
+    }
+
+    #[Test]
     public function aLockThatIsNotJsonIsRefusedNamingTheFile(): void
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageIsOrContains('composer.lock is not valid JSON');
 
         ComposerLock::packageNames($this->dir->write(self::LOCK, '{not json'));
+    }
+
+    #[Test]
+    public function theVersionsOfALockThatIsNotJsonAreRefusedToo(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIsOrContains('composer.lock is not valid JSON');
+
+        ComposerLock::versions($this->dir->write(self::LOCK, '{not json'));
     }
 
     #[Test]

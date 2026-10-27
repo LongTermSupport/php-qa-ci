@@ -44,16 +44,29 @@ final class DependencyFreshnessToolComposerTest extends TestCase
 {
     private const string PACKAGE_JSON = "{\"name\": \"lts/php-qa-ci\", \"type\": \"library\"}\n";
 
+    private const string FIRST_RELEASE = '1.0.0';
+
+    private const string SECOND_RELEASE = '1.1.0';
+
+    private const string PREFER_STABLE = '--prefer-stable';
+
+    private const string BEHIND_THE_SECOND_RELEASE = '  - lts/php-qa-ci (locked 1.0.0, available 1.1.0)';
+
+    /** The local git repository php-qa-ci is served from. */
     private GitSandbox $sandbox;
 
+    /** The project that requires php-qa-ci. */
     private string $app;
+
+    /** How many commits the branch has been moved on by, so each commit changes the file. */
+    private int $moves = 0;
 
     protected function setUp(): void
     {
         $this->sandbox = GitSandbox::create(['composer.json' => self::PACKAGE_JSON]);
         $this->app     = $this->sandbox->root->mkdir('app');
         $this->writeAppComposerJson('dev-php8.5');
-        $this->composer('update', '--no-interaction', '--no-progress', '--no-scripts');
+        $this->update();
     }
 
     protected function tearDown(): void
@@ -127,6 +140,136 @@ final class DependencyFreshnessToolComposerTest extends TestCase
         self::assertStringContainsString('composer.lock was NOT verified for: lts/php-qa-ci.', $printed);
     }
 
+    /**
+     * A project whose constraint tracks tags is judged against the newest tag
+     * the constraint allows, and the remedy the lane prints really clears it.
+     */
+    #[Test]
+    public function aTagTrackingLockBehindANewerTagInsideTheConstraintFailsWithARemedyThatWorks(): void
+    {
+        $this->lockOnTag('^1.0');
+        $this->release(self::SECOND_RELEASE);
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
+        self::assertStringContainsString(self::BEHIND_THE_SECOND_RELEASE, $printed);
+        self::assertStringContainsString('composer update lts/php-qa-ci --with-dependencies --prefer-stable', $printed);
+
+        $this->applyTheRemedy();
+
+        [$after, $printedAfter] = $this->check();
+        self::assertSame(ToolOutcomeEnum::Passed, $after, $printedAfter);
+    }
+
+    #[Test]
+    public function aTagTrackingLockWhoseNewestTagIsOutsideTheConstraintPasses(): void
+    {
+        $this->lockOnTag('~1.0.0');
+        $this->release(self::SECOND_RELEASE);
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
+    }
+
+    /** A tag lock is never judged against the branch head, whatever the constraint admits. */
+    #[Test]
+    public function aTagTrackingLockUnderAConstraintThatAlsoAdmitsTheBranchIsJudgedByTagsOnly(): void
+    {
+        $this->lockOnTag('*');
+        $this->advanceTheBranch();
+
+        [$result, $printed] = $this->check();
+        self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
+
+        $this->release(self::SECOND_RELEASE);
+
+        [$stale, $printedStale] = $this->check();
+        self::assertSame(ToolOutcomeEnum::Failed, $stale, $printedStale);
+        self::assertStringContainsString(self::BEHIND_THE_SECOND_RELEASE, $printedStale);
+
+        $this->applyTheRemedy();
+
+        [$after, $printedAfter] = $this->check();
+        self::assertSame(ToolOutcomeEnum::Passed, $after, $printedAfter);
+    }
+
+    /** The rejected `--prefer-stable` attempt failed this one: a branch-head lock under `*`, with a tag available. */
+    #[Test]
+    public function aBranchHeadLockUnderAConstraintThatAlsoAdmitsTagsPasses(): void
+    {
+        $this->tag(self::FIRST_RELEASE);
+        $this->writeAppComposerJson('*');
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
+    }
+
+    #[Test]
+    public function aBranchLockBehindItsHeadUnderAConstraintThatAlsoAdmitsTagsFailsAgainstTheBranch(): void
+    {
+        $locked = $this->lockedReference();
+        $this->tag(self::FIRST_RELEASE);
+        $this->writeAppComposerJson('*');
+        $head = $this->advanceTheBranch();
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
+        self::assertStringContainsString(
+            \sprintf('  - lts/php-qa-ci (locked dev-php8.5 %s, available dev-php8.5 %s)', substr($locked, 0, 7), substr($head, 0, 7)),
+            $printed,
+        );
+    }
+
+    /** Tags that exist do not matter to a project that tracks the branch alone. */
+    #[Test]
+    public function aBranchTrackingLockAtItsHeadPassesWhateverTagsExist(): void
+    {
+        $this->tag(self::FIRST_RELEASE);
+        $this->release(self::SECOND_RELEASE);
+        $this->update();
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
+    }
+
+    /** Lock the app on the release 1.0.0 under $constraint. */
+    private function lockOnTag(string $constraint): void
+    {
+        $this->tag(self::FIRST_RELEASE);
+        $this->writeAppComposerJson($constraint);
+        $this->update(self::PREFER_STABLE);
+    }
+
+    /** What the failure tells a project that follows tags to run. */
+    private function applyTheRemedy(): void
+    {
+        $this->update('lts/php-qa-ci', '--with-dependencies', self::PREFER_STABLE);
+    }
+
+    private function update(string ...$arguments): void
+    {
+        $this->composer('update', '--no-interaction', '--no-progress', '--no-scripts', ...array_values($arguments));
+    }
+
+    /** Tag the work clone's head and push the tag. */
+    private function tag(string $name): void
+    {
+        $this->sandbox->git('tag', $name);
+        $this->sandbox->git('push', 'origin', $name);
+    }
+
+    /** A new commit on the branch, tagged as a release. */
+    private function release(string $name): void
+    {
+        $this->advanceTheBranch();
+        $this->tag($name);
+    }
+
     /** @return array{ToolOutcomeEnum, string} */
     private function check(?string $composer = null): array
     {
@@ -139,7 +282,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
     /** Commit and push to the branch the app is locked on; returns the new head. */
     private function advanceTheBranch(): string
     {
-        $this->sandbox->commit('CHANGELOG.md', "# Changes\n", 'Move the branch on');
+        $this->sandbox->commit('CHANGELOG.md', \sprintf("# Changes\n\nMove %d\n", ++$this->moves), 'Move the branch on');
         $this->sandbox->git('push', 'origin', GitSandbox::DEFAULT_BRANCH);
 
         return trim($this->sandbox->git('rev-parse', 'HEAD'));
