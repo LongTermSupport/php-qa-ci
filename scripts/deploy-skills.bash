@@ -64,41 +64,6 @@ elif [[ "${PHP_QA_CI_ASSUME_HOOKS_DAEMON:-0}" == "1" ]]; then
     echo "  📋 hooks-daemon assumed present via PHP_QA_CI_ASSUME_HOOKS_DAEMON=1 (config file not visible here)"
 fi
 
-# Detect daemon venv python3 for yaml operations (has pyyaml installed).
-# Never falls back to system python3 — system Python won't have pyyaml, and
-# silently skipping config validation is worse than a clear error.
-# Supports monorepo: checks both project root and parent directory.
-PYTHON3_YAML=""
-
-_find_daemon_venv_python() {
-    local daemon_root="$1"
-    local untracked="$daemon_root/untracked"
-    # Fingerprint-keyed venv (v3.9.0+): venv-<fingerprint>/bin/python3
-    if [[ -d "$untracked" ]]; then
-        for _venv_python in "$untracked"/venv-*/bin/python3; do
-            if [[ -f "$_venv_python" ]]; then
-                echo "$_venv_python"
-                return 0
-            fi
-        done
-    fi
-    # Legacy path (pre-v3.9.0)
-    local _legacy="$daemon_root/untracked/venv/bin/python3"
-    if [[ -f "$_legacy" ]]; then
-        echo "$_legacy"
-        return 0
-    fi
-    return 1
-}
-
-_found=""
-if _found=$(_find_daemon_venv_python "$PROJECT_ROOT/.claude/hooks-daemon"); then
-    PYTHON3_YAML="$_found"
-elif _found=$(_find_daemon_venv_python "$(dirname "$PROJECT_ROOT")/.claude/hooks-daemon"); then
-    PYTHON3_YAML="$_found"
-fi
-unset _found
-
 echo "Deploying Skills from: $SKILLS_SOURCE"
 echo "                   to: $SKILLS_TARGET"
 echo "Deploying Agents from: $AGENTS_SOURCE"

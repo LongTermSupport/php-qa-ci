@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Enforces the Claude Code hooks daemon handler settings php-qa-ci needs
+ * (git_stash in deny mode, and three more handlers on) in a consuming project's
+ * .claude/hooks-daemon.yaml, as a text edit that keeps every comment.
+ * scripts/deploy-skills.bash calls it on every composer install/update; it can
+ * be re-run by hand. The decision and the edit live in
+ * LTS\PHPQA\HooksDaemon\RequiredHandlersEnforcer, where they are unit-tested.
+ *
+ * Usage: hooks-daemon-required-handlers [<hooks-daemon.yaml>]
+ */
+
+require __DIR__.'/bootstrap.php';
+
+die(\LTS\PHPQA\HooksDaemon\RequiredHandlersEnforcer::main(
+    $argv[1] ?? \LTS\PHPQA\Helper::getProjectRootDirectory().'/.claude/hooks-daemon.yaml',
+    new \Symfony\Component\Console\Output\ConsoleOutput(),
+));

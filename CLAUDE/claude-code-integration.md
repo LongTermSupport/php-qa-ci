@@ -22,6 +22,10 @@ Facts a contributor changing the deploy needs:
   `.claude/settings.json` when no hooks daemon is detected. The legacy-name migration (old hook
   names without the `php-qa-ci__` prefix, rewritten in `.claude/settings.json`) runs on every
   deploy where `.claude/settings.json` exists (`scripts/lib/deploy-classic-hooks.inc.bash`).
+- With the hooks daemon present, the daemon phase first enforces the required handler settings
+  (`git_stash` in `deny` mode and three more) as a comment-preserving text edit,
+  [src/HooksDaemon/](../src/HooksDaemon/) behind `bin/hooks-daemon-required-handlers`; see
+  [docs/hooks-daemon-required-handlers.md](../docs/hooks-daemon-required-handlers.md).
 - With the hooks daemon at v3.67.0 or later, the daemon phase also declares
   `subagent_full_qa_blocker`, so a sub-agent's full pipeline run is denied and the full gate stays
   with the coordinating session. The logic is [src/HooksDaemon/](../src/HooksDaemon/) behind
