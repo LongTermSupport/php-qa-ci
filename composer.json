@@ -125,6 +125,7 @@
     "bin/config-template-ignorelist-check",
     "bin/describe-exit",
     "bin/hooks-daemon-full-qa-blocker",
+    "bin/hooks-daemon-required-handlers",
     "bin/infection",
     "bin/infection-config-source-dirs-check",
     "bin/managed-source",

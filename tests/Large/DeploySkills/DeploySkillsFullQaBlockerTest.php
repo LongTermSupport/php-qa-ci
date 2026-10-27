@@ -30,6 +30,10 @@ final class DeploySkillsFullQaBlockerTest extends TestCase
 
     private const string CONFIG = '.claude/hooks-daemon.yaml';
 
+    private const string PROJECT_CONFIG = 'project/' . self::CONFIG;
+
+    private const string OLD_DAEMON = '3.66.0';
+
     private const string COMMENTED_CONFIG = <<<'YAML'
         version: '2.0'
         # Every comment in this file must survive the deploy.
@@ -44,6 +48,23 @@ final class DeploySkillsFullQaBlockerTest extends TestCase
 
         YAML;
 
+    private const string COMPLIANT_CONFIG = <<<'YAML'
+        # Why each setting is the way it is.
+        handlers:
+            pre_tool_use:
+                git_stash:   # no stashes
+                    enabled: true
+                    options:
+                        mode: deny   # owner decision
+                plan_time_estimates:
+                    enabled: true
+                validate_instruction_content:
+                    enabled: true
+                markdown_organization:
+                    enabled: true
+
+        YAML;
+
     private TempDir $temp;
 
     private string $consumer;
@@ -55,7 +76,7 @@ final class DeploySkillsFullQaBlockerTest extends TestCase
         $this->temp->mkdir('project/src');
         $this->temp->mkdir('project/.git/hooks');
         $this->temp->write('project/composer.json', '{"name": "acme/widget", "type": "project", "config": {"bin-dir": "bin"}}');
-        $this->temp->write('project/' . self::CONFIG, self::COMMENTED_CONFIG);
+        $this->temp->write(self::PROJECT_CONFIG, self::COMMENTED_CONFIG);
     }
 
     protected function tearDown(): void
@@ -86,17 +107,64 @@ final class DeploySkillsFullQaBlockerTest extends TestCase
     #[Test]
     public function aDaemonOlderThanTheHandlerIsLeftAlone(): void
     {
-        $this->installDaemon('3.66.0');
+        $this->installDaemon(self::OLD_DAEMON);
 
         self::assertStringContainsString('hooks-daemon 3.66.0 predates subagent_full_qa_blocker', $this->deploy());
-        self::assertSame(self::COMMENTED_CONFIG, $this->config());
+        $this->assertOnlyRequiredHandlersAdded();
     }
 
     #[Test]
     public function aConfigWithNoDaemonInstallBesideItIsLeftAlone(): void
     {
         self::assertStringContainsString('no hooks-daemon install with a readable version', $this->deploy());
-        self::assertSame(self::COMMENTED_CONFIG, $this->config());
+        $this->assertOnlyRequiredHandlersAdded();
+    }
+
+    #[Test]
+    public function aConfigWhoseRequiredHandlersAreRightIsNotTouchedByTheDeploy(): void
+    {
+        $this->temp->write(self::PROJECT_CONFIG, self::COMPLIANT_CONFIG);
+        $this->installDaemon(self::OLD_DAEMON);
+
+        self::assertStringContainsString('All required handlers already configured correctly', $this->deploy());
+        self::assertSame(self::COMPLIANT_CONFIG, $this->config());
+    }
+
+    #[Test]
+    public function aWrongGitStashModeIsTheOnlyLineTheDeployChanges(): void
+    {
+        $this->temp->write(self::PROJECT_CONFIG, str_replace('mode: deny', 'mode: warn', self::COMPLIANT_CONFIG));
+        $this->installDaemon(self::OLD_DAEMON);
+
+        self::assertStringContainsString('Updated git_stash.options.mode: warn → deny', $this->deploy());
+        self::assertSame(self::COMPLIANT_CONFIG, $this->config());
+    }
+
+    #[Test]
+    public function aLayoutThatCannotBeEditedInPlaceIsRefusedAndLeftAsItWas(): void
+    {
+        $flow = "# Kept.\nhandlers:\n  pre_tool_use:\n    git_stash: {enabled: true, options: {mode: warn}}\n";
+        $this->temp->write(self::PROJECT_CONFIG, $flow);
+        $this->installDaemon(self::OLD_DAEMON);
+
+        $output = $this->deploy();
+
+        self::assertStringContainsString('left untouched', $output);
+        self::assertStringContainsString('handlers.pre_tool_use.git_stash.options.mode: deny', $output);
+        self::assertSame($flow, $this->config());
+    }
+
+    private function assertOnlyRequiredHandlersAdded(): void
+    {
+        $config = $this->config();
+        foreach (explode("\n", self::COMMENTED_CONFIG) as $line) {
+            if ('' !== $line) {
+                self::assertStringContainsString($line . "\n", $config);
+            }
+        }
+
+        self::assertStringContainsString("    git_stash:\n      enabled: true\n      options:\n        mode: deny\n", $config);
+        self::assertStringNotContainsString('subagent_full_qa_blocker:', $config);
     }
 
     private function installDaemon(string $version): void
@@ -120,6 +188,6 @@ final class DeploySkillsFullQaBlockerTest extends TestCase
 
     private function config(): string
     {
-        return $this->temp->read('project/' . self::CONFIG);
+        return $this->temp->read(self::PROJECT_CONFIG);
     }
 }

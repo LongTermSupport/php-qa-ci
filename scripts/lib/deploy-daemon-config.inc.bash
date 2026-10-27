@@ -1,9 +1,9 @@
 # deploy-skills phase: hooks-daemon config enforcement + classic-hook teardown.
 #
 # Sourced by scripts/deploy-skills.bash. Relies on orchestrator-established
-# variables: DAEMON_DETECTED, DAEMON_CONFIG, PYTHON3_YAML, HOOKS_TARGET,
-# SETTINGS_FILE, DAEMON_INSTALL_REF, QACI_PATH, PROJECT_ROOT. When the daemon is
-# present this enforces the required handler config (via the daemon venv python),
+# variables: DAEMON_DETECTED, DAEMON_CONFIG, HOOKS_TARGET, SETTINGS_FILE,
+# DAEMON_INSTALL_REF, QACI_PATH, PROJECT_ROOT. When the daemon is present this
+# enforces the required handler config (via bin/hooks-daemon-required-handlers),
 # declares subagent_full_qa_blocker (via bin/hooks-daemon-full-qa-blocker) and
 # removes classic hooks + their settings.json registrations; otherwise it prints
 # the install guidance.
@@ -19,118 +19,17 @@ if [[ "$DAEMON_DETECTED" == "true" ]]; then
     echo ""
     echo "📋 hooks-daemon detected - enforcing required handler configuration..."
 
-    # Daemon YAML handler enforcement requires a daemon venv Python that has
-    # pyyaml installed. That venv is host/platform-specific: when composer runs
-    # inside a container that bind-mounts a host-built venv, the venv's python
-    # symlink points at a host path (e.g. a Homebrew python) that does not exist
-    # in the container, so the venv is unusable here.
-    #
-    # In that situation we DO NOT fail the deployment. The daemon validates and
-    # enforces its own config where it actually runs (the host). We skip only
-    # the YAML enforcement step and still perform the classic-hook cleanup below
-    # (which uses system python3 and needs no venv) so settings.json is left in
-    # the correct daemon-managed state regardless of environment.
-    if [[ -z "$PYTHON3_YAML" ]]; then
-        echo "  ⚠️  hooks daemon venv not usable in this environment — skipping daemon YAML handler enforcement." >&2
-        echo "     This is expected when composer runs inside a container that mounts a host-built" >&2
-        echo "     daemon venv. The daemon enforces its own config where it runs (typically the host)." >&2
-        echo "     To enforce here too, install/upgrade the daemon (v3.9.0+) so a usable venv exists" >&2
-        echo "     in this environment." >&2
+    # The enforcement is a comment-preserving text edit in PHP
+    # (LTS\PHPQA\HooksDaemon\RequiredHandlersEnforcer): a config that is already
+    # right is not touched, a differing setting changes only its own line, and a
+    # layout that cannot be edited in place is left as it is with a message
+    # naming what to set by hand. It needs no daemon venv, so it runs in any
+    # environment; none of it may fail the deploy.
+    REQUIRED_HANDLERS_RC=0
+    "${PHP_BINARY:-php}" "$QACI_PATH/bin/hooks-daemon-required-handlers" "$DAEMON_CONFIG" || REQUIRED_HANDLERS_RC=$?
+    if [[ $REQUIRED_HANDLERS_RC -ne 0 ]]; then
+        echo "  ⚠️  required handler enforcement did not complete (exit $REQUIRED_HANDLERS_RC) — continuing deployment" >&2
     else
-        # Use daemon venv Python (has pyyaml) - system Python is never used
-        $PYTHON3_YAML - "$DAEMON_CONFIG" << 'PYTHON_DAEMON_CONFIG'
-import sys
-from pathlib import Path
-
-# Try to import yaml - gracefully handle if not available
-try:
-    import yaml
-    HAS_YAML = True
-except ImportError:
-    HAS_YAML = False
-
-config_file = Path(sys.argv[1])
-
-if not HAS_YAML:
-    print("  ❌ ERROR: PyYAML not available in hooks daemon venv", file=sys.stderr)
-    print("  The daemon venv is missing pyyaml — the daemon needs to be upgraded.", file=sys.stderr)
-    print("  Upgrade hooks daemon (v3.9.0+):", file=sys.stderr)
-    print("    curl -fsSL https://raw.githubusercontent.com/Edmonds-Commerce-Limited/claude-code-hooks-daemon/main/scripts/upgrade.sh -o /tmp/upgrade.sh", file=sys.stderr)
-    print("    bash /tmp/upgrade.sh --project-root <project-root>", file=sys.stderr)
-    sys.exit(1)
-
-# Required handlers for php-qa-ci projects
-REQUIRED_HANDLERS = {
-    "git_stash": {
-        "enabled": True,
-        "options": {"mode": "deny"},
-    },
-    "plan_time_estimates": {
-        "enabled": True
-    },
-    "validate_instruction_content": {
-        "enabled": True
-    },
-    "markdown_organization": {
-        "enabled": True
-    }
-}
-
-try:
-    # Load existing config
-    with open(config_file, 'r') as f:
-        config = yaml.safe_load(f) or {}
-
-    # Ensure structure exists
-    if 'handlers' not in config:
-        config['handlers'] = {}
-    if 'pre_tool_use' not in config['handlers']:
-        config['handlers']['pre_tool_use'] = {}
-
-    pre_tool_use = config['handlers']['pre_tool_use']
-    changes_made = []
-
-    # Enforce each required handler
-    for handler_name, required_config in REQUIRED_HANDLERS.items():
-        if handler_name not in pre_tool_use:
-            # Handler not configured at all - add it
-            pre_tool_use[handler_name] = required_config
-            changes_made.append(f"  ✓ Added handler: {handler_name}")
-        else:
-            # Handler exists - verify configuration
-            existing = pre_tool_use[handler_name]
-            if not isinstance(existing, dict):
-                # Handler is not a dict (maybe just enabled: true) - fix it
-                pre_tool_use[handler_name] = required_config
-                changes_made.append(f"  ✓ Updated handler: {handler_name}")
-            else:
-                # Check each required key
-                for key, value in required_config.items():
-                    if key not in existing:
-                        existing[key] = value
-                        changes_made.append(f"  ✓ Added {handler_name}.{key}: {value}")
-                    elif existing[key] != value:
-                        old_value = existing[key]
-                        existing[key] = value
-                        changes_made.append(f"  ✓ Updated {handler_name}.{key}: {old_value} → {value}")
-
-    if changes_made:
-        # Write back updated config
-        with open(config_file, 'w') as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-
-        print("  Configuration updated:")
-        for change in changes_made:
-            print(change)
-    else:
-        print("  ✓ All required handlers already configured correctly")
-
-except Exception as e:
-    print(f"  ⚠️  Warning: Could not validate daemon config: {e}", file=sys.stderr)
-    print("  Continuing deployment...", file=sys.stderr)
-
-PYTHON_DAEMON_CONFIG
-
         echo "  ✓ hooks-daemon configuration enforced"
     fi
 
