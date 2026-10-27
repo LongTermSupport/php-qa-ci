@@ -95,6 +95,21 @@ repeated. A read-only run, and a single tool such as `-t rector`, run once.
 - **A downstream error after a writable run**: keep the Rector edit and fix the cause it surfaced
   (narrow a type, add a missing test). Never revert Rector output to make another gate pass.
 
+## Rector never writes code PHPStan rejects
+
+PHPStan wins. A rewrite Rector makes that PHPStan then reports can never be made green, because
+Rector redoes it on every writable run, so the shipped `rector-php85.php` skips the rule that
+makes it. Today that is `TernaryToNullsafeCoalesceRector`: it rewrites
+`null !== $x->name ? $x->name->name : 'anonymous'` into `$x->name?->name ?? 'anonymous'`, and
+PHPStan reports `nullsafe.neverNull` for the `?->` on the left of `??`. The ternary stays as
+written (or write `$x->name->name ?? 'anonymous'`, which both tools accept). Only that rule is
+skipped; the rest of its set still runs.
+
+`ShippedRectorOutputPassesPhpstanTest` is the guard: it runs the shipped configs over
+`tests/assets/RectorVersusPhpstan/`, one fixture per known clash with a comment naming the pair of
+rules, then runs PHPStan over the result and names each fixture that fails. A project config that
+includes the `php80` set, or `LevelSetList::UP_TO_PHP_85`, should skip the same rule.
+
 ## A project config that sets its own cache
 
 Rector 2.7 removed `Rector\Caching\ValueObject\Storage\MemoryCacheStorage`. A project

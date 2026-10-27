@@ -28,6 +28,12 @@ the release and its tag. The full rules are in
 ### Fixed
 
 - **Installing php-qa-ci no longer rewrites a project's hooks daemon config.** The deploy step that enforces `git_stash` in `deny` mode (and the plan, instruction and markdown handlers) loaded `.claude/hooks-daemon.yaml` and dumped it back, which dropped every comment and reformatted the file on each install. It is now a text edit in PHP (`bin/hooks-daemon-required-handlers`): a config that is already right is not touched, a differing setting changes only its own line, and a layout that cannot be edited in place is left as it was with a message naming what to set by hand. It no longer needs the daemon's Python venv. See [docs/hooks-daemon-required-handlers.md](docs/hooks-daemon-required-handlers.md).
+- **The shipped Rector config no longer writes `?->` on the left of `??` on a property chain.** `TernaryToNullsafeCoalesceRector` rewrote `null !== $x->name ? $x->name->name : 'anonymous'` into `$x->name?->name ?? 'anonymous'`, which PHPStan reports as `nullsafe.neverNull`, so the file could not be made green: Rector redid it on every writable run. PHPStan wins: `rector-php85.php` now skips that one rule. A project `rector.php` that includes the `php80` set should skip it too. A new test runs the shipped configs over a corpus of known Rector-versus-PHPStan clashes and then PHPStan, naming each failing fixture.
+
+## 85.10.2 — 2026-10-27
+
+### Fixed
+
 - **`analysedPaths` no longer fails a gitignored `withIgnoredPaths()` path that is absent.** A path git ignores, such as a framework's generated config file that a fresh checkout lacks until a run writes it, failed with "names a path where nothing exists" and then passed once the file existed. It is now allowed to be missing, so the verdict is the same before and after generation; git decides what is ignored (`git check-ignore`). A missing path git does not ignore still fails as stale.
 - **`-p` checks the named path alone, whatever `withCheckedPaths()` adds.** A project whose `qaConfig/qa.php` called `withCheckedPaths('apps', 'config')` had those paths appended to the one named with `-p`, so every lane (PHPUnit among them) received several paths and a runner given several could skip the named file. With `-p`, `withCheckedPaths()` is now ignored for that run and exactly the named path reaches the lanes.
 
