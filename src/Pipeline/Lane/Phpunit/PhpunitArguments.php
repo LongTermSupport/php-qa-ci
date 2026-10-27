@@ -8,9 +8,10 @@ use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
 
 /**
  * The argv the PHPUnit lane hands to phpunit (or paratest), assembled in the
- * order the historic Bash fragment used: the paratest delegate, the config,
- * the always-on strictness flags, the PHPUnit 10+ display flags, then the
- * MODE flags and finally the explicit paths of a `-p` run.
+ * order the historic Bash fragment used: the config, the always-on strictness flags, the PHPUnit 10+ display flags, then the
+ * MODE flags and finally the explicit paths of a `-p` run. Under paratest every
+ * flag of the argv must be one its `--help` declares, and it is given at most
+ * one path.
  *
  * Modes, in precedence order:
  *   - iterative: order by defects, stop at the first defect, no coverage, time limits
@@ -25,11 +26,13 @@ final readonly class PhpunitArguments
     private const string ENFORCE_TIME_LIMIT = '--enforce-time-limit';
 
     /**
-     * @param int         $majorVersion   the probed PHPUnit major; 10+ gets the --display-* flags
-     * @param string|null $paratestTarget the phpunit binary paratest delegates to, or null when not using paratest
-     * @param string      ...$paths       the paths of a `-p` run; none for a full-suite run
+     * @param int                       $majorVersion the probed PHPUnit major; 10+ gets the --display-* flags
+     * @param ParatestCapabilities|null $paratest     what the installed paratest accepts, or null when not using paratest
+     * @param string                    ...$paths     the paths of a `-p` run; none for a full-suite run
      *
      * @return list<string>
+     *
+     * @throws ParatestIncompatibleException when paratest cannot be given these arguments
      */
     public function build(
         PhpUnitOptionsDto $options,
@@ -37,15 +40,10 @@ final readonly class PhpunitArguments
         int $majorVersion,
         string $configPath,
         string $junitLogFile,
-        ?string $paratestTarget,
+        ?ParatestCapabilities $paratest,
         string ...$paths,
     ): array {
-        $args = [];
-        if (null !== $paratestTarget) {
-            $args[] = '--phpunit';
-            $args[] = $paratestTarget;
-        }
-
+        $args   = [];
         $args[] = '-c';
         $args[] = $configPath;
 
@@ -70,7 +68,37 @@ final readonly class PhpunitArguments
             ];
         }
 
-        return [...$args, ...$this->modeFlags($options, $ci), ...array_values($paths)];
+        $args = [...$args, ...$this->modeFlags($options, $ci)];
+        if ($paratest instanceof ParatestCapabilities) {
+            $this->assertAccepted($paratest, \count($paths), ...$args);
+        }
+
+        return [...$args, ...array_values($paths)];
+    }
+
+    /**
+     * Every flag in the argv is checked against what paratest declares; the
+     * flags are read from the argv itself, so no list can drift from it.
+     *
+     * @throws ParatestIncompatibleException
+     */
+    private function assertAccepted(ParatestCapabilities $paratest, int $pathCount, string ...$args): void
+    {
+        $flags = [];
+        foreach ($args as $arg) {
+            if (str_starts_with($arg, '-')) {
+                $flags[] = explode('=', $arg, 2)[0];
+            }
+        }
+
+        $lacking = $paratest->lacking(...$flags);
+        if ([] !== $lacking) {
+            throw ParatestIncompatibleException::missingOptions($paratest->label(), ...$lacking);
+        }
+
+        if ($pathCount > 1) {
+            throw ParatestIncompatibleException::severalPaths($pathCount);
+        }
     }
 
     /** @return list<string> */

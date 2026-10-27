@@ -131,6 +131,17 @@ To enable paratest, simply install it. If it is found, the QA process will use i
 composer require --dev brianium/paratest
 ```
 
+The lane passes ParaTest the same flags it passes PHPUnit (the strictness flags such as `--fail-on-risky` and `--strict-global-state`, the display flags and the mode flags), and checks every one of them against the options the installed ParaTest lists in its own `--help` before running. It does not use a version number or a single option to decide.
+
+| ParaTest      | Lists those flags | Result                                                                                                   |
+| ------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| 7 and later   | yes               | supported: the same flags as PHPUnit, no `--phpunit` option (ParaTest runs the project's PHPUnit itself) |
+| 6 and earlier | no                | refused: the lane fails naming the ParaTest version and each flag it lacks, and does not run it          |
+
+ParaTest 5 still has a `--phpunit` option but does not accept the strictness flags, so it is refused like 6. Upgrade ParaTest to 7 or later, or remove it to run with PHPUnit alone.
+
+ParaTest takes one path. A `-p` run names one path and passes it as is; if more than one path is given, the lane fails with a message saying so instead of printing ParaTest's "Too many arguments" usage error.
+
 ## PHPUnit and PHPStan
 
 The `phpstan-phpunit` extension is bundled with php-qa-ci and auto-loaded via the extension installer. This allows you to properly use mocks with PHPUnit tests and keep PHPStan happy.
@@ -142,7 +153,7 @@ Read the [PHPQA PHPStan docs](./phpstan.md) for more information.
 The lane is `LTS\PHPQA\Pipeline\Lane\PhpunitTool` (identifier `phpqaci.phpunit`); the argv it builds lives in `PhpunitArguments` so every mode is unit-tested without running anything.
 
 1. A missing `tests/bootstrap.php` is seeded with a documented placeholder.
-2. The project's `vendor/bin/phpunit` is probed for its major version; `vendor/bin/paratest` is used instead when installed.
+2. The project's `vendor/bin/phpunit` is probed for its major version; `vendor/bin/paratest` is used instead when installed (its `--help` is probed first, see [Paratest](#paratest)).
 3. With coverage on, the Xdebug-enabled PHP binary runs under `XDEBUG_MODE=coverage` (so Infection can reuse the result); otherwise Xdebug is stripped and `XDEBUG_MODE=off`. `phpUnitQuickTests` is passed through as `1`/`0`.
 4. Flags: `--strict-global-state --fail-on-risky --fail-on-warning --log-junit`, the PHPUnit 10+ `--display-*` flags, then the mode flags (iterative, no-coverage, coverage in CI, coverage interactively) and the `-p` paths.
 5. An absent or empty junit log ("no tests have been run") fails the lane. Both `phpunit.junit.xml` and `phpunit.log` are archived under `var/qa/phpunit_logs`, and the `Tests: … Assertions: …` summary line is echoed.
