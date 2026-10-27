@@ -199,6 +199,26 @@ final class QaConfigBuilderTest extends TestCase
     }
 
     #[Test]
+    public function aSpecifiedPathReplacesTheCheckedPathsWhateverWithCheckedPathsAdds(): void
+    {
+        $config = $this->defaults(specifiedPath: 'tests/Large/Parity/XTest.php')
+            ->withCheckedPaths('apps')
+            ->withCheckedPaths('config', '/more')
+            ->build()
+        ;
+
+        self::assertSame(['/p/tests/Large/Parity/XTest.php'], $config->pathsToCheck);
+    }
+
+    #[Test]
+    public function withoutASpecifiedPathWithCheckedPathsStillAppends(): void
+    {
+        $config = $this->defaults()->withCheckedPaths('apps')->build();
+
+        self::assertSame([self::PROJECT_TESTS, self::PROJECT_SRC, '/p/apps'], $config->pathsToCheck);
+    }
+
+    #[Test]
     public function everyWitherOverridesItsDefaultAndTheListWithersAccumulate(): void
     {
         $config = $this->defaults()
