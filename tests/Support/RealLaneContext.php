@@ -22,7 +22,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 final readonly class RealLaneContext
 {
-    public static function over(string $root, bool $readOnly, BufferedOutput $output, ?string $specifiedPath = null): ToolContext
+    /** @param list<string> $ignoredPaths the project's withIgnoredPaths() entries */
+    public static function over(string $root, bool $readOnly, BufferedOutput $output, ?string $specifiedPath = null, array $ignoredPaths = []): ToolContext
     {
         $library = \dirname(__DIR__, 2);
         $paths   = new ProjectPathsDto(
@@ -51,7 +52,7 @@ final readonly class RealLaneContext
             agentMode: false,
             singleTool: null,
             specifiedPath: $specifiedPath,
-        )->build();
+        )->withIgnoredPaths(...$ignoredPaths)->build();
         $processes = new SymfonyProcessRunner($output);
 
         return new ToolContext(
