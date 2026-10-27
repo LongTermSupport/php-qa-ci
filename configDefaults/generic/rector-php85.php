@@ -77,7 +77,15 @@ return static function (RectorConfig $rectorConfig): void {
     // (one that is not final, an interface, a trait). PHP CS Fixer's single_class_element_per_statement
     // makes the same split and keeps the type, so the split is left to it.
     // ShippedRectorKeepsConstantTypesTest fails if the type is lost again.
+    //
+    // TernaryToNullsafeCoalesceRector (php80 set) rewrites `null !== $x->a ? $x->a->b : 'd'` into
+    // `$x->a?->b ?? 'd'`, which PHPStan reports as nullsafe.neverNull (the `??` already guards the
+    // property chain, so the `?->` on its left is unnecessary). Rector rewrites it on every writable
+    // run and PHPStan then fails it, so the file can never be green. PHPStan wins: the rule is skipped
+    // and the ternary stays as written. ShippedRectorOutputPassesPhpstanTest runs the shipped configs
+    // over tests/assets/RectorVersusPhpstan/ and fails on any such clash.
     $rectorConfig->skip([
+        Rector\Php80\Rector\Ternary\TernaryToNullsafeCoalesceRector::class,
         Rector\Php70\Rector\Ternary\TernaryToNullCoalescingRector::class,
         Rector\CodingStyle\Rector\ClassConst\SplitGroupedClassConstantsRector::class,
     ]);

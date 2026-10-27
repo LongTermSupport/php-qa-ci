@@ -55,6 +55,75 @@ final readonly class Tracking
      */
     public static function constraints(string $composerJson): array
     {
+        $json        = self::read($composerJson);
+        $constraints = [];
+        foreach (['require', 'require-dev'] as $section) {
+            foreach (self::requirements($json, $section) as $name => $constraint) {
+                if (!isset($constraints[$name])) {
+                    $constraints[$name] = $constraint;
+                }
+            }
+        }
+
+        return $constraints;
+    }
+
+    /**
+     * The packages composer.json requires in `require-dev` only.
+     *
+     * @return list<array-key> lower-case package names
+     *
+     * @throws RuntimeException when composer.json exists and is not a JSON object
+     */
+    public static function devOnlyPackages(string $composerJson): array
+    {
+        $json = self::read($composerJson);
+
+        return array_values(array_diff(array_keys(self::requirements($json, 'require-dev')), array_keys(self::requirements($json, 'require'))));
+    }
+
+    /**
+     * @param ?string $constraint    the project's composer.json constraint, null when it does not require the package itself
+     * @param ?string $lockedVersion the version composer.lock records, null when it records none
+     *
+     * @return bool true when the package follows a branch, false when it follows release tags
+     */
+    public static function followsBranch(?string $constraint, ?string $lockedVersion): bool
+    {
+        [$branches, $tag, $any] = self::alternatives($constraint);
+
+        if (!$any && [] !== $branches && !$tag) {
+            return true;
+        }
+
+        if (!$any && $tag && [] === $branches) {
+            return false;
+        }
+
+        return null === $lockedVersion || self::isBranchVersion($lockedVersion);
+    }
+
+    /**
+     * The branch alternatives of a constraint that also admits release tags
+     * (`dev-php8.5@dev || ^1.0`), as Composer should read them to follow the
+     * branch alone. Composer prefers a tag to a branch head for such a
+     * constraint, so a package locked on the branch is asked under these
+     * alternatives only. Null when the constraint is not that mix.
+     */
+    public static function branchAlternatives(?string $constraint): ?string
+    {
+        [$branches, $tag, $any] = self::alternatives($constraint);
+
+        return !$any && $tag && [] !== $branches ? implode(' || ', $branches) : null;
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     *
+     * @throws RuntimeException when composer.json exists and is not a JSON object
+     */
+    private static function read(string $composerJson): array
+    {
         if (!is_file($composerJson)) {
             return [];
         }
@@ -69,18 +138,25 @@ final readonly class Tracking
             throw new RuntimeException(\sprintf('%s is not a JSON object', basename($composerJson)));
         }
 
-        $constraints = [];
-        foreach (['require', 'require-dev'] as $section) {
-            $required = $json[$section] ?? [];
-            if (!\is_array($required)) {
-                continue;
-            }
+        return $json;
+    }
 
-            foreach ($required as $name => $constraint) {
-                $key = strtolower((string)$name);
-                if (\is_string($constraint) && !isset($constraints[$key])) {
-                    $constraints[$key] = $constraint;
-                }
+    /**
+     * @param array<array-key, mixed> $json
+     *
+     * @return array<array-key, string> lower-case package name => constraint
+     */
+    private static function requirements(array $json, string $section): array
+    {
+        $required = $json[$section] ?? [];
+        if (!\is_array($required)) {
+            return [];
+        }
+
+        $constraints = [];
+        foreach ($required as $name => $constraint) {
+            if (\is_string($constraint)) {
+                $constraints[strtolower((string)$name)] = $constraint;
             }
         }
 
@@ -88,36 +164,25 @@ final readonly class Tracking
     }
 
     /**
-     * @param ?string $constraint    the project's composer.json constraint, null when it does not require the package itself
-     * @param ?string $lockedVersion the version composer.lock records, null when it records none
-     *
-     * @return bool true when the package follows a branch, false when it follows release tags
+     * @return array{list<string>, bool, bool} the branch alternatives as written, whether a tag alternative is present, whether "any version" is
      */
-    public static function followsBranch(?string $constraint, ?string $lockedVersion): bool
+    private static function alternatives(?string $constraint): array
     {
-        $branch = false;
-        $tag    = false;
-        $any    = false;
+        $branches = [];
+        $tag      = false;
+        $any      = false;
         foreach (null === $constraint ? [] : explode('|', str_replace('||', '|', $constraint)) as $alternative) {
             $ref = self::ref($alternative);
             if (\in_array($ref, self::ANY, true)) {
                 $any = true;
             } elseif (self::isBranchVersion($ref)) {
-                $branch = true;
+                $branches[] = trim($alternative);
             } else {
                 $tag = true;
             }
         }
 
-        if (!$any && $branch && !$tag) {
-            return true;
-        }
-
-        if (!$any && $tag && !$branch) {
-            return false;
-        }
-
-        return null === $lockedVersion || self::isBranchVersion($lockedVersion);
+        return [$branches, $tag, $any];
     }
 
     /** What one alternative of a constraint follows, without its `#reference`, `@stability` flag or `as` alias. */

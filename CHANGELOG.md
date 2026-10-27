@@ -28,15 +28,20 @@ the release and its tag. The full rules are in
 ### Fixed
 
 - `dependencyFreshness` judges a package by what the project's composer configuration makes it
-  follow (issue #345). A package that follows a branch (`dev-php8.5`, `dev-php8.5@dev`, an `as`
-  alias, `1.x-dev`) is judged against that branch's head, as before. A package that follows
-  release tags (`^85.N`, `~85.N.0`) is judged against the newest tag within its constraint and
-  never against a branch head, so a lock on the newest allowed tag no longer fails because the
-  branch is ahead of it. Under a constraint that admits both (`*`, `dev-php8.5 || ^85.N`), or for a
-  package the project does not require directly, the locked version decides, so a lock on a branch
-  head still passes. Tag-following packages are asked with `--prefer-stable`, and the failure names
-  the working remedy, `composer update <package> --with-dependencies --prefer-stable`. A consumer
-  that wants a stable lock requires a tag range instead of the branch.
+  follow (issue #345). A package that follows only branches (`dev-php8.5`, `dev-php8.5@dev`, an
+  `as` alias, `1.x-dev`) is judged against that branch's head. A package that follows only
+  release tags (`^85.N`, `~85.N.0`, an exact tag, `>=`) is judged against the newest tag within its
+  constraint and never against a branch head, and is asked with `--prefer-stable`. A constraint
+  that mixes a branch with tags (`dev-php8.5@dev || ^85.N`) is not judged against tags: the locked
+  version decides. A lock on the branch is judged against the branch head, asked under the branch
+  alternatives alone, so a lock at the head passes even when it is ahead of the newest tag; a lock
+  on a tag is judged against the newest tag in range. `*`, `*@dev` and a package the project does
+  not require directly are likewise decided by the locked version. A stale branch lock under a
+  mixed constraint prints `composer require [--dev] '<package>:<branch alternatives>'
+  --with-dependencies` (`composer update` would move that lock back to a tag); no remedy moves a
+  lock backwards. A stale tag lock prints `composer update <package> --with-dependencies
+  --prefer-stable`. A consumer that wants a stable lock requires a tag range instead of the branch.
+- **The shipped Rector config no longer writes `?->` on the left of `??` on a property chain.** `TernaryToNullsafeCoalesceRector` rewrote `null !== $x->name ? $x->name->name : 'anonymous'` into `$x->name?->name ?? 'anonymous'`, which PHPStan reports as `nullsafe.neverNull`, so the file could not be made green: Rector redid it on every writable run. PHPStan wins: `rector-php85.php` now skips that one rule. A project `rector.php` that includes the `php80` set should skip it too. A new test runs the shipped configs over a corpus of known Rector-versus-PHPStan clashes and then PHPStan, naming each failing fixture.
 
 ## 85.10.2 — 2026-10-27
 

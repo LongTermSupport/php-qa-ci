@@ -40,6 +40,7 @@ use Symfony\Component\Process\Process;
 #[CoversClass(UpdateDryRunOutput::class)]
 #[CoversClass(StaleDependencyDto::class)]
 #[CoversClass(Tracking::class)]
+#[CoversClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshness\BranchOnlyProject::class)]
 #[CoversClass(DependencyFreshnessPatterns::class)]
 #[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
@@ -88,6 +89,10 @@ final class DependencyFreshnessToolTest extends TestCase
     private const string CARET = '^1.0';
 
     private const string MAIN = 'dev-main';
+
+    private const string ONE_BEHIND = "Updating dependencies\n  - Upgrading acme/one (dev-main 93f1ae4 => dev-main 606a9f6)\n";
+
+    private const string MAIN_OR_RANGE = 'dev-main || ^1.0';
 
     private const string PREFER_STABLE = '--prefer-stable';
 
@@ -506,7 +511,7 @@ final class DependencyFreshnessToolTest extends TestCase
     {
         $this->project(['acme/one' => self::MAIN, 'acme/two' => self::CARET], ['acme/one' => self::MAIN, 'acme/two' => self::TAG_LOCK]);
         $this->factory->processes
-            ->willSucceed("Updating dependencies\n  - Upgrading acme/one (dev-main 93f1ae4 => dev-main 606a9f6)\n")
+            ->willSucceed(self::ONE_BEHIND)
             ->willSucceed("Updating dependencies\n  - Upgrading acme/two (1.0.0 => 1.2.0)\n")
         ;
 
@@ -526,12 +531,118 @@ final class DependencyFreshnessToolTest extends TestCase
         self::assertStringContainsString("For the packages that follow release tags, run `composer update acme/two --with-dependencies --prefer-stable`.\n", $printed);
     }
 
+    /**
+     * Composer prefers a tag to a branch head under `dev-main || ^1.0`, so a
+     * branch lock is asked under the branch alone, in a throwaway copy that
+     * is removed afterwards.
+     */
+    #[Test]
+    public function aBranchLockUnderABranchOrTagConstraintIsAskedUnderTheBranchAloneInAThrowawayCopy(): void
+    {
+        $this->project(['acme/one' => 'dev-main@dev || ^1.0'], ['acme/one' => self::MAIN]);
+        $this->factory->processes->willSucceed(self::CURRENT_ANSWER);
+
+        $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        $spec = $this->factory->processes->lastSpec();
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertNotContains(self::PREFER_STABLE, $spec->command);
+        self::assertContains(self::ACME_ONE, $spec->command);
+        self::assertSame('1', $spec->env['COMPOSER_NO_INTERACTION']);
+        self::assertMatchesRegularExpression('/^\.qa-freshness-[0-9a-f]{12}\.json$/', $spec->env['COMPOSER']);
+        self::assertSame([self::COMPOSER_JSON, self::LOCK_FILE], $this->projectFiles());
+    }
+
+    #[Test]
+    public function aPackageThatFollowsNoBranchIsNotAskedInACopy(): void
+    {
+        $this->project(['acme/one' => self::CARET, 'acme/two' => self::MAIN], ['acme/one' => self::TAG_LOCK, 'acme/two' => self::MAIN]);
+        $this->factory->processes->willSucceed(self::CURRENT_ANSWER)->willSucceed(self::CURRENT_ANSWER);
+
+        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        foreach ($this->factory->processes->specs as $spec) {
+            self::assertArrayNotHasKey('COMPOSER', $spec->env);
+        }
+    }
+
+    #[Test]
+    public function aStaleBranchLockUnderABranchOrTagConstraintIsToldToRequireTheBranchNeverToUpdate(): void
+    {
+        $this->project(['acme/one' => self::MAIN_OR_RANGE], ['acme/one' => self::MAIN]);
+        $this->factory->processes->willSucceed(self::ONE_BEHIND);
+
+        $result  = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame('1 locked package is behind what composer update would install: acme/one', $result->summary);
+        self::assertStringContainsString("  composer require 'acme/one:dev-main' --with-dependencies\n", $printed);
+        self::assertStringNotContainsString('--dev', $printed);
+        self::assertStringNotContainsString('composer update acme/one', $printed);
+        self::assertStringNotContainsString('Run `composer update`, then', $printed);
+        self::assertStringContainsString('Then run QA again.', $printed);
+        self::assertSame([self::COMPOSER_JSON, self::LOCK_FILE], $this->projectFiles());
+    }
+
+    #[Test]
+    public function aDevRequirementIsRequiredWithTheDevFlagAndAllThreeRemediesAreGiven(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, \Safe\json_encode([
+            'require'     => ['acme/one' => self::MAIN, 'acme/three' => self::CARET],
+            'require-dev' => ['acme/two' => 'dev-main@dev || ^1.0'],
+        ]));
+        $this->factory->project->write(self::LOCK_FILE, \Safe\json_encode([
+            'packages'     => [['name' => 'acme/one', 'version' => self::MAIN], ['name' => 'acme/three', 'version' => self::TAG_LOCK]],
+            'packages-dev' => [['name' => 'acme/two', 'version' => self::MAIN]],
+        ]));
+        $this->factory->processes
+            ->willSucceed(self::ONE_BEHIND)
+            ->willSucceed("Updating dependencies\n  - Upgrading acme/two (dev-main 93f1ae4 => dev-main 606a9f6)\n")
+            ->willSucceed("Updating dependencies\n  - Upgrading acme/three (1.0.0 => 1.2.0)\n")
+        ;
+
+        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringContainsString("  composer require --dev 'acme/two:dev-main@dev' --with-dependencies\n", $printed);
+        self::assertStringContainsString("For the packages that follow a branch, run `composer update acme/one`.\n", $printed);
+        self::assertStringContainsString("For the packages that follow release tags, run `composer update acme/three --with-dependencies --prefer-stable`.\n", $printed);
+    }
+
+    #[Test]
+    public function aSkippedMixedAskNamesItsPackagesAndStillRemovesTheCopy(): void
+    {
+        $this->project(['acme/one' => self::MAIN_OR_RANGE], ['acme/one' => self::MAIN]);
+        $this->factory->processes->willFail(1, self::UNREACHABLE_ANSWER);
+
+        $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertStringContainsString('composer.lock was NOT verified for: acme/one.', $this->factory->output->fetch());
+        self::assertSame([self::COMPOSER_JSON, self::LOCK_FILE], $this->projectFiles());
+    }
+
+    #[Test]
+    public function aTagLockUnderABranchOrTagConstraintIsAskedPreferStableAndJudgedByTags(): void
+    {
+        $this->project(['acme/one' => self::MAIN_OR_RANGE], ['acme/one' => self::TAG_LOCK]);
+        $this->factory->processes->willSucceed("Updating dependencies\n  - Upgrading acme/one (1.0.0 => dev-main 606a9f6)\n");
+
+        $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        $spec = $this->factory->processes->lastSpec();
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertContains(self::PREFER_STABLE, $spec->command);
+        self::assertArrayNotHasKey('COMPOSER', $spec->env);
+    }
+
     #[Test]
     public function aSkippedAskDoesNotHideAStaleAnswerFromTheOther(): void
     {
         $this->project(['acme/one' => self::MAIN, 'acme/two' => self::CARET], ['acme/one' => self::MAIN, 'acme/two' => self::TAG_LOCK]);
         $this->factory->processes
-            ->willSucceed("Updating dependencies\n  - Upgrading acme/one (dev-main 93f1ae4 => dev-main 606a9f6)\n")
+            ->willSucceed(self::ONE_BEHIND)
             ->willFail(1, self::UNREACHABLE_ANSWER)
         ;
 
@@ -624,6 +735,12 @@ final class DependencyFreshnessToolTest extends TestCase
             'packages'     => array_map($entry, array_values($packages)),
             'packages-dev' => null === $devPackage ? [] : [$entry($devPackage)],
         ], JSON_PRETTY_PRINT));
+    }
+
+    /** @return list<string> the files in the project root, sorted */
+    private function projectFiles(): array
+    {
+        return $this->factory->project->files();
     }
 
     /** @return list<string> the package names the dry run was asked about */

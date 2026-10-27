@@ -66,6 +66,26 @@ an update, is often this process failing for someone, and it is acted on in the 
 A tool is held back only by the Owner's decision. Pinning an older version is a narrowing, so it is
 recorded and never made as a silent edit.
 
+## When two tools disagree (Owner ruling)
+
+**PHPStan wins; Rector is adjusted.** When Rector rewrites code into a form PHPStan reports, the
+Rector configuration yields, narrowly: skip the one rule, or the one construct, and say why in a
+comment beside the skip. PHPStan's rules are the standard the project is held to, and a fixer that
+undoes them is the defect. The same holds for any other fixer that rewrites against an analyser.
+
+**This repository resolves its own tool conflicts.** A clash between the tools it ships is fixed in
+the shipped configuration, under Defence Before Fix: a test that runs the fixer and then the
+analyser over a minimal example comes first, and fails on the clash. It is not reported to or
+posted on the upstream project's tracker. This narrows the Defence Before Fix rule that a defect
+in code outside this repository is filed upstream ([DefenceBeforeFix.md](DefenceBeforeFix.md),
+"A defect is fixed when it is found"): that rule still holds for a defect this repository cannot
+fix by configuration, but any post to a third-party tracker is outward-facing and needs the
+Owner's word first.
+
+**Dependency freshness follows the composer configuration** ([#345](https://github.com/LongTermSupport/php-qa-ci/issues/345)).
+A constraint that tracks a branch is judged against that branch's head; one that tracks tags is
+judged against the newest tag within its constraint. Never the other way round.
+
 ## Doing it by hand
 
 The workflow's update steps also run locally, which is how a maintainer takes a release the same

@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Config\DependencyFreshnessPatterns;
+use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\BranchOnlyProject;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\ComposerLock;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\Dto\StaleDependencyDto;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\Tracking;
@@ -15,6 +16,7 @@ use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use RuntimeException;
+use Safe\Exceptions\SafeExceptionInterface;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\ExecutableFinder;
 
@@ -104,12 +106,16 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         }
 
         $branches = [];
+        $mixed    = [];
         $tags     = [];
         foreach ($checked as $name) {
-            if (Tracking::followsBranch($constraints[strtolower($name)] ?? null, $versions[$name] ?? null)) {
-                $branches[] = $name;
-            } else {
+            $constraint = $constraints[strtolower($name)] ?? null;
+            if (!Tracking::followsBranch($constraint, $versions[$name] ?? null)) {
                 $tags[] = $name;
+            } elseif (null !== Tracking::branchAlternatives($constraint)) {
+                $mixed[strtolower($name)] = Tracking::branchAlternatives($constraint);
+            } else {
+                $branches[] = $name;
             }
         }
 
@@ -117,22 +123,56 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         $tagStale    = [];
         $skip        = null;
         if ([] !== $branches) {
-            $answered    = $this->ask($context, $root, false, ...$branches);
+            $answered    = $this->ask($context, $root, false, null, ...$branches);
             $branchStale = \is_array($answered) ? $answered : [];
             $skip        = $answered instanceof ToolResultDto ? $answered : null;
         }
 
+        $mixedStale = [];
+        if ([] !== $mixed) {
+            $answered   = $this->askAsBranches($context, $root, $mixed);
+            $mixedStale = \is_array($answered) ? $answered : [];
+            $skip       ??= $answered instanceof ToolResultDto ? $answered : null;
+        }
+
         if ([] !== $tags) {
-            $answered = $this->ask($context, $root, true, ...$tags);
+            $answered = $this->ask($context, $root, true, null, ...$tags);
             $tagStale = \is_array($answered) ? array_values(array_filter($answered, static fn (StaleDependencyDto $package): bool => !Tracking::isBranchVersion($package->available))) : [];
             $skip     ??= $answered instanceof ToolResultDto ? $answered : null;
         }
 
-        if ([] !== $branchStale || [] !== $tagStale) {
-            return $this->stale($context, $branchStale, ...$tagStale);
+        if ([] !== $branchStale || [] !== $mixedStale || [] !== $tagStale) {
+            return $this->stale($context, $root, $branchStale, $mixed, $mixedStale, ...$tagStale);
         }
 
         return $skip ?? ToolResultDto::passed();
+    }
+
+    /**
+     * Composer's word on packages locked on a branch under a constraint that
+     * also admits tags, asked under their branch alternatives alone: Composer
+     * prefers a tag to a branch head, which would answer with a tag and move
+     * the lock backwards.
+     *
+     * @param array<array-key, string> $branchConstraints lower-case package name => branch alternatives
+     *
+     * @return list<StaleDependencyDto>|ToolResultDto
+     */
+    private function askAsBranches(ToolContext $context, string $root, array $branchConstraints): array|ToolResultDto
+    {
+        $names = array_map(strval(...), array_keys($branchConstraints));
+
+        try {
+            $copy = BranchOnlyProject::create($root, $branchConstraints);
+        } catch (RuntimeException|SafeExceptionInterface $exception) {
+            return $this->skipped($context, 'could not prepare the branch-only copy of composer.json: ' . $exception->getMessage(), ...$names);
+        }
+
+        try {
+            return $this->ask($context, $root, false, $copy->jsonFile, ...$names);
+        } finally {
+            $copy->remove($root);
+        }
     }
 
     /**
@@ -143,10 +183,11 @@ final readonly class DependencyFreshnessTool implements ToolInterface
      *
      * @return list<StaleDependencyDto>|ToolResultDto
      */
-    private function ask(ToolContext $context, string $root, bool $preferStable, string ...$packages): array|ToolResultDto
+    private function ask(ToolContext $context, string $root, bool $preferStable, ?string $composerFile, string ...$packages): array|ToolResultDto
     {
-        $options = $preferStable ? [...self::DRY_RUN_OPTIONS, self::PREFER_STABLE] : [...self::DRY_RUN_OPTIONS];
-        $spec    = $context->php->specWithoutXdebug($this->composer(), ['update', ...array_values($packages), ...$options], $root, self::ENVIRONMENT, streamOutput: false);
+        $options     = $preferStable ? [...self::DRY_RUN_OPTIONS, self::PREFER_STABLE] : [...self::DRY_RUN_OPTIONS];
+        $environment = null === $composerFile ? self::ENVIRONMENT : [...self::ENVIRONMENT, 'COMPOSER' => $composerFile];
+        $spec        = $context->php->specWithoutXdebug($this->composer(), ['update', ...array_values($packages), ...$options], $root, $environment, streamOutput: false);
 
         try {
             $result = $context->processes->run(new ProcessSpecDto($spec->command, $spec->cwd, $spec->env, self::TIMEOUT_SECONDS, streamOutput: false));
@@ -178,11 +219,13 @@ final readonly class DependencyFreshnessTool implements ToolInterface
 
     /**
      * @param list<StaleDependencyDto> $branchStale packages that follow a branch, behind its head
+     * @param array<array-key, string> $mixed       lower-case package name => branch alternatives, for the packages locked on a branch under a constraint that also admits tags
+     * @param list<StaleDependencyDto> $mixedStale  those of $mixed that are behind the branch head
      * @param StaleDependencyDto       ...$tagStale packages that follow release tags, behind the newest tag their constraint allows
      */
-    private function stale(ToolContext $context, array $branchStale, StaleDependencyDto ...$tagStale): ToolResultDto
+    private function stale(ToolContext $context, string $root, array $branchStale, array $mixed, array $mixedStale, StaleDependencyDto ...$tagStale): ToolResultDto
     {
-        $stale = [...$branchStale, ...$tagStale];
+        $stale = [...$branchStale, ...$mixedStale, ...$tagStale];
         $context->writeln('');
         $context->writeln('Dependencies are out of date. `composer update` would install newer versions of:');
         $context->writeln('');
@@ -191,7 +234,11 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         }
 
         $context->writeln('');
-        if ([] === $tagStale) {
+        if ([] !== $mixedStale) {
+            $this->mixedRemedy($context, $root, $mixed, ...$mixedStale);
+        }
+
+        if ([] === $tagStale && [] === $mixedStale) {
             $context->writeln('Run `composer update`, then run QA again. There is no point checking code with');
             $context->writeln('an out-of-date toolchain, or against out-of-date copies of your own packages.');
         } else {
@@ -199,11 +246,14 @@ final readonly class DependencyFreshnessTool implements ToolInterface
                 $context->writeln(\sprintf('For the packages that follow a branch, run `composer update %s`.', $this->names(...$branchStale)));
             }
 
-            $context->writeln(\sprintf('For the packages that follow release tags, run `composer update %s --with-dependencies --prefer-stable`.', $this->names(...$tagStale)));
-            $context->writeln('The newest tag within your constraint is what counts, and `--prefer-stable` keeps');
-            $context->writeln('Composer from choosing a branch your constraint also admits. Then run QA again.');
-            $context->writeln('There is no point checking code with an out-of-date toolchain, or against');
-            $context->writeln('out-of-date copies of your own packages.');
+            if ([] !== $tagStale) {
+                $context->writeln(\sprintf('For the packages that follow release tags, run `composer update %s --with-dependencies --prefer-stable`.', $this->names(...$tagStale)));
+                $context->writeln('The newest tag within your constraint is what counts, and `--prefer-stable` keeps');
+                $context->writeln('Composer from choosing a branch your constraint also admits.');
+            }
+
+            $context->writeln('Then run QA again. There is no point checking code with an out-of-date toolchain,');
+            $context->writeln('or against out-of-date copies of your own packages.');
         }
 
         $context->writeln('');
@@ -238,6 +288,38 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         $context->writeln($line);
 
         return ToolResultDto::skipped($reason);
+    }
+
+    /**
+     * `composer update` cannot move a branch lock when the constraint also
+     * admits tags (Composer would choose the tag, which may be older than the
+     * lock), so the remedy requires the branch alone.
+     *
+     * @param array<array-key, string> $mixed lower-case package name => branch alternatives
+     */
+    private function mixedRemedy(ToolContext $context, string $root, array $mixed, StaleDependencyDto ...$mixedStale): void
+    {
+        $dev = Tracking::devOnlyPackages($root . '/composer.json');
+        $context->writeln('These packages are locked on a branch, but their constraint also admits release tags,');
+        $context->writeln('and Composer prefers a tag to a branch head, so `composer update` would move the lock');
+        $context->writeln('to a tag. To follow the branch, require it alone:');
+        foreach ($mixedStale as $package) {
+            $name = strtolower($package->name);
+            if (!isset($mixed[$name])) {
+                continue;
+            }
+
+            $context->writeln(\sprintf(
+                '  composer require %s\'%s:%s\' --with-dependencies',
+                \in_array($name, $dev, true) ? '--dev ' : '',
+                $package->name,
+                $mixed[$name],
+            ));
+        }
+
+        $context->writeln('To follow release tags instead, require a tag range such as `^1.0` and run');
+        $context->writeln('`composer update <package> --with-dependencies --prefer-stable`.');
+        $context->writeln('');
     }
 
     private function names(StaleDependencyDto ...$stale): string

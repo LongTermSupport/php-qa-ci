@@ -19,18 +19,24 @@ composer update <matching packages> --with-dependencies --dry-run --no-interacti
 The answer is given under your own `composer.json` constraints. What a package is judged against
 is what your composer configuration makes it follow:
 
-| The package follows                                                                 | Judged against                                                                                   | Asked with        |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------- |
-| a branch (`dev-php8.5`, `dev-php8.5@dev`, `dev-php8.5 as 1.0.0`, `1.x-dev`)         | the head of that branch                                                                          | the plain command |
-| release tags (`^8.5`, `~8.5.0`, `8.5.1`)                                            | the newest tag within the constraint                                                             | `--prefer-stable` |
-| both, as `*` or `dev-php8.5 \|\| ^8.5` do, or a package you do not require directly | whichever the **locked version** is: a `dev-` or `-dev` version is a branch, anything else a tag | as the line above |
+| The constraint names                                                             | Judged against                                                                                                          | Asked with                                                                                  |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| branches only (`dev-php8.5`, `dev-php8.5@dev`, `dev-php8.5 as 1.0.0`, `1.x-dev`) | the head of that branch, whatever the lock is on                                                                        | the plain command                                                                           |
+| release tags only (`^8.5`, `~8.5.0`, `8.5.1`, `>=8.5`)                           | the newest tag within the constraint, whatever the lock is on                                                           | `--prefer-stable`                                                                           |
+| a branch together with tags (`dev-php8.5@dev \|\| ^8.5`)                         | decided by the **locked version**: on a branch, the head of that branch; on a tag, the newest tag within the constraint | on a branch, the constraint reduced to its branch alternatives; on a tag, `--prefer-stable` |
+| any version (`*`, `*@dev`), or a package you do not require directly             | decided by the **locked version**: a `dev-` or `-dev` version is a branch, anything else a tag                          | on a branch, the plain command; on a tag, `--prefer-stable`                                 |
 
 A package is never judged against the other kind: a tag-following lock is not failed because its
 branch has moved on, and a branch-following lock is not failed because a tag exists. Under a
-constraint that admits both, a lock on a branch head passes while it is at the head, and a lock on
-a tag passes while it is on the newest tag the constraint allows. The kind is read from the
-constraint's `||` alternatives, ignoring a `#commit`, an `@stability` flag and an `as` alias; `*`
-admits both.
+mixed constraint a lock on a branch head passes while it is at the head, even when the head is
+ahead of the newest tag, and a lock on a tag passes while it is on the newest tag the constraint
+allows. The kind is read from the constraint's `||` alternatives, ignoring a `#commit`, an
+`@stability` flag and an `as` alias; `*` admits both.
+
+Composer prefers a tag to a branch head under a mixed constraint, so a package locked on the
+branch is asked with a throwaway copy of `composer.json` and `composer.lock` (named
+`.qa-freshness-<random>.json` and `.lock`, beside the real files, removed straight after) that
+requires it by its branch alternatives alone. Your real files are not touched.
 
 A package that follows tags is asked with `--prefer-stable` so that, with `minimum-stability` set
 to `dev`, Composer answers with the newest tag and not with a branch your constraint also
@@ -97,6 +103,17 @@ For the packages that follow release tags, run `composer update acme/library --w
 The newest tag within your constraint is what counts, and `--prefer-stable` keeps
 Composer from choosing a branch your constraint also admits. Then run QA again.
 ```
+
+A branch lock under a mixed constraint cannot be moved by `composer update`, which would choose
+a tag that may be older than the lock. Its failure names the command that follows the branch
+instead and never moves a lock backwards:
+
+```text
+  composer require 'acme/library:dev-php8.5@dev' --with-dependencies
+```
+
+(`--dev` is added for a package in `require-dev`.) That makes the constraint branch-only. To follow
+releases rather than the branch, require a tag range and run the tag remedy above.
 
 Branch-following and tag-following packages are asked in separate dry runs; when a package source
 cannot be reached for one of them, that one is skipped by name, and a stale answer from the other

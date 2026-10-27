@@ -31,6 +31,10 @@ final class TrackingTest extends TestCase
 
     private const string CARET = '^1.0';
 
+    private const string ALIASED = 'dev-php8.5 as 1.0.0';
+
+    private const string BRANCH_OR_RANGE = 'dev-php8.5 || ^1.0';
+
     private const string COMPOSER_JSON = 'composer.json';
 
     private TempDir $dir;
@@ -82,8 +86,8 @@ final class TrackingTest extends TestCase
         yield 'a branch constraint, lock still on a tag' => [self::BRANCH_LOCK, self::TAG_LOCK, true];
         yield 'a numeric branch constraint' => ['1.x-dev', self::BRANCH_LOCK, true];
         yield 'a pinned branch commit' => ['dev-php8.5#93f1ae4', self::BRANCH_LOCK, true];
-        yield 'a branch aliased to a version' => ['dev-php8.5 as 1.0.0', self::BRANCH_LOCK, true];
-        yield 'a branch aliased, lock on a tag' => ['dev-php8.5 as 1.0.0', self::TAG_LOCK, true];
+        yield 'a branch aliased to a version' => [self::ALIASED, self::BRANCH_LOCK, true];
+        yield 'a branch aliased, lock on a tag' => [self::ALIASED, self::TAG_LOCK, true];
         yield 'several branches' => ['dev-main || dev-php8.5', self::TAG_LOCK, true];
         yield 'several branches, single bar' => ['dev-main | dev-php8.5', self::TAG_LOCK, true];
         yield 'a caret range' => [self::CARET, self::TAG_LOCK, false];
@@ -99,17 +103,88 @@ final class TrackingTest extends TestCase
         yield 'x spelling of any version, lock on a branch' => ['x', self::BRANCH_LOCK, true];
         yield 'x.x spelling of any version, lock on a tag' => ['x.x', self::TAG_LOCK, false];
         yield 'dotted star spelling of any version, lock on a tag' => ['*.*', self::TAG_LOCK, false];
-        yield 'a branch or a range, lock on a branch' => ['dev-php8.5 || ^1.0', self::BRANCH_LOCK, true];
-        yield 'a branch or a range, lock on a tag' => ['dev-php8.5 || ^1.0', self::TAG_LOCK, false];
+        yield 'a branch or a range, lock on a branch' => [self::BRANCH_OR_RANGE, self::BRANCH_LOCK, true];
+        yield 'a branch or a range, lock on a tag' => [self::BRANCH_OR_RANGE, self::TAG_LOCK, false];
         yield 'a branch or a range, single bar, lock on a tag' => ['dev-php8.5 | ^1.0', self::TAG_LOCK, false];
         yield 'a range and a branch, lock on a branch' => ['^1.0 || dev-php8.5', self::BRANCH_LOCK, true];
         yield 'a branch or any version, lock on a tag' => ['dev-php8.5 || *', self::TAG_LOCK, false];
         yield 'a range or any version, lock on a branch' => ['^1.0 || *', self::BRANCH_LOCK, true];
+        yield 'a pinned branch or a range, lock on a tag' => ['dev-php8.5#93f1ae4 || ^1.0', self::TAG_LOCK, false];
+        yield 'an aliased branch or a range, lock on a tag' => ['dev-php8.5 as 1.0.0 || ^1.0', self::TAG_LOCK, false];
+        yield 'an aliased branch or a range, lock on a branch' => ['dev-php8.5 AS 1.0.0 || ^1.0', self::BRANCH_LOCK, true];
+        yield 'a flagged branch or a range, lock on a branch' => ['dev-php8.5@dev || ^1.0', self::BRANCH_LOCK, true];
+        yield 'a numeric branch or a range, lock on a tag' => ['1.x-dev || ^1.0', self::TAG_LOCK, false];
+        yield 'any version among branches, lock on a tag' => ['dev-a || dev-b || *', self::TAG_LOCK, false];
+        yield 'any version among ranges, lock on a branch' => ['^1.0 || ^2.0 || *', self::BRANCH_LOCK, true];
+        yield 'a spaced single bar between branches' => ['dev-a | dev-b', self::TAG_LOCK, true];
+        yield 'an empty constraint, lock on a tag' => ['', self::TAG_LOCK, false];
+        yield 'an empty constraint, lock on a branch' => ['', self::BRANCH_LOCK, true];
         yield 'not required directly, lock on a branch' => [null, self::BRANCH_LOCK, true];
         yield 'not required directly, lock on a tag' => [null, self::TAG_LOCK, false];
         yield 'not required directly, no lock version' => [null, null, true];
         yield 'any version, no lock version' => ['*', null, true];
         yield 'a range, no lock version' => [self::CARET, null, false];
+    }
+
+    #[Test]
+    #[DataProvider('provideBranchAlternatives')]
+    public function aMixedConstraintYieldsItsBranchAlternativesAndNothingElseDoes(?string $constraint, ?string $branchAlternatives): void
+    {
+        self::assertSame($branchAlternatives, Tracking::branchAlternatives($constraint));
+    }
+
+    /** @return Iterator<string, array{?string, ?string}> */
+    public static function provideBranchAlternatives(): Iterator
+    {
+        yield 'a branch or a range' => [self::BRANCH_OR_RANGE, self::BRANCH_LOCK];
+        yield 'the flag and the reference are kept' => ['dev-php8.5@dev || ^1.0', 'dev-php8.5@dev'];
+        yield 'a reference is kept' => ['dev-php8.5#93f1ae4 || ^1.0', 'dev-php8.5#93f1ae4'];
+        yield 'an alias is kept' => ['dev-php8.5 as 1.0.0 || ^1.0', self::ALIASED];
+        yield 'a range first' => ['^1.0 || dev-php8.5', self::BRANCH_LOCK];
+        yield 'single bars' => ['^1.0 | dev-php8.5', self::BRANCH_LOCK];
+        yield 'two branches among ranges' => ['dev-a || ^1.0 || 1.x-dev', 'dev-a || 1.x-dev'];
+        yield 'surrounding space' => ['  dev-a  ||  ^1.0 ', 'dev-a'];
+        yield 'branches only' => ['dev-a || dev-b', null];
+        yield 'ranges only' => ['^1.0 || ^2.0', null];
+        yield 'any version with a branch and a range' => ['dev-a || ^1.0 || *', null];
+        yield 'a branch and any version' => ['dev-a || *', null];
+        yield 'a stability flag alone and a range' => ['@dev || ^1.0', null];
+        yield 'not required directly' => [null, null];
+        yield 'empty' => ['', null];
+    }
+
+    #[Test]
+    public function packagesRequiredOnlyInRequireDevAreTheDevOnlyOnes(): void
+    {
+        $this->dir->write(self::COMPOSER_JSON, '{"require": {"acme/one": "^1.0", "Acme/Both": "^1.0"}, "require-dev": {"acme/two": "^1.0", "acme/both": "dev-main", "Acme/Three": "^1.0", "acme/bad": 1}}');
+
+        self::assertSame(['acme/two', 'acme/three'], Tracking::devOnlyPackages($this->dir->path . '/' . self::COMPOSER_JSON));
+    }
+
+    #[Test]
+    public function aProjectWithoutAComposerJsonHasNoDevOnlyPackages(): void
+    {
+        self::assertSame([], Tracking::devOnlyPackages($this->dir->path . '/' . self::COMPOSER_JSON));
+    }
+
+    #[Test]
+    public function aRequireSectionThatIsNotAnObjectHasNoDevOnlyPackagesAndNoConstraints(): void
+    {
+        $this->dir->write(self::COMPOSER_JSON, '{"require": "x", "require-dev": "y"}');
+
+        self::assertSame([], Tracking::devOnlyPackages($this->dir->path . '/' . self::COMPOSER_JSON));
+        self::assertSame([], Tracking::constraints($this->dir->path . '/' . self::COMPOSER_JSON));
+    }
+
+    #[Test]
+    public function aComposerJsonThatIsNotJsonIsRefusedByTheDevOnlyReadToo(): void
+    {
+        $this->dir->write(self::COMPOSER_JSON, '{not json');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageIsOrContains('composer.json is not valid JSON');
+
+        Tracking::devOnlyPackages($this->dir->path . '/' . self::COMPOSER_JSON);
     }
 
     #[Test]

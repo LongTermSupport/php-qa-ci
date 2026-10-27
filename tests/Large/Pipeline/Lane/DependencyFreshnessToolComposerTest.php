@@ -42,6 +42,12 @@ use Symfony\Component\Process\Process;
 #[Large]
 final class DependencyFreshnessToolComposerTest extends TestCase
 {
+    private const string PACKAGE = 'lts/php-qa-ci';
+
+    private const string MIXED = 'dev-php8.5@dev || ^1.0';
+
+    private const string BRANCH_BEHIND_LINE = '  - lts/php-qa-ci (locked dev-php8.5 %s, available dev-php8.5 %s)';
+
     private const string PACKAGE_JSON = "{\"name\": \"lts/php-qa-ci\", \"type\": \"library\"}\n";
 
     private const string FIRST_RELEASE = '1.0.0';
@@ -94,7 +100,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
         self::assertStringContainsString(
-            \sprintf('  - lts/php-qa-ci (locked dev-php8.5 %s, available dev-php8.5 %s)', substr($locked, 0, 7), substr($head, 0, 7)),
+            \sprintf(self::BRANCH_BEHIND_LINE, substr($locked, 0, 7), substr($head, 0, 7)),
             $printed,
         );
     }
@@ -219,7 +225,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
         self::assertStringContainsString(
-            \sprintf('  - lts/php-qa-ci (locked dev-php8.5 %s, available dev-php8.5 %s)', substr($locked, 0, 7), substr($head, 0, 7)),
+            \sprintf(self::BRANCH_BEHIND_LINE, substr($locked, 0, 7), substr($head, 0, 7)),
             $printed,
         );
     }
@@ -237,6 +243,71 @@ final class DependencyFreshnessToolComposerTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
     }
 
+    /** A mixed constraint is not judged against tags: a lock at the branch head, ahead of the newest tag, is fresh. */
+    #[Test]
+    public function aBranchHeadLockAheadOfTheNewestTagUnderABranchOrTagConstraintPasses(): void
+    {
+        $this->tag(self::FIRST_RELEASE);
+        $this->advanceTheBranch();
+        $this->update(self::PACKAGE);
+        $this->writeAppComposerJson(self::MIXED);
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result, $printed);
+        self::assertStringNotContainsString('available 1.0.0', $printed);
+    }
+
+    /** Behind the head under a mixed constraint: stale, and the remedy never moves the lock back to the tag. */
+    #[Test]
+    public function aBranchLockBehindItsHeadUnderABranchOrTagConstraintFailsWithARemedyThatDoesNotGoBackwards(): void
+    {
+        $this->tag(self::FIRST_RELEASE);
+        $this->advanceTheBranch();
+        $this->update(self::PACKAGE);
+        $this->writeAppComposerJson(self::MIXED);
+        $locked = $this->lockedReference();
+        $head   = $this->advanceTheBranch();
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
+        self::assertStringContainsString(
+            \sprintf(self::BRANCH_BEHIND_LINE, substr($locked, 0, 7), substr($head, 0, 7)),
+            $printed,
+        );
+        self::assertStringContainsString("composer require 'lts/php-qa-ci:dev-php8.5@dev' --with-dependencies", $printed);
+        self::assertStringNotContainsString('available 1.0.0', $printed);
+        self::assertStringNotContainsString('composer update lts/php-qa-ci', $printed);
+
+        $this->composer('require', '--no-interaction', '--no-progress', '--no-scripts', 'lts/php-qa-ci:dev-php8.5@dev', '--with-dependencies');
+
+        self::assertSame($head, $this->lockedReference());
+        [$after, $printedAfter] = $this->check();
+        self::assertSame(ToolOutcomeEnum::Passed, $after, $printedAfter);
+    }
+
+    /** A tag lock under a mixed constraint is judged by tags, with the branch ahead of them. */
+    #[Test]
+    public function aTagLockBehindANewerInRangeTagUnderABranchOrTagConstraintFailsWithARemedyThatWorks(): void
+    {
+        $this->tag(self::FIRST_RELEASE);
+        $this->writeAppComposerJson(self::MIXED);
+        $this->update(self::PREFER_STABLE);
+        $this->release(self::SECOND_RELEASE);
+        $this->advanceTheBranch();
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
+        self::assertStringContainsString(self::BEHIND_THE_SECOND_RELEASE, $printed);
+
+        $this->applyTheRemedy();
+
+        [$after, $printedAfter] = $this->check();
+        self::assertSame(ToolOutcomeEnum::Passed, $after, $printedAfter);
+    }
+
     /** Lock the app on the release 1.0.0 under $constraint. */
     private function lockOnTag(string $constraint): void
     {
@@ -248,7 +319,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
     /** What the failure tells a project that follows tags to run. */
     private function applyTheRemedy(): void
     {
-        $this->update('lts/php-qa-ci', '--with-dependencies', self::PREFER_STABLE);
+        $this->update(self::PACKAGE, '--with-dependencies', self::PREFER_STABLE);
     }
 
     private function update(string ...$arguments): void
@@ -307,7 +378,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
             'name'              => 'fixture/app',
             'type'              => 'project',
             'repositories'      => [['type' => 'vcs', 'url' => $this->sandbox->origin]],
-            'require'           => ['lts/php-qa-ci' => $constraint],
+            'require'           => [self::PACKAGE => $constraint],
             'minimum-stability' => 'dev',
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }

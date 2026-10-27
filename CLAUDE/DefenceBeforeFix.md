@@ -161,7 +161,10 @@ the codebase is permitted to keep.
   ruling). Build the Defence and fix the defect in the work that found it. Where the defective
   code is not in this repository (an upstream tool, the hooks daemon, a library), file an issue
   on that upstream project and link the issue from the commit; the upstream tracker is the
-  enumerable record method specification section 2 asks for. The one-sentence conclusion that
+  enumerable record method specification section 2 asks for. A clash between two tools this
+  repository ships is not such a defect: the shipped configuration is adjusted here
+  ([tool-currency.md](tool-currency.md#when-two-tools-disagree-owner-ruling)), and an upstream
+  post needs the Owner's word. The one-sentence conclusion that
   no pattern exists, with the two techniques tried, is a decision: record it in the
   `DECISIONS.md` of the plan doing the work, as other decisions are, as well as with the fix. A
   report in conversation is not a record.
