@@ -49,9 +49,9 @@ lines, so the option, which runs only the line's covering test cases, drops it. 
 ## D. Timeout lowered
 
 - 5 s: 55 s, MSI 98.3, covered 98.86, 2 timeouts, lost 0, no new false escapes.
-- 3 s: 70 s, MSI 99.24, covered 99.81, 78 timeouts (A had 4). 72 mutants killed outright in A are now timeouts, and 5
-  mutants that escaped in A now score as detected. A timeout counts as detected, so 3 s inflates the score and hides real
-  test gaps.
+- 3 s: 70 s, MSI 99.24, covered 99.81, 78 timeouts (A had 4). Of the extra timeouts, 5 are mutants that escaped in A and
+  now score as detected; the rest were killed outright in A. A timeout counts as detected, so 3 s inflates the score and
+  hides real test gaps.
 - Timeout counts vary run to run with host load. A (90 s) against D at 5 s (55 s) is a single run each on a loaded host,
   so it cannot separate a real gain from noise, and no speed-up is claimed for it. Under heavy contention the 10 s limit
   alone produced 136 timeouts (see F).
@@ -76,16 +76,16 @@ the file had changed, so a stale coverage directory is trusted silently.
 
 ## Summary (sample of 3 files, 528 mutants, 11 threads, loaded host)
 
-| Variant                                 | Wall      | MSI   | Covered MSI | Lost against A                                          |
-| --------------------------------------- | --------- | ----- | ----------- | ------------------------------------------------------- |
-| A baseline (lane flags)                 | 90 s      | 98.3  | 98.86       | -                                                       |
-| B core suite (Small only, own coverage) | 73 s      | 98.3  | 98.86       | 0 (tree-wide estimate 401 of 19,590)                    |
-| C `--only-covering-test-cases`          | 43 s      | 97.35 | 97.9        | 5                                                       |
-| D1 timeout 5 s                          | 55 s      | 98.3  | 98.86       | 0                                                       |
-| D2 timeout 3 s                          | 70 s      | 99.24 | 99.81       | 0 lost, 5 false kills gained, 72 killed became timeouts |
-| E `--git-diff-lines` (2 changed lines)  | 3 s       | 100   | 100         | n/a (2 mutants against 367)                             |
-| F two shards in parallel, same host     | 225 s     | n/a   | n/a         | invalid (136 timeouts)                                  |
-| F shards run alone: 75 s and 35 s       | 110 s sum | n/a   | n/a         | 0                                                       |
+| Variant                                 | Wall      | MSI   | Covered MSI | Lost against A                                 |
+| --------------------------------------- | --------- | ----- | ----------- | ---------------------------------------------- |
+| A baseline (lane flags)                 | 90 s      | 98.3  | 98.86       | -                                              |
+| B core suite (Small only, own coverage) | 73 s      | 98.3  | 98.86       | 0 (tree-wide estimate 401 of 19,590)           |
+| C `--only-covering-test-cases`          | 43 s      | 97.35 | 97.9        | 5                                              |
+| D1 timeout 5 s                          | 55 s      | 98.3  | 98.86       | 0                                              |
+| D2 timeout 3 s                          | 70 s      | 99.24 | 99.81       | 0 lost, 5 false kills gained, 74 more timeouts |
+| E `--git-diff-lines` (2 changed lines)  | 3 s       | 100   | 100         | n/a (2 mutants against 367)                    |
+| F two shards in parallel, same host     | 225 s     | n/a   | n/a         | invalid (136 timeouts)                         |
+| F shards run alone: 75 s and 35 s       | 110 s sum | n/a   | n/a         | 0                                              |
 
 Coverage generation: 151 s (Small) against 359 s (Small and Large). Whole-tree mutant generation alone: 661 s.
 
