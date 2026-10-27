@@ -27,6 +27,7 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- **The `phpunit` lane runs with a current ParaTest.** With ParaTest installed the lane always passed `--phpunit <binary>`, which ParaTest 6 and later do not have, so a project with a current ParaTest could not run the lane at all ("The option --phpunit does not exist", and "Too many arguments" for several paths). The lane now checks every flag it passes against the installed ParaTest's `--help`: ParaTest 7 and later get PHPUnit's flags without `--phpunit`, while ParaTest 6 and earlier (5 still has `--phpunit` but lacks the strictness flags) are refused with a message naming the ParaTest version and the flags it lacks, before anything is run. More than one path with ParaTest fails the same way, naming ParaTest's one-path limit. See [docs/tools/phpunit.md](docs/tools/phpunit.md#paratest).
 - **The shipped Rector config no longer writes `?->` on the left of `??` on a property chain.** `TernaryToNullsafeCoalesceRector` rewrote `null !== $x->name ? $x->name->name : 'anonymous'` into `$x->name?->name ?? 'anonymous'`, which PHPStan reports as `nullsafe.neverNull`, so the file could not be made green: Rector redid it on every writable run. PHPStan wins: `rector-php85.php` now skips that one rule. A project `rector.php` that includes the `php80` set should skip it too. A new test runs the shipped configs over a corpus of known Rector-versus-PHPStan clashes and then PHPStan, naming each failing fixture.
 
 ## 85.10.2 — 2026-10-27
