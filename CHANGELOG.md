@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- **The shipped Rector config no longer writes `?->` on the left of `??` on a property chain.** `TernaryToNullsafeCoalesceRector` rewrote `null !== $x->name ? $x->name->name : 'anonymous'` into `$x->name?->name ?? 'anonymous'`, which PHPStan reports as `nullsafe.neverNull`, so the file could not be made green: Rector redid it on every writable run. PHPStan wins: `rector-php85.php` now skips that one rule. A project `rector.php` that includes the `php80` set should skip it too. A new test runs the shipped configs over a corpus of known Rector-versus-PHPStan clashes and then PHPStan, naming each failing fixture.
+
 ## 85.10.2 — 2026-10-27
 
 ### Fixed

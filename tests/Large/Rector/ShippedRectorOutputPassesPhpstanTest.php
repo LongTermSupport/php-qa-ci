@@ -30,6 +30,7 @@ final class ShippedRectorOutputPassesPhpstanTest extends TestCase
     /** The php-qa-ci checkout whose shipped configs and phars are under test. */
     private const string REPO_ROOT = __DIR__ . '/../../..';
 
+    /** The fixtures: one file per known clash. */
     private const string FIXTURES = self::REPO_ROOT . '/tests/assets/RectorVersusPhpstan';
 
     /** The Rector configs the rector lane runs over source paths, in its order. */
@@ -41,8 +42,8 @@ final class ShippedRectorOutputPassesPhpstanTest extends TestCase
     {
         $this->project = TempDir::create('phpqa-rector-vs-phpstan');
         $this->project->write('composer.json', '{"name": "probe/probe", "type": "project", "require": {"php": "^8.5", "thecodingmachine/safe": "^3.0"}}');
-        foreach ($this->fixtures() as $name => $path) {
-            $this->project->write('src/' . $name, \Safe\file_get_contents($path));
+        foreach ($this->fixtures() as $path) {
+            $this->project->write('src/' . basename($path), \Safe\file_get_contents($path));
         }
     }
 
@@ -68,7 +69,7 @@ final class ShippedRectorOutputPassesPhpstanTest extends TestCase
     {
         foreach (self::RECTOR_CONFIGS as $config) {
             $process = new Process(
-                [\PHP_BINARY, '-d', 'display_errors=stderr', self::pharPath('rector'), 'process', '--config', \Safe\realpath(self::REPO_ROOT . '/configDefaults/generic/' . $config), '--clear-cache', '--no-progress-bar', 'src'],
+                [\PHP_BINARY, '-d', 'display_errors=stderr', $this->pharPath('rector'), 'process', '--config', \Safe\realpath(self::REPO_ROOT . '/configDefaults/generic/' . $config), '--clear-cache', '--no-progress-bar', 'src'],
                 $this->project->path,
                 ['TMPDIR' => $this->project->path],
                 null,
@@ -80,54 +81,64 @@ final class ShippedRectorOutputPassesPhpstanTest extends TestCase
 
         $findings = $this->phpstanFindings();
 
-        self::assertSame([], $findings, "A shipped Rector config wrote code PHPStan rejects (PHPStan wins, adjust Rector). Failing fixtures:\n" . implode("\n", array_keys($findings)));
+        self::assertSame([], $findings, 'A shipped Rector config wrote code PHPStan rejects (PHPStan wins, adjust Rector). Failing fixtures: ' . implode(', ', array_unique(array_map(static fn (string $finding): string => explode(':', $finding, 2)[0], $findings))));
     }
 
     /**
-     * @return array<string, string> file name => absolute path
+     * @return list<string> the absolute path of each fixture, in name order
      */
     private function fixtures(): array
     {
-        $found = [];
-        foreach (\Safe\glob(self::FIXTURES . '/*.php') as $path) {
-            $found[basename($path)] = $path;
-        }
-        ksort($found);
+        $found = array_values(array_filter(\Safe\glob(self::FIXTURES . '/*.php'), is_string(...)));
+        sort($found);
 
         return $found;
     }
 
     /**
-     * Findings keyed by fixture name, each a list of "line: message (identifier)".
+     * Each finding as "<fixture>:<line>: <message> (<identifier>)", so a failure names the fixture.
      *
-     * @return array<string, list<string>>
+     * @return list<string>
      */
     private function phpstanFindings(): array
     {
         $process = new Process(
-            [\PHP_BINARY, '-d', 'display_errors=stderr', self::pharPath('phpstan'), 'analyse', '--level=max', '--no-progress', '--error-format=json', '--memory-limit=1G', 'src'],
+            [\PHP_BINARY, '-d', 'display_errors=stderr', $this->pharPath('phpstan'), 'analyse', '--level=max', '--no-progress', '--error-format=json', '--memory-limit=1G', 'src'],
             $this->project->path,
             ['TMPDIR' => $this->project->path],
             null,
             600,
         );
         $process->run();
-        $report = json_decode($process->getOutput(), true, 512, \JSON_THROW_ON_ERROR);
+
+        $report = \Safe\json_decode($process->getOutput(), true, 512, \JSON_THROW_ON_ERROR);
         self::assertIsArray($report, 'PHPStan wrote no JSON report: ' . $process->getErrorOutput());
         self::assertSame([], $report['errors'] ?? [], 'PHPStan reported internal errors.');
 
+        $files = $report['files'] ?? [];
+        self::assertIsArray($files);
+
         $findings = [];
-        foreach ($report['files'] ?? [] as $file => $details) {
-            foreach ($details['messages'] as $message) {
-                $findings[basename((string) $file)][] = $message['line'] . ': ' . $message['message'] . ' (' . ($message['identifier'] ?? 'no identifier') . ')';
+        foreach ($files as $file => $details) {
+            self::assertIsArray($details);
+            $messages = $details['messages'] ?? [];
+            self::assertIsArray($messages);
+            foreach ($messages as $message) {
+                self::assertIsArray($message);
+                $identifier = $message['identifier'] ?? 'no identifier';
+                self::assertIsScalar($message['line'] ?? null);
+                self::assertIsScalar($message['message'] ?? null);
+                self::assertIsScalar($identifier);
+                $findings[] = basename((string)$file) . ':' . $message['line'] . ': ' . $message['message'] . ' (' . $identifier . ')';
             }
         }
-        ksort($findings);
+
+        sort($findings);
 
         return $findings;
     }
 
-    private static function pharPath(string $tool): string
+    private function pharPath(string $tool): string
     {
         return \Safe\realpath(self::REPO_ROOT . '/vendor-phar/' . $tool . '.phar');
     }
