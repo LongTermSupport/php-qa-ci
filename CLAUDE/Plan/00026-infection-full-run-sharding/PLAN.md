@@ -7,8 +7,9 @@
 
 ## Overview
 
-A pull request that changes `qaConfig/infection.json` or `qaConfig/phpunit.xml` turns the Infection lane into a full
-run of the whole source tree, and that run does not fit the required check's job limit (issue #344). The measurements in
+A pull request that changes the Infection or PHPUnit configuration (`qaConfig/infection.json`, `qaConfig/phpunit.xml`,
+their alternate names, or the test bootstrap, as `InfectionFullRunTriggers` lists them) turns the Infection lane into a
+full run of the whole source tree, and that run does not fit the 45-minute job limit of the required check (issue #344). The measurements in
 [MEASUREMENT.md](./MEASUREMENT.md) show where the time goes: coverage generation, then a long serial mutation run, with
 mutants per file very skewed (a median file has few dozen, the largest has about two thousand).
 

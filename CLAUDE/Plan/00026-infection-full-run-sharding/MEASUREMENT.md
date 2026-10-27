@@ -28,8 +28,7 @@ as positional paths), `--log-verbosity=all`, JSON log on. The scratch `infection
 
 ## A. Baseline: 90 s
 
-528 mutants: killed 515 (including 4 timeouts counted as detected), escaped 6, not covered 3, timed out 4. MSI 98.3,
-covered MSI 98.86. The escapes were all in `InfectionTool.php`.
+528 mutants: killed 515, timed out 4 (counted as detected), escaped 6, not covered 3. MSI 98.3, covered MSI 98.86. The escapes were all in `InfectionTool.php`.
 
 ## B. `core` testsuite (tests/Small only) fed to Infection: 73 s (coverage also from core only)
 
@@ -53,8 +52,9 @@ lines, so the option, which runs only the line's covering test cases, drops it. 
 - 3 s: 70 s, MSI 99.24, covered 99.81, 78 timeouts (A had 4). 72 mutants killed outright in A are now timeouts, and 5
   mutants that escaped in A now score as detected. A timeout counts as detected, so 3 s inflates the score and hides real
   test gaps.
-- Timeout counts vary run to run with host load, so A (90 s) against D at 5 s (55 s) is within noise. Under heavy
-  contention the 10 s limit alone produced 136 timeouts (see F).
+- Timeout counts vary run to run with host load. A (90 s) against D at 5 s (55 s) is a single run each on a loaded host,
+  so it cannot separate a real gain from noise, and no speed-up is claimed for it. Under heavy contention the 10 s limit
+  alone produced 136 timeouts (see F).
 
 ## E. `--git-diff-lines` (base: the commit before a 2-line refactor): 3 s
 
