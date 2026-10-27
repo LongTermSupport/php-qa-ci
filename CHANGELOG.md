@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.10.2 — 2026-10-27
+
 ### Fixed
 
 - **The `phpunit` lane runs with a current ParaTest.** With ParaTest installed the lane always passed `--phpunit <binary>`, which ParaTest 6 and later do not have, so a project with a current ParaTest could not run the lane at all ("The option --phpunit does not exist", and "Too many arguments" for several paths). The lane now reads what the installed ParaTest accepts from its `--help`: ParaTest 7 and later get PHPUnit's flags without `--phpunit`, ParaTest 5 and earlier still get `--phpunit`, and ParaTest 6, which accepts neither that option nor the strictness flags, fails with a message naming the limitation. More than one path with ParaTest fails the same way, naming ParaTest's one-path limit. See [docs/tools/phpunit.md](docs/tools/phpunit.md#paratest).
