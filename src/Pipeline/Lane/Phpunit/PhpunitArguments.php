@@ -47,7 +47,7 @@ final readonly class PhpunitArguments
         string ...$paths,
     ): array {
         $args = [];
-        if (null !== $paratest) {
+        if ($paratest instanceof \LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestCapabilities) {
             if (!$paratest->isUsable()) {
                 throw ParatestIncompatibleException::unusableOptions();
             }

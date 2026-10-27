@@ -143,11 +143,11 @@ final readonly class PhpunitTool implements ToolInterface
                 $phpunitBinary,
                 ...(null === $config->specifiedPath ? [] : $config->pathsToCheck),
             );
-        } catch (ParatestIncompatibleException $incompatible) {
-            $context->writeln('ERROR: ' . $incompatible->getMessage());
+        } catch (ParatestIncompatibleException $paratestIncompatibleException) {
+            $context->writeln('ERROR: ' . $paratestIncompatibleException->getMessage());
             $context->writeIdentifier(self::IDENTIFIER);
 
-            return ToolResultDto::failed('ParaTest is incompatible: ' . $incompatible->getMessage());
+            return ToolResultDto::failed('ParaTest is incompatible: ' . $paratestIncompatibleException->getMessage());
         }
 
         $env = [
