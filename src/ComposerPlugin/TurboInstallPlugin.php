@@ -33,6 +33,14 @@ use Composer\Util\ProcessExecutor;
  */
 final readonly class TurboInstallPlugin implements PluginInterface, EventSubscriberInterface
 {
+    /**
+     * The state check's exit status for a host with a pinned build whose installed binary is
+     * stale or missing: it has still said what is on disk. The installer is a separate process
+     * whose classes the plugin cannot rely on, so TurboInstaller::EXIT_TURBO_NOT_CURRENT is
+     * repeated here, and a test holds the two equal.
+     */
+    private const int STATE_NOT_CURRENT = 3;
+
     public function activate(Composer $composer, IOInterface $io): void
     {
         // No initialisation required.
@@ -109,7 +117,7 @@ final readonly class TurboInstallPlugin implements PluginInterface, EventSubscri
         $output   = null;
         $exitCode = $executor->execute($stateCheck, $output);
         $state    = trim(\is_string($output) ? $output : '');
-        if (0 === $exitCode && '' !== $state) {
+        if ((0 === $exitCode || self::STATE_NOT_CURRENT === $exitCode) && '' !== $state) {
             return 'what the killed install left on disk: ' . $state;
         }
 

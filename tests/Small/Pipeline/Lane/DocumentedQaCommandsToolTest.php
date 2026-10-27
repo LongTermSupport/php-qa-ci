@@ -86,6 +86,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboFreshness::class)]
 #[Small]
 final class DocumentedQaCommandsToolTest extends TestCase
 {

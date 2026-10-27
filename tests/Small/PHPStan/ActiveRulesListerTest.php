@@ -22,6 +22,7 @@ use Symfony\Component\Console\Output\NullOutput;
  *
  * @internal
  */
+#[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\Turbo\TurboFreshness::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(ActiveRulesLister::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\ActiveDefencesListingDto::class)]
 #[\PHPUnit\Framework\Attributes\UsesClass(\LTS\PHPQA\PHPStan\Dto\ActiveRuleEntryDto::class)]

@@ -69,6 +69,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
 #[UsesClass(UnknownToolException::class)]
 #[UsesClass(ToolResultDto::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboFreshness::class)]
 #[Small]
 final class ShippedToolLocatorTest extends TestCase
 {

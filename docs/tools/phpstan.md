@@ -152,6 +152,26 @@ analyses:
   host the manifest pins a build for. The run's outcome is still the analysis's own.
 - `PHPStan Turbo: not running; upstream publishes no build for this host`: the expected fallback.
 
+**A binary that is not the pinned one is named too.** `vendor-phar/turbo-ext/` is untracked and
+installed per checkout, so a PHPStan update leaves a checkout holding the previous release's
+binary, which PHPStan reports only as a NOTE before running without Turbo (about 21 s against 3 s
+in one measurement). The `.source` stamp cannot show it, because it records what the install
+fetched, not what `vendor-phar/turbo-ext.json` pins now. When the host is one the manifest pins a
+build for, and the installed binary or core is missing or its SHA-256 differs from the pin, the
+text-mode PHPStan lane and the Rector lane each print one line:
+
+```text
+PHPStan Turbo: vendor-phar/turbo-ext/<platform>/<binary> is stale, its SHA-256 differs from the one vendor-phar/turbo-ext.json pins. PHPStan and Rector run without Turbo, and slower. Refresh it with: php bin/turbo-install
+```
+
+(`is missing.` when the file is absent, which is also what a fresh worktree shows before its first
+install.) Rector's workers load Turbo only from that directory, so they run without it silently.
+The line is a warning: it does not change a lane's verdict, and a host the manifest pins no build
+for prints nothing. `php bin/turbo-install state` runs the same check and exits 3 with the line
+when the binary is stale or missing; the Composer plugin and `scripts/tool-install.bash` treat that
+as an answer, not a failed check. Failing a lane on a stale Turbo is not done; whether to is an
+Owner decision.
+
 `--json` and agent mode do not ask, so their single-path runs pay no extra PHPStan start (about
 a second). A text-mode `-p` run reuses the last answer while nothing it rests on has changed (see
 [How the lane runs](#how-the-lane-runs)). To ask by hand:

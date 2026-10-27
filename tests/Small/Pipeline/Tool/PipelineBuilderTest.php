@@ -72,6 +72,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\YamlLintTool::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboFreshness::class)]
 #[Small]
 final class PipelineBuilderTest extends TestCase
 {
