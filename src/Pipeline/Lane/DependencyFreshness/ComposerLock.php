@@ -23,6 +23,30 @@ final readonly class ComposerLock
     /** @return list<string> */
     public static function packageNames(string $path): array
     {
+        return array_column(self::entries($path), 0);
+    }
+
+    /**
+     * The locked version of each package, as Composer records it: `1.2.0` for
+     * a tag, `dev-php8.5` for a branch. A package that records none is absent.
+     *
+     * @return array<array-key, string> package name => locked version
+     */
+    public static function versions(string $path): array
+    {
+        $versions = [];
+        foreach (self::entries($path) as [$name, $version]) {
+            if (null !== $version) {
+                $versions[$name] = $version;
+            }
+        }
+
+        return $versions;
+    }
+
+    /** @return list<array{string, ?string}> name and version of each locked package, production then dev */
+    private static function entries(string $path): array
+    {
         try {
             $lock = \Safe\json_decode(\Safe\file_get_contents($path), true);
         } catch (JsonException $jsonException) {
@@ -33,7 +57,7 @@ final readonly class ComposerLock
             throw new RuntimeException(\sprintf('%s is not a JSON object', basename($path)));
         }
 
-        $names = [];
+        $entries = [];
         foreach ([self::PACKAGES, self::PACKAGES_DEV] as $section) {
             $packages = $lock[$section] ?? [];
             if (!\is_array($packages)) {
@@ -41,13 +65,14 @@ final readonly class ComposerLock
             }
 
             foreach ($packages as $package) {
-                $name = \is_array($package) ? $package['name'] ?? null : null;
+                $name    = \is_array($package) ? $package['name']    ?? null : null;
+                $version = \is_array($package) ? $package['version'] ?? null : null;
                 if (\is_string($name)) {
-                    $names[] = $name;
+                    $entries[] = [$name, \is_string($version) ? $version : null];
                 }
             }
         }
 
-        return $names;
+        return $entries;
     }
 }
