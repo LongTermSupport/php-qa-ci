@@ -10,6 +10,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Active Plans
 
+- [00026: infection full run sharding](00026-infection-full-run-sharding/PLAN.md) - Not Started — a pull request that changes the Infection or PHPUnit configuration forces a full mutation run that exceeds the required check's job limit (#344): split it across CI machines with shared coverage and mutants divided by count, the floors, the mutant timeout and the test suite unchanged
+
 - [00025: actions-qa-ci](00025-actions-qa-ci/PLAN.md) - In Progress — one QA run per PR push here and in the shipped template (Option A), the workflow defects actionlint and zizmor find closed under DBF, and a standalone polyglot DBF toolchain for GitHub Actions code in any repository, with php-qa-ci as its first consumer
 
 - [00023: release dependency currency gate](00023-release-dependency-currency-gate/PLAN.md) - Not Started — a release is fully upgraded: a gate that blocks on any direct dependency behind its latest release (majors included) unless a documented holdback covers it, and warns on stale transitive ones
