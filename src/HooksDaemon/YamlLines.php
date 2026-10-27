@@ -114,6 +114,17 @@ final readonly class YamlLines
     }
 
     /**
+     * The inline value and trailing comment of the `$key:` line at `$index`,
+     * both empty for a line holding a different key.
+     *
+     * @return array{value: string, comment: string}
+     */
+    public function parts(int $index, string $key): array
+    {
+        return $this->keyed($index, $key) ?? ['value' => '', 'comment' => ''];
+    }
+
+    /**
      * Where a key's block ends: the next content line no deeper than the key.
      * Comments do not end a block, since a comment's indent says nothing
      * about which key it belongs to.
