@@ -55,6 +55,14 @@ final class RectorToolTest extends TestCase
 {
     private const int EXIT_FAILED = 1;
 
+    private const string PHP_MINOR = '8.5';
+
+    private const string RECTOR_PHAR = '/rector.phar';
+
+    private const string PINNED = 'the pinned binary';
+
+    private const string OLDER = 'an older binary';
+
     private const string ADVISORY ='Rector ran in WRITABLE mode and may have rewritten files. DO NOT FIGHT IT.';
 
     private const string REMOVE_CACHE_CLASS_FIX = 'Remove the cacheClass(...) call';
@@ -184,7 +192,8 @@ final class RectorToolTest extends TestCase
         $this->queuePasses(0, 0, 0);
         $context = $this->context(readOnly: false);
 
-        $result = new RectorTool()->run($context);
+        // A host with no Turbo build keeps the output exactly Rector's own, whatever this checkout holds.
+        $result = new RectorTool($this->freshness(false))->run($context);
 
         self::assertTrue($result->isSuccess());
         self::assertSame($this->expectedArgs($context, self::SAFE_CONFIG, false, ...$context->config->pathsToCheck), $this->toolArgs(0));
@@ -246,7 +255,7 @@ final class RectorToolTest extends TestCase
                 ],
                 $spec->env,
             );
-            self::assertContains($config->paths->pharDir . '/rector.phar', $spec->command);
+            self::assertContains($config->paths->pharDir . self::RECTOR_PHAR, $spec->command);
         }
     }
 
@@ -444,7 +453,7 @@ final class RectorToolTest extends TestCase
         $result  = new RectorTool()->run($this->factory->context($config));
         $printed = $this->factory->output->fetch();
 
-        $phar = $noPhars->pharDir . '/rector.phar';
+        $phar = $noPhars->pharDir . self::RECTOR_PHAR;
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('Rector PHAR not found at ' . $phar, $result->summary);
         self::assertSame([], $this->rectorSpecs());
@@ -523,6 +532,56 @@ final class RectorToolTest extends TestCase
         self::assertSame('phpqaci.rector', $tool->identifier());
     }
 
+    /** Rector's workers load Turbo only from vendor-phar/turbo-ext/, so a stale one is said once, and the verdict is Rector's own. */
+    #[Test]
+    public function aStaleTurboBinaryIsWarnedAboutOnceAndDoesNotChangeTheVerdict(): void
+    {
+        $context = $this->contextWithTurboPins(self::PINNED, self::OLDER);
+        $this->queuePasses(0, 0, 0);
+
+        $result = new RectorTool($this->freshness(true))->run($context);
+
+        self::assertTrue($result->isSuccess());
+        self::assertCount(3, $this->rectorSpecs());
+        $printed = $this->factory->output->fetch();
+        self::assertSame(1, substr_count($printed, 'PHPStan Turbo: vendor-phar/turbo-ext/linux-gnu-x86_64/phpstan_turbo-8.5.so is stale'));
+        self::assertStringContainsString('Refresh it with: php bin/turbo-install', $printed);
+    }
+
+    #[Test]
+    public function aFailingRectorRunStillFailsWhenTurboIsStale(): void
+    {
+        $context = $this->contextWithTurboPins(self::PINNED, self::OLDER);
+        $this->queuePasses(self::EXIT_FAILED);
+
+        $result = new RectorTool($this->freshness(true))->run($context);
+
+        self::assertFalse($result->isSuccess());
+        self::assertStringContainsString('is stale', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aCurrentTurboBinaryIsNotMentioned(): void
+    {
+        $context = $this->contextWithTurboPins(self::PINNED, self::PINNED);
+        $this->queuePasses(0, 0, 0);
+
+        new RectorTool($this->freshness(true))->run($context);
+
+        self::assertStringNotContainsString('PHPStan Turbo', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aHostTheManifestDoesNotCoverIsNotWarnedAbout(): void
+    {
+        $context = $this->contextWithTurboPins(self::PINNED, self::OLDER);
+        $this->queuePasses(0, 0, 0);
+
+        new RectorTool($this->freshness(false))->run($context);
+
+        self::assertStringNotContainsString('PHPStan Turbo', $this->factory->output->fetch());
+    }
+
     /** A project rector.php of the kind copied from the older shipped rector-safe.php; the call is on line 9. */
     private function memoryCacheConfig(): string
     {
@@ -541,66 +600,17 @@ final class RectorToolTest extends TestCase
         ]);
     }
 
-    /** Rector's workers load Turbo only from vendor-phar/turbo-ext/, so a stale one is said once, and the verdict is Rector's own. */
-    #[Test]
-    public function aStaleTurboBinaryIsWarnedAboutOnceAndDoesNotChangeTheVerdict(): void
+    /** @param bool $supported whether the host is one the manifest pins a Turbo build for */
+    private function freshness(bool $supported): TurboFreshness
     {
-        $context = $this->contextWithTurboPins('the pinned binary', 'an older binary');
-        $this->queuePasses(0, 0, 0);
-
-        $result = new RectorTool(new TurboFreshness($this->linux()))->run($context);
-
-        self::assertTrue($result->isSuccess());
-        self::assertCount(3, $this->rectorSpecs());
-        $printed = $this->factory->output->fetch();
-        self::assertSame(1, substr_count($printed, 'PHPStan Turbo: vendor-phar/turbo-ext/linux-gnu-x86_64/phpstan_turbo-8.5.so is stale'));
-        self::assertStringContainsString('Refresh it with: php bin/turbo-install', $printed);
-    }
-
-    #[Test]
-    public function aFailingRectorRunStillFailsWhenTurboIsStale(): void
-    {
-        $context = $this->contextWithTurboPins('the pinned binary', 'an older binary');
-        $this->queuePasses(self::EXIT_FAILED);
-
-        $result = new RectorTool(new TurboFreshness($this->linux()))->run($context);
-
-        self::assertFalse($result->isSuccess());
-        self::assertStringContainsString('is stale', $this->factory->output->fetch());
-    }
-
-    #[Test]
-    public function aCurrentTurboBinaryIsNotMentioned(): void
-    {
-        $context = $this->contextWithTurboPins('the pinned binary', 'the pinned binary');
-        $this->queuePasses(0, 0, 0);
-
-        new RectorTool(new TurboFreshness($this->linux()))->run($context);
-
-        self::assertStringNotContainsString('PHPStan Turbo', $this->factory->output->fetch());
-    }
-
-    #[Test]
-    public function aHostTheManifestDoesNotCoverIsNotWarnedAbout(): void
-    {
-        $context = $this->contextWithTurboPins('the pinned binary', 'an older binary');
-        $this->queuePasses(0, 0, 0);
-
-        new RectorTool(new TurboFreshness(new TurboPlatform('Windows', 'AMD64', '', '8.5', false)))->run($context);
-
-        self::assertStringNotContainsString('PHPStan Turbo', $this->factory->output->fetch());
-    }
-
-    private function linux(): TurboPlatform
-    {
-        return new TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false);
+        return new TurboFreshness($supported ? new TurboPlatform('Linux', 'x86_64', 'gnu', self::PHP_MINOR, false) : new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false));
     }
 
     /** A pharDir of its own holding a rector.phar, a manifest pinning $pinned, and $installed as the installed binary. */
     private function contextWithTurboPins(string $pinned, string $installed): ToolContext
     {
         $pharDir = $this->factory->project->mkdir('phars');
-        \Safe\file_put_contents($pharDir . '/rector.phar', '');
+        \Safe\file_put_contents($pharDir . self::RECTOR_PHAR, '');
         $binary = 'linux-gnu-x86_64/phpstan_turbo-8.5.so';
         $core   = 'linux-gnu-x86_64/phpstan_turbo_core.so';
         \Safe\file_put_contents($pharDir . '/turbo-ext.json', new TurboManifest('2.3.2', [$binary => hash('sha256', $pinned), $core => hash('sha256', 'core')])->toJson());

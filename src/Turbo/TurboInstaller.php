@@ -46,6 +46,13 @@ final readonly class TurboInstaller
      */
     public const string MODE_STATE = 'state';
 
+    /**
+     * The state check's exit status when the host is one the manifest pins a build for and the
+     * installed binary or core is missing or is not the pinned file; its output names which and
+     * the command that refreshes it.
+     */
+    public const int EXIT_TURBO_NOT_CURRENT = 3;
+
     /** Where phpstan.phar looks for Turbo binaries, relative to the library root. */
     public const string TURBO_DIR = 'vendor-phar/turbo-ext';
 
@@ -80,8 +87,14 @@ final readonly class TurboInstaller
     {
         if (self::MODE_STATE === $mode) {
             $this->reportWhatPhpstanLoads($libraryRoot, $this->output);
+            $problem = new TurboFreshness($this->platform)->problem($libraryRoot . '/' . \dirname(self::TURBO_DIR));
+            if (null === $problem) {
+                return 0;
+            }
 
-            return 0;
+            $this->output->writeln($problem);
+
+            return self::EXIT_TURBO_NOT_CURRENT;
         }
 
         try {

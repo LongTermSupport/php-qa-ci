@@ -34,6 +34,14 @@ final class TurboFreshnessTest extends TestCase
 
     private const string CORE_BYTES = 'the pinned core';
 
+    private const string TURBO_DIR = 'turbo-ext/';
+
+    private const string VERSION = '2.3.2';
+
+    private const string MANIFEST = 'turbo-ext.json';
+
+    private const string ALGORITHM = 'sha256';
+
     private const string MISSING = ' is missing';
 
     private const string TAIL = ' PHPStan and Rector run without Turbo, and slower. Refresh it with: php bin/turbo-install';
@@ -79,7 +87,7 @@ final class TurboFreshnessTest extends TestCase
     public function aMissingBinaryIsReportedAsMissingWithTheRefreshCommand(): void
     {
         $this->pin();
-        $this->pharDir->write('turbo-ext/' . self::CORE_PATH, self::CORE_BYTES);
+        $this->pharDir->write(self::TURBO_DIR . self::CORE_PATH, self::CORE_BYTES);
 
         self::assertSame(
             self::PREFIX . self::BINARY_PATH . self::MISSING . '.' . self::TAIL,
@@ -111,7 +119,7 @@ final class TurboFreshnessTest extends TestCase
     public function aMissingCoreIsReportedAsMissing(): void
     {
         $this->pin();
-        $this->pharDir->write('turbo-ext/' . self::BINARY_PATH, self::BINARY_BYTES);
+        $this->pharDir->write(self::TURBO_DIR . self::BINARY_PATH, self::BINARY_BYTES);
 
         self::assertSame(
             self::PREFIX . self::CORE_PATH . self::MISSING . '.' . self::TAIL,
@@ -130,7 +138,7 @@ final class TurboFreshnessTest extends TestCase
     #[Test]
     public function aManifestThatPinsNoBuildForTheHostIsSilent(): void
     {
-        $this->pharDir->write('turbo-ext.json', new TurboManifest('2.3.2', [])->toJson());
+        $this->pharDir->write(self::MANIFEST, new TurboManifest(self::VERSION, [])->toJson());
 
         self::assertNull($this->freshness()->problem($this->pharDir->path));
     }
@@ -138,7 +146,7 @@ final class TurboFreshnessTest extends TestCase
     #[Test]
     public function aManifestThatPinsOnlyTheCoreIsSilent(): void
     {
-        $this->pharDir->write('turbo-ext.json', new TurboManifest('2.3.2', [self::CORE_PATH => hash('sha256', self::CORE_BYTES)])->toJson());
+        $this->pharDir->write(self::MANIFEST, new TurboManifest(self::VERSION, [self::CORE_PATH => hash(self::ALGORITHM, self::CORE_BYTES)])->toJson());
 
         self::assertNull($this->freshness()->problem($this->pharDir->path));
     }
@@ -161,7 +169,7 @@ final class TurboFreshnessTest extends TestCase
             return;
         }
 
-        $this->pharDir->write('turbo-ext.json', new TurboManifest('2.3.2', [$binary => hash('sha256', 'b'), $core => hash('sha256', 'c')])->toJson());
+        $this->pharDir->write(self::MANIFEST, new TurboManifest(self::VERSION, [$binary => hash(self::ALGORITHM, 'b'), $core => hash(self::ALGORITHM, 'c')])->toJson());
 
         self::assertStringContainsString($binary . self::MISSING, (string)new TurboFreshness()->problem($this->pharDir->path));
     }
@@ -173,15 +181,15 @@ final class TurboFreshnessTest extends TestCase
 
     private function pin(): void
     {
-        $this->pharDir->write('turbo-ext.json', new TurboManifest('2.3.2', [
-            self::BINARY_PATH => hash('sha256', self::BINARY_BYTES),
-            self::CORE_PATH   => hash('sha256', self::CORE_BYTES),
+        $this->pharDir->write(self::MANIFEST, new TurboManifest(self::VERSION, [
+            self::BINARY_PATH => hash(self::ALGORITHM, self::BINARY_BYTES),
+            self::CORE_PATH   => hash(self::ALGORITHM, self::CORE_BYTES),
         ])->toJson());
     }
 
     private function install(string $binary, string $core): void
     {
-        $this->pharDir->write('turbo-ext/' . self::BINARY_PATH, $binary);
-        $this->pharDir->write('turbo-ext/' . self::CORE_PATH, $core);
+        $this->pharDir->write(self::TURBO_DIR . self::BINARY_PATH, $binary);
+        $this->pharDir->write(self::TURBO_DIR . self::CORE_PATH, $core);
     }
 }

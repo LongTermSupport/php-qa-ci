@@ -283,7 +283,9 @@ turbo_status=0
 php "$PROJECT_ROOT/bin/turbo-install" "$shellcheck_mode" || turbo_status=$?
 if (( turbo_status > 128 )); then
     echo -e "${RED}bin/turbo-install failed with $(php -d display_errors=stderr "$PROJECT_ROOT/bin/describe-exit" --php-qa-ci-helper "$turbo_status"); what it left on disk:${NC}" >&2
+    # Exit 3 is a state check that reported a stale or missing binary: it still said what is on disk.
     php -d display_errors=stderr "$PROJECT_ROOT/bin/turbo-install" state >&2 \
+        || (( $? == 3 )) \
         || echo -e "${RED}The state check failed too, so what the install left is unknown; run php bin/turbo-install state to see it.${NC}" >&2
 fi
 exit "$turbo_status"

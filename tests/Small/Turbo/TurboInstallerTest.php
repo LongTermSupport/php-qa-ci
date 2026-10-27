@@ -225,7 +225,7 @@ final class TurboInstallerTest extends TestCase
     public function aHostUpstreamBuildsNothingForSucceedsSayingSo(): void
     {
         $this->writeManifest($this->digests());
-        $windows = new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false);
+        $windows = $this->unsupportedHost();
 
         self::assertSame(0, $this->installer($this->source(), $windows)->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -304,7 +304,7 @@ final class TurboInstallerTest extends TestCase
     {
         $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
 
-        self::assertSame(1, $this->installer($this->source(), new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+        self::assertSame(1, $this->installer($this->source(), $this->unsupportedHost())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
         self::assertStringEndsWith(".\n" . self::NOTHING_LOADS, $this->errors->fetch());
     }
@@ -387,7 +387,7 @@ final class TurboInstallerTest extends TestCase
     {
         $this->writeManifest($this->digests());
 
-        self::assertSame(0, $this->installer($this->source(), new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false))->run($this->library->path, TurboInstaller::MODE_STATE));
+        self::assertSame(0, $this->installer($this->source(), $this->unsupportedHost())->run($this->library->path, TurboInstaller::MODE_STATE));
 
         self::assertSame(self::NOTHING_LOADS, $this->output->fetch());
     }
@@ -730,6 +730,11 @@ final class TurboInstallerTest extends TestCase
     }
 
     /** The stamp the installer writes beside the binary: the files in the order placed, the core first. */
+    private function unsupportedHost(): TurboPlatform
+    {
+        return new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false);
+    }
+
     private function stamp(): string
     {
         return TurboInstallDecider::stamp([self::CORE_PATH => hash(self::DIGEST, self::CORE_BYTES), self::BINARY_PATH => hash(self::DIGEST, self::BINARY_BYTES)]) . "\n";

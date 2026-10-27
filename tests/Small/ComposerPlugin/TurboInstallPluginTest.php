@@ -123,6 +123,17 @@ final class TurboInstallPluginTest extends TestCase
         self::assertSame($this->stateCommand(), ProcessExecutor::$commands[1] ?? null, "the state check is the installer's own, in state mode");
     }
 
+    /** A state check that says the binary is not the pinned one has still said what is on disk. */
+    #[Test]
+    public function aStateCheckReportingAStaleBinaryIsRelayedNotTreatedAsFailed(): void
+    {
+        $line = self::MAY_STILL_LOAD . "\nPHPStan Turbo: the binary is stale.";
+
+        $err = $this->installExitingWith(137, [\LTS\PHPQA\Turbo\TurboInstaller::EXIT_TURBO_NOT_CURRENT, $line . "\n"]);
+
+        self::assertSame('<comment>php-qa-ci: what the killed install left on disk: ' . $line . '</comment>', $err[1] ?? null);
+    }
+
     /**
      * Composer captures only the check's stdout, and PHP CLI with display_errors on writes a warning
      * there too; the check runs with its errors sent to stderr, so the relayed line is only what
