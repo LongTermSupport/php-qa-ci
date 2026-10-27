@@ -475,6 +475,25 @@ handlers:
     host_hostname:  # Shows @machine-name for the host the session really runs on
       enabled: true
 
+  # A fresh worktree is a clean checkout, so the git-ignored install the pipeline needs is
+  # absent from it. Seed it on creation instead of reinstalling per sub-agent.
+  worktree_create:
+    worktree_create:
+      enabled: true
+      options:
+        seed:
+          default_mode: symlink
+          entries:
+            # COPY, never symlink: Composer's generated autoloader locates the project's src/
+            # from its own real path, so a linked vendor/ would load the main checkout's code
+            # into a worktree's tests.
+            - path: vendor
+              mode: copy
+            # Native PHPStan Turbo binaries, read-only data with no path inside them. Without
+            # this the PHPStan and Rector lanes silently run without Turbo in a worktree.
+            - path: vendor-phar/turbo-ext
+              optional: true
+
 
 # Project-level handlers (custom handlers in .claude/hooks/handlers/)
 # Example:
