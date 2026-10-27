@@ -57,6 +57,7 @@ use Symfony\Component\Process\Process;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[UsesClass(TurboStatus::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboFreshness::class)]
 #[UsesClass(\LTS\PHPQA\Turbo\TurboStateEnum::class)]
 #[UsesClass(\LTS\PHPQA\Turbo\TurboPlatform::class)]
 #[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
@@ -167,6 +168,59 @@ final class PhpstanToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('PHPStan Turbo: NOT RUNNING', $this->factory->output->fetch());
+    }
+
+    /** A binary that is not the one the manifest pins is said plainly, once, and the verdict stays the analysis's own. */
+    #[Test]
+    public function aStaleTurboBinaryIsWarnedAboutAndDoesNotChangeTheVerdict(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $platform = new \LTS\PHPQA\Turbo\TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false);
+
+        $result = new PhpstanTool($this->turbo, $this->tmpDirProbe, new \LTS\PHPQA\Turbo\TurboFreshness($platform))
+            ->run($this->factory->context($this->factory->builder(ci: true, paths: $this->pathsWithStaleTurbo())->build()));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        $printed = $this->factory->output->fetch();
+        self::assertSame(1, substr_count($printed, 'PHPStan Turbo: vendor-phar/turbo-ext/linux-gnu-x86_64/phpstan_turbo-8.5.so is stale'));
+        self::assertStringContainsString('Refresh it with: php bin/turbo-install', $printed);
+    }
+
+    #[Test]
+    public function noWarningIsPrintedOnAHostTheManifestDoesNotCover(): void
+    {
+        $this->factory->processes->willSucceed(self::NO_ERRORS);
+        $platform = new \LTS\PHPQA\Turbo\TurboPlatform('Windows', 'AMD64', '', '8.5', false);
+
+        new PhpstanTool($this->turbo, $this->tmpDirProbe, new \LTS\PHPQA\Turbo\TurboFreshness($platform))
+            ->run($this->factory->context($this->factory->builder(ci: true, paths: $this->pathsWithStaleTurbo())->build()));
+
+        self::assertStringNotContainsString('turbo-install', $this->factory->output->fetch());
+    }
+
+    /** JSON output is a machine's: a warning line would corrupt it. */
+    #[Test]
+    public function jsonModeNeverPrintsTheTurboWarning(): void
+    {
+        $this->factory->processes->willSucceed(self::CLEAN_REPORT);
+        $platform = new \LTS\PHPQA\Turbo\TurboPlatform('Linux', 'x86_64', 'gnu', '8.5', false);
+
+        new PhpstanTool($this->turbo, $this->tmpDirProbe, new \LTS\PHPQA\Turbo\TurboFreshness($platform))
+            ->run($this->factory->context($this->factory->builder(jsonOutput: true, paths: $this->pathsWithStaleTurbo())->build()));
+
+        self::assertStringNotContainsString('turbo-install', $this->factory->output->fetch() . $this->factory->stdout->fetch());
+    }
+
+    private function pathsWithStaleTurbo(): \LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto
+    {
+        $binary = 'linux-gnu-x86_64/phpstan_turbo-8.5.so';
+        $core   = 'linux-gnu-x86_64/phpstan_turbo_core.so';
+        $pharDir = $this->factory->project->mkdir('turbo-phars');
+        \Safe\file_put_contents($pharDir . '/turbo-ext.json', new \LTS\PHPQA\Turbo\TurboManifest('2.3.2', [$binary => hash('sha256', 'pinned'), $core => hash('sha256', 'core')])->toJson());
+        $this->factory->project->write('turbo-phars/turbo-ext/' . $binary, 'older');
+        $this->factory->project->write('turbo-phars/turbo-ext/' . $core, 'core');
+
+        return $this->factory->paths(pharDir: $pharDir);
     }
 
     /** JSON and agent mode are machine output for single-path loops; the extra PHPStan start is not paid there. */
