@@ -25,6 +25,12 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.10.1 — 2026-10-27
+
+### Fixed
+
+- **A stale PHPStan Turbo binary is named instead of silently slowing the lanes.** `vendor-phar/turbo-ext/` is installed per checkout, so after a PHPStan update a checkout kept the old binary and PHPStan fell back to running without Turbo; Rector, whose workers load Turbo only from that directory, ran without it unannounced. The text-mode PHPStan lane and the Rector lane now print one warning line (never a failure) when the binary or core is missing or differs from the SHA-256 `vendor-phar/turbo-ext.json` pins, with the fix `php bin/turbo-install`, and `php bin/turbo-install state` exits 3 with that line.
+
 ## 85.10.0 — 2026-10-26
 
 ### Changed

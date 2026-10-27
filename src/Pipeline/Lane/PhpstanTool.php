@@ -23,6 +23,7 @@ use LTS\PHPQA\Pipeline\Lane\Phpstan\TurboProbeInterface;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
+use LTS\PHPQA\Turbo\TurboFreshness;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -94,6 +95,7 @@ final readonly class PhpstanTool implements ToolInterface
     public function __construct(
         private TurboProbeInterface $turbo = new DiagnoseTurboProbe(),
         private TmpDirProbeInterface $tmpDirProbe = new DumpParametersTmpDirProbe(),
+        private TurboFreshness $freshness = new TurboFreshness(),
     ) {
     }
 
@@ -144,6 +146,10 @@ final readonly class PhpstanTool implements ToolInterface
         // PHPStan runs without Turbo silently when its binary is missing or stale. Whether a
         // missing Turbo also fails the lane is Plan 00020's decision D2; for now it is reported.
         $context->writeln($this->turbo->status($context, $wrapper)->line());
+        $stale = $this->freshness->problem($config->paths->pharDir);
+        if (null !== $stale) {
+            $context->writeln($stale);
+        }
 
         return $this->runText($context, $logDir, ...$baseArgs);
     }

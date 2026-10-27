@@ -35,6 +35,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(PhpstanDocsCatalogue::class)]
 #[UsesClass(TurboDecisionDto::class)]
 #[UsesClass(TurboInstallDecider::class)]
+#[UsesClass(\LTS\PHPQA\Turbo\TurboFreshness::class)]
 #[UsesClass(TurboManifest::class)]
 #[UsesClass(TurboPlatform::class)]
 #[Small]
@@ -224,7 +225,7 @@ final class TurboInstallerTest extends TestCase
     public function aHostUpstreamBuildsNothingForSucceedsSayingSo(): void
     {
         $this->writeManifest($this->digests());
-        $windows = new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false);
+        $windows = $this->unsupportedHost();
 
         self::assertSame(0, $this->installer($this->source(), $windows)->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
@@ -303,7 +304,7 @@ final class TurboInstallerTest extends TestCase
     {
         $this->library->write(TurboManifest::PATH, new TurboManifest(self::OTHER_RELEASE, [])->toJson());
 
-        self::assertSame(1, $this->installer($this->source(), new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false))->run($this->library->path, TurboInstaller::MODE_INSTALL));
+        self::assertSame(1, $this->installer($this->source(), $this->unsupportedHost())->run($this->library->path, TurboInstaller::MODE_INSTALL));
 
         self::assertStringEndsWith(".\n" . self::NOTHING_LOADS, $this->errors->fetch());
     }
@@ -338,6 +339,57 @@ final class TurboInstallerTest extends TestCase
 
         self::assertSame(self::NOTHING_LOADS, $this->output->fetch());
         self::assertSame('', $this->errors->fetch());
+    }
+
+    /** A binary its own stamp vouches for can still be one the committed manifest no longer pins. */
+    #[Test]
+    public function theStateCheckFailsWithTheRefreshCommandWhenTheBinaryIsNotTheOneTheManifestPins(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(self::BINARY, self::EARLIER_BINARY);
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        $this->library->write(self::STAMP, TurboInstallDecider::stamp([self::CORE_PATH => hash(self::DIGEST, self::CORE_BYTES), self::BINARY_PATH => hash(self::DIGEST, self::EARLIER_BINARY)]) . "\n");
+
+        self::assertSame(TurboInstaller::EXIT_TURBO_NOT_CURRENT, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        $output = $this->output->fetch();
+        self::assertStringContainsString(self::BINARY . ' is stale', $output);
+        self::assertStringEndsWith("Refresh it with: php bin/turbo-install\n", $output);
+    }
+
+    #[Test]
+    public function theStateCheckFailsWhenTheManifestPinsABuildAndNoneIsInstalled(): void
+    {
+        $this->writeManifest($this->digests());
+
+        self::assertSame(TurboInstaller::EXIT_TURBO_NOT_CURRENT, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        $output = $this->output->fetch();
+        self::assertStringStartsWith(self::NOTHING_LOADS, $output);
+        self::assertStringEndsWith(self::BINARY . " is missing. PHPStan and Rector run without Turbo, and slower. Refresh it with: php bin/turbo-install\n", $output);
+    }
+
+    #[Test]
+    public function theStateCheckPassesQuietlyWhenTheInstalledPairIsTheOneTheManifestPins(): void
+    {
+        $this->writeManifest($this->digests());
+        $this->library->write(self::BINARY, self::BINARY_BYTES);
+        $this->library->write(self::CORE, self::CORE_BYTES);
+        $this->library->write(self::STAMP, $this->stamp());
+
+        self::assertSame(0, $this->installer($this->source())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::STAMPED_PAIR_LOADS, $this->output->fetch());
+    }
+
+    #[Test]
+    public function theStateCheckStaysSilentOnAHostTheManifestDoesNotCover(): void
+    {
+        $this->writeManifest($this->digests());
+
+        self::assertSame(0, $this->installer($this->source(), $this->unsupportedHost())->run($this->library->path, TurboInstaller::MODE_STATE));
+
+        self::assertSame(self::NOTHING_LOADS, $this->output->fetch());
     }
 
     /**
@@ -678,6 +730,11 @@ final class TurboInstallerTest extends TestCase
     }
 
     /** The stamp the installer writes beside the binary: the files in the order placed, the core first. */
+    private function unsupportedHost(): TurboPlatform
+    {
+        return new TurboPlatform('Windows', 'AMD64', '', self::PHP_MINOR, false);
+    }
+
     private function stamp(): string
     {
         return TurboInstallDecider::stamp([self::CORE_PATH => hash(self::DIGEST, self::CORE_BYTES), self::BINARY_PATH => hash(self::DIGEST, self::BINARY_BYTES)]) . "\n";

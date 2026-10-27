@@ -9,6 +9,7 @@ use LTS\PHPQA\Pipeline\Lane\Rector\StaleConfigDiagnosis;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
+use LTS\PHPQA\Turbo\TurboFreshness;
 
 /**
  * Rector: automated refactoring in up to four passes, in order: the Safe
@@ -29,6 +30,10 @@ final readonly class RectorTool implements ToolInterface
     private const string RULE      = '------------------------------------------------------------------------------';
 
     private const int EXIT_PENDING_CHANGES = 2;
+
+    public function __construct(private TurboFreshness $freshness = new TurboFreshness())
+    {
+    }
 
     public function name(): string
     {
@@ -51,6 +56,13 @@ final readonly class RectorTool implements ToolInterface
             $context->writeIdentifier(self::IDENTIFIER);
 
             return ToolResultDto::crashed('Rector PHAR not found at ' . $phar);
+        }
+
+        // Rector's workers load Turbo only from vendor-phar/turbo-ext/ and run without it silently;
+        // this is said, not enforced, so the lane's verdict stays Rector's own.
+        $stale = $this->freshness->problem($paths->pharDir);
+        if (null !== $stale) {
+            $context->writeln($stale);
         }
 
         $checked = $context->config->pathsToCheck;
