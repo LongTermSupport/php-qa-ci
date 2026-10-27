@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestCapabilities;
+use LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestIncompatibleException;
 use LTS\PHPQA\Pipeline\Lane\Phpunit\PhpunitArguments;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
@@ -115,13 +117,13 @@ final readonly class PhpunitTool implements ToolInterface
 
         $context->writeln('PHPUnit Major Version: ' . $major);
 
-        $script         = $phpunitBinary;
-        $paratestTarget = null;
+        $script   = $phpunitBinary;
+        $paratest = null;
         $context->writeln('Checking for paratest');
         if (is_file($paths->binDir . '/paratest')) {
             $context->writeln(\sprintf('Found paratest, using this instead of standard %s', $phpunitBinary));
-            $script         = $paths->binDir . '/paratest';
-            $paratestTarget = $phpunitBinary;
+            $script   = $paths->binDir . '/paratest';
+            $paratest = ParatestCapabilities::fromHelp($this->invoke($context, $script, [], false, '--help')->output);
         }
 
         $logDir   = $context->logDir(self::LOG_DIR);
@@ -130,15 +132,23 @@ final readonly class PhpunitTool implements ToolInterface
             $context->writeln('Running PHPUnit on specified paths: ' . implode(' ', $config->pathsToCheck));
         }
 
-        $args = $this->arguments->build(
-            $config->phpUnit,
-            $config->ci,
-            $major,
-            $context->configPath('phpunit.xml'),
-            $junitLog,
-            $paratestTarget,
-            ...(null === $config->specifiedPath ? [] : $config->pathsToCheck),
-        );
+        try {
+            $args = $this->arguments->build(
+                $config->phpUnit,
+                $config->ci,
+                $major,
+                $context->configPath('phpunit.xml'),
+                $junitLog,
+                $paratest,
+                $phpunitBinary,
+                ...(null === $config->specifiedPath ? [] : $config->pathsToCheck),
+            );
+        } catch (ParatestIncompatibleException $incompatible) {
+            $context->writeln('ERROR: ' . $incompatible->getMessage());
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::failed('ParaTest is incompatible: ' . $incompatible->getMessage());
+        }
 
         $env = [
             'phpUnitQuickTests' => $config->phpUnit->quickTests ? '1' : '0',
