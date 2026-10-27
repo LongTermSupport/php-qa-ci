@@ -27,6 +27,18 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- `dependencyFreshness` judges a package by what the project's composer configuration makes it
+  follow (issue #345). A package that follows only branches (`dev-php8.5`, `dev-php8.5@dev`, an
+  `as` alias, `1.x-dev`) is judged against that branch's head. A package that follows only
+  release tags (`^85.N`, `~85.N.0`, an exact tag, `>=`) is judged against the newest tag within its
+  constraint and never against a branch head, and is asked with `--prefer-stable`. A constraint
+  that mixes a branch with tags (`dev-php8.5@dev || ^85.N`) is not judged against tags: the locked
+  version decides. A lock on the branch is judged against the branch head, asked under the branch
+  alternatives alone, so a lock at the head passes even when it is ahead of the newest tag; a lock
+  on a tag is judged against the newest tag in range. `*`, `*@dev` and a package the project does
+  not require directly are likewise decided by the locked version. A stale branch lock under a
+  mixed constraint prints `composer require [--dev] '<package>:<branch alternatives>' --with-dependencies` (`composer update` would move that lock back to a tag); no remedy moves a
+  lock backwards. A stale tag lock prints `composer update <package> --with-dependencies --prefer-stable`. A consumer that wants a stable lock requires a tag range instead of the branch.
 - **The `phpunit` lane runs with a current ParaTest.** With ParaTest installed the lane always passed `--phpunit <binary>`, which ParaTest 6 and later do not have, so a project with a current ParaTest could not run the lane at all ("The option --phpunit does not exist", and "Too many arguments" for several paths). The lane now checks every flag it passes against the installed ParaTest's `--help`: ParaTest 7 and later get PHPUnit's flags without `--phpunit`, while ParaTest 6 and earlier (5 still has `--phpunit` but lacks the strictness flags) are refused with a message naming the ParaTest version and the flags it lacks, before anything is run. More than one path with ParaTest fails the same way, naming ParaTest's one-path limit. See [docs/tools/phpunit.md](docs/tools/phpunit.md#paratest).
 - **The shipped Rector config no longer writes `?->` on the left of `??` on a property chain.** `TernaryToNullsafeCoalesceRector` rewrote `null !== $x->name ? $x->name->name : 'anonymous'` into `$x->name?->name ?? 'anonymous'`, which PHPStan reports as `nullsafe.neverNull`, so the file could not be made green: Rector redid it on every writable run. PHPStan wins: `rector-php85.php` now skips that one rule. A project `rector.php` that includes the `php80` set should skip it too. A new test runs the shipped configs over a corpus of known Rector-versus-PHPStan clashes and then PHPStan, naming each failing fixture.
 
