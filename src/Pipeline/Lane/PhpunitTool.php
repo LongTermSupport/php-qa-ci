@@ -123,7 +123,10 @@ final readonly class PhpunitTool implements ToolInterface
         if (is_file($paths->binDir . '/paratest')) {
             $context->writeln(\sprintf('Found paratest, using this instead of standard %s', $phpunitBinary));
             $script   = $paths->binDir . '/paratest';
-            $paratest = ParatestCapabilities::fromHelp($this->invoke($context, $script, [], false, '--help')->output);
+            $paratest = ParatestCapabilities::fromProbes(
+                $this->invoke($context, $script, [], false, '--help')->output,
+                $this->invoke($context, $script, [], false, '--version')->output,
+            );
         }
 
         $logDir   = $context->logDir(self::LOG_DIR);
@@ -140,7 +143,6 @@ final readonly class PhpunitTool implements ToolInterface
                 $context->configPath('phpunit.xml'),
                 $junitLog,
                 $paratest,
-                $phpunitBinary,
                 ...(null === $config->specifiedPath ? [] : $config->pathsToCheck),
             );
         } catch (ParatestIncompatibleException $paratestIncompatibleException) {

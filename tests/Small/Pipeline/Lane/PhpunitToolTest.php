@@ -22,7 +22,6 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PhpunitTool::class)]
 #[UsesClass(PhpunitArguments::class)]
-#[UsesClass(ParatestFixture::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestCapabilities::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestIncompatibleException::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]

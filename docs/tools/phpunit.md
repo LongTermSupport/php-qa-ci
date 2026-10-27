@@ -131,15 +131,16 @@ To enable paratest, simply install it. If it is found, the QA process will use i
 composer require --dev brianium/paratest
 ```
 
-The lane reads what the installed ParaTest accepts from its own `--help`, not from a version number, and builds the arguments to match:
+The lane passes ParaTest the same flags it passes PHPUnit (the strictness flags such as `--fail-on-risky` and `--strict-global-state`, the display flags and the mode flags), and checks every one of them against the options the installed ParaTest lists in its own `--help` before running. It does not use a version number or a single option to decide.
 
-| ParaTest      | Accepts                                                                                                           | What the lane passes                                |
-| ------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 7 and later   | PHPUnit's own flags; runs the project's PHPUnit itself, with no `--phpunit` option                                | the same flags as PHPUnit, no `--phpunit`           |
-| 5 and earlier | `--phpunit <binary>`                                                                                              | `--phpunit <project phpunit>` first, then the flags |
-| 6             | neither the `--phpunit` option nor the strictness flags (`--fail-on-risky`, `--strict-global-state` and the like) | nothing: the lane fails, naming the limitation      |
+| ParaTest      | Lists those flags | Result                                                                                                   |
+| ------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| 7 and later   | yes               | supported: the same flags as PHPUnit, no `--phpunit` option (ParaTest runs the project's PHPUnit itself) |
+| 6 and earlier | no                | refused: the lane fails naming the ParaTest version and each flag it lacks, and does not run it          |
 
-ParaTest takes one path. A `-p` run names one path and passes it as is; if more than one path is ever given, the lane fails with a message saying so instead of printing ParaTest's "Too many arguments" usage error. Upgrade ParaTest to 7 or later, or remove it to run with PHPUnit alone.
+ParaTest 5 still has a `--phpunit` option but does not accept the strictness flags, so it is refused like 6. Upgrade ParaTest to 7 or later, or remove it to run with PHPUnit alone.
+
+ParaTest takes one path. A `-p` run names one path and passes it as is; if more than one path is given, the lane fails with a message saying so instead of printing ParaTest's "Too many arguments" usage error.
 
 ## PHPUnit and PHPStan
 

@@ -25,6 +25,6 @@ final readonly class ParatestFixture
 
     private static function path(string $version, string $kind): string
     {
-        return \dirname(__DIR__) . '/assets/paratest/' . $version . '.' . $kind . '.txt';
+        return __DIR__ . '/../assets/paratest/' . $version . '.' . $kind . '.txt';
     }
 }

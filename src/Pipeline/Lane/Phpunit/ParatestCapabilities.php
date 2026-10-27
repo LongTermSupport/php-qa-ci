@@ -5,33 +5,60 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane\Phpunit;
 
 /**
- * What the installed ParaTest accepts, read from its own `--help` rather than
- * guessed from a version number. ParaTest 5 and earlier select the PHPUnit
- * binary with `--phpunit`; ParaTest 7 and later run the project's PHPUnit
- * itself and forward PHPUnit's own flags (the strictness flags among them);
- * ParaTest 6 has neither, so the lane's argv cannot be expressed in it.
+ * The options the installed ParaTest declares in its own `--help`, and the
+ * version it reports, so the lane checks the flags it is about to pass against
+ * what ParaTest accepts rather than guessing from one option or a version.
  *
  * @internal
  */
 final readonly class ParatestCapabilities
 {
+    private const string UNREPORTED = 'ParaTest (version not reported)';
+
+    /** @param list<string> $options every declared option, long and short, by name */
     private function __construct(
-        public bool $acceptsPhpunitOption,
-        private bool $forwardsPhpunitFlags,
+        private array $options,
+        private string $label,
     ) {
     }
 
-    public static function fromHelp(string $help): self
+    public static function fromProbes(string $help, string $versionOutput): self
     {
-        return new self(
-            1 === \Safe\preg_match('/--phpunit=/', $help),
-            1 === \Safe\preg_match('/--fail-on-risky(?![\w-])/', $help),
-        );
+        $options = [];
+        // An option line starts with its (possibly colour-coded) name; a flag
+        // mentioned in a description is not at a line start and is not read.
+        foreach (explode("\n", $help) as $line) {
+            if (1 !== \Safe\preg_match('/^(?:\s|\x1B\[[0-9;]*m)*((?:-\w,\s+)?)(--[A-Za-z][\w-]*)/', $line, $match) || !isset($match[1], $match[2])) {
+                continue;
+            }
+
+            foreach ([substr($match[1], 0, 2), $match[2]] as $name) {
+                if ('' !== $name) {
+                    $options[] = $name;
+                }
+            }
+        }
+
+        $label = 1 === \Safe\preg_match('/(\d+\.\d+\.\d+)/', $versionOutput, $version) && isset($version[1])
+            ? 'ParaTest ' . $version[1]
+            : self::UNREPORTED;
+
+        return new self($options, $label);
     }
 
-    /** True when the lane's argv can be passed to this ParaTest. */
-    public function isUsable(): bool
+    /** The name ParaTest is reported under: its version when it prints one. */
+    public function label(): string
     {
-        return $this->acceptsPhpunitOption || $this->forwardsPhpunitFlags;
+        return $this->label;
+    }
+
+    /**
+     * The given flags this ParaTest does not declare, in the order given.
+     *
+     * @return list<string>
+     */
+    public function lacking(string ...$flags): array
+    {
+        return array_values(array_filter($flags, fn (string $flag): bool => !\in_array($flag, $this->options, true)));
     }
 }

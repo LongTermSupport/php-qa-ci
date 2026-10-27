@@ -14,13 +14,15 @@ use RuntimeException;
  */
 final class ParatestIncompatibleException extends RuntimeException
 {
-    public static function unusableOptions(): self
+    /** @param string ...$flags the flags the lane passes and this ParaTest does not declare */
+    public static function missingOptions(string $paratest, string ...$flags): self
     {
-        return new self(
-            'the installed ParaTest accepts neither --phpunit nor the PHPUnit strictness flags'
-            . ' (--fail-on-risky and the like), so the lane cannot pass its arguments to it;'
-            . ' upgrade ParaTest to 7 or later, or remove it to run with PHPUnit',
-        );
+        return new self(\sprintf(
+            'the installed %s does not accept %s, which the lane passes to it;'
+            . ' use ParaTest 7 or later, or remove ParaTest to run with PHPUnit',
+            $paratest,
+            implode(', ', $flags),
+        ));
     }
 
     public static function severalPaths(int $count): self
