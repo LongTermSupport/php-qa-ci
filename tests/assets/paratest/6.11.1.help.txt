@@ -1,0 +1,46 @@
+[33mUsage:[39m
+  paratest [options] [--] [<path>]
+
+[33mArguments:[39m
+  [32mpath[39m                                           The path to a directory or file containing tests.
+
+[33mOptions:[39m
+  [32m    --bootstrap=BOOTSTRAP[39m                      The bootstrap file to be used by PHPUnit.
+  [32m    --colors[=COLORS][39m                          Use colors in output ("never", "auto" or "always").[33m [default: false][39m
+  [32m-c, --configuration=CONFIGURATION[39m              The PHPUnit configuration file to use.
+  [32m    --coverage-clover=COVERAGE-CLOVER[39m          Generate code coverage report in Clover XML format.
+  [32m    --coverage-cobertura=COVERAGE-COBERTURA[39m    Generate code coverage report in Cobertura XML format.
+  [32m    --coverage-crap4j=COVERAGE-CRAP4J[39m          Generate code coverage report in Crap4J XML format.
+  [32m    --coverage-html=COVERAGE-HTML[39m              Generate code coverage report in HTML format.
+  [32m    --coverage-php=COVERAGE-PHP[39m                Serialize PHP_CodeCoverage object to file.
+  [32m    --coverage-test-limit=COVERAGE-TEST-LIMIT[39m  Limit the number of tests to record for each line of code. Helps to reduce memory and size of coverage reports.
+  [32m    --coverage-text[=COVERAGE-TEXT][39m            Generate code coverage report in text format.[33m [default: false][39m
+  [32m    --coverage-xml=COVERAGE-XML[39m                Generate code coverage report in PHPUnit XML format.
+  [32m    --debug[39m                                    Display debugging information
+  [32m    --exclude-group=EXCLUDE-GROUP[39m              Don't run tests from the specified group(s).
+  [32m    --filter=FILTER[39m                            Filter (only for functional mode).
+  [32m-f, --functional[39m                               Run test methods instead of classes in separate processes.
+  [32m-g, --group=GROUP[39m                              Only runs tests from the specified group(s).
+  [32m-h, --help[39m                                     Display this help message.
+  [32m    --log-junit=LOG-JUNIT[39m                      Log test execution in JUnit XML format to file.
+  [32m    --log-teamcity=LOG-TEAMCITY[39m                Log test execution in Teamcity format to file.
+  [32m-m, --max-batch-size=MAX-BATCH-SIZE[39m            Max batch size (only for functional mode).[33m [default: "0"][39m
+  [32m    --no-coverage[39m                              Ignore code coverage configuration.
+  [32m    --no-test-tokens[39m                           Disable TEST_TOKEN environment variables. [33m(default: variable is set)[39m
+  [32m    --order-by=ORDER-BY[39m                        Run tests in order: default|random|reverse
+  [32m    --parallel-suite[39m                           Run the suites of the config in parallel.
+  [32m    --passthru=PASSTHRU[39m                        Pass the given arguments verbatim to the underlying test framework. Example: --passthru="'--prepend' 'xdebug-filter.php'"
+  [32m    --passthru-php=PASSTHRU-PHP[39m                Pass the given arguments verbatim to the underlying php process. Example: --passthru-php="'-d' 'zend_extension=xdebug.so'"
+  [32m    --path=PATH[39m                                An alias for the path argument.
+  [32m-p, --processes=PROCESSES[39m                      The number of test processes to run.[33m [default: "auto"][39m
+  [32m    --random-order-seed=RANDOM-ORDER-SEED[39m      Use a specific random seed <N> for random order
+  [32m    --repeat=REPEAT[39m                            Runs the test(s) repeatedly.
+  [32m    --runner=RUNNER[39m                            Runner or WrapperRunner.[33m [default: "Runner"][39m
+  [32m    --stop-on-error[39m                            Don't start any more processes after an error.
+  [32m    --stop-on-failure[39m                          Don't start any more processes after a failure.
+  [32m    --teamcity[39m                                 Output test results in Teamcity format.
+  [32m    --testdox[39m                                  Report test execution progress in TestDox format.
+  [32m    --testsuite=TESTSUITE[39m                      Filter which testsuite to run
+  [32m    --tmp-dir=TMP-DIR[39m                          Temporary directory for internal ParaTest files[33m [default: "/tmp"][39m
+  [32m-v, --verbose[39m                                  Output more verbose information
+  [32m    --whitelist=WHITELIST[39m                      Directory to add to the coverage whitelist.

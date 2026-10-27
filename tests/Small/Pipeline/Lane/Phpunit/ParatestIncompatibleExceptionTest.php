@@ -18,13 +18,12 @@ use PHPUnit\Framework\TestCase;
 final class ParatestIncompatibleExceptionTest extends TestCase
 {
     #[Test]
-    public function theUnusableOptionsMessageNamesTheLimitationAndTheWayOut(): void
+    public function theMissingOptionsMessageNamesTheParatestTheFlagsAndTheWayOut(): void
     {
         self::assertSame(
-            'the installed ParaTest accepts neither --phpunit nor the PHPUnit strictness flags'
-            . ' (--fail-on-risky and the like), so the lane cannot pass its arguments to it;'
-            . ' upgrade ParaTest to 7 or later, or remove it to run with PHPUnit',
-            ParatestIncompatibleException::unusableOptions()->getMessage(),
+            'the installed ParaTest 6.11.1 does not accept --fail-on-risky, --strict-global-state,'
+            . ' which the lane passes to it; use ParaTest 7 or later, or remove ParaTest to run with PHPUnit',
+            ParatestIncompatibleException::missingOptions('ParaTest 6.11.1', ['--fail-on-risky', '--strict-global-state'])->getMessage(),
         );
     }
 
