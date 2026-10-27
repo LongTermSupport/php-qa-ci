@@ -44,7 +44,9 @@ final class DependencyFreshnessToolComposerTest extends TestCase
 {
     private const string PACKAGE = 'lts/php-qa-ci';
 
-    private const string MIXED = 'dev-php8.5@dev || ^1.0';
+    private const string APP_JSON = 'app/composer.json';
+
+    private const string MIXED ='dev-php8.5@dev || ^1.0';
 
     private const string BRANCH_BEHIND_LINE = '  - lts/php-qa-ci (locked dev-php8.5 %s, available dev-php8.5 %s)';
 
@@ -287,6 +289,28 @@ final class DependencyFreshnessToolComposerTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $after, $printedAfter);
     }
 
+    /** Empty JSON objects in composer.json (`"config": {}`) must survive the throwaway copy, or Composer rejects it and the lane is skipped. */
+    #[Test]
+    public function aStaleBranchLockIsReportedForAComposerJsonWithEmptyObjects(): void
+    {
+        $this->tag(self::FIRST_RELEASE);
+        $this->advanceTheBranch();
+        $this->update(self::PACKAGE);
+        $this->writeAppComposerJson(self::MIXED);
+        $this->sandbox->root->write(self::APP_JSON, str_replace(
+            '"minimum-stability"',
+            '"config": {}, "extra": {}, "scripts": {}, "minimum-stability"',
+            $this->sandbox->root->read(self::APP_JSON),
+        ));
+        $this->advanceTheBranch();
+
+        [$result, $printed] = $this->check();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result, $printed);
+        self::assertStringNotContainsString('skipped', strtolower($printed));
+        self::assertStringContainsString("composer require 'lts/php-qa-ci:dev-php8.5@dev' --with-dependencies", $printed);
+    }
+
     /** A tag lock under a mixed constraint is judged by tags, with the branch ahead of them. */
     #[Test]
     public function aTagLockBehindANewerInRangeTagUnderABranchOrTagConstraintFailsWithARemedyThatWorks(): void
@@ -374,7 +398,7 @@ final class DependencyFreshnessToolComposerTest extends TestCase
 
     private function writeAppComposerJson(string $constraint): void
     {
-        $this->sandbox->root->write('app/composer.json', \Safe\json_encode([
+        $this->sandbox->root->write(self::APP_JSON, \Safe\json_encode([
             'name'              => 'fixture/app',
             'type'              => 'project',
             'repositories'      => [['type' => 'vcs', 'url' => $this->sandbox->origin]],

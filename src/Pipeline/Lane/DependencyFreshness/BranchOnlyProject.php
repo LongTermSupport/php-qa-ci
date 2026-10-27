@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Lane\DependencyFreshness;
 
 use RuntimeException;
+use stdClass;
 
 /**
  * A throwaway copy of a project's composer.json and composer.lock in which
@@ -34,26 +35,25 @@ final readonly class BranchOnlyProject
      */
     public static function create(string $root, array $branchConstraints): self
     {
-        $json = \Safe\json_decode(\Safe\file_get_contents($root . '/composer.json'), true);
-        if (!\is_array($json)) {
+        // Decoded to objects, not arrays: an empty JSON object (`"config": {}`) must stay one, as Composer's schema rejects `[]` there.
+        $json = \Safe\json_decode(\Safe\file_get_contents($root . '/composer.json'));
+        if (!$json instanceof stdClass) {
             throw new RuntimeException('composer.json is not a JSON object');
         }
 
         $wanted = array_change_key_case($branchConstraints);
         foreach (['require', 'require-dev'] as $section) {
-            $required = $json[$section] ?? null;
-            if (!\is_array($required)) {
+            $required = $json->{$section} ?? null;
+            if (!$required instanceof stdClass) {
                 continue;
             }
 
-            foreach (array_keys($required) as $name) {
+            foreach (array_keys(get_object_vars($required)) as $name) {
                 $constraint = $wanted[strtolower((string)$name)] ?? null;
                 if (null !== $constraint) {
-                    $required[$name] = $constraint;
+                    $required->{$name} = $constraint;
                 }
             }
-
-            $json[$section] = $required;
         }
 
         $base = self::PREFIX . bin2hex(random_bytes(6));

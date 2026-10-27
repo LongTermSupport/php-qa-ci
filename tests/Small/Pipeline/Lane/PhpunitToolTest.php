@@ -10,6 +10,7 @@ use LTS\PHPQA\Pipeline\Lane\PhpunitTool;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
+use LTS\PHPQA\Tests\Support\ParatestFixture;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -21,6 +22,8 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PhpunitTool::class)]
 #[UsesClass(PhpunitArguments::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestCapabilities::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestIncompatibleException::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -57,6 +60,10 @@ final class PhpunitToolTest extends TestCase
     private const string BIN_PHPUNIT = '/vendor/bin/phpunit';
 
     private const string TESTS_UNIT = '/tests/Unit';
+
+    private const string SHEBANG = "#!/usr/bin/env php\n";
+
+    private const string PARATEST_BIN ='vendor/bin/paratest';
 
     private const string VERSION_LINE = "PHPUnit 12.3.4 by Sebastian Bergmann and contributors.\n";
 
@@ -168,18 +175,85 @@ final class PhpunitToolTest extends TestCase
     }
 
     #[Test]
-    public function paratestIsPreferredWhenInstalled(): void
+    public function aParatestThatAcceptsEveryFlagIsPreferredAndTakesTheSinglePathWithoutAPhpunitOption(): void
     {
-        $this->factory->project->write('vendor/bin/paratest', "#!/usr/bin/env php\n");
+        $this->factory->project->write(self::PARATEST_BIN, self::SHEBANG);
+        $this->factory->project->write('src/Thing.php', self::PHP);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
+        $this->factory->processes
+            ->willSucceed(self::VERSION_LINE)
+            ->willSucceed(ParatestFixture::help('7.27.4'))
+            ->willSucceed(ParatestFixture::version('7.27.4'))
+            ->willSucceed('OK')
+        ;
+
+        $result = new PhpunitTool()->run($this->context($this->factory->builder(specifiedPath: 'tests/Unit')));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        $help = $this->factory->processes->specs[1];
+        self::assertSame($this->root . '/' . self::PARATEST_BIN, $help->command[6]);
+        self::assertSame(['--', '--help'], \array_slice($help->command, 7));
+        self::assertFalse($help->streamOutput);
+        $version = $this->factory->processes->specs[2];
+        self::assertSame($this->root . '/' . self::PARATEST_BIN, $version->command[6]);
+        self::assertSame(['--', '--version'], \array_slice($version->command, 7));
+        self::assertFalse($version->streamOutput);
+
+        $run = $this->factory->processes->lastSpec();
+        self::assertSame($this->root . '/' . self::PARATEST_BIN, $run->command[6]);
+        self::assertSame(['-c', $this->configPath()], \array_slice($run->command, 8, 2));
+        self::assertNotContains('--phpunit', $run->command);
+        self::assertSame($this->root . self::TESTS_UNIT, array_last($run->command));
+        self::assertTrue($run->streamOutput);
+        self::assertStringContainsString('Found paratest, using this instead of standard ' . $this->root . self::BIN_PHPUNIT, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function paratestSixFailsByNameWithoutRunning(): void
+    {
+        $this->factory->project->write(self::PARATEST_BIN, self::SHEBANG);
+        $this->factory->processes
+            ->willSucceed(self::VERSION_LINE)
+            ->willSucceed(ParatestFixture::help('6.11.1'))
+            ->willSucceed(ParatestFixture::version('6.11.1'))
+        ;
+
+        $result  = new PhpunitTool()->run($this->context($this->factory->builder()));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringStartsWith('ParaTest is incompatible: the installed ParaTest 6.11.1 does not accept --strict-global-state, --fail-on-risky', $result->summary);
+        self::assertCount(3, $this->factory->processes->specs, 'the phpunit version, paratest help and paratest version probes only, never a run that would print a usage error');
+        self::assertStringContainsString('ERROR: the installed ParaTest 6.11.1 does not accept --strict-global-state', $printed);
+        self::assertStringEndsWith(self::IDENTIFIER_FOOTER, $printed);
+    }
+
+    #[Test]
+    public function paratestFiveIsRefusedAlthoughItAcceptsThePhpunitOption(): void
+    {
+        $this->factory->project->write(self::PARATEST_BIN, self::SHEBANG);
+        $this->factory->processes
+            ->willSucceed(self::VERSION_LINE)
+            ->willSucceed(ParatestFixture::help('5.0.4'))
+            ->willSucceed(ParatestFixture::version('5.0.4'))
+        ;
+
+        $result = new PhpunitTool()->run($this->context($this->factory->builder()));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringStartsWith('ParaTest is incompatible: the installed ParaTest (version not reported) does not accept --strict-global-state', $result->summary);
+        self::assertCount(3, $this->factory->processes->specs);
+    }
+
+    #[Test]
+    public function noParatestMeansNoHelpProbe(): void
+    {
         $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
 
         new PhpunitTool()->run($this->context($this->factory->builder()));
 
-        $run = $this->factory->processes->lastSpec();
-        self::assertSame($this->root . '/vendor/bin/paratest', $run->command[6]);
-        self::assertSame(['--phpunit', $this->root . self::BIN_PHPUNIT], \array_slice($run->command, 8, 2));
-        self::assertStringContainsString('Found paratest, using this instead of standard ' . $this->root . self::BIN_PHPUNIT, $this->factory->output->fetch());
+        self::assertCount(2, $this->factory->processes->specs);
     }
 
     #[Test]

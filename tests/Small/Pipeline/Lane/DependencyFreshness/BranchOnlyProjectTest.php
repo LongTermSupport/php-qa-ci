@@ -93,6 +93,21 @@ final class BranchOnlyProjectTest extends TestCase
         );
     }
 
+    /** Composer rejects `[]` where the schema wants an object, so every empty object must stay one. */
+    #[Test]
+    public function emptyJsonObjectsStayObjectsInTheCopy(): void
+    {
+        $this->dir->write(self::JSON, '{"require": {}, "require-dev": {"acme/one": "dev-main || ^1.0"}, "config": {}, "extra": {"nested": {}}, "scripts": {}, "repositories": {}, "list": []}');
+        $this->dir->write(self::LOCKFILE, self::LOCK);
+
+        $copy = BranchOnlyProject::create($this->dir->path, ['acme/one' => self::MAIN]);
+
+        self::assertSame(
+            '{"require":{},"require-dev":{"acme/one":"dev-main"},"config":{},"extra":{"nested":{}},"scripts":{},"repositories":{},"list":[]}',
+            $this->dir->read($copy->jsonFile),
+        );
+    }
+
     #[Test]
     public function twoCopiesDoNotShareAFile(): void
     {
