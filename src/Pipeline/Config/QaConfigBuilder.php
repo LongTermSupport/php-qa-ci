@@ -188,9 +188,16 @@ final readonly class QaConfigBuilder
         return $this->with(pathsToIgnore: [...$this->pathsToIgnore, ...array_values($paths)]);
     }
 
-    /** Additional project-relative paths the scanning tools cover. */
+    /**
+     * Additional project-relative paths the scanning tools cover. A run given
+     * a path (`-p`) checks that path alone, so these are not added to it.
+     */
     public function withCheckedPaths(string ...$paths): self
     {
+        if (null !== $this->specifiedPath) {
+            return $this;
+        }
+
         $absolute = array_map(fn (string $path): string => $this->paths->projectRoot . '/' . ltrim($path, '/'), array_values($paths));
 
         return $this->with(pathsToCheck: [...$this->pathsToCheck, ...$absolute]);
