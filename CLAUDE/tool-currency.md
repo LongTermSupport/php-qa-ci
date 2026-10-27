@@ -75,8 +75,12 @@ undoes them is the defect. The same holds for any other fixer that rewrites agai
 
 **This repository resolves its own tool conflicts.** A clash between the tools it ships is fixed in
 the shipped configuration, under Defence Before Fix: a test that runs the fixer and then the
-analyser over a minimal example comes first, and fails on the clash. It is never reported to or
-posted on the upstream project's tracker; the Owner's word is needed for any outward-facing post.
+analyser over a minimal example comes first, and fails on the clash. It is not reported to or
+posted on the upstream project's tracker. This narrows the Defence Before Fix rule that a defect
+in code outside this repository is filed upstream ([DefenceBeforeFix.md](DefenceBeforeFix.md),
+"A defect is fixed when it is found"): that rule still holds for a defect this repository cannot
+fix by configuration, but any post to a third-party tracker is outward-facing and needs the
+Owner's word first.
 
 **Dependency freshness follows the composer configuration** ([#345](https://github.com/LongTermSupport/php-qa-ci/issues/345)).
 A constraint that tracks a branch is judged against that branch's head; one that tracks tags is
