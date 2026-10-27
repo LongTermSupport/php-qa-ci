@@ -28,7 +28,7 @@ final readonly class BranchOnlyProject
     }
 
     /**
-     * @param array<array-key, string> $branchConstraints lower-case package name => the constraint to require it under
+     * @param array<array-key, string> $branchConstraints package name => the constraint to require it under (names match without regard to case)
      *
      * @throws RuntimeException when composer.json is not a JSON object
      */
@@ -39,6 +39,7 @@ final readonly class BranchOnlyProject
             throw new RuntimeException('composer.json is not a JSON object');
         }
 
+        $wanted = array_change_key_case($branchConstraints);
         foreach (['require', 'require-dev'] as $section) {
             $required = $json[$section] ?? null;
             if (!\is_array($required)) {
@@ -46,7 +47,7 @@ final readonly class BranchOnlyProject
             }
 
             foreach (array_keys($required) as $name) {
-                $constraint = $branchConstraints[strtolower((string)$name)] ?? null;
+                $constraint = $wanted[strtolower((string)$name)] ?? null;
                 if (null !== $constraint) {
                     $required[$name] = $constraint;
                 }

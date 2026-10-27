@@ -59,9 +59,7 @@ final readonly class Tracking
         $constraints = [];
         foreach (['require', 'require-dev'] as $section) {
             foreach (self::requirements($json, $section) as $name => $constraint) {
-                if (!isset($constraints[$name])) {
-                    $constraints[$name] = $constraint;
-                }
+                $constraints[$name] ??= $constraint;
             }
         }
 

@@ -94,6 +94,23 @@ final class DependencyFreshnessToolTest extends TestCase
 
     private const string MAIN_OR_RANGE = 'dev-main || ^1.0';
 
+    private const string PIN_ADVICE = <<<'TXT'
+        Do NOT pin a package in composer.json to make this check pass. A pin to a tag or
+        a commit leaves `composer update` nothing newer to install, so it is the only way
+        past this check, and it is for a compelling reason only, such as a known
+        regression in the newest version. Record that reason and its issue link with the
+        pin, and remove the pin as soon as the reason is gone.
+
+        TXT;
+
+    private const string NOT_JSON = '{not json';
+
+    private const string UPDATE = 'update';
+
+    private const string NOT_VERIFIED_ONE = 'composer.lock was NOT verified for: acme/one.';
+
+    private const string HEADING = "\nDependencies are out of date. `composer update` would install newer versions of:\n\n";
+
     private const string PREFER_STABLE = '--prefer-stable';
 
     private const string RUN_COMPOSER_UPDATE = 'Run `composer update`, then run QA again.';
@@ -177,7 +194,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         $spec = $this->factory->processes->lastSpec();
         self::assertSame(
-            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', self::COMPOSER, '--', 'update', self::SELF, '--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'],
+            ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', self::COMPOSER, '--', self::UPDATE, self::SELF, '--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'],
             $spec->command,
         );
         self::assertSame($this->factory->project->path, $spec->cwd);
@@ -437,7 +454,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function anUnreadableLockFileFailsTheLane(): void
     {
-        $this->factory->project->write(self::LOCK_FILE, '{not json');
+        $this->factory->project->write(self::LOCK_FILE, self::NOT_JSON);
 
         $result = $this->tool()->run($this->factory->context());
 
@@ -619,7 +636,7 @@ final class DependencyFreshnessToolTest extends TestCase
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertStringContainsString('composer.lock was NOT verified for: acme/one.', $this->factory->output->fetch());
+        self::assertStringContainsString(self::NOT_VERIFIED_ONE, $this->factory->output->fetch());
         self::assertSame([self::COMPOSER_JSON, self::LOCK_FILE], $this->projectFiles());
     }
 
@@ -635,6 +652,130 @@ final class DependencyFreshnessToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertContains(self::PREFER_STABLE, $spec->command);
         self::assertArrayNotHasKey('COMPOSER', $spec->env);
+    }
+
+    #[Test]
+    public function aBranchLockBehindItsHeadGetsTheWholePlainRemedy(): void
+    {
+        $this->project(['acme/one' => self::MAIN], ['acme/one' => self::MAIN]);
+        $this->factory->processes->willSucceed(self::ONE_BEHIND);
+
+        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        self::assertStringContainsString(
+            self::HEADING
+            . "  - acme/one (locked dev-main 93f1ae4, available dev-main 606a9f6)\n\n"
+            . "Run `composer update`, then run QA again. There is no point checking code with\n"
+            . "an out-of-date toolchain, or against out-of-date copies of your own packages.\n\n"
+            . self::PIN_ADVICE,
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function aTagLockBehindANewerTagGetsTheWholeTagRemedy(): void
+    {
+        $this->project(['acme/one' => self::CARET], ['acme/one' => self::TAG_LOCK]);
+        $this->factory->processes->willSucceed("Updating dependencies\n  - Upgrading acme/one (1.0.0 => 1.1.0)\n");
+
+        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        self::assertStringContainsString(
+            self::HEADING
+            . "  - acme/one (locked 1.0.0, available 1.1.0)\n\n"
+            . "For the packages that follow release tags, run `composer update acme/one --with-dependencies --prefer-stable`.\n"
+            . "The newest tag within your constraint is what counts, and `--prefer-stable` keeps\n"
+            . "Composer from choosing a branch your constraint also admits.\n"
+            . "Then run QA again. There is no point checking code with an out-of-date toolchain,\n"
+            . "or against out-of-date copies of your own packages.\n\n"
+            . self::PIN_ADVICE,
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function aMixedBranchLockBehindItsHeadGetsTheWholeRequireRemedy(): void
+    {
+        $this->project(['acme/one' => self::MAIN_OR_RANGE], ['acme/one' => self::MAIN]);
+        $this->factory->processes->willSucceed(self::ONE_BEHIND);
+
+        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        self::assertStringContainsString(
+            self::HEADING
+            . "  - acme/one (locked dev-main 93f1ae4, available dev-main 606a9f6)\n\n"
+            . "These packages are locked on a branch, but their constraint also admits release tags,\n"
+            . "and Composer prefers a tag to a branch head, so `composer update` would move the lock\n"
+            . "to a tag. To follow the branch, require it alone:\n"
+            . "  composer require 'acme/one:dev-main' --with-dependencies\n"
+            . "To follow release tags instead, require a tag range such as `^1.0` and run\n"
+            . "`composer update <package> --with-dependencies --prefer-stable`.\n\n"
+            . "Then run QA again. There is no point checking code with an out-of-date toolchain,\n"
+            . "or against out-of-date copies of your own packages.\n\n"
+            . self::PIN_ADVICE,
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function theDryRunIsAskedWithExactlyTheDocumentedOptions(): void
+    {
+        $this->project(['acme/one' => self::CARET, 'acme/two' => self::MAIN], ['acme/one' => self::TAG_LOCK, 'acme/two' => self::MAIN]);
+        $this->factory->processes->willSucceed(self::CURRENT_ANSWER)->willSucceed(self::CURRENT_ANSWER);
+
+        $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        $common         = ['--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'];
+        [$branch, $tag] = array_map(
+            static fn (ProcessSpecDto $spec): array => \array_slice($spec->command, (int)array_search(self::UPDATE, $spec->command, true)),
+            $this->factory->processes->specs,
+        );
+        self::assertSame([self::UPDATE, 'acme/two', ...$common], $branch);
+        self::assertSame([self::UPDATE, 'acme/one', ...$common, self::PREFER_STABLE], $tag);
+    }
+
+    #[Test]
+    public function anUnreadableLockIsReportedWithAnErrorLineAndTheIdentifier(): void
+    {
+        $this->factory->project->write(self::LOCK_FILE, self::NOT_JSON);
+
+        $this->tool()->run($this->factory->context());
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringStartsWith('ERROR: composer.lock is not valid JSON: ', $printed);
+        self::assertStringContainsString(DependencyFreshnessTool::IDENTIFIER, $printed);
+    }
+
+    /** A package name's case does not matter to composer.json lookups, branch alternatives or the --dev decision. */
+    #[Test]
+    public function packageNamesAreMatchedToComposerJsonWithoutRegardToCase(): void
+    {
+        $this->factory->project->write(self::COMPOSER_JSON, \Safe\json_encode([
+            'require-dev' => ['acme/dev' => 'dev-main || ^1.0'],
+        ]));
+        $this->factory->project->write(self::LOCK_FILE, \Safe\json_encode([
+            'packages'     => [],
+            'packages-dev' => [['name' => 'Acme/Dev', 'version' => self::MAIN]],
+        ]));
+        $this->factory->processes->willSucceed("Updating dependencies\n  - Upgrading Acme/Dev (dev-main 93f1ae4 => dev-main 606a9f6)\n");
+
+        $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns('*/*')->build()));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertContains('Acme/Dev', $this->factory->processes->lastSpec()->command);
+        self::assertStringContainsString("  composer require --dev 'Acme/Dev:dev-main' --with-dependencies\n", $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aSkippedPlainBranchAskKeepsItsSkipWhenTheMixedAskIsFresh(): void
+    {
+        $this->project(['acme/one' => self::MAIN, 'acme/two' => self::MAIN_OR_RANGE], ['acme/one' => self::MAIN, 'acme/two' => self::MAIN]);
+        $this->factory->processes->willFail(1, self::UNREACHABLE_ANSWER)->willSucceed(self::CURRENT_ANSWER);
+
+        $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertStringContainsString(self::NOT_VERIFIED_ONE, $this->factory->output->fetch());
     }
 
     #[Test]
@@ -674,7 +815,7 @@ final class DependencyFreshnessToolTest extends TestCase
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertStringContainsString('composer.lock was NOT verified for: acme/one.', $this->factory->output->fetch());
+        self::assertStringContainsString(self::NOT_VERIFIED_ONE, $this->factory->output->fetch());
     }
 
     #[Test]
@@ -692,7 +833,7 @@ final class DependencyFreshnessToolTest extends TestCase
     public function anUnreadableComposerJsonFailsTheLane(): void
     {
         $this->lock(self::SELF);
-        $this->factory->project->write(self::COMPOSER_JSON, '{not json');
+        $this->factory->project->write(self::COMPOSER_JSON, self::NOT_JSON);
 
         $result = $this->tool()->run($this->factory->context());
 
@@ -747,7 +888,7 @@ final class DependencyFreshnessToolTest extends TestCase
     private function packagesAskedAbout(): array
     {
         $command   = $this->factory->processes->lastSpec()->command;
-        $arguments = \array_slice($command, (int)array_search('update', $command, true) + 1);
+        $arguments = \array_slice($command, (int)array_search(self::UPDATE, $command, true) + 1);
 
         return array_values(array_filter($arguments, static fn (string $argument): bool => !str_starts_with($argument, '--')));
     }

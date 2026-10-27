@@ -78,6 +78,21 @@ final class BranchOnlyProjectTest extends TestCase
         $copy->remove($this->dir->path);
     }
 
+    /** A `require` that is not an object leaves `require-dev` still to be rewritten, and names match without regard to case. */
+    #[Test]
+    public function aRequireSectionThatIsNotAnObjectDoesNotStopTheNextSectionBeingRewritten(): void
+    {
+        $this->dir->write(self::JSON, '{"require": "x", "require-dev": {"acme/one": "dev-main || ^1.0"}}');
+        $this->dir->write(self::LOCKFILE, self::LOCK);
+
+        $copy = BranchOnlyProject::create($this->dir->path, ['ACME/One' => self::MAIN]);
+
+        self::assertSame(
+            ['require' => 'x', 'require-dev' => ['acme/one' => self::MAIN]],
+            \Safe\json_decode($this->dir->read($copy->jsonFile), true),
+        );
+    }
+
     #[Test]
     public function twoCopiesDoNotShareAFile(): void
     {

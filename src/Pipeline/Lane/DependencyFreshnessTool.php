@@ -99,21 +99,18 @@ final readonly class DependencyFreshnessTool implements ToolInterface
             return ToolResultDto::failed($runtimeException->getMessage());
         }
 
-        $patterns = new DependencyFreshnessPatterns(...$context->config->dependencyFreshnessPatterns);
-        $checked  = array_values(array_filter($locked, $patterns->matches(...)));
-        if ([] === $checked) {
-            return ToolResultDto::passed();
-        }
-
-        $branches = [];
-        $mixed    = [];
-        $tags     = [];
-        foreach ($checked as $name) {
+        $patterns   = new DependencyFreshnessPatterns(...$context->config->dependencyFreshnessPatterns);
+        $branches   = [];
+        $mixed      = [];
+        $mixedNames = [];
+        $tags       = [];
+        foreach (array_filter($locked, $patterns->matches(...)) as $name) {
             $constraint = $constraints[strtolower($name)] ?? null;
             if (!Tracking::followsBranch($constraint, $versions[$name] ?? null)) {
                 $tags[] = $name;
             } elseif (null !== Tracking::branchAlternatives($constraint)) {
-                $mixed[strtolower($name)] = Tracking::branchAlternatives($constraint);
+                $mixed[$name]  = Tracking::branchAlternatives($constraint);
+                $mixedNames[]  = $name;
             } else {
                 $branches[] = $name;
             }
@@ -130,14 +127,14 @@ final readonly class DependencyFreshnessTool implements ToolInterface
 
         $mixedStale = [];
         if ([] !== $mixed) {
-            $answered   = $this->askAsBranches($context, $root, $mixed);
+            $answered   = $this->askAsBranches($context, $root, $mixed, ...$mixedNames);
             $mixedStale = \is_array($answered) ? $answered : [];
             $skip       ??= $answered instanceof ToolResultDto ? $answered : null;
         }
 
         if ([] !== $tags) {
             $answered = $this->ask($context, $root, true, null, ...$tags);
-            $tagStale = \is_array($answered) ? array_values(array_filter($answered, static fn (StaleDependencyDto $package): bool => !Tracking::isBranchVersion($package->available))) : [];
+            $tagStale = \is_array($answered) ? array_filter($answered, static fn (StaleDependencyDto $package): bool => !Tracking::isBranchVersion($package->available)) : [];
             $skip     ??= $answered instanceof ToolResultDto ? $answered : null;
         }
 
@@ -154,14 +151,13 @@ final readonly class DependencyFreshnessTool implements ToolInterface
      * prefers a tag to a branch head, which would answer with a tag and move
      * the lock backwards.
      *
-     * @param array<array-key, string> $branchConstraints lower-case package name => branch alternatives
+     * @param array<array-key, string> $branchConstraints package name => branch alternatives
+     * @param string                   ...$names          the keys of $branchConstraints
      *
      * @return list<StaleDependencyDto>|ToolResultDto
      */
-    private function askAsBranches(ToolContext $context, string $root, array $branchConstraints): array|ToolResultDto
+    private function askAsBranches(ToolContext $context, string $root, array $branchConstraints, string ...$names): array|ToolResultDto
     {
-        $names = array_map(strval(...), array_keys($branchConstraints));
-
         try {
             $copy = BranchOnlyProject::create($root, $branchConstraints);
         } catch (RuntimeException|SafeExceptionInterface $exception) {
@@ -295,7 +291,7 @@ final readonly class DependencyFreshnessTool implements ToolInterface
      * admits tags (Composer would choose the tag, which may be older than the
      * lock), so the remedy requires the branch alone.
      *
-     * @param array<array-key, string> $mixed lower-case package name => branch alternatives
+     * @param array<array-key, string> $mixed package name => branch alternatives
      */
     private function mixedRemedy(ToolContext $context, string $root, array $mixed, StaleDependencyDto ...$mixedStale): void
     {
@@ -304,16 +300,11 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         $context->writeln('and Composer prefers a tag to a branch head, so `composer update` would move the lock');
         $context->writeln('to a tag. To follow the branch, require it alone:');
         foreach ($mixedStale as $package) {
-            $name = strtolower($package->name);
-            if (!isset($mixed[$name])) {
-                continue;
-            }
-
             $context->writeln(\sprintf(
-                '  composer require %s\'%s:%s\' --with-dependencies',
-                \in_array($name, $dev, true) ? '--dev ' : '',
+                "  composer require %s'%s:%s' --with-dependencies",
+                \in_array(strtolower($package->name), $dev, true) ? '--dev ' : '',
                 $package->name,
-                $mixed[$name],
+                $mixed[$package->name],
             ));
         }
 
@@ -324,7 +315,7 @@ final readonly class DependencyFreshnessTool implements ToolInterface
 
     private function names(StaleDependencyDto ...$stale): string
     {
-        return implode(' ', array_map(static fn (StaleDependencyDto $package): string => $package->name, array_values($stale)));
+        return implode(' ', array_map(static fn (StaleDependencyDto $package): string => $package->name, $stale));
     }
 
     private function composer(): string

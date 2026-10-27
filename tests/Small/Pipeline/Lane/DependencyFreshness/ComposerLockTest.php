@@ -19,6 +19,8 @@ use RuntimeException;
 #[Small]
 final class ComposerLockTest extends TestCase
 {
+    private const string NOT_JSON = '{not json';
+
     private const string LOCK = 'composer.lock';
 
     private TempDir $dir;
@@ -67,7 +69,19 @@ final class ComposerLockTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageIsOrContains('composer.lock is not valid JSON');
 
-        ComposerLock::packageNames($this->dir->write(self::LOCK, '{not json'));
+        ComposerLock::packageNames($this->dir->write(self::LOCK, self::NOT_JSON));
+    }
+
+    #[Test]
+    public function theRefusalCarriesNoErrorCodeAndTheJsonErrorAsItsCause(): void
+    {
+        try {
+            ComposerLock::packageNames($this->dir->write(self::LOCK, self::NOT_JSON));
+            self::fail('a lock that is not JSON must be refused');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame(0, $runtimeException->getCode());
+            self::assertInstanceOf(\Safe\Exceptions\JsonException::class, $runtimeException->getPrevious());
+        }
     }
 
     #[Test]
@@ -76,7 +90,7 @@ final class ComposerLockTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageIsOrContains('composer.lock is not valid JSON');
 
-        ComposerLock::versions($this->dir->write(self::LOCK, '{not json'));
+        ComposerLock::versions($this->dir->write(self::LOCK, self::NOT_JSON));
     }
 
     #[Test]

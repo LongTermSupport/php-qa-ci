@@ -35,6 +35,8 @@ final class TrackingTest extends TestCase
 
     private const string BRANCH_OR_RANGE = 'dev-php8.5 || ^1.0';
 
+    private const string NOT_JSON = '{not json';
+
     private const string COMPOSER_JSON = 'composer.json';
 
     private TempDir $dir;
@@ -179,7 +181,7 @@ final class TrackingTest extends TestCase
     #[Test]
     public function aComposerJsonThatIsNotJsonIsRefusedByTheDevOnlyReadToo(): void
     {
-        $this->dir->write(self::COMPOSER_JSON, '{not json');
+        $this->dir->write(self::COMPOSER_JSON, self::NOT_JSON);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageIsOrContains('composer.json is not valid JSON');
@@ -225,7 +227,19 @@ final class TrackingTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageIsOrContains('composer.json is not valid JSON');
 
-        $this->constraintsOf('{not json');
+        $this->constraintsOf(self::NOT_JSON);
+    }
+
+    #[Test]
+    public function theRefusalCarriesNoErrorCodeAndTheJsonErrorAsItsCause(): void
+    {
+        try {
+            $this->constraintsOf(self::NOT_JSON);
+            self::fail('a composer.json that is not JSON must be refused');
+        } catch (RuntimeException $runtimeException) {
+            self::assertSame(0, $runtimeException->getCode());
+            self::assertInstanceOf(\Safe\Exceptions\JsonException::class, $runtimeException->getPrevious());
+        }
     }
 
     #[Test]
