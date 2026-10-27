@@ -25,6 +25,10 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- **`-p` checks the named path alone, whatever `withCheckedPaths()` adds.** A project whose `qaConfig/qa.php` called `withCheckedPaths('apps', 'config')` had those paths appended to the one named with `-p`, so every lane (PHPUnit among them) received several paths and a runner given several could skip the named file. With `-p`, `withCheckedPaths()` is now ignored for that run and exactly the named path reaches the lanes.
+
 ## 85.10.1 — 2026-10-27
 
 ### Fixed
