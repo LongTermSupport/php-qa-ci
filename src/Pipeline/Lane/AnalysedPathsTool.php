@@ -81,7 +81,9 @@ final readonly class AnalysedPathsTool implements ToolInterface
     /**
      * The withIgnoredPaths() entries naming a path where nothing exists. Such
      * an exclusion outlived what it excluded, and would hide whatever is added
-     * there later from every scanning lane.
+     * there later from every scanning lane. A missing path that git ignores is
+     * not stale: it is a generated file a fresh checkout lacks until a run
+     * writes it, and the verdict must not depend on whether that has happened.
      *
      * @return list<string> as the project declared them
      */
@@ -91,8 +93,24 @@ final readonly class AnalysedPathsTool implements ToolInterface
 
         return array_values(array_filter(
             $context->config->pathsToIgnore,
-            static fn (string $path): bool => !file_exists($root . self::SEPARATOR . ltrim($path, self::SEPARATOR)),
+            fn (string $path): bool => !file_exists($root . self::SEPARATOR . ltrim($path, self::SEPARATOR))
+                && !$this->gitIgnores($context, $path),
         ));
+    }
+
+    /** Whether git's own ignore rules cover the path, asked of git rather than guessed from patterns. */
+    private function gitIgnores(ToolContext $context, string $path): bool
+    {
+        $relative = ltrim($path, self::SEPARATOR);
+        if (str_starts_with($relative, './')) {
+            $relative = substr($relative, 2);
+        }
+
+        return $context->processes->run(new ProcessSpecDto(
+            ['git', 'check-ignore', '--quiet', '--no-index', '--', $relative],
+            $context->config->paths->projectRoot,
+            streamOutput: false,
+        ))->succeeded();
     }
 
     private function reportStaleIgnored(ToolContext $context, string ...$stale): void

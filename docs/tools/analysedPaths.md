@@ -44,6 +44,12 @@ An **ignored path** naming a path where nothing exists fails as stale for the sa
 scanning lane would skip whatever is added there later. An ignored path that exists passes
 whatever it holds, since ignored paths routinely hold fixtures that are not PHP.
 
+The exception is a missing ignored path that **git itself ignores** (asked of `git check-ignore`,
+so `.gitignore` and the other standard exclude sources decide, not a pattern guess). That is a
+generated file, such as a framework's generated config file, which a fresh checkout lacks until a
+run writes it. It is allowed to be missing, so the verdict is the same before and after the file
+is generated. A missing path git does not ignore still fails as stale.
+
 ## How it runs
 
 - In the full pipeline, in the linting phase, after the infection.json source directories check.

@@ -269,6 +269,8 @@ final class AnalysedPathsToolTest extends TestCase
     {
         $this->tracked(self::SRC_FILE);
         $this->factory->project->write('tests/assets/fixture.twig', '');
+        $this->factory->processes->willFail(1);
+
         $config = $this->factory->builder()->withIgnoredPaths('src/Removed', 'tests/assets')->build();
 
         $result  = new AnalysedPathsTool()->run($this->factory->context($config));
@@ -278,6 +280,35 @@ final class AnalysedPathsToolTest extends TestCase
         self::assertStringContainsString("withIgnoredPaths('src/Removed') names a path where nothing exists", $printed);
         self::assertStringNotContainsString("withIgnoredPaths('tests/assets')", $printed);
         self::assertStringContainsString(AnalysedPathsTool::IDENTIFIER, $printed);
+        self::assertCount(2, $this->factory->processes->specs, 'only the missing path is put to git; an existing one needs no answer');
+    }
+
+    #[Test]
+    public function aMissingIgnoredPathThatGitIgnoresIsNotStale(): void
+    {
+        $this->tracked(self::SRC_FILE);
+        $this->factory->processes->willSucceed();
+        $config = $this->factory->builder()->withIgnoredPaths('./config/generated.php')->build();
+
+        $result = new AnalysedPathsTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        $probe = $this->factory->processes->lastSpec();
+        self::assertSame($this->checkIgnore('config/generated.php'), $probe->command);
+        self::assertSame($this->factory->project->path, $probe->cwd);
+        self::assertFalse($probe->streamOutput);
+    }
+
+    #[Test]
+    public function aLeadingSlashIsDroppedBeforeGitIsAsked(): void
+    {
+        $this->tracked(self::SRC_FILE);
+        $this->factory->processes->willSucceed();
+        $config = $this->factory->builder()->withIgnoredPaths('/build/')->build();
+
+        new AnalysedPathsTool()->run($this->factory->context($config));
+
+        self::assertSame($this->checkIgnore('build/'), $this->factory->processes->lastSpec()->command);
     }
 
     #[Test]
@@ -368,6 +399,12 @@ final class AnalysedPathsToolTest extends TestCase
         self::assertSame('analysedPaths', $tool->name());
         self::assertSame('phpqaci.analysedPaths', $tool->identifier());
         self::assertSame(AnalysedPathsTool::IDENTIFIER, $tool->identifier());
+    }
+
+    /** @return list<string> the argv that asks git whether it ignores the path */
+    private function checkIgnore(string $path): array
+    {
+        return ['git', ...['check-ignore', '--quiet', '--no-index', '--', $path]];
     }
 
     private function tracked(string ...$files): void
