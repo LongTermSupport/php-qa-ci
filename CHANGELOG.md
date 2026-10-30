@@ -29,6 +29,14 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the dependency update: phpstan 2.3.2 → 2.3.4; composer-normalize 2.54.0 → 2.56.0; phpstan/phpstan (in rector.phar) 2.3.2 → 2.3.4; rector/rector 2.8.1 → 2.8.3.
 
+### Fixed
+
+- The shipped composer-normalize PHAR accepts a lock file written by Composer 2.11 when the
+  project's `composer.json` sets `config.policy` (issue #383). Before, the `composerChecks` lane
+  reported such a lock as not up to date although `composer update` had just written it. A test
+  now writes a lock with the installed Composer and runs the shipped PHAR over it, so a PHAR that
+  bundles an older Composer than the one in use fails the build.
+
 ## 85.10.3 — 2026-10-30
 
 ### Fixed
