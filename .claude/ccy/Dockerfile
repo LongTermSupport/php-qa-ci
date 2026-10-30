@@ -3,8 +3,10 @@
 # ============================================================================
 # This project is a bash-orchestrated PHP QA pipeline (composer library).
 # composer.json requires PHP ^8.5 (the php8.5 branch targets PHP 8.5), so the
-# container installs PHP 8.5 from the Sury repo (Debian bookworm ships 8.2,
-# which cannot even run `composer install` here).
+# container installs PHP 8.5 from the Sury repo (Debian's own PHP is too old to
+# run `composer install` here). The Sury suite is the base image's own Debian
+# codename: a suite for another release needs libraries (libicu, libzip) that
+# the base image does not carry.
 #
 # Installed on top of claude-yolo:latest:
 #   - PHP 8.5 CLI + extensions the pipeline/tools need
@@ -28,7 +30,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     curl -fsSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb && \
     dpkg -i /tmp/debsuryorg-archive-keyring.deb && \
     rm /tmp/debsuryorg-archive-keyring.deb && \
-    echo "deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ bookworm main" \
+    echo "deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ $(. /etc/os-release && echo "$VERSION_CODENAME") main" \
         > /etc/apt/sources.list.d/sury-php.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
