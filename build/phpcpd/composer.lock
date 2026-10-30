@@ -72,7 +72,8 @@
                 "issues": "https://github.com/phpcpd-next/phpcpd/issues",
                 "source": "https://github.com/phpcpd-next/phpcpd"
             },
-            "time": "2026-09-15T20:06:09+00:00"
+            "time": "2026-09-15T20:06:09+00:00",
+            "published-time": "2026-09-15T20:08:47+00:00"
         }
     ],
     "packages-dev": [],
@@ -87,5 +88,5 @@
         "php": "^8.5"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }

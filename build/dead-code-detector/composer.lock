@@ -93,7 +93,8 @@
                 "issues": "https://github.com/shipmonk-rnd/dead-code-detector/issues",
                 "source": "https://github.com/shipmonk-rnd/dead-code-detector/tree/1.4.2"
             },
-            "time": "2026-09-18T07:50:08+00:00"
+            "time": "2026-09-18T07:50:08+00:00",
+            "published-time": "2026-09-21T13:58:14+00:00"
         }
     ],
     "packages-dev": [],
@@ -108,5 +109,5 @@
         "php": "^8.5"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }
