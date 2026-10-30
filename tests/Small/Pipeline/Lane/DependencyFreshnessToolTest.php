@@ -886,15 +886,9 @@ final class DependencyFreshnessToolTest extends TestCase
     }
 
     #[Test]
-    public function aPackageOnTheCooldownIgnoreListIsJudgedImmediatelyWhileAnotherIsWithheld(): void
+    public function aBehindPackageIsFailedBesideAHeldBackOneAndNoCooldownBypassIsEverPassed(): void
     {
         $this->project([self::ACME_ONE => self::CARET, self::ACME_TWO => self::CARET], [self::ACME_ONE => self::TAG_LOCK, self::ACME_TWO => self::TAG_LOCK]);
-        $this->factory->project->write(self::COMPOSER_JSON, \Safe\json_encode([
-            'name'    => 'fixture/ctx',
-            'type'    => 'project',
-            'require' => [self::ACME_ONE => self::CARET, self::ACME_TWO => self::CARET],
-            'config'  => ['policy' => ['cooldown' => ['period' => '7 days', 'ignore' => [self::ACME_ONE]]]],
-        ]));
         $this->factory->processes
             ->willFail(2, self::cooldownRefusal(self::ACME_TWO))
             ->willSucceed("Updating dependencies\n  - Upgrading acme/one (1.0.0 => 1.0.9)\n")

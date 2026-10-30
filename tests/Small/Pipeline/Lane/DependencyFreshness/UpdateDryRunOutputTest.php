@@ -28,6 +28,10 @@ final class UpdateDryRunOutputTest extends TestCase
 
     private const string SELF_UPGRADE = "  - Upgrading lts/php-qa-ci (dev-php8.5 93f1ae4 => dev-php8.5 606a9f6)\n";
 
+    private const string FIRST_REFUSED ='acme/one';
+
+    private const string COOLDOWN_PROBLEM_ONE = "  Problem 1\n    - Root composer.json requires acme/one ^1.0, found acme/one[1.0.0] but these were not loaded, because they are still in the cooldown period configured in \"policy.cooldown\".\n";
+
     #[Test]
     public function anUpgradeOfANamedPackageIsStaleOnceThoughComposerPrintsItTwice(): void
     {
@@ -191,5 +195,55 @@ final class UpdateDryRunOutputTest extends TestCase
     public function aFailureThatPrintedNothingSaysSo(): void
     {
         self::assertSame('no output', new UpdateDryRunOutput("\n \n")->failureReason());
+    }
+
+    #[Test]
+    public function composersOwnCooldownRefusalNamesTheRefusedPackage(): void
+    {
+        $printed = <<<'OUT'
+            Loading composer repositories with package information
+            20 package version(s) withheld by the cooldown policy (run with -vv to list them).
+            Updating dependencies
+            Your requirements could not be resolved to an installable set of packages.
+
+              Problem 1
+                - Root composer.json requires acme/library ^85.10, found acme/library[85.10.0, 85.10.1, 85.10.2, 85.10.3] but these were not loaded, because they are still in the cooldown period configured in "policy.cooldown" (available in 2 days 22 hours). To exempt the package from the cooldown policy, add it to the "policy.cooldown.ignore" config, or run the command with --no-cooldown for a one-off bypass. To turn the feature off entirely, you can set "policy.cooldown.block" to false.
+
+            OUT;
+
+        self::assertSame(['acme/library'], new UpdateDryRunOutput($printed)->cooldownRefusedPackages());
+    }
+
+    #[Test]
+    public function aCooldownProblemFollowedByAConflictProblemIsNotACooldownRefusal(): void
+    {
+        $printed = self::COOLDOWN_PROBLEM_ONE . "\n  Problem 2\n    - Root composer.json requires acme/other ^1.0 but it conflicts with your root composer.json require (^2.0).\n";
+
+        self::assertNull(new UpdateDryRunOutput($printed)->cooldownRefusedPackages());
+    }
+
+    #[Test]
+    public function aConflictAndACooldownReasonUnderOneProblemIsNotACooldownRefusal(): void
+    {
+        $printed = "  Problem 1\n    - Root composer.json requires acme/one ^1.0 but it conflicts with your root composer.json require (^2.0).\n"
+            . "    - Root composer.json requires acme/two ^1.0, found acme/two[1.0.0] but these were not loaded, because they are still in the cooldown period configured in \"policy.cooldown\".\n";
+
+        self::assertNull(new UpdateDryRunOutput($printed)->cooldownRefusedPackages());
+    }
+
+    #[Test]
+    public function refusedPackagesAreNamedInLowerCaseOncePerPackageInOrder(): void
+    {
+        $printed = self::COOLDOWN_PROBLEM_ONE
+            . "\n  Problem 2\n    - Root composer.json requires Acme/Two ^1.0, found Acme/Two[1.0.0] but these were not loaded, because they are still in the cooldown period configured in \"policy.cooldown\".\n"
+            . "\n  Problem 3\n    - Root composer.json requires acme/one ^1.0, found ACME/ONE[1.0.0] but these were not loaded, because they are still in the cooldown period configured in \"policy.cooldown\".\n";
+
+        self::assertSame([self::FIRST_REFUSED, 'acme/two'], new UpdateDryRunOutput($printed)->cooldownRefusedPackages());
+    }
+
+    #[Test]
+    public function outputWithNoProblemIsNotACooldownRefusal(): void
+    {
+        self::assertNull(new UpdateDryRunOutput("20 package version(s) withheld by the cooldown policy (run with -vv to list them).\nNothing to modify in lock file\n")->cooldownRefusedPackages());
     }
 }
