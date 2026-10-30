@@ -5,10 +5,14 @@ Design only (Plan 00026, Task 1.1 and 1.2). Nothing here is built. Inputs: [PLAN
 (`InfectionTool`, `Infection/*`), `.github/workflows/qa.yml` and `templates/github-actions/php-qa-ci.yml` (identical
 today; the single job `QA Pipeline` has the 45 minute `timeout-minutes` limit).
 
+Revised after the independent review recorded in
+[subagent-reports/261030-design-review-fresh-reviewer.md](./subagent-reports/261030-design-review-fresh-reviewer.md);
+the revision is described in [subagent-reports/261030-design-revision-builder.md](./subagent-reports/261030-design-revision-builder.md).
+
 ## 0. Shape in one picture
 
 ```text
-scope ──(full run?)──► coverage ──artifact──► shard 1..N ──artifacts──► QA Pipeline (gate: join + verdict)
+scope ──(full run?)──► coverage ──artifacts──► shard 1..N ──artifacts──► QA Pipeline (gate: join + verdict)
   └────────────────► pipeline (all other lanes, useInfection=0 when sharded) ──────────────┘
 ```
 
@@ -18,6 +22,45 @@ scope ──(full run?)──► coverage ──artifact──► shard 1..N ─
 - gate job, named `QA Pipeline` (the one required status): joins the shard logs, judges them against the unchanged
   floors, and fails if any needed job failed or is missing.
 - When the lane is not a full run, or sharding is off, the run is today's single job; the matrix jobs are skipped.
+
+## 0a. What Infection 0.35.8 does (settled from its source)
+
+Read statically from the 0.35.8 tag (no PHP binary was available to run it). Paths are Infection's `src/` tree.
+
+- `--filter` is a substring match, not an exact one. `Source/Collector/BasicSourceCollector.php:159-168` wraps the
+  collected `*.php` files in `RealPathFilterIterator` with the filter values; `FileSystem/Finder/Iterator/RealPathFilterIterator.php:167-172`
+  turns a value into `'/' . preg_quote($value, '/') . '/'` unless it already is a regular expression, and `accept()`
+  (:142-151) tests that against the file's real path. So a value matches every file whose real path contains it. An
+  absolute path from the project root cannot be contained in the real path of a different file under the same root
+  (two distinct paths ending in `.php` cannot be substrings of one another when both start with the same root), so the
+  absolute list is safe; a project-relative or partial value is not (`src/A.php` also matches `vendor/x/src/A.php` if
+  that is in scope). The design therefore passes absolute paths and the join verifies membership anyway (section 4).
+- Several values: `Configuration/SourceFilter/PlainFilter.php:80-88` splits on `,`, trims each part and drops blank
+  parts (`array_filter` also drops a part that is the string `0`); `toString()` joins them back (:72-75). Multiple
+  values act as alternatives; that is the behaviour of Symfony's `MultiplePcreFilterIterator`, which lives outside the
+  fetched tree and is still to be proven (Task 2.0c), though MEASUREMENT F already ran two paths.
+- `--filter` is deprecated: `Command/Option/SourceFilterOptions.php:131-137` prints a deprecation warning since 0.34.0
+  and tells callers to pass positional paths. Positional paths are wrapped in `PositionalPathsFilter`
+  (`Configuration/SourceFilter/PositionalPathsFilter.php:38-53`), which the configuration factory resolves into a
+  `PlainFilter` for source paths, so the matching is the same. The lane's diff flavour already passes source files as
+  positional arguments (MEASUREMENT setup), so the shard argv passes its files positionally too: same matching, no
+  warning in a log. Task 2.0c proves the two forms select the same files.
+- Interaction: `--filter` with `--git-diff-filter` / `--git-diff-lines` is refused (an `Assert`,
+  `SourceFilterOptions.php:251-260`), and so is a positional path together with either git option (:270-277) or with
+  `--filter` (:262-268). A shard uses none of the git options, which is also why it must not set them.
+  `--only-covering-test-cases` is a separate test-selection option, orthogonal to the source filter; a shard does not
+  pass it (it loses real kills, MEASUREMENT C).
+- Zero files matched: `BasicSourceCollector::collect()` (:67-76) throws `NoSourceFound::noSourceFileFound` when the
+  filter leaves no file; the exception is flagged filtered (`Source/Exception/NoSourceFound.php:297-308`), and
+  `Command/RunCommand.php:398-402` turns a filtered `NoSourceFound` into a success message and exit success. The
+  exception leaves `Engine::execute()` (`Engine.php:93-115`) at `runMutationAnalysis()` (:100), outside the `try` whose
+  `finally` dispatches `ApplicationExecutionWasFinished`, so a JSON log is probably not written. A run that matches no
+  file therefore exits 0 and (by inference) writes no log; the shard must never depend on that (section 3).
+- Files matched but no mutants: `Mutation/FileMutationGenerator.php:88-90` returns nothing for a file with no covering
+  tests under the covered-only mode, silently. Whether the run then writes a zero-count JSON log and exits 0 is not
+  readable from the files fetched and is unproven (Task 2.0c).
+- Exit code of a shard without `--min-msi`: `Engine.php:102-111` runs the timeout and minimum-MSI checks only; with no
+  floors given the run exits success on any score (as section 3 assumes).
 
 ## 1. Shard unit, weight and balancing
 
@@ -38,6 +81,13 @@ becomes the floor of the slowest shard, so the design caps N (open question 3).
   shard has it after the handoff, parsing is cheap, and it measures exactly "covered code", the only code a full run
   mutates. Weight = `max(1, executed)`.
 
+**Only files inside the mutation scope are planned.** `index.xml` lists every file PHPUnit covered, including files
+the derived Infection configuration removes (`source.excludes` of the shipped `infection.json`, and the lane's ignored
+paths added by `IgnoredPathsInfectionConfig`). The planner intersects the index with the source scope the lane hands
+Infection (`source.directories` minus the excludes and ignored paths), so excluded files neither inflate weights nor
+fill shards, and the file list given to Infection holds only files Infection will mutate. The planner records the
+files it dropped for being out of scope (count only, in `shard.json`).
+
 The proxy is not proven: mutants per executed line vary by file kind (the 2,009-mutant collector is probably
 expression dense). Task 2.0b measures the correlation on one real CI baseline before any code ships. The fallback,
 still cheap and still no committed file: the gate job writes `infection-weights.json` (`file => mutant count`, summed
@@ -54,17 +104,24 @@ files. The fixed per-process start cost (15 to 20 s, MEASUREMENT F) is paid once
 and not dozens.
 
 Sizing: the serial mutation work was extrapolated to about 3,300 s on a loaded 22-CPU host (not measured on a CI
-runner). N is chosen so a shard's mutation time sits well inside the job limit; for this repository that is about 6 to
-8, fixed by the real baseline of Task 2.0a and kept in one place (section 5).
+runner). N is chosen so a shard's mutation time sits well inside the job limit; its value for this repository is fixed
+by the real baseline of Task 2.0a and kept in one place (section 5). N is also refused when it exceeds the number of
+planned files (section 3, empty shards).
 
 ## 2. Coverage: generated once, handed to shards
 
 - Stage `coverage` runs the lane's existing `ensureCoverage()` (the same phpunit invocation, config and Xdebug mode as
   a serial run, so the coverage is identical) plus `checkPreloadedSource()` over the whole source, then ends with
   `passed`. A red suite fails here exactly as in a serial run.
-- Uploaded as one artifact (retention 1 day): `var/qa/phpunit_logs/coverage-xml/` and `var/qa/phpunit_logs/phpunit.junit.xml`
-  (the lane hands Infection `--coverage=<logsDir>`, so Infection reads these), plus `coverage-manifest.json` written by
-  the stage: commit SHA, project root and a hash of `index.xml`.
+- Uploaded as two artifacts (retention 1 day), both named so they cannot collide with the existing `coverage` artifact
+  that the `coverage-report` job reads:
+  - `infection-coverage-handoff`: `var/qa/phpunit_logs/coverage-xml/` and `var/qa/phpunit_logs/phpunit.junit.xml` (the
+    lane hands Infection `--coverage=<logsDir>`, so Infection reads these). Downloaded by shards only.
+  - `infection-plan-input`: small; `index.xml` and `coverage-manifest.json` written by the stage (commit SHA, project
+    root, hash of `index.xml`, hash of the junit file). Downloaded by shards and by the gate, so the gate can recompute
+    the plan without the large handoff.
+    The existing `coverage` artifact and the `coverage-report` job's `needs` are untouched (it keeps pointing at the job
+    that uploads `coverage`, the `pipeline` job). The new stage job is named `infection-coverage`, not `coverage`.
 - Absolute paths: `index.xml` carries `source="<abs>/src"` and the junit file carries absolute test file paths
   (checked on a local coverage run). Both are valid only at the same checkout path. GitHub-hosted runners check out at
   the same workspace path in every job of one workflow, so the artifact works as is. The stage turns this assumption
@@ -95,14 +152,24 @@ runner). N is chosen so a shard's mutation time sits well inside the job limit; 
 1. `runConfig()` as today (derived `infection.json`, ignored paths, absolute paths, JSON log target).
 2. Skip diff resolution, and skip `checkPreloadedSource()` (the coverage stage did the whole-tree check once; a subset
    check per shard adds nothing and costs a probe load).
-3. Read the coverage manifest and `index.xml`, plan, take shard i's files.
+3. Read the coverage manifest and `index.xml`, plan (in-scope files only, section 1), take shard i's files. A planned
+   file count below N is refused by the planner before any job starts (N larger than the number of files with
+   mutants is a configuration error, not a quiet empty shard).
 4. Argv from `InfectionArguments::shard()`: the common part (`--coverage`, `--skip-initial-tests`, `--threads`,
-   `--configuration`) plus `--filter=<comma list>` plus `--log-verbosity=all`. **No `--min-msi`, no
-   `--min-covered-msi`, no `--with-uncovered`**: a shard's local score is not the verdict, and the full run mutates
-   covered code only. The mutant timeout is in `infection.json`, untouched.
-5. Write `shard.json` next to the log (index, count, coverage hash, hash of the file list, file count), run the phar
-   as today (low priority, no Xdebug), then check only that the JSON log exists and parses with a `killed` list and a
-   `processOutput` per killed mutant.
+   `--configuration`) plus the shard's absolute file paths as positional source arguments (section 0a: the same
+   matching as `--filter`, without its deprecation warning, and as the diff flavour already passes them) plus
+   `--log-verbosity=all`. **No `--min-msi`, no `--min-covered-msi`, no `--with-uncovered`, no git option, no
+   `--filter`** (the git options are refused together with a path, section 0a): a shard's local score is not the
+   verdict, and the full run mutates covered code only. The mutant timeout is in `infection.json`, untouched.
+5. Write `shard.json` next to the log: index, count, coverage hash, the shard's full file list (not only a hash of it),
+   file count and the count of out-of-scope files dropped. Then run the phar as today (low priority, no Xdebug), then
+   check only that the JSON log exists and parses with a `killed` list and a `processOutput` per killed mutant.
+   **Empty shard**: a shard whose file list is empty (only possible when the planner was bypassed, since it refuses
+   N above the file count) writes `shard.json` with `empty: true` and a synthetic all-zero log itself, and never
+   starts Infection (an unmatched filter makes Infection exit 0 with, by inference, no log, section 0a). A non-empty
+   shard that ends with no readable log is always a crash. Task 2.0c checks whether a non-empty shard whose files
+   yield no mutants writes a zero-count log; if it does not, the planner must exclude such files (known from a real
+   count), and until then the crash is the safe reading.
 6. **Do not run the vacuous-kill judgement in a shard.** `VacuousKillDetector` decides "the suite never started" from
    the share of vacuous kills among all kills (`suiteNeverStarted()`: every judged kill is vacuous). On a shard, a few
    files whose mutants break the test bootstrap could make every kill in that shard vacuous and crash it, while the
@@ -125,14 +192,32 @@ the lane and the planner (section 5) both call it, so the workflow cannot disagr
 
 Stage `join/<n>`, run by the gate job after downloading all shard artifacts into `var/qa/infection-shards/<i>/`.
 
-1. **Completeness.** Exactly `n` directories each with a readable log and `shard.json`; indices `1..n` once each; all
-   `shard.json` agree on count, coverage hash and file-list hash, and the coverage hash belongs to the commit under
-   test. Any gap crashes the lane naming the missing or mismatched shard. A rerun shard from another commit cannot be
-   mixed in.
-2. **Merge** (`InfectionLogMerger`, pure): sum the `stats` counts (`totalMutantsCount`, `killedCount`,
-   `killedByStaticAnalysisCount`, `notCoveredCount`, `escapedCount`, `errorCount`, `syntaxErrorCount`, `skippedCount`,
-   `ignoredCount`, `timeOutCount`); concatenate every mutant list (`killed`, `escaped`, `timeouted`, `notCovered`,
-   `errored`, `syntaxErrors`, `skipped`, `ignored`) in shard order; recompute `msi`, `mutationCodeCoverage` and
+0. **Inputs.** The gate downloads `infection-plan-input` (`index.xml`, manifest) and every shard artifact; it does not
+   download the large coverage handoff. It then **recomputes the plan itself** (same planner, same in-scope source
+   set, same N, same `index.xml`), so the expected file list of every shard is known independently of what the shards
+   report. The stage empties only `var/qa/infection/` (the merged output) and never `var/qa/infection-shards/`
+   (the downloaded inputs); the order is: empty the output directory, then read the shards.
+1. **Completeness and plan agreement.** Exactly `n` directories each with a readable log and `shard.json`; indices
+   `1..n` once each; every `shard.json` agrees on count and coverage hash, the manifest's commit is the commit under
+   test, and the manifest's `index.xml` hash equals the downloaded file's. Each `shard.json` file list equals the
+   recomputed plan's list for that index, exactly (a missing, extra or moved file fails, naming the shard and file),
+   and the union of the lists equals the recomputed planned set with no file in two shards. Any gap crashes the lane
+   naming the missing or mismatched shard. A rerun shard from another commit cannot be mixed in.
+   1a. **Mutant membership.** For every mutant in every shard's log, the source file it names (`originalFilePath`) must be
+   in that shard's recorded list, and no mutant identity (file, line range, mutator, replacement text) may appear in
+   two shards. Either breach fails the join loudly, naming the shard, the file and the mutant. This does not rely on
+   the `--filter` semantic being exact: a substring match that pulled a foreign file into one shard is caught here
+   instead of double-counted.
+2. **Merge** (`InfectionLogMerger`, pure): sum every integer count under `stats` that is a mutant count
+   (`totalMutantsCount`, `killedCount`, `killedByStaticAnalysisCount`, `notCoveredCount`, `escapedCount`,
+   `errorCount`, `syntaxErrorCount`, `skippedCount`, `ignoredCount`, `timeOutCount`); concatenate every array-valued
+   top-level key other than `stats` (today `killed`, `escaped`, `timeouted`, `notCovered`, `errored`, `syntaxErrors`,
+   `skipped`, `ignored`) in shard order. **The merger does not rely on that hand-written list silently**: it iterates
+   the keys actually present, and a top-level key or `stats` key it cannot classify as a sum, a recomputed score or
+   a concatenated list fails the join by name, so a list a newer or different Infection emits is never dropped from the
+   merged log while the counts still add up. The key set is pinned by a fixture taken from a real 0.35.8 log
+   (Task 2.0c). `VacuousKillDetector::COUNTS` (which excludes `escapedCount`) and the merger's sum list stay separate
+   constants. Then recompute `msi`, `mutationCodeCoverage` and
    `coveredCodeMsi` from the summed counts with the formulas `KillJudgementDto` and `VacuousKillDetector::withCounts()`
    already replicate (tested = total - skipped - ignored; covered = tested - notCovered; detected includes timeouts
    unless the config counts them as escaped; two decimals, half away from zero). The timeout rule is one config, so
@@ -150,42 +235,82 @@ Stage `join/<n>`, run by the gate job after downloading all shard artifacts into
    verdict, same counts by addition, same formulas, the same judge code on the same data. The Phase 3 proof compares
    merged counts, escaped list and verdict with a serial run on one commit.
 
-**A shard crashes.** Its job is red and its log is absent; upload uses `if: always()`. The gate then fails twice over:
-the `needs` result check and the completeness check. No partial verdict is ever a pass. A crashed shard is rerun with
-"re-run failed jobs"; the gate reruns and re-joins; the plan is deterministic and the hashes are checked, so the rerun
-slots in.
+**A shard crashes.** Its job is red and its log may be absent; upload uses `if: always()`. The gate then fails twice
+over: the `needs` result check and the completeness check. No partial verdict is ever a pass. A crashed shard is rerun
+with "re-run failed jobs"; the gate reruns and re-joins; the plan is deterministic and recomputed, so the rerun slots
+in.
+
+**Rerun and artifact names.** A crashed shard that wrote a log has already uploaded its artifact in the run, and
+`actions/upload-artifact` (v4 and later, as the template pins) rejects a second upload of the same name in one run
+unless told to overwrite. The rule: shard artifacts are named `infection-shard-<i>` and every upload step sets
+`overwrite: true`, so a rerun attempt replaces the crashed attempt's artifact and the join always sees the newest
+upload per index. No attempt number is put in the name, so there is never a choice between two logs to make: the
+gate, which itself runs only after the shard jobs of the final attempt finish, downloads exactly one artifact per
+index. Because the join checks the commit, the coverage hash and the recomputed file lists, a stale artifact from
+another commit or plan cannot pass. Task 3.1 proves this with a real rerun. The 1-day retention of the two coverage
+artifacts means a rerun after a day fails at download; that is loud and accepted.
 
 ## 5. Workflow and template
 
 Changes identical in `.github/workflows/qa.yml` and `templates/github-actions/php-qa-ci.yml` (they stay identical, as
 today).
 
-- **`scope` job** (short limit): checkout (full history), PHP, deps, then a thin `bin/infection-plan` entry (PHP in
-  `src/`; the entry only wires arguments) printing `sharded=true|false` and `shards=N`, redirected into
-  `$GITHUB_OUTPUT` by one `run:` line. It uses `InfectionRunScope`, `useInfection`, and the shard count from the
-  repository variable `PHP_QA_CI_INFECTION_SHARDS` (unset or 1 means off, today's behaviour; consumers opt in). It
-  prints `sharded=false` for push runs (`useInfection=0` today) and for a `workflow_dispatch` of a single tool.
+- **`scope` job** (short limit): checkout (full history), PHP, deps, then the `bin/infection-plan` entry (section 5a)
+  printing `sharded=true|false` and `shards=N`, redirected into `$GITHUB_OUTPUT` by one `run:` line. It uses
+  `InfectionRunScope`, `useInfection`, and the shard count from the repository variable
+  `PHP_QA_CI_INFECTION_SHARDS` (unset or 1 means off, today's behaviour; consumers opt in). It prints `sharded=false`
+  for push runs (`useInfection=0` today) and for every `workflow_dispatch`: a manual run of the single tool
+  `infection` stays unsharded, so it is still a serial run bound by the 45 minute limit; this is documented, not
+  worked around.
 - **`pipeline` job** (the current `qa` job body, 45 minute limit): same steps, with `useInfection` forced `0` when
   `sharded=true`. Not itself the required status.
-- **`coverage` job** (`needs: scope`, `if: sharded`): `qa -t infection` with `infectionShard=coverage`; uploads the
-  handoff artifact.
-- **`mutate` matrix job** (`needs: coverage`, matrix `shard`, `fail-fast: false` so one red shard does not hide the
-  others' escaped lists): download the artifact, `qa -t infection` with `infectionShard=<i>/N` and
-  `infectionDiffBase=full`; upload `var/qa/infection/` as `infection-shard-<i>` with `if: always()`. The matrix list
-  comes from `fromJSON` of the planner's output, so N lives only in the repository variable.
-- **Gate job `qa`, `name: QA Pipeline`** (the required status; `needs: [scope, pipeline, coverage, mutate]`,
-  `if: always()`): fails when any needed result is `failure` or `cancelled`, or `scope` did not succeed (declarative
-  `if:` steps, no Bash logic). When `sharded`, it checks out, installs, downloads the shard artifacts and runs
-  `qa -t infection` with `infectionShard=join/N`. Branch protection matches the check name, not the job id, so the
+- **`infection-coverage` job** (`needs: scope`, `if: sharded`): `qa -t infection` with `infectionShard=coverage`;
+  uploads `infection-coverage-handoff` and `infection-plan-input` (section 2). Its name differs from the existing
+  `coverage` artifact and from the `coverage-report` job's inputs.
+- **`mutate` matrix job** (`needs: infection-coverage`, matrix `shard`, `fail-fast: false` so one red shard does not
+  hide the others' escaped lists): download both artifacts, `qa -t infection` with `infectionShard=<i>/N` and
+  `infectionDiffBase=full`; upload as `infection-shard-<i>` with `if: always()` and `overwrite: true` (section 4,
+  rerun rule). The upload names files explicitly: the JSON log, `shard.json` and the text logs. It **excludes the
+  Infection `tmp/` directory** (`tmpDir` in `qaConfig/infection.json`, large and of no use after the run). The matrix
+  list comes from `fromJSON` of the planner's output, so N lives only in the repository variable. The job is gated on
+  `sharded`, so the matrix expression is never evaluated with an empty list (a test asserts the guard).
+- **Gate job `qa`, `name: QA Pipeline`** (the required status;
+  `needs: [scope, pipeline, infection-coverage, mutate]`, `if: always()`): fails when any needed result is `failure`
+  or `cancelled`, or `scope` did not succeed (declarative `if:` steps, no Bash logic). When `sharded`, it checks out,
+  installs, downloads `infection-plan-input` and the shard artifacts into `var/qa/infection-shards/<i>/`, and runs
+  `qa -t infection` with `infectionShard=join/N` (the gate downloads what it needs; it never downloads the large
+  coverage handoff). The merged log goes to the normal `var/qa/infection/`, emptied before the shards are read
+  (section 4, step 0). Branch protection matches the check name, not the job id, so the
   required name stays one stable string. The gate is `always()` because a job skipped through a failed `needs` reports
   as skipped, which GitHub treats as passing.
-- Not sharded: the gate only does the result check; `coverage` and `mutate` are skipped. Today's path costs one extra
-  short job.
+- Not sharded: the gate only does the result check; `infection-coverage` and `mutate` are skipped. Today's path costs
+  one extra short job.
 - Every new job carries its own `timeout-minutes`, none above the existing 45. Artifacts: handoff retention 1 day,
   shard logs 7 days (as `test-results`).
 - Cost: wall time becomes the slowest of the `pipeline` job and (scope, coverage, one shard, join). CI compute grows
   by about N times the per-job setup plus one duplicated coverage run (the `pipeline` job still runs its own phpunit).
   `concurrency` (cancel in progress per pull request) already covers the new jobs.
+
+## 5a. The planner entry, `bin/infection-plan`
+
+Logic in a class under `src/` (a small `final readonly` `@internal` planner service); `bin/infection-plan` only builds
+it and prints (the Bash-for-invocation, PHP-for-logic ruling).
+
+- **Inputs**: the project root and the same environment the lane reads (`useInfection`, `infectionDiffBase`, the diff
+  base resolver's inputs), the shard count from `PHP_QA_CI_INFECTION_SHARDS`, and the event name for the manual-run
+  rule. The scope job has the same checkout depth and dependency install as the pipeline job, so the diff base
+  resolves identically.
+- **Outputs**: lines of `key=value` on stdout, nothing else: `sharded=true|false`, `shards=<N>` and, when sharded,
+  `matrix=[1,...,N]`. Diagnostics go to stderr.
+- **Decision**: it calls `InfectionRunScope`, which returns `Full(reason)`, `Diff(paths)` or `Skip(reason)` and also
+  models the cases the lane would refuse (uncommitted changes under the strict check) or fail on. Only `Full` with a
+  count above 1 prints `sharded=true`. `Diff`, `Skip`, a refusal, a push run, a manual run, `useInfection=0` and an
+  unset or 1 count all print `sharded=false`, so a refused or skipped lane never becomes a sharded run; the lane then
+  runs (and refuses) as it does today, inside the `pipeline` job. A malformed count exits non-zero (the scope job
+  fails loudly).
+- **Registration**: `bin/infection-plan` is added to the entry points `qaConfig/qa.php` names (as a recent change did
+  for another `bin/` entry), and the dead-code lane analyses it as an entry point.
+- The same planner class also produces the shard file lists (section 1), which is what the gate's recomputation uses.
 
 ## 6. Tests, first (red)
 
@@ -198,8 +323,9 @@ Existing style: Small tests under `tests/Small/`, Large for process-level ones.
    (every file in exactly one shard; union equals input; deterministic under input reorder; makespan \<= average plus
    largest item; N above the file count leaves empty shards; N = 1 returns all; equal weights break by path then
    index).
-3. **Argv**: `InfectionArguments::shard()` equals common + filter + verbosity, and contains none of `--min-msi`,
-   `--min-covered-msi`, `--with-uncovered`, `--only-covering-test-cases`; no timeout argument is ever added.
+3. **Argv**: `InfectionArguments::shard()` equals common + positional absolute paths + verbosity, and contains none of
+   `--min-msi`, `--min-covered-msi`, `--with-uncovered`, `--only-covering-test-cases`, `--filter`, any git option;
+   no timeout argument is ever added.
 4. **Lane, with the existing fakes** (`IncludedFilesProbeInterface`, process fakes): a shard does not generate
    coverage (missing coverage crashes with the named message), does not call the preload check, does not judge
    vacuous kills (an all-vacuous shard passes), crashes on SHA, root or hash mismatch, writes `shard.json`. The
@@ -209,14 +335,21 @@ Existing style: Small tests under `tests/Small/`, Large for process-level ones.
    of the unsplit log, over many seeds and k. Boundary tests: score exactly at the floor, one hundredth below, a
    rounding half-up case, zero killed, all vacuous in one shard but mixed in total (step 6 of section 3), timeouts
    counted as detected and as escaped.
-6. **Completeness**: missing shard, duplicate index, wrong count, differing coverage hash, log from another SHA,
-   unreadable log, stats that do not reproduce their `msi`: each a crash naming the shard.
+6. **Completeness and membership**: missing shard, duplicate index, wrong count, differing coverage hash, log from
+   another SHA, unreadable log, stats that do not reproduce their `msi`, a shard file list that differs from the
+   recomputed plan (missing, extra, moved file), the union of lists short of the planned set, a file in two shards, a
+   mutant whose source file is not in its shard's list, the same mutant identity in two shards, an unknown top-level or
+   `stats` log key, an empty shard's synthetic log, the plan recomputation using a different in-scope set: each a
+   crash naming the shard (and file). The planner drops out-of-scope files and refuses N above the file count.
 7. **Planner**: `InfectionRunScope` returns Full for each `InfectionFullRunTriggers` path and for no merge base, Diff
    otherwise; the planner's output equals the lane's decision for the same fixtures (one shared class, one table of
    cases).
 8. **Workflow files** (extend the existing template tests): `qa.yml` equals the template; exactly one job named
    `QA Pipeline`; it has `if: always()` and lists every other job in `needs`; `fail-fast: false`; every job has
-   `timeout-minutes`; upload steps use `if: always()`; `coverage` and `mutate` are gated on `sharded`.
+   `timeout-minutes`; upload steps use `if: always()`; shard uploads set `overwrite: true` and exclude `tmp/`;
+   `infection-coverage` and `mutate` are gated on `sharded` (the matrix is never evaluated with an empty list); the
+   handoff artifact names differ from `coverage`; `coverage-report` still needs the job that uploads `coverage`; a
+   `workflow_dispatch` run is `sharded=false`.
 9. **Large**: end to end on a tiny fixture project with the real phar: a serial full run against coverage + 3 shards +
    join, with the same counts, escaped list and verdict.
 
@@ -234,8 +367,10 @@ needed (open question 6).
 Risks:
 
 - The weight proxy is unproven (Task 2.0b measures it; the cached real-count refinement is the escape hatch).
-- Infection's `--filter` with about 300 absolute paths: measured with two paths only; the argv length (about 20 KB) is
-  far under limits, but the accepted form (absolute or project relative) needs a test.
+- File selection with about 300 absolute paths: measured with two paths only. The whole list is roughly 20 KB of
+  arguments; a shard carries about 1/N of it, far under any limit. Substring matching is settled from source (section
+  0a) and made harmless by absolute paths plus the join's membership check; the multi-value and positional equivalence
+  are Task 2.0c items.
 - Coverage path validity across jobs: assumed identical workspace path; checked at runtime (section 2).
 - Timeouts count as detected and are load sensitive (MEASUREMENT D, F); separate machines avoid the same-host
   contention that invalidated one run, but a loaded runner can still produce flaky timeouts, as a serial run can.
@@ -247,41 +382,20 @@ Open questions for the Owner:
 1. Is a lane setting `infectionShard` (stage, index, count; the lane builds its own argv) consistent with "not a tool
    proxy"? The design says yes: no Infection flag is exposed.
 2. Consumer default: the shipped template off unless `PHP_QA_CI_INFECTION_SHARDS` is set (proposed), or on?
-3. Shard count and CI compute budget for this repository (6 to 8 proposed; above about 9 the biggest file is the
-   floor).
+3. Shard count and CI compute budget for this repository (to be fixed by Task 2.0a; above about 9 the biggest file is
+   the floor).
 4. How Infection compares a score to its floor (rounded or not); the equivalence test pins what is found.
 5. Is a gate job with a different job id acceptable for the repository's branch protection, given the check name stays
    `QA Pipeline`? (Needs a look at the required-check configuration.)
 6. Should the join's failure modes reuse the existing identifier, or get a page for "shard handoff broken"?
 7. None on the changed-lines question: this design does not depend on it.
 
-## 8. Phased task list for PLAN.md
+Answers recorded from the review: question 1 is answered yes by the architecture rule that a need for another flag is
+a configuration setting (a typed `with*()` on `QaConfigBuilder`); question 5 is answered by the repository's
+branch-protection script, which requires the check by its name `QA Pipeline` (not its job id), and by the existing test
+that a workflow produces every required name, so the gate keeps that literal name. Question 6 leans yes: a page for
+"shard handoff broken" is cheap and gives the failures a stable identifier.
 
-### Phase 2.0 (prove assumptions, before code)
+## 8. Tasks
 
-- [ ] **Task 2.0a**: On a scratch branch with a long job limit, run the serial full lane once on a hosted runner;
-  record total time, per-file mutant counts and the log. This is the Phase 3 baseline too.
-- [ ] **Task 2.0b**: From that log and the coverage `index.xml`, compute the correlation of executed lines with
-  mutants per file; decide proxy against cached real counts; choose N.
-- [ ] **Task 2.0c**: Check `--filter` with an absolute list on a full coverage dir, Infection's floor comparison, and
-  that a downloaded coverage artifact works at the same path in a second job.
-
-### Phase 2 (build, each step red first)
-
-- [ ] **Task 2.1**: `InfectionShardDto`, parsing, builder and environment setting, settings row in
-  `docs/configuration.md`; tests 1.
-- [ ] **Task 2.2**: `InfectionRunScope` extracted from `InfectionTool` with no behaviour change (existing tests stay
-  green); tests 7.
-- [ ] **Task 2.3**: weights, balancer, `InfectionArguments::shard()`; tests 2 and 3.
-- [ ] **Task 2.4**: lane stages `coverage` and `<i>/<n>`, manifest, `shard.json`; tests 4.
-- [ ] **Task 2.5**: log merger, floor judge, completeness, `join` stage; tests 5 and 6.
-- [ ] **Task 2.6**: `bin/infection-plan` entry; workflow and template changes; tests 8.
-- [ ] **Task 2.7**: Large end to end (9); `docs/tools/infection.md`; `## Unreleased` entry (consumer-visible: a new
-  setting, a new entry point, a template change).
-
-### Phase 3 (prove)
-
-- [ ] **Task 3.1**: A pull request touching `qaConfig/infection.json`: the required check finishes; the aggregate
-  matches the 2.0a serial baseline (counts, escaped list, verdict). Rerun one shard to show re-join works; fail one
-  shard on purpose to show the gate goes red.
-- [ ] **Task 3.2** (optional): cached real-count weights if 2.0b says the proxy is poor.
+The phased task list lives in [PLAN.md](./PLAN.md) (single home); this design adds nothing to it.
