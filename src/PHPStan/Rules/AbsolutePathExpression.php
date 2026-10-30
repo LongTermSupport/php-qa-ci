@@ -151,7 +151,7 @@ final readonly class AbsolutePathExpression
 
         $type = TypeCombinator::removeNull($scope->getType($call->var));
 
-        return array_any(self::PATH_METHODS[$call->name->toLowerString()] ?? [], static fn ($receiver): bool => new ObjectType($receiver)->isSuperTypeOf($type)->yes());
+        return array_any(self::PATH_METHODS[$call->name->toLowerString()] ?? [], static fn (string $receiver): bool => new ObjectType($receiver)->isSuperTypeOf($type)->yes());
     }
 
     private function isPathNamedString(Expr $expr, Scope $scope): bool

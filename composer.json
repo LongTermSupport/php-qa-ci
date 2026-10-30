@@ -34,7 +34,7 @@
     "symfony/yaml": "^8.1"
   },
   "replace": {
-    "phpstan/phpstan": "2.3.2"
+    "phpstan/phpstan": "2.3.4"
   },
   "suggest": {
     "larastan/larastan": "Laravel specific checks (PHPStan wrapper)",
