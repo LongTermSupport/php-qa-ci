@@ -47,7 +47,7 @@ final class ShippedNormalizePharAcceptsTheInstalledComposersLockTest extends Tes
             self::markTestSkipped('composer is not on the PATH, so no lock can be written');
         }
 
-        $version = $this->execute([\PHP_BINARY, $composer, '--version', '--no-ansi'], \sys_get_temp_dir(), []);
+        $version = $this->execute([\PHP_BINARY, $composer, '--version', '--no-ansi'], sys_get_temp_dir(), []);
         $matches = [];
         \Safe\preg_match('/Composer version (\d+\.\d+\.\d+)/', $version, $matches);
         $installed = $matches[1] ?? '0';
