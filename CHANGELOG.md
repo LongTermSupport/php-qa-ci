@@ -29,6 +29,14 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the dependency update: phpstan 2.3.2 → 2.3.4; composer-normalize 2.54.0 → 2.56.0; phpstan/phpstan (in rector.phar) 2.3.2 → 2.3.4; rector/rector 2.8.1 → 2.8.3.
 
+### Fixed
+
+- `dependencyFreshness` follows Composer 2.11's `config.policy.cooldown` (issue #382). When the
+  cooldown makes Composer refuse the resolution because it withholds every version of a checked
+  package, the locked one included, the lane reports a `NOTE` that the package is held back
+  instead of a skip, and a package that is behind is still reported beside it. The lane never
+  passes `--no-cooldown`. A project with no policy is unchanged.
+
 ## 85.10.3 — 2026-10-30
 
 ### Fixed
