@@ -154,6 +154,20 @@ final class DependencyFreshnessToolTest extends TestCase
 
         OUT;
 
+    // Composer 2.11 with config.policy.cooldown: the locked version and every newer one are inside the period.
+    private const string COOLDOWN_REFUSAL = <<<'OUT'
+        Loading composer repositories with package information
+        20 package version(s) withheld by the cooldown policy (run with -vv to list them).
+        Updating dependencies
+        Your requirements could not be resolved to an installable set of packages.
+
+          Problem 1
+            - Root composer.json requires acme/one ^1.0, found acme/one[1.0.0, 1.0.1] but these were not loaded, because they are still in the cooldown period configured in "policy.cooldown" (available in 2 days 22 hours). To exempt the package from the cooldown policy, add it to the "policy.cooldown.ignore" config, or run the command with --no-cooldown for a one-off bypass.
+
+        OUT;
+
+    private const string NO_COOLDOWN = '--no-cooldown';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -469,7 +483,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aTagTrackingPackageBehindANewerTagFailsWithAPreferStableRemedy(): void
     {
-        $this->project(['acme/one' => self::CARET], ['acme/one' => self::TAG_LOCK]);
+        $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
         $this->factory->processes->willSucceed("Updating dependencies\nLock file operations: 0 installs, 1 update, 0 removals\n  - Upgrading acme/one (1.0.0 => 1.1.0)\n");
 
         $result  = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
@@ -675,7 +689,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aTagLockBehindANewerTagGetsTheWholeTagRemedy(): void
     {
-        $this->project(['acme/one' => self::CARET], ['acme/one' => self::TAG_LOCK]);
+        $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
         $this->factory->processes->willSucceed("Updating dependencies\n  - Upgrading acme/one (1.0.0 => 1.1.0)\n");
 
         $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
@@ -842,24 +856,10 @@ final class DependencyFreshnessToolTest extends TestCase
         self::assertSame([], $this->factory->processes->specs);
     }
 
-    // Composer 2.11 with config.policy.cooldown: the locked version and every newer one are inside the period.
-    private const string COOLDOWN_REFUSAL = <<<'OUT'
-        Loading composer repositories with package information
-        20 package version(s) withheld by the cooldown policy (run with -vv to list them).
-        Updating dependencies
-        Your requirements could not be resolved to an installable set of packages.
-
-          Problem 1
-            - Root composer.json requires acme/one ^1.0, found acme/one[1.0.0, 1.0.1] but these were not loaded, because they are still in the cooldown period configured in "policy.cooldown" (available in 2 days 22 hours). To exempt the package from the cooldown policy, add it to the "policy.cooldown.ignore" config, or run the command with --no-cooldown for a one-off bypass.
-
-        OUT;
-
-    private const string NO_COOLDOWN = '--no-cooldown';
-
     #[Test]
     public function aCooldownThatWithholdsOnlyNewerVersionsLeavesTheLockNotBehind(): void
     {
-        $this->project(['acme/one' => self::CARET], ['acme/one' => self::TAG_LOCK]);
+        $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
         $this->factory->processes->willSucceed("Loading composer repositories with package information\n3 package version(s) withheld by the cooldown policy (run with -vv to list them).\n" . self::CURRENT_ANSWER);
 
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
@@ -871,14 +871,14 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aCooldownThatWithholdsTheLockedVersionItselfIsNotAFailureAndNotASkip(): void
     {
-        $this->project(['acme/one' => self::CARET], ['acme/one' => self::TAG_LOCK]);
+        $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
         $this->factory->processes->willFail(2, self::COOLDOWN_REFUSAL);
 
         $result  = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString('acme/one', $printed);
+        self::assertStringContainsString(self::ACME_ONE, $printed);
         self::assertStringContainsString('cooldown', $printed);
         self::assertStringNotContainsString('SKIPPED', $printed);
         self::assertStringNotContainsString('out of date', $printed);
@@ -888,7 +888,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aPackageWithheldByTheCooldownDoesNotHideAnotherPackageThatIsBehind(): void
     {
-        $this->project(['acme/one' => self::CARET, 'acme/two' => self::CARET], ['acme/one' => self::TAG_LOCK, 'acme/two' => self::TAG_LOCK]);
+        $this->project([self::ACME_ONE => self::CARET, self::ACME_TWO => self::CARET], [self::ACME_ONE => self::TAG_LOCK, self::ACME_TWO => self::TAG_LOCK]);
         $this->factory->processes
             ->willFail(2, self::COOLDOWN_REFUSAL)
             ->willFail(2, self::COOLDOWN_REFUSAL)
@@ -908,7 +908,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aPackageOnTheCooldownIgnoreListIsJudgedImmediatelyAsBefore(): void
     {
-        $this->project(['acme/one' => self::CARET], ['acme/one' => self::TAG_LOCK]);
+        $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
         $this->factory->processes->willSucceed("Updating dependencies\n  - Upgrading acme/one (1.0.0 => 1.0.9)\n");
 
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
@@ -921,7 +921,7 @@ final class DependencyFreshnessToolTest extends TestCase
     #[Test]
     public function aFailureThatIsNotTheCooldownIsStillSkippedByName(): void
     {
-        $this->project(['acme/one' => self::CARET], ['acme/one' => self::TAG_LOCK]);
+        $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
         $this->factory->processes->willFail(2, "Your requirements could not be resolved to an installable set of packages.\n\n  Problem 1\n    - Root composer.json requires acme/one ^1.0 but it conflicts with your root composer.json require (^2.0).\n");
 
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));

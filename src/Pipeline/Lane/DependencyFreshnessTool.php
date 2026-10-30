@@ -192,6 +192,10 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         }
 
         $answer = new UpdateDryRunOutput($result->output);
+        if (!$result->succeeded() && $answer->withheldByCooldown()) {
+            return $this->askWithheld($context, $root, $preferStable, $composerFile, ...$packages);
+        }
+
         if (!$result->succeeded()) {
             return $this->skipped($context, \sprintf('composer failed (%s): %s', $result->describeExit(), $answer->failureReason()), ...$packages);
         }
@@ -211,6 +215,38 @@ final readonly class DependencyFreshnessTool implements ToolInterface
         }
 
         return [];
+    }
+
+    /**
+     * The project's cooldown policy withholds every version some package may
+     * take, the locked one included, so Composer could not resolve. One
+     * package alone is then not behind anything installable: it is named in an
+     * informational line and neither fails nor skips the lane. Several are
+     * asked one at a time, so the withheld one cannot hide another that is
+     * behind.
+     *
+     * @return list<StaleDependencyDto>|ToolResultDto
+     */
+    private function askWithheld(ToolContext $context, string $root, bool $preferStable, ?string $composerFile, string ...$packages): array|ToolResultDto
+    {
+        if (1 === \count($packages)) {
+            $context->writeln(\sprintf('NOTE %s: %s is held back by the cooldown policy (config.policy.cooldown): no version its constraint allows is old enough yet, so it is not judged behind.', self::NAME, $packages[0]));
+
+            return [];
+        }
+
+        $stale = [];
+        $skip  = null;
+        foreach ($packages as $package) {
+            $answered = $this->ask($context, $root, $preferStable, $composerFile, $package);
+            if (\is_array($answered)) {
+                $stale = [...$stale, ...$answered];
+            } else {
+                $skip ??= $answered;
+            }
+        }
+
+        return [] === $stale ? ($skip ?? []) : $stale;
     }
 
     /**

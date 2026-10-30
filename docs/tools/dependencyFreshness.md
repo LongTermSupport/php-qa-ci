@@ -119,6 +119,20 @@ Branch-following and tag-following packages are asked in separate dry runs; when
 cannot be reached for one of them, that one is skipped by name, and a stale answer from the other
 still fails the run.
 
+### Composer's cooldown policy
+
+The lane follows the project's `config.policy.cooldown` (Composer 2.11) and never passes
+`--no-cooldown`: a package is behind only when a newer version is installable under the policy.
+
+- A newer version the cooldown withholds is not available yet, so it does not fail the run.
+- When the cooldown withholds every version a package may take, the locked one included, Composer
+  cannot resolve at all (exit 2). That is not a skip and not a failure: the lane prints
+  `NOTE dependencyFreshness: <package> is held back by the cooldown policy` and carries on. When
+  several packages were asked together, each is then asked alone, so a withheld package cannot
+  hide another that is behind.
+- A package on `policy.cooldown.ignore` (`vendor/*` wildcards included) is not withheld, so it is
+  judged immediately, as for a project with no policy.
+
 ## When it runs
 
 - **In a full run** (`vendor/bin/qa` with no `-t`): first, after the pre hook and the run lock,

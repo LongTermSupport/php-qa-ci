@@ -25,6 +25,15 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- `dependencyFreshness` follows Composer 2.11's `config.policy.cooldown` (issue #382). A project
+  whose cooldown withholds the locked version of a checked package no longer gets a skip for the
+  failed resolution: the package is named in a `NOTE` line, is not judged behind, and a package
+  that is behind is still reported beside it. A newer version the cooldown withholds is not
+  counted as available, and a package on `policy.cooldown.ignore` is judged immediately. The lane
+  never passes `--no-cooldown`. A project with no policy is unchanged.
+
 ## 85.10.3 — 2026-10-30
 
 ### Fixed

@@ -49,6 +49,9 @@ final readonly class UpdateDryRunOutput
      */
     private const array UNREACHABLE = ['could not be fully loaded', 'may be out of date', 'may be outdated', 'could not be accessed'];
 
+    /** Composer's wording, in the problem it prints, for a version the cooldown policy kept out of the resolution. */
+    private const string COOLDOWN_REFUSAL = 'still in the cooldown period';
+
     public function __construct(private string $output)
     {
     }
@@ -93,6 +96,16 @@ final readonly class UpdateDryRunOutput
         }
 
         return array_values($stale);
+    }
+
+    /**
+     * Whether the resolution failed because the project's cooldown policy
+     * (`config.policy.cooldown`, Composer 2.11) withholds every version of a
+     * package the constraint allows, the locked one included.
+     */
+    public function withheldByCooldown(): bool
+    {
+        return str_contains($this->plain(), self::COOLDOWN_REFUSAL);
     }
 
     /** The line saying a package source could not be reached, or null when every source answered. */
