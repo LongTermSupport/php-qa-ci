@@ -154,6 +154,8 @@ final class DependencyFreshnessToolTest extends TestCase
 
         OUT;
 
+    private const string HELD_BACK = 'held back';
+
     private const string NO_COOLDOWN = '--no-cooldown';
 
     private ContextFactory $factory;
@@ -921,7 +923,7 @@ final class DependencyFreshnessToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString(self::SKIP_LINE, $printed);
-        self::assertStringNotContainsString('held back', $printed);
+        self::assertStringNotContainsString(self::HELD_BACK, $printed);
     }
 
     #[Test]
@@ -934,7 +936,7 @@ final class DependencyFreshnessToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertStringNotContainsString('held back', $printed);
+        self::assertStringNotContainsString(self::HELD_BACK, $printed);
         self::assertCount(1, $this->factory->processes->specs);
     }
 
@@ -947,7 +949,7 @@ final class DependencyFreshnessToolTest extends TestCase
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertStringNotContainsString('held back', $this->factory->output->fetch());
+        self::assertStringNotContainsString(self::HELD_BACK, $this->factory->output->fetch());
     }
 
     #[Test]
@@ -959,7 +961,7 @@ final class DependencyFreshnessToolTest extends TestCase
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
-        self::assertStringNotContainsString('held back', $this->factory->output->fetch());
+        self::assertStringNotContainsString(self::HELD_BACK, $this->factory->output->fetch());
     }
 
     #[Test]

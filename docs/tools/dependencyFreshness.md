@@ -127,9 +127,12 @@ The lane follows the project's `config.policy.cooldown` (Composer 2.11) and neve
 - A newer version the cooldown withholds is not available yet, so it does not fail the run.
 - When the cooldown withholds every version a package may take, the locked one included, Composer
   cannot resolve at all (exit 2). That is not a skip and not a failure: the lane prints
-  `NOTE dependencyFreshness: <package> is held back by the cooldown policy` and carries on. When
-  several packages were asked together, each is then asked alone, so a withheld package cannot
-  hide another that is behind.
+  `NOTE dependencyFreshness: <package> is held back by the cooldown policy` and carries on. This
+  applies only when every Problem Composer printed is such a refusal of a package the lane asked
+  about; a conflict beside it, a refusal of a dependency, or any other exit status is a skip by
+  name as for any failed run. When several packages were asked together, each is then asked alone
+  (at most one extra Composer run per package, each with its own timeout), so a withheld package
+  cannot hide another that is behind, and a real failure of one is still named as not verified.
 - A package on `policy.cooldown.ignore` (`vendor/*` wildcards included) is not withheld, so it is
   judged immediately, as for a project with no policy.
 

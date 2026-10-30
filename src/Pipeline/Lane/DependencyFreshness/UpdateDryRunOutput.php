@@ -52,6 +52,15 @@ final readonly class UpdateDryRunOutput
     /** Composer's wording, in the problem it prints, for a version the cooldown policy kept out of the resolution. */
     private const string COOLDOWN_REFUSAL = 'still in the cooldown period';
 
+    /** `  Problem 2`, the heading of each reason Composer could not resolve. */
+    private const string PROBLEM_HEADING = '/^\s*Problem \d+\s*$/m';
+
+    /** `    - Root composer.json requires ...`, one reason under a Problem. */
+    private const string PROBLEM_REASON = '/^\s+-\s+(.+)$/';
+
+    /** `found acme/one[1.0.0, 1.0.1]`, the package a refusal names. */
+    private const string REFUSED_PACKAGE = '/\bfound\s+(\S+?)\[/';
+
     public function __construct(private string $output)
     {
     }
@@ -99,13 +108,46 @@ final readonly class UpdateDryRunOutput
     }
 
     /**
-     * Whether the resolution failed because the project's cooldown policy
-     * (`config.policy.cooldown`, Composer 2.11) withholds every version of a
-     * package the constraint allows, the locked one included.
+     * The packages whose every version the project's cooldown policy
+     * (`config.policy.cooldown`, Composer 2.11) withholds, the locked one
+     * included, when that is the whole of why the resolution failed: every
+     * Problem Composer printed is such a refusal. Null when there is no
+     * Problem, or any Problem is something else (a conflict, a missing
+     * package), whatever else the output says about the cooldown.
+     *
+     * @return list<string>|null lower-case package names
      */
-    public function withheldByCooldown(): bool
+    public function cooldownRefusedPackages(): ?array
     {
-        return str_contains($this->plain(), self::COOLDOWN_REFUSAL);
+        $blocks = array_values(array_filter(\Safe\preg_split(self::PROBLEM_HEADING, $this->plain()), \is_string(...)));
+        array_shift($blocks);
+        if ([] === $blocks) {
+            return null;
+        }
+
+        $refused = [];
+        foreach ($blocks as $block) {
+            $reasons = [];
+            foreach (explode("\n", $block) as $line) {
+                if (1 === \Safe\preg_match(self::PROBLEM_REASON, $line, $reason) && isset($reason[1])) {
+                    $reasons[] = $reason[1];
+                }
+            }
+
+            if ([] === $reasons) {
+                return null;
+            }
+
+            foreach ($reasons as $text) {
+                if (!str_contains($text, self::COOLDOWN_REFUSAL) || 1 !== \Safe\preg_match(self::REFUSED_PACKAGE, $text, $found) || !isset($found[1])) {
+                    return null;
+                }
+
+                $refused[strtolower($found[1])] = true;
+            }
+        }
+
+        return array_map(strval(...), array_keys($refused));
     }
 
     /** The line saying a package source could not be reached, or null when every source answered. */
