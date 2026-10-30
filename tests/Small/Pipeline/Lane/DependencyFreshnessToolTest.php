@@ -850,7 +850,7 @@ final class DependencyFreshnessToolTest extends TestCase
     public function aCooldownThatWithholdsTheLockedVersionItselfIsNotAFailureAndNotASkip(): void
     {
         $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
-        $this->factory->processes->willFail(2, self::cooldownRefusal(self::ACME_ONE));
+        $this->factory->processes->willFail(2, $this->cooldownRefusal(self::ACME_ONE));
 
         $result  = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
         $printed = $this->factory->output->fetch();
@@ -867,8 +867,8 @@ final class DependencyFreshnessToolTest extends TestCase
     {
         $this->project([self::ACME_ONE => self::CARET, self::ACME_TWO => self::CARET], [self::ACME_ONE => self::TAG_LOCK, self::ACME_TWO => self::TAG_LOCK]);
         $this->factory->processes
-            ->willFail(2, self::cooldownRefusal(self::ACME_ONE))
-            ->willFail(2, self::cooldownRefusal(self::ACME_ONE))
+            ->willFail(2, $this->cooldownRefusal(self::ACME_ONE))
+            ->willFail(2, $this->cooldownRefusal(self::ACME_ONE))
             ->willSucceed("Updating dependencies\n  - Upgrading acme/two (1.0.0 => 1.1.0)\n")
         ;
 
@@ -890,9 +890,9 @@ final class DependencyFreshnessToolTest extends TestCase
     {
         $this->project([self::ACME_ONE => self::CARET, self::ACME_TWO => self::CARET], [self::ACME_ONE => self::TAG_LOCK, self::ACME_TWO => self::TAG_LOCK]);
         $this->factory->processes
-            ->willFail(2, self::cooldownRefusal(self::ACME_TWO))
+            ->willFail(2, $this->cooldownRefusal(self::ACME_TWO))
             ->willSucceed("Updating dependencies\n  - Upgrading acme/one (1.0.0 => 1.0.9)\n")
-            ->willFail(2, self::cooldownRefusal(self::ACME_TWO))
+            ->willFail(2, $this->cooldownRefusal(self::ACME_TWO))
         ;
 
         $result  = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
@@ -910,7 +910,7 @@ final class DependencyFreshnessToolTest extends TestCase
     public function aCooldownRefusalBesideARealConflictIsSkippedNotHeldBack(): void
     {
         $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
-        $this->factory->processes->willFail(2, "Your requirements could not be resolved to an installable set of packages.\n\n  Problem 1\n    - Root composer.json requires acme/one ^1.0 but it conflicts with your root composer.json require (^2.0).\n\n" . self::cooldownProblem(2, self::ACME_ONE));
+        $this->factory->processes->willFail(2, "Your requirements could not be resolved to an installable set of packages.\n\n  Problem 1\n    - Root composer.json requires acme/one ^1.0 but it conflicts with your root composer.json require (^2.0).\n\n" . $this->cooldownProblem(2, self::ACME_ONE));
 
         $result  = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
         $printed = $this->factory->output->fetch();
@@ -924,7 +924,7 @@ final class DependencyFreshnessToolTest extends TestCase
     public function aCooldownRefusalOfADependencyOfTheAskedPackageIsSkippedNotHeldBack(): void
     {
         $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
-        $this->factory->processes->willFail(2, self::cooldownRefusal('acme/dependency'));
+        $this->factory->processes->willFail(2, $this->cooldownRefusal('acme/dependency'));
 
         $result  = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
         $printed = $this->factory->output->fetch();
@@ -938,7 +938,7 @@ final class DependencyFreshnessToolTest extends TestCase
     public function aRunThatDidNotExitWithComposersResolutionFailureCodeIsSkippedNotHeldBack(): void
     {
         $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
-        $this->factory->processes->willFail(1, self::cooldownRefusal(self::ACME_ONE));
+        $this->factory->processes->willFail(1, $this->cooldownRefusal(self::ACME_ONE));
 
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
 
@@ -950,7 +950,7 @@ final class DependencyFreshnessToolTest extends TestCase
     public function aRunKilledBySignalAfterPrintingTheRefusalIsSkippedNotHeldBack(): void
     {
         $this->project([self::ACME_ONE => self::CARET], [self::ACME_ONE => self::TAG_LOCK]);
-        $this->factory->processes->willReturn(new ProcessResultDto(2, self::cooldownRefusal(self::ACME_ONE), '', 15));
+        $this->factory->processes->willReturn(new ProcessResultDto(2, $this->cooldownRefusal(self::ACME_ONE), '', 15));
 
         $result = $this->tool()->run($this->factory->context($this->factory->builder()->withDependencyFreshnessPatterns(self::ACME_GLOB)->build()));
 
@@ -963,7 +963,7 @@ final class DependencyFreshnessToolTest extends TestCase
     {
         $this->project([self::ACME_ONE => self::CARET, self::ACME_TWO => self::CARET], [self::ACME_ONE => self::TAG_LOCK, self::ACME_TWO => self::TAG_LOCK]);
         $this->factory->processes
-            ->willFail(2, self::cooldownRefusal(self::ACME_ONE))
+            ->willFail(2, $this->cooldownRefusal(self::ACME_ONE))
             ->willFail(1, self::UNREACHABLE_ANSWER)
             ->willSucceed("Updating dependencies\n  - Upgrading acme/two (1.0.0 => 1.1.0)\n")
         ;
@@ -1009,17 +1009,17 @@ final class DependencyFreshnessToolTest extends TestCase
      * every version of each package inside the period (the locked one too):
      * one Problem per package.
      */
-    private static function cooldownRefusal(string ...$packages): string
+    private function cooldownRefusal(string ...$packages): string
     {
         $problems = [];
         foreach (array_values($packages) as $index => $package) {
-            $problems[] = self::cooldownProblem($index + 1, $package);
+            $problems[] = $this->cooldownProblem($index + 1, $package);
         }
 
         return "Loading composer repositories with package information\n20 package version(s) withheld by the cooldown policy (run with -vv to list them).\nUpdating dependencies\nYour requirements could not be resolved to an installable set of packages.\n\n" . implode("\n", $problems);
     }
 
-    private static function cooldownProblem(int $number, string $package): string
+    private function cooldownProblem(int $number, string $package): string
     {
         return \sprintf("  Problem %d\n    - Root composer.json requires %s ^1.0, found %s[1.0.0, 1.0.1] but these were not loaded, because they are still in the cooldown period configured in \"policy.cooldown\" (available in 2 days 22 hours). To exempt the package from the cooldown policy, add it to the \"policy.cooldown.ignore\" config, or run the command with --no-cooldown for a one-off bypass.\n", $number, $package, $package);
     }
