@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.10.3 — 2026-10-30
+
 ### Fixed
 
 - `dependencyFreshness` judges a package by what the project's composer configuration makes it
