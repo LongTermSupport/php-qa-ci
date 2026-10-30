@@ -5,7 +5,7 @@ Infection lane, the workflow and template, and the repo rules. Design only; no c
 Limits: no `php` binary in this worktree, so Infection 0.35.8 behaviour (phar internals, `--filter` matching, the
 zero-mutant log) could not be run or read; those claims are marked UNVERIFIED and need Task 2.0c.
 
-Verdict: APPROVE WITH MINORS is not warranted; CHANGES NEEDED (two MAJORs, both cheap to fix in the text).
+Outcome at review time: two MAJOR findings, both cheap to fix in the text, since addressed in the revision.
 
 ## Claims checked
 
@@ -128,7 +128,7 @@ files Infection never mutates.
   section 8; DESIGN's "Phased task list for PLAN.md" is not yet merged into PLAN.md, whose tasks are 1.1 to 3.1.
 - "about 20 KB" argv for ~300 paths (section 7) is the whole list; a shard carries roughly 1/N of it. Immaterial to
   limits, but the number is unclear.
-- Section 1 sizing: "N about 6 to 8" rests on the extrapolated 3,300 s on a loaded 22 CPU host, which the design itself
+- Section 1 sizing: "N about 6 to 8" rests on a duration extrapolated from a loaded multi-core development host, which the design itself
   says is not a CI-runner measurement; fine as stated (Task 2.0a), but "6 to 8" appears in open question 3 as a proposal
   too. Keep it as "to be fixed by 2.0a" only.
 
@@ -147,13 +147,11 @@ files Infection never mutates.
 - Coverage-path validity across jobs is checked at runtime with a named crash; weights proxy risk is declared with a
   measured fallback.
 
-## Verdict
+## Outcome at review time
 
-CHANGES NEEDED
+Two MAJOR findings, no BLOCKERs, since addressed in the revision.
 
 MAJORs: (1) join checks metadata only; add plan recomputation, per-mutant file membership, duplicate-mutant detection
 and an exact `--filter` semantics proof in Task 2.0c. (2) rerun of a failed shard conflicts with same-name artifacts
 (`upload-artifact` v4+); define `overwrite: true` or attempt-suffixed names and the join's pick rule.
 BLOCKERs: none.
-
-Report path: /workspace/.claude/worktrees/agent-a69d569c91646d385-af379e89/untracked/agent-reports/pr-373-review.md
