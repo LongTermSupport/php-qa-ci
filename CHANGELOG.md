@@ -29,6 +29,8 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the dependency update: phpstan 2.3.2 → 2.3.4; composer-normalize 2.54.0 → 2.56.0; phpstan/phpstan (in rector.phar) 2.3.2 → 2.3.4; rector/rector 2.8.1 → 2.8.3.
 
+## 85.10.3 — 2026-10-30
+
 ### Fixed
 
 - `dependencyFreshness` judges a package by what the project's composer configuration makes it
