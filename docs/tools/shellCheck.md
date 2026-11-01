@@ -27,6 +27,19 @@ release tag in `vendor-bin/shellcheck.version`. The lane compares the two on eve
 **crashes** on a mismatch rather than reporting a verdict from an unknown build. It is not a PHAR
 because it is not PHP: ShellCheck is a compiled Haskell executable.
 
+### On an aarch64 host
+
+The committed build is `linux.x86_64` and cannot run on a 64-bit ARM CPU. On a Linux host whose
+CPU reports `aarch64` or `arm64`, the lane uses upstream's static `linux.aarch64` build of the
+same pinned release instead, at `vendor-bin/shellcheck.linux.aarch64`. That build is not
+committed and is never downloaded automatically: the first run on such a host crashes and prints
+the one command that fetches it, and every later run uses it. The version check applies to it
+exactly as to the committed build. `vendor-bin/shellcheck` stays the x86_64 build whatever host
+runs the maintainer update, so committing an update never commits the wrong architecture.
+
+Any other host (macOS, Windows, another CPU) crashes with the host named: upstream publishes no
+static Linux build for it.
+
 Maintainers refresh it through `bin/shellcheck-install update`, which `scripts/tool-install.bash`
 calls, and which `composer update` and the scheduled `update-deps.yml` workflow already run. An
 update is the maintainer path, so it does nothing unless `phive` is installed, as the PHAR
@@ -104,7 +117,8 @@ version="$(php -d display_errors=stderr "$phar" --version | awk 'NR==1')"
   [Twig Lint](twigLint.md) follows it).
 - Standalone: `vendor/bin/qa -t shellCheck` (aliases `-t sc`, `-t shellcheck`).
 - `-p <path>` narrows the discovered set to files under that path.
-- One invocation: `vendor-bin/shellcheck --severity=warning -- <files...>` from the project root.
+- One invocation: `vendor-bin/shellcheck --severity=warning -- <files...>` from the project root
+  (`vendor-bin/shellcheck.linux.aarch64` on an aarch64 host).
 - Exit `0` passes, exit `1` is findings and fails, anything else is a **crash** — ShellCheck
   returns `2` when it cannot read a file, and reporting that as a finding would hide a broken
   checkout behind a fixable-looking failure.

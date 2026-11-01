@@ -47,6 +47,14 @@ final class ShellCheckToolTest extends TestCase
 {
     private const string BANNER = "ShellCheck - shell script analysis tool\nversion: 0.11.0\n";
 
+    private const string MISMATCHED_BANNER = "ShellCheck - shell script analysis tool\nversion: 0.9.0\n";
+
+    private const string EXPECTED = 'Expected: ';
+
+    private const string PIN = 'v0.11.0';
+
+    private const string LINUX = 'Linux';
+
     private const string BUILD = 'scripts/build.bash';
 
     private const string CI_BASH = 'ci.bash';
@@ -93,7 +101,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->queue()->willSucceed('');
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::CI_BASH, self::BUILD), $this->factory->processes->lastSpec()->command);
@@ -105,7 +113,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->queue()->willFail(1, self::FINDING);
 
-        $result  = new ShellCheckTool()->run($this->factory->context());
+        $result  = $this->tool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -121,7 +129,7 @@ final class ShellCheckToolTest extends TestCase
         $this->factory->project->write(self::BUILD, "#!/usr/bin/env bash\nversion=\"\$(php vendor-phar/tool.phar --version)\"\n");
         $this->queue()->willSucceed('');
 
-        $result  = new ShellCheckTool()->run($this->factory->context());
+        $result  = $this->tool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -137,7 +145,7 @@ final class ShellCheckToolTest extends TestCase
         $this->factory->project->write('.github/workflows/update.yml', "jobs:\n  a:\n    steps:\n      - run: v=\$(php x.phar --version)\n");
         $this->factory->processes->willSucceed(self::TRACKED . ".github/workflows/update.yml\n")->willSucceed(self::BANNER)->willSucceed('');
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame($this->expectedCommand(self::CI_BASH, self::BUILD), $this->factory->processes->lastSpec()->command);
@@ -152,7 +160,7 @@ final class ShellCheckToolTest extends TestCase
         $this->factory->project->write(self::BUILD, "#!/usr/bin/env bash\necho \"\$(\"\$binDir/describe\" 1)\"\n");
         $this->factory->processes->willSucceed(self::TRACKED . "bin/describe\n")->willSucceed(self::BANNER)->willSucceed('');
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString('scripts/build.bash:2:', $this->factory->output->fetch());
@@ -168,7 +176,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->queue()->willFail(2, "openBinaryFile: does not exist\n");
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('ShellCheck crashed (exit 2)', $result->summary);
@@ -179,10 +187,10 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed(self::TRACKED)
-            ->willSucceed("ShellCheck - shell script analysis tool\nversion: 0.9.0\n")
+            ->willSucceed(self::MISMATCHED_BANNER)
         ;
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         $pinned = ShellCheckBinary::pinnedVersion($this->factory->paths()->libraryRoot);
@@ -203,7 +211,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->factory->processes->willFail(128, "fatal: not a git repository\n");
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
         self::assertStringContainsString('not a git work tree', $result->summary);
@@ -214,7 +222,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->factory->processes->willSucceed("README.md\nsrc/A.php\n")->willSucceed(self::BANNER);
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('No shell files to check', $this->factory->output->fetch());
@@ -231,7 +239,7 @@ final class ShellCheckToolTest extends TestCase
         $this->queue();
         $config = $this->factory->builder()->withShellCheckGlobs(self::DEPLOY_GLOB)->build();
 
-        $result = new ShellCheckTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertStringContainsString(self::DEPLOY_GLOB, $this->factory->output->fetch());
@@ -243,7 +251,7 @@ final class ShellCheckToolTest extends TestCase
         $this->queue()->willSucceed('');
         $config = $this->factory->builder()->withShellCheckGlobs('scripts/*.bash')->build();
 
-        $result = new ShellCheckTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::BUILD), $this->factory->processes->lastSpec()->command);
@@ -255,7 +263,7 @@ final class ShellCheckToolTest extends TestCase
         $this->queue()->willSucceed('');
         $config = $this->factory->builder(specifiedPath: 'scripts')->build();
 
-        $result = new ShellCheckTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::BUILD), $this->factory->processes->lastSpec()->command);
@@ -267,7 +275,7 @@ final class ShellCheckToolTest extends TestCase
         $this->queue()->willSucceed('');
         $config = $this->factory->builder()->withIgnoredPaths('scripts')->build();
 
-        $result = new ShellCheckTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::CI_BASH), $this->factory->processes->lastSpec()->command);
@@ -278,7 +286,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->queue()->willSucceed('');
 
-        new ShellCheckTool()->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         $probe = $this->factory->processes->specs[0];
         self::assertSame(['git', 'ls-files', '--cached'], $probe->command);
@@ -291,7 +299,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->queue()->willSucceed('');
 
-        new ShellCheckTool()->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         self::assertSame("2 shell file(s) checked; no finding at severity warning or above\n", $this->factory->output->fetch());
         $check = $this->factory->processes->lastSpec();
@@ -304,7 +312,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->queue()->willSucceed('');
 
-        new ShellCheckTool()->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         $probe = $this->factory->processes->specs[1];
         self::assertSame([ShellCheckBinary::path($this->factory->paths()->libraryRoot), '--version'], $probe->command);
@@ -317,13 +325,13 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed(self::TRACKED)
-            ->willSucceed("ShellCheck - shell script analysis tool\nversion: 0.9.0\n")
+            ->willSucceed(self::MISMATCHED_BANNER)
         ;
         $libraryRoot = $this->factory->paths()->libraryRoot;
         $pinned      = ShellCheckBinary::pinnedVersion($libraryRoot);
         self::assertNotNull($pinned);
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame('the vendored ShellCheck does not match the pinned release', $result->summary);
         self::assertSame(
@@ -346,15 +354,15 @@ final class ShellCheckToolTest extends TestCase
         $this->factory->project->write(self::FAKE_LIBRARY . '/' . ShellCheckBinary::VERSION_FILE, "v0.11.0\n");
         $libraryRoot = $this->factory->project->path . '/' . self::FAKE_LIBRARY;
 
-        $result = new ShellCheckTool()->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+        $result = $this->tool()->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame(self::BROKEN_INSTALL, $result->summary);
         self::assertSame(
             "The vendored ShellCheck is not usable: the binary is missing\n"
-            . 'Expected: ' . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
+            . self::EXPECTED . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
             . self::RESTORE_HEADING
-            . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, 'v0.11.0') . "\n"
+            . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, self::PIN) . "\n"
             . self::IDENTIFIER_FOOTER,
             $this->factory->output->fetch(),
         );
@@ -367,13 +375,13 @@ final class ShellCheckToolTest extends TestCase
         $this->factory->project->write(self::FAKE_LIBRARY . '/' . ShellCheckBinary::RELATIVE_PATH, "#!/bin/sh\n");
         $libraryRoot = $this->factory->project->path . '/' . self::FAKE_LIBRARY;
 
-        $result = new ShellCheckTool()->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+        $result = $this->tool()->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame(self::BROKEN_INSTALL, $result->summary);
         self::assertSame(
             "The vendored ShellCheck is not usable: no pinned version recorded\n"
-            . 'Expected: ' . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
+            . self::EXPECTED . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
             . self::IDENTIFIER_FOOTER,
             $this->factory->output->fetch(),
         );
@@ -386,7 +394,7 @@ final class ShellCheckToolTest extends TestCase
         $this->queue();
         $config = $this->factory->builder()->withShellCheckGlobs(self::DEPLOY_GLOB, 'hooks/*')->build();
 
-        $result = new ShellCheckTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame('every configured ShellCheck glob matched nothing', $result->summary);
         self::assertSame(
@@ -411,7 +419,7 @@ final class ShellCheckToolTest extends TestCase
             ->willSucceed('')
         ;
 
-        $result = new ShellCheckTool()->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::CI_BASH, self::BUILD), $this->factory->processes->lastSpec()->command);
@@ -432,16 +440,99 @@ final class ShellCheckToolTest extends TestCase
         ;
         $config = $this->factory->builder(specifiedPath: 'scripts/')->build();
 
-        $result = new ShellCheckTool()->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::BUILD), $this->factory->processes->lastSpec()->command);
     }
 
+    /**
+     * The committed binary is the x86_64 build and cannot run on an aarch64
+     * host, so there the lane probes and runs the aarch64 build beside it.
+     */
+    #[Test]
+    public function onAnAarch64HostTheLaneProbesAndRunsTheAarch64Build(): void
+    {
+        $libraryRoot = $this->fakeLibrary(true);
+        $this->queue()->willSucceed('');
+
+        $result = new ShellCheckTool(self::LINUX, 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+
+        $binary = $libraryRoot . '/vendor-bin/shellcheck.linux.aarch64';
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame([$binary, '--version'], $this->factory->processes->specs[1]->command);
+        self::assertSame($binary, $this->factory->processes->lastSpec()->command[0]);
+    }
+
+    /** An aarch64 host without the aarch64 build is told how to fetch that build, not the committed one. */
+    #[Test]
+    public function onAnAarch64HostAMissingBuildPrintsTheAarch64FetchCommand(): void
+    {
+        $libraryRoot = $this->fakeLibrary(false);
+
+        $result = new ShellCheckTool(self::LINUX, 'arm64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame(self::BROKEN_INSTALL, $result->summary);
+        self::assertSame(
+            "The vendored ShellCheck is not usable: the binary is missing\n"
+            . self::EXPECTED . $libraryRoot . "/vendor-bin/shellcheck.linux.aarch64 (linux.aarch64)\n"
+            . self::RESTORE_HEADING
+            . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, self::PIN, ShellCheckBinary::ARCHITECTURE_AARCH64) . "\n"
+            . self::IDENTIFIER_FOOTER,
+            $this->factory->output->fetch(),
+        );
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    /** An aarch64 build reporting the wrong version is restored as an aarch64 build. */
+    #[Test]
+    public function onAnAarch64HostAVersionMismatchPrintsTheAarch64FetchCommand(): void
+    {
+        $libraryRoot = $this->fakeLibrary(true);
+        $this->factory->processes
+            ->willSucceed(self::TRACKED)
+            ->willSucceed(self::MISMATCHED_BANNER)
+        ;
+
+        new ShellCheckTool(self::LINUX, 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+
+        self::assertStringContainsString(
+            self::RESTORE_HEADING . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, self::PIN, ShellCheckBinary::ARCHITECTURE_AARCH64) . "\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
+    /** A host upstream builds nothing for is named, rather than failing as a broken install would. */
+    #[Test]
+    public function aHostWithNoBuildIsACrashNamingTheHostAndRunsNothing(): void
+    {
+        $result = new ShellCheckTool(self::LINUX, 'riscv64')->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertSame('ShellCheck has no build for this host', $result->summary);
+        self::assertSame(
+            "The vendored ShellCheck has no build for this host (Linux riscv64).\n"
+            . "The lane runs on Linux with an x86_64 (linux.x86_64) or aarch64 (linux.aarch64) CPU.\n"
+            . self::IDENTIFIER_FOOTER,
+            $this->factory->output->fetch(),
+        );
+        self::assertSame([], $this->factory->processes->specs);
+    }
+
+    /** Without a machine given, the lane asks the host it is running on. */
+    #[Test]
+    public function withNoMachineGivenTheLaneUsesThisHostsMachine(): void
+    {
+        new ShellCheckTool('Darwin')->run($this->factory->context());
+
+        self::assertStringContainsString(\sprintf('(Darwin %s)', php_uname('m')), $this->factory->output->fetch());
+    }
+
     #[Test]
     public function nameAndIdentifierAreStable(): void
     {
-        $tool = new ShellCheckTool();
+        $tool = $this->tool();
 
         self::assertSame('shellCheck', $tool->name());
         self::assertSame('phpqaci.shellCheck', $tool->identifier());
@@ -489,5 +580,22 @@ final class ShellCheckToolTest extends TestCase
     private function queue(): FakeProcessRunner
     {
         return $this->factory->processes->willSucceed(self::TRACKED)->willSucceed(self::BANNER);
+    }
+
+    /** The lane on the CI runners' host, so the expected paths and messages do not depend on where the suite runs. */
+    private function tool(): ShellCheckTool
+    {
+        return new ShellCheckTool(self::LINUX, 'x86_64');
+    }
+
+    /** A library root whose vendor-bin/ holds the pin and, when asked, the aarch64 build but never the committed one. */
+    private function fakeLibrary(bool $withAarch64Build): string
+    {
+        $this->factory->project->write(self::FAKE_LIBRARY . '/' . ShellCheckBinary::VERSION_FILE, "v0.11.0\n");
+        if ($withAarch64Build) {
+            $this->factory->project->write(self::FAKE_LIBRARY . '/vendor-bin/shellcheck.linux.aarch64', "#!/bin/sh\n");
+        }
+
+        return $this->factory->project->path . '/' . self::FAKE_LIBRARY;
     }
 }

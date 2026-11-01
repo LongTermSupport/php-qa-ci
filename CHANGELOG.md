@@ -29,6 +29,18 @@ the release and its tag. The full rules are in
 
 - **Bundled tool versions updated** by the dependency update: phpstan 2.3.2 → 2.3.4; composer-normalize 2.54.0 → 2.56.0; phpstan/phpstan (in rector.phar) 2.3.2 → 2.3.4; rector/rector 2.8.1 → 2.8.3.
 
+### Fixed
+
+- `shellCheck` runs on an aarch64 Linux host (issue #388). The committed binary is the
+  `linux.x86_64` build, which cannot execute there, so the lane failed with an unreadable version
+  rather than checking anything. On a host reporting `aarch64` or `arm64` it now uses upstream's
+  `linux.aarch64` build of the same pinned release at `vendor-bin/shellcheck.linux.aarch64`, which
+  is not committed or downloaded automatically: the first run crashes with the command that fetches
+  it. Any other host (macOS, Windows, another CPU) crashes with the host named instead of a version
+  error. `ShellCheckBinary` gains `ARCHITECTURE_AARCH64`, `architectureFor()` and `pathFor()`, and
+  `fetchCommand()` takes an optional architecture; the committed path and its default fetch command
+  are unchanged.
+
 ## 85.10.3 — 2026-10-30
 
 ### Fixed

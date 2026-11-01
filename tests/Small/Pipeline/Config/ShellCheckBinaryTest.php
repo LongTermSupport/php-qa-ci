@@ -26,6 +26,12 @@ final class ShellCheckBinaryTest extends TestCase
         website: https://www.shellcheck.net
         BANNER;
 
+    private const string LIB = '/lib';
+
+    private const string LINUX = 'Linux';
+
+    private const string X86_64 = 'x86_64';
+
     #[Test]
     public function theShippedBinaryAndItsVersionPinAreBothCommitted(): void
     {
@@ -100,6 +106,84 @@ final class ShellCheckBinaryTest extends TestCase
         // redirect cannot create it: without the mkdir the command fails with a
         // "No such file or directory" that says nothing about the cause.
         self::assertStringContainsString('mkdir -p /somewhere/php-qa-ci/vendor-bin', $command);
+    }
+
+    /**
+     * The committed binary is x86_64; an aarch64 host fetches upstream's
+     * aarch64 build beside it, into a path the repository does not track, so
+     * neither the committed build nor its update path follows the host.
+     */
+    #[Test]
+    public function theAarch64FetchCommandNamesTheAarch64ReleaseAndAnUntrackedPath(): void
+    {
+        $command = ShellCheckBinary::fetchCommand('/somewhere/php-qa-ci', 'v9.9.9', ShellCheckBinary::ARCHITECTURE_AARCH64);
+
+        self::assertSame(
+            'mkdir -p /somewhere/php-qa-ci/vendor-bin'
+            . ' && curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v9.9.9/shellcheck-v9.9.9.linux.aarch64.tar.xz'
+            . ' | tar -xJO shellcheck-v9.9.9/shellcheck > /somewhere/php-qa-ci/vendor-bin/shellcheck.linux.aarch64'
+            . ' && chmod 0755 /somewhere/php-qa-ci/vendor-bin/shellcheck.linux.aarch64',
+            $command,
+        );
+    }
+
+    #[Test]
+    public function theCommittedBuildKeepsTheCommittedPath(): void
+    {
+        self::assertSame(self::LIB . '/vendor-bin/shellcheck', ShellCheckBinary::pathFor(self::LIB, ShellCheckBinary::ARCHITECTURE));
+        self::assertSame(self::LIB . '/vendor-bin/shellcheck', ShellCheckBinary::path(self::LIB));
+        self::assertSame(self::LIB . '/vendor-bin/shellcheck.linux.aarch64', ShellCheckBinary::pathFor(self::LIB, ShellCheckBinary::ARCHITECTURE_AARCH64));
+        self::assertSame(ShellCheckBinary::fetchCommand(self::LIB, 'v1.0.0'), ShellCheckBinary::fetchCommand(self::LIB, 'v1.0.0', ShellCheckBinary::ARCHITECTURE));
+    }
+
+    /**
+     * The aarch64 build is fetched per host and never committed, so the
+     * repository must ignore it or a maintainer on an aarch64 host commits it.
+     */
+    #[Test]
+    public function theRepositoryIgnoresEveryFetchedBuildButTheCommittedOne(): void
+    {
+        self::assertContains('/vendor-bin/shellcheck.linux.*', explode("\n", \Safe\file_get_contents($this->libraryRoot() . '/.gitignore')));
+    }
+
+    #[Test]
+    #[DataProvider('hostsWithABuild')]
+    public function aLinuxHostMapsToUpstreamsBuildName(string $machine, string $architecture): void
+    {
+        self::assertSame($architecture, ShellCheckBinary::architectureFor(self::LINUX, $machine));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function hostsWithABuild(): iterable
+    {
+        yield 'x86_64' => [self::X86_64, ShellCheckBinary::ARCHITECTURE];
+
+        yield 'amd64, as the BSDs and some containers report it' => ['amd64', ShellCheckBinary::ARCHITECTURE];
+
+        yield 'aarch64' => ['aarch64', ShellCheckBinary::ARCHITECTURE_AARCH64];
+
+        yield 'arm64, as some kernels report it' => ['arm64', ShellCheckBinary::ARCHITECTURE_AARCH64];
+
+        yield 'upper case' => ['AARCH64', ShellCheckBinary::ARCHITECTURE_AARCH64];
+    }
+
+    #[Test]
+    #[DataProvider('hostsWithNoBuild')]
+    public function aHostUpstreamBuildsNothingForHasNoArchitecture(string $os, string $machine): void
+    {
+        self::assertNull(ShellCheckBinary::architectureFor($os, $machine));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function hostsWithNoBuild(): iterable
+    {
+        yield 'macOS on Apple silicon' => ['Darwin', 'arm64'];
+
+        yield 'Windows' => ['Windows', self::X86_64];
+
+        yield 'Linux on riscv64' => [self::LINUX, 'riscv64'];
+
+        yield 'Linux on 32-bit ARM' => [self::LINUX, 'armv7l'];
     }
 
     /**
