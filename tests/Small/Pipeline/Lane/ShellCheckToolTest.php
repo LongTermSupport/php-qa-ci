@@ -47,6 +47,18 @@ final class ShellCheckToolTest extends TestCase
 {
     private const string BANNER = "ShellCheck - shell script analysis tool\nversion: 0.11.0\n";
 
+    /** A banner naming a release other than the pin. */
+    private const string MISMATCHED_BANNER = "ShellCheck - shell script analysis tool\nversion: 0.9.0\n";
+
+    /** The line naming where the lane looked for the binary, and for which build. */
+    private const string EXPECTED = 'Expected: ';
+
+    /** The release tag the fake library roots pin. */
+    private const string PIN = 'v0.11.0';
+
+    /** PHP_OS_FAMILY on Linux. */
+    private const string LINUX = 'Linux';
+
     private const string BUILD = 'scripts/build.bash';
 
     private const string CI_BASH = 'ci.bash';
@@ -179,7 +191,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed(self::TRACKED)
-            ->willSucceed("ShellCheck - shell script analysis tool\nversion: 0.9.0\n")
+            ->willSucceed(self::MISMATCHED_BANNER)
         ;
 
         $result = $this->tool()->run($this->factory->context());
@@ -317,7 +329,7 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed(self::TRACKED)
-            ->willSucceed("ShellCheck - shell script analysis tool\nversion: 0.9.0\n")
+            ->willSucceed(self::MISMATCHED_BANNER)
         ;
         $libraryRoot = $this->factory->paths()->libraryRoot;
         $pinned      = ShellCheckBinary::pinnedVersion($libraryRoot);
@@ -352,9 +364,9 @@ final class ShellCheckToolTest extends TestCase
         self::assertSame(self::BROKEN_INSTALL, $result->summary);
         self::assertSame(
             "The vendored ShellCheck is not usable: the binary is missing\n"
-            . 'Expected: ' . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
+            . self::EXPECTED . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
             . self::RESTORE_HEADING
-            . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, 'v0.11.0') . "\n"
+            . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, self::PIN) . "\n"
             . self::IDENTIFIER_FOOTER,
             $this->factory->output->fetch(),
         );
@@ -373,7 +385,7 @@ final class ShellCheckToolTest extends TestCase
         self::assertSame(self::BROKEN_INSTALL, $result->summary);
         self::assertSame(
             "The vendored ShellCheck is not usable: no pinned version recorded\n"
-            . 'Expected: ' . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
+            . self::EXPECTED . ShellCheckBinary::path($libraryRoot) . " (linux.x86_64)\n"
             . self::IDENTIFIER_FOOTER,
             $this->factory->output->fetch(),
         );
@@ -448,7 +460,7 @@ final class ShellCheckToolTest extends TestCase
         $libraryRoot = $this->fakeLibrary(true);
         $this->queue()->willSucceed('');
 
-        $result = new ShellCheckTool('Linux', 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+        $result = new ShellCheckTool(self::LINUX, 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
 
         $binary = $libraryRoot . '/vendor-bin/shellcheck.linux.aarch64';
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
@@ -462,15 +474,15 @@ final class ShellCheckToolTest extends TestCase
     {
         $libraryRoot = $this->fakeLibrary(false);
 
-        $result = new ShellCheckTool('Linux', 'arm64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+        $result = new ShellCheckTool(self::LINUX, 'arm64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame(self::BROKEN_INSTALL, $result->summary);
         self::assertSame(
             "The vendored ShellCheck is not usable: the binary is missing\n"
-            . 'Expected: ' . $libraryRoot . "/vendor-bin/shellcheck.linux.aarch64 (linux.aarch64)\n"
+            . self::EXPECTED . $libraryRoot . "/vendor-bin/shellcheck.linux.aarch64 (linux.aarch64)\n"
             . self::RESTORE_HEADING
-            . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, 'v0.11.0', ShellCheckBinary::ARCHITECTURE_AARCH64) . "\n"
+            . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, self::PIN, ShellCheckBinary::ARCHITECTURE_AARCH64) . "\n"
             . self::IDENTIFIER_FOOTER,
             $this->factory->output->fetch(),
         );
@@ -484,13 +496,13 @@ final class ShellCheckToolTest extends TestCase
         $libraryRoot = $this->fakeLibrary(true);
         $this->factory->processes
             ->willSucceed(self::TRACKED)
-            ->willSucceed("ShellCheck - shell script analysis tool\nversion: 0.9.0\n")
+            ->willSucceed(self::MISMATCHED_BANNER)
         ;
 
-        new ShellCheckTool('Linux', 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+        new ShellCheckTool(self::LINUX, 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
 
         self::assertStringContainsString(
-            self::RESTORE_HEADING . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, 'v0.11.0', ShellCheckBinary::ARCHITECTURE_AARCH64) . "\n",
+            self::RESTORE_HEADING . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, self::PIN, ShellCheckBinary::ARCHITECTURE_AARCH64) . "\n",
             $this->factory->output->fetch(),
         );
     }
@@ -499,7 +511,7 @@ final class ShellCheckToolTest extends TestCase
     #[Test]
     public function aHostWithNoBuildIsACrashNamingTheHostAndRunsNothing(): void
     {
-        $result = new ShellCheckTool('Linux', 'riscv64')->run($this->factory->context());
+        $result = new ShellCheckTool(self::LINUX, 'riscv64')->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
         self::assertSame('ShellCheck has no build for this host', $result->summary);
@@ -577,7 +589,7 @@ final class ShellCheckToolTest extends TestCase
     /** The lane on the CI runners' host, so the expected paths and messages do not depend on where the suite runs. */
     private function tool(): ShellCheckTool
     {
-        return new ShellCheckTool('Linux', 'x86_64');
+        return new ShellCheckTool(self::LINUX, 'x86_64');
     }
 
     /** A library root whose vendor-bin/ holds the pin and, when asked, the aarch64 build but never the committed one. */
