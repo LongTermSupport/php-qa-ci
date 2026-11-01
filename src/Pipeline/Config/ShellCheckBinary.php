@@ -33,15 +33,61 @@ final readonly class ShellCheckBinary
     /** The severity the CI job asserted; matching today's behaviour is the point of the lane. */
     public const string SEVERITY = 'warning';
 
-    /** The only build vendored: a static binary, so it needs nothing from the host. */
+    /** The committed build: a static binary, so it needs nothing from the host. */
     public const string ARCHITECTURE = 'linux.x86_64';
+
+    /** Upstream's static build for 64-bit ARM; fetched beside the committed one, never committed. */
+    public const string ARCHITECTURE_AARCH64 = 'linux.aarch64';
 
     /** The line of the `--version` banner that carries the number. */
     private const string VERSION_PREFIX = 'version:';
 
+    /** PHP_OS_FAMILY on the only OS upstream's static builds run on. */
+    private const string LINUX = 'Linux';
+
+    /** CPU names as `php_uname('m')` reports them, mapped to upstream's build names. */
+    private const array MACHINES = [
+        'x86_64'  => self::ARCHITECTURE,
+        'amd64'   => self::ARCHITECTURE,
+        'aarch64' => self::ARCHITECTURE_AARCH64,
+        'arm64'   => self::ARCHITECTURE_AARCH64,
+    ];
+
+    /** Where the committed build lives. */
     public static function path(string $libraryRoot): string
     {
         return $libraryRoot . '/' . self::RELATIVE_PATH;
+    }
+
+    /**
+     * Where the build for an architecture lives: the committed path for the
+     * committed build, otherwise a sibling the .gitignore excludes. The update
+     * mode renames onto RELATIVE_PATH and says to commit it, so that path must
+     * keep holding the x86_64 build whatever host runs the update.
+     */
+    public static function pathFor(string $libraryRoot, string $architecture): string
+    {
+        if (self::ARCHITECTURE === $architecture) {
+            return self::path($libraryRoot);
+        }
+
+        return self::path($libraryRoot) . '.' . $architecture;
+    }
+
+    /**
+     * Upstream's build name for an OS and CPU, or null when upstream publishes
+     * no static build php-qa-ci uses for it.
+     *
+     * @param string $os      PHP_OS_FAMILY
+     * @param string $machine php_uname('m')
+     */
+    public static function architectureFor(string $os, string $machine): ?string
+    {
+        if (self::LINUX !== $os) {
+            return null;
+        }
+
+        return self::MACHINES[strtolower($machine)] ?? null;
     }
 
     /** The pinned release tag (`v0.11.0`), or null when the checkout has no pin to compare against. */
@@ -105,10 +151,10 @@ final readonly class ShellCheckBinary
         return null;
     }
 
-    /** The command that puts the pinned build back, printed when it is missing or wrong. */
-    public static function fetchCommand(string $libraryRoot, string $version): string
+    /** The command that puts the pinned build for an architecture in place, printed when it is missing or wrong. */
+    public static function fetchCommand(string $libraryRoot, string $version, string $architecture = self::ARCHITECTURE): string
     {
-        $binary = self::path($libraryRoot);
+        $binary = self::pathFor($libraryRoot, $architecture);
 
         // mkdir first: the whole vendor-bin/ directory is what goes missing when
         // an install route drops it, and without this the redirect fails with a
@@ -119,7 +165,7 @@ final readonly class ShellCheckBinary
             . ' | tar -xJO shellcheck-%1$s/shellcheck > %3$s'
             . ' && chmod 0755 %3$s',
             $version,
-            self::ARCHITECTURE,
+            $architecture,
             $binary,
             \dirname($binary),
         );

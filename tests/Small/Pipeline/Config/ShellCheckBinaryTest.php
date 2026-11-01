@@ -103,6 +103,84 @@ final class ShellCheckBinaryTest extends TestCase
     }
 
     /**
+     * The committed binary is x86_64; an aarch64 host fetches upstream's
+     * aarch64 build beside it, into a path the repository does not track, so
+     * neither the committed build nor its update path follows the host.
+     */
+    #[Test]
+    public function theAarch64FetchCommandNamesTheAarch64ReleaseAndAnUntrackedPath(): void
+    {
+        $command = ShellCheckBinary::fetchCommand('/somewhere/php-qa-ci', 'v9.9.9', ShellCheckBinary::ARCHITECTURE_AARCH64);
+
+        self::assertSame(
+            'mkdir -p /somewhere/php-qa-ci/vendor-bin'
+            . ' && curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v9.9.9/shellcheck-v9.9.9.linux.aarch64.tar.xz'
+            . ' | tar -xJO shellcheck-v9.9.9/shellcheck > /somewhere/php-qa-ci/vendor-bin/shellcheck.linux.aarch64'
+            . ' && chmod 0755 /somewhere/php-qa-ci/vendor-bin/shellcheck.linux.aarch64',
+            $command,
+        );
+    }
+
+    #[Test]
+    public function theCommittedBuildKeepsTheCommittedPath(): void
+    {
+        self::assertSame('/lib/vendor-bin/shellcheck', ShellCheckBinary::pathFor('/lib', ShellCheckBinary::ARCHITECTURE));
+        self::assertSame('/lib/vendor-bin/shellcheck', ShellCheckBinary::path('/lib'));
+        self::assertSame('/lib/vendor-bin/shellcheck.linux.aarch64', ShellCheckBinary::pathFor('/lib', ShellCheckBinary::ARCHITECTURE_AARCH64));
+        self::assertSame(ShellCheckBinary::fetchCommand('/lib', 'v1.0.0'), ShellCheckBinary::fetchCommand('/lib', 'v1.0.0', ShellCheckBinary::ARCHITECTURE));
+    }
+
+    /**
+     * The aarch64 build is fetched per host and never committed, so the
+     * repository must ignore it or a maintainer on an aarch64 host commits it.
+     */
+    #[Test]
+    public function theRepositoryIgnoresEveryFetchedBuildButTheCommittedOne(): void
+    {
+        self::assertContains('/vendor-bin/shellcheck.linux.*', explode("\n", \Safe\file_get_contents($this->libraryRoot() . '/.gitignore')));
+    }
+
+    #[Test]
+    #[DataProvider('hostsWithABuild')]
+    public function aLinuxHostMapsToUpstreamsBuildName(string $machine, string $architecture): void
+    {
+        self::assertSame($architecture, ShellCheckBinary::architectureFor('Linux', $machine));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function hostsWithABuild(): iterable
+    {
+        yield 'x86_64' => ['x86_64', 'linux.x86_64'];
+
+        yield 'amd64, as the BSDs and some containers report it' => ['amd64', 'linux.x86_64'];
+
+        yield 'aarch64' => ['aarch64', 'linux.aarch64'];
+
+        yield 'arm64, as some kernels report it' => ['arm64', 'linux.aarch64'];
+
+        yield 'upper case' => ['AARCH64', 'linux.aarch64'];
+    }
+
+    #[Test]
+    #[DataProvider('hostsWithNoBuild')]
+    public function aHostUpstreamBuildsNothingForHasNoArchitecture(string $os, string $machine): void
+    {
+        self::assertNull(ShellCheckBinary::architectureFor($os, $machine));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function hostsWithNoBuild(): iterable
+    {
+        yield 'macOS on Apple silicon' => ['Darwin', 'arm64'];
+
+        yield 'Windows' => ['Windows', 'x86_64'];
+
+        yield 'Linux on riscv64' => ['Linux', 'riscv64'];
+
+        yield 'Linux on 32-bit ARM' => ['Linux', 'armv7l'];
+    }
+
+    /**
      * The PHARs are handed to `php`, so their mode never mattered; this one is
      * exec'd. A consumer installed from a Composer dist zip receives it
      * without the mode bit, because ZipArchive::extractTo does not restore
