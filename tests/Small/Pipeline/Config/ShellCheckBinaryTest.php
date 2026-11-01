@@ -26,6 +26,12 @@ final class ShellCheckBinaryTest extends TestCase
         website: https://www.shellcheck.net
         BANNER;
 
+    private const string LIB = '/lib';
+
+    private const string LINUX = 'Linux';
+
+    private const string X86_64 = 'x86_64';
+
     #[Test]
     public function theShippedBinaryAndItsVersionPinAreBothCommitted(): void
     {
@@ -124,10 +130,10 @@ final class ShellCheckBinaryTest extends TestCase
     #[Test]
     public function theCommittedBuildKeepsTheCommittedPath(): void
     {
-        self::assertSame('/lib/vendor-bin/shellcheck', ShellCheckBinary::pathFor('/lib', ShellCheckBinary::ARCHITECTURE));
-        self::assertSame('/lib/vendor-bin/shellcheck', ShellCheckBinary::path('/lib'));
-        self::assertSame('/lib/vendor-bin/shellcheck.linux.aarch64', ShellCheckBinary::pathFor('/lib', ShellCheckBinary::ARCHITECTURE_AARCH64));
-        self::assertSame(ShellCheckBinary::fetchCommand('/lib', 'v1.0.0'), ShellCheckBinary::fetchCommand('/lib', 'v1.0.0', ShellCheckBinary::ARCHITECTURE));
+        self::assertSame(self::LIB . '/vendor-bin/shellcheck', ShellCheckBinary::pathFor(self::LIB, ShellCheckBinary::ARCHITECTURE));
+        self::assertSame(self::LIB . '/vendor-bin/shellcheck', ShellCheckBinary::path(self::LIB));
+        self::assertSame(self::LIB . '/vendor-bin/shellcheck.linux.aarch64', ShellCheckBinary::pathFor(self::LIB, ShellCheckBinary::ARCHITECTURE_AARCH64));
+        self::assertSame(ShellCheckBinary::fetchCommand(self::LIB, 'v1.0.0'), ShellCheckBinary::fetchCommand(self::LIB, 'v1.0.0', ShellCheckBinary::ARCHITECTURE));
     }
 
     /**
@@ -144,21 +150,21 @@ final class ShellCheckBinaryTest extends TestCase
     #[DataProvider('hostsWithABuild')]
     public function aLinuxHostMapsToUpstreamsBuildName(string $machine, string $architecture): void
     {
-        self::assertSame($architecture, ShellCheckBinary::architectureFor('Linux', $machine));
+        self::assertSame($architecture, ShellCheckBinary::architectureFor(self::LINUX, $machine));
     }
 
     /** @return iterable<string, array{string, string}> */
     public static function hostsWithABuild(): iterable
     {
-        yield 'x86_64' => ['x86_64', 'linux.x86_64'];
+        yield 'x86_64' => [self::X86_64, ShellCheckBinary::ARCHITECTURE];
 
-        yield 'amd64, as the BSDs and some containers report it' => ['amd64', 'linux.x86_64'];
+        yield 'amd64, as the BSDs and some containers report it' => ['amd64', ShellCheckBinary::ARCHITECTURE];
 
-        yield 'aarch64' => ['aarch64', 'linux.aarch64'];
+        yield 'aarch64' => ['aarch64', ShellCheckBinary::ARCHITECTURE_AARCH64];
 
-        yield 'arm64, as some kernels report it' => ['arm64', 'linux.aarch64'];
+        yield 'arm64, as some kernels report it' => ['arm64', ShellCheckBinary::ARCHITECTURE_AARCH64];
 
-        yield 'upper case' => ['AARCH64', 'linux.aarch64'];
+        yield 'upper case' => ['AARCH64', ShellCheckBinary::ARCHITECTURE_AARCH64];
     }
 
     #[Test]
@@ -173,11 +179,11 @@ final class ShellCheckBinaryTest extends TestCase
     {
         yield 'macOS on Apple silicon' => ['Darwin', 'arm64'];
 
-        yield 'Windows' => ['Windows', 'x86_64'];
+        yield 'Windows' => ['Windows', self::X86_64];
 
-        yield 'Linux on riscv64' => ['Linux', 'riscv64'];
+        yield 'Linux on riscv64' => [self::LINUX, 'riscv64'];
 
-        yield 'Linux on 32-bit ARM' => ['Linux', 'armv7l'];
+        yield 'Linux on 32-bit ARM' => [self::LINUX, 'armv7l'];
     }
 
     /**
