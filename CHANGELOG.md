@@ -36,6 +36,11 @@ the release and its tag. The full rules are in
   package, the locked one included, the lane reports a `NOTE` that the package is held back
   instead of a skip, and a package that is behind is still reported beside it. The lane never
   passes `--no-cooldown`. A project with no policy is unchanged.
+- The shipped composer-normalize PHAR accepts a lock file written by Composer 2.11 when the
+  project's `composer.json` sets `config.policy` (issue #383). Before, the `composerChecks` lane
+  reported such a lock as not up to date although `composer update` had just written it. A test
+  now writes a lock with the installed Composer and runs the shipped PHAR over it, so a PHAR that
+  bundles an older Composer than the one in use fails the build.
 
 ## 85.10.3 — 2026-10-30
 
