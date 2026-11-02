@@ -22,6 +22,8 @@ CLAUDE/Plan/mkplan.bash "descriptive-kebab-name"
 
 ## Completed Plans
 
+- [00027: composer cooldown enforcement](Completed/00027-composer-cooldown-enforcement/PLAN.md) - Complete — the `composerChecks` lane checks that Composer's dependency cooldown is configured and applies: report-only by default, a setting makes it fail.
+
 - [00022: CLAUDE.md progressive disclosure](Completed/00022-claude-md-progressive-disclosure/PLAN.md) - Complete — the root `CLAUDE.md` cut to the binding floor, the generated defences and a navigation map, with the depth in canonical `CLAUDE/` and `docs/` pages reached through nested routing files and path rules (merged #215 as e501b8d3; follow-ups #216, #217)
 
 - [00021: process stream in class](Completed/00021-process-stream-in-class/PLAN.md) - Complete — a class writing to the process's own `STDERR` stopped Infection's initial test run and left its output unasserted: the optional rule `phpqaci.processStream` and all 21 instances handed their stream or output by the entry script, with the ShellCheck and Turbo downloads made testable offline (merged #161 as 392f067; follow-up #162)
