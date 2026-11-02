@@ -31,7 +31,7 @@ final readonly class CooldownPolicyChecker
 
     private const string UNRECOGNISED = ' has a shape this check does not recognise; the correct construction is: ';
 
-    private const string OVERRIDE_PATTERN = '~^SECURITY (CVE-\d{4}-\d{4,}|GHSA(?:-[a-z0-9]{4}){3}|PKSA(?:-[a-z0-9]{4}){3}): fixed in (v?\d[0-9A-Za-z.+_-]*); PR (https?://[^\s;]+); remove after (\d{4}-\d{2}-\d{2})$~i';
+    private const string OVERRIDE_PATTERN = '~^SECURITY (CVE-\d{4}-\d{4,}|GHSA(?:-[a-z0-9]{4}){3}|PKSA(?:-[a-z0-9]{4}){3}): fixed in (v?\d[0-9A-Za-z.+_-]*); PR (https?://[^\s;]+); remove after (\d{4}-\d{2}-\d{2})$~D';
 
     private const string OVERRIDE_FIX = 'an override is one exact package with the reason "SECURITY <advisory id>: fixed in <version>; PR <url>; remove after <YYYY-MM-DD>", for example "thirdparty/lib": "SECURITY CVE-2026-1234: fixed in 1.2.3; PR https://example.com/acme/app/pull/7; remove after 2026-11-20".';
 
@@ -47,15 +47,15 @@ final readonly class CooldownPolicyChecker
      */
     public function check(array $composerJson, ?string $versionOutput, string $today, string ...$internalVendors): CooldownReport
     {
-        $vendors = array_values(array_unique([...array_filter([$this->ownVendor($composerJson)]), ...$internalVendors]));
+        $own     = $this->ownVendor($composerJson);
+        $vendors = array_values(array_unique(null === $own ? $internalVendors : [$own, ...$internalVendors]));
 
-        return $this->versionReport($versionOutput)->merge($this->policyReport($composerJson, $vendors, $today));
+        return $this->versionReport($versionOutput)->merge($this->policyReport($composerJson, $today, ...$vendors));
     }
 
     private function versionReport(?string $versionOutput): CooldownReport
     {
-        $found = null === $versionOutput ? 0 : \Safe\preg_match('/Composer version (\d+\.\d+(?:\.\d+)?)/', $versionOutput, $matches);
-        if (0 === $found) {
+        if (null === $versionOutput || 0 === \Safe\preg_match('/Composer version (\d+\.\d+(?:\.\d+)?)/', $versionOutput, $matches) || !isset($matches[1])) {
             return new CooldownReport(['could not read the installed Composer version from `composer --version`, so it is not known whether the cooldown is applied. TO FIX: make `composer --version` run, and use Composer ' . self::MINIMUM_COMPOSER . ' or newer.']);
         }
 
@@ -69,9 +69,8 @@ final readonly class CooldownPolicyChecker
 
     /**
      * @param array<array-key, mixed> $composerJson
-     * @param list<string>            $vendors
      */
-    private function policyReport(array $composerJson, array $vendors, string $today): CooldownReport
+    private function policyReport(array $composerJson, string $today, string ...$vendors): CooldownReport
     {
         $config = $composerJson['config'] ?? null;
         if (null === $config) {
@@ -112,21 +111,20 @@ final readonly class CooldownPolicyChecker
             return $this->unrecognised(self::COOLDOWN_PATH);
         }
 
-        return $this->cooldownReport($cooldown, $vendors, $today);
+        return $this->cooldownReport($cooldown, $today, ...$vendors);
     }
 
     /**
      * @param array<array-key, mixed> $cooldown
-     * @param list<string>            $vendors
      */
-    private function cooldownReport(array $cooldown, array $vendors, string $today): CooldownReport
+    private function cooldownReport(array $cooldown, string $today, string ...$vendors): CooldownReport
     {
         $report = new CooldownReport();
         if (false === ($cooldown['block'] ?? null)) {
             $report = $this->switchedOff(self::COOLDOWN_PATH . '.block is false');
         }
 
-        return $report->merge($this->periodReport($cooldown['period'] ?? null))->merge($this->ignoreReport($cooldown['ignore'] ?? null, $vendors, $today));
+        return $report->merge($this->periodReport($cooldown['period'] ?? null))->merge($this->ignoreReport($cooldown['ignore'] ?? null, $today, ...$vendors));
     }
 
     private function periodReport(mixed $period): CooldownReport
@@ -142,8 +140,7 @@ final readonly class CooldownPolicyChecker
                 return $this->malformedPeriod($path);
             }
 
-            \Safe\preg_match('/^\d*/', $period, $digits);
-            $period = '' === $digits[0] ? 0 : (int)$digits[0];
+            $period = (int)$period;
         }
 
         if (!\is_int($period) || $period < 0) {
@@ -161,9 +158,9 @@ final readonly class CooldownPolicyChecker
     }
 
     /**
-     * @param list<string> $vendors internal vendors, each exempted by a `<vendor>/*` glob; every other entry is a security override
+     * @param string ...$vendors internal vendors, each exempted by a `<vendor>/*` glob; every other entry is a security override
      */
-    private function ignoreReport(mixed $ignore, array $vendors, string $today): CooldownReport
+    private function ignoreReport(mixed $ignore, string $today, string ...$vendors): CooldownReport
     {
         $path = self::COOLDOWN_PATH . '.ignore';
         if (null !== $ignore && !\is_array($ignore)) {
@@ -207,7 +204,8 @@ final readonly class CooldownPolicyChecker
     private function overrideReport(string $package, mixed $entry, string $today): CooldownReport
     {
         $quoted = \sprintf('the ignore entry "%s"', $package);
-        $reason = $this->overrideReason($entry);
+        $rule   = $this->chosenOverrideRule($entry);
+        $reason = $this->overrideReason($rule);
         if (false === $reason) {
             return new CooldownReport([$quoted . ' has a shape this check does not recognise; ' . self::OVERRIDE_FIX], [$package . ': (shape not recognised)']);
         }
@@ -217,18 +215,45 @@ final readonly class CooldownPolicyChecker
             $problems[] = $quoted . ' is a glob, and only an internal vendor may be exempted by a glob. TO FIX: name the one package exactly; ' . self::OVERRIDE_FIX;
         }
 
-        $parts = null === $reason ? 0 : \Safe\preg_match(self::OVERRIDE_PATTERN, $reason, $matches);
-        if (0 === $parts) {
+        $exemption = $this->exemptionProblem($rule);
+        if (null !== $exemption) {
+            $problems[] = \sprintf('%s %s. TO FIX: a security override must be a plain exact-name entry, with no version constraint and on-block left on; %s', $quoted, $exemption, self::OVERRIDE_FIX);
+        }
+
+        $parts = $this->overrideParts($reason);
+        if (null === $parts) {
             $problems[] = $quoted . ' is an override outside the internal vendors and its reason is not in the required form. TO FIX: ' . self::OVERRIDE_FIX;
 
             return new CooldownReport($problems, [\sprintf('%s: (reason not in the required form) %s', $package, $reason ?? 'no reason')]);
         }
 
-        [, $advisory, $fixedIn, , $removeAfter] = $matches;
-        $listing                                = \sprintf('%s: %s, fixed in %s, remove after %s', $package, $advisory, $fixedIn, $removeAfter);
-        $problems                               = [...$problems, ...$this->dateProblems($quoted, $removeAfter, $today)];
+        [$advisory, $fixedIn, $removeAfter] = $parts;
+        $listing                            = \sprintf('%s: %s, fixed in %s, remove after %s', $package, $advisory, $fixedIn, $removeAfter);
 
-        return new CooldownReport($problems, [$listing]);
+        return new CooldownReport([...$problems, ...$this->dateProblems($quoted, $removeAfter, $today)], [$listing]);
+    }
+
+    /** @return ?array{string, string, string} the advisory, the fixed version and the remove-after date */
+    private function overrideParts(?string $reason): ?array
+    {
+        if (null === $reason || 0 === \Safe\preg_match(self::OVERRIDE_PATTERN, $reason, $matches) || !isset($matches[1], $matches[2], $matches[4])) {
+            return null;
+        }
+
+        return [$matches[1], $matches[2], $matches[4]];
+    }
+
+    /** The rule an override is judged by: as for an internal vendor, a list of rules needs one that exempts. */
+    private function chosenOverrideRule(mixed $entry): mixed
+    {
+        $rules = \is_array($entry) && array_is_list($entry) && [] !== $entry ? $entry : [$entry];
+        foreach ($rules as $rule) {
+            if (false !== $this->overrideReason($rule) && null === $this->exemptionProblem($rule)) {
+                return $rule;
+            }
+        }
+
+        return $rules[0];
     }
 
     /** @return list<string> */
@@ -292,6 +317,16 @@ final readonly class CooldownPolicyChecker
         $reason = $rule[self::REASON] ?? null;
         if (!\is_string($reason) || '' === trim($reason)) {
             return 'has no reason';
+        }
+
+        return $this->exemptionProblem($rule);
+    }
+
+    /** Why a rule does not exempt every version while versions are blocked, or null when it does. */
+    private function exemptionProblem(mixed $rule): ?string
+    {
+        if (!\is_array($rule)) {
+            return null;
         }
 
         if (false === ($rule[self::ON_BLOCK] ?? null)) {

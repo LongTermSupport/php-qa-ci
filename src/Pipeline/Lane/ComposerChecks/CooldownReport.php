@@ -7,7 +7,7 @@ namespace LTS\PHPQA\Pipeline\Lane\ComposerChecks;
 /**
  * What the cooldown assertion found: problems (each says what is wrong and the
  * correct construction) and the security overrides it lists on every run, so
- * none can hide.
+ * every recognised entry is shown.
  *
  * @internal
  */

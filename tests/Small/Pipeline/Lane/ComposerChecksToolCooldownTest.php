@@ -55,10 +55,12 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
     private const string OVERRIDE = 'SECURITY CVE-2026-1234: fixed in 1.2.3; PR https://example.com/acme/app/pull/7; remove after 2026-11-20';
 
-    /** 2026-11-02 12:00 UTC. */
+    private const string UNREADABLE = 'composer.json could not be read';
+
+    private const string NO_COOLDOWN = 'no cooldown configured';
+
     private const int NOVEMBER_SECOND = 1_793_620_800;
 
-    /** 2026-11-21 12:00 UTC. */
     private const int NOVEMBER_TWENTY_FIRST = 1_795_262_400;
 
     private ContextFactory $factory;
@@ -112,7 +114,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('Composer cooldown policy has 1 finding(s):', $printed);
-        self::assertStringContainsString('no cooldown configured', $printed);
+        self::assertStringContainsString(self::NO_COOLDOWN, $printed);
         self::assertStringContainsString('Report-only: these findings do not fail the lane.', $printed);
         self::assertStringContainsString('withComposerCooldownEnforced(true)', $printed);
         self::assertStringContainsString('enforceComposerCooldown=1', $printed);
@@ -130,7 +132,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 Composer cooldown finding(s)', $result->summary);
-        self::assertStringContainsString('no cooldown configured', $printed);
+        self::assertStringContainsString(self::NO_COOLDOWN, $printed);
         self::assertStringNotContainsString('Report-only', $printed);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
         self::assertCount(2, $this->factory->processes->specs);
@@ -182,6 +184,32 @@ final class ComposerChecksToolCooldownTest extends TestCase
     }
 
     #[Test]
+    public function aMissingComposerJsonFailsTheLaneByNameInsteadOfThrowing(): void
+    {
+        \Safe\unlink($this->factory->project->path . '/composer.json');
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+
+        $result = $this->runLane();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString(self::UNREADABLE, $result->summary);
+        self::assertStringContainsString(self::UNREADABLE, $this->factory->output->fetch());
+        self::assertCount(1, $this->factory->processes->specs, 'only the informational diagnose ran');
+    }
+
+    #[Test]
+    public function aComposerJsonThatIsNotJsonFailsTheLaneByName(): void
+    {
+        $this->factory->project->write('composer.json', '{ not json');
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+
+        $result = $this->runLane();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString(self::UNREADABLE, $result->summary);
+    }
+
+    #[Test]
     public function optingOutPrintsTheReasonOnEveryRunAndSkipsTheCheck(): void
     {
         $this->factory->processes->willSucceed()->willSucceed()->willSucceed()->willSucceed();
@@ -196,7 +224,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('Composer cooldown check skipped for this project (withoutComposerCooldownCheck): dependencies are resolved by a mirror that enforces its own delay', $printed);
-        self::assertStringNotContainsString('no cooldown configured', $printed);
+        self::assertStringNotContainsString(self::NO_COOLDOWN, $printed);
         self::assertCount(4, $this->factory->processes->specs, 'no version probe runs');
     }
 

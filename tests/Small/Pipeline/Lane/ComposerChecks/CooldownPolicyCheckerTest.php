@@ -47,6 +47,14 @@ final class CooldownPolicyCheckerTest extends TestCase
 
     private const string COOLDOWN = 'cooldown';
 
+    private const string NOT_IN_FORM = 'not in the required form';
+
+    private const string PERIOD_UNSET = 'period is not set';
+
+    private const string NO_REASON = 'no reason';
+
+    private const string INTERNAL_VENDOR = 'internal';
+
     private const string OVERRIDE_PACKAGE = 'thirdparty/lib';
 
     private const string OVERRIDE_REASON = 'SECURITY CVE-2026-1234: fixed in 1.2.3; PR https://example.com/acme/app/pull/7; remove after 2026-11-20';
@@ -115,17 +123,17 @@ final class CooldownPolicyCheckerTest extends TestCase
     {
         $ignore = [self::OWN_VENDOR_PATTERN => self::REASON];
 
-        yield 'period missing' => [self::withCooldown([self::IGNORE => $ignore]), 'period is not set'];
+        yield 'period missing' => [self::withCooldown([self::IGNORE => $ignore]), self::PERIOD_UNSET];
 
-        yield 'period null' => [self::withCooldown([self::PERIOD => null, self::IGNORE => $ignore]), 'period is not set'];
+        yield 'period null' => [self::withCooldown([self::PERIOD => null, self::IGNORE => $ignore]), self::PERIOD_UNSET];
 
-        yield 'period empty string' => [self::withCooldown([self::PERIOD => '', self::IGNORE => $ignore]), 'period is not set'];
+        yield 'period empty string' => [self::withCooldown([self::PERIOD => '', self::IGNORE => $ignore]), self::PERIOD_UNSET];
 
         yield 'period integer zero' => [self::withCooldown([self::PERIOD => 0, self::IGNORE => $ignore]), 'period is zero'];
 
         yield 'period zero days' => [self::withCooldown([self::PERIOD => '0 days', self::IGNORE => $ignore]), 'period is zero'];
 
-        yield 'cooldown true without period' => [[self::NAME => self::OWN_NAME, self::CONFIG => [self::POLICY => [self::COOLDOWN => true]]], 'period is not set'];
+        yield 'cooldown true without period' => [[self::NAME => self::OWN_NAME, self::CONFIG => [self::POLICY => [self::COOLDOWN => true]]], self::PERIOD_UNSET];
     }
 
     #[Test]
@@ -228,7 +236,7 @@ final class CooldownPolicyCheckerTest extends TestCase
             $report = $this->withIgnore($ignore);
 
             self::assertCount(1, $report->problems);
-            self::assertStringContainsString('no reason', $report->problems[0]);
+            self::assertStringContainsString(self::NO_REASON, $report->problems[0]);
             self::assertStringContainsString('"acme/' . self::STAR . '"', $report->problems[0]);
         }
     }
@@ -249,7 +257,7 @@ final class CooldownPolicyCheckerTest extends TestCase
         self::assertCount(1, $noReason->problems);
         self::assertCount(1, $auditOnly->problems);
         self::assertCount(1, $constrained->problems);
-        self::assertStringContainsString('no reason', $noReason->problems[0]);
+        self::assertStringContainsString(self::NO_REASON, $noReason->problems[0]);
         self::assertStringContainsString('does not apply when versions are blocked', $auditOnly->problems[0]);
         self::assertStringContainsString('limited to a version constraint', $constrained->problems[0]);
     }
@@ -304,7 +312,7 @@ final class CooldownPolicyCheckerTest extends TestCase
         $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => $reason]);
 
         self::assertCount(1, $report->problems);
-        self::assertStringContainsString('not in the required form', $report->problems[0]);
+        self::assertStringContainsString(self::NOT_IN_FORM, $report->problems[0]);
         self::assertStringContainsString('SECURITY <advisory id>: fixed in <version>; PR <url>; remove after <YYYY-MM-DD>', $report->problems[0]);
         self::assertCount(1, $report->overrides);
         self::assertStringContainsString(self::OVERRIDE_PACKAGE, $report->overrides[0]);
@@ -340,7 +348,7 @@ final class CooldownPolicyCheckerTest extends TestCase
         $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE]);
 
         self::assertCount(1, $report->problems);
-        self::assertStringContainsString('not in the required form', $report->problems[0]);
+        self::assertStringContainsString(self::NOT_IN_FORM, $report->problems[0]);
     }
 
     #[Test]
@@ -396,18 +404,18 @@ final class CooldownPolicyCheckerTest extends TestCase
     #[Test]
     public function aConfiguredInternalVendorMustAlsoBeExemptedWithAReason(): void
     {
-        $missing = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON], self::TODAY, 'internal');
+        $missing = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON], self::TODAY, self::INTERNAL_VENDOR);
 
         self::assertCount(1, $missing->problems);
-        self::assertStringContainsString('"internal/' . self::STAR . '"', $missing->problems[0]);
+        self::assertStringContainsString('"' . self::INTERNAL_VENDOR . '/' . self::STAR . '"', $missing->problems[0]);
 
-        $present = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, 'internal/' . self::STAR => self::REASON], self::TODAY, 'internal');
+        $present = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::INTERNAL_VENDOR . '/' . self::STAR => self::REASON], self::TODAY, self::INTERNAL_VENDOR);
         self::assertSame([], $present->problems);
         self::assertSame([], $present->overrides);
 
-        $noReason = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, 'internal/' . self::STAR => ''], self::TODAY, 'internal');
+        $noReason = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::INTERNAL_VENDOR . '/' . self::STAR => ''], self::TODAY, self::INTERNAL_VENDOR);
         self::assertCount(1, $noReason->problems);
-        self::assertStringContainsString('no reason', $noReason->problems[0]);
+        self::assertStringContainsString(self::NO_REASON, $noReason->problems[0]);
     }
 
     #[Test]
@@ -416,10 +424,10 @@ final class CooldownPolicyCheckerTest extends TestCase
         $json = self::withCooldown([self::PERIOD => self::SEVEN_DAYS]);
         unset($json[self::NAME]);
 
-        $report = $this->inspect($json, self::MODERN, self::TODAY, 'internal');
+        $report = $this->inspect($json, self::MODERN, self::TODAY, self::INTERNAL_VENDOR);
 
         self::assertCount(1, $report->problems);
-        self::assertStringContainsString('"internal/' . self::STAR . '"', $report->problems[0]);
+        self::assertStringContainsString('"' . self::INTERNAL_VENDOR . '/' . self::STAR . '"', $report->problems[0]);
     }
 
     #[Test]
@@ -433,10 +441,77 @@ final class CooldownPolicyCheckerTest extends TestCase
     #[Test]
     public function anIgnoreEntryOfAnUnrecognisedShapeIsAnOverrideFindingByName(): void
     {
+        foreach ([5, true, [[self::OVERRIDE_REASON]]] as $entry) {
+            $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => $entry]);
+
+            self::assertCount(1, $report->problems);
+            self::assertStringContainsString('shape this check does not recognise', $report->problems[0]);
+            self::assertSame([self::OVERRIDE_PACKAGE . ': (shape not recognised)'], $report->overrides);
+        }
+    }
+
+    #[Test]
+    public function anOverrideGivenAsAListOfRuleObjectsIsJudgedLikeAnInternalVendorEntry(): void
+    {
         $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => [['reason' => self::OVERRIDE_REASON]]]);
 
+        self::assertSame([], $report->problems);
+        self::assertSame([self::OVERRIDE_PACKAGE . ': CVE-2026-1234, fixed in 1.2.3, remove after 2026-11-20'], $report->overrides);
+    }
+
+    #[Test]
+    public function anOverrideListWhoseOnlyRuleHasNoUsableReasonIsReportedAsNotInTheRequiredForm(): void
+    {
+        $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => [['reason' => 'needed urgently']]]);
+
         self::assertCount(1, $report->problems);
-        self::assertStringContainsString('shape this check does not recognise', $report->problems[0]);
+        self::assertStringContainsString(self::NOT_IN_FORM, $report->problems[0]);
+    }
+
+    #[Test]
+    public function anOverrideThatDoesNotApplyWhenVersionsAreBlockedIsReportedAndStillListed(): void
+    {
+        $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => ['reason' => self::OVERRIDE_REASON, 'on-block' => false]]);
+
+        self::assertCount(1, $report->problems);
+        self::assertStringContainsString('does not apply when versions are blocked', $report->problems[0]);
+        self::assertStringContainsString(self::OVERRIDE_PACKAGE, $report->problems[0]);
+        self::assertCount(1, $report->overrides);
+    }
+
+    #[Test]
+    public function anOverrideNarrowedByAConstraintIsReportedAsNotAPlainExactNameEntry(): void
+    {
+        $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => ['reason' => self::OVERRIDE_REASON, 'constraint' => '^1.2']]);
+
+        self::assertCount(1, $report->problems);
+        self::assertStringContainsString('limited to a version constraint', $report->problems[0]);
+        self::assertStringContainsString('a security override must be a plain exact-name entry', $report->problems[0]);
+        self::assertCount(1, $report->overrides);
+    }
+
+    #[Test]
+    public function aValidRuleInAnOverrideListIsEnoughLikeForAnInternalVendor(): void
+    {
+        $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => [['reason' => self::OVERRIDE_REASON, 'on-block' => false], ['reason' => self::OVERRIDE_REASON]]]);
+
+        self::assertSame([], $report->problems);
+    }
+
+    #[Test]
+    public function theSecurityKeywordIsMatchedExactlyAndTheReasonEndsWhereTheDateEnds(): void
+    {
+        foreach ([
+            'security CVE-2026-1234: fixed in 1.2.3; PR https://example.com/p/1; remove after 2026-11-20',
+            'SECURITY cve-2026-1234: fixed in 1.2.3; PR https://example.com/p/1; remove after 2026-11-20',
+            'SECURITY CVE-2026-1234: Fixed in 1.2.3; PR https://example.com/p/1; remove after 2026-11-20',
+            self::OVERRIDE_REASON . "\n",
+        ] as $reason) {
+            $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => $reason]);
+
+            self::assertCount(1, $report->problems, $reason);
+            self::assertStringContainsString(self::NOT_IN_FORM, $report->problems[0]);
+        }
     }
 
     /**

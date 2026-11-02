@@ -101,9 +101,17 @@ for example:
 
 The advisory id is a `CVE-`, `GHSA-` or `PKSA-` identifier, the version a version string, the PR
 an `http(s)` URL and the date a real calendar date. The lane lists every override on every run
-(package, advisory, fixed version, remove-after date), so none can hide, and reports one whose
-reason is not in this form, one that names a glob, one whose date is not a real date, and one
-whose date is before today. A date equal to today has not passed.
+(package, advisory, fixed version, remove-after date), so every recognised entry is shown, and
+reports one whose reason is not in this form, one that names a glob, one whose date is not a real
+date, and one whose date is before today. An entry whose shape the check does not recognise is
+listed as such and reported. Today is the current UTC date, and a date equal to today has not
+passed. The keyword, the advisory prefix and `fixed in` are matched exactly, in the case shown,
+and the reason ends at the date.
+
+An override may be a plain string, an object with a `reason`, or a list of such objects, as an
+internal-vendor entry may; a list passes when one of its rules does. It must exempt the package
+from the cooldown whatever the version, so an object with `"on-block": false` or a `constraint`
+is a finding: a security override is a plain exact-name entry.
 
 The precondition is a review rule, not something the lane runs: use an override only when
 `composer audit` flags the locked version of that package, and remove it when the date arrives.

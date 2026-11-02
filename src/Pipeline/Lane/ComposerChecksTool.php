@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane;
 
+use Exception;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownPolicyChecker;
@@ -37,6 +38,12 @@ final readonly class ComposerChecksTool implements ToolInterface
     private const string RULE      = '---------------------';
 
     private const string COMPOSER = 'composer';
+
+    private const string COMPOSER_JSON = '/composer.json';
+
+    private const string UNREADABLE = 'composer.json could not be read: ';
+
+    private const string LIST_ITEM = '  - ';
 
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
@@ -94,7 +101,7 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('composer audit disabled for this project (withComposerAudit(false) / useComposerAudit=0) — skipping.');
         }
 
-        $redundant = $this->redundantSuggests->check(Helper::getComposerJsonDecoded($root . '/composer.json'));
+        $redundant = $this->redundantSuggests->check(Helper::getComposerJsonDecoded($root . self::COMPOSER_JSON));
         if ([] !== $redundant) {
             $this->redundantSuggestGuidance($context, ...$redundant);
             $context->writeIdentifier(self::IDENTIFIER);
@@ -103,7 +110,7 @@ final readonly class ComposerChecksTool implements ToolInterface
         }
 
         $normalizePhar = $context->config->paths->pharDir . '/' . self::NORMALIZE_PHAR;
-        $composerJson  = $root . '/composer.json';
+        $composerJson  = $root . self::COMPOSER_JSON;
         if ($context->config->readOnly) {
             $context->writeln('');
             $context->writeln('');
@@ -166,10 +173,18 @@ final readonly class ComposerChecksTool implements ToolInterface
             return null;
         }
 
-        $root   = $context->config->paths->projectRoot;
+        $root     = $context->config->paths->projectRoot;
+        $manifest = $this->readManifest($root . self::COMPOSER_JSON);
+        if (\is_string($manifest)) {
+            $context->writeln(self::UNREADABLE . $manifest);
+            $context->writeIdentifier(self::IDENTIFIER);
+
+            return ToolResultDto::failed(self::UNREADABLE . $manifest);
+        }
+
         $probe  = $context->php->withoutXdebug($composer, ['--version', '--no-ansi'], $root, streamOutput: false);
         $report = $this->cooldown->check(
-            Helper::getComposerJsonDecoded($root . '/composer.json'),
+            $manifest,
             $probe->succeeded() ? $probe->stdout : null,
             gmdate('Y-m-d', $this->clock->now()),
             ...$context->config->composerCooldownInternalVendors,
@@ -194,13 +209,29 @@ final readonly class ComposerChecksTool implements ToolInterface
         return ToolResultDto::failed(\sprintf('%d Composer cooldown finding(s)', \count($report->problems)));
     }
 
+    /**
+     * @return array<array-key, mixed>|string the decoded manifest, or why it could not be read
+     */
+    private function readManifest(string $path): array|string
+    {
+        if (!is_file($path)) {
+            return 'there is no such file: ' . $path;
+        }
+
+        try {
+            return Helper::getComposerJsonDecoded($path);
+        } catch (Exception $exception) {
+            return $exception->getMessage();
+        }
+    }
+
     private function printCooldownReport(ToolContext $context, CooldownReport $report): void
     {
         if ($report->hasProblems()) {
             $context->writeln(\sprintf('Composer cooldown policy has %d finding(s):', \count($report->problems)));
             $context->writeln('');
             foreach ($report->problems as $problem) {
-                $context->writeln('  - ' . $problem);
+                $context->writeln(self::LIST_ITEM . $problem);
             }
         }
 
@@ -208,7 +239,7 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('');
             $context->writeln('Security overrides in force (config.policy.cooldown.ignore):');
             foreach ($report->overrides as $override) {
-                $context->writeln('  - ' . $override);
+                $context->writeln(self::LIST_ITEM . $override);
             }
         }
 
@@ -235,7 +266,7 @@ final readonly class ComposerChecksTool implements ToolInterface
         $context->writeln('ERROR: composer.json suggests a package it already requires:');
         $context->writeln('');
         foreach ($redundant as $entry) {
-            $context->writeln('  - ' . $entry);
+            $context->writeln(self::LIST_ITEM . $entry);
         }
 
         $context->writeln('');

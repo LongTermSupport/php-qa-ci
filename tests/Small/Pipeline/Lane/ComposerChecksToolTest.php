@@ -35,6 +35,9 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownPolicyChecker::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownReport::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lock\SystemClock::class)]
 #[UsesClass(\LTS\PHPQA\Helper::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
@@ -63,7 +66,9 @@ final class ComposerChecksToolTest extends TestCase
 
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
-    private const string COMPOSER_JSON = '/composer.json';
+    private const string COMPOSER_FILE = 'composer.json';
+
+    private const string COMPOSER_JSON = '/' . self::COMPOSER_FILE;
 
     private const string DIAGNOSE_HEADING = "\n\nChecking Composer Issues - Fix Any Red Stuff (wont fail the process)\n---------------------\n\n";
 
@@ -78,7 +83,7 @@ final class ComposerChecksToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
-        $this->factory->project->write('composer.json', self::COMPLIANT_COMPOSER_JSON);
+        $this->factory->project->write(self::COMPOSER_FILE, self::COMPLIANT_COMPOSER_JSON);
     }
 
     protected function tearDown(): void
@@ -243,7 +248,7 @@ final class ComposerChecksToolTest extends TestCase
     #[Test]
     public function aSuggestEntryNamingAnAlreadyRequiredPackageFailsBeforeNormalizing(): void
     {
-        $this->factory->project->write('composer.json', <<<'JSON'
+        $this->factory->project->write(self::COMPOSER_FILE, <<<'JSON'
             {
               "name": "fixture/ctx",
               "type": "project",
@@ -381,7 +386,7 @@ final class ComposerChecksToolTest extends TestCase
     #[Test]
     public function aRedundantSuggestPrintsEachEntryAndTheWholeRemediation(): void
     {
-        $this->factory->project->write('composer.json', <<<'JSON'
+        $this->factory->project->write(self::COMPOSER_FILE, <<<'JSON'
             {
               "name": "fixture/ctx",
               "type": "project",
