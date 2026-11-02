@@ -127,10 +127,11 @@ The findings are printed and the exit status is unchanged until the project asks
   An opted-out project's `composer.json` is not read for this check.
 
 A `composer.json` that cannot be read (missing, or not valid JSON) is a finding named
-`composer.json could not be read: ...`, treated like any other: report-only never fails the lane
-for it, and an enforced lane fails after the audit and the later steps have run, so their results
-are reported with it, not hidden by it. The redundant-suggest step skips itself on such a file, and
-the normalise step reports it.
+`composer.json could not be read: ...`, treated like any other: the cooldown check itself never
+fails a report-only lane for it, and an enforced lane fails after the audit and the later steps have
+run, so their results are reported with it, not hidden by it. The later steps still run on such a
+file, so the lane can fail through them: Composer's audit and the normalise step report the same
+file in their own words. The redundant-suggest step skips itself on it.
 
 ## How to fix a failure
 
