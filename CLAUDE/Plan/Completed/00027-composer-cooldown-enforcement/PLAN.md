@@ -1,6 +1,6 @@
 # Plan 00027: composer cooldown enforcement
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-11-02
 **Owner**: joseph
 **Priority**: Medium
@@ -45,24 +45,25 @@ setting, so adopting it does not turn every consumer red at once.
 - [x] ✅ **Task 1.6**: review fixes: an unreadable `composer.json` follows the staging (named, never
   fails a report-only lane, never masks the audit, never read under the opt-out); an override list
   chooses the first rule with a usable reason; a malformed root package name is skipped
-- [ ] ⬜ **Task 1.3**: the `composerChecks` docs page, the changelog entry, the QA run
+- [x] ✅ **Task 1.3**: the `composerChecks` docs page, the changelog entry, the QA run
 - [x] ✅ **Task 1.4**: the security-release exception: every `ignore` entry outside an internal vendor
   is one exact package with a `SECURITY <id>: fixed in <version>; PR <url>; remove after <date>`
   reason, listed on every run, a finding when malformed, a glob or expired
 - [x] ✅ **Task 1.5**: further internal vendors beyond the root package's, each needing a `<vendor>/*`
   exemption with a reason
 
-### Phase 2: pending a decision (TODO, deliberately not in code)
+### Phase 2: moved to issue #394 for triage (not built under this plan)
 
-- [ ] ⬜ **Task 2.1**: nested `composer.json` files (a repository that holds more than one)
-- [ ] ⬜ **Task 2.2**: a minimum `period`; today any non-zero period passes
+- [x] ✅ **Task 2.1**: nested `composer.json` files: filed as #394, outside the approved scope of #382
+- [x] ✅ **Task 2.2**: a minimum `period`: filed as #394 with the same reason
 
 ## Success Criteria
 
 - [x] A project with a correct cooldown passes; each failure above is reported by name.
 - [x] Report-only leaves the exit status unchanged; the setting makes it fail.
-- [ ] `QA_READONLY=1 bin/qa` is clean on the branch.
+- [x] `QA_READONLY=1 bin/qa` is clean on the branch.
 
 ## Delivery & Milestones
 
-- Phase 1 delivery commit: not yet.
+- Phase 1 delivery commit: 3ef601da (pull request #393).
+- Follow-up work, not part of this plan: #394.
