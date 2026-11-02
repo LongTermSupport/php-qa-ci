@@ -74,18 +74,20 @@ The section ends at the next `##` heading. Released sections below it are not ch
 4. **Every `Changelog:` line is a trailer.** Git reads trailers only from the last paragraph of
    a commit message, so a `Changelog: none — <reason>` line in a paragraph of its own above
    `Co-Authored-By:` is not a trailer, and the coverage check above never sees it. The lane reads
-   each commit in the range and reports every line after the subject that starts with the
-   `Changelog` key at column 0 that git does not return among the commit's `Changelog` trailers,
-   by commit, whether or not the commit touches a watched path. The key is matched as git matches
-   it, in any case and with space allowed before the colon, so `changelog:` and `Changelog :`
-   count too. A line in the subject's own paragraph, under the subject with no blank line, is
-   judged, and so is a line inside a fenced code block in the body: git reads neither as a
-   trailer, so a message that quotes the trailer as an example indents it. An indented line, a
-   line with the key mid-line and the subject line itself are prose and are not judged; a subject
-   such as `Changelog: file the entry` stays prose. On a branch or in a pull
-   request build each such line fails the lane; on the default branch, measured since the last
-   release tag, they are listed in the report and do not fail it, because history already merged
-   is not rewritten.
+   each commit in the range and reports every line of its body that starts with the `Changelog`
+   key at column 0 that git does not return among the commit's `Changelog` trailers, by commit,
+   whether or not the commit touches a watched path. The key is matched as git matches it, in any
+   case and with space allowed before the colon, so `changelog:` and `Changelog :` count too. A
+   line inside a fenced code block in the body is judged: git does not read it as a trailer, so a
+   message that quotes the trailer as an example indents it. The body is git's own (`%b`), and the
+   subject is git's (`%s`): the whole first paragraph after any leading blank lines. The subject
+   is prose and is never judged, so a subject such as `Changelog: file the entry`, a subject
+   wrapped onto a second line that starts `Changelog:`, and a `Changelog:` line written directly
+   under the subject with no blank line all stay prose: each is part of git's subject, and git
+   reads no trailer there. An indented line and a line with the key mid-line are prose too. On a branch
+   or in a pull request build each such line fails the lane; on the default branch, measured since
+   the last release tag, they are listed in the report and do not fail it, because history
+   already merged is not rewritten.
 
 History the check cannot read fails it, with the fetch that supplies it: a shallow clone, a
 default branch the clone cannot name, a target branch or release tag it does not have, a missing
