@@ -42,6 +42,9 @@ setting, so adopting it does not turn every consumer red at once.
 
 - [x] ✅ **Task 1.1**: tests first, then the cooldown assertion in the `composerChecks` lane
 - [x] ✅ **Task 1.2**: the report-only / failing setting and the printed opt-out reason
+- [x] ✅ **Task 1.6**: review fixes: an unreadable `composer.json` follows the staging (named, never
+  fails a report-only lane, never masks the audit, never read under the opt-out); an override list
+  chooses the first rule with a usable reason; a malformed root package name is skipped
 - [ ] ⬜ **Task 1.3**: the `composerChecks` docs page, the changelog entry, the QA run
 - [x] ✅ **Task 1.4**: the security-release exception: every `ignore` entry outside an internal vendor
   is one exact package with a `SECURITY <id>: fixed in <version>; PR <url>; remove after <date>`

@@ -57,6 +57,10 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
     private const string UNREADABLE = 'composer.json could not be read';
 
+    private const string REPORT_ONLY = 'Report-only';
+
+    private const string COMPOSER_JSON = '/composer.json';
+
     private const string NO_COOLDOWN = 'no cooldown configured';
 
     private const int NOVEMBER_SECOND = 1_793_620_800;
@@ -87,7 +91,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString("\n\nChecking Composer Cooldown Policy\n---------------------\n\n", $printed);
         self::assertStringContainsString('Composer cooldown policy is in place.', $printed);
-        self::assertStringNotContainsString('Report-only', $printed);
+        self::assertStringNotContainsString(self::REPORT_ONLY, $printed);
     }
 
     #[Test]
@@ -123,9 +127,9 @@ final class ComposerChecksToolCooldownTest extends TestCase
     }
 
     #[Test]
-    public function enforcementTurnsTheSameFindingsIntoAFailureBeforeLaterSteps(): void
+    public function enforcementTurnsTheSameFindingsIntoAFailureAfterTheLaterStepsRan(): void
     {
-        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+        $this->queue(self::MODERN);
 
         $result  = $this->runLane($this->factory->builder()->withComposerCooldownEnforced(true)->build());
         $printed = $this->factory->output->fetch();
@@ -133,15 +137,15 @@ final class ComposerChecksToolCooldownTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 Composer cooldown finding(s)', $result->summary);
         self::assertStringContainsString(self::NO_COOLDOWN, $printed);
-        self::assertStringNotContainsString('Report-only', $printed);
+        self::assertStringNotContainsString(self::REPORT_ONLY, $printed);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
-        self::assertCount(2, $this->factory->processes->specs);
+        self::assertCount(5, $this->factory->processes->specs, 'the later steps ran and could report too');
     }
 
     #[Test]
     public function theEnvironmentEnforcesToo(): void
     {
-        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+        $this->queue(self::MODERN);
 
         $result = $this->runLane($this->factory->builder(['enforceComposerCooldown' => '1'])->build());
 
@@ -163,7 +167,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
     public function anOlderComposerIsAFindingAndFailsWhenEnforced(): void
     {
         $this->writeComposerJson($this->goodPolicy());
-        $this->factory->processes->willSucceed()->willSucceed('Composer version 2.8.0 2026-01-01 00:00:00');
+        $this->queue('Composer version 2.8.0 2026-01-01 00:00:00');
 
         $result = $this->runLane($this->factory->builder()->withComposerCooldownEnforced(true)->build());
 
@@ -184,29 +188,78 @@ final class ComposerChecksToolCooldownTest extends TestCase
     }
 
     #[Test]
-    public function aMissingComposerJsonFailsTheLaneByNameInsteadOfThrowing(): void
+    public function anUnreadableComposerJsonIsNamedAndDoesNotFailAReportOnlyLane(): void
     {
-        \Safe\unlink($this->factory->project->path . '/composer.json');
-        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+        \Safe\unlink($this->factory->project->path . self::COMPOSER_JSON);
+        $this->queueWithoutVersionProbe();
 
-        $result = $this->runLane();
+        $result  = $this->runLane();
+        $printed = $this->factory->output->fetch();
 
-        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertStringContainsString(self::UNREADABLE, $result->summary);
-        self::assertStringContainsString(self::UNREADABLE, $this->factory->output->fetch());
-        self::assertCount(1, $this->factory->processes->specs, 'only the informational diagnose ran');
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::UNREADABLE . ': ', $printed);
+        self::assertStringContainsString('Report-only: these findings do not fail the lane.', $printed);
+        self::assertCount(4, $this->factory->processes->specs, 'diagnose, audit, normalize and dump-autoload all ran');
     }
 
     #[Test]
-    public function aComposerJsonThatIsNotJsonFailsTheLaneByName(): void
+    public function aComposerJsonThatIsNotJsonIsNamedAndDoesNotFailAReportOnlyLane(): void
     {
         $this->factory->project->write('composer.json', '{ not json');
-        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+        $this->queueWithoutVersionProbe();
 
         $result = $this->runLane();
 
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::UNREADABLE . ': ', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function anUnreadableComposerJsonFailsAnEnforcedLaneButStillLetsTheAuditRun(): void
+    {
+        \Safe\unlink($this->factory->project->path . self::COMPOSER_JSON);
+        $this->queueWithoutVersionProbe();
+
+        $result  = $this->runLane($this->factory->builder()->withComposerCooldownEnforced(true)->build());
+        $printed = $this->factory->output->fetch();
+
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString(self::UNREADABLE, $result->summary);
+        self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
+        self::assertCount(4, $this->factory->processes->specs, 'the audit and later steps ran after the finding');
+    }
+
+    #[Test]
+    public function anAuditFailureAndAnEnforcedCooldownFindingAreBothReported(): void
+    {
+        \Safe\unlink($this->factory->project->path . self::COMPOSER_JSON);
+        $this->factory->processes->willSucceed()->willFail(1, 'advisory');
+
+        $result = $this->runLane($this->factory->builder()->withComposerCooldownEnforced(true)->build());
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertStringContainsString('composer audit found advisories', $result->summary);
+        self::assertStringContainsString(self::UNREADABLE, $result->summary);
+    }
+
+    #[Test]
+    public function optingOutNeverReadsComposerJsonForTheCooldown(): void
+    {
+        \Safe\unlink($this->factory->project->path . self::COMPOSER_JSON);
+        $this->queueWithoutVersionProbe();
+        $config = $this->factory->builder()
+            ->withComposerCooldownEnforced(true)
+            ->withoutComposerCooldownCheck('dependencies are resolved by a mirror that enforces its own delay')
+            ->build()
+        ;
+
+        $result  = $this->runLane($config);
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringNotContainsString(self::REPORT_ONLY, $printed);
+        self::assertStringNotContainsString(self::NO_COOLDOWN, $printed);
+        self::assertCount(4, $this->factory->processes->specs);
     }
 
     #[Test]
@@ -246,7 +299,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
     public function anExpiredOverrideIsAFindingJudgedAgainstTheClock(): void
     {
         $this->writeComposerJson($this->goodPolicy(['thirdparty/lib' => self::OVERRIDE]));
-        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+        $this->queue(self::MODERN);
 
         $result = $this->runLane($this->factory->builder()->withComposerCooldownEnforced(true)->build(), self::NOVEMBER_TWENTY_FIRST);
 
@@ -258,7 +311,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
     public function anInternalVendorTheProjectNamedMustBeExemptedToo(): void
     {
         $this->writeComposerJson($this->goodPolicy());
-        $this->factory->processes->willSucceed()->willSucceed(self::MODERN);
+        $this->queue(self::MODERN);
         $config = $this->factory->builder()
             ->withComposerCooldownEnforced(true)
             ->withComposerCooldownInternalVendors('acme-tools')
@@ -299,6 +352,11 @@ final class ComposerChecksToolCooldownTest extends TestCase
     private function queue(string $versionOutput): void
     {
         $this->factory->processes->willSucceed()->willSucceed($versionOutput)->willSucceed()->willSucceed()->willSucceed();
+    }
+
+    private function queueWithoutVersionProbe(): void
+    {
+        $this->factory->processes->willSucceed()->willSucceed()->willSucceed()->willSucceed();
     }
 
     private function runLane(?\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto $config = null, int $now = self::NOVEMBER_SECOND): \LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto

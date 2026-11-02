@@ -248,7 +248,14 @@ final readonly class CooldownPolicyChecker
     {
         $rules = \is_array($entry) && array_is_list($entry) && [] !== $entry ? $entry : [$entry];
         foreach ($rules as $rule) {
-            if (false !== $this->overrideReason($rule) && null === $this->exemptionProblem($rule)) {
+            $reason = $this->overrideReason($rule);
+            if (\is_string($reason) && '' !== trim($reason) && null === $this->exemptionProblem($rule)) {
+                return $rule;
+            }
+        }
+
+        foreach ($rules as $rule) {
+            if (false !== $this->overrideReason($rule)) {
                 return $rule;
             }
         }
@@ -342,11 +349,16 @@ final readonly class CooldownPolicyChecker
     private function ownVendor(array $composerJson): ?string
     {
         $name = $composerJson['name'] ?? null;
-        if (!\is_string($name) || !str_contains($name, '/')) {
+        if (!\is_string($name)) {
             return null;
         }
 
-        return explode('/', $name, 2)[0];
+        $segments = explode('/', $name);
+        if (2 !== \count($segments) || '' === $segments[0] || '' === $segments[1]) {
+            return null;
+        }
+
+        return $segments[0];
     }
 
     private function noCooldown(): CooldownReport

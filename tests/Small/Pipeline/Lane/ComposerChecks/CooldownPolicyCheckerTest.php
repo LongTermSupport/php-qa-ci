@@ -57,6 +57,8 @@ final class CooldownPolicyCheckerTest extends TestCase
 
     private const string OVERRIDE_PACKAGE = 'thirdparty/lib';
 
+    private const string OVERRIDE_LISTING = ': CVE-2026-1234, fixed in 1.2.3, remove after 2026-11-20';
+
     private const string OVERRIDE_REASON = 'SECURITY CVE-2026-1234: fixed in 1.2.3; PR https://example.com/acme/app/pull/7; remove after 2026-11-20';
 
     #[Test]
@@ -283,7 +285,7 @@ final class CooldownPolicyCheckerTest extends TestCase
         $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => self::OVERRIDE_REASON]);
 
         self::assertSame([], $report->problems);
-        self::assertSame([self::OVERRIDE_PACKAGE . ': CVE-2026-1234, fixed in 1.2.3, remove after 2026-11-20'], $report->overrides);
+        self::assertSame([self::OVERRIDE_PACKAGE . self::OVERRIDE_LISTING], $report->overrides);
     }
 
     #[Test]
@@ -456,7 +458,7 @@ final class CooldownPolicyCheckerTest extends TestCase
         $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => [['reason' => self::OVERRIDE_REASON]]]);
 
         self::assertSame([], $report->problems);
-        self::assertSame([self::OVERRIDE_PACKAGE . ': CVE-2026-1234, fixed in 1.2.3, remove after 2026-11-20'], $report->overrides);
+        self::assertSame([self::OVERRIDE_PACKAGE . self::OVERRIDE_LISTING], $report->overrides);
     }
 
     #[Test]
@@ -496,6 +498,49 @@ final class CooldownPolicyCheckerTest extends TestCase
         $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => [['reason' => self::OVERRIDE_REASON, 'on-block' => false], ['reason' => self::OVERRIDE_REASON]]]);
 
         self::assertSame([], $report->problems);
+    }
+
+    #[Test]
+    public function aLaterRuleWithAUsableReasonIsChosenOverAnEarlierRuleWithNone(): void
+    {
+        $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => [['on-block' => true], ['reason' => self::OVERRIDE_REASON]]]);
+
+        self::assertSame([], $report->problems);
+        self::assertSame([self::OVERRIDE_PACKAGE . self::OVERRIDE_LISTING], $report->overrides);
+    }
+
+    #[Test]
+    public function anOverrideListOfOnlyReasonlessRulesIsAFindingByName(): void
+    {
+        $report = $this->withIgnore([self::OWN_VENDOR_PATTERN => self::REASON, self::OVERRIDE_PACKAGE => [['on-block' => true], ['reason' => '']]]);
+
+        self::assertCount(1, $report->problems);
+        self::assertStringContainsString(self::NOT_IN_FORM, $report->problems[0]);
+        self::assertCount(1, $report->overrides);
+    }
+
+    #[Test]
+    #[DataProvider('malformedPackageNames')]
+    public function aMalformedPackageNameInTheRootIsNotReportedAsAVendorThatDoesNotExist(string $name): void
+    {
+        $json             = self::withCooldown([self::PERIOD => self::SEVEN_DAYS]);
+        $json[self::NAME] = $name;
+
+        $report = $this->inspect($json);
+
+        self::assertSame([], $report->problems);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function malformedPackageNames(): iterable
+    {
+        yield 'empty vendor' => ['/x'];
+
+        yield 'empty package' => ['x/'];
+
+        yield 'only a slash' => ['/'];
     }
 
     #[Test]

@@ -124,6 +124,13 @@ The findings are printed and the exit status is unchanged until the project asks
   one run, makes the findings fail the lane.
 - `->withoutComposerCooldownCheck('<reason>')` opts the project out of the whole check. The
   reason must not be empty (an empty one is refused at load time) and is printed on every run.
+  An opted-out project's `composer.json` is not read for this check.
+
+A `composer.json` that cannot be read (missing, or not valid JSON) is a finding named
+`composer.json could not be read: ...`, treated like any other: report-only never fails the lane
+for it, and an enforced lane fails after the audit and the later steps have run, so their results
+are reported with it, not hidden by it. The redundant-suggest step skips itself on such a file, and
+the normalise step reports it.
 
 ## How to fix a failure
 
