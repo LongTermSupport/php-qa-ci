@@ -25,6 +25,18 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Added
+
+- The `composerChecks` lane checks that a project gets the protection of Composer's
+  `config.policy.cooldown`: Composer 2.11 or newer, a non-zero `period`, the cooldown not switched
+  off, and each internal vendor (the root package's own, plus `withComposerCooldownInternalVendors()`)
+  exempted by a `<vendor>/*` entry with a reason. Every other `ignore` entry is a security override
+  that must be one exact package with a reason in the one documented `SECURITY ...` form, and every
+  override is listed on every run; one that is malformed, a glob or past its date is a finding. The findings are report-only, so a green build
+  stays green: `withComposerCooldownEnforced(true)` (or `enforceComposerCooldown=1`) makes them fail
+  the lane, and `withoutComposerCooldownCheck('<reason>')` opts out, printing the reason on every
+  run. See [docs/tools/composerChecks.md](docs/tools/composerChecks.md).
+
 ## 85.11.0 — 2026-11-02
 
 ### Changed

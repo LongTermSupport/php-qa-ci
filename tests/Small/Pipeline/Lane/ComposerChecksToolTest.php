@@ -47,6 +47,20 @@ final class ComposerChecksToolTest extends TestCase
 
     private const string COMPOSER = '/opt/fixture/bin/composer';
 
+    private const string MODERN = 'Composer version 2.11.1 2026-10-30 14:52:10';
+
+    private const string VERSION_FLAG = '--version';
+
+    private const string COMPLIANT_COMPOSER_JSON = <<<'JSON'
+        {
+          "name": "fixture/ctx",
+          "type": "project",
+          "config": { "policy": { "cooldown": { "period": "7 days", "ignore": { "fixture/*": "our own packages are released by us" } } } }
+        }
+        JSON;
+
+    private const string COOLDOWN_HEADING = "\n\nChecking Composer Cooldown Policy\n---------------------\n\n\nComposer cooldown policy is in place.\n";
+
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
     private const string COMPOSER_JSON = '/composer.json';
@@ -64,6 +78,7 @@ final class ComposerChecksToolTest extends TestCase
     protected function setUp(): void
     {
         $this->factory = ContextFactory::create();
+        $this->factory->project->write('composer.json', self::COMPLIANT_COMPOSER_JSON);
     }
 
     protected function tearDown(): void
@@ -76,6 +91,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed('diagnose ok')
+            ->willSucceed(self::MODERN)
             ->willSucceed('No security vulnerability advisories found.')
             ->willSucceed('composer.json is already normalized.')
             ->willSucceed('Generated autoload files')
@@ -87,6 +103,7 @@ final class ComposerChecksToolTest extends TestCase
         self::assertSame(
             [
                 [self::DIAGNOSE],
+                [self::VERSION_FLAG, '--no-ansi'],
                 ['audit', '--locked', '--abandoned=report', '--no-interaction'],
                 ['dump-autoload'],
             ],
@@ -105,6 +122,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willSucceed('Successfully normalized')
             ->willSucceed()
@@ -126,6 +144,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willSucceed()
             ->willSucceed()
@@ -133,7 +152,7 @@ final class ComposerChecksToolTest extends TestCase
 
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
 
-        $normalize = $this->factory->processes->specs[2];
+        $normalize = $this->factory->processes->specs[3];
         self::assertSame($this->factory->paths()->pharDir . '/' . self::NORMALIZE_PHAR, $normalize->command[6]);
         self::assertSame($this->factory->project->path, $normalize->cwd);
         self::assertTrue($normalize->streamOutput);
@@ -147,6 +166,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willSucceed()
             ->willSucceed()
@@ -168,6 +188,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willFail(1, 'Checking platform settings: FAIL')
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willSucceed()
             ->willSucceed()
@@ -184,6 +205,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willFail(1, 'Found 1 security vulnerability advisory affecting 1 package')
         ;
 
@@ -192,7 +214,7 @@ final class ComposerChecksToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('composer audit found advisories or could not run (exit 1)', $result->summary);
-        self::assertCount(2, $this->factory->processes->specs, 'nothing after the audit runs');
+        self::assertCount(3, $this->factory->processes->specs, 'nothing after the audit runs');
         self::assertStringContainsString('composer update <vendor/package> --with-all-dependencies', $printed);
         self::assertStringContainsString('config.audit.ignore', $printed);
         self::assertStringContainsString('withComposerAudit(false)', $printed);
@@ -204,6 +226,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willSucceed()
         ;
@@ -212,7 +235,7 @@ final class ComposerChecksToolTest extends TestCase
         $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertSame([[self::DIAGNOSE], ['dump-autoload']], $this->composerInvocations());
+        self::assertSame([[self::DIAGNOSE], [self::VERSION_FLAG, '--no-ansi'], ['dump-autoload']], $this->composerInvocations());
         self::assertSame([self::DRY_RUN, $this->factory->project->path . self::COMPOSER_JSON], $this->normalizeArguments());
         self::assertStringContainsString('composer audit disabled for this project', $this->factory->output->fetch());
     }
@@ -224,12 +247,14 @@ final class ComposerChecksToolTest extends TestCase
             {
               "name": "fixture/ctx",
               "type": "project",
+              "config": { "policy": { "cooldown": { "period": "7 days", "ignore": { "fixture/*": "our own packages are released by us" } } } },
               "require": { "acme/thing": "^1.0" },
               "suggest": { "acme/thing": "you already have this" }
             }
             JSON);
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
         ;
 
@@ -238,7 +263,7 @@ final class ComposerChecksToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('1 suggest entry/entries duplicate a required package', $result->summary);
-        self::assertCount(2, $this->factory->processes->specs, 'nothing after the suggest check runs');
+        self::assertCount(3, $this->factory->processes->specs, 'nothing after the suggest check runs');
         self::assertStringContainsString('composer.json suggests a package it already requires', $printed);
         self::assertStringContainsString('acme/thing (require)', $printed);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
@@ -249,6 +274,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willFail(1, 'composer.json is not normalized.')
         ;
@@ -257,7 +283,7 @@ final class ComposerChecksToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertCount(3, $this->factory->processes->specs, 'dump-autoload does not run after a failed gate');
+        self::assertCount(4, $this->factory->processes->specs, 'dump-autoload does not run after a failed gate');
         self::assertStringContainsString('Composer Normalize: pending changes in a READ-ONLY run', $printed);
         self::assertStringContainsString('QA_READONLY=0 vendor/bin/qa -t com', $printed);
         self::assertStringContainsString(ComposerChecksTool::IDENTIFIER, $printed);
@@ -268,6 +294,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willFail(2, 'invalid json')
         ;
@@ -284,6 +311,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes
             ->willSucceed()
+            ->willSucceed(self::MODERN)
             ->willSucceed()
             ->willSucceed()
             ->willFail(1, 'Class Foo not found')
@@ -300,12 +328,12 @@ final class ComposerChecksToolTest extends TestCase
     #[Test]
     public function aCleanReadOnlyRunPrintsExactlyItsStepHeadings(): void
     {
-        $this->factory->processes->willSucceed()->willSucceed()->willSucceed()->willSucceed();
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willSucceed()->willSucceed()->willSucceed();
 
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
 
         self::assertSame(
-            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . $this->heading('Checking Composer Normalisation (read-only)') . self::DUMP_HEADING,
+            self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . $this->heading('Checking Composer Normalisation (read-only)') . self::DUMP_HEADING,
             $this->factory->output->fetch(),
         );
     }
@@ -313,12 +341,12 @@ final class ComposerChecksToolTest extends TestCase
     #[Test]
     public function aCleanWritableRunPrintsExactlyItsStepHeadings(): void
     {
-        $this->factory->processes->willSucceed()->willSucceed()->willSucceed()->willSucceed();
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willSucceed()->willSucceed()->willSucceed();
 
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(
-            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . $this->heading('Running Composer Normalise') . self::DUMP_HEADING,
+            self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . $this->heading('Running Composer Normalise') . self::DUMP_HEADING,
             $this->factory->output->fetch(),
         );
     }
@@ -326,12 +354,12 @@ final class ComposerChecksToolTest extends TestCase
     #[Test]
     public function aFailedAuditPrintsTheWholeRemediationAndTheIdentifier(): void
     {
-        $this->factory->processes->willSucceed()->willFail(1);
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willFail(1);
 
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
 
         self::assertSame(
-            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . <<<'TEXT'
+            self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . <<<'TEXT'
 
                 composer audit did not pass (output above). Either a locked dependency has a
                 published security advisory, or the advisory database could not be reached.
@@ -357,17 +385,18 @@ final class ComposerChecksToolTest extends TestCase
             {
               "name": "fixture/ctx",
               "type": "project",
+              "config": { "policy": { "cooldown": { "period": "7 days", "ignore": { "fixture/*": "our own packages are released by us" } } } },
               "require": { "acme/thing": "^1.0" },
               "require-dev": { "acme/other": "^2.0" },
               "suggest": { "acme/thing": "already required", "acme/other": "already a dev requirement" }
             }
             JSON);
-        $this->factory->processes->willSucceed()->willSucceed();
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willSucceed();
 
         new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
 
         self::assertSame(
-            self::DIAGNOSE_HEADING . self::AUDIT_HEADING . <<<'TEXT'
+            self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . <<<'TEXT'
 
                 ERROR: composer.json suggests a package it already requires:
 
@@ -393,7 +422,7 @@ final class ComposerChecksToolTest extends TestCase
         $this->factory->project->write('path-bin/composer', "#!/bin/sh\n");
         $bin = $this->factory->project->path . '/path-bin';
         \Safe\chmod($bin . '/composer', 0o755);
-        $this->factory->processes->willSucceed()->willFail(1);
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willFail(1);
 
         $this->runWithPath($bin);
 
@@ -403,7 +432,7 @@ final class ComposerChecksToolTest extends TestCase
     #[Test]
     public function withoutAnExplicitPathAndNoComposerOnPathTheBareNameIsRun(): void
     {
-        $this->factory->processes->willSucceed()->willFail(1);
+        $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willFail(1);
 
         $this->runWithPath($this->factory->project->path);
 

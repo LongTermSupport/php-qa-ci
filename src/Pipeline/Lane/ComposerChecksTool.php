@@ -6,15 +6,20 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownPolicyChecker;
+use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownReport;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector;
+use LTS\PHPQA\Pipeline\Lock\ClockInterface;
+use LTS\PHPQA\Pipeline\Lock\SystemClock;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use Symfony\Component\Process\ExecutableFinder;
 
 /**
- * Composer hygiene, in five steps: `composer diagnose` (informational, never
- * fails), `composer audit` against the lock file (a known advisory fails the
+ * Composer hygiene, in six steps: `composer diagnose` (informational, never
+ * fails), the cooldown policy check (config.policy.cooldown and the installed
+ * Composer; report-only until withComposerCooldownEnforced(true)), `composer audit` against the lock file (a known advisory fails the
  * lane; abandoned packages are reported; off with withComposerAudit(false)),
  * no `suggest` entry may name a package the project already requires, the
  * composer.json must be normalised by the shipped composer-normalize PHAR (a
@@ -38,6 +43,8 @@ final readonly class ComposerChecksTool implements ToolInterface
     public function __construct(
         private ?string $composerPath = null,
         private RedundantSuggestDetector $redundantSuggests = new RedundantSuggestDetector(),
+        private CooldownPolicyChecker $cooldown = new CooldownPolicyChecker(),
+        private ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -63,6 +70,11 @@ final readonly class ComposerChecksTool implements ToolInterface
         $context->writeln('');
         if (!$context->php->withoutXdebug($composer, ['diagnose'], $root)->succeeded()) {
             $context->writeln('composer diagnose reported issues (shown above) — informational only, not failing the pipeline.');
+        }
+
+        $cooldownFailure = $this->cooldownStep($context, $composer);
+        if ($cooldownFailure instanceof ToolResultDto) {
+            return $cooldownFailure;
         }
 
         $context->writeln('');
@@ -133,6 +145,77 @@ final readonly class ComposerChecksTool implements ToolInterface
         }
 
         return ToolResultDto::passed();
+    }
+
+    /**
+     * Whether the project gets the protection of Composer's cooldown policy.
+     * Findings are printed; they fail the lane only when enforcement is on.
+     */
+    private function cooldownStep(ToolContext $context, string $composer): ?ToolResultDto
+    {
+        $context->writeln('');
+        $context->writeln('');
+        $context->writeln('Checking Composer Cooldown Policy');
+        $context->writeln(self::RULE);
+        $context->writeln('');
+
+        $optOut = $context->config->composerCooldownOptOutReason;
+        if (null !== $optOut) {
+            $context->writeln('Composer cooldown check skipped for this project (withoutComposerCooldownCheck): ' . $optOut);
+
+            return null;
+        }
+
+        $root   = $context->config->paths->projectRoot;
+        $probe  = $context->php->withoutXdebug($composer, ['--version', '--no-ansi'], $root, streamOutput: false);
+        $report = $this->cooldown->check(
+            Helper::getComposerJsonDecoded($root . '/composer.json'),
+            $probe->succeeded() ? $probe->stdout : null,
+            gmdate('Y-m-d', $this->clock->now()),
+            ...$context->config->composerCooldownInternalVendors,
+        );
+
+        $this->printCooldownReport($context, $report);
+        if (!$report->hasProblems()) {
+            return null;
+        }
+
+        if (!$context->config->enforceComposerCooldown) {
+            $context->writeln('');
+            $context->writeln('Report-only: these findings do not fail the lane. withComposerCooldownEnforced(true) in');
+            $context->writeln('qaConfig/qa.php (or enforceComposerCooldown=1 for one run) makes them fail it; a project that');
+            $context->writeln("must not be held to the cooldown says why with withoutComposerCooldownCheck('<reason>').");
+
+            return null;
+        }
+
+        $context->writeIdentifier(self::IDENTIFIER);
+
+        return ToolResultDto::failed(\sprintf('%d Composer cooldown finding(s)', \count($report->problems)));
+    }
+
+    private function printCooldownReport(ToolContext $context, CooldownReport $report): void
+    {
+        if ($report->hasProblems()) {
+            $context->writeln(\sprintf('Composer cooldown policy has %d finding(s):', \count($report->problems)));
+            $context->writeln('');
+            foreach ($report->problems as $problem) {
+                $context->writeln('  - ' . $problem);
+            }
+        }
+
+        if ([] !== $report->overrides) {
+            $context->writeln('');
+            $context->writeln('Security overrides in force (config.policy.cooldown.ignore):');
+            foreach ($report->overrides as $override) {
+                $context->writeln('  - ' . $override);
+            }
+        }
+
+        if (!$report->hasProblems()) {
+            $context->writeln('');
+            $context->writeln('Composer cooldown policy is in place.');
+        }
     }
 
     private function composer(): string
