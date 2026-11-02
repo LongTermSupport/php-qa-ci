@@ -184,14 +184,15 @@ checks, the Twig and YAML lanes, the Markdown lanes, PHPUnit) do not read the se
 
 The settings most projects change:
 
-| To                                     | Call                                                                                                                                                                            |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Skip mutation testing                  | `withInfection(false)`                                                                                                                                                          |
-| Check another directory as well        | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the whole set for one run, so nothing added here is checked beside the named path) |
-| Exclude paths from every scanning lane | `withIgnoredPaths('tests/assets')`                                                                                                                                              |
-| Raise the memory limit                 | `withMemoryLimit('8G')`                                                                                                                                                         |
-| Turn off PHPArkitect                   | `withArkitect(false)`                                                                                                                                                           |
-| Keep your own packages current         | `withDependencyFreshnessPatterns('acme/*')` (adds to `lts/php-qa-ci`; see [dependencyFreshness.md](tools/dependencyFreshness.md))                                               |
+| To                                       | Call                                                                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Skip mutation testing                    | `withInfection(false)`                                                                                                                                                          |
+| Check another directory as well          | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the whole set for one run, so nothing added here is checked beside the named path) |
+| Exclude paths from every scanning lane   | `withIgnoredPaths('tests/assets')`                                                                                                                                              |
+| Raise the memory limit                   | `withMemoryLimit('8G')`                                                                                                                                                         |
+| Turn off PHPArkitect                     | `withArkitect(false)`                                                                                                                                                           |
+| Keep your own packages current           | `withDependencyFreshnessPatterns('acme/*')` (adds to `lts/php-qa-ci`; see [dependencyFreshness.md](tools/dependencyFreshness.md))                                               |
+| Hold dependencies to Composer's cooldown | `withComposerCooldownEnforced(true)` (the findings are report-only until then; see [composerChecks.md](tools/composerChecks.md#the-cooldown-policy))                            |
 
 The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at
