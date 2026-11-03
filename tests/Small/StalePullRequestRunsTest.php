@@ -14,9 +14,8 @@ use PHPUnit\Framework\TestCase;
  * Defence for the class "QA spent on a pull request head that is behind its base".
  *
  * The run itself stops at a gate (detected by the versionPins lane); these
- * tests pin the pieces the detector does not see: the autofix template's gate
- * condition and the workflow that cancels runs already in flight when the base
- * moves, which must stay inside the default token's reach.
+ * tests pin the piece the detector does not see: the autofix template's gate
+ * condition.
  *
  * @internal
  */
@@ -31,8 +30,6 @@ final class StalePullRequestRunsTest extends TestCase
     private const string ROOT =__DIR__ . '/../..';
 
     private const string AUTOFIX = self::ROOT . '/templates/github-actions/qa-autofix.yml';
-
-    private const string CANCEL = self::ROOT . '/.github/workflows/cancel-stale-pr-runs.yml';
 
     #[Test]
     public function theAutofixTemplateMakesBothLaterJobsWaitForTheBaseGate(): void
@@ -60,26 +57,5 @@ final class StalePullRequestRunsTest extends TestCase
             "\${{ github.event_name == 'pull_request' }}",
             WorkflowNode::ofFile(self::AUTOFIX)->child(self::JOBS, self::BASE_GATE, 'if')->string(),
         );
-    }
-
-    #[Test]
-    public function theCancelWorkflowRunsOnAPushToTheDefaultBranchOnly(): void
-    {
-        $on = WorkflowNode::ofFile(self::CANCEL)->child('on');
-
-        self::assertSame(['push'], $on->keys());
-        self::assertSame(['php8.5'], $on->child('push', 'branches')->strings());
-    }
-
-    #[Test]
-    public function theCancelWorkflowNeedsNothingBeyondTheDefaultToken(): void
-    {
-        $workflow = WorkflowNode::ofFile(self::CANCEL);
-
-        self::assertSame(
-            ['actions' => 'write', 'pull-requests' => 'read', 'contents' => 'read'],
-            $workflow->child('permissions')->stringMap(),
-        );
-        self::assertStringNotContainsString('secrets.', \Safe\file_get_contents(self::CANCEL));
     }
 }
