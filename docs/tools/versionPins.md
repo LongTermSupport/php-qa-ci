@@ -3,7 +3,8 @@
 **Identifier**: `phpqaci.versionPins`
 
 An always-on check that every version pin in the project's QA configuration matches the toolchain
-actually in use. One lane covers three pins:
+actually in use, and that a workflow running on `pull_request` stops when the pull request head is
+behind its base (see "Up-to-date-with-base gate" below). One lane covers three pins:
 
 | Pin                                                                                                                         | Compared against                                                  | Detector                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -26,6 +27,24 @@ moves on nothing else in the pipeline notices:
   reported as undeclared, or an undeclared one can slip through.
 - The shipped workflows pick a runner PHP by matching the constraint against a hand-written
   list; a list without the new version quietly selects an older PHP for a consumer on the new one.
+
+## Up-to-date-with-base gate
+
+A pull request whose head is behind its base branch gets a QA result for a tree that will never
+be merged, and the run costs the full pipeline. A workflow that runs on `pull_request` therefore
+needs a step that fails when `git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"`
+is false, with `BASE_REF` set from `github.event.pull_request.base.ref` and `HEAD_SHA` from
+`github.event.pull_request.head.sha`. The check
+([`WorkflowBaseGateDetector`](../../src/VersionPins/WorkflowBaseGateDetector.php)) reports:
+
+- a `pull_request` workflow with no such gate;
+- a gate placed after PHP setup, `composer install` or a `qa` run in the same job;
+- a job that installs or runs anything without the gate job among its `needs:`, directly or through
+  other jobs.
+
+Fix it by adding the gate step right after the checkout (which needs `fetch-depth: 0`), or a
+`base-gate` job that the expensive jobs list under `needs:`; the shipped `php-qa-ci.yml` and
+`qa-autofix.yml` templates show both. Findings carry the same identifier as the version pins.
 
 ## How it runs
 
@@ -57,7 +76,8 @@ Each message names the file, the pin and the exact replacement:
 
 ## Implementation
 
-- Decisions: the three detectors above, each pure over text and a version string.
+- Decisions: the three detectors above, each pure over text and a version string, and
+  `WorkflowBaseGateDetector`, pure over a workflow's text.
 - Runner: [`VersionPinsCheck`](../../src/VersionPins/VersionPinsCheck.php), which reads the
   config files, prefixes each finding with the file it came from, maps the verdict to output and
   exit code, and prints the identifier.

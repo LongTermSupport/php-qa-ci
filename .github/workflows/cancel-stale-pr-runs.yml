@@ -1,0 +1,58 @@
+# When php8.5 moves, every open pull request into it is behind, and a QA run
+# still queued or in flight for one of them describes a tree that will never be
+# merged. Cancel those runs. A pull request whose head already contains the new
+# tip (it was updated first) keeps its run.
+#
+# The default GITHUB_TOKEN is enough: `actions: write` cancels runs of this
+# repository, `pull-requests: read` lists the open pull requests, and the
+# compare API needs only `contents: read`. The qa.yml gate stops a run that
+# starts on a stale head; this stops one that was already running.
+
+name: Cancel stale pull request runs
+
+on:
+  push:
+    branches:
+      - php8.5
+
+concurrency:
+  group: cancel-stale-pr-runs-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  pull-requests: read
+  contents: read
+
+jobs:
+  cancel:
+    name: Cancel runs of pull requests that are now behind
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Cancel queued and in-progress pull request runs of behind heads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_BRANCH: ${{ github.ref_name }}
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gh pr list --repo "$REPO" --base "$BASE_BRANCH" --state open --limit 200 \
+            --json headRefOid --jq '.[].headRefOid' | while read -r head; do
+            if ! status=$(gh api "repos/${REPO}/compare/${BASE_SHA}...${head}" --jq .status); then
+              echo "${head}: cannot be compared with ${BASE_BRANCH}, keeping its runs"
+              continue
+            fi
+            if [ "$status" = "ahead" ] || [ "$status" = "identical" ]; then
+              echo "${head}: level with ${BASE_BRANCH}, keeping its runs"
+              continue
+            fi
+            for state in queued in_progress; do
+              gh run list --repo "$REPO" --commit "$head" --event pull_request --status "$state" \
+                --json databaseId --jq '.[].databaseId' | while read -r run; do
+                echo "${head}: behind ${BASE_BRANCH}, cancelling run ${run}"
+                gh run cancel "$run" --repo "$REPO"
+              done
+            done
+          done

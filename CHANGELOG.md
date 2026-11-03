@@ -29,6 +29,14 @@ the release and its tag. The full rules are in
 
 ### Added
 
+- A `pull_request` run stops at once when the pull request head is behind its base branch, instead
+  of running the pipeline on a tree that will never be merged. The shipped `php-qa-ci.yml`
+  template gets an early step that fails with an "update the branch" message, and `qa-autofix.yml`
+  gets a `base-gate` job that `autofix` and `gate` wait for. The `versionPins` lane now fails a
+  workflow in `.github/workflows/` or `templates/github-actions/` that runs on `pull_request`
+  without that gate, with the gate after PHP setup or `composer install`, or with an installing job
+  that does not depend on it. Consumers copy the updated templates to receive the gate.
+
 - The `composerChecks` lane checks that a project gets the protection of Composer's
   `config.policy.cooldown`: Composer 2.11 or newer, a non-zero `period`, the cooldown not switched
   off, and each internal vendor (the root package's own, plus `withComposerCooldownInternalVendors()`)
