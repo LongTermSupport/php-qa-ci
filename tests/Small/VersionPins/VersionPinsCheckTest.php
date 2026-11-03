@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Tests\Small\VersionPins;
 use LTS\PHPQA\VersionPins\PhpUnitConfigDetector;
 use LTS\PHPQA\VersionPins\SafeScanFilesDetector;
 use LTS\PHPQA\VersionPins\VersionPinsCheck;
+use LTS\PHPQA\VersionPins\WorkflowBaseGateDetector;
 use LTS\PHPQA\VersionPins\WorkflowPhpVersionDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -22,6 +23,7 @@ use PHPUnit\Runner\Version;
 #[UsesClass(PhpUnitConfigDetector::class)]
 #[UsesClass(SafeScanFilesDetector::class)]
 #[UsesClass(WorkflowPhpVersionDetector::class)]
+#[UsesClass(WorkflowBaseGateDetector::class)]
 #[Small]
 final class VersionPinsCheckTest extends TestCase
 {
@@ -38,7 +40,7 @@ final class VersionPinsCheckTest extends TestCase
     #[Test]
     public function itReturnsZeroAndPrintsTheExactOkMessageWhenEveryPinAgrees(): void
     {
-        self::expectOutputString('Version pins agree with the toolchain in use (PHPUnit 13.3.2, PHP 8.5): phpunit.xml, safe scan-files, GitHub Actions workflows — OK.' . \PHP_EOL);
+        self::expectOutputString('Version pins agree with the toolchain in use (PHPUnit 13.3.2, PHP 8.5) and pull_request workflows gate on an up-to-date base: phpunit.xml, safe scan-files, GitHub Actions workflows — OK.' . \PHP_EOL);
         self::assertSame(0, $this->check()->run(self::CURRENT, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
@@ -48,13 +50,14 @@ final class VersionPinsCheckTest extends TestCase
         $phpunit = self::STALE . self::PHPUNIT_XML;
         $crc     = self::STALE . self::CRC_JSON;
 
-        $expected = \PHP_EOL . 'ERROR — a version pin in the QA configuration does not match the toolchain in use' . \PHP_EOL
-            . '----------------------------------------------------------------------------------' . \PHP_EOL
+        $expected = \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull_request workflow has no up-to-date-base gate' . \PHP_EOL
+            . '------------------------------------------------------------------------------------------------------------------' . \PHP_EOL
             . 'Installed: PHPUnit 13.3.2, PHP 8.5' . \PHP_EOL . \PHP_EOL
             . '  - phpunit.xml (' . $phpunit . '): xsi:noNamespaceSchemaLocation points at the PHPUnit 10 schema but PHPUnit 13.3.2 is installed; set it to https://schema.phpunit.de/13.3/phpunit.xsd' . \PHP_EOL
             . '  - phpunit.xml (' . $phpunit . '): SYMFONY_PHPUNIT_VERSION pins PHPUnit 10 but PHPUnit 13.3.2 is installed; set the pin to 13.3 or remove it' . \PHP_EOL
             . '  - composerRequireChecker.json (' . $crc . '): "vendor/thecodingmachine/safe/generated/8.2/array.php": on PHP 8.5 safe loads generated/8.4/array.php, not the 8.2 one; replace the entry with "vendor/thecodingmachine/safe/generated/8.4/array.php"' . \PHP_EOL
             . '  - composerRequireChecker.json (' . $crc . '): "vendor/thecodingmachine/safe/generated/8.4/exec.php": on PHP 8.5 safe loads generated/8.2/exec.php, not the 8.4 one; replace the entry with "vendor/thecodingmachine/safe/generated/8.2/exec.php"' . \PHP_EOL
+            . '  - .github/workflows/pr.yml: runs on pull_request but has no up-to-date-with-base gate: add a step that fails when `git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"` is false, with BASE_REF set from github.event.pull_request.base.ref' . \PHP_EOL
             . '  - templates/github-actions/autofix.yml: the PHP version detection list [8.4, 8.3] cannot select PHP 8.5, which composer.json requires; add 8.5 to the list' . \PHP_EOL
             . '  - templates/github-actions/autofix.yml: the fallback PHP version is 8.3 but composer.json requires 8.5; set the default to 8.5' . \PHP_EOL
             . '  - templates/github-actions/php-qa-ci.yml differs from .github/workflows/qa.yml; the shipped consumer template must stay identical to the workflow this repository runs' . \PHP_EOL

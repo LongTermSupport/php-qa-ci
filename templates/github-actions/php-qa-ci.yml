@@ -141,6 +141,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # A pull request whose head is behind its base describes a tree that will
+      # never be merged, so the run stops here, before PHP is set up or
+      # anything is installed. The base branch is fetched by the full-history
+      # checkout above. Branch names and shas reach the script as variables.
+      - name: Require the branch to be up to date with its base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if ! git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"; then
+            echo "::error::This pull request is behind ${BASE_REF}. Update the branch (merge or rebase ${BASE_REF} into it) and the run starts again."
+            exit 1
+          fi
+
       # The newest version listed that appears in composer.json's php
       # constraint; add a newer version to the front of the list when you move
       # to it. Falls back to 8.5 for a project that states no php constraint.
