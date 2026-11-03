@@ -25,8 +25,6 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
-## 85.12.0 — 2026-11-02
-
 ### Added
 
 - A `pull_request` run stops at once when the pull request head is behind its base branch, instead
@@ -36,6 +34,10 @@ the release and its tag. The full rules are in
   workflow in `.github/workflows/` or `templates/github-actions/` that runs on `pull_request`
   without that gate, with the gate after PHP setup or `composer install`, or with an installing job
   that does not depend on it. Consumers copy the updated templates to receive the gate.
+
+## 85.12.0 — 2026-11-02
+
+### Added
 
 - The `composerChecks` lane checks that a project gets the protection of Composer's
   `config.policy.cooldown`: Composer 2.11 or newer, a non-zero `period`, the cooldown not switched
