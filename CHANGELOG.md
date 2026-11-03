@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.12.0 — 2026-11-02
+
 ### Added
 
 - The `composerChecks` lane checks that a project gets the protection of Composer's
